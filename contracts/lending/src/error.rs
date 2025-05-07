@@ -5,4 +5,5 @@ use soroban_sdk::contracterror;
 pub enum LendingContractError {
     PoolAlreadyExists = 1,
     PoolDoesNotExist = 2,
+    NonPositiveDeposit = 3,
 }

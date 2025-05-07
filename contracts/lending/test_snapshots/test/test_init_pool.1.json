@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 3,
+    "address": 2,
     "nonce": 0
   },
   "auth": [
@@ -45,29 +45,12 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "GlobalState"
+                              "symbol": "Admin"
                             }
                           ]
                         },
                         "val": {
-                          "map": [
-                            {
-                              "key": {
-                                "symbol": "admin"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "status"
-                              },
-                              "val": {
-                                "bool": true
-                              }
-                            }
-                          ]
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                         }
                       },
                       {
@@ -77,7 +60,7 @@
                               "symbol": "Pool"
                             },
                             {
-                              "address": "CAJXGFIU32R2SF4BVXV2EB2XSSUPUBQMNXWJWB5GYS7WE76TFPPR7Q7P"
+                              "address": "CBIBPS3VOVUTRU5ZZYU4EJDCQG3SH6TCL6M34W7DVAEPLBNE5YQMAUX3"
                             }
                           ]
                         },
@@ -90,16 +73,8 @@
                               "val": {
                                 "i128": {
                                   "hi": 0,
-                                  "lo": 0
+                                  "lo": 120
                                 }
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token_address"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                               }
                             }
                           ]
@@ -112,7 +87,7 @@
                               "symbol": "Pool"
                             },
                             {
-                              "address": "CCEF7ECAQWK4S5EVUZMLNR4JH6GLX7RMICR2RH4PNORPXNIZU3A7FYM7"
+                              "address": "CBJZ6C7IAJ7JYNCTW3B23UT2J5QMWVCJ3CC2NETD624TA3NBFZ7LY62R"
                             }
                           ]
                         },
@@ -125,16 +100,8 @@
                               "val": {
                                 "i128": {
                                   "hi": 0,
-                                  "lo": 0
+                                  "lo": 120
                                 }
-                              }
-                            },
-                            {
-                              "key": {
-                                "symbol": "token_address"
-                              },
-                              "val": {
-                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                               }
                             }
                           ]

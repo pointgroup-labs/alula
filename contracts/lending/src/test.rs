@@ -2,23 +2,23 @@
 
 use {
     crate::contract::*,
-    soroban_sdk::{symbol_short, testutils::Address as _, Address, Env},
+    soroban_sdk::{testutils::Address as _, Address, BytesN, Env},
 };
 
 #[test]
 fn test_pool_initialization() {
-    // @TODO: Move initialization out
     let e = Env::default();
     e.mock_all_auths();
     let contract_id = e.register(LendingContract, (Address::generate(&e),));
     let client = LendingContractClient::new(&e, &contract_id);
-    let admin = Address::generate(&e);
-    let token_address = Address::generate(&e);
-    let pool_name = symbol_short!("name");
 
-    assert!(client
-        .try_initialize_pool(&pool_name, &admin, &token_address, &0)
-        .is_ok());
+    let token_address = Address::generate(&e);
+    client.initialize_pool(&token_address, &None, &120);
+    client.initialize_pool(
+        &token_address,
+        &Some(BytesN::from_array(&e, &[0; 32])),
+        &120,
+    );
 }
 
 #[test]
@@ -27,57 +27,83 @@ fn test_pool_initialization_with_different_name() {
     e.mock_all_auths();
     let contract_id = e.register(LendingContract, (Address::generate(&e),));
     let client = LendingContractClient::new(&e, &contract_id);
-    let admin = Address::generate(&e);
+
     let token_address = Address::generate(&e);
-    let pool_name = symbol_short!("name1");
+    let salt1 = BytesN::from_array(&e, &[0; 32]);
 
     assert!(client
-        .try_initialize_pool(&pool_name, &admin, &token_address, &0)
+        .try_initialize_pool(&token_address, &Some(salt1), &0)
         .is_ok());
 
-    let pool_name2 = symbol_short!("name2");
+    let salt2 = BytesN::from_array(&e, &[1; 32]);
     assert!(client
-        .try_initialize_pool(&pool_name2, &admin, &token_address, &0)
+        .try_initialize_pool(&token_address, &Some(salt2), &0)
         .is_ok());
 }
 
 #[test]
-fn test_pool_initialization_with_different_token_address() {
+fn test_pool_not_conflicting_initializations() {
     let e = Env::default();
     e.mock_all_auths();
     let contract_id = e.register(LendingContract, (Address::generate(&e),));
     let client = LendingContractClient::new(&e, &contract_id);
-    let admin = Address::generate(&e);
+
     let token_address1 = Address::generate(&e);
-    let pool_name = symbol_short!("name");
+    let token_address2 = Address::generate(&e);
 
     assert!(client
-        .try_initialize_pool(&pool_name, &admin, &token_address1, &0)
+        .try_initialize_pool(&token_address1, &None, &0)
         .is_ok());
 
-    let token_address2 = Address::generate(&e);
     assert!(client
-        .try_initialize_pool(&pool_name, &admin, &token_address2, &0)
+        .try_initialize_pool(&token_address2, &None, &0)
+        .is_ok());
+    let salt = BytesN::from_array(&e, &[0; 32]);
+
+    assert!(client
+        .try_initialize_pool(&token_address1, &Some(salt.clone()), &0)
+        .is_ok());
+
+    assert!(client
+        .try_initialize_pool(&token_address2, &Some(salt), &0)
         .is_ok());
 }
 
 #[test]
 #[should_panic]
-fn test_pool_is_already_initialized() {
+fn test_pool_reinitialization_no_salt() {
     let e = Env::default();
     e.mock_all_auths();
     let contract_id = e.register(LendingContract, (Address::generate(&e),));
     let client = LendingContractClient::new(&e, &contract_id);
-    let admin1 = Address::generate(&e);
+
     let token_address = Address::generate(&e);
-    let pool_name = symbol_short!("name");
 
     assert!(client
-        .try_initialize_pool(&pool_name, &admin1, &token_address, &0)
+        .try_initialize_pool(&token_address, &None, &0)
         .is_ok());
-    let admin2 = Address::generate(&e);
 
     assert!(client
-        .try_initialize_pool(&pool_name, &admin2, &token_address, &0)
-        .is_ok())
+        .try_initialize_pool(&token_address, &None, &0)
+        .is_ok());
+}
+
+#[test]
+#[should_panic]
+fn test_pool_reinitialization_with_salt() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let contract_id = e.register(LendingContract, (Address::generate(&e),));
+    let client = LendingContractClient::new(&e, &contract_id);
+
+    let token_address = Address::generate(&e);
+    let salt = BytesN::from_array(&e, &[0; 32]);
+
+    assert!(client
+        .try_initialize_pool(&token_address, &Some(salt.clone()), &0)
+        .is_ok());
+
+    assert!(client
+        .try_initialize_pool(&token_address, &Some(salt.clone()), &0)
+        .is_ok());
 }

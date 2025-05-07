@@ -1,9 +1,9 @@
 use {
     crate::{
         error::LendingContractError,
-        storage::{self},
+        storage::{self, GlobalState, PoolAddress, PoolConfig},
     },
-    soroban_sdk::{contract, contractimpl, Address, Env, Symbol},
+    soroban_sdk::{contract, contractimpl, log, Address, BytesN, Env},
 };
 
 #[contract]
@@ -12,28 +12,32 @@ pub struct LendingContract;
 #[contractimpl]
 impl LendingContract {
     pub fn __constructor(e: Env, admin: Address) {
-        storage::write_admin(&e, &admin);
+        let global_state = GlobalState {
+            admin,
+            status: true,
+        };
+        storage::write_global_state(&e, &global_state);
     }
 
     pub fn initialize_pool(
         e: Env,
-        pool_name: Symbol,
-        pool_admin: Address,
         token_address: Address,
+        salt: Option<BytesN<32>>, // @TODO: Check how this looks with CLI
         liquidation_threshold: i128,
     ) -> Result<(), LendingContractError> {
-        pool_admin.require_auth();
+        let pool_address: PoolAddress = if let Some(salt) = salt {
+            // @TODO: Check some other ways of deriving an address
+            e.deployer()
+                .with_address(token_address.clone(), salt)
+                .deployed_address()
+        } else {
+            token_address.clone() // @TODO: clone()
+        };
 
-        if storage::pool_exists(&e, token_address.clone(), pool_name.clone()) {
+        if storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolAlreadyExists);
         }
-        storage::initialize_pool(
-            &e,
-            token_address,
-            pool_name,
-            pool_admin,
-            liquidation_threshold,
-        );
+        storage::initialize_pool(&e, &pool_address, token_address, liquidation_threshold);
 
         Ok(())
     }
@@ -41,16 +45,24 @@ impl LendingContract {
     pub fn deposit(
         e: Env,
         user: Address,
-        token_address: Address,
-        pool_name: Symbol,
-        _amount: i128,
+        pool_address: Address,
+        amount: i128,
     ) -> Result<(), LendingContractError> {
         user.require_auth();
 
-        if !storage::pool_exists(&e, token_address, pool_name) {
+        if amount <= 0 {
+            return Err(LendingContractError::NonPositiveDeposit);
+        }
+
+        if !storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolDoesNotExist);
         }
 
-        todo!();
+        // ...
+        // At some point we must send some tokens
+        let PoolConfig { token_address, .. } = storage::get_pool_config(&e, pool_address)?;
+        log!(&e, "token address: {}", token_address);
+
+        Ok(())
     }
 }
