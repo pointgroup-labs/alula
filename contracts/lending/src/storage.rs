@@ -128,7 +128,7 @@ pub(crate) fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
         .get(&DataKey::Obligation(user.clone()))
 }
 
-pub(crate) fn set_deposit(
+pub(crate) fn adjust_deposit(
     e: &Env,
     user: &Address,
     pool_address: &PoolAddress,
@@ -141,7 +141,7 @@ pub(crate) fn set_deposit(
         deposits: Map::new(e),
         borrows: Map::new(e),
     });
-    let pool_obligation_deposit = deposits.try_get(pool_address.clone()).unwrap().unwrap_or(0); // unwrap() here?
+    let pool_obligation_deposit = deposits.get(pool_address.clone()).unwrap_or(0);
     let new_deposit_amount = pool_obligation_deposit
         .checked_add(amount)
         .ok_or(LendingContractError::OverOrUnderflow)?;

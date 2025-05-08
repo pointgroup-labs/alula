@@ -31,7 +31,7 @@ impl LendingContract {
                 .with_address(token_address.clone(), salt)
                 .deployed_address()
         } else {
-            token_address.clone() // @TODO: think of clone()
+            token_address.clone()
         };
 
         if storage::pool_exists(&e, &pool_address) {
@@ -57,11 +57,11 @@ impl LendingContract {
         if !storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolDoesNotExist);
         }
-        let Pool { token_address, .. } = storage::get_pool_data(&e, &pool_address).unwrap(); // safe unwrap
+        let Pool { token_address, .. } = storage::get_pool_data(&e, &pool_address).unwrap(); // safe `unwrap`
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
         storage::adjust_pool_balance(&e, &pool_address, amount)?;
-        storage::set_deposit(&e, &user, &pool_address, amount)?;
+        storage::adjust_deposit(&e, &user, &pool_address, amount)?;
         // @TODO: add something with interest and with utilization rate
 
         Ok(())
@@ -96,16 +96,19 @@ impl LendingContract {
         if amount > balance {
             return Err(LendingContractError::NotEnoughPoolFunds);
         }
+        storage::adjust_pool_balance(&e, &pool_address, -amount)?;
+        storage::adjust_deposit(&e, &user, &pool_address, -amount)?;
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
-        storage::adjust_pool_balance(&e, &pool_address, -amount)?;
-        // something like create_deposit???
-        storage::set_deposit(&e, &user, &pool_address, -amount)?;
 
         Ok(())
     }
 
     pub fn get_user_obligation(e: Env, user: Address) -> Option<Obligation> {
         storage::get_obligation(&e, &user)
+    }
+
+    pub fn get_pool(e: Env, pool_address: Address) -> Option<Pool> {
+        storage::get_pool_data(&e, &pool_address)
     }
 }
