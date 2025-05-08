@@ -110,7 +110,7 @@ pub(crate) fn adjust_pool_balance(
         liquidation_threshold,
         balance: new_balance,
     };
-    set_pool_data(&e, pool_address, &new_pool_data);
+    set_pool_data(e, pool_address, &new_pool_data);
 
     Ok(())
 }
@@ -137,9 +137,9 @@ pub(crate) fn set_deposit(
     let Obligation {
         mut deposits,
         borrows,
-    } = get_obligation(e, &user).unwrap_or(Obligation {
-        deposits: Map::new(&e),
-        borrows: Map::new(&e),
+    } = get_obligation(e, user).unwrap_or(Obligation {
+        deposits: Map::new(e),
+        borrows: Map::new(e),
     });
     let pool_obligation_deposit = deposits.try_get(pool_address.clone()).unwrap().unwrap_or(0); // unwrap() here?
     let new_deposit_amount = pool_obligation_deposit
