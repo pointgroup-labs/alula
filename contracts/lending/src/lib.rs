@@ -1,6 +1,6 @@
 #![no_std]
 
-mod contract;
+pub mod contract;
 mod error;
 mod storage;
 mod test;

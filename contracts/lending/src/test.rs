@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use {
-    crate::contract::*,
-    soroban_sdk::{testutils::Address as _, Address, BytesN, Env},
+    crate::{contract::*, storage::Obligation},
+    soroban_sdk::{testutils::Address as _, token::StellarAssetClient, Address, BytesN, Env},
 };
 
 #[test]
@@ -106,4 +106,27 @@ fn test_pool_reinitialization_with_salt() {
     assert!(client
         .try_initialize_pool(&token_address, &Some(salt.clone()), &0)
         .is_ok());
+}
+
+#[test]
+fn test_pool_deposit() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let contract_id = e.register(LendingContract, (Address::generate(&e),));
+    let client = LendingContractClient::new(&e, &contract_id);
+
+    let user = Address::generate(&e);
+    let token_admin = Address::generate(&e);
+    let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
+    let token_asset_client = StellarAssetClient::new(&e, &token_address);
+    const DEPOSITED_AMOUNT: i128 = 100;
+    token_asset_client.mint(&user, &DEPOSITED_AMOUNT);
+    let pool_address = client.initialize_pool(&token_address, &None, &0);
+    // Deposit token
+    client.deposit(&user, &pool_address, &DEPOSITED_AMOUNT);
+    // Check obligation
+    let Obligation { deposits, .. } = client.get_user_obligation(&user).unwrap();
+    let deposited_amount = deposits.get(pool_address).unwrap();
+
+    assert_eq!(deposited_amount, DEPOSITED_AMOUNT)
 }
