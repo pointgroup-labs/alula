@@ -10,14 +10,19 @@ use {
 
 struct TestEnv<'a> {
     contract_client: LendingContractClient<'a>,
+    contract_admin: Address,
 }
 
 fn setup_test_env(e: &Env) -> TestEnv {
     e.mock_all_auths();
-    let contract_id = e.register(LendingContract, (Address::generate(&e),));
+    let contract_admin = Address::generate(&e);
+    let contract_id = e.register(LendingContract, (contract_admin.clone(),));
     let contract_client = LendingContractClient::new(&e, &contract_id);
 
-    TestEnv { contract_client }
+    TestEnv {
+        contract_client,
+        contract_admin,
+    }
 }
 
 #[test]
@@ -154,7 +159,9 @@ fn test_pool_withdraw() {
     let half_deposit = (DEPOSIT_AMOUNT as f32 / 2_f32) as i128;
 
     let e = Env::default();
-    let TestEnv { contract_client } = setup_test_env(&e);
+    let TestEnv {
+        contract_client, ..
+    } = setup_test_env(&e);
 
     let user = Address::generate(&e);
     let token_admin = Address::generate(&e);

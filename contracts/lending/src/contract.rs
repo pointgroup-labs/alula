@@ -1,10 +1,13 @@
 use {
     crate::{
         error::LendingContractError,
+        oracle,
         storage::{self, GlobalState, Obligation, Pool, PoolAddress},
     },
-    soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env},
+    soroban_sdk::{contract, contractimpl, symbol_short, token, Address, BytesN, Env, String},
 };
+
+const REFLECTOR_TESTNET_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
 #[contract]
 pub struct LendingContract;
@@ -17,6 +20,17 @@ impl LendingContract {
             status: true,
         };
         storage::write_global_state(&e, &global_state);
+    }
+
+    pub fn check_oracle_price(e: Env) -> i128 {
+        let reflector_address =
+            Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
+        let reflector_contract = oracle::Client::new(&e, &reflector_address);
+        let eurc_ticker = symbol_short!("USDC");
+        let eurc_asset = oracle::Asset::Other(eurc_ticker);
+        let lastprice = reflector_contract.lastprice(&eurc_asset).unwrap();
+
+        lastprice.price
     }
 
     pub fn initialize_pool(
