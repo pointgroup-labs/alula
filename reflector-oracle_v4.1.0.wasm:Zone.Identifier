@@ -1,4 +1,0 @@
-[ZoneTransfer]
-ZoneId=3
-ReferrerUrl=https://github.com/reflector-network/reflector-contract/releases/tag/v4.1.0_reflector-oracle_v4.1.0.wasm
-HostUrl=https://objects.githubusercontent.com/github-production-release-asset-2e65be/639094265/04c33ac0-0e97-4150-91b4-450839b611e1?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=releaseassetproduction%2F20250509%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250509T063705Z&X-Amz-Expires=300&X-Amz-Signature=3fac2c8b25d368c035ecfaa38f21c8b5cc872e8c4d67f3a3626c49a3bbc7a289&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3Dreflector-oracle_v4.1.0.wasm&response-content-type=application%2Foctet-stream
