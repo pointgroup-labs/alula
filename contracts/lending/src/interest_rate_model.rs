@@ -13,7 +13,7 @@ pub(crate) fn get_interest_rate(
 ) -> Result<i128, LendingContractError> {
     let PoolData {
         borrowed, supply, ..
-    } = storage::get_pool_data(&e, pool_address).ok_or(LendingContractError::PoolDoesNotExist)?;
+    } = storage::get_pool_data(e, pool_address).ok_or(LendingContractError::PoolDoesNotExist)?;
 
     if borrowed >= supply {
         return Err(LendingContractError::InconsistentPoolState);

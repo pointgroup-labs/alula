@@ -134,8 +134,8 @@ fn is_pool_config_valid(pool_config: &PoolConfig) -> bool {
 
     (0 < base_rate) // BR must be > 0%
         && (0 < optimal_utilization_ratio) // OUR must be > 0%
-        && (0 <= reserve_ratio && reserve_ratio < 100_000) // RR must be [0%; 100%)
-        && (0 <= liquidation_threshold && liquidation_threshold <= 100_000) // LT must be [0%; 100%]
+        && (0..100_000).contains(&reserve_ratio) // RR must be [0%; 100%)
+        && (0..=100_000).contains(&liquidation_threshold) // LT must be [0%; 100%]
         && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
 }
 
