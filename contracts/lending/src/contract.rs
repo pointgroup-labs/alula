@@ -2,7 +2,7 @@ use {
     crate::{
         error::LendingContractError,
         oracle,
-        storage::{self, GlobalState, Obligation, Pool, PoolAddress},
+        storage::{self, GlobalState, Obligation, PoolAddress, PoolConfig, PoolData},
     },
     soroban_sdk::{contract, contractimpl, symbol_short, token, Address, BytesN, Env, String},
 };
@@ -22,7 +22,9 @@ impl LendingContract {
         storage::write_global_state(&e, &global_state);
     }
 
-    pub fn check_oracle_price(e: Env) -> i128 {
+    // @TODO: Experiment more with oracle
+    // We must be sure that the price is relevant and is updated as frequent as possible
+    pub fn test_oracle_price(e: Env) -> i128 {
         let reflector_address =
             Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
         let reflector_contract = oracle::Client::new(&e, &reflector_address);
@@ -36,8 +38,8 @@ impl LendingContract {
     pub fn initialize_pool(
         e: Env,
         token_address: Address,
-        salt: Option<BytesN<32>>, // @TODO: Check how this looks with CLI
-        liquidation_threshold: i128,
+        salt: Option<BytesN<32>>,
+        interest_rate_config: Option<PoolConfig>, // @NB: Can this be more convenient?
     ) -> Result<PoolAddress, LendingContractError> {
         let pool_address: PoolAddress = if let Some(salt) = salt {
             // @TODO: Check some other ways of deriving an address
@@ -51,7 +53,7 @@ impl LendingContract {
         if storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolAlreadyExists);
         }
-        storage::set_pool(&e, &pool_address, &token_address, liquidation_threshold);
+        storage::set_pool(&e, &pool_address, &token_address, interest_rate_config)?;
 
         Ok(pool_address)
     }
@@ -71,15 +73,18 @@ impl LendingContract {
         if !storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolDoesNotExist);
         }
-        let Pool { token_address, .. } = storage::get_pool_data(&e, &pool_address).unwrap(); // safe `unwrap`
+        let PoolData { token_address, .. } =
+            storage::get_pool_data(&e, &pool_address).expect("Pool must exist at this point");
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
-        storage::adjust_pool_balance(&e, &pool_address, amount)?;
+        storage::adjust_pool_supply(&e, &pool_address, amount)?;
         storage::adjust_deposit(&e, &user, &pool_address, amount)?;
-        // @TODO: add something with interest and with utilization rate
+        // @TODO: add interest rate accrual
 
         Ok(())
     }
+
+    // @TODO: pub fn deposit_collateral() {}
 
     pub fn withdraw(
         e: Env,
@@ -100,17 +105,17 @@ impl LendingContract {
         if !storage::deposit_exists(&e, &user, &pool_address)? {
             return Err(LendingContractError::MissingDeposit);
         }
-
-        let Pool {
+        let PoolData {
             token_address,
-            balance,
+            supply,
+            borrowed,
             ..
-        } = storage::get_pool_data(&e, &pool_address).unwrap(); // safe `unwrap`
+        } = storage::get_pool_data(&e, &pool_address).expect("Pool must exist at this point");
 
-        if amount > balance {
+        if amount > (supply - borrowed) {
             return Err(LendingContractError::NotEnoughPoolFunds);
         }
-        storage::adjust_pool_balance(&e, &pool_address, -amount)?;
+        storage::adjust_pool_supply(&e, &pool_address, -amount)?;
         storage::adjust_deposit(&e, &user, &pool_address, -amount)?;
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
@@ -118,11 +123,13 @@ impl LendingContract {
         Ok(())
     }
 
+    // @TODO: pub fn withdraw_collateral() {}
+
     pub fn get_user_obligation(e: Env, user: Address) -> Option<Obligation> {
         storage::get_obligation(&e, &user)
     }
 
-    pub fn get_pool(e: Env, pool_address: Address) -> Option<Pool> {
+    pub fn get_pool(e: Env, pool_address: Address) -> Option<PoolData> {
         storage::get_pool_data(&e, &pool_address)
     }
 }

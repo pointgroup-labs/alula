@@ -3,7 +3,7 @@
 use {
     crate::{
         contract::*,
-        storage::{Obligation, Pool},
+        storage::{Obligation, PoolData},
     },
     soroban_sdk::{testutils::Address as _, token::StellarAssetClient, Address, BytesN, Env},
 };
@@ -33,11 +33,11 @@ fn test_pool_initialization() {
     } = setup_test_env(&e);
 
     let token_address = Address::generate(&e);
-    contract_client.initialize_pool(&token_address, &None, &120);
+    contract_client.initialize_pool(&token_address, &None, &None);
     contract_client.initialize_pool(
         &token_address,
         &Some(BytesN::from_array(&e, &[0; 32])),
-        &120,
+        &None,
     );
 }
 
@@ -53,11 +53,11 @@ fn test_pool_initialization_with_different_name() {
     let salt1 = BytesN::from_array(&e, &[1; 32]);
 
     assert!(contract_client
-        .try_initialize_pool(&token_address, &Some(salt0), &0)
+        .try_initialize_pool(&token_address, &Some(salt0), &None)
         .is_ok());
 
     assert!(contract_client
-        .try_initialize_pool(&token_address, &Some(salt1), &0)
+        .try_initialize_pool(&token_address, &Some(salt1), &None)
         .is_ok());
 }
 
@@ -73,19 +73,19 @@ fn test_pool_not_conflicting_initializations() {
     let salt = BytesN::from_array(&e, &[0; 32]);
 
     assert!(contract_client
-        .try_initialize_pool(&token_address1, &None, &0)
+        .try_initialize_pool(&token_address1, &None, &None)
         .is_ok());
 
     assert!(contract_client
-        .try_initialize_pool(&token_address2, &None, &0)
+        .try_initialize_pool(&token_address2, &None, &None)
         .is_ok());
 
     assert!(contract_client
-        .try_initialize_pool(&token_address1, &Some(salt.clone()), &0)
+        .try_initialize_pool(&token_address1, &Some(salt.clone()), &None)
         .is_ok());
 
     assert!(contract_client
-        .try_initialize_pool(&token_address2, &Some(salt), &0)
+        .try_initialize_pool(&token_address2, &Some(salt), &None)
         .is_ok());
 }
 
@@ -100,11 +100,11 @@ fn test_pool_reinitialization_no_salt() {
     let token_address = Address::generate(&e);
 
     assert!(contract_client
-        .try_initialize_pool(&token_address, &None, &0)
+        .try_initialize_pool(&token_address, &None, &None)
         .is_ok());
 
     assert!(contract_client
-        .try_initialize_pool(&token_address, &None, &0)
+        .try_initialize_pool(&token_address, &None, &None)
         .is_ok());
 }
 
@@ -120,11 +120,11 @@ fn test_pool_reinitialization_with_salt() {
     let salt = BytesN::from_array(&e, &[0; 32]);
 
     assert!(contract_client
-        .try_initialize_pool(&token_address, &Some(salt.clone()), &0)
+        .try_initialize_pool(&token_address, &Some(salt.clone()), &None)
         .is_ok());
 
     assert!(contract_client
-        .try_initialize_pool(&token_address, &Some(salt.clone()), &0)
+        .try_initialize_pool(&token_address, &Some(salt.clone()), &None)
         .is_ok());
 }
 
@@ -143,7 +143,7 @@ fn test_pool_deposit() {
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_asset_client = StellarAssetClient::new(&e, &token_address);
     token_asset_client.mint(&user, &DEPOSIT_AMOUNT);
-    let pool_address = contract_client.initialize_pool(&token_address, &None, &0);
+    let pool_address = contract_client.initialize_pool(&token_address, &None, &None);
     // Deposit tokens
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
     // Check obligation
@@ -169,7 +169,7 @@ fn test_pool_withdraw() {
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_asset_client = StellarAssetClient::new(&e, &token_address);
     token_asset_client.mint(&user, &DEPOSIT_AMOUNT);
-    let pool_address = contract_client.initialize_pool(&token_address, &None, &0);
+    let pool_address = contract_client.initialize_pool(&token_address, &None, &None);
     // Deposit tokens
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
@@ -180,18 +180,18 @@ fn test_pool_withdraw() {
     contract_client.withdraw(&user, &pool_address, &half_deposit);
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address.clone()).unwrap();
-    let Pool { balance, .. } = contract_client.get_pool(&pool_address).unwrap();
+    let PoolData { supply, .. } = contract_client.get_pool(&pool_address).unwrap();
 
     assert_eq!(deposited_amount, half_deposit);
-    assert_eq!(balance, half_deposit);
+    assert_eq!(supply, half_deposit);
     // Withdraw half again
     contract_client.withdraw(&user, &pool_address, &half_deposit);
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address.clone()).unwrap();
-    let Pool { balance, .. } = contract_client.get_pool(&pool_address).unwrap();
+    let PoolData { supply, .. } = contract_client.get_pool(&pool_address).unwrap();
 
     assert_eq!(deposited_amount, 0);
-    assert_eq!(balance, 0);
+    assert_eq!(supply, 0);
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn test_pool_withdraw_overflow() {
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_asset_client = StellarAssetClient::new(&e, &token_address);
     token_asset_client.mint(&user, &DEPOSIT_AMOUNT);
-    let pool_address = contract_client.initialize_pool(&token_address, &None, &0);
+    let pool_address = contract_client.initialize_pool(&token_address, &None, &None);
     // Deposit tokens
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();

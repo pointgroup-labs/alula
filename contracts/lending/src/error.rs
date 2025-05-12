@@ -13,4 +13,6 @@ pub enum LendingContractError {
     NotEnoughPoolFunds = 7,
     OverOrUnderflow = 8,
     MissingDeposit = 9,
+    InvalidLoanPoolConfig = 10,
+    InconsistentPoolState = 11,
 }

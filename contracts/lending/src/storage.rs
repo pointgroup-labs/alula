@@ -7,7 +7,7 @@ use {
 pub struct GlobalState {
     pub admin: Address,
     pub status: bool,
-    // Oracle address + ....
+    // @TODO: Oracle address + ....
 }
 
 pub type PoolAddress = Address;
@@ -17,28 +17,52 @@ pub type UserAddress = Address;
 pub enum DataKey {
     GlobalState,
     Pool(PoolAddress),
+    PoolConfig(PoolAddress),
     Obligation(UserAddress),
+    // @TODO: We also must be able to retrieve all pools and all user addresses
 }
 
 #[contracttype]
-pub struct Pool {
-    pub token_address: Address, // <------------ this will be read frequently
-    pub liquidation_threshold: i128,
-    pub balance: i128, // <---- this will be changed frequently
+#[derive(Debug)]
+pub struct PoolData {
+    pub token_address: Address, // <---- this will be read frequently
+    pub borrowed: i128,         // <---- this will be changed frequently
+    pub supply: i128,           // <---- this will be changed frequently
+                                // <---- pool_config?
+                                // @TODO: For now it's not clear what's better - store `PoolConfig` as `Pool` field or separately
+                                // and index into it with `PoolAddress` as well
+
+                                // <---- available_supply for collateral deposits?
 }
 
-// #[contracttype]
-// pub struct ObligationBorrow {
-//     pub pool_address: Address,
-//     pub amount: i128,
-//     // @TODO: Should there be some currency info?
-// }
+#[contracttype]
+#[derive(Debug)]
+pub struct PoolConfig {
+    /// Positive Base Rate percentage
+    pub base_rate: i128,
+    /// Positive Optimal Utilization Ration percentage
+    pub optimal_utilization_ratio: i128,
+    pub slope1: i128,
+    pub slope2: i128,
+    /// Non-negative Reserve Ration percentage (< 100)
+    pub reserve_ratio: i128,
+    /// Non-negative Liquidation Threshold percentage (<= 100)
+    pub liquidation_threshold: i128,
+}
 
-// #[contracttype]
-// pub struct ObligationDeposit {
-//     pub pool_address: Address,
-//     pub amount: i128,
-// }
+// 100_000 - 100%
+impl Default for PoolConfig {
+    fn default() -> Self {
+        Self {
+            base_rate: 3_000,
+            optimal_utilization_ratio: 70_000,
+            slope1: 5_000,
+            slope2: 100_000,
+            reserve_ratio: 10_000,
+            liquidation_threshold: 80_000,
+        }
+    }
+}
 
 #[contracttype]
 pub struct Obligation {
@@ -48,7 +72,10 @@ pub struct Obligation {
 
 #[allow(unused)]
 pub(crate) fn read_global_state(e: &Env) -> GlobalState {
-    e.storage().instance().get(&DataKey::GlobalState).unwrap() // @TODO: unwrap()
+    e.storage()
+        .instance()
+        .get(&DataKey::GlobalState)
+        .expect("Global State must be instantiated at this point")
 }
 
 pub(crate) fn write_global_state(e: &Env, global_state: &GlobalState) {
@@ -62,16 +89,54 @@ pub(crate) fn set_pool(
     e: &Env,
     pool_address: &PoolAddress,
     token_address: &Address,
-    liquidation_threshold: i128,
-) {
+    pool_config: Option<PoolConfig>,
+) -> Result<(), LendingContractError> {
     e.storage().instance().set(
         &DataKey::Pool(pool_address.clone()),
-        &Pool {
-            liquidation_threshold,
+        &PoolData {
             token_address: token_address.clone(),
-            balance: 0,
+            supply: 0,
+            borrowed: 0,
         },
-    )
+    );
+
+    let pool_config = if let Some(pool_config) = pool_config {
+        if !is_pool_config_valid(&pool_config) {
+            return Err(LendingContractError::InvalidLoanPoolConfig);
+        }
+
+        pool_config
+    } else {
+        Default::default()
+    };
+    e.storage()
+        .instance()
+        .set(&DataKey::PoolConfig(pool_address.clone()), &pool_config);
+
+    Ok(())
+}
+
+// @TODO
+// pub(crate) fn set_pool_config(e: &Env, pool_address: &Address, interest_rate_config: PoolConfig) {
+
+//     // Maybe, store interest rate config separately???
+// }
+
+fn is_pool_config_valid(pool_config: &PoolConfig) -> bool {
+    let &PoolConfig {
+        base_rate,
+        optimal_utilization_ratio,
+        slope1,
+        slope2,
+        reserve_ratio,
+        liquidation_threshold,
+    } = pool_config;
+
+    (0 < base_rate) // BR must be > 0%
+        && (0 < optimal_utilization_ratio) // OUR must be > 0%
+        && (0 <= reserve_ratio && reserve_ratio < 100_000) // RR must be [0%; 100%)
+        && (0 <= liquidation_threshold && liquidation_threshold <= 100_000) // LT must be [0%; 100%]
+        && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
 }
 
 pub(crate) fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
@@ -80,35 +145,42 @@ pub(crate) fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
         .has(&DataKey::Pool(pool_address.clone()))
 }
 
-pub(crate) fn get_pool_data(e: &Env, pool_address: &PoolAddress) -> Option<Pool> {
+pub(crate) fn get_pool_data(e: &Env, pool_address: &PoolAddress) -> Option<PoolData> {
     e.storage()
         .instance()
         .get(&DataKey::Pool(pool_address.clone()))
 }
 
-pub(crate) fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
+pub(crate) fn get_pool_config(e: &Env, pool_address: &Address) -> Option<PoolConfig> {
+    e.storage()
+        .instance()
+        .get(&DataKey::PoolConfig(pool_address.clone()))
+}
+
+pub(crate) fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &PoolData) {
     e.storage()
         .instance()
         .set(&DataKey::Pool(pool_address.clone()), pool_data);
 }
 
-pub(crate) fn adjust_pool_balance(
+pub(crate) fn adjust_pool_supply(
     e: &Env,
     pool_address: &PoolAddress,
     amount: i128,
 ) -> Result<(), LendingContractError> {
-    let Pool {
+    let PoolData {
         token_address,
-        liquidation_threshold,
-        balance,
+        supply,
+        borrowed,
+        ..
     } = get_pool_data(e, pool_address).ok_or(LendingContractError::PoolDoesNotExist)?;
-    let new_balance = balance
+    let new_supply = supply
         .checked_add(amount)
         .ok_or(LendingContractError::OverOrUnderflow)?;
-    let new_pool_data = Pool {
+    let new_pool_data = PoolData {
+        supply: new_supply,
         token_address,
-        liquidation_threshold,
-        balance: new_balance,
+        borrowed,
     };
     set_pool_data(e, pool_address, &new_pool_data);
 
@@ -117,6 +189,8 @@ pub(crate) fn adjust_pool_balance(
 
 // --- Obligation ---
 pub(crate) fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
+    // let x: f32 = 123_f32;
+    // let y = (x + 123.3);
     e.storage()
         .instance()
         .set(&DataKey::Obligation(user.clone()), obligation);
