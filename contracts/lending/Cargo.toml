@@ -13,7 +13,6 @@ soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-decimal = "2.1.0"
 
 [target.wasm32-unknown-unknown]
 rustflags = ["-C", "link-arg=--import-memory", "-C", "link-arg=--export-table"]

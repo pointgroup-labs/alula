@@ -189,8 +189,6 @@ pub(crate) fn adjust_pool_supply(
 
 // --- Obligation ---
 pub(crate) fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
-    // let x: f32 = 123_f32;
-    // let y = (x + 123.3);
     e.storage()
         .instance()
         .set(&DataKey::Obligation(user.clone()), obligation);

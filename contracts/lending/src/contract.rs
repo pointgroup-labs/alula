@@ -39,7 +39,7 @@ impl LendingContract {
         e: Env,
         token_address: Address,
         salt: Option<BytesN<32>>,
-        interest_rate_config: Option<PoolConfig>, // @NB: Can this be more convenient?
+        pool_config: Option<PoolConfig>, // @NB: Can this be more convenient?
     ) -> Result<PoolAddress, LendingContractError> {
         let pool_address: PoolAddress = if let Some(salt) = salt {
             // @TODO: Check some other ways of deriving an address
@@ -53,7 +53,7 @@ impl LendingContract {
         if storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolAlreadyExists);
         }
-        storage::set_pool(&e, &pool_address, &token_address, interest_rate_config)?;
+        storage::set_pool(&e, &pool_address, &token_address, pool_config)?;
 
         Ok(pool_address)
     }

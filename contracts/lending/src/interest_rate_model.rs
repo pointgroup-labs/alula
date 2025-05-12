@@ -1,4 +1,4 @@
-//! `JLending`  for now uses kinked interest rates. See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
+//! `JLending` for now uses kinked interest rates. See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
 use {
     crate::{
         error::LendingContractError,
@@ -7,7 +7,6 @@ use {
     soroban_sdk::{Address, Env},
 };
 
-// @TODO: For now we compute in whole numbers. Interest rate must have a finer granularity than that..
 pub(crate) fn get_interest_rate(
     e: &Env,
     pool_address: &Address,
@@ -46,8 +45,8 @@ fn compute_interest_rate(
     slope1: i128,
     slope2: i128,
 ) -> Result<i128, LendingContractError> {
-    // Utilization ration mustn't be 0...
-    let utiliation_ratio = borrow_amount // will give a number x: 0 <= x <= 100
+    // Utilization ratio mustn't be 0...
+    let utiliation_ratio = borrow_amount
         .checked_mul(100)
         .ok_or(LendingContractError::OverOrUnderflow)?
         .checked_div(supply_amount)
