@@ -1,6 +1,7 @@
 #!/usr/bin/make
 
 LENDING_CONTRACT := lending
+LENDING_CONTRACT_ID := ABC123
 
 WASM_TARGET_DIR = target/wasm32-unknown-unknown/release
 REFLECTOR_ORACLE_URL = https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
@@ -15,7 +16,20 @@ help: ## Show this help
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-build: ## Build the WebAssembly contracts
+build: init ## Build the WebAssembly contracts
+	cargo build --release --target wasm32-unknown-unknown -p $(LENDING_CONTRACT)
+
+optimize: ## Optimize contracts
+	mkdir -p target/wasm32-unknown-unknown/optimized
+	stellar contract optimize \
+		--wasm target/wasm32-unknown-unknown/release/$(LENDING_CONTRACT).wasm \
+		--wasm-out target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm
+	cd target/wasm32-unknown-unknown/optimized/ && \
+		for i in *.wasm ; do \
+			ls -l "$$i"; \
+		done
+
+init: ## Init dependencies
 	mkdir -p $(WASM_TARGET_DIR)
 	@if [ ! -f $(REFLECTOR_ORACLE_WASM) ]; then \
 		echo "Downloading reflector oracle WASM file..."; \
@@ -23,7 +37,12 @@ build: ## Build the WebAssembly contracts
 	else \
 		echo "Reflector oracle WASM file already exists, skipping download."; \
 	fi
-	cargo build --release --target wasm32-unknown-unknown -p $(LENDING_CONTRACT)
+
+generate-sdk: ## Generate typescript sdk
+	stellar contract bindings typescript --overwrite \
+		--contract-id $(LENDING_CONTRACT_ID) \
+		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/$(LENDING_CONTRACT)-sdk/ \
+		--rpc-url http://localhost:8000 --network-passphrase "Standalone Network ; February 2017" --network Standalone
 
 test: ## Run tests
 	cargo test
