@@ -16,10 +16,19 @@ help: ## Show this help
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-build: init ## Build the WebAssembly contracts
+build: build-init ## Build contracts
 	cargo build --release --target wasm32-unknown-unknown -p $(LENDING_CONTRACT)
 
-optimize: ## Optimize contracts
+build-init: ## Build init
+	mkdir -p $(WASM_TARGET_DIR)
+	@if [ ! -f $(REFLECTOR_ORACLE_WASM) ]; then \
+		echo "Downloading reflector oracle WASM file..."; \
+		curl -L $(REFLECTOR_ORACLE_URL) -o $(REFLECTOR_ORACLE_WASM); \
+	else \
+		echo "Reflector oracle WASM file already exists, skipping download."; \
+	fi
+
+build-optimize: ## Optimize contracts
 	mkdir -p target/wasm32-unknown-unknown/optimized
 	stellar contract optimize \
 		--wasm target/wasm32-unknown-unknown/release/$(LENDING_CONTRACT).wasm \
@@ -28,15 +37,6 @@ optimize: ## Optimize contracts
 		for i in *.wasm ; do \
 			ls -l "$$i"; \
 		done
-
-init: ## Init dependencies
-	mkdir -p $(WASM_TARGET_DIR)
-	@if [ ! -f $(REFLECTOR_ORACLE_WASM) ]; then \
-		echo "Downloading reflector oracle WASM file..."; \
-		curl -L $(REFLECTOR_ORACLE_URL) -o $(REFLECTOR_ORACLE_WASM); \
-	else \
-		echo "Reflector oracle WASM file already exists, skipping download."; \
-	fi
 
 generate-sdk: ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
