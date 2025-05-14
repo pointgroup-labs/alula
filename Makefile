@@ -1,0 +1,35 @@
+#!/usr/bin/make
+
+LENDING_CONTRACT := lending
+
+WASM_TARGET_DIR = target/wasm32-unknown-unknown/release
+REFLECTOR_ORACLE_URL = https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
+REFLECTOR_ORACLE_WASM = $(WASM_TARGET_DIR)/reflector_oracle.wasm
+
+.DEFAULT_GOAL: help
+
+.PHONY: help
+help: ## Show this help
+	@printf "\033[33m%s:\033[0m\n" 'Available commands'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+build: ## Build the WebAssembly contracts
+	mkdir -p $(WASM_TARGET_DIR)
+	@if [ ! -f $(REFLECTOR_ORACLE_WASM) ]; then \
+		echo "Downloading reflector oracle WASM file..."; \
+		curl -L $(REFLECTOR_ORACLE_URL) -o $(REFLECTOR_ORACLE_WASM); \
+	else \
+		echo "Reflector oracle WASM file already exists, skipping download."; \
+	fi
+	cargo build --release --target wasm32-unknown-unknown -p $(LENDING_CONTRACT)
+
+test: ## Run tests
+	cargo test
+
+fmt: ## Format code using cargo
+	cargo fmt --all
+
+clean: ## Clean build artifacts
+	cargo clean
