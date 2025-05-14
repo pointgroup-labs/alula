@@ -53,10 +53,10 @@ impl LendingContract {
         let reflector_contract = oracle::Client::new(&e, &reflector_address);
         let eurc_ticker = symbol_short!("BTC");
         let eurc_asset = oracle::Asset::Other(eurc_ticker);
-        let lastprice = reflector_contract.lastprice(&eurc_asset).unwrap();
+        
         // let all_assets = reflector_contract.assets();
 
-        lastprice
+        reflector_contract.lastprice(&eurc_asset).unwrap()
     }
 
     pub fn initialize_pool(
@@ -142,7 +142,7 @@ impl LendingContract {
         }
         storage::adjust_borrow(&e, &user, &pool_address, amount)?;
         storage::adjust_pool_supply(&e, &pool_address, -amount)?;
-        const HEALTH_FACTOR_THRESHOLD: i128 = 1 * BPS_IN_PERCENT;
+        const HEALTH_FACTOR_THRESHOLD: i128 = BPS_IN_PERCENT;
         let health_factor: i128 = Self::compute_health_factor(&e, &user)?;
 
         if health_factor < HEALTH_FACTOR_THRESHOLD {
@@ -163,16 +163,16 @@ impl LendingContract {
         let GlobalState {
             liquidation_threshold_bps: lt_bps,
             ..
-        } = storage::read_global_state(&e);
+        } = storage::read_global_state(e);
         // HF = ((Collateral_Value1 + ... + Collateral_ValueN) * LT) / (Borrow_Value1 + ... + BorrowValueN)
         let reflector_address =
-            Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
-        let reflector_contract = oracle::Client::new(&e, &reflector_address);
+            Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
+        let reflector_contract = oracle::Client::new(e, &reflector_address);
 
         let collateral_sum_value = deposits
             .iter()
             .fold(0, |acc: i128, (pool_address, amount)| {
-                let ticker = storage::get_pool_ticker(&e, &pool_address)
+                let ticker = storage::get_pool_ticker(e, &pool_address)
                     .expect("Pool must exist at this point");
                 let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
                 let lastprice = reflector_contract
@@ -192,7 +192,7 @@ impl LendingContract {
 
         let borrow_sum_value = borrows.iter().fold(0, |acc: i128, (pool_address, amount)| {
             let ticker =
-                storage::get_pool_ticker(&e, &pool_address).expect("Pool must exist at this point");
+                storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
             let asset = oracle::Asset::Other(ticker);
             let lastprice = reflector_contract
                 .lastprice(&asset)
@@ -274,6 +274,6 @@ impl LendingContract {
         let pool =
             storage::get_pool(&e, &pool_address).ok_or(LendingContractError::PoolDoesNotExist)?;
 
-        Ok(pool.get_interest_rates()?)
+        pool.get_interest_rates()
     }
 }
