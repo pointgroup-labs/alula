@@ -1,10 +1,16 @@
 use {
     crate::{
         error::LendingContractError,
+        interest_rate::InterestRates,
         oracle,
-        storage::{self, GlobalState, Obligation, PoolAddress, PoolConfig, PoolData},
+        storage::{
+            self, GlobalState, Obligation, Pool, PoolAddress, PoolConfig, BPS_IN_PERCENT,
+            DEFAULT_LIQUIDATION_THRESHOLD,
+        },
     },
-    soroban_sdk::{contract, contractimpl, symbol_short, token, Address, BytesN, Env, String},
+    soroban_sdk::{
+        contract, contractimpl, symbol_short, token, Address, BytesN, Env, String, Symbol,
+    },
 };
 
 const REFLECTOR_TESTNET_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
@@ -14,32 +20,51 @@ pub struct LendingContract;
 
 #[contractimpl]
 impl LendingContract {
-    pub fn __constructor(e: Env, admin: Address) {
+    pub fn __constructor(
+        e: Env,
+        admin: Address,
+        liquidation_threshold: Option<i128>,
+    ) -> Result<(), LendingContractError> {
+        let liquidation_threshold = if let Some(lt) = liquidation_threshold {
+            if lt <= 0 || lt > 100 {
+                return Err(LendingContractError::InvalidLiquidationThreshold);
+            }
+
+            lt
+        } else {
+            DEFAULT_LIQUIDATION_THRESHOLD
+        };
+        let liquidation_threshold_bps = liquidation_threshold * BPS_IN_PERCENT;
         let global_state = GlobalState {
             admin,
             status: true,
+            liquidation_threshold_bps,
         };
         storage::write_global_state(&e, &global_state);
+
+        Ok(())
     }
 
     // @TODO: Experiment more with oracle
     // We must be sure that the price is relevant and is updated as frequent as possible
-    pub fn test_oracle_price(e: Env) -> i128 {
+    pub fn test_oracle_price(e: Env) -> oracle::PriceData {
         let reflector_address =
             Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
         let reflector_contract = oracle::Client::new(&e, &reflector_address);
-        let eurc_ticker = symbol_short!("USDC");
+        let eurc_ticker = symbol_short!("BTC");
         let eurc_asset = oracle::Asset::Other(eurc_ticker);
         let lastprice = reflector_contract.lastprice(&eurc_asset).unwrap();
+        // let all_assets = reflector_contract.assets();
 
-        lastprice.price
+        lastprice
     }
 
     pub fn initialize_pool(
         e: Env,
         token_address: Address,
+        token_ticker: Symbol,
         salt: Option<BytesN<32>>,
-        pool_config: Option<PoolConfig>, // @NB: Can this be more convenient?
+        pool_config: Option<PoolConfig>,
     ) -> Result<PoolAddress, LendingContractError> {
         let pool_address: PoolAddress = if let Some(salt) = salt {
             // @TODO: Check some other ways of deriving an address
@@ -53,7 +78,23 @@ impl LendingContract {
         if storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolAlreadyExists);
         }
-        storage::set_pool(&e, &pool_address, &token_address, pool_config)?;
+
+        let pool_config = if let Some(config) = pool_config {
+            if !config.is_valid() {
+                return Err(LendingContractError::InvalidLoanPoolConfig);
+            }
+
+            config
+        } else {
+            Default::default()
+        };
+        storage::set_pool(
+            &e,
+            &pool_address,
+            &token_address,
+            &token_ticker,
+            pool_config,
+        )?;
 
         Ok(pool_address)
     }
@@ -73,8 +114,8 @@ impl LendingContract {
         if !storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolDoesNotExist);
         }
-        let PoolData { token_address, .. } =
-            storage::get_pool_data(&e, &pool_address).expect("Pool must exist at this point");
+        let Pool { token_address, .. } =
+            storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
         storage::adjust_pool_supply(&e, &pool_address, amount)?;
@@ -82,6 +123,99 @@ impl LendingContract {
         // @TODO: add interest rate accrual
 
         Ok(())
+    }
+
+    pub fn borrow(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), LendingContractError> {
+        user.require_auth();
+
+        if amount <= 0 {
+            return Err(LendingContractError::NonPositiveDeposit);
+        }
+
+        if !storage::pool_exists(&e, &pool_address) {
+            return Err(LendingContractError::PoolDoesNotExist);
+        }
+        storage::adjust_borrow(&e, &user, &pool_address, amount)?;
+        storage::adjust_pool_supply(&e, &pool_address, -amount)?;
+        const HEALTH_FACTOR_THRESHOLD: i128 = 1 * BPS_IN_PERCENT;
+        let health_factor: i128 = Self::compute_health_factor(&e, &user)?;
+
+        if health_factor < HEALTH_FACTOR_THRESHOLD {
+            return Err(LendingContractError::HealthFactorIsLowerThanRequiredThreshold);
+        }
+        let Pool { token_address, .. } =
+            storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
+        let token_client = token::Client::new(&e, &token_address);
+        token_client.transfer(&e.current_contract_address(), &user, &amount);
+
+        Ok(())
+    }
+
+    #[allow(unused)]
+    fn compute_health_factor(e: &Env, user: &Address) -> Result<i128, LendingContractError> {
+        let Obligation { deposits, borrows } =
+            storage::get_obligation(e, user).ok_or(LendingContractError::ObligationDoesNotExist)?;
+        let GlobalState {
+            liquidation_threshold_bps: lt_bps,
+            ..
+        } = storage::read_global_state(&e);
+        // HF = ((Collateral_Value1 + ... + Collateral_ValueN) * LT) / (Borrow_Value1 + ... + BorrowValueN)
+        let reflector_address =
+            Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
+        let reflector_contract = oracle::Client::new(&e, &reflector_address);
+
+        let collateral_sum_value = deposits
+            .iter()
+            .fold(0, |acc: i128, (pool_address, amount)| {
+                let ticker = storage::get_pool_ticker(&e, &pool_address)
+                    .expect("Pool must exist at this point");
+                let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
+                let lastprice = reflector_contract
+                    .lastprice(&asset)
+                    .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
+                    .unwrap(); // unwrap()
+                acc.checked_add(
+                    lastprice
+                        .price
+                        .checked_mul(amount)
+                        .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
+                        .unwrap(),
+                )
+                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
+                .unwrap()
+            });
+
+        let borrow_sum_value = borrows.iter().fold(0, |acc: i128, (pool_address, amount)| {
+            let ticker =
+                storage::get_pool_ticker(&e, &pool_address).expect("Pool must exist at this point");
+            let asset = oracle::Asset::Other(ticker);
+            let lastprice = reflector_contract
+                .lastprice(&asset)
+                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
+                .unwrap();
+            let value = lastprice
+                .price
+                .checked_mul(amount)
+                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
+                .unwrap();
+
+            acc.checked_add(value)
+                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
+                .unwrap()
+        });
+
+        // let decimals_factor = i128::pow(10, reflector_contract.decimals());
+
+        let numerator = collateral_sum_value
+            .checked_mul(lt_bps)
+            .ok_or(LendingContractError::OverOrUnderflow)?;
+
+        todo!()
     }
 
     // @TODO: pub fn deposit_collateral() {}
@@ -103,14 +237,14 @@ impl LendingContract {
         }
 
         if !storage::deposit_exists(&e, &user, &pool_address)? {
-            return Err(LendingContractError::MissingDeposit);
+            return Err(LendingContractError::DepositDoesNotExist);
         }
-        let PoolData {
+        let Pool {
             token_address,
             supply,
             borrowed,
             ..
-        } = storage::get_pool_data(&e, &pool_address).expect("Pool must exist at this point");
+        } = storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
 
         if amount > (supply - borrowed) {
             return Err(LendingContractError::NotEnoughPoolFunds);
@@ -129,7 +263,17 @@ impl LendingContract {
         storage::get_obligation(&e, &user)
     }
 
-    pub fn get_pool(e: Env, pool_address: Address) -> Option<PoolData> {
-        storage::get_pool_data(&e, &pool_address)
+    pub fn get_pool(e: Env, pool_address: Address) -> Option<Pool> {
+        storage::get_pool(&e, &pool_address)
+    }
+
+    pub fn get_interest_rates(
+        e: Env,
+        pool_address: Address,
+    ) -> Result<InterestRates, LendingContractError> {
+        let pool =
+            storage::get_pool(&e, &pool_address).ok_or(LendingContractError::PoolDoesNotExist)?;
+
+        Ok(pool.get_interest_rates()?)
     }
 }
