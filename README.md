@@ -2,9 +2,9 @@
 [![GitHub license](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=apache&style=for-the-badge)](LICENSE)
 [![Tests Status](https://img.shields.io/github/actions/workflow/status/mfactory-lab/jlending/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
 
-# JLending DeFi Protocol
+# JLend DeFi Protocol
 
-JLending is a decentralized lending and borrowing protocol built on the [Stellar](https://stellar.org/) blockchain,
+JLend is a decentralized lending and borrowing protocol built on the [Stellar](https://stellar.org/) blockchain,
 allowing users to earn yield on deposits and access liquidity through overcollateralized loans.
 
 ## Table of Contents
@@ -18,7 +18,7 @@ allowing users to earn yield on deposits and access liquidity through overcollat
 
 ## Overview
 
-JLending is a Stellar-native DeFi protocol that creates efficient lending markets where users can:
+JLend is a Stellar-native DeFi protocol that creates efficient lending markets where users can:
 
 - Supply assets to earn passive yield
 - Borrow assets against collateral

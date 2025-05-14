@@ -1,4 +1,4 @@
-//! `JLending` for now uses kinked interest rates.
+//! `JLend` for now uses kinked interest rates.
 //! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
 
 use crate::constants::BPS_IN_PERCENT;
