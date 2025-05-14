@@ -10,6 +10,7 @@ allowing users to earn yield on deposits and access liquidity through overcollat
 ## Table of Contents
 
 * [Overview](#overview)
+* [Getting Started](#getting-started)
 * [Roadmap](#roadmap)
 * [Related Projects](#related-projects)
 * [Contributing](#contributing)
@@ -23,14 +24,23 @@ JLending is a Stellar-native DeFi protocol that creates efficient lending market
 - Borrow assets against collateral
 - Participate in protocol governance through the `JLEND` token
 
-## Roadmap
+## Getting Started
 
-*Development timeline and future enhancements will be added here*
+Build the contracts with:
+
+```
+make
+```
+
+Run all unit tests and the integration test suite with:
+
+```
+make test
+```
 
 ## Related projects
 
-* [`laina`](https://github.com/laina-defi/laina)
-* [Blend Protocol](https://blend.finance/) - Another lending protocol on Stellar [[1]](https://scopuly.medium.com/meru-wallet-blend-bridging-defi-and-everyday-finance-on-stellar-987871c1f51d)
+* [Laina](https://github.com/laina-defi/laina)
 
 ## Contributing
 
