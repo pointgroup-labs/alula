@@ -14,5 +14,5 @@ soroban-sdk = { workspace = true }
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
 
-[target.wasm32-unknown-unknown]
-rustflags = ["-C", "link-arg=--import-memory", "-C", "link-arg=--export-table"]
+#[target.wasm32-unknown-unknown]
+#rustflags = ["-C", "link-arg=--import-memory", "-C", "link-arg=--export-table"]
