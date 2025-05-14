@@ -47,16 +47,15 @@ impl LendingContract {
 
     // @TODO: Experiment more with oracle
     // We must be sure that the price is relevant and is updated as frequent as possible
-    pub fn test_oracle_price(e: Env) -> oracle::PriceData {
+    pub fn test_oracle_price(e: Env) -> i128 {
         let reflector_address =
             Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
         let reflector_contract = oracle::Client::new(&e, &reflector_address);
-        let eurc_ticker = symbol_short!("BTC");
+        let eurc_ticker = symbol_short!("EURC");
         let eurc_asset = oracle::Asset::Other(eurc_ticker);
-        
         // let all_assets = reflector_contract.assets();
 
-        reflector_contract.lastprice(&eurc_asset).unwrap()
+        reflector_contract.lastprice(&eurc_asset).unwrap().price
     }
 
     pub fn initialize_pool(
@@ -142,7 +141,7 @@ impl LendingContract {
         }
         storage::adjust_borrow(&e, &user, &pool_address, amount)?;
         storage::adjust_pool_supply(&e, &pool_address, -amount)?;
-        const HEALTH_FACTOR_THRESHOLD: i128 = BPS_IN_PERCENT;
+        const HEALTH_FACTOR_THRESHOLD: i128 = 100 * BPS_IN_PERCENT;
         let health_factor: i128 = Self::compute_health_factor(&e, &user)?;
 
         if health_factor < HEALTH_FACTOR_THRESHOLD {
@@ -156,7 +155,6 @@ impl LendingContract {
         Ok(())
     }
 
-    #[allow(unused)]
     fn compute_health_factor(e: &Env, user: &Address) -> Result<i128, LendingContractError> {
         let Obligation { deposits, borrows } =
             storage::get_obligation(e, user).ok_or(LendingContractError::ObligationDoesNotExist)?;
@@ -168,57 +166,75 @@ impl LendingContract {
         let reflector_address =
             Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
         let reflector_contract = oracle::Client::new(e, &reflector_address);
+        let (mut collateral_sum_value, mut borrow_sum_value) = (0i128, 0i128);
 
-        let collateral_sum_value = deposits
-            .iter()
-            .fold(0, |acc: i128, (pool_address, amount)| {
-                let ticker = storage::get_pool_ticker(e, &pool_address)
-                    .expect("Pool must exist at this point");
-                let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
-                let lastprice = reflector_contract
-                    .lastprice(&asset)
-                    .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
-                    .unwrap(); // unwrap()
-                acc.checked_add(
+        for (pool_address, amount) in deposits {
+            let ticker =
+                storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
+            let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
+            let lastprice = reflector_contract
+                .lastprice(&asset)
+                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)?;
+            collateral_sum_value = collateral_sum_value
+                .checked_add(
                     lastprice
                         .price
                         .checked_mul(amount)
-                        .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
-                        .unwrap(),
+                        .ok_or(LendingContractError::OverOrUnderflow)?,
                 )
-                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
-                .unwrap()
-            });
+                .ok_or(LendingContractError::OverOrUnderflow)?;
+        }
 
-        let borrow_sum_value = borrows.iter().fold(0, |acc: i128, (pool_address, amount)| {
+        for (pool_address, amount) in borrows {
             let ticker =
                 storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
-            let asset = oracle::Asset::Other(ticker);
+            let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
             let lastprice = reflector_contract
                 .lastprice(&asset)
-                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
-                .unwrap();
-            let value = lastprice
-                .price
-                .checked_mul(amount)
-                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
-                .unwrap();
-
-            acc.checked_add(value)
-                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)
-                .unwrap()
-        });
-
-        // let decimals_factor = i128::pow(10, reflector_contract.decimals());
+                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)?;
+            borrow_sum_value = borrow_sum_value
+                .checked_add(
+                    lastprice
+                        .price
+                        .checked_mul(amount)
+                        .ok_or(LendingContractError::OverOrUnderflow)?,
+                )
+                .ok_or(LendingContractError::OverOrUnderflow)?;
+        }
 
         let numerator = collateral_sum_value
             .checked_mul(lt_bps)
             .ok_or(LendingContractError::OverOrUnderflow)?;
+        let health_factor = numerator
+            .checked_div(borrow_sum_value)
+            .ok_or(LendingContractError::OverOrUnderflow)?;
+
+        Ok(health_factor)
+    }
+
+    #[allow(unused)]
+    pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LendingContractError> {
+        // How should this look?
 
         todo!()
     }
 
-    // @TODO: pub fn deposit_collateral() {}
+    #[allow(unused)]
+    pub fn repay(e: Env, pool_address: Address) -> Result<(), LendingContractError> {
+        // How should this look?
+
+        todo!()
+    }
+
+    #[allow(unused)]
+    pub fn deposit_collateral() {
+        todo!()
+    }
+
+    #[allow(unused)]
+    pub fn withdraw_collateral() {
+        todo!()
+    }
 
     pub fn withdraw(
         e: Env,
@@ -256,8 +272,6 @@ impl LendingContract {
 
         Ok(())
     }
-
-    // @TODO: pub fn withdraw_collateral() {}
 
     pub fn get_user_obligation(e: Env, user: Address) -> Option<Obligation> {
         storage::get_obligation(&e, &user)

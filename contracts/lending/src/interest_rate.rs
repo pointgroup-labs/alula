@@ -10,8 +10,8 @@ use {
 #[derive(Debug)]
 #[contracttype]
 pub struct InterestRates {
-    pub borrow_rate: i128,
-    pub supply_rate: i128,
+    pub borrow_rate_bps: i128,
+    pub supply_rate_bps: i128,
 }
 
 impl Pool {
@@ -21,11 +21,11 @@ impl Pool {
             supply,
             config:
                 PoolConfig {
-                    base_rate,
-                    optimal_utilization_ratio,
+                    base_rate_bps,
+                    optimal_utilization_ratio_bps,
                     slope1,
                     slope2,
-                    reserve_ratio,
+                    reserve_ratio_bps,
                     ..
                 },
             ..
@@ -35,7 +35,7 @@ impl Pool {
             return Err(LendingContractError::InconsistentPoolState);
         }
         // @TODO: think of prettifying this somehow
-        let optimal_utilization_ratio = optimal_utilization_ratio / 10;
+        let optimal_utilization_ratio = optimal_utilization_ratio_bps / 10;
         // UR is within [0; 10_000]
         let utiliation_ratio = borrowed
             .checked_mul(1_000)
@@ -43,9 +43,9 @@ impl Pool {
             .checked_div(supply)
             .ok_or(LendingContractError::OverOrUnderflow)?;
 
-        let borrow_rate = if utiliation_ratio <= optimal_utilization_ratio {
+        let borrow_rate_bps = if utiliation_ratio <= optimal_utilization_ratio {
             // IR = BR + (UR * 1_000) * Slope1
-            base_rate
+            base_rate_bps
                 .checked_add(
                     slope1
                         .checked_mul(utiliation_ratio)
@@ -54,35 +54,35 @@ impl Pool {
                 .ok_or(LendingContractError::OverOrUnderflow)?
         } else {
             // IR = BR + (OUR * 1_000) * Slope1 + (UR - OUR) * 10_000 * Slope2
-            let pre_threshold_rate = base_rate
+            let pre_threshold_rate_bps = base_rate_bps
                 .checked_add(
                     slope1
                         .checked_mul(optimal_utilization_ratio)
                         .ok_or(LendingContractError::OverOrUnderflow)?,
                 )
                 .ok_or(LendingContractError::OverOrUnderflow)?;
-            let post_threshold_rate = utiliation_ratio
+            let post_threshold_rate_bps = utiliation_ratio
                 .checked_sub(optimal_utilization_ratio)
                 .ok_or(LendingContractError::OverOrUnderflow)?
                 .checked_mul(slope2)
                 .ok_or(LendingContractError::OverOrUnderflow)?;
 
-            pre_threshold_rate
-                .checked_add(post_threshold_rate)
+            pre_threshold_rate_bps
+                .checked_add(post_threshold_rate_bps)
                 .ok_or(LendingContractError::OverOrUnderflow)?
         };
-        let supply_rate = base_rate
+        let supply_rate_bps = base_rate_bps
             .checked_mul(
                 utiliation_ratio
-                    .checked_mul(10_000 - reserve_ratio)
+                    .checked_mul(10_000 - reserve_ratio_bps)
                     .ok_or(LendingContractError::OverOrUnderflow)?,
             )
             .ok_or(LendingContractError::OverOrUnderflow)?
             / 100_000;
 
         Ok(InterestRates {
-            borrow_rate,
-            supply_rate,
+            borrow_rate_bps,
+            supply_rate_bps,
         })
     }
 }
@@ -90,17 +90,17 @@ impl Pool {
 impl PoolConfig {
     pub(crate) fn is_valid(&self) -> bool {
         let &PoolConfig {
-            base_rate,
-            optimal_utilization_ratio,
+            base_rate_bps,
+            optimal_utilization_ratio_bps,
             slope1,
             slope2,
-            reserve_ratio,
+            reserve_ratio_bps,
             ..
         } = self;
 
-        (base_rate > 0) // BR must be > 0%
-        && (optimal_utilization_ratio > 0) // OUR must be > 0%
-        && (0..(100*BPS_IN_PERCENT)).contains(&reserve_ratio) // RR must be [0%; 100%)
+        (base_rate_bps > 0) // BR must be > 0%
+        && (optimal_utilization_ratio_bps > 0) // OUR must be > 0%
+        && (0..(100*BPS_IN_PERCENT)).contains(&reserve_ratio_bps) // RR must be [0%; 100%)
         && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
     }
 }

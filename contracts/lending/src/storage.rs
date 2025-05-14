@@ -47,13 +47,13 @@ pub struct Pool {
 #[derive(Debug)]
 pub struct PoolConfig {
     /// Positive Base Rate percentage
-    pub base_rate: i128,
+    pub base_rate_bps: i128,
     /// Positive Optimal Utilization Ratio percentage
-    pub optimal_utilization_ratio: i128,
+    pub optimal_utilization_ratio_bps: i128,
     pub slope1: i128,
     pub slope2: i128,
     /// Non-negative Reserve Ration percentage (< 100)
-    pub reserve_ratio: i128,
+    pub reserve_ratio_bps: i128,
 }
 
 impl Default for PoolConfig {
@@ -61,9 +61,9 @@ impl Default for PoolConfig {
         Self {
             slope1: DEFAULT_SLOPE1,
             slope2: DEFAULT_SLOPE2,
-            base_rate: DEFAULT_BASE_RATE * BPS_IN_PERCENT,
-            reserve_ratio: DEFAULT_RESERVE_RATIO * BPS_IN_PERCENT,
-            optimal_utilization_ratio: DEFAULT_OPTIMAL_UTILIZATIONL_RATIO * BPS_IN_PERCENT,
+            base_rate_bps: DEFAULT_BASE_RATE * BPS_IN_PERCENT,
+            reserve_ratio_bps: DEFAULT_RESERVE_RATIO * BPS_IN_PERCENT,
+            optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATIONL_RATIO * BPS_IN_PERCENT,
         }
     }
 }

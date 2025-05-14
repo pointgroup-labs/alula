@@ -257,7 +257,7 @@ fn test_default_pool_config_interest_rate_calculation() {
     // Deposit tokens
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
     let interest_rates = contract_client.get_interest_rates(&pool_address);
-    assert_eq!(interest_rates.borrow_rate, 3 * BPS_IN_PERCENT);
-    assert_eq!(interest_rates.supply_rate, 0);
+    assert_eq!(interest_rates.borrow_rate_bps, 3 * BPS_IN_PERCENT);
+    assert_eq!(interest_rates.supply_rate_bps, 0);
     // @TODO: Now we have to borrow some of them...
 }
