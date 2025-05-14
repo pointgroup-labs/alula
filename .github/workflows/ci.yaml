@@ -1,0 +1,48 @@
+name: 'CI'
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+    paths-ignore:
+      - "README.md"
+
+env:
+  CARGO_TERM_COLOR: always
+  SOLANA_CLI_VERSION: "2.1.15"
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v4
+      - name: 'Check code'
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --locked --verbose --tests --benches --workspace -- -D clippy::all
+          cargo clippy --locked --verbose --target wasm32-unknown-unknown -p lending -- -D clippy::all
+
+  cargo-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Cargo doc
+        run: |
+          cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: "--deny warnings"
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v4
+      - name: 'Run unit tests'
+        run: cargo test --locked --workspace
