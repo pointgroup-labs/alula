@@ -7,7 +7,6 @@ exclude = [
   "reflector-contract"
 ]
 
-
 [workspace.dependencies]
 soroban-sdk = "22.0.0"
 
