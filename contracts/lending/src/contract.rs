@@ -1,19 +1,15 @@
+use crate::constants::{BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD, REFLECTOR_TESTNET_ADDRESS};
 use {
     crate::{
         error::LendingContractError,
         interest_rate::InterestRates,
         oracle,
-        storage::{
-            self, GlobalState, Obligation, Pool, PoolAddress, PoolConfig, BPS_IN_PERCENT,
-            DEFAULT_LIQUIDATION_THRESHOLD,
-        },
+        storage::{self, GlobalState, Obligation, Pool, PoolAddress, PoolConfig},
     },
     soroban_sdk::{
         contract, contractimpl, symbol_short, token, Address, BytesN, Env, String, Symbol,
     },
 };
-
-const REFLECTOR_TESTNET_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
 #[contract]
 pub struct LendingContract;
@@ -29,7 +25,6 @@ impl LendingContract {
             if lt <= 0 || lt > 100 {
                 return Err(LendingContractError::InvalidLiquidationThreshold);
             }
-
             lt
         } else {
             DEFAULT_LIQUIDATION_THRESHOLD
@@ -45,7 +40,7 @@ impl LendingContract {
         Ok(())
     }
 
-    // @TODO: Experiment more with oracle
+    // TODO: Experiment more with oracle
     // We must be sure that the price is relevant and is updated as frequent as possible
     pub fn test_oracle_price(e: Env) -> i128 {
         let reflector_address =
@@ -66,7 +61,7 @@ impl LendingContract {
         pool_config: Option<PoolConfig>,
     ) -> Result<PoolAddress, LendingContractError> {
         let pool_address: PoolAddress = if let Some(salt) = salt {
-            // @TODO: Check some other ways of deriving an address
+            // TODO: Check some other ways of deriving an address
             e.deployer()
                 .with_address(token_address.clone(), salt)
                 .deployed_address()
@@ -113,13 +108,16 @@ impl LendingContract {
         if !storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolDoesNotExist);
         }
+
         let Pool { token_address, .. } =
             storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
+
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
+
         storage::adjust_pool_supply(&e, &pool_address, amount)?;
         storage::adjust_deposit(&e, &user, &pool_address, amount)?;
-        // @TODO: add interest rate accrual
+        // TODO: add interest rate accrual
 
         Ok(())
     }
@@ -141,14 +139,18 @@ impl LendingContract {
         }
         storage::adjust_borrow(&e, &user, &pool_address, amount)?;
         storage::adjust_pool_supply(&e, &pool_address, -amount)?;
+
         const HEALTH_FACTOR_THRESHOLD: i128 = 100 * BPS_IN_PERCENT;
-        let health_factor: i128 = Self::compute_health_factor(&e, &user)?;
+
+        let health_factor = Self::compute_health_factor(&e, &user)?;
 
         if health_factor < HEALTH_FACTOR_THRESHOLD {
             return Err(LendingContractError::HealthFactorIsLowerThanRequiredThreshold);
         }
+
         let Pool { token_address, .. } =
             storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
+
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
 
@@ -171,7 +173,7 @@ impl LendingContract {
         for (pool_address, amount) in deposits {
             let ticker =
                 storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
-            let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
+            let asset = oracle::Asset::Other(ticker); // TODO: What about XLM?
             let lastprice = reflector_contract
                 .lastprice(&asset)
                 .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)?;
@@ -188,13 +190,13 @@ impl LendingContract {
         for (pool_address, amount) in borrows {
             let ticker =
                 storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
-            let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
-            let lastprice = reflector_contract
+            let asset = oracle::Asset::Other(ticker); // TODO: What about XLM?
+            let last_price = reflector_contract
                 .lastprice(&asset)
                 .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)?;
             borrow_sum_value = borrow_sum_value
                 .checked_add(
-                    lastprice
+                    last_price
                         .price
                         .checked_mul(amount)
                         .ok_or(LendingContractError::OverOrUnderflow)?,
@@ -215,14 +217,12 @@ impl LendingContract {
     #[allow(unused)]
     pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LendingContractError> {
         // How should this look?
-
         todo!()
     }
 
     #[allow(unused)]
     pub fn repay(e: Env, pool_address: Address) -> Result<(), LendingContractError> {
         // How should this look?
-
         todo!()
     }
 
@@ -255,6 +255,7 @@ impl LendingContract {
         if !storage::deposit_exists(&e, &user, &pool_address)? {
             return Err(LendingContractError::DepositDoesNotExist);
         }
+
         let Pool {
             token_address,
             supply,
@@ -265,8 +266,10 @@ impl LendingContract {
         if amount > (supply - borrowed) {
             return Err(LendingContractError::NotEnoughPoolFunds);
         }
+
         storage::adjust_pool_supply(&e, &pool_address, -amount)?;
         storage::adjust_deposit(&e, &user, &pool_address, -amount)?;
+
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
 

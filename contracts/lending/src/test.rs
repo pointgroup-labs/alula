@@ -1,9 +1,10 @@
 #![cfg(test)]
 
+use crate::constants::BPS_IN_PERCENT;
 use {
     crate::{
         contract::*,
-        storage::{Obligation, Pool, BPS_IN_PERCENT},
+        storage::{Obligation, Pool},
     },
     soroban_sdk::{
         symbol_short, testutils::Address as _, token::StellarAssetClient, Address, BytesN, Env,
@@ -233,7 +234,7 @@ fn test_pool_withdraw_overflow() {
     let deposited_amount = deposits.get(pool_address.clone()).unwrap();
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
-    // Wilthdraw more than available
+    // Withdraw more than available
     contract_client.withdraw(&user, &pool_address, &(DEPOSIT_AMOUNT + 1));
 }
 
@@ -259,5 +260,5 @@ fn test_default_pool_config_interest_rate_calculation() {
     let interest_rates = contract_client.get_interest_rates(&pool_address);
     assert_eq!(interest_rates.borrow_rate_bps, 3 * BPS_IN_PERCENT);
     assert_eq!(interest_rates.supply_rate_bps, 0);
-    // @TODO: Now we have to borrow some of them...
+    // TODO: Now we have to borrow some of them...
 }
