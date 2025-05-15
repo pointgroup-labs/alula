@@ -1,3 +1,0 @@
-[submodule "reflector-contract"]
-	path = reflector-contract
-	url = git@github.com:reflector-network/reflector-contract.git

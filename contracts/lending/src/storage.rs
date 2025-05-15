@@ -3,6 +3,7 @@ use {
     soroban_sdk::{contracttype, Address, Env, Map, Symbol},
 };
 
+// @TODO: Move this to the `interest_rate` module
 pub const BPS_IN_PERCENT: i128 = 100; // 10_000 - 100%
 
 pub const DEFAULT_LIQUIDATION_THRESHOLD: i128 = 80;
@@ -141,6 +142,21 @@ pub(crate) fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
     e.storage()
         .instance()
         .set(&DataKey::Pool(pool_address.clone()), pool_data);
+}
+
+pub(crate) fn adjust_pool_borrowed(
+    e: &Env,
+    pool_address: &PoolAddress,
+    amount: i128,
+) -> Result<(), LendingContractError> {
+    let mut pool = get_pool(e, pool_address).ok_or(LendingContractError::PoolDoesNotExist)?;
+    pool.borrowed = pool
+        .borrowed
+        .checked_add(amount)
+        .ok_or(LendingContractError::OverOrUnderflow)?;
+    set_pool_data(e, pool_address, &pool);
+
+    Ok(())
 }
 
 pub(crate) fn adjust_pool_supply(

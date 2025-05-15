@@ -31,19 +31,24 @@ impl Pool {
             ..
         } = self;
 
-        if borrowed >= supply {
-            return Err(LendingContractError::InconsistentPoolState);
-        }
-        // @TODO: think of prettifying this somehow
-        let optimal_utilization_ratio = optimal_utilization_ratio_bps / 10;
-        // UR is within [0; 10_000]
+        assert!(
+            borrowed < supply,
+            "Total borrowed funds cannot be less than supplied funds"
+        );
+        // @NB: This means that an importan invariant is broken
+        // if borrowed >= supply {
+        //     return Err(LendingContractError::InconsistentPoolState);
+        // }
+        // @TODO: think of, maybe, prettifying the computation somehow
+        let optimal_utilization_ratio_scaled = optimal_utilization_ratio_bps / 10;
+        // UR is within [0; 1_000]
         let utiliation_ratio = borrowed
             .checked_mul(1_000)
             .ok_or(LendingContractError::OverOrUnderflow)?
             .checked_div(supply)
             .ok_or(LendingContractError::OverOrUnderflow)?;
 
-        let borrow_rate_bps = if utiliation_ratio <= optimal_utilization_ratio {
+        let borrow_rate_bps = if utiliation_ratio <= optimal_utilization_ratio_scaled {
             // IR = BR + (UR * 1_000) * Slope1
             base_rate_bps
                 .checked_add(
@@ -57,12 +62,12 @@ impl Pool {
             let pre_threshold_rate_bps = base_rate_bps
                 .checked_add(
                     slope1
-                        .checked_mul(optimal_utilization_ratio)
+                        .checked_mul(optimal_utilization_ratio_scaled)
                         .ok_or(LendingContractError::OverOrUnderflow)?,
                 )
                 .ok_or(LendingContractError::OverOrUnderflow)?;
             let post_threshold_rate_bps = utiliation_ratio
-                .checked_sub(optimal_utilization_ratio)
+                .checked_sub(optimal_utilization_ratio_scaled)
                 .ok_or(LendingContractError::OverOrUnderflow)?
                 .checked_mul(slope2)
                 .ok_or(LendingContractError::OverOrUnderflow)?;
@@ -71,14 +76,14 @@ impl Pool {
                 .checked_add(post_threshold_rate_bps)
                 .ok_or(LendingContractError::OverOrUnderflow)?
         };
-        let supply_rate_bps = base_rate_bps
+        let supply_rate_bps = borrow_rate_bps
             .checked_mul(
                 utiliation_ratio
                     .checked_mul(10_000 - reserve_ratio_bps)
                     .ok_or(LendingContractError::OverOrUnderflow)?,
             )
             .ok_or(LendingContractError::OverOrUnderflow)?
-            / 100_000;
+            / 1_000_000;
 
         Ok(InterestRates {
             borrow_rate_bps,

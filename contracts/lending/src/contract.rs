@@ -50,18 +50,18 @@ impl LendingContract {
     pub fn test_oracle_price(e: Env) -> i128 {
         let reflector_address =
             Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
-        let reflector_contract = oracle::Client::new(&e, &reflector_address);
+        let _reflector_contract = oracle::Client::new(&e, &reflector_address);
         let eurc_ticker = symbol_short!("EURC");
-        let eurc_asset = oracle::Asset::Other(eurc_ticker);
+        let _eurc_asset = oracle::Asset::Other(eurc_ticker);
         // let all_assets = reflector_contract.assets();
 
-        reflector_contract.lastprice(&eurc_asset).unwrap().price
+        todo!()
     }
 
     pub fn initialize_pool(
         e: Env,
         token_address: Address,
-        token_ticker: Symbol,
+        token_ticker: Symbol, // @NB: Token Inteface contains a `.symbol()` endpoint, which can be used for retrieving a token's ticker
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<PoolAddress, LendingContractError> {
@@ -139,16 +139,21 @@ impl LendingContract {
         if !storage::pool_exists(&e, &pool_address) {
             return Err(LendingContractError::PoolDoesNotExist);
         }
-        storage::adjust_borrow(&e, &user, &pool_address, amount)?;
-        storage::adjust_pool_supply(&e, &pool_address, -amount)?;
-        const HEALTH_FACTOR_THRESHOLD: i128 = 100 * BPS_IN_PERCENT;
-        let health_factor: i128 = Self::compute_health_factor(&e, &user)?;
 
+        // @TODO: Rename this, since missleading..
+        storage::adjust_borrow(&e, &user, &pool_address, amount)?;
+        storage::adjust_pool_borrowed(&e, &pool_address, amount)?;
+
+        const HEALTH_FACTOR_THRESHOLD: i128 = 100 * BPS_IN_PERCENT;
+
+        let health_factor: i128 = Self::compute_health_factor(&e, &user)?;
         if health_factor < HEALTH_FACTOR_THRESHOLD {
             return Err(LendingContractError::HealthFactorIsLowerThanRequiredThreshold);
         }
+
         let Pool { token_address, .. } =
             storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
+
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
 
@@ -156,19 +161,23 @@ impl LendingContract {
     }
 
     fn compute_health_factor(e: &Env, user: &Address) -> Result<i128, LendingContractError> {
-        let Obligation { deposits, borrows } =
-            storage::get_obligation(e, user).ok_or(LendingContractError::ObligationDoesNotExist)?;
+        let Obligation {
+            deposits, borrows, ..
+        } = storage::get_obligation(e, user).ok_or(LendingContractError::ObligationDoesNotExist)?;
         let GlobalState {
-            liquidation_threshold_bps: lt_bps,
+            liquidation_threshold_bps,
             ..
         } = storage::read_global_state(e);
-        // HF = ((Collateral_Value1 + ... + Collateral_ValueN) * LT) / (Borrow_Value1 + ... + BorrowValueN)
+        // HF = ((Collateral_Value1 + ... + Collateral_ValueN) * LT) / (Borrow_Value1 + ... + BorrowValueM)
         let reflector_address =
             Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
         let reflector_contract = oracle::Client::new(e, &reflector_address);
         let (mut collateral_sum_value, mut borrow_sum_value) = (0i128, 0i128);
 
         for (pool_address, amount) in deposits {
+            // @TODO: Maybe, get it from the token client?
+            // This will introduce an additional cross contract call, but will decrease the amount of errors,
+            // which can happen.
             let ticker =
                 storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
             let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
@@ -188,7 +197,7 @@ impl LendingContract {
         for (pool_address, amount) in borrows {
             let ticker =
                 storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
-            let asset = oracle::Asset::Other(ticker); // @TODO: What about XLM?
+            let asset = oracle::Asset::Other(ticker);
             let lastprice = reflector_contract
                 .lastprice(&asset)
                 .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)?;
@@ -203,7 +212,7 @@ impl LendingContract {
         }
 
         let numerator = collateral_sum_value
-            .checked_mul(lt_bps)
+            .checked_mul(liquidation_threshold_bps)
             .ok_or(LendingContractError::OverOrUnderflow)?;
         let health_factor = numerator
             .checked_div(borrow_sum_value)
@@ -211,6 +220,9 @@ impl LendingContract {
 
         Ok(health_factor)
     }
+
+    // @TODO: Would also be good to separate `health_factor` into a separate method
+    // and write unit test for it..
 
     #[allow(unused)]
     pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LendingContractError> {
