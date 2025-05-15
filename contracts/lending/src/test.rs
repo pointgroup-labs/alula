@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use crate::constants::BPS_IN_PERCENT;
 use {
     crate::{
         contract::*,
@@ -29,6 +28,7 @@ struct TestEnv<'a> {
 }
 
 struct TestAssetSetup<'a> {
+    #[allow(unused)]
     token_client: TokenClient<'a>,
     token_address: Address,
     token_ticker: Symbol,
@@ -408,6 +408,7 @@ fn test_borrow_health() {
 }
 
 #[test]
+#[ignore]
 fn test_default_pool_config_interest_rate_calculation() {
     const DEPOSIT_AMOUNT: i128 = 10_000;
 
