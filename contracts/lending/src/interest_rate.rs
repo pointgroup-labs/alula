@@ -1,9 +1,9 @@
 //! `JLend` for now uses kinked interest rates.
 //! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
 
-use crate::constants::BPS_IN_PERCENT;
 use {
     crate::{
+        constants::BPS_IN_PERCENT,
         error::LendingContractError,
         storage::{Pool, PoolConfig},
     },
@@ -38,10 +38,6 @@ impl Pool {
             borrowed < supply,
             "Total borrowed funds cannot be less than supplied funds"
         );
-        // NB: This means that an important invariant is broken
-        // if borrowed >= supply {
-        //     return Err(LendingContractError::InconsistentPoolState);
-        // }
         // TODO: think of, maybe, prettifying the computation somehow
         let optimal_utilization_ratio_scaled = optimal_utilization_ratio_bps / 10;
         // UR is within [0; 1_000]
@@ -86,7 +82,7 @@ impl Pool {
                     .ok_or(LendingContractError::OverOrUnderflow)?,
             )
             .ok_or(LendingContractError::OverOrUnderflow)?
-            / 10_000_000;
+            / (10_000 * 1_000); // scaling down to base points after consecutive multiplication
 
         Ok(InterestRates {
             borrow_rate_bps,

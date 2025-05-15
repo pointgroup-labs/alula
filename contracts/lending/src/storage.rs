@@ -191,6 +191,7 @@ pub fn adjust_deposit(
         borrows: Map::new(e),
     });
     let pool_obligation_deposit = obligation.deposits.get(pool_address.clone()).unwrap_or(0);
+
     let new_deposit_amount = pool_obligation_deposit
         .checked_add(amount)
         .ok_or(LendingContractError::OverOrUnderflow)?;
@@ -213,6 +214,7 @@ pub fn adjust_borrow(
         borrows: Map::new(e),
     });
     let pool_obligation_borrow = obligation.borrows.get(pool_address.clone()).unwrap_or(0);
+
     let new_borrow_amount = pool_obligation_borrow
         .checked_add(amount)
         .ok_or(LendingContractError::OverOrUnderflow)?;

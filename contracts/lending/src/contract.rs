@@ -48,7 +48,6 @@ impl LendingContract {
         let _reflector_contract = oracle::Client::new(&e, &reflector_address);
         let eurc_ticker = symbol_short!("EURC");
         let _eurc_asset = oracle::Asset::Other(eurc_ticker);
-        // let all_assets = reflector_contract.assets();
 
         todo!()
     }
@@ -111,7 +110,6 @@ impl LendingContract {
 
         let Pool { token_address, .. } =
             storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
-
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
 

@@ -14,8 +14,7 @@ pub enum LendingContractError {
     OverOrUnderflow = 8,
     DepositDoesNotExist = 9,
     InvalidLoanPoolConfig = 10,
-    InconsistentPoolState = 11,
-    InvalidLiquidationThreshold = 12,
-    OracleDoesNotKnowAssetPrice = 13,
-    HealthFactorIsLowerThanRequiredThreshold = 14,
+    InvalidLiquidationThreshold = 11,
+    OracleDoesNotKnowAssetPrice = 12,
+    HealthFactorIsLowerThanRequiredThreshold = 13,
 }

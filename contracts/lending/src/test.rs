@@ -45,6 +45,7 @@ fn setup_test_asset<'a>(
         .address();
     let asset_client = StellarAssetClient::new(e, &token_address);
     let token_client = TokenClient::new(e, &token_address);
+
     asset_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
     asset_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
 
@@ -59,19 +60,23 @@ fn setup_test_asset<'a>(
 // We can implement this as a simple macro. Or just return them as a vector.
 fn setup_test_env(e: &Env) -> TestEnv {
     e.mock_all_auths();
+
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
         LendingContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
     let contract_client = LendingContractClient::new(&e, &contract_id);
+
     let admin = Address::generate(&e);
     let user = Address::generate(&e);
+
     let ticker1 = symbol_short!("TCK1");
     let ticker2 = symbol_short!("TCK2");
 
     let asset1 = setup_test_asset(e, &admin, &user, &ticker1);
     let asset2 = setup_test_asset(e, &admin, &user, &ticker2);
+
     // Registering reflector mock contract is enough.
     // In local tests contracts will call it via the same address as in testnet.
     let reflector_address = Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
@@ -122,6 +127,7 @@ fn test_pool_initialization_with_different_name() {
             },
         ..
     } = setup_test_env(&e);
+
     let salt0 = BytesN::from_array(&e, &[0; 32]);
     let salt1 = BytesN::from_array(&e, &[1; 32]);
 
@@ -153,6 +159,7 @@ fn test_pool_not_conflicting_initializations() {
             },
         ..
     } = setup_test_env(&e);
+
     let salt = BytesN::from_array(&e, &[0; 32]);
 
     assert!(contract_client
@@ -210,6 +217,7 @@ fn test_pool_reinitialization_with_salt() {
             },
         ..
     } = setup_test_env(&e);
+
     let salt = BytesN::from_array(&e, &[0; 32]);
 
     assert!(contract_client
@@ -237,9 +245,12 @@ fn test_pool_deposit() {
         user,
         ..
     } = setup_test_env(&e);
+
     let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+
     // Deposit tokens
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
+
     // Check obligation
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address).unwrap();
@@ -264,15 +275,20 @@ fn test_pool_withdraw() {
         user,
         ..
     } = setup_test_env(&e);
+
     let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+
     // Deposit tokens
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
+
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address.clone()).unwrap();
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
+
     // Withdraw half
     contract_client.withdraw(&user, &pool_address, &half_deposit);
+
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address.clone()).unwrap();
     let Pool { supply, .. } = contract_client.get_pool(&pool_address).unwrap();
@@ -282,7 +298,7 @@ fn test_pool_withdraw() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic] // TODO: Where possible add specifics in the #[should_panic] attribute
 fn test_pool_withdraw_overflow() {
     const DEPOSIT_AMOUNT: i128 = 100;
 
@@ -298,13 +314,17 @@ fn test_pool_withdraw_overflow() {
         user,
         ..
     } = setup_test_env(&e);
+
     let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+
     // Deposit tokens
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
+
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address.clone()).unwrap();
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
+
     // Withdraw more than available
     contract_client.withdraw(&user, &pool_address, &(DEPOSIT_AMOUNT + 1));
 }
@@ -333,21 +353,29 @@ fn test_borrow() {
             },
         ..
     } = setup_test_env(&e);
-    // Deposit token 1 as user
+
     let pool_address1 =
         contract_client.initialize_pool(&token_address1, &token_ticker1, &None, &None);
+    let pool_address2 =
+        contract_client.initialize_pool(&token_address2, &token_ticker2, &None, &None);
+
+    // Deposit token 1 as user
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
+
     // TODO: Add get_deposit(pool_address: Address) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address1.clone()).unwrap();
+
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
+
     // Deposit token 2 as admin
-    let pool_address2 =
-        contract_client.initialize_pool(&token_address2, &token_ticker2, &None, &None);
     contract_client.deposit(&admin, &pool_address2, &DEPOSIT_AMOUNT);
+
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&admin).unwrap();
     let deposited_amount = deposits.get(pool_address2.clone()).unwrap();
+
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
+
     // Borrow token 2 as user
     contract_client.borrow(&user, &pool_address1, &half_deposit_amount);
 }
@@ -376,23 +404,32 @@ fn test_borrow_health() {
             },
         ..
     } = setup_test_env(&e);
-    // Deposit token 1 as user
+
     let pool_address1 =
         contract_client.initialize_pool(&token_address1, &token_ticker1, &None, &None);
+    let pool_address2 =
+        contract_client.initialize_pool(&token_address2, &token_ticker2, &None, &None);
+
+    // Deposit token 1 as user
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
+
     // TODO: Add get_deposit(pool_address: Address) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address1.clone()).unwrap();
+
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
+
     // Deposit token 2 as admin
-    let pool_address2 =
-        contract_client.initialize_pool(&token_address2, &token_ticker2, &None, &None);
     contract_client.deposit(&admin, &pool_address2, &DEPOSIT_AMOUNT);
+
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&admin).unwrap();
     let deposited_amount = deposits.get(pool_address2.clone()).unwrap();
+
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
+
     // Borrow token 2 as user
     contract_client.borrow(&user, &pool_address1, &MAX_HEALTHY_BORROW_AMOUNT);
+
     // Borrowing more must result in error
     assert!(contract_client
         .try_borrow(&user, &pool_address1, &1)
@@ -422,10 +459,12 @@ fn test_default_pool_config_interest_rate_calculation() {
         admin,
         ..
     } = setup_test_env(&e);
+
     let pool_address1 =
         contract_client.initialize_pool(&token_address1, &token_ticker1, &None, &None);
     let pool_address2 =
         contract_client.initialize_pool(&token_address2, &token_ticker2, &None, &None);
+
     // Deposit tokens
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
     contract_client.deposit(&admin, &pool_address2, &(10 * &DEPOSIT_AMOUNT)); // x10 in order to not care about the health factor
@@ -433,42 +472,49 @@ fn test_default_pool_config_interest_rate_calculation() {
 
     // 0% UR
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
+
     assert_eq!(interest_rates.borrow_rate_bps, 300);
     assert_eq!(interest_rates.supply_rate_bps, 0);
 
     // 10% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
+
     assert_eq!(interest_rates.borrow_rate_bps, 500);
     assert_eq!(interest_rates.supply_rate_bps, 45);
 
     // 50% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 40) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
+
     assert_eq!(interest_rates.borrow_rate_bps, 1300);
     assert_eq!(interest_rates.supply_rate_bps, 585);
 
     // 80% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 30) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
+
     assert_eq!(interest_rates.borrow_rate_bps, 1900);
     assert_eq!(interest_rates.supply_rate_bps, 1368);
 
     // 90% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
+
     assert_eq!(interest_rates.borrow_rate_bps, 3900);
     assert_eq!(interest_rates.supply_rate_bps, 3159);
 
     // 95% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 5) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
+
     assert_eq!(interest_rates.borrow_rate_bps, 4900);
     assert_eq!(interest_rates.supply_rate_bps, 4189);
 
     // 99% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 4) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
+
     assert_eq!(interest_rates.borrow_rate_bps, 5700);
     assert_eq!(interest_rates.supply_rate_bps, 5078);
 
