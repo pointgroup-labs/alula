@@ -1,5 +1,6 @@
 #![cfg(test)]
 
+use crate::constants::BPS_IN_PERCENT;
 use {
     crate::{
         contract::*,
@@ -54,7 +55,7 @@ fn setup_test_asset<'a>(
     }
 }
 
-// @TODO: Maybe, accept as a parameter the amount of test assets to be created
+// TODO: Maybe, accept as a parameter the amount of test assets to be created
 // We can implement this as a simple macro. Or just return them as a vector.
 fn setup_test_env(e: &Env) -> TestEnv {
     e.mock_all_auths();
@@ -312,7 +313,7 @@ fn test_pool_withdraw_overflow() {
     let deposited_amount = deposits.get(pool_address.clone()).unwrap();
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
-    // Wilthdraw more than available
+    // Withdraw more than available
     contract_client.withdraw(&user, &pool_address, &(DEPOSIT_AMOUNT + 1));
 }
 
@@ -344,7 +345,7 @@ fn test_borrow() {
     let pool_address1 =
         contract_client.initialize_pool(&token_address1, &token_ticker1, &None, &None);
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
-    // @TODO: Add get_deposit(pool_address: Address) method
+    // TODO: Add get_deposit(pool_address: Address) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address1.clone()).unwrap();
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
@@ -387,7 +388,7 @@ fn test_borrow_health() {
     let pool_address1 =
         contract_client.initialize_pool(&token_address1, &token_ticker1, &None, &None);
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
-    // @TODO: Add get_deposit(pool_address: Address) method
+    // TODO: Add get_deposit(pool_address: Address) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address1.clone()).unwrap();
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);

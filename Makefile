@@ -1,0 +1,54 @@
+#!/usr/bin/make
+
+LENDING_CONTRACT := lending
+LENDING_CONTRACT_ID := ABC123
+
+WASM_TARGET_DIR = target/wasm32-unknown-unknown/release
+REFLECTOR_ORACLE_URL = https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
+REFLECTOR_ORACLE_WASM = $(WASM_TARGET_DIR)/reflector_oracle.wasm
+
+.DEFAULT_GOAL: help
+
+.PHONY: help
+help: ## Show this help
+	@printf "\033[33m%s:\033[0m\n" 'Available commands'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+build: build-init ## Build contracts
+	cargo build --release --target wasm32-unknown-unknown -p $(LENDING_CONTRACT)
+
+build-init: ## Build init
+	mkdir -p $(WASM_TARGET_DIR)
+	@if [ ! -f $(REFLECTOR_ORACLE_WASM) ]; then \
+		echo "Downloading reflector oracle WASM file..."; \
+		curl -L $(REFLECTOR_ORACLE_URL) -o $(REFLECTOR_ORACLE_WASM); \
+	else \
+		echo "Reflector oracle WASM file already exists, skipping download."; \
+	fi
+
+build-optimize: ## Optimize contracts
+	mkdir -p target/wasm32-unknown-unknown/optimized
+	stellar contract optimize \
+		--wasm target/wasm32-unknown-unknown/release/$(LENDING_CONTRACT).wasm \
+		--wasm-out target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm
+	cd target/wasm32-unknown-unknown/optimized/ && \
+		for i in *.wasm ; do \
+			ls -l "$$i"; \
+		done
+
+generate-sdk: ## Generate typescript sdk
+	stellar contract bindings typescript --overwrite \
+		--contract-id $(LENDING_CONTRACT_ID) \
+		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/$(LENDING_CONTRACT)-sdk/ \
+		--rpc-url http://localhost:8000 --network-passphrase "Standalone Network ; February 2017" --network Standalone
+
+test: ## Run tests
+	cargo test
+
+fmt: ## Format code using cargo
+	cargo fmt --all
+
+clean: ## Clean build artifacts
+	cargo clean

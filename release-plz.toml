@@ -1,0 +1,44 @@
+[workspace]
+# path of the git-cliff configuration
+changelog_config = "cliff.toml"
+
+# enable changelog updates
+changelog_update = true
+
+# update dependencies with `cargo update`
+dependencies_update = true
+
+# Disable git releases for all packages by default
+git_release_enable = false
+
+# Disable git tags for all packages by default
+git_tag_enable = false
+
+# creates the git release as draft
+git_release_draft = true
+
+# If true, creates the release PR as a draft.
+pr_draft = true
+
+# labels for the release PR
+pr_labels = ["release"]
+
+# disallow updating repositories with uncommitted changes
+allow_dirty = false
+
+# disallow packaging with uncommitted changes
+publish_allow_dirty = false
+
+[[package]]
+name = "lending"
+# Customize the git tag name.
+# Setting for single git tag, see https://release-plz.dev/docs/extra/single-tag
+git_tag_name = "v{{ version }}"
+# Enable git tags for this package
+git_tag_enable = true
+publish = false # disable `cargo publish`
+
+#[[package]]
+#name = "name"
+##git_release_enable = false # enable GitHub releases
+#publish = true # enable `cargo publish`

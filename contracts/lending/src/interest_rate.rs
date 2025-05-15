@@ -1,8 +1,11 @@
-//! `JLending` for now uses kinked interest rates. See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
+//! `JLend` for now uses kinked interest rates.
+//! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
+
+use crate::constants::BPS_IN_PERCENT;
 use {
     crate::{
         error::LendingContractError,
-        storage::{Pool, PoolConfig, BPS_IN_PERCENT},
+        storage::{Pool, PoolConfig},
     },
     soroban_sdk::contracttype,
 };
@@ -35,25 +38,25 @@ impl Pool {
             borrowed < supply,
             "Total borrowed funds cannot be less than supplied funds"
         );
-        // @NB: This means that an importan invariant is broken
+        // NB: This means that an importan invariant is broken
         // if borrowed >= supply {
         //     return Err(LendingContractError::InconsistentPoolState);
         // }
-        // @TODO: think of, maybe, prettifying the computation somehow
+        // TODO: think of, maybe, prettifying the computation somehow
         let optimal_utilization_ratio_scaled = optimal_utilization_ratio_bps / 10;
         // UR is within [0; 1_000]
-        let utiliation_ratio = borrowed
+        let utilization_ratio = borrowed
             .checked_mul(1_000)
             .ok_or(LendingContractError::OverOrUnderflow)?
             .checked_div(supply)
             .ok_or(LendingContractError::OverOrUnderflow)?;
 
-        let borrow_rate_bps = if utiliation_ratio <= optimal_utilization_ratio_scaled {
+        let borrow_rate_bps = if utilization_ratio <= optimal_utilization_ratio_scaled {
             // IR = BR + (UR * 1_000) * Slope1
             base_rate_bps
                 .checked_add(
                     slope1
-                        .checked_mul(utiliation_ratio)
+                        .checked_mul(utilization_ratio)
                         .ok_or(LendingContractError::OverOrUnderflow)?,
                 )
                 .ok_or(LendingContractError::OverOrUnderflow)?
@@ -66,7 +69,7 @@ impl Pool {
                         .ok_or(LendingContractError::OverOrUnderflow)?,
                 )
                 .ok_or(LendingContractError::OverOrUnderflow)?;
-            let post_threshold_rate_bps = utiliation_ratio
+            let post_threshold_rate_bps = utilization_ratio
                 .checked_sub(optimal_utilization_ratio_scaled)
                 .ok_or(LendingContractError::OverOrUnderflow)?
                 .checked_mul(slope2)
@@ -78,7 +81,7 @@ impl Pool {
         };
         let supply_rate_bps = borrow_rate_bps
             .checked_mul(
-                utiliation_ratio
+                utilization_ratio
                     .checked_mul(10_000 - reserve_ratio_bps)
                     .ok_or(LendingContractError::OverOrUnderflow)?,
             )
@@ -93,7 +96,7 @@ impl Pool {
 }
 
 impl PoolConfig {
-    pub(crate) fn is_valid(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         let &PoolConfig {
             base_rate_bps,
             optimal_utilization_ratio_bps,
@@ -105,7 +108,7 @@ impl PoolConfig {
 
         (base_rate_bps > 0) // BR must be > 0%
         && (optimal_utilization_ratio_bps > 0) // OUR must be > 0%
-        && (0..(100*BPS_IN_PERCENT)).contains(&reserve_ratio_bps) // RR must be [0%; 100%)
+        && (0..100*BPS_IN_PERCENT).contains(&reserve_ratio_bps) // RR must be [0%; 100%)
         && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
     }
 }

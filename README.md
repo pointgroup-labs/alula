@@ -1,21 +1,51 @@
-# Soroban Project
+[![Internet Computer portal](https://img.shields.io/badge/STELLAR-grey?logo=stellar&style=for-the-badge)](https://stellar.org/)
+[![GitHub license](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=apache&style=for-the-badge)](LICENSE)
+[![Tests Status](https://img.shields.io/github/actions/workflow/status/mfactory-lab/jlending/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
 
-## Project Structure
+# JLend DeFi Protocol
 
-This repository uses the recommended structure for a Soroban project:
-```text
-.
-├── contracts
-│   └── hello_world
-│       ├── src
-│       │   ├── lib.rs
-│       │   └── test.rs
-│       └── Cargo.toml
-├── Cargo.toml
-└── README.md
+JLend is a decentralized lending and borrowing protocol built on the [Stellar](https://stellar.org/) blockchain,
+allowing users to earn yield on deposits and access liquidity through overcollateralized loans.
+
+## Table of Contents
+
+* [Overview](#overview)
+* [Getting Started](#getting-started)
+* [Roadmap](#roadmap)
+* [Related Projects](#related-projects)
+* [Contributing](#contributing)
+* [License](#license)
+
+## Overview
+
+JLend is a Stellar-native DeFi protocol that creates efficient lending markets where users can:
+
+- Supply assets to earn passive yield
+- Borrow assets against collateral
+- Participate in protocol governance through the `JLEND` token
+
+## Getting Started
+
+Build the contracts with:
+
+```
+make
 ```
 
-- New Soroban contracts can be put in `contracts`, each in their own directory. There is already a `hello_world` contract in there to get you started.
-- If you initialized this project with any other example contracts via `--with-example`, those contracts will be in the `contracts` directory as well.
-- Contracts should have their own `Cargo.toml` files that rely on the top-level `Cargo.toml` workspace for their dependencies.
-- Frontend libraries can be added to the top-level directory as well. If you initialized this project with a frontend template via `--frontend-template` you will have those files already included.
+Run all unit tests and the integration test suite with:
+
+```
+make test
+```
+
+## Related projects
+
+* [Laina](https://github.com/laina-defi/laina)
+
+## Contributing
+
+Contributions are welcome! Please check out our [Contribution Guidelines](CONTRIBUTING.md) for details.
+
+## License
+
+This project is licensed under the [Apache License 2.0](https://opensource.org/licenses/Apache-2.0).

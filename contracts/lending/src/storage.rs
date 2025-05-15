@@ -1,36 +1,29 @@
+use crate::constants::{
+    BPS_IN_PERCENT, DEFAULT_BASE_RATE, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
+    DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+};
 use {
     crate::error::LendingContractError,
     soroban_sdk::{contracttype, Address, Env, Map, Symbol},
 };
 
-// @TODO: Move this to the `interest_rate` module
-pub const BPS_IN_PERCENT: i128 = 100; // 10_000 - 100%
-
-pub const DEFAULT_LIQUIDATION_THRESHOLD: i128 = 80;
-
-const DEFAULT_BASE_RATE: i128 = 3;
-const DEFAULT_OPTIMAL_UTILIZATIONL_RATIO: i128 = 70;
-const DEFAULT_RESERVE_RATIO: i128 = 10;
-const DEFAULT_SLOPE1: i128 = 2;
-const DEFAULT_SLOPE2: i128 = 20;
+pub type PoolAddress = Address;
+pub type UserAddress = Address;
 
 #[contracttype]
 pub struct GlobalState {
     pub admin: Address,
     pub status: bool,
     pub liquidation_threshold_bps: i128,
-    // @TODO: Oracle address + ....
+    // TODO: Oracle address + ....
 }
-
-pub type PoolAddress = Address;
-pub type UserAddress = Address;
 
 #[contracttype]
 pub enum DataKey {
     GlobalState,
     Pool(PoolAddress),
     Obligation(UserAddress),
-    // @TODO: We also must be able to retrieve all pools and all user addresses
+    // TODO: We also must be able to retrieve all pools and all user addresses
 }
 
 #[contracttype]
@@ -64,7 +57,7 @@ impl Default for PoolConfig {
             slope2: DEFAULT_SLOPE2,
             base_rate_bps: DEFAULT_BASE_RATE * BPS_IN_PERCENT,
             reserve_ratio_bps: DEFAULT_RESERVE_RATIO * BPS_IN_PERCENT,
-            optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATIONL_RATIO * BPS_IN_PERCENT,
+            optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATION_RATIO * BPS_IN_PERCENT,
         }
     }
 }
@@ -76,21 +69,21 @@ pub struct Obligation {
 }
 
 #[allow(unused)]
-pub(crate) fn read_global_state(e: &Env) -> GlobalState {
+pub fn read_global_state(e: &Env) -> GlobalState {
     e.storage()
         .instance()
         .get(&DataKey::GlobalState)
         .expect("Global State must be instantiated at this point")
 }
 
-pub(crate) fn write_global_state(e: &Env, global_state: &GlobalState) {
+pub fn write_global_state(e: &Env, global_state: &GlobalState) {
     e.storage()
         .instance()
         .set(&DataKey::GlobalState, global_state);
 }
 
 // --- Pool ---
-pub(crate) fn set_pool(
+pub fn set_pool(
     e: &Env,
     pool_address: &PoolAddress,
     token_address: &Address,
@@ -111,25 +104,25 @@ pub(crate) fn set_pool(
     Ok(())
 }
 
-// @TODO
-// pub(crate) fn set_pool_config(e: &Env, pool_address: &Address, interest_rate_config: PoolConfig) {
+// TODO
+// pub fn set_pool_config(e: &Env, pool_address: &Address, interest_rate_config: PoolConfig) {
 
 //     // Maybe, store interest rate config separately???
 // }
 
-pub(crate) fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
+pub fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
     e.storage()
         .instance()
         .has(&DataKey::Pool(pool_address.clone()))
 }
 
-pub(crate) fn get_pool(e: &Env, pool_address: &PoolAddress) -> Option<Pool> {
+pub fn get_pool(e: &Env, pool_address: &PoolAddress) -> Option<Pool> {
     e.storage()
         .instance()
         .get(&DataKey::Pool(pool_address.clone()))
 }
 
-pub(crate) fn get_pool_ticker(
+pub fn get_pool_ticker(
     e: &Env,
     pool_address: &PoolAddress,
 ) -> Result<Symbol, LendingContractError> {
@@ -138,7 +131,7 @@ pub(crate) fn get_pool_ticker(
     Ok(pool.token_ticker)
 }
 
-pub(crate) fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
+pub fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
     e.storage()
         .instance()
         .set(&DataKey::Pool(pool_address.clone()), pool_data);
@@ -175,19 +168,19 @@ pub(crate) fn adjust_pool_supply(
 }
 
 // --- Obligation ---
-pub(crate) fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
+pub fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
     e.storage()
         .instance()
         .set(&DataKey::Obligation(user.clone()), obligation);
 }
 
-pub(crate) fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
+pub fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
     e.storage()
         .instance()
         .get(&DataKey::Obligation(user.clone()))
 }
 
-pub(crate) fn adjust_deposit(
+pub fn adjust_deposit(
     e: &Env,
     user: &Address,
     pool_address: &PoolAddress,
@@ -209,7 +202,7 @@ pub(crate) fn adjust_deposit(
     Ok(new_deposit_amount)
 }
 
-pub(crate) fn adjust_borrow(
+pub fn adjust_borrow(
     e: &Env,
     user: &Address,
     pool_address: &PoolAddress,
@@ -231,7 +224,7 @@ pub(crate) fn adjust_borrow(
     Ok(new_borrow_amount)
 }
 
-pub(crate) fn deposit_exists(
+pub fn deposit_exists(
     e: &Env,
     user: &Address,
     pool_address: &PoolAddress,
