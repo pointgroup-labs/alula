@@ -16,8 +16,11 @@ help: ## Show this help
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+check: build-init ## Check compilation correctness with cargo
+	cargo check
+
 build: build-init ## Build contracts
-	cargo build --release --target wasm32-unknown-unknown -p $(LENDING_CONTRACT)
+	stellar contract build
 
 build-init: ## Build init
 	mkdir -p $(WASM_TARGET_DIR)
@@ -28,7 +31,7 @@ build-init: ## Build init
 		echo "Reflector oracle WASM file already exists, skipping download."; \
 	fi
 
-build-optimize: ## Optimize contracts
+build-optimize: build ## Optimize contracts
 	mkdir -p target/wasm32-unknown-unknown/optimized
 	stellar contract optimize \
 		--wasm target/wasm32-unknown-unknown/release/$(LENDING_CONTRACT).wasm \
@@ -38,9 +41,8 @@ build-optimize: ## Optimize contracts
 			ls -l "$$i"; \
 		done
 
-generate-sdk: ## Generate typescript sdk
+generate-sdk: build-optimize ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
-		--contract-id $(LENDING_CONTRACT_ID) \
 		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/$(LENDING_CONTRACT)-sdk/ \
 		--rpc-url http://localhost:8000 --network-passphrase "Standalone Network ; February 2017" --network Standalone
 

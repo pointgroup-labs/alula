@@ -56,7 +56,7 @@ impl LendingContract {
     pub fn initialize_pool(
         e: Env,
         token_address: Address,
-        token_ticker: Symbol, // NB: Token Inteface contains a `.symbol()` endpoint, which can be used for retrieving a token's ticker
+        token_ticker: Symbol, // NB: Token Interface contains a `.symbol()` endpoint, which can be used for retrieving a token's ticker
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<PoolAddress, LendingContractError> {
@@ -138,7 +138,7 @@ impl LendingContract {
             return Err(LendingContractError::PoolDoesNotExist);
         }
 
-        // TODO: Rename this, since missleading..
+        // TODO: Rename this, since misleading..
         storage::adjust_borrow(&e, &user, &pool_address, amount)?;
         storage::adjust_pool_borrowed(&e, &pool_address, amount)?;
 

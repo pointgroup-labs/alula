@@ -401,7 +401,7 @@ fn test_borrow_health() {
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
     // Borrow token 2 as user
     contract_client.borrow(&user, &pool_address1, &MAX_HEALTHY_BORROW_AMOUNT);
-    // Borrowing more must resul in error
+    // Borrowing more must result in error
     assert!(contract_client
         .try_borrow(&user, &pool_address1, &1)
         .is_err());
