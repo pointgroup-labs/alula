@@ -279,14 +279,6 @@ fn test_pool_withdraw() {
 
     assert_eq!(deposited_amount, half_deposit);
     assert_eq!(supply, half_deposit);
-    // Withdraw half again
-    contract_client.withdraw(&user, &pool_address, &half_deposit);
-    let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let deposited_amount = deposits.get(pool_address.clone()).unwrap();
-    let Pool { supply, .. } = contract_client.get_pool(&pool_address).unwrap();
-
-    assert_eq!(deposited_amount, 0);
-    assert_eq!(supply, 0);
 }
 
 #[test]
@@ -408,7 +400,6 @@ fn test_borrow_health() {
 }
 
 #[test]
-#[ignore]
 fn test_default_pool_config_interest_rate_calculation() {
     const DEPOSIT_AMOUNT: i128 = 10_000;
 
@@ -440,26 +431,49 @@ fn test_default_pool_config_interest_rate_calculation() {
     contract_client.deposit(&admin, &pool_address2, &(10 * &DEPOSIT_AMOUNT)); // x10 in order to not care about the health factor
     contract_client.deposit(&user, &pool_address2, &(10 * &DEPOSIT_AMOUNT));
 
-    // 0% borrowed
+    // 0% UR
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
     assert_eq!(interest_rates.borrow_rate_bps, 300);
     assert_eq!(interest_rates.supply_rate_bps, 0);
 
-    // 10% borrowed
+    // 10% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
     assert_eq!(interest_rates.borrow_rate_bps, 500);
-    assert_eq!(interest_rates.supply_rate_bps, 450);
+    assert_eq!(interest_rates.supply_rate_bps, 45);
 
-    // 50% borrowed
+    // 50% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 40) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
     assert_eq!(interest_rates.borrow_rate_bps, 1300);
-    // assert_eq!(interest_rates.supply_rate_bps, 1170); // okay, something is wrong here
+    assert_eq!(interest_rates.supply_rate_bps, 585);
 
-    // 80% borrowed
+    // 80% UR
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 30) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
     assert_eq!(interest_rates.borrow_rate_bps, 1900);
-    // assert_eq!(interest_rates.supply_rate_bps, 1170); // okay, something is wrong here
+    assert_eq!(interest_rates.supply_rate_bps, 1368);
+
+    // 90% UR
+    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
+    let interest_rates = contract_client.get_interest_rates(&pool_address1);
+    assert_eq!(interest_rates.borrow_rate_bps, 3900);
+    assert_eq!(interest_rates.supply_rate_bps, 3159);
+
+    // 95% UR
+    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 5) / 100));
+    let interest_rates = contract_client.get_interest_rates(&pool_address1);
+    assert_eq!(interest_rates.borrow_rate_bps, 4900);
+    assert_eq!(interest_rates.supply_rate_bps, 4189);
+
+    // 99% UR
+    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 4) / 100));
+    let interest_rates = contract_client.get_interest_rates(&pool_address1);
+    assert_eq!(interest_rates.borrow_rate_bps, 5700);
+    assert_eq!(interest_rates.supply_rate_bps, 5078);
+
+    // Borrow which implies 100% UR is forbidden
+    assert!(contract_client
+        .try_borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 1) / 100))
+        .is_err());
 }

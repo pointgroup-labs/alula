@@ -38,7 +38,7 @@ impl Pool {
             borrowed < supply,
             "Total borrowed funds cannot be less than supplied funds"
         );
-        // NB: This means that an importan invariant is broken
+        // NB: This means that an important invariant is broken
         // if borrowed >= supply {
         //     return Err(LendingContractError::InconsistentPoolState);
         // }
@@ -51,7 +51,7 @@ impl Pool {
             .checked_div(supply)
             .ok_or(LendingContractError::OverOrUnderflow)?;
 
-        let borrow_rate_bps = if utilization_ratio <= optimal_utilization_ratio_scaled {
+        let borrow_rate_bps = if utilization_ratio < optimal_utilization_ratio_scaled {
             // IR = BR + (UR * 1_000) * Slope1
             base_rate_bps
                 .checked_add(
@@ -86,7 +86,7 @@ impl Pool {
                     .ok_or(LendingContractError::OverOrUnderflow)?,
             )
             .ok_or(LendingContractError::OverOrUnderflow)?
-            / 1_000_000;
+            / 10_000_000;
 
         Ok(InterestRates {
             borrow_rate_bps,

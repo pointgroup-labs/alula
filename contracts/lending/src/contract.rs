@@ -138,6 +138,17 @@ impl LendingContract {
             return Err(LendingContractError::PoolDoesNotExist);
         }
 
+        let Pool {
+            token_address,
+            borrowed,
+            supply,
+            ..
+        } = storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
+
+        if amount >= (supply - borrowed) {
+            return Err(LendingContractError::NotEnoughPoolFunds);
+        }
+
         // TODO: Rename this, since misleading..
         storage::adjust_borrow(&e, &user, &pool_address, amount)?;
         storage::adjust_pool_borrowed(&e, &pool_address, amount)?;
@@ -148,9 +159,6 @@ impl LendingContract {
         if health_factor < HEALTH_FACTOR_THRESHOLD {
             return Err(LendingContractError::HealthFactorIsLowerThanRequiredThreshold);
         }
-
-        let Pool { token_address, .. } =
-            storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
 
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
@@ -271,7 +279,7 @@ impl LendingContract {
             ..
         } = storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
 
-        if amount > (supply - borrowed) {
+        if amount >= (supply - borrowed) {
             return Err(LendingContractError::NotEnoughPoolFunds);
         }
 
