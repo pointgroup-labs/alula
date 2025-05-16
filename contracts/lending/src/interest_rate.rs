@@ -5,9 +5,9 @@ use {
     crate::{
         constants::BPS_IN_PERCENT,
         error::LendingContractError,
-        storage::{Pool, PoolConfig},
+        storage::{self, Accrual, Pool, PoolConfig},
     },
-    soroban_sdk::contracttype,
+    soroban_sdk::{contracttype, Env},
 };
 
 #[derive(Debug)]
@@ -18,6 +18,72 @@ pub struct InterestRates {
 }
 
 impl Pool {
+    pub fn accrue_interest(&self, e: &Env) -> Result<(), LendingContractError> {
+        // TODO: check https://github.com/script3/soroban-fixed-point-math
+        const SCALE_FACTOR: i128 = 100_000_000;
+        const SECONDS_IN_YEAR: i128 = 31_556_926; // TODO: Each second the accrual must happen
+                                                  // what if APY will be changed faster than each second?
+
+        let Accrual {
+            borrow_accrual,
+            supply_accrual,
+            timestamp,
+        } = storage::get_accrual(e).expect("Accrual must be set during contract construction");
+
+        let current_timestamp = e.ledger().timestamp();
+        assert!(current_timestamp >= timestamp); // NB: > or >= ?
+
+        let seconds_passed = current_timestamp - timestamp;
+        let InterestRates {
+            borrow_rate_bps,
+            supply_rate_bps,
+        } = self.get_interest_rates()?;
+
+        let borrow_rate_per_second_scaled = borrow_rate_bps
+            .checked_mul(SCALE_FACTOR)
+            .ok_or(LendingContractError::OverOrUnderflow)?
+            .checked_div(SECONDS_IN_YEAR)
+            .ok_or(LendingContractError::OverOrUnderflow)?;
+
+        let compound_borrow_rate = i128::pow(
+            SCALE_FACTOR
+                .checked_add(borrow_rate_per_second_scaled)
+                .ok_or(LendingContractError::OverOrUnderflow)?,
+            seconds_passed as u32,
+        );
+
+        // A very big number, no??
+        let supply_rate_per_second_scaled = supply_rate_bps
+            .checked_mul(SCALE_FACTOR)
+            .ok_or(LendingContractError::OverOrUnderflow)?
+            .checked_div(SECONDS_IN_YEAR)
+            .ok_or(LendingContractError::OverOrUnderflow)?;
+
+        let compound_supply_rate = i128::pow(
+            SCALE_FACTOR
+                .checked_add(supply_rate_per_second_scaled)
+                .ok_or(LendingContractError::OverOrUnderflow)?,
+            seconds_passed as u32,
+        );
+
+        let new_borrow_accrual = borrow_accrual
+            .checked_mul(compound_borrow_rate)
+            .ok_or(LendingContractError::OverOrUnderflow)?;
+        let new_supply_accrual = supply_accrual
+            .abs()
+            .checked_mul(compound_supply_rate)
+            .ok_or(LendingContractError::OverOrUnderflow)?;
+
+        let new_accrual = Accrual {
+            timestamp: e.ledger().timestamp(),
+            borrow_accrual: new_borrow_accrual,
+            supply_accrual: new_supply_accrual,
+        };
+        storage::set_accrual(e, &new_accrual);
+
+        Ok(())
+    }
+
     pub fn get_interest_rates(&self) -> Result<InterestRates, LendingContractError> {
         let &Pool {
             borrowed,

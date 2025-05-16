@@ -23,6 +23,7 @@ pub enum DataKey {
     GlobalState,
     Pool(PoolAddress),
     Obligation(UserAddress),
+    Accrual,
     // TODO: We also must be able to retrieve all pools and all user addresses
 }
 
@@ -34,7 +35,7 @@ pub struct Pool {
     pub borrowed: i128,
     pub supply: i128,
     pub config: PoolConfig,
-    // <---- available_supply for collateral deposits?
+    // TODO: add available_supply for collateral deposits?
 }
 
 #[contracttype]
@@ -66,6 +67,14 @@ impl Default for PoolConfig {
 pub struct Obligation {
     pub deposits: Map<PoolAddress, i128>,
     pub borrows: Map<PoolAddress, i128>,
+}
+
+#[contracttype]
+#[derive(Debug)]
+pub struct Accrual {
+    pub timestamp: u64,
+    pub borrow_accrual: i128,
+    pub supply_accrual: i128,
 }
 
 #[allow(unused)]
@@ -237,4 +246,12 @@ pub fn deposit_exists(
     } = get_obligation(e, user).ok_or(LendingContractError::ObligationDoesNotExist)?;
 
     Ok(deposits.contains_key(pool_address.clone()))
+}
+
+pub fn set_accrual(e: &Env, accrual: &Accrual) {
+    e.storage().persistent().set(&DataKey::Accrual, accrual)
+}
+
+pub fn get_accrual(e: &Env) -> Option<Accrual> {
+    e.storage().persistent().get(&DataKey::Accrual)
 }
