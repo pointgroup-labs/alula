@@ -2,6 +2,7 @@
 
 use {
     crate::{
+        constants::REFLECTOR_TESTNET_ADDRESS,
         contract::*,
         oracle,
         storage::{Obligation, Pool},
@@ -13,8 +14,6 @@ use {
         Address, BytesN, Env, String, Symbol,
     },
 };
-
-const REFLECTOR_TESTNET_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
 const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = 1_000_000;
 const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
@@ -473,52 +472,52 @@ fn test_default_pool_config_interest_rate_calculation() {
     // 0% UR
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
 
-    assert_eq!(interest_rates.borrow_rate_bps, 300);
+    assert_eq!(interest_rates.borrow_rate_bps, 3_00);
     assert_eq!(interest_rates.supply_rate_bps, 0);
 
-    // 10% UR
+    // 10% UR (+10)
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
 
-    assert_eq!(interest_rates.borrow_rate_bps, 500);
+    assert_eq!(interest_rates.borrow_rate_bps, 5_00);
     assert_eq!(interest_rates.supply_rate_bps, 45);
 
-    // 50% UR
+    // 50% UR (+40)
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 40) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
 
-    assert_eq!(interest_rates.borrow_rate_bps, 1300);
-    assert_eq!(interest_rates.supply_rate_bps, 585);
+    assert_eq!(interest_rates.borrow_rate_bps, 13_00);
+    assert_eq!(interest_rates.supply_rate_bps, 5_85);
 
-    // 80% UR
+    // 80% UR (+30)
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 30) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
 
-    assert_eq!(interest_rates.borrow_rate_bps, 1900);
-    assert_eq!(interest_rates.supply_rate_bps, 1368);
+    assert_eq!(interest_rates.borrow_rate_bps, 19_00);
+    assert_eq!(interest_rates.supply_rate_bps, 13_68);
 
-    // 90% UR
+    // 90% UR (+10)
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
 
-    assert_eq!(interest_rates.borrow_rate_bps, 3900);
-    assert_eq!(interest_rates.supply_rate_bps, 3159);
+    assert_eq!(interest_rates.borrow_rate_bps, 39_00);
+    assert_eq!(interest_rates.supply_rate_bps, 31_59);
 
-    // 95% UR
+    // 95% UR (+5)
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 5) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
 
-    assert_eq!(interest_rates.borrow_rate_bps, 4900);
-    assert_eq!(interest_rates.supply_rate_bps, 4189);
+    assert_eq!(interest_rates.borrow_rate_bps, 49_00);
+    assert_eq!(interest_rates.supply_rate_bps, 41_89);
 
-    // 99% UR
+    // 99% UR (+4)
     contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 4) / 100));
     let interest_rates = contract_client.get_interest_rates(&pool_address1);
 
-    assert_eq!(interest_rates.borrow_rate_bps, 5700);
-    assert_eq!(interest_rates.supply_rate_bps, 5078);
+    assert_eq!(interest_rates.borrow_rate_bps, 57_00);
+    assert_eq!(interest_rates.supply_rate_bps, 50_78);
 
-    // Borrow which implies 100% UR is forbidden
+    // Borrow which implies 100% UR is forbidden (+1)
     assert!(contract_client
         .try_borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 1) / 100))
         .is_err());

@@ -1,6 +1,6 @@
-use crate::constants::{BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD, REFLECTOR_TESTNET_ADDRESS};
 use {
     crate::{
+        constants::{BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD, REFLECTOR_TESTNET_ADDRESS},
         error::LendingContractError,
         interest_rate::InterestRates,
         oracle,
