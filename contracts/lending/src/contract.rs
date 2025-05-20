@@ -1,10 +1,12 @@
 use {
     crate::{
-        constants::{BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD, REFLECTOR_TESTNET_ADDRESS},
-        error::LendingContractError,
-        interest_rate::InterestRates,
+        constants::{
+            LCError, ACCRUAL_INIT_VALUE, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
+            REFLECTOR_TESTNET_ADDRESS,
+        },
+        interest_rate::CompoundRates,
         oracle,
-        storage::{self, GlobalState, Obligation, Pool, PoolAddress, PoolConfig},
+        storage::{self, Accrual, GlobalState, Obligation, Pool, PoolAddress, PoolConfig},
     },
     soroban_sdk::{
         contract, contractimpl, symbol_short, token, Address, BytesN, Env, String, Symbol,
@@ -20,24 +22,46 @@ impl LendingContract {
         e: Env,
         admin: Address,
         liquidation_threshold: Option<i128>,
-    ) -> Result<(), LendingContractError> {
+    ) -> Result<(), LCError> {
         let liquidation_threshold = if let Some(lt) = liquidation_threshold {
             if lt <= 0 || lt > 100 {
-                return Err(LendingContractError::InvalidLiquidationThreshold);
+                return Err(LCError::InvalidLiquidationThreshold);
             }
             lt
         } else {
             DEFAULT_LIQUIDATION_THRESHOLD
         };
         let liquidation_threshold_bps = liquidation_threshold * BPS_IN_PERCENT;
+
         let global_state = GlobalState {
             admin,
             status: true,
             liquidation_threshold_bps,
         };
-        storage::write_global_state(&e, &global_state);
+
+        let accrual = Accrual {
+            timestamp: e.ledger().timestamp(),
+            borrow_accrual: ACCRUAL_INIT_VALUE,
+            supply_accrual: ACCRUAL_INIT_VALUE,
+        };
+
+        storage::set_global_state(&e, &global_state);
+        storage::set_accrual(&e, &accrual);
 
         Ok(())
+    }
+
+    pub fn test_accrue(
+        e: Env,
+        pool_address: Address,
+        seconds_passed: u64,
+    ) -> Result<(i128, i128), LCError> {
+        let pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
+        pool.accrue_interest(&e, seconds_passed)?;
+        let accrual =
+            storage::get_accrual(&e).expect("Accrual must be set during contract construction");
+
+        Ok((accrual.borrow_accrual, accrual.supply_accrual))
     }
 
     // TODO: Experiment more with oracle
@@ -58,7 +82,7 @@ impl LendingContract {
         token_ticker: Symbol, // NB: Token Interface contains a `.symbol()` endpoint, which can be used for retrieving a token's ticker
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
-    ) -> Result<PoolAddress, LendingContractError> {
+    ) -> Result<PoolAddress, LCError> {
         let pool_address: PoolAddress = if let Some(salt) = salt {
             // TODO: Check some other ways of deriving an address
             e.deployer()
@@ -69,12 +93,12 @@ impl LendingContract {
         };
 
         if storage::pool_exists(&e, &pool_address) {
-            return Err(LendingContractError::PoolAlreadyExists);
+            return Err(LCError::PoolAlreadyExists);
         }
 
         let pool_config = if let Some(config) = pool_config {
             if !config.is_valid() {
-                return Err(LendingContractError::InvalidLoanPoolConfig);
+                return Err(LCError::InvalidLoanPoolConfig);
             }
 
             config
@@ -97,15 +121,15 @@ impl LendingContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LendingContractError> {
+    ) -> Result<(), LCError> {
         user.require_auth();
 
         if amount <= 0 {
-            return Err(LendingContractError::NonPositiveDeposit);
+            return Err(LCError::NonPositiveDeposit);
         }
 
         if !storage::pool_exists(&e, &pool_address) {
-            return Err(LendingContractError::PoolDoesNotExist);
+            return Err(LCError::PoolDoesNotExist);
         }
 
         let Pool { token_address, .. } =
@@ -125,15 +149,15 @@ impl LendingContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LendingContractError> {
+    ) -> Result<(), LCError> {
         user.require_auth();
 
         if amount <= 0 {
-            return Err(LendingContractError::NonPositiveDeposit);
+            return Err(LCError::NonPositiveDeposit);
         }
 
         if !storage::pool_exists(&e, &pool_address) {
-            return Err(LendingContractError::PoolDoesNotExist);
+            return Err(LCError::PoolDoesNotExist);
         }
 
         let Pool {
@@ -144,7 +168,7 @@ impl LendingContract {
         } = storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
 
         if amount >= (supply - borrowed) {
-            return Err(LendingContractError::NotEnoughPoolFunds);
+            return Err(LCError::NotEnoughPoolFunds);
         }
 
         // TODO: Rename this, since misleading..
@@ -155,7 +179,7 @@ impl LendingContract {
 
         let health_factor: i128 = Self::compute_health_factor(&e, &user)?;
         if health_factor < HEALTH_FACTOR_THRESHOLD {
-            return Err(LendingContractError::HealthFactorIsLowerThanRequiredThreshold);
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
         }
 
         let token_client = token::Client::new(&e, &token_address);
@@ -164,14 +188,14 @@ impl LendingContract {
         Ok(())
     }
 
-    fn compute_health_factor(e: &Env, user: &Address) -> Result<i128, LendingContractError> {
+    fn compute_health_factor(e: &Env, user: &Address) -> Result<i128, LCError> {
         let Obligation {
             deposits, borrows, ..
-        } = storage::get_obligation(e, user).ok_or(LendingContractError::ObligationDoesNotExist)?;
+        } = storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)?;
         let GlobalState {
             liquidation_threshold_bps,
             ..
-        } = storage::read_global_state(e);
+        } = storage::get_global_state(e);
         // HF = ((Collateral_Value1 + ... + Collateral_ValueN) * LT) / (Borrow_Value1 + ... + BorrowValueM)
         let reflector_address =
             Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
@@ -187,15 +211,15 @@ impl LendingContract {
             let asset = oracle::Asset::Other(ticker); // TODO: What about XLM?
             let lastprice = reflector_contract
                 .lastprice(&asset)
-                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)?;
+                .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
             collateral_sum_value = collateral_sum_value
                 .checked_add(
                     lastprice
                         .price
                         .checked_mul(amount)
-                        .ok_or(LendingContractError::OverOrUnderflow)?,
+                        .ok_or(LCError::OverOrUnderflow)?,
                 )
-                .ok_or(LendingContractError::OverOrUnderflow)?;
+                .ok_or(LCError::OverOrUnderflow)?;
         }
 
         for (pool_address, amount) in borrows {
@@ -204,23 +228,23 @@ impl LendingContract {
             let asset = oracle::Asset::Other(ticker);
             let lastprice = reflector_contract
                 .lastprice(&asset)
-                .ok_or(LendingContractError::OracleDoesNotKnowAssetPrice)?;
+                .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
             borrow_sum_value = borrow_sum_value
                 .checked_add(
                     lastprice
                         .price
                         .checked_mul(amount)
-                        .ok_or(LendingContractError::OverOrUnderflow)?,
+                        .ok_or(LCError::OverOrUnderflow)?,
                 )
-                .ok_or(LendingContractError::OverOrUnderflow)?;
+                .ok_or(LCError::OverOrUnderflow)?;
         }
 
         let numerator = collateral_sum_value
             .checked_mul(liquidation_threshold_bps)
-            .ok_or(LendingContractError::OverOrUnderflow)?;
+            .ok_or(LCError::OverOrUnderflow)?;
         let health_factor = numerator
             .checked_div(borrow_sum_value)
-            .ok_or(LendingContractError::OverOrUnderflow)?;
+            .ok_or(LCError::OverOrUnderflow)?;
 
         Ok(health_factor)
     }
@@ -229,13 +253,13 @@ impl LendingContract {
     // and write unit test for it..
 
     #[allow(unused)]
-    pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LendingContractError> {
+    pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LCError> {
         // How should this look?
         todo!()
     }
 
     #[allow(unused)]
-    pub fn repay(e: Env, pool_address: Address) -> Result<(), LendingContractError> {
+    pub fn repay(e: Env, pool_address: Address) -> Result<(), LCError> {
         // How should this look?
         todo!()
     }
@@ -255,19 +279,19 @@ impl LendingContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LendingContractError> {
+    ) -> Result<(), LCError> {
         user.require_auth();
 
         if amount <= 0 {
-            return Err(LendingContractError::NonPositiveWithdraw);
+            return Err(LCError::NonPositiveWithdraw);
         }
 
         if !storage::pool_exists(&e, &pool_address) {
-            return Err(LendingContractError::PoolDoesNotExist);
+            return Err(LCError::PoolDoesNotExist);
         }
 
         if !storage::deposit_exists(&e, &user, &pool_address)? {
-            return Err(LendingContractError::DepositDoesNotExist);
+            return Err(LCError::DepositDoesNotExist);
         }
 
         let Pool {
@@ -278,7 +302,7 @@ impl LendingContract {
         } = storage::get_pool(&e, &pool_address).expect("Pool must exist at this point");
 
         if amount >= (supply - borrowed) {
-            return Err(LendingContractError::NotEnoughPoolFunds);
+            return Err(LCError::NotEnoughPoolFunds);
         }
 
         storage::adjust_pool_supply(&e, &pool_address, -amount)?;
@@ -298,13 +322,9 @@ impl LendingContract {
         storage::get_pool(&e, &pool_address)
     }
 
-    pub fn get_interest_rates(
-        e: Env,
-        pool_address: Address,
-    ) -> Result<InterestRates, LendingContractError> {
-        let pool =
-            storage::get_pool(&e, &pool_address).ok_or(LendingContractError::PoolDoesNotExist)?;
+    pub fn get_apys(e: Env, pool_address: Address) -> Result<CompoundRates, LCError> {
+        let pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
-        pool.get_interest_rates()
+        pool.get_apys()
     }
 }

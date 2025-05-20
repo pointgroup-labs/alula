@@ -9,6 +9,7 @@ crate-type = ["lib", "cdylib"]
 doctest = true
 
 [dependencies]
+soroban-fixed-point-math = "1.3.0"
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]

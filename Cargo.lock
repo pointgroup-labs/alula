@@ -723,6 +723,7 @@ dependencies = [
 name = "lending"
 version = "0.0.0"
 dependencies = [
+ "soroban-fixed-point-math",
  "soroban-sdk",
 ]
 
@@ -1163,6 +1164,15 @@ dependencies = [
  "serde_json",
  "stellar-xdr",
  "syn 2.0.101",
+]
+
+[[package]]
+name = "soroban-fixed-point-math"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96667fe060746279499e44bd9636e195191894324124f1368e0ab115a143cf62"
+dependencies = [
+ "soroban-sdk",
 ]
 
 [[package]]
