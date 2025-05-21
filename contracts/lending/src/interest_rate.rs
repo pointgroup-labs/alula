@@ -4,7 +4,7 @@
 use {
     crate::{
         constants::{LCError, ACCRUAL_INIT_VALUE, BPS_IN_PERCENT, SECONDS_IN_YEAR},
-        storage::{self, Accrual, Pool, PoolConfig},
+        storage::{Accrual, Pool, PoolConfig},
     },
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, Env},
@@ -12,11 +12,61 @@ use {
 
 const SCALED_ONE: i128 = ACCRUAL_INIT_VALUE;
 
+/// Interest rate multipliers presented as (1 + xxx) where `xxx` is a compound interest rate.
+/// The real multiplier(e.g. 1.32, 2.53, etc) is scaled up with [`SCALED_ONE`] value.
+///
+/// # Examples:
+/// ```
+/// use lending::interest_rate::{CompoundRates, CompoundRateMultipliers};
+///
+/// let multipliers = CompoundRateMultipliers {
+///     borrow_multiplier: 132060004800, // x 1.3206
+///     supply_multiplier: 100000000000  // x 1.0
+/// };
+///
+/// let compound_rates: CompoundRates = multipliers.try_into().unwrap();
+///
+/// assert_eq!(compound_rates.borrow_rate_bps, 32_06);
+/// assert_eq!(compound_rates.supply_rate_bps, 00_00);
+///
+/// ```
+#[derive(Debug)]
+#[contracttype]
+pub struct CompoundRateMultipliers {
+    pub borrow_multiplier: i128,
+    pub supply_multiplier: i128,
+}
+
+/// Compound interest rates represented in basis points
 #[derive(Debug)]
 #[contracttype]
 pub struct CompoundRates {
-    pub borrow_rate: i128,
-    pub supply_rate: i128,
+    pub borrow_rate_bps: u32,
+    pub supply_rate_bps: u32,
+}
+
+impl TryFrom<CompoundRateMultipliers> for CompoundRates {
+    type Error = LCError;
+
+    fn try_from(val: CompoundRateMultipliers) -> Result<Self, Self::Error> {
+        let CompoundRateMultipliers {
+            borrow_multiplier,
+            supply_multiplier,
+        } = val;
+
+        let borrow_multiplier_bps = (borrow_multiplier / (SCALED_ONE / 10_000)) as u32;
+        let supply_multiplier_bps = (supply_multiplier / (SCALED_ONE / 10_000)) as u32;
+
+        let borrow_rate_bps = borrow_multiplier_bps
+            .checked_sub(10_000)
+            .ok_or(LCError::OverOrUnderflow)?;
+        let supply_rate_bps = supply_multiplier_bps.checked_sub(10_000).unwrap_or(0);
+
+        Ok(Self {
+            borrow_rate_bps,
+            supply_rate_bps,
+        })
+    }
 }
 
 /// O(log(n)) algorithm for quick exponentiation
@@ -36,28 +86,27 @@ fn binary_power(base: i128, mut exponent: u64, denominator: i128) -> i128 {
     result
 }
 impl Pool {
-    pub fn accrue_interest(&self, e: &Env, seconds_passed: u64) -> Result<(), LCError> {
+    pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         let Accrual {
             timestamp,
             borrow_accrual,
             supply_accrual,
-        } = storage::get_accrual(e).expect("Accrual must be set during contract construction");
+        } = self.accrual;
 
         let current_timestamp = e.ledger().timestamp();
         assert!(current_timestamp >= timestamp);
-        // let seconds_passed = current_timestamp - timestamp; // TODO: Add after fixing TTL issue
-        // let seconds_passed: u64 = SECONDS_IN_YEAR;
+        let seconds_passed = current_timestamp - timestamp;
 
-        let CompoundRates {
-            borrow_rate,
-            supply_rate,
-        } = self.get_compound_interest_rates(seconds_passed)?;
+        let CompoundRateMultipliers {
+            borrow_multiplier,
+            supply_multiplier,
+        } = self.get_compound_rate_multipliers(seconds_passed)?;
 
         let new_borrow_accrual = borrow_accrual
-            .fixed_mul_ceil(borrow_rate, SCALED_ONE)
+            .fixed_mul_ceil(borrow_multiplier, SCALED_ONE)
             .ok_or(LCError::OverOrUnderflow)?;
         let new_supply_accrual = supply_accrual
-            .fixed_mul_ceil(supply_rate, SCALED_ONE)
+            .fixed_mul_ceil(supply_multiplier, SCALED_ONE)
             .ok_or(LCError::OverOrUnderflow)?;
 
         let new_accrual = Accrual {
@@ -65,43 +114,56 @@ impl Pool {
             borrow_accrual: new_borrow_accrual,
             supply_accrual: new_supply_accrual,
         };
-        storage::set_accrual(e, &new_accrual);
+        self.accrual = new_accrual;
 
         Ok(())
     }
 
-    pub fn get_apys(&self) -> Result<CompoundRates, LCError> {
-        self.get_compound_interest_rates(SECONDS_IN_YEAR)
+    pub fn get_apy(&self) -> Result<CompoundRates, LCError> {
+        self.get_compound_rates(SECONDS_IN_YEAR)
     }
 
-    fn get_compound_interest_rates(&self, seconds_passed: u64) -> Result<CompoundRates, LCError> {
+    fn get_compound_rates(&self, seconds_passed: u64) -> Result<CompoundRates, LCError> {
+        self.get_compound_rate_multipliers(seconds_passed)?
+            .try_into()
+    }
+
+    fn get_compound_rate_multipliers(
+        &self,
+        seconds_passed: u64,
+    ) -> Result<CompoundRateMultipliers, LCError> {
         let borrow_interest_rate = self.get_interest_rate()?;
 
         let per_second_growth_factor = SCALED_ONE + borrow_interest_rate; // e.g. 1,00000000xxx, where `xxx` is the interest rate
-        let borrow_compound_interest_rate =
-            binary_power(per_second_growth_factor, seconds_passed, SCALED_ONE);
+        let borrow_multiplier = binary_power(per_second_growth_factor, seconds_passed, SCALED_ONE);
 
         let &Pool {
             borrowed, supply, ..
         } = self;
 
-        // TODO: Comment
-        let utilization_ratio_scaled = borrowed
-            .checked_mul(SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)?
-            .checked_div(supply)
-            .ok_or(LCError::OverOrUnderflow)?;
+        let supply_multiplier = if supply == 0 {
+            /* Is zero, since if a pool doesn't yet have a supply, its next APY update must be
+            because as a `deposit` which implies that its compound supply interest will be set to 0 regardless */
+            0
+        } else {
+            // TODO: Comment
+            let utilization_ratio_scaled = borrowed
+                .checked_mul(SCALED_ONE)
+                .ok_or(LCError::OverOrUnderflow)?
+                .checked_div(supply)
+                .ok_or(LCError::OverOrUnderflow)?;
 
-        // TODO: Start accounting reserve ratio
-        let supply_compound_interest_rate = (borrow_compound_interest_rate - SCALED_ONE)
-            .fixed_mul_ceil(utilization_ratio_scaled, SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)?
-            .checked_add(SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)?;
+            // TODO: Start accounting reserve ratio
+            (borrow_multiplier - SCALED_ONE)
+                .fixed_mul_ceil(utilization_ratio_scaled, SCALED_ONE)
+                .ok_or(LCError::OverOrUnderflow)?
+                .checked_add(SCALED_ONE)
+                .ok_or(LCError::OverOrUnderflow)?
+        };
 
-        Ok(CompoundRates {
-            borrow_rate: borrow_compound_interest_rate,
-            supply_rate: supply_compound_interest_rate,
+        Ok(CompoundRateMultipliers {
+            borrow_multiplier,
+            supply_multiplier,
         })
     }
 
@@ -120,8 +182,12 @@ impl Pool {
             ..
         } = self;
 
+        if supply == 0 {
+            return Ok(base_rate_bps);
+        }
+
         assert!(
-            borrowed < supply,
+            borrowed <= supply,
             "Total borrowed funds cannot be less than supplied funds"
         );
         // TODO: think of, maybe, prettifying the computation somehow

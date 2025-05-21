@@ -39,29 +39,8 @@ impl LendingContract {
             liquidation_threshold_bps,
         };
 
-        let accrual = Accrual {
-            timestamp: e.ledger().timestamp(),
-            borrow_accrual: ACCRUAL_INIT_VALUE,
-            supply_accrual: ACCRUAL_INIT_VALUE,
-        };
-
         storage::set_global_state(&e, &global_state);
-        storage::set_accrual(&e, &accrual);
-
         Ok(())
-    }
-
-    pub fn test_accrue(
-        e: Env,
-        pool_address: Address,
-        seconds_passed: u64,
-    ) -> Result<(i128, i128), LCError> {
-        let pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
-        pool.accrue_interest(&e, seconds_passed)?;
-        let accrual =
-            storage::get_accrual(&e).expect("Accrual must be set during contract construction");
-
-        Ok((accrual.borrow_accrual, accrual.supply_accrual))
     }
 
     // TODO: Experiment more with oracle
@@ -96,7 +75,7 @@ impl LendingContract {
             return Err(LCError::PoolAlreadyExists);
         }
 
-        let pool_config = if let Some(config) = pool_config {
+        let config = if let Some(config) = pool_config {
             if !config.is_valid() {
                 return Err(LCError::InvalidLoanPoolConfig);
             }
@@ -105,13 +84,24 @@ impl LendingContract {
         } else {
             Default::default()
         };
-        storage::set_pool(
-            &e,
-            &pool_address,
-            &token_address,
-            &token_ticker,
-            pool_config,
-        )?;
+
+        // Accrual increase depends on the interest rate, so it must be stored and updated separately for each loan pool
+        let accrual = Accrual {
+            timestamp: e.ledger().timestamp(),
+            borrow_accrual: ACCRUAL_INIT_VALUE,
+            supply_accrual: ACCRUAL_INIT_VALUE,
+        };
+
+        let pool = Pool {
+            token_address,
+            token_ticker,
+            borrowed: 0,
+            supply: 0,
+            config,
+            accrual,
+        };
+
+        storage::set_pool(&e, &pool_address, &pool)?;
 
         Ok(pool_address)
     }
@@ -250,13 +240,7 @@ impl LendingContract {
     }
 
     // TODO: Would also be good to separate `health_factor` into a separate method
-    // and write unit test for it..
-
-    #[allow(unused)]
-    pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LCError> {
-        // How should this look?
-        todo!()
-    }
+    // and write unit test for it...
 
     #[allow(unused)]
     pub fn repay(e: Env, pool_address: Address) -> Result<(), LCError> {
@@ -322,9 +306,18 @@ impl LendingContract {
         storage::get_pool(&e, &pool_address)
     }
 
-    pub fn get_apys(e: Env, pool_address: Address) -> Result<CompoundRates, LCError> {
+    pub fn get_apy(e: Env, pool_address: Address) -> Result<CompoundRates, LCError> {
         let pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
-        pool.get_apys()
+        pool.get_apy()
+    }
+
+    pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LCError> {
+        let mut pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
+
+        pool.accrue_interest(&e)?;
+        storage::set_pool(&e, &pool_address, &pool)?;
+
+        Ok(())
     }
 }

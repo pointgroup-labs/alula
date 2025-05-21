@@ -4,6 +4,7 @@ use {
     crate::{
         constants::REFLECTOR_TESTNET_ADDRESS,
         contract::*,
+        interest_rate::CompoundRates,
         oracle,
         storage::{Obligation, Pool},
     },
@@ -14,6 +15,8 @@ use {
         Address, BytesN, Env, String, Symbol,
     },
 };
+
+extern crate std;
 
 const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = 1_000_000;
 const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
@@ -57,6 +60,8 @@ fn setup_test_asset<'a>(
 
 // TODO: Maybe, accept as a parameter the amount of test assets to be created
 // We can implement this as a simple macro. Or just return them as a vector.
+
+// TODO: Check blend test fixtures...
 fn setup_test_env(e: &Env) -> TestEnv {
     e.mock_all_auths();
 
@@ -436,121 +441,78 @@ fn test_borrow_health() {
 }
 
 #[test]
-#[ignore]
-fn test_default_pool_config_interest_rate_calculation() {
-    const DEPOSIT_AMOUNT: i128 = 10_000;
-
+fn test_interest_rates() {
+    const DEPOSIT_AMOUNT: i128 = 10_00;
     let e = Env::default();
+
     let TestEnv {
         contract_client,
         asset1:
             TestAssetSetup {
-                token_address: token_address1,
-                token_ticker: token_ticker1,
+                token_address: token_address_1,
+                token_ticker: token_ticker_1,
                 ..
             },
         asset2:
             TestAssetSetup {
-                token_address: token_address2,
-                token_ticker: token_ticker2,
+                token_address: token_address_2,
+                token_ticker: token_ticker_2,
                 ..
             },
         user,
-        admin,
         ..
     } = setup_test_env(&e);
 
     let pool_address1 =
-        contract_client.initialize_pool(&token_address1, &token_ticker1, &None, &None);
+        contract_client.initialize_pool(&token_address_1, &token_ticker_1, &None, &None);
     let pool_address2 =
-        contract_client.initialize_pool(&token_address2, &token_ticker2, &None, &None);
+        contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
 
-    // Deposit tokens
+    // Deposit in a different pool in order to not care about Health Factor
+    contract_client.deposit(&user, &pool_address2, &DEPOSIT_AMOUNT);
+
+    // O% UR
+    let CompoundRates {
+        borrow_rate_bps: borrow_apy,
+        supply_rate_bps: supply_apy,
+    } = contract_client.get_apy(&pool_address1);
+    assert_eq!(borrow_apy, 320);
+    assert_eq!(supply_apy, 0);
+
+    // 50% UR
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
-    contract_client.deposit(&admin, &pool_address2, &(10 * &DEPOSIT_AMOUNT)); // x10 in order to not care about the health factor
-    contract_client.deposit(&user, &pool_address2, &(10 * &DEPOSIT_AMOUNT));
+    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 5) / 10));
 
-    // TODO: Requires fixing storage TTL extension
-    // e.ledger().with_mut(|li| {
-    //     li.sequence_number = 100_000 + 100_000;
-    //     li.timestamp = 1 + 31_556_926;
-    // });
+    contract_client.accrue_interest(&pool_address1);
+    let CompoundRates {
+        borrow_rate_bps: borrow_apy,
+        supply_rate_bps: supply_apy,
+    } = contract_client.get_apy(&pool_address1);
 
-    // // 0% UR
-    // let interest_rates = contract_client.get_apys(&pool_address1);
-    // std::dbg!(interest_rates);
-    // // let (b_accrual, s_accrual) = contract_client.test_accrue(&pool_address1, &SECONDS_IN_YEAR);
-    // // std::dbg!(b_accrual, s_accrual);
+    assert_eq!(borrow_apy, 2084);
+    assert_eq!(supply_apy, 1042);
 
-    // // assert_eq!(interest_rates.borrow_rate_bps, 3_00);
-    // // assert_eq!(interest_rates.supply_rate_bps, 0);
+    // 80% UR
+    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 3) / 10));
 
-    // // 10% UR (+10)
-    // contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
-    // let interest_rates = contract_client.get_apys(&pool_address1);
-    // std::dbg!(interest_rates);
+    contract_client.accrue_interest(&pool_address1);
+    let CompoundRates {
+        borrow_rate_bps: borrow_apy,
+        supply_rate_bps: supply_apy,
+    } = contract_client.get_apy(&pool_address1);
 
-    // // let (b_accrual, s_accrual) = contract_client.test_accrue(&pool_address1, &SECONDS_IN_YEAR);
-    // // std::dbg!(b_accrual, s_accrual);
-    // // assert_eq!(interest_rates.borrow_rate_bps, 5_00);
-    // // assert_eq!(interest_rates.supply_rate_bps, 45);
+    assert_eq!(borrow_apy, 3284);
+    assert_eq!(supply_apy, 2627);
 
-    // // 50% UR (+40)
-    // contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 40) / 100));
-    // let interest_rates = contract_client.get_apys(&pool_address1);
-    // std::dbg!(interest_rates);
-    // // let (b_accrual, s_accrual) = contract_client.test_accrue(&pool_address1, &SECONDS_IN_YEAR);
-    // // std::dbg!(b_accrual, s_accrual);
+    // 95% UR
+    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 15) / 100));
 
-    // // assert_eq!(interest_rates.borrow_rate_bps, 13_00);
-    // // assert_eq!(interest_rates.supply_rate_bps, 5_85);
+    contract_client.accrue_interest(&pool_address1);
+    let CompoundRates {
+        borrow_rate_bps: borrow_apy,
+        supply_rate_bps: supply_apy,
+    } = contract_client.get_apy(&pool_address1);
 
-    // // 80% UR (+30)
-    // contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 30) / 100));
-    // let interest_rates = contract_client.get_apys(&pool_address1);
-    // let (b_accrual, s_accrual) = contract_client.test_accrue(&pool_address1, &SECONDS_IN_YEAR);
-    // std::dbg!(interest_rates);
-
-    // // std::dbg!(b_accrual, s_accrual);
-
-    // // assert_eq!(interest_rates.borrow_rate_bps, 19_00);
-    // // assert_eq!(interest_rates.supply_rate_bps, 13_68);
-
-    // // 90% UR (+10)
-    // contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 10) / 100));
-    // let interest_rates = contract_client.get_apys(&pool_address1);
-    // let (b_accrual, s_accrual) = contract_client.test_accrue(&pool_address1, &SECONDS_IN_YEAR);
-    // std::dbg!(interest_rates);
-
-    // // std::dbg!(b_accrual, s_accrual);
-
-    // // assert_eq!(interest_rates.borrow_rate_bps, 39_00);
-    // // assert_eq!(interest_rates.supply_rate_bps, 31_59);
-
-    // // 95% UR (+5)
-    // contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 5) / 100));
-    // let interest_rates = contract_client.get_apys(&pool_address1);
-    // let (b_accrual, s_accrual) = contract_client.test_accrue(&pool_address1, &SECONDS_IN_YEAR);
-    // std::dbg!(interest_rates);
-
-    // // std::dbg!(b_accrual, s_accrual);
-
-    // // assert_eq!(interest_rates.borrow_rate_bps, 49_00);
-    // // assert_eq!(interest_rates.supply_rate_bps, 41_89);
-
-    // // 99% UR (+4)
-    // contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 4) / 100));
-    // let interest_rates = contract_client.get_apys(&pool_address1);
-    // let (b_accrual, s_accrual) = contract_client.test_accrue(&pool_address1, &SECONDS_IN_YEAR);
-    // std::dbg!(interest_rates);
-
-    // // std::dbg!(b_accrual, s_accrual);
-
-    // // assert_eq!(interest_rates.borrow_rate_bps, 57_00);
-    // // assert_eq!(interest_rates.supply_rate_bps, 50_78);
-
-    // // Borrow which implies 100% UR is forbidden (+1)
-    // assert!(contract_client
-    //     .try_borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 1) / 100))
-    //     .is_err());
+    assert_eq!(borrow_apy, 11326);
+    assert_eq!(supply_apy, 10760);
 }

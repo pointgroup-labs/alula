@@ -1,7 +1,8 @@
 use {
     crate::constants::{
         LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE, DEFAULT_OPTIMAL_UTILIZATION_RATIO,
-        DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+        DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2, INDIVIDUAL_BUMP,
+        INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP, SHARED_THRESHOLD,
     },
     soroban_sdk::{contracttype, Address, Env, Map, Symbol},
 };
@@ -35,6 +36,7 @@ pub struct Pool {
     pub supply: i128,
     pub config: PoolConfig,
     // TODO: add available_supply for collateral deposits?
+    pub accrual: Accrual,
 }
 
 #[contracttype]
@@ -76,8 +78,31 @@ pub struct Accrual {
     pub supply_accrual: i128,
 }
 
+/// Instance bumper
+pub fn extend_instance(e: &Env) {
+    e.storage()
+        .instance()
+        .extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
+}
+
+/// Persistent individual resource bumper
+pub fn extend_individual(e: &Env, key: &DataKey) {
+    e.storage()
+        .persistent()
+        .extend_ttl(key, INDIVIDUAL_THRESHOLD, INDIVIDUAL_BUMP);
+}
+
+/// Persistent shard resource bumper
+pub fn extend_shared(e: &Env, key: &DataKey) {
+    e.storage()
+        .persistent()
+        .extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
+}
+
 #[allow(unused)]
 pub fn get_global_state(e: &Env) -> GlobalState {
+    extend_instance(e);
+
     e.storage()
         .instance()
         .get(&DataKey::GlobalState)
@@ -88,26 +113,17 @@ pub fn set_global_state(e: &Env, global_state: &GlobalState) {
     e.storage()
         .instance()
         .set(&DataKey::GlobalState, global_state);
+
+    extend_instance(e);
 }
 
 // --- Pool ---
-pub fn set_pool(
-    e: &Env,
-    pool_address: &PoolAddress,
-    token_address: &Address,
-    token_ticker: &Symbol,
-    config: PoolConfig,
-) -> Result<(), LCError> {
-    e.storage().instance().set(
-        &DataKey::Pool(pool_address.clone()),
-        &Pool {
-            token_address: token_address.clone(),
-            token_ticker: token_ticker.clone(),
-            supply: 0,
-            borrowed: 0,
-            config,
-        },
-    );
+pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) -> Result<(), LCError> {
+    e.storage()
+        .persistent()
+        .set(&DataKey::Pool(pool_address.clone()), pool);
+
+    extend_shared(e, &DataKey::Pool(pool_address.clone()));
 
     Ok(())
 }
@@ -119,15 +135,29 @@ pub fn set_pool(
 // }
 
 pub fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
-    e.storage()
-        .instance()
-        .has(&DataKey::Pool(pool_address.clone()))
+    let res = e
+        .storage()
+        .persistent()
+        .has(&DataKey::Pool(pool_address.clone()));
+
+    if res {
+        extend_shared(e, &DataKey::Pool(pool_address.clone()));
+    }
+
+    res
 }
 
 pub fn get_pool(e: &Env, pool_address: &PoolAddress) -> Option<Pool> {
-    e.storage()
-        .instance()
-        .get(&DataKey::Pool(pool_address.clone()))
+    let res = e
+        .storage()
+        .persistent()
+        .get(&DataKey::Pool(pool_address.clone()));
+
+    if res.is_some() {
+        extend_shared(e, &DataKey::Pool(pool_address.clone()));
+    }
+
+    res
 }
 
 pub fn get_pool_ticker(e: &Env, pool_address: &PoolAddress) -> Result<Symbol, LCError> {
@@ -138,8 +168,10 @@ pub fn get_pool_ticker(e: &Env, pool_address: &PoolAddress) -> Result<Symbol, LC
 
 pub fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
     e.storage()
-        .instance()
+        .persistent()
         .set(&DataKey::Pool(pool_address.clone()), pool_data);
+
+    extend_shared(e, &DataKey::Pool(pool_address.clone()));
 }
 
 pub(crate) fn adjust_pool_borrowed(
@@ -148,6 +180,7 @@ pub(crate) fn adjust_pool_borrowed(
     amount: i128,
 ) -> Result<(), LCError> {
     let mut pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
+
     pool.borrowed = pool
         .borrowed
         .checked_add(amount)
@@ -163,6 +196,7 @@ pub(crate) fn adjust_pool_supply(
     amount: i128,
 ) -> Result<(), LCError> {
     let mut pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
+
     pool.supply = pool
         .supply
         .checked_add(amount)
@@ -175,14 +209,23 @@ pub(crate) fn adjust_pool_supply(
 // --- Obligation ---
 pub fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
     e.storage()
-        .instance()
+        .persistent()
         .set(&DataKey::Obligation(user.clone()), obligation);
+
+    extend_individual(e, &DataKey::Obligation(user.clone()));
 }
 
 pub fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
-    e.storage()
-        .instance()
-        .get(&DataKey::Obligation(user.clone()))
+    let res = e
+        .storage()
+        .persistent()
+        .get(&DataKey::Obligation(user.clone()));
+
+    if res.is_some() {
+        extend_individual(e, &DataKey::Obligation(user.clone()));
+    }
+
+    res
 }
 
 pub fn adjust_deposit(
@@ -203,7 +246,8 @@ pub fn adjust_deposit(
     obligation
         .deposits
         .set(pool_address.clone(), new_deposit_amount);
-    set_obligation(e, user, &obligation);
+
+    set_obligation(e, user, &obligation); // NB: Is it reasonable to have `set_obligation` without `read_obligation` first?
 
     Ok(new_deposit_amount)
 }
@@ -242,12 +286,4 @@ pub fn deposit_exists(
     } = get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)?;
 
     Ok(deposits.contains_key(pool_address.clone()))
-}
-
-pub fn set_accrual(e: &Env, accrual: &Accrual) {
-    e.storage().persistent().set(&DataKey::Accrual, accrual)
-}
-
-pub fn get_accrual(e: &Env) -> Option<Accrual> {
-    e.storage().persistent().get(&DataKey::Accrual)
 }
