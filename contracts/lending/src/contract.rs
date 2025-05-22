@@ -8,7 +8,7 @@ use {
         oracle,
         storage::{
             self, Accrual, GlobalState, Obligation, ObligationPosition, Pool, PoolAddress,
-            PoolConfig, UserAddress,
+            PoolConfig,
         },
     },
     soroban_sdk::{
@@ -111,8 +111,8 @@ impl LendingContract {
 
     pub fn deposit(
         e: Env,
-        user: UserAddress,
-        pool_address: PoolAddress,
+        user: Address,
+        pool_address: Address,
         amount: i128,
     ) -> Result<(), LCError> {
         user.require_auth();
@@ -140,8 +140,8 @@ impl LendingContract {
 
     pub fn borrow(
         e: Env,
-        user: UserAddress,
-        pool_address: PoolAddress,
+        user: Address,
+        pool_address: Address,
         amount: i128,
     ) -> Result<(), LCError> {
         user.require_auth();
@@ -189,8 +189,8 @@ impl LendingContract {
 
     pub fn repay(
         e: Env,
-        user: UserAddress,
-        pool_address: PoolAddress,
+        user: Address,
+        pool_address: Address,
         amount: i128,
     ) -> Result<(), LCError> {
         user.require_auth();
@@ -235,8 +235,8 @@ impl LendingContract {
 
     pub fn withdraw(
         e: Env,
-        user: UserAddress,
-        pool_address: PoolAddress,
+        user: Address,
+        pool_address: Address,
         amount: i128,
     ) -> Result<(), LCError> {
         user.require_auth();
@@ -278,21 +278,21 @@ impl LendingContract {
         Ok(())
     }
 
-    pub fn get_user_obligation(e: Env, user: UserAddress) -> Option<Obligation> {
+    pub fn get_user_obligation(e: Env, user: Address) -> Option<Obligation> {
         storage::get_obligation(&e, &user)
     }
 
-    pub fn get_pool(e: Env, pool_address: PoolAddress) -> Option<Pool> {
+    pub fn get_pool(e: Env, pool_address: Address) -> Option<Pool> {
         storage::get_pool(&e, &pool_address)
     }
 
-    pub fn get_apy(e: Env, pool_address: PoolAddress) -> Result<CompoundRates, LCError> {
+    pub fn get_apy(e: Env, pool_address: Address) -> Result<CompoundRates, LCError> {
         let pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
         pool.get_apy()
     }
 
-    pub fn accrue_interest(e: Env, pool_address: PoolAddress) -> Result<(), LCError> {
+    pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LCError> {
         // TODO: check for the pool's admin signature
         storage::accrue_interest(&e, &pool_address)?;
 
@@ -301,8 +301,8 @@ impl LendingContract {
 
     pub fn add_interest_to_user_obligation(
         e: Env,
-        user: UserAddress,
-        pool_address: PoolAddress,
+        user: Address,
+        pool_address: Address,
     ) -> Result<(), LCError> {
         add_interest_to_user_obligation(&e, &user, &pool_address)
     }
@@ -310,8 +310,8 @@ impl LendingContract {
 
 fn add_interest_to_user_obligation(
     e: &Env,
-    user: &UserAddress,
-    pool_address: &PoolAddress,
+    user: &Address,
+    pool_address: &Address,
 ) -> Result<(), LCError> {
     let Accrual {
         borrow_accrual,

@@ -73,6 +73,8 @@ pub struct Obligation {
 #[contracttype]
 pub struct ObligationPosition {
     pub amount: i128,
+    /// The numerical value that is used to determine the scaling factor required for updating the position amount
+    /// with interest i.e. (current_accrual \ last_accrual) * amount = new_amount
     pub last_accrual: i128,
 }
 
@@ -124,7 +126,7 @@ pub fn set_global_state(e: &Env, global_state: &GlobalState) {
 }
 
 // --- Pool ---
-pub fn set_pool(e: &Env, pool_address: &PoolAddress, pool: &Pool) -> Result<(), LCError> {
+pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) -> Result<(), LCError> {
     e.storage()
         .persistent()
         .set(&DataKey::Pool(pool_address.clone()), pool);
@@ -135,12 +137,12 @@ pub fn set_pool(e: &Env, pool_address: &PoolAddress, pool: &Pool) -> Result<(), 
 }
 
 // TODO
-// pub fn set_pool_config(e: &Env, pool_address: &PoolAddress, interest_rate_config: PoolConfig) {
+// pub fn set_pool_config(e: &Env, pool_address: &Address, interest_rate_config: PoolConfig) {
 
 //     // Maybe, store interest rate config separately???
 // }
 
-pub fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
+pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     let res = e
         .storage()
         .persistent()
@@ -153,7 +155,7 @@ pub fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
     res
 }
 
-pub fn get_pool(e: &Env, pool_address: &PoolAddress) -> Option<Pool> {
+pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     let res = e
         .storage()
         .persistent()
@@ -166,13 +168,13 @@ pub fn get_pool(e: &Env, pool_address: &PoolAddress) -> Option<Pool> {
     res
 }
 
-pub fn get_pool_ticker(e: &Env, pool_address: &PoolAddress) -> Result<Symbol, LCError> {
+pub fn get_pool_ticker(e: &Env, pool_address: &Address) -> Result<Symbol, LCError> {
     let pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
     Ok(pool.token_ticker)
 }
 
-pub fn set_pool_data(e: &Env, pool_address: &PoolAddress, pool_data: &Pool) {
+pub fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
     e.storage()
         .persistent()
         .set(&DataKey::Pool(pool_address.clone()), pool_data);
@@ -182,7 +184,7 @@ pub fn set_pool_data(e: &Env, pool_address: &PoolAddress, pool_data: &Pool) {
 
 pub(crate) fn set_pool_borrowed(
     e: &Env,
-    pool_address: &PoolAddress,
+    pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
     let mut pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
@@ -198,7 +200,7 @@ pub(crate) fn set_pool_borrowed(
 
 pub(crate) fn set_pool_supply(
     e: &Env,
-    pool_address: &PoolAddress,
+    pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
     let mut pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
@@ -213,7 +215,7 @@ pub(crate) fn set_pool_supply(
 }
 
 // --- Obligation ---
-pub fn set_obligation(e: &Env, user: &UserAddress, obligation: &Obligation) {
+pub fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
     e.storage()
         .persistent()
         .set(&DataKey::Obligation(user.clone()), obligation);
@@ -221,7 +223,7 @@ pub fn set_obligation(e: &Env, user: &UserAddress, obligation: &Obligation) {
     extend_individual_storage(e, &DataKey::Obligation(user.clone()));
 }
 
-pub fn get_obligation(e: &Env, user: &UserAddress) -> Option<Obligation> {
+pub fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
     let res = e
         .storage()
         .persistent()
@@ -236,8 +238,8 @@ pub fn get_obligation(e: &Env, user: &UserAddress) -> Option<Obligation> {
 
 pub fn set_obligation_deposit(
     e: &Env,
-    user: &UserAddress,
-    pool_address: &PoolAddress,
+    user: &Address,
+    pool_address: &Address,
     amount: i128,
 ) -> Result<i128, LCError> {
     let mut obligation = get_obligation(e, user).unwrap_or(Obligation {
@@ -275,8 +277,8 @@ pub fn set_obligation_deposit(
 
 pub fn set_obligation_borrow(
     e: &Env,
-    user: &UserAddress,
-    pool_address: &PoolAddress,
+    user: &Address,
+    pool_address: &Address,
     amount: i128,
 ) -> Result<i128, LCError> {
     let mut obligation = get_obligation(e, user).unwrap_or(Obligation {
@@ -312,11 +314,7 @@ pub fn set_obligation_borrow(
     Ok(new_borrow_amount)
 }
 
-pub fn deposit_exists(
-    e: &Env,
-    user: &UserAddress,
-    pool_address: &PoolAddress,
-) -> Result<bool, LCError> {
+pub fn deposit_exists(e: &Env, user: &Address, pool_address: &Address) -> Result<bool, LCError> {
     let Obligation {
         deposits,
         borrows: _,
@@ -325,7 +323,7 @@ pub fn deposit_exists(
     Ok(deposits.contains_key(pool_address.clone()))
 }
 
-pub fn accrue_interest(e: &Env, pool_address: &PoolAddress) -> Result<Accrual, LCError> {
+pub fn accrue_interest(e: &Env, pool_address: &Address) -> Result<Accrual, LCError> {
     let mut pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
     pool.accrue_interest(e)?;
 
