@@ -6,7 +6,10 @@ use {
         },
         interest_rate::CompoundRates,
         oracle,
-        storage::{self, Accrual, GlobalState, Obligation, Pool, PoolAddress, PoolConfig},
+        storage::{
+            self, Accrual, GlobalState, Obligation, ObligationPosition, Pool, PoolAddress,
+            PoolConfig,
+        },
     },
     soroban_sdk::{
         contract, contractimpl, symbol_short, token, Address, BytesN, Env, String, Symbol,
@@ -127,8 +130,8 @@ impl LendingContract {
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
 
-        storage::adjust_pool_supply(&e, &pool_address, amount)?;
-        storage::adjust_deposit(&e, &user, &pool_address, amount)?;
+        storage::set_pool_supply(&e, &pool_address, amount)?;
+        storage::set_obligation_deposit(&e, &user, &pool_address, amount)?;
         // TODO: add interest rate accrual
 
         Ok(())
@@ -162,8 +165,8 @@ impl LendingContract {
         }
 
         // TODO: Rename this, since misleading..
-        storage::adjust_borrow(&e, &user, &pool_address, amount)?;
-        storage::adjust_pool_borrowed(&e, &pool_address, amount)?;
+        storage::set_obligation_borrow(&e, &user, &pool_address, amount)?;
+        storage::set_pool_borrowed(&e, &pool_address, amount)?;
 
         const HEALTH_FACTOR_THRESHOLD: i128 = 100 * BPS_IN_PERCENT;
 
@@ -192,7 +195,9 @@ impl LendingContract {
         let reflector_contract = oracle::Client::new(e, &reflector_address);
         let (mut collateral_sum_value, mut borrow_sum_value) = (0i128, 0i128);
 
-        for (pool_address, amount) in deposits {
+        for (pool_address, deposit_position) in deposits {
+            let ObligationPosition { amount, .. } = deposit_position;
+
             // TODO: Maybe, get it from the token client?
             // This will introduce an additional cross contract call, but will decrease the amount of errors,
             // which can happen.
@@ -212,7 +217,9 @@ impl LendingContract {
                 .ok_or(LCError::OverOrUnderflow)?;
         }
 
-        for (pool_address, amount) in borrows {
+        for (pool_address, borrow_position) in borrows {
+            let ObligationPosition { amount, .. } = borrow_position;
+
             let ticker =
                 storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
             let asset = oracle::Asset::Other(ticker);
@@ -289,8 +296,8 @@ impl LendingContract {
             return Err(LCError::NotEnoughPoolFunds);
         }
 
-        storage::adjust_pool_supply(&e, &pool_address, -amount)?;
-        storage::adjust_deposit(&e, &user, &pool_address, -amount)?;
+        storage::set_pool_supply(&e, &pool_address, -amount)?;
+        storage::set_obligation_deposit(&e, &user, &pool_address, -amount)?;
 
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
@@ -313,11 +320,19 @@ impl LendingContract {
     }
 
     pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LCError> {
+        // TODO: check for admin's signature
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
         pool.accrue_interest(&e)?;
         storage::set_pool(&e, &pool_address, &pool)?;
 
         Ok(())
+    }
+
+    pub fn add_interest_to_user_obligations(e: Env, user: Address) -> Result<(), LCError> {
+        let _obligation =
+            storage::get_obligation(&e, &user).ok_or(LCError::ObligationDoesNotExist)?;
+
+        todo!()
     }
 }

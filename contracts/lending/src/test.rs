@@ -65,15 +65,15 @@ fn setup_test_asset<'a>(
 fn setup_test_env(e: &Env) -> TestEnv {
     e.mock_all_auths();
 
-    let contract_admin = Address::generate(&e);
+    let contract_admin = Address::generate(e);
     let contract_id = e.register(
         LendingContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = LendingContractClient::new(e, &contract_id);
 
-    let admin = Address::generate(&e);
-    let user = Address::generate(&e);
+    let admin = Address::generate(e);
+    let user = Address::generate(e);
 
     let ticker1 = symbol_short!("TCK1");
     let ticker2 = symbol_short!("TCK2");
@@ -83,7 +83,7 @@ fn setup_test_env(e: &Env) -> TestEnv {
 
     // Registering reflector mock contract is enough.
     // In local tests contracts will call it via the same address as in testnet.
-    let reflector_address = Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
+    let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
     e.register_at(&reflector_address, oracle::WASM, ());
 
     TestEnv {
@@ -257,7 +257,7 @@ fn test_pool_deposit() {
 
     // Check obligation
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let deposited_amount = deposits.get(pool_address).unwrap();
+    let deposited_amount = deposits.get(pool_address).unwrap().amount;
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT)
 }
@@ -286,7 +286,7 @@ fn test_pool_withdraw() {
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
 
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let deposited_amount = deposits.get(pool_address.clone()).unwrap();
+    let deposited_amount = deposits.get(pool_address.clone()).unwrap().amount;
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
 
@@ -294,7 +294,7 @@ fn test_pool_withdraw() {
     contract_client.withdraw(&user, &pool_address, &half_deposit);
 
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let deposited_amount = deposits.get(pool_address.clone()).unwrap();
+    let deposited_amount = deposits.get(pool_address.clone()).unwrap().amount;
     let Pool { supply, .. } = contract_client.get_pool(&pool_address).unwrap();
 
     assert_eq!(deposited_amount, half_deposit);
@@ -325,7 +325,7 @@ fn test_pool_withdraw_overflow() {
     contract_client.deposit(&user, &pool_address, &DEPOSIT_AMOUNT);
 
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let deposited_amount = deposits.get(pool_address.clone()).unwrap();
+    let deposited_amount = deposits.get(pool_address.clone()).unwrap().amount;
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
 
@@ -368,7 +368,7 @@ fn test_borrow() {
 
     // TODO: Add get_deposit(pool_address: Address) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let deposited_amount = deposits.get(pool_address1.clone()).unwrap();
+    let deposited_amount = deposits.get(pool_address1.clone()).unwrap().amount;
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
 
@@ -376,7 +376,7 @@ fn test_borrow() {
     contract_client.deposit(&admin, &pool_address2, &DEPOSIT_AMOUNT);
 
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&admin).unwrap();
-    let deposited_amount = deposits.get(pool_address2.clone()).unwrap();
+    let deposited_amount = deposits.get(pool_address2.clone()).unwrap().amount;
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
 
@@ -419,7 +419,7 @@ fn test_borrow_health() {
 
     // TODO: Add get_deposit(pool_address: Address) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let deposited_amount = deposits.get(pool_address1.clone()).unwrap();
+    let deposited_amount = deposits.get(pool_address1.clone()).unwrap().amount;
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
 
@@ -427,7 +427,7 @@ fn test_borrow_health() {
     contract_client.deposit(&admin, &pool_address2, &DEPOSIT_AMOUNT);
 
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&admin).unwrap();
-    let deposited_amount = deposits.get(pool_address2.clone()).unwrap();
+    let deposited_amount = deposits.get(pool_address2.clone()).unwrap().amount;
 
     assert_eq!(deposited_amount, DEPOSIT_AMOUNT);
 

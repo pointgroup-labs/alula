@@ -121,7 +121,7 @@ impl Pool {
 
         let per_second_growth_factor = SCALED_ONE + borrow_interest_rate; // e.g. 1,00000000xxx, where `xxx` is the interest rate
         let borrow_multiplier =
-            math_utils::bin_pow(per_second_growth_factor, seconds_passed, SCALED_ONE);
+            math_utils::bin_pow(per_second_growth_factor, seconds_passed, SCALED_ONE)?;
 
         let &Pool {
             borrowed, supply, ..

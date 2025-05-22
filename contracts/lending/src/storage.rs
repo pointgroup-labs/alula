@@ -66,8 +66,14 @@ impl Default for PoolConfig {
 
 #[contracttype]
 pub struct Obligation {
-    pub deposits: Map<PoolAddress, i128>,
-    pub borrows: Map<PoolAddress, i128>,
+    pub deposits: Map<PoolAddress, ObligationPosition>,
+    pub borrows: Map<PoolAddress, ObligationPosition>,
+}
+
+#[contracttype]
+pub struct ObligationPosition {
+    pub amount: i128,
+    pub last_accrual: i128,
 }
 
 #[contracttype]
@@ -174,7 +180,7 @@ pub fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
     extend_shared(e, &DataKey::Pool(pool_address.clone()));
 }
 
-pub(crate) fn adjust_pool_borrowed(
+pub(crate) fn set_pool_borrowed(
     e: &Env,
     pool_address: &PoolAddress,
     amount: i128,
@@ -190,7 +196,7 @@ pub(crate) fn adjust_pool_borrowed(
     Ok(())
 }
 
-pub(crate) fn adjust_pool_supply(
+pub(crate) fn set_pool_supply(
     e: &Env,
     pool_address: &PoolAddress,
     amount: i128,
@@ -228,7 +234,7 @@ pub fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
     res
 }
 
-pub fn adjust_deposit(
+pub fn set_obligation_deposit(
     e: &Env,
     user: &Address,
     pool_address: &PoolAddress,
@@ -238,21 +244,36 @@ pub fn adjust_deposit(
         deposits: Map::new(e),
         borrows: Map::new(e),
     });
-    let pool_obligation_deposit = obligation.deposits.get(pool_address.clone()).unwrap_or(0);
+
+    // TODO: Refactor
+    let pool_accrual = get_pool(e, pool_address)
+        .expect("Pool must exist at this point")
+        .accrual;
+    let mut pool_obligation_deposit =
+        obligation
+            .deposits
+            .get(pool_address.clone())
+            .unwrap_or(ObligationPosition {
+                amount: 0,
+                last_accrual: pool_accrual.supply_accrual,
+            });
 
     let new_deposit_amount = pool_obligation_deposit
+        .amount
         .checked_add(amount)
         .ok_or(LCError::OverOrUnderflow)?;
+    pool_obligation_deposit.amount = new_deposit_amount;
+
     obligation
         .deposits
-        .set(pool_address.clone(), new_deposit_amount);
+        .set(pool_address.clone(), pool_obligation_deposit);
 
     set_obligation(e, user, &obligation); // NB: Is it reasonable to have `set_obligation` without `read_obligation` first?
 
     Ok(new_deposit_amount)
 }
 
-pub fn adjust_borrow(
+pub fn set_obligation_borrow(
     e: &Env,
     user: &Address,
     pool_address: &PoolAddress,
@@ -262,14 +283,30 @@ pub fn adjust_borrow(
         deposits: Map::new(e),
         borrows: Map::new(e),
     });
-    let pool_obligation_borrow = obligation.borrows.get(pool_address.clone()).unwrap_or(0);
+
+    // TODO: Refactor
+    let pool_accrual = get_pool(e, pool_address)
+        .expect("Pool must exist at this point")
+        .accrual;
+    let mut pool_obligation_borrow =
+        obligation
+            .borrows
+            .get(pool_address.clone())
+            .unwrap_or(ObligationPosition {
+                amount: 0,
+                last_accrual: pool_accrual.borrow_accrual,
+            });
 
     let new_borrow_amount = pool_obligation_borrow
+        .amount
         .checked_add(amount)
         .ok_or(LCError::OverOrUnderflow)?;
+
+    pool_obligation_borrow.amount = new_borrow_amount;
+
     obligation
         .borrows
-        .set(pool_address.clone(), new_borrow_amount);
+        .set(pool_address.clone(), pool_obligation_borrow);
     set_obligation(e, user, &obligation);
 
     Ok(new_borrow_amount)
