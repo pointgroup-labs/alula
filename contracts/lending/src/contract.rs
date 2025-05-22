@@ -299,12 +299,37 @@ impl LendingContract {
         Ok(())
     }
 
+    // TODO: Write tests
     pub fn add_interest_to_user_obligation(
         e: Env,
         user: Address,
-        pool_address: Address,
+        pool_address: Option<Address>,
     ) -> Result<(), LCError> {
-        add_interest_to_user_obligation(&e, &user, &pool_address)
+        if let Some(pool_address) = pool_address {
+            add_interest_to_user_obligation(&e, &user, &pool_address)?;
+        } else {
+            let obligation = storage::get_obligation(&e, &user);
+
+            if let Some(Obligation {
+                borrows, deposits, ..
+            }) = obligation
+            {
+                for (pool_address, _) in borrows {
+                    add_interest_to_user_obligation(&e, &user, &pool_address)?;
+                }
+
+                for (pool_address, _) in deposits {
+                    add_interest_to_user_obligation(&e, &user, &pool_address)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // TODO: Write tests as well
+    pub fn get_health_factor(e: Env, user: Address) -> Result<i128, LCError> {
+        compute_health_factor(&e, &user)
     }
 }
 

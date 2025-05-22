@@ -613,7 +613,7 @@ fn test_repay_with_interest_accrual() {
     e.ledger().with_mut(|li| li.timestamp = 5 * 60 * 60 * 24);
 
     // Accrue interest in a pool and update the user's obligation
-    contract_client.add_interest_to_user_obligation(&user, &pool_address1);
+    contract_client.add_interest_to_user_obligation(&user, &Some(pool_address1.clone()));
 
     // Check obligation
     let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
