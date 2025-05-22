@@ -10,7 +10,7 @@ use {
     },
     soroban_sdk::{
         symbol_short,
-        testutils::Address as _,
+        testutils::{Address as _, Ledger},
         token::{StellarAssetClient, TokenClient},
         Address, BytesN, Env, String, Symbol,
     },
@@ -366,7 +366,7 @@ fn test_borrow() {
     // Deposit token 1 as user
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
 
-    // TODO: Add get_deposit(pool_address: Address) method
+    // TODO: Add get_deposit(pool_address: PoolAddress) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address1.clone()).unwrap().amount;
 
@@ -417,7 +417,7 @@ fn test_borrow_health() {
     // Deposit token 1 as user
     contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
 
-    // TODO: Add get_deposit(pool_address: Address) method
+    // TODO: Add get_deposit(pool_address: PoolAddress) method
     let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
     let deposited_amount = deposits.get(pool_address1.clone()).unwrap().amount;
 
@@ -515,4 +515,118 @@ fn test_interest_rates() {
 
     assert_eq!(borrow_apy, 11326);
     assert_eq!(supply_apy, 10760);
+}
+
+#[test]
+fn test_repay() {
+    const DEPOSIT_AMOUNT: i128 = 10_000;
+    const BORROW_AMOUNT: i128 = 1_000;
+    let e = Env::default();
+
+    let TestEnv {
+        contract_client,
+        asset1:
+            TestAssetSetup {
+                token_address: token_address_1,
+                token_ticker: token_ticker_1,
+                ..
+            },
+        asset2:
+            TestAssetSetup {
+                token_address: token_address_2,
+                token_ticker: token_ticker_2,
+                ..
+            },
+        user,
+        admin,
+        ..
+    } = setup_test_env(&e);
+
+    let pool_address1 =
+        contract_client.initialize_pool(&token_address_1, &token_ticker_1, &None, &None);
+    let pool_address2 =
+        contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
+
+    // Deposit as a different user in order to be able to borrow
+    contract_client.deposit(&admin, &pool_address1, &DEPOSIT_AMOUNT);
+
+    // Deposit in a different pool in order to have a collateral present
+    contract_client.deposit(&user, &pool_address2, &DEPOSIT_AMOUNT);
+
+    // Borrow
+    contract_client.borrow(&user, &pool_address1, &BORROW_AMOUNT);
+
+    // Check obligation
+    let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
+    let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
+
+    assert_eq!(borrowed_amount, BORROW_AMOUNT);
+
+    // Repay
+    contract_client.repay(&user, &pool_address1, &BORROW_AMOUNT);
+
+    // Check obligation
+    let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
+    let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
+
+    assert_eq!(borrowed_amount, 0);
+}
+
+#[test]
+#[ignore]
+fn test_repay_with_interest_accrual() {
+    const DEPOSIT_AMOUNT: i128 = 10_000;
+    const BORROW_AMOUNT: i128 = 1_000;
+    let e = Env::default();
+
+    let TestEnv {
+        contract_client,
+        asset1:
+            TestAssetSetup {
+                token_address: token_address_1,
+                token_ticker: token_ticker_1,
+                ..
+            },
+        asset2:
+            TestAssetSetup {
+                token_address: token_address_2,
+                token_ticker: token_ticker_2,
+                ..
+            },
+        user,
+        admin,
+        ..
+    } = setup_test_env(&e);
+
+    let pool_address1 =
+        contract_client.initialize_pool(&token_address_1, &token_ticker_1, &None, &None);
+    let pool_address2 =
+        contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
+
+    // Deposit as a different user in order to be able to borrow
+    contract_client.deposit(&admin, &pool_address1, &DEPOSIT_AMOUNT);
+
+    // Deposit in a different pool in order to have a collateral present
+    contract_client.deposit(&user, &pool_address2, &DEPOSIT_AMOUNT);
+
+    // Borrow
+    contract_client.borrow(&user, &pool_address1, &BORROW_AMOUNT);
+
+    // Check obligation
+    let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
+    let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
+
+    assert_eq!(borrowed_amount, BORROW_AMOUNT);
+
+    // Move time
+    e.ledger().with_mut(|li| li.timestamp = 5 * 60 * 60 * 24);
+
+    // Accrue interest in a pool and update the user's obligation
+    contract_client.add_interest_to_user_obligation(&user, &pool_address1);
+
+    // Check obligation
+    let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
+    let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
+
+    assert_ne!(borrowed_amount, BORROW_AMOUNT); // For some reason, this doesn't yet work
 }
