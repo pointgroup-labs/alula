@@ -4,6 +4,7 @@
 use {
     crate::{
         constants::{LCError, ACCRUAL_INIT_VALUE, BPS_IN_PERCENT, SECONDS_IN_YEAR},
+        math_utils,
         storage::{Accrual, Pool, PoolConfig},
     },
     soroban_fixed_point_math::FixedPoint,
@@ -60,7 +61,7 @@ impl TryFrom<CompoundRateMultipliers> for CompoundRates {
         let borrow_rate_bps = borrow_multiplier_bps
             .checked_sub(10_000)
             .ok_or(LCError::OverOrUnderflow)?;
-        let supply_rate_bps = supply_multiplier_bps.checked_sub(10_000).unwrap_or(0);
+        let supply_rate_bps = supply_multiplier_bps.saturating_sub(10_000);
 
         Ok(Self {
             borrow_rate_bps,
@@ -69,22 +70,6 @@ impl TryFrom<CompoundRateMultipliers> for CompoundRates {
     }
 }
 
-/// O(log(n)) algorithm for quick exponentiation
-fn binary_power(base: i128, mut exponent: u64, denominator: i128) -> i128 {
-    let mut result = denominator;
-    let mut temp_base = base;
-
-    while exponent > 0 {
-        if exponent % 2 == 1 {
-            result = result.fixed_mul_floor(temp_base, denominator).unwrap(); // TODO: `floor` or `ceil`?
-        }
-
-        temp_base = temp_base.fixed_mul_floor(temp_base, denominator).unwrap();
-        exponent /= 2;
-    }
-
-    result
-}
 impl Pool {
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         let Accrual {
@@ -135,7 +120,8 @@ impl Pool {
         let borrow_interest_rate = self.get_interest_rate()?;
 
         let per_second_growth_factor = SCALED_ONE + borrow_interest_rate; // e.g. 1,00000000xxx, where `xxx` is the interest rate
-        let borrow_multiplier = binary_power(per_second_growth_factor, seconds_passed, SCALED_ONE);
+        let borrow_multiplier =
+            math_utils::bin_pow(per_second_growth_factor, seconds_passed, SCALED_ONE);
 
         let &Pool {
             borrowed, supply, ..
