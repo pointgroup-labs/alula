@@ -96,12 +96,12 @@ impl LendingContract {
         };
 
         let pool = Pool {
-            token_address,
-            token_ticker,
-            borrowed: 0,
-            supply: 0,
             config,
             accrual,
+            token_ticker,
+            token_address,
+            supply: 0,
+            borrowed: 0,
         };
 
         storage::set_pool(&e, &pool_address, &pool)?;

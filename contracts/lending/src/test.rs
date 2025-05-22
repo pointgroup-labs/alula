@@ -442,9 +442,9 @@ fn test_borrow_health() {
 
 #[test]
 fn test_interest_rates() {
-    const DEPOSIT_AMOUNT: i128 = 10_00;
-    let e = Env::default();
+    const DEPOSIT_AMOUNT: i128 = 10_000;
 
+    let e = Env::default();
     let TestEnv {
         contract_client,
         asset1:
@@ -460,6 +460,7 @@ fn test_interest_rates() {
                 ..
             },
         user,
+        admin,
         ..
     } = setup_test_env(&e);
 
@@ -469,52 +470,42 @@ fn test_interest_rates() {
         contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
 
     // Deposit in a different pool in order to not care about Health Factor
-    contract_client.deposit(&user, &pool_address2, &DEPOSIT_AMOUNT);
+    contract_client.deposit(&user, &pool_address2, &(2 * DEPOSIT_AMOUNT));
+
+    // Deposit to keep pool non-empty
+    contract_client.deposit(&admin, &pool_address1, &DEPOSIT_AMOUNT);
 
     // O% UR
     let CompoundRates {
         borrow_rate_bps: borrow_apy,
         supply_rate_bps: supply_apy,
     } = contract_client.get_apy(&pool_address1);
+
     assert_eq!(borrow_apy, 320);
     assert_eq!(supply_apy, 0);
 
-    // 50% UR
-    contract_client.deposit(&user, &pool_address1, &DEPOSIT_AMOUNT);
-    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 5) / 10));
+    let deposit_increases = [
+        (DEPOSIT_AMOUNT * 5) / 10,   // 50% UR
+        (DEPOSIT_AMOUNT * 3) / 10,   // 80% UR
+        (DEPOSIT_AMOUNT * 15) / 100, // 95% UR
+    ];
 
-    contract_client.accrue_interest(&pool_address1);
-    let CompoundRates {
-        borrow_rate_bps: borrow_apy,
-        supply_rate_bps: supply_apy,
-    } = contract_client.get_apy(&pool_address1);
+    // TODO: Decouple from PoolConfig specific values somehow?
+    // If `PoolConfig` values are going to change - this test will become broken
+    let expected_rates = [(2084, 1042), (3284, 2627), (11326, 10760)];
 
-    assert_eq!(borrow_apy, 2084);
-    assert_eq!(supply_apy, 1042);
+    for (deposit_increase, (borrow_apy, supply_apy)) in deposit_increases.iter().zip(expected_rates)
+    {
+        contract_client.borrow(&user, &pool_address1, deposit_increase);
 
-    // 80% UR
-    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 3) / 10));
+        let CompoundRates {
+            borrow_rate_bps,
+            supply_rate_bps,
+        } = contract_client.get_apy(&pool_address1);
 
-    contract_client.accrue_interest(&pool_address1);
-    let CompoundRates {
-        borrow_rate_bps: borrow_apy,
-        supply_rate_bps: supply_apy,
-    } = contract_client.get_apy(&pool_address1);
-
-    assert_eq!(borrow_apy, 3284);
-    assert_eq!(supply_apy, 2627);
-
-    // 95% UR
-    contract_client.borrow(&user, &pool_address1, &((DEPOSIT_AMOUNT * 15) / 100));
-
-    contract_client.accrue_interest(&pool_address1);
-    let CompoundRates {
-        borrow_rate_bps: borrow_apy,
-        supply_rate_bps: supply_apy,
-    } = contract_client.get_apy(&pool_address1);
-
-    assert_eq!(borrow_apy, 11326);
-    assert_eq!(supply_apy, 10760);
+        assert_eq!(borrow_apy, borrow_rate_bps);
+        assert_eq!(supply_apy, supply_rate_bps);
+    }
 }
 
 #[test]

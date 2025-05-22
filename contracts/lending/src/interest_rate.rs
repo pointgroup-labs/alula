@@ -21,13 +21,13 @@ const SCALED_ONE: i128 = ACCRUAL_INIT_VALUE;
 /// use lending::interest_rate::{CompoundRates, CompoundRateMultipliers};
 ///
 /// let multipliers = CompoundRateMultipliers {
-///     borrow_multiplier: 132060004800, // x 1.3206
+///     borrow_multiplier: 132070004800, // x 1.3207
 ///     supply_multiplier: 100000000000  // x 1.0
 /// };
 ///
 /// let compound_rates: CompoundRates = multipliers.try_into().unwrap();
 ///
-/// assert_eq!(compound_rates.borrow_rate_bps, 32_06);
+/// assert_eq!(compound_rates.borrow_rate_bps, 32_07);
 /// assert_eq!(compound_rates.supply_rate_bps, 00_00);
 ///
 /// ```
@@ -50,18 +50,20 @@ impl TryFrom<CompoundRateMultipliers> for CompoundRates {
     type Error = LCError;
 
     fn try_from(val: CompoundRateMultipliers) -> Result<Self, Self::Error> {
+        const BPS_FACTOR: i128 = 10_000;
+
         let CompoundRateMultipliers {
             borrow_multiplier,
             supply_multiplier,
         } = val;
 
-        let borrow_multiplier_bps = (borrow_multiplier / (SCALED_ONE / 10_000)) as u32;
-        let supply_multiplier_bps = (supply_multiplier / (SCALED_ONE / 10_000)) as u32;
+        let borrow_multiplier_bps = (borrow_multiplier / (SCALED_ONE / BPS_FACTOR)) as u32;
+        let supply_multiplier_bps = (supply_multiplier / (SCALED_ONE / BPS_FACTOR)) as u32;
 
         let borrow_rate_bps = borrow_multiplier_bps
-            .checked_sub(10_000)
+            .checked_sub(BPS_FACTOR as u32)
             .ok_or(LCError::OverOrUnderflow)?;
-        let supply_rate_bps = supply_multiplier_bps.saturating_sub(10_000);
+        let supply_rate_bps = supply_multiplier_bps.saturating_sub(BPS_FACTOR as u32);
 
         Ok(Self {
             borrow_rate_bps,

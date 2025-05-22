@@ -85,21 +85,21 @@ pub struct Accrual {
 }
 
 /// Instance bumper
-pub fn extend_instance(e: &Env) {
+pub fn extend_instance_storage(e: &Env) {
     e.storage()
         .instance()
         .extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }
 
 /// Persistent individual resource bumper
-pub fn extend_individual(e: &Env, key: &DataKey) {
+pub fn extend_individual_storage(e: &Env, key: &DataKey) {
     e.storage()
         .persistent()
         .extend_ttl(key, INDIVIDUAL_THRESHOLD, INDIVIDUAL_BUMP);
 }
 
-/// Persistent shard resource bumper
-pub fn extend_shared(e: &Env, key: &DataKey) {
+/// Persistent shared resource bumper
+pub fn extend_shared_storage(e: &Env, key: &DataKey) {
     e.storage()
         .persistent()
         .extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
@@ -107,7 +107,7 @@ pub fn extend_shared(e: &Env, key: &DataKey) {
 
 #[allow(unused)]
 pub fn get_global_state(e: &Env) -> GlobalState {
-    extend_instance(e);
+    extend_instance_storage(e);
 
     e.storage()
         .instance()
@@ -120,7 +120,7 @@ pub fn set_global_state(e: &Env, global_state: &GlobalState) {
         .instance()
         .set(&DataKey::GlobalState, global_state);
 
-    extend_instance(e);
+    extend_instance_storage(e);
 }
 
 // --- Pool ---
@@ -129,7 +129,7 @@ pub fn set_pool(e: &Env, pool_address: &PoolAddress, pool: &Pool) -> Result<(), 
         .persistent()
         .set(&DataKey::Pool(pool_address.clone()), pool);
 
-    extend_shared(e, &DataKey::Pool(pool_address.clone()));
+    extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
 
     Ok(())
 }
@@ -147,7 +147,7 @@ pub fn pool_exists(e: &Env, pool_address: &PoolAddress) -> bool {
         .has(&DataKey::Pool(pool_address.clone()));
 
     if res {
-        extend_shared(e, &DataKey::Pool(pool_address.clone()));
+        extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
     }
 
     res
@@ -160,7 +160,7 @@ pub fn get_pool(e: &Env, pool_address: &PoolAddress) -> Option<Pool> {
         .get(&DataKey::Pool(pool_address.clone()));
 
     if res.is_some() {
-        extend_shared(e, &DataKey::Pool(pool_address.clone()));
+        extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
     }
 
     res
@@ -177,7 +177,7 @@ pub fn set_pool_data(e: &Env, pool_address: &PoolAddress, pool_data: &Pool) {
         .persistent()
         .set(&DataKey::Pool(pool_address.clone()), pool_data);
 
-    extend_shared(e, &DataKey::Pool(pool_address.clone()));
+    extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
 }
 
 pub(crate) fn set_pool_borrowed(
@@ -218,7 +218,7 @@ pub fn set_obligation(e: &Env, user: &UserAddress, obligation: &Obligation) {
         .persistent()
         .set(&DataKey::Obligation(user.clone()), obligation);
 
-    extend_individual(e, &DataKey::Obligation(user.clone()));
+    extend_individual_storage(e, &DataKey::Obligation(user.clone()));
 }
 
 pub fn get_obligation(e: &Env, user: &UserAddress) -> Option<Obligation> {
@@ -228,7 +228,7 @@ pub fn get_obligation(e: &Env, user: &UserAddress) -> Option<Obligation> {
         .get(&DataKey::Obligation(user.clone()));
 
     if res.is_some() {
-        extend_individual(e, &DataKey::Obligation(user.clone()));
+        extend_individual_storage(e, &DataKey::Obligation(user.clone()));
     }
 
     res
