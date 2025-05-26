@@ -331,6 +331,10 @@ impl LendingContract {
     pub fn get_health_factor(e: Env, user: Address) -> Result<i128, LCError> {
         compute_health_factor(&e, &user)
     }
+
+    pub fn extend_instance_ttl(e: Env) {
+        storage::extend_instance_storage(&e);
+    }
 }
 
 fn add_interest_to_user_obligation(

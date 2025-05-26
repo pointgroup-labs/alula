@@ -2,15 +2,18 @@
 
 use {
     crate::{
-        constants::REFLECTOR_TESTNET_ADDRESS,
+        constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP},
         contract::*,
         interest_rate::CompoundRates,
         oracle,
-        storage::{Obligation, Pool},
+        storage::{DataKey, Obligation, Pool},
     },
     soroban_sdk::{
         symbol_short,
-        testutils::{Address as _, Ledger},
+        testutils::{
+            storage::{Instance, Persistent},
+            Address as _, Ledger,
+        },
         token::{StellarAssetClient, TokenClient},
         Address, BytesN, Env, String, Symbol,
     },
@@ -23,6 +26,7 @@ const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
 
 struct TestEnv<'a> {
     contract_client: LendingContractClient<'a>,
+    contract_id: Address,
     asset1: TestAssetSetup<'a>,
     asset2: TestAssetSetup<'a>,
     user: Address,
@@ -92,6 +96,7 @@ fn setup_test_env(e: &Env) -> TestEnv {
         asset1,
         asset2,
         contract_client,
+        contract_id,
     }
 }
 
@@ -620,4 +625,94 @@ fn test_repay_with_interest_accrual() {
     let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
 
     assert_ne!(borrowed_amount, BORROW_AMOUNT); // For some reason, this doesn't yet work
+}
+
+#[test]
+fn test_storage_ttl_extension() {
+    let e = Env::default();
+
+    let TestEnv {
+        contract_client,
+        contract_id,
+        asset1:
+            TestAssetSetup {
+                token_address,
+                token_ticker,
+                ..
+            },
+        user,
+        ..
+    } = setup_test_env(&e);
+
+    // Write something in individual and in shared storages
+    contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+
+    contract_client.deposit(&user, &token_address, &100);
+
+    // Check the TTL after global storage initialization
+    e.as_contract(&contract_id, || {
+        assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
+
+        assert_eq!(
+            e.storage()
+                .persistent()
+                .get_ttl(&DataKey::Pool(token_address.clone())),
+            SHARED_BUMP
+        );
+
+        assert_eq!(
+            e.storage()
+                .persistent()
+                .get_ttl(&DataKey::Obligation(user.clone())),
+            INDIVIDUAL_BUMP
+        );
+    });
+
+    // Move time
+    e.ledger().with_mut(|li| {
+        li.sequence_number = 100_000;
+    });
+
+    // Check the TTL after global storage initialization
+    e.as_contract(&contract_id, || {
+        assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP - 100_000);
+
+        assert_eq!(
+            e.storage()
+                .persistent()
+                .get_ttl(&DataKey::Pool(token_address.clone())),
+            SHARED_BUMP - 100_000
+        );
+
+        assert_eq!(
+            e.storage()
+                .persistent()
+                .get_ttl(&DataKey::Obligation(user.clone())),
+            INDIVIDUAL_BUMP - 100_000
+        );
+    });
+
+    // Extend it and check again
+    contract_client.deposit(&user, &token_address, &100);
+
+    // Check the TTL after global storage initialization
+    e.as_contract(&contract_id, || {
+        // assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
+
+        assert_eq!(
+            e.storage()
+                .persistent()
+                .get_ttl(&DataKey::Pool(token_address.clone())),
+            SHARED_BUMP
+        );
+
+        // Threshold hasn't been hit
+
+        // assert_eq!(
+        //     e.storage()
+        //         .persistent()
+        //         .get_ttl(&DataKey::Obligation(user.clone())),
+        //     INDIVIDUAL_BUMP
+        // );
+    });
 }
