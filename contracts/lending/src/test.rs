@@ -6,7 +6,7 @@ use {
         contract::*,
         interest_rate::CompoundRates,
         oracle,
-        storage::{DataKey, Obligation, Pool},
+        storage::{DataKey, Obligation, ObligationDeposit, Pool},
     },
     soroban_sdk::{
         symbol_short,
@@ -239,7 +239,7 @@ fn test_pool_reinitialization_with_salt() {
 }
 
 #[test]
-fn test_pool_deposit() {
+fn test_deposit() {
     const DEPOSIT_AMOUNT: i128 = 100;
 
     let e = Env::default();
@@ -268,7 +268,36 @@ fn test_pool_deposit() {
 }
 
 #[test]
-fn test_pool_withdraw() {
+fn test_deposit_collateral() {
+    const COLLATERAL_DEPOSIT_AMOUNT: i128 = 100;
+
+    let e = Env::default();
+    let TestEnv {
+        contract_client,
+        asset1:
+            TestAssetSetup {
+                token_address,
+                token_ticker,
+                ..
+            },
+        user,
+        ..
+    } = setup_test_env(&e);
+
+    let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+
+    // Deposit collateral
+    contract_client.deposit_collateral(&user, &pool_address, &COLLATERAL_DEPOSIT_AMOUNT);
+
+    // Check obligation
+    let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
+    let deposited_collateral_amount = deposits.get(pool_address).unwrap().collateral_amount;
+
+    assert_eq!(deposited_collateral_amount, COLLATERAL_DEPOSIT_AMOUNT);
+}
+
+#[test]
+fn test_withdraw() {
     const DEPOSIT_AMOUNT: i128 = 100;
     let half_deposit = (DEPOSIT_AMOUNT as f32 / 2_f32) as i128;
 
@@ -307,8 +336,79 @@ fn test_pool_withdraw() {
 }
 
 #[test]
+fn test_withdraw_collateral() {
+    const DEPOSIT_AMOUNT: i128 = 100;
+
+    let e = Env::default();
+    let TestEnv {
+        contract_client,
+        asset1:
+            TestAssetSetup {
+                token_address,
+                token_ticker,
+                ..
+            },
+        asset2:
+            TestAssetSetup {
+                token_address: token_address_2,
+                token_ticker: token_ticker_2,
+                ..
+            },
+        user,
+        ..
+    } = setup_test_env(&e);
+
+    let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+    let pool_address_2 =
+        contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
+
+    // Make a plain deposit
+    contract_client.deposit(&user, &pool_address, &(DEPOSIT_AMOUNT));
+
+    // Make a collateral deposit by the same token amount
+    contract_client.deposit_collateral(&user, &pool_address, &DEPOSIT_AMOUNT);
+
+    // Make a deposit into a different loan pool to ignore health factor issues
+    contract_client.deposit(&user, &pool_address_2, &(3 * DEPOSIT_AMOUNT));
+
+    // Borrow some amount to have non-zero borrow interest rate
+    contract_client.borrow(&user, &pool_address, &(&DEPOSIT_AMOUNT / 2));
+
+    let Obligation { deposits, .. } = contract_client.get_user_obligation(&user).unwrap();
+    let deposited_collateral_amount = deposits
+        .get(pool_address.clone())
+        .unwrap()
+        .collateral_amount;
+    assert_eq!(deposited_collateral_amount, DEPOSIT_AMOUNT);
+
+    // WARN: For now if the time amount is less than 39 days - the deposit increase is not visible
+    // this is an issue for sure
+    e.ledger().with_mut(|li| li.timestamp = 39 * 60 * 60 * 24);
+
+    contract_client.add_interest_to_user_obligation(&user, &Some(pool_address.clone()));
+
+    let ObligationDeposit {
+        collateral_amount,
+        amount,
+        ..
+    } = contract_client
+        .get_user_obligation(&user)
+        .unwrap()
+        .deposits
+        .get(pool_address.clone())
+        .unwrap();
+
+    // Since it's not being used for loans - the interest rate isn't accrued for the collateral
+    // deposit and its amount in deposit position must be the same
+    assert_eq!(collateral_amount, DEPOSIT_AMOUNT);
+
+    // Contrary to a collateral deposit, a plain deposit amount must increase
+    assert!(amount > collateral_amount);
+}
+
+#[test]
 #[should_panic] // TODO: Where possible add specifics in the #[should_panic] attribute
-fn test_pool_withdraw_overflow() {
+fn test_withdraw_overflow() {
     const DEPOSIT_AMOUNT: i128 = 100;
 
     let e = Env::default();
@@ -614,7 +714,6 @@ fn test_repay_with_interest_accrual() {
 
     assert_eq!(borrowed_amount, BORROW_AMOUNT);
 
-    // Move time
     e.ledger().with_mut(|li| li.timestamp = 5 * 60 * 60 * 24);
 
     // Accrue interest in a pool and update the user's obligation
@@ -668,7 +767,6 @@ fn test_storage_ttl_extension() {
         );
     });
 
-    // Move time
     e.ledger().with_mut(|li| {
         li.sequence_number = 100_000;
     });

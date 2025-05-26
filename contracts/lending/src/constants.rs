@@ -18,7 +18,6 @@ pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
 // ---- Interest Rate and Accrual ----
 pub const BPS_IN_PERCENT: i128 = 100;
-pub const DEFAULT_LIQUIDATION_THRESHOLD: i128 = 80;
 pub const DEFAULT_BASE_RATE: i128 = 1;
 pub const DEFAULT_OPTIMAL_UTILIZATION_RATIO: i128 = 80;
 pub const DEFAULT_RESERVE_RATIO: i128 = 10;
@@ -27,6 +26,10 @@ pub const DEFAULT_SLOPE2: i128 = 10;
 #[allow(clippy::inconsistent_digit_grouping)]
 pub const ACCRUAL_INIT_VALUE: i128 = 1__00_000_000_000;
 pub const SECONDS_IN_YEAR: u64 = 31_556_926;
+
+// ---- Liquidation ----
+pub const DEFAULT_LIQUIDATION_THRESHOLD: i128 = 80;
+pub const HEALTH_FACTOR_THRESHOLD: i128 = 10_000;
 
 // ---- Aliases ----
 pub type LCError = crate::error::LendingContractError;
