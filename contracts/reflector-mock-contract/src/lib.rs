@@ -17,8 +17,6 @@ pub mod mock_oracle {
         pub timestamp: u64,
     }
 
-    // 1 12 982 747 458 125
-
     #[contract]
     pub struct MockOracleContract;
 
