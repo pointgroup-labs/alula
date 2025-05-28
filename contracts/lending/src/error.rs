@@ -1,7 +1,7 @@
 use soroban_sdk::contracterror;
 
 #[contracterror]
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum LendingContractError {
     PoolAlreadyExists = 1,

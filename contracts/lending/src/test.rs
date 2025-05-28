@@ -2,7 +2,9 @@
 
 use {
     crate::{
-        constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP},
+        constants::{
+            LCError, INDIVIDUAL_BUMP, INSTANCE_BUMP, REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP,
+        },
         contract::*,
         interest_rate::CompoundRates,
         oracle,
@@ -24,11 +26,13 @@ extern crate std;
 const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = 1_000_000;
 const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
 
+#[allow(unused)]
 struct TestEnv<'a> {
     contract_client: LendingContractClient<'a>,
     contract_id: Address,
     asset1: TestAssetSetup<'a>,
     asset2: TestAssetSetup<'a>,
+    asset3: TestAssetSetup<'a>,
     user: Address,
     admin: Address,
 }
@@ -81,12 +85,14 @@ fn setup_test_env(e: &Env) -> TestEnv {
 
     let ticker1 = symbol_short!("TCK1");
     let ticker2 = symbol_short!("TCK2");
+    let ticker3 = symbol_short!("TCK3");
 
     let asset1 = setup_test_asset(e, &admin, &user, &ticker1);
     let asset2 = setup_test_asset(e, &admin, &user, &ticker2);
+    let asset3 = setup_test_asset(e, &admin, &user, &ticker3);
 
     // Registering reflector mock contract is enough.
-    // In local tests contracts will call it via the same address as in testnet.
+    // In local tests contracts will call it via the same address as in testnet
     let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
     e.register_at(&reflector_address, oracle::WASM, ());
 
@@ -95,6 +101,7 @@ fn setup_test_env(e: &Env) -> TestEnv {
         admin,
         asset1,
         asset2,
+        asset3,
         contract_client,
         contract_id,
     }
@@ -814,3 +821,164 @@ fn test_storage_ttl_extension() {
         // );
     });
 }
+
+#[test]
+fn test_liquidation() {
+    const DEPOSIT_AMOUNT: i128 = 1_000;
+    let e = Env::default();
+
+    let TestEnv {
+        contract_client,
+        asset1:
+            TestAssetSetup {
+                token_address,
+                token_ticker,
+                ..
+            },
+        asset2:
+            TestAssetSetup {
+                token_address: token_address_2,
+                token_ticker: token_ticker_2,
+                ..
+            },
+        user,
+        admin,
+        ..
+    } = setup_test_env(&e);
+
+    let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+    let pool_address_2 =
+        contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
+
+    // Provide some liquidity in the first pool
+    contract_client.deposit(&admin, &pool_address, &(3 * DEPOSIT_AMOUNT));
+
+    // Deposit in the second pool
+    contract_client.deposit(&user, &pool_address_2, &DEPOSIT_AMOUNT);
+
+    // Deposit collateral in the second pool
+    contract_client.deposit_collateral(&user, &pool_address_2, &(DEPOSIT_AMOUNT / 4));
+
+    // Borrow a maximal possible amount which will not cause a liquidation
+    contract_client.borrow(&user, &pool_address, &(DEPOSIT_AMOUNT));
+
+    // Check pools state
+    let pool_1 = contract_client.get_pool(&pool_address).unwrap();
+
+    assert_eq!(pool_1.supply, 3 * DEPOSIT_AMOUNT);
+    assert_eq!(pool_1.borrowed, DEPOSIT_AMOUNT);
+
+    let pool_2 = contract_client.get_pool(&pool_address_2).unwrap();
+
+    assert_eq!(pool_2.supply, DEPOSIT_AMOUNT);
+    assert_eq!(pool_2.collateral, DEPOSIT_AMOUNT / 4);
+
+    // For now liquidation must fail due to health factor being fine
+    assert_eq!(
+        contract_client.try_liquidate(&admin, &user, &pool_address, &10),
+        Err(Ok(LCError::LiquidatedPositionIsHealthy))
+    );
+
+    // Let some time pass => increase the borrowed amount
+    // WARN: For now, in order for this test to pass, at least 3 days must pass.
+    // This is an issue for sure
+    e.ledger().with_mut(|li| li.timestamp = 3 * 60 * 60 * 24);
+
+    // Since liquidation spread is 50%, the liquidation must succeed
+    contract_client.liquidate(&admin, &user, &pool_address, &(&DEPOSIT_AMOUNT / 2));
+
+    // Check the pools state
+    let pool_1 = contract_client.get_pool(&pool_address).unwrap();
+
+    assert_eq!(pool_1.borrowed, DEPOSIT_AMOUNT / 2);
+    assert!(pool_1.supply > DEPOSIT_AMOUNT); // should increase, since interest rate has been accrued
+
+    let pool_2 = contract_client.get_pool(&pool_address_2).unwrap();
+
+    assert!(DEPOSIT_AMOUNT > pool_2.supply); // since collateral has been sold
+    assert_eq!(pool_2.collateral, DEPOSIT_AMOUNT / 4);
+}
+
+// #[test]
+// fn test_liquidation_multiple_collaterals() {
+//     const DEPOSIT_AMOUNT: i128 = 1_000;
+//     let e = Env::default();
+
+//     let TestEnv {
+//         contract_client,
+//         asset1:
+//             TestAssetSetup {
+//                 token_address,
+//                 token_ticker,
+//                 ..
+//             },
+//         asset2:
+//             TestAssetSetup {
+//                 token_address: token_address_2,
+//                 token_ticker: token_ticker_2,
+//                 ..
+//             },
+//         asset3:
+//             TestAssetSetup {
+//                 token_address: token_address_3,
+//                 token_ticker: token_ticker_3,
+//                 ..
+//             },
+//         user,
+//         admin,
+//         ..
+//     } = setup_test_env(&e);
+
+//     // Wouldn't it be better to initialize them in the `setup_test_env` right away?
+//     let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+//     let pool_address_2 =
+//         contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
+//     let pool_address_3 =
+//         contract_client.initialize_pool(&token_address_3, &token_ticker_3, &None, &None);
+
+//     // Provide some liquidity in the first pool
+//     contract_client.deposit(&admin, &pool_address, &(3 * DEPOSIT_AMOUNT));
+
+//     // Deposit in the 2nd pool
+//     contract_client.deposit(&user, &pool_address_2, &DEPOSIT_AMOUNT);
+//     // Deposit collateral in the 2nd pool
+//     contract_client.deposit_collateral(&user, &pool_address_2, &(DEPOSIT_AMOUNT / 4));
+
+//     // Deposit in the 3rd pool
+//     contract_client.deposit(&user, &pool_address_3, &(2 * DEPOSIT_AMOUNT));
+//     // Deposit collateral in the 3rd pool
+//     contract_client.deposit_collateral(&user, &pool_address_3, &(DEPOSIT_AMOUNT / 2));
+
+//     // Borrow a maximal possible amount which will not cause a liquidation
+//     contract_client.borrow(&user, &pool_address, &(3 * DEPOSIT_AMOUNT));
+
+//     // Check pools state
+//     let pool_1 = contract_client.get_pool(&pool_address).unwrap();
+
+//     assert_eq!(pool_1.supply, 3 * DEPOSIT_AMOUNT);
+//     assert_eq!(pool_1.borrowed, 2 * DEPOSIT_AMOUNT);
+
+//     let pool_2 = contract_client.get_pool(&pool_address_2).unwrap();
+
+//     assert_eq!(pool_2.supply, DEPOSIT_AMOUNT);
+//     assert_eq!(pool_2.collateral, DEPOSIT_AMOUNT / 4);
+
+//     let pool_3 = contract_client.get_pool(&pool_address_3).unwrap();
+
+//     assert_eq!(pool_3.supply, 2 * DEPOSIT_AMOUNT);
+//     assert_eq!(pool_3.collateral, DEPOSIT_AMOUNT / 2);
+
+//     // For now liquidation must fail due to health factor being fine
+//     assert_eq!(
+//         contract_client.try_liquidate(&admin, &user, &pool_address, &10),
+//         Err(Ok(LCError::LiquidatedPositionIsHealthy))
+//     );
+
+//     // Let some time pass => increase the borrowed amount
+//     // WARN: For now, in order for this test to pass, at least 3 days must pass.
+//     // This is an issue for sure
+//     e.ledger().with_mut(|li| li.timestamp = 3 * 60 * 60 * 24);
+
+//     // Liquidation must succeed
+//     // contract_client.liquidate(&admin, &user, &pool_address, &(&DEPOSIT_AMOUNT / 2));
+// }

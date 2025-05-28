@@ -240,7 +240,7 @@ pub fn adjust_pool_collateral(
 ) -> Result<(), LCError> {
     let mut pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
-    pool.supply = pool
+    pool.collateral = pool
         .collateral
         .checked_add(amount)
         .ok_or(LCError::OverOrUnderflow)?;

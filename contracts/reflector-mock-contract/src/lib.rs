@@ -17,6 +17,8 @@ pub mod mock_oracle {
         pub timestamp: u64,
     }
 
+    // 1 12 982 747 458 125
+
     #[contract]
     pub struct MockOracleContract;
 
@@ -24,13 +26,13 @@ pub mod mock_oracle {
     impl MockOracleContract {
         pub fn lastprice(_e: Env, _asset: Asset) -> Option<PriceData> {
             Some(PriceData {
-                price: 1,
+                price: 100_000_000_000_000,
                 timestamp: 1,
             })
         }
 
         pub fn decimals() -> u32 {
-            1
+            14
         }
     }
 }
