@@ -28,5 +28,9 @@ pub mod mock_oracle {
                 timestamp: 1,
             })
         }
+
+        pub fn decimals() -> u32 {
+            1
+        }
     }
 }

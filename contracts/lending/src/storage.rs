@@ -1,8 +1,9 @@
 use {
     crate::constants::{
-        LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE, DEFAULT_OPTIMAL_UTILIZATION_RATIO,
-        DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2, INDIVIDUAL_BUMP,
-        INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP, SHARED_THRESHOLD,
+        LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE, DEFAULT_CLOSE_FACTOR,
+        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
+        DEFAULT_SLOPE1, DEFAULT_SLOPE2, INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP,
+        INSTANCE_THRESHOLD, SHARED_BUMP, SHARED_THRESHOLD,
     },
     soroban_sdk::{contracttype, Address, Env, Map, Symbol},
 };
@@ -49,8 +50,12 @@ pub struct PoolConfig {
     pub optimal_utilization_ratio_bps: i128,
     pub slope1: i128,
     pub slope2: i128,
-    /// Non-negative Reserve Ration percentage (< 100)
+    /// Non-negative Reserve Ratio percentage (< 100)
     pub reserve_ratio_bps: i128,
+    /// Non-negative Close Factor percentage
+    pub close_factor_bps: i128,
+    /// Non-negative Liquidation Spread percentage
+    pub liquidation_spread_bps: i128,
 }
 
 impl Default for PoolConfig {
@@ -61,6 +66,8 @@ impl Default for PoolConfig {
             base_rate_bps: DEFAULT_BASE_RATE * BPS_IN_PERCENT,
             reserve_ratio_bps: DEFAULT_RESERVE_RATIO * BPS_IN_PERCENT,
             optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATION_RATIO * BPS_IN_PERCENT,
+            close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
+            liquidation_spread_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
         }
     }
 }

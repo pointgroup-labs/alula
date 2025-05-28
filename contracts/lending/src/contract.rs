@@ -5,14 +5,15 @@ use {
             HEALTH_FACTOR_THRESHOLD, REFLECTOR_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
-        oracle,
+        oracle::{self, PriceData},
         storage::{
             self, Accrual, GlobalState, Obligation, ObligationBorrow, ObligationDeposit, Pool,
             PoolAddress, PoolConfig,
         },
     },
+    soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{
-        contract, contractimpl, symbol_short, token, Address, BytesN, Env, String, Symbol,
+        contract, contractimpl, symbol_short, token, Address, BytesN, Env, String, Symbol, Vec,
     },
 };
 
@@ -245,6 +246,142 @@ impl LendingContract {
 
         storage::adjust_pool_collateral(&e, &pool_address, amount)?;
         storage::adjust_obligation_collateral(&e, &user, &pool_address, amount)?;
+
+        Ok(())
+    }
+
+    pub fn liquidate(
+        e: Env,
+        user: Address,
+        borrower: Address,
+        pool_address: Address,
+        amount: i128,
+        // collateral_pool_address: Option<Address>, TODO: Add a possibility to choose which collateral liquidator wants
+    ) -> Result<(), LCError> {
+        user.require_auth();
+        add_interest_to_user_obligation(&e, &borrower, &pool_address)?;
+
+        if is_user_obligation_healthy(&e, &borrower)? {
+            return Err(LCError::LiquidatedPositionIsHealthy);
+        }
+
+        let pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
+        let obligation =
+            storage::get_obligation(&e, &borrower).ok_or(LCError::ObligationDoesNotExist)?;
+
+        let obligation_borrow = obligation
+            .borrows
+            .get(pool_address.clone())
+            .ok_or(LCError::DepositDoesNotExist)?;
+
+        let liquidatable_bps = amount
+            .checked_mul(10_000)
+            .ok_or(LCError::OverOrUnderflow)?
+            .checked_div(obligation_borrow.amount)
+            .ok_or(LCError::OverOrUnderflow)?;
+
+        if liquidatable_bps < pool.config.close_factor_bps {
+            // TODO: What's the best way to set this `close_factor_bps` value?
+            return Err(LCError::LiquidationExceedsCloseFactor);
+        }
+
+        // Liquidator repays the provided amount of the debt
+        let token_client = token::Client::new(&e, &pool.token_address);
+        token_client.transfer(&user, &e.current_contract_address(), &amount);
+
+        let borrowed_asset_price = get_asset_price(&e, &pool.token_ticker)?;
+
+        // liquidation value is scaled with 7 and with `oracle_decimals`
+        let liquidation_value = borrowed_asset_price
+            .checked_mul(amount)
+            .ok_or(LCError::OverOrUnderflow)?;
+
+        // Collateral value to redeem is scaled both with `borrowed_asset_price_decimals`
+
+        // collateral_value_to_redeem is scaled with `oracle_decimals`
+        // and
+
+        let collateral_value_to_redeem = liquidation_value
+            .fixed_mul_ceil(10_000 + pool.config.liquidation_spread_bps, 10_000)
+            .ok_or(LCError::OverOrUnderflow)?;
+
+        // let mut collateral_values: Vec<i128> = Vec::new(&e);
+
+        // 1. Gather the sum value of all deposits(both plain and collateral)
+        let mut collateral_values: Vec<i128> = Vec::new(&e);
+        let mut collateral_value_sum: i128 = 0;
+
+        for (_pool_address, obligation_deposit) in obligation.deposits.iter() {
+            let ObligationDeposit {
+                collateral_amount,
+                amount,
+                ..
+            } = obligation_deposit;
+            let Pool { token_ticker, .. } = storage::get_pool(&e, &pool_address)
+                .expect("Pool must exist for a collateral asset");
+
+            let collateral_sum = amount
+                .checked_add(collateral_amount)
+                .ok_or(LCError::OverOrUnderflow)?;
+
+            let collateral_token_price = get_asset_price(&e, &token_ticker)?;
+
+            let collateral_value = collateral_sum
+                .checked_mul(collateral_token_price)
+                .ok_or(LCError::OverOrUnderflow)?;
+
+            collateral_values.push_back(collateral_value);
+
+            collateral_value_sum = collateral_sum
+                .checked_add(collateral_value)
+                .ok_or(LCError::OverOrUnderflow)?;
+        }
+
+        // Traverse second time and make corresponding collateral withdrawals
+        for (idx, (_pool_address, obligation_deposit)) in obligation.deposits.iter().enumerate() {
+            let ObligationDeposit {
+                collateral_amount,
+                amount,
+                ..
+            } = obligation_deposit;
+
+            let collateral_sum = amount
+                .checked_add(collateral_amount)
+                .ok_or(LCError::OverOrUnderflow)?;
+
+            let collateral_value = collateral_values
+                .get(idx as u32)
+                .expect("Element with given idx must be present");
+
+            let value_ratio_bps = collateral_value
+                .checked_mul(10_000)
+                .ok_or(LCError::OverOrUnderflow)?
+                .checked_div(collateral_value_sum)
+                .ok_or(LCError::OverOrUnderflow)?;
+
+            let amount_to_transfer_to_liquidator_scaled = value_ratio_bps
+                .checked_mul(collateral_sum)
+                .ok_or(LCError::OverOrUnderflow)?;
+
+            let amount_to_transfer_to_liquidator = amount_to_transfer_to_liquidator_scaled / 10_000;
+
+            let token_client = token::Client::new(&e, &pool.token_address);
+            token_client.transfer(
+                &e.current_contract_address(),
+                &user,
+                &amount_to_transfer_to_liquidator,
+            );
+
+            if amount < amount_to_transfer_to_liquidator {
+                let diff = amount_to_transfer_to_liquidator - amount;
+
+                storage::adjust_obligation_collateral(&e, &user, &pool_address, diff)?;
+                storage::adjust_pool_collateral(&e, &pool_address, diff)?;
+            }
+
+            storage::adjust_obligation_deposit(&e, &borrower, &pool_address, amount)?;
+            storage::adjust_pool_supply(&e, &pool_address, amount)?;
+        }
 
         Ok(())
     }
@@ -540,4 +677,24 @@ fn compute_health_factor(e: &Env, user: &Address) -> Result<i128, LCError> {
 
 fn is_user_obligation_healthy(e: &Env, user: &Address) -> Result<bool, LCError> {
     Ok(compute_health_factor(e, user)? >= HEALTH_FACTOR_THRESHOLD)
+}
+
+fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
+    let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
+    let reflector_contract = oracle::Client::new(e, &reflector_address);
+
+    let asset = oracle::Asset::Other(ticker.clone());
+
+    let lastprice = reflector_contract
+        .lastprice(&asset)
+        .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
+
+    Ok(lastprice.price)
+}
+
+fn get_oracle_price_decimals(e: &Env) -> u32 {
+    let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
+    let reflector_contract = oracle::Client::new(e, &reflector_address);
+
+    reflector_contract.decimals()
 }

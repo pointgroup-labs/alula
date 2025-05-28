@@ -19,4 +19,6 @@ pub enum LendingContractError {
     OracleDoesNotKnowAssetPrice = 13,
     HealthFactorIsLowerThanRequiredThreshold = 14,
     BorrowPositionDoesNotExistForUserInPool = 15,
+    LiquidatedPositionIsHealthy = 16,
+    LiquidationExceedsCloseFactor = 17,
 }
