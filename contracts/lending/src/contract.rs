@@ -210,11 +210,14 @@ impl LendingContract {
         let borrow_position = borrows
             .get(pool_address.clone())
             .ok_or(LCError::BorrowPositionDoesNotExistForUserInPool)?;
-        let adjusted_amount = i128::min(amount, borrow_position.amount);
+        let adjusting_amount = i128::min(amount, borrow_position.amount);
 
-        // TODO: It's better to close a borrow position when all amount is paid
-        storage::adjust_pool_borrowed(&e, &pool_address, -adjusted_amount)?;
-        storage::adjust_obligation_borrow(&e, &user, &pool_address, -adjusted_amount)?;
+        if adjusting_amount == borrow_position.amount {
+            storage::remove_obligation_borrow(&e, &user, &pool_address);
+        } else {
+            storage::adjust_obligation_borrow(&e, &user, &pool_address, -adjusting_amount)?;
+        }
+        storage::adjust_pool_borrowed(&e, &pool_address, -adjusting_amount)?;
 
         let token_client = token::Client::new(&e, &token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);

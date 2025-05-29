@@ -23,9 +23,10 @@ use {
 
 extern crate std;
 
-const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = 1_000_000;
-const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
-
+// TODO: We can write a declarative macro, which will take the amount of assets you want
+// to operate in your test and will generate inner fields like
+// token_ticker_1, token_address_2, token_client_n, which would be very convenient to operate with.
+// Also, same for the amount of users?
 #[allow(unused)]
 struct TestEnv<'a> {
     contract_client: LendingContractClient<'a>,
@@ -50,13 +51,16 @@ fn setup_test_asset<'a>(
     user: &Address,
     token_ticker: &Symbol,
 ) -> TestAssetSetup<'a> {
+    const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = 1_000_000;
+    const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
+
     let token_address = e
         .register_stellar_asset_contract_v2(admin.clone())
         .address();
     let asset_client = StellarAssetClient::new(e, &token_address);
     let token_client = TokenClient::new(e, &token_address);
 
-    asset_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
+    asset_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT); // why can you do this mint at all?
     asset_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
 
     TestAssetSetup {
@@ -623,7 +627,7 @@ fn test_interest_rates() {
 #[test]
 fn test_repay() {
     const DEPOSIT_AMOUNT: i128 = 10_000;
-    const BORROW_AMOUNT: i128 = 1_000;
+
     let e = Env::default();
 
     let TestEnv {
@@ -645,6 +649,7 @@ fn test_repay() {
         ..
     } = setup_test_env(&e);
 
+    // This better be in the `setup_test_env`, since when caring about initialization - we cannot invoke this setup at all
     let pool_address1 =
         contract_client.initialize_pool(&token_address_1, &token_ticker_1, &None, &None);
     let pool_address2 =
@@ -657,29 +662,26 @@ fn test_repay() {
     contract_client.deposit(&user, &pool_address2, &DEPOSIT_AMOUNT);
 
     // Borrow
-    contract_client.borrow(&user, &pool_address1, &BORROW_AMOUNT);
+    contract_client.borrow(&user, &pool_address1, &(DEPOSIT_AMOUNT / 3));
 
     // Check obligation
     let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
     let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
 
-    assert_eq!(borrowed_amount, BORROW_AMOUNT);
+    assert_eq!(borrowed_amount, DEPOSIT_AMOUNT / 3);
 
     // Repay
-    contract_client.repay(&user, &pool_address1, &BORROW_AMOUNT);
+    contract_client.repay(&user, &pool_address1, &(DEPOSIT_AMOUNT / 3));
 
     // Check obligation
     let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
-    let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
-
-    assert_eq!(borrowed_amount, 0);
+    assert!(borrows.get(pool_address1.clone()).is_none());
 }
 
 #[test]
-#[ignore]
 fn test_repay_with_interest_accrual() {
     const DEPOSIT_AMOUNT: i128 = 10_000;
-    const BORROW_AMOUNT: i128 = 1_000;
+
     let e = Env::default();
 
     let TestEnv {
@@ -713,15 +715,15 @@ fn test_repay_with_interest_accrual() {
     contract_client.deposit(&user, &pool_address2, &DEPOSIT_AMOUNT);
 
     // Borrow
-    contract_client.borrow(&user, &pool_address1, &BORROW_AMOUNT);
+    contract_client.borrow(&user, &pool_address1, &(DEPOSIT_AMOUNT / 3));
 
     // Check obligation
     let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
     let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
 
-    assert_eq!(borrowed_amount, BORROW_AMOUNT);
+    assert_eq!(borrowed_amount, DEPOSIT_AMOUNT / 3);
 
-    e.ledger().with_mut(|li| li.timestamp = 5 * 60 * 60 * 24);
+    e.ledger().with_mut(|li| li.timestamp = 60 * 60 * 24);
 
     // Accrue interest in a pool and update the user's obligation
     contract_client.add_interest_to_user_obligation(&user, &Some(pool_address1.clone()));
@@ -730,7 +732,32 @@ fn test_repay_with_interest_accrual() {
     let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
     let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
 
-    assert_ne!(borrowed_amount, BORROW_AMOUNT); // For some reason, this doesn't yet work
+    assert!(borrowed_amount > DEPOSIT_AMOUNT / 3);
+
+    // Partially repay the debt
+    contract_client.repay(&user, &pool_address1, &(DEPOSIT_AMOUNT / 10));
+
+    // Move time
+    e.ledger().with_mut(|li| li.timestamp = 50 * 60 * 60 * 24);
+
+    // Accrue interest
+    // TODO: We better to this whenever we try to read the obligation's data, no?
+    contract_client.add_interest_to_user_obligation(&user, &Some(pool_address1.clone()));
+
+    // Check that debt has increased
+    let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
+    let borrowed_amount = borrows.get(pool_address1.clone()).unwrap().amount;
+
+    let x = (DEPOSIT_AMOUNT / 3) - (DEPOSIT_AMOUNT / 10);
+    assert!(borrowed_amount > x);
+
+    // Repay the debt completely
+    contract_client.repay(&user, &pool_address1, &borrowed_amount);
+
+    // Check that the borrow position is gone
+    let Obligation { borrows, .. } = contract_client.get_user_obligation(&user).unwrap();
+
+    assert!(borrows.get(pool_address1.clone()).is_none());
 }
 
 #[test]

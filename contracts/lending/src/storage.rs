@@ -381,6 +381,15 @@ pub fn adjust_obligation_collateral(
     Ok(())
 }
 
+pub fn remove_obligation_borrow(e: &Env, user: &Address, pool_address: &Address) {
+    let mut obligation = get_obligation(e, user).unwrap_or(Obligation::new(e));
+
+    // TODO: Emit something similar to a warning here?
+    obligation.borrows.remove(pool_address.clone());
+
+    set_obligation(e, user, &obligation);
+}
+
 pub fn deposit_exists(e: &Env, user: &Address, pool_address: &Address) -> Result<bool, LCError> {
     let Obligation {
         deposits,
