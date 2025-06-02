@@ -157,24 +157,6 @@ impl Pool {
         })
     }
 
-    pub fn get_interest_rate2(&self) -> Result<i128, LCError> {
-        let &Pool {
-            borrowed,
-            deposited,
-            config:
-                PoolConfig {
-                    base_rate_per_second,
-                    optimal_utilization_ratio_bps,
-                    slope1,
-                    slope2,
-                    ..
-                },
-            ..
-        } = self;
-
-        Ok(0)
-    }
-
     /// Calculates `x` * 1/[`SCALED_ONE`] units of the interest rate per second
     pub fn get_borrow_rate_per_second(&self) -> Result<i128, LCError> {
         let &Pool {

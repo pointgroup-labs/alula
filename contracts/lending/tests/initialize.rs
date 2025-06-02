@@ -1,27 +1,6 @@
 use {
-    core::ops::Add,
-    lending::{
-        constants::{
-            LCError, DEFAULT_CLOSE_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY,
-            REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP,
-        },
-        contract::{self, LendingContract, LendingContractClient},
-        interest_rate::{CompoundRates, SCALED_ONE},
-        oracle,
-        storage::{
-            Accrual, BorrowObligation, DataKey, DepositObligation, Obligation, Pool, PoolConfig,
-        },
-    },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{
-        symbol_short,
-        testutils::{
-            storage::{Instance, Persistent},
-            Address as _, Ledger,
-        },
-        token::{StellarAssetClient, TokenClient},
-        vec, Address, BytesN, Env, String, Symbol, Vec,
-    },
+    lending::contract::{LendingContract, LendingContractClient},
+    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
 };
 
 #[test]

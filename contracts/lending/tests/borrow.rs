@@ -1,32 +1,7 @@
 mod common;
-
 use common::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
-use {
-    core::ops::Add,
-    lending::{
-        constants::{
-            LCError, DEFAULT_CLOSE_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY,
-            REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP,
-        },
-        contract::{self, LendingContract, LendingContractClient},
-        interest_rate::{CompoundRates, SCALED_ONE},
-        oracle,
-        storage::{
-            Accrual, BorrowObligation, DataKey, DepositObligation, Obligation, Pool, PoolConfig,
-        },
-    },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{
-        symbol_short,
-        testutils::{
-            storage::{Instance, Persistent},
-            Address as _, Ledger,
-        },
-        token::{StellarAssetClient, TokenClient},
-        vec, Address, BytesN, Env, String, Symbol, Vec,
-    },
-};
+use {lending::constants::LCError, soroban_sdk::Address};
 
 #[test]
 fn test_borrow() {

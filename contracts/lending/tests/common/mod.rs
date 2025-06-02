@@ -1,18 +1,13 @@
 use {
-    core::ops::Add,
     lending::{
         constants::{
-            LCError, DEFAULT_CLOSE_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY,
-            REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP,
+            LCError, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, REFLECTOR_TESTNET_ADDRESS,
+            SHARED_BUMP,
         },
-        contract::{self, LendingContract, LendingContractClient},
-        interest_rate::{CompoundRates, SCALED_ONE},
+        contract::{LendingContract, LendingContractClient},
         oracle,
-        storage::{
-            Accrual, BorrowObligation, DataKey, DepositObligation, Obligation, Pool, PoolConfig,
-        },
+        storage::{BorrowObligation, DataKey, DepositObligation},
     },
-    soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{
         symbol_short,
         testutils::{
@@ -20,7 +15,7 @@ use {
             Address as _, Ledger,
         },
         token::{StellarAssetClient, TokenClient},
-        vec, Address, BytesN, Env, String, Symbol, Vec,
+        vec, Address, Env, String, Vec,
     },
 };
 
@@ -28,6 +23,7 @@ pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
 pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = 1_000_000;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = DEFAULT_USER_ASSET_MINT_AMOUNT / 2;
+#[allow(unused)]
 pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_USER_ASSET_MINT_AMOUNT / 2;
 
 #[allow(unused)]
@@ -174,8 +170,9 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
     }
 }
 
-pub fn get_deposit_obligation<'a>(
-    contract_client: &LendingContractClient<'a>,
+#[allow(unused)]
+pub fn get_deposit_obligation(
+    contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositObligation, LCError> {
@@ -188,15 +185,15 @@ pub fn get_deposit_obligation<'a>(
     Ok(deposit)
 }
 
-pub fn get_borrow_obligation<'a>(
-    contract_client: &LendingContractClient<'a>,
+#[allow(unused)]
+pub fn get_borrow_obligation(
+    contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> BorrowObligation {
     let obligation = contract_client.get_user_obligation(user);
-    let borrow = obligation.borrows.get(pool_address.clone()).unwrap();
 
-    borrow
+    obligation.borrows.get(pool_address.clone()).unwrap()
 }
 
 #[test]

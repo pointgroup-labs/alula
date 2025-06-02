@@ -1,7 +1,7 @@
 use {
     crate::{
         constants::{
-            LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_BASE_RATE, DEFAULT_CLOSE_FACTOR,
+            LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR,
             DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
             DEFAULT_SLOPE1, DEFAULT_SLOPE2, HEALTH_FACTOR_THRESHOLD, INDIVIDUAL_BUMP,
             INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, REFLECTOR_TESTNET_ADDRESS,
@@ -9,7 +9,6 @@ use {
         },
         oracle,
     },
-    core::{borrow::Borrow, ops::Add},
     soroban_sdk::{contracttype, Address, Env, Map, String, Symbol},
 };
 
@@ -248,55 +247,6 @@ impl Obligation {
     }
 }
 
-// fn add_interest_to_user_obligation(
-//     e: &Env,
-//     obligation: &Obligation,
-//     pool_address: &Address,
-// ) -> Result<(), LCError> {
-//     let Accrual {
-//         borrow_accrual,
-//         deposit_accrual,
-//         ..
-//     } = accrue_interest(e, pool_address)?;
-
-//     let Obligation { deposits, borrows } = obligation;
-
-//     let borrow_position = borrows.get(pool_address.clone());
-//     if let Some(mut position) = borrow_position {
-//         let amount = position.borrowed;
-//         let new_amount = amount
-//             .checked_mul(borrow_accrual)
-//             .ok_or(LCError::OverOrUnderflow)?
-//             .checked_div(position.last_accrual)
-//             .ok_or(LCError::OverOrUnderflow)?;
-
-//         position.last_accrual = borrow_accrual;
-//         position.borrowed = new_amount;
-
-//         borrows.set(pool_address.clone(), position);
-//     }
-
-//     let deposit_position = deposits.get(pool_address.clone());
-//     if let Some(mut position) = deposit_position {
-//         let amount = position.deposited;
-//         let new_amount = amount
-//             .checked_mul(deposit_accrual)
-//             .ok_or(LCError::OverOrUnderflow)?
-//             .checked_div(position.last_accrual)
-//             .ok_or(LCError::OverOrUnderflow)?;
-
-//         position.last_accrual = deposit_accrual;
-//         position.deposited = new_amount;
-
-//         deposits.set(pool_address.clone(), position);
-//     }
-
-//     let new_obligation = Obligation { deposits, borrows };
-//     // storage::set_obligation(e, user, &new_obligation);
-
-//     Ok(())
-// }
-
 #[derive(Debug, Clone, Copy, Default)]
 #[contracttype]
 pub struct BorrowObligation {
@@ -304,12 +254,6 @@ pub struct BorrowObligation {
     /// The numerical value that is used to determine the scaling factor required for updating the position amount
     /// with interest i.e. (current_accrual \ last_accrual) * amount = new_amount
     pub last_accrual: i128,
-}
-
-impl BorrowObligation {
-    fn is_empty(&self) -> bool {
-        self.borrowed == 0
-    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -321,7 +265,7 @@ pub struct DepositObligation {
 }
 
 impl DepositObligation {
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.deposited == 0 && self.collateral == 0
     }
 }

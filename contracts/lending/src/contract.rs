@@ -2,7 +2,7 @@ use {
     crate::{
         constants::{
             LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
-            HEALTH_FACTOR_THRESHOLD, REFLECTOR_TESTNET_ADDRESS,
+            REFLECTOR_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
         oracle,
@@ -12,9 +12,7 @@ use {
         },
     },
     soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{
-        contract, contractimpl, symbol_short, token, Address, BytesN, Env, String, Symbol, Vec,
-    },
+    soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, String, Symbol, Vec},
 };
 
 #[contract]
@@ -578,7 +576,7 @@ impl LendingContract {
             .checked_add(-amount)
             .ok_or(LCError::OverOrUnderflow)?;
 
-        if deposit_obligation.deposited == 0 && deposit_obligation.collateral == 0 {
+        if deposit_obligation.is_empty() {
             obligation.deposits.remove(pool_address.clone());
         } else {
             obligation
@@ -652,7 +650,7 @@ impl LendingContract {
             .checked_add(-amount)
             .ok_or(LCError::OverOrUnderflow)?;
 
-        if deposit_obligation.deposited == 0 && deposit_obligation.collateral == 0 {
+        if deposit_obligation.is_empty() {
             obligation.deposits.remove(pool_address.clone());
         } else {
             obligation
@@ -734,11 +732,6 @@ impl LendingContract {
         Ok(())
     }
 
-    // TODO: Write tests as well
-    pub fn get_health_factor(e: Env, user: Address) -> Result<i128, LCError> {
-        compute_health_factor(&e, &user)
-    }
-
     pub fn extend_instance_ttl(e: Env) {
         storage::extend_instance_storage(&e);
     }
@@ -796,92 +789,6 @@ fn add_interest_to_user_obligation(
     Ok(())
 }
 
-fn compute_health_factor(e: &Env, user: &Address) -> Result<i128, LCError> {
-    let Obligation {
-        deposits, borrows, ..
-    } = storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)?;
-    let GlobalState {
-        liquidation_threshold_bps,
-        ..
-    } = storage::get_global_state(e);
-    // HF = ((Collateral_Value1 + ... + Collateral_ValueN) * LT) / (Borrow_Value1 + ... + BorrowValueM)
-    let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
-    let reflector_contract = oracle::Client::new(e, &reflector_address);
-    let (mut collateral_sum_value, mut borrow_sum_value) = (0i128, 0i128);
-
-    for (pool_address, deposit_position) in deposits {
-        let DepositObligation {
-            deposited,
-            collateral,
-            ..
-        } = deposit_position;
-
-        // TODO: Maybe, get it from the token client?
-        // This will introduce an additional cross contract call, but will decrease the amount of errors,
-        // which can happen.
-        let ticker =
-            storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
-        let asset = oracle::Asset::Other(ticker); // TODO: What about XLM?
-        let lastprice = reflector_contract
-            .lastprice(&asset)
-            .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
-
-        collateral_sum_value = collateral_sum_value
-            .checked_add(
-                lastprice
-                    .price
-                    .checked_mul(deposited)
-                    .ok_or(LCError::OverOrUnderflow)?,
-            )
-            .ok_or(LCError::OverOrUnderflow)?;
-        collateral_sum_value = collateral_sum_value
-            .checked_add(
-                lastprice
-                    .price
-                    .checked_mul(collateral)
-                    .ok_or(LCError::OverOrUnderflow)?,
-            )
-            .ok_or(LCError::OverOrUnderflow)?;
-    }
-
-    for (pool_address, borrow_position) in borrows {
-        let BorrowObligation { borrowed, .. } = borrow_position;
-
-        let ticker =
-            storage::get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
-        let asset = oracle::Asset::Other(ticker);
-        let lastprice = reflector_contract
-            .lastprice(&asset)
-            .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
-        borrow_sum_value = borrow_sum_value
-            .checked_add(
-                lastprice
-                    .price
-                    .checked_mul(borrowed)
-                    .ok_or(LCError::OverOrUnderflow)?,
-            )
-            .ok_or(LCError::OverOrUnderflow)?;
-    }
-
-    if borrow_sum_value == 0 {
-        // If nothing is borrowed - it's the healthiest obligation it can be
-        return Ok(i128::MAX);
-    }
-
-    let numerator = collateral_sum_value
-        .checked_mul(liquidation_threshold_bps)
-        .ok_or(LCError::OverOrUnderflow)?;
-    let health_factor = numerator
-        .checked_div(borrow_sum_value)
-        .ok_or(LCError::OverOrUnderflow)?;
-
-    Ok(health_factor)
-}
-
-fn is_user_obligation_healthy(e: &Env, user: &Address) -> Result<bool, LCError> {
-    Ok(compute_health_factor(e, user)? >= HEALTH_FACTOR_THRESHOLD)
-}
-
 fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
     let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
     let reflector_contract = oracle::Client::new(e, &reflector_address);
@@ -893,12 +800,4 @@ fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
     Ok(lastprice.price)
-}
-
-#[allow(unused)]
-fn get_price_decimals(e: &Env) -> u32 {
-    let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
-    let reflector_contract = oracle::Client::new(e, &reflector_address);
-
-    reflector_contract.decimals()
 }

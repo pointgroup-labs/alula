@@ -1,34 +1,9 @@
 mod common;
-
-use common::{
-    get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT,
-    DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT,
-};
+use common::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
 use {
-    core::ops::Add,
-    lending::{
-        constants::{
-            LCError, DEFAULT_CLOSE_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY,
-            REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP,
-        },
-        contract::{self, LendingContract, LendingContractClient},
-        interest_rate::{CompoundRates, SCALED_ONE},
-        oracle,
-        storage::{
-            Accrual, BorrowObligation, DataKey, DepositObligation, Obligation, Pool, PoolConfig,
-        },
-    },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{
-        symbol_short,
-        testutils::{
-            storage::{Instance, Persistent},
-            Address as _, Ledger,
-        },
-        token::{StellarAssetClient, TokenClient},
-        vec, Address, BytesN, Env, String, Symbol, Vec,
-    },
+    lending::constants::{LCError, DEFAULT_CLOSE_FACTOR},
+    soroban_sdk::{testutils::Ledger, Address},
 };
 
 #[test]
@@ -92,17 +67,12 @@ fn test_liquidate() {
             &liquidator,
             &user,
             &usdc_pool_address,
-            &(&non_liquidatable_amount),
+            &non_liquidatable_amount,
         ),
         Err(Ok(LCError::LiquidationExceedsCloseFactor))
     );
 
-    contract_client.liquidate(
-        &liquidator,
-        &user,
-        &usdc_pool_address,
-        &(&liquidatable_amount),
-    );
+    contract_client.liquidate(&liquidator, &user, &usdc_pool_address, &liquidatable_amount);
 
     let new_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
     let new_deposited = get_deposit_obligation(&contract_client, &user, &gold_pool_address)
