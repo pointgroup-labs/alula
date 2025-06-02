@@ -54,8 +54,6 @@ impl LendingContract {
     }
 
     /// Gets the contract's global state
-    ///
-    /// ### Arguments
     pub fn get_global_state(e: Env) -> GlobalState {
         storage::get_global_state(&e)
     }
