@@ -44,7 +44,7 @@ build-optimize: build ## Optimize contracts
 generate-sdk: build-optimize ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
 		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/$(LENDING_CONTRACT)-sdk/ \
-		--rpc-url http://localhost:8000 --network-passphrase "Standalone Network ; February 2017" --network Standalone
+		--network testnet
 
 test: build ## Run tests
 	cargo test
