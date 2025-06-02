@@ -3,7 +3,7 @@
 
 use {
     crate::{
-        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, SECONDS_IN_YEAR},
         math_utils,
         storage::{Accrual, Pool, PoolConfig},
     },
@@ -27,8 +27,8 @@ pub const SCALED_ONE: i128 = ACCRUAL_INIT;
 ///
 /// let compound_rates: CompoundRates = multipliers.try_into().unwrap();
 ///
-/// assert_eq!(compound_rates.borrow_rate_bps, 32_07);
-/// assert_eq!(compound_rates.deposit_rate_bps, 00_00);
+/// assert_eq!(compound_rates.borrow_rate_bps, 32_07); // 32.07%
+/// assert_eq!(compound_rates.deposit_rate_bps, 00_00); // 0%
 ///
 /// ```
 #[derive(Debug)]
@@ -130,15 +130,12 @@ impl Pool {
         } = self;
 
         let deposit_multiplier = if deposited == 0 {
-            /* Is zero, since if a pool doesn't yet have a supply, its next APY update must be
-            because as a `deposit` which implies that its compound supply interest will be set to 0 regardless */
+            /* Is zero, since if a pool doesn't yet have deposits, its next APY update must be
+            because as a `deposit` which implies that its compound deposit interest will be set to 0 regardless */
             SCALED_ONE
         } else {
-            // TODO: Comment
             let utilization_ratio_scaled = borrowed
-                .checked_mul(SCALED_ONE)
-                .ok_or(LCError::OverOrUnderflow)?
-                .checked_div(deposited)
+                .fixed_div_floor(deposited, SCALED_ONE)
                 .ok_or(LCError::OverOrUnderflow)?;
 
             // TODO: Start accounting reserve ratio
@@ -177,12 +174,12 @@ impl Pool {
 
         assert!(
             borrowed <= deposited,
-            "Total borrowed funds cannot be less than supplied funds"
+            "Total borrowed is less than total deposited"
         );
 
         // UR is within [0; 10_000]
         let utilization_ratio_bps = borrowed
-            .fixed_div_ceil(deposited, 10_000)
+            .fixed_div_ceil(deposited, BPS_FACTOR)
             .ok_or(LCError::OverOrUnderflow)?;
 
         let borrow_rate_per_second = if utilization_ratio_bps < optimal_utilization_ratio_bps {
@@ -219,25 +216,17 @@ impl Pool {
 }
 
 impl PoolConfig {
-    // by the way, this is not the case for now(((
     pub fn is_valid(&self) -> bool {
-        // TODO: Since now interest rate is calculated based on the utilization ration per second
-        // this likely has to be changed...
+        let &PoolConfig {
+            optimal_utilization_ratio_bps,
+            slope1,
+            slope2,
+            reserve_ratio_bps,
+            ..
+        } = self;
 
-        // let &PoolConfig {
-        //     base_rate_bps,
-        //     optimal_utilization_ratio_bps,
-        //     slope1,
-        //     slope2,
-        //     reserve_ratio_bps,
-        //     ..
-        // } = self;
-
-        // (base_rate_bps > 0) // BR must be > 0%
-        // && (optimal_utilization_ratio_bps > 0) // OUR must be > 0%
-        // && (0..100*BPS_IN_PERCENT).contains(&reserve_ratio_bps) // RR must be [0%; 100%)
-        // && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
-
-        true
+        (optimal_utilization_ratio_bps > 0) // OUR must be > 0%
+        && (0..100*BPS_IN_PERCENT).contains(&reserve_ratio_bps) // RR must be [0%; 100%)
+        && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
     }
 }
