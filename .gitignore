@@ -65,4 +65,4 @@ pids
 *.pid.lock
 
 # contract unit test test-snapshots
-*/test_snapshots/*
+*/test_snapshots
