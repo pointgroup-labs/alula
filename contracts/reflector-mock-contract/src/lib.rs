@@ -25,7 +25,7 @@ pub mod mock_oracle {
         pub fn lastprice(_e: Env, _asset: Asset) -> Option<PriceData> {
             Some(PriceData {
                 price: 100_000_000_000_000,
-                timestamp: 1,
+                timestamp: 0,
             })
         }
 

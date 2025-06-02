@@ -46,7 +46,7 @@ generate-sdk: build-optimize ## Generate typescript sdk
 		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/$(LENDING_CONTRACT)-sdk/ \
 		--rpc-url http://localhost:8000 --network-passphrase "Standalone Network ; February 2017" --network Standalone
 
-test: ## Run tests
+test: build ## Run tests
 	cargo test
 
 fmt: ## Format code using cargo

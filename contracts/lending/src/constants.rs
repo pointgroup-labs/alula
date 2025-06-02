@@ -1,5 +1,6 @@
 // ---- General ----
 pub const BPS_IN_PERCENT: i128 = 100;
+pub const BPS_FACTOR: i128 = 10_000;
 
 // ---- Storage TTL ----
 pub const SECONDS_PER_LEDGER: u32 = 6;
@@ -26,7 +27,7 @@ pub const DEFAULT_RESERVE_RATIO: i128 = 10;
 pub const DEFAULT_SLOPE1: i128 = 1;
 pub const DEFAULT_SLOPE2: i128 = 10;
 #[allow(clippy::inconsistent_digit_grouping)]
-pub const ACCRUAL_INIT_VALUE: i128 = 1__00_000_000_000;
+pub const ACCRUAL_INIT: i128 = 1__00_000_000_0000;
 pub const SECONDS_IN_YEAR: u64 = 31_556_926;
 
 // ---- Liquidation ----
