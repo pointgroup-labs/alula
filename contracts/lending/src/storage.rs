@@ -1,11 +1,11 @@
 use {
     crate::{
         constants::{
-            LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR,
-            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
-            DEFAULT_SLOPE1, DEFAULT_SLOPE2, HEALTH_FACTOR_THRESHOLD, INDIVIDUAL_BUMP,
-            INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, REFLECTOR_TESTNET_ADDRESS,
-            SHARED_BUMP, SHARED_THRESHOLD,
+            LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND,
+            DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO,
+            DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2, HEALTH_FACTOR_THRESHOLD_BPS,
+            INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD,
+            REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP, SHARED_THRESHOLD,
         },
         oracle,
     },
@@ -70,7 +70,7 @@ impl Default for PoolConfig {
         Self {
             slope1: DEFAULT_SLOPE1,
             slope2: DEFAULT_SLOPE2,
-            base_rate_per_second: 100,
+            base_rate_per_second: DEFAULT_BASE_RATE_PER_SECOND,
             reserve_ratio_bps: DEFAULT_RESERVE_RATIO * BPS_IN_PERCENT,
             optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATION_RATIO * BPS_IN_PERCENT,
             close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
@@ -107,14 +107,14 @@ impl Obligation {
     }
 
     pub fn is_healthy(&self, e: &Env) -> Result<bool, LCError> {
-        Ok(self.compute_health_factor(e)? >= HEALTH_FACTOR_THRESHOLD)
+        Ok(self.compute_health_factor_bps(e)? >= HEALTH_FACTOR_THRESHOLD_BPS)
     }
 
     pub fn is_empty(&self) -> bool {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
 
-    pub fn compute_health_factor(&self, e: &Env) -> Result<i128, LCError> {
+    pub fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
         let liquidation_threshold_bps = get_global_state(e).liquidation_threshold_bps;
 
         let reflector_address =
@@ -184,11 +184,11 @@ impl Obligation {
         let numerator = collateral_value_sum
             .checked_mul(liquidation_threshold_bps)
             .ok_or(LCError::OverOrUnderflow)?;
-        let health_factor = numerator
+        let health_factor_bps = numerator
             .checked_div(borrowed_value_sum)
             .ok_or(LCError::OverOrUnderflow)?;
 
-        Ok(health_factor)
+        Ok(health_factor_bps)
     }
 
     fn accrue_borrow_obligation(

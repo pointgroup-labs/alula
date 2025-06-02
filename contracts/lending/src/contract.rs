@@ -112,7 +112,6 @@ impl LendingContract {
             borrowed: 0,
             collateral: 0,
         };
-
         storage::set_pool(&e, &pool_address, &pool)?;
 
         Ok(pool_address)
@@ -137,7 +136,6 @@ impl LendingContract {
         }
 
         let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
-
         obligation.accrue_interest(&e)?;
 
         let Some(Pool {
@@ -337,7 +335,6 @@ impl LendingContract {
             .ok_or(LCError::BorrowDoesNotExist)?;
 
         let amount = i128::min(amount, borrow_obligation.borrowed);
-
         if amount == borrow_obligation.borrowed {
             obligation.borrows.remove(pool_address.clone());
         } else {
@@ -696,97 +693,6 @@ impl LendingContract {
 
         pool.get_apy()
     }
-
-    pub fn accrue_interest(e: Env, pool_address: Address) -> Result<(), LCError> {
-        // TODO: check for the pool's admin signature
-        storage::accrue_interest(&e, &pool_address)?;
-
-        Ok(())
-    }
-
-    // TODO: Write tests
-    pub fn add_interest_to_user_obligation(
-        e: Env,
-        user: Address,
-        pool_address: Option<Address>,
-    ) -> Result<(), LCError> {
-        if let Some(pool_address) = pool_address {
-            add_interest_to_user_obligation(&e, &user, &pool_address)?;
-        } else {
-            let obligation = storage::get_obligation(&e, &user);
-
-            if let Some(Obligation {
-                borrows, deposits, ..
-            }) = obligation
-            {
-                for (pool_address, _) in borrows {
-                    add_interest_to_user_obligation(&e, &user, &pool_address)?;
-                }
-
-                for (pool_address, _) in deposits {
-                    add_interest_to_user_obligation(&e, &user, &pool_address)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn extend_instance_ttl(e: Env) {
-        storage::extend_instance_storage(&e);
-    }
-}
-
-fn add_interest_to_user_obligation(
-    e: &Env,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<(), LCError> {
-    let Accrual {
-        borrow_accrual,
-        deposit_accrual,
-        ..
-    } = storage::accrue_interest(e, pool_address)?;
-
-    let Obligation {
-        mut borrows,
-        mut deposits,
-    } = storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)?;
-
-    let borrow_position = borrows.get(pool_address.clone());
-    if let Some(mut position) = borrow_position {
-        let amount = position.borrowed;
-        let new_amount = amount
-            .checked_mul(borrow_accrual)
-            .ok_or(LCError::OverOrUnderflow)?
-            .checked_div(position.last_accrual)
-            .ok_or(LCError::OverOrUnderflow)?;
-
-        position.last_accrual = borrow_accrual;
-        position.borrowed = new_amount;
-
-        borrows.set(pool_address.clone(), position);
-    }
-
-    let deposit_position = deposits.get(pool_address.clone());
-    if let Some(mut position) = deposit_position {
-        let amount = position.deposited;
-        let new_amount = amount
-            .checked_mul(deposit_accrual)
-            .ok_or(LCError::OverOrUnderflow)?
-            .checked_div(position.last_accrual)
-            .ok_or(LCError::OverOrUnderflow)?;
-
-        position.last_accrual = deposit_accrual;
-        position.deposited = new_amount;
-
-        deposits.set(pool_address.clone(), position);
-    }
-
-    let new_obligation = Obligation { deposits, borrows };
-    storage::set_obligation(e, user, &new_obligation);
-
-    Ok(())
 }
 
 fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {

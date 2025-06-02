@@ -3,7 +3,7 @@
 
 use {
     crate::{
-        constants::{LCError, ACCRUAL_INIT, SECONDS_IN_YEAR},
+        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
         math_utils,
         storage::{Accrual, Pool, PoolConfig},
     },
@@ -50,8 +50,6 @@ impl TryFrom<CompoundRateMultipliers> for CompoundRates {
     type Error = LCError;
 
     fn try_from(val: CompoundRateMultipliers) -> Result<Self, Self::Error> {
-        const BPS_FACTOR: i128 = 10_000;
-
         let CompoundRateMultipliers {
             borrow_multiplier,
             deposit_multiplier,

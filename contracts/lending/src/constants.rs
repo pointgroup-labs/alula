@@ -21,20 +21,19 @@ pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
 // ---- Interest Rate and Accrual ----
-pub const DEFAULT_BASE_RATE: i128 = 1;
+pub const DEFAULT_BASE_RATE_PER_SECOND: i128 = 100;
 pub const DEFAULT_OPTIMAL_UTILIZATION_RATIO: i128 = 80;
 pub const DEFAULT_RESERVE_RATIO: i128 = 10;
 pub const DEFAULT_SLOPE1: i128 = 1;
 pub const DEFAULT_SLOPE2: i128 = 10;
-#[allow(clippy::inconsistent_digit_grouping)]
-pub const ACCRUAL_INIT: i128 = 1__00_000_000_0000;
+pub const ACCRUAL_INIT: i128 = 1_000_000_000_000;
 pub const SECONDS_IN_YEAR: u64 = 31_556_926;
 
 // ---- Liquidation ----
 pub const DEFAULT_CLOSE_FACTOR: i128 = 50;
 pub const DEFAULT_LIQUIDATION_THRESHOLD: i128 = 80;
 pub const DEFAULT_LIQUIDATION_SPREAD: i128 = 10;
-pub const HEALTH_FACTOR_THRESHOLD: i128 = 10_000;
+pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = 100 * BPS_IN_PERCENT;
 
 // ---- Contract Addresses ----
 pub const REFLECTOR_TESTNET_ADDRESS: &str =
