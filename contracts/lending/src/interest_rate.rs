@@ -3,7 +3,7 @@
 
 use {
     crate::{
-        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, SECONDS_IN_YEAR},
+        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
         math_utils,
         storage::{Accrual, Pool, PoolConfig},
     },
@@ -212,21 +212,5 @@ impl Pool {
         };
 
         Ok(borrow_rate_per_second)
-    }
-}
-
-impl PoolConfig {
-    pub fn is_valid(&self) -> bool {
-        let &PoolConfig {
-            optimal_utilization_ratio_bps,
-            slope1,
-            slope2,
-            reserve_ratio_bps,
-            ..
-        } = self;
-
-        (optimal_utilization_ratio_bps > 0) // OUR must be > 0%
-        && (0..100*BPS_IN_PERCENT).contains(&reserve_ratio_bps) // RR must be [0%; 100%)
-        && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
     }
 }

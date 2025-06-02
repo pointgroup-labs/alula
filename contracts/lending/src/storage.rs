@@ -1,11 +1,11 @@
 use {
     crate::{
         constants::{
-            LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND,
-            DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO,
-            DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2, HEALTH_FACTOR_THRESHOLD_BPS,
-            INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD,
-            REFLECTOR_TESTNET_ADDRESS, SHARED_BUMP, SHARED_THRESHOLD,
+            LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
+            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
+            DEFAULT_SLOPE1, DEFAULT_SLOPE2, HEALTH_FACTOR_THRESHOLD_BPS, INDIVIDUAL_BUMP,
+            INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, REFLECTOR_TESTNET_ADDRESS,
+            SHARED_BUMP, SHARED_THRESHOLD,
         },
         oracle,
     },
@@ -20,7 +20,7 @@ pub struct GlobalState {
     pub admin: Address,
     pub status: bool,
     pub liquidation_threshold_bps: i128,
-    // TODO: Oracle address + ....
+    // TODO: Oracle addresses?
 }
 
 #[contracttype]
@@ -29,7 +29,7 @@ pub enum DataKey {
     Pool(PoolAddress),
     Obligation(UserAddress),
     Accrual,
-    // TODO: We also must be able to retrieve all pools and all user addresses
+    // TODO: Store all pools and all user addresses
 }
 
 #[contracttype]
@@ -52,19 +52,18 @@ pub struct Pool {
 pub struct PoolConfig {
     /// Positive Base Rate in 1/[`SCALED_ONE`] units
     pub base_rate_per_second: i128,
-    /// Positive Optimal Utilization Ratio percentage
+    /// Positive Optimal Utilization Ratio
     pub optimal_utilization_ratio_bps: i128,
     pub slope1: i128,
     pub slope2: i128,
     /// Non-negative Reserve Ratio percentage (< 100)
     pub reserve_ratio_bps: i128,
-    /// Non-negative Close Factor percentage
+    /// Non-negative Close Factor percentage (< 100)
     pub close_factor_bps: i128,
-    /// Non-negative Liquidation Spread percentage
+    /// Non-negative Liquidation Spread percentage (< 100)
     pub liquidation_spread_bps: i128,
 }
 
-// TODO: Fix this...
 impl Default for PoolConfig {
     fn default() -> Self {
         Self {
@@ -76,6 +75,26 @@ impl Default for PoolConfig {
             close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
             liquidation_spread_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
         }
+    }
+}
+
+impl PoolConfig {
+    pub fn is_valid(&self) -> bool {
+        let &PoolConfig {
+            optimal_utilization_ratio_bps,
+            slope1,
+            slope2,
+            reserve_ratio_bps,
+            close_factor_bps,
+            liquidation_spread_bps,
+            ..
+        } = self;
+
+        (optimal_utilization_ratio_bps > 0) // OUR must be > 0%
+        && (0..100*BPS_IN_PERCENT).contains(&reserve_ratio_bps) // RR must be [0%; 100%)
+        && (0..100*BPS_IN_PERCENT).contains(&close_factor_bps) // Close Factor must be [0%; 100%)
+        && (0..100*BPS_IN_PERCENT).contains(&liquidation_spread_bps) // Liquidation Spread must be [0%; 100%)
+        && (slope1 < slope2) // (slope1 < slope2) is necessary for kinked model to work
     }
 }
 
@@ -130,7 +149,7 @@ impl Obligation {
                 ..
             } = deposit_obligation;
 
-            // TODO: Maybe, get it from the token client?
+            // TODO: Get it from the token client?
             let ticker = get_pool_ticker(e, &pool_address).expect("Pool must exist at this point");
             let asset = oracle::Asset::Other(ticker); // TODO: What about XLM?
             let price = reflector_contract
@@ -206,8 +225,6 @@ impl Obligation {
             .checked_div(borrow_obligation.last_accrual / 10)
             .ok_or(LCError::OverOrUnderflow)?;
 
-        // 3500 * 1000064802024 / 1000000000000
-
         let new_borrow_obligation = BorrowObligation {
             borrowed: new_borrowed,
             last_accrual: borrow_accrual,
@@ -252,7 +269,7 @@ impl Obligation {
 pub struct BorrowObligation {
     pub borrowed: i128,
     /// The numerical value that is used to determine the scaling factor required for updating the position amount
-    /// with interest i.e. (current_accrual \ last_accrual) * amount = new_amount
+    /// with interest, i.e. new_borrowed = (current_accrual \ last_accrual) * borrowed
     pub last_accrual: i128,
 }
 
@@ -261,6 +278,8 @@ pub struct BorrowObligation {
 pub struct DepositObligation {
     pub collateral: i128,
     pub deposited: i128,
+    /// The numerical value that is used to determine the scaling factor required for updating the position amount
+    /// with interest, i.e. new_deposited = (current_accrual \ last_accrual) * deposited
     pub last_accrual: i128,
 }
 
@@ -276,16 +295,6 @@ pub struct Accrual {
     pub timestamp: u64,
     pub borrow_accrual: i128,
     pub deposit_accrual: i128,
-}
-
-impl Default for Accrual {
-    fn default() -> Self {
-        Self {
-            borrow_accrual: ACCRUAL_INIT,
-            deposit_accrual: ACCRUAL_INIT,
-            timestamp: 0,
-        }
-    }
 }
 
 /// Instance bumper
@@ -337,12 +346,6 @@ pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) -> Result<(), LCEr
 
     Ok(())
 }
-
-// TODO
-// pub fn set_pool_config(e: &Env, pool_address: &Address, interest_rate_config: PoolConfig) {
-
-//     // Maybe, store interest rate config separately???
-// }
 
 pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     let res = e
@@ -452,134 +455,7 @@ pub fn remove_obligation(e: &Env, user: &Address) {
         .remove(&DataKey::Obligation(user.clone()));
 }
 
-pub fn adjust_deposit_obligation(
-    e: &Env,
-    user: &Address,
-    pool_address: &Address,
-    amount: i128,
-) -> Result<i128, LCError> {
-    let mut obligation = get_obligation(e, user).unwrap_or(Obligation::new(e));
-
-    // TODO: Refactor
-    let pool_accrual = get_pool(e, pool_address)
-        .expect("Pool must exist at this point")
-        .accrual;
-    let mut pool_deposit_obligation =
-        obligation
-            .deposits
-            .get(pool_address.clone())
-            .unwrap_or(DepositObligation {
-                deposited: 0,
-                collateral: 0,
-                last_accrual: pool_accrual.deposit_accrual,
-            });
-
-    let new_deposit_amount = pool_deposit_obligation
-        .deposited
-        .checked_add(amount)
-        .ok_or(LCError::OverOrUnderflow)?;
-    pool_deposit_obligation.deposited = new_deposit_amount;
-
-    obligation
-        .deposits
-        .set(pool_address.clone(), pool_deposit_obligation);
-
-    set_obligation(e, user, &obligation); // NB: Is it reasonable to have `set_obligation` without `read_obligation` first?
-
-    Ok(new_deposit_amount)
-}
-
-pub fn adjust_borrow_obligation(
-    e: &Env,
-    user: &Address,
-    pool_address: &Address,
-    amount: i128,
-) -> Result<i128, LCError> {
-    let mut obligation = get_obligation(e, user).unwrap_or(Obligation::new(e));
-
-    // TODO: Refactor
-    let pool_accrual = get_pool(e, pool_address)
-        .expect("Pool must exist at this point")
-        .accrual;
-    let mut pool_borrow_obligation =
-        obligation
-            .borrows
-            .get(pool_address.clone())
-            .unwrap_or(BorrowObligation {
-                borrowed: 0,
-                last_accrual: pool_accrual.borrow_accrual,
-            });
-
-    let new_borrow_amount = pool_borrow_obligation
-        .borrowed
-        .checked_add(amount)
-        .ok_or(LCError::OverOrUnderflow)?;
-
-    pool_borrow_obligation.borrowed = new_borrow_amount;
-
-    obligation
-        .borrows
-        .set(pool_address.clone(), pool_borrow_obligation);
-    set_obligation(e, user, &obligation);
-
-    Ok(new_borrow_amount)
-}
-
-pub fn adjust_obligation_collateral(
-    e: &Env,
-    user: &Address,
-    pool_address: &Address,
-    amount: i128,
-) -> Result<(), LCError> {
-    let mut obligation = get_obligation(e, user).unwrap_or(Obligation::new(e));
-
-    // TODO: Refactor
-    let pool_accrual = get_pool(e, pool_address)
-        .expect("Pool must exist at this point")
-        .accrual;
-    let mut pool_deposit_obligation =
-        obligation
-            .deposits
-            .get(pool_address.clone())
-            .unwrap_or(DepositObligation {
-                deposited: 0,
-                collateral: 0,
-                last_accrual: pool_accrual.borrow_accrual,
-            });
-
-    let new_collateral = pool_deposit_obligation
-        .collateral
-        .checked_add(amount)
-        .ok_or(LCError::OverOrUnderflow)?;
-
-    pool_deposit_obligation.collateral = new_collateral;
-
-    obligation
-        .deposits
-        .set(pool_address.clone(), pool_deposit_obligation);
-    set_obligation(e, user, &obligation);
-
-    Ok(())
-}
-
-pub fn remove_borrow_obligation(e: &Env, user: &Address, pool_address: &Address) {
-    let mut obligation = get_obligation(e, user).unwrap_or(Obligation::new(e));
-
-    // TODO: Emit something similar to a warning here?
-    obligation.borrows.remove(pool_address.clone());
-
-    set_obligation(e, user, &obligation);
-}
-
-pub fn deposit_exists(e: &Env, user: &Address, pool_address: &Address) -> Result<bool, LCError> {
-    let Obligation {
-        deposits,
-        borrows: _,
-    } = get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)?;
-
-    Ok(deposits.contains_key(pool_address.clone()))
-}
-
+// --- Accrual ---
 pub fn accrue_interest(e: &Env, pool_address: &Address) -> Result<Accrual, LCError> {
     let mut pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
     pool.accrue_interest(e)?;

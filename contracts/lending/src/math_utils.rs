@@ -1,7 +1,8 @@
 use {crate::constants::LCError, soroban_fixed_point_math::FixedPoint};
 
-// TODO: Check, what happens with precision compared to O(n) algorithm.
+// TODO: Think, what happens with precision compared to O(n) algorithm.
 // The issue is that `fixed_mul_floor` divides by the denominator which leads to a precision loss
+
 /// O(log(n)) algorithm for quick exponentiation
 pub fn bin_pow(base: i128, mut exponent: u64, denominator: i128) -> Result<i128, LCError> {
     let mut result = denominator;
