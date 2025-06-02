@@ -176,11 +176,14 @@ pub fn get_deposit_obligation(
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositObligation, LCError> {
-    let obligation = contract_client
-        .try_get_user_obligation(user)
-        .unwrap()
-        .unwrap();
-    let deposit = obligation.deposits.get(pool_address.clone()).unwrap();
+    let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
+        return Err(LCError::ObligationDoesNotExist);
+    };
+
+    let deposit = obligation
+        .deposits
+        .get(pool_address.clone())
+        .ok_or(LCError::DepositDoesNotExist)?;
 
     Ok(deposit)
 }
@@ -190,10 +193,17 @@ pub fn get_borrow_obligation(
     contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
-) -> BorrowObligation {
-    let obligation = contract_client.get_user_obligation(user);
+) -> Result<BorrowObligation, LCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
+        return Err(LCError::ObligationDoesNotExist);
+    };
 
-    obligation.borrows.get(pool_address.clone()).unwrap()
+    let borrow = obligation
+        .borrows
+        .get(pool_address.clone())
+        .ok_or(LCError::DepositDoesNotExist)?;
+
+    Ok(borrow)
 }
 
 #[test]

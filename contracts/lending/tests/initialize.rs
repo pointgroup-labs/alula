@@ -69,8 +69,9 @@ fn test_pool_initialize_non_conflicting() {
     let salt = BytesN::from_array(&e, &[0; 32]);
 
     contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
-    contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
     contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt.clone()), &None);
+
+    contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
     contract_client.initialize_pool(&token_address_2, &token_ticker_2, &Some(salt), &None);
 }
 

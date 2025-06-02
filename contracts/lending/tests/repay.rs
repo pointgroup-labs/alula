@@ -22,8 +22,9 @@ fn test_repay() {
     // Borrow 50% of the deposited value
     contract_client.borrow(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
-    let obligation_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
     let pool_borrowed = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
@@ -35,8 +36,9 @@ fn test_repay() {
     // Repay the half
     contract_client.repay(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
 
-    let obligation_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
     let pool_borrowed = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
@@ -55,6 +57,7 @@ fn test_repay() {
         .get_pool(&usdc_pool_address)
         .unwrap()
         .borrowed;
+
     assert_eq!(pool_borrowed, 0);
 }
 
@@ -82,8 +85,9 @@ fn test_repay_with_interest_accrual() {
         &(5 * DEFAULT_DEPOSIT_AMOUNT / 10),
     );
 
-    let obligation_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
     let pool_borrowed = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
@@ -95,31 +99,38 @@ fn test_repay_with_interest_accrual() {
     // Wait for 5 hours to pass by
     e.ledger().with_mut(|li| li.timestamp = 60 * 60 * 5);
 
-    let obligation_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
-    let _pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
+    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .borrowed;
 
+    // TODO: `pool_borrowed`` must likely increase as well, but what about `pool_deposited`?
+    // If nobody repaid the interest and pool_deposited increased - pool doesn't contain the `pool_deposited` amount required...
+    // let _pool_borrowed = contract_client
+    //     .get_pool(&usdc_pool_address)
+    //     .unwrap()
+    //     .borrowed;
+
     assert!(obligation_borrowed > 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
-    // assert!(_pool_borrowed > 7 * DEFAULT_DEPOSIT_AMOUNT / 10); // TODO: pool borrowed must increase as well, right?
 
     let left = obligation_borrowed;
 
     contract_client.repay(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    let obligation_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
 
+    // Notice interest rate accrual
     assert_eq!(obligation_borrowed, left - (DEFAULT_DEPOSIT_AMOUNT / 10));
 
     // Wait another 15 hours to pass by
     e.ledger().with_mut(|li| li.timestamp = 60 * 60 * 15);
 
-    let obligation_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
 
+    // Notice interest rate accrual
     assert!(obligation_borrowed > left - (DEFAULT_DEPOSIT_AMOUNT / 10));
 
     // Repay everything

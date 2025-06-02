@@ -21,8 +21,9 @@ fn test_borrow() {
     contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
     contract_client.borrow(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
     let pool_borrowed = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()

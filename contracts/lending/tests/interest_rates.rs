@@ -60,5 +60,5 @@ fn test_interest_rates() {
     contract_client.borrow(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
     let rates = contract_client.get_apy(&usdc_pool_address);
     assert_eq!(rates.borrow_rate_bps, 142_72); // 142.72%
-    assert_eq!(rates.deposit_rate_bps, 142_72); // 142.72%(same, since UR is 1)
+    assert_eq!(rates.deposit_rate_bps, 142_72); // 142.72% (same, since UR is 1)
 }

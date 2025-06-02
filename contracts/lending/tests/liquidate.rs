@@ -39,18 +39,20 @@ fn test_liquidate() {
         &((3 * DEFAULT_DEPOSIT_AMOUNT) / 10),
     );
 
+    assert_eq!(
+        contract_client.try_borrow(&user, &usdc_pool_address, &(1)),
+        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
+    );
+
     // Try to liquidate a least healthy position possible
     assert_eq!(
         contract_client.try_liquidate(&liquidator, &user, &usdc_pool_address, &1),
         Err(Ok(LCError::LiquidatedPositionIsHealthy))
     );
 
-    assert_eq!(
-        contract_client.try_borrow(&user, &usdc_pool_address, &(1)),
-        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
-    );
-
-    let borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
     let deposited = get_deposit_obligation(&contract_client, &user, &gold_pool_address)
         .unwrap()
         .deposited;
@@ -74,7 +76,9 @@ fn test_liquidate() {
 
     contract_client.liquidate(&liquidator, &user, &usdc_pool_address, &liquidatable_amount);
 
-    let new_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address).borrowed;
+    let new_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
     let new_deposited = get_deposit_obligation(&contract_client, &user, &gold_pool_address)
         .unwrap()
         .deposited;
