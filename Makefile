@@ -43,11 +43,16 @@ build-optimize: build ## Optimize contracts
 
 generate-sdk: build-optimize ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
-		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/$(LENDING_CONTRACT)-sdk/ \
+		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/sdk/ \
 		--network testnet
 
 test: build ## Run tests
-	cargo test
+	cargo nextest run --locked --workspace --features testing
+	#cargo test --features testing
+
+test-coverage: ## Test coverage
+	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
+	cargo +nightly llvm-cov --doc --no-report
 
 fmt: ## Format code using cargo
 	cargo fmt --all
