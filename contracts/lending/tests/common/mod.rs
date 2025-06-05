@@ -50,7 +50,7 @@ pub struct TestFixture<'a> {
     pub users: Vec<Address>,
 }
 
-impl<'a> TestFixture<'a> {
+impl TestFixture<'_> {
     pub fn new() -> Self {
         let e = Env::default();
         e.mock_all_auths();
