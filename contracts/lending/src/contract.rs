@@ -1,3 +1,4 @@
+use soroban_sdk::log;
 use {
     crate::{
         constants::{
@@ -35,7 +36,6 @@ impl LendingContract {
             if lt <= 0 || lt > 100 {
                 return Err(LCError::InvalidLiquidationThreshold);
             }
-
             lt
         } else {
             DEFAULT_LIQUIDATION_THRESHOLD
@@ -86,7 +86,8 @@ impl LendingContract {
         }
 
         let config = if let Some(config) = pool_config {
-            if !config.is_valid() {
+            if let Err(err) = config.validate() {
+                log!(&e, "pool config error", err);
                 return Err(LCError::InvalidLoanPoolConfig);
             }
 
@@ -106,11 +107,13 @@ impl LendingContract {
             accrual,
             token_ticker,
             token_address,
-            deposited: 0,
-            borrowed: 0,
-            collateral: 0,
+            total_supply: 0,
+            total_borrowed: 0,
+            total_collateral: 0,
         };
+
         storage::set_pool(&e, &pool_address, &pool)?;
+        storage::register_pool(&e, &pool_address);
 
         Ok(pool_address)
     }
@@ -198,15 +201,15 @@ impl LendingContract {
         let Some(Pool {
             token_address,
             accrual,
-            deposited,
-            borrowed,
+            total_supply,
+            total_borrowed,
             ..
         }) = storage::get_pool(&e, &pool_address)
         else {
             return Err(LCError::PoolDoesNotExist);
         };
 
-        if amount > (deposited - borrowed) {
+        if amount > (total_supply - total_borrowed) {
             return Err(LCError::NotEnoughPoolFunds);
         }
 
@@ -385,8 +388,8 @@ impl LendingContract {
             token_ticker,
             config:
                 PoolConfig {
-                    close_factor_bps,
-                    liquidation_spread_bps,
+                    liquidation_close_factor_bps: close_factor_bps,
+                    liquidation_incentive_bps: liquidation_spread_bps,
                     ..
                 },
             ..
@@ -544,7 +547,7 @@ impl LendingContract {
 
         let Pool {
             token_address,
-            collateral: pool_collateral,
+            total_collateral: pool_collateral,
             ..
         } = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
@@ -617,8 +620,8 @@ impl LendingContract {
 
         let Pool {
             token_address,
-            deposited: pool_deposited,
-            borrowed: pool_borrowed,
+            total_supply: pool_deposited,
+            total_borrowed: pool_borrowed,
             ..
         } = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
@@ -686,6 +689,11 @@ impl LendingContract {
         storage::get_pool(&e, &pool_address)
     }
 
+    /// Returns a list of all pool addresses in the protocol
+    pub fn get_all_pools(e: Env) -> soroban_sdk::Vec<PoolAddress> {
+        storage::get_all_pools(&e)
+    }
+
     pub fn get_apy(e: Env, pool_address: Address) -> Result<CompoundRates, LCError> {
         let pool = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
 
@@ -699,9 +707,9 @@ fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 
     let asset = oracle::Asset::Other(ticker.clone());
 
-    let lastprice = reflector_contract
+    let last_price = reflector_contract
         .lastprice(&asset)
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
-    Ok(lastprice.price)
+    Ok(last_price.price)
 }

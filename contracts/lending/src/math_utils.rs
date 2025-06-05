@@ -381,7 +381,7 @@ mod tests {
         let base_099 = denominator * 99 / 100; // 0.99
         let result = bin_pow(base_099, 100, denominator).unwrap();
         // 0.99^100 ≈ 0.366032
-        let expected = 366_032_000; // 0.366032 * 10^9
+        // let expected = 366_032_000; // 0.366032 * 10^9
         assert!(
             result > 0,
             "0.99^100 should be positive, got {}",
@@ -393,7 +393,7 @@ mod tests {
         let base_03 = denominator * 3 / 10; // 0.3
         let result = bin_pow(base_03, 5, denominator).unwrap();
         // 0.3^5 = 0.00243
-        let expected = 2_430_000; // 0.00243 * 10^9
+        // let expected = 2_430_000; // 0.00243 * 10^9
         assert!(
             result > 0,
             "0.3^5 should be positive, got {}",

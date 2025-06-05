@@ -124,18 +124,18 @@ impl Pool {
             math_utils::bin_pow(per_second_growth_factor, seconds_passed, SCALED_ONE)?;
 
         let &Pool {
-            borrowed,
-            deposited,
+            total_borrowed,
+            total_supply,
             ..
         } = self;
 
-        let deposit_multiplier = if deposited == 0 {
+        let deposit_multiplier = if total_supply == 0 {
             /* Is zero, since if a pool doesn't yet have deposits, its next APY update must be
             because as a `deposit` which implies that its compound deposit interest will be set to 0 regardless */
             SCALED_ONE
         } else {
-            let utilization_ratio_scaled = borrowed
-                .fixed_div_floor(deposited, SCALED_ONE)
+            let utilization_ratio_scaled = total_borrowed
+                .fixed_div_floor(total_supply, SCALED_ONE)
                 .ok_or(LCError::OverOrUnderflow)?;
 
             // TODO: Start accounting reserve ratio
@@ -155,8 +155,8 @@ impl Pool {
     /// Calculates `x` * 1/[`SCALED_ONE`] units of the interest rate per second
     pub fn get_borrow_rate_per_second(&self) -> Result<i128, LCError> {
         let &Pool {
-            borrowed,
-            deposited,
+            total_borrowed: borrowed,
+            total_supply: deposited,
             config:
                 PoolConfig {
                     base_rate_per_second,
