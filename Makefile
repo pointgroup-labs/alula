@@ -41,7 +41,7 @@ build-optimize: build ## Optimize contracts
 			ls -l "$$i"; \
 		done
 
-generate-sdk: build-optimize ## Generate typescript sdk
+sdk: build-optimize ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
 		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/sdk/ \
 		--network testnet
