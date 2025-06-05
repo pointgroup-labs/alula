@@ -21,7 +21,7 @@ git_release_draft = true
 pr_draft = true
 
 # labels for the release PR
-pr_labels = ["release"]
+pr_labels = [ "release" ]
 
 # disallow updating repositories with uncommitted changes
 allow_dirty = false
@@ -38,7 +38,7 @@ git_tag_name = "v{{ version }}"
 git_tag_enable = true
 publish = false # disable `cargo publish`
 
-#[[package]]
-#name = "name"
-##git_release_enable = false # enable GitHub releases
-#publish = true # enable `cargo publish`
+# [[package]]
+# name = "name"
+# #git_release_enable = false # enable GitHub releases
+# publish = true # enable `cargo publish`

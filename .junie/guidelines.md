@@ -31,15 +31,15 @@ make generate-sdk
 The project is organized as follows:
 
 ```
-jlend/ 
-├── contracts/ # Soroban smart contracts 
-│ ├── lending/ # Core lending protocol 
-│ └── reflector-mock-contract/ # Price oracle mock for testing 
-├── packages/ # TypeScript packages 
-│ └── sdk/ # JLend Protocol SDK 
-├── docs/ # Documentation 
+jlend/
+├── contracts/ # Soroban smart contracts
+│ ├── lending/ # Core lending protocol
+│ └── reflector-mock-contract/ # Price oracle mock for testing
+├── packages/ # TypeScript packages
+│ └── sdk/ # JLend Protocol SDK
+├── docs/ # Documentation
 ├── tests/ # Integration tests
-├── scripts/ # Build and deployment scripts 
+├── scripts/ # Build and deployment scripts
 └── Makefile # Build automation
 ```
 

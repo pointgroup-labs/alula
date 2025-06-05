@@ -9,12 +9,12 @@ allowing users to earn yield on deposits and access liquidity through overcollat
 
 ## Table of Contents
 
-* [Overview](#overview)
-* [Getting Started](#getting-started)
-* [Roadmap](#roadmap)
-* [Related Projects](#related-projects)
-* [Contributing](#contributing)
-* [License](#license)
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+- [Roadmap](#roadmap)
+- [Related Projects](#related-projects)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
@@ -40,7 +40,7 @@ make test
 
 ## Related projects
 
-* [Laina](https://github.com/laina-defi/laina)
+- [Laina](https://github.com/laina-defi/laina)
 
 ## Contributing
 

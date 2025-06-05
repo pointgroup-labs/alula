@@ -1,4 +1,4 @@
-name: 'CI'
+name: CI
 
 on:
   pull_request:
@@ -9,11 +9,11 @@ on:
     tags:
       - v*
     paths-ignore:
-      - "README.md"
+      - README.md
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-Dwarnings"
+  RUSTFLAGS: -Dwarnings
 
 jobs:
   lint:
@@ -34,7 +34,7 @@ jobs:
         run: |
           cargo doc --workspace --no-deps
         env:
-          RUSTDOCFLAGS: "--deny warnings"
+          RUSTDOCFLAGS: --deny warnings
 
   tests:
     runs-on: ubuntu-latest
