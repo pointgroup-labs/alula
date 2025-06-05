@@ -1,0 +1,14 @@
+packages:
+  - packages/*
+ignoredBuiltDependencies:
+  - bigint-buffer
+  - bufferutil
+  - esbuild
+  - keccak
+  - protobufjs
+  - secp256k1
+  - unix-dgram
+  - utf-8-validate
+  - vue-demi
+onlyBuiltDependencies:
+  - unrs-resolver

@@ -1,0 +1,23 @@
+{
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "packageManager": "pnpm@10.11.1",
+  "scripts": {
+    "sdk": "pnpm -F {./packages/sdk}",
+    "test": "vitest",
+    "lint": "eslint --cache .",
+    "lint:fix": "pnpm lint --fix"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^4.13.3",
+    "@types/node": "^22.14.1",
+    "eslint": "^9.28.0",
+    "eslint-plugin-format": "^1.0.1",
+    "typescript": "^5.8.3"
+  }
+}
