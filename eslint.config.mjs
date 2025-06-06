@@ -21,9 +21,9 @@ export default antfu(
       'antfu/consistent-list-newline': 'off',
       'style/brace-style': ['error', '1tbs', { allowSingleLine: true }],
 
-      'toml/padding-line-between-pairs': 'off',
+      // 'toml/padding-line-between-pairs': 'off',
       'toml/array-element-newline': 'off',
-      // 'toml/array-bracket-spacing': 'off',
+      'toml/array-bracket-spacing': 'off',
 
       // 'ts/consistent-type-definitions': ['error', 'type'],
       'ts/consistent-type-definitions': 'off',

@@ -1,22 +1,22 @@
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
+  - package-ecosystem: github-actions
     # target-branch: dev
     open-pull-requests-limit: 5
-    directory: "/"
+    directory: /
     schedule:
-      interval: "weekly"
-  - package-ecosystem: "cargo"
+      interval: weekly
+  - package-ecosystem: cargo
     open-pull-requests-limit: 5
-    directory: "/"
+    directory: /
     schedule:
-      interval: "weekly"
-  - package-ecosystem: "npm"
+      interval: weekly
+  - package-ecosystem: npm
     open-pull-requests-limit: 5
-    directory: "/"
+    directory: /
     schedule:
-      interval: "daily"
-  #  - package-ecosystem: "docker"
-  #    directory: "/"
+      interval: daily
+  #  - package-ecosystem: docker
+  #    directory: /
   #    schedule:
-  #      interval: "weekly"
+  #      interval: weekly
