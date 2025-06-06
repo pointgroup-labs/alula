@@ -132,8 +132,16 @@ fn is_valid_percent(value: i128) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[contracttype]
 pub struct Obligation {
+    /// Deposited collateral for the obligation, unique by deposit pool address
     pub deposits: Map<PoolAddress, DepositObligation>,
+    /// Borrowed liquidity for the obligation, unique by borrow pool address
     pub borrows: Map<PoolAddress, BorrowObligation>,
+    // /// Last update to collateral, liquidity, or their market values
+    // pub last_update: u64,
+    // /// Market value of deposits
+    // pub deposited_value: i128,
+    // /// Market value of deposits
+    // pub borrowed_value: i128,
 }
 
 impl Obligation {
@@ -379,17 +387,13 @@ pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<PoolAddress> {
     }
 }
 
-pub fn register_pool(e: &Env, pool_address: &Address) -> bool {
+pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
     let mut all_pools = get_all_pools(e);
-    // for existing_pool in all_pools.iter() {
-    //     if &existing_pool == pool_address {
-    //         return false;
-    //     }
-    // }
     all_pools.push_back(pool_address.clone());
+    let new_index = all_pools.len() - 1;
     e.storage().persistent().set(&DataKey::AllPools, &all_pools);
     extend_shared_storage(e, &DataKey::AllPools);
-    true
+    new_index
 }
 
 pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) -> Result<(), LCError> {
