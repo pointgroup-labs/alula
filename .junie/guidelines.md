@@ -102,60 +102,60 @@ To add a new test:
 
 1. For unit tests, add them to the relevant source file in a `tests` module:
 
-```rust
-#[cfg(test)]
-mod tests {
-  use super::*;
+   ```rust
+   #[cfg(test)]
+   mod tests {
+     use super::*;
 
-  #[test]
-  fn test_something() {
-    // Test code here
-  }
-}
-```
+     #[test]
+     fn test_something() {
+       // Test code here
+     }
+   }
+   ```
 
 2. For integration tests, create a new file in the `tests` directory:
 
-```rust
-// tests/my_new_test.rs
-use {
-  lending::contract::{LendingContract, LendingContractClient},
-  soroban_sdk::{testutils::Address as _, Address, Env},
-};
+   ```rust
+   // tests/my_new_test.rs
+   use {
+    lending::contract::{LendingContract, LendingContractClient},
+    soroban_sdk::{testutils::Address as _, Address, Env},
+   };
 
-#[test]
-fn test_my_feature() {
-  // Set up the environment
-  let env = Env::default();
+   #[test]
+   fn test_my_feature() {
+   // Set up the environment
+   let env = Env::default();
 
-  // Generate a random address for the contract admin
-  let contract_admin = Address::generate(&env);
+   // Generate a random address for the contract admin
+   let contract_admin = Address::generate(&env);
 
-  // Register the contract with the environment
-  let contract_id = env.register(
-    LendingContract,
-    (contract_admin.clone(), Option::<i128>::None),
-  );
+   // Register the contract with the environment
+   let contract_id = env.register(
+     LendingContract,
+     (contract_admin.clone(), Option::<i128>::None),
+   );
 
-  // Create a client to interact with the contract
-  let contract_client = LendingContractClient::new(&env, &contract_id);
+   // Create a client to interact with the contract
+   let contract_client = LendingContractClient::new(&env, &contract_id);
 
-  // Test code here
+   // Test code here
 
-  // Assertions
-  assert!(true, "This test should pass");
-}
-```
+   // Assertions
+   assert!(true, "This test should pass");
+   }
+   ```
 
 3. For testing expected failures, use the `#[should_panic]` attribute:
 
-```rust
-#[test]
-#[should_panic(expected = "Error(Contract, #1)")]
-fn test_expected_failure() {
-  // Test code that should panic
-}
-```
+   ```rust
+   #[test]
+   #[should_panic(expected = "Error(Contract, #1)")]
+   fn test_expected_failure() {
+     // Test code that should panic
+   }
+   ```
 
 ## Commit Guidelines
 
