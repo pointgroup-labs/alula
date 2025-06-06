@@ -70,8 +70,6 @@ jlend/
 
 ## Testing Guidelines
 
-Tests are run with the `--features testing` flag, which enables test-specific functionality in the contracts.
-
 ### Unit Tests
 
 - Located within the source files in the `src` directory
