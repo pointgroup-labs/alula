@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    # target-branch: dev
+    open-pull-requests-limit: 5
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "cargo"
+    open-pull-requests-limit: 5
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    open-pull-requests-limit: 5
+    directory: "/"
+    schedule:
+      interval: "daily"
+  #  - package-ecosystem: "docker"
+  #    directory: "/"
+  #    schedule:
+  #      interval: "weekly"
