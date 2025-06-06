@@ -1,7 +1,7 @@
 use soroban_sdk::contractimport;
 
-#[cfg(feature = "testing")]
-contractimport!(file = "../../target/wasm32-unknown-unknown/release/reflector_oracle_mock.wasm");
-
-#[cfg(not(feature = "testing"))]
+#[cfg(feature = "deploy")]
 contractimport!(file = "../../target/wasm32-unknown-unknown/release/reflector_oracle.wasm");
+
+#[cfg(not(feature = "deploy"))]
+contractimport!(file = "../../wasms/reflector_oracle_mock.wasm");

@@ -47,8 +47,8 @@ sdk: build-optimize ## Generate typescript sdk
 		--network testnet
 
 test: build ## Run tests
-	cargo nextest run --locked --workspace --features testing
-	#cargo test --features testing
+	cargo nextest run --locked --workspace
+	#cargo test
 
 test-coverage: ## Test coverage
 	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
