@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+    paths-ignore:
+      - README.md
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: --deny warnings
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check code
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --locked --verbose --tests --benches --workspace -- -D clippy::all
+          cargo clippy --locked --verbose --target wasm32-unknown-unknown -- -D clippy::all
+
+  cargo-doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cargo doc
+        run: |
+          cargo doc --workspace --no-deps
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@nextest
+      - name: Run unit tests
+        run: cargo nextest run --locked --workspace
