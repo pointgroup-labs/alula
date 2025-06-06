@@ -4,6 +4,7 @@ import type {
   u64,
 } from '@stellar/stellar-sdk/contract'
 import { Buffer } from 'node:buffer'
+import { Address } from '@stellar/stellar-sdk'
 import {
   AssembledTransaction,
   Client as ContractClient,
@@ -48,7 +49,7 @@ export interface GlobalState {
   status: boolean
 }
 
-export type DataKey = { tag: 'GlobalState', values: void } | { tag: 'Pool', values: readonly [PoolAddress] } | { tag: 'Obligation', values: readonly [UserAddress] } | { tag: 'Accrual', values: void }
+export type DataKey = { tag: 'GlobalState', values: void } | { tag: 'Pool', values: readonly [Address] } | { tag: 'Obligation', values: readonly [Address] } | { tag: 'Accrual', values: void }
 
 export interface Pool {
   borrowed: i128
@@ -76,8 +77,8 @@ export interface PoolConfig {
 }
 
 export interface Obligation {
-  borrows: Map<PoolAddress, i128>
-  deposits: Map<PoolAddress, i128>
+  borrows: Map<Address, i128>
+  deposits: Map<Address, i128>
 }
 
 export interface Accrual {
@@ -125,7 +126,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean
-  }) => Promise<AssembledTransaction<Result<PoolAddress>>>
+  }) => Promise<AssembledTransaction<Result<Address>>>
 
   /**
    * Construct and simulate a deposit transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -375,7 +376,7 @@ export class Client extends ContractClient {
 
   public readonly fromJSON = {
     test_oracle_price: this.txFromJSON<i128>,
-    initialize_pool: this.txFromJSON<Result<PoolAddress>>,
+    initialize_pool: this.txFromJSON<Result<Address>>,
     deposit: this.txFromJSON<Result<void>>,
     borrow: this.txFromJSON<Result<void>>,
     accrue_interest: this.txFromJSON<Result<void>>,
