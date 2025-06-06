@@ -1,7 +1,27 @@
 use {crate::constants::LCError, soroban_fixed_point_math::FixedPoint};
 
-/// O(log(n)) algorithm for quick exponentiation
+/// O(log(n)) algorithm for quick exponentiation with floor rounding
+///
+/// This function calculates base^exp using binary exponentiation, which has O(log(n)) complexity.
+/// It's much more efficient than the naive O(n) approach for large exponents.
+/// This version uses floor rounding for all intermediate calculations.
+///
+/// # Arguments
+/// * `base` - The base value in fixed-point representation (scaled by denominator)
+/// * `exp` - The exponent (power) to raise the base to
+/// * `denominator` - The scaling factor for fixed-point arithmetic
+///
+/// # Returns
+/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if overflow occurs
 pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
+    // Early return for common cases to save gas
+    if exp == 0 {
+        return Ok(denominator);
+    }
+    if exp == 1 {
+        return fixed_mul(denominator, base, denominator);
+    }
+
     let mut result = denominator;
     while exp != 0 {
         if exp % 2 == 1 {
@@ -13,13 +33,62 @@ pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, 
     Ok(result)
 }
 
-/// Helper function for fixed-point multiplication
+/// O(log(n)) algorithm for quick exponentiation with ceiling rounding
 ///
-/// TODO: Think, what happens with precision compared to O(n) algorithm.
-///  The issue is that `fixed_mul_floor` divides by the denominator which leads to a precision loss
+/// # Arguments
+/// * `base` - The base value in fixed-point representation (scaled by denominator)
+/// * `exp` - The exponent (power) to raise the base to
+/// * `denominator` - The scaling factor for fixed-point arithmetic
+///
+/// # Returns
+/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if overflow occurs
+pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
+    // Early return for common cases to save gas
+    if exp == 0 {
+        return Ok(denominator);
+    }
+    if exp == 1 {
+        return fixed_mul_ceil(denominator, base, denominator);
+    }
+
+    let mut result = denominator;
+    while exp != 0 {
+        if exp % 2 == 1 {
+            result = fixed_mul_ceil(result, base, denominator)?;
+        }
+        base = fixed_mul_ceil(base, base, denominator)?;
+        exp >>= 1;
+    }
+    Ok(result)
+}
+
+/// Helper function for fixed-point multiplication with floor rounding
+///
+/// # Arguments
+/// * `x` - First operand in fixed-point representation
+/// * `y` - Second operand in fixed-point representation
+/// * `denominator` - The scaling factor for fixed-point arithmetic
+///
+/// # Returns
+/// * `Result<i128, LCError>` - The product x*y/denominator, or an error if overflow occurs
 #[inline]
 fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
     x.fixed_mul_floor(y, denominator)
+        .ok_or(LCError::OverOrUnderflow)
+}
+
+/// Helper function for fixed-point multiplication with ceiling rounding
+///
+/// # Arguments
+/// * `x` - First operand in fixed-point representation
+/// * `y` - Second operand in fixed-point representation
+/// * `denominator` - The scaling factor for fixed-point arithmetic
+///
+/// # Returns
+/// * `Result<i128, LCError>` - The product x*y/denominator (rounded up), or an error if overflow occurs
+#[inline]
+pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
+    x.fixed_mul_ceil(y, denominator)
         .ok_or(LCError::OverOrUnderflow)
 }
 
@@ -31,6 +100,71 @@ mod tests {
     use crate::error::LendingContractError;
     use alloc::vec::Vec;
     use soroban_sdk::testutils::arbitrary::std::println;
+
+    #[test]
+    fn test_fixed_mul_ceil_vs_floor() {
+        // Test cases where ceiling and floor rounding should differ
+        let test_cases = [
+            // (x, y, denominator)
+            (1, 1, 2),                 // 1/2 * 1/2 = 1/4 (floor=0, ceil=1 in denominator=2)
+            (1, 3, 2),                 // 1/2 * 3/2 = 3/4 (floor=1, ceil=2 in denominator=2)
+            (1_000_000, 1, 1_000_001), // Just under 1.0 (should round differently)
+            (1_000_000, 1_000_000, 1_000_001), // ~1.0 * ~1.0 (should round differently)
+        ];
+
+        for (x, y, denominator) in test_cases {
+            let floor_result = fixed_mul(x, y, denominator).unwrap();
+            let ceil_result = fixed_mul_ceil(x, y, denominator).unwrap();
+
+            // Ceiling result should be >= floor result
+            assert!(
+                ceil_result >= floor_result,
+                "Ceiling result should be >= floor result: {} vs {}",
+                ceil_result,
+                floor_result
+            );
+
+            // For non-exact divisions, ceiling should be strictly greater
+            if (x * y) % denominator != 0 {
+                assert!(
+                    ceil_result > floor_result,
+                    "For non-exact division, ceiling should be > floor: {} vs {}",
+                    ceil_result,
+                    floor_result
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_bin_pow_ceil_vs_floor() {
+        // Test cases where ceiling and floor rounding should differ
+        let test_cases = [
+            // (base, exponent, denominator)
+            (1, 2, 2),                 // (1/2)^2 = 1/4 (floor=0, ceil=1 in denominator=2)
+            (3, 2, 2),                 // (3/2)^2 = 9/4 (floor=2, ceil=3 in denominator=2)
+            (999_999, 2, 1_000_000),   // 0.999999^2 (should round differently)
+            (1_500_000, 2, 1_000_000), // 1.5^2 = 2.25 (should be the same with both methods)
+        ];
+
+        for (base, exponent, denominator) in test_cases {
+            let floor_result = bin_pow(base, exponent, denominator).unwrap();
+            let ceil_result = bin_pow_ceil(base, exponent, denominator).unwrap();
+
+            // Ceiling result should be >= floor result
+            assert!(
+                ceil_result >= floor_result,
+                "Ceiling result should be >= floor result: {} vs {}",
+                ceil_result,
+                floor_result
+            );
+
+            println!(
+                "base={}, exp={}, denom={}: floor={}, ceil={}",
+                base, exponent, denominator, floor_result, ceil_result
+            );
+        }
+    }
 
     #[test]
     fn test_bin_pow_zero_exponent() {
@@ -219,6 +353,7 @@ mod tests {
         // (1 + 1/1_000_000)^1_000_000 ≈ e ≈ 2.718281828
         assert!(result > 2_700_000 && result < 2_730_000);
     }
+
     #[test]
     fn test_bin_pow_large_values() {
         // First, let's determine a safe upper bound empirically
@@ -473,11 +608,11 @@ mod tests {
                 let diff = (results[results.len() - 1] - results[results.len() - 2]).abs();
                 let relative_tolerance = 0.01; // 1% tolerance between different denominator scales
                 assert!(
-          diff < relative_tolerance,
-          "Results with different denominators should be relatively close: {:?} (difference: {})",
-          results,
-          diff
-        );
+                  diff < relative_tolerance,
+                  "Results with different denominators should be relatively close: {:?} (difference: {})",
+                  results,
+                  diff
+                );
             }
         }
     }
