@@ -690,7 +690,7 @@ impl LendingContract {
     }
 
     /// Returns a list of all pool addresses in the protocol
-    pub fn get_all_pools(e: Env) -> soroban_sdk::Vec<PoolAddress> {
+    pub fn get_all_pools(e: Env) -> Vec<PoolAddress> {
         storage::get_all_pools(&e)
     }
 
