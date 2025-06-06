@@ -23,7 +23,7 @@ make build
 make build-optimize
 
 # Generate the TypeScript SDK from the contract:
-make generate-sdk
+make sdk
 ```
 
 ## Code Structure
