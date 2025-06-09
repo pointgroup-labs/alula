@@ -1,5 +1,4 @@
-mod common;
-use common::{
+use crate::{
     get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
     DEFAULT_USER_ASSET_MINT_AMOUNT,
 };

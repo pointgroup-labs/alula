@@ -1,5 +1,4 @@
-mod common;
-use common::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+use crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
 use {
     lending::constants::{LCError, DEFAULT_CLOSE_FACTOR},

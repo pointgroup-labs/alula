@@ -1,6 +1,4 @@
-mod common;
-use common::{TestFixture, DEFAULT_DEPOSIT_AMOUNT};
-
+use crate::{TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 use soroban_sdk::Address;
 
 #[test]

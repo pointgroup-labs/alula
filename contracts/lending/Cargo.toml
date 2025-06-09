@@ -17,3 +17,6 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [features]
 deploy = []
+testutils = [
+    "soroban-sdk/testutils",
+]

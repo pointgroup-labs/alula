@@ -1,5 +1,4 @@
-mod common;
-use common::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+use crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
 use soroban_sdk::{testutils::Ledger, Address};
 

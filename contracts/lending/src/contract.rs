@@ -190,7 +190,7 @@ impl LendingContract {
         user.require_auth();
 
         if amount <= 0 {
-            return Err(LCError::NonPositiveDeposit);
+            return Err(LCError::NonPositiveBorrow);
         }
 
         let mut obligation =
