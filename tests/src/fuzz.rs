@@ -7,7 +7,7 @@ use crate::{
 fn test_fuzzed_issue() {
     let test_fixture = TestFixture::new();
 
-    // Copied from `cargo +nightly fuzz run your_fuzz_target` output
+    // Copied from the failing `cargo fuzz` output
     let input = Input {
         commands: [
             TomBorrow(Borrow {
