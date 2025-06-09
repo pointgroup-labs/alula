@@ -3,7 +3,8 @@
 LENDING_CONTRACT := lending
 LENDING_CONTRACT_ID := ABC123
 
-WASM_TARGET_DIR = target/wasm32-unknown-unknown/release
+WASM_TARGET = wasm32v1-none
+WASM_TARGET_DIR = target/$(WASM_TARGET)/release
 REFLECTOR_ORACLE_URL = https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
 REFLECTOR_ORACLE_WASM = $(WASM_TARGET_DIR)/reflector_oracle.wasm
 
@@ -32,18 +33,18 @@ build-init: ## Build init
 	fi
 
 build-optimize: build ## Optimize contracts
-	mkdir -p target/wasm32-unknown-unknown/optimized
+	mkdir -p target/$(WASM_TARGET)/optimized
 	stellar contract optimize \
-		--wasm target/wasm32-unknown-unknown/release/$(LENDING_CONTRACT).wasm \
-		--wasm-out target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm
-	cd target/wasm32-unknown-unknown/optimized/ && \
+		--wasm target/$(WASM_TARGET)/release/$(LENDING_CONTRACT).wasm \
+		--wasm-out target/$(WASM_TARGET)/optimized/$(LENDING_CONTRACT).wasm
+	cd target/$(WASM_TARGET)/optimized/ && \
 		for i in *.wasm ; do \
 			ls -l "$$i"; \
 		done
 
 sdk: build-optimize ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
-		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/sdk/ \
+		--wasm ./target/$(WASM_TARGET)/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/sdk/ \
 		--network testnet
 
 test: build ## Run tests

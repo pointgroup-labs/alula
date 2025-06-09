@@ -1,7 +1,10 @@
-mod common;
-use common::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+#![cfg(test)]
 
-use {lending::constants::LCError, soroban_sdk::Address};
+use {
+    crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    lending::constants::LCError,
+    soroban_sdk::Address,
+};
 
 #[test]
 fn test_borrow() {
@@ -27,14 +30,14 @@ fn test_borrow() {
     let pool_borrowed = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
-        .total_borrowed;
+        .total_supply;
 
     assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #7)")]
+#[should_panic(expected = "Error(Contract, #19)")]
 fn test_borrow_non_positive() {
     let TestFixture {
         contract_client,

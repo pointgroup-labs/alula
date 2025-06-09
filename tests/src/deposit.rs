@@ -1,10 +1,12 @@
-mod common;
-use common::{
-    get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
-    DEFAULT_USER_ASSET_MINT_AMOUNT,
-};
+#![cfg(test)]
 
-use soroban_sdk::{testutils::Address as _, Address};
+use {
+    crate::{
+        get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
+        DEFAULT_USER_ASSET_MINT_AMOUNT,
+    },
+    soroban_sdk::{testutils::Address as _, Address},
+};
 
 #[test]
 fn test_deposit() {

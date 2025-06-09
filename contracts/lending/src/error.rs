@@ -22,4 +22,5 @@ pub enum LendingContractError {
     LiquidatedPositionIsHealthy = 16,
     LiquidationExceedsCloseFactor = 17,
     NonPositiveLiquidation = 18,
+    NonPositiveBorrow = 19,
 }
