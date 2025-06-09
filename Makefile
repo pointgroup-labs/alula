@@ -33,18 +33,18 @@ build-init: ## Build init
 	fi
 
 build-optimize: build ## Optimize contracts
-	mkdir -p target/wasm32-unknown-unknown/optimized
+	mkdir -p target/$(WASM_TARGET)/optimized
 	stellar contract optimize \
-		--wasm target/wasm32-unknown-unknown/release/$(LENDING_CONTRACT).wasm \
-		--wasm-out target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm
-	cd target/wasm32-unknown-unknown/optimized/ && \
+		--wasm target/$(WASM_TARGET)/release/$(LENDING_CONTRACT).wasm \
+		--wasm-out target/$(WASM_TARGET)/optimized/$(LENDING_CONTRACT).wasm
+	cd target/$(WASM_TARGET)/optimized/ && \
 		for i in *.wasm ; do \
 			ls -l "$$i"; \
 		done
 
 sdk: build-optimize ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
-		--wasm ./target/wasm32-unknown-unknown/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/sdk/ \
+		--wasm ./target/$(WASM_TARGET)/optimized/$(LENDING_CONTRACT).wasm --output-dir ./packages/sdk/ \
 		--network testnet
 
 test: build ## Run tests
