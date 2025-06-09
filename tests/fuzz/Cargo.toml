@@ -16,7 +16,6 @@ extension-trait = "1"
 [dependencies.lending]
 path = "../../contracts/lending"
 
-
 [dependencies.tests]
 path = ".."
 
@@ -26,5 +25,3 @@ path = "fuzz_targets/fuzz_target.rs"
 test = false
 doc = false
 bench = false
-
-
