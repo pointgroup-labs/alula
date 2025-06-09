@@ -311,57 +311,35 @@ pub fn assert_invariants(fixture: &TestFixture) {
     // You can always borrow and repay the available amount
     let new_borrower = Address::generate(e);
 
-    let max_collateral_amount = i128::max(usdc_pool_available, btc_pool_available);
-    let max_collateral_amount = i128::max(gold_pool_available, max_collateral_amount);
+    let collateral_amount = 2 * i128::max(
+        gold_pool_available,
+        i128::max(usdc_pool_available, btc_pool_available),
+    );
 
-    usdc_sac.mint(&new_borrower, &max_collateral_amount);
-    btc_sac.mint(&new_borrower, &max_collateral_amount);
-    gold_sac.mint(&new_borrower, &max_collateral_amount);
+    usdc_sac.mint(&new_borrower, &collateral_amount);
+    btc_sac.mint(&new_borrower, &collateral_amount);
+    gold_sac.mint(&new_borrower, &collateral_amount);
 
     if btc_pool_available > 0 {
-        contract_client.deposit_collateral(
-            &new_borrower,
-            usdc_pool_address,
-            &max_collateral_amount,
-        );
+        contract_client.deposit_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, btc_pool_address, &btc_pool_available);
         contract_client.repay(&new_borrower, btc_pool_address, &btc_pool_available);
-        contract_client.withdraw_collateral(
-            &new_borrower,
-            usdc_pool_address,
-            &(max_collateral_amount),
-        );
+        contract_client.withdraw_collateral(&new_borrower, usdc_pool_address, &(collateral_amount));
     }
 
     if gold_pool_available > 0 {
-        contract_client.deposit_collateral(
-            &new_borrower,
-            usdc_pool_address,
-            &max_collateral_amount,
-        );
+        contract_client.deposit_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
 
         contract_client.borrow(&new_borrower, gold_pool_address, &gold_pool_available);
         contract_client.repay(&new_borrower, gold_pool_address, &gold_pool_available);
-        contract_client.withdraw_collateral(
-            &new_borrower,
-            usdc_pool_address,
-            &max_collateral_amount,
-        );
+        contract_client.withdraw_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
     }
 
     if usdc_pool_available > 0 {
-        contract_client.deposit_collateral(
-            &new_borrower,
-            gold_pool_address,
-            &max_collateral_amount,
-        );
+        contract_client.deposit_collateral(&new_borrower, gold_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, usdc_pool_address, &usdc_pool_available);
         contract_client.repay(&new_borrower, usdc_pool_address, &usdc_pool_available);
-        contract_client.withdraw_collateral(
-            &new_borrower,
-            gold_pool_address,
-            &max_collateral_amount,
-        );
+        contract_client.withdraw_collateral(&new_borrower, gold_pool_address, &collateral_amount);
     }
 }
 

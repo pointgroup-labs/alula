@@ -1,5 +1,5 @@
 use crate::{
-    assert_invariants, Amount, Borrow, Command, Deposit, Repay, TestFixture, Token,
+    assert_invariants, Amount, Borrow, Command::*, Deposit, Input, TestFixture, Token::*,
     WithdrawCollateral,
 };
 
@@ -7,50 +7,53 @@ use crate::{
 fn test_fuzzed_issue() {
     let test_fixture = TestFixture::new();
 
-    let commands: Vec<Command> = vec![
-        Command::TomBorrow(Borrow {
-            amount: Amount(3272545084522523242),
-            token: Token::USDC,
-        }),
-        Command::JerryDeposit(Deposit {
-            amount: Amount(7668058320836127386),
-            token: Token::USDC,
-        }),
-        Command::JerryWithdrawCollateral(WithdrawCollateral {
-            amount: Amount(18446744073709551615),
-            token: Token::GOLD,
-        }),
-        Command::JerryWithdrawCollateral(WithdrawCollateral {
-            amount: Amount(18446744069481693183),
-            token: Token::GOLD,
-        }),
-        Command::JerryWithdrawCollateral(WithdrawCollateral {
-            amount: Amount(18446744073709551615),
-            token: Token::USDC,
-        }),
-        Command::JerryDeposit(Deposit {
-            amount: Amount(7668058320836127338),
-            token: Token::USDC,
-        }),
-        Command::JerryWithdrawCollateral(WithdrawCollateral {
-            amount: Amount(0),
-            token: Token::BTC,
-        }),
-        Command::TomRepay(Repay {
-            amount: Amount(0),
-            token: Token::BTC,
-        }),
-        Command::TomRepay(Repay {
-            amount: Amount(18446744073709551615),
-            token: Token::GOLD,
-        }),
-        Command::JerryWithdrawCollateral(WithdrawCollateral {
-            amount: Amount(18446744073709551615),
-            token: Token::GOLD,
-        }),
-    ];
+    // Copied from `cargo +nightly fuzz run your_fuzz_target` output
+    let input = Input {
+        commands: [
+            TomBorrow(Borrow {
+                amount: Amount(2748926567846913574),
+                token: BTC,
+            }),
+            TomBorrow(Borrow {
+                amount: Amount(2748926567846913574),
+                token: BTC,
+            }),
+            TomBorrow(Borrow {
+                amount: Amount(2748926567846913574),
+                token: BTC,
+            }),
+            JerryWithdrawCollateral(WithdrawCollateral {
+                amount: Amount(18446744073694243434),
+                token: USDC,
+            }),
+            TomDeposit(Deposit {
+                amount: Amount(5931894172722287186),
+                token: BTC,
+            }),
+            TomDeposit(Deposit {
+                amount: Amount(5931894172722287186),
+                token: BTC,
+            }),
+            TomDeposit(Deposit {
+                amount: Amount(5980780305148018687),
+                token: BTC,
+            }),
+            JerryDeposit(Deposit {
+                amount: Amount(7668058320836127338),
+                token: USDC,
+            }),
+            JerryDeposit(Deposit {
+                amount: Amount(18404639832487389734),
+                token: GOLD,
+            }),
+            TomDeposit(Deposit {
+                amount: Amount(5931894172722287186),
+                token: BTC,
+            }),
+        ],
+    };
 
-    for command in commands {
+    for command in input.commands {
         command.run(&test_fixture);
         assert_invariants(&test_fixture);
     }
