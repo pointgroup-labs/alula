@@ -172,7 +172,7 @@ impl TestFixture<'_> {
         address.clone()
     }
 
-    pub fn get_token_client(&self, token: Token) -> &TokenClient {
+    pub fn get_token_client(&self, token: Token) -> &TokenClient<'_> {
         match token {
             Token::BTC => &self.btc_token_client,
             Token::USDC => &self.usdc_token_client,
@@ -654,19 +654,11 @@ mod tests {
     }
 }
 
-#[cfg(test)]
 mod borrow;
-#[cfg(test)]
 mod deposit;
-#[cfg(test)]
 mod fuzz;
-#[cfg(test)]
 mod initialize;
-#[cfg(test)]
 mod interest_rates;
-#[cfg(test)]
 mod liquidate;
-#[cfg(test)]
 mod repay;
-#[cfg(test)]
 mod withdraw;

@@ -1,5 +1,10 @@
-use crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
-use {lending::constants::LCError, soroban_sdk::Address};
+#![cfg(test)]
+
+use {
+    crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    lending::constants::LCError,
+    soroban_sdk::Address,
+};
 
 #[test]
 fn test_borrow() {

@@ -1,8 +1,11 @@
-use crate::{
-    get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
-};
+#![cfg(test)]
 
-use lending::constants::LCError;
+use {
+    crate::{
+        get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
+    },
+    lending::constants::LCError,
+};
 
 #[test]
 fn test_withdraw() {

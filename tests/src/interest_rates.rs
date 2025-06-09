@@ -1,5 +1,9 @@
-use crate::{TestFixture, DEFAULT_DEPOSIT_AMOUNT};
-use soroban_sdk::Address;
+#![cfg(test)]
+
+use {
+    crate::{TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    soroban_sdk::Address,
+};
 
 #[test]
 #[allow(clippy::mistyped_literal_suffixes)]

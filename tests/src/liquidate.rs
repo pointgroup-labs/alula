@@ -1,6 +1,7 @@
-use crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+#![cfg(test)]
 
 use {
+    crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
     lending::constants::{LCError, DEFAULT_CLOSE_FACTOR},
     soroban_sdk::{testutils::Ledger, Address},
 };
