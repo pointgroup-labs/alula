@@ -173,11 +173,11 @@ impl TestFixture<'_> {
     }
 
     pub fn get_token_client(&self, token: Token) -> &TokenClient {
-        (match token {
+        match token {
             Token::BTC => &self.btc_token_client,
             Token::USDC => &self.usdc_token_client,
             Token::GOLD => &self.gold_token_client,
-        }) as _
+        }
     }
 }
 
