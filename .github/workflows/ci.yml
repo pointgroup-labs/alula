@@ -28,7 +28,7 @@ jobs:
         run: |
           cargo fmt --all -- --check
           cargo clippy --locked --verbose --tests --benches --workspace -- -D clippy::all
-          cargo clippy --locked --verbose --target wasm32-unknown-unknown -- -D clippy::all
+          cargo clippy --locked --verbose -- -D clippy::all
 
   cargo-doc:
     runs-on: ubuntu-latest
