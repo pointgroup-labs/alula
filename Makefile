@@ -3,7 +3,8 @@
 LENDING_CONTRACT := lending
 LENDING_CONTRACT_ID := ABC123
 
-WASM_TARGET_DIR = target/wasm32-unknown-unknown/release
+WASM_TARGET = wasm32v1-none
+WASM_TARGET_DIR = target/$(WASM_TARGET)/release
 REFLECTOR_ORACLE_URL = https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
 REFLECTOR_ORACLE_WASM = $(WASM_TARGET_DIR)/reflector_oracle.wasm
 
