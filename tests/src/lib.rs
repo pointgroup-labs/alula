@@ -1,3 +1,5 @@
+#![deny(clippy::absurd_extreme_comparisons)]
+
 use {
     arbitrary::Unstructured,
     lending::{
@@ -9,7 +11,7 @@ use {
     soroban_sdk::{
         symbol_short,
         testutils::{arbitrary::Arbitrary, Address as _, Ledger},
-        token::{StellarAssetClient, TokenClient},
+        token::{self, StellarAssetClient, TokenClient},
         vec, Address, Env, String, Vec,
     },
 };
@@ -263,51 +265,135 @@ pub fn assert_invariants(fixture: &TestFixture) {
     let TestFixture {
         e,
         contract_client,
+        contract_id,
         gold_sac,
         gold_pool_address,
+        gold_token_address,
         btc_sac,
         btc_pool_address,
+        btc_token_address,
         usdc_sac,
         usdc_pool_address,
+        usdc_token_address,
+        users,
         ..
     } = fixture;
 
+    // Get all pools
     let usdc_pool = contract_client.get_pool(usdc_pool_address).unwrap();
     let gold_pool = contract_client.get_pool(gold_pool_address).unwrap();
     let btc_pool = contract_client.get_pool(btc_pool_address).unwrap();
 
-    // All data on all pools is non-negative
-    assert!(usdc_pool.total_supply >= 0);
-    assert!(usdc_pool.total_borrowed >= 0);
-    assert!(usdc_pool.total_collateral >= 0);
+    // 1. Basic non-negative invariants
+    // All data on all pools must be non-negative
+    assert!(
+        usdc_pool.total_supply >= 0,
+        "USDC pool total_supply must be non-negative"
+    );
+    assert!(
+        usdc_pool.total_borrowed >= 0,
+        "USDC pool total_borrowed must be non-negative"
+    );
+    assert!(
+        usdc_pool.total_collateral >= 0,
+        "USDC pool total_collateral must be non-negative"
+    );
 
-    assert!(gold_pool.total_supply >= 0);
-    assert!(gold_pool.total_borrowed >= 0);
-    assert!(gold_pool.total_collateral >= 0);
+    assert!(
+        gold_pool.total_supply >= 0,
+        "GOLD pool total_supply must be non-negative"
+    );
+    assert!(
+        gold_pool.total_borrowed >= 0,
+        "GOLD pool total_borrowed must be non-negative"
+    );
+    assert!(
+        gold_pool.total_collateral >= 0,
+        "GOLD pool total_collateral must be non-negative"
+    );
 
-    assert!(btc_pool.total_supply >= 0);
-    assert!(btc_pool.total_borrowed >= 0);
-    assert!(btc_pool.total_collateral >= 0);
+    assert!(
+        btc_pool.total_supply >= 0,
+        "BTC pool total_supply must be non-negative"
+    );
+    assert!(
+        btc_pool.total_borrowed >= 0,
+        "BTC pool total_borrowed must be non-negative"
+    );
+    assert!(
+        btc_pool.total_collateral >= 0,
+        "BTC pool total_collateral must be non-negative"
+    );
 
-    // Total deposited amount is always not smaller than total borrowed amount
+    // 2. Pool liquidity invariants
+    // Total deposited amount must always be greater than or equal to total borrowed amount
     let usdc_pool_available = usdc_pool
         .total_supply
         .checked_sub(usdc_pool.total_borrowed)
         .unwrap();
-    assert!(usdc_pool_available >= 0);
+    assert!(
+        usdc_pool_available >= 0,
+        "USDC pool must have sufficient liquidity"
+    );
 
     let gold_pool_available = gold_pool
         .total_supply
         .checked_sub(gold_pool.total_borrowed)
         .unwrap();
-    assert!(gold_pool_available >= 0);
+    assert!(
+        gold_pool_available >= 0,
+        "GOLD pool must have sufficient liquidity"
+    );
 
     let btc_pool_available = btc_pool
         .total_supply
         .checked_sub(btc_pool.total_borrowed)
         .unwrap();
-    assert!(btc_pool_available >= 0);
+    assert!(
+        btc_pool_available >= 0,
+        "BTC pool must have sufficient liquidity"
+    );
 
+    // 3. Token balance invariants
+    // Contract's token balances should match the total supply and collateral in each pool
+    let usdc_token_client = token::Client::new(e, usdc_token_address);
+    let gold_token_client = token::Client::new(e, gold_token_address);
+    let btc_token_client = token::Client::new(e, btc_token_address);
+
+    let usdc_contract_balance = usdc_token_client.balance(contract_id);
+    let gold_contract_balance = gold_token_client.balance(contract_id);
+    let btc_contract_balance = btc_token_client.balance(contract_id);
+
+    let usdc_expected_balance = usdc_pool.total_supply + usdc_pool.total_collateral;
+    let gold_expected_balance = gold_pool.total_supply + gold_pool.total_collateral;
+    let btc_expected_balance = btc_pool.total_supply + btc_pool.total_collateral;
+
+    assert_eq!(
+        usdc_contract_balance, usdc_expected_balance,
+        "USDC contract balance must match pool totals"
+    );
+    assert_eq!(
+        gold_contract_balance, gold_expected_balance,
+        "GOLD contract balance must match pool totals"
+    );
+    assert_eq!(
+        btc_contract_balance, btc_expected_balance,
+        "BTC contract balance must match pool totals"
+    );
+
+    // 4. Health factor invariants
+    // Check that all users with obligations have a health factor above the threshold
+    for user in users.iter() {
+        let obligation_result = contract_client.try_get_user_obligation(&user);
+        if let Ok(Ok(obligation)) = obligation_result {
+            // If user has an obligation, check that it's healthy
+            let is_healthy =
+                e.as_contract(contract_id, || obligation.is_healthy(e).unwrap_or(true));
+            assert!(is_healthy, "User obligation must be healthy");
+        }
+    }
+
+    // 5. Functional invariants
     // You can always borrow and repay the available amount
     let new_borrower = Address::generate(e);
 
@@ -320,17 +406,37 @@ pub fn assert_invariants(fixture: &TestFixture) {
     btc_sac.mint(&new_borrower, &collateral_amount);
     gold_sac.mint(&new_borrower, &collateral_amount);
 
+    // Test borrowing and repaying for each pool if there are available funds
     if btc_pool_available > 0 {
         contract_client.deposit_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, btc_pool_address, &btc_pool_available);
+
+        // Verify the borrowed amount is reflected in the user's obligation
+        let obligation = contract_client.get_user_obligation(&new_borrower);
+        if let Some(borrow_obligation) = obligation.borrows.get(btc_pool_address.clone()) {
+            assert_eq!(
+                borrow_obligation.borrowed, btc_pool_available,
+                "Borrowed amount must match in user obligation"
+            );
+        }
+
         contract_client.repay(&new_borrower, btc_pool_address, &btc_pool_available);
-        contract_client.withdraw_collateral(&new_borrower, usdc_pool_address, &(collateral_amount));
+        contract_client.withdraw_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
     }
 
     if gold_pool_available > 0 {
         contract_client.deposit_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-
         contract_client.borrow(&new_borrower, gold_pool_address, &gold_pool_available);
+
+        // Verify the borrowed amount is reflected in the user's obligation
+        let obligation = contract_client.get_user_obligation(&new_borrower);
+        if let Some(borrow_obligation) = obligation.borrows.get(gold_pool_address.clone()) {
+            assert_eq!(
+                borrow_obligation.borrowed, gold_pool_available,
+                "Borrowed amount must match in user obligation"
+            );
+        }
+
         contract_client.repay(&new_borrower, gold_pool_address, &gold_pool_available);
         contract_client.withdraw_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
     }
@@ -338,9 +444,65 @@ pub fn assert_invariants(fixture: &TestFixture) {
     if usdc_pool_available > 0 {
         contract_client.deposit_collateral(&new_borrower, gold_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, usdc_pool_address, &usdc_pool_available);
+
+        // Verify the borrowed amount is reflected in the user's obligation
+        let obligation = contract_client.get_user_obligation(&new_borrower);
+        if let Some(borrow_obligation) = obligation.borrows.get(usdc_pool_address.clone()) {
+            assert_eq!(
+                borrow_obligation.borrowed, usdc_pool_available,
+                "Borrowed amount must match in user obligation"
+            );
+        }
+
         contract_client.repay(&new_borrower, usdc_pool_address, &usdc_pool_available);
         contract_client.withdraw_collateral(&new_borrower, gold_pool_address, &collateral_amount);
     }
+
+    // 6. Interest rate invariants
+    // Verify that interest rates are calculated correctly
+    let usdc_apy = contract_client.get_apy(usdc_pool_address);
+    let gold_apy = contract_client.get_apy(gold_pool_address);
+    let btc_apy = contract_client.get_apy(btc_pool_address);
+
+    // Interest rates should be non-negative
+    assert!(
+        usdc_apy.borrow_rate_bps > 0,
+        "USDC borrow rate must be non-negative"
+    );
+    assert!(
+        usdc_apy.deposit_rate_bps > 0,
+        "USDC deposit rate must be non-negative"
+    );
+    assert!(
+        gold_apy.borrow_rate_bps > 0,
+        "GOLD borrow rate must be non-negative"
+    );
+    assert!(
+        gold_apy.deposit_rate_bps > 0,
+        "GOLD deposit rate must be non-negative"
+    );
+    assert!(
+        btc_apy.borrow_rate_bps > 0,
+        "BTC borrow rate must be non-negative"
+    );
+    assert!(
+        btc_apy.deposit_rate_bps > 0,
+        "BTC deposit rate must be non-negative"
+    );
+
+    // Borrow rate should be greater than or equal to deposit rate
+    assert!(
+        usdc_apy.borrow_rate_bps >= usdc_apy.deposit_rate_bps,
+        "USDC borrow rate must be >= deposit rate"
+    );
+    assert!(
+        gold_apy.borrow_rate_bps >= gold_apy.deposit_rate_bps,
+        "GOLD borrow rate must be >= deposit rate"
+    );
+    assert!(
+        btc_apy.borrow_rate_bps >= btc_apy.deposit_rate_bps,
+        "BTC borrow rate must be >= deposit rate"
+    );
 }
 
 #[derive(Arbitrary, Debug)]
@@ -471,7 +633,7 @@ impl Repay {
         } = test_fixture;
 
         let user = users.get(who).unwrap();
-        let _ = contract_client.try_withdraw(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_repay(&user, &pool_address, &self.amount.0);
     }
 }
 
