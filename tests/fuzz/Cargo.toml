@@ -15,6 +15,7 @@ extension-trait = "1"
 
 [dependencies.lending]
 path = "../../contracts/lending"
+features = ["testutils"]
 
 [dependencies.tests]
 path = ".."

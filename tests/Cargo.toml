@@ -13,3 +13,4 @@ arbitrary = { version = "1", features = ["derive"] }
 
 [dependencies.lending]
 path = "../contracts/lending"
+features = ["testutils"]

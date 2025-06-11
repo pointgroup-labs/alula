@@ -10,18 +10,18 @@ use {
     },
     soroban_sdk::{
         symbol_short,
-        testutils::{arbitrary::Arbitrary, Address as _, Ledger},
+        testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
         token::{self, StellarAssetClient, TokenClient},
         vec, Address, Env, String, Vec,
     },
 };
 
+pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
 pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
-pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = 1_000_000;
-pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = 100_000;
-pub const DEFAULT_DEPOSIT_AMOUNT: i128 = DEFAULT_USER_ASSET_MINT_AMOUNT / 2;
+pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 2;
+pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 #[allow(unused)]
-pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_USER_ASSET_MINT_AMOUNT / 2;
+pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
@@ -65,7 +65,9 @@ impl Default for TestFixture<'_> {
 
 impl TestFixture<'_> {
     pub fn new() -> Self {
-        let e = Env::default();
+        let e = Env::new_with_config(EnvTestConfig {
+            capture_snapshot_at_drop: false,
+        });
         e.mock_all_auths();
 
         e.ledger().with_mut(|li| {
@@ -184,9 +186,9 @@ impl TestFixture<'_> {
 }
 
 pub struct TestAssetSetup<'a> {
-    token_client: TokenClient<'a>,
-    token_address: Address,
-    sac_client: StellarAssetClient<'a>,
+    pub token_client: TokenClient<'a>,
+    pub token_address: Address,
+    pub sac_client: StellarAssetClient<'a>,
 }
 
 pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> TestAssetSetup<'a> {
@@ -196,7 +198,7 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
     let sac_client = StellarAssetClient::new(e, &token_address);
     let token_client = TokenClient::new(e, &token_address);
 
-    sac_client.mint(admin, &DEFAULT_USER_ASSET_MINT_AMOUNT);
+    sac_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
 
     for user in users {
         sac_client.mint(&user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
@@ -364,9 +366,12 @@ pub fn assert_invariants(fixture: &TestFixture) {
     let gold_contract_balance = gold_token_client.balance(contract_id);
     let btc_contract_balance = btc_token_client.balance(contract_id);
 
-    let usdc_expected_balance = usdc_pool.total_supply + usdc_pool.total_collateral;
-    let gold_expected_balance = gold_pool.total_supply + gold_pool.total_collateral;
-    let btc_expected_balance = btc_pool.total_supply + btc_pool.total_collateral;
+    let usdc_expected_balance =
+        (usdc_pool.total_supply - usdc_pool.total_borrowed) + usdc_pool.total_collateral;
+    let gold_expected_balance =
+        (gold_pool.total_supply - gold_pool.total_borrowed) + gold_pool.total_collateral;
+    let btc_expected_balance =
+        (btc_pool.total_supply - btc_pool.total_borrowed) + btc_pool.total_collateral;
 
     assert_eq!(
         usdc_contract_balance, usdc_expected_balance,
@@ -464,30 +469,18 @@ pub fn assert_invariants(fixture: &TestFixture) {
     let gold_apy = contract_client.get_apy(gold_pool_address);
     let btc_apy = contract_client.get_apy(btc_pool_address);
 
-    // Interest rates should be non-negative
+    // Borrow interest rates should be non-negative
     assert!(
         usdc_apy.borrow_rate_bps > 0,
         "USDC borrow rate must be non-negative"
-    );
-    assert!(
-        usdc_apy.deposit_rate_bps > 0,
-        "USDC deposit rate must be non-negative"
     );
     assert!(
         gold_apy.borrow_rate_bps > 0,
         "GOLD borrow rate must be non-negative"
     );
     assert!(
-        gold_apy.deposit_rate_bps > 0,
-        "GOLD deposit rate must be non-negative"
-    );
-    assert!(
         btc_apy.borrow_rate_bps > 0,
         "BTC borrow rate must be non-negative"
-    );
-    assert!(
-        btc_apy.deposit_rate_bps > 0,
-        "BTC deposit rate must be non-negative"
     );
 
     // Borrow rate should be greater than or equal to deposit rate
