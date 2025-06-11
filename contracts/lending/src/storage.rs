@@ -259,9 +259,9 @@ impl Obligation {
 
         let borrowed = borrow_obligation.borrowed;
         let new_borrowed = borrowed
-            .checked_mul(borrow_accrual / 10)
+            .checked_mul(borrow_accrual)
             .ok_or(LCError::OverOrUnderflow)?
-            .checked_div(borrow_obligation.last_accrual / 10)
+            .checked_div(borrow_obligation.last_accrual)
             .ok_or(LCError::OverOrUnderflow)?;
 
         let new_borrow_obligation = BorrowObligation {

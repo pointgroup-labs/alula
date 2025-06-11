@@ -1,7 +1,9 @@
-mod common;
-use common::{TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+#![cfg(test)]
 
-use soroban_sdk::Address;
+use {
+    crate::{TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    soroban_sdk::Address,
+};
 
 #[test]
 #[allow(clippy::mistyped_literal_suffixes)]

@@ -190,7 +190,7 @@ impl LendingContract {
         user.require_auth();
 
         if amount <= 0 {
-            return Err(LCError::NonPositiveDeposit);
+            return Err(LCError::NonPositiveBorrow);
         }
 
         let mut obligation =
@@ -690,7 +690,7 @@ impl LendingContract {
     }
 
     /// Returns a list of all pool addresses in the protocol
-    pub fn get_all_pools(e: Env) -> soroban_sdk::Vec<PoolAddress> {
+    pub fn get_all_pools(e: Env) -> Vec<PoolAddress> {
         storage::get_all_pools(&e)
     }
 

@@ -1,7 +1,9 @@
-mod common;
-use common::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+#![cfg(test)]
 
-use soroban_sdk::{testutils::Ledger, Address};
+use {
+    crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    soroban_sdk::{testutils::Ledger, Address},
+};
 
 #[test]
 fn test_repay() {

@@ -1,0 +1,16 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.lending]
+path = "../contracts/lending"
+features = ["testutils"]

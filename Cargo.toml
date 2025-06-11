@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["contracts/*"]
+members = ["contracts/*", "tests", "tests/fuzz"]
 
 [workspace.dependencies]
-soroban-sdk = "22.0.8"
+soroban-sdk = "^22.0.8"
 
 [profile.release]
 opt-level = "z"
