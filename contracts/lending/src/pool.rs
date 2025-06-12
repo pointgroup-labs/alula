@@ -27,7 +27,7 @@ pub struct Pool {
     pub total_collateral: i128,
     /// Configuration settings for the pool
     pub config: PoolConfig,
-    /// The numerical value that is used to determine the scaling factor required for updating the position amount
+    /// The numerical value that is used to determine the scaling factor required for updating the borrowed amount
     /// with interest, i.e. new_borrowed = (current_accrual \ last_accrual) * borrowed
     pub last_accrual: i128,
     /// The timestamp of the last accrual re-calculation
@@ -36,17 +36,16 @@ pub struct Pool {
 
 impl Pool {
     pub fn adjust_total_shares(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        let new_total_shares = self
+        let new_amount = self
             .total_shares
             .checked_add(adjusting_amount)
             .ok_or(LCError::OverOrUnderflow)?;
 
-        if new_total_shares < 0 {
-            // TODO: log/event
+        if new_amount < 0 {
             return Err(LCError::InternalError);
         }
 
-        self.total_shares = new_total_shares;
+        self.total_shares = new_amount;
 
         Ok(())
     }
@@ -58,7 +57,6 @@ impl Pool {
             .ok_or(LCError::OverOrUnderflow)?;
 
         if new_amount < 0 {
-            // TODO: log/event
             return Err(LCError::InternalError);
         }
 
@@ -74,7 +72,6 @@ impl Pool {
             .ok_or(LCError::OverOrUnderflow)?;
 
         if new_amount < 0 {
-            // TODO: log/event
             return Err(LCError::InternalError);
         }
 
@@ -90,7 +87,6 @@ impl Pool {
             .ok_or(LCError::OverOrUnderflow)?;
 
         if new_amount < 0 {
-            // TODO: log/event
             return Err(LCError::InternalError);
         }
 
@@ -109,10 +105,13 @@ impl Pool {
                 "Total shares amount must never be smaller than the total liquidity amount"
             );
             /*
-            This must hold:
-                issued_shares / (issued_shares + prev_total_shares) = deposited_amount / (deposited_amount + prev_total_borrowed + prev_available)
+            This must hold when issuing new shares:
+                shares_to_issue / (shares_to_issue + prev_total_shares) = deposited_amount / (deposited_amount + prev_total_borrowed + prev_available)
             Which implies:
-                issued_shares = prev_total_shares * (deposited_amount / (prev_total_borrowed + prev_available))
+                shares_to_issue = prev_total_shares * (deposited_amount / (prev_total_borrowed + prev_available))
+
+            This must hold when burning issued shares:
+                shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
             */
             amount
                 .checked_mul(self.total_shares)
