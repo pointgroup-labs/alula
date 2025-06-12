@@ -134,15 +134,15 @@ impl LendingContract {
         };
         pool.accrue_interest(&e)?;
 
-        let issuing_shares = pool.compute_shares_amount(amount)?;
+        let shares_to_issue = pool.compute_shares_amount(amount)?;
 
         let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
-        obligation.deposit(&pool_address, issuing_shares)?;
+        obligation.deposit(&pool_address, shares_to_issue)?;
 
         // NB: Should we accrue interest on borrow obligation?
         // obligation.accrue_interest(&e);
 
-        pool.adjust_total_shares(issuing_shares)?;
+        pool.adjust_total_shares(shares_to_issue)?;
         pool.adjust_available(amount)?;
 
         storage::set_obligation(&e, &user, &obligation);
@@ -181,12 +181,11 @@ impl LendingContract {
             return Err(LCError::PoolDoesNotExist);
         };
 
-        if amount > (pool.available) {
+        if amount > pool.available {
             return Err(LCError::NotEnoughPoolFunds);
         }
 
         obligation.borrow(&pool_address, amount)?;
-
         if !obligation.is_healthy(&e)? {
             return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
         }
@@ -357,24 +356,25 @@ impl LendingContract {
             return Err(LCError::NonPositiveWithdraw);
         }
 
-        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
-            return Err(LCError::PoolDoesNotExist);
-        };
         let Some(mut obligation) = storage::get_obligation(&e, &user) else {
             return Err(LCError::ObligationDoesNotExist);
         };
-
         obligation.accrue_interest(&e)?;
-        obligation.withdraw_collateral(&pool_address, amount)?;
 
-        if !obligation.is_healthy(&e)? {
-            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
-        }
+        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
+            return Err(LCError::PoolDoesNotExist);
+        };
 
         if amount > pool.total_collateral {
             return Err(LCError::NotEnoughPoolFunds);
         }
-        pool.adjust_total_collateral(amount)?;
+
+        obligation.withdraw_collateral(&pool_address, amount)?;
+        if !obligation.is_healthy(&e)? {
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
+        }
+
+        pool.adjust_total_collateral(-amount)?;
 
         if obligation.is_empty() {
             storage::remove_obligation(&e, &user);

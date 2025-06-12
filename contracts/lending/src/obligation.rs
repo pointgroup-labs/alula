@@ -115,8 +115,8 @@ impl Obligation {
         Ok(health_factor_bps)
     }
 
-    /// Repays debt on a specific obligation on pool. Since [`repaid_amount`] can exceed debt -
-    /// the `taken_amount` which gets repaid is calculated as `min(debt, repaid_amount)`.
+    /// Repays debt on a specific obligation per pool. Since `repaid_amount` can exceed debt -
+    /// the real repaid amount is calculated as `min(debt, repaid_amount)`
     /// # Returns
     /// [`Result::Ok(taken_amount)`] in success and [`Err(LCError)`] in failure
     pub fn repay(&mut self, pool_address: &Address, repaid_amount: i128) -> Result<i128, LCError> {
@@ -144,7 +144,7 @@ impl Obligation {
         Ok(borrow_obligation.borrowed)
     }
 
-    /// Deposits collateral assets on a specific obligation on pool
+    /// Deposits collateral assets on a specific obligation per pool
     pub fn deposit_collateral(
         &mut self,
         pool_address: &Address,
@@ -173,7 +173,7 @@ impl Obligation {
         Ok(())
     }
 
-    /// Withdraws collateral assets from a specific obligation on pool
+    /// Withdraws collateral assets from a specific obligation per pool
     pub fn withdraw_collateral(
         &mut self,
         pool_address: &Address,
@@ -195,19 +195,19 @@ impl Obligation {
         Ok(())
     }
 
-    /// Deposits assets on a specific obligation on pool
+    /// Deposits assets on a specific obligation per pool
     pub fn deposit(&mut self, pool_address: &Address, shares_amount: i128) -> Result<(), LCError> {
         self.adjust_shares_on_pool(pool_address, shares_amount)
     }
 
-    /// Borrows assets on a specific obligation on pool
+    /// Borrows assets on a specific obligation per pool
     pub fn borrow(&mut self, pool_address: &Address, borrowed_amount: i128) -> Result<(), LCError> {
         self.adjust_borrowed_on_pool(pool_address, borrowed_amount)
     }
 
     /// Liquidates unhealthy borrow
-    /// # WARN
     ///
+    /// # WARN
     /// This modifies collateral pools' data in the storage and sends tokens to the liquidator as
     /// a side effect
     pub fn liquidate(
@@ -427,6 +427,10 @@ impl BorrowObligation {
         Ok(())
     }
 
+    /// Accrues interest on a borrow obligation
+    ///
+    /// # WARN
+    /// This modifies the pool's data in the storage
     pub fn accrue_interest(&mut self, e: &Env, pool_address: &Address) -> Result<(), LCError> {
         let mut pool = storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
         pool.accrue_interest(e)?;
@@ -449,7 +453,6 @@ impl BorrowObligation {
         self.unpaid_interest = new_unpaid_interest;
         self.last_accrual = pool.last_accrual;
 
-        // NB: Updating pool in the storage is necessary
         storage::set_pool(e, pool_address, &pool);
 
         Ok(())
