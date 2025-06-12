@@ -1,15 +1,20 @@
 {
   "cSpell.words": [
-    "jlend",
     "antfu",
+    "contractimpl",
+    "contracttype",
+    "jlend",
+    "lastprice",
+    "liquidatable",
     "sizecheck",
+    "soroban",
     "typecheck"
   ],
   // Enable the ESlint flat config support
   "eslint.useFlatConfig": true,
   // Disable the default formatter
   "prettier.enable": false,
-  "editor.formatOnSave": false,
+  "editor.formatOnSave": true,
   // Auto fix
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",

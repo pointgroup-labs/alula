@@ -4,6 +4,7 @@ use soroban_sdk::contracterror;
 #[derive(Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum LendingContractError {
+    InternalError = 0,
     PoolAlreadyExists = 1,
     PoolDoesNotExist = 2,
     InvalidLoanPoolConfig = 3,

@@ -3,10 +3,7 @@
 use {
     arbitrary::Unstructured,
     lending::{
-        constants::{LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS},
-        contract::{LendingContract, LendingContractClient},
-        oracle,
-        storage::{BorrowObligation, DepositObligation},
+        constants::{LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS}, contract::{LendingContract, LendingContractClient}, obligation::{BorrowObligation, DepositObligation}, oracle
     },
     soroban_sdk::{
         symbol_short,
