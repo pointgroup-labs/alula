@@ -50,7 +50,7 @@ impl Obligation {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
 
-    pub fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
+    fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
         let liquidation_threshold_bps = get_global_state(e).liquidation_threshold_bps;
 
         let (mut collateral_value_sum, mut borrowed_value_sum) = (0i128, 0i128);
@@ -70,10 +70,10 @@ impl Obligation {
                 .checked_div(collateral_pool.total_shares)
                 .ok_or(LCError::OverOrUnderflow)?;
 
-            let asset_price = get_asset_price(e, &collateral_pool.token_ticker)?;
             let total_tokens = shares_to_tokens + collateral;
 
-            // Add plain collateral
+            let asset_price = get_asset_price(e, &collateral_pool.token_ticker)?;
+
             collateral_value_sum = collateral_value_sum
                 .checked_add(
                     asset_price
@@ -83,13 +83,14 @@ impl Obligation {
                 .ok_or(LCError::OverOrUnderflow)?;
         }
 
-        for (deposit_pool_address, borrow_obligation) in self.borrows.iter() {
-            let Some(deposit_pool) = storage::get_pool(e, &deposit_pool_address) else {
+        for (borrow_pool_address, borrow_obligation) in self.borrows.iter() {
+            let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
                 return Err(LCError::InternalError);
             };
 
             let borrowed = borrow_obligation.borrowed;
-            let borrowed_asset_price = get_asset_price(e, &deposit_pool.token_ticker)?;
+
+            let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_ticker)?;
 
             borrowed_value_sum = borrowed_value_sum
                 .checked_add(
@@ -115,44 +116,26 @@ impl Obligation {
         Ok(health_factor_bps)
     }
 
-    /// Repays debt on a specific obligation per pool. Since `repaid_amount` can exceed debt -
-    /// the real repaid amount is calculated as `min(debt, repaid_amount)`
-    /// # Returns
-    /// [`Result::Ok(taken_amount)`] in success and [`Err(LCError)`] in failure
-    pub fn repay(&mut self, pool_address: &Address, repaid_amount: i128) -> Result<i128, LCError> {
-        let mut borrow_obligation = self
-            .borrows
-            .get(pool_address.clone())
-            .ok_or(LCError::ObligationDoesNotExist)?;
-
-        let taken_amount = i128::min(repaid_amount, borrow_obligation.borrowed);
-        if taken_amount == borrow_obligation.borrowed {
-            self.borrows.remove(pool_address.clone());
-        } else {
-            borrow_obligation.adjust_borrowed(-taken_amount)?;
-        }
-
-        Ok(taken_amount)
+    /// Deposits assets on an obligation per pool
+    pub fn deposit(&mut self, pool_address: &Address, shares_amount: i128) -> Result<(), LCError> {
+        self.adjust_shares(pool_address, shares_amount)
     }
 
-    // TODO: think more about on\per here...
-    pub fn get_borrowed_on_pool(&mut self, pool_address: &Address) -> Result<i128, LCError> {
-        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
-            return Err(LCError::ObligationDoesNotExist)?;
-        };
-
-        Ok(borrow_obligation.borrowed)
+    /// Borrows assets on an obligation per pool
+    pub fn borrow(&mut self, pool_address: &Address, borrowed_amount: i128) -> Result<(), LCError> {
+        self.adjust_borrowed(pool_address, borrowed_amount)
     }
 
-    /// Deposits collateral assets on a specific obligation per pool
+    /// Deposits collateral assets on an obligation per pool
     pub fn deposit_collateral(
         &mut self,
         pool_address: &Address,
         collateral_amount: i128,
     ) -> Result<(), LCError> {
-        self.adjust_collateral_on_pool(pool_address, collateral_amount)
+        self.adjust_collateral(pool_address, collateral_amount)
     }
 
+    /// Withdraws assets from an obligation per pool
     pub fn withdraw(&mut self, pool_address: &Address, shares_amount: i128) -> Result<(), LCError> {
         let mut deposit_obligation = self
             .deposits
@@ -173,7 +156,7 @@ impl Obligation {
         Ok(())
     }
 
-    /// Withdraws collateral assets from a specific obligation per pool
+    /// Withdraws collateral assets from an obligation per pool
     pub fn withdraw_collateral(
         &mut self,
         pool_address: &Address,
@@ -185,7 +168,7 @@ impl Obligation {
             return Err(LCError::WithdrawOverBalance);
         }
 
-        deposit_obligation.adjust_collateral(collateral_amount)?;
+        deposit_obligation.adjust_collateral(-collateral_amount)?;
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());
         } else {
@@ -195,14 +178,25 @@ impl Obligation {
         Ok(())
     }
 
-    /// Deposits assets on a specific obligation per pool
-    pub fn deposit(&mut self, pool_address: &Address, shares_amount: i128) -> Result<(), LCError> {
-        self.adjust_shares_on_pool(pool_address, shares_amount)
-    }
+    /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt -
+    /// the real repaid amount is calculated as `min(debt, repaid_amount)`
+    ///
+    /// # Returns
+    /// [`Result::Ok(real_repaid_amount)`] in success and [`Err(LCError)`] in failure
+    pub fn repay(&mut self, pool_address: &Address, repaid_amount: i128) -> Result<i128, LCError> {
+        let mut borrow_obligation = self
+            .borrows
+            .get(pool_address.clone())
+            .ok_or(LCError::ObligationDoesNotExist)?;
 
-    /// Borrows assets on a specific obligation per pool
-    pub fn borrow(&mut self, pool_address: &Address, borrowed_amount: i128) -> Result<(), LCError> {
-        self.adjust_borrowed_on_pool(pool_address, borrowed_amount)
+        let real_repaid_amount = i128::min(repaid_amount, borrow_obligation.borrowed);
+        if real_repaid_amount == borrow_obligation.borrowed {
+            self.borrows.remove(pool_address.clone());
+        } else {
+            borrow_obligation.adjust_borrowed(-real_repaid_amount)?;
+        }
+
+        Ok(real_repaid_amount)
     }
 
     /// Liquidates unhealthy borrow
@@ -354,7 +348,7 @@ impl Obligation {
         Ok(value)
     }
 
-    fn adjust_shares_on_pool(
+    fn adjust_shares(
         &mut self,
         pool_address: &Address,
         adjusting_amount: i128,
@@ -366,7 +360,7 @@ impl Obligation {
         Ok(())
     }
 
-    fn adjust_borrowed_on_pool(
+    fn adjust_borrowed(
         &mut self,
         pool_address: &Address,
         adjusting_amount: i128,
@@ -378,7 +372,7 @@ impl Obligation {
         Ok(())
     }
 
-    fn adjust_collateral_on_pool(
+    fn adjust_collateral(
         &mut self,
         pool_address: &Address,
         adjusting_amount: i128,
