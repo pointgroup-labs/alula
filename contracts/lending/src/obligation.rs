@@ -236,6 +236,7 @@ impl Obligation {
         }
 
         let borrowed_asset_price = get_asset_price(e, &pool.token_ticker)?;
+
         let liquidation_value = borrowed_asset_price
             .checked_mul(amount)
             .ok_or(LCError::OverOrUnderflow)?;
@@ -244,28 +245,30 @@ impl Obligation {
             .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
             .ok_or(LCError::OverOrUnderflow)?;
 
+        // TODO: It seems more reasonable to take all collateral from pools first
+        // and only then to start taking available amount
         for (collateral_pool_address, mut deposit_obligation) in self.deposits.iter() {
             let DepositObligation {
                 collateral, shares, ..
             } = deposit_obligation;
 
             let Some(mut collateral_pool) = storage::get_pool(e, pool_address) else {
+                // NB: This is a major invariant breakage - not a wrong input error
                 return Err(LCError::PoolDoesNotExist);
             };
 
-            // Now we have to calculate the value which the fellow has in shares...
-            let pool_total = collateral_pool
+            let total_deposit_liquidity = collateral_pool
                 .total_borrowed
                 .checked_add(collateral_pool.available)
                 .ok_or(LCError::OverOrUnderflow)?;
 
             let tokens_in_shares = shares
-                .checked_mul(pool_total)
+                .checked_mul(total_deposit_liquidity)
                 .ok_or(LCError::OverOrUnderflow)?
                 .checked_div(collateral_pool.total_shares)
                 .ok_or(LCError::OverOrUnderflow)?;
 
-            let deposit_tokens = i128::min(tokens_in_shares, collateral_pool.available);
+            let deposit = i128::min(tokens_in_shares, collateral_pool.available);
 
             let collateral_asset_price = get_asset_price(e, &collateral_pool.token_ticker)?;
 
@@ -273,11 +276,11 @@ impl Obligation {
                 .checked_mul(collateral_asset_price)
                 .ok_or(LCError::OverOrUnderflow)?;
 
-            let deposit_value = deposit_tokens
+            let deposit_value = deposit
                 .checked_mul(collateral_asset_price)
                 .ok_or(LCError::OverOrUnderflow)?;
 
-            // 1. Check if collateral will cover everything
+            // Check if collateral alone can cover the purchase of the debt
             if desired_collateral_value_to_redeem <= collateral_value {
                 let collateral_tokens_to_take = desired_collateral_value_to_redeem
                     .checked_div(collateral_asset_price)
@@ -296,26 +299,28 @@ impl Obligation {
                 );
 
                 desired_collateral_value_to_redeem = 0;
+
                 break;
             } else {
+                // If collateral isn't sufficient - try to cover the debt with available tokens from the pool
                 let value_left = desired_collateral_value_to_redeem - collateral_value;
 
                 let deposit_value_to_take = if deposit_value >= value_left {
                     value_left
                 } else {
-                    value_left - deposit_value
+                    deposit_value
                 };
 
                 let deposit_tokens_to_take = deposit_value_to_take
                     .checked_div(collateral_asset_price)
                     .ok_or(LCError::OverOrUnderflow)?;
 
-                // How much is this in shares, though??/
                 let shares_to_burn =
                     collateral_pool.compute_shares_amount(deposit_tokens_to_take)?;
 
                 deposit_obligation.adjust_shares(-shares_to_burn)?;
                 collateral_pool.adjust_available(-deposit_tokens_to_take)?;
+                collateral_pool.adjust_total_shares(-shares_to_burn)?;
 
                 let token_client = token::Client::new(e, &collateral_pool_address);
                 token_client.transfer(
@@ -336,16 +341,19 @@ impl Obligation {
             }
         }
 
-        let value = if desired_collateral_value_to_redeem == 0 {
-            amount
-        } else {
-            amount
-                - desired_collateral_value_to_redeem
+        let liquidated_amount = amount
+            .checked_sub(
+                desired_collateral_value_to_redeem
                     .checked_div(borrowed_asset_price)
-                    .ok_or(LCError::OverOrUnderflow)?
-        };
+                    .ok_or(LCError::OverOrUnderflow)?,
+            )
+            .ok_or(LCError::OverOrUnderflow)?;
 
-        Ok(value)
+        if liquidated_amount < 0 {
+            return Err(LCError::InternalError);
+        }
+
+        Ok(liquidated_amount)
     }
 
     fn adjust_shares(
