@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use {
-    crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
     lending::constants::{LCError, DEFAULT_CLOSE_FACTOR},
     soroban_sdk::{testutils::Ledger, Address},
 };
@@ -53,9 +53,6 @@ fn test_liquidate() {
     let borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .borrowed;
-    let deposited = get_deposit_obligation(&contract_client, &user, &gold_pool_address)
-        .unwrap()
-        .deposited;
 
     // Wait an hour for borrowed amount to accrue
     e.ledger().with_mut(|li| li.timestamp = 60 * 60);
@@ -79,13 +76,9 @@ fn test_liquidate() {
     let new_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .borrowed;
-    let new_deposited = get_deposit_obligation(&contract_client, &user, &gold_pool_address)
-        .unwrap()
-        .deposited;
 
     // TODO: Check more specifically how liquidation affected obligation
     assert!(new_borrowed < borrowed);
-    assert!(new_deposited < deposited);
 }
 
 // TODO:

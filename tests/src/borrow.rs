@@ -30,7 +30,7 @@ fn test_borrow() {
     let pool_borrowed = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
-        .total_supply;
+        .total_borrowed;
 
     assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT);

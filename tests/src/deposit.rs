@@ -23,11 +23,11 @@ fn test_deposit() {
 
     let deposit_obligation = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
-        .deposited;
+        .shares;
     let pool_deposited = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
-        .total_supply;
+        .total_shares;
 
     // TODO: We should introduce operation fees which will make the deposited amount smaller
     assert_eq!(deposit_obligation, DEFAULT_DEPOSIT_AMOUNT);

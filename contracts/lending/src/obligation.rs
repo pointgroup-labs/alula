@@ -5,6 +5,7 @@ use {
         pool::PoolConfig,
         storage::{self, get_global_state, PoolAddress},
     },
+    core::borrow,
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, token, Address, Env, Map},
 };
@@ -189,11 +190,15 @@ impl Obligation {
             .get(pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        let real_repaid_amount = i128::min(repaid_amount, borrow_obligation.borrowed);
-        if real_repaid_amount == borrow_obligation.borrowed {
+        let real_repaid_amount = i128::min(
+            repaid_amount,
+            borrow_obligation.borrowed + borrow_obligation.unpaid_interest,
+        );
+        if real_repaid_amount == (borrow_obligation.borrowed + borrow_obligation.unpaid_interest) {
             self.borrows.remove(pool_address.clone());
         } else {
             borrow_obligation.adjust_borrowed(-real_repaid_amount)?;
+            self.borrows.set(pool_address.clone(), borrow_obligation);
         }
 
         Ok(real_repaid_amount)

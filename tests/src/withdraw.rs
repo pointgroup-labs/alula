@@ -19,30 +19,30 @@ fn test_withdraw() {
     let user = users.get(0).unwrap();
     contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let deposit_obligation = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
+    let obligation_shares = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
-        .deposited;
-    let pool_deposited = contract_client
+        .shares;
+    let pool_shares = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
-        .total_supply;
+        .total_shares;
 
-    assert_eq!(deposit_obligation, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_deposited, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
 
     // Withdraw half
     contract_client.withdraw(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
-    let deposit_obligation = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
+    let obligation_shares = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
-        .deposited;
-    let pool_deposited = contract_client
+        .shares;
+    let pool_shares = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
-        .total_supply;
+        .total_shares;
 
-    assert_eq!(deposit_obligation, (DEFAULT_DEPOSIT_AMOUNT / 2));
-    assert_eq!(pool_deposited, (DEFAULT_DEPOSIT_AMOUNT / 2));
+    assert_eq!(obligation_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
+    assert_eq!(pool_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
 
     // Withdraw half again
     contract_client.withdraw(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
@@ -52,12 +52,12 @@ fn test_withdraw() {
         contract_client.try_get_user_obligation(&user)
     );
 
-    let pool_deposited = contract_client
+    let pool_shares = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
-        .total_supply;
+        .total_shares;
 
-    assert_eq!(pool_deposited, 0);
+    assert_eq!(pool_shares, 0);
 }
 
 #[test]
