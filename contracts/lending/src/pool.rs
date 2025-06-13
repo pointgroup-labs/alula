@@ -52,7 +52,7 @@ impl Pool {
 
     pub fn adjust_available(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
         let new_amount = self
-            .total_shares
+            .available
             .checked_add(adjusting_amount)
             .ok_or(LCError::OverOrUnderflow)?;
 

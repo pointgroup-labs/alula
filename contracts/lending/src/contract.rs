@@ -186,12 +186,13 @@ impl LendingContract {
         }
 
         obligation.borrow(&pool_address, amount)?;
-        if !obligation.is_healthy(&e)? {
-            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
-        }
 
         pool.adjust_total_borrowed(amount)?;
         pool.adjust_available(-amount)?;
+
+        if !obligation.is_healthy(&e)? {
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
+        }
 
         storage::set_obligation(&e, &user, &obligation);
         storage::set_pool(&e, &pool_address, &pool);
@@ -370,11 +371,12 @@ impl LendingContract {
         }
 
         obligation.withdraw_collateral(&pool_address, amount)?;
+
+        pool.adjust_total_collateral(-amount)?;
+
         if !obligation.is_healthy(&e)? {
             return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
         }
-
-        pool.adjust_total_collateral(-amount)?;
 
         if obligation.is_empty() {
             storage::remove_obligation(&e, &user);
@@ -423,12 +425,13 @@ impl LendingContract {
         let shares_to_burn = pool.compute_shares_amount(amount)?;
 
         obligation.withdraw(&pool_address, shares_to_burn)?;
-        if !obligation.is_healthy(&e)? {
-            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
-        }
 
         pool.adjust_total_shares(-shares_to_burn)?;
         pool.adjust_available(-amount)?;
+
+        if !obligation.is_healthy(&e)? {
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
+        }
 
         if obligation.is_empty() {
             storage::remove_obligation(&e, &user);

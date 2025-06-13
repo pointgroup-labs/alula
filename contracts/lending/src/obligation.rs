@@ -1,11 +1,10 @@
 use {
     crate::{
-        constants::{LCError, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
+        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
         contract::get_asset_price,
         pool::PoolConfig,
         storage::{self, get_global_state, PoolAddress},
     },
-    core::borrow,
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, token, Address, Env, Map},
 };
@@ -65,11 +64,15 @@ impl Obligation {
                 return Err(LCError::InternalError);
             };
 
-            let shares_to_tokens = shares
-                .checked_mul(collateral_pool.available + collateral_pool.total_borrowed)
-                .ok_or(LCError::OverOrUnderflow)?
-                .checked_div(collateral_pool.total_shares)
-                .ok_or(LCError::OverOrUnderflow)?;
+            let shares_to_tokens = if collateral_pool.total_shares != 0 {
+                shares
+                    .checked_mul(collateral_pool.available + collateral_pool.total_borrowed)
+                    .ok_or(LCError::OverOrUnderflow)?
+                    .checked_div(collateral_pool.total_shares)
+                    .ok_or(LCError::OverOrUnderflow)?
+            } else {
+                0
+            };
 
             let total_tokens = shares_to_tokens + collateral;
 
@@ -85,18 +88,26 @@ impl Obligation {
         }
 
         for (borrow_pool_address, borrow_obligation) in self.borrows.iter() {
+            let BorrowObligation {
+                borrowed,
+                unpaid_interest,
+                ..
+            } = borrow_obligation;
+
             let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
                 return Err(LCError::InternalError);
             };
 
-            let borrowed = borrow_obligation.borrowed;
+            let total = borrowed
+                .checked_add(unpaid_interest)
+                .ok_or(LCError::OverOrUnderflow)?;
 
             let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_ticker)?;
 
             borrowed_value_sum = borrowed_value_sum
                 .checked_add(
                     borrowed_asset_price
-                        .checked_mul(borrowed)
+                        .checked_mul(total)
                         .ok_or(LCError::OverOrUnderflow)?,
                 )
                 .ok_or(LCError::OverOrUnderflow)?;
@@ -378,7 +389,10 @@ impl Obligation {
         pool_address: &Address,
         adjusting_amount: i128,
     ) -> Result<(), LCError> {
-        let mut borrow_obligation = self.borrows.get(pool_address.clone()).unwrap_or_default();
+        let mut borrow_obligation = self
+            .borrows
+            .get(pool_address.clone())
+            .unwrap_or(BorrowObligation::new());
         borrow_obligation.adjust_borrowed(adjusting_amount)?;
         self.borrows.set(pool_address.clone(), borrow_obligation);
 
@@ -398,7 +412,7 @@ impl Obligation {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 #[contracttype]
 pub struct BorrowObligation {
     /// The initial amount of the borrowed token
@@ -411,6 +425,14 @@ pub struct BorrowObligation {
 }
 
 impl BorrowObligation {
+    fn new() -> Self {
+        Self {
+            borrowed: 0,
+            unpaid_interest: 0,
+            last_accrual: ACCRUAL_INIT,
+        }
+    }
+
     #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.borrowed == 0
