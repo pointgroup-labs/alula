@@ -160,7 +160,7 @@ fn test_withdraw_collateral_overbalance() {
         &(DEFAULT_COLLATERAL_AMOUNT / 2),
     );
 
-    contract_client.withdraw(
+    contract_client.withdraw_collateral(
         &user,
         &usdc_pool_address,
         &((DEFAULT_COLLATERAL_AMOUNT / 2) + 1),

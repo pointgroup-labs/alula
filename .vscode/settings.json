@@ -1,18 +1,20 @@
 {
   "cSpell.words": [
     "antfu",
-    "contracterror",
-    "contractimpl",
-    "contracttype",
-    "jlend",
-    "lastprice",
-    "liquidatable",
+    "beasties",
+    "jpool",
+    "oxlint",
+    "pinia",
     "sizecheck",
-    "soroban",
-    "typecheck"
+    "typecheck",
+    "unhead",
+    "unplugin",
+    "vueuse"
   ],
+
   // Enable the ESlint flat config support
   "eslint.useFlatConfig": true,
+
   // Disable the default formatter
   "prettier.enable": false,
   "editor.formatOnSave": true,
@@ -23,61 +25,42 @@
   },
   // Silent the stylistic rules in you IDE, but still auto fix them
   "eslint.rules.customizations": [
-    {
-      "rule": "style/*",
-      "severity": "off"
-    },
-    {
-      "rule": "format/*",
-      "severity": "off"
-    },
-    {
-      "rule": "*-indent",
-      "severity": "off"
-    },
-    {
-      "rule": "*-spacing",
-      "severity": "off"
-    },
-    {
-      "rule": "*-spaces",
-      "severity": "off"
-    },
-    {
-      "rule": "*-order",
-      "severity": "off"
-    },
-    {
-      "rule": "*-dangle",
-      "severity": "off"
-    },
-    {
-      "rule": "*-newline",
-      "severity": "off"
-    },
-    {
-      "rule": "*quotes",
-      "severity": "off"
-    },
-    {
-      "rule": "*semi",
-      "severity": "off"
-    }
+    { "rule": "style/*", "severity": "off" },
+    { "rule": "format/*", "severity": "off" },
+    { "rule": "*-indent", "severity": "off" },
+    { "rule": "*-spacing", "severity": "off" },
+    { "rule": "*-spaces", "severity": "off" },
+    { "rule": "*-order", "severity": "off" },
+    { "rule": "*-dangle", "severity": "off" },
+    { "rule": "*-newline", "severity": "off" },
+    { "rule": "*quotes", "severity": "off" },
+    { "rule": "*semi", "severity": "off" }
   ],
+
   // The following is optional.
   // It's better to put under project setting `.vscode/settings.json`
   // to avoid conflicts with working with different eslint configs
   // that does not support all formats.
   "eslint.validate": [
     "javascript",
+    "javascriptreact",
     "typescript",
+    "typescriptreact",
     "css",
     "scss",
+    "vue",
     "html",
     "markdown",
     "json",
     "jsonc",
     "toml",
     "yaml"
-  ]
+  ],
+  "material-icon-theme.activeIconPack": "vue",
+  "material-icon-theme.files.associations": {
+
+  },
+  "material-icon-theme.rootFolders.associations": {
+    "validators": null
+  }
 }
