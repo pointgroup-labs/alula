@@ -5,7 +5,8 @@ use {
             REFLECTOR_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
-        obligation::{Lending, LiquidationValues, Obligation},
+        math_utils::MathUtils,
+        obligation::{LiquidationValues, Obligation},
         oracle,
         pool::{Pool, PoolAddress, PoolConfig},
         storage::{self, GlobalState},
@@ -133,14 +134,14 @@ impl LendingContract {
             return Err(LCError::PoolDoesNotExist);
         };
         // NB: Should the depositor accrue interest on a pool in this place?
-        pool.accrue_interest(&e)?;
+        // pool.accrue_interest(&e)?;
 
         let shares_to_issue = pool.compute_shares_from_tokens(amount)?;
 
         let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
         obligation.deposit(&pool_address, shares_to_issue)?;
 
-        // NB: Should the depositor accrue interest on his entire obligation in this place?
+        // NB: Should the depositor accrue interest on his obligation in this place?
         // obligation.accrue_interest(&e);
 
         pool.adjust_total_shares(shares_to_issue)?;

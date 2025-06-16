@@ -5,7 +5,7 @@ use {
             DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
             DEFAULT_SLOPE1, DEFAULT_SLOPE2,
         },
-        obligation::Lending,
+        math_utils::MathUtils,
     },
     soroban_sdk::{contracttype, Address, Symbol},
 };
@@ -42,7 +42,7 @@ impl Pool {
         let new_amount = self
             .total_shares
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             return Err(LCError::InternalError);
@@ -57,7 +57,7 @@ impl Pool {
         let new_amount = self
             .available
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             return Err(LCError::InternalError);
@@ -72,7 +72,7 @@ impl Pool {
         let new_amount = self
             .total_borrowed
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             return Err(LCError::InternalError);
@@ -87,7 +87,7 @@ impl Pool {
         let new_amount = self
             .total_collateral
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             return Err(LCError::InternalError);
@@ -144,9 +144,9 @@ impl Pool {
             */
             self.total_shares
                 .checked_mul(tokens_amount)
-                .ok_or(LCError::OverOrUnderflow)?
+                .map_over_or_underflow()?
                 .checked_div(total)
-                .ok_or(LCError::OverOrUnderflow)?
+                .map_over_or_underflow()?
         };
 
         Ok(shares_amount)

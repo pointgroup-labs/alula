@@ -2,6 +2,7 @@ use {
     crate::{
         constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
         contract::get_asset_price,
+        math_utils::MathUtils,
         pool::{Pool, PoolConfig},
         storage::{self, get_global_state, PoolAddress},
     },
@@ -22,16 +23,6 @@ pub struct Obligation {
     // pub deposited_value: i128,
     // /// Market value of deposits
     // pub borrowed_value: i128,
-}
-
-pub trait Lending {
-    fn map_over_or_underflow(self) -> Result<i128, LCError>;
-}
-
-impl Lending for Option<i128> {
-    fn map_over_or_underflow(self) -> Result<i128, LCError> {
-        self.ok_or(LCError::OverOrUnderflow)
-    }
 }
 
 impl Obligation {
@@ -81,9 +72,9 @@ impl Obligation {
             let shares_to_tokens = if collateral_pool.total_shares != 0 {
                 shares
                     .checked_mul(collateral_pool.available + collateral_pool.total_borrowed)
-                    .ok_or(LCError::OverOrUnderflow)?
+                    .map_over_or_underflow()?
                     .checked_div(collateral_pool.total_shares)
-                    .ok_or(LCError::OverOrUnderflow)?
+                    .map_over_or_underflow()?
             } else {
                 0
             };
@@ -96,9 +87,9 @@ impl Obligation {
                 .checked_add(
                     asset_price
                         .checked_mul(total_tokens)
-                        .ok_or(LCError::OverOrUnderflow)?,
+                        .map_over_or_underflow()?,
                 )
-                .ok_or(LCError::OverOrUnderflow)?;
+                .map_over_or_underflow()?;
         }
 
         for (borrow_pool_address, borrow_obligation) in self.borrows.iter() {
@@ -114,7 +105,7 @@ impl Obligation {
 
             let total = borrowed
                 .checked_add(unpaid_interest)
-                .ok_or(LCError::OverOrUnderflow)?;
+                .map_over_or_underflow()?;
 
             let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_ticker)?;
 
@@ -122,9 +113,9 @@ impl Obligation {
                 .checked_add(
                     borrowed_asset_price
                         .checked_mul(total)
-                        .ok_or(LCError::OverOrUnderflow)?,
+                        .map_over_or_underflow()?,
                 )
-                .ok_or(LCError::OverOrUnderflow)?;
+                .map_over_or_underflow()?;
         }
 
         if borrowed_value_sum == 0 {
@@ -134,10 +125,10 @@ impl Obligation {
 
         let numerator = collateral_value_sum
             .checked_mul(liquidation_threshold_bps)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
         let health_factor_bps = numerator
             .checked_div(borrowed_value_sum)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         Ok(health_factor_bps)
     }
@@ -393,7 +384,7 @@ impl Obligation {
         let borrowed_amount = borrow_obligation.borrowed;
         let liquidatable_bps = amount
             .fixed_div_floor(borrowed_amount, BPS_FACTOR)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if liquidatable_bps > liquidation_close_factor_bps {
             // TODO: What's the best way to set `close_factor_bps` value?
@@ -404,11 +395,11 @@ impl Obligation {
 
         let liquidation_value = borrowed_asset_price
             .checked_mul(amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         let mut desired_collateral_value_to_redeem = liquidation_value
             .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         // TODO: It seems more reasonable to take all collateral from pools first
         // and only then to start taking available amount
@@ -425,13 +416,13 @@ impl Obligation {
             let total_deposit_liquidity = collateral_pool
                 .total_borrowed
                 .checked_add(collateral_pool.available)
-                .ok_or(LCError::OverOrUnderflow)?;
+                .map_over_or_underflow()?;
 
             let tokens_in_shares = shares
                 .checked_mul(total_deposit_liquidity)
-                .ok_or(LCError::OverOrUnderflow)?
+                .map_over_or_underflow()?
                 .checked_div(collateral_pool.total_shares)
-                .ok_or(LCError::OverOrUnderflow)?;
+                .map_over_or_underflow()?;
 
             let deposit = i128::min(tokens_in_shares, collateral_pool.available);
 
@@ -439,17 +430,17 @@ impl Obligation {
 
             let collateral_value = collateral
                 .checked_mul(collateral_asset_price)
-                .ok_or(LCError::OverOrUnderflow)?;
+                .map_over_or_underflow()?;
 
             let deposit_value = deposit
                 .checked_mul(collateral_asset_price)
-                .ok_or(LCError::OverOrUnderflow)?;
+                .map_over_or_underflow()?;
 
             // Check if collateral alone can cover the purchase of the debt
             if desired_collateral_value_to_redeem <= collateral_value {
                 let collateral_tokens_to_take = desired_collateral_value_to_redeem
                     .checked_div(collateral_asset_price)
-                    .ok_or(LCError::OverOrUnderflow)?;
+                    .map_over_or_underflow()?;
 
                 deposit_obligation.adjust_collateral(-collateral_tokens_to_take)?;
                 collateral_pool.adjust_total_collateral(-collateral_tokens_to_take)?;
@@ -478,7 +469,7 @@ impl Obligation {
 
                 let deposit_tokens_to_take = deposit_value_to_take
                     .checked_div(collateral_asset_price)
-                    .ok_or(LCError::OverOrUnderflow)?;
+                    .map_over_or_underflow()?;
 
                 let shares_to_burn =
                     collateral_pool.compute_shares_from_tokens(deposit_tokens_to_take)?;
@@ -496,7 +487,7 @@ impl Obligation {
 
                 desired_collateral_value_to_redeem = desired_collateral_value_to_redeem
                     .checked_sub(deposit_value_to_take)
-                    .ok_or(LCError::OverOrUnderflow)?;
+                    .map_over_or_underflow()?;
 
                 #[allow(clippy::comparison_chain)]
                 if desired_collateral_value_to_redeem < 0 {
@@ -511,9 +502,9 @@ impl Obligation {
             .checked_sub(
                 desired_collateral_value_to_redeem
                     .checked_div(borrowed_asset_price)
-                    .ok_or(LCError::OverOrUnderflow)?,
+                    .map_over_or_underflow()?,
             )
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if liquidated_amount < 0 {
             return Err(LCError::InternalError);
@@ -598,7 +589,7 @@ impl BorrowObligation {
         let new_amount = self
             .borrowed
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             // TODO: event/log the specific issue
@@ -616,7 +607,7 @@ impl BorrowObligation {
         let new_amount = self
             .unpaid_interest
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             // TODO: event/log the specific issue
@@ -641,13 +632,13 @@ impl BorrowObligation {
         let prev_debt = self.borrowed + self.unpaid_interest;
         let new_debt = prev_debt
             .checked_mul(pool.last_accrual)
-            .ok_or(LCError::OverOrUnderflow)?
+            .map_over_or_underflow()?
             .checked_div(self.last_accrual)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         let new_unpaid_interest = new_debt
             .checked_sub(self.borrowed)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_unpaid_interest < 0 {
             return Err(LCError::InternalError);
@@ -674,7 +665,7 @@ impl DepositObligation {
         let new_amount = self
             .shares
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             // TODO: event/log the specific issue
@@ -692,7 +683,7 @@ impl DepositObligation {
         let new_amount = self
             .collateral
             .checked_add(adjusting_amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if new_amount < 0 {
             // TODO: event/log the specific issue
