@@ -18,7 +18,7 @@ fn test_repay() {
     let user: Address = users.get(0).unwrap();
     let user2 = users.get(1).unwrap();
     // Deposit gold as a collateral to satisfy the health factor threshold
-    contract_client.deposit_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(&user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Borrow 50% of the deposited value
@@ -77,7 +77,7 @@ fn test_repay_with_interest_accrual() {
     let user: Address = users.get(0).unwrap();
     let user2 = users.get(1).unwrap();
     // Deposit gold as a collateral to satisfy the health factor threshold
-    contract_client.deposit_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(&user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Borrow 50% of the deposited value

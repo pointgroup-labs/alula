@@ -381,7 +381,7 @@ pub fn assert_invariants(fixture: &TestFixture) {
 
     // Test borrowing and repaying for each pool if there are available funds
     if btc_pool.available > 0 {
-        contract_client.deposit_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
+        contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, btc_pool_address, &btc_pool.available);
 
         // Verify the borrowed amount is reflected in the user's obligation
@@ -394,11 +394,11 @@ pub fn assert_invariants(fixture: &TestFixture) {
         }
 
         contract_client.repay(&new_borrower, btc_pool_address, &btc_pool.available);
-        contract_client.withdraw_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
+        contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
     }
 
     if gold_pool.available > 0 {
-        contract_client.deposit_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
+        contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, gold_pool_address, &gold_pool.available);
 
         // Verify the borrowed amount is reflected in the user's obligation
@@ -411,11 +411,11 @@ pub fn assert_invariants(fixture: &TestFixture) {
         }
 
         contract_client.repay(&new_borrower, gold_pool_address, &gold_pool.available);
-        contract_client.withdraw_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
+        contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
     }
 
     if usdc_pool.available > 0 {
-        contract_client.deposit_collateral(&new_borrower, gold_pool_address, &collateral_amount);
+        contract_client.add_collateral(&new_borrower, gold_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, usdc_pool_address, &usdc_pool.available);
 
         // Verify the borrowed amount is reflected in the user's obligation
@@ -428,7 +428,7 @@ pub fn assert_invariants(fixture: &TestFixture) {
         }
 
         contract_client.repay(&new_borrower, usdc_pool_address, &usdc_pool.available);
-        contract_client.withdraw_collateral(&new_borrower, gold_pool_address, &collateral_amount);
+        contract_client.remove_collateral(&new_borrower, gold_pool_address, &collateral_amount);
     }
 
     // 6. Interest rate invariants
@@ -553,7 +553,7 @@ impl DepositCollateral {
         } = test_fixture;
 
         let user = users.get(who).unwrap();
-        let _ = contract_client.try_deposit_collateral(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_add_collateral(&user, &pool_address, &self.amount.0);
     }
 }
 
@@ -567,7 +567,7 @@ impl WithdrawCollateral {
         } = test_fixture;
 
         let user = users.get(who).unwrap();
-        let _ = contract_client.try_withdraw_collateral(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_remove_collateral(&user, &pool_address, &self.amount.0);
     }
 }
 

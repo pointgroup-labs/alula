@@ -61,7 +61,7 @@ fn test_withdraw() {
 }
 
 #[test]
-fn test_withdraw_collateral() {
+fn test_remove_collateral() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -70,7 +70,7 @@ fn test_withdraw_collateral() {
     } = TestFixture::new();
 
     let user = users.get(0).unwrap();
-    contract_client.deposit_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let obligation_collateral = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
@@ -84,11 +84,7 @@ fn test_withdraw_collateral() {
     assert_eq!(pool_collateral, DEFAULT_COLLATERAL_AMOUNT);
 
     // Withdraw half
-    contract_client.withdraw_collateral(
-        &user,
-        &usdc_pool_address,
-        &(DEFAULT_COLLATERAL_AMOUNT / 2),
-    );
+    contract_client.remove_collateral(&user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
 
     let obligation_collateral = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
@@ -102,11 +98,7 @@ fn test_withdraw_collateral() {
     assert_eq!(pool_collateral, (DEFAULT_COLLATERAL_AMOUNT / 2));
 
     // Withdraw half again
-    contract_client.withdraw_collateral(
-        &user,
-        &usdc_pool_address,
-        &(DEFAULT_COLLATERAL_AMOUNT / 2),
-    );
+    contract_client.remove_collateral(&user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
 
     assert_eq!(
         Err(Ok(LCError::ObligationDoesNotExist)),
@@ -142,7 +134,7 @@ fn test_withdraw_overbalance() {
 
 #[test]
 #[should_panic(expected = "Error(Contract, #9)")]
-fn test_withdraw_collateral_overbalance() {
+fn test_remove_collateral_overbalance() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -153,14 +145,10 @@ fn test_withdraw_collateral_overbalance() {
     let user = users.get(0).unwrap();
     let user2 = users.get(1).unwrap();
 
-    contract_client.deposit_collateral(&user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
-    contract_client.deposit_collateral(
-        &user2,
-        &usdc_pool_address,
-        &(DEFAULT_COLLATERAL_AMOUNT / 2),
-    );
+    contract_client.add_collateral(&user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
+    contract_client.add_collateral(&user2, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
 
-    contract_client.withdraw_collateral(
+    contract_client.remove_collateral(
         &user,
         &usdc_pool_address,
         &((DEFAULT_COLLATERAL_AMOUNT / 2) + 1),

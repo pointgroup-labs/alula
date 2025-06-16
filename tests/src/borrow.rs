@@ -54,7 +54,7 @@ fn test_borrow_non_positive() {
 }
 
 #[test]
-fn test_borrow_health_factor_deposit_collateral() {
+fn test_borrow_health_factor_add_collateral() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -66,7 +66,7 @@ fn test_borrow_health_factor_deposit_collateral() {
     let user: Address = users.get(0).unwrap();
     let user2 = users.get(1).unwrap();
     // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
 
     let deposit_obligation =
         get_deposit_obligation(&contract_client, &user, &gold_pool_address).unwrap();
@@ -95,7 +95,7 @@ fn test_borrow_health_factor_deposit_collateral() {
     );
 
     // Improve health factor
-    contract_client.deposit_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
 
     // Borrow without health factor violation
     contract_client.borrow(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));

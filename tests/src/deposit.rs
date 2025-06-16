@@ -35,7 +35,7 @@ fn test_deposit() {
 }
 
 #[test]
-fn test_deposit_collateral() {
+fn test_add_collateral() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -44,7 +44,7 @@ fn test_deposit_collateral() {
     } = TestFixture::new();
 
     let user = users.get(0).unwrap();
-    contract_client.deposit_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let obligation_collateral = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()

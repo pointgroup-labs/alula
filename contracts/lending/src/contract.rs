@@ -205,7 +205,7 @@ impl LendingContract {
         Ok(())
     }
 
-    /// Deposits tokens into the loan pool as collateral only.
+    /// Adds tokens into the loan pool as collateral only.
     /// This implies that they are always available for a healthy withdrawal for the
     /// cost of not accruing an interest rate
     ///
@@ -213,7 +213,7 @@ impl LendingContract {
     /// * `user` - user which deposits a token
     /// * `pool_address` - address of a pool to which the collateral deposit happens
     /// * `amount` - amount of tokens which are being deposited as a collateral
-    pub fn deposit_collateral(
+    pub fn add_collateral(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -232,7 +232,7 @@ impl LendingContract {
         let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
         obligation.accrue_interest(&e)?;
 
-        obligation.deposit_collateral(&pool_address, amount)?;
+        obligation.add_collateral(&pool_address, amount)?;
         pool.adjust_total_collateral(amount)?;
 
         storage::set_obligation(&e, &user, &obligation);
@@ -373,13 +373,13 @@ impl LendingContract {
         Ok(())
     }
 
-    /// Withdraws collateral tokens from the loan pool to the user
+    /// Removes collateral tokens from the loan pool to the user
     ///
     /// ### Arguments
     /// * `user` - user which withdraws collateral tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - amount of withdrawn tokens
-    pub fn withdraw_collateral(
+    pub fn remove_collateral(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -404,7 +404,7 @@ impl LendingContract {
             return Err(LCError::NotEnoughPoolFunds);
         }
 
-        obligation.withdraw_collateral(&pool_address, amount)?;
+        obligation.remove_collateral(&pool_address, amount)?;
 
         pool.adjust_total_collateral(-amount)?;
 

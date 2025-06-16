@@ -143,12 +143,8 @@ impl Obligation {
         self.adjust_borrowed(pool_address, amount)
     }
 
-    /// Deposits collateral assets on an obligation per pool
-    pub fn deposit_collateral(
-        &mut self,
-        pool_address: &Address,
-        amount: i128,
-    ) -> Result<(), LCError> {
+    /// Adds collateral assets on an obligation per pool
+    pub fn add_collateral(&mut self, pool_address: &Address, amount: i128) -> Result<(), LCError> {
         self.adjust_collateral(pool_address, amount)
     }
 
@@ -174,8 +170,8 @@ impl Obligation {
         Ok(())
     }
 
-    /// Withdraws collateral assets from an obligation per pool
-    pub fn withdraw_collateral(
+    /// Removes collateral assets from an obligation per pool
+    pub fn remove_collateral(
         &mut self,
         pool_address: &Address,
         amount: i128,
