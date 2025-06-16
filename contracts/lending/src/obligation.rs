@@ -2,7 +2,7 @@ use {
     crate::{
         constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
         contract::get_asset_price,
-        pool::PoolConfig,
+        pool::{Pool, PoolConfig},
         storage::{self, get_global_state, PoolAddress},
     },
     soroban_fixed_point_math::FixedPoint,
@@ -24,6 +24,16 @@ pub struct Obligation {
     // pub borrowed_value: i128,
 }
 
+pub trait Lending {
+    fn map_over_or_underflow(self) -> Result<i128, LCError>;
+}
+
+impl Lending for Option<i128> {
+    fn map_over_or_underflow(self) -> Result<i128, LCError> {
+        self.ok_or(LCError::OverOrUnderflow)
+    }
+}
+
 impl Obligation {
     pub fn new(e: &Env) -> Self {
         Self {
@@ -32,6 +42,10 @@ impl Obligation {
         }
     }
 
+    /// Accrues interest on all borrows for the obligation
+    ///
+    /// # WARN
+    /// This modifies the pool's data in the storage
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         for (pool_address, mut borrow_obligation) in self.borrows.iter() {
             borrow_obligation.accrue_interest(e, &pool_address)?;
@@ -216,11 +230,140 @@ impl Obligation {
     }
 
     /// Liquidates unhealthy borrow
+    pub fn liquidate(
+        &mut self,
+        e: &Env,
+        borrow_pool_address: &Address,
+        collateral_pool_address: &Address,
+        borrow_pool: &Pool,
+        collateral_pool: &Pool,
+        amount: i128,
+    ) -> Result<LiquidationValues, LCError> {
+        let Some(mut borrow_obligation) = self.borrows.get(borrow_pool_address.clone()) else {
+            return Err(LCError::BorrowDoesNotExist);
+        };
+        let Some(mut collateral_obligation) = self.deposits.get(collateral_pool_address.clone())
+        else {
+            return Err(LCError::DepositDoesNotExist);
+        };
+
+        let PoolConfig {
+            liquidation_close_factor_bps,
+            liquidation_incentive_bps,
+            ..
+        } = borrow_pool.config;
+
+        let amount = i128::min(amount, borrow_obligation.borrowed);
+
+        let liquidatable_bps = amount
+            .fixed_div_floor(amount, BPS_FACTOR)
+            .map_over_or_underflow()?;
+        if liquidatable_bps > liquidation_close_factor_bps {
+            // TODO: What's the best way to set `close_factor_bps` value?
+            return Err(LCError::LiquidationExceedsCloseFactor);
+        }
+
+        let borrowed_price = get_asset_price(e, &borrow_pool.token_ticker)?;
+        let liquidation_value = amount.checked_mul(borrowed_price).map_over_or_underflow()?;
+
+        // Value, which liquidator would like to receive if a full liquidation takes place
+        let liquidation_value_with_incentive = liquidation_value
+            .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
+            .map_over_or_underflow()?;
+
+        let collateral_price = get_asset_price(e, &collateral_pool.token_ticker)?;
+        let full_collateral_amount = collateral_obligation.collateral;
+        let full_collateral_value = full_collateral_amount
+            .checked_mul(collateral_price)
+            .map_over_or_underflow()?;
+
+        let liquidation_values = if full_collateral_value >= liquidation_value_with_incentive {
+            let collateral_amount_sold = liquidation_value_with_incentive
+                .checked_div(collateral_price)
+                .map_over_or_underflow()?;
+
+            LiquidationValues {
+                liquidated_amount: amount,
+                collateral_amount_sold,
+                shares_amount_sold: 0,
+                tokens_from_sold_shares: 0,
+            }
+        } else {
+            let value_left = liquidation_value_with_incentive - full_collateral_value; // safe
+
+            let full_collateral_shares = collateral_obligation.shares;
+            let tokens_from_shares =
+                collateral_pool.compute_tokens_from_shares(full_collateral_shares)?;
+
+            let available_tokens_from_shares =
+                i128::min(collateral_pool.available, tokens_from_shares);
+
+            let tokens_from_shares_value = available_tokens_from_shares
+                .checked_mul(collateral_price)
+                .map_over_or_underflow()?;
+
+            if tokens_from_shares_value >= value_left {
+                let tokens_from_sold_shares = value_left
+                    .checked_div(collateral_price)
+                    .map_over_or_underflow()?;
+                let shares_amount_sold =
+                    collateral_pool.compute_shares_from_tokens(tokens_from_sold_shares)?;
+
+                LiquidationValues {
+                    liquidated_amount: amount,
+                    collateral_amount_sold: full_collateral_amount,
+                    shares_amount_sold,
+                    tokens_from_sold_shares,
+                }
+            } else {
+                let collateral_value_sum = full_collateral_value
+                    .checked_add(tokens_from_shares_value)
+                    .map_over_or_underflow()?;
+
+                let tokens_per_collateral = collateral_value_sum
+                    .checked_div(collateral_price)
+                    .map_over_or_underflow()?;
+
+                // And we have to decrease this value by the incentive percent..
+                let numerator = BPS_FACTOR - liquidation_incentive_bps; // safe
+                let denominator = BPS_FACTOR;
+
+                let tokens_per_collateral_minus_incentive = tokens_per_collateral
+                    .checked_mul(numerator)
+                    .map_over_or_underflow()?
+                    .checked_div(denominator)
+                    .map_over_or_underflow()?;
+
+                LiquidationValues {
+                    liquidated_amount: tokens_per_collateral_minus_incentive,
+                    collateral_amount_sold: full_collateral_amount,
+                    shares_amount_sold: available_tokens_from_shares,
+                    tokens_from_sold_shares: tokens_from_shares,
+                }
+            }
+        };
+
+        borrow_obligation.adjust_borrowed(-liquidation_values.liquidated_amount)?;
+
+        collateral_obligation.adjust_collateral(-liquidation_values.collateral_amount_sold)?;
+        collateral_obligation.adjust_shares(-liquidation_values.shares_amount_sold)?;
+
+        self.borrows
+            .set(borrow_pool_address.clone(), borrow_obligation);
+
+        self.deposits
+            .set(collateral_pool_address.clone(), collateral_obligation);
+
+        Ok(liquidation_values)
+    }
+
+    /// Liquidates unhealthy borrow
     ///
     /// # WARN
     /// This modifies collateral pools' data in the storage and sends tokens to the liquidator as
     /// a side effect
-    pub fn liquidate(
+    #[allow(unused)]
+    pub fn liquidate_shared_collateral(
         &mut self,
         e: &Env,
         pool_address: &Address,
@@ -332,7 +475,7 @@ impl Obligation {
                     .ok_or(LCError::OverOrUnderflow)?;
 
                 let shares_to_burn =
-                    collateral_pool.compute_shares_amount(deposit_tokens_to_take)?;
+                    collateral_pool.compute_shares_from_tokens(deposit_tokens_to_take)?;
 
                 deposit_obligation.adjust_shares(-shares_to_burn)?;
                 collateral_pool.adjust_available(-deposit_tokens_to_take)?;
@@ -535,4 +678,15 @@ impl DepositObligation {
     pub fn is_empty(&self) -> bool {
         self.shares == 0 && self.collateral == 0
     }
+}
+
+pub struct LiquidationValues {
+    /// The amount of tokens repaid by the liquidator
+    pub liquidated_amount: i128,
+    /// The number of the borrower's collateral tokens that are taken by the liquidator
+    pub collateral_amount_sold: i128,
+    /// The number of available pool tokens that are taken from the borrower's shares
+    pub shares_amount_sold: i128,
+    /// The number of tokens that correspond to the sold shares
+    pub tokens_from_sold_shares: i128,
 }

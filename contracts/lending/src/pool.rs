@@ -1,8 +1,11 @@
 use {
-    crate::constants::{
-        LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
-        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
-        DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+    crate::{
+        constants::{
+            LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
+            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
+            DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+        },
+        obligation::Lending,
     },
     soroban_sdk::{contracttype, Address, Symbol},
 };
@@ -95,13 +98,39 @@ impl Pool {
         Ok(())
     }
 
+    /// Computes tokens amount proportional to the `share` the of shares in the pool
+    pub fn compute_tokens_from_shares(&self, shares_amount: i128) -> Result<i128, LCError> {
+        assert!(
+            self.total_shares >= shares_amount,
+            "
+        Total shares must never be smaller than shares which a single obligation has"
+        );
+
+        let total = self
+            .available
+            .checked_add(self.total_borrowed)
+            .map_over_or_underflow()?;
+        let tokens_amount = total
+            .checked_mul(shares_amount)
+            .map_over_or_underflow()?
+            .checked_div(self.total_shares)
+            .map_over_or_underflow()?;
+
+        Ok(tokens_amount)
+    }
+
     /// Computes shares amount which must be issued for\burnt from a depositor based on the deposited\withdrawn amount
-    pub fn compute_shares_amount(&self, amount: i128) -> Result<i128, LCError> {
+    pub fn compute_shares_from_tokens(&self, tokens_amount: i128) -> Result<i128, LCError> {
         let shares_amount = if self.total_shares == 0 {
-            amount
+            tokens_amount
         } else {
+            let total = self
+                .available
+                .checked_add(self.total_borrowed)
+                .map_over_or_underflow()?;
+
             assert!(
-                (self.available + self.total_borrowed) >= self.total_shares,
+                total >= self.total_shares,
                 "Total shares amount must never be smaller than the total liquidity amount"
             );
             /*
@@ -113,10 +142,10 @@ impl Pool {
             This must hold when burning issued shares:
                 shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
             */
-            amount
-                .checked_mul(self.total_shares)
+            self.total_shares
+                .checked_mul(tokens_amount)
                 .ok_or(LCError::OverOrUnderflow)?
-                .checked_div(self.total_borrowed + self.available)
+                .checked_div(total)
                 .ok_or(LCError::OverOrUnderflow)?
         };
 

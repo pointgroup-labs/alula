@@ -24,4 +24,5 @@ pub enum LendingContractError {
     LiquidationExceedsCloseFactor = 17,
     NonPositiveLiquidation = 18,
     NonPositiveBorrow = 19,
+    CollateralPoolDoesNotExist = 20,
 }

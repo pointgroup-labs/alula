@@ -28,7 +28,13 @@ fn test_liquidate() {
 
     // Try to liquidate a healthy position
     assert_eq!(
-        contract_client.try_liquidate(&liquidator, &user, &usdc_pool_address, &1),
+        contract_client.try_liquidate(
+            &liquidator,
+            &user,
+            &usdc_pool_address,
+            &gold_pool_address,
+            &1
+        ),
         Err(Ok(LCError::LiquidatedPositionIsHealthy))
     );
 
@@ -46,7 +52,13 @@ fn test_liquidate() {
 
     // Try to liquidate a least healthy position possible
     assert_eq!(
-        contract_client.try_liquidate(&liquidator, &user, &usdc_pool_address, &1),
+        contract_client.try_liquidate(
+            &liquidator,
+            &user,
+            &usdc_pool_address,
+            &gold_pool_address,
+            &1
+        ),
         Err(Ok(LCError::LiquidatedPositionIsHealthy))
     );
 
@@ -66,12 +78,19 @@ fn test_liquidate() {
             &liquidator,
             &user,
             &usdc_pool_address,
+            &gold_pool_address,
             &non_liquidatable_amount,
         ),
         Err(Ok(LCError::LiquidationExceedsCloseFactor))
     );
 
-    contract_client.liquidate(&liquidator, &user, &usdc_pool_address, &liquidatable_amount);
+    contract_client.liquidate(
+        &liquidator,
+        &user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &liquidatable_amount,
+    );
 
     let new_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
@@ -80,7 +99,3 @@ fn test_liquidate() {
     // TODO: Check more specifically how liquidation affected obligation
     assert!(new_borrowed < borrowed);
 }
-
-// TODO:
-// #[test]
-// fn test_liquidate_multiple_collaterals() {}

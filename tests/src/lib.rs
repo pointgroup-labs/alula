@@ -512,6 +512,7 @@ pub struct WithdrawCollateral {
 pub struct Liquidate {
     pub amount: Amount,
     pub token: Token,
+    pub collateral_token: Token,
 }
 
 impl Borrow {
@@ -601,20 +602,29 @@ impl Repay {
 impl Liquidate {
     pub fn run(&self, test_fixture: &TestFixture, who: u32) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
+        let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
 
-        let (liquidator, borrower) = if who == 0 {
-            (users.get(0).unwrap(), users.get(1).unwrap())
-        } else {
-            (users.get(1).unwrap(), users.get(0).unwrap())
-        };
+        if pool_address != collateral_pool_address {
+            let TestFixture {
+                contract_client,
+                users,
+                ..
+            } = test_fixture;
 
-        let _ =
-            contract_client.try_liquidate(&liquidator, &borrower, &pool_address, &self.amount.0);
+            let (liquidator, borrower) = if who == 0 {
+                (users.get(0).unwrap(), users.get(1).unwrap())
+            } else {
+                (users.get(1).unwrap(), users.get(0).unwrap())
+            };
+
+            let _ = contract_client.try_liquidate(
+                &liquidator,
+                &borrower,
+                &pool_address,
+                &collateral_pool_address,
+                &self.amount.0,
+            );
+        }
     }
 }
 
