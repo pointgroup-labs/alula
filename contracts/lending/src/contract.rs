@@ -132,6 +132,7 @@ impl LendingContract {
         let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
             return Err(LCError::PoolDoesNotExist);
         };
+        // NB: Should the depositor accrue interest on a pool in this place?
         pool.accrue_interest(&e)?;
 
         let shares_to_issue = pool.compute_shares_from_tokens(amount)?;
@@ -139,7 +140,7 @@ impl LendingContract {
         let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
         obligation.deposit(&pool_address, shares_to_issue)?;
 
-        // NB: Should we accrue interest on borrow obligation?
+        // NB: Should the depositor accrue interest on his entire obligation in this place?
         // obligation.accrue_interest(&e);
 
         pool.adjust_total_shares(shares_to_issue)?;

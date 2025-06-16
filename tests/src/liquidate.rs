@@ -96,6 +96,6 @@ fn test_liquidate() {
         .unwrap()
         .borrowed;
 
-    // TODO: Check more specifically how liquidation affected obligation
-    assert!(new_borrowed < borrowed);
+    // TODO: Check more specifically how liquidation affected deposit obligation
+    assert!(new_borrowed == (borrowed - liquidatable_amount));
 }

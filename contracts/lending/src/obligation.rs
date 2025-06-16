@@ -143,22 +143,22 @@ impl Obligation {
     }
 
     /// Deposits assets on an obligation per pool
-    pub fn deposit(&mut self, pool_address: &Address, shares_amount: i128) -> Result<(), LCError> {
-        self.adjust_shares(pool_address, shares_amount)
+    pub fn deposit(&mut self, pool_address: &Address, amount: i128) -> Result<(), LCError> {
+        self.adjust_shares(pool_address, amount)
     }
 
     /// Borrows assets on an obligation per pool
-    pub fn borrow(&mut self, pool_address: &Address, borrowed_amount: i128) -> Result<(), LCError> {
-        self.adjust_borrowed(pool_address, borrowed_amount)
+    pub fn borrow(&mut self, pool_address: &Address, amount: i128) -> Result<(), LCError> {
+        self.adjust_borrowed(pool_address, amount)
     }
 
     /// Deposits collateral assets on an obligation per pool
     pub fn deposit_collateral(
         &mut self,
         pool_address: &Address,
-        collateral_amount: i128,
+        amount: i128,
     ) -> Result<(), LCError> {
-        self.adjust_collateral(pool_address, collateral_amount)
+        self.adjust_collateral(pool_address, amount)
     }
 
     /// Withdraws assets from an obligation per pool
@@ -173,6 +173,7 @@ impl Obligation {
         }
 
         deposit_obligation.adjust_shares(-shares_amount)?;
+
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());
         } else {
@@ -186,15 +187,16 @@ impl Obligation {
     pub fn withdraw_collateral(
         &mut self,
         pool_address: &Address,
-        collateral_amount: i128,
+        amount: i128,
     ) -> Result<(), LCError> {
         let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
 
-        if deposit_obligation.collateral < collateral_amount {
+        if deposit_obligation.collateral < amount {
             return Err(LCError::WithdrawOverBalance);
         }
 
-        deposit_obligation.adjust_collateral(-collateral_amount)?;
+        deposit_obligation.adjust_collateral(-amount)?;
+
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());
         } else {
@@ -209,20 +211,31 @@ impl Obligation {
     ///
     /// # Returns
     /// [`Result::Ok(real_repaid_amount)`] in success and [`Err(LCError)`] in failure
-    pub fn repay(&mut self, pool_address: &Address, repaid_amount: i128) -> Result<i128, LCError> {
+    pub fn repay(&mut self, pool_address: &Address, amount: i128) -> Result<i128, LCError> {
         let mut borrow_obligation = self
             .borrows
             .get(pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        let real_repaid_amount = i128::min(
-            repaid_amount,
-            borrow_obligation.borrowed + borrow_obligation.unpaid_interest,
-        );
-        if real_repaid_amount == (borrow_obligation.borrowed + borrow_obligation.unpaid_interest) {
+        let total_debt = borrow_obligation
+            .borrowed
+            .checked_add(borrow_obligation.unpaid_interest)
+            .map_over_or_underflow()?;
+
+        let real_repaid_amount = i128::min(amount, total_debt);
+
+        if real_repaid_amount == total_debt {
             self.borrows.remove(pool_address.clone());
         } else {
-            borrow_obligation.adjust_borrowed(-real_repaid_amount)?;
+            if real_repaid_amount <= borrow_obligation.unpaid_interest {
+                borrow_obligation.adjust_unpaid_interest(real_repaid_amount)?;
+            } else {
+                let to_remove_from_borrowed =
+                    real_repaid_amount - borrow_obligation.unpaid_interest;
+                borrow_obligation.adjust_borrowed(-to_remove_from_borrowed)?;
+                borrow_obligation.adjust_unpaid_interest(-borrow_obligation.unpaid_interest)?;
+            }
+
             self.borrows.set(pool_address.clone(), borrow_obligation);
         }
 
@@ -253,10 +266,8 @@ impl Obligation {
             ..
         } = borrow_pool.config;
 
-        let amount = i128::min(amount, borrow_obligation.borrowed);
-
         let liquidatable_bps = amount
-            .fixed_div_floor(amount, BPS_FACTOR)
+            .fixed_div_floor(borrow_obligation.borrowed, BPS_FACTOR)
             .map_over_or_underflow()?;
         if liquidatable_bps > liquidation_close_factor_bps {
             // TODO: What's the best way to set `close_factor_bps` value?
@@ -357,12 +368,7 @@ impl Obligation {
         Ok(liquidation_values)
     }
 
-    /// Liquidates unhealthy borrow
-    ///
-    /// # WARN
-    /// This modifies collateral pools' data in the storage and sends tokens to the liquidator as
-    /// a side effect
-    #[allow(unused)]
+    #[deprecated]
     pub fn liquidate_shared_collateral(
         &mut self,
         e: &Env,
@@ -492,6 +498,7 @@ impl Obligation {
                     .checked_sub(deposit_value_to_take)
                     .ok_or(LCError::OverOrUnderflow)?;
 
+                #[allow(clippy::comparison_chain)]
                 if desired_collateral_value_to_redeem < 0 {
                     return Err(LCError::InternalError);
                 } else if desired_collateral_value_to_redeem == 0 {
@@ -581,6 +588,12 @@ impl BorrowObligation {
         self.borrowed == 0
     }
 
+    pub fn total_borrowed(&self) -> Result<i128, LCError> {
+        self.borrowed
+            .checked_add(self.unpaid_interest)
+            .map_over_or_underflow()
+    }
+
     pub fn adjust_borrowed(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
         let new_amount = self
             .borrowed
@@ -595,6 +608,24 @@ impl BorrowObligation {
         }
 
         self.borrowed = new_amount;
+
+        Ok(())
+    }
+
+    pub fn adjust_unpaid_interest(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
+        let new_amount = self
+            .unpaid_interest
+            .checked_add(adjusting_amount)
+            .ok_or(LCError::OverOrUnderflow)?;
+
+        if new_amount < 0 {
+            // TODO: event/log the specific issue
+            // This shouldn't be a specific `[LCError]` variant,
+            // since it's a broken invariant and not a cause of a bad input
+            return Err(LCError::InternalError);
+        }
+
+        self.unpaid_interest = new_amount;
 
         Ok(())
     }
