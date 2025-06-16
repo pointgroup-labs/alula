@@ -29,7 +29,6 @@ ehthumbs_vista.db
 
 # IDEs
 .vscode/*
-.vscode/
 !.vscode/extensions.json
 !.vscode/settings.json
 .idea

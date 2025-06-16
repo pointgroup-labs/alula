@@ -45,6 +45,7 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 
@@ -60,6 +61,7 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 
@@ -75,6 +77,7 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 
@@ -90,6 +93,7 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 

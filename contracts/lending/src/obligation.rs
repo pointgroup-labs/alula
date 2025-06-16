@@ -40,7 +40,7 @@ impl Obligation {
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         for (pool_address, mut borrow_obligation) in self.borrows.iter() {
             borrow_obligation.accrue_interest(e, &pool_address)?;
-            // WARN: I am not sure if this will work, tbh
+            // TODO: Check if you can modify and iterate through [`soroban_sdk::Map`] at the same time
             self.borrows.set(pool_address, borrow_obligation);
         }
 
@@ -66,6 +66,7 @@ impl Obligation {
             } = deposit_obligation;
 
             let Some(collateral_pool) = storage::get_pool(e, &collateral_pool_address) else {
+                // TODO: Add event
                 return Err(LCError::InternalError);
             };
 
@@ -100,6 +101,7 @@ impl Obligation {
             } = borrow_obligation;
 
             let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
+                // TODO: Add event
                 return Err(LCError::InternalError);
             };
 
@@ -314,6 +316,8 @@ impl Obligation {
                     tokens_from_sold_shares,
                 }
             } else {
+                // The case when full liquidation cannot take place because of not enough available amount in the pool
+                // TODO: Rewrite with using cTokens
                 let collateral_value_sum = full_collateral_value
                     .checked_add(tokens_from_shares_value)
                     .map_over_or_underflow()?;
@@ -322,10 +326,11 @@ impl Obligation {
                     .checked_div(collateral_price)
                     .map_over_or_underflow()?;
 
-                // And we have to decrease this value by the incentive percent..
                 let numerator = BPS_FACTOR - liquidation_incentive_bps; // safe
                 let denominator = BPS_FACTOR;
 
+                // Liquidator cannot receive the entire desired value of collateral,
+                // so only a proportional amount of tokens must be repaid
                 let tokens_per_collateral_minus_incentive = tokens_per_collateral
                     .checked_mul(numerator)
                     .map_over_or_underflow()?
@@ -335,8 +340,8 @@ impl Obligation {
                 LiquidationValues {
                     liquidated_amount: tokens_per_collateral_minus_incentive,
                     collateral_amount_sold: full_collateral_amount,
-                    shares_amount_sold: available_tokens_from_shares,
-                    tokens_from_sold_shares: tokens_from_shares,
+                    shares_amount_sold: full_collateral_shares,
+                    tokens_from_sold_shares: available_tokens_from_shares,
                 }
             }
         };
@@ -487,6 +492,7 @@ impl Obligation {
 
                 #[allow(clippy::comparison_chain)]
                 if desired_collateral_value_to_redeem < 0 {
+                    // TODO: Add event
                     return Err(LCError::InternalError);
                 } else if desired_collateral_value_to_redeem == 0 {
                     break;
@@ -503,6 +509,7 @@ impl Obligation {
             .map_over_or_underflow()?;
 
         if liquidated_amount < 0 {
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 
@@ -588,9 +595,8 @@ impl BorrowObligation {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
-            // TODO: event/log the specific issue
             // This shouldn't be a specific `[LCError]` variant,
-            // since it's a broken invariant and not a cause of a bad input
+            // since it's a broken invariant and not a cause of a bad user input
             return Err(LCError::InternalError);
         }
 
@@ -606,9 +612,7 @@ impl BorrowObligation {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
-            // TODO: event/log the specific issue
-            // This shouldn't be a specific `[LCError]` variant,
-            // since it's a broken invariant and not a cause of a bad input
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 
@@ -637,6 +641,7 @@ impl BorrowObligation {
             .map_over_or_underflow()?;
 
         if new_unpaid_interest < 0 {
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 
@@ -682,9 +687,7 @@ impl DepositObligation {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
-            // TODO: event/log the specific issue
-            // This shouldn't be a specific `[LCError]` variant,
-            // since it's a broken invariant and not a cause of a bad input
+            // TODO: Add event
             return Err(LCError::InternalError);
         }
 
