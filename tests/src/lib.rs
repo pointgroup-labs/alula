@@ -789,6 +789,7 @@ mod tests {
 
 mod borrow;
 mod deposit;
+mod flash_loan;
 mod fuzz;
 mod initialize;
 mod interest_rates;

@@ -549,6 +549,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
+name = "flash_loan_utilizer_mock"
+version = "0.0.0"
+dependencies = [
+ "lending",
+ "moderc3156",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -764,6 +773,7 @@ dependencies = [
 name = "lending"
 version = "0.0.0"
 dependencies = [
+ "moderc3156",
  "soroban-fixed-point-math",
  "soroban-sdk",
 ]
@@ -813,6 +823,14 @@ name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
+
+[[package]]
+name = "moderc3156"
+version = "0.1.0"
+source = "git+https://github.com/xycloo/xycloans?rev=d9a7ae1#d9a7ae163e6c7120000532bf4b15b6a96b3a82bc"
+dependencies = [
+ "soroban-sdk",
+]
 
 [[package]]
 name = "num-bigint"

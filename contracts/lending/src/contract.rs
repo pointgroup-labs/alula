@@ -11,6 +11,7 @@ use {
         pool::{Pool, PoolAddress, PoolConfig},
         storage::{self, GlobalState},
     },
+    moderc3156::FlashLoanClient,
     soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, String, Symbol, Vec},
 };
 
@@ -133,8 +134,7 @@ impl LendingContract {
         let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
             return Err(LCError::PoolDoesNotExist);
         };
-        // NB: Should the depositor accrue interest on a pool in this place?
-        // pool.accrue_interest(&e)?;
+        pool.accrue_interest(&e)?;
 
         let shares_to_issue = pool.compute_shares_from_tokens(amount)?;
 
@@ -405,7 +405,6 @@ impl LendingContract {
         }
 
         obligation.remove_collateral(&pool_address, amount)?;
-
         pool.adjust_total_collateral(-amount)?;
 
         if !obligation.is_healthy(&e)? {
@@ -476,6 +475,46 @@ impl LendingContract {
 
         let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
+
+        Ok(())
+    }
+
+    /// Creates a flash loan
+    ///
+    /// ### Arguments
+    /// * `user` - user which creates a flash loan
+    /// * `contract` - address of a which leverages flash loaned amount and which adheres to `erc3156` standard
+    /// * `pool_address` - address of a pool from which the flash loan happens
+    /// * `amount` - amount of lent tokens
+    pub fn flash_loan(
+        e: Env,
+        user: Address, // by the way, what would the user do here???
+        contract: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), LCError> {
+        // contract.require_auth();
+        user.require_auth();
+
+        if amount <= 0 {
+            return Err(LCError::NonPositiveFlashLoan);
+        }
+
+        let Some(pool) = storage::get_pool(&e, &pool_address) else {
+            return Err(LCError::PoolDoesNotExist);
+        };
+
+        if pool.available < amount {
+            return Err(LCError::NotEnoughPoolFunds);
+        }
+
+        let token_client = token::Client::new(&e, &pool.token_address);
+        token_client.transfer(&e.current_contract_address(), &contract, &amount);
+
+        let flash_loan_client = FlashLoanClient::new(&e, &contract);
+        flash_loan_client.exec_op(&user, &pool.token_address, &amount, &0);
+
+        token_client.transfer(&contract, &e.current_contract_address(), &amount);
 
         Ok(())
     }
