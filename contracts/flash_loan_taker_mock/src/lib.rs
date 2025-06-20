@@ -40,6 +40,8 @@ impl Contract {
 #[contractimpl]
 impl moderc3156::ModErc3156 for Contract {
     fn exec_op(e: Env, caller: Address, token: Address, amount: i128, fee: i128) {
+        caller.require_auth();
+
         let Liquidatable {
             borrower,
             collateral_pool_address,
