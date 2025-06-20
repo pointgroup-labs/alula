@@ -54,31 +54,28 @@ fn test_flash_loan_liquidation() {
         0
     );
 
-    // Wait a borrowed amount to accrue
-    e.ledger().with_mut(|li| li.timestamp = 24 * 60 * 60);
-
-    // Check that the borrowed amount has indeed accrued
-    assert!(
+    let total_borrowed_pre_accrual =
         get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
             .unwrap()
-            .unpaid_interest
-            > 0
-    );
+            .total_borrowed()
+            .unwrap();
 
-    let total_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
-        .unwrap()
-        .total_borrowed()
-        .unwrap();
+    // Wait for a borrowed amount to accrue
+    e.ledger().with_mut(|li| li.timestamp = 24 * 60 * 60);
+
+    let total_borrowed_post_accrual =
+        get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
+            .unwrap()
+            .total_borrowed()
+            .unwrap();
+
+    assert!(total_borrowed_post_accrual > total_borrowed_pre_accrual);
 
     // Initiate a liquidation via flash loan
-
-    // Register liquidatable
-    // flash_loan_taker_contract_address.register_liquidatable
-
     contract_client.flash_loan(
         &flash_loan_taker_contract_address,
         &flash_loan_taker_contract_address,
         &usdc_pool_address,
-        &total_borrowed,
+        &(total_borrowed_post_accrual / 3),
     );
 }

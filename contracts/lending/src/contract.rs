@@ -483,17 +483,16 @@ impl LendingContract {
     ///
     /// ### Arguments
     /// * `user` - user which creates a flash loan
-    /// * `contract` - address of a which leverages flash loaned amount and which adheres to `erc3156` standard
+    /// * `contract` - contract's address which leverages the flash loaned amount and adheres to `erc3156` standard
     /// * `pool_address` - address of a pool from which the flash loan happens
     /// * `amount` - amount of lent tokens
     pub fn flash_loan(
         e: Env,
-        user: Address, // by the way, what would the user do here???
+        user: Address, // NB: Do we need the user here?
         contract: Address,
         pool_address: Address,
         amount: i128,
     ) -> Result<(), LCError> {
-        // contract.require_auth();
         user.require_auth();
 
         if amount <= 0 {
@@ -511,8 +510,8 @@ impl LendingContract {
         let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&e.current_contract_address(), &contract, &amount);
 
-        let flash_loan_client = FlashLoanClient::new(&e, &contract);
-        flash_loan_client.exec_op(&user, &pool.token_address, &amount, &0);
+        let flash_loan_taker_client = FlashLoanClient::new(&e, &contract);
+        flash_loan_taker_client.exec_op(&user, &pool.token_address, &amount, &0);
 
         token_client.transfer(&contract, &e.current_contract_address(), &amount);
 

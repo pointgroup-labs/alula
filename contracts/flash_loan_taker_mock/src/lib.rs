@@ -66,7 +66,7 @@ impl moderc3156::ModErc3156 for Contract {
         let flash_loan_balance = flash_loan_token_client.balance(&e.current_contract_address());
         assert_eq!(
             flash_loan_balance, 0,
-            "Liquidation must use all loaned token balance"
+            "Liquidation must use all of the loaned token balance"
         );
 
         let collateral_received = collateral_token_client.balance(&e.current_contract_address());

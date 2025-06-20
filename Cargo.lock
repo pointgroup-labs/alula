@@ -549,7 +549,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
-name = "flash_loan_utilizer_mock"
+name = "flash_loan_taker_mock"
 version = "0.0.0"
 dependencies = [
  "lending",
