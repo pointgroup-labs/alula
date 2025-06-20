@@ -89,9 +89,9 @@ impl moderc3156::ModErc3156 for Contract {
 
 /// Simulates 1:1 token swap
 fn simulate_swap(e: &Env, token_bought: &Address, token_sold: &Address, amount_sold: i128) {
-    let sac_client = StellarAssetClient::new(e, &token_bought);
+    let sac_client = StellarAssetClient::new(e, token_bought);
     sac_client.mint(&e.current_contract_address(), &amount_sold);
 
-    let token_client = TokenClient::new(&e, &token_sold);
+    let token_client = TokenClient::new(e, token_sold);
     token_client.burn(&e.current_contract_address(), &amount_sold);
 }
