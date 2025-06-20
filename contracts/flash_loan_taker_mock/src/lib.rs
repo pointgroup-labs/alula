@@ -65,9 +65,10 @@ impl moderc3156::ModErc3156 for Contract {
             &amount,
         );
 
-        let flash_loan_balance = flash_loan_token_client.balance(&e.current_contract_address());
+        let flash_loaned_token_balance =
+            flash_loan_token_client.balance(&e.current_contract_address());
         assert_eq!(
-            flash_loan_balance, 0,
+            flash_loaned_token_balance, 0,
             "Liquidation must use all of the loaned token balance"
         );
 
@@ -81,9 +82,10 @@ impl moderc3156::ModErc3156 for Contract {
         let collateral_balance = collateral_token_client.balance(&e.current_contract_address());
         assert_eq!(collateral_balance, 0);
 
-        let flash_loan_balance = flash_loan_token_client.balance(&e.current_contract_address());
+        let flash_loaned_token_balance =
+            flash_loan_token_client.balance(&e.current_contract_address());
         assert!(
-            flash_loan_balance >= (amount + fee),
+            flash_loaned_token_balance >= (amount + fee),
             "Liquidation profit must exceed flash loan fees"
         );
     }

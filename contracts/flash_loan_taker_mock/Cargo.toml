@@ -14,7 +14,6 @@ moderc3156 = { workspace = true }
 
 [dependencies.lending]
 path = "../lending"
-features = ["testutils"]
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

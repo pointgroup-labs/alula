@@ -1,12 +1,16 @@
 #!/usr/bin/make
+WASM_TARGET = wasm32v1-none
+WASM_TARGET_DIR = target/$(WASM_TARGET)/release
 
 LENDING_CONTRACT := lending
 LENDING_CONTRACT_ID := ABC123
 
-WASM_TARGET = wasm32v1-none
-WASM_TARGET_DIR = target/$(WASM_TARGET)/release
 REFLECTOR_ORACLE_URL = https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
 REFLECTOR_ORACLE_WASM = $(WASM_TARGET_DIR)/reflector_oracle.wasm
+
+REFLECTOR_ORACLE_MOCK := reflector-oracle-mock
+
+FLASH_LOAN_TAKER_MOCK := flash_loan_taker_mock
 
 .DEFAULT_GOAL: help
 
@@ -21,7 +25,9 @@ check: build-init ## Check compilation correctness with cargo
 	cargo check
 
 build: build-init ## Build contracts
-	stellar contract build
+	cargo build --release --target $(WASM_TARGET) -p $(LENDING_CONTRACT)
+	cargo build --release --target $(WASM_TARGET) -p $(REFLECTOR_ORACLE_MOCK)
+	cargo build --release --target $(WASM_TARGET) -p $(FLASH_LOAN_TAKER_MOCK)
 
 build-init: ## Build init
 	mkdir -p $(WASM_TARGET_DIR)

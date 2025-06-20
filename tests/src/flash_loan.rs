@@ -2,11 +2,20 @@
 
 use {
     crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    lending::{constants::LCError, flash_loan_utilizer},
+    lending::constants::LCError,
     soroban_sdk::{testutils::Ledger, Address, String},
 };
 
 const FLASH_LOAN_CLIENT_ADDRESS: &str = "CACOK7HB7D7SRPMH3LYYOW77T6D4D2F7TR7UEVKY2TVSUDSRDM6DZVLK";
+
+pub mod flash_loan_taker_mock {
+    use lending::constants::LCError;
+    use lending::storage::PoolAddress;
+    use lending::storage::UserAddress;
+    use soroban_sdk::contractimport;
+
+    contractimport!(file = "../wasms/flash_loan_taker_mock.wasm");
+}
 
 #[test]
 fn test_flash_loan_liquidation() {
@@ -23,7 +32,7 @@ fn test_flash_loan_liquidation() {
         Address::from_string(&String::from_str(&e, FLASH_LOAN_CLIENT_ADDRESS));
     e.register_at(
         &flash_loan_taker_contract_address,
-        flash_loan_utilizer::WASM,
+        flash_loan_taker_mock::WASM,
         (),
     );
 
