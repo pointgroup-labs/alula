@@ -555,6 +555,7 @@ dependencies = [
  "lending",
  "moderc3156",
  "soroban-sdk",
+ "tests",
 ]
 
 [[package]]

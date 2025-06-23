@@ -482,18 +482,16 @@ impl LendingContract {
     /// Creates a flash loan
     ///
     /// ### Arguments
-    /// * `user` - user which creates a flash loan
     /// * `contract` - contract's address which leverages the flash loaned amount and adheres to `erc3156` standard
     /// * `pool_address` - address of a pool from which the flash loan happens
     /// * `amount` - amount of lent tokens
     pub fn flash_loan(
         e: Env,
-        user: Address, // NB: Do we need the user here?
         contract: Address,
         pool_address: Address,
         amount: i128,
     ) -> Result<(), LCError> {
-        user.require_auth();
+        contract.require_auth();
 
         if amount <= 0 {
             return Err(LCError::NonPositiveFlashLoan);
@@ -510,8 +508,21 @@ impl LendingContract {
         let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&e.current_contract_address(), &contract, &amount);
 
+        let contract_balance_before_strategy = token_client.balance(&contract);
+
         let flash_loan_taker_client = FlashLoanClient::new(&e, &contract);
-        flash_loan_taker_client.exec_op(&user, &pool.token_address, &amount, &0);
+        flash_loan_taker_client.exec_op(
+            &e.current_contract_address(),
+            &pool.token_address,
+            &amount,
+            &0,
+        );
+
+        let contract_balance_after_strategy = token_client.balance(&contract);
+        // TODO: Start accounting fees
+        if contract_balance_after_strategy < contract_balance_before_strategy {
+            return Err(LCError::FailedFlashLoanStrategy);
+        }
 
         token_client.transfer(&contract, &e.current_contract_address(), &amount);
 

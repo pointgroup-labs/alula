@@ -26,4 +26,5 @@ pub enum LendingContractError {
     NonPositiveBorrow = 19,
     CollateralPoolDoesNotExist = 20,
     NonPositiveFlashLoan = 21,
+    FailedFlashLoanStrategy = 22,
 }
