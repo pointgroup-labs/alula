@@ -1,15 +1,17 @@
 #![cfg(test)]
 
 use {
-    crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
     lending::constants::{LCError, DEFAULT_CLOSE_FACTOR},
-    soroban_sdk::{testutils::Address as _, testutils::Ledger, Address},
+    soroban_sdk::{
+        testutils::{Address as _, Ledger},
+        Address,
+    },
 };
 
 struct LiquidationTest {
     fixture: TestFixture<'static>,
     borrower: Address,
-    // lender: Address,
     liquidator: Address,
 }
 
@@ -44,7 +46,6 @@ impl LiquidationTest {
         Self {
             fixture,
             borrower,
-            // lender,
             liquidator,
         }
     }
@@ -75,13 +76,6 @@ impl LiquidationTest {
             &(DEFAULT_DEPOSIT_AMOUNT * 3),
         );
 
-        // Liquidator gets funds
-        fixture.contract_client.deposit(
-            &liquidator,
-            &fixture.usdc_pool_address,
-            &DEFAULT_DEPOSIT_AMOUNT,
-        );
-
         // Borrower creates risky position - minimum collateral, maximum borrow
         let collateral = (DEFAULT_DEPOSIT_AMOUNT * 82) / 100; // 82% collateral
         let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow
@@ -96,7 +90,6 @@ impl LiquidationTest {
         Self {
             fixture,
             borrower,
-            // lender,
             liquidator,
         }
     }
@@ -120,15 +113,13 @@ impl LiquidationTest {
     }
 
     fn collateral_amount(&self) -> i128 {
-        let obligation = self
-            .fixture
-            .contract_client
-            .get_user_obligation(&self.borrower);
-        obligation
-            .deposits
-            .get(self.fixture.gold_pool_address.clone())
-            .map(|d| d.collateral)
-            .unwrap_or(0)
+        get_deposit_obligation(
+            &self.fixture.contract_client,
+            &self.borrower,
+            &self.fixture.gold_token_address,
+        )
+        .unwrap()
+        .collateral
     }
 
     fn liquidation_amount(&self, percentage: i128) -> i128 {
@@ -222,13 +213,6 @@ fn test_liquidate_exceeds_close_factor_fails() {
         &(DEFAULT_DEPOSIT_AMOUNT * 5),
     );
 
-    // Liquidator gets funds
-    fixture.contract_client.deposit(
-        &liquidator,
-        &fixture.usdc_pool_address,
-        &(DEFAULT_DEPOSIT_AMOUNT * 2),
-    );
-
     // Create minimal collateral position
     let minimal_collateral = DEFAULT_DEPOSIT_AMOUNT / 10; // Very small collateral
     fixture.contract_client.add_collateral(
@@ -243,11 +227,11 @@ fn test_liquidate_exceeds_close_factor_fails() {
         .contract_client
         .borrow(&borrower, &fixture.usdc_pool_address, &max_borrow);
 
-    // Accrue massive interest to make position definitely unhealthy
+    // Accrue interest to make position unhealthy
     fixture
         .e
         .ledger()
-        .with_mut(|li| li.timestamp = 1000 * 365 * 24 * 60 * 60); // 1000 years
+        .with_mut(|li| li.timestamp = 50 * 24 * 60 * 60); // 50 days
 
     // Get current borrowed amount (should include accrued interest)
     let borrowed = get_borrow_obligation(
@@ -350,7 +334,7 @@ fn test_successful_liquidation() {
 }
 
 #[test]
-fn test_liquidation_reduces_health_risk() {
+fn test_liquidation_reduces_health_factor() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();
 
