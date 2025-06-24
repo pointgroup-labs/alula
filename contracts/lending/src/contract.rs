@@ -409,7 +409,7 @@ impl LendingContract {
         pool.adjust_total_collateral(-amount)?;
 
         if !obligation.is_healthy(&e)? {
-            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
         }
 
         if obligation.is_empty() {
@@ -444,7 +444,7 @@ impl LendingContract {
         }
 
         let Some(mut obligation) = storage::get_obligation(&e, &user) else {
-            return Err(LCError::PoolDoesNotExist);
+            return Err(LCError::ObligationDoesNotExist);
         };
         obligation.accrue_interest(&e)?;
 
@@ -464,7 +464,7 @@ impl LendingContract {
         pool.adjust_available(-amount)?;
 
         if !obligation.is_healthy(&e)? {
-            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
         }
 
         if obligation.is_empty() {
