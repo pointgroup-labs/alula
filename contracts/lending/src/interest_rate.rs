@@ -117,10 +117,7 @@ impl Pool {
     ///
     /// # Errors
     ///
-    /// Returns an `LCError` in the following cases:
-    /// - An error occurs while retrieving the borrow rate per second.
-    /// - An error occurs during the calculation of the compound borrow multiplier.
-    /// - An error occurs while calculating the supply multiplier.
+    /// Returns `LCError` in case of any errors during numerical operations
     pub fn get_compound_rate_multipliers(
         &self,
         seconds_passed: u64,
@@ -138,6 +135,7 @@ impl Pool {
         seconds_passed: u64,
     ) -> Result<i128, LCError> {
         let growth_factor = SCALED_ONE + interest_rate;
+
         math_utils::bin_pow(growth_factor, seconds_passed, SCALED_ONE)
     }
 
@@ -187,7 +185,7 @@ impl Pool {
     /// # Errors
     /// Returns [`LCError::OverOrUnderflow`] if any arithmetic operation overflows
     pub fn get_borrow_rate_per_second(&self) -> Result<i128, LCError> {
-        let total = self.total_borrowed + self.available;
+        let total = self.total_liquidity()?;
 
         if total == 0 {
             return Ok(self.config.base_rate_per_second);
@@ -224,16 +222,8 @@ impl Pool {
     }
 
     fn calculate_post_threshold_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError> {
-        let pre_threshold_rate = self
-            .config
-            .base_rate_per_second
-            .checked_add(
-                self.config
-                    .slope1
-                    .checked_mul(self.config.optimal_utilization_ratio_bps)
-                    .map_over_or_underflow()?,
-            )
-            .map_over_or_underflow()?;
+        let pre_threshold_rate =
+            self.calculate_pre_threshold_rate(self.config.optimal_utilization_ratio_bps)?;
 
         let excess_utilization = utilization_ratio_bps
             .checked_sub(self.config.optimal_utilization_ratio_bps)
@@ -251,15 +241,20 @@ impl Pool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::pool::PoolConfig;
-    use soroban_sdk::testutils::arbitrary::std::println;
-    use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address, Env};
+    use {
+        super::*,
+        crate::pool::PoolConfig,
+        soroban_sdk::{
+            symbol_short,
+            testutils::{Address as _, Ledger},
+            Address, Env,
+        },
+    };
 
     fn create_test_pool(env: &Env) -> Pool {
         Pool {
             token_address: Address::generate(env),
-            token_ticker: soroban_sdk::symbol_short!("TEST"),
+            token_ticker: symbol_short!("TEST"),
             total_borrowed: 0,
             total_shares: 0,
             available: 1_000_000,
@@ -310,7 +305,7 @@ mod tests {
     #[test]
     fn test_compound_rate_multipliers_conversion_underflow() {
         let multipliers = CompoundRateMultipliers {
-            borrow: 999999999999, // Less than SCALED_ONE
+            borrow: (SCALED_ONE * 9) / 10, // Less than SCALED_ONE
             supply: SCALED_ONE,
         };
 
@@ -321,8 +316,6 @@ mod tests {
     #[test]
     fn test_accrue_interest_no_time_passed() {
         let env = Env::default();
-        env.mock_all_auths();
-
         let mut pool = create_test_pool(&env);
         pool.last_accrual_timestamp = 100;
 
@@ -339,7 +332,6 @@ mod tests {
     #[test]
     fn test_accrue_interest_invalid_timestamp() {
         let env = Env::default();
-        env.mock_all_auths();
 
         let mut pool = create_test_pool(&env);
         pool.last_accrual_timestamp = 200;
@@ -353,7 +345,6 @@ mod tests {
     #[test]
     fn test_accrue_interest_with_time_passed() {
         let env = Env::default();
-        env.mock_all_auths();
 
         let mut pool = create_test_pool(&env);
         pool.total_borrowed = 1_000_000; // Larger borrowed amount for noticeable interest
@@ -361,7 +352,7 @@ mod tests {
         pool.last_accrual_timestamp = 0;
         pool.last_accrual = ACCRUAL_INIT;
 
-        let time_passed = 86400; // 1 day (24 hours) for meaningful interest accrual
+        let time_passed = 24 * 60 * 60; // 1 day (24 hours) for meaningful interest accrual
         env.ledger().with_mut(|li| li.timestamp = time_passed);
 
         let initial_total_borrowed = pool.total_borrowed;
@@ -460,15 +451,11 @@ mod tests {
         pool.total_borrowed = 500_000;
         pool.available = 500_000;
 
-        let multipliers = pool.get_compound_rate_multipliers(3600 * 24).unwrap();
-
-        // CompoundRateMultipliers { borrow: 15488758779844, supply: 8244379389922 }
-        // CompoundRateMultipliers { borrow: 10923454949587, supply: 5961727474794 }
-        println!("{:?}", multipliers);
+        let multipliers = pool.get_compound_rate_multipliers(24 * 60 * 60).unwrap();
 
         assert!(multipliers.borrow > SCALED_ONE);
-        assert!(multipliers.supply >= SCALED_ONE); // Supply can be equal to SCALED_ONE
-        assert!(multipliers.borrow >= multipliers.supply); // Borrow rate should be >= supply rate
+        assert!(multipliers.supply > SCALED_ONE);
+        assert!(multipliers.borrow > multipliers.supply);
     }
 
     #[test]
@@ -491,7 +478,7 @@ mod tests {
         pool.total_borrowed = 800000;
         pool.available = 200000;
 
-        let borrow_multiplier = SCALED_ONE + 50000000000; // 5% increase
+        let borrow_multiplier = (SCALED_ONE * 105) / 100; // 5% increase
         let supply_multiplier = pool.calculate_supply_multiplier(borrow_multiplier).unwrap();
 
         assert!(supply_multiplier > SCALED_ONE);
@@ -508,7 +495,7 @@ mod tests {
         let apy = pool.get_apy().unwrap();
 
         assert!(apy.borrow_bps > 0);
-        // assert!(apy.supply_bps > 0);
+        assert!(apy.supply_bps > 0);
         assert!(apy.borrow_bps > apy.supply_bps);
     }
 
@@ -519,7 +506,7 @@ mod tests {
         pool.total_borrowed = 100000;
         pool.last_accrual = ACCRUAL_INIT;
 
-        let borrow_multiplier = SCALED_ONE + 10000000000; // 1% increase
+        let borrow_multiplier = (101 * SCALED_ONE) / 100; // 1% increase
         let timestamp = 3600;
 
         let initial_total_borrowed = pool.total_borrowed;
@@ -607,8 +594,8 @@ mod tests {
         pool.available = 500000;
 
         // Test that longer periods result in higher multipliers
-        let short_period = pool.get_compound_rate_multipliers(3600).unwrap(); // 1 hour
-        let long_period = pool.get_compound_rate_multipliers(86400).unwrap(); // 1 day
+        let short_period = pool.get_compound_rate_multipliers(60 * 60).unwrap(); // 1 hour
+        let long_period = pool.get_compound_rate_multipliers(24 * 60 * 60).unwrap(); // 1 day
 
         assert!(long_period.borrow > short_period.borrow);
         assert!(long_period.supply > short_period.supply);
