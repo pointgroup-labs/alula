@@ -4,7 +4,7 @@
 use {
     crate::{
         constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
-        math_utils,
+        math_utils::{self, MathUtils},
         pool::Pool,
     },
     soroban_fixed_point_math::FixedPoint,
@@ -78,14 +78,14 @@ impl Pool {
         let new_accrual = self
             .last_accrual
             .fixed_mul_ceil(borrow_multiplier, SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         let new_total_borrowed = self
             .total_borrowed
             .checked_mul(new_accrual)
-            .ok_or(LCError::OverOrUnderflow)?
+            .map_over_or_underflow()?
             .checked_div(self.last_accrual)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
         self.last_accrual = new_accrual;
@@ -145,7 +145,7 @@ impl Pool {
         let total = self
             .total_borrowed
             .checked_add(self.available)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         if total == 0 {
             // Is [`SCALED_ONE`], since if a pool doesn't yet have deposits, its next APY update must be
@@ -156,19 +156,19 @@ impl Pool {
         let utilization_ratio_scaled = self
             .total_borrowed
             .fixed_div_floor(total, SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         let interest_earned = borrow_multiplier
             .checked_sub(SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         let supply_interest = interest_earned
             .fixed_mul_ceil(utilization_ratio_scaled, SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         supply_interest
             .checked_add(SCALED_ONE)
-            .ok_or(LCError::OverOrUnderflow)
+            .map_over_or_underflow()
     }
 
     /// Calculates the borrow interest rate per second based on the kinked interest rate model.
@@ -200,7 +200,7 @@ impl Pool {
     fn calculate_utilization_ratio_bps(&self, total: i128) -> Result<i128, LCError> {
         self.total_borrowed
             .fixed_div_ceil(total, BPS_FACTOR)
-            .ok_or(LCError::OverOrUnderflow)
+            .map_over_or_underflow()
     }
 
     fn calculate_interest_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError> {
@@ -218,9 +218,9 @@ impl Pool {
                 self.config
                     .slope1
                     .checked_mul(utilization_ratio_bps)
-                    .ok_or(LCError::OverOrUnderflow)?,
+                    .map_over_or_underflow()?,
             )
-            .ok_or(LCError::OverOrUnderflow)
+            .map_over_or_underflow()
     }
 
     fn calculate_post_threshold_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError> {
@@ -231,21 +231,21 @@ impl Pool {
                 self.config
                     .slope1
                     .checked_mul(self.config.optimal_utilization_ratio_bps)
-                    .ok_or(LCError::OverOrUnderflow)?,
+                    .map_over_or_underflow()?,
             )
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         let excess_utilization = utilization_ratio_bps
             .checked_sub(self.config.optimal_utilization_ratio_bps)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         let post_threshold_rate = excess_utilization
             .checked_mul(self.config.slope2)
-            .ok_or(LCError::OverOrUnderflow)?;
+            .map_over_or_underflow()?;
 
         pre_threshold_rate
             .checked_add(post_threshold_rate)
-            .ok_or(LCError::OverOrUnderflow)
+            .map_over_or_underflow()
     }
 }
 

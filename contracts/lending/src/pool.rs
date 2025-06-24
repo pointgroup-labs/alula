@@ -72,20 +72,16 @@ impl Pool {
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the `share` the of shares in the pool
+    /// Computes tokens amount proportional to the `share` of the of shares in the pool
     pub fn compute_tokens_from_shares(&self, shares_amount: i128) -> Result<i128, LCError> {
         if shares_amount == 0 {
             return Ok(0);
         }
 
-        if self.total_shares == 0 {
-            return Err(LCError::DivisionByZero);
+        if self.total_shares < shares_amount {
+            // Total shares must never be smaller than shares that a single obligation has
+            return Err(LCError::InternalError);
         }
-
-        assert!(
-            self.total_shares >= shares_amount,
-            "Total shares must never be smaller than shares which a single obligation has"
-        );
 
         let total_liquidity = self.total_liquidity()?;
 
@@ -197,7 +193,6 @@ impl PoolConfig {
             reserve_ratio_bps,
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
-            ..
         } = self;
 
         if base_rate_per_second < 0 {

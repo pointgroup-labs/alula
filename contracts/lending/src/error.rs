@@ -29,5 +29,4 @@ pub enum LendingContractError {
     SelfLiquidation = 22,
     NegativePoolBalance = 23,
     InvalidSharesCalculation = 24,
-    DivisionByZero = 25,
 }
