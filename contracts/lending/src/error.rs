@@ -25,4 +25,9 @@ pub enum LendingContractError {
     NonPositiveLiquidation = 18,
     NonPositiveBorrow = 19,
     CollateralPoolDoesNotExist = 20,
+    InvalidTimestamp = 21,
+    SelfLiquidation = 22,
+    NegativePoolBalance = 23,
+    InvalidSharesCalculation = 24,
+    DivisionByZero = 25,
 }

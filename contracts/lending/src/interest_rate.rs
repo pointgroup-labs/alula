@@ -239,9 +239,6 @@ impl Pool {
             .checked_sub(self.config.optimal_utilization_ratio_bps)
             .ok_or(LCError::OverOrUnderflow)?;
 
-            pre_threshold_rate_bps
-                .checked_add(post_threshold_rate_bps)
-                .ok_or(LCError::OverOrUnderflow)?
         let post_threshold_rate = excess_utilization
             .checked_mul(self.config.slope2)
             .ok_or(LCError::OverOrUnderflow)?;
