@@ -311,9 +311,19 @@ impl LendingContract {
             return Err(LCError::NonPositiveLiquidation);
         }
 
+        if liquidator == borrower {
+            return Err(LCError::SelfLiquidation);
+        }
+
+        if borrow_pool_address == collateral_pool_address {
+            // TODO: replace InternalError
+            return Err(LCError::InternalError);
+        }
+
         let Some(mut obligation) = storage::get_obligation(&e, &borrower) else {
             return Err(LCError::ObligationDoesNotExist);
         };
+
         obligation.accrue_interest(&e)?;
         if obligation.is_healthy(&e)? {
             return Err(LCError::LiquidatedPositionIsHealthy);
