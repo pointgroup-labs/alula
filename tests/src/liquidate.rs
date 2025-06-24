@@ -9,7 +9,7 @@ use {
 struct LiquidationTest {
     fixture: TestFixture<'static>,
     borrower: Address,
-    lender: Address,
+    // lender: Address,
     liquidator: Address,
 }
 
@@ -34,6 +34,7 @@ impl LiquidationTest {
             &fixture.gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
         );
+
         fixture.contract_client.borrow(
             &borrower,
             &fixture.usdc_pool_address,
@@ -43,12 +44,13 @@ impl LiquidationTest {
         Self {
             fixture,
             borrower,
-            lender,
+            // lender,
             liquidator,
         }
     }
 
     /// Creates setup with liquidator having funds
+    #[allow(dead_code)]
     fn with_liquidator_funds() -> Self {
         let setup = Self::new();
         setup.fixture.contract_client.deposit(
@@ -94,7 +96,7 @@ impl LiquidationTest {
         Self {
             fixture,
             borrower,
-            lender,
+            // lender,
             liquidator,
         }
     }
