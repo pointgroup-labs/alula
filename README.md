@@ -83,18 +83,12 @@ The protocol consists of several key components:
 
 ### Installation
 
-```
-
-bash
-
+```bash
 # Clone the repository
-
 git clone [https://github.com/mfactory-lab/jlend.git](https://github.com/mfactory-lab/jlend.git) cd jlend
 
 # Install dependencies
-
 pnpm install
-
 ```
 
 ### Building
