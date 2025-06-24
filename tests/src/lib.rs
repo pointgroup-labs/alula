@@ -36,6 +36,10 @@ pub struct TestFixture<'a> {
     pub contract_client: LendingContractClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
+
+    // Oracle
+    pub oracle_client: oracle::Client<'a>,
+
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
@@ -139,12 +143,15 @@ impl TestFixture<'_> {
             Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
         e.register_at(&mock_oracle_address, oracle::WASM, ());
 
+        let oracle_client = oracle::Client::new(&e, &mock_oracle_address);
+
         Self {
             e,
             contract_client,
             contract_id,
             contract_admin,
             // GOLD
+            oracle_client,
             gold_sac,
             gold_token_client,
             gold_token_address,
