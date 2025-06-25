@@ -1,5 +1,5 @@
 [package]
-name = "flash_loan_taker_mock"
+name = "flash-loan-taker-mock"
 version = "0.0.0"
 edition = "2021"
 publish = false
@@ -11,12 +11,8 @@ doctest = false
 [dependencies]
 soroban-sdk = { workspace = true }
 moderc3156 = { workspace = true }
+lending = { path = "../lending" }
 
 [dev-dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
-
-[dependencies.lending]
-path = "../../contracts/lending"
-
-[dependencies.tests]
-path = "../../tests"
+soroban-sdk = { workspace = true }
+tests = { path = "../../tests" }

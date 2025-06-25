@@ -2,6 +2,7 @@
   "cSpell.words": [
     "antfu",
     "beasties",
+    "cdylib",
     "contractimpl",
     "contractimport",
     "contracttype",
@@ -10,15 +11,18 @@
     "Liquidatable",
     "moderc",
     "MSVC",
+    "nextest",
     "oxlint",
     "pinia",
     "sizecheck",
     "soroban",
+    "soroswap",
     "testutils",
     "typecheck",
     "unhead",
     "unplugin",
-    "vueuse"
+    "vueuse",
+    "wasms"
   ],
 
   // Enable the ESlint flat config support

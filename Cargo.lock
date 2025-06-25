@@ -549,7 +549,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
-name = "flash_loan_taker_mock"
+name = "flash-loan-taker-mock"
 version = "0.0.0"
 dependencies = [
  "lending",
@@ -1358,6 +1358,24 @@ dependencies = [
  "wasmi_arena",
  "wasmi_core",
  "wasmparser-nostd",
+]
+
+[[package]]
+name = "soroswap-aggregator-mock"
+version = "0.0.0"
+dependencies = [
+ "soroban-sdk",
+ "soroswap-library",
+]
+
+[[package]]
+name = "soroswap-library"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4365cc0e03f153852d78228a5ea488447b69c974ec35084830c03f5aebb74a3f"
+dependencies = [
+ "num-integer",
+ "soroban-sdk",
 ]
 
 [[package]]
