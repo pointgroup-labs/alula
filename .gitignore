@@ -65,5 +65,7 @@ pids
 *.seed
 *.pid.lock
 
+/tmp
+
 # contract unit test test-snapshots
 **/test_snapshots/

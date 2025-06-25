@@ -1,5 +1,15 @@
 use {crate::constants::LCError, soroban_fixed_point_math::FixedPoint};
 
+pub trait MathUtils {
+    fn map_over_or_underflow(self) -> Result<i128, LCError>;
+}
+
+impl MathUtils for Option<i128> {
+    fn map_over_or_underflow(self) -> Result<i128, LCError> {
+        self.ok_or(LCError::OverOrUnderflow)
+    }
+}
+
 /// O(log(n)) algorithm for quick exponentiation with floor rounding
 ///
 /// This function calculates base^exp using binary exponentiation, which has O(log(n)) complexity.
@@ -73,8 +83,7 @@ pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i
 /// * `Result<i128, LCError>` - The product x*y/denominator, or an error if overflow occurs
 #[inline]
 fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
-    x.fixed_mul_floor(y, denominator)
-        .ok_or(LCError::OverOrUnderflow)
+    x.fixed_mul_floor(y, denominator).map_over_or_underflow()
 }
 
 /// Helper function for fixed-point multiplication with ceiling rounding
@@ -88,8 +97,7 @@ fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
 /// * `Result<i128, LCError>` - The product x*y/denominator (rounded up), or an error if overflow occurs
 #[inline]
 pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
-    x.fixed_mul_ceil(y, denominator)
-        .ok_or(LCError::OverOrUnderflow)
+    x.fixed_mul_ceil(y, denominator).map_over_or_underflow()
 }
 
 #[cfg(test)]

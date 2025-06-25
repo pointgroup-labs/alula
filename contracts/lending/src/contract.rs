@@ -1,19 +1,17 @@
-use soroban_sdk::log;
 use {
     crate::{
         constants::{
-            LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
+            LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
             REFLECTOR_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
+        math_utils::MathUtils,
+        obligation::{LiquidationValues, Obligation},
         oracle,
-        storage::{
-            self, Accrual, BorrowObligation, DepositObligation, GlobalState, Obligation, Pool,
-            PoolAddress, PoolConfig,
-        },
+        pool::{Pool, PoolAddress, PoolConfig},
+        storage::{self, GlobalState},
     },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, String, Symbol, Vec},
+    soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, String, Symbol, Vec},
 };
 
 #[contract]
@@ -96,23 +94,19 @@ impl LendingContract {
             Default::default()
         };
 
-        let accrual = Accrual {
-            timestamp: e.ledger().timestamp(),
-            borrow_accrual: ACCRUAL_INIT,
-            deposit_accrual: ACCRUAL_INIT,
-        };
-
         let pool = Pool {
             config,
-            accrual,
             token_ticker,
             token_address,
-            total_supply: 0,
+            available: 0,
+            total_shares: 0,
             total_borrowed: 0,
             total_collateral: 0,
+            last_accrual: ACCRUAL_INIT,
+            last_accrual_timestamp: e.ledger().timestamp(),
         };
 
-        storage::set_pool(&e, &pool_address, &pool)?;
+        storage::set_pool(&e, &pool_address, &pool);
         storage::register_pool(&e, &pool_address);
 
         Ok(pool_address)
@@ -136,40 +130,27 @@ impl LendingContract {
             return Err(LCError::NonPositiveDeposit);
         }
 
-        let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
-        obligation.accrue_interest(&e)?;
-
-        let Some(Pool {
-            token_address,
-            accrual,
-            ..
-        }) = storage::get_pool(&e, &pool_address)
-        else {
+        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
             return Err(LCError::PoolDoesNotExist);
         };
+        // NB: Should the depositor accrue interest on a pool in this place?
+        // pool.accrue_interest(&e)?;
 
-        let mut deposit_obligation =
-            obligation
-                .deposits
-                .get(pool_address.clone())
-                .unwrap_or(DepositObligation {
-                    last_accrual: accrual.deposit_accrual,
-                    ..Default::default()
-                });
+        let shares_to_issue = pool.compute_shares_from_tokens(amount)?;
 
-        deposit_obligation.deposited = deposit_obligation
-            .deposited
-            .checked_add(amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+        let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
+        obligation.deposit(&pool_address, shares_to_issue)?;
 
-        obligation
-            .deposits
-            .set(pool_address.clone(), deposit_obligation);
+        // NB: Should the depositor accrue interest on his obligation in this place?
+        // obligation.accrue_interest(&e);
 
-        storage::adjust_pool_deposited(&e, &pool_address, amount)?;
+        pool.adjust_total_shares(shares_to_issue)?;
+        pool.adjust_available(amount)?;
+
         storage::set_obligation(&e, &user, &obligation);
+        storage::set_pool(&e, &pool_address, &pool);
 
-        let token_client = token::Client::new(&e, &token_address);
+        let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
 
         Ok(())
@@ -193,58 +174,38 @@ impl LendingContract {
             return Err(LCError::NonPositiveBorrow);
         }
 
-        let mut obligation =
-            storage::get_obligation(&e, &user).ok_or(LCError::ObligationDoesNotExist)?;
-
+        let Some(mut obligation) = storage::get_obligation(&e, &user) else {
+            return Err(LCError::ObligationDoesNotExist);
+        };
         obligation.accrue_interest(&e)?;
 
-        let Some(Pool {
-            token_address,
-            accrual,
-            total_supply,
-            total_borrowed,
-            ..
-        }) = storage::get_pool(&e, &pool_address)
-        else {
+        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
             return Err(LCError::PoolDoesNotExist);
         };
 
-        if amount > (total_supply - total_borrowed) {
+        if amount > pool.available {
             return Err(LCError::NotEnoughPoolFunds);
         }
 
-        let mut borrow_obligation =
-            obligation
-                .borrows
-                .get(pool_address.clone())
-                .unwrap_or(BorrowObligation {
-                    last_accrual: accrual.borrow_accrual,
-                    ..Default::default()
-                });
+        obligation.borrow(&pool_address, amount)?;
 
-        borrow_obligation.borrowed = borrow_obligation
-            .borrowed
-            .checked_add(amount)
-            .ok_or(LCError::OverOrUnderflow)?;
-
-        obligation
-            .borrows
-            .set(pool_address.clone(), borrow_obligation);
+        pool.adjust_total_borrowed(amount)?;
+        pool.adjust_available(-amount)?;
 
         if !obligation.is_healthy(&e)? {
             return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
         }
 
-        storage::adjust_pool_borrowed(&e, &pool_address, amount)?;
         storage::set_obligation(&e, &user, &obligation);
+        storage::set_pool(&e, &pool_address, &pool);
 
-        let token_client = token::Client::new(&e, &token_address);
+        let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
 
         Ok(())
     }
 
-    /// Deposits tokens into the loan pool as collateral only.
+    /// Adds tokens into the loan pool as collateral only.
     /// This implies that they are always available for a healthy withdrawal for the
     /// cost of not accruing an interest rate
     ///
@@ -252,7 +213,7 @@ impl LendingContract {
     /// * `user` - user which deposits a token
     /// * `pool_address` - address of a pool to which the collateral deposit happens
     /// * `amount` - amount of tokens which are being deposited as a collateral
-    pub fn deposit_collateral(
+    pub fn add_collateral(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -264,41 +225,20 @@ impl LendingContract {
             return Err(LCError::NonPositiveDeposit);
         }
 
-        let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
-
-        obligation.accrue_interest(&e)?;
-
-        let Some(Pool {
-            token_address,
-            accrual,
-            ..
-        }) = storage::get_pool(&e, &pool_address)
-        else {
+        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
             return Err(LCError::PoolDoesNotExist);
         };
 
-        let mut deposit_obligation =
-            obligation
-                .deposits
-                .get(pool_address.clone())
-                .unwrap_or(DepositObligation {
-                    last_accrual: accrual.deposit_accrual,
-                    ..Default::default()
-                });
+        let mut obligation = storage::get_obligation(&e, &user).unwrap_or(Obligation::new(&e));
+        obligation.accrue_interest(&e)?;
 
-        deposit_obligation.collateral = deposit_obligation
-            .collateral
-            .checked_add(amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+        obligation.add_collateral(&pool_address, amount)?;
+        pool.adjust_total_collateral(amount)?;
 
-        obligation
-            .deposits
-            .set(pool_address.clone(), deposit_obligation);
-
-        storage::adjust_pool_collateral(&e, &pool_address, amount)?;
         storage::set_obligation(&e, &user, &obligation);
+        storage::set_pool(&e, &pool_address, &pool);
 
-        let token_client = token::Client::new(&e, &token_address);
+        let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
 
         Ok(())
@@ -322,31 +262,19 @@ impl LendingContract {
             return Err(LCError::NonPositiveRepay);
         }
 
-        let Pool { token_address, .. } =
-            storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
-
-        let mut obligation =
-            storage::get_obligation(&e, &user).ok_or(LCError::ObligationDoesNotExist)?;
-
+        let Some(mut obligation) = storage::get_obligation(&e, &user) else {
+            return Err(LCError::ObligationDoesNotExist);
+        };
         obligation.accrue_interest(&e)?;
 
-        let mut borrow_obligation = obligation
-            .borrows
-            .get(pool_address.clone())
-            .ok_or(LCError::BorrowDoesNotExist)?;
+        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
+            return Err(LCError::PoolDoesNotExist);
+        };
 
-        let amount = i128::min(amount, borrow_obligation.borrowed);
-        if amount == borrow_obligation.borrowed {
-            obligation.borrows.remove(pool_address.clone());
-        } else {
-            borrow_obligation.borrowed = borrow_obligation
-                .borrowed
-                .checked_add(-amount)
-                .ok_or(LCError::OverOrUnderflow)?;
-            obligation
-                .borrows
-                .set(pool_address.clone(), borrow_obligation);
-        }
+        let repaid_amount = obligation.repay(&pool_address, amount)?;
+
+        pool.adjust_total_borrowed(-repaid_amount)?;
+        pool.adjust_available(repaid_amount)?;
 
         if obligation.is_empty() {
             // NB: This will never be hit because of the collateral required?
@@ -354,10 +282,9 @@ impl LendingContract {
         } else {
             storage::set_obligation(&e, &user, &obligation);
         }
+        storage::set_pool(&e, &pool_address, &pool);
 
-        storage::adjust_pool_borrowed(&e, &pool_address, -amount)?;
-
-        let token_client = token::Client::new(&e, &token_address);
+        let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&user, &e.current_contract_address(), &amount);
 
         Ok(())
@@ -366,174 +293,103 @@ impl LendingContract {
     /// Liquidates borrower's position if position's health factor criterion isn't met
     ///
     /// ### Arguments
-    /// * `user` - user which liquidates the borrower's position
-    /// * `pool_address` - address of a pool whose tokens are repaid by the liquidator
+    /// * `liquidator` - agent which liquidates the borrower's position
+    /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the liquidator
+    /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with a discount
     /// * `amount` - amount of repaid tokens
     pub fn liquidate(
         e: Env,
-        user: Address,
+        liquidator: Address,
         borrower: Address,
-        pool_address: Address,
+        borrow_pool_address: Address,
+        collateral_pool_address: Address,
         amount: i128,
-        // collateral_pool_address: Option<Address>, TODO: Add a possibility to choose which collateral the liquidator wants
     ) -> Result<(), LCError> {
-        user.require_auth();
+        liquidator.require_auth();
 
         if amount <= 0 {
             return Err(LCError::NonPositiveLiquidation);
         }
 
-        let Pool {
-            token_address,
-            token_ticker,
-            config:
-                PoolConfig {
-                    liquidation_close_factor_bps: close_factor_bps,
-                    liquidation_incentive_bps: liquidation_spread_bps,
-                    ..
-                },
-            ..
-        } = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
+        if liquidator == borrower {
+            return Err(LCError::SelfLiquidation);
+        }
 
-        let mut obligation =
-            storage::get_obligation(&e, &borrower).ok_or(LCError::ObligationDoesNotExist)?;
+        if borrow_pool_address == collateral_pool_address {
+            // TODO: replace InternalError
+            return Err(LCError::InternalError);
+        }
+
+        let Some(mut obligation) = storage::get_obligation(&e, &borrower) else {
+            return Err(LCError::ObligationDoesNotExist);
+        };
 
         obligation.accrue_interest(&e)?;
         if obligation.is_healthy(&e)? {
             return Err(LCError::LiquidatedPositionIsHealthy);
         }
 
-        let mut borrow_obligation = obligation
-            .borrows
-            .get(pool_address.clone())
-            .ok_or(LCError::BorrowDoesNotExist)?;
+        let Some(mut borrow_pool) = storage::get_pool(&e, &borrow_pool_address) else {
+            return Err(LCError::PoolDoesNotExist);
+        };
+        let Some(mut collateral_pool) = storage::get_pool(&e, &collateral_pool_address) else {
+            return Err(LCError::CollateralPoolDoesNotExist);
+        };
 
-        let liquidatable_bps = amount
-            .fixed_div_ceil(borrow_obligation.borrowed, BPS_FACTOR)
-            .ok_or(LCError::OverOrUnderflow)?;
-        if liquidatable_bps > close_factor_bps {
-            // TODO: What's the best way to set `close_factor_bps` value?
-            return Err(LCError::LiquidationExceedsCloseFactor);
-        }
+        let LiquidationValues {
+            liquidated_amount,
+            collateral_amount_sold,
+            shares_amount_sold,
+            tokens_from_sold_shares,
+        } = obligation.liquidate(
+            &e,
+            &borrow_pool_address,
+            &collateral_pool_address,
+            &borrow_pool,
+            &collateral_pool,
+            amount,
+        )?;
 
-        let borrowed_asset_price = get_asset_price(&e, &token_ticker)?;
-        let liquidation_value = borrowed_asset_price
-            .checked_mul(amount)
-            .ok_or(LCError::OverOrUnderflow)?;
-        let collateral_value_to_redeem = liquidation_value
-            .fixed_mul_ceil(BPS_FACTOR + liquidation_spread_bps, BPS_FACTOR)
-            .ok_or(LCError::OverOrUnderflow)?;
+        let total_collateral_tokens_received_by_the_liquidator = tokens_from_sold_shares
+            .checked_add(collateral_amount_sold)
+            .map_over_or_underflow()?;
 
-        let mut collateral_value_sum: i128 = 0;
-        let mut collateral_values: Vec<i128> = Vec::new(&e);
-        let mut collateral_prices: Vec<i128> = Vec::new(&e);
+        borrow_pool.adjust_total_borrowed(-liquidated_amount)?;
+        borrow_pool.adjust_available(liquidated_amount)?;
 
-        for (collateral_pool_address, deposit_obligation) in obligation.deposits.iter() {
-            let DepositObligation {
-                collateral,
-                deposited,
-                ..
-            } = deposit_obligation;
-
-            let collateral_sum = deposited
-                .checked_add(collateral)
-                .ok_or(LCError::OverOrUnderflow)?;
-
-            let collateral_token_ticker = storage::get_pool(&e, &collateral_pool_address)
-                .expect("Pool must exist for a collateral asset")
-                .token_ticker;
-
-            let collateral_token_price = get_asset_price(&e, &collateral_token_ticker)?;
-            let collateral_value = collateral_sum
-                .checked_mul(collateral_token_price)
-                .ok_or(LCError::OverOrUnderflow)?;
-
-            collateral_values.push_back(collateral_value);
-            collateral_prices.push_back(collateral_token_price);
-
-            collateral_value_sum = collateral_value_sum
-                .checked_add(collateral_value)
-                .ok_or(LCError::OverOrUnderflow)?;
-        }
-
-        // Traverse second time and make corresponding collateral withdrawals
-        for (idx, (collateral_pool_address, mut deposit_obligation)) in
-            obligation.deposits.iter().enumerate()
-        {
-            let idx = idx as u32;
-            let deposited = deposit_obligation.deposited;
-            let collateral_value = collateral_values.get(idx).unwrap(); // safe
-            let collateral_token_price = collateral_prices.get(idx).unwrap(); // safe
-
-            let value_ratio_bps = collateral_value
-                .fixed_div_floor(collateral_value_sum, BPS_FACTOR)
-                .ok_or(LCError::OverOrUnderflow)?;
-            let amount_to_transfer_to_liquidator = value_ratio_bps
-                .checked_mul(collateral_value_to_redeem)
-                .ok_or(LCError::OverOrUnderflow)?
-                / (BPS_FACTOR * collateral_token_price);
-
-            let token_client = token::Client::new(&e, &collateral_pool_address);
-            token_client.transfer(
-                &e.current_contract_address(),
-                &user,
-                &amount_to_transfer_to_liquidator,
-            );
-
-            if deposited < amount_to_transfer_to_liquidator {
-                let diff = amount_to_transfer_to_liquidator - deposited;
-
-                deposit_obligation.collateral = deposit_obligation
-                    .collateral
-                    .checked_add(-diff)
-                    .ok_or(LCError::OverOrUnderflow)?;
-                deposit_obligation.deposited = deposit_obligation
-                    .deposited
-                    .checked_add(-deposited)
-                    .ok_or(LCError::OverOrUnderflow)?;
-
-                obligation
-                    .deposits
-                    .set(collateral_pool_address.clone(), deposit_obligation);
-                storage::adjust_pool_deposited(&e, &collateral_pool_address, -deposited)?;
-            } else {
-                deposit_obligation.deposited = deposit_obligation
-                    .deposited
-                    .checked_add(-amount_to_transfer_to_liquidator)
-                    .ok_or(LCError::OverOrUnderflow)?;
-
-                obligation
-                    .deposits
-                    .set(collateral_pool_address.clone(), deposit_obligation);
-                storage::adjust_pool_deposited(
-                    &e,
-                    &collateral_pool_address,
-                    -amount_to_transfer_to_liquidator,
-                )?;
-            }
-        }
-
-        borrow_obligation.borrowed = borrow_obligation
-            .borrowed
-            .checked_add(-amount)
-            .ok_or(LCError::OverOrUnderflow)?;
-        obligation.borrows.set(pool_address, borrow_obligation);
+        collateral_pool.adjust_total_shares(-shares_amount_sold)?;
+        collateral_pool.adjust_available(-tokens_from_sold_shares)?;
+        collateral_pool.adjust_total_collateral(-collateral_amount_sold)?;
 
         storage::set_obligation(&e, &borrower, &obligation);
 
-        let token_client = token::Client::new(&e, &token_address);
-        token_client.transfer(&user, &e.current_contract_address(), &amount);
+        storage::set_pool(&e, &borrow_pool_address, &borrow_pool);
+        storage::set_pool(&e, &collateral_pool_address, &collateral_pool);
+
+        let borrowed_token_client = token::Client::new(&e, &borrow_pool.token_address);
+        borrowed_token_client.transfer(
+            &liquidator,
+            &e.current_contract_address(),
+            &liquidated_amount,
+        );
+
+        let collateral_token_client = token::Client::new(&e, &collateral_pool.token_address);
+        collateral_token_client.transfer(
+            &e.current_contract_address(),
+            &liquidator,
+            &total_collateral_tokens_received_by_the_liquidator,
+        );
 
         Ok(())
     }
 
-    /// Withdraws collateral tokens from the loan pool to the user
+    /// Removes collateral tokens from the loan pool to the user
     ///
     /// ### Arguments
     /// * `user` - user which withdraws collateral tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - amount of withdrawn tokens
-    pub fn withdraw_collateral(
+    pub fn remove_collateral(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -545,45 +401,25 @@ impl LendingContract {
             return Err(LCError::NonPositiveWithdraw);
         }
 
-        let Pool {
-            token_address,
-            total_collateral: pool_collateral,
-            ..
-        } = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
-
-        let mut obligation =
-            storage::get_obligation(&e, &user).ok_or(LCError::ObligationDoesNotExist)?;
-
+        let Some(mut obligation) = storage::get_obligation(&e, &user) else {
+            return Err(LCError::ObligationDoesNotExist);
+        };
         obligation.accrue_interest(&e)?;
 
-        let mut deposit_obligation = obligation
-            .deposits
-            .get(pool_address.clone())
-            .ok_or(LCError::DepositDoesNotExist)?;
+        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
+            return Err(LCError::PoolDoesNotExist);
+        };
 
-        if amount > deposit_obligation.collateral {
-            return Err(LCError::WithdrawOverBalance);
-        }
-
-        if amount > pool_collateral {
+        if amount > pool.total_collateral {
             return Err(LCError::NotEnoughPoolFunds);
         }
 
-        deposit_obligation.collateral = deposit_obligation
-            .collateral
-            .checked_add(-amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+        obligation.remove_collateral(&pool_address, amount)?;
 
-        if deposit_obligation.is_empty() {
-            obligation.deposits.remove(pool_address.clone());
-        } else {
-            obligation
-                .deposits
-                .set(pool_address.clone(), deposit_obligation);
-        }
+        pool.adjust_total_collateral(-amount)?;
 
         if !obligation.is_healthy(&e)? {
-            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
         }
 
         if obligation.is_empty() {
@@ -591,10 +427,9 @@ impl LendingContract {
         } else {
             storage::set_obligation(&e, &user, &obligation);
         }
+        storage::set_pool(&e, &pool_address, &pool);
 
-        storage::adjust_pool_collateral(&e, &pool_address, -amount)?;
-
-        let token_client = token::Client::new(&e, &token_address);
+        let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
 
         Ok(())
@@ -618,46 +453,28 @@ impl LendingContract {
             return Err(LCError::NonPositiveWithdraw);
         }
 
-        let Pool {
-            token_address,
-            total_supply: pool_deposited,
-            total_borrowed: pool_borrowed,
-            ..
-        } = storage::get_pool(&e, &pool_address).ok_or(LCError::PoolDoesNotExist)?;
-
-        let mut obligation =
-            storage::get_obligation(&e, &user).ok_or(LCError::ObligationDoesNotExist)?;
-
+        let Some(mut obligation) = storage::get_obligation(&e, &user) else {
+            return Err(LCError::ObligationDoesNotExist);
+        };
         obligation.accrue_interest(&e)?;
 
-        let mut deposit_obligation = obligation
-            .deposits
-            .get(pool_address.clone())
-            .ok_or(LCError::DepositDoesNotExist)?;
+        let Some(mut pool) = storage::get_pool(&e, &pool_address) else {
+            return Err(LCError::PoolDoesNotExist);
+        };
 
-        if amount > deposit_obligation.deposited {
-            return Err(LCError::WithdrawOverBalance);
-        }
-
-        if amount > (pool_deposited - pool_borrowed) {
+        if amount > pool.available {
             return Err(LCError::NotEnoughPoolFunds);
         }
 
-        deposit_obligation.deposited = deposit_obligation
-            .deposited
-            .checked_add(-amount)
-            .ok_or(LCError::OverOrUnderflow)?;
+        let shares_to_burn = pool.compute_shares_from_tokens(amount)?;
 
-        if deposit_obligation.is_empty() {
-            obligation.deposits.remove(pool_address.clone());
-        } else {
-            obligation
-                .deposits
-                .set(pool_address.clone(), deposit_obligation);
-        }
+        obligation.withdraw(&pool_address, shares_to_burn)?;
+
+        pool.adjust_total_shares(-shares_to_burn)?;
+        pool.adjust_available(-amount)?;
 
         if !obligation.is_healthy(&e)? {
-            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold)?;
+            return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
         }
 
         if obligation.is_empty() {
@@ -665,10 +482,9 @@ impl LendingContract {
         } else {
             storage::set_obligation(&e, &user, &obligation);
         }
+        storage::set_pool(&e, &pool_address, &pool);
 
-        storage::adjust_pool_deposited(&e, &pool_address, -amount)?;
-
-        let token_client = token::Client::new(&e, &token_address);
+        let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&e.current_contract_address(), &user, &amount);
 
         Ok(())
@@ -701,7 +517,7 @@ impl LendingContract {
     }
 }
 
-fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
+pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
     let reflector_address = Address::from_string(&String::from_str(e, REFLECTOR_TESTNET_ADDRESS));
     let reflector_contract = oracle::Client::new(e, &reflector_address);
 

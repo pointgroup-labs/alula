@@ -23,11 +23,11 @@ fn test_deposit() {
 
     let deposit_obligation = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
-        .deposited;
+        .shares;
     let pool_deposited = contract_client
         .get_pool(&usdc_pool_address)
         .unwrap()
-        .total_supply;
+        .total_shares;
 
     // TODO: We should introduce operation fees which will make the deposited amount smaller
     assert_eq!(deposit_obligation, DEFAULT_DEPOSIT_AMOUNT);
@@ -35,7 +35,7 @@ fn test_deposit() {
 }
 
 #[test]
-fn test_deposit_collateral() {
+fn test_add_collateral() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -44,7 +44,7 @@ fn test_deposit_collateral() {
     } = TestFixture::new();
 
     let user = users.get(0).unwrap();
-    contract_client.deposit_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let obligation_collateral = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
