@@ -38,83 +38,54 @@ pub struct Pool {
 }
 
 impl Pool {
-    pub fn adjust_total_shares(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        let new_amount = self
-            .total_shares
+    fn adjust_field(current_value: i128, adjusting_amount: i128) -> Result<i128, LCError> {
+        let new_amount = current_value
             .checked_add(adjusting_amount)
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
             // TODO: Add event
+            // TODO: better error name
             return Err(LCError::InternalError);
         }
 
-        self.total_shares = new_amount;
+        Ok(new_amount)
+    }
 
+    pub fn adjust_total_shares(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
+        self.total_shares = Self::adjust_field(self.total_shares, adjusting_amount)?;
         Ok(())
     }
 
     pub fn adjust_available(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        let new_amount = self
-            .available
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            // TODO: Add event
-            return Err(LCError::InternalError);
-        }
-
-        self.available = new_amount;
-
+        self.available = Self::adjust_field(self.available, adjusting_amount)?;
         Ok(())
     }
 
     pub fn adjust_total_borrowed(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        let new_amount = self
-            .total_borrowed
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            // TODO: Add event
-            return Err(LCError::InternalError);
-        }
-
-        self.total_borrowed = new_amount;
-
+        self.total_borrowed = Self::adjust_field(self.total_borrowed, adjusting_amount)?;
         Ok(())
     }
 
     pub fn adjust_total_collateral(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        let new_amount = self
-            .total_collateral
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            // TODO: Add event
-            return Err(LCError::InternalError);
-        }
-
-        self.total_collateral = new_amount;
-
+        self.total_collateral = Self::adjust_field(self.total_collateral, adjusting_amount)?;
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the `share` the of shares in the pool
+    /// Computes tokens amount proportional to the `share` of the of shares in the pool
     pub fn compute_tokens_from_shares(&self, shares_amount: i128) -> Result<i128, LCError> {
-        assert!(
-            self.total_shares >= shares_amount,
-            "
-        Total shares must never be smaller than shares which a single obligation has"
-        );
+        if shares_amount == 0 {
+            return Ok(0);
+        }
 
-        let total = self
-            .available
-            .checked_add(self.total_borrowed)
-            .map_over_or_underflow()?;
-        let tokens_amount = total
+        if self.total_shares < shares_amount {
+            // Total shares must never be smaller than shares that a single obligation has
+            return Err(LCError::InternalError);
+        }
+
+        let total_liquidity = self.total_liquidity()?;
+
+        let tokens_amount = total_liquidity
             .checked_mul(shares_amount)
             .map_over_or_underflow()?
             .checked_div(self.total_shares)
@@ -125,6 +96,10 @@ impl Pool {
 
     /// Computes shares amount which must be issued for\burnt from a depositor based on the deposited\withdrawn amount
     pub fn compute_shares_from_tokens(&self, tokens_amount: i128) -> Result<i128, LCError> {
+        if tokens_amount == 0 {
+            return Ok(0);
+        }
+
         let shares_amount = if self.total_shares == 0 {
             tokens_amount
         } else {
@@ -154,6 +129,21 @@ impl Pool {
         };
 
         Ok(shares_amount)
+    }
+
+    /// Calculate total liquidity (available + borrowed)
+    pub fn total_liquidity(&self) -> Result<i128, LCError> {
+        self.available
+            .checked_add(self.total_borrowed)
+            .map_over_or_underflow()
+    }
+
+    /// Check if the pool is empty
+    pub fn is_empty(&self) -> bool {
+        self.total_shares == 0
+            && self.total_borrowed == 0
+            && self.available == 0
+            && self.total_collateral == 0
     }
 }
 
@@ -196,17 +186,23 @@ impl Default for PoolConfig {
 impl PoolConfig {
     pub fn validate(&self) -> Result<(), &str> {
         let &PoolConfig {
+            base_rate_per_second,
             optimal_utilization_ratio_bps,
             slope1,
             slope2,
             reserve_ratio_bps,
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
-            ..
         } = self;
 
-        if optimal_utilization_ratio_bps <= 0 {
-            return Err("Optimal utilization ratio must be greater than 0%");
+        if base_rate_per_second < 0 {
+            return Err("Base rate per second must be non-negative");
+        }
+
+        if optimal_utilization_ratio_bps <= 0
+            || optimal_utilization_ratio_bps > 100 * BPS_IN_PERCENT
+        {
+            return Err("Optimal utilization ratio must be between 0% and 100%");
         }
 
         if !is_valid_percent(reserve_ratio_bps) {
@@ -221,6 +217,10 @@ impl PoolConfig {
             return Err("Liquidation incentive must be between 0% and 100%");
         }
 
+        if slope1 < 0 || slope2 < 0 {
+            return Err("Interest rate slopes must be non-negative");
+        }
+
         if slope1 >= slope2 {
             return Err("slope1 must be less than slope2 for kinked model to work");
         }
@@ -230,7 +230,7 @@ impl PoolConfig {
 }
 
 fn is_valid_percent(value: i128) -> bool {
-    (0..100 * BPS_IN_PERCENT).contains(&value)
+    (0..=100 * BPS_IN_PERCENT).contains(&value)
 }
 
 #[contracttype]

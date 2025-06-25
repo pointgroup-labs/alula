@@ -105,7 +105,7 @@ fn test_repay_with_interest_accrual() {
     let borrow_obligation =
         get_borrow_obligation(&contract_client, &user, &usdc_pool_address).unwrap();
 
-    assert!(borrow_obligation.borrowed == 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
+    assert_eq!(borrow_obligation.borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
     assert!(borrow_obligation.unpaid_interest > 0);
 
     let left = borrow_obligation.total_borrowed().unwrap();
