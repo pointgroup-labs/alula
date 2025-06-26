@@ -2,7 +2,11 @@
 
 use {
     moderc3156::ModErc3156,
-    soroban_sdk::{contract, contractimpl, contracttype, token::TokenClient, Address, Env},
+    soroban_sdk::{
+        contract, contractimpl, contracttype,
+        token::{StellarAssetClient, TokenClient},
+        Address, Env,
+    },
 };
 
 const FAILING_CALL_AMOUNT: i128 = 777;
@@ -32,9 +36,16 @@ impl moderc3156::ModErc3156 for FlashLoanLiquidatorContract {
 
         if amount == FAILING_CALL_AMOUNT {
             simulate_failed_strategy(&e, &token, amount);
+        } else {
+            simulate_successful_strategy(&e, &token, amount);
         }
-        // TODO: Simulate strategy which generates income when adding fees
     }
+}
+
+/// Simulates a successful strategy that earns 10% on top of the flash loan
+fn simulate_successful_strategy(e: &Env, token_address: &Address, amount: i128) {
+    let sac_client = StellarAssetClient::new(e, token_address);
+    sac_client.mint(&e.current_contract_address(), &(amount / 10));
 }
 
 /// Simulates a failed strategy that burns 10% of the flash loan
@@ -102,14 +113,13 @@ mod test {
         // Deposit usdc as another user to have a non-empty loan pool
         lending_contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
 
-        assert_eq!(
-            lending_contract_client.try_flash_loan(
+        assert!(lending_contract_client
+            .try_flash_loan(
                 &flash_loan_taker_contract_address,
                 &usdc_pool_address,
-                &FAILING_CALL_AMOUNT
-            ),
-            Err(Ok(LCError::FailedFlashLoanStrategy))
-        );
+                &FAILING_CALL_AMOUNT,
+            )
+            .is_err());
     }
 
     #[test]

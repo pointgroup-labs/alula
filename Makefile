@@ -38,9 +38,9 @@ endef
 # ----------------------------------------------------------------------------------------------------------------------
 
 check: build-init ## Check compilation correctness with cargo
-	cargo check
+	cargo check --tests
 
-rebuild-lending: build ## Rebuilds lending contract forcefully. Useful when modifying other workspace contracts
+rebuild-lending: build ## Rebuilds lending contract forcefully. Useful when modifying other workspace's contracts
 	cargo clean -p $(LENDING_CONTRACT)
 
 # It's important to maintain a valid topological order of the contracts build

@@ -1,7 +1,7 @@
 use {
     crate::{
         constants::{
-            LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
+            LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
             REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
@@ -502,6 +502,8 @@ impl LendingContract {
         pool_address: Address,
         amount: i128,
     ) -> Result<(), LCError> {
+        const TEST_FLASH_LOAN_FEE_BP: i128 = 100; // 1%
+
         contract.require_auth();
 
         if amount <= 0 {
@@ -519,23 +521,23 @@ impl LendingContract {
         let token_client = token::Client::new(&e, &pool.token_address);
         token_client.transfer(&e.current_contract_address(), &contract, &amount);
 
-        let contract_balance_before_strategy = token_client.balance(&contract);
-
         let flash_loan_taker_client = FlashLoanClient::new(&e, &contract);
         flash_loan_taker_client.exec_op(
             &e.current_contract_address(),
             &pool.token_address,
             &amount,
-            &0,
+            &TEST_FLASH_LOAN_FEE_BP,
         );
 
-        let contract_balance_after_strategy = token_client.balance(&contract);
-        // TODO: Start accounting fees
-        if contract_balance_after_strategy < contract_balance_before_strategy {
-            return Err(LCError::FailedFlashLoanStrategy);
-        }
+        // WARN: Does this have enough precision?
+        let fees = amount
+            .checked_mul(TEST_FLASH_LOAN_FEE_BP)
+            .map_over_or_underflow()?
+            .checked_div(BPS_FACTOR)
+            .map_over_or_underflow()?;
+        let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
-        token_client.transfer(&contract, &e.current_contract_address(), &amount);
+        token_client.transfer(&contract, &e.current_contract_address(), &amount_to_repay);
 
         Ok(())
     }
