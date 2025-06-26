@@ -2,7 +2,7 @@ use {
     crate::{
         constants::{
             LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
-            REFLECTOR_TESTNET_ADDRESS, SOROSWAP_FACTORY_TESTNET_ADDRESS, SOROSWAP_TESTNET_ADDRESS,
+            REFLECTOR_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
         math_utils::MathUtils,
@@ -10,7 +10,6 @@ use {
         oracle,
         pool::{Pool, PoolAddress, PoolConfig},
         storage::{self, GlobalState},
-        swap_factory, swap_router,
     },
     moderc3156::FlashLoanClient,
     soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, String, Symbol, Vec},
