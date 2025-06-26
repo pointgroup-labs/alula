@@ -9,9 +9,12 @@ REFLECTOR_ORACLE_URL = https://github.com/reflector-network/reflector-contract/r
 REFLECTOR_ORACLE_WASM = $(WASM_TARGET_DIR)/reflector-oracle.wasm
 REFLECTOR_ORACLE_MOCK := reflector-oracle-mock
 
-SOROSWAP_AGGREGATOR_URL = https://github.com/soroswap/aggregator/releases/download/feat%2FReleaseForStellarExpert__contracts_aggregator_soroswap-aggregator_pkg1.0.0_cli21.5.0/soroswap-aggregator_v1.0.0.wasm
-SOROSWAP_AGGREGATOR_WASM = $(WASM_TARGET_DIR)/soroswap-aggregator.wasm
-SOROSWAP_AGGREGATOR_MOCK := soroswap-aggregator-mock
+SOROSWAP_ROUTER_URL = https://github.com/soroswap/core/releases/download/workflow%2FsorobanBuildForStellarExpert__contracts_router_soroswap-router_pkg0.0.1_cli21.0.0/soroswap-router_v0.0.1.wasm
+SOROSWAP_ROUTER_WASM = $(WASM_TARGET_DIR)/soroswap-router.wasm
+SOROSWAP_ROUTER_MOCK := soroswap-router-mock
+
+SOROSWAP_FACTORY_URL = https://github.com/soroswap/core/releases/download/exp%2FgetPreviousHash__contracts_factory_soroswap-factory_pkg0.0.2_cli21.5.0/soroswap-factory_v0.0.2.wasm
+SOROSWAP_FACTORY_WASM = $(WASM_TARGET_DIR)/soroswap-factory.wasm
 
 FLASH_LOAN_TAKER_MOCK := flash-loan-taker-mock
 
@@ -40,7 +43,7 @@ check: build-init ## Check compilation correctness with cargo
 build: build-init ## Build contracts
 	stellar contract build --package $(REFLECTOR_ORACLE_MOCK)    --out-dir $(MOCK_WASM_DIR)
 	stellar contract build --package $(FLASH_LOAN_TAKER_MOCK)    --out-dir $(MOCK_WASM_DIR)
-	stellar contract build --package $(SOROSWAP_AGGREGATOR_MOCK) --out-dir $(MOCK_WASM_DIR)
+	stellar contract build --package $(SOROSWAP_ROUTER_MOCK)     --out-dir $(MOCK_WASM_DIR)
 
 	stellar contract build --package $(LENDING_CONTRACT)
 
@@ -49,7 +52,8 @@ build-init: ## Build init
 	mkdir -p $(MOCK_WASM_DIR)
 	@echo "Checking for WASM files..."
 	$(call download_wasm_contract,$(REFLECTOR_ORACLE_WASM),$(REFLECTOR_ORACLE_URL))
-	$(call download_wasm_contract,$(SOROSWAP_AGGREGATOR_WASM),$(SOROSWAP_AGGREGATOR_URL))
+	$(call download_wasm_contract,$(SOROSWAP_ROUTER_WASM),$(SOROSWAP_ROUTER_URL))
+	$(call download_wasm_contract,$(SOROSWAP_FACTORY_WASM),$(SOROSWAP_FACTORY_URL))
 
 build-optimize: build ## Optimize contracts
 	mkdir -p target/$(WASM_TARGET)/optimized
@@ -68,8 +72,7 @@ sdk: build-optimize ## Generate typescript sdk
 
 test: build ## Run tests
 	cargo nextest run --locked --workspace
-	#cargo test
-
+	
 test-coverage: ## Test coverage
 	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
 	cargo +nightly llvm-cov --doc --no-report

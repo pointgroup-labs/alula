@@ -1,5 +1,5 @@
 [package]
-name = "soroswap-aggregator-mock"
+name = "soroswap-router-mock"
 version = "0.0.0"
 edition = "2021"
 publish = false
