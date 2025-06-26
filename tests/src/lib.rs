@@ -3,10 +3,12 @@
 use {
     arbitrary::Unstructured,
     lending::{
-        constants::{LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS},
+        constants::{
+            LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS,
+        },
         contract::{LendingContract, LendingContractClient},
         obligation::{BorrowObligation, DepositObligation},
-        oracle,
+        oracle, swap_router,
     },
     soroban_sdk::{
         symbol_short,
@@ -36,27 +38,26 @@ pub struct TestFixture<'a> {
     pub contract_client: LendingContractClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
-
     // Oracle
     pub oracle_client: oracle::Client<'a>,
-
+    pub oracle_address: Address,
+    // Swap Router
+    pub swap_router_client: swap_router::Client<'a>,
+    pub swap_router_address: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
     pub gold_token_address: Address,
-    pub gold_admin: Address,
     pub gold_pool_address: Address,
     // BTC
     pub btc_sac: StellarAssetClient<'a>,
     pub btc_token_client: TokenClient<'a>,
     pub btc_token_address: Address,
-    pub btc_admin: Address,
     pub btc_pool_address: Address,
     // USDC
     pub usdc_sac: StellarAssetClient<'a>,
     pub usdc_token_client: TokenClient<'a>,
     pub usdc_token_address: Address,
-    pub usdc_admin: Address,
     pub usdc_pool_address: Address,
     pub users: Vec<Address>,
 }
@@ -73,6 +74,9 @@ impl TestFixture<'_> {
             capture_snapshot_at_drop: false,
         });
         e.mock_all_auths();
+        // TODO: Think more about what sometimes happens in tests
+        // when this is opted out
+        e.mock_all_auths_allowing_non_root_auth();
 
         e.ledger().with_mut(|li| {
             li.sequence_number = 0;
@@ -87,7 +91,17 @@ impl TestFixture<'_> {
                 Option::<i128>::Some(DEFAULT_HEALTH_FACTOR_THRESHOLD),
             ),
         );
+
         let contract_client = LendingContractClient::new(&e, &contract_id);
+
+        let oracle_address = Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
+        e.register_at(&oracle_address, oracle::WASM, ());
+        let oracle_client = oracle::Client::new(&e, &oracle_address);
+
+        let swap_router_address =
+            Address::from_string(&String::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+        e.register_at(&swap_router_address, swap_router::WASM, ());
+        let swap_router_client = swap_router::Client::new(&e, &swap_router_address);
 
         let users = vec![
             &e,
@@ -96,16 +110,12 @@ impl TestFixture<'_> {
             Address::generate(&e),
         ];
 
-        let usdc_admin = Address::generate(&e);
-        let gold_admin = Address::generate(&e);
-        let btc_admin = Address::generate(&e);
-
         // GOLD
         let TestAssetSetup {
             sac_client: gold_sac,
             token_client: gold_token_client,
             token_address: gold_token_address,
-        } = setup_test_asset(&e, &gold_admin, &users);
+        } = setup_test_asset(&e, &swap_router_address, &users);
         let gold_pool_address = contract_client.initialize_pool(
             &gold_token_address,
             &symbol_short!("GOLD"),
@@ -118,7 +128,7 @@ impl TestFixture<'_> {
             sac_client: btc_sac,
             token_client: btc_token_client,
             token_address: btc_token_address,
-        } = setup_test_asset(&e, &btc_admin, &users);
+        } = setup_test_asset(&e, &swap_router_address, &users);
         let btc_pool_address = contract_client.initialize_pool(
             &btc_token_address,
             &symbol_short!("BTC"),
@@ -131,7 +141,7 @@ impl TestFixture<'_> {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
             token_address: usdc_token_address,
-        } = setup_test_asset(&e, &usdc_admin, &users);
+        } = setup_test_asset(&e, &swap_router_address, &users);
         let usdc_pool_address = contract_client.initialize_pool(
             &usdc_token_address,
             &symbol_short!("USDC"),
@@ -139,36 +149,32 @@ impl TestFixture<'_> {
             &None,
         );
 
-        let mock_oracle_address =
-            Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
-        e.register_at(&mock_oracle_address, oracle::WASM, ());
-
-        let oracle_client = oracle::Client::new(&e, &mock_oracle_address);
-
         Self {
             e,
             contract_client,
             contract_id,
             contract_admin,
-            // GOLD
+            // Oracle
             oracle_client,
+            oracle_address,
+            // Swap router
+            swap_router_client,
+            swap_router_address,
+            // GOLD
             gold_sac,
             gold_token_client,
             gold_token_address,
-            gold_admin,
             gold_pool_address,
             // BTC
             btc_sac,
             btc_token_client,
             btc_token_address,
             btc_pool_address,
-            btc_admin,
             // USDC
             usdc_sac,
             usdc_token_client,
             usdc_token_address,
             usdc_pool_address,
-            usdc_admin,
             users,
         }
     }
@@ -801,4 +807,5 @@ mod initialize;
 mod interest_rates;
 mod liquidate;
 mod repay;
+mod swap;
 mod withdraw;

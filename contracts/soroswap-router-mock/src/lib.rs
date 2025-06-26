@@ -1,7 +1,11 @@
 #![no_std]
-use core::ops::Add;
+#![allow(clippy::too_many_arguments)]
 
-use soroban_sdk::{contract, contracterror, contractimpl, vec, Address, Env, Vec};
+use soroban_sdk::{
+    contract, contracterror, contractimpl,
+    token::{StellarAssetClient, TokenClient},
+    Address, Env, Vec,
+};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -31,11 +35,11 @@ pub struct MockSoroswapRouterContract;
 
 #[contractimpl]
 impl MockSoroswapRouterContract {
-    fn initialize(_e: Env, _factory: Address) -> Result<(), CombinedRouterError> {
-        Ok(())
+    pub fn initialize(_e: Env, _factory: Address) -> Result<(), CombinedRouterError> {
+        unimplemented!()
     }
 
-    fn add_liquidity(
+    pub fn add_liquidity(
         _e: Env,
         _token_a: Address,
         _token_b: Address,
@@ -49,7 +53,7 @@ impl MockSoroswapRouterContract {
         unimplemented!()
     }
 
-    fn remove_liquidity(
+    pub fn remove_liquidity(
         _e: Env,
         _token_a: Address,
         _token_b: Address,
@@ -62,76 +66,96 @@ impl MockSoroswapRouterContract {
         unimplemented!()
     }
 
-    fn swap_exact_tokens_for_tokens(
+    // For now we assume 1:1 swap rate
+    pub fn swap_exact_tokens_for_tokens(
         e: Env,
         amount_in: i128,
         amount_out_min: i128,
         path: Vec<Address>,
         to: Address,
-        deadline: u64,
+        _deadline: u64,
     ) -> Result<Vec<i128>, CombinedRouterError> {
-        todo!()
+        to.require_auth();
+
+        if amount_out_min > amount_in {
+            return Err(CombinedRouterError::LibraryInsufficientAmount);
+        }
+
+        if path.len() < 2 {
+            return Err(CombinedRouterError::LibraryInvalidPath);
+        }
+
+        let burnt_token_address = path.first().unwrap(); // safe
+        let minted_token_address = path.last().unwrap(); // safe
+
+        let minted_sac_client = StellarAssetClient::new(&e, &minted_token_address);
+        let burnt_token_client = TokenClient::new(&e, &burnt_token_address);
+
+        minted_sac_client.mint(&to, &amount_out_min);
+        burnt_token_client.burn(&to, &amount_in);
+
+        Ok(soroban_sdk::vec![&e, amount_in, amount_out_min])
     }
 
-    fn swap_tokens_for_exact_tokens(
-        e: Env,
-        amount_out: i128,
-        amount_in_max: i128,
-        path: Vec<Address>,
-        to: Address,
-        deadline: u64,
+    pub fn swap_tokens_for_exact_tokens(
+        _e: Env,
+        _amount_out: i128,
+        _amount_in_max: i128,
+        _path: Vec<Address>,
+        _to: Address,
+        _deadline: u64,
     ) -> Result<Vec<i128>, CombinedRouterError> {
-        todo!()
-    }
-
-    fn get_factory(e: Env) -> Result<Address, CombinedRouterError> {
         unimplemented!()
     }
 
-    fn router_pair_for(
-        e: Env,
-        token_a: Address,
-        token_b: Address,
+    pub fn get_factory(_e: Env) -> Result<Address, CombinedRouterError> {
+        unimplemented!()
+    }
+
+    pub fn router_pair_for(
+        _e: Env,
+        _token_a: Address,
+        _token_b: Address,
     ) -> Result<Address, CombinedRouterError> {
-        todo!()
+        unimplemented!()
     }
 
-    fn router_quote(
-        amount_a: i128,
-        reserve_a: i128,
-        reserve_b: i128,
+    pub fn router_quote(
+        _amount_a: i128,
+        _reserve_a: i128,
+        _reserve_b: i128,
     ) -> Result<i128, CombinedRouterError> {
         unimplemented!()
     }
 
-    fn router_get_amount_out(
-        amount_in: i128,
-        reserve_in: i128,
-        reserve_out: i128,
+    pub fn router_get_amount_out(
+        _amount_in: i128,
+        _reserve_in: i128,
+        _reserve_out: i128,
     ) -> Result<i128, CombinedRouterError> {
         unimplemented!()
     }
 
-    fn router_get_amount_in(
-        amount_out: i128,
-        reserve_in: i128,
-        reserve_out: i128,
+    pub fn router_get_amount_in(
+        _amount_out: i128,
+        _reserve_in: i128,
+        _reserve_out: i128,
     ) -> Result<i128, CombinedRouterError> {
         unimplemented!()
     }
 
-    fn router_get_amounts_out(
-        e: Env,
-        amount_in: i128,
-        path: Vec<Address>,
+    pub fn router_get_amounts_out(
+        _e: Env,
+        _amount_in: i128,
+        _path: Vec<Address>,
     ) -> Result<Vec<i128>, CombinedRouterError> {
         unimplemented!()
     }
 
-    fn router_get_amounts_in(
-        e: Env,
-        amount_out: i128,
-        path: Vec<Address>,
+    pub fn router_get_amounts_in(
+        _e: Env,
+        _amount_out: i128,
+        _path: Vec<Address>,
     ) -> Result<Vec<i128>, CombinedRouterError> {
         unimplemented!()
     }

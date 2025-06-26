@@ -2,7 +2,7 @@ use {
     crate::{
         constants::{
             LCError, ACCRUAL_INIT, BPS_IN_PERCENT, DEFAULT_LIQUIDATION_THRESHOLD,
-            REFLECTOR_TESTNET_ADDRESS,
+            REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
         math_utils::MathUtils,
@@ -10,6 +10,7 @@ use {
         oracle,
         pool::{Pool, PoolAddress, PoolConfig},
         storage::{self, GlobalState},
+        swap_router,
     },
     moderc3156::FlashLoanClient,
     soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, String, Symbol, Vec},
@@ -539,63 +540,22 @@ impl LendingContract {
         Ok(())
     }
 
-    // pub fn test_pool_exists(e: Env) -> Result<bool, LCError> {
-    //     let swap_factory_address =
-    //         Address::from_string(&String::from_str(&e, SOROSWAP_FACTORY_TESTNET_ADDRESS));
-    //     let soroban_factory_contract_client = swap_factory::Client::new(&e, &swap_factory_address);
+    pub fn swap(e: Env, user: Address, token_a: Address, token_b: Address) -> Result<(), LCError> {
+        let soroswap_router_address =
+            Address::from_string(&String::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+        let soroswap_router_contract_client =
+            swap_router::Client::new(&e, &soroswap_router_address);
 
-    //     Ok(soroban_factory_contract_client.pair_exists(
-    //         &Address::from_str(
-    //             &e,
-    //             "CDYZ6I4FTABFDVWIH2RSVDVIFSJF7FMA2CTUBFHWCLPSLIGO55K4HNSN",
-    //         ),
-    //         &Address::from_str(
-    //             &e,
-    //             "CBBHRKEP5M3NUDRISGLJKGHDHX3DA2CN2AZBQY6WLVUJ7VNLGSKBDUCM",
-    //         ),
-    //     ))
-    // }
+        soroswap_router_contract_client.swap_exact_tokens_for_tokens(
+            &100,
+            &100,
+            &soroban_sdk::vec![&e, token_a, token_b],
+            &user,
+            &0,
+        );
 
-    // pub fn test_swap(e: Env) -> Result<Address, LCError> {
-    //     let swap_aggregator_address =
-    //         Address::from_string(&String::from_str(&e, SOROSWAP_TESTNET_ADDRESS));
-    //     let soroban_router_contract_client = swap_router::Client::new(&e, &swap_aggregator_address);
-    //     let factory = soroban_router_contract_client.get_factory();
-
-    //     let swap_factory_address =
-    //         Address::from_string(&String::from_str(&e, SOROSWAP_FACTORY_TESTNET_ADDRESS));
-    //     let soroban_factory_contract_client = swap_factory::Client::new(&e, &swap_factory_address);
-
-    //     let all_pairs_len = soroban_factory_contract_client.all_pairs_length();
-
-    //     soroban_sdk::log!(&e, "sdfsd", all_pairs_len);
-
-    //     for pair in 0..all_pairs_len {
-    //         let pair_address = soroban_factory_contract_client.all_pairs(&pair);
-    //         soroban_sdk::log!(&e, "pair", pair_address);
-    //     }
-
-    //     // let factory = soroban_router_contract_client.get_factory();
-
-    //     // let adapters = reflector_contract_client.get_adapters();
-
-    //     // extern crate std;
-
-    //     // for adapter in adapters {
-    //     //     soroban_sdk::log!(&e, "adapter");
-    //     // }
-
-    //     // reflector_contract
-
-    //     // let asset = oracle::Asset::Other(ticker.clone());
-
-    //     // let last_price = reflector_contract
-    //     //     .lastprice(&asset)
-    //     //     .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
-
-    //     // Ok(last_price.price)
-    //     Ok(factory)
-    // }
+        Ok(())
+    }
 
     pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, LCError> {
         if let Some(mut obligation) = storage::get_obligation(&e, &user) {

@@ -40,12 +40,15 @@ endef
 check: build-init ## Check compilation correctness with cargo
 	cargo check
 
+rebuild-lending: build ## Rebuilds lending contract forcefully. Useful when modifying other workspace contracts
+	cargo clean -p $(LENDING_CONTRACT)
+
+# It's important to maintain a valid topological order of the contracts build
 build: build-init ## Build contracts
 	stellar contract build --package $(REFLECTOR_ORACLE_MOCK)    --out-dir $(MOCK_WASM_DIR)
-	stellar contract build --package $(FLASH_LOAN_TAKER_MOCK)    --out-dir $(MOCK_WASM_DIR)
 	stellar contract build --package $(SOROSWAP_ROUTER_MOCK)     --out-dir $(MOCK_WASM_DIR)
-
 	stellar contract build --package $(LENDING_CONTRACT)
+	stellar contract build --package $(FLASH_LOAN_TAKER_MOCK)    --out-dir $(MOCK_WASM_DIR)
 
 build-init: ## Build init
 	mkdir -p $(WASM_TARGET_DIR)
