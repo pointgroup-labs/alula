@@ -37,6 +37,9 @@ endef
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+clippy: check
+	cargo clippy --tests
+
 check: build-init ## Check compilation correctness with cargo
 	cargo check --tests
 

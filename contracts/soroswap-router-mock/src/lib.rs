@@ -7,6 +7,9 @@ use soroban_sdk::{
     Address, Env, Vec,
 };
 
+const SOROSWAP_FACTORY_TESTNET_ADDRESS: &str =
+    "CB7X4DSYW4UTKJSJMO7A3ZX2YQQG4NQUD3TQOTAZ7UHOK2BGGLRW2ZIC";
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -108,8 +111,8 @@ impl MockSoroswapRouterContract {
         unimplemented!()
     }
 
-    pub fn get_factory(_e: Env) -> Result<Address, CombinedRouterError> {
-        unimplemented!()
+    pub fn get_factory(e: Env) -> Result<Address, CombinedRouterError> {
+        Ok(Address::from_str(&e, SOROSWAP_FACTORY_TESTNET_ADDRESS))
     }
 
     pub fn router_pair_for(
@@ -129,11 +132,11 @@ impl MockSoroswapRouterContract {
     }
 
     pub fn router_get_amount_out(
-        _amount_in: i128,
+        amount_in: i128,
         _reserve_in: i128,
         _reserve_out: i128,
     ) -> Result<i128, CombinedRouterError> {
-        unimplemented!()
+        Ok(amount_in)
     }
 
     pub fn router_get_amount_in(

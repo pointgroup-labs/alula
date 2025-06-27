@@ -14,7 +14,7 @@ use {
         symbol_short,
         testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
         token::{self, StellarAssetClient, TokenClient},
-        vec, Address, Env, String, Vec,
+        vec, Address, Env, Vec,
     },
 };
 
@@ -94,12 +94,11 @@ impl TestFixture<'_> {
 
         let contract_client = LendingContractClient::new(&e, &contract_id);
 
-        let oracle_address = Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
+        let oracle_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
         e.register_at(&oracle_address, oracle::WASM, ());
         let oracle_client = oracle::Client::new(&e, &oracle_address);
 
-        let swap_router_address =
-            Address::from_string(&String::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+        let swap_router_address = Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS);
         e.register_at(&swap_router_address, swap_router::WASM, ());
         let swap_router_client = swap_router::Client::new(&e, &swap_router_address);
 

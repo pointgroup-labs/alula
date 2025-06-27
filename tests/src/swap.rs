@@ -26,7 +26,7 @@ fn test_swap() {
 
     let gold_token_balance = gold_token_client.balance(&user);
 
-    contract_client.swap(&user, &gold_pool_address, &new_token_address);
+    contract_client.swap(&user, &gold_pool_address, &new_token_address, &100);
 
     let balance = new_token_client.balance(&user);
     let new_gold_token_balance = gold_token_client.balance(&user);
