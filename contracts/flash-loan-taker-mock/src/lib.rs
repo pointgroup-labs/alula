@@ -3,7 +3,7 @@
 use {
     moderc3156::ModErc3156,
     soroban_sdk::{
-        contract, contractimpl, contracttype,
+        contract, contractimpl,
         token::{StellarAssetClient, TokenClient},
         Address, Env,
     },
@@ -11,28 +11,20 @@ use {
 
 const FAILING_CALL_AMOUNT: i128 = 777;
 
-#[contracttype]
-enum DataKey {
-    Liquidatable,
-}
-
-#[contracttype]
-struct Liquidatable {
-    borrower: Address,
-    collateral_pool_address: Address,
-}
-
 #[contract]
 pub struct FlashLoanLiquidatorContract;
-#[contractimpl]
 
+#[contractimpl]
 impl moderc3156::ModErc3156 for FlashLoanLiquidatorContract {
     fn exec_op(e: Env, caller: Address, token: Address, amount: i128, _fee: i128) {
         caller.require_auth();
 
         let flash_loan_token_client = TokenClient::new(&e, &token);
         let flash_loan_received = flash_loan_token_client.balance(&e.current_contract_address());
-        assert_eq!(flash_loan_received, amount);
+        assert_eq!(
+            flash_loan_received, amount,
+            "Flash borrow should've taken place"
+        );
 
         if amount == FAILING_CALL_AMOUNT {
             simulate_failed_strategy(&e, &token, amount);
@@ -48,7 +40,7 @@ fn simulate_successful_strategy(e: &Env, token_address: &Address, amount: i128) 
     sac_client.mint(&e.current_contract_address(), &(amount / 10));
 }
 
-/// Simulates a failed strategy that burns 10% of the flash loan
+/// Simulates a failed strategy that loses 10% of the flash loan
 fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
     let token_client = TokenClient::new(e, token_address);
     token_client.burn(&e.current_contract_address(), &(amount / 10));
@@ -57,66 +49,66 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 #[cfg(test)]
 mod test {
     use {
-        super::FlashLoanLiquidatorContract,
-        crate::FAILING_CALL_AMOUNT,
+        super::{FlashLoanLiquidatorContract, FAILING_CALL_AMOUNT},
         lending::constants::LCError,
         soroban_sdk::Address,
         tests::{TestFixture, DEFAULT_DEPOSIT_AMOUNT},
     };
 
+    struct FlashLoanTest<'a> {
+        test_fixture: TestFixture<'a>,
+        flash_loan_taker_contract_id: Address,
+    }
+
+    impl FlashLoanTest<'_> {
+        fn new() -> Self {
+            let test_fixture = TestFixture::new();
+            let lender = test_fixture.users.get(0).unwrap();
+            let flash_loan_taker_contract_id =
+                test_fixture.e.register(FlashLoanLiquidatorContract, ());
+
+            // Deposit usdc as some lender to have a non-empty loan pool
+            test_fixture.contract_client.deposit(
+                &lender,
+                &test_fixture.usdc_pool_address,
+                &(DEFAULT_DEPOSIT_AMOUNT),
+            );
+
+            Self {
+                test_fixture,
+                flash_loan_taker_contract_id,
+            }
+        }
+    }
+
     #[test]
     fn test_flash_loan_success() {
-        let TestFixture {
-            e,
-            contract_client: lending_contract_client,
-            gold_pool_address,
-            usdc_pool_address,
-            users,
+        let FlashLoanTest {
+            test_fixture,
+            flash_loan_taker_contract_id,
             ..
-        } = TestFixture::new();
+        } = FlashLoanTest::new();
 
-        let flash_loan_taker_contract_address = e.register(FlashLoanLiquidatorContract, ());
-
-        let user: Address = users.get(0).unwrap();
-        let user2 = users.get(1).unwrap();
-
-        // Deposit gold to satisfy the health factor threshold
-        lending_contract_client.deposit(&user, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
-        // Deposit usdc as another user to have a non-empty loan pool
-        lending_contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
-
-        lending_contract_client.flash_loan(
-            &flash_loan_taker_contract_address,
-            &usdc_pool_address,
+        test_fixture.contract_client.flash_loan(
+            &flash_loan_taker_contract_id,
+            &test_fixture.usdc_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
         );
     }
 
     #[test]
     fn test_flash_loan_failure() {
-        let TestFixture {
-            e,
-            contract_client: lending_contract_client,
-            gold_pool_address,
-            usdc_pool_address,
-            users,
+        let FlashLoanTest {
+            test_fixture,
+            flash_loan_taker_contract_id,
             ..
-        } = TestFixture::new();
+        } = FlashLoanTest::new();
 
-        let flash_loan_taker_contract_address = e.register(FlashLoanLiquidatorContract, ());
-
-        let user: Address = users.get(0).unwrap();
-        let user2 = users.get(1).unwrap();
-
-        // Deposit gold to satisfy the health factor threshold
-        lending_contract_client.deposit(&user, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
-        // Deposit usdc as another user to have a non-empty loan pool
-        lending_contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
-
-        assert!(lending_contract_client
+        assert!(test_fixture
+            .contract_client
             .try_flash_loan(
-                &flash_loan_taker_contract_address,
-                &usdc_pool_address,
+                &flash_loan_taker_contract_id,
+                &test_fixture.usdc_pool_address,
                 &FAILING_CALL_AMOUNT,
             )
             .is_err());
@@ -124,29 +116,16 @@ mod test {
 
     #[test]
     fn test_flash_loan_overbalance() {
-        let TestFixture {
-            e,
-            contract_client: lending_contract_client,
-            gold_pool_address,
-            usdc_pool_address,
-            users,
+        let FlashLoanTest {
+            test_fixture,
+            flash_loan_taker_contract_id,
             ..
-        } = TestFixture::new();
-
-        let flash_loan_taker_contract_address = e.register(FlashLoanLiquidatorContract, ());
-
-        let user: Address = users.get(0).unwrap();
-        let user2 = users.get(1).unwrap();
-
-        // Deposit gold to satisfy the health factor threshold
-        lending_contract_client.deposit(&user, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
-        // Deposit usdc as another user to have a non-empty loan pool
-        lending_contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+        } = FlashLoanTest::new();
 
         assert_eq!(
-            lending_contract_client.try_flash_loan(
-                &flash_loan_taker_contract_address,
-                &usdc_pool_address,
+            test_fixture.contract_client.try_flash_loan(
+                &flash_loan_taker_contract_id,
+                &test_fixture.usdc_pool_address,
                 &(DEFAULT_DEPOSIT_AMOUNT + 1)
             ),
             Err(Ok(LCError::NotEnoughPoolFunds))

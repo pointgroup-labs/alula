@@ -764,7 +764,8 @@ fn process_deposit_multiply(
     )?;
 
     // ----- Deposit -----
-    process_deposit(e, user, &deposit_pool.token_address, amount_out)?;
+    let deposit_amount = amount_out.checked_add(amount).map_over_or_underflow()?;
+    process_deposit(e, user, deposit_pool_address, deposit_amount)?;
 
     // ----- Borrow -----
     process_borrow(e, user, borrow_pool_address, flash_borrow_amount)?;
@@ -826,7 +827,7 @@ pub fn process_withdraw_multiply(
     process_repay(e, user, borrow_pool_address, flash_borrow_amount)?;
 
     // ---- Withdraw ----
-    process_withdraw(e, user, &deposit_pool.token_address, amount)?;
+    process_withdraw(e, user, deposit_pool_address, amount)?;
 
     // ---- Swap ----
     process_swap(

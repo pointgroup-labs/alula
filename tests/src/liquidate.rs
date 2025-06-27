@@ -10,7 +10,7 @@ use {
 };
 
 struct LiquidationTest {
-    fixture: TestFixture<'static>,
+    test_fixture: TestFixture<'static>,
     borrower: Address,
     liquidator: Address,
 }
@@ -18,33 +18,33 @@ struct LiquidationTest {
 impl LiquidationTest {
     /// Creates a standard setup with healthy position
     fn new() -> Self {
-        let fixture = TestFixture::new();
-        let borrower = fixture.users.get(0).unwrap();
-        let lender = fixture.users.get(1).unwrap();
-        let liquidator = fixture.users.get(2).unwrap();
+        let test_fixture = TestFixture::new();
+        let borrower = test_fixture.users.get(0).unwrap();
+        let lender = test_fixture.users.get(1).unwrap();
+        let liquidator = test_fixture.users.get(2).unwrap();
 
         // Lender provides liquidity
-        fixture.contract_client.deposit(
+        test_fixture.contract_client.deposit(
             &lender,
-            &fixture.usdc_pool_address,
+            &test_fixture.usdc_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT * 2),
         );
 
         // Borrower deposits collateral and borrows (healthy position)
-        fixture.contract_client.add_collateral(
+        test_fixture.contract_client.add_collateral(
             &borrower,
-            &fixture.gold_pool_address,
+            &test_fixture.gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
         );
 
-        fixture.contract_client.borrow(
+        test_fixture.contract_client.borrow(
             &borrower,
-            &fixture.usdc_pool_address,
+            &test_fixture.usdc_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 3), // Conservative 33% borrow ratio
         );
 
         Self {
-            fixture,
+            test_fixture,
             borrower,
             liquidator,
         }
@@ -54,9 +54,9 @@ impl LiquidationTest {
     #[allow(dead_code)]
     fn with_liquidator_funds() -> Self {
         let setup = Self::new();
-        setup.fixture.contract_client.deposit(
+        setup.test_fixture.contract_client.deposit(
             &setup.liquidator,
-            &setup.fixture.usdc_pool_address,
+            &setup.test_fixture.usdc_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
         );
         setup
@@ -64,15 +64,15 @@ impl LiquidationTest {
 
     /// Creates a risky position closer to liquidation threshold
     fn risky() -> Self {
-        let fixture = TestFixture::new();
-        let borrower = fixture.users.get(0).unwrap();
-        let lender = fixture.users.get(1).unwrap();
-        let liquidator = fixture.users.get(2).unwrap();
+        let test_fixture = TestFixture::new();
+        let borrower = test_fixture.users.get(0).unwrap();
+        let lender = test_fixture.users.get(1).unwrap();
+        let liquidator = test_fixture.users.get(2).unwrap();
 
         // Lender provides liquidity
-        fixture.contract_client.deposit(
+        test_fixture.contract_client.deposit(
             &lender,
-            &fixture.usdc_pool_address,
+            &test_fixture.usdc_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT * 3),
         );
 
@@ -80,15 +80,19 @@ impl LiquidationTest {
         let collateral = (DEFAULT_DEPOSIT_AMOUNT * 82) / 100; // 82% collateral
         let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow
 
-        fixture
-            .contract_client
-            .add_collateral(&borrower, &fixture.gold_pool_address, &collateral);
-        fixture
-            .contract_client
-            .borrow(&borrower, &fixture.usdc_pool_address, &borrow_amount);
+        test_fixture.contract_client.add_collateral(
+            &borrower,
+            &test_fixture.gold_pool_address,
+            &collateral,
+        );
+        test_fixture.contract_client.borrow(
+            &borrower,
+            &test_fixture.usdc_pool_address,
+            &borrow_amount,
+        );
 
         Self {
-            fixture,
+            test_fixture,
             borrower,
             liquidator,
         }
@@ -96,7 +100,7 @@ impl LiquidationTest {
 
     fn make_unhealthy(&self) {
         // Accrue interest over time to increase debt
-        self.fixture
+        self.test_fixture
             .e
             .ledger()
             .with_mut(|li| li.timestamp = 365 * 24 * 60 * 60); // 1 year
@@ -104,9 +108,9 @@ impl LiquidationTest {
 
     fn borrowed_amount(&self) -> i128 {
         get_borrow_obligation(
-            &self.fixture.contract_client,
+            &self.test_fixture.contract_client,
             &self.borrower,
-            &self.fixture.usdc_pool_address,
+            &self.test_fixture.usdc_pool_address,
         )
         .unwrap()
         .borrowed
@@ -114,9 +118,9 @@ impl LiquidationTest {
 
     fn collateral_amount(&self) -> i128 {
         get_deposit_obligation(
-            &self.fixture.contract_client,
+            &self.test_fixture.contract_client,
             &self.borrower,
-            &self.fixture.gold_token_address,
+            &self.test_fixture.gold_token_address,
         )
         .unwrap()
         .collateral
@@ -137,11 +141,11 @@ impl LiquidationTest {
 fn test_liquidate_healthy_position_fails() {
     let test = LiquidationTest::new();
 
-    let result = test.fixture.contract_client.try_liquidate(
+    let result = test.test_fixture.contract_client.try_liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &1,
     );
 
@@ -153,11 +157,11 @@ fn test_liquidate_zero_amount_fails() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();
 
-    let result = test.fixture.contract_client.try_liquidate(
+    let result = test.test_fixture.contract_client.try_liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &0,
     );
 
@@ -169,11 +173,11 @@ fn test_liquidate_self_fails() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();
 
-    let result = test.fixture.contract_client.try_liquidate(
+    let result = test.test_fixture.contract_client.try_liquidate(
         &test.borrower, // Same as borrower
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &test.liquidation_amount(10),
     );
 
@@ -183,13 +187,13 @@ fn test_liquidate_self_fails() {
 #[test]
 fn test_liquidate_nonexistent_user_fails() {
     let test = LiquidationTest::new();
-    let fake_user = Address::generate(&test.fixture.e);
+    let fake_user = Address::generate(&test.test_fixture.e);
 
-    let result = test.fixture.contract_client.try_liquidate(
+    let result = test.test_fixture.contract_client.try_liquidate(
         &test.liquidator,
         &fake_user,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &1,
     );
 
@@ -267,11 +271,11 @@ fn test_liquidate_at_exact_close_factor() {
     let max_amount = test.max_liquidation_amount();
 
     // Should succeed at exactly the close factor limit
-    test.fixture.contract_client.liquidate(
+    test.test_fixture.contract_client.liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &max_amount,
     );
 
@@ -287,11 +291,11 @@ fn test_liquidate_just_under_close_factor() {
     let borrowed_before = test.borrowed_amount();
     let under_limit = test.max_liquidation_amount() - 1;
 
-    test.fixture.contract_client.liquidate(
+    test.test_fixture.contract_client.liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &under_limit,
     );
 
@@ -310,11 +314,11 @@ fn test_successful_liquidation() {
     let collateral_before = test.collateral_amount();
     let liquidation_amount = test.liquidation_amount(10); // 10%
 
-    test.fixture.contract_client.liquidate(
+    test.test_fixture.contract_client.liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &liquidation_amount,
     );
 
@@ -341,22 +345,22 @@ fn test_liquidation_reduces_health_factor() {
     let liquidation_amount = test.liquidation_amount(10); // Reduced to 10%
 
     // Check if position is actually liquidatable first
-    let first_liquidation = test.fixture.contract_client.try_liquidate(
+    let first_liquidation = test.test_fixture.contract_client.try_liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &liquidation_amount,
     );
 
     match first_liquidation {
         Ok(_) => {
             // First liquidation succeeded, now try another
-            let result = test.fixture.contract_client.try_liquidate(
+            let result = test.test_fixture.contract_client.try_liquidate(
                 &test.liquidator,
                 &test.borrower,
-                &test.fixture.usdc_pool_address,
-                &test.fixture.gold_pool_address,
+                &test.test_fixture.usdc_pool_address,
+                &test.test_fixture.gold_pool_address,
                 &liquidation_amount,
             );
 
@@ -398,11 +402,11 @@ fn test_liquidate_same_pool_fails() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();
 
-    let result = test.fixture.contract_client.try_liquidate(
+    let result = test.test_fixture.contract_client.try_liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.usdc_pool_address, // Same pool for debt and collateral
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.usdc_pool_address, // Same pool for debt and collateral
         &test.liquidation_amount(10),
     );
 
@@ -419,11 +423,11 @@ fn test_multiple_small_liquidations() {
 
     // Perform multiple small liquidations
     for i in 1..=3 {
-        let result = test.fixture.contract_client.try_liquidate(
+        let result = test.test_fixture.contract_client.try_liquidate(
             &test.liquidator,
             &test.borrower,
-            &test.fixture.usdc_pool_address,
-            &test.fixture.gold_pool_address,
+            &test.test_fixture.usdc_pool_address,
+            &test.test_fixture.gold_pool_address,
             &small_amount,
         );
 
@@ -452,7 +456,7 @@ fn test_liquidation_with_interest_accrual() {
     let test = LiquidationTest::new();
 
     // Start with healthy position, accrue interest to make it risky
-    test.fixture
+    test.test_fixture
         .e
         .ledger()
         .with_mut(|li| li.timestamp = 100 * 365 * 24 * 60 * 60); // 100 years
@@ -461,11 +465,11 @@ fn test_liquidation_with_interest_accrual() {
     let liquidation_amount = test.liquidation_amount(20);
 
     // After massive interest accrual, position should be liquidatable
-    let result = test.fixture.contract_client.try_liquidate(
+    let result = test.test_fixture.contract_client.try_liquidate(
         &test.liquidator,
         &test.borrower,
-        &test.fixture.usdc_pool_address,
-        &test.fixture.gold_pool_address,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
         &liquidation_amount,
     );
 

@@ -38,6 +38,7 @@ pub struct TestFixture<'a> {
     pub contract_client: LendingContractClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
+    pub users: Vec<Address>,
     // Oracle
     pub oracle_client: oracle::Client<'a>,
     pub oracle_address: Address,
@@ -59,7 +60,6 @@ pub struct TestFixture<'a> {
     pub usdc_token_client: TokenClient<'a>,
     pub usdc_token_address: Address,
     pub usdc_pool_address: Address,
-    pub users: Vec<Address>,
 }
 
 impl Default for TestFixture<'_> {
