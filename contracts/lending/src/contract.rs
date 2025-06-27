@@ -748,11 +748,7 @@ fn process_deposit_multiply(
     }
 
     let flash_borrowed_token_client = token::Client::new(e, borrow_pool_address);
-    flash_borrowed_token_client.transfer(
-        &e.current_contract_address(),
-        user,
-        &flash_borrow_amount,
-    );
+    flash_borrowed_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
 
     // ----- Swap -----
     let amount_in = amount
@@ -824,11 +820,7 @@ pub fn process_withdraw_multiply(
     }
 
     let flash_borrowed_token_client = token::Client::new(e, borrow_pool_address);
-    flash_borrowed_token_client.transfer(
-        &e.current_contract_address(),
-        user,
-        &flash_borrow_amount,
-    );
+    flash_borrowed_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
 
     // ---- Repay Debt ----
     process_repay(e, user, borrow_pool_address, flash_borrow_amount)?;
