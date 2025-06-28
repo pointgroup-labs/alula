@@ -14,5 +14,4 @@ moderc3156 = { workspace = true }
 lending = { path = "../lending" }
 
 [dev-dependencies]
-soroban-sdk = { workspace = true }
 tests = { path = "../../tests" }

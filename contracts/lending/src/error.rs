@@ -33,4 +33,5 @@ pub enum LendingContractError {
     InvalidSharesCalculation = 26,
     DepositPoolDoesNotExist = 27,
     BorrowPoolDoesNotExist = 28,
+    InvalidSwapSlippage = 29,
 }

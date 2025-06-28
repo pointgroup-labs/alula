@@ -554,6 +554,30 @@ impl Obligation {
 
         Ok(())
     }
+
+    pub fn get_shares(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
+            return Err(LCError::DepositDoesNotExist);
+        };
+
+        Ok(deposit_obligation.shares)
+    }
+
+    pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
+            return Err(LCError::BorrowDoesNotExist);
+        };
+
+        Ok(borrow_obligation.borrowed)
+    }
+
+    pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
+            return Err(LCError::DepositDoesNotExist);
+        };
+
+        Ok(deposit_obligation.collateral)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

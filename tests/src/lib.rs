@@ -8,7 +8,7 @@ use {
         },
         contract::{LendingContract, LendingContractClient},
         obligation::{BorrowObligation, DepositObligation},
-        oracle, swap_router,
+        oracle, soroswap_router,
     },
     soroban_sdk::{
         symbol_short,
@@ -43,8 +43,8 @@ pub struct TestFixture<'a> {
     pub oracle_client: oracle::Client<'a>,
     pub oracle_address: Address,
     // Swap Router
-    pub swap_router_client: swap_router::Client<'a>,
-    pub swap_router_address: Address,
+    pub soroswap_router_client: soroswap_router::Client<'a>,
+    pub soroswap_router_address: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
@@ -98,9 +98,9 @@ impl TestFixture<'_> {
         e.register_at(&oracle_address, oracle::WASM, ());
         let oracle_client = oracle::Client::new(&e, &oracle_address);
 
-        let swap_router_address = Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS);
-        e.register_at(&swap_router_address, swap_router::WASM, ());
-        let swap_router_client = swap_router::Client::new(&e, &swap_router_address);
+        let soroswap_router_address = Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS);
+        e.register_at(&soroswap_router_address, soroswap_router::WASM, ());
+        let soroswap_router_client = soroswap_router::Client::new(&e, &soroswap_router_address);
 
         let users = vec![
             &e,
@@ -114,7 +114,7 @@ impl TestFixture<'_> {
             sac_client: gold_sac,
             token_client: gold_token_client,
             token_address: gold_token_address,
-        } = setup_test_asset(&e, &swap_router_address, &users);
+        } = setup_test_asset(&e, &soroswap_router_address, &users);
         let gold_pool_address = contract_client.initialize_pool(
             &gold_token_address,
             &symbol_short!("GOLD"),
@@ -127,7 +127,7 @@ impl TestFixture<'_> {
             sac_client: btc_sac,
             token_client: btc_token_client,
             token_address: btc_token_address,
-        } = setup_test_asset(&e, &swap_router_address, &users);
+        } = setup_test_asset(&e, &soroswap_router_address, &users);
         let btc_pool_address = contract_client.initialize_pool(
             &btc_token_address,
             &symbol_short!("BTC"),
@@ -140,7 +140,7 @@ impl TestFixture<'_> {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
             token_address: usdc_token_address,
-        } = setup_test_asset(&e, &swap_router_address, &users);
+        } = setup_test_asset(&e, &soroswap_router_address, &users);
         let usdc_pool_address = contract_client.initialize_pool(
             &usdc_token_address,
             &symbol_short!("USDC"),
@@ -157,8 +157,8 @@ impl TestFixture<'_> {
             oracle_client,
             oracle_address,
             // Swap router
-            swap_router_client,
-            swap_router_address,
+            soroswap_router_client,
+            soroswap_router_address,
             // GOLD
             gold_sac,
             gold_token_client,
