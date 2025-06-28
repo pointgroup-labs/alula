@@ -876,8 +876,7 @@ pub fn process_deleverage_and_withdraw(
         amount_in,
     )?;
 
-    // TODO: Swap as `swap_tokens_for_exact_tokens`
-    swap::swap_exact_tokens_for_tokens(
+    swap::swap_tokens_for_exact_tokens(
         e,
         user,
         &deposit_pool.token_address,
