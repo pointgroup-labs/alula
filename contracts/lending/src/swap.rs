@@ -8,7 +8,6 @@ use {
         math_utils::MathUtils,
         soroswap_router,
     },
-    core::u64,
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{Address, Env},
 };
@@ -89,7 +88,7 @@ pub fn swap_tokens_for_exact_tokens(
     };
 
     let soroswap_router_client =
-        soroswap_router::Client::new(&e, &Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
 
     let amount_in_max = amount_in
         .checked_add(
@@ -176,7 +175,7 @@ pub fn swap_exact_tokens_for_tokens(
     };
 
     let soroswap_router_client =
-        soroswap_router::Client::new(&e, &Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
 
     let amount_out_min = amount_out
         .checked_sub(
