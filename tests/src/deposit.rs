@@ -26,7 +26,7 @@ fn test_deposit() {
         .shares;
     let pool_deposited = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_shares;
 
     // TODO: We should introduce operation fees which will make the deposited amount smaller
@@ -51,7 +51,7 @@ fn test_add_collateral() {
         .collateral;
     let pool_collateral = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_collateral;
 
     assert_eq!(obligation_collateral, DEFAULT_COLLATERAL_AMOUNT);

@@ -294,9 +294,9 @@ pub fn assert_invariants(fixture: &TestFixture) {
     } = fixture;
 
     // Get all pools
-    let usdc_pool = contract_client.get_pool(usdc_pool_address).unwrap();
-    let gold_pool = contract_client.get_pool(gold_pool_address).unwrap();
-    let btc_pool = contract_client.get_pool(btc_pool_address).unwrap();
+    let usdc_pool = contract_client.get_pool(usdc_pool_address);
+    let gold_pool = contract_client.get_pool(gold_pool_address);
+    let btc_pool = contract_client.get_pool(btc_pool_address);
 
     // Basic non-negative invariants
     // All data on all pools must be non-negative
@@ -659,9 +659,7 @@ pub fn get_obligation_tokens_from_shares(
 ) -> Result<i128, LCError> {
     let shares = get_obligation_shares(contract_client, user, pool_address)?;
 
-    let Some(pool) = contract_client.get_pool(pool_address) else {
-        return Err(LCError::PoolDoesNotExist);
-    };
+    let pool = contract_client.get_pool(pool_address);
 
     pool.compute_tokens_from_shares(shares)
 }

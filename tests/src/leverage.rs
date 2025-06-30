@@ -171,8 +171,8 @@ fn test_deposit_with_leverage() {
     assert_eq!(obligation_tokens_from_shares, expected_deposited_amount);
 
     // Check pools
-    let deposit_pool = contract_client.get_pool(&usdc_pool_address).unwrap();
-    let borrow_pool = contract_client.get_pool(&gold_pool_address).unwrap();
+    let deposit_pool = contract_client.get_pool(&usdc_pool_address);
+    let borrow_pool = contract_client.get_pool(&gold_pool_address);
 
     let total_deposited = deposit_pool.total_liquidity().unwrap();
     let total_borrowed = borrow_pool.total_borrowed;
@@ -291,10 +291,10 @@ fn test_withdraw() {
     assert!(obligation_borrowed > expected_borrow_left_lower_bound_amount);
 
     // Check pools
-    let deposit_pool = contract_client.get_pool(&usdc_pool_address).unwrap();
+    let deposit_pool = contract_client.get_pool(&usdc_pool_address);
     let total_deposited = deposit_pool.total_liquidity().unwrap();
 
-    let borrow_pool = contract_client.get_pool(&gold_pool_address).unwrap();
+    let borrow_pool = contract_client.get_pool(&gold_pool_address);
     let total_borrowed = borrow_pool.total_borrowed;
 
     assert_eq!(total_deposited, obligation_tokens_from_shares);

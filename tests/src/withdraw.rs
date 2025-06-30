@@ -24,7 +24,7 @@ fn test_withdraw() {
         .shares;
     let pool_shares = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_shares;
 
     assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
@@ -38,7 +38,7 @@ fn test_withdraw() {
         .shares;
     let pool_shares = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_shares;
 
     assert_eq!(obligation_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
@@ -54,7 +54,7 @@ fn test_withdraw() {
 
     let pool_shares = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_shares;
 
     assert_eq!(pool_shares, 0);
@@ -77,7 +77,7 @@ fn test_remove_collateral() {
         .collateral;
     let pool_collateral = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_collateral;
 
     assert_eq!(obligation_collateral, DEFAULT_COLLATERAL_AMOUNT);
@@ -91,7 +91,7 @@ fn test_remove_collateral() {
         .collateral;
     let pool_collateral = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_collateral;
 
     assert_eq!(obligation_collateral, (DEFAULT_COLLATERAL_AMOUNT / 2));
@@ -107,7 +107,7 @@ fn test_remove_collateral() {
 
     let pool_collateral = contract_client
         .get_pool(&usdc_pool_address)
-        .unwrap()
+        // .unwrap()
         .total_collateral;
 
     assert_eq!(pool_collateral, 0);

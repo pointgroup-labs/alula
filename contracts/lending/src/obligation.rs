@@ -13,6 +13,8 @@ use {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[contracttype]
 pub struct Obligation {
+    /// The obligation's user
+    pub user: Address,
     /// Deposited collateral for the obligation, unique by deposit pool address
     pub deposits: Map<PoolAddress, DepositObligation>,
     /// Borrowed liquidity for the obligation, unique by borrow pool address
@@ -26,8 +28,9 @@ pub struct Obligation {
 }
 
 impl Obligation {
-    pub fn new(e: &Env) -> Self {
+    pub fn new(e: &Env, user: Address) -> Self {
         Self {
+            user,
             deposits: Map::new(e),
             borrows: Map::new(e),
         }
@@ -36,7 +39,7 @@ impl Obligation {
     /// Accrues interest on all borrows for the obligation
     ///
     /// # WARN
-    /// This modifies the pool's data in the storage
+    /// Modifies the contract's storage
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         for (pool_address, mut borrow_obligation) in self.borrows.iter() {
             borrow_obligation.accrue_interest(e, &pool_address)?;
@@ -516,6 +519,55 @@ impl Obligation {
         Ok(liquidated_amount)
     }
 
+    pub fn get_shares(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
+            return Err(LCError::DepositDoesNotExist);
+        };
+
+        Ok(deposit_obligation.shares)
+    }
+
+    pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
+            return Err(LCError::BorrowDoesNotExist);
+        };
+
+        Ok(borrow_obligation.borrowed)
+    }
+
+    pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
+            return Err(LCError::DepositDoesNotExist);
+        };
+
+        Ok(deposit_obligation.collateral)
+    }
+
+    /// Saves\updates obligation in the contract's storage
+    ///
+    /// # WARN
+    /// Modifies the contract's storage
+    pub fn set(&self, e: &Env) {
+        storage::set_obligation(e, &self.user, self);
+    }
+
+    /// Tries to get the user's obligation from the contract's storage
+    ///
+    /// # Returns
+    /// - `[Ok(Obligation)]` if a pool with the given address exists in the contract's storage
+    /// - `[Err(LCError::ObligationDoesNotExist)]` otherwise
+    pub fn try_get(e: &Env, user: &Address) -> Result<Self, LCError> {
+        storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)
+    }
+
+    /// Removes obligation from the contract's storage
+    ///
+    /// # WARN
+    /// Modifies the contract's storage
+    pub fn remove(self, e: &Env) {
+        storage::remove_obligation(e, &self.user);
+    }
+
     fn adjust_shares(
         &mut self,
         pool_address: &Address,
@@ -553,30 +605,6 @@ impl Obligation {
         self.deposits.set(pool_address.clone(), deposit_obligation);
 
         Ok(())
-    }
-
-    pub fn get_shares(&self, pool_address: &Address) -> Result<i128, LCError> {
-        let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
-            return Err(LCError::DepositDoesNotExist);
-        };
-
-        Ok(deposit_obligation.shares)
-    }
-
-    pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, LCError> {
-        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
-            return Err(LCError::BorrowDoesNotExist);
-        };
-
-        Ok(borrow_obligation.borrowed)
-    }
-
-    pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, LCError> {
-        let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
-            return Err(LCError::DepositDoesNotExist);
-        };
-
-        Ok(deposit_obligation.collateral)
     }
 }
 
@@ -648,7 +676,7 @@ impl BorrowObligation {
     /// Accrues interest on a borrow obligation
     ///
     /// # WARN
-    /// This modifies the pool's data in the storage
+    /// Modifies the contract's storage
     pub fn accrue_interest(&mut self, e: &Env, pool_address: &Address) -> Result<(), LCError> {
         let mut pool = storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
         pool.accrue_interest(e)?;

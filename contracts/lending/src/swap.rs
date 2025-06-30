@@ -12,6 +12,9 @@ use {
     soroban_sdk::{Address, Env},
 };
 
+// TODO: Maybe, create some internal trait for common swap operations and
+// implement it for different swap providers
+
 /// Gets the amount that user would receive if performed a swap at the current moment
 ///
 /// ### Arguments
@@ -27,6 +30,7 @@ pub fn get_amount_out(
 ) -> Result<i128, LCError> {
     let amount_out;
 
+    // TODO: It's likely can be rewritten in a better way
     #[cfg(feature = "deploy")]
     {
         use {crate::constants::SOROSWAP_FACTORY_TESTNET_ADDRESS, soroswap_library};
@@ -37,6 +41,8 @@ pub fn get_amount_out(
         );
 
         let soroswap_factory_address = Address::from_str(e, SOROSWAP_FACTORY_TESTNET_ADDRESS);
+
+        // TODO: Check for reserves from factory contract
         let (reserve_in, reserve_out) = soroswap_library::get_reserves_with_factory(
             e.clone(),
             soroswap_factory_address,
@@ -48,6 +54,7 @@ pub fn get_amount_out(
             soroswap_router_client.router_get_amount_out(&amount_in, &reserve_in, &reserve_out);
     }
 
+    // Returns amount in because of 1:1 rate in tests suite
     #[cfg(not(feature = "deploy"))]
     {
         amount_out = amount_in;

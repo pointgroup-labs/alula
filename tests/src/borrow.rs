@@ -27,10 +27,7 @@ fn test_borrow() {
     let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .borrowed;
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        .unwrap()
-        .total_borrowed;
+    let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
 
     assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT);
