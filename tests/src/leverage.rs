@@ -14,7 +14,7 @@ use {
 // ---- Deposit with leverage ----
 
 #[test]
-fn test_deposit_with_negative_leverage() {
+fn test_deposit_with_too_small_leverage_multiplier() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -26,13 +26,13 @@ fn test_deposit_with_negative_leverage() {
     let user = users.get(0).unwrap();
 
     assert_eq!(
-        Err(Ok(LCError::NegativeLeverage)),
+        Err(Ok(LCError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
             &user,
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
-            &-1,
+            &7,
         )
     );
 }
@@ -54,7 +54,7 @@ fn test_deposit_with_no_leverage() {
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
-        &0,
+        &10, // x1
     );
 
     // Check if this is equivalent to a plain deposit
@@ -88,7 +88,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
-            &(1),
+            &11,
         ),
         Err(Ok(LCError::NotEnoughPoolFunds))
     );
@@ -116,7 +116,7 @@ fn test_deposit_with_unhealthy_leverage() {
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
-            &(40 * DEFAULT_DEPOSIT_AMOUNT),
+            &400,
         ),
         Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
     );
@@ -149,7 +149,7 @@ fn test_deposit_with_leverage() {
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
-        &FLASH_BORROW_AMOUNT, // x4 leverage
+        &40, // x4 leverage
     );
 
     // Check obligation
@@ -185,8 +185,6 @@ fn test_deposit_with_leverage() {
 
 #[test]
 fn test_withdraw_non_positive() {
-    const FLASH_BORROW_AMOUNT: i128 = 3 * DEFAULT_DEPOSIT_AMOUNT;
-
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -210,7 +208,7 @@ fn test_withdraw_non_positive() {
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
-        &FLASH_BORROW_AMOUNT, // x4 leverage
+        &40, // x4 leverage
     );
 
     assert_eq!(
@@ -226,8 +224,6 @@ fn test_withdraw_non_positive() {
 
 #[test]
 fn test_withdraw() {
-    const FLASH_BORROW_AMOUNT: i128 = 3 * DEFAULT_DEPOSIT_AMOUNT;
-
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -251,7 +247,7 @@ fn test_withdraw() {
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
-        &FLASH_BORROW_AMOUNT, // x4 leverage
+        &40, // x4 leverage
     );
 
     let withdrawable_amount = get_amount_scaled_down(DEFAULT_DEPOSIT_AMOUNT, 2_00); // must be withing 2%
@@ -303,8 +299,6 @@ fn test_withdraw() {
 
 #[test]
 fn test_withdraw_over_balance() {
-    const FLASH_BORROW_AMOUNT: i128 = 3 * DEFAULT_DEPOSIT_AMOUNT;
-
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -319,16 +313,12 @@ fn test_withdraw_over_balance() {
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(100 * DEFAULT_DEPOSIT_AMOUNT));
 
-    // The formula to calculate max leverage:
-    // flash_borrow_amount = borrow_amount * 1 / (1 - LTV).
-    // LTV is 80% for now by default, so it's equivalent to multiply by the borrowed amount by 5
-
     contract_client.deposit_with_leverage(
         &user,
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
-        &FLASH_BORROW_AMOUNT, // x4 leverage
+        &40, // x4 leverage
     );
 
     let withdrawable_amount = get_amount_scaled_down(DEFAULT_DEPOSIT_AMOUNT, 2_00);

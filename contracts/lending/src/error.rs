@@ -30,6 +30,6 @@ pub enum LendingContractError {
     SelfLiquidation = 24,
     DepositPoolDoesNotExist = 27,
     BorrowPoolDoesNotExist = 28,
-    NegativeLeverage = 29,
+    InvalidLeverageMultiplier = 29,
     InvalidSwapSlippage = 30,
 }

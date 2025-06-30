@@ -2,7 +2,8 @@ use {
     crate::{
         constants::{
             LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
-            DEFAULT_LIQUIDATION_THRESHOLD, REFLECTOR_TESTNET_ADDRESS,
+            DEFAULT_LIQUIDATION_THRESHOLD, MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
+            REFLECTOR_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
         math_utils::MathUtils,
@@ -251,14 +252,14 @@ impl LendingContract {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     /// * `amount` - original borrow amount before the leverage
-    /// * `flash_borrow_amount` - flash borrowed amount that creates the leverage
+    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 7.0 for x7, 2.5 for x2.5
     pub fn deposit_with_leverage(
         e: Env,
         user: Address,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
         amount: i128,
-        flash_borrow_amount: i128,
+        leverage_multiplier: u32,
     ) -> Result<(), LCError> {
         user.require_auth();
 
@@ -268,7 +269,7 @@ impl LendingContract {
             &deposit_pool_address,
             &borrow_pool_address,
             amount,
-            flash_borrow_amount,
+            leverage_multiplier,
         )
     }
 
@@ -714,15 +715,27 @@ fn process_deposit_with_leverage(
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
     amount: i128,
-    flash_borrow_amount: i128, // 1 - 9 | TODO: via multiply factor
+    leverage_multiplier: u32,
 ) -> Result<(), LCError> {
     if amount <= 0 {
         return Err(LCError::NonPositiveDeposit);
     }
 
-    if flash_borrow_amount < 0 {
-        return Err(LCError::NegativeLeverage);
+    if leverage_multiplier < MIN_LEVERAGE_MULTIPLIER
+        || leverage_multiplier > MAX_LEVERAGE_MULTIPLIER
+    {
+        return Err(LCError::InvalidLeverageMultiplier);
     }
+
+    let flash_borrow_amount = {
+        let leverage_multiplier = leverage_multiplier as i128;
+
+        let scaled = leverage_multiplier
+            .checked_mul(amount)
+            .map_over_or_underflow()?
+            - amount.checked_mul(10).map_over_or_underflow()?; // safe
+        scaled / 10 // safe
+    };
 
     let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
         return Err(LCError::CollateralPoolDoesNotExist);
@@ -733,7 +746,7 @@ fn process_deposit_with_leverage(
     };
 
     let flash_loaned_token_client = token::Client::new(e, borrow_pool_address);
-    if flash_borrow_amount != 0 {
+    if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
         // Flash Borrow
         // TODO: Think of why it can be beneficial to account for flash borrow limits as on Save.Finance
         if borrow_pool.available < flash_borrow_amount {
@@ -770,7 +783,7 @@ fn process_deposit_with_leverage(
     // Deposit swapped tokens
     process_deposit(e, user, deposit_pool_address, deposit_amount)?;
 
-    if flash_borrow_amount != 0 {
+    if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
         // Borrow to repay the flash loan
         let flash_loan_fee = flash_borrow_amount
             .fixed_div_ceil(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
