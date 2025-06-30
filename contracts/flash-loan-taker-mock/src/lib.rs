@@ -17,10 +17,13 @@ pub struct FlashLoanLiquidatorContract;
 #[contractimpl]
 impl moderc3156::ModErc3156 for FlashLoanLiquidatorContract {
     fn exec_op(e: Env, caller: Address, token: Address, amount: i128, _fee: i128) {
+        // In the real-world contract that utilizes flash loans, I believe you'd have to check for a specific caller
+        // to forbid other contracts from invoking `exec_op`
         caller.require_auth();
 
         let flash_loan_token_client = TokenClient::new(&e, &token);
         let flash_loan_received = flash_loan_token_client.balance(&e.current_contract_address());
+
         assert_eq!(
             flash_loan_received, amount,
             "Flash borrow should've taken place"
