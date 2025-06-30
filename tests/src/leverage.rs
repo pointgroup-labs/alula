@@ -2,11 +2,12 @@
 
 use {
     crate::{
-        get_borrow_obligation, get_obligation_borrowed,
-        get_obligation_tokens_from_shares, TestFixture, DEFAULT_COLLATERAL_AMOUNT,
-        DEFAULT_DEPOSIT_AMOUNT,
+        get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
+        TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
     },
-    lending::constants::{LCError, BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS},
+    lending::constants::{
+        LCError, BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS,
+    },
     soroban_fixed_point_math::FixedPoint,
 };
 
