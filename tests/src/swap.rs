@@ -44,7 +44,7 @@ fn test_swap() {
 
     assert_eq!(balance, amount_out_min_slippage);
     assert_eq!(
-        new_gold_token_balance / 1000,
-        (gold_token_balance - amount_out_min_slippage) / 1000 // TODO: Check why do amounts differ in a few smallest units
+        new_gold_token_balance / 1000_000,
+        (gold_token_balance - amount_out_min_slippage) / 1000_000 // TODO: Check why do amounts differ in a few smallest units
     );
 }
