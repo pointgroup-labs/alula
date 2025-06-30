@@ -108,13 +108,9 @@ impl LendingContract {
         token_out: Address,
         amount_in: i128,
     ) -> Result<i128, LCError> {
-        let amount_out = swap::get_amount_out(&e, &token_in, &token_out, amount_in)?;
+        user.require_auth();
 
-        let received_amount = swap::swap_exact_tokens_for_tokens(
-            &e, &user, &token_in, &token_out, amount_in, amount_out, None,
-        )?;
-
-        Ok(received_amount)
+        process_swap(&e, &user, &token_in, &token_out, amount_in)
     }
 
     /// Borrows tokens from the loan pool
@@ -413,6 +409,22 @@ pub fn process_deposit(
     Ok(())
 }
 
+fn process_swap(
+    e: &Env,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in: i128,
+) -> Result<i128, LCError> {
+    let amount_out = swap::get_amount_out(&e, &token_in, &token_out, amount_in)?;
+
+    let received_amount = swap::swap_exact_tokens_for_tokens(
+        e, user, token_in, token_out, amount_in, amount_out, None,
+    )?;
+
+    Ok(received_amount)
+}
+
 fn process_borrow(
     e: &Env,
     user: &Address,
@@ -680,14 +692,11 @@ fn process_flash_loan(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    const BPS_FACTOR: i128 = 10_000;
-
     if amount <= 0 {
         return Err(LCError::NonPositiveFlashLoan);
     }
 
     let pool = Pool::try_get(e, pool_address)?;
-
     if pool.available < amount {
         return Err(LCError::NotEnoughPoolFunds);
     }
@@ -705,9 +714,7 @@ fn process_flash_loan(
 
     // WARN: Does this have enough precision?
     let fees = amount
-        .checked_mul(DEFAULT_FLASH_LOAN_FEE_BPS)
-        .map_over_or_underflow()?
-        .checked_div(BPS_FACTOR)
+        .fixed_div_floor(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
         .map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
@@ -753,7 +760,7 @@ fn process_deposit_with_leverage(
     let flash_loaned_token_client = token::Client::new(e, borrow_pool_address);
     if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
         // Flash Borrow
-        // TODO: Think of why it can be beneficial to account for flash borrow limits as on Save.Finance
+        // TODO: Think of why it can be beneficial to account for flash borrow limits as in other lending protocols
         if borrow_pool.available < flash_borrow_amount {
             return Err(LCError::NotEnoughPoolFunds);
         }
@@ -825,7 +832,7 @@ pub fn process_deleverage_and_withdraw(
         return Err(LCError::NonPositiveWithdraw);
     }
 
-    let Ok(borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
+    let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
         return Err(LCError::CollateralPoolDoesNotExist);
     };
 
@@ -879,6 +886,7 @@ pub fn process_deleverage_and_withdraw(
 
     // Repay Debt
     process_repay(e, user, borrow_pool_address, flash_borrow_amount)?;
+    borrow_pool.refresh(e)?;
 
     // Withdraw
     let withdraw_amount = amount
@@ -919,12 +927,6 @@ pub fn process_deleverage_and_withdraw(
 
     flash_borrowed_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
 
-    // `borrow pool` was refreshed by `process_repay`
-    let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
-        // Broken invariant
-        return Err(LCError::InternalError);
-    };
-
     borrow_pool.adjust_available(flash_loan_fee)?;
     borrow_pool.set(e);
 
@@ -962,24 +964,4 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
     Ok(last_price.price)
-}
-
-pub fn process_swap(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
-    amount_out: i128,
-    max_slippage_bps: Option<i128>,
-) -> Result<i128, LCError> {
-    swap::swap_exact_tokens_for_tokens(
-        e,
-        user,
-        token_in,
-        token_out,
-        amount_in,
-        amount_out,
-        max_slippage_bps,
-    )
 }

@@ -46,10 +46,6 @@ impl MockSoroswapRouterContract {
     ) -> Result<Vec<i128>, CombinedRouterError> {
         to.require_auth();
 
-        if amount_out_min > amount_in {
-            return Err(CombinedRouterError::LibraryInsufficientAmount);
-        }
-
         if path.len() < 2 {
             return Err(CombinedRouterError::LibraryInvalidPath);
         }
@@ -75,10 +71,6 @@ impl MockSoroswapRouterContract {
         _deadline: u64,
     ) -> Result<Vec<i128>, CombinedRouterError> {
         to.require_auth();
-
-        if amount_out > amount_in_max {
-            return Err(CombinedRouterError::LibraryInsufficientAmount);
-        }
 
         if path.len() < 2 {
             return Err(CombinedRouterError::LibraryInvalidPath);

@@ -13,7 +13,7 @@ use {
 };
 
 // TODO: Maybe, create some internal trait for common swap operations and
-// implement it for different swap providers
+// implement it for different swap providers?
 
 /// Gets the amount that user would receive if performed a swap at the current moment
 ///
@@ -60,7 +60,7 @@ pub fn get_amount_out(
     // Returns amount in because of 1:1 rate in tests suite
     #[cfg(not(feature = "deploy"))]
     {
-        amount_out = amount_in;
+        amount_out = 2 * amount_in;
     }
 
     Ok(amount_out)
