@@ -12,6 +12,7 @@ use {
         storage::{self, GlobalState},
         swap,
     },
+    core::{borrow, ops::Add},
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, Symbol, Vec},
@@ -91,6 +92,22 @@ impl LendingContract {
         user.require_auth();
 
         process_deposit(&e, &user, &pool_address, amount)
+    }
+
+    pub fn test_swap(
+        e: Env,
+        user: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_in: i128,
+    ) -> Result<i128, LCError> {
+        let amount_out = swap::get_amount_out(&e, &token_in, &token_out, amount_in)?;
+
+        let received_amount = swap::swap_tokens_for_exact_tokens(
+            &e, &user, &token_in, &token_out, amount_in, amount_out, None,
+        )?;
+
+        Ok(received_amount)
     }
 
     /// Borrows tokens from the loan pool
@@ -730,6 +747,10 @@ fn process_deposit_with_leverage(
         return Err(LCError::NonPositiveDeposit);
     }
 
+    if flash_borrow_amount < 0 {
+        return Err(LCError::NegativeLeverage);
+    }
+
     let Some(mut borrow_pool) = storage::get_pool(e, borrow_pool_address) else {
         return Err(LCError::CollateralPoolDoesNotExist);
     };
@@ -738,13 +759,19 @@ fn process_deposit_with_leverage(
         return Err(LCError::DepositDoesNotExist);
     };
 
-    // Flash Borrow
-    if borrow_pool.available < flash_borrow_amount {
-        return Err(LCError::NotEnoughPoolFunds);
-    }
-
     let flash_loaned_token_client = token::Client::new(e, borrow_pool_address);
-    flash_loaned_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
+    if flash_borrow_amount != 0 {
+        // Flash Borrow
+        if borrow_pool.available < flash_borrow_amount {
+            return Err(LCError::NotEnoughPoolFunds);
+        }
+
+        flash_loaned_token_client.transfer(
+            &e.current_contract_address(),
+            user,
+            &flash_borrow_amount,
+        );
+    }
 
     // Swap
     let amount_in = amount
@@ -769,21 +796,33 @@ fn process_deposit_with_leverage(
     // Deposit swapped tokens
     process_deposit(e, user, deposit_pool_address, deposit_amount)?;
 
-    // Borrow to repay the flash loan
-    let flash_loan_fee = flash_borrow_amount
-        .fixed_div_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
-        .map_over_or_underflow()?;
-    let flash_repay_amount = flash_loan_fee
-        .checked_add(flash_borrow_amount)
-        .map_over_or_underflow()?;
+    if flash_borrow_amount != 0 {
+        // Borrow to repay the flash loan
+        let flash_loan_fee = flash_borrow_amount
+            .fixed_div_ceil(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
+            .map_over_or_underflow()?;
+        let flash_repay_amount = flash_loan_fee
+            .checked_add(flash_borrow_amount)
+            .map_over_or_underflow()?;
 
-    process_borrow(e, user, borrow_pool_address, flash_repay_amount)?;
+        process_borrow(e, user, borrow_pool_address, flash_repay_amount)?;
 
-    // Repay flash loan
-    flash_loaned_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
+        // Repay flash loan
+        flash_loaned_token_client.transfer(
+            user,
+            &e.current_contract_address(),
+            &flash_repay_amount,
+        );
 
-    borrow_pool.adjust_available(flash_loan_fee)?;
-    storage::set_pool(e, borrow_pool_address, &borrow_pool);
+        // `borrow pool` was refreshed by `process_borrow`
+        let Some(mut borrow_pool) = storage::get_pool(&e, &borrow_pool_address) else {
+            // Broken invariant
+            return Err(LCError::InternalError);
+        };
+
+        borrow_pool.adjust_available(flash_loan_fee)?;
+        storage::set_pool(e, borrow_pool_address, &borrow_pool);
+    }
 
     Ok(())
 }
@@ -836,18 +875,15 @@ pub fn process_deleverage_and_withdraw(
 
     let plain_leverage_amount = tokens_per_shares - amount; // safe, right?
     let plain_leverage_scaled = plain_leverage_amount
-        .fixed_div_floor(scale_bps, BPS_FACTOR)
+        .fixed_div_floor(BPS_FACTOR, scale_bps)
         .map_over_or_underflow()?;
-
-    // This plain leverage diff we must deduce from the
-    let plain_leverage_diff = plain_leverage_amount - plain_leverage_scaled; // safe, right?
 
     // ---- Flash Borrow ----
     let flash_borrow_amount = swap::get_amount_out(
         e,
         &deposit_pool.token_address,
         &borrow_pool.token_address,
-        plain_leverage_diff,
+        plain_leverage_scaled,
     )?;
 
     if borrow_pool.available < flash_borrow_amount {
@@ -862,7 +898,7 @@ pub fn process_deleverage_and_withdraw(
 
     // Withdraw
     let withdraw_amount = amount
-        .checked_add(plain_leverage_diff)
+        .checked_add(plain_leverage_scaled)
         .map_over_or_underflow()?;
     process_withdraw(e, user, deposit_pool_address, withdraw_amount)?;
 
@@ -897,6 +933,12 @@ pub fn process_deleverage_and_withdraw(
         .map_over_or_underflow()?;
 
     flash_borrowed_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
+
+    // `borrow pool` was refreshed by `process_repay`
+    let Some(mut borrow_pool) = storage::get_pool(&e, &borrow_pool_address) else {
+        // Broken invariant
+        return Err(LCError::InternalError);
+    };
 
     borrow_pool.adjust_available(flash_loan_fee)?;
     storage::set_pool(e, borrow_pool_address, &borrow_pool);

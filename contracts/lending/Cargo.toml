@@ -9,7 +9,7 @@ crate-type = ["lib", "cdylib"]
 doctest = true
 
 [dependencies]
-soroban-fixed-point-math = "1.3.0"
+soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 moderc3156 = { workspace = true }
 soroswap-library = "2.0.0"

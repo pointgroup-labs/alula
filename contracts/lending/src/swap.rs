@@ -93,7 +93,7 @@ pub fn swap_tokens_for_exact_tokens(
     let amount_in_max = amount_in
         .checked_add(
             amount_in
-                .fixed_div_floor(max_slippage_bps, BPS_FACTOR)
+                .fixed_div_floor(BPS_FACTOR, max_slippage_bps)
                 .map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
@@ -113,35 +113,6 @@ pub fn swap_tokens_for_exact_tokens(
     let received_amount = swap_amounts.last().ok_or(LCError::InternalError)?;
 
     Ok(received_amount)
-
-    // todo!()
-    // let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
-    //     if slippage <= 0 || slippage > BPS_FACTOR {
-    //         return Err(LCError::InvalidSwapSlippage);
-    //     }
-
-    //     slippage
-    // } else {
-    //     DEFAULT_MAX_SLIPPAGE_BPS
-    // };
-
-    // let sac_client = StellarAssetClient::new(e, token_out);
-    // let token_client = TokenClient::new(e, token_in);
-
-    // let max_slippage_amount = amount_in
-    //     .checked_mul(max_slippage_bps)
-    //     .map_over_or_underflow()?
-    //     .checked_div(BPS_FACTOR)
-    //     .map_over_or_underflow()?;
-
-    // let amount_in = amount_in
-    //     .checked_sub(max_slippage_amount)
-    //     .map_over_or_underflow()?;
-
-    // sac_client.mint(user, &amount_out);
-    // token_client.burn(user, &amount_in);
-
-    // Ok(amount_in)
 }
 
 /// Swaps user's tokens
@@ -180,7 +151,7 @@ pub fn swap_exact_tokens_for_tokens(
     let amount_out_min = amount_out
         .checked_sub(
             amount_out
-                .fixed_div_floor(max_slippage_bps, BPS_FACTOR)
+                .fixed_div_floor(BPS_FACTOR, max_slippage_bps)
                 .map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
@@ -200,79 +171,4 @@ pub fn swap_exact_tokens_for_tokens(
     let received_amount = swap_amounts.last().ok_or(LCError::InternalError)?;
 
     Ok(received_amount)
-
-    // let sac_client = StellarAssetClient::new(e, token_out);
-    // let token_client = TokenClient::new(e, token_in);
-
-    // let max_slippage_amount = amount_in
-    //     .checked_mul(max_slippage_bps)
-    //     .map_over_or_underflow()?
-    //     .checked_div(BPS_FACTOR)
-    //     .map_over_or_underflow()?;
-
-    // let amount_out = amount_out
-    //     .checked_sub(max_slippage_amount)
-    //     .map_over_or_underflow()?;
-
-    // sac_client.mint(user, &amount_out);
-    // token_client.burn(user, &amount_in);
-
-    // >>>> DRAFT >>>>
-    // // Swap all initial and borrowed tokens
-    // let soroswap_router_address =
-    //     Address::from_string(&String::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
-    // let soroswap_router_contract = soroswap_router::Client::new(&e, &swap_router_address);
-
-    // let (mut reserve_a, mut reserve_b) = (0, 0);
-
-    // // #[cfg(feature = "deploy")]
-    // // {
-    // //     let factory = soroswap_router_contract.get_factory();
-
-    // //     let (a, b) = soroswap_library::get_reserves_with_factory(
-    // //         e.clone(),
-    // //         factory.clone(),
-    // //         collateral_pool.token_address.clone(),
-    // //         deposit_pool.token_address.clone(),
-    // //     )
-    // //     .unwrap();
-
-    // //     reserve_a = a;
-    // //     reserve_b = b;
-    // // };
-
-    // #[cfg(not(feature = "deploy"))]
-    // {
-    //     reserve_a = 1_000_000;
-    //     reserve_b = 1_000_000;
-    // };
-
-    // let amount_in = collateral_amount
-    //     .checked_add(flash_borrow_amount)
-    //     .map_over_or_underflow()?;
-
-    // let amount_out = soroswap_router_contract.router_get_amount_out(&amount_in, &reserve_a, &reserve_b);
-
-    // let amount_out_min = amount_out
-    //     .checked_mul(BPS_FACTOR - TEST_SLIPPAGE_BPS)
-    //     .map_over_or_underflow()?
-    //     .checked_div(BPS_FACTOR)
-    //     .map_over_or_underflow()?;
-
-    // let path = soroban_sdk::vec![
-    //     &e,
-    //     collateral_pool.token_address,
-    //     deposit_pool.token_address.clone()
-    // ];
-
-    // let amounts = soroswap_router_contract.swap_exact_tokens_for_tokens(
-    //     &amount_in,
-    //     &amount_out_min,
-    //     &path,
-    //     &user,
-    //     &0,
-    // );
-    // <<<< DRAFT <<<<
-
-    // Ok(amount_out)
 }

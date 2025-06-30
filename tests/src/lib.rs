@@ -641,6 +641,54 @@ impl Liquidate {
 }
 
 #[allow(unused)]
+pub fn get_obligation_shares(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.shares)
+}
+
+#[allow(unused)]
+pub fn get_obligation_tokens_from_shares(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let shares = get_obligation_shares(contract_client, user, pool_address)?;
+
+    let Some(pool) = contract_client.get_pool(&pool_address) else {
+        return Err(LCError::PoolDoesNotExist);
+    };
+
+    Ok(pool.compute_tokens_from_shares(shares)?)
+}
+
+#[allow(unused)]
+pub fn get_obligation_borrowed(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let borrow_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
+
+    Ok(borrow_obligation.borrowed)
+}
+
+#[allow(unused)]
+pub fn get_obligation_collateral(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.collateral)
+}
+
+#[allow(unused)]
 pub fn get_deposit_obligation(
     contract_client: &LendingContractClient,
     user: &Address,
@@ -804,6 +852,7 @@ mod deposit;
 mod fuzz;
 mod initialize;
 mod interest_rates;
+mod leverage;
 mod liquidate;
 mod repay;
 mod swap;
