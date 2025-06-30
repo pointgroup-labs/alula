@@ -32,4 +32,6 @@ pub enum LendingContractError {
     BorrowPoolDoesNotExist = 28,
     InvalidLeverageMultiplier = 29,
     InvalidSwapSlippage = 30,
+
+    DependencyContractError = 31,
 }

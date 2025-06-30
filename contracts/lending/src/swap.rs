@@ -1,4 +1,4 @@
-//! Encapsulates operations related to the swapping of two tokens.
+//! Encapsulates operations related to the swapping of two tokens
 
 use {
     crate::{
@@ -49,7 +49,10 @@ pub fn get_amount_out(
             token_in.clone(),
             token_out.clone(),
         )
-        .unwrap();
+        .map_err(|_| {
+            // TODO: Publish an event
+            LCError::DependencyContractError
+        });
         amount_out =
             soroswap_router_client.router_get_amount_out(&amount_in, &reserve_in, &reserve_out);
     }

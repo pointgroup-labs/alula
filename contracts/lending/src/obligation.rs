@@ -38,7 +38,7 @@ impl Obligation {
 
     /// Accrues interest on all borrows for the obligation
     ///
-    /// # WARN
+    /// # WARNING
     /// Modifies the contract's storage
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         for (pool_address, mut borrow_obligation) in self.borrows.iter() {
@@ -545,7 +545,7 @@ impl Obligation {
 
     /// Saves\updates obligation in the contract's storage
     ///
-    /// # WARN
+    /// # WARNING
     /// Modifies the contract's storage
     pub fn set(&self, e: &Env) {
         storage::set_obligation(e, &self.user, self);
@@ -562,7 +562,7 @@ impl Obligation {
 
     /// Removes obligation from the contract's storage
     ///
-    /// # WARN
+    /// # WARNING
     /// Modifies the contract's storage
     pub fn remove(self, e: &Env) {
         storage::remove_obligation(e, &self.user);
@@ -675,7 +675,7 @@ impl BorrowObligation {
 
     /// Accrues interest on a borrow obligation
     ///
-    /// # WARN
+    /// # WARNING
     /// Modifies the contract's storage
     pub fn accrue_interest(&mut self, e: &Env, pool_address: &Address) -> Result<(), LCError> {
         let mut pool = storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;

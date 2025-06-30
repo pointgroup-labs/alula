@@ -179,7 +179,7 @@ impl Pool {
 
     /// Saves\updates pool in the contract's storage
     ///
-    /// # WARN
+    /// # WARNING
     /// Modifies the contract's storage
     pub fn set(&self, e: &Env) {
         storage::set_pool(e, &self.pool_address, self);
@@ -187,7 +187,7 @@ impl Pool {
 
     /// Registers pool in the pool's list
     ///
-    /// # WARN
+    /// # WARNING
     /// Modifies the contract's storage
     pub fn register(&self, e: &Env) -> u32 {
         storage::register_pool(e, &self.pool_address.clone())

@@ -43,7 +43,6 @@ pub const DEFAULT_FLASH_LOAN_FEE_BPS: i128 = 1;
 
 // ---- Deposit with leverage ----
 pub const MAX_LEVERAGE_MULTIPLIER: u32 = 500;
-
 pub const MIN_LEVERAGE_MULTIPLIER: u32 = 10;
 
 // ---- Contract Addresses ----
