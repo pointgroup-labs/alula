@@ -182,7 +182,7 @@ impl Pool {
     /// # WARN
     /// Modifies the contract's storage
     pub fn set(&self, e: &Env) {
-        storage::set_pool(e, &self.pool_address, &self);
+        storage::set_pool(e, &self.pool_address, self);
     }
 
     /// Registers pool in the pool's list

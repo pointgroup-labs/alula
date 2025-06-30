@@ -396,8 +396,8 @@ pub fn process_deposit(
     pool.adjust_total_shares(shares_to_issue)?;
     pool.adjust_available(amount)?;
 
-    obligation.set(&e);
-    pool.set(&e);
+    obligation.set(e);
+    pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(user, &e.current_contract_address(), &amount);
@@ -433,8 +433,8 @@ fn process_borrow(
         return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
     }
 
-    obligation.set(&e);
-    pool.set(&e);
+    obligation.set(e);
+    pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), user, &amount);
@@ -459,8 +459,8 @@ fn process_add_collateral(
     obligation.add_collateral(pool_address, amount)?;
     pool.adjust_total_collateral(amount)?;
 
-    obligation.set(&e);
-    pool.set(&e);
+    obligation.set(e);
+    pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(user, &e.current_contract_address(), &amount);
@@ -492,9 +492,9 @@ fn process_repay(
         // NB: This will never be hit because of the collateral required?
         obligation.remove(e);
     } else {
-        obligation.set(&e);
+        obligation.set(e);
     }
-    pool.set(&e);
+    pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(user, &e.current_contract_address(), &amount);
@@ -562,10 +562,10 @@ fn process_liquidate(
     collateral_pool.adjust_available(-tokens_from_sold_shares)?;
     collateral_pool.adjust_total_collateral(-collateral_amount_sold)?;
 
-    obligation.set(&e);
+    obligation.set(e);
 
-    borrow_pool.set(&e);
-    collateral_pool.set(&e);
+    borrow_pool.set(e);
+    collateral_pool.set(e);
 
     let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
     borrowed_token_client.transfer(
@@ -611,11 +611,11 @@ fn process_remove_collateral(
     }
 
     if obligation.is_empty() {
-        obligation.remove(&e);
+        obligation.remove(e);
     } else {
-        obligation.set(&e);
+        obligation.set(e);
     }
-    pool.set(&e);
+    pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), user, &amount);
@@ -654,11 +654,11 @@ fn process_withdraw(
     }
 
     if obligation.is_empty() {
-        obligation.remove(&e);
+        obligation.remove(e);
     } else {
-        obligation.set(&e);
+        obligation.set(e);
     }
-    pool.set(&e);
+    pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), user, &amount);
@@ -780,7 +780,7 @@ fn process_deposit_with_leverage(
             .map_over_or_underflow()?;
 
         process_borrow(e, user, borrow_pool_address, flash_repay_amount)?;
-        borrow_pool.refresh(&e)?;
+        borrow_pool.refresh(e)?;
 
         // Repay flash loan
         flash_loaned_token_client.transfer(
@@ -790,7 +790,7 @@ fn process_deposit_with_leverage(
         );
 
         borrow_pool.adjust_available(flash_loan_fee)?;
-        borrow_pool.set(&e);
+        borrow_pool.set(e);
     }
 
     Ok(())
