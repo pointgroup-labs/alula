@@ -721,9 +721,7 @@ fn process_deposit_with_leverage(
         return Err(LCError::NonPositiveDeposit);
     }
 
-    if leverage_multiplier < MIN_LEVERAGE_MULTIPLIER
-        || leverage_multiplier > MAX_LEVERAGE_MULTIPLIER
-    {
+    if !(MIN_LEVERAGE_MULTIPLIER..=MAX_LEVERAGE_MULTIPLIER).contains(&leverage_multiplier) {
         return Err(LCError::InvalidLeverageMultiplier);
     }
 
