@@ -416,7 +416,7 @@ fn process_swap(
     token_out: &Address,
     amount_in: i128,
 ) -> Result<i128, LCError> {
-    let amount_out = swap::get_amount_out(&e, &token_in, &token_out, amount_in)?;
+    let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;
 
     let received_amount = swap::swap_exact_tokens_for_tokens(
         e, user, token_in, token_out, amount_in, amount_out, None,

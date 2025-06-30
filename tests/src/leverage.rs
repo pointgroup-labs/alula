@@ -4,7 +4,7 @@ use {
     crate::{
         get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
         tests::{get_amount_scaled_down, get_amount_scaled_up},
-        TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
+        TestFixture, DEFAULT_DEPOSIT_AMOUNT,
     },
     lending::{
         constants::{
