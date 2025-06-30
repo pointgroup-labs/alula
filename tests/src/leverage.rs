@@ -3,12 +3,10 @@
 use {
     crate::{
         get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
+        tests::{get_amount_scaled_down, get_amount_scaled_up},
         TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
     },
-    lending::constants::{
-        LCError, BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS,
-    },
-    soroban_fixed_point_math::FixedPoint,
+    lending::constants::{LCError, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS},
 };
 
 // ---- Deposit with leverage ----
@@ -334,16 +332,4 @@ fn test_withdraw_over_balance() {
             &((3 * withdrawable_amount) / 2),
         )
     );
-}
-
-fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
-    amount
-        .checked_sub(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
-        .unwrap()
-}
-
-fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
-    amount
-        .checked_add(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
-        .unwrap()
 }

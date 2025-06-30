@@ -50,16 +50,19 @@ pub struct TestFixture<'a> {
     pub gold_token_client: TokenClient<'a>,
     pub gold_token_address: Address,
     pub gold_pool_address: Address,
+    pub gold_admin: Address,
     // BTC
     pub btc_sac: StellarAssetClient<'a>,
     pub btc_token_client: TokenClient<'a>,
     pub btc_token_address: Address,
     pub btc_pool_address: Address,
+    pub btc_admin: Address,
     // USDC
     pub usdc_sac: StellarAssetClient<'a>,
     pub usdc_token_client: TokenClient<'a>,
     pub usdc_token_address: Address,
     pub usdc_pool_address: Address,
+    pub usdc_admin: Address,
 }
 
 impl Default for TestFixture<'_> {
@@ -109,12 +112,16 @@ impl TestFixture<'_> {
             Address::generate(&e),
         ];
 
+        let usdc_admin = Address::generate(&e);
+        let gold_admin = Address::generate(&e);
+        let btc_admin = Address::generate(&e);
+
         // GOLD
         let TestAssetSetup {
             sac_client: gold_sac,
             token_client: gold_token_client,
             token_address: gold_token_address,
-        } = setup_test_asset(&e, &soroswap_router_address, &users);
+        } = setup_test_asset(&e, &gold_admin, &users);
         let gold_pool_address = contract_client.initialize_pool(
             &gold_token_address,
             &symbol_short!("GOLD"),
@@ -127,7 +134,7 @@ impl TestFixture<'_> {
             sac_client: btc_sac,
             token_client: btc_token_client,
             token_address: btc_token_address,
-        } = setup_test_asset(&e, &soroswap_router_address, &users);
+        } = setup_test_asset(&e, &btc_admin, &users);
         let btc_pool_address = contract_client.initialize_pool(
             &btc_token_address,
             &symbol_short!("BTC"),
@@ -140,7 +147,7 @@ impl TestFixture<'_> {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
             token_address: usdc_token_address,
-        } = setup_test_asset(&e, &soroswap_router_address, &users);
+        } = setup_test_asset(&e, &usdc_admin, &users);
         let usdc_pool_address = contract_client.initialize_pool(
             &usdc_token_address,
             &symbol_short!("USDC"),
@@ -164,16 +171,19 @@ impl TestFixture<'_> {
             gold_token_client,
             gold_token_address,
             gold_pool_address,
+            gold_admin,
             // BTC
             btc_sac,
             btc_token_client,
             btc_token_address,
             btc_pool_address,
+            btc_admin,
             // USDC
             usdc_sac,
             usdc_token_client,
             usdc_token_address,
             usdc_pool_address,
+            usdc_admin,
             users,
         }
     }
@@ -727,9 +737,10 @@ mod tests {
     use {
         super::*,
         lending::{
-            constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
+            constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
             storage::DataKey,
         },
+        soroban_fixed_point_math::FixedPoint,
         soroban_sdk::testutils::{
             storage::{Instance, Persistent},
             Ledger,
@@ -842,6 +853,18 @@ mod tests {
         });
 
         // TODO: Add individual storage extension test case
+    }
+
+    pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
+        amount
+            .checked_sub(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
+            .unwrap()
+    }
+
+    pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
+        amount
+            .checked_add(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
+            .unwrap()
     }
 }
 

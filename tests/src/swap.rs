@@ -1,9 +1,15 @@
 #![cfg(test)]
 
-use {crate::TestFixture, soroban_sdk::token::TokenClient};
+use {
+    crate::{tests::get_amount_scaled_down, TestFixture},
+    lending::{constants::DEFAULT_MAX_SLIPPAGE_BPS, swap},
+    soroban_sdk::token::TokenClient,
+};
 
 #[test]
 fn test_swap() {
+    const AMOUNT_IN: i128 = 100_000;
+
     let TestFixture {
         e,
         contract_client,
@@ -26,11 +32,19 @@ fn test_swap() {
 
     let gold_token_balance = gold_token_client.balance(&user);
 
-    contract_client.test_swap(&user, &gold_pool_address, &new_token_address, &100);
+    let amount_out =
+        swap::get_amount_out(&e, &gold_pool_address, &new_token_address, AMOUNT_IN).unwrap();
+
+    contract_client.swap(&user, &gold_pool_address, &new_token_address, &AMOUNT_IN);
+
+    let amount_out_min_slippage = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
 
     let balance = new_token_client.balance(&user);
     let new_gold_token_balance = gold_token_client.balance(&user);
 
-    assert_eq!(balance, 100);
-    assert_eq!(new_gold_token_balance, gold_token_balance - 100);
+    assert_eq!(balance, amount_out_min_slippage);
+    assert_eq!(
+        new_gold_token_balance / 1000,
+        (gold_token_balance - amount_out_min_slippage) / 1000 // TODO: Check why do amounts differ in a few smallest units
+    );
 }

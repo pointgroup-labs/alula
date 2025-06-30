@@ -27,10 +27,7 @@ fn test_repay() {
     let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .borrowed;
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        // .unwrap()
-        .total_borrowed;
+    let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
 
     assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT / 2);
@@ -41,10 +38,7 @@ fn test_repay() {
     let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .borrowed;
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        // .unwrap()
-        .total_borrowed;
+    let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
 
     assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
     assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
@@ -55,10 +49,7 @@ fn test_repay() {
     let obligation = contract_client.get_user_obligation(&user);
     assert!(obligation.borrows.get(usdc_pool_address.clone()).is_none());
 
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        // .unwrap()
-        .total_borrowed;
+    let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
 
     assert_eq!(pool_borrowed, 0);
 }
@@ -91,10 +82,7 @@ fn test_repay_with_interest_accrual() {
         .unwrap()
         .total_borrowed()
         .unwrap();
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        // .unwrap()
-        .total_borrowed;
+    let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
 
     assert_eq!(obligation_borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
     assert_eq!(pool_borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);

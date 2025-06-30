@@ -22,10 +22,7 @@ fn test_withdraw() {
     let obligation_shares = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .shares;
-    let pool_shares = contract_client
-        .get_pool(&usdc_pool_address)
-        // .unwrap()
-        .total_shares;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
 
     assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
@@ -36,10 +33,7 @@ fn test_withdraw() {
     let obligation_shares = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
         .shares;
-    let pool_shares = contract_client
-        .get_pool(&usdc_pool_address)
-        // .unwrap()
-        .total_shares;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
 
     assert_eq!(obligation_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
     assert_eq!(pool_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
@@ -52,10 +46,7 @@ fn test_withdraw() {
         contract_client.try_get_user_obligation(&user)
     );
 
-    let pool_shares = contract_client
-        .get_pool(&usdc_pool_address)
-        // .unwrap()
-        .total_shares;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
 
     assert_eq!(pool_shares, 0);
 }
@@ -77,7 +68,6 @@ fn test_remove_collateral() {
         .collateral;
     let pool_collateral = contract_client
         .get_pool(&usdc_pool_address)
-        // .unwrap()
         .total_collateral;
 
     assert_eq!(obligation_collateral, DEFAULT_COLLATERAL_AMOUNT);
@@ -91,7 +81,6 @@ fn test_remove_collateral() {
         .collateral;
     let pool_collateral = contract_client
         .get_pool(&usdc_pool_address)
-        // .unwrap()
         .total_collateral;
 
     assert_eq!(obligation_collateral, (DEFAULT_COLLATERAL_AMOUNT / 2));
@@ -107,7 +96,6 @@ fn test_remove_collateral() {
 
     let pool_collateral = contract_client
         .get_pool(&usdc_pool_address)
-        // .unwrap()
         .total_collateral;
 
     assert_eq!(pool_collateral, 0);

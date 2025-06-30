@@ -94,7 +94,14 @@ impl LendingContract {
         process_deposit(&e, &user, &pool_address, amount)
     }
 
-    pub fn test_swap(
+    /// Swap tokens via a swap provider contract
+    ///
+    /// ### Arguments
+    /// * `user` - user which deposits a token
+    /// * `token_in` - address of a token that would be taken from the user
+    /// * `token_out` - address of a token that would be given to the user
+    /// * `amount` - exact amount of the `token_in`
+    pub fn swap(
         e: Env,
         user: Address,
         token_in: Address,
@@ -103,7 +110,7 @@ impl LendingContract {
     ) -> Result<i128, LCError> {
         let amount_out = swap::get_amount_out(&e, &token_in, &token_out, amount_in)?;
 
-        let received_amount = swap::swap_tokens_for_exact_tokens(
+        let received_amount = swap::swap_exact_tokens_for_tokens(
             &e, &user, &token_in, &token_out, amount_in, amount_out, None,
         )?;
 
@@ -784,7 +791,7 @@ fn process_deposit_with_leverage(
     if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
         // Borrow to repay the flash loan
         let flash_loan_fee = flash_borrow_amount
-            .fixed_div_ceil(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
+            .fixed_div_floor(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
             .map_over_or_underflow()?;
         let flash_repay_amount = flash_loan_fee
             .checked_add(flash_borrow_amount)
