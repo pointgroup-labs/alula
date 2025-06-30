@@ -12,7 +12,6 @@ use {
         storage::{self, GlobalState},
         swap,
     },
-    core::{borrow, ops::Add},
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, Symbol, Vec},
@@ -751,7 +750,7 @@ fn process_deposit_with_leverage(
         return Err(LCError::NegativeLeverage);
     }
 
-    let Some(mut borrow_pool) = storage::get_pool(e, borrow_pool_address) else {
+    let Some(borrow_pool) = storage::get_pool(e, borrow_pool_address) else {
         return Err(LCError::CollateralPoolDoesNotExist);
     };
 
@@ -815,7 +814,7 @@ fn process_deposit_with_leverage(
         );
 
         // `borrow pool` was refreshed by `process_borrow`
-        let Some(mut borrow_pool) = storage::get_pool(&e, &borrow_pool_address) else {
+        let Some(mut borrow_pool) = storage::get_pool(e, borrow_pool_address) else {
             // Broken invariant
             return Err(LCError::InternalError);
         };
@@ -838,7 +837,7 @@ pub fn process_deleverage_and_withdraw(
         return Err(LCError::NonPositiveWithdraw);
     }
 
-    let Some(mut borrow_pool) = storage::get_pool(e, borrow_pool_address) else {
+    let Some(borrow_pool) = storage::get_pool(e, borrow_pool_address) else {
         return Err(LCError::CollateralPoolDoesNotExist);
     };
 
@@ -935,7 +934,7 @@ pub fn process_deleverage_and_withdraw(
     flash_borrowed_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
 
     // `borrow pool` was refreshed by `process_repay`
-    let Some(mut borrow_pool) = storage::get_pool(&e, &borrow_pool_address) else {
+    let Some(mut borrow_pool) = storage::get_pool(e, borrow_pool_address) else {
         // Broken invariant
         return Err(LCError::InternalError);
     };

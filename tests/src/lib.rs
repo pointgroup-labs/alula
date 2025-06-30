@@ -659,11 +659,11 @@ pub fn get_obligation_tokens_from_shares(
 ) -> Result<i128, LCError> {
     let shares = get_obligation_shares(contract_client, user, pool_address)?;
 
-    let Some(pool) = contract_client.get_pool(&pool_address) else {
+    let Some(pool) = contract_client.get_pool(pool_address) else {
         return Err(LCError::PoolDoesNotExist);
     };
 
-    Ok(pool.compute_tokens_from_shares(shares)?)
+    pool.compute_tokens_from_shares(shares)
 }
 
 #[allow(unused)]
