@@ -2,8 +2,9 @@ use {
     crate::{
         constants::{
             LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
-            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
-            DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
+            DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1,
+            DEFAULT_SLOPE2,
         },
         math_utils::MathUtils,
         storage,
@@ -11,8 +12,8 @@ use {
     soroban_sdk::{contracttype, Address, Env, Symbol, Vec},
 };
 
-pub type PoolAddress = Address;
-pub type UserAddress = Address;
+// pub type Address = Address;
+// pub type UserAddress = Address;
 
 #[contracttype]
 #[derive(Debug)]
@@ -158,11 +159,11 @@ impl Pool {
         storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)
     }
 
-    pub fn get_all(e: &Env) -> Vec<PoolAddress> {
+    pub fn get_all(e: &Env) -> Vec<Address> {
         storage::get_all_pools(e)
     }
 
-    pub fn exists(e: &Env, address: &PoolAddress) -> bool {
+    pub fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
     }
 
@@ -198,22 +199,28 @@ impl Pool {
 #[derive(Debug, Clone, Copy)]
 pub struct PoolConfig {
     /// Base interest rate applied regardless of utilization, expressed per second
-    /// in 1/`SCALED_ONE` units. Must be positive.
+    /// in 1/`SCALED_ONE` units. Must be positive
     pub base_rate_per_second: i128,
     /// Positive Optimal Utilization Ratio
     pub optimal_utilization_ratio_bps: i128,
-    /// Interest rate slope before reaching optimal utilization ratio.
-    /// Controls how aggressively rates increase with utilization below the optimal point.
+    /// Interest rate slope before reaching optimal utilization ratio
+    /// Controls how aggressively rates increase with utilization below the optimal point
     pub slope1: i128,
-    /// Interest rate slope after exceeding optimal utilization ratio.
-    /// Controls how aggressively rates increase with utilization above the optimal point.
+    /// Interest rate slope after exceeding optimal utilization ratio
+    /// Controls how aggressively rates increase with utilization above the optimal point
     pub slope2: i128,
-    /// Percentage of interest payments allocated to protocol reserves.
+    /// Percentage of interest payments allocated to protocol reserves
     pub reserve_ratio_bps: i128,
-    /// Maximum percentage of a borrower's debt that can be liquidated.
+    /// Maximum percentage of a borrower's debt that can be liquidated
     pub liquidation_close_factor_bps: i128,
-    /// Additional discount given to liquidators when purchasing collateral.
+    /// Additional discount given to liquidators when purchasing collateral
     pub liquidation_incentive_bps: i128,
+    /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 = 70%, etc)
+    /// with respect to a total obligation's collateral value
+    pub open_ltv_bps: i128,
+    /// The maximum percentage of an asset's value that can be held in an individual obligation in basis points
+    /// with respect to a total obligation's collateral value. LTV greater than that makes borrow position eligible to liquidation
+    pub close_ltv_bps: i128,
 }
 
 impl Default for PoolConfig {
@@ -226,6 +233,8 @@ impl Default for PoolConfig {
             optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATION_RATIO * BPS_IN_PERCENT,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
             liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
+            close_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
+            open_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
         }
     }
 }
@@ -240,6 +249,8 @@ impl PoolConfig {
             reserve_ratio_bps,
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
+            open_ltv_bps,
+            close_ltv_bps,
         } = self;
 
         if base_rate_per_second < 0 {
@@ -270,6 +281,18 @@ impl PoolConfig {
 
         if slope1 >= slope2 {
             return Err("slope1 must be less than slope2 for kinked model to work");
+        }
+
+        if !is_valid_percent(open_ltv_bps) {
+            return Err("Open LTV must be between 0% and 100%");
+        }
+
+        if !is_valid_percent(close_ltv_bps) {
+            return Err("Close LTV must be between 0% and 100%");
+        }
+
+        if close_ltv_bps < open_ltv_bps {
+            return Err("Open LTV mustn't be bigger than close LTV");
         }
 
         Ok(())

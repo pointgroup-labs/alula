@@ -94,13 +94,53 @@ impl Pool {
         Ok(())
     }
 
+    pub fn get_borrow_apr(&self) -> Result<u32, LCError> {
+        let apr = self.get_linear_borrow_rate(SECONDS_IN_YEAR)?;
+
+        Ok(apr)
+    }
+
+    // TODO: Rewrite our IR model to return APR right away
+    pub fn get_linear_borrow_rate(&self, seconds_passed: u64) -> Result<u32, LCError> {
+        const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
+
+        let multiplier = self.get_linear_rate_multiplier(seconds_passed)?;
+
+        let borrow_multiplier_bps =
+            u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
+
+        let borrow_rate = borrow_multiplier_bps
+            .checked_sub(BPS_FACTOR as u32)
+            .ok_or(LCError::OverOrUnderflow)?;
+
+        Ok(borrow_rate)
+    }
+
     pub fn get_apy(&self) -> Result<CompoundRates, LCError> {
         self.get_compound_rates(SECONDS_IN_YEAR)
+    }
+
+    pub fn get_optimal_apy(&self) -> Result<CompoundRates, LCError> {
+        let borrow_interest_rate = self.get_optimal_borrow_rate_per_second()?;
+        let borrow = self.calculate_borrow_multiplier(borrow_interest_rate, SECONDS_IN_YEAR)?;
+        let supply = self.calculate_supply_multiplier(borrow)?;
+
+        Ok(CompoundRateMultipliers { borrow, supply }.try_into()?)
     }
 
     fn get_compound_rates(&self, seconds_passed: u64) -> Result<CompoundRates, LCError> {
         self.get_compound_rate_multipliers(seconds_passed)?
             .try_into()
+    }
+
+    fn get_linear_rate_multiplier(&self, seconds_passed: u64) -> Result<i128, LCError> {
+        let borrow_interest_rate = self.get_borrow_rate_per_second()?;
+
+        let linear_growth = borrow_interest_rate
+            .checked_mul(seconds_passed as i128)
+            .map_over_or_underflow()?;
+
+        Ok(SCALED_ONE + linear_growth)
     }
 
     /// Calculates the compound rate multipliers for borrowing and supplying based on the time passed.
@@ -192,6 +232,12 @@ impl Pool {
         }
 
         let utilization_ratio_bps = self.calculate_utilization_ratio_bps(total)?;
+        self.calculate_interest_rate(utilization_ratio_bps)
+    }
+
+    pub fn get_optimal_borrow_rate_per_second(&self) -> Result<i128, LCError> {
+        let utilization_ratio_bps = self.config.optimal_utilization_ratio_bps;
+
         self.calculate_interest_rate(utilization_ratio_bps)
     }
 

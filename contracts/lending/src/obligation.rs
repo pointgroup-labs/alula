@@ -4,7 +4,7 @@ use {
         contract::get_asset_price,
         math_utils::MathUtils,
         pool::{Pool, PoolConfig},
-        storage::{self, get_global_state, PoolAddress},
+        storage::{self, get_global_state},
     },
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, token, Address, Env, Map},
@@ -16,9 +16,9 @@ pub struct Obligation {
     /// The obligation's user
     pub user: Address,
     /// Deposited collateral for the obligation, unique by deposit pool address
-    pub deposits: Map<PoolAddress, DepositObligation>,
+    pub deposits: Map<Address, DepositObligation>,
     /// Borrowed liquidity for the obligation, unique by borrow pool address
-    pub borrows: Map<PoolAddress, BorrowObligation>,
+    pub borrows: Map<Address, BorrowObligation>,
     // /// Last update to collateral, liquidity, or their market values
     // pub last_update: u64,
     // /// Market value of deposits
@@ -58,7 +58,7 @@ impl Obligation {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
 
-    fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
+    pub fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
         let liquidation_threshold_bps = get_global_state(e).liquidation_threshold_bps;
 
         let (mut collateral_value_sum, mut borrowed_value_sum) = (0i128, 0i128);

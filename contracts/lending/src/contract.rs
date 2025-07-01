@@ -8,14 +8,18 @@ use {
         interest_rate::CompoundRates,
         math_utils::MathUtils,
         obligation::{LiquidationValues, Obligation},
-        oracle,
-        pool::{Pool, PoolAddress, PoolConfig},
+        oracle::{self},
+        pool::{Pool, PoolConfig},
         storage::{self, GlobalState},
         swap,
     },
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, Symbol, Vec},
+    soroban_sdk::{
+        contract, contractimpl, log,
+        token::{self},
+        Address, BytesN, Env, Symbol, Vec,
+    },
 };
 
 #[contract]
@@ -73,9 +77,96 @@ impl LendingContract {
         token_ticker: Symbol, // NB: Token Interface contains a `.symbol()` endpoint, which can be used for retrieving a token's ticker
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
-    ) -> Result<PoolAddress, LCError> {
+    ) -> Result<Address, LCError> {
         process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
     }
+
+    // pub fn get_usdc_bal(e: Env, user: Address) -> Result<i128, LCError> {
+    //     user.require_auth();
+    //     let usdc_sac_address = Address::from_str(
+    //         &e,
+    //         "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+    //     );
+
+    //     let token_client = TokenClient::new(&e, &usdc_sac_address);
+    //     Ok(token_client.balance(&user))
+    // }
+
+    // pub fn test_oracle_knows_price(e: Env, ticker: Symbol) -> Result<i128, LCError> {
+    //     get_asset_price(&e, &ticker)
+    // }
+
+    // pub fn try_burn(e: Env, user: Address) {
+    //     user.require_auth();
+    //     let usdc_sac_address = Address::from_str(
+    //         &e,
+    //         "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+    //     );
+
+    //     let token_client = TokenClient::new(&e, &usdc_sac_address);
+    //     token_client.burn(&user, &1000);
+    // }
+
+    // pub fn get_assets(e: Env) -> Result<Vec<Asset>, LCError> {
+    //     let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
+    //     let reflector_contract = oracle::Client::new(&e, &reflector_address);
+
+    //     Ok(reflector_contract.assets())
+    // }
+
+    /// Gets computed user's current health factor in basis points (e.g, 9_200 = 0.92, 10_000 = 1, 10_500 = 1,05, etc)
+    ///
+    /// ### Arguments
+    /// * `user` - user which health factor is computed
+    pub fn get_health_factor(e: Env, user: Address) -> Result<i128, LCError> {
+        user.require_auth();
+
+        process_get_user_health_factor(&e, &user)
+    }
+
+    /// Returns asset's decimals. Since Soroban smart contracts can operate only with SAC tokens, this value is currently always 7
+    pub fn get_asset_decimals() -> u32 {
+        // See - https://github.com/stellar/rs-soroban-env/blob/main/soroban-env-host/src/builtin_contracts/stellar_asset_contract/contract.rs#L374
+        7
+    }
+
+    /// Returns oracle price's decimals
+    pub fn get_oracle_price_decimals(e: Env) -> u32 {
+        let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
+        let reflector_contract = oracle::Client::new(&e, &reflector_address);
+
+        reflector_contract.decimals()
+    }
+
+    /// Returns pool asset's oracle price
+    ///
+    /// ### Arguments
+    /// * `pool_address` - address of asset which price is returned
+    pub fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, LCError> {
+        let pool = Pool::try_get(&e, &pool_address)?;
+
+        get_asset_price(&e, &pool.token_ticker)
+    }
+
+    // pub fn try_get_amount_out(
+    //     e: Env,
+    //     user: Address,
+    //     token_in: Address,
+    //     token_out: Address,
+    //     amount_in: i128,
+    // ) -> Result<i128, LCError> {
+    //     user.require_auth();
+
+    //     let amount_out = swap::get_amount_out(&e, &token_in, &token_out, amount_in)?;
+
+    //     Ok(amount_out)
+    // }
+
+    // pub fn try_swap_usdc_for_(e: Env, user: Address, amount_) {
+    //     user.require_auth();
+
+    //     process_swap(&e, &user, token_in, token_out, amount_in);
+    // }
 
     /// Deposits tokens into the loan pool
     ///
@@ -255,7 +346,7 @@ impl LendingContract {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     /// * `amount` - original borrow amount before the leverage
-    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 7.0 for x7, 2.5 for x2.5
+    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 7.0 for x7, 2.5 for x2.5, etc)
     pub fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -301,6 +392,10 @@ impl LendingContract {
         )
     }
 
+    /// Returns the user's obligation which includes data about all of their deposits and borrows
+    ///
+    /// ### Arguments
+    /// * `user` - user which obligation is returned
     pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, LCError> {
         let mut obligation = Obligation::try_get(&e, &user)?;
 
@@ -310,19 +405,48 @@ impl LendingContract {
         Ok(obligation)
     }
 
+    /// Returns the specific loan pool
+    ///
+    /// ### Arguments
+    /// * `pool_address` - pool which data is returned
     pub fn get_pool(e: Env, pool_address: Address) -> Result<Pool, LCError> {
         Pool::try_get(&e, &pool_address)
     }
 
     /// Returns a list of all pool addresses in the protocol
-    pub fn get_all_pools(e: Env) -> Vec<PoolAddress> {
+    pub fn get_all_pools(e: Env) -> Vec<Address> {
         Pool::get_all(&e)
     }
 
+    // /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g., 2912 = 29.12%, etc)
+    // ///
+    // /// ### Arguments
+    // /// * `pool_address` - address of a pool for which APY is returned
+    // pub fn get_borrow_apr(e: Env, pool_address: Address) -> Result<u32, LCError> {
+    //     let pool = Pool::try_get(&e, &pool_address)?;
+
+    //     pool.get_borrow_apr()
+    // }
+
+    /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g., 2912 = 29.12%, etc)
+    ///
+    /// ### Arguments
+    /// * `pool_address` - address of a pool for which APY is returned
     pub fn get_apy(e: Env, pool_address: Address) -> Result<CompoundRates, LCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
         pool.get_apy()
+    }
+
+    /// Returns APY calculated for the optimal utilization ratio of a pool in basis points (e.g., 4000 = 40.00%, etc)
+    ///
+    /// ### Arguments
+    /// * `pool_address` - address of a pool for which optimal APY is returned
+    pub fn get_optimal_apy(_e: Env, _pool_address: Address) -> Result<CompoundRates, LCError> {
+        Ok(CompoundRates {
+            borrow_bps: 4_000,
+            supply_bps: 1_500,
+        })
     }
 }
 
@@ -332,8 +456,8 @@ fn process_initialize_pool(
     token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
-) -> Result<PoolAddress, LCError> {
-    let pool_address: PoolAddress = if let Some(salt) = salt {
+) -> Result<Address, LCError> {
+    let pool_address: Address = if let Some(salt) = salt {
         // TODO: Check some other ways of deriving an address
         e.deployer()
             .with_address(token_address.clone(), salt.clone())
@@ -374,6 +498,12 @@ fn process_initialize_pool(
     pool.register(e);
 
     Ok(pool_address)
+}
+
+pub fn process_get_user_health_factor(e: &Env, user: &Address) -> Result<i128, LCError> {
+    let obligation = Obligation::try_get(e, user)?;
+
+    obligation.compute_health_factor_bps(e)
 }
 
 pub fn process_deposit(

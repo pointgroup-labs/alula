@@ -112,12 +112,6 @@ fn test_borrow_health_factor_deposit() {
     let user2 = users.get(1).unwrap();
     // Deposit gold to satisfy the health factor threshold
     contract_client.deposit(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
-
-    let deposit_obligation =
-        get_deposit_obligation(&contract_client, &user, &gold_pool_address).unwrap();
-
-    std::dbg!(deposit_obligation);
-
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(&user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 

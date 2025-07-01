@@ -10,8 +10,8 @@ use {
     soroban_sdk::{contracttype, Address, Env, Symbol},
 };
 
-pub type PoolAddress = Address;
-pub type UserAddress = Address;
+// pub type Address = Address;
+// pub type UserAddress = Address;
 
 #[contracttype]
 pub struct GlobalState {
@@ -24,8 +24,8 @@ pub struct GlobalState {
 #[contracttype]
 pub enum DataKey {
     GlobalState,
-    Pool(PoolAddress),
-    Obligation(UserAddress),
+    Pool(Address),
+    Obligation(Address),
     Accrual,
     AllPools,
     // AllUsers,
@@ -72,7 +72,7 @@ pub fn set_global_state(e: &Env, global_state: &GlobalState) {
 
 // --- Pool ---
 
-pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<PoolAddress> {
+pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<Address> {
     let res = e.storage().persistent().get(&DataKey::AllPools);
     if let Some(pools) = res {
         extend_shared_storage(e, &DataKey::AllPools);

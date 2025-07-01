@@ -31,7 +31,7 @@ pub fn get_amount_out(
     let amount_out;
 
     // TODO: It's likely can be rewritten in a better way
-    #[cfg(feature = "deploy")]
+    // #[cfg(feature = "deploy")]
     {
         use {crate::constants::SOROSWAP_FACTORY_TESTNET_ADDRESS, soroswap_library};
 
@@ -52,16 +52,16 @@ pub fn get_amount_out(
         .map_err(|_| {
             // TODO: Publish an event
             LCError::DependencyContractError
-        });
+        })?;
         amount_out =
             soroswap_router_client.router_get_amount_out(&amount_in, &reserve_in, &reserve_out);
     }
 
     // Returns amount in because of 1:1 rate in tests suite
-    #[cfg(not(feature = "deploy"))]
-    {
-        amount_out = amount_in;
-    }
+    // #[cfg(not(feature = "deploy"))]
+    // {
+    //     amount_out = amount_in;
+    // }
 
     Ok(amount_out)
 }
