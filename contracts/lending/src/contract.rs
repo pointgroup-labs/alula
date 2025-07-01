@@ -814,7 +814,7 @@ fn process_deposit_with_leverage(
             &flash_repay_amount,
         );
 
-        borrow_pool.adjust_available(flash_loan_fee)?;
+        borrow_pool.adjust_available(flash_repay_amount)?;
         borrow_pool.set(e);
     }
 

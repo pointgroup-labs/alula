@@ -109,7 +109,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
-            &11,
+            &11, // x1.1
         ),
         Err(Ok(LCError::NotEnoughPoolFunds))
     );
@@ -272,18 +272,20 @@ fn test_withdraw_for_position_with_no_leverage() {
         DEFAULT_DEPOSIT_AMOUNT,
     )
     .unwrap();
-    let expected_amount = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
 
+    let expected_amount = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
     let obligation_tokens_from_shares =
         get_obligation_tokens_from_shares(&contract_client, &user, &usdc_pool_address).unwrap();
 
-    assert_eq!(expected_amount, obligation_tokens_from_shares);
     // No borrow position must exist still
     assert!(get_borrow_obligation(&contract_client, &user, &gold_pool_address).is_err());
+    assert_eq!(expected_amount, obligation_tokens_from_shares);
 }
 
 #[test]
 fn test_withdraw() {
+    const LEVERAGE_MULTIPLIER: u32 = 4; // x4 leverage
+
     let TestFixture {
         e,
         contract_client,
@@ -304,7 +306,7 @@ fn test_withdraw() {
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
-        &40, // x4 leverage
+        &(10 * LEVERAGE_MULTIPLIER),
     );
 
     let amount_out = swap::get_amount_out(
@@ -325,6 +327,15 @@ fn test_withdraw() {
     );
 
     // Check obligation
+    let approximate_borrowed_amount = ((LEVERAGE_MULTIPLIER - 1) as i128) * DEFAULT_DEPOSIT_AMOUNT;
+    let approximate_deposited_amount = swap::get_amount_out(
+        &e,
+        &gold_pool_address,
+        &usdc_pool_address,
+        (LEVERAGE_MULTIPLIER as i128) * DEFAULT_DEPOSIT_AMOUNT,
+    )
+    .unwrap();
+
     let obligation_borrowed =
         get_obligation_borrowed(&contract_client, &user, &gold_pool_address).unwrap();
 
@@ -333,22 +344,22 @@ fn test_withdraw() {
 
     // less than 10% of originally deposited value must be left
     let expected_deposit_left_upper_bound_amount =
-        get_amount_scaled_down(4 * DEFAULT_DEPOSIT_AMOUNT, 90_00);
+        get_amount_scaled_down(approximate_deposited_amount, 90_00);
     assert!(obligation_tokens_from_shares < expected_deposit_left_upper_bound_amount);
 
     // more than 5 % of original deposited value must be left
     let expected_left_lower_bound_amount =
-        get_amount_scaled_down(4 * DEFAULT_DEPOSIT_AMOUNT, 95_00);
+        get_amount_scaled_down(approximate_deposited_amount, 95_00);
     assert!(obligation_tokens_from_shares > expected_left_lower_bound_amount);
 
     // less than 10% of borrowed value must be left
     let expected_borrow_left_upper_bound_amount =
-        get_amount_scaled_down(3 * DEFAULT_DEPOSIT_AMOUNT, 90_00);
+        get_amount_scaled_down(approximate_borrowed_amount, 90_00);
     assert!(obligation_borrowed < expected_borrow_left_upper_bound_amount);
 
     // more than 5 % of borrowed value must be left
     let expected_borrow_left_lower_bound_amount =
-        get_amount_scaled_down(3 * DEFAULT_DEPOSIT_AMOUNT, 95_00);
+        get_amount_scaled_down(approximate_borrowed_amount, 95_00);
     assert!(obligation_borrowed > expected_borrow_left_lower_bound_amount);
 
     // Check pools
