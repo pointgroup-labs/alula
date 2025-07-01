@@ -727,7 +727,7 @@ pub fn get_borrow_obligation(
     let borrow = obligation
         .borrows
         .get(pool_address.clone())
-        .ok_or(LCError::DepositDoesNotExist)?;
+        .ok_or(LCError::BorrowDoesNotExist)?;
 
     Ok(borrow)
 }

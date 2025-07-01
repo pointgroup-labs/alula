@@ -60,7 +60,7 @@ pub fn get_amount_out(
     // Returns amount in because of 1:1 rate in tests suite
     #[cfg(not(feature = "deploy"))]
     {
-        amount_out = 2 * amount_in;
+        amount_out = amount_in;
     }
 
     Ok(amount_out)

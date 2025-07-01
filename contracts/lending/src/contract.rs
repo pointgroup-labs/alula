@@ -841,13 +841,19 @@ pub fn process_deleverage_and_withdraw(
     };
 
     let obligation = Obligation::try_get(e, user)?;
-    // Compute the max withdrawable amount
-    let shares = obligation.get_shares(deposit_pool_address)?;
 
-    let tokens_per_shares = deposit_pool.compute_tokens_from_shares(shares)?;
     let borrowed = obligation.get_borrowed(borrow_pool_address)?;
 
-    let max_withdrawable_amount = get_leveraged_position_max_withdrawable_amount(
+    if borrowed == 0 {
+        // No leverage case is equivalent to a simple deposit
+        return process_withdraw(e, user, deposit_pool_address, amount);
+    }
+
+    let shares = obligation.get_shares(deposit_pool_address)?;
+    let tokens_per_shares = deposit_pool.compute_tokens_from_shares(shares)?;
+
+    // Compute the max withdrawable amount
+    let max_withdrawable_amount = compute_leveraged_position_max_withdrawable_amount(
         e,
         &deposit_pool.token_address,
         &borrow_pool.token_address,
@@ -864,8 +870,8 @@ pub fn process_deleverage_and_withdraw(
         .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    let plain_leverage_amount = tokens_per_shares - amount; // safe, right?
-    let plain_leverage_scaled = plain_leverage_amount
+    let plain_leverage_amount = tokens_per_shares - max_withdrawable_amount; // safe
+    let plain_leverage_to_be_deleveraged = plain_leverage_amount
         .fixed_div_floor(BPS_FACTOR, scale_bps)
         .map_over_or_underflow()?;
 
@@ -874,7 +880,7 @@ pub fn process_deleverage_and_withdraw(
         e,
         &deposit_pool.token_address,
         &borrow_pool.token_address,
-        plain_leverage_scaled,
+        plain_leverage_to_be_deleveraged,
     )?;
 
     if borrow_pool.available < flash_borrow_amount {
@@ -890,32 +896,13 @@ pub fn process_deleverage_and_withdraw(
 
     // Withdraw
     let withdraw_amount = amount
-        .checked_add(plain_leverage_scaled)
+        .checked_add(plain_leverage_to_be_deleveraged)
         .map_over_or_underflow()?;
     process_withdraw(e, user, deposit_pool_address, withdraw_amount)?;
 
     // Swap to get what must repay the flash loan
-    let amount_in = withdraw_amount - amount; // safe
-    let amount_out = swap::get_amount_out(
-        // TODO: Is everything ok here when there's slippage?
-        e,
-        &deposit_pool.token_address,
-        &borrow_pool.token_address,
-        amount_in,
-    )?;
+    let amount_in = plain_leverage_to_be_deleveraged; // TODO: Maybe, add here 1 or 2 %
 
-    // TODO: We should swap only what must be flash repaid, no?
-    swap::swap_tokens_for_exact_tokens(
-        e,
-        user,
-        &deposit_pool.token_address,
-        &borrow_pool.token_address,
-        amount_in,
-        amount_out,
-        None,
-    )?;
-
-    // Flash Repay
     let flash_loan_fee = flash_borrow_amount
         .checked_mul(DEFAULT_FLASH_LOAN_FEE_BPS)
         .map_over_or_underflow()?
@@ -925,16 +912,27 @@ pub fn process_deleverage_and_withdraw(
         .checked_add(flash_borrow_amount)
         .map_over_or_underflow()?;
 
+    swap::swap_tokens_for_exact_tokens(
+        e,
+        user,
+        &deposit_pool.token_address,
+        &borrow_pool.token_address,
+        amount_in,
+        flash_repay_amount,
+        None,
+    )?;
+
+    // Flash Repay
     flash_borrowed_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
 
-    borrow_pool.adjust_available(flash_loan_fee)?;
+    borrow_pool.adjust_available(flash_repay_amount)?;
     borrow_pool.set(e);
 
     Ok(())
 }
 
 // WARN: will everything be ok here with precision and fees?
-fn get_leveraged_position_max_withdrawable_amount(
+fn compute_leveraged_position_max_withdrawable_amount(
     e: &Env,
     deposited_token: &Address,
     borrowed_token: &Address,
