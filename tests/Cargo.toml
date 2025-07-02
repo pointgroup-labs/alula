@@ -8,9 +8,9 @@ crate-type = ["rlib", "cdylib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
-soroban-fixed-point-math = { workspace = true }
 arbitrary = { version = "1", features = ["derive"] }
+soroban-fixed-point-math = { workspace = true }
+soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [dependencies.lending]
 path = "../contracts/lending"

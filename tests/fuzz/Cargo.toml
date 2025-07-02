@@ -7,11 +7,18 @@ edition = "2021"
 [package.metadata]
 cargo-fuzz = true
 
+[[bin]]
+name = "fuzz_target"
+path = "fuzz_targets/fuzz_target.rs"
+test = false
+doc = false
+bench = false
+
 [dependencies]
+extension-trait = "1"
 libfuzzer-sys = "0.4"
 soroban-fixed-point-math = "1.3.0"
 soroban-sdk = { version = "22.0.8", features = ["testutils"] }
-extension-trait = "1"
 
 [dependencies.lending]
 path = "../../contracts/lending"
@@ -19,10 +26,3 @@ features = ["testutils"]
 
 [dependencies.tests]
 path = ".."
-
-[[bin]]
-name = "fuzz_target"
-path = "fuzz_targets/fuzz_target.rs"
-test = false
-doc = false
-bench = false
