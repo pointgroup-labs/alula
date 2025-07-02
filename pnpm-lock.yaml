@@ -24,6 +24,15 @@ importers:
         specifier: ^5.8.3
         version: 5.8.3
 
+  packages/cli:
+    dependencies:
+      '@stellar/stellar-sdk':
+        specifier: ^13.3.0
+        version: 13.3.0
+      sdk:
+        specifier: 'workspace:'
+        version: link:../sdk
+
   packages/sdk:
     dependencies:
       '@stellar/stellar-sdk':
