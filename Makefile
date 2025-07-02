@@ -78,13 +78,17 @@ sdk: build-optimize ## Generate typescript sdk
 
 test: build ## Run tests
 	cargo nextest run --locked --workspace
-	
+
 test-coverage: ## Test coverage
 	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
 	cargo +nightly llvm-cov --doc --no-report
 
 fmt: ## Format code using cargo
 	cargo fmt --all
+
+clean: ## Clean build artifacts
+	cargo clean
+	rm -r $(MOCK_WASM_DIR)/*
 
 clean: ## Clean build artifacts
 	cargo clean
