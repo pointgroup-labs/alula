@@ -9,7 +9,7 @@ use {
         math_utils::MathUtils,
         storage,
     },
-    soroban_sdk::{contracttype, Address, Env, Symbol, Vec},
+    soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec},
 };
 
 // pub type Address = Address;
@@ -39,6 +39,9 @@ pub struct Pool {
     pub last_accrual: i128,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
+    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the SAC's native asset code
+    /// and asset issuer concatenated with `:` for other SACs(e.g, "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
+    pub name: String,
 }
 
 impl Pool {
