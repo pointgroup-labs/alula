@@ -255,7 +255,7 @@ impl LendingContract {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     /// * `amount` - original borrow amount before the leverage
-    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 7.0 for x7, 2.5 for x2.5
+    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 7.0 for x7, 2.5 for x2.5)
     pub fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -875,7 +875,7 @@ pub fn process_deleverage_and_withdraw(
         .fixed_div_floor(BPS_FACTOR, scale_bps)
         .map_over_or_underflow()?;
 
-    // ---- Flash Borrow ----
+    // Flash Borrow
     let flash_borrow_amount = swap::get_amount_out(
         e,
         &deposit_pool.token_address,
@@ -901,7 +901,7 @@ pub fn process_deleverage_and_withdraw(
     process_withdraw(e, user, deposit_pool_address, withdraw_amount)?;
 
     // Swap to get what must repay the flash loan
-    let amount_in = plain_leverage_to_be_deleveraged; // TODO: Maybe, add here 1 or 2 %
+    let amount_in = plain_leverage_to_be_deleveraged; // TODO: Maybe, add here 1 or 2 %?
 
     let flash_loan_fee = flash_borrow_amount
         .checked_mul(DEFAULT_FLASH_LOAN_FEE_BPS)
