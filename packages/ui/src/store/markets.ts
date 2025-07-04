@@ -19,8 +19,15 @@ export const useMarketsStore = defineStore('markets', () => {
       const allPools = await jLendClient.value?.sdk.getAllPools()
       state.poolAddresses = allPools
       state.pollsData = await Promise.all(
-        allPools.map((poolAddress: string) => jLendClient.value?.sdk.getPoolInfo(poolAddress)),
-      ) as Pool[]
+        allPools.map(async (pool_address: string) => {
+          const poolInfo = await jLendClient.value?.sdk.getPoolInfo(pool_address)
+          const pool_price = await jLendClient.value?.sdk.getPoolAssetOraclePrice(pool_address)
+          return {
+            ...poolInfo,
+            pool_price,
+          }
+        }),
+      ) 
     } finally {
       state.loading = false
     }
@@ -39,6 +46,10 @@ export const useMarketsStore = defineStore('markets', () => {
 
 export type MarketsState = {
   poolAddresses: string[]
-  pollsData: Pool[]
+  pollsData: PoolWithPrice[]
   loading: boolean
 }
+
+export type PoolWithPrice = {
+  pool_price: number
+} & Pool

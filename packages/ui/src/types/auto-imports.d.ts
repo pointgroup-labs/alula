@@ -312,7 +312,7 @@ declare global {
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
-  export type { MarketsState } from '../store/markets'
+  export type { MarketsState, PoolWithPrice } from '../store/markets'
   import('../store/markets')
   // @ts-ignore
   export type { ToastAction, AlertToastVariant, ToastProps } from '../features/toast/toast'

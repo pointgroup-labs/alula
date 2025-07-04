@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { SupplyTableItem } from '~/types/table'
+import { getTokenIcon, truncatePercent } from '~/utils'
 
 const emits = defineEmits(['showInfo'])
 
@@ -8,7 +9,7 @@ const marketsStore = useMarketsStore()
 const pools = computed(() => marketsStore.state.pollsData)
 const loading = computed(() => marketsStore.state.loading)
 
-watch(pools, async (p) => {
+watch(pools, async (_p) => {
   console.log(pools.value)
 }, { immediate: true })
 
@@ -23,55 +24,22 @@ const fields = [
   { key: 'action', label: '' },
 ]
 
-// const items: SupplyTableItem[] = [
-//   {
-//     asset: { name: 'Stellar', symbol: 'XLM', icon: stellarIcon },
-//     pool_size: '23.89K',
-//     price: '131,85 USD',
-//     deposit_apy: '18.93%',
-//     trust_ratio: '75.05%',
-//     risk_floor: '75.05%',
-//     position: '200,458 XLM',
-//     action: 'Supply',
-//   },
-//   {
-//     asset: { name: 'USDT', symbol: 'USDT', icon: 'https://icons.iconarchive.com/icons/cjdowner/cryptocurrency-flat/512/Tether-USDT-icon.png' },
-//     pool_size: '23.89K',
-//     price: '131,85 USD',
-//     deposit_apy: '18.93%',
-//     trust_ratio: '75.05%',
-//     risk_floor: '75.05%',
-//     position: '200,458 XLM',
-//     action: 'Supply',
-//   },
-//   {
-//     asset: { name: 'Solana', symbol: 'SOL', icon: 'https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png' },
-//     pool_size: '23.89K',
-//     price: '131,85 USD',
-//     deposit_apy: '18.93%',
-//     trust_ratio: '75.05%',
-//     risk_floor: '75.05%',
-//     position: '200,458 XLM',
-//     action: 'Supply',
-//   },
-// ]
-
 const items = computed<SupplyTableItem[]>(() => {
-  // return pools.value.map((p) => {
-  //   const tokenName = p.token_ticker
-  //   const icon = getTokenIcon(tokenName)
-  //   return {
-  //     asset: { name: tokenName, symbol: tokenName, icon },
-  //     pool_size: '23.89K',
-  //     price: '131,85 USD',
-  //     deposit_apy: '18.93%',
-  //     trust_ratio: '75.05%',
-  //     risk_floor: '75.05%',
-  //     position: '200,458 XLM',
-  //     action: 'Supply',
-  //   }
-  // })
-  return []
+  return pools.value.map((p) => {
+    const tokenName = p.token_ticker
+    const icon = getTokenIcon(tokenName)
+    const price = truncatePercent(p.pool_price || 0, 2)
+    return {
+      asset: { name: tokenName, symbol: tokenName, icon },
+      pool_size: '23.89K',
+      price: `${price} USD`,
+      deposit_apy: '18.93%',
+      trust_ratio: '75.05%',
+      risk_floor: '75.05%',
+      position: '200,458 XLM',
+      action: 'Supply',
+    }
+  })
 })
 
 const dialog = ref(false)
