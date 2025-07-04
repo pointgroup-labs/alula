@@ -12,7 +12,6 @@ doctest = true
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 moderc3156 = { workspace = true }
-soroswap-library = "2.0.0"
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

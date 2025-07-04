@@ -10,7 +10,7 @@ use soroban_sdk::{
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
-// WARN: This is a plain copied enum and it is not synchronized with a network contract's errors
+// WARN: This is a plain copied enum and it is not synchronized with the deployed contract's errors
 pub enum CombinedRouterError {
     RouterNotInitialized = 501,
     RouterNegativeNotAllowed = 502,
@@ -36,6 +36,18 @@ pub struct MockSoroswapRouterContract;
 #[contractimpl]
 impl MockSoroswapRouterContract {
     // For now we assume 1:1 swap rate
+    pub fn router_get_amounts_out(
+        e: Env,
+        amount_in: i128,
+        path: Vec<Address>,
+    ) -> Result<Vec<i128>, CombinedRouterError> {
+        if path.len() < 2 {
+            return Err(CombinedRouterError::LibraryInvalidPath);
+        }
+
+        Ok(soroban_sdk::vec![&e, amount_in, amount_in])
+    }
+
     pub fn swap_exact_tokens_for_tokens(
         e: Env,
         amount_in: i128,

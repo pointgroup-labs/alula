@@ -21,47 +21,22 @@ use {
 /// * `token_in` - address of a token that would be taken from the user
 /// * `token_out` - address of a token that would be given to the user
 /// * `amount_in` - an exact amount of `token_in` that would be taken from the user
-#[allow(unused)]
 pub fn get_amount_out(
     e: &Env,
     token_in: &Address,
     token_out: &Address,
     amount_in: i128,
 ) -> Result<i128, LCError> {
-    let amount_out;
+    let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
 
-    // TODO: It's likely can be rewritten in a better way
-    #[cfg(feature = "deploy")]
-    {
-        use {crate::constants::SOROSWAP_FACTORY_TESTNET_ADDRESS, soroswap_library};
+    let soroswap_router_client =
+        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
 
-        let soroswap_router_client = soroswap_router::Client::new(
-            &e,
-            &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS),
-        );
+    let amounts_out = soroswap_router_client.router_get_amounts_out(&amount_in, &path);
 
-        let soroswap_factory_address = Address::from_str(e, SOROSWAP_FACTORY_TESTNET_ADDRESS);
-
-        // TODO: Check for reserves from factory contract
-        let (reserve_in, reserve_out) = soroswap_library::get_reserves_with_factory(
-            e.clone(),
-            soroswap_factory_address,
-            token_in.clone(),
-            token_out.clone(),
-        )
-        .map_err(|_| {
-            // TODO: Publish an event
-            LCError::DependencyContractError
-        });
-        amount_out =
-            soroswap_router_client.router_get_amount_out(&amount_in, &reserve_in, &reserve_out);
-    }
-
-    // Returns amount in because of 1:1 rate in tests suite
-    #[cfg(not(feature = "deploy"))]
-    {
-        amount_out = amount_in;
-    }
+    let Some(amount_out) = amounts_out.last() else {
+        return Err(LCError::DependencyContractError);
+    };
 
     Ok(amount_out)
 }

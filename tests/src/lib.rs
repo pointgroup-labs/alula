@@ -255,6 +255,12 @@ pub enum Command {
 
     TomWithdrawCollateral(WithdrawCollateral),
     JerryWithdrawCollateral(WithdrawCollateral),
+
+    TomDepositWithLeverage(DepositWithLeverage),
+    JerryDepositWithLeverage(DepositWithLeverage),
+
+    TomDeleverageAndWithdraw(DeleverageAndWithdraw),
+    JerryDeleverageAndWithdraw(DeleverageAndWithdraw),
     // PassTime(),
 }
 
@@ -268,6 +274,8 @@ impl Command {
             Command::TomLiquidate(command) => command.run(test_fixture, 0),
             Command::TomDepositCollateral(command) => command.run(test_fixture, 0),
             Command::TomWithdrawCollateral(command) => command.run(test_fixture, 0),
+            Command::TomDepositWithLeverage(command) => command.run(test_fixture, 0),
+            Command::TomDeleverageAndWithdraw(command) => command.run(test_fixture, 0),
 
             Command::JerryRepay(command) => command.run(test_fixture, 1),
             Command::JerryBorrow(command) => command.run(test_fixture, 1),
@@ -276,6 +284,8 @@ impl Command {
             Command::JerryLiquidate(command) => command.run(test_fixture, 1),
             Command::JerryDepositCollateral(command) => command.run(test_fixture, 1),
             Command::JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
+            Command::JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
+            Command::JerryDeleverageAndWithdraw(command) => command.run(test_fixture, 1),
         }
     }
 }
@@ -537,6 +547,22 @@ pub struct Liquidate {
     pub collateral_token: Token,
 }
 
+#[derive(Arbitrary, Debug)]
+pub struct DepositWithLeverage {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+    pub flash_loan_amount: Amount,
+    pub leverage: u32,
+}
+
+#[derive(Arbitrary, Debug)]
+pub struct DeleverageAndWithdraw {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+}
+
 impl Borrow {
     pub fn run(&self, test_fixture: &TestFixture, who: u32) {
         let pool_address = test_fixture.get_pool_address(self.token);
@@ -647,6 +673,62 @@ impl Liquidate {
                 &self.amount.0,
             );
         }
+    }
+}
+
+impl DepositWithLeverage {
+    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        if deposit_pool_address != borrow_pool_address {
+            let TestFixture {
+                contract_client,
+                users,
+                ..
+            } = test_fixture;
+
+            let (flash_loan_provider, lender) = if who == 0 {
+                (users.get(0).unwrap(), users.get(1).unwrap())
+            } else {
+                (users.get(1).unwrap(), users.get(0).unwrap())
+            };
+
+            contract_client.deposit(
+                &flash_loan_provider,
+                &borrow_pool_address,
+                &self.flash_loan_amount.0,
+            );
+
+            let _ = contract_client.try_deposit_with_leverage(
+                &lender,
+                &deposit_pool_address,
+                &borrow_pool_address,
+                &self.amount.0,
+                &self.leverage,
+            );
+        }
+    }
+}
+
+impl DeleverageAndWithdraw {
+    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        let TestFixture {
+            contract_client,
+            users,
+            ..
+        } = test_fixture;
+
+        let user = users.get(who).unwrap();
+        let _ = contract_client.try_deleverage_and_withdraw(
+            &user,
+            &deposit_pool_address,
+            &borrow_pool_address,
+            &self.amount.0,
+        );
     }
 }
 
