@@ -1,0 +1,33 @@
+@use 'sass:map';
+
+$loading-spinner-fixed: (
+  position: absolute,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+);
+
+$loading-spinner-blur: (
+  backdrop-filter: blur(2px),
+);
+
+$loading-spinner-state: (
+  fixed: $loading-spinner-fixed,
+  blur: $loading-spinner-blur,
+);
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+
+  @each $state, $state-properties in $loading-spinner-state {
+    &--#{$state} {
+      @each $property, $value in $state-properties {
+        #{$property}: #{$value};
+      }
+    }
+  }
+}

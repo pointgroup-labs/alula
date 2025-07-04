@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "useDefineForClassFields": true,
+    "baseUrl": ".",
+    "module": "esnext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "~/*": [
+        "src/*"
+      ],
+      "#/*": [
+        "types/*"
+      ],
+      "@stellar-client": [
+        "src/client"
+      ]
+    },
+    "resolveJsonModule": true,
+    "types": [
+      "vue",
+      "vite/client",
+      "unplugin-vue-router/client"
+    ],
+    "allowJs": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "dist",
+    "node_modules",
+    "cypress"
+  ]
+}

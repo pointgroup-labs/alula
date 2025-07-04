@@ -1,0 +1,143 @@
+.btn {
+  position: relative;
+  width: fit-content;
+  height: fit-content;
+
+  &:active {
+    border-color: transparent !important;
+  }
+
+  &.btn-accent {
+    background: $accent !important;
+
+    &[aria-pressed="false"] {
+      border-color: transparent !important;
+    }
+
+    &:hover {
+      background: darken($accent, 2%) !important;
+    }
+  }
+
+  &.btn-success {
+    color: #fff;
+
+    &:hover,
+    &:active {
+      color: #fff !important;
+    }
+
+    svg path {
+      stroke: #fff;
+    }
+  }
+
+  &.btn-rounded {
+    border-radius: 50%;
+    padding: 0;
+
+    @each $size, $value in (lg: 46px, md: 40px) {
+      &.btn-#{$size} {
+        width: $value;
+        height: $value;
+      }
+    }
+  }
+
+  @each $name, $size in (default: 16px, lg: 16px) {
+    &.btn-#{$name} {
+      .btn-icon-left,
+      .btn-icon-right {
+        width: $size;
+        height: $size;
+      }
+    }
+  }
+
+  &.btn-primary {
+    .btn-icon-left,
+    .btn-icon-right {
+      path {
+        stroke: #fff;
+      }
+    }
+  }
+
+  .btn-icon-left,
+  .btn-icon-right {
+    transition: transform 0.1s ease-in-out;
+  }
+
+  &:hover {
+    .btn-icon-left {
+      transform: translateX(-4px);
+    }
+    .btn-icon-right {
+      transform: translateX(4px);
+    }
+  }
+
+  &:disabled {
+    border-color: transparent !important;
+  }
+
+  &:has(.loading-btn-spinner) {
+    pointer-events: none;
+    .btn-content {
+      opacity: 0;
+    }
+  }
+
+  .btn-content {
+    line-height: normal;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-8;
+    transform: translateY(-1px);
+  }
+
+  .loading-btn-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+
+    .spinner-border {
+      width: 1.5rem;
+      height: 1.5rem;
+      border-width: 2px;
+    }
+  }
+}
+
+.btn-close {
+  mask: url(~/assets/img/icons/cross-icon.svg) no-repeat center;
+  min-width: 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  border: none;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+body.body--dark {
+  .btn-secondary {
+    // background-color: $neutral-900;
+    // border-color: $neutral-900;
+    color: #fff;
+
+    &:active {
+      // background-color: lighten($neutral-900, 10%);
+      // border-color: lighten($neutral-900, 10%);
+      color: #fff;
+    }
+  }
+}

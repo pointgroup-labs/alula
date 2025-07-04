@@ -1,0 +1,3 @@
+<template>
+  <markets-page />
+</template>

@@ -1,0 +1,41 @@
+/**
+ * Function to allow only numbers and a single decimal point to be inputted.
+ *
+ * @param {any} e - event parameter
+ */
+export function onlyNumber(e: any) {
+  const keyCode = e.keyCode ?? e.which
+  if ((keyCode < 48 || keyCode > 57) && keyCode !== 46) {
+    e.preventDefault()
+  }
+  if (keyCode === 46 && String(e.target.value).includes('.')) {
+    e.preventDefault()
+  }
+}
+
+export function formatPrice(price: number | string, minDigits = 0, maxDigits = 10) {
+  const longPriceFormatter = new Intl.NumberFormat('en-US', {
+    style: 'decimal',
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits,
+  })
+  return longPriceFormatter.format(Number(price))
+}
+
+export function parseFormattedPrice(formattedPrice: string): number {
+  return Number.parseFloat(formattedPrice.replaceAll(',', ''))
+}
+
+export function getZeroCountAfterDecimal(value: number | string): number {
+  const str = Number(value).toExponential()
+  const match = str.match(/e-(\d+)/)
+  return match ? Number.parseInt(match[1]!, 10) : 0
+}
+
+// format number with decimals 99.9842 => 99.98
+export function truncatePercent(value: number, dec = 2): string {
+  const [intPart, decimalPart = ''] = value.toString().split('.')
+  return decimalPart.length > dec
+    ? `${intPart}.${decimalPart.slice(0, dec)}`
+    : `${value}`
+}

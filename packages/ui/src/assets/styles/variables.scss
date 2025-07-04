@@ -1,0 +1,124 @@
+@use 'sass:map';
+$primary: #006CE4;
+$secondary: #EAECF0;
+$accent: #FFD101;
+$warning: #FFB726;
+$danger: #FB4747;
+$success: #08B576;
+
+$dark: #111;
+
+$neutral-2: #F5F7FB;
+$neutral-3: #EAECF0;
+$neutral-5: #DFE0E2;
+$neutral-6: #4e4e4e;
+$neutral-9: #aaabad;
+$neutral-12: #8A8B8D;
+$neutral-13: #EAECF0;
+$neutral-16: #4E4F51;
+$neutral-18: #262729;
+
+$success-50: #08b57680;
+$warning-50: #e49c0b80;
+
+
+$font-family-base: 'NTSomic', serif;
+
+// spacing
+$spacing-4: 4px;
+$spacing-6: 6px;
+$spacing-8: 8px;
+$spacing-10: 10px;
+$spacing-12: 12px;
+$spacing-14: 14px;
+$spacing-16: 16px;
+$spacing-20: 20px;
+$spacing-22: 22px;
+$spacing-24: 24px;
+$spacing-32: 32px;
+$spacing-40: 40px;
+$spacing-64: 64px;
+$spacing-70: 70px;
+$spacing-120: 120px;
+
+
+// border radius
+$radius-8: 8px;
+$radius-32: 32px;
+$radius-rounded: 50px;
+
+// breakpoints
+$breakpoint-xl: 1400px;
+$breakpoint-lg: 1200px;
+$breakpoint-md: 1024px;
+$breakpoint-sm: 1023px;
+$breakpoint-xs: 650px;
+
+// tooltip
+$tooltip-padding-y: $spacing-12;
+$tooltip-padding-x: $spacing-12;
+$tooltip-border-radius: $spacing-12;
+$tooltip-bg-color: #fff;
+// $tooltip-border-color: $neutral-100;
+
+// button
+$btn-padding-y-lg: $spacing-12;
+$btn-padding-x-lg: $spacing-32;
+$btn-font-size-lg: 16px;
+$btn-border-radius-lg: $spacing-8;
+
+$btn-padding-y-md: $spacing-10;
+$btn-padding-x-md: $spacing-20;
+$btn-font-size-md: 14px;
+$btn-border-radius-md: $spacing-8;
+
+$btn-padding-y-sm: $spacing-8;
+$btn-padding-x-sm: $spacing-16;
+$btn-font-size-sm: 14px;
+$btn-border-radius-sm: $spacing-8;
+
+$btn-hover-bg-tint-amount: 30%;
+
+// radio
+// $form-check-input-border: 1px solid $neutral-200;
+$form-check-input-focus-box-shadow: none;
+$form-check-input-checked-color: $primary;
+$form-check-input-checked-bg-color: transparent;
+// $form-check-input-checked-border-color: $neutral-200;
+
+// toggle
+$form-switch-checked-color: #fff;
+$form-switch-focus-color: #fff;
+$form-switch-color: #fff;
+
+// progress
+$progress-bg: transparent;
+
+// accordion
+$accordion-button-padding-y: $spacing-32;
+$accordion-button-padding-x: 0;
+$accordion-body-padding-x: 0;
+
+//popover
+$popover-max-width: fit-content;
+
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/maps';
+@import 'bootstrap/scss/mixins';
+@import 'bootstrap/scss/utilities';
+
+// $custom-colors: (
+//   'dark-gray': $dark-bg,
+// );
+
+// $theme-colors: map.merge($theme-colors, $custom-colors);
+
+@import 'bootstrap/scss/buttons';
+
+.btn-md {
+  @include button-size($btn-padding-y-md, $btn-padding-x-md, $btn-font-size-md, $btn-border-radius-md);
+}
+
+// checkbox
+$form-check-input-checked-bg-image: url(~/assets/img/icons/check-icon.svg);

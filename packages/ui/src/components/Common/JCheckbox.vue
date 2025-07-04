@@ -1,0 +1,38 @@
+<script lang="ts" setup>
+const {
+  bold,
+  modelValue,
+  size = 'lg',
+  ...props
+} = defineProps<{
+  bold?: boolean
+  size?: 'sm' | 'lg'
+  modelValue: any
+}>()
+
+const emit = defineEmits(['update:modelValue'])
+
+const value = computed({
+  get() {
+    return modelValue
+  },
+  set(val) {
+    emit('update:modelValue', val)
+  },
+})
+</script>
+
+<template>
+  <b-form-checkbox
+    v-model="value"
+    :size="size"
+    :value="true"
+    :unchecked-value="false"
+    class="j-checkbox"
+    :class="{ bold }"
+    :state="null"
+    v-bind="props"
+  >
+    <slot />
+  </b-form-checkbox>
+</template>

@@ -1,0 +1,233 @@
+$toast-variants: (
+  success: (
+    background-color: $success
+  ),
+  info: (
+    background-color: $neutral-3,
+    color: $neutral-6
+  ),
+  warning: (
+    background-color: $warning
+  ),
+  danger: (
+    background-color: $danger
+  )
+);
+
+.j-toast {
+  position: relative;
+  pointer-events: all !important;
+  width: 300px;
+  padding: $spacing-16;
+
+  .alert-close {
+    cursor: pointer;
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  .progress {
+    height: 4px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+
+    &-bar {
+      background-color: $neutral-12;
+    }
+  }
+}
+
+
+.j-toast:not(.toast-alert) {
+  margin-bottom: 4px;
+  border-radius: $spacing-8 !important;
+  overflow: hidden;
+  font-family: $font-family-base;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+
+  .alert-close  {
+    width: 16px;
+    height: 16px;
+  }
+
+  &.toast-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast-message {
+    width: 100%;
+  }
+
+  .toast-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: $spacing-8;
+  }
+
+  .toast-title {
+    width: 100%;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 16px;
+    padding-bottom: $spacing-8;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .toast-actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 24px;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 16px;
+  }
+
+  .toast-icon {
+    width: 16px;
+    height: 16px;
+    margin: 0 0 auto;
+    display: flex;
+  }
+
+  @each $name, $styles in $toast-variants {
+    &.toast--#{$name} {
+      @each $prop, $value in $styles {
+        #{$prop}: #{$value};
+      }
+    }
+  }
+}
+
+.toast-alert {
+  border-radius: 16px;
+  width: 344px;
+  background-color: #fff;
+  margin-bottom: 6px;
+  box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.10), 0px 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  .toast-body {
+    width: 100%;
+    border-radius: $spacing-16;
+  }
+
+  .alert-header {
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 20px;
+
+    span {
+      margin-left: $spacing-8;
+
+      &[data-name="alert-title--success"] {
+        color: $success;
+      }
+
+      &[data-name="alert-title--error"] {
+        color: $danger;
+      }
+    }
+  }
+
+  .alert-close {
+    margin-left: auto;
+    cursor: pointer;
+  }
+
+  .alert-content {
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 16px;
+    margin: $spacing-4 $spacing-32 0;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-16;
+
+    &__actions {
+      display: flex;
+      align-items: center;
+      gap: $spacing-12;
+
+      .btn {
+        width: 86px;
+        height: 32px;
+        padding: 0;
+        font-size: 14px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 16px;
+        background-color: $neutral-18;
+        color: #fff;
+        border-radius: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:hover,
+        &:active {
+          background-color: lighten($neutral-18, 10%);
+          color: #fff;
+        }
+      }
+    }
+
+    a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: $neutral-16;
+      text-decoration: none;
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 16px;
+      white-space: nowrap;
+    }
+  }
+}
+
+body.body--dark {
+  .toast-alert {
+    .toast-body {
+      background-color: $neutral-18;
+    }
+
+    .alert-close {
+      color: #fff;
+    }
+
+    .alert-content {
+      color: #fff;
+    }
+
+    .alert-content__actions {
+      .btn {
+        background-color: $neutral-13;
+        color: $dark;
+      }
+      a {
+        color: $neutral-5;
+      }
+    }
+  }
+}

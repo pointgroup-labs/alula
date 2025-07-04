@@ -1,0 +1,67 @@
+@import "fonts";
+@import "bootstrap";
+@import "variables";
+@import "components";
+
+html,
+body {
+  margin: 0;
+  font-family: $font-family-base;
+  background-color: $neutral-2;
+}
+
+main {
+  padding: $spacing-24 0;
+}
+
+.container {
+  width: 100%;
+  max-width: 1224px;
+  margin: 0 auto;
+  padding-left: $spacing-12;
+  padding-right: $spacing-12;
+  display: flex;
+}
+
+.card {
+  padding: $spacing-24;
+  border-radius: $spacing-16;
+  background-color: #fff;
+  box-shadow: none;
+  border: none;
+}
+
+.separator {
+  width: 100%;
+  height: 1px;
+  background-color: $neutral-5;
+  display: flex;
+}
+
+.separator-vert {
+  width: 1px;
+  background-color: $neutral-5;
+  display: flex;
+}
+
+.modal.fade .modal-dialog {
+  transition: transform 0.1s ease-out;
+}
+
+.table-wrapper {
+  position: relative;
+
+  &:has(.loading-spinner) {
+    min-height: 160px;
+  }
+
+  .loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.5);
+    width: 100%;
+    height: 100%;
+  }
+}
