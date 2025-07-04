@@ -17,7 +17,7 @@ use {
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{
         contract, contractimpl, log,
-        token::{self},
+        token::{self, TokenClient},
         Address, BytesN, Env, Symbol, Vec,
     },
 };
@@ -481,7 +481,11 @@ fn process_initialize_pool(
         Default::default()
     };
 
+    let token_client = TokenClient::new(&e, &token_address);
+    let name = token_client.name();
+
     let pool = Pool {
+        name,
         config,
         pool_address: pool_address.clone(),
         token_ticker: token_ticker.clone(),
@@ -490,8 +494,8 @@ fn process_initialize_pool(
         total_shares: 0,
         total_borrowed: 0,
         total_collateral: 0,
-        last_accrual: ACCRUAL_INIT,
         last_accrual_timestamp: e.ledger().timestamp(),
+        last_accrual: ACCRUAL_INIT,
     };
 
     pool.set(e);
