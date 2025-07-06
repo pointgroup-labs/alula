@@ -1,7 +1,7 @@
 {
+  "version": "0.0.0",
   "name": "sdk",
   "type": "module",
-  "version": "0.0.0",
   "exports": "./dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {

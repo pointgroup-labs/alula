@@ -1,21 +1,17 @@
 [package]
-name = "lending"
+name = "flash-loan-taker-mock"
 version = "0.0.0"
 edition = "2021"
 publish = false
 
 [lib]
 crate-type = ["lib", "cdylib"]
-doctest = true
+doctest = false
 
 [dependencies]
-soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 moderc3156 = { workspace = true }
+lending = { path = "../lending" }
 
 [dev-dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
-
-[features]
-deploy = []
-testutils = ["soroban-sdk/testutils"]
+tests = { path = "../../tests" }
