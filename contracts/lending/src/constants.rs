@@ -16,7 +16,7 @@ pub const SHARED_THRESHOLD: u32 = 50 * LEDGERS_PER_DAY;
 pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + LEDGERS_PER_DAY;
 
 // Individual persistent storage extension is usually paid by the data owners. It should neither be paid very
-// often(in order to not pay for extension operation) nor very rare(to minimize the risk of archival)
+// often (in order to not pay for extension operation) nor very rare (to minimize the risk of archival)
 pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
@@ -51,16 +51,3 @@ pub const REFLECTOR_TESTNET_ADDRESS: &str =
 
 pub const SOROSWAP_ROUTER_TESTNET_ADDRESS: &str =
     "CBEEH4UPEYYJIT6INNYMXOXP5UTN6IBU3NKQFOFUYCZM2IHYITW6N22Z";
-
-// ---- Aliases ----
-pub type LCError = crate::error::LendingContractError;
-
-// TODO: think about extension
-// pub trait BpsExtension {
-//     fn to_bps(self) -> i128;
-// }
-// impl BpsExtension for i128 {
-//     fn to_bps(self) -> i128 {
-//         self * BPS_IN_PERCENT
-//     }
-// }

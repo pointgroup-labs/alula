@@ -2,11 +2,9 @@
 
 use {
     crate::{
-        constants::{
-            LCError, BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, SOROSWAP_ROUTER_TESTNET_ADDRESS,
-        },
+        constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
         math_utils::MathUtils,
-        soroswap_router,
+        soroswap_router, LCError,
     },
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{Address, Env},

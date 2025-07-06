@@ -3,9 +3,10 @@
 
 use {
     crate::{
-        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+        constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
         math_utils::{self, MathUtils},
         pool::Pool,
+        LCError,
     },
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, Env},

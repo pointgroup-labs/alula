@@ -1,7 +1,7 @@
 use {
     crate::{
         constants::{
-            LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
+            ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
             DEFAULT_LIQUIDATION_THRESHOLD, MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
             REFLECTOR_TESTNET_ADDRESS,
         },
@@ -11,7 +11,7 @@ use {
         oracle,
         pool::{Pool, PoolAddress, PoolConfig},
         storage::{self, GlobalState},
-        swap,
+        swap, LCError,
     },
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,

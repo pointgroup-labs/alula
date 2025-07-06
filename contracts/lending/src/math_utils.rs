@@ -1,4 +1,4 @@
-use {crate::constants::LCError, soroban_fixed_point_math::FixedPoint};
+use {crate::LCError, soroban_fixed_point_math::FixedPoint};
 
 pub trait MathUtils {
     fn map_over_or_underflow(self) -> Result<i128, LCError>;

@@ -11,3 +11,7 @@ pub mod pool;
 pub mod soroswap_router;
 pub mod storage;
 pub mod swap;
+
+// Aliases
+pub type LCError = error::LendingContractError;
+pub type LCResult<T> = Result<T, LCError>;
