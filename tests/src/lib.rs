@@ -1,14 +1,23 @@
 #![deny(clippy::absurd_extreme_comparisons)]
 
+mod borrow;
+mod deposit;
+mod fuzz;
+mod initialize;
+mod interest_rates;
+mod leverage;
+mod liquidate;
+mod repay;
+mod swap;
+mod withdraw;
+
 use {
     arbitrary::Unstructured,
     lending::{
-        constants::{
-            LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS,
-        },
+        constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
         contract::{LendingContract, LendingContractClient},
         obligation::{BorrowObligation, DepositObligation},
-        oracle, soroswap_router,
+        oracle, soroswap_router, LCError,
     },
     soroban_sdk::{
         symbol_short,
@@ -949,14 +958,3 @@ mod tests {
             .unwrap()
     }
 }
-
-mod borrow;
-mod deposit;
-mod fuzz;
-mod initialize;
-mod interest_rates;
-mod leverage;
-mod liquidate;
-mod repay;
-mod swap;
-mod withdraw;
