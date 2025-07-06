@@ -1,13 +1,14 @@
 use {
     crate::{
         constants::{
-            LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
+            BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
             DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
             DEFAULT_SLOPE1, DEFAULT_SLOPE2,
         },
         math_utils::MathUtils,
+        storage, LCError,
     },
-    soroban_sdk::{contracttype, Address, Symbol},
+    soroban_sdk::{contracttype, Address, Env, Symbol, Vec},
 };
 
 pub type PoolAddress = Address;
@@ -16,6 +17,8 @@ pub type UserAddress = Address;
 #[contracttype]
 #[derive(Debug)]
 pub struct Pool {
+    /// The address of the loan pool
+    pub pool_address: Address,
     /// The address of the token associated with the pool
     pub token_address: Address,
     /// The ticker symbol of the associated token, which is used to identify the token in the pool
@@ -144,6 +147,50 @@ impl Pool {
             && self.total_borrowed == 0
             && self.available == 0
             && self.total_collateral == 0
+    }
+
+    /// Tries to get the pool from the contract's storage
+    ///
+    /// # Returns
+    /// - `[Ok(Pool)]` if a pool with the given address exists in the contract's storage
+    /// - `[Err(LCError::PoolDoesNotExist)]` otherwise
+    pub fn try_get(e: &Env, pool_address: &Address) -> Result<Self, LCError> {
+        storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)
+    }
+
+    pub fn get_all(e: &Env) -> Vec<PoolAddress> {
+        storage::get_all_pools(e)
+    }
+
+    pub fn exists(e: &Env, address: &PoolAddress) -> bool {
+        storage::pool_exists(e, address)
+    }
+
+    /// Refreshes the pool with the contract's storage data
+    pub fn refresh(&mut self, e: &Env) -> Result<(), LCError> {
+        let Some(refreshed_pool) = storage::get_pool(e, &self.pool_address) else {
+            return Err(LCError::InternalError);
+        };
+
+        *self = refreshed_pool;
+
+        Ok(())
+    }
+
+    /// Saves\updates pool in the contract's storage
+    ///
+    /// # WARNING
+    /// Modifies the contract's storage
+    pub fn set(&self, e: &Env) {
+        storage::set_pool(e, &self.pool_address, self);
+    }
+
+    /// Registers pool in the pool's list
+    ///
+    /// # WARNING
+    /// Modifies the contract's storage
+    pub fn register(&self, e: &Env) -> u32 {
+        storage::register_pool(e, &self.pool_address.clone())
     }
 }
 

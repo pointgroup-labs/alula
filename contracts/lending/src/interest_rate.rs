@@ -3,9 +3,10 @@
 
 use {
     crate::{
-        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+        constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
         math_utils::{self, MathUtils},
         pool::Pool,
+        LCError,
     },
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, Env},
@@ -252,8 +253,11 @@ mod tests {
     };
 
     fn create_test_pool(env: &Env) -> Pool {
+        let token_address = Address::generate(env);
+
         Pool {
-            token_address: Address::generate(env),
+            token_address: token_address.clone(),
+            pool_address: token_address,
             token_ticker: symbol_short!("TEST"),
             total_borrowed: 0,
             total_shares: 0,

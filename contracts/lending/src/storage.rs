@@ -1,11 +1,12 @@
 use {
     crate::{
         constants::{
-            LCError, INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD,
-            SHARED_BUMP, SHARED_THRESHOLD,
+            INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP,
+            SHARED_THRESHOLD,
         },
         obligation::Obligation,
         pool::Pool,
+        LCError,
     },
     soroban_sdk::{contracttype, Address, Env, Symbol},
 };

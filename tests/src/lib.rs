@@ -1,18 +1,29 @@
 #![deny(clippy::absurd_extreme_comparisons)]
 
+mod borrow;
+mod deposit;
+mod fuzz;
+mod initialize;
+mod interest_rates;
+mod leverage;
+mod liquidate;
+mod repay;
+mod swap;
+mod withdraw;
+
 use {
     arbitrary::Unstructured,
     lending::{
-        constants::{LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS},
+        constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
         contract::{LendingContract, LendingContractClient},
         obligation::{BorrowObligation, DepositObligation},
-        oracle,
+        oracle, soroswap_router, LCError,
     },
     soroban_sdk::{
         symbol_short,
         testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
         token::{self, StellarAssetClient, TokenClient},
-        vec, Address, Env, String, Vec,
+        vec, Address, Env, Vec,
     },
 };
 
@@ -36,29 +47,31 @@ pub struct TestFixture<'a> {
     pub contract_client: LendingContractClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
-
+    pub users: Vec<Address>,
     // Oracle
     pub oracle_client: oracle::Client<'a>,
-
+    pub oracle_address: Address,
+    // Swap Router
+    pub soroswap_router_client: soroswap_router::Client<'a>,
+    pub soroswap_router_address: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
     pub gold_token_address: Address,
-    pub gold_admin: Address,
     pub gold_pool_address: Address,
+    pub gold_admin: Address,
     // BTC
     pub btc_sac: StellarAssetClient<'a>,
     pub btc_token_client: TokenClient<'a>,
     pub btc_token_address: Address,
-    pub btc_admin: Address,
     pub btc_pool_address: Address,
+    pub btc_admin: Address,
     // USDC
     pub usdc_sac: StellarAssetClient<'a>,
     pub usdc_token_client: TokenClient<'a>,
     pub usdc_token_address: Address,
-    pub usdc_admin: Address,
     pub usdc_pool_address: Address,
-    pub users: Vec<Address>,
+    pub usdc_admin: Address,
 }
 
 impl Default for TestFixture<'_> {
@@ -73,6 +86,9 @@ impl TestFixture<'_> {
             capture_snapshot_at_drop: false,
         });
         e.mock_all_auths();
+        // TODO: Think more about what sometimes happens in tests
+        // when this is opted out
+        e.mock_all_auths_allowing_non_root_auth();
 
         e.ledger().with_mut(|li| {
             li.sequence_number = 0;
@@ -87,7 +103,16 @@ impl TestFixture<'_> {
                 Option::<i128>::Some(DEFAULT_HEALTH_FACTOR_THRESHOLD),
             ),
         );
+
         let contract_client = LendingContractClient::new(&e, &contract_id);
+
+        let oracle_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
+        e.register_at(&oracle_address, oracle::WASM, ());
+        let oracle_client = oracle::Client::new(&e, &oracle_address);
+
+        let soroswap_router_address = Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS);
+        e.register_at(&soroswap_router_address, soroswap_router::WASM, ());
+        let soroswap_router_client = soroswap_router::Client::new(&e, &soroswap_router_address);
 
         let users = vec![
             &e,
@@ -139,24 +164,23 @@ impl TestFixture<'_> {
             &None,
         );
 
-        let mock_oracle_address =
-            Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
-        e.register_at(&mock_oracle_address, oracle::WASM, ());
-
-        let oracle_client = oracle::Client::new(&e, &mock_oracle_address);
-
         Self {
             e,
             contract_client,
             contract_id,
             contract_admin,
-            // GOLD
+            // Oracle
             oracle_client,
+            oracle_address,
+            // Swap router
+            soroswap_router_client,
+            soroswap_router_address,
+            // GOLD
             gold_sac,
             gold_token_client,
             gold_token_address,
-            gold_admin,
             gold_pool_address,
+            gold_admin,
             // BTC
             btc_sac,
             btc_token_client,
@@ -240,6 +264,12 @@ pub enum Command {
 
     TomWithdrawCollateral(WithdrawCollateral),
     JerryWithdrawCollateral(WithdrawCollateral),
+
+    TomDepositWithLeverage(DepositWithLeverage),
+    JerryDepositWithLeverage(DepositWithLeverage),
+
+    TomDeleverageAndWithdraw(DeleverageAndWithdraw),
+    JerryDeleverageAndWithdraw(DeleverageAndWithdraw),
     // PassTime(),
 }
 
@@ -253,6 +283,8 @@ impl Command {
             Command::TomLiquidate(command) => command.run(test_fixture, 0),
             Command::TomDepositCollateral(command) => command.run(test_fixture, 0),
             Command::TomWithdrawCollateral(command) => command.run(test_fixture, 0),
+            Command::TomDepositWithLeverage(command) => command.run(test_fixture, 0),
+            Command::TomDeleverageAndWithdraw(command) => command.run(test_fixture, 0),
 
             Command::JerryRepay(command) => command.run(test_fixture, 1),
             Command::JerryBorrow(command) => command.run(test_fixture, 1),
@@ -261,6 +293,8 @@ impl Command {
             Command::JerryLiquidate(command) => command.run(test_fixture, 1),
             Command::JerryDepositCollateral(command) => command.run(test_fixture, 1),
             Command::JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
+            Command::JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
+            Command::JerryDeleverageAndWithdraw(command) => command.run(test_fixture, 1),
         }
     }
 }
@@ -289,9 +323,9 @@ pub fn assert_invariants(fixture: &TestFixture) {
     } = fixture;
 
     // Get all pools
-    let usdc_pool = contract_client.get_pool(usdc_pool_address).unwrap();
-    let gold_pool = contract_client.get_pool(gold_pool_address).unwrap();
-    let btc_pool = contract_client.get_pool(btc_pool_address).unwrap();
+    let usdc_pool = contract_client.get_pool(usdc_pool_address);
+    let gold_pool = contract_client.get_pool(gold_pool_address);
+    let btc_pool = contract_client.get_pool(btc_pool_address);
 
     // Basic non-negative invariants
     // All data on all pools must be non-negative
@@ -522,6 +556,22 @@ pub struct Liquidate {
     pub collateral_token: Token,
 }
 
+#[derive(Arbitrary, Debug)]
+pub struct DepositWithLeverage {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+    pub flash_loan_amount: Amount,
+    pub leverage: u32,
+}
+
+#[derive(Arbitrary, Debug)]
+pub struct DeleverageAndWithdraw {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+}
+
 impl Borrow {
     pub fn run(&self, test_fixture: &TestFixture, who: u32) {
         let pool_address = test_fixture.get_pool_address(self.token);
@@ -635,6 +685,108 @@ impl Liquidate {
     }
 }
 
+impl DepositWithLeverage {
+    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        if deposit_pool_address != borrow_pool_address {
+            let TestFixture {
+                contract_client,
+                users,
+                ..
+            } = test_fixture;
+
+            let (flash_loan_provider, lender) = if who == 0 {
+                (users.get(0).unwrap(), users.get(1).unwrap())
+            } else {
+                (users.get(1).unwrap(), users.get(0).unwrap())
+            };
+
+            contract_client.deposit(
+                &flash_loan_provider,
+                &borrow_pool_address,
+                &self.flash_loan_amount.0,
+            );
+
+            let _ = contract_client.try_deposit_with_leverage(
+                &lender,
+                &deposit_pool_address,
+                &borrow_pool_address,
+                &self.amount.0,
+                &self.leverage,
+            );
+        }
+    }
+}
+
+impl DeleverageAndWithdraw {
+    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        let TestFixture {
+            contract_client,
+            users,
+            ..
+        } = test_fixture;
+
+        let user = users.get(who).unwrap();
+        let _ = contract_client.try_deleverage_and_withdraw(
+            &user,
+            &deposit_pool_address,
+            &borrow_pool_address,
+            &self.amount.0,
+        );
+    }
+}
+
+#[allow(unused)]
+pub fn get_obligation_shares(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.shares)
+}
+
+#[allow(unused)]
+pub fn get_obligation_tokens_from_shares(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let shares = get_obligation_shares(contract_client, user, pool_address)?;
+
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.compute_tokens_from_shares(shares)
+}
+
+#[allow(unused)]
+pub fn get_obligation_borrowed(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let borrow_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
+
+    Ok(borrow_obligation.borrowed)
+}
+
+#[allow(unused)]
+pub fn get_obligation_collateral(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.collateral)
+}
+
 #[allow(unused)]
 pub fn get_deposit_obligation(
     contract_client: &LendingContractClient,
@@ -666,7 +818,7 @@ pub fn get_borrow_obligation(
     let borrow = obligation
         .borrows
         .get(pool_address.clone())
-        .ok_or(LCError::DepositDoesNotExist)?;
+        .ok_or(LCError::BorrowDoesNotExist)?;
 
     Ok(borrow)
 }
@@ -676,9 +828,10 @@ mod tests {
     use {
         super::*,
         lending::{
-            constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
+            constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
             storage::DataKey,
         },
+        soroban_fixed_point_math::FixedPoint,
         soroban_sdk::testutils::{
             storage::{Instance, Persistent},
             Ledger,
@@ -792,13 +945,16 @@ mod tests {
 
         // TODO: Add individual storage extension test case
     }
-}
 
-mod borrow;
-mod deposit;
-mod fuzz;
-mod initialize;
-mod interest_rates;
-mod liquidate;
-mod repay;
-mod withdraw;
+    pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
+        amount
+            .checked_sub(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
+            .unwrap()
+    }
+
+    pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
+        amount
+            .checked_add(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
+            .unwrap()
+    }
+}
