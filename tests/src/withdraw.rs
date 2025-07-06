@@ -1,10 +1,7 @@
 #![cfg(test)]
 
-use {
-    crate::{
-        get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
-    },
-    lending::constants::LCError,
+use crate::{
+    get_deposit_obligation, LCError, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
 };
 
 #[test]

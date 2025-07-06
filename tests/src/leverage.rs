@@ -4,11 +4,11 @@ use {
     crate::{
         get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
         tests::{get_amount_scaled_down, get_amount_scaled_up},
-        TestFixture, DEFAULT_DEPOSIT_AMOUNT,
+        LCError, TestFixture, DEFAULT_DEPOSIT_AMOUNT,
     },
     lending::{
         constants::{
-            LCError, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, MAX_LEVERAGE_MULTIPLIER,
+            DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, MAX_LEVERAGE_MULTIPLIER,
             MIN_LEVERAGE_MULTIPLIER,
         },
         swap,

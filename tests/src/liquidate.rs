@@ -2,7 +2,7 @@
 
 use {
     crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    lending::constants::{LCError, DEFAULT_CLOSE_FACTOR},
+    lending::{constants::DEFAULT_CLOSE_FACTOR, LCError},
     soroban_sdk::{
         testutils::{Address as _, Ledger},
         Address,
