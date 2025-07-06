@@ -18,7 +18,7 @@ FLASH_LOAN_TAKER_MOCK := flash-loan-taker-mock
 
 .DEFAULT_GOAL: help
 .PHONY: help
-	
+
 # Downloads  a WASM file if it doesn't exist
 define download_wasm_contract
 	@if [ ! -f $(1) ]; then \
@@ -27,6 +27,11 @@ define download_wasm_contract
 	else \
 		echo "$(1) WASM file already exists, skipping download."; \
 	fi
+endef
+
+# Build a contract to specified directory
+define build_contract
+	stellar contract build --package $(1) --out-dir $(2) $(3)
 endef
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -43,20 +48,16 @@ check: build ## Check compilation correctness with cargo
 
 # It's important to maintain a valid topological order of the contracts
 build: build-init ## Build contracts
-	stellar contract build --package $(REFLECTOR_ORACLE_MOCK)    --out-dir $(MOCKS_DIR)
-	stellar contract build --package $(SOROSWAP_ROUTER_MOCK)     --out-dir $(MOCKS_DIR)
-	stellar contract build --package $(LENDING_CONTRACT)		 --out-dir $(WASM_DIR)
-	stellar contract build --package $(FLASH_LOAN_TAKER_MOCK)    --out-dir $(MOCKS_DIR)
+	$(call build_contract,$(REFLECTOR_ORACLE_MOCK),$(MOCKS_DIR))
+	$(call build_contract,$(SOROSWAP_ROUTER_MOCK),$(MOCKS_DIR))
+	$(call build_contract,$(LENDING_CONTRACT),$(WASM_DIR))
+	$(call build_contract,$(FLASH_LOAN_TAKER_MOCK),$(MOCKS_DIR))
 
 build-sdk: download ## Build contracts for deployment
-	stellar contract build --package $(LENDING_CONTRACT) --out-dir $(DEPLOY_DIR) --features deploy
+	$(call build_contract,$(LENDING_CONTRACT),$(DEPLOY_DIR),--features deploy)
 
 build-init: ## Build init
-	mkdir -p $(WASM_DIR)
-	mkdir -p $(MOCKS_DIR)
-	mkdir -p $(DEPLOY_DIR)
-	mkdir -p $(DOWNLOADS_DIR)
-
+	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
 
 download: build-init ## Downloads dependency contracts
 	@echo "Checking for WASM files..."
@@ -76,7 +77,7 @@ sdk: build-optimize ## Generate typescript sdk
 
 test: build ## Run tests
 	cargo nextest run --locked --workspace
-	
+
 test-coverage: ## Test coverage
 	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
 	cargo +nightly llvm-cov --doc --no-report
