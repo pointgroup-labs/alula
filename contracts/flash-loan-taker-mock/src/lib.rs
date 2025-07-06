@@ -15,7 +15,7 @@ const FAILING_CALL_AMOUNT: i128 = 777;
 pub struct FlashLoanLiquidatorContract;
 
 #[contractimpl]
-impl moderc3156::ModErc3156 for FlashLoanLiquidatorContract {
+impl ModErc3156 for FlashLoanLiquidatorContract {
     fn exec_op(e: Env, caller: Address, token: Address, amount: i128, _fee: i128) {
         // In the real-world contract that utilizes flash loans, I believe you'd have to check for a specific caller
         // to forbid other contracts from invoking `exec_op`
@@ -53,7 +53,7 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 mod test {
     use {
         super::{FlashLoanLiquidatorContract, FAILING_CALL_AMOUNT},
-        lending::constants::LCError,
+        lending::LCError,
         soroban_sdk::Address,
         tests::{TestFixture, DEFAULT_DEPOSIT_AMOUNT},
     };
