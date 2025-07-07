@@ -1,15 +1,7 @@
 import type {
   ISupportedWallet,
 } from '@creit.tech/stellar-wallets-kit'
-import {
-  AlbedoModule,
-  FreighterModule,
-  StellarWalletsKit,
-  WalletNetwork,
-  XBULL_ID,
-  xBullModule,
-} from '@creit.tech/stellar-wallets-kit'
-import { WalletConnectAllowedMethods, WalletConnectModule } from '@creit.tech/stellar-wallets-kit/modules/walletconnect.module'
+
 import { defineStore } from 'pinia'
 
 export const useConnectionStore = defineStore('connection', () => {
@@ -21,24 +13,40 @@ export const useConnectionStore = defineStore('connection', () => {
   const { publicKey, balances } = toRefs(walletStore)
   const loading = ref(false)
 
-  const kit: StellarWalletsKit = new StellarWalletsKit({
-    network: WalletNetwork.TESTNET,
-    selectedWalletId: XBULL_ID,
-    modules: [
-      new AlbedoModule(),
-      new FreighterModule(),
-      // eslint-disable-next-line new-cap
-      new xBullModule(),
-      new WalletConnectModule({
-        url: 'JLend',
-        projectId: '3c5d0cb78534db1da6c199e29b775365',
-        method: WalletConnectAllowedMethods.SIGN,
-        description: `A DESCRIPTION TO SHOW USERS`,
-        name: 'THE NAME OF YOUR DAPP',
-        icons: ['A LOGO/ICON TO SHOW TO YOUR USERS'],
+  let kit: any
+
+  onMounted(async () => {
+    if (process.client) {
+      const {
+        AlbedoModule,
+        FreighterModule,
+        StellarWalletsKit,
+        WalletNetwork,
+        XBULL_ID,
+        xBullModule,
+      } = await import('@creit.tech/stellar-wallets-kit')
+      const { WalletConnectAllowedMethods, WalletConnectModule } = await import('@creit.tech/stellar-wallets-kit/modules/walletconnect.module')
+
+      kit = new StellarWalletsKit({
         network: WalletNetwork.TESTNET,
-      }),
-    ],
+        selectedWalletId: XBULL_ID,
+        modules: [
+          new AlbedoModule(),
+          new FreighterModule(),
+          // eslint-disable-next-line new-cap
+          new xBullModule(),
+          new WalletConnectModule({
+            url: 'JLend',
+            projectId: '3c5d0cb78534db1da6c199e29b775365',
+            method: WalletConnectAllowedMethods.SIGN,
+            description: `A DESCRIPTION TO SHOW USERS`,
+            name: 'THE NAME OF YOUR DAPP',
+            icons: ['A LOGO/ICON TO SHOW TO YOUR USERS'],
+            network: WalletNetwork.TESTNET,
+          }),
+        ],
+      })
+    }
   })
 
   async function connectWallet() {

@@ -17,6 +17,9 @@ export const useMarketsStore = defineStore('markets', () => {
   const selectedMarket = ref('Main market')
 
   async function loadPools() {
+    if (!isClient) {
+      return
+    }
     try {
       state.loading = true
       const allPools = await jLendClient.value?.sdk.getAllPools()

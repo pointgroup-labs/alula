@@ -6,7 +6,7 @@ export const useClientStore = defineStore('client', () => {
 
     const { publicKey } = toRefs(walletStore)
 
-    const jLendClient = computed(() => StellarClient.fromAddress(publicKey.value, 'testnet'))
+    const jLendClient = computed(() => isClient ? StellarClient.fromAddress(publicKey.value, 'testnet') : {} as StellarClient)
     const assetDecimals = computed(() => jLendClient.value?.sdk.assetDecimals || 7)
     return {
         jLendClient,

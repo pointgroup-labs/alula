@@ -9,7 +9,7 @@ import Icons from 'unplugin-icons/vite'
 import ViteComponents from 'unplugin-vue-components/vite'
 
 import { loadEnv } from 'vite'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
+// import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 const env = loadEnv(process.env.NUXT_ENV || 'development', process.cwd(), '')
 
@@ -41,7 +41,7 @@ export default defineNuxtConfig({
   vite: {
     plugins: [
       // https://github.com/davidmyersdev/vite-plugin-node-polyfills
-      nodePolyfills(),
+      // nodePolyfills(),
 
       AutoImport({
         imports: [

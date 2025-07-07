@@ -12,7 +12,7 @@ export const useWallet = defineStore('wallet', () => {
 
     async function initWallet(address: string) {
         publicKey.value = address
-        balances.value = await jLendClient.value.getBalances()
+        balances.value = await jLendClient.value?.getBalances()
         userObligation.value = await jLendClient.value.sdk.getUserObligation(address)
         console.log('%c[Wallet Balances]', 'color: #FFB726', balances.value)
         console.log('%c[User Obligation]', 'color: #FFB726', userObligation.value)
