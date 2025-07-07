@@ -1,58 +1,72 @@
 <script lang="ts" setup>
-import type { SupplyTableItem } from '~/types/table'
-import { getTokenIcon, truncatePercent } from '~/utils'
+import type { MarketTableItem } from '~/types/table'
+import { getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
 
-const emits = defineEmits(['showInfo'])
+const infoDialog = ref(false)
 
+const client = useClientStore()
 const marketsStore = useMarketsStore()
+
+const assetDecimals = computed(() => client.assetDecimals)
 
 const pools = computed(() => marketsStore.state.pollsData)
 const loading = computed(() => marketsStore.state.loading)
 
-watch(pools, async (_p) => {
-  console.log(pools.value)
-}, { immediate: true })
-
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
-  { key: 'pool_size', label: 'Pool Size', align: 'right' },
-  { key: 'price', label: 'Price', align: 'right' },
+  { key: 'total_supply', label: 'Total Supply', align: 'right' },
+  { key: 'total_borrowed', label: 'Total Borrowed', align: 'right' },
   { key: 'deposit_apy', label: 'Deposit APY', align: 'center' },
-  { key: 'trust_ratio', label: 'Trust Ratio', align: 'right' },
-  { key: 'risk_floor', label: 'Risk Floor', align: 'right' },
-  { key: 'position', label: 'You Position', align: 'center' },
+  { key: 'borrow_apy', label: 'Borrow APY', align: 'center' },
+  { key: 'utilization_rate', label: 'Utilization Rate', align: 'right' },
+  { key: 'max_ltv', label: 'Max LTV', align: 'center' },
   { key: 'action', label: '' },
 ]
 
-const items = computed<SupplyTableItem[]>(() => {
-  return pools.value.map((p) => {
+const items = computed<MarketTableItem[]>(() => {
+  return pools.value.map((p, i) => {
     const tokenName = p.token_ticker
     const icon = getTokenIcon(tokenName)
-    const price = truncatePercent(p.pool_price || 0, 2)
+    const supply = (Number(p.available) + Number(p.total_borrowed)) / 10 ** assetDecimals.value
+    const borrowed = Number(p.total_borrowed) / 10 ** assetDecimals.value
+    const depositApy = p.pool_apy.supply_bps / 100
+    const borrowApy = p.pool_apy.borrow_bps / 100
+    const utilRate = Number(p.total_borrowed) / Number((p.available + p.total_borrowed)) * 100
+    const maxLTV = Number(p.config.open_ltv_bps) / 100
+    const supplyLimit = i % 2 === 0 ? 0 : 200_000
     return {
+      raw: p,
       asset: { name: tokenName, symbol: tokenName, icon },
-      pool_size: '23.89K',
-      price: `${price} USD`,
-      deposit_apy: '18.93%',
-      trust_ratio: '75.05%',
-      risk_floor: '75.05%',
-      position: '200,458 XLM',
+      total_supply: supply,
+      total_borrowed: borrowed,
+      deposit_apy: `${truncatePercent(depositApy || 0, 2)}%`,
+      borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
+      utilization_rate: `${truncatePercent(utilRate || 0, 2)}%`,
+      max_ltv: `${truncatePercent(maxLTV || 0, 2)}%`,
       action: 'Supply',
+      price: p.pool_price,
+      supply_limit: supplyLimit,
+      available: Number(p.available) / 10 ** assetDecimals.value,
     }
   })
 })
 
-const dialog = ref(false)
-const selectedItem = ref<SupplyTableItem>()
+const dialogSupply = ref(false)
+const dialogBorrow = ref(false)
+const selectedItem = ref<MarketTableItem>()
 
-async function supplyDialogHandler(data: { item: SupplyTableItem }) {
+async function supplyDialogHandler(data: { item: MarketTableItem }, action: 'supply' | 'borrow') {
   selectedItem.value = data.item
-  dialog.value = true
+  action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
 }
 
 function onRowClicked(item: any, _index: number, _event: any) {
   marketsStore.selectedMarketInfo = item
-  emits('showInfo')
+  infoDialog.value = true
+}
+
+function amountToUsd(amount: number, price: number) {
+  return shortenNumber((Number(amount) * Number(price)) || 0)
 }
 </script>
 
@@ -92,15 +106,17 @@ function onRowClicked(item: any, _index: number, _event: any) {
         </div>
       </template>
 
-      <template #cell(pool_size)="data">
-        <div class="table-cell justify-content-end">
-          {{ data.item.pool_size }}
+      <template #cell(total_supply)="data">
+        <div class="table-cell justify-content-end with-price">
+          {{ data.item.total_supply > 1000 ? shortenNumber(data.item.total_supply) : data.item.total_supply }}
+          <span>${{ amountToUsd(data.item.total_supply, data.item.price) }}</span>
         </div>
       </template>
 
-      <template #cell(price)="data">
-        <div class="table-cell justify-content-end">
-          {{ data.item.price }}
+      <template #cell(total_borrowed)="data">
+        <div class="table-cell justify-content-end with-price">
+          {{ data.item.total_borrowed > 1000 ? shortenNumber(data.item.total_borrowed) : data.item.total_borrowed }}
+          <span>${{ amountToUsd(data.item.total_borrowed, data.item.price) }}</span>
         </div>
       </template>
 
@@ -108,7 +124,7 @@ function onRowClicked(item: any, _index: number, _event: any) {
         <div class="table-cell justify-content-center">
           <j-pill-label
             color="#111"
-            bg-color="#08b57680"
+            bg-color="rgba(8, 181, 118, 0.50)"
             size="md"
           >
             {{ data.item.deposit_apy }}
@@ -116,38 +132,48 @@ function onRowClicked(item: any, _index: number, _event: any) {
         </div>
       </template>
 
-      <template #cell(trust_ratio)="data">
-        <div class="table-cell justify-content-end">
-          {{ data.item.trust_ratio }}
-        </div>
-      </template>
-
-      <template #cell(risk_floor)="data">
-        <div class="table-cell justify-content-end">
-          {{ data.item.risk_floor }}
-        </div>
-      </template>
-
-      <template #cell(position)="data">
+      <template #cell(borrow_apy)="data">
         <div class="table-cell justify-content-center">
           <j-pill-label
-            variant="secondary"
+            color="#111"
+            bg-color="rgba(228, 156, 11, 0.50)"
             size="md"
           >
-            {{ data.item.position }}
+            {{ data.item.borrow_apy }}
           </j-pill-label>
         </div>
       </template>
 
-      <template #cell(action)="data">
+      <template #cell(utilization_rate)="data">
         <div class="table-cell justify-content-end">
+          {{ data.item.utilization_rate }}
+        </div>
+      </template>
+
+      <template #cell(max_ltv)="data">
+        <div class="table-cell justify-content-end">
+          {{ data.item.max_ltv }}
+        </div>
+      </template>
+
+      <template #cell(action)="data">
+        <div class="table-cell justify-content-end market-table__action">
           <j-btn
             size="lg"
             pill
             icon-right
-            @click="supplyDialogHandler(data)"
+            @click="supplyDialogHandler(data, 'supply')"
           >
             Supply
+          </j-btn>
+          <j-btn
+            size="lg"
+            pill
+            icon-right
+            variant="accent"
+            @click="supplyDialogHandler(data, 'borrow')"
+          >
+            Borrow
           </j-btn>
         </div>
       </template>
@@ -170,9 +196,16 @@ function onRowClicked(item: any, _index: number, _event: any) {
   </div>
 
   <supply-dialog
-    v-model="dialog"
+    v-model="dialogSupply"
     :data="selectedItem"
   />
+
+    <borrow-dialog
+    v-model="dialogBorrow"
+    :data="selectedItem"
+  />
+
+  <market-info-dialog v-model="infoDialog" />
 </template>
 
 <style lang="scss">
@@ -222,6 +255,18 @@ function onRowClicked(item: any, _index: number, _event: any) {
     white-space: nowrap;
   }
 
+  .with-price {
+    flex-direction: column;
+    align-items: flex-end;
+
+    span {
+      color: $neutral-12;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 16px;
+    }
+  }
+
   &__asset {
     display: flex;
     align-items: center;
@@ -254,6 +299,10 @@ function onRowClicked(item: any, _index: number, _event: any) {
         text-align: left;
       }
     }
+  }
+
+  &__action {
+    gap: $spacing-8;
   }
 
   .no-data {

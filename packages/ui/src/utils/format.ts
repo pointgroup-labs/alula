@@ -22,6 +22,16 @@ export function formatPrice(price: number | string, minDigits = 0, maxDigits = 1
   return longPriceFormatter.format(Number(price))
 }
 
+export function shortenNumber(num: number, digits = 2): string {
+  const formatter = new Intl.NumberFormat('en', {
+    notation: 'compact',
+    compactDisplay: 'short',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+  return formatter.format(num)
+}
+
 export function parseFormattedPrice(formattedPrice: string): number {
   return Number.parseFloat(formattedPrice.replaceAll(',', ''))
 }

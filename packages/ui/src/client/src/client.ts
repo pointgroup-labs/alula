@@ -33,7 +33,6 @@ export class StellarClient {
     return account.balances
   }
 
-
   /**
    * Reset client
    */

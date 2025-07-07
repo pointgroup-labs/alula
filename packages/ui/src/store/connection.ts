@@ -10,16 +10,16 @@ import {
   xBullModule,
 } from '@creit.tech/stellar-wallets-kit'
 import { WalletConnectAllowedMethods, WalletConnectModule } from '@creit.tech/stellar-wallets-kit/modules/walletconnect.module'
-import { StellarClient } from '@stellar-client'
 import { defineStore } from 'pinia'
 
 export const useConnectionStore = defineStore('connection', () => {
   const walletStore = useWallet()
+  const clientStore = useClientStore()
+
+  const jLendClient = computed(() => clientStore.jLendClient)
 
   const { publicKey, balances } = toRefs(walletStore)
   const loading = ref(false)
-
-  const jLendClient = computed(() => StellarClient.fromAddress(publicKey.value, 'testnet'))
 
   const kit: StellarWalletsKit = new StellarWalletsKit({
     network: WalletNetwork.TESTNET,

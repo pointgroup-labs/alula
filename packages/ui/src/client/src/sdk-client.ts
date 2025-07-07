@@ -1,4 +1,4 @@
-import type { Pool } from 'sdk'
+import type { CompoundRates, Pool } from 'sdk'
 import type { RPCcluster } from '../types'
 import { Client } from 'sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
@@ -80,6 +80,45 @@ export class SorobanClient {
     async getPoolInfo(pool_address: string): Promise<Pool> {
         const poolResult = await this.sdk.get_pool({ pool_address })
         return this.unwrapOk2(poolResult.result)
+    }
+
+    /**
+     * Get pool APY
+     */
+    async getPoolApy(pool_address: string): Promise<CompoundRates> {
+        const poolApy = await this.sdk.get_apy({ pool_address })
+        return this.unwrapOk2(poolApy.result)
+    }
+
+    /**
+     * Get user obligation
+     * @param {string} user
+     */
+    async getUserObligation(user: string) {
+        const obligation = await this.sdk.get_user_obligation({ user })
+        return this.unwrapOk2(obligation.result)
+    }
+
+    /**
+     * Deposit
+     */
+    async deposit(user: string, pool_address: string, amount: number) {
+        return await this.sdk.deposit({ user, pool_address, amount: BigInt(amount) })
+    }
+
+    /**
+     * Borrow
+     */
+    async borrow(user: string, pool_address: string, amount: number) {
+        return await this.sdk.borrow({ user, pool_address, amount: BigInt(amount) })
+    }
+
+    /**
+     * Get transaction fee
+     */
+    getTransactionFee(tx: any): number {
+        const stroops = Number(tx.simulation.minResourceFee) || 0
+        return Number(stroops) / 10 ** this.assetDecimals
     }
 
     /**

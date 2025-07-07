@@ -23,7 +23,7 @@ export default defineNuxtConfig({
   },
   ssr: env.NODE_ENV !== 'development',
   devServer: {
-    port: 3001,
+    port: 3000,
   },
   css: [
     'bootstrap/dist/css/bootstrap.min.css',
@@ -156,6 +156,7 @@ export default defineNuxtConfig({
     public: {
       PASSWORD_PROTECT: env.NUXT_PUBLIC_PASSWORD_PROTECT,
       COOKIE_DOMAIN: env.NUXT_PUBLIC_COOKIE_DOMAIN ?? 'localhost',
+      NUXT_PUBLIC_RPC: env.NUXT_PUBLIC_RPC,
     },
   },
   // debug: true,

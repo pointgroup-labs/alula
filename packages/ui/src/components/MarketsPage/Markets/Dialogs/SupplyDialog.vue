@@ -1,11 +1,13 @@
 <script lang="ts" setup>
-import type { SupplyTableItem } from '~/types/table'
+import type { MarketTableItem } from '~/types/table'
+import { RELOAD_FEE_INTERVAL, RPC_NETWORK, TEST_PUBKEY } from '~/config'
+import { formatPrice, shortenAddress } from '~/utils'
 
 const {
   data,
   modelValue,
 } = defineProps<{
-  data?: SupplyTableItem
+  data?: MarketTableItem
   modelValue: boolean
 }>()
 
@@ -13,36 +15,72 @@ const emits = defineEmits(['update:modelValue'])
 
 const Toast = useToast()
 
+const clientStore = useClientStore()
+const jLendClient = computed(() => clientStore.jLendClient)
+
 const wallet = useWallet()
 const balance = computed(() => {
-  const asset = data?.asset.symbol
-  const assetBalance = asset === 'XLM'
-    ? wallet.nativeBalance
-    : wallet.getAssetBalance(String(asset))
-  return Number(assetBalance) || 0
+  if (!data) {
+    return 0
+  }
+  if (data.raw.token_ticker === 'XLM') {
+    return wallet.nativeBalance
+  }
+  const asset_issuer = data.raw.name.split(':')[1]
+  return wallet.getAssetBalance(String(asset_issuer))
 })
+
+const loading = ref(false)
+const reloadFee = ref(false)
+
+const amount = ref(0)
+
+const txFee = ref(0)
+
+watchDebounced([
+  () => data,
+  reloadFee,
+], async ([d, _r]) => {
+  if (!d) {
+    return
+  }
+  const tx = await jLendClient.value?.sdk.deposit(
+    TEST_PUBKEY,
+    d?.raw.pool_address || '',
+    100,
+  )
+  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+}, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {
   if (!data) {
     return []
   }
-  const { trust_ratio, risk_floor, price } = data
-  return [{
-    label: 'Trust ratio',
-    value: trust_ratio,
-  },
-  {
-    label: 'Risk floor',
-    value: risk_floor,
-  },
-  {
-    label: 'Price',
-    value: price,
-  },
-  {
-    label: 'Transaction Fee',
-    value: '0.004 XLM',
-  }]
+
+  const isSupplyLimited = data.supply_limit && data.supply_limit > 0
+  const supplyLimit = isSupplyLimited && Number(data.supply_limit) || 0 - Number(data.total_supply)
+  return [
+    {
+      name: 'limit',
+      label: 'Supply Limit',
+      value: isSupplyLimited ? formatPrice(supplyLimit || 0, 2, 2) : '-',
+    },
+    {
+      name: 'market',
+      label: 'Market',
+      value: 'Main',
+    },
+    {
+      name: 'contract',
+      label: 'Contract',
+      value: data.raw.pool_address || '',
+    },
+    {
+      name: 'fee',
+      label: 'Transaction Fee',
+      value: `${txFee.value} XLM`,
+    },
+  ]
 })
 
 const dialog = computed({
@@ -53,10 +91,6 @@ const dialog = computed({
     emits('update:modelValue', val)
   },
 })
-
-const loading = ref(false)
-
-const amount = ref(0)
 
 async function supply() {
   try {
@@ -82,10 +116,21 @@ async function supply() {
   }
 }
 
+let interval: string | number | NodeJS.Timeout | undefined
+
 watch(() => modelValue, async (v) => {
+  clearInterval(interval)
   if (!v) {
     amount.value = 0
+    return
   }
+
+  interval = setInterval(() => {
+    reloadFee.value = true
+    nextTick(() => {
+      reloadFee.value = false
+    })
+  }, RELOAD_FEE_INTERVAL)
 })
 </script>
 
@@ -119,14 +164,25 @@ watch(() => modelValue, async (v) => {
         </template>
       </input-widget>
 
-      <div class="supply-info-table">
+      <div
+        v-if="infoTableData.length > 0"
+        class="supply-info-table"
+      >
         <div
           v-for="item in infoTableData"
-          :key="item.label"
+          :key="item?.label"
           class="supply-info-table__item"
         >
           <span>{{ item?.label }}</span>
-          <span>{{ item?.value }}</span>
+          <template v-if="item?.name === 'contract'">
+            <a
+              :href="`https://stellar.expert/explorer/${RPC_NETWORK}/contract/${item?.value}`"
+              target="_blank"
+            >{{ shortenAddress(item?.value, 5) }}
+              <i-app-export-icon />
+            </a>
+          </template>
+          <span v-else>{{ item?.value }}</span>
         </div>
       </div>
 
@@ -204,6 +260,21 @@ watch(() => modelValue, async (v) => {
           text-align: right;
         }
       }
+
+      a {
+        padding: $spacing-6 $spacing-16;
+        color: $dark;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: $spacing-8;
+
+        svg {
+          width: 12px;
+          height: 12px;
+        }
+      }
     }
   }
 
@@ -213,6 +284,8 @@ watch(() => modelValue, async (v) => {
     gap: $spacing-32;
 
     .action-info {
+      white-space: nowrap;
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 2px;

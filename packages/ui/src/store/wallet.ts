@@ -6,30 +6,25 @@ export const useWallet = defineStore('wallet', () => {
     const jLendClient = computed(() => connectionStore.jLendClient)
     const publicKey = ref()
     const balances = ref()
+    const userObligation = ref()
 
-    const nativeBalance = computed(() => balances.value?.find((b: any) => b.asset_type === 'native')?.balance)
+    const nativeBalance = computed(() => Number(balances.value?.find((b: any) => b.asset_type === 'native')?.balance) || 0)
 
     async function initWallet(address: string) {
         publicKey.value = address
         balances.value = await jLendClient.value.getBalances()
+        userObligation.value = await jLendClient.value.sdk.getUserObligation(address)
         console.log('%c[Wallet Balances]', 'color: #FFB726', balances.value)
+        console.log('%c[User Obligation]', 'color: #FFB726', userObligation.value)
     }
 
-    function getAssetBalance(asset_code?: string) {
-        if (!asset_code) {
+    function getAssetBalance(asset_issuer?: string) {
+        if (!asset_issuer) {
             return 0
         }
-        return balances.value?.find((b: any) => b.asset_code?.toLowerCase() === asset_code?.toLowerCase())?.balance || 0
+        const balance = balances.value?.find((b: any) => b.asset_issuer?.toLowerCase() === asset_issuer?.toLowerCase())?.balance || 0
+        return Number(balance)
     }
-
-    // async function findMatchingAsset(pool: Pool, sorobanClient: any) {
-    //     const metadata = await sorobanClient.getTokenMetadata(pool.token_address)
-
-    //     return balances.value?.find((asset: Horizon.HorizonApi.BalanceLineAsset) =>
-    //         asset.asset_code === metadata.symbol
-    //         && asset.asset_issuer === metadata.issuer,
-    //     )
-    // }
 
     return {
         publicKey,

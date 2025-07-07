@@ -1,3 +1,5 @@
+import type { Pool } from 'sdk'
+
 export type TableAsset = {
   asset: {
     name: string
@@ -6,14 +8,18 @@ export type TableAsset = {
   }
 }
 
-export type SupplyTableItem = {
-  pool_size: string
-  price: string
+export type MarketTableItem = {
+  raw: Pool
+  total_supply: number
+  total_borrowed: number
   deposit_apy: string
-  trust_ratio: string
-  risk_floor: string
-  position: string
+  borrow_apy: string
+  utilization_rate: string
+  max_ltv: string
   action: string
+  price: number
+  available: number
+  supply_limit?: number
 } & TableAsset
 
 export type BorrowTableItem = {

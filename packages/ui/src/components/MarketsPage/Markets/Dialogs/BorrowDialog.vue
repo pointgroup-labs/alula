@@ -1,11 +1,13 @@
 <script lang="ts" setup>
-import type { BorrowTableItem } from '~/types/table'
+import type { MarketTableItem } from '~/types/table'
+import { RELOAD_FEE_INTERVAL, TEST_PUBKEY } from '~/config'
+import { getZeroCountAfterDecimal, truncatePercent } from '~/utils'
 
 const {
   data,
   modelValue,
 } = defineProps<{
-  data?: BorrowTableItem
+  data?: MarketTableItem
   modelValue: boolean
 }>()
 
@@ -13,35 +15,74 @@ const emits = defineEmits(['update:modelValue'])
 
 const Toast = useToast()
 
+const clientStore = useClientStore()
+const jLendClient = computed(() => clientStore.jLendClient)
+
 const agree = ref(false)
 
-const connection = useConnectionStore()
+const reloadFee = ref(false)
+const txFee = ref(0)
+
+watchDebounced([
+  () => data,
+  reloadFee,
+], async ([d, _r]) => {
+  if (!d) {
+    return
+  }
+  const tx = await jLendClient.value?.sdk.borrow(
+    TEST_PUBKEY,
+    d?.raw.pool_address || '',
+    1,
+  )
+
+  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+}, { immediate: true, debounce: 300 })
+
+const wallet = useWallet()
 const balance = computed(() => {
-  // const asset = data?.asset.symbol
-  // const balances = connection.balances
-  // const assetBalance = asset === 'XLM'
-  //   ? balances?.native.balance
-  //   : balances?.tokens.find((b: ParsedBalance) => b.asset === asset)?.balance
-  // return Number(assetBalance) || 0
-  return 0
+  if (!data) {
+    return 0
+  }
+  if (data.raw.token_ticker === 'XLM') {
+    return wallet.nativeBalance
+  }
+  const asset_issuer = data.raw.name.split(':')[1]
+  return wallet.getAssetBalance(String(asset_issuer))
 })
 
 const infoTableData = computed(() => {
   if (!data) {
     return []
   }
-  //   const { trust_ratio, risk_floor, price } = data
+  const available = Number(data.available) / 10 ** jLendClient.value.sdk.assetDecimals
+  const availableDecimals = String(balance).includes('e') ? getZeroCountAfterDecimal(available) : null
+  const availableString = availableDecimals ? available.toFixed(availableDecimals) : String(available)
+  const liquidation = Number(data.raw.config.liquidation_close_factor_bps) / 100
+  const closeLTV = Number(data.raw.config.close_ltv_bps) / 100
   return [{
     label: 'Health Factor',
     value: 1.04,
   },
   {
-    label: 'Liquidation at',
-    value: '< 1.0',
+    label: 'Available amount to borrow',
+    value: availableString,
+  },
+  {
+    label: 'Max LTV',
+    value: data.max_ltv,
+  },
+  {
+    label: 'Liquidation LTV',
+    value: `${truncatePercent(closeLTV || 0, 2)}%`,
+  },
+  {
+    label: 'Liq. Penalty',
+    value: `${truncatePercent(liquidation || 0, 2)}%`,
   },
   {
     label: 'Transaction Fee',
-    value: '0.004 XLM',
+    value: `${txFee.value} XLM`,
   }]
 })
 
@@ -82,10 +123,21 @@ async function supply() {
   }
 }
 
-watch(() => modelValue, (v) => {
+let interval: string | number | NodeJS.Timeout | undefined
+
+watch(() => modelValue, async (v) => {
+  clearInterval(interval)
   if (!v) {
     amount.value = 0
+    return
   }
+
+  interval = setInterval(() => {
+    reloadFee.value = true
+    nextTick(() => {
+      reloadFee.value = false
+    })
+  }, RELOAD_FEE_INTERVAL)
 })
 </script>
 
@@ -147,7 +199,7 @@ watch(() => modelValue, (v) => {
 
       <div class="supply-dialog-action">
         <div class="action-info">
-          <span>Supply APY</span>
+          <span>Borrow APY</span>
           <span>{{ data?.borrow_apy }}</span>
         </div>
 
