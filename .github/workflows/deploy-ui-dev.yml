@@ -12,8 +12,6 @@ on:
       - packages/ui/nuxt.config.ts
       - packages/ui/public/**
       - packages/ui/src/**
-      - packages/sdk/src/**
-      - packages/sdk/package.json
 
 permissions:
   contents: read
@@ -43,9 +41,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Build SDK
-        run: pnpm --filter ./packages/sdk build
 
       - name: Build UI
         env:
