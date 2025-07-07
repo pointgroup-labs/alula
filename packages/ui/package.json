@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "cross-env NUXT_ENV=production nuxt generate",
-    "build:ssg": "cross-env NUXT_ENV=production nuxt generate",
+    "build:sdk": "pnpm --filter sdk build",
+    "build:ssg": "pnpm build:sdk && cross-env NUXT_ENV=production nuxt generate",
     "build:ssr": "cross-env NUXT_ENV=production nuxt build",
     "build:staging:ssg": "cross-env NUXT_ENV=staging nuxt generate",
     "preview": "nuxt preview",
