@@ -69,3 +69,22 @@ pids
 
 # contract unit test test-snapshots
 **/test_snapshots/
+
+
+# UI package
+packages/ui/node_modules
+packages/ui/dist
+packages/ui/dist-ssr
+packages/ui/cross-env
+packages/ui/.nuxt
+packages/ui/.output
+packages/ui/.local
+packages/ui/.vite-ssg-dist
+packages/ui/.vite-ssg-temp
+packages/ui/cypress/downloads
+
+# SDK package
+packages/sdk/node_modules/
+
+# CLI package
+packages/cli/node_modules/
