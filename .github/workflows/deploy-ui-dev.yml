@@ -12,9 +12,8 @@ on:
       - packages/ui/nuxt.config.ts
       - packages/ui/public/**
       - packages/ui/src/**
-
-env:
-  WORKDIR: packages/ui
+      - packages/sdk/src/**
+      - packages/sdk/package.json
 
 permissions:
   contents: read
@@ -45,14 +44,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build SDK
+        run: pnpm --filter ./packages/sdk build
+
       - name: Build UI
         env:
           NODE_OPTIONS: --max_old_space_size=4096
         run: |
-          pnpm run build:ssg
-          cp .output/public/index.html .output/public/404.html || true
-          touch .output/public/.nojekyll || true
-        working-directory: ${{ env.WORKDIR }}
+          pnpm --filter ./packages/ui run build:ssg
+          cp packages/ui/.output/public/index.html packages/ui/.output/public/404.html || true
+          touch packages/ui/.output/public/.nojekyll || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -60,7 +61,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ env.WORKDIR }}/.output/public
+          path: packages/ui/.output/public
 
   deploy:
     runs-on: ubuntu-latest
