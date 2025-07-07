@@ -7,7 +7,6 @@ import { FileSystemIconLoader } from 'unplugin-icons/loaders'
 import IconsResolver from 'unplugin-icons/resolver'
 import Icons from 'unplugin-icons/vite'
 import ViteComponents from 'unplugin-vue-components/vite'
-
 import { loadEnv } from 'vite'
 // import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
@@ -113,6 +112,7 @@ export default defineNuxtConfig({
     resolve: {
       alias: {
         'buffer': 'buffer',
+        'node:buffer': 'buffer',
         '@stellar-client': resolve(__dirname, 'src/client'),
       },
       dedupe: [

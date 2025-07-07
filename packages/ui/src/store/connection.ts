@@ -1,7 +1,4 @@
-import type {
-  ISupportedWallet,
-} from '@creit.tech/stellar-wallets-kit'
-
+import type { ISupportedWallet } from '@creit.tech/stellar-wallets-kit'
 import { defineStore } from 'pinia'
 
 export const useConnectionStore = defineStore('connection', () => {
@@ -16,7 +13,7 @@ export const useConnectionStore = defineStore('connection', () => {
   let kit: any
 
   onMounted(async () => {
-    if (process.client) {
+    if (isClient) {
       const {
         AlbedoModule,
         FreighterModule,
