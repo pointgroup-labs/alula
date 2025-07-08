@@ -49,8 +49,8 @@ node_modules/
 .eslintcache
 
 # dotenv environment variable files
-.env
-.env.*
+# .env
+# .env.*
 
 # logs
 *.log
