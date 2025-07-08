@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL, RPC_NETWORK, TEST_PUBKEY } from '~/config'
+import { RELOAD_FEE_INTERVAL, RPC_NETWORK } from '~/config'
 import { formatPrice, shortenAddress } from '~/utils'
 
 const {
@@ -19,6 +19,8 @@ const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
 
 const wallet = useWallet()
+const publicKey = computed(() => wallet.publicKey)
+
 const balance = computed(() => {
   if (!data) {
     return 0
@@ -26,7 +28,7 @@ const balance = computed(() => {
   if (data.raw.token_ticker === 'XLM') {
     return wallet.nativeBalance
   }
-  const asset_issuer = data.raw.name.split(':')[1]
+  const asset_issuer = data?.raw.name.split(':')[1]
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
@@ -41,13 +43,13 @@ watchDebounced([
   () => data,
   reloadFee,
 ], async ([d, _r]) => {
-  if (!d) {
+  if (!d || !publicKey.value) {
     return
   }
   const tx = await jLendClient.value?.sdk.deposit(
-    TEST_PUBKEY,
+    publicKey.value,
     d?.raw.pool_address || '',
-    100,
+    1,
   )
   txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
@@ -199,14 +201,15 @@ watch(() => modelValue, async (v) => {
           <span>{{ data?.deposit_apy }}</span>
         </div>
 
-        <j-btn
+        <market-action-btn
+          variant="primary"
           :loading="loading"
-          size="md"
-          pill
-          @click="supply"
+          :pool="data?.raw"
+          @click-handler="supply"
+          @close-modal="dialog = false"
         >
           Supply {{ data?.asset.symbol }}
-        </j-btn>
+        </market-action-btn>
       </div>
     </div>
   </j-dialog>

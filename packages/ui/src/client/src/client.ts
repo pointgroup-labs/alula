@@ -1,5 +1,7 @@
+import type { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit'
 import type { RPCcluster } from '../types'
-import { Horizon, rpc as SorobanRpc } from 'stellar-sdk'
+import { WalletNetwork } from '@creit.tech/stellar-wallets-kit'
+import { Account, Asset, BASE_FEE, Horizon, Networks, Operation, rpc as SorobanRpc, TransactionBuilder } from 'stellar-sdk'
 import { getRPC } from '../utils'
 import { SorobanClient } from './sdk-client'
 
@@ -31,6 +33,45 @@ export class StellarClient {
     }
     const account = await this.server.loadAccount(this.publicKey)
     return account.balances
+  }
+
+  /**
+   * Add trust line
+   */
+  async addTrustlineTx(
+    publicKey: string,
+    assetCode: string,
+    assetIssuer: string,
+    kit: StellarWalletsKit) {
+    const accountResponse = await this.server.loadAccount(publicKey)
+    const account = new Account(accountResponse.accountId(), accountResponse.sequence.toString())
+
+    const asset = new Asset(assetCode, assetIssuer)
+
+    const transaction = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(Operation.changeTrust({
+        asset,
+      }))
+      .setTimeout(30)
+      .build()
+
+    console.log('[TX]', transaction)
+
+    const { signedTxXdr } = await kit.signTransaction(transaction.toXDR(), {
+      address: publicKey,
+      networkPassphrase: WalletNetwork.TESTNET,
+    })
+
+    console.log('[signedTxXdr]', signedTxXdr)
+
+    const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
+    const result = await this.server.submitTransaction(signedTransaction)
+
+    console.log('✅ Transaction submitted!', result)
+    return result
   }
 
   /**

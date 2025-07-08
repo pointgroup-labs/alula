@@ -10,7 +10,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const { publicKey, balances } = toRefs(walletStore)
   const loading = ref(false)
 
-  let kit: any
+  const kit = ref()
 
   onMounted(async () => {
     if (isClient) {
@@ -24,7 +24,7 @@ export const useConnectionStore = defineStore('connection', () => {
       } = await import('@creit.tech/stellar-wallets-kit')
       const { WalletConnectAllowedMethods, WalletConnectModule } = await import('@creit.tech/stellar-wallets-kit/modules/walletconnect.module')
 
-      kit = new StellarWalletsKit({
+      kit.value = new StellarWalletsKit({
         network: WalletNetwork.TESTNET,
         selectedWalletId: XBULL_ID,
         modules: [
@@ -51,11 +51,11 @@ export const useConnectionStore = defineStore('connection', () => {
       return
     }
     loading.value = true
-    await kit.openModal({
+    await kit.value.openModal({
       onWalletSelected: async (option: ISupportedWallet) => {
         try {
-          kit.setWallet(option.id)
-          const { address } = await kit.getAddress()
+          kit.value.setWallet(option.id)
+          const { address } = await kit.value.getAddress()
           await walletStore.initWallet(address)
           publicKey.value = address
         } finally {
@@ -69,13 +69,14 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   function disconnect() {
-    kit.disconnect()
+    kit.value.disconnect()
     jLendClient.value?.reset()
     publicKey.value = undefined
     balances.value = undefined
   }
 
   return {
+    kit,
     loading,
 
     jLendClient,

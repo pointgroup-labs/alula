@@ -31,7 +31,7 @@ function close() {
 }
 
 watch(() => modelValue, (value) => {
-  if (value > 0) {
+  if (value > 0 && Number.isInteger(value)) {
     timeout = setTimeout(() => {
       close()
     }, value)
@@ -42,16 +42,28 @@ watch(() => modelValue, (value) => {
 <template>
   <div :class="`alert-${alertProps?.variant} ${toastClass}`">
     <div class="alert-header">
-      <div class="toast-icon" v-html="iconAlertMap[alertProps?.variant!]" />
+      <div
+        class="toast-icon"
+        v-html="iconAlertMap[alertProps?.variant!]"
+      />
       <span :data-name="`alert-title--${alertProps?.variant}`">{{ title }}</span>
-      <div class="alert-close" @click="close" v-html="crossIcon" />
+      <div
+        class="alert-close"
+        @click="close"
+        v-html="crossIcon"
+      />
     </div>
 
     <div class="alert-content">
       {{ body }}
 
       <div class="alert-content__actions">
-        <div class="btn" variant="dark" pill @click="close">
+        <div
+          class="btn"
+          variant="dark"
+          pill
+          @click="close"
+        >
           OK
         </div>
 
@@ -62,7 +74,10 @@ watch(() => modelValue, (value) => {
           @click="close"
         >
           {{ actions[0].label }}
-          <div class="export-icon" v-html="exportIcon" />
+          <div
+            class="export-icon"
+            v-html="exportIcon"
+          />
         </a>
       </div>
     </div>

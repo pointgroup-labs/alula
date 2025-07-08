@@ -26,6 +26,17 @@ export const useWallet = defineStore('wallet', () => {
         return Number(balance)
     }
 
+    async function addTrustLine(asset: string, issuer: string) {
+        try {
+            const res = await jLendClient.value.addTrustlineTx(publicKey.value, asset, issuer, connectionStore.kit)
+            balances.value = await jLendClient.value?.getBalances()
+            return res
+        } catch (error) {
+            console.log(error)
+            throw error
+        }
+    }
+
     return {
         publicKey,
         balances,
@@ -34,5 +45,7 @@ export const useWallet = defineStore('wallet', () => {
 
         initWallet,
         getAssetBalance,
+
+        addTrustLine,
     }
 })

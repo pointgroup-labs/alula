@@ -24,14 +24,29 @@ const slot = useSlots()
     :pressed="undefined"
   >
     <div class="btn-content">
-      <slot v-if="slot?.prepend" name="prepend" />
-      <i-app-arrow-left v-if="iconLeft" class="btn-icon-left" />
+      <slot
+        v-if="slot?.prepend"
+        name="prepend"
+      />
+      <i-app-arrow-left
+        v-if="iconLeft"
+        class="btn-icon-left"
+      />
       <slot />
-      <slot v-if="slot?.append" name="append" />
-      <i-app-arrow-right v-if="iconRight" class="btn-icon-right" />
+      <slot
+        v-if="slot?.append"
+        name="append"
+      />
+      <i-app-arrow-right
+        v-if="iconRight"
+        class="btn-icon-right"
+      />
     </div>
     <transition name="fade">
-      <div v-if="loading" class="loading-btn-spinner">
+      <div
+        v-if="loading"
+        class="loading-btn-spinner"
+      >
         <BSpinner />
       </div>
     </transition>

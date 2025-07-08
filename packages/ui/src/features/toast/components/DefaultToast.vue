@@ -77,20 +77,36 @@ watch(() => modelValue, (value) => {
 </script>
 
 <template>
-  <div class="toast-wrapper" :class="toastClass">
+  <div
+    class="toast-wrapper"
+    :class="toastClass"
+  >
     <div class="toast-content">
-      <div class="toast-icon" v-html="iconMap[variant]" />
+      <div
+        class="toast-icon"
+        v-html="iconMap[variant]"
+      />
       <div class="toast-message">
-        <div v-if="title" class="toast-title">
+        <div
+          v-if="title"
+          class="toast-title"
+        >
           {{ title }}
-          <div class="alert-close" @click="close" v-html="crossIcon" />
+          <div
+            class="alert-close"
+            @click="close"
+            v-html="crossIcon"
+          />
         </div>
 
         {{ body }}
       </div>
     </div>
 
-    <div v-if="actions?.length" class="toast-actions">
+    <div
+      v-if="actions?.length"
+      class="toast-actions"
+    >
       <a
         v-for="(action, i) in actions"
         :key="i"
@@ -104,6 +120,9 @@ watch(() => modelValue, (value) => {
         {{ action.label }}
       </a>
     </div>
-    <BProgress v-if="!noProgress" :value="progress" />
+    <BProgress
+      v-if="!noProgress"
+      :value="progress"
+    />
   </div>
 </template>

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 import { normalizeAssetAmount } from '~/client/utils'
-import { RELOAD_FEE_INTERVAL, TEST_PUBKEY } from '~/config'
+import { RELOAD_FEE_INTERVAL } from '~/config'
 import { getZeroCountAfterDecimal, truncatePercent } from '~/utils'
 
 const {
@@ -19,6 +19,9 @@ const Toast = useToast()
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
 
+const wallet = useWallet()
+const publicKey = computed(() => wallet.publicKey)
+
 const agree = ref(false)
 
 const reloadFee = ref(false)
@@ -28,19 +31,17 @@ watchDebounced([
   () => data,
   reloadFee,
 ], async ([d, _r]) => {
-  if (!d) {
+  if (!d || !publicKey.value) {
     return
   }
   const tx = await jLendClient.value?.sdk.borrow(
-    TEST_PUBKEY,
+    publicKey.value,
     d?.raw.pool_address || '',
     1,
   )
-
   txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
-const wallet = useWallet()
 const balance = computed(() => {
   if (!data) {
     return 0
@@ -100,7 +101,7 @@ const loading = ref(false)
 
 const amount = ref(0)
 
-async function supply() {
+async function borrow() {
   try {
     loading.value = true
     Toast.create({
@@ -204,16 +205,16 @@ watch(() => modelValue, async (v) => {
           <span>{{ data?.borrow_apy }}</span>
         </div>
 
-        <j-btn
-          :disabled="!agree"
-          :loading="loading"
-          size="lg"
+        <market-action-btn
           variant="accent"
-          pill
-          @click="supply"
+          :loading="loading"
+          :pool="data?.raw"
+          :disabled="!agree"
+          @click-handler="borrow"
+          @close-modal="dialog = false"
         >
           Borrow {{ data?.asset.symbol }}
-        </j-btn>
+        </market-action-btn>
       </div>
     </div>
   </j-dialog>
