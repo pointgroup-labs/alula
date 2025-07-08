@@ -63,9 +63,6 @@ importers:
       '@pinia/nuxt':
         specifier: ^0.11.1
         version: 0.11.1(magicast@0.3.5)(pinia@3.0.3(typescript@5.8.3)(vue@3.5.17(typescript@5.8.3)))
-      '@stellar/freighter-api':
-        specifier: ^4.1.0
-        version: 4.1.0
       '@stellar/stellar-sdk':
         specifier: ^13.x
         version: 13.3.0
@@ -2270,9 +2267,6 @@ packages:
 
   '@stellar/freighter-api@4.0.0':
     resolution: {integrity: sha512-LYuVAUuvmZhzissBoAQPu2InD+R7WW1NUAJZ3iD0mPa/e5pMEhQSQUQoBWLcSpSrsQduRSDqEn5Egu8caUjLgQ==}
-
-  '@stellar/freighter-api@4.1.0':
-    resolution: {integrity: sha512-5iaENUG8AoSlBr771XVou4wjYxfcl+SRyFZydwwGEuHm1XGDu/HLXFifXbRFoU14/5rZYouycnv1uJCuFIeBxg==}
 
   '@stellar/js-xdr@3.1.2':
     resolution: {integrity: sha512-VVolPL5goVEIsvuGqDc5uiKxV03lzfWdvYg1KikvwheDmTBO68CKDji3bAZ/kppZrx5iTA8z3Ld5yuytcvhvOQ==}
@@ -10718,11 +10712,6 @@ snapshots:
       '@stablelib/wipe': 1.0.1
 
   '@stellar/freighter-api@4.0.0':
-    dependencies:
-      buffer: 6.0.3
-      semver: 7.7.2
-
-  '@stellar/freighter-api@4.1.0':
     dependencies:
       buffer: 6.0.3
       semver: 7.7.2
