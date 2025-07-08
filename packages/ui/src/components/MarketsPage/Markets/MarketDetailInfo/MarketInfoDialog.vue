@@ -31,9 +31,16 @@ watch(market, (val) => {
   >
     <template #header>
       <div class="market-info">
-        <img :src="market?.asset.icon" :alt="market?.asset.symbol">
+        <img
+          :src="market?.asset.icon"
+          :alt="market?.asset.symbol"
+        >
         {{ market?.asset.name }} Info
-        <j-pill-label variant="secondary" size="md" bg-color="#08b57680">
+        <j-pill-label
+          variant="secondary"
+          size="md"
+          bg-color="#08b57680"
+        >
           Can by collateral
         </j-pill-label>
       </div>

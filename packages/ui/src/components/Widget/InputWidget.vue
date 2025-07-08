@@ -10,12 +10,14 @@ const {
   readonly = false,
   fee = 0,
   format = false,
+  limit,
   modelValue,
 } = defineProps<{
   size?: Size
   balance: number
   description?: string
   price?: number
+  limit?: number
   disabled?: boolean
   labelLeft?: string
   labelRight?: string
@@ -44,7 +46,7 @@ const val = computed({
 const resetValidation = ref(false)
 
 function max() {
-  const balanceWithoutFee = Math.max(balance - fee, 0)
+  const balanceWithoutFee = Math.max(Math.min(balance - fee, limit || balance), 0)
   const decimals = String(balanceWithoutFee).includes('e') ? getZeroCountAfterDecimal(balanceWithoutFee) : null
   val.value = decimals ? balanceWithoutFee.toFixed(decimals) : String(balanceWithoutFee)
   resetValidation.value = true

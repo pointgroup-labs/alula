@@ -2,7 +2,7 @@ import type { CompoundRates, Pool } from 'sdk'
 import type { RPCcluster } from '../types'
 import { Client } from 'sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
-import { getRPC } from '../utils'
+import { getRPC, normalizeAssetAmount } from '../utils'
 
 enum Network {
     Mainnet = 'mainnet',
@@ -63,7 +63,7 @@ export class SorobanClient {
     async getPoolAssetOraclePrice(pool_address: string) {
         const poolPrice = await this.sdk.get_pool_asset_oracle_price({ pool_address })
         const poolPriceResult = this.unwrapOk2(poolPrice.result)
-        const normalizedPrice = Number(poolPriceResult) / 10 ** this.oracleDecimals
+        const normalizedPrice = normalizeAssetAmount(Number(poolPriceResult), this.oracleDecimals)
         return normalizedPrice || 0
     }
 
@@ -118,7 +118,7 @@ export class SorobanClient {
      */
     getTransactionFee(tx: any): number {
         const stroops = Number(tx.simulation.minResourceFee) || 0
-        return Number(stroops) / 10 ** this.assetDecimals
+        return normalizeAssetAmount(Number(stroops), this.assetDecimals)
     }
 
     /**

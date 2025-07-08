@@ -52,18 +52,21 @@ watchDebounced([
   txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
+const supplyLimit = ref(0)
+
 const infoTableData = computed(() => {
   if (!data) {
     return []
   }
 
   const isSupplyLimited = data.supply_limit && data.supply_limit > 0
-  const supplyLimit = isSupplyLimited && Number(data.supply_limit) || 0 - Number(data.total_supply)
+  // eslint-disable-next-line vue/no-side-effects-in-computed-properties
+  supplyLimit.value = isSupplyLimited ? Math.max(Number(data.supply_limit) || 0 - Number(data.total_supply), 0) : 0
   return [
     {
       name: 'limit',
       label: 'Supply Limit',
-      value: isSupplyLimited ? formatPrice(supplyLimit || 0, 2, 2) : '-',
+      value: isSupplyLimited ? formatPrice(supplyLimit.value || 0, 2, 2) : '-',
     },
     {
       name: 'market',
@@ -153,9 +156,13 @@ watch(() => modelValue, async (v) => {
       <input-widget
         v-model="amount"
         :balance="balance"
+        :limit="supplyLimit"
         :rules="[
           (v) => {
             return v && Number(v) < balance || 'Insufficient balance'
+          },
+          (v) => {
+            return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
           },
         ]"
       >

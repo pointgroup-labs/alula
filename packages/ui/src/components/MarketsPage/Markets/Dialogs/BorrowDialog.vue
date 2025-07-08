@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { normalizeAssetAmount } from '~/client/utils'
 import { RELOAD_FEE_INTERVAL, TEST_PUBKEY } from '~/config'
 import { getZeroCountAfterDecimal, truncatePercent } from '~/utils'
 
@@ -55,7 +56,7 @@ const infoTableData = computed(() => {
   if (!data) {
     return []
   }
-  const available = Number(data.available) / 10 ** jLendClient.value.sdk.assetDecimals
+  const available = normalizeAssetAmount(Number(data.available), jLendClient.value.sdk.assetDecimals)
   const availableDecimals = String(balance).includes('e') ? getZeroCountAfterDecimal(available) : null
   const availableString = availableDecimals ? available.toFixed(availableDecimals) : String(available)
   const liquidation = Number(data.raw.config.liquidation_close_factor_bps) / 100

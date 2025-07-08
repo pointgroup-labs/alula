@@ -9,7 +9,7 @@ const marketsStore = useMarketsStore()
 
 const assetDecimals = computed(() => client.assetDecimals)
 
-const pools = computed(() => marketsStore.state.pollsData)
+const pools = computed(() => marketsStore.selectedMarketPools)
 const loading = computed(() => marketsStore.state.loading)
 
 const fields = [
@@ -33,7 +33,7 @@ const items = computed<MarketTableItem[]>(() => {
     const borrowApy = p.pool_apy.borrow_bps / 100
     const utilRate = Number(p.total_borrowed) / Number((p.available + p.total_borrowed)) * 100
     const maxLTV = Number(p.config.open_ltv_bps) / 100
-    const supplyLimit = i % 2 === 0 ? 0 : 200_000
+    const supplyLimit = i % 2 === 0 ? 0 : 1000
     return {
       raw: p,
       asset: { name: tokenName, symbol: tokenName, icon },
@@ -200,7 +200,7 @@ function amountToUsd(amount: number, price: number) {
     :data="selectedItem"
   />
 
-    <borrow-dialog
+  <borrow-dialog
     v-model="dialogBorrow"
     :data="selectedItem"
   />

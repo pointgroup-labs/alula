@@ -16,6 +16,10 @@ export const useMarketsStore = defineStore('markets', () => {
 
   const selectedMarket = ref('Main market')
 
+  const selectedMarketPools = computed(() => {
+    return state.pollsData.filter(p => selectedMarket.value.toLowerCase().includes(String(p.market?.toLowerCase())))
+  })
+
   async function loadPools() {
     if (!isClient) {
       return
@@ -51,6 +55,7 @@ export const useMarketsStore = defineStore('markets', () => {
 
     selectedMarket,
     selectedMarketInfo,
+    selectedMarketPools,
   }
 })
 
