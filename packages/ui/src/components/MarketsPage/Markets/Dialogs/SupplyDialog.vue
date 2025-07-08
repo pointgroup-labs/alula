@@ -13,7 +13,7 @@ const {
 
 const emits = defineEmits(['update:modelValue'])
 
-const Toast = useToast()
+const marketsStore = useMarketsStore()
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
@@ -32,7 +32,7 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
-const loading = ref(false)
+const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
 const reloadFee = ref(false)
 
 const amount = ref(0)
@@ -46,7 +46,7 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await jLendClient.value?.sdk.deposit(
+  const tx = await jLendClient.value?.sdk.depositTx(
     publicKey.value,
     d?.raw.pool_address || '',
     1,
@@ -99,25 +99,16 @@ const dialog = computed({
 
 async function supply() {
   try {
-    loading.value = true
-    Toast.create({
-      modelValue: 50_000,
-      title: 'Supply Success',
-      body: `You supplied ${amount.value} XLM`,
-      alertProps: {
-        variant: 'success',
-      },
-    })
-  } catch (error) {
-    Toast.create({
-      title: 'Supply Error',
-      body: String(error),
-      alertProps: {
-        variant: 'error',
-      },
-    })
-  } finally {
-    loading.value = false
+    if (!publicKey.value || !data?.raw.pool_address) {
+      return
+    }
+    const asset_code = data?.raw.name.split(':')[0] || 'XLM'
+    await marketsStore.deposit(publicKey.value, data?.raw.pool_address, amount.value, asset_code)
+  } catch {
+    if (!amount.value || amount.value <= 0) {
+      const input = document.querySelector('.supply-dialog__input')?.querySelector('input') as HTMLInputElement
+      input?.focus()
+    }
   }
 }
 
@@ -159,6 +150,7 @@ watch(() => modelValue, async (v) => {
         v-model="amount"
         :balance="balance"
         :limit="supplyLimit"
+        class="supply-dialog__input"
         :rules="[
           (v) => {
             return v && Number(v) < balance || 'Insufficient balance'

@@ -1,7 +1,7 @@
 import type { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit'
 import type { RPCcluster } from '../types'
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit'
-import { Account, Asset, BASE_FEE, Horizon, Networks, Operation, rpc as SorobanRpc, TransactionBuilder } from 'stellar-sdk'
+import { Account, Asset, BASE_FEE, Horizon, Networks, Operation, TransactionBuilder } from 'stellar-sdk'
 import { getRPC } from '../utils'
 import { SorobanClient } from './sdk-client'
 
@@ -9,15 +9,11 @@ export class StellarClient {
   private server: Horizon.Server
   private publicKey?: string
   sdk: SorobanClient
-  soroban: any
 
   constructor(address: string, rpc: RPCcluster) {
     this.publicKey = address
     this.server = new Horizon.Server(getRPC(rpc, 'horizon'))
     this.sdk = new SorobanClient(rpc)
-    this.soroban = new SorobanRpc.Server(getRPC(rpc, 'soroban'), {
-      allowHttp: true,
-    })
   }
 
   static fromAddress(address: string, rpc: RPCcluster) {

@@ -12,10 +12,14 @@ export const useWallet = defineStore('wallet', () => {
 
     async function initWallet(address: string) {
         publicKey.value = address
-        balances.value = await jLendClient.value?.getBalances()
+        await loadBalances()
         userObligation.value = await jLendClient.value.sdk.getUserObligation(address)
-        console.log('%c[Wallet Balances]', 'color: #FFB726', balances.value)
         console.log('%c[User Obligation]', 'color: #FFB726', userObligation.value)
+    }
+
+    async function loadBalances() {
+        balances.value = await jLendClient.value?.getBalances()
+        console.log('%c[Wallet Balances]', 'color: #FFB726', balances.value)
     }
 
     function getAssetBalance(asset_issuer?: string) {
@@ -26,17 +30,6 @@ export const useWallet = defineStore('wallet', () => {
         return Number(balance)
     }
 
-    async function addTrustLine(asset: string, issuer: string) {
-        try {
-            const res = await jLendClient.value.addTrustlineTx(publicKey.value, asset, issuer, connectionStore.kit)
-            balances.value = await jLendClient.value?.getBalances()
-            return res
-        } catch (error) {
-            console.log(error)
-            throw error
-        }
-    }
-
     return {
         publicKey,
         balances,
@@ -44,8 +37,8 @@ export const useWallet = defineStore('wallet', () => {
         nativeBalance,
 
         initWallet,
+        loadBalances,
         getAssetBalance,
 
-        addTrustLine,
     }
 })

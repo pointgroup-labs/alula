@@ -1,6 +1,8 @@
 import type { CompoundRates, Pool } from 'sdk'
 import type { RPCcluster } from '../types'
+import { WalletNetwork } from '@creit.tech/stellar-wallets-kit'
 import { Client } from 'sdk'
+import { Horizon, Networks, TransactionBuilder } from 'stellar-sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
 import { getRPC, normalizeAssetAmount } from '../utils'
 
@@ -16,6 +18,7 @@ export const NetworkPassphrase = {
 
 export class SorobanClient {
     sdk: Client
+    horizonServer: any
     assetDecimals: number = 7
     oracleDecimals: number = 14
 
@@ -25,6 +28,8 @@ export class SorobanClient {
             contractId: CONTRACT_ID[rpc] ?? SOROBAN_CONTRACT_ID,
             networkPassphrase: NetworkPassphrase[this.getNetworkPassphrase(rpc)],
         })
+
+        this.horizonServer = new Horizon.Server(getRPC(rpc, 'horizon'))
         this.getDecimals()
     }
 
@@ -100,10 +105,39 @@ export class SorobanClient {
     }
 
     /**
+     * Deposit instruction
+     */
+    async depositTx(user: string, pool_address: string, amount: number) {
+        return await this.sdk.deposit({ user, pool_address, amount: BigInt(amount) })
+    }
+
+    /**
      * Deposit
      */
-    async deposit(user: string, pool_address: string, amount: number) {
-        return await this.sdk.deposit({ user, pool_address, amount: BigInt(amount) })
+    async deposit(
+        user: string,
+        pool_address: string,
+        amount: number,
+        kit: any) {
+        const tx = await this.depositTx(user, pool_address, amount)
+
+        console.log('[Deposit tx]', tx)
+
+        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
+            address: user,
+            networkPassphrase: WalletNetwork.TESTNET,
+        })
+
+        console.log('[signedTxXdr]', signedTxXdr)
+
+        const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
+        console.log('Networks.TESTNET', Networks.TESTNET)
+        console.log('signedTransaction', signedTransaction)
+
+        const result = await this.horizonServer.submitTransaction(signedTransaction)
+
+        console.log('✅ Transaction submitted!', result)
+        return result
     }
 
     /**
