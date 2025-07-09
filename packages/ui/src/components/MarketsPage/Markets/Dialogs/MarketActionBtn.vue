@@ -22,9 +22,10 @@ const Toast = useToast()
 const txLoading = ref(false)
 const isLoading = computed(() => txLoading.value || loading)
 
-const marketsStore = useMarketsStore()
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
+
+const market = useMarket()
 
 const assetData = computed(() => pool?.name.split(':') || [])
 
@@ -38,7 +39,7 @@ async function addTrust() {
   try {
     txLoading.value = true
     const [asset, issuer] = assetData.value
-    const res = await marketsStore.addTrustLine(asset, issuer)
+    const res = await market.addTrustLine(asset, issuer)
     Toast.create({
       title: 'Add Trust Success',
       body: `You added trustline for ${asset} ${shortenAddress(issuer, 6)}`,
@@ -49,7 +50,7 @@ async function addTrust() {
       actions: [
         {
           label: 'View Transaction',
-          href: `https://stellar.expert/explorer/testnet/tx/${res.hash}`,
+          href: `https://stellar.expert/explorer/testnet/tx/${res?.hash}`,
           onClick: () => {
             emit('closeModal')
           },

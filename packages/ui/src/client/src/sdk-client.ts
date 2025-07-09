@@ -30,7 +30,7 @@ export class SorobanClient {
             networkPassphrase: NetworkPassphrase[this.getNetworkPassphrase(rpc)],
         })
 
-        this.sorobanServer = new SorobanRpc.Server('https://soroban-testnet.stellar.org:443')
+        this.sorobanServer = new SorobanRpc.Server(getRPC(rpc, 'soroban'))
         this.getDecimals()
     }
 

@@ -14,6 +14,7 @@ const {
 const emits = defineEmits(['update:modelValue'])
 
 const marketsStore = useMarketsStore()
+const market = useMarket()
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
@@ -103,7 +104,7 @@ async function supply() {
       return
     }
     const asset_code = data?.raw.name.split(':')[0] || 'XLM'
-    await marketsStore.deposit(publicKey.value, data?.raw.pool_address, amount.value, asset_code)
+    await market.deposit(publicKey.value, data?.raw.pool_address, amount.value, asset_code)
     amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
