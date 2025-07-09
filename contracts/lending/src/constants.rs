@@ -29,6 +29,12 @@ pub const DEFAULT_SLOPE2: i128 = 10;
 pub const ACCRUAL_INIT: i128 = 1_000_000_000_000;
 pub const SECONDS_IN_YEAR: u64 = 31_556_926;
 
+// ---- Deposit ----
+pub const DEFAULT_SUPPLY_LIMIT: i128 = 0; // WARN: 0 is treated as a limit absence
+
+// ---- Borrow ----
+pub const DEFAULT_UTILIZATION_RATIO_LIMIT: i128 = 100;
+
 // ---- Liquidation ----
 pub const DEFAULT_CLOSE_FACTOR: i128 = 50;
 pub const DEFAULT_LIQUIDATION_THRESHOLD: i128 = 80;

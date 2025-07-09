@@ -5,6 +5,7 @@ use {
         get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
         DEFAULT_USER_ASSET_MINT_AMOUNT,
     },
+    lending::{pool::PoolConfig, LCError},
     soroban_sdk::{testutils::Address as _, Address},
 };
 
@@ -29,6 +30,51 @@ fn test_deposit() {
     // TODO: We should introduce operation fees which will make the deposited amount smaller
     assert_eq!(deposit_obligation, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_deposited, DEFAULT_DEPOSIT_AMOUNT);
+}
+
+#[test]
+fn test_deposit_zero() {
+    let TestFixture {
+        e,
+        contract_client,
+        usdc_token_address,
+        usdc_pool_address,
+        ..
+    } = TestFixture::new();
+
+    let pool_before = contract_client.get_pool(&usdc_pool_address);
+
+    let user = Address::generate(&e);
+    contract_client.deposit(&user, &usdc_token_address, &0);
+
+    let pool_after = contract_client.get_pool(&usdc_pool_address);
+
+    assert_eq!(pool_after, pool_before);
+}
+
+#[test]
+fn test_exceed_supply_limit() {
+    #[allow(clippy::inconsistent_digit_grouping)]
+    const SUPPLY_LIMIT: i128 = 1_000_000_0000000;
+    let pool_config = PoolConfig {
+        supply_limit: SUPPLY_LIMIT,
+        ..Default::default()
+    };
+
+    let TestFixture {
+        contract_client,
+        usdc_token_address,
+        users,
+        ..
+    } = TestFixture::new_with_pool_config(pool_config);
+
+    let user = users.get(0).unwrap();
+    contract_client.deposit(&user, &usdc_token_address, &(SUPPLY_LIMIT));
+
+    assert_eq!(
+        contract_client.try_deposit(&user, &usdc_token_address, &1),
+        Err(Ok(LCError::SupplyLimitExceeded)),
+    );
 }
 
 #[test]
@@ -72,7 +118,7 @@ fn test_deposit_non_existing_tokens() {
 
 #[test]
 #[should_panic(expected = "Error(Contract, #7)")]
-fn test_deposit_non_positive() {
+fn test_deposit_negative() {
     let TestFixture {
         contract_client,
         usdc_token_address,
@@ -81,7 +127,7 @@ fn test_deposit_non_positive() {
     } = TestFixture::new();
 
     let user = users.get(0).unwrap();
-    contract_client.deposit(&user, &usdc_token_address, &0);
+    contract_client.deposit(&user, &usdc_token_address, &-1);
 }
 
 #[test]

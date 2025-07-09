@@ -2,8 +2,9 @@ use {
     crate::{
         constants::{
             BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
-            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO,
-            DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
+            DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1,
+            DEFAULT_SLOPE2, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
         },
         math_utils::MathUtils,
         storage, LCError,
@@ -15,7 +16,7 @@ pub type PoolAddress = Address;
 pub type UserAddress = Address;
 
 #[contracttype]
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
@@ -86,9 +87,8 @@ impl Pool {
             return Err(LCError::InternalError);
         }
 
-        let total_liquidity = self.total_liquidity()?;
-
-        let tokens_amount = total_liquidity
+        let total_supply = self.total_supply()?;
+        let tokens_amount = total_supply
             .checked_mul(shares_amount)
             .map_over_or_underflow()?
             .checked_div(self.total_shares)
@@ -134,14 +134,14 @@ impl Pool {
         Ok(shares_amount)
     }
 
-    /// Calculate total liquidity (available + borrowed)
-    pub fn total_liquidity(&self) -> Result<i128, LCError> {
+    /// Calculates total supply (available + total_borrowed)
+    pub fn total_supply(&self) -> Result<i128, LCError> {
         self.available
             .checked_add(self.total_borrowed)
             .map_over_or_underflow()
     }
 
-    /// Check if the pool is empty
+    /// Checks if the pool is empty
     pub fn is_empty(&self) -> bool {
         self.total_shares == 0
             && self.total_borrowed == 0
@@ -195,25 +195,36 @@ impl Pool {
 }
 
 #[contracttype]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct PoolConfig {
     /// Base interest rate applied regardless of utilization, expressed per second
-    /// in 1/`SCALED_ONE` units. Must be positive.
+    /// in 1/`SCALED_ONE` units. Must be positive
     pub base_rate_per_second: i128,
     /// Positive Optimal Utilization Ratio
     pub optimal_utilization_ratio_bps: i128,
-    /// Interest rate slope before reaching optimal utilization ratio.
-    /// Controls how aggressively rates increase with utilization below the optimal point.
+    /// Interest rate slope before reaching optimal utilization ratio
+    /// Controls how aggressively rates increase with utilization below the optimal point
     pub slope1: i128,
-    /// Interest rate slope after exceeding optimal utilization ratio.
-    /// Controls how aggressively rates increase with utilization above the optimal point.
+    /// Interest rate slope after exceeding optimal utilization ratio
+    /// Controls how aggressively rates increase with utilization above the optimal point
     pub slope2: i128,
-    /// Percentage of interest payments allocated to protocol reserves.
+    /// Percentage of interest payments allocated to protocol reserves
     pub reserve_ratio_bps: i128,
-    /// Maximum percentage of a borrower's debt that can be liquidated.
+    /// Maximum percentage of a borrower's debt that can be liquidated
     pub liquidation_close_factor_bps: i128,
-    /// Additional discount given to liquidators when purchasing collateral.
+    /// Additional discount given to liquidators when purchasing collateral
     pub liquidation_incentive_bps: i128,
+    /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` + `total_borrowed`)
+    /// 0 denotes unlimited supply
+    pub supply_limit: i128,
+    /// The maximum utilization ratio that is allowed to be reached via borrowing
+    pub utilization_ratio_limit_bps: i128,
+    /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 = 70%, etc)
+    /// with respect to a total obligation's collateral value
+    pub open_ltv_bps: i128,
+    /// The maximum percentage of an asset's value that can be held in an individual obligation in basis points
+    /// with respect to a total obligation's collateral value. LTV greater than that makes borrow position eligible to liquidation
+    pub close_ltv_bps: i128,
 }
 
 impl Default for PoolConfig {
@@ -226,6 +237,10 @@ impl Default for PoolConfig {
             optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATION_RATIO * BPS_IN_PERCENT,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
             liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
+            supply_limit: DEFAULT_SUPPLY_LIMIT,
+            utilization_ratio_limit_bps: DEFAULT_UTILIZATION_RATIO_LIMIT * BPS_IN_PERCENT,
+            open_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
+            close_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
         }
     }
 }
@@ -240,6 +255,10 @@ impl PoolConfig {
             reserve_ratio_bps,
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
+            supply_limit,
+            utilization_ratio_limit_bps,
+            open_ltv_bps,
+            close_ltv_bps,
         } = self;
 
         if base_rate_per_second < 0 {
@@ -250,6 +269,18 @@ impl PoolConfig {
             || optimal_utilization_ratio_bps > 100 * BPS_IN_PERCENT
         {
             return Err("Optimal utilization ratio must be between 0% and 100%");
+        }
+
+        if supply_limit < 0 {
+            return Err("Supply limit must be non-negative");
+        }
+
+        if !is_valid_percent(utilization_ratio_limit_bps) {
+            return Err("Utilization ratio limit must be between 0% and 100%");
+        }
+
+        if utilization_ratio_limit_bps <= optimal_utilization_ratio_bps {
+            return Err("Utilization ratio limit must exceed optimal utilization ratio");
         }
 
         if !is_valid_percent(reserve_ratio_bps) {
@@ -270,6 +301,18 @@ impl PoolConfig {
 
         if slope1 >= slope2 {
             return Err("slope1 must be less than slope2 for kinked model to work");
+        }
+
+        if !is_valid_percent(open_ltv_bps) {
+            return Err("Open LTV must be between 0% and 100%");
+        }
+
+        if !is_valid_percent(close_ltv_bps) {
+            return Err("Close LTV must be between 0% and 100%");
+        }
+
+        if close_ltv_bps < open_ltv_bps {
+            return Err("Open LTV mustn't be bigger than close LTV");
         }
 
         Ok(())

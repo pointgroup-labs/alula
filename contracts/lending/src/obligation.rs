@@ -4,7 +4,7 @@ use {
         contract::get_asset_price,
         math_utils::MathUtils,
         pool::{Pool, PoolConfig},
-        storage::{self, get_global_state, PoolAddress},
+        storage::{self, get_global_state},
         LCError,
     },
     soroban_fixed_point_math::FixedPoint,
@@ -17,9 +17,9 @@ pub struct Obligation {
     /// The obligation's user
     pub user: Address,
     /// Deposited collateral for the obligation, unique by deposit pool address
-    pub deposits: Map<PoolAddress, DepositObligation>,
+    pub deposits: Map<Address, DepositObligation>,
     /// Borrowed liquidity for the obligation, unique by borrow pool address
-    pub borrows: Map<PoolAddress, BorrowObligation>,
+    pub borrows: Map<Address, BorrowObligation>,
     // /// Last update to collateral, liquidity, or their market values
     // pub last_update: u64,
     // /// Market value of deposits
@@ -40,7 +40,7 @@ impl Obligation {
     /// Accrues interest on all borrows for the obligation
     ///
     /// # WARNING
-    /// Modifies the contract's storage
+    /// Modifies the obligation's pools storage data, but **DOESN'T** modify the obligation's storage data
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         for (pool_address, mut borrow_obligation) in self.borrows.iter() {
             borrow_obligation.accrue_interest(e, &pool_address)?;

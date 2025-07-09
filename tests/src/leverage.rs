@@ -18,6 +18,40 @@ use {
 // ---- Deposit with leverage ----
 
 #[test]
+fn test_deposit_zero() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit into a different pool to make flash loans possible
+    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+
+    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
+
+    contract_client.deposit_with_leverage(
+        &user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &0,
+        &40, // x4
+    );
+
+    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_after = contract_client.get_pool(&usdc_pool_address);
+
+    assert_eq!(usdc_pool_before, usdc_pool_after);
+    assert_eq!(gold_pool_before, gold_pool_after);
+}
+
+#[test]
 fn test_deposit_with_invalid_leverage_multiplier() {
     let TestFixture {
         contract_client,
@@ -47,11 +81,12 @@ fn test_deposit_with_invalid_leverage_multiplier() {
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
-            &(MAX_LEVERAGE_MULTIPLIER + 1), // x(>100)
+            &(MAX_LEVERAGE_MULTIPLIER + 1),
         )
     );
 }
 
+// TODO: Add tests which check for supply and borrow limit constraints. This affects flash loans, right?
 #[test]
 fn test_deposit_with_no_leverage() {
     let TestFixture {
@@ -178,7 +213,7 @@ fn test_deposit_with_leverage() {
     let amount_in = 4 * DEFAULT_DEPOSIT_AMOUNT;
     let amount_out =
         swap::get_amount_out(&e, &usdc_pool_address, &gold_pool_address, amount_in).unwrap();
-    let expected_deposited_amount = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
+    let expected_supply_amount = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
 
     let amount_out = swap::get_amount_out(
         &e,
@@ -189,24 +224,63 @@ fn test_deposit_with_leverage() {
     .unwrap();
     let expected_borrowed_amount = get_amount_scaled_up(amount_out, DEFAULT_FLASH_LOAN_FEE_BPS);
 
-    assert_eq!(obligation_tokens_from_shares, expected_deposited_amount);
+    assert_eq!(obligation_tokens_from_shares, expected_supply_amount);
     assert_eq!(obligation_borrowed, expected_borrowed_amount);
 
     // Check pools
     let deposit_pool = contract_client.get_pool(&usdc_pool_address);
     let borrow_pool = contract_client.get_pool(&gold_pool_address);
 
-    let total_deposited = deposit_pool.total_liquidity().unwrap();
+    let total_supply = deposit_pool.total_supply().unwrap();
     let total_borrowed = borrow_pool.total_borrowed;
 
-    assert_eq!(expected_deposited_amount, total_deposited);
+    assert_eq!(expected_supply_amount, total_supply);
     assert_eq!(total_borrowed, expected_borrowed_amount);
 }
 
 // ---- Deleverage and Withdraw ----
 
 #[test]
-fn test_withdraw_non_positive() {
+fn test_withdraw_zero() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit into a different pool to make flash loans possible
+    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+
+    contract_client.deposit_with_leverage(
+        &user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &40, // x4 leverage
+    );
+
+    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let obligation_before = contract_client.get_user_obligation(&user);
+
+    contract_client.deleverage_and_withdraw(&user, &usdc_pool_address, &gold_pool_address, &0);
+
+    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let obligation_after = contract_client.get_user_obligation(&user);
+
+    assert_eq!(usdc_pool_before, usdc_pool_after);
+    assert_eq!(gold_pool_before, gold_pool_after);
+    assert_eq!(obligation_before, obligation_after);
+}
+
+#[test]
+fn test_withdraw_negative() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
@@ -230,12 +304,12 @@ fn test_withdraw_non_positive() {
     );
 
     assert_eq!(
-        Err(Ok(LCError::NonPositiveWithdraw)),
+        Err(Ok(LCError::NegativeWithdraw)),
         contract_client.try_deleverage_and_withdraw(
             &user,
             &usdc_pool_address,
             &gold_pool_address,
-            &0
+            &-1
         )
     );
 }
@@ -364,12 +438,12 @@ fn test_withdraw() {
 
     // Check pools
     let deposit_pool = contract_client.get_pool(&usdc_pool_address);
-    let total_deposited = deposit_pool.total_liquidity().unwrap();
+    let total_supply = deposit_pool.total_supply().unwrap();
 
     let borrow_pool = contract_client.get_pool(&gold_pool_address);
     let total_borrowed = borrow_pool.total_borrowed;
 
-    assert_eq!(total_deposited, obligation_tokens_from_shares);
+    assert_eq!(total_supply, obligation_tokens_from_shares);
     assert_eq!(total_borrowed, obligation_borrowed);
 }
 

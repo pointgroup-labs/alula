@@ -6,6 +6,40 @@ use {
 };
 
 #[test]
+fn test_repay_zero() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user: Address = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+    // Deposit gold as a collateral to satisfy the health factor threshold
+    contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    // Deposit usdc as another user to have a non-empty loan pool
+    contract_client.deposit(&user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    // Borrow 50% of the deposited value
+    contract_client.borrow(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+
+    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let obligation_before = contract_client.get_user_obligation(&user);
+
+    contract_client.repay(&user, &usdc_pool_address, &0);
+
+    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let obligation_after = contract_client.get_user_obligation(&user);
+
+    assert_eq!(obligation_before, obligation_after);
+    assert_eq!(usdc_pool_before, usdc_pool_after);
+    assert_eq!(gold_pool_before, gold_pool_after);
+}
+
+#[test]
 fn test_repay() {
     let TestFixture {
         contract_client,

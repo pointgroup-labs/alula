@@ -53,7 +53,7 @@ build: build-init ## Build contracts
 	$(call build_contract,$(LENDING_CONTRACT),$(WASM_DIR))
 	$(call build_contract,$(FLASH_LOAN_TAKER_MOCK),$(MOCKS_DIR))
 
-build-sdk: download ## Build contracts for deployment
+build-deploy: download ## Build contracts for deployment
 	$(call build_contract,$(LENDING_CONTRACT),$(DEPLOY_DIR),--features deploy)
 
 build-init: ## Build init
@@ -64,15 +64,15 @@ download: build-init ## Downloads dependency contracts
 	$(call download_wasm_contract,$(REFLECTOR_ORACLE_WASM),$(REFLECTOR_ORACLE_URL))
 	$(call download_wasm_contract,$(SOROSWAP_ROUTER_WASM),$(SOROSWAP_ROUTER_URL))
 
-build-optimize: build-sdk ## Optimize contracts
+build-optimize: build-deploy ## Optimize contracts
 	mkdir -p $(OPTIMIZED_DIR)
 	stellar contract optimize \
 		--wasm $(DEPLOY_DIR)/$(LENDING_CONTRACT).wasm \
-		--wasm-out $(OPTIMIZED_DIR)/$(LENDING_CONTRACT).wasm
+		--wasm-out $(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm
 
 sdk: build-optimize ## Generate typescript sdk
 	stellar contract bindings typescript --overwrite \
-		--wasm $(OPTIMIZED_DIR)/$(LENDING_CONTRACT).wasm --output-dir ./packages/sdk/ \
+		--wasm $(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm --output-dir ./packages/sdk/ \
 		--network testnet
 
 test: build ## Run tests

@@ -17,7 +17,9 @@ use {
         constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
         contract::{LendingContract, LendingContractClient},
         obligation::{BorrowObligation, DepositObligation},
-        oracle, soroswap_router, LCError,
+        oracle,
+        pool::PoolConfig,
+        soroswap_router, LCError,
     },
     soroban_sdk::{
         symbol_short,
@@ -31,7 +33,6 @@ pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
 pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
 pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 2;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
-#[allow(unused)]
 pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
@@ -41,7 +42,6 @@ pub enum Token {
     GOLD,
 }
 
-#[allow(unused)]
 pub struct TestFixture<'a> {
     pub e: Env,
     pub contract_client: LendingContractClient<'a>,
@@ -74,14 +74,15 @@ pub struct TestFixture<'a> {
     pub usdc_admin: Address,
 }
 
-impl Default for TestFixture<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+#[allow(clippy::new_without_default)]
 impl TestFixture<'_> {
     pub fn new() -> Self {
+        let pool_config = Default::default();
+
+        Self::new_with_pool_config(pool_config)
+    }
+
+    fn new_with_pool_config(pool_config: PoolConfig) -> Self {
         let e = Env::new_with_config(EnvTestConfig {
             capture_snapshot_at_drop: false,
         });
@@ -135,7 +136,7 @@ impl TestFixture<'_> {
             &gold_token_address,
             &symbol_short!("GOLD"),
             &None,
-            &None,
+            &Some(pool_config),
         );
 
         // BTC
@@ -148,7 +149,7 @@ impl TestFixture<'_> {
             &btc_token_address,
             &symbol_short!("BTC"),
             &None,
-            &None,
+            &Some(pool_config),
         );
 
         // USDC
@@ -161,7 +162,7 @@ impl TestFixture<'_> {
             &usdc_token_address,
             &symbol_short!("USDC"),
             &None,
-            &None,
+            &Some(pool_config),
         );
 
         Self {

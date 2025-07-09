@@ -5,6 +5,40 @@ use crate::{
 };
 
 #[test]
+fn test_withdraw_zero() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let obligation_shares = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
+        .unwrap()
+        .shares;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
+
+    assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
+
+    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let obligation_before = contract_client.get_user_obligation(&user);
+
+    contract_client.withdraw(&user, &usdc_pool_address, &0);
+    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let obligation_after = contract_client.get_user_obligation(&user);
+
+    assert_eq!(obligation_before, obligation_after);
+    assert_eq!(usdc_pool_before, usdc_pool_after);
+    assert_eq!(gold_pool_before, gold_pool_after);
+}
+
+#[test]
 fn test_withdraw() {
     let TestFixture {
         contract_client,

@@ -186,17 +186,33 @@ impl Pool {
     /// # Errors
     /// Returns [`LCError::OverOrUnderflow`] if any arithmetic operation overflows
     pub fn get_borrow_rate_per_second(&self) -> Result<i128, LCError> {
-        let total = self.total_liquidity()?;
+        let total = self.total_supply()?;
 
         if total == 0 {
             return Ok(self.config.base_rate_per_second);
         }
 
-        let utilization_ratio_bps = self.calculate_utilization_ratio_bps(total)?;
+        let utilization_ratio_bps = self.calculate_utilization_ratio_for_total_bps(total)?;
         self.calculate_interest_rate(utilization_ratio_bps)
     }
 
-    fn calculate_utilization_ratio_bps(&self, total: i128) -> Result<i128, LCError> {
+    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization ratio limit on a pool
+    pub fn compute_available_borrow(&self) -> Result<i128, LCError> {
+        let total_supply = self.total_supply()?;
+        let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
+
+        if utilization_ratio > self.config.utilization_ratio_limit_bps {
+            return Err(LCError::InternalError);
+        }
+        let available_percentage_to_borrow_bps =
+            self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
+
+        available_percentage_to_borrow_bps
+            .fixed_div_ceil(BPS_FACTOR, total_supply)
+            .map_over_or_underflow()
+    }
+
+    fn calculate_utilization_ratio_for_total_bps(&self, total: i128) -> Result<i128, LCError> {
         self.total_borrowed
             .fixed_div_ceil(total, BPS_FACTOR)
             .map_over_or_underflow()
@@ -525,13 +541,15 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_utilization_ratio_bps() {
+    fn test_calculate_utilization_ratio_for_total_bps() {
         let env = Env::default();
         let mut pool = create_test_pool(&env);
         pool.total_borrowed = 300000;
 
         let total = 1000000;
-        let ratio = pool.calculate_utilization_ratio_bps(total).unwrap();
+        let ratio = pool
+            .calculate_utilization_ratio_for_total_bps(total)
+            .unwrap();
 
         assert_eq!(ratio, 3000); // 30% in basis points
     }
