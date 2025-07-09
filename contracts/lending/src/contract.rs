@@ -561,7 +561,7 @@ fn process_add_collateral(
     amount: i128,
 ) -> Result<(), LCError> {
     if amount < 0 {
-        return Err(LCError::NegativeDeposit);
+        return Err(LCError::NegativeCollateralAddition);
     }
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -703,7 +703,7 @@ fn process_remove_collateral(
     amount: i128,
 ) -> Result<(), LCError> {
     if amount < 0 {
-        return Err(LCError::NegativeWithdraw);
+        return Err(LCError::NegativeCollateralRemoval);
     }
 
     let mut obligation = Obligation::try_get(e, user)?;

@@ -36,4 +36,5 @@ pub enum LendingContractError {
     SupplyLimitExceeded = 32,
     BorrowLimitExceeded = 33,
     NegativeCollateralAddition = 34,
+    NegativeCollateralRemoval = 35,
 }

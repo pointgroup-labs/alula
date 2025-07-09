@@ -101,6 +101,43 @@ fn test_add_collateral() {
 }
 
 #[test]
+fn test_add_collateral_zero() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+
+    let pool_before = contract_client.get_pool(&usdc_pool_address);
+
+    contract_client.add_collateral(&user, &usdc_pool_address, &0);
+
+    let pool_after = contract_client.get_pool(&usdc_pool_address);
+
+    assert_eq!(pool_before, pool_after);
+}
+
+#[test]
+fn test_add_collateral_negative() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+
+    assert_eq!(
+        contract_client.try_add_collateral(&user, &usdc_pool_address, &-1),
+        Err(Ok(LCError::NegativeCollateralAddition))
+    );
+}
+
+#[test]
 #[should_panic]
 fn test_deposit_non_existing_tokens() {
     const DEPOSIT_AMOUNT: i128 = DEFAULT_USER_ASSET_MINT_AMOUNT + 1;

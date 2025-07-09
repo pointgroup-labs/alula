@@ -83,6 +83,49 @@ fn test_withdraw() {
 }
 
 #[test]
+fn test_remove_collateral_zero() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+
+    let pool_before = contract_client.get_pool(&usdc_pool_address);
+    let obligation_before = contract_client.get_user_obligation(&user);
+
+    // Withdraw half
+    contract_client.remove_collateral(&user, &usdc_pool_address, &0);
+
+    let pool_after = contract_client.get_pool(&usdc_pool_address);
+    let obligation_after = contract_client.get_user_obligation(&user);
+
+    assert_eq!(pool_before, pool_after);
+    assert_eq!(obligation_before, obligation_after);
+}
+
+#[test]
+fn test_remove_collateral_negative() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+
+    assert_eq!(
+        contract_client.try_remove_collateral(&user, &usdc_pool_address, &-1),
+        Err(Ok(LCError::NegativeCollateralRemoval))
+    );
+}
+
+#[test]
 fn test_remove_collateral() {
     let TestFixture {
         contract_client,
@@ -133,7 +176,6 @@ fn test_remove_collateral() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #9)")]
 fn test_withdraw_overbalance() {
     let TestFixture {
         contract_client,
@@ -148,7 +190,10 @@ fn test_withdraw_overbalance() {
     contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    contract_client.withdraw(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT + 1));
+    assert_eq!(
+        contract_client.try_withdraw(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT + 1)),
+        Err(Ok(LCError::WithdrawOverBalance))
+    );
 }
 
 #[test]
