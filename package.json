@@ -14,9 +14,9 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@antfu/eslint-config": "^4.15.0",
-    "@types/node": "^24.0.0",
-    "eslint": "^9.28.0",
+    "@antfu/eslint-config": "^4.16.2",
+    "@types/node": "^24.0.11",
+    "eslint": "^9.30.1",
     "eslint-plugin-format": "^1.0.1",
     "typescript": "^5.8.3"
   }

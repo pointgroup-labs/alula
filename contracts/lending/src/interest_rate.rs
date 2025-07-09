@@ -3,9 +3,10 @@
 
 use {
     crate::{
-        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+        constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
         math_utils::{self, MathUtils},
         pool::Pool,
+        LCError,
     },
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, Env},
@@ -94,53 +95,13 @@ impl Pool {
         Ok(())
     }
 
-    pub fn get_borrow_apr(&self) -> Result<u32, LCError> {
-        let apr = self.get_linear_borrow_rate(SECONDS_IN_YEAR)?;
-
-        Ok(apr)
-    }
-
-    // TODO: Rewrite our IR model to return APR right away
-    pub fn get_linear_borrow_rate(&self, seconds_passed: u64) -> Result<u32, LCError> {
-        const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
-
-        let multiplier = self.get_linear_rate_multiplier(seconds_passed)?;
-
-        let borrow_multiplier_bps =
-            u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
-
-        let borrow_rate = borrow_multiplier_bps
-            .checked_sub(BPS_FACTOR as u32)
-            .ok_or(LCError::OverOrUnderflow)?;
-
-        Ok(borrow_rate)
-    }
-
     pub fn get_apy(&self) -> Result<CompoundRates, LCError> {
         self.get_compound_rates(SECONDS_IN_YEAR)
-    }
-
-    pub fn get_optimal_apy(&self) -> Result<CompoundRates, LCError> {
-        let borrow_interest_rate = self.get_optimal_borrow_rate_per_second()?;
-        let borrow = self.calculate_borrow_multiplier(borrow_interest_rate, SECONDS_IN_YEAR)?;
-        let supply = self.calculate_supply_multiplier(borrow)?;
-
-        Ok(CompoundRateMultipliers { borrow, supply }.try_into()?)
     }
 
     fn get_compound_rates(&self, seconds_passed: u64) -> Result<CompoundRates, LCError> {
         self.get_compound_rate_multipliers(seconds_passed)?
             .try_into()
-    }
-
-    fn get_linear_rate_multiplier(&self, seconds_passed: u64) -> Result<i128, LCError> {
-        let borrow_interest_rate = self.get_borrow_rate_per_second()?;
-
-        let linear_growth = borrow_interest_rate
-            .checked_mul(seconds_passed as i128)
-            .map_over_or_underflow()?;
-
-        Ok(SCALED_ONE + linear_growth)
     }
 
     /// Calculates the compound rate multipliers for borrowing and supplying based on the time passed.
@@ -225,23 +186,33 @@ impl Pool {
     /// # Errors
     /// Returns [`LCError::OverOrUnderflow`] if any arithmetic operation overflows
     pub fn get_borrow_rate_per_second(&self) -> Result<i128, LCError> {
-        let total = self.total_liquidity()?;
+        let total = self.total_supply()?;
 
         if total == 0 {
             return Ok(self.config.base_rate_per_second);
         }
 
-        let utilization_ratio_bps = self.calculate_utilization_ratio_bps(total)?;
+        let utilization_ratio_bps = self.calculate_utilization_ratio_for_total_bps(total)?;
         self.calculate_interest_rate(utilization_ratio_bps)
     }
 
-    pub fn get_optimal_borrow_rate_per_second(&self) -> Result<i128, LCError> {
-        let utilization_ratio_bps = self.config.optimal_utilization_ratio_bps;
+    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization ratio limit on a pool
+    pub fn compute_available_borrow(&self) -> Result<i128, LCError> {
+        let total_supply = self.total_supply()?;
+        let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
-        self.calculate_interest_rate(utilization_ratio_bps)
+        if utilization_ratio > self.config.utilization_ratio_limit_bps {
+            return Err(LCError::InternalError);
+        }
+        let available_percentage_to_borrow_bps =
+            self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
+
+        available_percentage_to_borrow_bps
+            .fixed_div_ceil(BPS_FACTOR, total_supply)
+            .map_over_or_underflow()
     }
 
-    fn calculate_utilization_ratio_bps(&self, total: i128) -> Result<i128, LCError> {
+    fn calculate_utilization_ratio_for_total_bps(&self, total: i128) -> Result<i128, LCError> {
         self.total_borrowed
             .fixed_div_ceil(total, BPS_FACTOR)
             .map_over_or_underflow()
@@ -570,13 +541,15 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_utilization_ratio_bps() {
+    fn test_calculate_utilization_ratio_for_total_bps() {
         let env = Env::default();
         let mut pool = create_test_pool(&env);
         pool.total_borrowed = 300000;
 
         let total = 1000000;
-        let ratio = pool.calculate_utilization_ratio_bps(total).unwrap();
+        let ratio = pool
+            .calculate_utilization_ratio_for_total_bps(total)
+            .unwrap();
 
         assert_eq!(ratio, 3000); // 30% in basis points
     }

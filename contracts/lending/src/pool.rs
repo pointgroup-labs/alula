@@ -1,22 +1,22 @@
 use {
     crate::{
         constants::{
-            LCError, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
+            BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
             DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
             DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1,
-            DEFAULT_SLOPE2,
+            DEFAULT_SLOPE2, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
         },
         math_utils::MathUtils,
-        storage,
+        storage, LCError,
     },
-    soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec},
+    soroban_sdk::{contracttype, Address, Env, Symbol, Vec},
 };
 
-// pub type Address = Address;
-// pub type UserAddress = Address;
+pub type PoolAddress = Address;
+pub type UserAddress = Address;
 
 #[contracttype]
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
@@ -39,9 +39,6 @@ pub struct Pool {
     pub last_accrual: i128,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the SAC's native asset code
-    /// and asset issuer concatenated with `:` for other SACs(e.g, "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
-    pub name: String,
 }
 
 impl Pool {
@@ -90,9 +87,8 @@ impl Pool {
             return Err(LCError::InternalError);
         }
 
-        let total_liquidity = self.total_liquidity()?;
-
-        let tokens_amount = total_liquidity
+        let total_supply = self.total_supply()?;
+        let tokens_amount = total_supply
             .checked_mul(shares_amount)
             .map_over_or_underflow()?
             .checked_div(self.total_shares)
@@ -138,14 +134,14 @@ impl Pool {
         Ok(shares_amount)
     }
 
-    /// Calculate total liquidity (available + borrowed)
-    pub fn total_liquidity(&self) -> Result<i128, LCError> {
+    /// Calculates total supply (available + total_borrowed)
+    pub fn total_supply(&self) -> Result<i128, LCError> {
         self.available
             .checked_add(self.total_borrowed)
             .map_over_or_underflow()
     }
 
-    /// Check if the pool is empty
+    /// Checks if the pool is empty
     pub fn is_empty(&self) -> bool {
         self.total_shares == 0
             && self.total_borrowed == 0
@@ -162,11 +158,11 @@ impl Pool {
         storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)
     }
 
-    pub fn get_all(e: &Env) -> Vec<Address> {
+    pub fn get_all(e: &Env) -> Vec<PoolAddress> {
         storage::get_all_pools(e)
     }
 
-    pub fn exists(e: &Env, address: &Address) -> bool {
+    pub fn exists(e: &Env, address: &PoolAddress) -> bool {
         storage::pool_exists(e, address)
     }
 
@@ -199,7 +195,7 @@ impl Pool {
 }
 
 #[contracttype]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct PoolConfig {
     /// Base interest rate applied regardless of utilization, expressed per second
     /// in 1/`SCALED_ONE` units. Must be positive
@@ -218,6 +214,11 @@ pub struct PoolConfig {
     pub liquidation_close_factor_bps: i128,
     /// Additional discount given to liquidators when purchasing collateral
     pub liquidation_incentive_bps: i128,
+    /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` + `total_borrowed`)
+    /// 0 denotes unlimited supply
+    pub supply_limit: i128,
+    /// The maximum utilization ratio that is allowed to be reached via borrowing
+    pub utilization_ratio_limit_bps: i128,
     /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 = 70%, etc)
     /// with respect to a total obligation's collateral value
     pub open_ltv_bps: i128,
@@ -236,8 +237,10 @@ impl Default for PoolConfig {
             optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATION_RATIO * BPS_IN_PERCENT,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
             liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
-            close_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
+            supply_limit: DEFAULT_SUPPLY_LIMIT,
+            utilization_ratio_limit_bps: DEFAULT_UTILIZATION_RATIO_LIMIT * BPS_IN_PERCENT,
             open_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
+            close_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
         }
     }
 }
@@ -252,6 +255,8 @@ impl PoolConfig {
             reserve_ratio_bps,
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
+            supply_limit,
+            utilization_ratio_limit_bps,
             open_ltv_bps,
             close_ltv_bps,
         } = self;
@@ -264,6 +269,18 @@ impl PoolConfig {
             || optimal_utilization_ratio_bps > 100 * BPS_IN_PERCENT
         {
             return Err("Optimal utilization ratio must be between 0% and 100%");
+        }
+
+        if supply_limit < 0 {
+            return Err("Supply limit must be non-negative");
+        }
+
+        if !is_valid_percent(utilization_ratio_limit_bps) {
+            return Err("Utilization ratio limit must be between 0% and 100%");
+        }
+
+        if utilization_ratio_limit_bps <= optimal_utilization_ratio_bps {
+            return Err("Utilization ratio limit must exceed optimal utilization ratio");
         }
 
         if !is_valid_percent(reserve_ratio_bps) {

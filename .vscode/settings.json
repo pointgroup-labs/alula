@@ -17,6 +17,7 @@
     "oxlint",
     "pinia",
     "repr",
+    "rustc",
     "sizecheck",
     "soroban",
     "soroswap",

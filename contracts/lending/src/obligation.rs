@@ -1,10 +1,11 @@
 use {
     crate::{
-        constants::{LCError, ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
+        constants::{ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
         contract::get_asset_price,
         math_utils::MathUtils,
         pool::{Pool, PoolConfig},
         storage::{self, get_global_state},
+        LCError,
     },
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, token, Address, Env, Map},
@@ -39,7 +40,7 @@ impl Obligation {
     /// Accrues interest on all borrows for the obligation
     ///
     /// # WARNING
-    /// Modifies the contract's storage
+    /// Modifies the obligation's pools storage data, but **DOESN'T** modify the obligation's storage data
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         for (pool_address, mut borrow_obligation) in self.borrows.iter() {
             borrow_obligation.accrue_interest(e, &pool_address)?;
@@ -58,7 +59,7 @@ impl Obligation {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
 
-    pub fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
+    fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
         let liquidation_threshold_bps = get_global_state(e).liquidation_threshold_bps;
 
         let (mut collateral_value_sum, mut borrowed_value_sum) = (0i128, 0i128);

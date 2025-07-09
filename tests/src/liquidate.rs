@@ -2,7 +2,7 @@
 
 use {
     crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    lending::constants::{LCError, DEFAULT_CLOSE_FACTOR},
+    lending::{constants::DEFAULT_CLOSE_FACTOR, LCError},
     soroban_sdk::{
         testutils::{Address as _, Ledger},
         Address,
@@ -153,7 +153,50 @@ fn test_liquidate_healthy_position_fails() {
 }
 
 #[test]
-fn test_liquidate_zero_amount_fails() {
+fn test_liquidate_zero() {
+    let test = LiquidationTest::risky();
+    test.make_unhealthy();
+    // Accrue interest
+    test.test_fixture
+        .contract_client
+        .accrue_interest(&test.borrower);
+
+    let usdc_pool_before = test
+        .test_fixture
+        .contract_client
+        .get_pool(&test.test_fixture.usdc_pool_address);
+    let gold_pool_before = test
+        .test_fixture
+        .contract_client
+        .get_pool(&test.test_fixture.gold_pool_address);
+    let borrowed_before = test.borrowed_amount();
+
+    // Should succeed at exactly the close factor limit
+    test.test_fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &test.test_fixture.usdc_pool_address,
+        &test.test_fixture.gold_pool_address,
+        &0,
+    );
+
+    let usdc_pool_after = test
+        .test_fixture
+        .contract_client
+        .get_pool(&test.test_fixture.usdc_pool_address);
+    let gold_pool_after = test
+        .test_fixture
+        .contract_client
+        .get_pool(&test.test_fixture.gold_pool_address);
+    let borrowed_after = test.borrowed_amount();
+
+    assert_eq!(borrowed_after, borrowed_before);
+    assert_eq!(usdc_pool_before, usdc_pool_after);
+    assert_eq!(gold_pool_before, gold_pool_after);
+}
+
+#[test]
+fn test_liquidate_negative_amount() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();
 
@@ -162,10 +205,10 @@ fn test_liquidate_zero_amount_fails() {
         &test.borrower,
         &test.test_fixture.usdc_pool_address,
         &test.test_fixture.gold_pool_address,
-        &0,
+        &-1,
     );
 
-    assert_eq!(result, Err(Ok(LCError::NonPositiveLiquidation)));
+    assert_eq!(result, Err(Ok(LCError::NegativeLiquidation)));
 }
 
 #[test]
