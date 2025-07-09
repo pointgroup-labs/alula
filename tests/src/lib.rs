@@ -1,14 +1,25 @@
 #![deny(clippy::absurd_extreme_comparisons)]
 
+mod borrow;
+mod deposit;
+mod fuzz;
+mod initialize;
+mod interest_rates;
+mod leverage;
+mod liquidate;
+mod repay;
+mod swap;
+mod withdraw;
+
 use {
     arbitrary::Unstructured,
     lending::{
-        constants::{
-            LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS,
-        },
+        constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
         contract::{LendingContract, LendingContractClient},
         obligation::{BorrowObligation, DepositObligation},
-        oracle, soroswap_router,
+        oracle,
+        pool::PoolConfig,
+        soroswap_router, LCError,
     },
     soroban_sdk::{
         symbol_short,
@@ -22,7 +33,6 @@ pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
 pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
 pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 2;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
-#[allow(unused)]
 pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
@@ -32,7 +42,6 @@ pub enum Token {
     GOLD,
 }
 
-#[allow(unused)]
 pub struct TestFixture<'a> {
     pub e: Env,
     pub contract_client: LendingContractClient<'a>,
@@ -65,14 +74,15 @@ pub struct TestFixture<'a> {
     pub usdc_admin: Address,
 }
 
-impl Default for TestFixture<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+#[allow(clippy::new_without_default)]
 impl TestFixture<'_> {
     pub fn new() -> Self {
+        let pool_config = Default::default();
+
+        Self::new_with_pool_config(pool_config)
+    }
+
+    fn new_with_pool_config(pool_config: PoolConfig) -> Self {
         let e = Env::new_with_config(EnvTestConfig {
             capture_snapshot_at_drop: false,
         });
@@ -126,7 +136,7 @@ impl TestFixture<'_> {
             &gold_token_address,
             &symbol_short!("GOLD"),
             &None,
-            &None,
+            &Some(pool_config),
         );
 
         // BTC
@@ -139,7 +149,7 @@ impl TestFixture<'_> {
             &btc_token_address,
             &symbol_short!("BTC"),
             &None,
-            &None,
+            &Some(pool_config),
         );
 
         // USDC
@@ -152,7 +162,7 @@ impl TestFixture<'_> {
             &usdc_token_address,
             &symbol_short!("USDC"),
             &None,
-            &None,
+            &Some(pool_config),
         );
 
         Self {
@@ -255,6 +265,12 @@ pub enum Command {
 
     TomWithdrawCollateral(WithdrawCollateral),
     JerryWithdrawCollateral(WithdrawCollateral),
+
+    TomDepositWithLeverage(DepositWithLeverage),
+    JerryDepositWithLeverage(DepositWithLeverage),
+
+    TomDeleverageAndWithdraw(DeleverageAndWithdraw),
+    JerryDeleverageAndWithdraw(DeleverageAndWithdraw),
     // PassTime(),
 }
 
@@ -268,6 +284,8 @@ impl Command {
             Command::TomLiquidate(command) => command.run(test_fixture, 0),
             Command::TomDepositCollateral(command) => command.run(test_fixture, 0),
             Command::TomWithdrawCollateral(command) => command.run(test_fixture, 0),
+            Command::TomDepositWithLeverage(command) => command.run(test_fixture, 0),
+            Command::TomDeleverageAndWithdraw(command) => command.run(test_fixture, 0),
 
             Command::JerryRepay(command) => command.run(test_fixture, 1),
             Command::JerryBorrow(command) => command.run(test_fixture, 1),
@@ -276,6 +294,8 @@ impl Command {
             Command::JerryLiquidate(command) => command.run(test_fixture, 1),
             Command::JerryDepositCollateral(command) => command.run(test_fixture, 1),
             Command::JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
+            Command::JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
+            Command::JerryDeleverageAndWithdraw(command) => command.run(test_fixture, 1),
         }
     }
 }
@@ -537,6 +557,22 @@ pub struct Liquidate {
     pub collateral_token: Token,
 }
 
+#[derive(Arbitrary, Debug)]
+pub struct DepositWithLeverage {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+    pub flash_loan_amount: Amount,
+    pub leverage: u32,
+}
+
+#[derive(Arbitrary, Debug)]
+pub struct DeleverageAndWithdraw {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+}
+
 impl Borrow {
     pub fn run(&self, test_fixture: &TestFixture, who: u32) {
         let pool_address = test_fixture.get_pool_address(self.token);
@@ -647,6 +683,62 @@ impl Liquidate {
                 &self.amount.0,
             );
         }
+    }
+}
+
+impl DepositWithLeverage {
+    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        if deposit_pool_address != borrow_pool_address {
+            let TestFixture {
+                contract_client,
+                users,
+                ..
+            } = test_fixture;
+
+            let (flash_loan_provider, lender) = if who == 0 {
+                (users.get(0).unwrap(), users.get(1).unwrap())
+            } else {
+                (users.get(1).unwrap(), users.get(0).unwrap())
+            };
+
+            contract_client.deposit(
+                &flash_loan_provider,
+                &borrow_pool_address,
+                &self.flash_loan_amount.0,
+            );
+
+            let _ = contract_client.try_deposit_with_leverage(
+                &lender,
+                &deposit_pool_address,
+                &borrow_pool_address,
+                &self.amount.0,
+                &self.leverage,
+            );
+        }
+    }
+}
+
+impl DeleverageAndWithdraw {
+    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        let TestFixture {
+            contract_client,
+            users,
+            ..
+        } = test_fixture;
+
+        let user = users.get(who).unwrap();
+        let _ = contract_client.try_deleverage_and_withdraw(
+            &user,
+            &deposit_pool_address,
+            &borrow_pool_address,
+            &self.amount.0,
+        );
     }
 }
 
@@ -867,14 +959,3 @@ mod tests {
             .unwrap()
     }
 }
-
-mod borrow;
-mod deposit;
-mod fuzz;
-mod initialize;
-mod interest_rates;
-mod leverage;
-mod liquidate;
-mod repay;
-mod swap;
-mod withdraw;

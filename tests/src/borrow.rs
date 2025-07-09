@@ -2,7 +2,7 @@
 
 use {
     crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    lending::constants::LCError,
+    lending::{constants::BPS_FACTOR, pool::PoolConfig, LCError},
     soroban_sdk::Address,
 };
 
@@ -34,20 +34,95 @@ fn test_borrow() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #19)")]
-fn test_borrow_non_positive() {
+fn test_exceed_borrow_limit() {
+    const UTILIZATION_RATION_LIMIT_BPS: i128 = 9000; // 90%
+
+    let pool_config = PoolConfig {
+        utilization_ratio_limit_bps: UTILIZATION_RATION_LIMIT_BPS,
+        ..Default::default()
+    };
+
+    let TestFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new_with_pool_config(pool_config);
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit gold to satisfy the health factor threshold
+    contract_client.deposit(&user, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT));
+
+    // Deposit usdc as another user to have a non-empty loan pool
+    contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+
+    contract_client.borrow(
+        &user,
+        &usdc_pool_address,
+        &((DEFAULT_DEPOSIT_AMOUNT * UTILIZATION_RATION_LIMIT_BPS) / BPS_FACTOR),
+    );
+
+    assert_eq!(
+        contract_client.try_borrow(&user, &usdc_pool_address, &1),
+        Err(Ok(LCError::BorrowLimitExceeded))
+    );
+}
+
+#[test]
+fn test_borrow_zero() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
+        gold_pool_address,
         users,
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
+    let user = users.get(0).unwrap();
     let user2 = users.get(1).unwrap();
+
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+
+    // Deposit gold to satisfy the health factor threshold
+    contract_client.deposit(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+
+    let pool_before = contract_client.get_pool(&usdc_pool_address);
+
+    // TODO: This borrow will create a `BorrowObligation` with `borrowed` == 0. Should we care about that?
     contract_client.borrow(&user, &usdc_pool_address, &0);
+
+    let pool_after = contract_client.get_pool(&usdc_pool_address);
+
+    assert_eq!(pool_before, pool_after);
+}
+
+#[test]
+fn test_borrow_negative() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit usdc as another user to have a non-empty loan pool
+    contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+
+    // Deposit gold to satisfy the health factor threshold
+    contract_client.deposit(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+
+    assert_eq!(
+        contract_client.try_borrow(&user, &usdc_pool_address, &-1),
+        Err(Ok(LCError::NegativeBorrow))
+    );
 }
 
 #[test]

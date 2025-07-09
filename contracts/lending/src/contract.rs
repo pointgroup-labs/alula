@@ -1,25 +1,21 @@
 use {
     crate::{
         constants::{
-            LCError, ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
+            ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
             DEFAULT_LIQUIDATION_THRESHOLD, MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
             REFLECTOR_TESTNET_ADDRESS,
         },
         interest_rate::CompoundRates,
         math_utils::MathUtils,
         obligation::{LiquidationValues, Obligation},
-        oracle::{self},
-        pool::{Pool, PoolConfig},
+        oracle,
+        pool::{Pool, PoolAddress, PoolConfig},
         storage::{self, GlobalState},
-        swap,
+        swap, LCError,
     },
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{
-        contract, contractimpl, log,
-        token::{self, TokenClient},
-        Address, BytesN, Env, Symbol, Vec,
-    },
+    soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, Symbol, Vec},
 };
 
 #[contract]
@@ -59,6 +55,18 @@ impl LendingContract {
         Ok(())
     }
 
+    /// Upgrades the lending contract
+    ///
+    /// ### Arguments
+    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a new version of the contract
+    pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
+        // TODO: Implement decentralized governance of the contract
+        let admin = storage::get_global_state(&e).admin;
+        admin.require_auth();
+
+        e.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
     /// Gets the contract's global state
     pub fn get_global_state(e: Env) -> GlobalState {
         storage::get_global_state(&e)
@@ -80,93 +88,6 @@ impl LendingContract {
     ) -> Result<Address, LCError> {
         process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
     }
-
-    // pub fn get_usdc_bal(e: Env, user: Address) -> Result<i128, LCError> {
-    //     user.require_auth();
-    //     let usdc_sac_address = Address::from_str(
-    //         &e,
-    //         "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-    //     );
-
-    //     let token_client = TokenClient::new(&e, &usdc_sac_address);
-    //     Ok(token_client.balance(&user))
-    // }
-
-    // pub fn test_oracle_knows_price(e: Env, ticker: Symbol) -> Result<i128, LCError> {
-    //     get_asset_price(&e, &ticker)
-    // }
-
-    // pub fn try_burn(e: Env, user: Address) {
-    //     user.require_auth();
-    //     let usdc_sac_address = Address::from_str(
-    //         &e,
-    //         "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-    //     );
-
-    //     let token_client = TokenClient::new(&e, &usdc_sac_address);
-    //     token_client.burn(&user, &1000);
-    // }
-
-    // pub fn get_assets(e: Env) -> Result<Vec<Asset>, LCError> {
-    //     let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
-    //     let reflector_contract = oracle::Client::new(&e, &reflector_address);
-
-    //     Ok(reflector_contract.assets())
-    // }
-
-    /// Gets computed user's current health factor in basis points (e.g, 9_200 = 0.92, 10_000 = 1, 10_500 = 1,05, etc)
-    ///
-    /// ### Arguments
-    /// * `user` - user which health factor is computed
-    pub fn get_health_factor(e: Env, user: Address) -> Result<i128, LCError> {
-        user.require_auth();
-
-        process_get_user_health_factor(&e, &user)
-    }
-
-    /// Returns asset's decimals. Since Soroban smart contracts can operate only with SAC tokens, this value is currently always 7
-    pub fn get_asset_decimals() -> u32 {
-        // See - https://github.com/stellar/rs-soroban-env/blob/main/soroban-env-host/src/builtin_contracts/stellar_asset_contract/contract.rs#L374
-        7
-    }
-
-    /// Returns oracle price's decimals
-    pub fn get_oracle_price_decimals(e: Env) -> u32 {
-        let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
-        let reflector_contract = oracle::Client::new(&e, &reflector_address);
-
-        reflector_contract.decimals()
-    }
-
-    /// Returns pool asset's oracle price
-    ///
-    /// ### Arguments
-    /// * `pool_address` - address of asset which price is returned
-    pub fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, LCError> {
-        let pool = Pool::try_get(&e, &pool_address)?;
-
-        get_asset_price(&e, &pool.token_ticker)
-    }
-
-    // pub fn try_get_amount_out(
-    //     e: Env,
-    //     user: Address,
-    //     token_in: Address,
-    //     token_out: Address,
-    //     amount_in: i128,
-    // ) -> Result<i128, LCError> {
-    //     user.require_auth();
-
-    //     let amount_out = swap::get_amount_out(&e, &token_in, &token_out, amount_in)?;
-
-    //     Ok(amount_out)
-    // }
-
-    // pub fn try_swap_usdc_for_(e: Env, user: Address, amount_) {
-    //     user.require_auth();
-
-    //     process_swap(&e, &user, token_in, token_out, amount_in);
-    // }
 
     /// Deposits tokens into the loan pool
     ///
@@ -392,6 +313,30 @@ impl LendingContract {
         )
     }
 
+    /// Returns asset's decimals
+    pub fn get_asset_decimals() -> u32 {
+        // See - https://github.com/stellar/rs-soroban-env/blob/main/soroban-env-host/src/builtin_contracts/stellar_asset_contract/contract.rs#L374
+        7
+    }
+
+    /// Returns oracle price's decimals
+    pub fn get_oracle_price_decimals(e: Env) -> u32 {
+        let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
+        let reflector_contract = oracle::Client::new(&e, &reflector_address);
+
+        reflector_contract.decimals()
+    }
+
+    /// Returns pool asset's oracle price
+    ///
+    /// ### Arguments
+    /// * `pool_address` - address of asset which price is returned
+    pub fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, LCError> {
+        let pool = Pool::try_get(&e, &pool_address)?;
+
+        get_asset_price(&e, &pool.token_ticker)
+    }
+
     /// Returns the user's obligation which includes data about all of their deposits and borrows
     ///
     /// ### Arguments
@@ -403,6 +348,19 @@ impl LendingContract {
         obligation.set(&e);
 
         Ok(obligation)
+    }
+
+    /// Accrues interest on a specific user's obligation and on its pools
+    ///
+    /// ### Arguments
+    /// * `user` - user whose obligation interest is accrued
+    pub fn accrue_interest(e: Env, user: Address) -> Result<(), LCError> {
+        let mut obligation = Obligation::try_get(&e, &user)?;
+
+        obligation.accrue_interest(&e)?;
+        obligation.set(&e);
+
+        Ok(())
     }
 
     /// Returns the specific loan pool
@@ -417,16 +375,6 @@ impl LendingContract {
     pub fn get_all_pools(e: Env) -> Vec<Address> {
         Pool::get_all(&e)
     }
-
-    // /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g., 2912 = 29.12%, etc)
-    // ///
-    // /// ### Arguments
-    // /// * `pool_address` - address of a pool for which APY is returned
-    // pub fn get_borrow_apr(e: Env, pool_address: Address) -> Result<u32, LCError> {
-    //     let pool = Pool::try_get(&e, &pool_address)?;
-
-    //     pool.get_borrow_apr()
-    // }
 
     /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g., 2912 = 29.12%, etc)
     ///
@@ -443,6 +391,7 @@ impl LendingContract {
     /// ### Arguments
     /// * `pool_address` - address of a pool for which optimal APY is returned
     pub fn get_optimal_apy(_e: Env, _pool_address: Address) -> Result<CompoundRates, LCError> {
+        // TODO: Start calculating this dynamically
         Ok(CompoundRates {
             borrow_bps: 4_000,
             supply_bps: 1_500,
@@ -456,8 +405,8 @@ fn process_initialize_pool(
     token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
-) -> Result<Address, LCError> {
-    let pool_address: Address = if let Some(salt) = salt {
+) -> Result<PoolAddress, LCError> {
+    let pool_address: PoolAddress = if let Some(salt) = salt {
         // TODO: Check some other ways of deriving an address
         e.deployer()
             .with_address(token_address.clone(), salt.clone())
@@ -481,11 +430,7 @@ fn process_initialize_pool(
         Default::default()
     };
 
-    let token_client = TokenClient::new(&e, &token_address);
-    let name = token_client.name();
-
     let pool = Pool {
-        name,
         config,
         pool_address: pool_address.clone(),
         token_ticker: token_ticker.clone(),
@@ -494,8 +439,8 @@ fn process_initialize_pool(
         total_shares: 0,
         total_borrowed: 0,
         total_collateral: 0,
-        last_accrual_timestamp: e.ledger().timestamp(),
         last_accrual: ACCRUAL_INIT,
+        last_accrual_timestamp: e.ledger().timestamp(),
     };
 
     pool.set(e);
@@ -504,24 +449,32 @@ fn process_initialize_pool(
     Ok(pool_address)
 }
 
-pub fn process_get_user_health_factor(e: &Env, user: &Address) -> Result<i128, LCError> {
-    let obligation = Obligation::try_get(e, user)?;
-
-    obligation.compute_health_factor_bps(e)
-}
-
 pub fn process_deposit(
     e: &Env,
     user: &Address,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveDeposit);
+    // NB: Here and in all other `process_` functions we allow 0 amounts, since
+    // in this way we can always simulate method execution even when the contract's method
+    // demands transferring tokens from the user's account(whose might not have this token at all)
+    if amount < 0 {
+        return Err(LCError::NegativeDeposit);
     }
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.accrue_interest(e)?;
+
+    let supply_limit = pool.config.supply_limit;
+    if supply_limit != 0
+        && pool
+            .total_supply()?
+            .checked_add(amount)
+            .map_over_or_underflow()?
+            > supply_limit
+    {
+        return Err(LCError::SupplyLimitExceeded);
+    }
 
     let shares_to_issue = pool.compute_shares_from_tokens(amount)?;
 
@@ -565,14 +518,19 @@ fn process_borrow(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveBorrow);
+    if amount < 0 {
+        return Err(LCError::NegativeBorrow);
     }
 
     let mut obligation = Obligation::try_get(e, user)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
+
+    let available_borrow = pool.compute_available_borrow()?;
+    if amount > available_borrow {
+        return Err(LCError::BorrowLimitExceeded);
+    }
 
     if amount > pool.available {
         return Err(LCError::NotEnoughPoolFunds);
@@ -602,8 +560,8 @@ fn process_add_collateral(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveDeposit);
+    if amount < 0 {
+        return Err(LCError::NegativeCollateralAddition);
     }
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -628,8 +586,8 @@ fn process_repay(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveRepay);
+    if amount < 0 {
+        return Err(LCError::NegativeRepay);
     }
 
     let mut obligation = Obligation::try_get(e, user)?;
@@ -664,8 +622,8 @@ fn process_liquidate(
     collateral_pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveLiquidation);
+    if amount < 0 {
+        return Err(LCError::NegativeLiquidation);
     }
 
     if liquidator == borrower {
@@ -744,8 +702,8 @@ fn process_remove_collateral(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveWithdraw);
+    if amount < 0 {
+        return Err(LCError::NegativeCollateralRemoval);
     }
 
     let mut obligation = Obligation::try_get(e, user)?;
@@ -783,8 +741,8 @@ fn process_withdraw(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveWithdraw);
+    if amount < 0 {
+        return Err(LCError::NegativeWithdraw);
     }
 
     let mut obligation = Obligation::try_get(e, user)?;
@@ -826,8 +784,8 @@ fn process_flash_loan(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveFlashLoan);
+    if amount < 0 {
+        return Err(LCError::NegativeFlashLoan);
     }
 
     let pool = Pool::try_get(e, pool_address)?;
@@ -865,8 +823,8 @@ fn process_deposit_with_leverage(
     amount: i128,
     leverage_multiplier: u32,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveDeposit);
+    if amount < 0 {
+        return Err(LCError::NegativeDeposit);
     }
 
     if !(MIN_LEVERAGE_MULTIPLIER..=MAX_LEVERAGE_MULTIPLIER).contains(&leverage_multiplier) {
@@ -962,8 +920,8 @@ pub fn process_deleverage_and_withdraw(
     borrow_pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount <= 0 {
-        return Err(LCError::NonPositiveWithdraw);
+    if amount < 0 {
+        return Err(LCError::NegativeWithdraw);
     }
 
     let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
@@ -1009,7 +967,7 @@ pub fn process_deleverage_and_withdraw(
         .fixed_div_floor(BPS_FACTOR, scale_bps)
         .map_over_or_underflow()?;
 
-    // ---- Flash Borrow ----
+    // Flash Borrow
     let flash_borrow_amount = swap::get_amount_out(
         e,
         &deposit_pool.token_address,
@@ -1035,7 +993,7 @@ pub fn process_deleverage_and_withdraw(
     process_withdraw(e, user, deposit_pool_address, withdraw_amount)?;
 
     // Swap to get what must repay the flash loan
-    let amount_in = plain_leverage_to_be_deleveraged; // TODO: Maybe, add here 1 or 2 %
+    let amount_in = plain_leverage_to_be_deleveraged; // TODO: Maybe, add here 1 or 2 %?
 
     let flash_loan_fee = flash_borrow_amount
         .checked_mul(DEFAULT_FLASH_LOAN_FEE_BPS)

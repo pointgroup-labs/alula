@@ -15,7 +15,7 @@ const FAILING_CALL_AMOUNT: i128 = 777;
 pub struct FlashLoanLiquidatorContract;
 
 #[contractimpl]
-impl moderc3156::ModErc3156 for FlashLoanLiquidatorContract {
+impl ModErc3156 for FlashLoanLiquidatorContract {
     fn exec_op(e: Env, caller: Address, token: Address, amount: i128, _fee: i128) {
         // In the real-world contract that utilizes flash loans, I believe you'd have to check for a specific caller
         // to forbid other contracts from invoking `exec_op`
@@ -53,7 +53,7 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 mod test {
     use {
         super::{FlashLoanLiquidatorContract, FAILING_CALL_AMOUNT},
-        lending::constants::LCError,
+        lending::LCError,
         soroban_sdk::Address,
         tests::{TestFixture, DEFAULT_DEPOSIT_AMOUNT},
     };
@@ -82,6 +82,32 @@ mod test {
                 flash_loan_taker_contract_id,
             }
         }
+    }
+
+    #[test]
+    fn test_flash_loan_zero() {
+        let FlashLoanTest {
+            test_fixture,
+            flash_loan_taker_contract_id,
+            ..
+        } = FlashLoanTest::new();
+
+        let gold_pool_before = test_fixture
+            .contract_client
+            .get_pool(&test_fixture.gold_pool_address);
+
+        test_fixture.contract_client.flash_loan(
+            &flash_loan_taker_contract_id,
+            &test_fixture.usdc_pool_address,
+            &0,
+        );
+
+        let gold_pool_after = test_fixture
+            .contract_client
+            .get_pool(&test_fixture.gold_pool_address);
+
+        // Must be equal, since flash loan fee is calculated as a percentage and `x * 0 = 0`
+        assert_eq!(gold_pool_before, gold_pool_after);
     }
 
     #[test]
