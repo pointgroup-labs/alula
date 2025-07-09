@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js'
+
 /**
  * Function to allow only numbers and a single decimal point to be inputted.
  *
@@ -48,4 +50,14 @@ export function truncatePercent(value: number, dec = 2): string {
   return decimalPart.length > dec
     ? `${intPart}.${decimalPart.slice(0, dec)}`
     : `${value}`
+}
+
+export function bigintToNumber(
+  rawValue: bigint,
+  assetDecimals: number,
+  outputDecimals: number = assetDecimals,
+): string {
+  const dec = new Decimal(rawValue.toString())
+    .dividedBy(new Decimal(10).pow(assetDecimals))
+  return dec.toFixed(outputDecimals)
 }

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
 
 const infoDialog = ref(false)
 
@@ -46,7 +46,7 @@ const items = computed<MarketTableItem[]>(() => {
       action: 'Supply',
       price: p.pool_price,
       supply_limit: supplyLimit,
-      available: Number(p.available) / 10 ** assetDecimals.value,
+      available: Number(p.available) / (10 ** assetDecimals.value),
     }
   })
 })
@@ -107,17 +107,26 @@ function amountToUsd(amount: number, price: number) {
       </template>
 
       <template #cell(total_supply)="data">
-        <div class="table-cell justify-content-end with-price">
+        <j-tooltip tooltip-class="table-cell justify-content-end with-price">
           {{ data.item.total_supply > 1000 ? shortenNumber(data.item.total_supply) : data.item.total_supply }}
           <span>${{ amountToUsd(data.item.total_supply, data.item.price) }}</span>
-        </div>
+          <template #content>
+            {{ formatPrice(data.item.total_supply) }}
+          </template>
+        </j-tooltip>
       </template>
 
       <template #cell(total_borrowed)="data">
-        <div class="table-cell justify-content-end with-price">
-          {{ data.item.total_borrowed > 1000 ? shortenNumber(data.item.total_borrowed) : data.item.total_borrowed }}
-          <span>${{ amountToUsd(data.item.total_borrowed, data.item.price) }}</span>
-        </div>
+        <j-tooltip tooltip-class="table-cell justify-content-end with-price">
+          <div class="table-cell justify-content-end with-price">
+            {{ data.item.total_borrowed > 1000 ? shortenNumber(data.item.total_borrowed) : data.item.total_borrowed }}
+            <span>${{ amountToUsd(data.item.total_borrowed, data.item.price) }}</span>
+          </div>
+          <template #content>
+            {{ formatPrice(data.item.total_borrowed) }}
+          </template>
+        </j-tooltip>
+
       </template>
 
       <template #cell(deposit_apy)="data">
@@ -244,6 +253,7 @@ function amountToUsd(amount: number, price: number) {
   }
 
   .table-cell {
+    width: 100%;
     height: 40px;
     display: flex;
     align-items: center;

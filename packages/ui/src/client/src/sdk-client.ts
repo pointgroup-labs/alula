@@ -68,8 +68,8 @@ export class SorobanClient {
      */
     async getPoolAssetOraclePrice(pool_address: string) {
         const poolPrice = await this.sdk.get_pool_asset_oracle_price({ pool_address })
-        const poolPriceResult = this.unwrapOk2(poolPrice.result)
-        const normalizedPrice = normalizeAssetAmount(Number(poolPriceResult), this.oracleDecimals)
+        const poolPriceResult: bigint = this.unwrapOk2(poolPrice.result)
+        const normalizedPrice = normalizeAssetAmount(poolPriceResult, this.oracleDecimals)
         return normalizedPrice || 0
     }
 
@@ -106,10 +106,10 @@ export class SorobanClient {
     }
 
     /**
-     * Deposit instruction
+     * Deposit Tx
      */
-    async depositTx(user: string, pool_address: string, amount: number) {
-        return await this.sdk.deposit({ user, pool_address, amount: amountToBigInt(amount, this.assetDecimals) })
+    async depositTx(user: string, pool_address: string, amount: string | number) {
+        return await this.sdk.deposit({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
     }
 
     /**
@@ -135,7 +135,7 @@ export class SorobanClient {
 
         const sendResponse = await this.sorobanServer.sendTransaction(txObject)
 
-        console.log('SEND_RESPONSE', sendResponse)
+        console.log('[Tx send responce]', sendResponse)
 
         const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
             sleepStrategy: (_iter: any) => 1000,
@@ -147,18 +147,55 @@ export class SorobanClient {
     }
 
     /**
+     * Borrow Tx
+     */
+    async borrowTx(user: string, pool_address: string, amount: string | number) {
+        return await this.sdk.borrow({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    }
+
+    /**
      * Borrow
      */
-    async borrow(user: string, pool_address: string, amount: number) {
-        return await this.sdk.borrow({ user, pool_address, amount: BigInt(amount) })
+    async borrow(
+        user: string,
+        pool_address: string,
+        amount: number,
+        kit: any) {
+        const tx = await this.borrowTx(user, pool_address, String(amount))
+
+        console.log('[Borrow tx]', tx)
+
+        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
+            address: user,
+            networkPassphrase: WalletNetwork.TESTNET,
+        })
+
+        console.log('[signedTxXdr]', signedTxXdr)
+
+        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
+
+        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
+
+        console.log('[Tx send responce]', sendResponse)
+        if (sendResponse.status === 'ERROR') {
+            throw new Error(sendResponse.error)
+        }
+
+        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
+            sleepStrategy: (_iter: any) => 1000,
+            attempts: 30,
+        })
+        console.log('✅ Transaction submitted!', result)
+
+        return result
     }
 
     /**
      * Get transaction fee
      */
-    getTransactionFee(tx: any): number {
-        const stroops = Number(tx.simulation.minResourceFee) || 0
-        return normalizeAssetAmount(Number(stroops), this.assetDecimals)
+    getTransactionFee(tx: any) {
+        const stroops: bigint = tx.simulation.minResourceFee || 0
+        return Number(normalizeAssetAmount(stroops, this.assetDecimals))
     }
 
     /**

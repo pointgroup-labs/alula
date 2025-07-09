@@ -82,7 +82,10 @@ watchEffect(() => {
         zIndex: 9999,
       }"
     >
-      <slot v-if="slots?.content" name="content" />
+      <slot
+        v-if="slots?.content"
+        name="content"
+      />
       <!-- <div
         v-if="isArrow"
         ref="floatingArrow"
