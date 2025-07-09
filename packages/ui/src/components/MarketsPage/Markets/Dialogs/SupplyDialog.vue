@@ -104,6 +104,7 @@ async function supply() {
     }
     const asset_code = data?.raw.name.split(':')[0] || 'XLM'
     await marketsStore.deposit(publicKey.value, data?.raw.pool_address, amount.value, asset_code)
+    amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
       const input = document.querySelector('.supply-dialog__input')?.querySelector('input') as HTMLInputElement

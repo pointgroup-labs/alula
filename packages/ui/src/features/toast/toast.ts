@@ -1,7 +1,7 @@
 import type { ToastOrchestratorParam } from 'bootstrap-vue-next'
 import { useToastController } from 'bootstrap-vue-next'
-import AlertToast from '~/features/toast/components/AlertToast.vue'
 
+import AlertToast from '~/features/toast/components/AlertToast.vue'
 import DefaultToast from '~/features/toast/components/DefaultToast.vue'
 import './assets/styles/toast.scss'
 
@@ -17,6 +17,7 @@ export type ToastAction = {
 export type AlertToastVariant = 'success' | 'error'
 
 export type ToastProps = {
+  body?: string
   title?: string
   alertProps: {
     variant: AlertToastVariant
@@ -36,7 +37,7 @@ export function useToast() {
    * @type {Partial<ProgressProps>}
    * { variant: 'success' | 'info' | 'warning' | 'danger' }
    */
-  function create({
+  async function create({
     position = 'bottom-center',
     variant = 'success',
     modelValue = 5000,
@@ -87,7 +88,10 @@ export function useToast() {
     })
 
     return {
-      dismiss: () => instance?.destroy(),
+      onClose,
+      dismiss: async () => {
+        instance.set?.({ modelValue: false })
+      },
     }
   }
 

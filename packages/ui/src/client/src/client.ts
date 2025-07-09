@@ -13,7 +13,7 @@ export class StellarClient {
   constructor(address: string, rpc: RPCcluster) {
     this.publicKey = address
     this.server = new Horizon.Server(getRPC(rpc, 'horizon'))
-    this.sdk = new SorobanClient(rpc)
+    this.sdk = new SorobanClient(rpc, address)
   }
 
   static fromAddress(address: string, rpc: RPCcluster) {

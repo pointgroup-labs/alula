@@ -6,3 +6,6 @@ export const isDark = useDark({
 })
 export const toggleDark = useToggle(isDark)
 export const preferredDark = usePreferredDark()
+
+// TODO: remove when dark theme is enabled
+isDark.value = false

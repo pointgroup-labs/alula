@@ -1,10 +1,10 @@
 import type { CompoundRates, Pool } from 'sdk'
 import type { RPCcluster } from '../types'
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit'
+import { Networks, rpc as SorobanRpc, TransactionBuilder } from '@stellar/stellar-sdk'
 import { Client } from 'sdk'
-import { Horizon, Networks, TransactionBuilder } from 'stellar-sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
-import { getRPC, normalizeAssetAmount } from '../utils'
+import { amountToBigInt, getRPC, normalizeAssetAmount } from '../utils'
 
 enum Network {
     Mainnet = 'mainnet',
@@ -18,18 +18,19 @@ export const NetworkPassphrase = {
 
 export class SorobanClient {
     sdk: Client
-    horizonServer: any
+    sorobanServer: any
     assetDecimals: number = 7
     oracleDecimals: number = 14
 
-    constructor(rpc: RPCcluster) {
+    constructor(rpc: RPCcluster, publicKey?: string) {
         this.sdk = new Client({
+            publicKey,
             rpcUrl: getRPC(rpc, 'soroban'),
             contractId: CONTRACT_ID[rpc] ?? SOROBAN_CONTRACT_ID,
             networkPassphrase: NetworkPassphrase[this.getNetworkPassphrase(rpc)],
         })
 
-        this.horizonServer = new Horizon.Server(getRPC(rpc, 'horizon'))
+        this.sorobanServer = new SorobanRpc.Server('https://soroban-testnet.stellar.org:443')
         this.getDecimals()
     }
 
@@ -108,7 +109,7 @@ export class SorobanClient {
      * Deposit instruction
      */
     async depositTx(user: string, pool_address: string, amount: number) {
-        return await this.sdk.deposit({ user, pool_address, amount: BigInt(amount) })
+        return await this.sdk.deposit({ user, pool_address, amount: amountToBigInt(amount, this.assetDecimals) })
     }
 
     /**
@@ -130,13 +131,18 @@ export class SorobanClient {
 
         console.log('[signedTxXdr]', signedTxXdr)
 
-        const signedTransaction = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
-        console.log('Networks.TESTNET', Networks.TESTNET)
-        console.log('signedTransaction', signedTransaction)
+        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
 
-        const result = await this.horizonServer.submitTransaction(signedTransaction)
+        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
 
+        console.log('SEND_RESPONSE', sendResponse)
+
+        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
+            sleepStrategy: (_iter: any) => 1000,
+            attempts: 30,
+        })
         console.log('✅ Transaction submitted!', result)
+
         return result
     }
 
