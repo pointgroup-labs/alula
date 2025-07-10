@@ -17,7 +17,7 @@ function operate(a: bigint, b: bigint, op: Op): Decimal {
     }
 }
 
-function calcUserAmount(
+function calcUserTotalShares(
     shares: bigint,
     totalShares: bigint,
     available: bigint,
@@ -68,7 +68,7 @@ export const useUserStore = defineStore('user', () => {
                 userAvailableInUsd += 0
                 continue
             }
-            const userAvailable = calcUserAmount(userShares, depositedPool.total_shares, depositedPool?.available, depositedPool?.total_borrowed, assetDecimals)
+            const userAvailable = calcUserTotalShares(userShares, depositedPool.total_shares, depositedPool?.available, depositedPool?.total_borrowed, assetDecimals)
             const availableInUsd = Number(userAvailable) * Number(depositedPool.pool_price)
             userAvailableInUsd += availableInUsd || 0
         }

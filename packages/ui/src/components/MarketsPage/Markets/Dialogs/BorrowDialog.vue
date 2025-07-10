@@ -62,22 +62,21 @@ const borrowLimit = computed(() => {
     return 0
   }
 
-  let userAvailableInUsd = userStore.userBorrowAvailableInUsd
+  const userAvailableInUsd = userStore.userBorrowAvailableInUsd
   const assetDecimals = jLendClient.value.sdk.assetDecimals
 
+  // market available
+  const openLtv = Number(data.raw.config.open_ltv_bps) / 100 / 100
+  let marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * openLtv
   const borrows = userObligation.value?.borrows
   if (borrows) {
     const borrowInPool = borrows.find(([pool_address]: string) => pool_address === data.raw.pool_address)
     if (borrowInPool) {
       const [, borrowObligation] = borrowInPool
       const userPoolBorrow = Number(bigintToNumber(borrowObligation.borrowed || 0, assetDecimals))
-      userAvailableInUsd -= userPoolBorrow
+      marketAvailable -= userPoolBorrow
     }
   }
-
-  // market available
-  const openLtv = Number(data.raw.config.open_ltv_bps) / 100 / 100
-  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * openLtv
   const marketAvailableInUsd = Number(marketAvailable) * Number(data.price)
   const maxAvailable = Math.min(userAvailableInUsd, marketAvailableInUsd)
   const totalAvailableAsset = maxAvailable / Number(data.price)
