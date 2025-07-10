@@ -15,7 +15,11 @@ use {
     },
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contract, contractimpl, log, token, Address, BytesN, Env, Symbol, Vec},
+    soroban_sdk::{
+        contract, contractimpl, log,
+        token::{self, TokenClient},
+        Address, BytesN, Env, Symbol, Vec,
+    },
 };
 
 #[contract]
@@ -430,7 +434,11 @@ fn process_initialize_pool(
         Default::default()
     };
 
+    let token_client = TokenClient::new(&e, &token_address);
+    let name = token_client.name();
+
     let pool = Pool {
+        name,
         config,
         pool_address: pool_address.clone(),
         token_ticker: token_ticker.clone(),
