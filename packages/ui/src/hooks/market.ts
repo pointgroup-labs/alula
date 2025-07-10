@@ -1,8 +1,11 @@
+import { generateExplorerLink } from '~/utils'
+
 export function useMarket() {
     const userStore = useUserStore()
     const marketsStore = useMarketsStore()
     const connectionStore = useConnectionStore()
-    const jLendClient = computed(() => connectionStore.jLendClient)
+    const clientStore = useClientStore()
+    const jLendClient = computed(() => clientStore.jLendClient)
 
     const Toast = useToast()
 
@@ -64,7 +67,7 @@ export function useMarket() {
                 actions: [
                     {
                         label: 'View Transaction',
-                        href: `https://stellar.expert/explorer/testnet/tx/${res.txHash}`,
+                        href: generateExplorerLink(String(res.txHash)),
                     },
                 ],
             })
@@ -127,7 +130,7 @@ export function useMarket() {
                 actions: [
                     {
                         label: 'View Transaction',
-                        href: `https://stellar.expert/explorer/testnet/tx/${res.txHash}`,
+                        href: generateExplorerLink(String(res.txHash)),
                     },
                 ],
             })

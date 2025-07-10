@@ -19,12 +19,12 @@ export type MarketTableItem = {
   action: string
   price: number
   available: number
-  supply_limit?: number
+  supply_limit: number
 } & TableAsset
 
 export type BorrowTableItem = {
   available: string
-  price: string
+  price: number
   borrow_apy: string
   utilization_rate: string
   position: string

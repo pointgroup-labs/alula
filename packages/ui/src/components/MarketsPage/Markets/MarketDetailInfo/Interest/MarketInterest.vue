@@ -1,4 +1,25 @@
 <script lang="ts" setup>
+import { bigintToNumber, truncatePercent } from '~/utils'
+
+const marketsStore = useMarketsStore()
+const pool = computed(() => marketsStore.selectedMarketInfo?.raw)
+
+const clientStore = useClientStore()
+const decimals = computed(() => clientStore.assetDecimals)
+
+const utilizationRate = computed(() => {
+  if (!pool.value) {
+    return '0%'
+  }
+
+  const totalBorrowed = Number(bigintToNumber(pool.value.total_borrowed, decimals.value))
+  const available = Number(bigintToNumber(pool.value.available, decimals.value))
+  const totalSupplied = totalBorrowed + available
+
+  const utilization = (totalBorrowed / totalSupplied) * 100
+
+  return `${truncatePercent(utilization || 0, 2)}%`
+})
 </script>
 
 <template>
@@ -9,12 +30,16 @@
     <div class="interest-wrapper__details">
       <div class="interest-rate">
         Utilization Rate
-        <span>7.28%</span>
+        <span>{{ utilizationRate }}</span>
       </div>
 
       <div class="separator-vert" />
 
-      <a href="#" target="_blank" class="interest-link">
+      <a
+        href="#"
+        target="_blank"
+        class="interest-link"
+      >
         Rate Strategy <i-app-export-icon />
       </a>
 
@@ -23,10 +48,16 @@
     <div class="separator" />
 
     <div class="interest-legend">
-      <div class="interest-legend__item" :style="{ '--legend-color': '#006CE4' }">
+      <div
+        class="interest-legend__item"
+        :style="{ '--legend-color': '#006CE4' }"
+      >
         Borrow APR
       </div>
-      <div class="interest-legend__item" :style="{ '--legend-color': '#FFD101' }">
+      <div
+        class="interest-legend__item"
+        :style="{ '--legend-color': '#FFD101' }"
+      >
         Utilization Rate
       </div>
     </div>

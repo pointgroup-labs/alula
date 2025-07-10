@@ -57,6 +57,9 @@ export function bigintToNumber(
   assetDecimals: number,
   outputDecimals: number = assetDecimals,
 ): string {
+  if (!rawValue) {
+    return '0'
+  }
   const dec = new Decimal(rawValue.toString())
     .dividedBy(new Decimal(10).pow(assetDecimals))
   return dec.toFixed(outputDecimals)

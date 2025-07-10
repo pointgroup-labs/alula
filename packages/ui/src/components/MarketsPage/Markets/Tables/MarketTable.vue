@@ -24,7 +24,7 @@ const fields = [
 ]
 
 const items = computed<MarketTableItem[]>(() => {
-  return pools.value.map((p, i) => {
+  return pools.value.map((p) => {
     const tokenName = p.token_ticker
     const icon = getTokenIcon(tokenName)
     const supply = (Number(p.available) + Number(p.total_borrowed)) / 10 ** assetDecimals.value
@@ -44,7 +44,7 @@ const items = computed<MarketTableItem[]>(() => {
       utilization_rate: `${truncatePercent(utilRate || 0, 2)}%`,
       max_ltv: `${truncatePercent(maxLTV || 0, 2)}%`,
       action: 'Supply',
-      price: p.pool_price,
+      price: Number(p.pool_price),
       supply_limit,
       available: Number(p.available) / (10 ** assetDecimals.value),
     }

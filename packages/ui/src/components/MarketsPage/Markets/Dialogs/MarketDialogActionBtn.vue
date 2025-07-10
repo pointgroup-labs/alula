@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BButtonProps } from 'bootstrap-vue-next'
 import type { Pool } from 'sdk'
-import { shortenAddress } from '~/utils'
+import { generateExplorerLink, shortenAddress } from '~/utils'
 
 const {
   loading = false,
@@ -50,7 +50,7 @@ async function addTrust() {
       actions: [
         {
           label: 'View Transaction',
-          href: `https://stellar.expert/explorer/testnet/tx/${res?.hash}`,
+          href: generateExplorerLink(String(res?.hash)),
           onClick: () => {
             emit('closeModal')
           },

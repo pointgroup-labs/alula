@@ -1,41 +1,83 @@
 <script lang="ts" setup>
+import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
+
+const clientStore = useClientStore()
+const marketsStore = useMarketsStore()
+const market = computed(() => marketsStore.selectedMarketInfo)
+
+const pool = computed(() => market.value?.raw)
+
+const decimals = computed(() => clientStore.assetDecimals)
+
+const totalSupplied = computed(() => Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.available, decimals.value)) || 0)
+
+const closeLTV = computed(() => {
+  if (!pool.value) {
+    return 0
+  }
+  const closeLtv = Number(pool.value?.config.close_ltv_bps) / 100
+  return truncatePercent(closeLtv || 0, 2)
+})
+
+const openLTV = computed(() => {
+  if (!pool.value) {
+    return 0
+  }
+  const closeLtv = Number(pool.value?.config.open_ltv_bps) / 100
+  return truncatePercent(closeLtv || 0, 2)
+})
+
+const liquidationPenalty = computed(() => (Number(pool.value?.config.liquidation_close_factor_bps) / 100).toFixed(0))
+
+const isSupplyLimit = computed(() => Number(pool.value?.config.supply_limit) > 0)
+const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.supply_limit, decimals.value)) : 0)
+const totalSuppliedInUsd = computed(() => totalSupplied.value * market.value?.price || 0)
+const supplyLimitInUsd = computed(() => supplyLimit.value * market.value?.price || 0)
+const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value / supplyLimit.value * 100).toFixed(2) : 100,
+)
 </script>
 
 <template>
   <div class="market-details">
     <div class="market-details__title">
-      Supply Info
+      Supply Info {{ progress }}
     </div>
 
     <div class="market-stats">
       <div class="market-stats__apy">
         <div class="stats-apy">
           Supply APY
-          <span>7.28%</span>
+          <span>{{ market?.deposit_apy || '-' }}</span>
         </div>
         <div class="stats-params">
           <div class="stats-params__item">
-            Trust Ratio:
-            <span>45%</span>
+            Close LTV:
+            <span>{{ closeLTV }}%</span>
           </div>
           <div class="stats-params__item">
-            Risk Floor:
-            <span>24%</span>
+            Open LTV:
+            <span>{{ openLTV }}%</span>
           </div>
         </div>
       </div>
 
       <div class="separator-vert" />
 
-      <market-progress :progress="52.56">
+      <market-progress
+        is-progress
+        :progress="progress"
+        :cap="totalSupplied"
+        :limit="supplyLimit"
+        details-color="#006CE4"
+      >
         <div class="market-progress__info">
           <div class="market-progress__info__title">
             Total Supplied
           </div>
           <div class="market-progress__info__data">
-            327.92K / 800K
+            {{ shortenNumber(totalSupplied) }} / {{ isSupplyLimit ? shortenNumber(supplyLimit) : '∞' }}
 
-            <span>$1327.92K / $1800K</span>
+            <span>${{ shortenNumber(totalSuppliedInUsd, 2) }} / {{ isSupplyLimit ? `$${shortenNumber(supplyLimitInUsd, 2)}` : '∞' }}</span>
           </div>
         </div>
       </market-progress>
@@ -45,7 +87,7 @@
       <div class="market-penalty">
         Liquidation Penalty:
 
-        <span>45%</span>
+        <span>{{ liquidationPenalty }}%</span>
       </div>
     </div>
 
@@ -80,7 +122,7 @@
     padding: 0 $spacing-12;
 
     &__apy {
-      width: 96px;
+      width: 100px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -117,6 +159,7 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 4px;
 
           span {
             color: $dark;

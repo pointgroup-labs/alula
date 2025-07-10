@@ -18,10 +18,6 @@ const dialog = computed({
     emits('update:modelValue', val)
   },
 })
-
-watch(market, (val) => {
-  console.log(val)
-})
 </script>
 
 <template>

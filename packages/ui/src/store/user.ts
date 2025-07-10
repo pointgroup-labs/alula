@@ -37,8 +37,8 @@ export const useUserStore = defineStore('user', () => {
     const wallet = useWallet()
     const marketsStore = useMarketsStore()
 
-    const connectionStore = useConnectionStore()
-    const jLendClient = computed(() => connectionStore.jLendClient)
+    const clientStore = useClientStore()
+    const jLendClient = computed(() => clientStore.jLendClient)
 
     const userObligation = ref()
 

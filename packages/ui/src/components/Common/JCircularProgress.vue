@@ -50,7 +50,10 @@ watch(() => progress, () => {
       {{ progress }}%
     </div>
     <svg
-      width="250" height="250" viewBox="0 0 250 250" class="circular-progress"
+      width="250"
+      height="250"
+      viewBox="0 0 250 250"
+      class="circular-progress"
       :style="{
         '--current': current,
         '--stroke-width': `${strokeWidth}px`,

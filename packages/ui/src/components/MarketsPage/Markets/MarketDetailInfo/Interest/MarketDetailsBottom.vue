@@ -11,7 +11,10 @@ const appLogo = computed(() => isDark.value ? logoDark : logoLight)
     <market-interest-chart />
     <div class="separator-vert" />
     <div class="logo-with-text">
-      <img :src="appLogo" alt="app logo">
+      <img
+        :src="appLogo"
+        alt="app logo"
+      >
       <span>
         Stellar Lending
       </span>

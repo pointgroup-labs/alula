@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
 
 export const useWallet = defineStore('wallet', () => {
-    const connectionStore = useConnectionStore()
+    const clientStore = useClientStore()
+    const jLendClient = computed(() => clientStore.jLendClient)
 
-    const jLendClient = computed(() => connectionStore.jLendClient)
     const publicKey = ref()
     const balances = ref()
 

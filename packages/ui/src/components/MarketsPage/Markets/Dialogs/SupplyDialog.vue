@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL, RPC_NETWORK } from '~/config'
-import { formatPrice, shortenAddress } from '~/utils'
+import { RELOAD_FEE_INTERVAL } from '~/config'
+import { formatPrice, generateExplorerLink, shortenAddress } from '~/utils'
 
 const {
   data,
@@ -50,7 +50,7 @@ watchDebounced([
   const tx = await jLendClient.value?.sdk.depositTx(
     publicKey.value,
     d?.raw.pool_address || '',
-    1,
+    0,
   )
   txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
@@ -178,7 +178,7 @@ watch(() => modelValue, async (v) => {
           <span>{{ item?.label }}</span>
           <template v-if="item?.name === 'contract'">
             <a
-              :href="`https://stellar.expert/explorer/${RPC_NETWORK}/contract/${item?.value}`"
+              :href="generateExplorerLink(String(item?.value), 'contract')"
               target="_blank"
             >{{ shortenAddress(item?.value, 5) }}
               <i-app-export-icon />

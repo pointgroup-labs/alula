@@ -40,7 +40,7 @@ watchDebounced([
   const tx = await jLendClient.value?.sdk.borrowTx(
     publicKey.value,
     d?.raw.pool_address || '',
-    1,
+    0,
   )
   txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
@@ -63,10 +63,10 @@ const borrowLimit = computed(() => {
   }
 
   const userAvailableInUsd = userStore.userBorrowAvailableInUsd
-  const assetDecimals = jLendClient.value.sdk.assetDecimals
+  const assetDecimals = clientStore.assetDecimals
 
   // market available
-  const openLtv = Number(data.raw.config.open_ltv_bps) / 100 / 100
+  const openLtv = Number(data.raw.config.open_ltv_bps) / 10_000
   const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * openLtv
 
   const marketAvailableInUsd = Number(marketAvailable) * Number(data.price)

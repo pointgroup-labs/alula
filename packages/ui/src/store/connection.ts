@@ -79,8 +79,6 @@ export const useConnectionStore = defineStore('connection', () => {
     kit,
     loading,
 
-    jLendClient,
-
     disconnect,
     connectWallet,
 
