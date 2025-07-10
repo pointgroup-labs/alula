@@ -4,8 +4,7 @@
 
 # JLend DeFi Protocol
 
-JLend is a decentralized lending and borrowing protocol built on the [Stellar](https://stellar.org/) blockchain using [Soroban](https://soroban.stellar.org/) smart contracts.
-It enables users to earn yield on deposits and access liquidity through overcollateralized loans with competitive interest rates.
+JLend is a decentralized lending protocol built on the [Stellar](https://stellar.org/) blockchain using [Soroban](https://soroban.stellar.org/) smart contracts. It enables users to earn yield on deposits and access liquidity through overcollateralized loans with competitive interest rates.
 
 > [!Note]
 > This project is a work in progress and is not yet ready for production use.
@@ -13,43 +12,42 @@ It enables users to earn yield on deposits and access liquidity through overcoll
 
 ## 🌟 Features
 
-- **Lending & Borrowing**: Supply assets to earn yield or borrow against collateral
-- **Multiple Asset Support**: Support for various Stellar assets (USDC, BTC, GOLD, etc.)
-- **Dynamic Interest Rates**: Kinked interest rate model based on utilization
-- **Liquidation Protection**: Automated liquidation system to maintain protocol solvency
-- **Overcollateralization**: Secure borrowing with configurable collateral ratios
-- **Real-time Price Feeds**: Integration with Stellar price oracles
+- **Lending & borrowing**: Supply assets to earn yield or borrow against collateral.
+- **Multiple asset support**: Support for various Stellar assets.
+- **Dynamic interest rates**: Kinked interest rate model based on pool utilization.
+- **Liquidation protection**: Automated liquidation system to maintain protocol solvency.
+- **Overcollateralization**: Secure borrowing with configurable collateral ratios.
+- **Real-time price feeds**: Integration with Stellar price oracles.
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Getting Started](#getting-started)
+- [Overview](#-overview)
+- [Architecture](#️-architecture)
+- [Getting Started](#-getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Building](#building)
   - [Testing](#testing)
-- [Usage](#usage)
+- [Usage](#-usage)
   - [Contract Deployment](#contract-deployment)
   - [Pool Management](#pool-management)
   - [Lending Operations](#lending-operations)
-- [Protocol Mechanics](#protocol-mechanics)
+- [Protocol Mechanics](#-protocol-mechanics)
   - [Interest Rate Model](#interest-rate-model)
   - [Health Factor](#health-factor)
   - [Liquidation Process](#liquidation-process)
-- [Security](#security)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
+- [Security](#-security)
+- [Contributions](#-contributions)
+- [License](#-license)
 
 ## 🔍 Overview
 
 JLend creates efficient lending markets on Stellar where users can:
 
-- **Supply Assets**: Deposit tokens to earn passive yield from borrower interest payments
-- **Borrow Assets**: Take loans against deposited collateral with competitive rates
-- **Liquidate Positions**: Participate in liquidations to earn liquidation bonuses
-- **Manage Risk**: Monitor health factors and adjust positions to avoid liquidation
+- **Supply assets** to earn passive yield from borrower interest payments.
+- **Borrow assets** against deposited collateral with competitive rates.
+- **Liquidate positions**: Participate in liquidations of unhealthy positions of other users to earn liquidation bonuses.
+- **Manage risk**: Monitor health factors and adjust positions to avoid liquidation.
 
 The protocol uses a pool-based model where each supported asset has its own lending pool with isolated risk parameters.
 
@@ -60,24 +58,24 @@ The protocol consists of several key components:
 ```
 ├── contracts/
 │ ├── lending/ # Main lending contract
+│ ├── pool/ # Lending pools
+│ ├── obligation/ # Obligations
+│ └── oracle/ # Oracle integration
 ├── tests/ # Comprehensive test suite
-├── packages/ # TypeScript SDK and utilities
-└── docs/ # Documentation
+└── packages/ # TypeScript SDK and utilities
 ```
 
-### Core Contracts
-
-- **LendingContract**: Main protocol logic handling deposits, borrows, and liquidations
-- **Pool**: Individual asset pools with isolated risk parameters
-- **Obligation**: User position tracking (deposits, borrows, collateral)
-- **Oracle Integration**: Price feed integration for asset valuation
+- **Lending contract**: Main protocol logic handling deposits, borrows, and liquidations.
+- **Pool**: Individual asset pools with isolated risk parameters.
+- **Obligation**: User position tracking (deposits, borrows, collateral).
+- **Oracle integration**: Price feed integration for asset valuation.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - **Rust** 1.84.1 or later
-- **Soroban CLI** for contract deployment
+- **Stellar CLI** for contract deployment
 - **Node.js** 18+ for TypeScript utilities
 - **pnpm** package manager
 
@@ -106,7 +104,7 @@ Or build specific components:
 cargo build --release --target wasm32-unknown-unknown -p lending
 
 # Build with optimizations
-make build-optimized
+make build-optimize
 ```
 
 ### Testing
@@ -217,16 +215,18 @@ soroban contract invoke \
 
 ### Interest Rate Model
 
-JLend uses a **kinked interest rate model** with two slopes:
+JLend uses a kinked (jump-rate) interest rate model to determine borrowing and supply rates dynamically based on pool utilization.
 
-- **Base Rate**: Minimum interest rate applied regardless of utilization
-- **Slope 1**: Interest rate increase below optimal utilization (typically 80%)
-- **Slope 2**: Steeper interest rate increase above optimal utilization
-- **Reserve Factor**: Percentage of interest allocated to protocol reserves
+#### Model Parameters
+- **Base rate**: Floor rate applied when utilization is zero.
+- **Optimal utilization**`: The utilization point ("kink") at which the slope changes (default: 80%).
+- **Slope 1**: Incremental rate added for each basis point of utilization below the optimal ratio.
+- **Slope 2**: Incremental rate applied for each basis point of utilization above the optimal ratio; always greater than `slope1`.
+- **Reserve ratio**: Fraction of interest retained as protocol reserves (default: 10 %).
 
 ```
-Interest Rate = Base Rate + Utilization × Slope1 (if Utilization < Optimal)
-Interest Rate = Base Rate + Optimal × Slope1 + (Utilization - Optimal) × Slope2 (if Utilization > Optimal)
+Interest Rate = Base Rate + Current Utilization × Slope 1 (if Current Utilization < Optimal Utilization)
+Interest Rate = Base Rate + Optimal Utilization × Slope 1 + (Current Utilization - Optimal Utilization) × Slope 2 (if Current Utilization > Optimal Utilization)
 ```
 
 ### Health Factor
@@ -238,72 +238,40 @@ Health Factor = (Collateral Value × Liquidation Threshold) / Total Borrowed Val
 ```
 
 - **Healthy**: Health Factor > 1.0
-- **Liquidatable**: Health Factor < 1.0
+- **Can be liquidated**: Health Factor < 1.0
 
 ### Liquidation Process
 
 When a position becomes unhealthy (Health Factor < 1.0):
 
-1. **Liquidators** can repay up to the close factor (default 50%) of the debt
-2. **Liquidation Bonus**: Liquidators receive collateral at a discount (default 5%)
-3. **Position Recovery**: Liquidation brings the position back to health
+1. **Liquidators** can repay up to the close factor (default: 50%) of the debt.
+2. **Liquidation bonus**: Liquidators receive collateral at a discount (default: 5%).
 
 ## 🔒 Security
 
 ### Audit Status
 
-- [ ] External security audit (planned)
-- [x] Comprehensive test suite with >90% coverage
-- [x] Fuzz testing for edge cases
-- [x] Formal verification of critical functions
+- [ ] External security audit (planned).
+- [x] Comprehensive test suite with >90% coverage.
+- [x] Fuzz testing for edge cases.
+- [x] Formal verification of critical functions.
 
 ### Risk Management
 
-- **Isolated Pools**: Each asset has separate risk parameters
-- **Overcollateralization**: Minimum 125% collateral ratio
-- **Liquidation Incentives**: Economic incentives for liquidators
-- **Interest Rate Limits**: Maximum interest rates to prevent exploits
+- **Isolated pools**: Each asset has separate risk parameters.
+- **Overcollateralization**: Minimum 125% collateral ratio.
+- **Liquidation bonus**: Economic incentives for liquidators.
 
 ### Best Practices
 
-- Use of `checked_*` arithmetic operations to prevent overflows
-- Comprehensive input validation
-- Access control for administrative functions
-- Immutable contract deployment
+- Use of `checked_*` arithmetic operations to prevent overflows.
+- Comprehensive input validation.
+- Access control for administrative functions.
+- Immutable contract deployment.
 
-## 🗺️ Roadmap
+## 🤝 Contributions
 
-### Phase 1 (Current)
-
-- [x] Core lending and borrowing functionality
-- [x] Basic liquidation system
-- [x] Interest rate model implementation
-- [x] Comprehensive testing
-
-### Phase 2 (Q4 2025)
-
-- [ ] Advanced liquidation strategies
-- [ ] Flash loan support
-- [ ] Governance token (JLEND) integration
-- [ ] Cross-chain asset support
-
-### Phase 3 (Q3 2026)
-
-- [ ] Yield farming rewards
-- [ ] Insurance fund
-- [ ] Advanced risk management tools
-- [ ] Mobile SDK
-
-### Phase 4 (Q4 2026)
-
-- [ ] Institutional features
-- [ ] Advanced derivatives
-- [ ] Cross-protocol integrations
-- [ ] Layer 2 scaling solutions
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
+We welcome contributions!
 
 ### Development Setup
 
@@ -315,16 +283,10 @@ We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTIN
 
 ### Code Standards
 
-- Follow Rust best practices and idioms
-- Maintain test coverage above 90%
-- Document all public APIs
-- Use conventional commit messages
-
-## 📚 Related Projects
-
-- [Bland](https://github.com/blend-capital/) - Another Stellar DeFi protocol
-- [Soroban](https://soroban.stellar.org/) - Stellar smart contract platform
-- [Stellar SDK](https://github.com/stellar/js-stellar-sdk) - JavaScript SDK for Stellar
+- Follow Rust best practices and idioms.
+- Maintain test coverage above 90%.
+- Document all public APIs.
+- Use conventional commit messages.
 
 ## 📄 License
 
@@ -332,7 +294,6 @@ This project is licensed under the [Apache License 2.0](https://opensource.org/l
 
 ## 📞 Support
 
-- **Documentation**: [docs/](./docs/)
+- **Documentation**: [docs/](./docs/) [under development]
 - **Issues**: [GitHub Issues](https://github.com/mfactory-lab/jlend/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/mfactory-lab/jlend/discussions)
-- **Discord**: [Join our community](https://discord.gg/jlend)
