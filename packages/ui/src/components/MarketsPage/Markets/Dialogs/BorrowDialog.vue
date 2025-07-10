@@ -16,6 +16,8 @@ const emits = defineEmits(['update:modelValue'])
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
 
+const assetDecimals = computed(() => clientStore.assetDecimals)
+
 const marketsStore = useMarketsStore()
 const market = useMarket()
 
@@ -61,11 +63,9 @@ const poolBorrowLimit = computed(() => {
     return 0
   }
 
-  const assetDecimals = clientStore.assetDecimals
-
   // market available
   const utilRatioLimit = Number(data?.raw.config.utilization_ratio_limit_bps || 0) / 10_000
-  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * utilRatioLimit
+  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals.value)) * utilRatioLimit
   return marketAvailable
 })
 
@@ -76,7 +76,6 @@ const userLimit = computed(() => {
   if (!data || !deposits) {
     return 0
   }
-  const assetDecimals = clientStore.assetDecimals
   const userAvailableInUsd = userStore.userBorrowAvailableInUsd
   const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const maxAvailable = Math.min(userAvailableInUsd, marketAvailableInUsd)
@@ -87,7 +86,7 @@ const userLimit = computed(() => {
     const borrowInPool = borrows.find(([pool_address]: string) => pool_address === data.raw.pool_address)
     if (borrowInPool) {
       const [, borrowObligation] = borrowInPool
-      const userPoolBorrow = Number(bigintToNumber(borrowObligation.borrowed || 0, assetDecimals))
+      const userPoolBorrow = Number(bigintToNumber(borrowObligation.borrowed || 0, assetDecimals.value))
       totalAvailableAsset -= userPoolBorrow
     }
   }
