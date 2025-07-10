@@ -1,8 +1,7 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { normalizeAssetAmount } from '~/client/utils'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { getZeroCountAfterDecimal, truncatePercent } from '~/utils'
+import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -14,13 +13,17 @@ const {
 
 const emits = defineEmits(['update:modelValue'])
 
-const Toast = useToast()
-
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
 
+const marketsStore = useMarketsStore()
+const market = useMarket()
+
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
+
+const userStore = useUserStore()
+const userObligation = computed(() => userStore.userObligation)
 
 const agree = ref(false)
 
@@ -34,7 +37,7 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await jLendClient.value?.sdk.borrow(
+  const tx = await jLendClient.value?.sdk.borrowTx(
     publicKey.value,
     d?.raw.pool_address || '',
     1,
@@ -53,13 +56,38 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
+const borrowLimit = computed(() => {
+  const deposits = userObligation.value?.deposits
+  if (!deposits || !data) {
+    return 0
+  }
+
+  let userAvailableInUsd = userStore.userBorrowAvailableInUsd
+  const assetDecimals = jLendClient.value.sdk.assetDecimals
+
+  const borrows = userObligation.value?.borrows
+  if (borrows) {
+    const borrowInPool = borrows.find(([pool_address]: string) => pool_address === data.raw.pool_address)
+    if (borrowInPool) {
+      const [, borrowObligation] = borrowInPool
+      const userPoolBorrow = Number(bigintToNumber(borrowObligation.borrowed || 0, assetDecimals))
+      userAvailableInUsd -= userPoolBorrow
+    }
+  }
+
+  // market available
+  const openLtv = Number(data.raw.config.open_ltv_bps) / 100 / 100
+  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * openLtv
+  const marketAvailableInUsd = Number(marketAvailable) * Number(data.price)
+  const maxAvailable = Math.min(userAvailableInUsd, marketAvailableInUsd)
+  const totalAvailableAsset = maxAvailable / Number(data.price)
+  return Math.max(0, totalAvailableAsset || 0)
+})
+
 const infoTableData = computed(() => {
   if (!data) {
     return []
   }
-  const available = normalizeAssetAmount(Number(data.available), jLendClient.value.sdk.assetDecimals)
-  const availableDecimals = String(balance).includes('e') ? getZeroCountAfterDecimal(available) : null
-  const availableString = availableDecimals ? available.toFixed(availableDecimals) : String(available)
   const liquidation = Number(data.raw.config.liquidation_close_factor_bps) / 100
   const closeLTV = Number(data.raw.config.close_ltv_bps) / 100
   return [{
@@ -68,7 +96,7 @@ const infoTableData = computed(() => {
   },
   {
     label: 'Available amount to borrow',
-    value: availableString,
+    value: shortenNumber(borrowLimit.value),
   },
   {
     label: 'Max LTV',
@@ -97,34 +125,24 @@ const dialog = computed({
   },
 })
 
-const loading = ref(false)
+const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
 
 const amount = ref(0)
 
 async function borrow() {
   try {
-    loading.value = true
-    Toast.create({
-      modelValue: 50_000,
-      title: 'Supply Success',
-      body: `You supplied ${amount.value} XLM`,
-      alertProps: {
-        variant: 'success',
-      },
-    })
-  } catch (error) {
-    Toast.create({
-      title: 'Supply Error',
-      body: String(error),
-      alertProps: {
-        variant: 'error',
-      },
-    })
-  } finally {
-    loading.value = false
+    if (!publicKey.value || !data?.raw.pool_address) {
+      return
+    }
+    await market.borrow(data?.raw.pool_address, amount.value, data?.raw.name, borrowLimit.value)
+    amount.value = 0
+  } catch {
+    if (!amount.value || amount.value <= 0) {
+      const input = document.querySelector('.supply-dialog__input')?.querySelector('input') as HTMLInputElement
+      input?.focus()
+    }
   }
 }
-
 let interval: string | number | NodeJS.Timeout | undefined
 
 watch(() => modelValue, async (v) => {
@@ -161,10 +179,10 @@ watch(() => modelValue, async (v) => {
     <div class="supply-dialog__body">
       <input-widget
         v-model="amount"
-        :balance="balance"
+        :balance="borrowLimit"
         :rules="[
           (v) => {
-            return v && Number(v) < balance || 'Insufficient balance'
+            return v && Number(v) < borrowLimit || 'Borrow limit exceeded'
           },
         ]"
       >
@@ -205,16 +223,15 @@ watch(() => modelValue, async (v) => {
           <span>{{ data?.borrow_apy }}</span>
         </div>
 
-        <market-action-btn
+        <market-dialog-action-btn
           variant="accent"
           :loading="loading"
           :pool="data?.raw"
           :disabled="!agree"
           @click-handler="borrow"
-          @close-modal="dialog = false"
         >
           Borrow {{ data?.asset.symbol }}
-        </market-action-btn>
+        </market-dialog-action-btn>
       </div>
     </div>
   </j-dialog>

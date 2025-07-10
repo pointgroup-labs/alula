@@ -6,15 +6,12 @@ export const useWallet = defineStore('wallet', () => {
     const jLendClient = computed(() => connectionStore.jLendClient)
     const publicKey = ref()
     const balances = ref()
-    const userObligation = ref()
 
     const nativeBalance = computed(() => Number(balances.value?.find((b: any) => b.asset_type === 'native')?.balance) || 0)
 
     async function initWallet(address: string) {
         publicKey.value = address
         await loadBalances()
-        userObligation.value = await jLendClient.value.sdk.getUserObligation(address)
-        console.log('%c[User Obligation]', 'color: #FFB726', userObligation.value)
     }
 
     async function loadBalances() {

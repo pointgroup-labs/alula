@@ -103,8 +103,7 @@ async function supply() {
     if (!publicKey.value || !data?.raw.pool_address) {
       return
     }
-    const asset_code = data?.raw.name.split(':')[0] || 'XLM'
-    await market.deposit(publicKey.value, data?.raw.pool_address, amount.value, asset_code)
+    await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
     amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
@@ -195,15 +194,14 @@ watch(() => modelValue, async (v) => {
           <span>{{ data?.deposit_apy }}</span>
         </div>
 
-        <market-action-btn
+        <market-dialog-action-btn
           variant="primary"
           :loading="loading"
           :pool="data?.raw"
           @click-handler="supply"
-          @close-modal="dialog = false"
         >
           Supply {{ data?.asset.symbol }}
-        </market-action-btn>
+        </market-dialog-action-btn>
       </div>
     </div>
   </j-dialog>

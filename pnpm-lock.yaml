@@ -93,6 +93,9 @@ importers:
       chartjs-plugin-annotation:
         specifier: ^3.1.0
         version: 3.1.0(chart.js@4.5.0)
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       fastestsmallesttextencoderdecoder:
         specifier: ^1.0.22
         version: 1.0.22

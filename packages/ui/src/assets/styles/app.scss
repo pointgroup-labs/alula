@@ -65,3 +65,10 @@ main {
     height: 100%;
   }
 }
+
+body:has(stellar-wallets-modal) {
+  #teleports {
+    position: relative;
+    z-index: 10 !important;
+  }
+}
