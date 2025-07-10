@@ -67,19 +67,21 @@ const borrowLimit = computed(() => {
 
   // market available
   const openLtv = Number(data.raw.config.open_ltv_bps) / 100 / 100
-  let marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * openLtv
+  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * openLtv
+
+  const marketAvailableInUsd = Number(marketAvailable) * Number(data.price)
+  const maxAvailable = Math.min(userAvailableInUsd, marketAvailableInUsd)
+  let totalAvailableAsset = maxAvailable / Number(data.price)
+
   const borrows = userObligation.value?.borrows
   if (borrows) {
     const borrowInPool = borrows.find(([pool_address]: string) => pool_address === data.raw.pool_address)
     if (borrowInPool) {
       const [, borrowObligation] = borrowInPool
       const userPoolBorrow = Number(bigintToNumber(borrowObligation.borrowed || 0, assetDecimals))
-      marketAvailable -= userPoolBorrow
+      totalAvailableAsset -= userPoolBorrow
     }
   }
-  const marketAvailableInUsd = Number(marketAvailable) * Number(data.price)
-  const maxAvailable = Math.min(userAvailableInUsd, marketAvailableInUsd)
-  const totalAvailableAsset = maxAvailable / Number(data.price)
   return Math.max(0, totalAvailableAsset || 0)
 })
 
