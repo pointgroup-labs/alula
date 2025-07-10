@@ -2,7 +2,9 @@
 
 use {
     lending::contract::{LendingContract, LendingContractClient},
-    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
+    soroban_sdk::{
+        symbol_short, testutils::Address as _, Address, BytesN, Env,
+    },
 };
 
 #[test]
@@ -16,7 +18,8 @@ fn test_pool_initialize() {
     );
     let contract_client = LendingContractClient::new(&e, &contract_id);
 
-    let token_address = Address::generate(&e);
+    let token_admin = Address::generate(&e);
+    let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_ticker = symbol_short!("TCK1");
 
     contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
@@ -41,7 +44,8 @@ fn test_pool_initialize_with_different_salt() {
     );
     let contract_client = LendingContractClient::new(&e, &contract_id);
 
-    let token_address = Address::generate(&e);
+    let token_admin = Address::generate(&e);
+    let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_ticker = symbol_short!("TCK1");
 
     let salt = BytesN::from_array(&e, &[0; 32]);
@@ -62,19 +66,21 @@ fn test_pool_initialize_non_conflicting() {
     );
     let contract_client = LendingContractClient::new(&e, &contract_id);
 
-    let token_address = Address::generate(&e);
+    let token_admin = Address::generate(&e);
+    let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_ticker = symbol_short!("TCK1");
 
-    let token_address_2 = Address::generate(&e);
-    let token_ticker_2 = symbol_short!("TCK2");
+    let token_admin2 = Address::generate(&e);
+    let token_address2 = e.register_stellar_asset_contract_v2(token_admin2).address();
+    let token_ticker2 = symbol_short!("TCK2");
 
     let salt = BytesN::from_array(&e, &[0; 32]);
 
     contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
     contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt.clone()), &None);
 
-    contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
-    contract_client.initialize_pool(&token_address_2, &token_ticker_2, &Some(salt), &None);
+    contract_client.initialize_pool(&token_address2, &token_ticker2, &None, &None);
+    contract_client.initialize_pool(&token_address2, &token_ticker2, &Some(salt), &None);
 }
 
 #[test]
@@ -89,7 +95,8 @@ fn test_pool_reinitialize_no_salt() {
     );
     let contract_client = LendingContractClient::new(&e, &contract_id);
 
-    let token_address = Address::generate(&e);
+    let token_admin = Address::generate(&e);
+    let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_ticker = symbol_short!("TCK1");
 
     contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
@@ -108,7 +115,8 @@ fn test_pool_reinitialize_with_salt() {
     );
     let contract_client = LendingContractClient::new(&e, &contract_id);
 
-    let token_address = Address::generate(&e);
+    let token_admin = Address::generate(&e);
+    let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
     let token_ticker = symbol_short!("TCK1");
 
     let salt = BytesN::from_array(&e, &[0; 32]);

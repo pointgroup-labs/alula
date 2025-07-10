@@ -264,12 +264,12 @@ mod tests {
         soroban_sdk::{
             symbol_short,
             testutils::{Address as _, Ledger},
-            Address, Env,
+            Address, Env, String,
         },
     };
 
-    fn create_test_pool(env: &Env) -> Pool {
-        let token_address = Address::generate(env);
+    fn create_test_pool(e: &Env) -> Pool {
+        let token_address = Address::generate(e);
 
         Pool {
             token_address: token_address.clone(),
@@ -282,6 +282,10 @@ mod tests {
             config: PoolConfig::default(),
             last_accrual: ACCRUAL_INIT,
             last_accrual_timestamp: 0,
+            name: String::from_str(
+                e,
+                "TEST:CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            ),
         }
     }
 
