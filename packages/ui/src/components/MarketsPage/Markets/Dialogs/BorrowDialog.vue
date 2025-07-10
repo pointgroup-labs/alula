@@ -56,24 +56,33 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
-const borrowLimit = computed(() => {
-  const deposits = userObligation.value?.deposits
-  if (!deposits || !data) {
+const poolBorrowLimit = computed(() => {
+  if (!data) {
     return 0
   }
 
-  const userAvailableInUsd = userStore.userBorrowAvailableInUsd
   const assetDecimals = clientStore.assetDecimals
 
   // market available
-  const openLtv = Number(data.raw.config.open_ltv_bps) / 10_000
-  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * openLtv
+  const utilRatioLimit = Number(data?.raw.config.utilization_ratio_limit_bps || 0) / 10_000
+  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals)) * utilRatioLimit
+  return marketAvailable
+})
 
-  const marketAvailableInUsd = Number(marketAvailable) * Number(data.price)
+const userLimit = computed(() => {
+  const deposits = userObligation.value?.deposits
+  const borrows = userObligation.value?.borrows
+
+  if (!data || !deposits) {
+    return 0
+  }
+  const assetDecimals = clientStore.assetDecimals
+  const userAvailableInUsd = userStore.userBorrowAvailableInUsd
+  const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const maxAvailable = Math.min(userAvailableInUsd, marketAvailableInUsd)
+
   let totalAvailableAsset = maxAvailable / Number(data.price)
 
-  const borrows = userObligation.value?.borrows
   if (borrows) {
     const borrowInPool = borrows.find(([pool_address]: string) => pool_address === data.raw.pool_address)
     if (borrowInPool) {
@@ -82,7 +91,8 @@ const borrowLimit = computed(() => {
       totalAvailableAsset -= userPoolBorrow
     }
   }
-  return Math.max(0, totalAvailableAsset || 0)
+
+  return Math.max(totalAvailableAsset, 0)
 })
 
 const infoTableData = computed(() => {
@@ -96,8 +106,12 @@ const infoTableData = computed(() => {
     value: 1.04,
   },
   {
-    label: 'Available amount to borrow',
-    value: shortenNumber(borrowLimit.value),
+    label: 'Pool available amount to borrow',
+    value: shortenNumber(poolBorrowLimit.value),
+  },
+  {
+    label: 'User available amount to borrow',
+    value: shortenNumber(userLimit.value),
   },
   {
     label: 'Max LTV',
@@ -135,7 +149,7 @@ async function borrow() {
     if (!publicKey.value || !data?.raw.pool_address) {
       return
     }
-    await market.borrow(data?.raw.pool_address, amount.value, data?.raw.name, borrowLimit.value)
+    await market.borrow(data?.raw.pool_address, amount.value, data?.raw.name, poolBorrowLimit.value)
     amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
@@ -150,6 +164,7 @@ watch(() => modelValue, async (v) => {
   clearInterval(interval)
   if (!v) {
     amount.value = 0
+    agree.value = false
     return
   }
 
@@ -180,10 +195,10 @@ watch(() => modelValue, async (v) => {
     <div class="supply-dialog__body">
       <input-widget
         v-model="amount"
-        :balance="borrowLimit"
+        :balance="userLimit"
         :rules="[
           (v) => {
-            return v && Number(v) < borrowLimit || 'Borrow limit exceeded'
+            return v && Number(v) < userLimit || 'Borrow limit exceeded'
           },
         ]"
       >
