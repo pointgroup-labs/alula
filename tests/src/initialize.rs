@@ -1,12 +1,10 @@
 #![cfg(test)]
 
 use {
-    crate::TestFixture,
     lending::contract::{LendingContract, LendingContractClient},
     soroban_sdk::{
-        symbol_short, testutils::Address as _, token::TokenClient, Address, BytesN, Env,
+        symbol_short, testutils::Address as _, Address, BytesN, Env,
     },
-    std::ops::Add,
 };
 
 #[test]

@@ -283,7 +283,7 @@ mod tests {
             last_accrual: ACCRUAL_INIT,
             last_accrual_timestamp: 0,
             name: String::from_str(
-                &e,
+                e,
                 "TEST:CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
             ),
         }

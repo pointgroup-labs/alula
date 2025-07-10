@@ -434,7 +434,7 @@ fn process_initialize_pool(
         Default::default()
     };
 
-    let token_client = TokenClient::new(&e, &token_address);
+    let token_client = TokenClient::new(e, token_address);
     let name = token_client.name();
 
     let pool = Pool {
