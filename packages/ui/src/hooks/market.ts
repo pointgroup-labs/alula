@@ -96,8 +96,6 @@ export function useMarket() {
                 throw new Error('Wallet not connected')
             }
 
-            const [asset_code] = asset_data.split(':')
-
             if (limit < amount) {
                 throw new Error('Borrow limit exceeded')
             }
@@ -105,12 +103,14 @@ export function useMarket() {
                 throw new Error('Amount should be greater than 0')
             }
 
+            const [asset_code] = asset_data.split(':')
+
             marketsStore.poolDepositAddr = pool_address
             const asset = asset_code === 'native' ? 'XLM' : asset_code
 
             borrowToast = await Toast.create({
-                title: 'Deposit',
-                body: `Sending transaction to deposit ${amount} ${asset}`,
+                title: 'Borrow',
+                body: `Sending transaction to borrow ${amount} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -149,6 +149,122 @@ export function useMarket() {
         }
     }
 
+    // Withdraw
+    async function withdraw(pool_address: string, amount: number, limit: number, asset_code: string) {
+        let withdrawToast
+        try {
+            if (!wallet.publicKey) {
+                throw new Error('Wallet not connected')
+            }
+
+            if (!amount || amount <= 0) {
+                throw new Error('Amount should be greater than 0')
+            }
+
+            if (amount > limit) {
+                throw new Error('Withdraw limit exceeded')
+            }
+
+            marketsStore.poolDepositAddr = pool_address
+            const asset = asset_code === 'native' ? 'XLM' : asset_code
+
+            withdrawToast = await Toast.create({
+                title: 'Withdraw',
+                body: `Sending transaction to withdraw ${amount} ${asset}`,
+                modelValue: 30_000,
+                variant: 'info',
+                noProgress: false,
+            })
+
+            const res = await jLendClient.value.sdk.withdraw(wallet.publicKey, pool_address, amount, connectionStore.kit)
+
+            await reloadData(pool_address)
+
+            Toast.create({
+                title: 'Withdraw Success',
+                body: `You withdrew ${amount} ${asset} successfully`,
+                modelValue: 30_000,
+                alertProps: {
+                    variant: 'success',
+                },
+                actions: [
+                    {
+                        label: 'View Transaction',
+                        href: generateExplorerLink(String(res.txHash)),
+                    },
+                ],
+            })
+        } catch (error: any) {
+            const message = error?.message || error
+            Toast.create({
+                title: 'Withdraw Error',
+                body: String(message),
+                variant: 'danger',
+            })
+            throw error
+        } finally {
+            withdrawToast?.dismiss()
+        }
+    }
+
+    // Repay
+    async function repay(pool_address: string, amount: number, limit: number, asset_code: string) {
+        let withdrawToast
+        try {
+            if (!wallet.publicKey) {
+                throw new Error('Wallet not connected')
+            }
+
+            if (!amount || amount <= 0) {
+                throw new Error('Amount should be greater than 0')
+            }
+
+            if (amount > limit) {
+                throw new Error('You don`t have enough balance to repay')
+            }
+
+            marketsStore.poolDepositAddr = pool_address
+            const asset = asset_code === 'native' ? 'XLM' : asset_code
+
+            withdrawToast = await Toast.create({
+                title: 'Repay',
+                body: `Sending transaction to repay ${amount} ${asset}`,
+                modelValue: 30_000,
+                variant: 'info',
+                noProgress: false,
+            })
+
+            const res = await jLendClient.value.sdk.repay(wallet.publicKey, pool_address, amount, connectionStore.kit)
+
+            await reloadData(pool_address)
+
+            Toast.create({
+                title: 'Repay Success',
+                body: `You repaid ${amount} ${asset} successfully`,
+                modelValue: 30_000,
+                alertProps: {
+                    variant: 'success',
+                },
+                actions: [
+                    {
+                        label: 'View Transaction',
+                        href: generateExplorerLink(String(res.txHash)),
+                    },
+                ],
+            })
+        } catch (error: any) {
+            const message = error?.message || error
+            Toast.create({
+                title: 'Repay Error',
+                body: String(message),
+                variant: 'danger',
+            })
+            throw error
+        } finally {
+            withdrawToast?.dismiss()
+        }
+    }
+
     async function reloadData(pool_address: string) {
         await Promise.all([
             marketsStore.updatePools(pool_address),
@@ -160,6 +276,9 @@ export function useMarket() {
     return {
         borrow,
         deposit,
+
+        repay,
+        withdraw,
 
         addTrustLine,
     }

@@ -1,28 +1,51 @@
 <script lang="ts" setup>
-import type { SupplyTableItem } from '~/types/table'
+import type { SuppliedCardTableItem } from '~/types/table'
+import { RELOAD_FEE_INTERVAL } from '~/config'
+import { shortenNumber } from '~/utils'
 
 const {
   data,
   modelValue,
 } = defineProps<{
-  data?: SupplyTableItem
+  data?: SuppliedCardTableItem
   modelValue: boolean
 }>()
 
 const emits = defineEmits(['update:modelValue'])
 
-const Toast = useToast()
+const clientStore = useClientStore()
+const jLendClient = computed(() => clientStore.jLendClient)
 
-const connection = useConnectionStore()
-const balance = computed(() => {
-  // const asset = data?.asset.symbol
-  // const balances = connection.balances
-  // const assetBalance = asset === 'XLM'
-  //   ? balances?.native.balance
-  //   : balances?.tokens.find((b: ParsedBalance) => b.asset === asset)?.balance
-  // return Number(assetBalance) || 0
-  return 0
-})
+const wallet = useWallet()
+const publicKey = computed(() => wallet.publicKey)
+
+const market = useMarket()
+
+const loading = ref(false)
+
+const amount = ref(0)
+
+const txFee = ref(0)
+const reloadFee = ref(false)
+
+const availableToWithdraw = computed(() => Math.min(Number(data?.available) || 0, Number(data?.balance) || 0))
+const supplyBalance = computed(() => Number(data?.balance) || 0)
+const remainingBalance = computed(() => supplyBalance.value - amount.value)
+
+watchDebounced([
+  () => data,
+  reloadFee,
+], async ([d, _r]) => {
+  if (!d || !publicKey.value) {
+    return
+  }
+  const tx = await jLendClient.value?.sdk.withdrawTx(
+    publicKey.value,
+    d?.pool_address || '',
+    0,
+  )
+  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+}, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {
   if (!data) {
@@ -34,11 +57,15 @@ const infoTableData = computed(() => {
   },
   {
     label: 'Remaining supply',
-    value: '5.00 XLM',
+    value: `${shortenNumber(Math.max(remainingBalance.value, 0))} ${data?.asset.symbol}`,
+  },
+  {
+    label: 'Available to withdraw',
+    value: `${shortenNumber(availableToWithdraw.value)} ${data?.asset.symbol}`,
   },
   {
     label: 'Transaction Fee',
-    value: '0.004 XLM',
+    value: `${txFee.value} XLM`,
   }]
 })
 
@@ -51,38 +78,39 @@ const dialog = computed({
   },
 })
 
-const loading = ref(false)
-
-const amount = ref(0)
-
-async function repay() {
+async function withdraw() {
+  if (!data) {
+    return
+  }
   try {
     loading.value = true
-    Toast.create({
-      modelValue: 50_000,
-      title: 'Withdraw Success',
-      body: `You withdraw ${amount.value} ${data?.asset.symbol}`,
-      alertProps: {
-        variant: 'success',
-      },
-    })
-  } catch (error) {
-    Toast.create({
-      title: 'Withdraw Error',
-      body: String(error),
-      alertProps: {
-        variant: 'error',
-      },
-    })
+    await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
+    amount.value = 0
+  } catch {
+    if (!amount.value || amount.value <= 0) {
+      const input = document.querySelector('.withdraw-dialog__input')?.querySelector('input') as HTMLInputElement
+      input?.focus()
+    }
   } finally {
     loading.value = false
   }
 }
 
-watch(() => modelValue, (v) => {
+let interval: string | number | NodeJS.Timeout | undefined
+
+watch(() => modelValue, async (v) => {
+  clearInterval(interval)
   if (!v) {
     amount.value = 0
+    return
   }
+
+  interval = setInterval(() => {
+    reloadFee.value = true
+    nextTick(() => {
+      reloadFee.value = false
+    })
+  }, RELOAD_FEE_INTERVAL)
 })
 </script>
 
@@ -104,15 +132,16 @@ watch(() => modelValue, (v) => {
     <div class="account-dialog__body">
       <input-widget
         v-model="amount"
-        :balance="balance"
+        :balance="availableToWithdraw"
+        class="withdraw-dialog__input"
         :rules="[
           (v) => {
-            return v && Number(v) < balance || 'Insufficient balance'
+            return v && Number(v) <= availableToWithdraw || 'Withdraw limit exceeded'
           },
         ]"
       >
         <template #label-right>
-          Amount: {{ balance }} {{ data?.asset.symbol }}
+          Amount: {{ supplyBalance.toFixed(5) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 
@@ -133,7 +162,7 @@ watch(() => modelValue, (v) => {
           variant="dark"
           size="md"
           pill
-          @click="repay"
+          @click="withdraw"
         >
           Withdraw {{ data?.asset.symbol }}
         </j-btn>

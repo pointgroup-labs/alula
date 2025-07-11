@@ -20,6 +20,7 @@ export type MarketTableItem = {
   price: number
   available: number
   supply_limit: number
+  pool_address: string
 } & TableAsset
 
 export type BorrowTableItem = {
@@ -35,10 +36,14 @@ export type BorrowCardTableItem = {
   debt: string | number
   borrow_apy: string | number
   action: string | number
+  pool_address: string
+  asset_issuer: string
 } & TableAsset
 
 export type SuppliedCardTableItem = {
+  available: string | number
   balance: string | number
   supply_apy: string | number
   action: string
+  pool_address: string
 } & TableAsset

@@ -1,47 +1,72 @@
 <script lang="ts" setup>
-import type { SupplyTableItem } from '~/types/table'
+import type { BorrowCardTableItem } from '~/types/table'
+import { RELOAD_FEE_INTERVAL } from '~/config'
+import { shortenNumber } from '~/utils'
 
 const {
   data,
   modelValue,
 } = defineProps<{
-  data?: SupplyTableItem
+  data?: BorrowCardTableItem
   modelValue: boolean
 }>()
 
 const emits = defineEmits(['update:modelValue'])
 
-const Toast = useToast()
+const market = useMarket()
 
-const connection = useConnectionStore()
+const clientStore = useClientStore()
+const jLendClient = computed(() => clientStore.jLendClient)
+
+const wallet = useWallet()
 const balance = computed(() => {
-  // const asset = data?.asset.symbol
-  // const balances = connection.balances
-  // const assetBalance = asset === 'XLM'
-  //   ? balances?.native.balance
-  //   : balances?.tokens.find((b: ParsedBalance) => b.asset === asset)?.balance
-  return /* Number(assetBalance) ||  */0
+  if (!data) {
+    return 0
+  }
+  if (data.asset.symbol === 'XLM') {
+    return wallet.nativeBalance
+  }
+  return wallet.getAssetBalance(String(data.asset_issuer))
 })
+
+const loading = ref(false)
+
+const amount = ref(0)
+
+const txFee = ref(0)
+const reloadFee = ref(false)
+
+watchDebounced([
+  () => data,
+  reloadFee,
+], async ([d, _r]) => {
+  if (!d || !wallet.publicKey) {
+    return
+  }
+  const tx = await jLendClient.value?.sdk.repayTx(
+    wallet.publicKey,
+    d?.pool_address || '',
+    0,
+  )
+  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+}, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {
   if (!data) {
     return []
   }
+  const borrowBalanceAfterRepay = Math.max(Number(data?.debt) - amount.value || 0, 0)
   return [{
     label: 'Health Factor',
     value: 1.04,
   },
   {
     label: 'Borrow balance after repay',
-    value: '5.00 XLM',
-  },
-  {
-    label: 'Collateral balance after repay',
-    value: '10.14 USDC',
+    value: `${shortenNumber(borrowBalanceAfterRepay)} ${data.asset.symbol}`,
   },
   {
     label: 'Transaction Fee',
-    value: '0.004 XLM',
+    value: `${txFee.value} XLM`,
   }]
 })
 
@@ -54,38 +79,39 @@ const dialog = computed({
   },
 })
 
-const loading = ref(false)
-
-const amount = ref(0)
-
 async function repay() {
+  if (!data) {
+    return
+  }
   try {
     loading.value = true
-    Toast.create({
-      modelValue: 50_000,
-      title: 'Repay Success',
-      body: `You repaid ${amount.value} ${data?.asset.symbol}`,
-      alertProps: {
-        variant: 'success',
-      },
-    })
-  } catch (error) {
-    Toast.create({
-      title: 'Repay Error',
-      body: String(error),
-      alertProps: {
-        variant: 'error',
-      },
-    })
+    await market.repay(data?.pool_address, amount.value, balance.value, data?.asset.symbol)
+    amount.value = 0
+  } catch {
+    if (!amount.value || amount.value <= 0) {
+      const input = document.querySelector('.withdraw-dialog__input')?.querySelector('input') as HTMLInputElement
+      input?.focus()
+    }
   } finally {
     loading.value = false
   }
 }
 
-watch(() => modelValue, (v) => {
+let interval: string | number | NodeJS.Timeout | undefined
+
+watch(() => modelValue, async (v) => {
+  clearInterval(interval)
   if (!v) {
     amount.value = 0
+    return
   }
+
+  interval = setInterval(() => {
+    reloadFee.value = true
+    nextTick(() => {
+      reloadFee.value = false
+    })
+  }, RELOAD_FEE_INTERVAL)
 })
 </script>
 
@@ -108,6 +134,7 @@ watch(() => modelValue, (v) => {
       <input-widget
         v-model="amount"
         :balance="balance"
+        :limit="Number(data?.debt) || 0"
         :rules="[
           (v) => {
             return v && Number(v) < balance || 'Insufficient balance'

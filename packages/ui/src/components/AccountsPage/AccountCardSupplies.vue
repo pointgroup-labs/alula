@@ -1,6 +1,16 @@
 <script lang="ts" setup>
+import type { DepositObligation } from 'sdk'
 import type { SuppliedCardTableItem } from '~/types/table'
-import stellarIcon from '~/assets/img/assets/stellar.png'
+import { bigintToNumber, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+
+const clientStore = useClientStore()
+const decimals = computed(() => clientStore.assetDecimals)
+
+const userStore = useUserStore()
+const obligation = computed(() => userStore.userObligation)
+
+const marketsStore = useMarketsStore()
+const pools = computed(() => marketsStore.state.pollsData)
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
@@ -9,32 +19,50 @@ const fields = [
   { key: 'action', label: '' },
 ]
 
-const items: SuppliedCardTableItem[] = [
-  {
-    asset: { name: 'Stellar', symbol: 'XLM', icon: stellarIcon },
-    balance: '789.5488',
-    supply_apy: '18.93%',
-    action: 'Withdraw',
-  },
-  {
-    asset: { name: 'USDT', symbol: 'USDT', icon: 'https://icons.iconarchive.com/icons/cjdowner/cryptocurrency-flat/512/Tether-USDT-icon.png' },
-    balance: '32.5488',
-    supply_apy: '11.93%',
-    action: 'Withdraw',
-  },
-  {
-    asset: { name: 'Solana', symbol: 'SOL', icon: 'https://upload.wikimedia.org/wikipedia/en/b/b9/Solana_logo.png' },
-    balance: '7839.5488',
-    supply_apy: '12.04%',
-    action: 'Withdraw',
-  },
-]
+const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
+  const deposits = obligation.value?.deposits || []
+  return deposits.map((item: [string, DepositObligation]) => {
+    const [pool_address, deposit] = item
+    const pool = pools.value.find(p => p.pool_address === pool_address)
+    if (!pool) {
+      return {
+        asset: { name: 'Unknown', symbol: 'Unknown', icon: '' },
+        balance: '0',
+        supply_apy: '0%',
+        action: 'Withdraw',
+        pool_address,
+      }
+    }
+    const tokenName = pool.token_ticker
+    const icon = getTokenIcon(tokenName)
+    const userShares = bigintToNumber(deposit.shares, decimals.value)
+    const totalShares = bigintToNumber(pool.total_shares, decimals.value)
+    const userBorrowInPoolPercentage = Number(userShares) / Number(totalShares)
+
+    const available = Number(bigintToNumber(pool.available, decimals.value))
+    const totalBorrowed = Number(bigintToNumber(pool.total_borrowed, decimals.value))
+    const totalSupplied = available + totalBorrowed
+
+    const userSupplied = totalSupplied * userBorrowInPoolPercentage
+
+    const poolApy = pool.pool_apy.supply_bps / 100
+    return {
+      asset: { name: tokenName, symbol: tokenName, icon },
+      balance: userSupplied,
+      available,
+      supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
+      action: 'Withdraw',
+      pool_address,
+    }
+  })
+})
 
 const dialog = ref(false)
-const selectedItem = ref()
+const selectedPoolAddress = ref()
+const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
 
 function withdrawDialogHandler(data: { item: any }) {
-  selectedItem.value = data.item
+  selectedPoolAddress.value = data.item?.pool_address
   dialog.value = true
 }
 </script>
@@ -45,68 +73,107 @@ function withdrawDialogHandler(data: { item: any }) {
       Your Supplies
     </div>
 
-    <BTable
-      v-if="items.length > 0"
-      borderless
-      :fields="fields"
-      :items="items"
-      responsive
-      class="account-card__table"
-    >
-      <template v-for="field in fields" :key="field.key" #[`head(${field.key})`]="data">
-        <span :style="{ '--align': field.align }">{{ data.label }}</span>
-      </template>
+    <div class="table-wrapper">
+      <BTable
+        v-if="items.length > 0"
+        borderless
+        :fields="fields"
+        :items="items"
+        responsive
+        class="account-card__table"
+      >
+        <template
+          v-for="field in fields"
+          :key="field.key"
+          #[`head(${field.key})`]="data"
+        >
+          <span :style="{ '--align': field.align }">{{ data.label }}</span>
+        </template>
 
-      <template #cell(asset)="data">
-        <div class="account-card__table__asset">
-          <img :src="data.item.asset.icon" alt="">
-          <div class="account-card__table__asset__info">
-            <div class="account-card__table__asset__info__name">
-              {{ data.item.asset.name }}
-            </div>
-            <div class="account-card__table__asset__info__symbol">
-              {{ data.item.asset.symbol }}
+        <template #cell(asset)="data">
+          <div class="account-card__table__asset">
+            <img
+              :src="data.item.asset.icon"
+              alt=""
+            >
+            <div class="account-card__table__asset__info">
+              <div class="account-card__table__asset__info__name">
+                {{ data.item.asset.name }}
+              </div>
+              <div class="account-card__table__asset__info__symbol">
+                {{ data.item.asset.symbol }}
+              </div>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
 
-      <template #cell(balance)="data">
-        <div class="table-cell justify-content-end">
-          {{ data.item.balance }}
-        </div>
-      </template>
+        <template #cell(balance)="data">
+          <div class="table-cell justify-content-end">
+            {{ shortenNumber(Number(data.item.balance)) }}
+          </div>
+        </template>
 
-      <template #cell(supply_apy)="data">
-        <div class="table-cell justify-content-center">
-          <j-pill-label color="#111" bg-color="#08b57680" size="md">
-            {{ data.item.supply_apy }}
-          </j-pill-label>
-        </div>
-      </template>
+        <template #cell(supply_apy)="data">
+          <div class="table-cell justify-content-center">
+            <j-pill-label
+              color="#111"
+              bg-color="#08b57680"
+              size="md"
+            >
+              {{ data.item.supply_apy }}
+            </j-pill-label>
+          </div>
+        </template>
 
-      <template #cell(action)="data">
-        <div class="table-cell justify-content-center">
-          <j-btn pill variant="dark" size="lg" @click="withdrawDialogHandler(data)">
-            {{ data.item.action }}
-          </j-btn>
-        </div>
-      </template>
-    </BTable>
+        <template #cell(action)="data">
+          <div class="table-cell justify-content-center">
+            <j-btn
+              pill
+              variant="dark"
+              size="lg"
+              @click="withdrawDialogHandler(data)"
+            >
+              {{ data.item.action }}
+            </j-btn>
+          </div>
+        </template>
+      </BTable>
 
-    <div v-else class="no-data">
-      No data
+      <div
+        v-else
+        class="no-data"
+      >
+        No data
+      </div>
+
+      <j-loading-spinner v-if="userStore.loading">
+        Loading...
+      </j-loading-spinner>
     </div>
   </div>
 
-  <withdraw-dialog v-model="dialog" :data="selectedItem" />
+  <withdraw-dialog
+    v-model="dialog"
+    :data="selectedPool"
+  />
 </template>
 
 <style lang="scss">
 .account-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: $spacing-16;
+
+  .loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.5);
+    width: 100%;
+    height: 100%;
+  }
 
   &__title {
     font-size: 20px;

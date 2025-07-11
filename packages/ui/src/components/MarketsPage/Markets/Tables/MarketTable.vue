@@ -47,16 +47,18 @@ const items = computed<MarketTableItem[]>(() => {
       price: Number(p.pool_price),
       supply_limit,
       available: Number(p.available) / (10 ** assetDecimals.value),
+      pool_address: p.pool_address,
     }
   })
 })
 
 const dialogSupply = ref(false)
 const dialogBorrow = ref(false)
-const selectedItem = ref<MarketTableItem>()
+const selectedPoolAddress = ref()
+const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
 
 async function supplyDialogHandler(data: { item: MarketTableItem }, action: 'supply' | 'borrow') {
-  selectedItem.value = data.item
+  selectedPoolAddress.value = data.item?.pool_address
   action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
 }
 
@@ -206,12 +208,12 @@ function amountToUsd(amount: number, price: number) {
 
   <supply-dialog
     v-model="dialogSupply"
-    :data="selectedItem"
+    :data="selectedPool"
   />
 
   <borrow-dialog
     v-model="dialogBorrow"
-    :data="selectedItem"
+    :data="selectedPool"
   />
 
   <market-info-dialog v-model="infoDialog" />

@@ -6,8 +6,8 @@ import { getRPC } from '../utils'
 import { SorobanClient } from './sdk-client'
 
 export class StellarClient {
-  private server: Horizon.Server
-  private publicKey?: string
+  server: Horizon.Server
+  publicKey?: string
   sdk: SorobanClient
 
   constructor(address: string, rpc: RPCcluster) {
