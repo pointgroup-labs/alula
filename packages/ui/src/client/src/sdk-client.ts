@@ -5,6 +5,7 @@ import { Networks, rpc as SorobanRpc, TransactionBuilder } from '@stellar/stella
 import { Client } from 'sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
 import { amountToBigInt, getRPC, normalizeAssetAmount } from '../utils'
+import { parseStellarError } from '../utils/errors'
 
 enum Network {
     Mainnet = 'mainnet',
@@ -158,6 +159,12 @@ export class SorobanClient {
 
         console.log('[Tx send responce]', sendResponse)
 
+        if (sendResponse.status === 'ERROR') {
+            // @ts-expect-error...
+            const errorMessage = parseStellarError(tx.simulation?.error)
+            throw new Error(errorMessage)
+        }
+
         const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
             sleepStrategy: (_iter: any) => 1000,
             attempts: 30,
@@ -194,7 +201,9 @@ export class SorobanClient {
         console.log('[Tx send responce]', sendResponse)
 
         if (sendResponse.status === 'ERROR') {
-            throw new Error(sendResponse.error)
+            // @ts-expect-error...
+            const errorMessage = parseStellarError(tx.simulation?.error)
+            throw new Error(errorMessage)
         }
 
         const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
@@ -233,7 +242,9 @@ export class SorobanClient {
         console.log('[Tx send responce]', sendResponse)
 
         if (sendResponse.status === 'ERROR') {
-            throw new Error(sendResponse.error)
+            // @ts-expect-error...
+            const errorMessage = parseStellarError(tx.simulation?.error)
+            throw new Error(errorMessage)
         }
 
         const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
@@ -272,7 +283,9 @@ export class SorobanClient {
         console.log('[Tx send responce]', sendResponse)
 
         if (sendResponse.status === 'ERROR') {
-            throw new Error(sendResponse.error)
+            // @ts-expect-error...
+            const errorMessage = parseStellarError(tx.simulation?.error)
+            throw new Error(errorMessage)
         }
 
         const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {

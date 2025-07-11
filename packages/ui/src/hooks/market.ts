@@ -48,7 +48,7 @@ export function useMarket() {
 
             depositToast = await Toast.create({
                 title: 'Deposit',
-                body: `Sending transaction to deposit ${amount} ${asset}`,
+                body: `Sending transaction to deposit ${amount.toFixed(5)} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -59,7 +59,7 @@ export function useMarket() {
             await reloadData(pool_address)
             Toast.create({
                 title: 'Deposit Success',
-                body: `You deposited ${amount} ${asset} successfully`,
+                body: `You deposited ${amount.toFixed(5)} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -77,6 +77,7 @@ export function useMarket() {
                 title: 'Deposit Error',
                 body: String(message),
                 variant: 'danger',
+                modelValue: 10_000,
                 // alertProps: {
                 //     variant: 'error',
                 // },
@@ -110,7 +111,7 @@ export function useMarket() {
 
             borrowToast = await Toast.create({
                 title: 'Borrow',
-                body: `Sending transaction to borrow ${amount} ${asset}`,
+                body: `Sending transaction to borrow ${amount.toFixed(5)} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -122,7 +123,7 @@ export function useMarket() {
 
             Toast.create({
                 title: 'Borrow Success',
-                body: `You borrowed ${amount} ${asset} successfully`,
+                body: `You borrowed ${amount.toFixed(5)} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -140,7 +141,7 @@ export function useMarket() {
                 title: 'Borrow Error',
                 body: String(message),
                 variant: 'danger',
-
+                modelValue: 10_000,
             })
             throw error
         } finally {
@@ -170,7 +171,7 @@ export function useMarket() {
 
             withdrawToast = await Toast.create({
                 title: 'Withdraw',
-                body: `Sending transaction to withdraw ${amount} ${asset}`,
+                body: `Sending transaction to withdraw ${amount.toFixed(5)} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -182,7 +183,7 @@ export function useMarket() {
 
             Toast.create({
                 title: 'Withdraw Success',
-                body: `You withdrew ${amount} ${asset} successfully`,
+                body: `You withdrew ${amount.toFixed(5)} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -200,6 +201,7 @@ export function useMarket() {
                 title: 'Withdraw Error',
                 body: String(message),
                 variant: 'danger',
+                modelValue: 10_000,
             })
             throw error
         } finally {
@@ -228,7 +230,7 @@ export function useMarket() {
 
             withdrawToast = await Toast.create({
                 title: 'Repay',
-                body: `Sending transaction to repay ${amount} ${asset}`,
+                body: `Sending transaction to repay ${amount.toFixed(5)} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -240,7 +242,7 @@ export function useMarket() {
 
             Toast.create({
                 title: 'Repay Success',
-                body: `You repaid ${amount} ${asset} successfully`,
+                body: `You repaid ${amount.toFixed(5)} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -258,6 +260,7 @@ export function useMarket() {
                 title: 'Repay Error',
                 body: String(message),
                 variant: 'danger',
+                modelValue: 10_000,
             })
             throw error
         } finally {
