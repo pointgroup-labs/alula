@@ -39,7 +39,7 @@ const errorMap: Record<string, string> = {
 function extractContractErrorIndex(input: string): string | null {
     const match = input.match(/Error\(Contract,\s*#(\d+)\)/)
     const contractErrorIndex = match ? Number(match[1]) : null
-    if (!contractErrorIndex) {
+    if (typeof contractErrorIndex !== 'number') {
         return null
     }
     const index = Number(contractErrorIndex)
