@@ -12,6 +12,8 @@ const obligation = computed(() => userStore.userObligation)
 const marketsStore = useMarketsStore()
 const pools = computed(() => marketsStore.state.pollsData)
 
+const market = useMarket()
+
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'balance', label: 'Balance', align: 'right' },
@@ -131,6 +133,8 @@ function withdrawDialogHandler(data: { item: any }) {
               pill
               variant="dark"
               size="lg"
+              :disabled="market.isDisabled(data.item.pool_address)"
+              :loading="market.isLoading(data.item.pool_address)"
               @click="withdrawDialogHandler(data)"
             >
               {{ data.item.action }}

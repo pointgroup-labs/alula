@@ -7,6 +7,8 @@ const infoDialog = ref(false)
 const client = useClientStore()
 const marketsStore = useMarketsStore()
 
+const market = useMarket()
+
 const assetDecimals = computed(() => client.assetDecimals)
 
 const pools = computed(() => marketsStore.selectedMarketPools)
@@ -173,6 +175,8 @@ function amountToUsd(amount: number, price: number) {
             size="lg"
             pill
             icon-right
+            :disabled="market.isDisabled(data.item.pool_address)"
+            :loading="market.isLoading(data.item.pool_address)"
             @click="supplyDialogHandler(data, 'supply')"
           >
             Supply
@@ -182,6 +186,8 @@ function amountToUsd(amount: number, price: number) {
             pill
             icon-right
             variant="accent"
+            :disabled="market.isDisabled(data.item.pool_address)"
+            :loading="market.isLoading(data.item.pool_address)"
             @click="supplyDialogHandler(data, 'borrow')"
           >
             Borrow

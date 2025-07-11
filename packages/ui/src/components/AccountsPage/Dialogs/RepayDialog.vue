@@ -13,6 +13,7 @@ const {
 
 const emits = defineEmits(['update:modelValue'])
 
+const marketStore = useMarketsStore()
 const market = useMarket()
 
 const clientStore = useClientStore()
@@ -85,6 +86,8 @@ async function repay() {
   }
   try {
     loading.value = true
+    marketStore.poolDepositAddr = data?.pool_address
+
     await market.repay(data?.pool_address, amount.value, balance.value, data?.asset.symbol)
     amount.value = 0
   } catch {

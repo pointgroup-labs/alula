@@ -48,7 +48,7 @@ export function useMarket() {
 
             depositToast = await Toast.create({
                 title: 'Deposit',
-                body: `Sending transaction to deposit ${amount.toFixed(5)} ${asset}`,
+                body: `Sending transaction to deposit ${amount} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -59,7 +59,7 @@ export function useMarket() {
             await reloadData(pool_address)
             Toast.create({
                 title: 'Deposit Success',
-                body: `You deposited ${amount.toFixed(5)} ${asset} successfully`,
+                body: `You deposited ${amount} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -111,7 +111,7 @@ export function useMarket() {
 
             borrowToast = await Toast.create({
                 title: 'Borrow',
-                body: `Sending transaction to borrow ${amount.toFixed(5)} ${asset}`,
+                body: `Sending transaction to borrow ${amount} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -123,7 +123,7 @@ export function useMarket() {
 
             Toast.create({
                 title: 'Borrow Success',
-                body: `You borrowed ${amount.toFixed(5)} ${asset} successfully`,
+                body: `You borrowed ${amount} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -171,7 +171,7 @@ export function useMarket() {
 
             withdrawToast = await Toast.create({
                 title: 'Withdraw',
-                body: `Sending transaction to withdraw ${amount.toFixed(5)} ${asset}`,
+                body: `Sending transaction to withdraw ${amount} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -183,7 +183,7 @@ export function useMarket() {
 
             Toast.create({
                 title: 'Withdraw Success',
-                body: `You withdrew ${amount.toFixed(5)} ${asset} successfully`,
+                body: `You withdrew ${amount} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -205,6 +205,7 @@ export function useMarket() {
             })
             throw error
         } finally {
+            marketsStore.poolDepositAddr = undefined
             withdrawToast?.dismiss()
         }
     }
@@ -230,7 +231,7 @@ export function useMarket() {
 
             withdrawToast = await Toast.create({
                 title: 'Repay',
-                body: `Sending transaction to repay ${amount.toFixed(5)} ${asset}`,
+                body: `Sending transaction to repay ${amount} ${asset}`,
                 modelValue: 30_000,
                 variant: 'info',
                 noProgress: false,
@@ -242,7 +243,7 @@ export function useMarket() {
 
             Toast.create({
                 title: 'Repay Success',
-                body: `You repaid ${amount.toFixed(5)} ${asset} successfully`,
+                body: `You repaid ${amount} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -264,6 +265,7 @@ export function useMarket() {
             })
             throw error
         } finally {
+            marketsStore.poolDepositAddr = undefined
             withdrawToast?.dismiss()
         }
     }
@@ -276,6 +278,14 @@ export function useMarket() {
         ])
     }
 
+    function isDisabled(pool_address: string) {
+        return marketsStore.poolDepositAddr && pool_address !== marketsStore.poolDepositAddr
+    }
+
+    function isLoading(pool_address: string) {
+        return marketsStore.poolDepositAddr && pool_address === marketsStore.poolDepositAddr
+    }
+
     return {
         borrow,
         deposit,
@@ -284,5 +294,8 @@ export function useMarket() {
         withdraw,
 
         addTrustLine,
+
+        isDisabled,
+        isLoading,
     }
 }

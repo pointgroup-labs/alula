@@ -19,6 +19,7 @@ const jLendClient = computed(() => clientStore.jLendClient)
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
+const marketStore = useMarketsStore()
 const market = useMarket()
 
 const loading = ref(false)
@@ -84,6 +85,7 @@ async function withdraw() {
   }
   try {
     loading.value = true
+    marketStore.poolDepositAddr = data?.pool_address
     await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
     amount.value = 0
   } catch {
