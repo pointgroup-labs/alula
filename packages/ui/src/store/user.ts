@@ -86,6 +86,8 @@ export const useUserStore = defineStore('user', () => {
             const [depositedPoolAddress, data] = deposit
             const depositedPool = marketsStore.state.pollsData?.find(p => p.pool_address === depositedPoolAddress)
 
+            const collateral = data?.collateral || 0
+            userDepositsInUsd += Number(collateral) * Number(depositedPool?.pool_price)
             const userShares = data?.shares
             if (!depositedPool || !userShares) {
                 userDepositsInUsd += 0

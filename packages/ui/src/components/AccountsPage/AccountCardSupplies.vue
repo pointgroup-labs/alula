@@ -46,15 +46,18 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
     const totalSupplied = available + totalBorrowed
 
     const userSupplied = totalSupplied * userBorrowInPoolPercentage
+    const userCollateral = bigintToNumber(deposit.collateral, decimals.value)
+    const balance = Number(userSupplied) + Number(userCollateral)
 
     const poolApy = pool.pool_apy.supply_bps / 100
     return {
       asset: { name: tokenName, symbol: tokenName, icon },
-      balance: userSupplied,
+      balance,
       available,
       supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
       action: 'Withdraw',
       pool_address,
+      collateral: userCollateral,
     }
   })
 })

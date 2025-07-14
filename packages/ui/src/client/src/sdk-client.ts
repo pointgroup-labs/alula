@@ -135,6 +135,20 @@ export class SorobanClient {
     }
 
     /**
+     * Collateral Tx
+     */
+    async collateralTx(user: string, pool_address: string, amount: string | number) {
+        return await this.sdk.add_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    }
+
+    /**
+     * Remove collateral Tx
+     */
+    async removeCollateralTx(user: string, pool_address: string, amount: string | number) {
+        return await this.sdk.remove_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    }
+
+    /**
      * Deposit
      */
     async deposit(
@@ -268,6 +282,88 @@ export class SorobanClient {
         const tx = await this.repayTx(user, pool_address, String(amount))
 
         console.log('[Withdraw tx]', tx)
+
+        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
+            address: user,
+            networkPassphrase: WalletNetwork.TESTNET,
+        })
+
+        console.log('[signedTxXdr]', signedTxXdr)
+
+        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
+
+        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
+
+        console.log('[Tx send responce]', sendResponse)
+
+        if (sendResponse.status === 'ERROR') {
+            // @ts-expect-error...
+            const errorMessage = parseStellarError(tx.simulation?.error)
+            throw new Error(errorMessage)
+        }
+
+        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
+            sleepStrategy: (_iter: any) => 1000,
+            attempts: 30,
+        })
+
+        console.log('✅ Transaction submitted!', result)
+
+        return result
+    }
+
+    /**
+     * Add collateral
+     */
+    async addCollateral(
+        user: string,
+        pool_address: string,
+        amount: number,
+        kit: any) {
+        const tx = await this.collateralTx(user, pool_address, amount)
+
+        console.log('[Collateral tx]', tx)
+
+        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
+            address: user,
+            networkPassphrase: WalletNetwork.TESTNET,
+        })
+
+        console.log('[signedTxXdr]', signedTxXdr)
+
+        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
+
+        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
+
+        console.log('[Tx send responce]', sendResponse)
+
+        if (sendResponse.status === 'ERROR') {
+            // @ts-expect-error...
+            const errorMessage = parseStellarError(tx.simulation?.error)
+            throw new Error(errorMessage)
+        }
+
+        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
+            sleepStrategy: (_iter: any) => 1000,
+            attempts: 30,
+        })
+
+        console.log('✅ Transaction submitted!', result)
+
+        return result
+    }
+
+    /**
+     * Remove collacetal
+     */
+    async removeCollateral(
+        user: string,
+        pool_address: string,
+        amount: number,
+        kit: any) {
+        const tx = await this.removeCollateralTx(user, pool_address, amount)
+
+        console.log('[Remove Collateral tx]', tx)
 
         const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
             address: user,

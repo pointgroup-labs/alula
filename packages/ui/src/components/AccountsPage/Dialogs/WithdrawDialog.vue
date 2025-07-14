@@ -19,8 +19,9 @@ const jLendClient = computed(() => clientStore.jLendClient)
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
-const marketStore = useMarketsStore()
 const market = useMarket()
+
+const collateralOnly = toRef(market, 'collateralOnly')
 
 const loading = ref(false)
 
@@ -29,9 +30,16 @@ const amount = ref(0)
 const txFee = ref(0)
 const reloadFee = ref(false)
 
-const availableToWithdraw = computed(() => Math.min(Number(data?.available) || 0, Number(data?.balance) || 0))
-const supplyBalance = computed(() => Number(data?.balance) || 0)
-const remainingBalance = computed(() => supplyBalance.value - amount.value)
+const collateralBalance = computed(() => Number(data?.collateral) || 0)
+const supplyBalance = computed(() => Number(data?.balance || 0) - collateralBalance.value)
+const totalSuppliedBalance = computed(() => collateralBalance.value + supplyBalance.value)
+const remainingBalance = computed(() => Number(collateralOnly.value ? collateralBalance.value : supplyBalance.value) - amount.value)
+const availableToWithdraw = computed(() => {
+  const balance = collateralOnly.value
+    ? collateralBalance.value
+    : supplyBalance.value
+  return Math.min(Number(data?.available) || 0, balance)
+})
 
 watchDebounced([
   () => data,
@@ -55,6 +63,18 @@ const infoTableData = computed(() => {
   return [{
     label: 'Health Factor',
     value: 1.04,
+  },
+  {
+    label: 'Total supply',
+    value: `${shortenNumber(totalSuppliedBalance.value)} ${data?.asset.symbol}`,
+  },
+  {
+    label: 'Deposited balance',
+    value: `${shortenNumber(supplyBalance.value)} ${data?.asset.symbol}`,
+  },
+  {
+    label: 'Collateral balance',
+    value: `${shortenNumber(collateralBalance.value)} ${data?.asset.symbol}`,
   },
   {
     label: 'Remaining supply',
@@ -85,8 +105,9 @@ async function withdraw() {
   }
   try {
     loading.value = true
-    marketStore.poolDepositAddr = data?.pool_address
-    await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
+    collateralOnly.value
+      ? await market.removeCollateral(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
+      : await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
     amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
@@ -143,7 +164,7 @@ watch(() => modelValue, async (v) => {
         ]"
       >
         <template #label-right>
-          Amount: {{ supplyBalance.toFixed(5) }} {{ data?.asset.symbol }}
+          Amount: {{ availableToWithdraw.toFixed(5) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 
@@ -157,6 +178,15 @@ watch(() => modelValue, async (v) => {
           <span>{{ item?.value }}</span>
         </div>
       </div>
+
+      <j-toggle
+        v-if="collateralBalance > 0"
+        v-model="collateralOnly"
+      >
+        <template #append>
+          Collateral Balance
+        </template>
+      </j-toggle>
 
       <div class="account-dialog-action">
         <j-btn

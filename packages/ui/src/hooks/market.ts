@@ -8,6 +8,8 @@ export function useMarket() {
     const clientStore = useClientStore()
     const jLendClient = computed(() => clientStore.jLendClient)
 
+    const collateralOnly = ref(false)
+
     const depositAmount = ref()
     const borrowAmount = ref()
 
@@ -192,7 +194,7 @@ export function useMarket() {
 
             Toast.create({
                 title: 'Withdraw Success',
-                body: `You withdrew ${amount} ${asset} successfully`,
+                body: `You withdrow ${amount} ${asset} successfully`,
                 modelValue: 30_000,
                 alertProps: {
                     variant: 'success',
@@ -282,6 +284,134 @@ export function useMarket() {
         }
     }
 
+    // Add collateral
+    async function addCollateral(pool_address: string, amount: number, asset_data: string) {
+        let collateralToast
+        try {
+            if (!wallet.publicKey) {
+                throw new Error('Wallet not connected')
+            }
+
+            const [asset_code, asset_issuer] = asset_data.split(':')
+            const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
+
+            if (balance < amount) {
+                throw new Error('Insufficient balance')
+            }
+            if (!amount || amount <= 0) {
+                throw new Error('Amount should be greater than 0')
+            }
+
+            marketsStore.poolDepositAddr = pool_address
+            marketsStore.poolActionType = 'deposit'
+            const asset = asset_code === 'native' ? 'XLM' : asset_code
+
+            collateralToast = await Toast.create({
+                title: 'Add Collateral',
+                body: `Sending transaction to add collateral ${amount} ${asset}`,
+                modelValue: 30_000,
+                variant: 'info',
+                noProgress: false,
+            })
+
+            const res = await jLendClient.value.sdk.addCollateral(wallet.publicKey, pool_address, amount, connectionStore.kit)
+
+            await reloadData(pool_address)
+            Toast.create({
+                title: 'Add Collateral Success',
+                body: `You added ${amount} ${asset} successfully`,
+                modelValue: 30_000,
+                alertProps: {
+                    variant: 'success',
+                },
+                actions: [
+                    {
+                        label: 'View Transaction',
+                        href: generateExplorerLink(String(res.txHash)),
+                    },
+                ],
+            })
+        } catch (error: any) {
+            const message = error?.message || error
+            Toast.create({
+                title: 'Add Collateral Error',
+                body: String(message),
+                variant: 'danger',
+                modelValue: 10_000,
+                // alertProps: {
+                //     variant: 'error',
+                // },
+            })
+            throw error
+        } finally {
+            marketsStore.poolDepositAddr = undefined
+            marketsStore.poolActionType = undefined
+            collateralToast?.dismiss()
+        }
+    }
+
+    // Remove collateral
+    async function removeCollateral(pool_address: string, amount: number, limit: number, asset_code: string) {
+        let removeCollateralToast
+        try {
+            if (!wallet.publicKey) {
+                throw new Error('Wallet not connected')
+            }
+
+            if (!amount || amount <= 0) {
+                throw new Error('Amount should be greater than 0')
+            }
+
+            if (amount > limit) {
+                throw new Error('Withdraw limit exceeded')
+            }
+
+            marketsStore.poolDepositAddr = pool_address
+            marketsStore.poolActionType = 'withdraw'
+            const asset = asset_code === 'native' ? 'XLM' : asset_code
+
+            removeCollateralToast = await Toast.create({
+                title: 'Withdraw Collateral',
+                body: `Sending transaction to withdraw collateral ${amount} ${asset}`,
+                modelValue: 30_000,
+                variant: 'info',
+                noProgress: false,
+            })
+
+            const res = await jLendClient.value.sdk.withdraw(wallet.publicKey, pool_address, amount, connectionStore.kit)
+
+            await reloadData(pool_address)
+
+            Toast.create({
+                title: 'Withdraw Success',
+                body: `You withdrow ${amount} ${asset} successfully`,
+                modelValue: 30_000,
+                alertProps: {
+                    variant: 'success',
+                },
+                actions: [
+                    {
+                        label: 'View Transaction',
+                        href: generateExplorerLink(String(res.txHash)),
+                    },
+                ],
+            })
+        } catch (error: any) {
+            const message = error?.message || error
+            Toast.create({
+                title: 'Withdraw Error',
+                body: String(message),
+                variant: 'danger',
+                modelValue: 10_000,
+            })
+            throw error
+        } finally {
+            marketsStore.poolDepositAddr = undefined
+            marketsStore.poolActionType = undefined
+            removeCollateralToast?.dismiss()
+        }
+    }
+
     async function reloadData(pool_address: string) {
         await Promise.all([
             marketsStore.updatePools(pool_address),
@@ -305,12 +435,16 @@ export function useMarket() {
     return {
         borrowAmount,
         depositAmount,
+        collateralOnly,
 
         borrow,
         deposit,
 
         repay,
         withdraw,
+
+        addCollateral,
+        removeCollateral,
 
         addTrustLine,
 

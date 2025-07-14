@@ -17,6 +17,7 @@ const marketsStore = useMarketsStore()
 const market = useMarket()
 
 const amount = toRef(market, 'depositAmount')
+const collateralOnly = toRef(market, 'collateralOnly')
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
@@ -103,7 +104,9 @@ async function supply() {
     if (!publicKey.value || !data?.raw.pool_address) {
       return
     }
-    await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
+    collateralOnly.value
+      ? await market.addCollateral(data?.raw.pool_address, amount.value, data?.raw.name)
+      : await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
     amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
@@ -187,6 +190,15 @@ watch(() => modelValue, async (v) => {
           <span v-else>{{ item?.value }}</span>
         </div>
       </div>
+
+      <j-toggle
+        v-model="collateralOnly"
+        size="small"
+      >
+        <template #append>
+          Collateral Only
+        </template>
+      </j-toggle>
 
       <div class="supply-dialog-action">
         <div class="action-info">
@@ -278,6 +290,10 @@ watch(() => modelValue, async (v) => {
         }
       }
     }
+  }
+
+  .j-toggle__label {
+    font-size: 14px;
   }
 
   .supply-dialog-action {

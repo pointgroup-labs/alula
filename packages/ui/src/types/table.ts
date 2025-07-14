@@ -46,4 +46,5 @@ export type SuppliedCardTableItem = {
   supply_apy: string | number
   action: string
   pool_address: string
+  collateral: string | number
 } & TableAsset

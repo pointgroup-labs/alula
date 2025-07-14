@@ -1,0 +1,23 @@
+.form-switch {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+
+  .form-check-input {
+    width: 40px !important;
+    height: 20px;
+    background-size: 24px;
+    background-color: $neutral-2;
+    border-color: $neutral-3 !important;
+    margin-top: 0;
+    margin-bottom: 0;
+    cursor: pointer;
+    background-position: -2px center;
+
+    &:checked {
+      background-color: var(--toggle-color, $primary) !important;
+      border-color: var(--toggle-color, $primary) !important;
+      background-position: 16px center;
+    }
+  }
+}
