@@ -166,9 +166,7 @@ fn test_repay_with_interest_accrual() {
 }
 
 #[test]
-fn test_repay_only_unpaid_interest() {
-    const NOTICEABLE_DEPOSIT_AMOUNT: i128 = 1000000 * DEFAULT_DEPOSIT_AMOUNT;
-
+fn test_repay_unpaid_interest_only() {
     let TestFixture {
         e,
         contract_client,
@@ -182,14 +180,14 @@ fn test_repay_only_unpaid_interest() {
     let user2 = users.get(1).unwrap();
 
     // Deposit gold as a collateral to satisfy the health factor threshold
-    contract_client.add_collateral(&user, &gold_pool_address, &(2 * NOTICEABLE_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(&user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(&user2, &usdc_pool_address, &NOTICEABLE_DEPOSIT_AMOUNT);
+    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     // Borrow 50% of the deposited value
     contract_client.borrow(
         &user,
         &usdc_pool_address,
-        &(5 * NOTICEABLE_DEPOSIT_AMOUNT / 10),
+        &(5 * DEFAULT_DEPOSIT_AMOUNT / 10),
     );
 
     let unpaid_interest = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
@@ -197,8 +195,7 @@ fn test_repay_only_unpaid_interest() {
         .unpaid_interest;
     assert_eq!(unpaid_interest, 0);
 
-    // With a noticeable deposited amount and utilization ratio, the visible interest rate is accrued rapidly
-    e.ledger().with_mut(|li| li.timestamp += 60); // 60 seconds
+    e.ledger().with_mut(|li| li.timestamp += 5 * 60 * 60); // 5 hours
 
     let unpaid_interest = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
         .unwrap()
