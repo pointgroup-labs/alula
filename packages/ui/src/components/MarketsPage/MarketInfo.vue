@@ -1,11 +1,39 @@
 <script lang="ts" setup>
 import borrowingIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
+import { bigintToNumber, formatPrice, shortenNumber } from '~/utils'
+
+const marketsStore = useMarketsStore()
+const clientStore = useClientStore()
+const decimals = toRef(clientStore, 'assetDecimals')
+const pools = computed(() => marketsStore.state.pollsData)
+const poolsInfo = computed(() => {
+  return pools.value?.reduce((acc, pool) => {
+    const borrowed = Number(bigintToNumber(pool.total_borrowed, decimals.value))
+    const collateral = Number(bigintToNumber(pool.total_collateral, decimals.value))
+    acc.total_borrowed += borrowed * Number(pool.pool_price)
+    acc.total_collateral += collateral * Number(pool.pool_price)
+    return acc
+  }, { total_collateral: 0, total_borrowed: 0 })
+})
+
+function normalizeAmount(price: number) {
+  return price < 1_000_000 ? formatPrice(price, 2, 2) : shortenNumber(price)
+}
 </script>
 
 <template>
   <div class="market-info">
-    <total-card title="Total Collateral" body="$65,62" />
-    <total-card title="Total Borrowing" body="$28,44" color="#111" bg-color="#FFD101" :icon="borrowingIcon" />
+    <total-card
+      title="Total Collateral"
+      :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
+    />
+    <total-card
+      title="Total Borrowing"
+      :body="`$${normalizeAmount(poolsInfo.total_borrowed)}`"
+      color="#111"
+      bg-color="#FFD101"
+      :icon="borrowingIcon"
+    />
 
     <div class="total-card market-size">
       <div class="total-card__info">

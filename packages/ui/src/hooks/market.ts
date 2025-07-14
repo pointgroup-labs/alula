@@ -378,7 +378,7 @@ export function useMarket() {
                 noProgress: false,
             })
 
-            const res = await jLendClient.value.sdk.withdraw(wallet.publicKey, pool_address, amount, connectionStore.kit)
+            const res = await jLendClient.value.sdk.removeCollateral(wallet.publicKey, pool_address, amount, connectionStore.kit)
 
             await reloadData(pool_address)
 

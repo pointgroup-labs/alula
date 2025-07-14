@@ -24,11 +24,10 @@ const market = useMarket()
 const collateralOnly = toRef(market, 'collateralOnly')
 
 const loading = ref(false)
+const reloadFee = ref(false)
 
 const amount = ref(0)
-
 const txFee = ref(0)
-const reloadFee = ref(false)
 
 const collateralBalance = computed(() => Number(data?.collateral) || 0)
 const supplyBalance = computed(() => Number(data?.balance || 0) - collateralBalance.value)
