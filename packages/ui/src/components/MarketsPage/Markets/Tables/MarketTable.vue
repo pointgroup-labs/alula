@@ -175,8 +175,8 @@ function amountToUsd(amount: number, price: number) {
             size="lg"
             pill
             icon-right
-            :disabled="market.isDisabled(data.item.pool_address)"
-            :loading="market.isLoading(data.item.pool_address)"
+            :disabled="market.isDisabled(data.item.pool_address, 'deposit')"
+            :loading="market.isLoading(data.item.pool_address, 'deposit')"
             @click="supplyDialogHandler(data, 'supply')"
           >
             Supply
@@ -186,8 +186,8 @@ function amountToUsd(amount: number, price: number) {
             pill
             icon-right
             variant="accent"
-            :disabled="market.isDisabled(data.item.pool_address)"
-            :loading="market.isLoading(data.item.pool_address)"
+            :disabled="market.isDisabled(data.item.pool_address, 'borrow')"
+            :loading="market.isLoading(data.item.pool_address, 'borrow')"
             @click="supplyDialogHandler(data, 'borrow')"
           >
             Borrow

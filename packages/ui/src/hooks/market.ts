@@ -1,3 +1,4 @@
+import type { TableActionType } from '~/store/markets'
 import { generateExplorerLink } from '~/utils'
 
 export function useMarket() {
@@ -289,12 +290,16 @@ export function useMarket() {
         ])
     }
 
-    function isDisabled(pool_address: string) {
-        return marketsStore.poolDepositAddr && pool_address !== marketsStore.poolDepositAddr
+    function isDisabled(pool_address: string, actionType: TableActionType) {
+        return marketsStore.poolDepositAddr
+            ? pool_address !== marketsStore.poolDepositAddr || marketsStore.poolActionType !== actionType
+            : false
     }
 
-    function isLoading(pool_address: string) {
-        return marketsStore.poolDepositAddr && pool_address === marketsStore.poolDepositAddr
+    function isLoading(pool_address: string, actionType: TableActionType) {
+        return marketsStore.poolDepositAddr
+            ? pool_address === marketsStore.poolDepositAddr && marketsStore.poolActionType === actionType
+            : false
     }
 
     return {

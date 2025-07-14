@@ -133,8 +133,8 @@ function withdrawDialogHandler(data: { item: any }) {
               pill
               variant="dark"
               size="lg"
-              :disabled="market.isDisabled(data.item.pool_address)"
-              :loading="market.isLoading(data.item.pool_address)"
+              :disabled="market.isDisabled(data.item.pool_address, 'withdraw')"
+              :loading="market.isLoading(data.item.pool_address, 'withdraw')"
               @click="withdrawDialogHandler(data)"
             >
               {{ data.item.action }}

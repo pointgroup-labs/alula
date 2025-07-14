@@ -129,8 +129,8 @@ function withdrawDialogHandler(data: { item: any }) {
               icon-right
               size="lg"
               class="repay-btn"
-              :disabled="market.isDisabled(data.item.pool_address)"
-              :loading="market.isLoading(data.item.pool_address)"
+              :disabled="market.isDisabled(data.item.pool_address, 'repay')"
+              :loading="market.isLoading(data.item.pool_address, 'repay')"
               @click="withdrawDialogHandler(data)"
             >
               {{ data.item.action }}
