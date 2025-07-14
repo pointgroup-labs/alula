@@ -2,9 +2,7 @@
 
 use {
     lending::contract::{LendingContract, LendingContractClient},
-    soroban_sdk::{
-        symbol_short, testutils::Address as _, Address, BytesN, Env,
-    },
+    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
 };
 
 #[test]

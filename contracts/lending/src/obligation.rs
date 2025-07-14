@@ -98,27 +98,19 @@ impl Obligation {
         }
 
         for (borrow_pool_address, borrow_obligation) in self.borrows.iter() {
-            let BorrowObligation {
-                borrowed,
-                unpaid_interest,
-                ..
-            } = borrow_obligation;
+            let total_debt = borrow_obligation.total_debt()?;
 
             let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
                 // TODO: Add event
                 return Err(LCError::InternalError);
             };
 
-            let total = borrowed
-                .checked_add(unpaid_interest)
-                .map_over_or_underflow()?;
-
             let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_ticker)?;
 
             borrowed_value_sum = borrowed_value_sum
                 .checked_add(
                     borrowed_asset_price
-                        .checked_mul(total)
+                        .checked_mul(total_debt)
                         .map_over_or_underflow()?,
                 )
                 .map_over_or_underflow()?;
@@ -210,10 +202,7 @@ impl Obligation {
             .get(pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        let total_debt = borrow_obligation
-            .borrowed
-            .checked_add(borrow_obligation.unpaid_interest)
-            .map_over_or_underflow()?;
+        let total_debt = borrow_obligation.total_debt()?;
 
         let real_repaid_amount = i128::min(amount, total_debt);
 
@@ -221,7 +210,7 @@ impl Obligation {
             self.borrows.remove(pool_address.clone());
         } else {
             if real_repaid_amount <= borrow_obligation.unpaid_interest {
-                borrow_obligation.adjust_unpaid_interest(real_repaid_amount)?;
+                borrow_obligation.adjust_unpaid_interest(-real_repaid_amount)?;
             } else {
                 let to_remove_from_borrowed =
                     real_repaid_amount - borrow_obligation.unpaid_interest;
@@ -259,9 +248,13 @@ impl Obligation {
             ..
         } = borrow_pool.config;
 
+        let total_debt = borrow_obligation.total_debt()?;
+
+        // 'liquidatable_bps' == ((amount * 10_000) / total_debt)
         let liquidatable_bps = amount
-            .fixed_div_floor(borrow_obligation.borrowed, BPS_FACTOR)
+            .fixed_div_floor(total_debt, BPS_FACTOR)
             .map_over_or_underflow()?;
+
         if liquidatable_bps > liquidation_close_factor_bps {
             // TODO: What's the best way to set `close_factor_bps` value?
             return Err(LCError::LiquidationExceedsCloseFactor);
@@ -271,11 +264,13 @@ impl Obligation {
         let liquidation_value = amount.checked_mul(borrowed_price).map_over_or_underflow()?;
 
         // Value, which liquidator would like to receive if a full liquidation takes place
+        // 'liquidation_value_with_incentive' == (liquidation_value * (10_000 + liquidation_incentive_bps)) / 10_000
         let liquidation_value_with_incentive = liquidation_value
             .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let collateral_price = get_asset_price(e, &collateral_pool.token_ticker)?;
+
         let full_collateral_amount = collateral_obligation.collateral;
         let full_collateral_value = full_collateral_amount
             .checked_mul(collateral_price)
@@ -350,7 +345,14 @@ impl Obligation {
             }
         };
 
-        borrow_obligation.adjust_borrowed(-liquidation_values.liquidated_amount)?;
+        let unpaid_interest_repaid = i128::min(
+            borrow_obligation.unpaid_interest,
+            liquidation_values.liquidated_amount,
+        );
+
+        let borrow_repaid = liquidation_values.liquidated_amount - unpaid_interest_repaid; // safe
+        borrow_obligation.adjust_borrowed(-borrow_repaid)?;
+        borrow_obligation.adjust_unpaid_interest(-unpaid_interest_repaid)?;
 
         collateral_obligation.adjust_collateral(-liquidation_values.collateral_amount_sold)?;
         collateral_obligation.adjust_shares(-liquidation_values.shares_amount_sold)?;
@@ -635,7 +637,7 @@ impl BorrowObligation {
         self.borrowed == 0
     }
 
-    pub fn total_borrowed(&self) -> Result<i128, LCError> {
+    pub fn total_debt(&self) -> Result<i128, LCError> {
         self.borrowed
             .checked_add(self.unpaid_interest)
             .map_over_or_underflow()
