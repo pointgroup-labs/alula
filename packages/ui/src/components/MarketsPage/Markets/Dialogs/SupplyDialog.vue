@@ -16,6 +16,8 @@ const emits = defineEmits(['update:modelValue'])
 const marketsStore = useMarketsStore()
 const market = useMarket()
 
+const amount = toRef(market, 'depositAmount')
+
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
 
@@ -35,8 +37,6 @@ const balance = computed(() => {
 
 const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
 const reloadFee = ref(false)
-
-const amount = ref(0)
 
 const txFee = ref(0)
 

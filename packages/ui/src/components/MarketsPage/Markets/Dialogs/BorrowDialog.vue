@@ -25,8 +25,8 @@ const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
 const userStore = useUserStore()
-const userObligation = computed(() => userStore.userObligation)
 
+const amount = toRef(market, 'borrowAmount')
 const agree = ref(false)
 
 const reloadFee = ref(false)
@@ -70,28 +70,28 @@ const poolBorrowLimit = computed(() => {
 })
 
 const userLimit = computed(() => {
-  const deposits = userObligation.value?.deposits
-  const borrows = userObligation.value?.borrows
-
-  if (!data || !deposits) {
+  if (!data) {
     return 0
   }
-  const userAvailableInUsd = userStore.userBorrowAvailableInUsd
+  const userTotalDepositInUsd = userStore.userTotalDepositInUsd
+  const userTotalBorrowedInUsd = Number(userStore.userTotalBorrowedInUsd) || 0
   const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
-  const maxAvailable = Math.min(userAvailableInUsd, marketAvailableInUsd)
+  const openLTV = Number(data?.raw.config.open_ltv_bps || 0) / 10_000
+  const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
+  const maxAvailable = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
+  return Math.max(maxAvailable, 0)
+})
 
-  let totalAvailableAsset = maxAvailable / Number(data.price)
-
-  if (borrows) {
-    const borrowInPool = borrows.find(([pool_address]: string) => pool_address === data.raw.pool_address)
-    if (borrowInPool) {
-      const [, borrowObligation] = borrowInPool
-      const userPoolBorrow = Number(bigintToNumber(borrowObligation.borrowed || 0, assetDecimals.value))
-      totalAvailableAsset -= userPoolBorrow
-    }
-  }
-
-  return Math.max(totalAvailableAsset, 0)
+const healthFactor = computed(() => {
+  const userTotalDepositInUsd = userStore.userTotalDepositInUsd
+  const closeLTV = Number(data?.raw.config.close_ltv_bps || 0) / 10_000
+  const availableToDepositInUsd = userTotalDepositInUsd * closeLTV
+  const price = data?.price || 0
+  const borrowedInUsd = Number(amount.value || 0) * price
+  const userTotalBorrowedInUsd = userStore.userTotalBorrowedInUsd
+  const userBorrowWithAmount = userTotalBorrowedInUsd + borrowedInUsd
+  const hf = Number(availableToDepositInUsd / userBorrowWithAmount)
+  return hf === Infinity ? 1 : hf.toFixed(2)
 })
 
 const infoTableData = computed(() => {
@@ -102,7 +102,7 @@ const infoTableData = computed(() => {
   const closeLTV = Number(data.raw.config.close_ltv_bps) / 100
   return [{
     label: 'Health Factor',
-    value: 1.04,
+    value: healthFactor.value,
   },
   {
     label: 'Pool available amount to borrow',
@@ -140,8 +140,6 @@ const dialog = computed({
 })
 
 const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
-
-const amount = ref(0)
 
 async function borrow() {
   try {

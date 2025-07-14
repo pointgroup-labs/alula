@@ -36,15 +36,8 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
     }
     const tokenName = pool.token_ticker
     const icon = getTokenIcon(tokenName)
-    const userShares = bigintToNumber(borrow.borrowed, decimals.value)
-    const totalShares = bigintToNumber(pool.total_shares, decimals.value)
-    const userBorrowInPoolPercentage = Number(userShares) / Number(totalShares)
+    const userBorrowed = bigintToNumber(borrow.borrowed, decimals.value)
 
-    const available = Number(bigintToNumber(pool.available, decimals.value))
-    const totalBorrowed = Number(bigintToNumber(pool.total_borrowed, decimals.value))
-    const totalSupplied = available + totalBorrowed
-
-    const userBorrowed = totalSupplied * userBorrowInPoolPercentage
     const asset_issuer = pool.name.split(':')[1]
     const borrowApy = pool.pool_apy.borrow_bps / 100
 

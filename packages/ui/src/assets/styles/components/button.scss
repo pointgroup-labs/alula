@@ -23,7 +23,8 @@
     color: #fff;
 
     &:hover,
-    &:active {
+    &:active,
+    &:disabled {
       color: #fff !important;
     }
 

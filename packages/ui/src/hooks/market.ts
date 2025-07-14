@@ -7,6 +7,9 @@ export function useMarket() {
     const clientStore = useClientStore()
     const jLendClient = computed(() => clientStore.jLendClient)
 
+    const depositAmount = ref()
+    const borrowAmount = ref()
+
     const Toast = useToast()
 
     const wallet = useWallet()
@@ -44,6 +47,7 @@ export function useMarket() {
             }
 
             marketsStore.poolDepositAddr = pool_address
+            marketsStore.poolActionType = 'deposit'
             const asset = asset_code === 'native' ? 'XLM' : asset_code
 
             depositToast = await Toast.create({
@@ -85,6 +89,7 @@ export function useMarket() {
             throw error
         } finally {
             marketsStore.poolDepositAddr = undefined
+            marketsStore.poolActionType = undefined
             depositToast?.dismiss()
         }
     }
@@ -107,6 +112,7 @@ export function useMarket() {
             const [asset_code] = asset_data.split(':')
 
             marketsStore.poolDepositAddr = pool_address
+            marketsStore.poolActionType = 'borrow'
             const asset = asset_code === 'native' ? 'XLM' : asset_code
 
             borrowToast = await Toast.create({
@@ -146,6 +152,7 @@ export function useMarket() {
             throw error
         } finally {
             marketsStore.poolDepositAddr = undefined
+            marketsStore.poolActionType = undefined
             borrowToast?.dismiss()
         }
     }
@@ -167,6 +174,7 @@ export function useMarket() {
             }
 
             marketsStore.poolDepositAddr = pool_address
+            marketsStore.poolActionType = 'withdraw'
             const asset = asset_code === 'native' ? 'XLM' : asset_code
 
             withdrawToast = await Toast.create({
@@ -206,6 +214,7 @@ export function useMarket() {
             throw error
         } finally {
             marketsStore.poolDepositAddr = undefined
+            marketsStore.poolActionType = undefined
             withdrawToast?.dismiss()
         }
     }
@@ -227,6 +236,7 @@ export function useMarket() {
             }
 
             marketsStore.poolDepositAddr = pool_address
+            marketsStore.poolActionType = 'repay'
             const asset = asset_code === 'native' ? 'XLM' : asset_code
 
             withdrawToast = await Toast.create({
@@ -266,6 +276,7 @@ export function useMarket() {
             throw error
         } finally {
             marketsStore.poolDepositAddr = undefined
+            marketsStore.poolActionType = undefined
             withdrawToast?.dismiss()
         }
     }
@@ -287,6 +298,9 @@ export function useMarket() {
     }
 
     return {
+        borrowAmount,
+        depositAmount,
+
         borrow,
         deposit,
 

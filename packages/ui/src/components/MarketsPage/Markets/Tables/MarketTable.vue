@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
 
 const infoDialog = ref(false)
 
@@ -29,18 +29,18 @@ const items = computed<MarketTableItem[]>(() => {
   return pools.value.map((p) => {
     const tokenName = p.token_ticker
     const icon = getTokenIcon(tokenName)
-    const supply = (Number(p.available) + Number(p.total_borrowed)) / 10 ** assetDecimals.value
-    const borrowed = Number(p.total_borrowed) / 10 ** assetDecimals.value
+    const total_supply = Number(bigintToNumber(p.available + p.total_borrowed, assetDecimals.value)) || 0
+    const total_borrowed = Number(bigintToNumber(p.total_borrowed, assetDecimals.value)) || 0
     const depositApy = p.pool_apy.supply_bps / 100
     const borrowApy = p.pool_apy.borrow_bps / 100
     const utilRate = Number(p.total_borrowed) / Number((p.available + p.total_borrowed)) * 100
     const maxLTV = Number(p.config.open_ltv_bps) / 100
-    const supply_limit = Number(p.config.supply_limit) / 10 ** assetDecimals.value
+    const supply_limit = Number(bigintToNumber(p.config.supply_limit, assetDecimals.value)) || 0
     return {
       raw: p,
       asset: { name: tokenName, symbol: tokenName, icon },
-      total_supply: supply,
-      total_borrowed: borrowed,
+      total_supply,
+      total_borrowed,
       deposit_apy: `${truncatePercent(depositApy || 0, 2)}%`,
       borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
       utilization_rate: `${truncatePercent(utilRate || 0, 2)}%`,

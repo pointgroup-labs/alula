@@ -13,6 +13,7 @@ export const useMarketsStore = defineStore('markets', () => {
   const jLendClient = computed(() => clientStore.jLendClient)
 
   const poolDepositAddr = ref()
+  const poolActionType = ref<TableActionType>()
 
   const selectedMarketInfo = ref()
 
@@ -66,9 +67,11 @@ export const useMarketsStore = defineStore('markets', () => {
     selectedMarketInfo,
     selectedMarketPools,
 
+    poolActionType,
     poolDepositAddr,
 
     updatePools,
+
   }
 })
 
@@ -84,3 +87,5 @@ export type PoolWithPrice = {
   pool_apy: CompoundRates
   market?: string
 } & Pool
+
+export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay'

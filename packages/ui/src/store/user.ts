@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import { defineStore } from 'pinia'
+import { bigintToNumber } from '~/utils'
 
 function toDec(value: bigint): Decimal {
     return new Decimal(value.toString())
@@ -71,7 +72,7 @@ export const useUserStore = defineStore('user', () => {
         }
     }
 
-    const userBorrowAvailableInUsd = computed(() => {
+    const userTotalDepositInUsd = computed(() => {
         const deposits = userObligation.value?.deposits
         if (!deposits) {
             return 0
@@ -79,7 +80,7 @@ export const useUserStore = defineStore('user', () => {
 
         const assetDecimals = jLendClient.value.sdk.assetDecimals
 
-        let userAvailableInUsd = 0
+        let userDepositsInUsd = 0
 
         for (const deposit of deposits) {
             const [depositedPoolAddress, data] = deposit
@@ -87,14 +88,39 @@ export const useUserStore = defineStore('user', () => {
 
             const userShares = data?.shares
             if (!depositedPool || !userShares) {
-                userAvailableInUsd += 0
+                userDepositsInUsd += 0
                 continue
             }
             const userAvailable = calcUserTotalShares(userShares, depositedPool.total_shares, depositedPool?.available, depositedPool?.total_borrowed, assetDecimals)
             const availableInUsd = Number(userAvailable) * Number(depositedPool.pool_price)
-            userAvailableInUsd += availableInUsd || 0
+            userDepositsInUsd += availableInUsd || 0
         }
-        return userAvailableInUsd
+        return userDepositsInUsd
+    })
+
+    const userTotalBorrowedInUsd = computed(() => {
+        const borrows = userObligation.value?.borrows
+        if (!borrows) {
+            return 0
+        }
+
+        const assetDecimals = jLendClient.value.sdk.assetDecimals
+
+        let userBorrowedInUsd = 0
+
+        for (const borrow of borrows) {
+            const [borrowedPoolAddress, data] = borrow
+            const borrowedPool = marketsStore.state.pollsData?.find(p => p.pool_address === borrowedPoolAddress)
+
+            const userShares = bigintToNumber(data?.borrowed, assetDecimals)
+            if (!borrowedPool || !userShares) {
+                userBorrowedInUsd += 0
+                continue
+            }
+            const borrowedInUsd = Number(userShares) * Number(borrowedPool.pool_price)
+            userBorrowedInUsd += borrowedInUsd || 0
+        }
+        return userBorrowedInUsd
     })
 
     watch(() => wallet.publicKey, async (p) => {
@@ -108,7 +134,8 @@ export const useUserStore = defineStore('user', () => {
     return {
         loading,
         userObligation,
-        userBorrowAvailableInUsd,
+        userTotalDepositInUsd,
+        userTotalBorrowedInUsd,
 
         loadUserObligation,
 
