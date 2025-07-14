@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BorrowObligation } from 'sdk'
 import type { BorrowCardTableItem } from '~/types/table'
-import { bigintToNumber, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
 
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
@@ -37,13 +37,16 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
     const tokenName = pool.token_ticker
     const icon = getTokenIcon(tokenName)
     const userBorrowed = bigintToNumber(borrow.borrowed, decimals.value)
+    const userBorrowedUsd = formatPrice(Number(userBorrowed) * Number(pool.pool_price), 2, 2)
 
     const asset_issuer = pool.name.split(':')[1]
     const borrowApy = pool.pool_apy.borrow_bps / 100
 
     return {
+      raw: pool,
       asset: { name: tokenName, symbol: tokenName, icon },
       debt: userBorrowed,
+      debtUsd: userBorrowedUsd,
       borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
       action: 'Repay',
       pool_address,
@@ -104,9 +107,13 @@ function withdrawDialogHandler(data: { item: any }) {
         </template>
 
         <template #cell(debt)="data">
-          <div class="table-cell table-cell__dept justify-content-end">
-            {{ shortenNumber(Number(data.item.debt) || 0) }}
-          </div>
+          <j-tooltip tooltip-class="table-cell table-cell__dept justify-content-end with-price">
+            {{ Number(data.item.debt) > 1000 ? shortenNumber(Number(data.item.debt)) : Number(data.item.debt).toFixed(5) }}
+            <span>${{ data.item.debtUsd }}</span>
+            <template #content>
+              {{ formatPrice(data.item.debt) }}
+            </template>
+          </j-tooltip>
         </template>
 
         <template #cell(borrow_apy)="data">

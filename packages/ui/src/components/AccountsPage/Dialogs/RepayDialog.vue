@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BorrowCardTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { shortenNumber } from '~/utils'
+import { shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -16,10 +16,21 @@ const emits = defineEmits(['update:modelValue'])
 const marketStore = useMarketsStore()
 const market = useMarket()
 
+const wallet = useWallet()
+
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
 
-const wallet = useWallet()
+const userStore = useUserStore()
+const userTotalDepositInUsd = computed(() => userStore.userTotalDepositInUsd)
+const userTotalBorrowedInUsd = computed(() => userStore.userTotalBorrowedInUsd)
+
+const loading = ref(false)
+const reloadFee = ref(false)
+
+const amount = ref(0)
+const txFee = ref(0)
+
 const balance = computed(() => {
   if (!data) {
     return 0
@@ -30,12 +41,15 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(data.asset_issuer))
 })
 
-const loading = ref(false)
+const closeLTV = computed(() => data?.raw?.config?.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
 
-const amount = ref(0)
-
-const txFee = ref(0)
-const reloadFee = ref(false)
+const healFactor = computed(() => {
+  const A = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)
+  const D = (userTotalDepositInUsd.value * closeLTV.value) + A
+  const B = userTotalBorrowedInUsd.value
+  const result = B === 0 ? 0 : Math.max(D / B, 0)
+  return Math.min(result, 10)
+})
 
 watchDebounced([
   () => data,
@@ -59,7 +73,7 @@ const infoTableData = computed(() => {
   const borrowBalanceAfterRepay = Math.max(Number(data?.debt) - amount.value || 0, 0)
   return [{
     label: 'Health Factor',
-    value: 1.04,
+    value: truncatePercent(healFactor.value, 2),
   },
   {
     label: 'Borrow balance after repay',

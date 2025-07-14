@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { DepositObligation } from 'sdk'
 import type { SuppliedCardTableItem } from '~/types/table'
-import { bigintToNumber, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
 
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
@@ -51,8 +51,11 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
 
     const poolApy = pool.pool_apy.supply_bps / 100
     return {
+      raw: pool,
       asset: { name: tokenName, symbol: tokenName, icon },
       balance,
+      balanceUsd: formatPrice(balance * Number(pool.pool_price), 2, 2),
+      price: Number(pool.pool_price),
       available,
       supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
       action: 'Withdraw',
@@ -113,9 +116,13 @@ function withdrawDialogHandler(data: { item: any }) {
         </template>
 
         <template #cell(balance)="data">
-          <div class="table-cell justify-content-end">
-            {{ shortenNumber(Number(data.item.balance)) }}
-          </div>
+          <j-tooltip tooltip-class="table-cell justify-content-end with-price">
+            {{ Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5) }}
+            <span>${{ data.item.balanceUsd }}</span>
+            <template #content>
+              {{ formatPrice(data.item.balance) }}
+            </template>
+          </j-tooltip>
         </template>
 
         <template #cell(supply_apy)="data">
@@ -225,6 +232,18 @@ function withdrawDialogHandler(data: { item: any }) {
       font-weight: 600;
       line-height: 20px;
       white-space: nowrap;
+    }
+
+    .with-price {
+      flex-direction: column;
+      align-items: flex-end;
+
+      span {
+        color: $neutral-12;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 16px;
+      }
     }
 
     &__asset {

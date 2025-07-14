@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { shortenNumber } from '~/utils'
+import { shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -15,6 +15,10 @@ const emits = defineEmits(['update:modelValue'])
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
+
+const userStore = useUserStore()
+const userTotalDepositInUsd = computed(() => userStore.userTotalDepositInUsd)
+const userTotalBorrowedInUsd = computed(() => userStore.userTotalBorrowedInUsd)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -31,13 +35,39 @@ const txFee = ref(0)
 
 const collateralBalance = computed(() => Number(data?.collateral) || 0)
 const supplyBalance = computed(() => Number(data?.balance || 0) - collateralBalance.value)
-const totalSuppliedBalance = computed(() => collateralBalance.value + supplyBalance.value)
+const totalSuppliedBalance = computed(() => Number(data?.balance) || 0)
 const remainingBalance = computed(() => Number(collateralOnly.value ? collateralBalance.value : supplyBalance.value) - amount.value)
+
+const closeLTV = computed(() => data?.raw.config.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
+
+const helthFactor = computed(() => {
+  const A = Number(amount.value || 0) * Number(data?.price || 0)
+  const D = (userTotalDepositInUsd.value * closeLTV.value) - A
+  const B = userTotalBorrowedInUsd.value
+  const result = B === 0 ? 0 : Math.max(D / B, 0)
+  return Math.min(result, 10)
+})
+
 const availableToWithdraw = computed(() => {
   const balance = collateralOnly.value
     ? collateralBalance.value
     : supplyBalance.value
-  return Math.min(Number(data?.available) || 0, balance)
+
+  const D = userTotalDepositInUsd.value
+  const borrowed = userTotalBorrowedInUsd.value
+
+  let limitUsd
+
+  if (borrowed <= 0) {
+    limitUsd = D
+  } else {
+    const minDeposit = borrowed / closeLTV.value
+    limitUsd = D - minDeposit
+  }
+
+  const limitAsset = limitUsd / Number(data?.price || 1)
+
+  return Math.max(Math.min(balance, limitAsset), 0)
 })
 
 watchDebounced([
@@ -61,7 +91,7 @@ const infoTableData = computed(() => {
   }
   return [{
     label: 'Health Factor',
-    value: 1.04,
+    value: truncatePercent(helthFactor.value, 2),
   },
   {
     label: 'Total supply',
@@ -105,7 +135,7 @@ async function withdraw() {
   try {
     loading.value = true
     collateralOnly.value
-      ? await market.removeCollateral(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
+      ? await market.removeCollateral(data?.pool_address, amount.value, collateralBalance.value, data?.asset.symbol)
       : await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
     amount.value = 0
   } catch {
@@ -124,6 +154,7 @@ watch(() => modelValue, async (v) => {
   clearInterval(interval)
   if (!v) {
     amount.value = 0
+    collateralOnly.value = false
     return
   }
 

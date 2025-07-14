@@ -78,7 +78,8 @@ const userLimit = computed(() => {
   const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const openLTV = Number(data?.raw.config.open_ltv_bps || 0) / 10_000
   const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
-  const maxAvailable = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
+  const maxAvailableUsd = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
+  const maxAvailable = maxAvailableUsd / Number(data.price)
   return Math.max(maxAvailable, 0)
 })
 
@@ -91,7 +92,8 @@ const healthFactor = computed(() => {
   const userTotalBorrowedInUsd = userStore.userTotalBorrowedInUsd
   const userBorrowWithAmount = userTotalBorrowedInUsd + borrowedInUsd
   const hf = Number(availableToDepositInUsd / userBorrowWithAmount)
-  return hf === Infinity ? 1 : hf.toFixed(2)
+  const result = hf === Infinity ? 0 : hf
+  return Math.min(result, 10)
 })
 
 const infoTableData = computed(() => {
@@ -102,7 +104,7 @@ const infoTableData = computed(() => {
   const closeLTV = Number(data.raw.config.close_ltv_bps) / 100
   return [{
     label: 'Health Factor',
-    value: healthFactor.value,
+    value: truncatePercent(healthFactor.value, 2),
   },
   {
     label: 'Pool available amount to borrow',
@@ -185,7 +187,7 @@ watch(() => modelValue, async (v) => {
           :src="data?.asset.icon"
           :alt="`${data?.asset.symbol} icon`"
         >
-        <span>Supply {{ data?.asset.symbol }}</span>
+        <span>Borrow {{ data?.asset.symbol }}</span>
       </div>
     </template>
 

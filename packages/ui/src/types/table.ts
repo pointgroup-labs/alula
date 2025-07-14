@@ -1,4 +1,4 @@
-import type { Pool } from 'sdk'
+import type { PoolWithPrice } from '~/store/markets'
 
 export type TableAsset = {
   asset: {
@@ -9,7 +9,7 @@ export type TableAsset = {
 }
 
 export type MarketTableItem = {
-  raw: Pool
+  raw: PoolWithPrice
   total_supply: number
   total_borrowed: number
   deposit_apy: string
@@ -33,7 +33,9 @@ export type BorrowTableItem = {
 }
 
 export type BorrowCardTableItem = {
+  raw: PoolWithPrice
   debt: string | number
+  debtUsd: number | string
   borrow_apy: string | number
   action: string | number
   pool_address: string
@@ -41,10 +43,13 @@ export type BorrowCardTableItem = {
 } & TableAsset
 
 export type SuppliedCardTableItem = {
+  raw: PoolWithPrice
   available: string | number
   balance: string | number
+  balanceUsd: number
   supply_apy: string | number
   action: string
+  price: number
   pool_address: string
   collateral: string | number
 } & TableAsset

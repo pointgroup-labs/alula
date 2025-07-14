@@ -122,6 +122,7 @@ watch(() => modelValue, async (v) => {
   clearInterval(interval)
   if (!v) {
     amount.value = 0
+    collateralOnly.value = false
     return
   }
 
