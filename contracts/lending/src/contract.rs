@@ -617,7 +617,7 @@ fn process_repay(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(user, &e.current_contract_address(), &amount);
+    token_client.transfer(user, &e.current_contract_address(), &repaid_amount);
 
     Ok(())
 }

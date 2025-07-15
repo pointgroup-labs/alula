@@ -423,53 +423,68 @@ pub fn assert_invariants(fixture: &TestFixture) {
 
     // Test borrowing and repaying for each pool if there are available funds
     if btc_pool.available > 0 {
+        let available_borrow = btc_pool.compute_available_borrow().unwrap();
+
         contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, btc_pool_address, &btc_pool.available);
+        contract_client.borrow(&new_borrower, btc_pool_address, &available_borrow);
 
         // Verify the borrowed amount is reflected in the user's obligation
         let obligation = contract_client.get_user_obligation(&new_borrower);
-        if let Some(borrow_obligation) = obligation.borrows.get(btc_pool_address.clone()) {
-            assert_eq!(
-                borrow_obligation.borrowed, btc_pool.available,
-                "Borrowed amount must match in user obligation"
-            );
-        }
+        let borrow_obligation = obligation
+            .borrows
+            .get(btc_pool_address.clone())
+            .expect("Borrow obligation must be present");
 
-        contract_client.repay(&new_borrower, btc_pool_address, &btc_pool.available);
+        assert_eq!(
+            borrow_obligation.borrowed, available_borrow,
+            "Borrowed amount must match in user obligation"
+        );
+
+        contract_client.repay(&new_borrower, btc_pool_address, &available_borrow);
         contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
     }
 
     if gold_pool.available > 0 {
+        let available_borrow = gold_pool.compute_available_borrow().unwrap();
+
         contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, gold_pool_address, &gold_pool.available);
+        contract_client.borrow(&new_borrower, gold_pool_address, &available_borrow);
 
         // Verify the borrowed amount is reflected in the user's obligation
         let obligation = contract_client.get_user_obligation(&new_borrower);
-        if let Some(borrow_obligation) = obligation.borrows.get(gold_pool_address.clone()) {
-            assert_eq!(
-                borrow_obligation.borrowed, gold_pool.available,
-                "Borrowed amount must match in user obligation"
-            );
-        }
+        let borrow_obligation = obligation
+            .borrows
+            .get(gold_pool_address.clone())
+            .expect("Borrow obligation must be present");
 
-        contract_client.repay(&new_borrower, gold_pool_address, &gold_pool.available);
+        assert_eq!(
+            borrow_obligation.borrowed, available_borrow,
+            "Borrowed amount must match in user obligation"
+        );
+
+        contract_client.repay(&new_borrower, gold_pool_address, &available_borrow);
         contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
     }
 
     if usdc_pool.available > 0 {
+        let available_borrow = usdc_pool.compute_available_borrow().unwrap();
+
         contract_client.add_collateral(&new_borrower, gold_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, usdc_pool_address, &usdc_pool.available);
+        contract_client.borrow(&new_borrower, usdc_pool_address, &available_borrow);
 
         // Verify the borrowed amount is reflected in the user's obligation
         let obligation = contract_client.get_user_obligation(&new_borrower);
-        if let Some(borrow_obligation) = obligation.borrows.get(usdc_pool_address.clone()) {
-            assert_eq!(
-                borrow_obligation.borrowed, usdc_pool.available,
-                "Borrowed amount must match in user obligation"
-            );
-        }
+        let borrow_obligation = obligation
+            .borrows
+            .get(usdc_pool_address.clone())
+            .expect("Borrow obligation must be present");
 
-        contract_client.repay(&new_borrower, usdc_pool_address, &usdc_pool.available);
+        assert_eq!(
+            borrow_obligation.borrowed, available_borrow,
+            "Borrowed amount must match in user obligation"
+        );
+
+        contract_client.repay(&new_borrower, usdc_pool_address, &available_borrow);
         contract_client.remove_collateral(&new_borrower, gold_pool_address, &collateral_amount);
     }
 
