@@ -12,6 +12,8 @@ export function useMarket() {
 
     const depositAmount = ref()
     const borrowAmount = ref()
+    const withdrawAmount = ref()
+    const repayAmount = ref()
 
     const Toast = useToast()
 
@@ -62,6 +64,8 @@ export function useMarket() {
             })
 
             const res = await jLendClient.value.sdk.deposit(wallet.publicKey, pool_address, amount, connectionStore.kit)
+
+            depositAmount.value = undefined
 
             await reloadData(pool_address)
             Toast.create({
@@ -128,6 +132,8 @@ export function useMarket() {
 
             const res = await jLendClient.value.sdk.borrow(wallet.publicKey, pool_address, amount, connectionStore.kit)
 
+            borrowAmount.value = undefined
+
             await reloadData(pool_address)
 
             Toast.create({
@@ -190,6 +196,8 @@ export function useMarket() {
 
             const res = await jLendClient.value.sdk.withdraw(wallet.publicKey, pool_address, amount, connectionStore.kit)
 
+            withdrawAmount.value = undefined
+
             await reloadData(pool_address)
 
             Toast.create({
@@ -251,6 +259,8 @@ export function useMarket() {
             })
 
             const res = await jLendClient.value.sdk.repay(wallet.publicKey, pool_address, amount, connectionStore.kit)
+
+            repayAmount.value = undefined
 
             await reloadData(pool_address)
 
@@ -316,7 +326,10 @@ export function useMarket() {
 
             const res = await jLendClient.value.sdk.addCollateral(wallet.publicKey, pool_address, amount, connectionStore.kit)
 
+            depositAmount.value = undefined
+
             await reloadData(pool_address)
+
             Toast.create({
                 title: 'Add Collateral Success',
                 body: `You added ${amount} ${asset} successfully`,
@@ -380,6 +393,8 @@ export function useMarket() {
 
             const res = await jLendClient.value.sdk.removeCollateral(wallet.publicKey, pool_address, amount, connectionStore.kit)
 
+            withdrawAmount.value = undefined
+
             await reloadData(pool_address)
 
             Toast.create({
@@ -435,6 +450,9 @@ export function useMarket() {
     return {
         borrowAmount,
         depositAmount,
+        withdrawAmount,
+        repayAmount,
+
         collateralOnly,
 
         borrow,

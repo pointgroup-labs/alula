@@ -25,12 +25,12 @@ const publicKey = computed(() => wallet.publicKey)
 
 const market = useMarket()
 
+const amount = toRef(market, 'withdrawAmount')
 const collateralOnly = toRef(market, 'collateralOnly')
 
 const loading = ref(false)
 const reloadFee = ref(false)
 
-const amount = ref(0)
 const txFee = ref(0)
 
 const collateralBalance = computed(() => Number(data?.collateral) || 0)
@@ -137,7 +137,6 @@ async function withdraw() {
     collateralOnly.value
       ? await market.removeCollateral(data?.pool_address, amount.value, collateralBalance.value, data?.asset.symbol)
       : await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
-    amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
       const input = document.querySelector('.withdraw-dialog__input')?.querySelector('input') as HTMLInputElement
@@ -165,6 +164,12 @@ watch(() => modelValue, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
+
+watch(collateralBalance, (b) => {
+  if (b <= 0) {
+    collateralOnly.value = false
+  }
+}, { immediate: true })
 </script>
 
 <template>

@@ -69,7 +69,7 @@ const poolBorrowLimit = computed(() => {
   return marketAvailable
 })
 
-const userLimit = computed(() => {
+const availableToBorrow = computed(() => {
   if (!data) {
     return 0
   }
@@ -79,21 +79,26 @@ const userLimit = computed(() => {
   const openLTV = Number(data?.raw.config.open_ltv_bps || 0) / 10_000
   const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
   const maxAvailableUsd = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
-  const maxAvailable = maxAvailableUsd / Number(data.price)
-  return Math.max(maxAvailable, 0)
+  const maxAvailableAssets = maxAvailableUsd / Number(data.price)
+  return Math.max(maxAvailableAssets, 0)
 })
 
 const healthFactor = computed(() => {
-  const userTotalDepositInUsd = userStore.userTotalDepositInUsd
-  const closeLTV = Number(data?.raw.config.close_ltv_bps || 0) / 10_000
-  const availableToDepositInUsd = userTotalDepositInUsd * closeLTV
+  const depositUsd = userStore.userTotalDepositInUsd
+  const borrowedUsd = userStore.userTotalBorrowedInUsd
   const price = data?.price || 0
-  const borrowedInUsd = Number(amount.value || 0) * price
-  const userTotalBorrowedInUsd = userStore.userTotalBorrowedInUsd
-  const userBorrowWithAmount = userTotalBorrowedInUsd + borrowedInUsd
-  const hf = Number(availableToDepositInUsd / userBorrowWithAmount)
-  const result = hf === Infinity ? 0 : hf
-  return Math.min(result, 10)
+  const closeLTV = Number(data?.raw.config.close_ltv_bps || 0) / 10_000
+
+  const extraBorrowUsd = (amount.value || 0) * price
+  const totalBorrowUsd = borrowedUsd + extraBorrowUsd
+
+  let hf = (depositUsd * closeLTV) / totalBorrowUsd
+
+  if (!Number.isFinite(hf)) {
+    hf = 0
+  }
+
+  return Math.min(hf, 10)
 })
 
 const infoTableData = computed(() => {
@@ -112,7 +117,7 @@ const infoTableData = computed(() => {
   },
   {
     label: 'User available amount to borrow',
-    value: shortenNumber(userLimit.value),
+    value: shortenNumber(availableToBorrow.value),
   },
   {
     label: 'Max LTV',
@@ -149,7 +154,6 @@ async function borrow() {
       return
     }
     await market.borrow(data?.raw.pool_address, amount.value, data?.raw.name, poolBorrowLimit.value)
-    amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
       const input = document.querySelector('.supply-dialog__input')?.querySelector('input') as HTMLInputElement
@@ -194,10 +198,10 @@ watch(() => modelValue, async (v) => {
     <div class="supply-dialog__body">
       <input-widget
         v-model="amount"
-        :balance="userLimit"
+        :balance="availableToBorrow"
         :rules="[
           (v) => {
-            return v && Number(v) < userLimit || 'Borrow limit exceeded'
+            return v && Number(v) < availableToBorrow || 'Borrow limit exceeded'
           },
         ]"
       >

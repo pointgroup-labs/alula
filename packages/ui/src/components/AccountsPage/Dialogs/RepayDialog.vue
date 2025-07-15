@@ -28,7 +28,7 @@ const userTotalBorrowedInUsd = computed(() => userStore.userTotalBorrowedInUsd)
 const loading = ref(false)
 const reloadFee = ref(false)
 
-const amount = ref(0)
+const amount = toRef(market, 'repayAmount')
 const txFee = ref(0)
 
 const balance = computed(() => {
@@ -43,7 +43,7 @@ const balance = computed(() => {
 
 const closeLTV = computed(() => data?.raw?.config?.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
 
-const healFactor = computed(() => {
+const healthFactor = computed(() => {
   const A = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)
   const D = (userTotalDepositInUsd.value * closeLTV.value) + A
   const B = userTotalBorrowedInUsd.value
@@ -73,7 +73,7 @@ const infoTableData = computed(() => {
   const borrowBalanceAfterRepay = Math.max(Number(data?.debt) - amount.value || 0, 0)
   return [{
     label: 'Health Factor',
-    value: truncatePercent(healFactor.value, 2),
+    value: truncatePercent(healthFactor.value, 2),
   },
   {
     label: 'Borrow balance after repay',
@@ -103,7 +103,6 @@ async function repay() {
     marketStore.poolDepositAddr = data?.pool_address
 
     await market.repay(data?.pool_address, amount.value, balance.value, data?.asset.symbol)
-    amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
       const input = document.querySelector('.withdraw-dialog__input')?.querySelector('input') as HTMLInputElement

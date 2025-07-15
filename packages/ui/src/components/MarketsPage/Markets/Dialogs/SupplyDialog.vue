@@ -107,7 +107,6 @@ async function supply() {
     collateralOnly.value
       ? await market.addCollateral(data?.raw.pool_address, amount.value, data?.raw.name)
       : await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
-    amount.value = 0
   } catch {
     if (!amount.value || amount.value <= 0) {
       const input = document.querySelector('.supply-dialog__input')?.querySelector('input') as HTMLInputElement
