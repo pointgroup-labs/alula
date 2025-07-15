@@ -1,0 +1,41 @@
+@use 'sass:map';
+
+$skeleton-variants: (
+  rounded: (
+    border-radius: 50%,
+  ),
+);
+
+.j-skeleton {
+  background-color: #e2e5e766;
+  background-image: linear-gradient(90deg, rgba(#fff, 0), rgba(#fff, 0.5), rgba(#fff, 0));
+  background-size: 40px 100%;
+  background-repeat: no-repeat;
+  background-position: left -40px top 0;
+  animation: shine 1s ease infinite;
+
+  @each $variant, $variant-properties in $skeleton-variants {
+    &--#{$variant} {
+      @each $property, $value in $variant-properties {
+        #{$property}: #{$value};
+      }
+    }
+  }
+
+  &--full-width {
+    width: 100% !important;
+  }
+}
+
+@keyframes shine {
+  to {
+    background-position: right -40px top 0;
+  }
+}
+
+// body.body--dark {
+//   .j-skeleton {
+//     background-color: $dark-bg;
+//     background-image: linear-gradient(90deg, rgba(#fff, 0), rgba(#878787, 0.5), rgba(#fff, 0));
+//   }
+// }

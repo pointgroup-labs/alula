@@ -5,27 +5,44 @@ const {
   color = '#fff',
   bgColor = '#006CE4',
   icon = defaultIcon,
+  loading = false,
 } = defineProps<{
   title: string
   body: string
   icon?: string
   color?: string
   bgColor?: string
+  loading?: boolean
 }>()
 </script>
 
 <template>
-  <div class="total-card" :style="{ color, backgroundColor: bgColor }">
+  <div
+    class="total-card"
+    :style="{ color, backgroundColor: bgColor }"
+  >
     <div class="total-card__info">
       <div class="total-card__title">
         {{ title }}
       </div>
-      <div class="total-card__body">
+      <j-skeleton
+        v-if="loading"
+        full-width
+        height="28"
+      />
+      <div
+        v-else
+        class="total-card__body"
+      >
         {{ body }}
       </div>
     </div>
 
-    <div class="total-card__icon" :style="{ color: bgColor }" v-html="icon" />
+    <div
+      class="total-card__icon"
+      :style="{ color: bgColor }"
+      v-html="icon"
+    />
   </div>
 </template>
 

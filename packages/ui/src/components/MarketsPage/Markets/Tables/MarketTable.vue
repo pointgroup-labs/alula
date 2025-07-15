@@ -75,7 +75,21 @@ function amountToUsd(amount: number, price: number) {
 </script>
 
 <template>
-  <div class="table-wrapper">
+  <template v-if="pools.length === 0 && loading">
+    <j-skeleton
+      height="36"
+      full-width
+    />
+    <j-skeleton
+      height="80"
+      full-width
+      style="margin-top: -8px;"
+    />
+  </template>
+  <div
+    v-else
+    class="table-wrapper"
+  >
     <BTable
       show-empty
       borderless

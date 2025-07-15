@@ -71,8 +71,22 @@ function withdrawDialogHandler(data: { item: any }) {
       Your Borrows
     </div>
 
-    <div class="table-wrapper">
+    <template v-if="items.length === 0 && userStore.loading">
+      <j-skeleton
+        height="36"
+        full-width
+      />
+      <j-skeleton
+        height="80"
+        full-width
+        style="margin-top: -8px;"
+      />
+    </template>
 
+    <div
+      v-else
+      class="table-wrapper"
+    >
       <BTable
         v-if="items.length > 0"
         borderless

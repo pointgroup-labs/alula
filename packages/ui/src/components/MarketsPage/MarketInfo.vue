@@ -6,6 +6,7 @@ const marketsStore = useMarketsStore()
 const clientStore = useClientStore()
 const decimals = toRef(clientStore, 'assetDecimals')
 
+const loading = computed(() => marketsStore.state.loading)
 const pools = computed(() => marketsStore.state.pollsData)
 
 const poolsInfo = computed(() => {
@@ -31,6 +32,7 @@ function normalizeAmount(price: number) {
     <total-card
       title="Total Collateral"
       :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
+      :loading="loading"
     />
     <total-card
       title="Total Borrowing"
@@ -38,6 +40,7 @@ function normalizeAmount(price: number) {
       color="#111"
       bg-color="#FFD101"
       :icon="borrowingIcon"
+      :loading="loading"
     />
 
     <div class="total-card market-size">
@@ -46,7 +49,14 @@ function normalizeAmount(price: number) {
           Total market size
         </div>
         <div class="total-card__body">
-          {{ marketSize }}
+          <j-skeleton
+            v-if="loading"
+            height="28"
+            full-width
+          />
+          <template v-else>
+            {{ marketSize }}
+          </template>
         </div>
       </div>
     </div>

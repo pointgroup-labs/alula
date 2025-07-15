@@ -35,6 +35,7 @@ declare module 'vue' {
     JLoadingSpinner: typeof import('./../components/Common/JLoadingSpinner.vue')['default']
     JPillLabel: typeof import('./../components/Common/JPillLabel.vue')['default']
     JPopover: typeof import('./../components/Common/JPopover.vue')['default']
+    JSkeleton: typeof import('./../components/Common/JSkeleton.vue')['default']
     JToggle: typeof import('./../components/Common/JToggle.vue')['default']
     JTooltip: typeof import('./../components/Common/JTooltip.vue')['default']
     MarketDetailsBorrow: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Details/MarketDetailsBorrow.vue')['default']
