@@ -75,8 +75,8 @@ const availableToBorrow = computed(() => {
   }
   const userTotalDepositInUsd = userStore.userTotalDepositInUsd
   const userTotalBorrowedInUsd = Number(userStore.userTotalBorrowedInUsd) || 0
-  const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const openLTV = Number(data?.raw.config.open_ltv_bps || 0) / 10_000
+  const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
   const maxAvailableUsd = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
   const maxAvailableAssets = maxAvailableUsd / Number(data.price)
