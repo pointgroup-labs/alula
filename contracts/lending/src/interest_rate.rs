@@ -213,9 +213,13 @@ impl Pool {
     }
 
     fn calculate_utilization_ratio_for_total_bps(&self, total: i128) -> Result<i128, LCError> {
-        self.total_borrowed
-            .fixed_div_ceil(total, BPS_FACTOR)
-            .map_over_or_underflow()
+        if total == 0 {
+            Ok(0)
+        } else {
+            self.total_borrowed
+                .fixed_div_ceil(total, BPS_FACTOR)
+                .map_over_or_underflow()
+        }
     }
 
     fn calculate_interest_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError> {
