@@ -197,6 +197,43 @@ fn test_withdraw_overbalance() {
 }
 
 #[test]
+fn test_withdraw_all_with_i128_max() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let pool_deposited_before = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_supply()
+        .unwrap();
+
+    contract_client.withdraw(&user, &usdc_pool_address, &i128::MAX);
+
+    let pool_deposited_after = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_supply()
+        .unwrap();
+
+    assert_eq!(
+        pool_deposited_after + DEFAULT_DEPOSIT_AMOUNT,
+        pool_deposited_before
+    );
+    assert_eq!(
+        get_deposit_obligation(&contract_client, &user, &usdc_pool_address),
+        Err(LCError::ObligationDoesNotExist)
+    );
+}
+
+#[test]
 #[should_panic(expected = "Error(Contract, #9)")]
 fn test_remove_collateral_overbalance() {
     let TestFixture {
@@ -216,5 +253,38 @@ fn test_remove_collateral_overbalance() {
         &user,
         &usdc_pool_address,
         &((DEFAULT_COLLATERAL_AMOUNT / 2) + 1),
+    );
+}
+
+#[test]
+fn test_remove_all_with_i128_max() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+
+    contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+
+    let pool_collateral_before = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_collateral;
+
+    contract_client.remove_collateral(&user, &usdc_pool_address, &i128::MAX);
+
+    let pool_collateral_after = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_collateral;
+
+    assert_eq!(
+        pool_collateral_before - DEFAULT_COLLATERAL_AMOUNT,
+        pool_collateral_after
+    );
+    assert_eq!(
+        get_deposit_obligation(&contract_client, &user, &usdc_pool_address),
+        Err(LCError::ObligationDoesNotExist)
     );
 }

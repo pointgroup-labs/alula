@@ -2,6 +2,7 @@
 
 use {
     crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
+    lending::LCError,
     soroban_sdk::{testutils::Ledger, Address},
 };
 
@@ -210,5 +211,77 @@ fn test_repay_unpaid_interest_only() {
             .unwrap()
             .unpaid_interest,
         0
+    );
+}
+
+#[test]
+fn test_repay_more_than_borrowed() {
+    const BORROW_AMOUNT: i128 = 5 * DEFAULT_DEPOSIT_AMOUNT / 10;
+
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user: Address = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit gold as a collateral to satisfy the health factor threshold
+    contract_client.add_collateral(&user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    // Deposit usdc as another user to have a non-empty loan pool
+    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    contract_client.borrow(&user, &usdc_pool_address, &BORROW_AMOUNT);
+
+    let pool_borrowed_before = contract_client.get_pool(&usdc_pool_address).total_borrowed;
+
+    // Repay more
+    contract_client.repay(&user, &usdc_pool_address, &(BORROW_AMOUNT + 1));
+
+    let pool_borrowed_after = contract_client.get_pool(&usdc_pool_address).total_borrowed;
+
+    assert_eq!(pool_borrowed_after + BORROW_AMOUNT, pool_borrowed_before);
+    assert_eq!(
+        get_borrow_obligation(&contract_client, &user, &usdc_pool_address),
+        Err(LCError::BorrowDoesNotExist)
+    );
+}
+
+#[test]
+fn test_repay_all_with_i128_max() {
+    const BORROW_AMOUNT: i128 = 5 * DEFAULT_DEPOSIT_AMOUNT / 10;
+
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user: Address = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit gold as a collateral to satisfy the health factor threshold
+    contract_client.add_collateral(&user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    // Deposit usdc as another user to have a non-empty loan pool
+    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    contract_client.borrow(&user, &usdc_pool_address, &BORROW_AMOUNT);
+
+    let pool_borrowed_before = contract_client.get_pool(&usdc_pool_address).total_borrowed;
+
+    // Repay all debt
+    contract_client.repay(&user, &usdc_pool_address, &i128::MAX);
+
+    let pool_borrowed_after = contract_client.get_pool(&usdc_pool_address).total_borrowed;
+
+    assert_eq!(pool_borrowed_after + BORROW_AMOUNT, pool_borrowed_before);
+    assert_eq!(
+        get_borrow_obligation(&contract_client, &user, &usdc_pool_address),
+        Err(LCError::BorrowDoesNotExist)
     );
 }

@@ -500,3 +500,59 @@ fn test_withdraw_over_balance() {
         &withdrawable_amount,
     );
 }
+
+#[test]
+fn test_withdraw_all_available_with_i128_max() {
+    let TestFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit into a different pool to make flash loans possible
+    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+
+    contract_client.deposit_with_leverage(
+        &user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT),
+        &40, // x4 leverage
+    );
+
+    let amount_out = swap::get_amount_out(
+        &e,
+        &gold_pool_address,
+        &usdc_pool_address,
+        DEFAULT_DEPOSIT_AMOUNT,
+    )
+    .unwrap();
+
+    let deposited_before = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_supply()
+        .unwrap();
+    let borrowed_before = contract_client.get_pool(&gold_pool_address).total_borrowed;
+
+    contract_client.deleverage_and_withdraw(
+        &user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &i128::MAX,
+    );
+
+    let deposited_after = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_supply()
+        .unwrap();
+    let borrowed_after = contract_client.get_pool(&gold_pool_address).total_borrowed;
+
+    assert_eq!(deposited_before, deposited_after);
+    assert_eq!(borrowed_after, borrowed_before);
+}

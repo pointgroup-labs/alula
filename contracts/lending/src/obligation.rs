@@ -195,7 +195,7 @@ impl Obligation {
     /// the real repaid amount is calculated as `min(debt, repaid_amount)`
     ///
     /// # Returns
-    /// [`Result::Ok(real_repaid_amount)`] in success and [`Err(LCError)`] in failure
+    /// [`Result::Ok(repaid_amount)`] in success and [`Err(LCError)`] in failure
     pub fn repay(&mut self, pool_address: &Address, amount: i128) -> Result<i128, LCError> {
         let mut borrow_obligation = self
             .borrows
@@ -203,17 +203,15 @@ impl Obligation {
             .ok_or(LCError::ObligationDoesNotExist)?;
 
         let total_debt = borrow_obligation.total_debt()?;
+        let repaid_amount = i128::min(total_debt, amount);
 
-        let real_repaid_amount = i128::min(amount, total_debt);
-
-        if real_repaid_amount == total_debt {
+        if repaid_amount == total_debt {
             self.borrows.remove(pool_address.clone());
         } else {
-            if real_repaid_amount <= borrow_obligation.unpaid_interest {
-                borrow_obligation.adjust_unpaid_interest(-real_repaid_amount)?;
+            if repaid_amount <= borrow_obligation.unpaid_interest {
+                borrow_obligation.adjust_unpaid_interest(-repaid_amount)?;
             } else {
-                let to_remove_from_borrowed =
-                    real_repaid_amount - borrow_obligation.unpaid_interest;
+                let to_remove_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest;
                 borrow_obligation.adjust_borrowed(-to_remove_from_borrowed)?;
                 borrow_obligation.adjust_unpaid_interest(-borrow_obligation.unpaid_interest)?;
             }
@@ -221,7 +219,7 @@ impl Obligation {
             self.borrows.set(pool_address.clone(), borrow_obligation);
         }
 
-        Ok(real_repaid_amount)
+        Ok(repaid_amount)
     }
 
     /// Liquidates unhealthy borrow
@@ -530,12 +528,28 @@ impl Obligation {
         Ok(deposit_obligation.shares)
     }
 
+    pub fn get_unpaid_interest(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
+            return Err(LCError::BorrowDoesNotExist);
+        };
+
+        Ok(borrow_obligation.unpaid_interest)
+    }
+
     pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, LCError> {
         let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
             return Err(LCError::BorrowDoesNotExist);
         };
 
         Ok(borrow_obligation.borrowed)
+    }
+
+    pub fn get_total_debt(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
+            return Err(LCError::BorrowDoesNotExist);
+        };
+
+        Ok(borrow_obligation.total_debt()?)
     }
 
     pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, LCError> {
@@ -611,7 +625,7 @@ impl Obligation {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct BorrowObligation {
     /// The initial amount of the borrowed token
@@ -709,7 +723,7 @@ impl BorrowObligation {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 #[contracttype]
 pub struct DepositObligation {
     pub collateral: i128,
