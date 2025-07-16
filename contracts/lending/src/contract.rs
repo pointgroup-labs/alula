@@ -724,15 +724,8 @@ fn process_remove_collateral(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let removed_tokens_amount = if amount == i128::MAX {
-        obligation.get_collateral(pool_address)?
-    } else {
-        amount
-    };
-
-    if removed_tokens_amount > pool.total_collateral {
-        return Err(LCError::NotEnoughPoolFunds);
-    }
+    let max_possible_taken_amount = obligation.compute_max_healthy_taken_amount(e, pool_address)?;
+    let removed_tokens_amount = i128::min(amount, max_possible_taken_amount);
 
     obligation.remove_collateral(pool_address, removed_tokens_amount)?;
     pool.adjust_total_collateral(-removed_tokens_amount)?;

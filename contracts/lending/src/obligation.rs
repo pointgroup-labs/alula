@@ -126,8 +126,8 @@ impl Obligation {
     }
 
     /// Computes the max healthy token amount that can be taken from the pool(via withdrawing, removing collateral, or borrowing) that
-    /// doesn't exceed the open LTV parameter on the pool
-    fn compute_max_healthy_taken_amount(
+    /// doesn't exceed the `open LTV` parameter on the pool
+    pub fn compute_max_healthy_taken_amount(
         &self,
         e: &Env,
         pool_address: &Address,
@@ -137,7 +137,7 @@ impl Obligation {
         };
 
         let borrowed_value = self.compute_borrowed_value(e)?;
-        let collateral_value = self.compute_borrowed_value(e)?;
+        let collateral_value = self.compute_collateral_value(e)?;
 
         // TODO: Must be rewritten when markets are implemented
         let open_ltv_collateral_value = collateral_value
