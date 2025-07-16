@@ -170,8 +170,8 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user which repays borrowed tokens
     /// * `pool_address` - address of a pool from which the borrow happened
-    /// * `amount` - amount of repaid tokens. Only the debt will be repaid when a bigger amount than the total debt is passed as an argument.
-    ///  This implies that passing `[i128::MAX]` can be used to repay the entire debt
+    /// * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only the outstanding debt will be repaid.
+    /// Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
     pub fn repay(
         e: Env,
         user: Address,
@@ -215,7 +215,9 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user which withdraws collateral tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
-    /// * `amount` - amount of withdrawn tokens
+    /// * `amount` - desired amount of collateral tokens to remove.
+    /// The actual amount removed is capped to maintain the position's LTV at its Open LTV on the pool.
+    /// Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available collateral
     pub fn remove_collateral(
         e: Env,
         user: Address,
@@ -232,7 +234,9 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user which withdraws deposited tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
-    /// * `amount` - amount of withdrawn tokens. [`i128::MAX`] encodes the total deposited amount in a pool for the obligation
+    /// * `amount` - desired amount of tokens to withdraw.
+    /// The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the pool.
+    /// Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens available for it
     pub fn withdraw(
         e: Env,
         user: Address,
@@ -299,7 +303,10 @@ impl LendingContract {
     /// * `user` - user that deleverages and withdraws from the position
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
-    /// * `amount` - amount of withdrawn tokens
+    /// * `amount` - desired amount of tokens to withdraw.
+    /// The actual amount withdrawn is capped by the value difference between deposited and borrowed tokens in
+    /// the leveraged position (minus operational fees). Passing [`u64::MAX`] (or [`i128::MAX`])
+    /// can be used to withdraw all available tokens
     pub fn deleverage_and_withdraw(
         e: Env,
         user: Address,
