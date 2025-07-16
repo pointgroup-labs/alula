@@ -721,7 +721,7 @@ fn process_remove_collateral(
     let mut pool = Pool::try_get(e, pool_address)?;
 
     let removed_tokens_amount = if amount == i128::MAX {
-        obligation.get_collateral(&pool_address)?
+        obligation.get_collateral(pool_address)?
     } else {
         amount
     };
@@ -970,7 +970,7 @@ pub fn process_deleverage_and_withdraw(
         return process_withdraw(e, user, deposit_pool_address, amount);
     }
 
-    let obligation_shares = obligation.get_shares(&deposit_pool_address)?;
+    let obligation_shares = obligation.get_shares(deposit_pool_address)?;
     let tokens_per_obligation_shares =
         deposit_pool.compute_tokens_from_shares(obligation_shares)?;
 

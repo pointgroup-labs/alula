@@ -549,7 +549,7 @@ impl Obligation {
             return Err(LCError::BorrowDoesNotExist);
         };
 
-        Ok(borrow_obligation.total_debt()?)
+        borrow_obligation.total_debt()
     }
 
     pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, LCError> {
