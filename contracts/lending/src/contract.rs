@@ -333,10 +333,7 @@ impl LendingContract {
 
     /// Returns oracle price's decimals
     pub fn get_oracle_price_decimals(e: Env) -> u32 {
-        let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
-        let reflector_contract = oracle::Client::new(&e, &reflector_address);
-
-        reflector_contract.decimals()
+        get_oracle_price_decimals(&e)
     }
 
     /// Returns pool asset's oracle price
@@ -990,16 +987,7 @@ pub fn process_deleverage_and_withdraw(
         tokens_per_obligation_shares,
     )?;
 
-    // `[i128::MAX]` encodes the maximum withdrawable amount
-    let withdrawn_amount = if amount == i128::MAX {
-        max_withdrawable_amount
-    } else {
-        amount
-    };
-
-    if withdrawn_amount > max_withdrawable_amount {
-        return Err(LCError::WithdrawOverBalance);
-    }
+    let withdrawn_amount = i128::min(amount, max_withdrawable_amount);
 
     // Compute the flash borrow amount for deleverage
     let scale_bps = withdrawn_amount
@@ -1106,4 +1094,11 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
     Ok(last_price.price)
+}
+
+pub fn get_oracle_price_decimals(e: &Env) -> u32 {
+    let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
+    let reflector_contract = oracle::Client::new(&e, &reflector_address);
+
+    reflector_contract.decimals()
 }
