@@ -640,7 +640,7 @@ fn process_repay(
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(user, &e.current_contract_address(), &repaid_amount);
 
-    events::repay(e, pool_address, user, amount);
+    events::repay(e, pool_address, user, repaid_amount);
 
     Ok(())
 }
