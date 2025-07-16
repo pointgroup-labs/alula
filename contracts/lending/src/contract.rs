@@ -963,7 +963,6 @@ pub fn process_deleverage_and_withdraw(
     };
 
     let obligation = Obligation::try_get(e, user)?;
-
     let borrowed = obligation.get_borrowed(borrow_pool_address)?;
 
     if borrowed == 0 {
@@ -971,8 +970,9 @@ pub fn process_deleverage_and_withdraw(
         return process_withdraw(e, user, deposit_pool_address, amount);
     }
 
-    let all_shares = obligation.get_shares(&deposit_pool_address)?;
-    let tokens_per_all_shares = deposit_pool.compute_tokens_from_shares(all_shares)?;
+    let obligation_shares = obligation.get_shares(&deposit_pool_address)?;
+    let tokens_per_obligation_shares =
+        deposit_pool.compute_tokens_from_shares(obligation_shares)?;
 
     // Compute the max withdrawable amount
     let max_withdrawable_amount = compute_leveraged_position_max_withdrawable_amount(
@@ -980,7 +980,7 @@ pub fn process_deleverage_and_withdraw(
         &deposit_pool.token_address,
         &borrow_pool.token_address,
         borrowed,
-        tokens_per_all_shares,
+        tokens_per_obligation_shares,
     )?;
 
     // `[i128::MAX]` encodes the maximum withdrawable amount
@@ -999,7 +999,7 @@ pub fn process_deleverage_and_withdraw(
         .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    let plain_leverage_amount = tokens_per_all_shares - max_withdrawable_amount; // safe
+    let plain_leverage_amount = tokens_per_obligation_shares - max_withdrawable_amount; // safe
     let plain_leverage_to_be_deleveraged = plain_leverage_amount
         .fixed_div_floor(BPS_FACTOR, scale_bps)
         .map_over_or_underflow()?;
@@ -1060,7 +1060,7 @@ pub fn process_deleverage_and_withdraw(
     Ok(())
 }
 
-// WARN: will everything be ok here with precision and fees?
+// WARN: will everything be ok here with precision?
 fn compute_leveraged_position_max_withdrawable_amount(
     e: &Env,
     deposited_token: &Address,
@@ -1071,13 +1071,21 @@ fn compute_leveraged_position_max_withdrawable_amount(
     let borrowed_token_swapped_amount =
         swap::get_amount_out(e, borrowed_token, deposited_token, borrowed_amount)?;
 
-    if borrowed_token_swapped_amount > deposited_amount {
+    let flash_loan_fee = borrowed_token_swapped_amount
+        .fixed_div_ceil(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
+        .map_over_or_underflow()?;
+
+    let swapped_amount_with_fees = borrowed_token_swapped_amount
+        .checked_add(flash_loan_fee)
+        .map_over_or_underflow()?;
+
+    if swapped_amount_with_fees > deposited_amount {
         // TODO: This can happen when multiply position contains a bad debt
         // What to do in this case?
         return Err(LCError::InternalError);
     }
 
-    Ok(deposited_amount - borrowed_token_swapped_amount)
+    Ok(deposited_amount - swapped_amount_with_fees) // safe
 }
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {

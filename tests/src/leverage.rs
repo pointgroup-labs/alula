@@ -503,8 +503,9 @@ fn test_withdraw_over_balance() {
 
 #[test]
 fn test_withdraw_all_available_with_i128_max() {
+    const LEVERAGE_MULTIPLIER: u32 = 4; // x4 leverage
+
     let TestFixture {
-        e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
@@ -518,27 +519,18 @@ fn test_withdraw_all_available_with_i128_max() {
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
+    let borrowed_token_supply_before = contract_client
+        .get_pool(&gold_pool_address)
+        .total_supply()
+        .unwrap();
+
     contract_client.deposit_with_leverage(
         &user,
         &usdc_pool_address,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT),
-        &40, // x4 leverage
+        &(10 * LEVERAGE_MULTIPLIER),
     );
-
-    let amount_out = swap::get_amount_out(
-        &e,
-        &gold_pool_address,
-        &usdc_pool_address,
-        DEFAULT_DEPOSIT_AMOUNT,
-    )
-    .unwrap();
-
-    let deposited_before = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_supply()
-        .unwrap();
-    let borrowed_before = contract_client.get_pool(&gold_pool_address).total_borrowed;
 
     contract_client.deleverage_and_withdraw(
         &user,
@@ -547,12 +539,16 @@ fn test_withdraw_all_available_with_i128_max() {
         &i128::MAX,
     );
 
-    let deposited_after = contract_client
+    let deposited_token_supply_after = contract_client
         .get_pool(&usdc_pool_address)
         .total_supply()
         .unwrap();
-    let borrowed_after = contract_client.get_pool(&gold_pool_address).total_borrowed;
+    let borrowed_token_supply_after = contract_client
+        .get_pool(&gold_pool_address)
+        .total_supply()
+        .unwrap();
 
-    assert_eq!(deposited_before, deposited_after);
-    assert_eq!(borrowed_after, borrowed_before);
+    // Full withdraw took place
+    assert_eq!(deposited_token_supply_after, 0);
+    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees
 }
