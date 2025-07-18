@@ -29,19 +29,28 @@ function normalizeAmount(price: number) {
 
 <template>
   <div class="market-info">
-    <total-card
-      title="Total Collateral"
-      :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
-      :loading="loading"
-    />
-    <total-card
-      title="Total Borrowing"
-      :body="`$${normalizeAmount(poolsInfo.total_borrowed)}`"
-      color="#111"
-      bg-color="#FFD101"
-      :icon="borrowingIcon"
-      :loading="loading"
-    />
+    <template v-if="loading">
+      <j-skeleton
+        v-for="i in 2"
+        :key="i"
+        width="337"
+        height="168"
+        style="border-radius: 16px;"
+      />
+    </template>
+    <template v-else>
+      <total-card
+        title="Total Collateral"
+        :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
+      />
+      <total-card
+        title="Total Borrowing"
+        :body="`$${normalizeAmount(poolsInfo.total_borrowed)}`"
+        color="#111"
+        bg-color="#FFD101"
+        :icon="borrowingIcon"
+      />
+    </template>
 
     <div class="total-card market-size">
       <div class="total-card__info">
