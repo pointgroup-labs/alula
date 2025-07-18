@@ -170,7 +170,8 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user which repays borrowed tokens
     /// * `pool_address` - address of a pool from which the borrow happened
-    /// * `amount` - amount of repaid tokens
+    /// * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only the outstanding debt will be repaid.
+    /// Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
     pub fn repay(
         e: Env,
         user: Address,
@@ -214,7 +215,9 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user which withdraws collateral tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
-    /// * `amount` - amount of withdrawn tokens
+    /// * `amount` - desired amount of collateral tokens to remove.
+    /// The actual amount removed is capped to maintain the position's LTV at its Open LTV on the pool.
+    /// Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available collateral
     pub fn remove_collateral(
         e: Env,
         user: Address,
@@ -231,7 +234,9 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user which withdraws deposited tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
-    /// * `amount` - amount of withdrawn tokens
+    /// * `amount` - desired amount of tokens to withdraw.
+    /// The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the pool.
+    /// Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens available for it
     pub fn withdraw(
         e: Env,
         user: Address,
@@ -298,7 +303,10 @@ impl LendingContract {
     /// * `user` - user that deleverages and withdraws from the position
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
-    /// * `amount` - amount of withdrawn tokens
+    /// * `amount` - desired amount of tokens to withdraw.
+    /// The actual amount withdrawn is capped by the value difference between deposited and borrowed tokens in
+    /// the leveraged position (minus operational fees). Passing [`u64::MAX`] (or [`i128::MAX`])
+    /// can be used to withdraw all available tokens
     pub fn deleverage_and_withdraw(
         e: Env,
         user: Address,
@@ -325,10 +333,7 @@ impl LendingContract {
 
     /// Returns oracle price's decimals
     pub fn get_oracle_price_decimals(e: Env) -> u32 {
-        let reflector_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
-        let reflector_contract = oracle::Client::new(&e, &reflector_address);
-
-        reflector_contract.decimals()
+        get_oracle_price_decimals(&e)
     }
 
     /// Returns pool asset's oracle price
@@ -617,7 +622,7 @@ fn process_repay(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(user, &e.current_contract_address(), &amount);
+    token_client.transfer(user, &e.current_contract_address(), &repaid_amount);
 
     Ok(())
 }
@@ -719,12 +724,12 @@ fn process_remove_collateral(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    if amount > pool.total_collateral {
-        return Err(LCError::NotEnoughPoolFunds);
-    }
+    let max_possible_collateral_removed_amount =
+        obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
+    let removed_tokens_amount = i128::min(amount, max_possible_collateral_removed_amount);
 
-    obligation.remove_collateral(pool_address, amount)?;
-    pool.adjust_total_collateral(-amount)?;
+    obligation.remove_collateral(pool_address, removed_tokens_amount)?;
+    pool.adjust_total_collateral(-removed_tokens_amount)?;
 
     if !obligation.is_healthy(e)? {
         return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
@@ -738,7 +743,7 @@ fn process_remove_collateral(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &amount);
+    token_client.transfer(&e.current_contract_address(), user, &removed_tokens_amount);
 
     Ok(())
 }
@@ -758,16 +763,24 @@ fn process_withdraw(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    if amount > pool.available {
+    let max_possible_collateral_removed_amount =
+        obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
+
+    // TODO: Prettify this somehow
+    let withdrawn_tokens_amount = i128::min(amount, max_possible_collateral_removed_amount);
+
+    let shares = pool.compute_shares_from_tokens(withdrawn_tokens_amount)?;
+    let burnt_shares_amount = i128::min(shares, obligation.get_shares(pool_address)?);
+    let withdrawn_tokens_amount = pool.compute_tokens_from_shares(burnt_shares_amount)?;
+
+    if withdrawn_tokens_amount > pool.available {
         return Err(LCError::NotEnoughPoolFunds);
     }
 
-    let shares_to_burn = pool.compute_shares_from_tokens(amount)?;
+    obligation.withdraw(pool_address, burnt_shares_amount)?;
 
-    obligation.withdraw(pool_address, shares_to_burn)?;
-
-    pool.adjust_total_shares(-shares_to_burn)?;
-    pool.adjust_available(-amount)?;
+    pool.adjust_total_shares(-burnt_shares_amount)?;
+    pool.adjust_available(-withdrawn_tokens_amount)?;
 
     if !obligation.is_healthy(e)? {
         return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
@@ -781,7 +794,11 @@ fn process_withdraw(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &amount);
+    token_client.transfer(
+        &e.current_contract_address(),
+        user,
+        &withdrawn_tokens_amount,
+    );
 
     Ok(())
 }
@@ -941,7 +958,6 @@ pub fn process_deleverage_and_withdraw(
     };
 
     let obligation = Obligation::try_get(e, user)?;
-
     let borrowed = obligation.get_borrowed(borrow_pool_address)?;
 
     if borrowed == 0 {
@@ -949,8 +965,9 @@ pub fn process_deleverage_and_withdraw(
         return process_withdraw(e, user, deposit_pool_address, amount);
     }
 
-    let shares = obligation.get_shares(deposit_pool_address)?;
-    let tokens_per_shares = deposit_pool.compute_tokens_from_shares(shares)?;
+    let obligation_shares = obligation.get_shares(deposit_pool_address)?;
+    let tokens_per_obligation_shares =
+        deposit_pool.compute_tokens_from_shares(obligation_shares)?;
 
     // Compute the max withdrawable amount
     let max_withdrawable_amount = compute_leveraged_position_max_withdrawable_amount(
@@ -958,19 +975,17 @@ pub fn process_deleverage_and_withdraw(
         &deposit_pool.token_address,
         &borrow_pool.token_address,
         borrowed,
-        tokens_per_shares,
+        tokens_per_obligation_shares,
     )?;
 
-    if amount > max_withdrawable_amount {
-        return Err(LCError::WithdrawOverBalance);
-    }
+    let withdrawn_amount = i128::min(amount, max_withdrawable_amount);
 
     // Compute the flash borrow amount for deleverage
-    let scale_bps = amount
+    let scale_bps = withdrawn_amount
         .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    let plain_leverage_amount = tokens_per_shares - max_withdrawable_amount; // safe
+    let plain_leverage_amount = tokens_per_obligation_shares - max_withdrawable_amount; // safe
     let plain_leverage_to_be_deleveraged = plain_leverage_amount
         .fixed_div_floor(BPS_FACTOR, scale_bps)
         .map_over_or_underflow()?;
@@ -995,7 +1010,7 @@ pub fn process_deleverage_and_withdraw(
     borrow_pool.refresh(e)?;
 
     // Withdraw
-    let withdraw_amount = amount
+    let withdraw_amount = withdrawn_amount
         .checked_add(plain_leverage_to_be_deleveraged)
         .map_over_or_underflow()?;
     process_withdraw(e, user, deposit_pool_address, withdraw_amount)?;
@@ -1031,7 +1046,7 @@ pub fn process_deleverage_and_withdraw(
     Ok(())
 }
 
-// WARN: will everything be ok here with precision and fees?
+// WARN: will everything be ok here with precision?
 fn compute_leveraged_position_max_withdrawable_amount(
     e: &Env,
     deposited_token: &Address,
@@ -1042,13 +1057,21 @@ fn compute_leveraged_position_max_withdrawable_amount(
     let borrowed_token_swapped_amount =
         swap::get_amount_out(e, borrowed_token, deposited_token, borrowed_amount)?;
 
-    if borrowed_token_swapped_amount > deposited_amount {
+    let flash_loan_fee = borrowed_token_swapped_amount
+        .fixed_div_ceil(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
+        .map_over_or_underflow()?;
+
+    let swapped_amount_with_fees = borrowed_token_swapped_amount
+        .checked_add(flash_loan_fee)
+        .map_over_or_underflow()?;
+
+    if swapped_amount_with_fees > deposited_amount {
         // TODO: This can happen when multiply position contains a bad debt
         // What to do in this case?
         return Err(LCError::InternalError);
     }
 
-    Ok(deposited_amount - borrowed_token_swapped_amount)
+    Ok(deposited_amount - swapped_amount_with_fees) // safe
 }
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
@@ -1062,4 +1085,11 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
     Ok(last_price.price)
+}
+
+pub fn get_oracle_price_decimals(e: &Env) -> u32 {
+    let reflector_address = Address::from_str(e, REFLECTOR_TESTNET_ADDRESS);
+    let reflector_contract = oracle::Client::new(e, &reflector_address);
+
+    reflector_contract.decimals()
 }

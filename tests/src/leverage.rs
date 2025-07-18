@@ -449,8 +449,71 @@ fn test_withdraw() {
 
 #[test]
 fn test_withdraw_over_balance() {
+    const LEVERAGE_MULTIPLIER: u32 = 4; // x4 leverage
+
     let TestFixture {
         e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Deposit into a different pool to make flash loans possible
+    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+
+    let borrowed_token_supply_before = contract_client
+        .get_pool(&gold_pool_address)
+        .total_supply()
+        .unwrap();
+
+    contract_client.deposit_with_leverage(
+        &user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT),
+        &(10 * LEVERAGE_MULTIPLIER),
+    );
+
+    let amount_out = swap::get_amount_out(
+        &e,
+        &gold_pool_address,
+        &usdc_pool_address,
+        DEFAULT_DEPOSIT_AMOUNT,
+    )
+    .unwrap();
+    let withdrawable_amount = get_amount_scaled_down(amount_out, 2_00);
+
+    // Withdrawing more than max available amount must succeed because of the inner cap
+    contract_client.deleverage_and_withdraw(
+        &user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &(10 * withdrawable_amount / 9),
+    );
+
+    let deposited_token_supply_after = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_supply()
+        .unwrap();
+    let borrowed_token_supply_after = contract_client
+        .get_pool(&gold_pool_address)
+        .total_supply()
+        .unwrap();
+
+    assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
+    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees (TODO: Add a more rigorous check)
+}
+
+#[test]
+fn test_withdraw_all_available_with_i128_max() {
+    const LEVERAGE_MULTIPLIER: u32 = 4; // x4 leverage
+
+    let TestFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
@@ -469,34 +532,31 @@ fn test_withdraw_over_balance() {
         &usdc_pool_address,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT),
-        &40, // x4 leverage
+        &(10 * LEVERAGE_MULTIPLIER),
     );
 
-    let amount_out = swap::get_amount_out(
-        &e,
-        &gold_pool_address,
-        &usdc_pool_address,
-        DEFAULT_DEPOSIT_AMOUNT,
-    )
-    .unwrap();
-    let withdrawable_amount = get_amount_scaled_down(amount_out, 2_00);
+    let borrowed_token_supply_before = contract_client
+        .get_pool(&gold_pool_address)
+        .total_supply()
+        .unwrap();
 
-    // We must be able to withdraw not more than the initial amount
-    assert_eq!(
-        Err(Ok(LCError::WithdrawOverBalance)),
-        contract_client.try_deleverage_and_withdraw(
-            &user,
-            &usdc_pool_address,
-            &gold_pool_address,
-            &(10 * withdrawable_amount / 9),
-        )
-    );
-
-    // On the contrary, withdrawable amount must be able to be withdrawn
     contract_client.deleverage_and_withdraw(
         &user,
         &usdc_pool_address,
         &gold_pool_address,
-        &withdrawable_amount,
+        &i128::MAX,
     );
+
+    let deposited_token_supply_after = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_supply()
+        .unwrap();
+    let borrowed_token_supply_after = contract_client
+        .get_pool(&gold_pool_address)
+        .total_supply()
+        .unwrap();
+
+    // Full withdraw took place
+    assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
+    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO: Add a more rigorous check)
 }

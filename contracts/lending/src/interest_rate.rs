@@ -213,9 +213,13 @@ impl Pool {
     }
 
     fn calculate_utilization_ratio_for_total_bps(&self, total: i128) -> Result<i128, LCError> {
-        self.total_borrowed
-            .fixed_div_ceil(total, BPS_FACTOR)
-            .map_over_or_underflow()
+        if total == 0 {
+            Ok(0)
+        } else {
+            self.total_borrowed
+                .fixed_div_ceil(total, BPS_FACTOR)
+                .map_over_or_underflow()
+        }
     }
 
     fn calculate_interest_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError> {
@@ -343,7 +347,7 @@ mod tests {
         let mut pool = create_test_pool(&env);
         pool.last_accrual_timestamp = 100;
 
-        env.ledger().with_mut(|li| li.timestamp = 100);
+        env.ledger().with_mut(|li| li.timestamp += 100);
 
         let result = pool.accrue_interest(&env);
         assert!(result.is_ok());
@@ -360,7 +364,7 @@ mod tests {
         let mut pool = create_test_pool(&env);
         pool.last_accrual_timestamp = 200;
 
-        env.ledger().with_mut(|li| li.timestamp = 100);
+        env.ledger().with_mut(|li| li.timestamp += 100);
 
         let result = pool.accrue_interest(&env);
         assert!(result.is_err());
@@ -377,7 +381,7 @@ mod tests {
         pool.last_accrual = ACCRUAL_INIT;
 
         let time_passed = 24 * 60 * 60; // 1 day (24 hours) for meaningful interest accrual
-        env.ledger().with_mut(|li| li.timestamp = time_passed);
+        env.ledger().with_mut(|li| li.timestamp += time_passed);
 
         let initial_total_borrowed = pool.total_borrowed;
         let initial_accrual = pool.last_accrual;
