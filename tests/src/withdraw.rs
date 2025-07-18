@@ -271,7 +271,7 @@ fn test_withdraw_more_than_open_ltv_allows() {
     let deposit_amount =
         get_obligation_tokens_from_shares(&contract_client, &user, &gold_pool_address).unwrap();
 
-    // The collateral that backs borrowed funds must be present on the contract
+    // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(
         deposit_amount,
         (borrowed_amount * 100) / DEFAULT_LIQUIDATION_THRESHOLD
@@ -329,7 +329,9 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
     let user = users.get(0).unwrap();
     let user2 = users.get(1).unwrap();
 
+    // Deposit funds in a pool to borrow them later
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    // Add collateral
     contract_client.add_collateral(&user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let obligation = contract_client.get_user_obligation(&user);

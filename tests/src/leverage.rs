@@ -448,7 +448,6 @@ fn test_withdraw() {
 }
 
 #[test]
-#[ignore] // ignored for now, since there's an issue with amounts after withdraw
 fn test_withdraw_over_balance() {
     const LEVERAGE_MULTIPLIER: u32 = 4; // x4 leverage
 
@@ -506,12 +505,11 @@ fn test_withdraw_over_balance() {
         .total_supply()
         .unwrap();
 
-    assert_eq!(deposited_token_supply_after, 0);
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees
+    assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
+    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees (TODO: Add a more rigorous check)
 }
 
 #[test]
-#[ignore] // ignored for now, since there's an issue with amounts after withdraw
 fn test_withdraw_all_available_with_i128_max() {
     const LEVERAGE_MULTIPLIER: u32 = 4; // x4 leverage
 
@@ -559,6 +557,6 @@ fn test_withdraw_all_available_with_i128_max() {
         .unwrap();
 
     // Full withdraw took place
-    assert_eq!(deposited_token_supply_after, 0);
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees
+    assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
+    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO: Add a more rigorous check)
 }

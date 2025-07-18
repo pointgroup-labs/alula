@@ -158,7 +158,7 @@ impl Obligation {
         Ok(token_amount_left)
     }
 
-    /// Computes the max healthy amount of the borrowed token that can be taken from the pool that
+    /// Computes the max healthy amount of the token that can be borrowed and that
     /// doesn't exceed the `open LTV` parameter on the pool
     pub fn compute_max_healthy_borrow_added_amount(
         &self,
@@ -177,15 +177,15 @@ impl Obligation {
             .fixed_div_floor(BPS_FACTOR, pool.config.open_ltv_bps)
             .map_over_or_underflow()?;
 
-        let max_healthy_borrow_amount = if borrowed_value < open_ltv_collateral_value {
+        let max_healthy_borrow_amount = if borrowed_value >= open_ltv_collateral_value {
+            // Since overall borrowed assets value exceeds the collateral value scaled down with Open LTV,
+            // the borrow is prohibited
+            0
+        } else {
             let value_left = open_ltv_collateral_value - borrowed_value; // safe
             let price = get_asset_price(e, &pool.token_ticker)?;
 
             value_left.checked_div(price).map_over_or_underflow()?
-        } else {
-            // Since overall borrowed assets value exceeds the collateral value scaled down with Open LTV,
-            // the borrow is prohibited
-            0
         };
 
         Ok(max_healthy_borrow_amount)
