@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL } from '~/config'
+import { POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
 import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const {
@@ -199,6 +199,7 @@ watch(() => modelValue, async (v) => {
       <input-widget
         v-model="amount"
         :balance="availableToBorrow"
+        :fee="POOL_REMAINING_BALANCE"
         :rules="[
           (v) => {
             return v && Number(v) < availableToBorrow || 'Borrow limit exceeded'

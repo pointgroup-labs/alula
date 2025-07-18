@@ -34,6 +34,7 @@ export const useMarketsStore = defineStore('markets', () => {
       state.pollsData = await Promise.all(
         allPools.map(async (pool_address: string) => await preparePool(pool_address)),
       )
+      console.log('%c[Pools]', 'color: #FFB726', state.pollsData)
     } finally {
       state.loading = false
     }

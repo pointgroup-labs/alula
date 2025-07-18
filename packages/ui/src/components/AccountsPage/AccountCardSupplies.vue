@@ -73,6 +73,12 @@ function withdrawDialogHandler(data: { item: any }) {
   selectedPoolAddress.value = data.item?.pool_address
   dialog.value = true
 }
+
+watch(selectedPool, (p) => {
+  if (!p) {
+    dialog.value = false
+  }
+})
 </script>
 
 <template>
