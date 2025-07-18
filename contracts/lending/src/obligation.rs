@@ -125,9 +125,42 @@ impl Obligation {
         Ok(collateral_value_sum)
     }
 
-    /// Computes the max healthy token amount that can be taken from the pool(via withdrawing, removing collateral, or borrowing) that
+    /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a collateral) that can
+    /// be taken and which doesn't exceed the `open LTV` parameter on the pool
+    pub fn compute_max_healthy_collateral_removed_amount(
+        &self,
+        e: &Env,
+        pool_address: &Address,
+    ) -> Result<i128, LCError> {
+        let Some(pool) = storage::get_pool(e, pool_address) else {
+            return Err(LCError::PoolDoesNotExist);
+        };
+
+        let borrowed_value = self.compute_borrowed_value(e)?;
+        let collateral_value = self.compute_collateral_value(e)?;
+
+        // 'open_ltv_collateral_value' == (borrowed_value * 10_000) / pool.config.open_ltv_bps
+        let open_ltv_collateral_value = borrowed_value
+            .fixed_div_floor(pool.config.open_ltv_bps, BPS_FACTOR)
+            .map_over_or_underflow()?;
+
+        let token_amount_left = if collateral_value <= open_ltv_collateral_value {
+            // Since overall borrowed assets value exceeds the collateral value scaled down with Open LTV,
+            // the borrow is prohibited
+            0
+        } else {
+            let value_left = collateral_value - open_ltv_collateral_value; // safe
+            let price = get_asset_price(e, &pool.token_ticker)?;
+
+            value_left.checked_div(price).map_over_or_underflow()?
+        };
+
+        Ok(token_amount_left)
+    }
+
+    /// Computes the max healthy amount of the borrowed token that can be taken from the pool that
     /// doesn't exceed the `open LTV` parameter on the pool
-    pub fn compute_max_healthy_taken_amount(
+    pub fn compute_max_healthy_borrow_added_amount(
         &self,
         e: &Env,
         pool_address: &Address,

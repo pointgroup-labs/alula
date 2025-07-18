@@ -3,8 +3,9 @@
 use lending::constants::DEFAULT_LIQUIDATION_THRESHOLD;
 
 use crate::{
-    get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral, LCError,
-    TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
+    get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral,
+    get_obligation_tokens_from_shares, LCError, TestFixture, DEFAULT_COLLATERAL_AMOUNT,
+    DEFAULT_DEPOSIT_AMOUNT,
 };
 
 #[test]
@@ -179,27 +180,6 @@ fn test_remove_collateral() {
 }
 
 #[test]
-fn test_withdraw_overbalance() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
-
-    contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    assert_eq!(
-        contract_client.try_withdraw(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT + 1)),
-        Err(Ok(LCError::WithdrawOverBalance))
-    );
-}
-
-#[test]
 fn test_withdraw_all_with_i128_max() {
     let TestFixture {
         contract_client,
@@ -237,11 +217,16 @@ fn test_withdraw_all_with_i128_max() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #9)")]
-fn test_remove_collateral_overbalance() {
+fn test_withdraw_more_than_open_ltv_allows() {
+    const MAX_BORROWING_AMOUNT: i128 =
+        (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
+
     let TestFixture {
+        e,
         contract_client,
+        contract_id,
         usdc_pool_address,
+        gold_pool_address,
         users,
         ..
     } = TestFixture::new();
@@ -249,13 +234,47 @@ fn test_remove_collateral_overbalance() {
     let user = users.get(0).unwrap();
     let user2 = users.get(1).unwrap();
 
-    contract_client.add_collateral(&user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
-    contract_client.add_collateral(&user2, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
+    // Fill up the borrowing pool with liquidity
+    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    // Deposit gold as deposit that backs future borrows
+    contract_client.deposit(&user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    contract_client.remove_collateral(
-        &user,
-        &usdc_pool_address,
-        &((DEFAULT_COLLATERAL_AMOUNT / 2) + 1),
+    let obligation = contract_client.get_user_obligation(&user);
+    e.as_contract(&contract_id, || {
+        let max_borrowing_amount = obligation
+            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
+            .unwrap();
+
+        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
+    });
+
+    // Borrow half
+    contract_client.borrow(&user, &usdc_pool_address, &(MAX_BORROWING_AMOUNT / 2));
+
+    let borrowed_amount =
+        get_obligation_borrowed(&contract_client, &user, &usdc_pool_address).unwrap();
+    assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT / 2);
+
+    let obligation = contract_client.get_user_obligation(&user);
+    e.as_contract(&contract_id, || {
+        let max_borrowing_amount = obligation
+            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
+            .unwrap();
+
+        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT / 2);
+    });
+
+    // Try withdraw all
+    contract_client.withdraw(&user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+
+    // Check that there's a deposit left and it is backing the borrowed funds
+    let deposit_amount =
+        get_obligation_tokens_from_shares(&contract_client, &user, &gold_pool_address).unwrap();
+
+    // The collateral that backs borrowed funds must be present on the contract
+    assert_eq!(
+        deposit_amount,
+        (borrowed_amount * 100) / DEFAULT_LIQUIDATION_THRESHOLD
     );
 }
 
@@ -293,7 +312,7 @@ fn test_remove_all_with_i128_max() {
 }
 
 #[test]
-fn test_remove_more_than_open_ltv() {
+fn test_remove_collateral_more_than_open_ltv_allows() {
     const MAX_BORROWING_AMOUNT: i128 =
         (DEFAULT_COLLATERAL_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
 
@@ -316,7 +335,7 @@ fn test_remove_more_than_open_ltv() {
     let obligation = contract_client.get_user_obligation(&user);
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_taken_amount(&e, &usdc_pool_address)
+            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
@@ -332,25 +351,14 @@ fn test_remove_more_than_open_ltv() {
     let obligation = contract_client.get_user_obligation(&user);
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_taken_amount(&e, &gold_pool_address)
+            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
             .unwrap();
 
-        assert_eq!(
-            max_borrowing_amount,
-            ((DEFAULT_COLLATERAL_AMOUNT / 2) * DEFAULT_LIQUIDATION_THRESHOLD) / 100
-        );
+        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT / 2);
     });
 
-    let collateral_before =
-        get_obligation_collateral(&contract_client, &user, &gold_pool_address).unwrap();
-
-    // Now try to remove all collateral
+    // Try to remove all collateral
     contract_client.remove_collateral(&user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-
-    let collateral_after =
-        get_obligation_collateral(&contract_client, &user, &gold_pool_address).unwrap();
-
-    std::dbg!(collateral_after, collateral_before);
 
     // Check that there's a collateral left and it is backing the borrowed funds
     let collateral_amount =

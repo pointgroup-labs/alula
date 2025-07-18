@@ -724,8 +724,9 @@ fn process_remove_collateral(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let max_possible_taken_amount = obligation.compute_max_healthy_taken_amount(e, pool_address)?;
-    let removed_tokens_amount = i128::min(amount, max_possible_taken_amount);
+    let max_possible_collateral_removed_amount =
+        obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
+    let removed_tokens_amount = i128::min(amount, max_possible_collateral_removed_amount);
 
     obligation.remove_collateral(pool_address, removed_tokens_amount)?;
     pool.adjust_total_collateral(-removed_tokens_amount)?;
@@ -762,22 +763,16 @@ fn process_withdraw(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    // `[i128::MAX]` encodes the full deposited tokens withdrawal
-    let (burnt_shares_amount, withdrawn_tokens_amount) = if amount == i128::MAX {
-        let shares = obligation.get_shares(pool_address)?;
-        let tokens = pool.compute_tokens_from_shares(shares)?;
+    let max_possible_collateral_removed_amount =
+        obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
 
-        (shares, tokens)
-    } else {
-        let shares = pool.compute_shares_from_tokens(amount)?;
-        let tokens = amount;
-
-        (shares, tokens)
-    };
+    let withdrawn_tokens_amount = i128::min(amount, max_possible_collateral_removed_amount);
 
     if withdrawn_tokens_amount > pool.available {
         return Err(LCError::NotEnoughPoolFunds);
     }
+
+    let burnt_shares_amount = pool.compute_shares_from_tokens(withdrawn_tokens_amount)?;
 
     obligation.withdraw(pool_address, burnt_shares_amount)?;
 
