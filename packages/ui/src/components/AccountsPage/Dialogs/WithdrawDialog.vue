@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { shortenNumber, truncatePercent } from '~/utils'
+import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -40,34 +40,29 @@ const remainingBalance = computed(() => Number(collateralOnly.value ? collateral
 
 const closeLTV = computed(() => data?.raw.config.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
 
-const helthFactor = computed(() => {
-  const A = Number(amount.value || 0) * Number(data?.price || 0)
-  const D = (userTotalDepositInUsd.value * closeLTV.value) - A
-  const B = userTotalBorrowedInUsd.value
-  const result = B === 0 ? 0 : Math.max(D / B, 0)
+const healthFactor = computed(() => {
+  const price = Number(data?.price || 0)
+  const withdrawUsd = Number(amount.value || 0) * price
+  const depositedAfterWithdraw = Math.max(userTotalDepositInUsd.value - withdrawUsd, 0)
+  const borrowed = userTotalBorrowedInUsd.value
+
+  const result = borrowed === 0 ? 10 : Math.max((depositedAfterWithdraw * closeLTV.value) / borrowed, 0)
   return Math.min(result, 10)
 })
 
 const availableToWithdraw = computed(() => {
-  const balance = collateralOnly.value
-    ? collateralBalance.value
-    : supplyBalance.value
-
-  const D = userTotalDepositInUsd.value
+  const price = Number(data?.price || 1)
+  const deposited = userTotalDepositInUsd.value
   const borrowed = userTotalBorrowedInUsd.value
 
-  let limitUsd
+  const targetDeposit = borrowed / closeLTV.value
+  const maxWithdrawUsd = Math.max(deposited - targetDeposit, 0)
+  let maxWithdrawAmount = maxWithdrawUsd / price
 
-  if (borrowed <= 0) {
-    limitUsd = D
-  } else {
-    const minDeposit = borrowed / closeLTV.value
-    limitUsd = D - minDeposit
-  }
+  const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value
+  maxWithdrawAmount = Math.min(balance, maxWithdrawAmount)
 
-  const limitAsset = limitUsd / Number(data?.price || 1)
-
-  return Math.max(Math.min(balance, limitAsset), 0)
+  return Math.max(maxWithdrawAmount, 0)
 })
 
 watchDebounced([
@@ -90,32 +85,33 @@ const infoTableData = computed(() => {
     return []
   }
   return [{
+    name: 'healthFactor',
     label: 'Health Factor',
-    value: truncatePercent(helthFactor.value, 2),
+    value: truncatePercent(healthFactor.value || 0, 2),
   },
   {
     label: 'Total supply',
-    value: `${shortenNumber(totalSuppliedBalance.value)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(totalSuppliedBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
     label: 'Deposited balance',
-    value: `${shortenNumber(supplyBalance.value)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(supplyBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
     label: 'Collateral balance',
-    value: `${shortenNumber(collateralBalance.value)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(collateralBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
     label: 'Remaining supply',
-    value: `${shortenNumber(Math.max(remainingBalance.value, 0))} ${data?.asset.symbol}`,
+    value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0))} ${data?.asset.symbol}`,
   },
   {
     label: 'Available to withdraw',
-    value: `${shortenNumber(availableToWithdraw.value)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(availableToWithdraw.value || 0)} ${data?.asset.symbol}`,
   },
   {
     label: 'Transaction Fee',
-    value: `${txFee.value} XLM`,
+    value: `${txFee.value || 0} XLM`,
   }]
 })
 
@@ -132,16 +128,15 @@ async function withdraw() {
   if (!data) {
     return
   }
+  if (!amount.value || amount.value <= 0) {
+    focusInput('.withdraw-dialog__input')
+    return
+  }
   try {
     loading.value = true
     collateralOnly.value
       ? await market.removeCollateral(data?.pool_address, amount.value, collateralBalance.value, data?.asset.symbol)
       : await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
-  } catch {
-    if (!amount.value || amount.value <= 0) {
-      const input = document.querySelector('.withdraw-dialog__input')?.querySelector('input') as HTMLInputElement
-      input?.focus()
-    }
   } finally {
     loading.value = false
   }
@@ -210,7 +205,17 @@ watch(collateralBalance, (b) => {
           class="account-info-table__item"
         >
           <span>{{ item?.label }}</span>
-          <span>{{ item?.value }}</span>
+          <span>
+            <template v-if="item?.name === 'healthFactor' && loading">
+              <j-loading-spinner
+                width="14px"
+                style="padding: 0; width: 14px; margin-left: auto"
+              />
+            </template>
+            <template v-else>
+              {{ item?.value }}
+            </template>
+          </span>
         </div>
       </div>
 

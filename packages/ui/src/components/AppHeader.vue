@@ -33,12 +33,16 @@ watch(() => route.path, (p) => {
 <template>
   <header>
     <div class="header-wrapper container">
-      <img :src="logo" alt="stellar logo">
+      <img
+        :src="logo"
+        alt="stellar logo"
+      >
 
       <nav class="header-nav">
         <div
           v-for="tab in tabs"
-          :key="tab" class="nav-link"
+          :key="tab"
+          class="nav-link"
           :class="{ 'nav-link--active': activeTab === tabs.indexOf(tab) }"
           @click="activeTab = tabs.indexOf(tab)"
         >

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 import { POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
-import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, destructurePoolAsset, focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -54,7 +54,7 @@ const balance = computed(() => {
   if (data.raw.token_ticker === 'XLM') {
     return wallet.nativeBalance
   }
-  const asset_issuer = data.raw.name.split(':')[1]
+  const [, asset_issuer] = destructurePoolAsset(data.raw.name)
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
@@ -108,6 +108,7 @@ const infoTableData = computed(() => {
   const liquidation = Number(data.raw.config.liquidation_close_factor_bps) / 100
   const closeLTV = Number(data.raw.config.close_ltv_bps) / 100
   return [{
+    name: 'healthFactor',
     label: 'Health Factor',
     value: truncatePercent(healthFactor.value, 2),
   },
@@ -149,18 +150,17 @@ const dialog = computed({
 const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
 
 async function borrow() {
-  try {
-    if (!publicKey.value || !data?.raw.pool_address) {
-      return
-    }
-    await market.borrow(data?.raw.pool_address, amount.value, data?.raw.name, poolBorrowLimit.value)
-  } catch {
-    if (!amount.value || amount.value <= 0) {
-      const input = document.querySelector('.supply-dialog__input')?.querySelector('input') as HTMLInputElement
-      input?.focus()
-    }
+  if (!publicKey.value || !data?.raw.pool_address) {
+    return
   }
+  if (!amount.value || amount.value <= 0) {
+    focusInput('.borrow-dialog')
+    return
+  }
+
+  await market.borrow(data?.raw.pool_address, amount.value, data?.raw.name, poolBorrowLimit.value)
 }
+
 let interval: string | number | NodeJS.Timeout | undefined
 
 watch(() => modelValue, async (v) => {
@@ -218,7 +218,17 @@ watch(() => modelValue, async (v) => {
           class="supply-info-table__item"
         >
           <span>{{ item?.label }}</span>
-          <span>{{ item?.value }}</span>
+          <span>
+            <template v-if="item?.name === 'healthFactor' && loading">
+              <j-loading-spinner
+                width="14px"
+                style="padding: 0; width: 14px; margin-left: auto"
+              />
+            </template>
+            <template v-else>
+              {{ item?.value }}
+            </template>
+          </span>
         </div>
       </div>
 

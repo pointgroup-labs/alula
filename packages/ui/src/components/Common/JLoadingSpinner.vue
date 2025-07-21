@@ -13,11 +13,14 @@ const {
 </script>
 
 <template>
-  <div class="loading-spinner" :class="{
+  <div
+    class="loading-spinner"
+    :class="{
       'loading-spinner--fixed': fixed,
       'loading-spinner--blur': blur,
     }
-    ">
+    "
+  >
     <b-spinner :style="{ color, 'border-width': borderWidth, width, 'height': width }" />
     <slot />
   </div>

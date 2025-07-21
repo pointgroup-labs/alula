@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BButtonProps } from 'bootstrap-vue-next'
 import type { Pool } from 'sdk'
-import { generateExplorerLink, shortenAddress } from '~/utils'
+import { clickElement, destructurePoolAsset, generateExplorerLink, shortenAddress } from '~/utils'
 
 const {
   loading = false,
@@ -27,7 +27,7 @@ const publicKey = computed(() => wallet.publicKey)
 
 const market = useMarket()
 
-const assetData = computed(() => pool?.name.split(':') || [])
+const assetData = computed(() => destructurePoolAsset(String(pool?.name)) || [])
 
 const isTrust = computed(() => {
   const asset_issuer = assetData.value?.[1]
@@ -79,8 +79,7 @@ async function emitClickHandler() {
     return
   }
   if (!publicKey.value) {
-    const btn = document.querySelector('.connect-wallet') as HTMLElement
-    btn?.click()
+    clickElement('.connect-wallet')
     emit('closeModal')
     return
   }

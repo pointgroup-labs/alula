@@ -25,7 +25,12 @@ function copy() {
 
 <template>
   <j-tooltip>
-    <i :style="{ color }" class="copy-icon" @click="copy" v-html="copyIcon" />
+    <i
+      :style="{ color }"
+      class="copy-icon"
+      @click="copy"
+      v-html="copyIcon"
+    />
     <template #content>
       Copy {{ entity || 'to clipboard' }}
     </template>

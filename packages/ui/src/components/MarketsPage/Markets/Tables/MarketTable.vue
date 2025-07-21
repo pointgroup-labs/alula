@@ -29,7 +29,7 @@ const items = computed<MarketTableItem[]>(() => {
   return pools.value.map((p) => {
     const tokenName = p.token_ticker
     const icon = getTokenIcon(tokenName)
-    const total_supply = Number(bigintToNumber(p.available + p.total_borrowed, assetDecimals.value)) || 0
+    const total_supply = Number(bigintToNumber(p.available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
     const total_borrowed = Number(bigintToNumber(p.total_borrowed, assetDecimals.value)) || 0
     const depositApy = p.pool_apy.supply_bps / 100
     const borrowApy = p.pool_apy.borrow_bps / 100

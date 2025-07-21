@@ -49,7 +49,7 @@ export function truncatePercent(value: number, dec = 2): string {
   const [intPart, decimalPart = ''] = value.toString().split('.')
   return decimalPart.length > dec
     ? `${intPart}.${decimalPart.slice(0, dec)}`
-    : `${value}`
+    : `${value.toFixed(2)}`
 }
 
 export function bigintToNumber(
@@ -63,4 +63,8 @@ export function bigintToNumber(
   const dec = new Decimal(rawValue.toString())
     .dividedBy(new Decimal(10).pow(assetDecimals))
   return dec.toFixed(outputDecimals)
+}
+
+export function destructurePoolAsset(poolAsset: string) {
+  return poolAsset.split(':')
 }

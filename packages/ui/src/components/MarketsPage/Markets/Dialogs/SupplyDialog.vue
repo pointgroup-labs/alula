@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { formatPrice, generateExplorerLink, shortenAddress } from '~/utils'
+import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, shortenAddress } from '~/utils'
 
 const {
   data,
@@ -32,7 +32,7 @@ const balance = computed(() => {
   if (data.raw.token_ticker === 'XLM') {
     return wallet.nativeBalance
   }
-  const asset_issuer = data?.raw.name.split(':')[1]
+  const [, asset_issuer] = destructurePoolAsset(data?.raw.name)
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
@@ -100,19 +100,16 @@ const dialog = computed({
 })
 
 async function supply() {
-  try {
-    if (!publicKey.value || !data?.raw.pool_address) {
-      return
-    }
-    collateralOnly.value
-      ? await market.addCollateral(data?.raw.pool_address, amount.value, data?.raw.name)
-      : await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
-  } catch {
-    if (!amount.value || amount.value <= 0) {
-      const input = document.querySelector('.supply-dialog__input')?.querySelector('input') as HTMLInputElement
-      input?.focus()
-    }
+  if (!publicKey.value || !data?.raw.pool_address) {
+    return
   }
+  if (!amount.value || amount.value <= 0) {
+    focusInput('.supply-dialog__input')
+    return
+  }
+  collateralOnly.value
+    ? await market.addCollateral(data?.raw.pool_address, amount.value, data?.raw.name)
+    : await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
 }
 
 let interval: string | number | NodeJS.Timeout | undefined

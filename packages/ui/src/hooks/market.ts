@@ -1,5 +1,5 @@
 import type { TableActionType } from '~/store/markets'
-import { generateExplorerLink } from '~/utils'
+import { destructurePoolAsset, generateExplorerLink } from '~/utils'
 
 export function useMarket() {
     const userStore = useUserStore()
@@ -41,7 +41,7 @@ export function useMarket() {
                 throw new Error('Wallet not connected')
             }
 
-            const [asset_code, asset_issuer] = asset_data.split(':')
+            const [asset_code, asset_issuer] = destructurePoolAsset(asset_data)
             const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
 
             if (balance < amount) {
@@ -116,7 +116,7 @@ export function useMarket() {
                 throw new Error('Amount should be greater than 0')
             }
 
-            const [asset_code] = asset_data.split(':')
+            const [asset_code] = destructurePoolAsset(asset_data)
 
             marketsStore.poolDepositAddr = pool_address
             marketsStore.poolActionType = 'borrow'
@@ -302,7 +302,7 @@ export function useMarket() {
                 throw new Error('Wallet not connected')
             }
 
-            const [asset_code, asset_issuer] = asset_data.split(':')
+            const [asset_code, asset_issuer] = destructurePoolAsset(asset_data)
             const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
 
             if (balance < amount) {

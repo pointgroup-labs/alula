@@ -1,23 +1,12 @@
 import type { CompoundRates, Obligation, Pool } from 'sdk'
 import type { RPCcluster } from '../types'
-import { WalletNetwork } from '@creit.tech/stellar-wallets-kit'
-import { Networks, rpc as SorobanRpc, TransactionBuilder } from '@stellar/stellar-sdk'
+import { rpc as SorobanRpc } from '@stellar/stellar-sdk'
 import { Client } from 'sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
-import { amountToBigInt, getRPC, normalizeAssetAmount } from '../utils'
-import { parseStellarError } from '../utils/errors'
-
-enum Network {
-    Mainnet = 'mainnet',
-    Testnet = 'testnet',
-}
-
-export const NetworkPassphrase = {
-    [Network.Mainnet]: 'Public Global Stellar Network ; September 2015',
-    [Network.Testnet]: 'Test SDF Network ; September 2015',
-}
+import { amountToBigInt, getNetworkPassphrase, getRPC, normalizeAssetAmount, sendSorobanTx } from '../utils'
 
 export class SorobanClient {
+    rpc: RPCcluster
     sdk: Client
     sorobanServer: any
     assetDecimals: number = 7
@@ -28,18 +17,12 @@ export class SorobanClient {
             publicKey,
             rpcUrl: getRPC(rpc, 'soroban'),
             contractId: CONTRACT_ID[rpc] ?? SOROBAN_CONTRACT_ID,
-            networkPassphrase: NetworkPassphrase[this.getNetworkPassphrase(rpc)],
+            networkPassphrase: getNetworkPassphrase(rpc),
         })
 
         this.sorobanServer = new SorobanRpc.Server(getRPC(rpc, 'soroban'))
         this.getDecimals()
-    }
-
-    /**
-     * Get network passphrase
-     */
-    private getNetworkPassphrase(rpc: RPCcluster = 'public') {
-        return rpc === 'testnet' ? Network.Testnet : Network.Mainnet
+        this.rpc = rpc
     }
 
     /**
@@ -60,8 +43,10 @@ export class SorobanClient {
      * Get decimals
      */
     async getDecimals() {
-        await this.getAssetDecimals()
-        await this.getOracleDecimals()
+        await Promise.all([
+            this.getAssetDecimals(),
+            this.getOracleDecimals(),
+        ])
     }
 
     /**
@@ -158,35 +143,9 @@ export class SorobanClient {
         kit: any) {
         const tx = await this.depositTx(user, pool_address, amount)
 
-        console.log('[Deposit tx]', tx)
+        console.log('%c[Deposit tx]', 'color: #00ff00', tx)
 
-        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
-            address: user,
-            networkPassphrase: WalletNetwork.TESTNET,
-        })
-
-        console.log('[signedTxXdr]', signedTxXdr)
-
-        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
-
-        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
-
-        console.log('[Tx send responce]', sendResponse)
-
-        if (sendResponse.status === 'ERROR') {
-            // @ts-expect-error...
-            const errorMessage = parseStellarError(tx.simulation?.error)
-            throw new Error(errorMessage)
-        }
-
-        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
-            sleepStrategy: (_iter: any) => 1000,
-            attempts: 30,
-        })
-
-        console.log('✅ Transaction submitted!', result)
-
-        return result
+        return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }
 
     /**
@@ -199,35 +158,9 @@ export class SorobanClient {
         kit: any) {
         const tx = await this.borrowTx(user, pool_address, String(amount))
 
-        console.log('[Borrow tx]', tx)
+        console.log('%c[Borrow tx]', 'color: #00ff00', tx)
 
-        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
-            address: user,
-            networkPassphrase: WalletNetwork.TESTNET,
-        })
-
-        console.log('[signedTxXdr]', signedTxXdr)
-
-        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
-
-        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
-
-        console.log('[Tx send responce]', sendResponse)
-
-        if (sendResponse.status === 'ERROR') {
-            // @ts-expect-error...
-            const errorMessage = parseStellarError(tx.simulation?.error)
-            throw new Error(errorMessage)
-        }
-
-        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
-            sleepStrategy: (_iter: any) => 1000,
-            attempts: 30,
-        })
-
-        console.log('✅ Transaction submitted!', result)
-
-        return result
+        return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }
 
     /**
@@ -240,35 +173,9 @@ export class SorobanClient {
         kit: any) {
         const tx = await this.withdrawTx(user, pool_address, String(amount))
 
-        console.log('[Withdraw tx]', tx)
+        console.log('%c[Withdraw tx]', 'color: #00ff00', tx)
 
-        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
-            address: user,
-            networkPassphrase: WalletNetwork.TESTNET,
-        })
-
-        console.log('[signedTxXdr]', signedTxXdr)
-
-        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
-
-        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
-
-        console.log('[Tx send responce]', sendResponse)
-
-        if (sendResponse.status === 'ERROR') {
-            // @ts-expect-error...
-            const errorMessage = parseStellarError(tx.simulation?.error)
-            throw new Error(errorMessage)
-        }
-
-        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
-            sleepStrategy: (_iter: any) => 1000,
-            attempts: 30,
-        })
-
-        console.log('✅ Transaction submitted!', result)
-
-        return result
+        return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }
 
     /**
@@ -281,35 +188,9 @@ export class SorobanClient {
         kit: any) {
         const tx = await this.repayTx(user, pool_address, String(amount))
 
-        console.log('[Withdraw tx]', tx)
+        console.log('%c[Withdraw tx]', 'color: #00ff00', tx)
 
-        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
-            address: user,
-            networkPassphrase: WalletNetwork.TESTNET,
-        })
-
-        console.log('[signedTxXdr]', signedTxXdr)
-
-        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
-
-        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
-
-        console.log('[Tx send responce]', sendResponse)
-
-        if (sendResponse.status === 'ERROR') {
-            // @ts-expect-error...
-            const errorMessage = parseStellarError(tx.simulation?.error)
-            throw new Error(errorMessage)
-        }
-
-        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
-            sleepStrategy: (_iter: any) => 1000,
-            attempts: 30,
-        })
-
-        console.log('✅ Transaction submitted!', result)
-
-        return result
+        return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }
 
     /**
@@ -322,35 +203,9 @@ export class SorobanClient {
         kit: any) {
         const tx = await this.collateralTx(user, pool_address, amount)
 
-        console.log('[Collateral tx]', tx)
+        console.log('%c[Collateral tx]', 'color: #00ff00', tx)
 
-        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
-            address: user,
-            networkPassphrase: WalletNetwork.TESTNET,
-        })
-
-        console.log('[signedTxXdr]', signedTxXdr)
-
-        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
-
-        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
-
-        console.log('[Tx send responce]', sendResponse)
-
-        if (sendResponse.status === 'ERROR') {
-            // @ts-expect-error...
-            const errorMessage = parseStellarError(tx.simulation?.error)
-            throw new Error(errorMessage)
-        }
-
-        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
-            sleepStrategy: (_iter: any) => 1000,
-            attempts: 30,
-        })
-
-        console.log('✅ Transaction submitted!', result)
-
-        return result
+        return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }
 
     /**
@@ -363,35 +218,9 @@ export class SorobanClient {
         kit: any) {
         const tx = await this.removeCollateralTx(user, pool_address, amount)
 
-        console.log('[Remove Collateral tx]', tx)
+        console.log('%c[Remove Collateral tx]', 'color: #00ff00', tx)
 
-        const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
-            address: user,
-            networkPassphrase: WalletNetwork.TESTNET,
-        })
-
-        console.log('[signedTxXdr]', signedTxXdr)
-
-        const txObject = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
-
-        const sendResponse = await this.sorobanServer.sendTransaction(txObject)
-
-        console.log('[Tx send responce]', sendResponse)
-
-        if (sendResponse.status === 'ERROR') {
-            // @ts-expect-error...
-            const errorMessage = parseStellarError(tx.simulation?.error)
-            throw new Error(errorMessage)
-        }
-
-        const result = await this.sorobanServer.pollTransaction(sendResponse.hash, {
-            sleepStrategy: (_iter: any) => 1000,
-            attempts: 30,
-        })
-
-        console.log('✅ Transaction submitted!', result)
-
-        return result
+        return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }
 
     /**

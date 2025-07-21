@@ -65,6 +65,7 @@ $toast-variants: (
 
   .toast-message {
     width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .toast-content {

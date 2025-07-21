@@ -178,7 +178,7 @@ watch(selectedPool, (p) => {
         v-else
         class="no-data"
       >
-        No data
+        <i-app-strongbox-icon />  no supplied assets
       </div>
 
       <j-loading-spinner v-if="userStore.loading">
@@ -256,6 +256,7 @@ watch(selectedPool, (p) => {
     }
 
     .with-price {
+      width: 100%;
       flex-direction: column;
       align-items: flex-end;
 
@@ -307,8 +308,13 @@ watch(selectedPool, (p) => {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: $spacing-8;
     min-height: 100px;
     max-height: 200px;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 16px;
   }
 }
 </style>

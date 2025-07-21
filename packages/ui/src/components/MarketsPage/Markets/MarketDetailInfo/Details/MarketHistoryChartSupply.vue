@@ -178,7 +178,11 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
         AVG: 0.14%
       </div>
 
-      <j-btn-group v-model="activeFilter" :buttons="filters" class="history-chart__header__filters" />
+      <j-btn-group
+        v-model="activeFilter"
+        :buttons="filters"
+        class="history-chart__header__filters"
+      />
     </div>
 
     <div class="history-chart__chart">

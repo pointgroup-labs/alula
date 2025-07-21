@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BorrowCardTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { shortenNumber, truncatePercent } from '~/utils'
+import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -44,10 +44,10 @@ const balance = computed(() => {
 const closeLTV = computed(() => data?.raw?.config?.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
 
 const healthFactor = computed(() => {
-  const A = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)
-  const D = (userTotalDepositInUsd.value * closeLTV.value) + A
-  const B = userTotalBorrowedInUsd.value
-  const result = B === 0 ? 0 : Math.max(D / B, 0)
+  const amountInUsd = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)
+  const deposited = (userTotalDepositInUsd.value * closeLTV.value)
+  const borrowed = Math.max(userTotalBorrowedInUsd.value - amountInUsd, 0)
+  const result = Math.max(deposited / borrowed, 0)
   return Math.min(result, 10)
 })
 
@@ -72,6 +72,7 @@ const infoTableData = computed(() => {
   }
   const borrowBalanceAfterRepay = Math.max(Number(data?.debt) - amount.value || 0, 0)
   return [{
+    name: 'healthFactor',
     label: 'Health Factor',
     value: truncatePercent(healthFactor.value, 2),
   },
@@ -98,16 +99,15 @@ async function repay() {
   if (!data) {
     return
   }
+  if (!amount.value || amount.value <= 0) {
+    focusInput('.repay-dialog__input')
+    return
+  }
   try {
     loading.value = true
     marketStore.poolDepositAddr = data?.pool_address
 
     await market.repay(data?.pool_address, amount.value, balance.value, data?.asset.symbol)
-  } catch {
-    if (!amount.value || amount.value <= 0) {
-      const input = document.querySelector('.withdraw-dialog__input')?.querySelector('input') as HTMLInputElement
-      input?.focus()
-    }
   } finally {
     loading.value = false
   }
@@ -149,6 +149,7 @@ watch(() => modelValue, async (v) => {
     <div class="account-dialog__body">
       <input-widget
         v-model="amount"
+        class="repay-dialog__input"
         :balance="balance"
         :limit="Number(data?.debt) || 0"
         :rules="[
@@ -169,7 +170,17 @@ watch(() => modelValue, async (v) => {
           class="account-info-table__item"
         >
           <span>{{ item?.label }}</span>
-          <span>{{ item?.value }}</span>
+          <span>
+            <template v-if="item?.name === 'healthFactor' && loading">
+              <j-loading-spinner
+                width="14px"
+                style="padding: 0; width: 14px; margin-left: auto"
+              />
+            </template>
+            <template v-else>
+              {{ item?.value }}
+            </template>
+          </span>
         </div>
       </div>
 

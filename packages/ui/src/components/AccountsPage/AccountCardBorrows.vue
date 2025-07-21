@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BorrowObligation } from 'sdk'
 import type { BorrowCardTableItem } from '~/types/table'
-import { bigintToNumber, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, destructurePoolAsset, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
 
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
@@ -39,7 +39,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
     const userBorrowed = bigintToNumber(borrow.borrowed, decimals.value)
     const userBorrowedUsd = formatPrice(Number(userBorrowed) * Number(pool.pool_price), 2, 2)
 
-    const asset_issuer = pool.name.split(':')[1]
+    const [, asset_issuer] = destructurePoolAsset(pool.name)
     const borrowApy = pool.pool_apy.borrow_bps / 100
 
     return {
@@ -170,7 +170,7 @@ watch(selectedPool, (p) => {
         v-else
         class="no-data"
       >
-        No data
+        <i-app-percentage-square-icon /> no borroved assets
       </div>
 
       <j-loading-spinner v-if="userStore.loading">

@@ -2,7 +2,12 @@
 </script>
 
 <template>
-  <j-btn rounded variant="secondary" size="lg" class="settings-btn">
+  <j-btn
+    rounded
+    variant="secondary"
+    size="lg"
+    class="settings-btn"
+  >
     <i-app-settings-icon class="settings-icon" />
   </j-btn>
 </template>

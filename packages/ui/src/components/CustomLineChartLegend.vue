@@ -39,7 +39,10 @@ function getLabelWidth(idx: number) {
 </script>
 
 <template>
-  <div class="chart-legend" :style="{ height: labelsHeight }">
+  <div
+    class="chart-legend"
+    :style="{ height: labelsHeight }"
+  >
     <div
       v-for="(d, idx) in chartDataLabels"
       :key="`${d.label}-${idx}`"

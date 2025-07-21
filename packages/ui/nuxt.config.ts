@@ -157,6 +157,7 @@ export default defineNuxtConfig({
       PASSWORD_PROTECT: env.NUXT_PUBLIC_PASSWORD_PROTECT,
       COOKIE_DOMAIN: env.NUXT_PUBLIC_COOKIE_DOMAIN ?? 'localhost',
       NUXT_PUBLIC_RPC: env.NUXT_PUBLIC_RPC,
+      JLEND_CLIENT_NETWORK: env.NUXT_PUBLIC_NETWORK,
     },
   },
   // debug: true,
