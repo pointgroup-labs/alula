@@ -4,6 +4,7 @@
 use {
     crate::{
         constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+        events,
         math_utils::{self, MathUtils},
         pool::Pool,
         LCError,
@@ -197,11 +198,17 @@ impl Pool {
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization ratio limit on a pool
-    pub fn compute_available_borrow(&self) -> Result<i128, LCError> {
+    pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, LCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
         if utilization_ratio > self.config.utilization_ratio_limit_bps {
+            events::utilization_ration_exceeds_limit(
+                e,
+                utilization_ratio,
+                self.config.utilization_ratio_limit_bps,
+            );
+
             return Err(LCError::InternalError);
         }
         let available_percentage_to_borrow_bps =

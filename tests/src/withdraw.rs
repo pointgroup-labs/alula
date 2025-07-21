@@ -269,7 +269,7 @@ fn test_withdraw_more_than_open_ltv_allows() {
 
     // Check that there's a deposit left and it is backing the borrowed funds
     let deposit_amount =
-        get_obligation_tokens_from_shares(&contract_client, &user, &gold_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, &user, &gold_pool_address).unwrap();
 
     // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(

@@ -110,7 +110,7 @@ fn test_deposit_with_no_leverage() {
 
     // Check if this is equivalent to a plain deposit
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
 
     let amount_out = swap::get_amount_out(
         &e,
@@ -205,7 +205,7 @@ fn test_deposit_with_leverage() {
 
     // Check obligation
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
 
     let obligation_borrowed =
         get_obligation_borrowed(&contract_client, &user, &gold_pool_address).unwrap();
@@ -349,7 +349,7 @@ fn test_withdraw_for_position_with_no_leverage() {
 
     let expected_amount = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
 
     // No borrow position must exist still
     assert!(get_borrow_obligation(&contract_client, &user, &gold_pool_address).is_err());
@@ -414,7 +414,7 @@ fn test_withdraw() {
         get_obligation_borrowed(&contract_client, &user, &gold_pool_address).unwrap();
 
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
 
     // less than 10% of originally deposited value must be left
     let expected_deposit_left_upper_bound_amount =

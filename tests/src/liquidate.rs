@@ -192,7 +192,9 @@ impl LiquidationTest {
             .contract_client
             .get_pool(&self.test_fixture.gold_token_address);
 
-        deposit_pool.compute_tokens_from_shares(shares).unwrap()
+        deposit_pool
+            .compute_tokens_from_shares(&self.test_fixture.e, shares)
+            .unwrap()
     }
 
     fn liquidation_amount(&self, percentage: i128) -> i128 {
@@ -555,7 +557,10 @@ fn test_liquidate_same_pool_fails() {
         &test.liquidation_amount(10),
     );
 
-    assert_eq!(result, Err(Ok(LCError::InternalError)));
+    assert_eq!(
+        result,
+        Err(Ok(LCError::LiquidationWithEqualCollateralAndDepositPools))
+    );
 }
 
 #[test]

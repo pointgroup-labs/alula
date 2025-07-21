@@ -423,7 +423,7 @@ pub fn assert_invariants(fixture: &TestFixture) {
 
     // Test borrowing and repaying for each pool if there are available funds
     if btc_pool.available > 0 {
-        let available_borrow = btc_pool.compute_available_borrow().unwrap();
+        let available_borrow = btc_pool.compute_available_borrow(e).unwrap();
 
         contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, btc_pool_address, &available_borrow);
@@ -445,7 +445,7 @@ pub fn assert_invariants(fixture: &TestFixture) {
     }
 
     if gold_pool.available > 0 {
-        let available_borrow = gold_pool.compute_available_borrow().unwrap();
+        let available_borrow = gold_pool.compute_available_borrow(e).unwrap();
 
         contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, gold_pool_address, &available_borrow);
@@ -467,7 +467,7 @@ pub fn assert_invariants(fixture: &TestFixture) {
     }
 
     if usdc_pool.available > 0 {
-        let available_borrow = usdc_pool.compute_available_borrow().unwrap();
+        let available_borrow = usdc_pool.compute_available_borrow(e).unwrap();
 
         contract_client.add_collateral(&new_borrower, gold_pool_address, &collateral_amount);
         contract_client.borrow(&new_borrower, usdc_pool_address, &available_borrow);
@@ -770,6 +770,7 @@ pub fn get_obligation_shares(
 
 #[allow(unused)]
 pub fn get_obligation_tokens_from_shares(
+    e: &Env,
     contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
@@ -778,7 +779,7 @@ pub fn get_obligation_tokens_from_shares(
 
     let pool = contract_client.get_pool(pool_address);
 
-    pool.compute_tokens_from_shares(shares)
+    pool.compute_tokens_from_shares(e, shares)
 }
 
 #[allow(unused)]
