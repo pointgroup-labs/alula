@@ -135,7 +135,7 @@ impl Obligation {
         pool_address: &Address,
     ) -> Result<i128, LCError> {
         let Some(pool) = storage::get_pool(e, pool_address) else {
-            events::pool_is_missing_in_storage(e, &pool_address);
+            events::pool_is_missing_in_storage(e, pool_address);
 
             return Err(LCError::PoolDoesNotExist);
         };
