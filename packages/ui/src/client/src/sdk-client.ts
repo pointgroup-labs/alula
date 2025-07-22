@@ -20,7 +20,6 @@ export class SorobanClient {
             networkPassphrase: getNetworkPassphrase(rpc),
         })
 
-        console.log('SDK', this.sdk)
         this.sorobanServer = new SorobanRpc.Server(getRPC(rpc, 'soroban'))
         this.getDecimals()
         this.rpc = rpc
