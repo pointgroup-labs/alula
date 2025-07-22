@@ -82,11 +82,11 @@ impl Pool {
             .fixed_mul_ceil(borrow_multiplier, SCALED_ONE)
             .map_over_or_underflow()?;
 
+        // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
+        // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_total_borrowed = self
             .total_borrowed
-            .checked_mul(new_accrual)
-            .map_over_or_underflow()?
-            .checked_div(self.last_accrual)
+            .fixed_div_ceil(self.last_accrual, new_accrual)
             .map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
@@ -402,9 +402,8 @@ mod tests {
             .fixed_mul_ceil(expected_multipliers.borrow, SCALED_ONE)
             .unwrap();
         let expected_new_total_borrowed = initial_total_borrowed
-            .checked_mul(expected_new_accrual)
-            .unwrap()
-            .checked_div(initial_accrual)
+            .fixed_div_ceil(initial_accrual, expected_new_accrual)
+            .map_over_or_underflow()
             .unwrap();
 
         let result = pool.accrue_interest(&env);

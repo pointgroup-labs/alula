@@ -659,10 +659,11 @@ impl BorrowObligation {
         pool.accrue_interest(e)?;
 
         let prev_debt = self.borrowed + self.unpaid_interest;
+
+        // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
+        // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_debt = prev_debt
-            .checked_mul(pool.last_accrual)
-            .map_over_or_underflow()?
-            .checked_div(self.last_accrual)
+            .fixed_div_floor(self.last_accrual, pool.last_accrual)
             .map_over_or_underflow()?;
 
         let old_unpaid_interest = self.unpaid_interest;

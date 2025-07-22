@@ -319,3 +319,10 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
 
     e.events().publish(topics, data);
 }
+
+pub fn dbg(e: &Env, symbol: Symbol) {
+    let topics = (symbol,);
+    let data = ();
+
+    e.events().publish(topics, data);
+}

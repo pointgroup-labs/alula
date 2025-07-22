@@ -11,7 +11,7 @@ use {
         storage, LCError,
     },
     soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec},
+    soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec},
 };
 
 pub type PoolAddress = Address;
@@ -55,18 +55,25 @@ impl Pool {
         if new_amount < 0 {
             events::pool_amount_becomes_negative(e, current_value, new_amount);
 
-            return Err(LCError::InternalError);
+            // TODO: Just an ad-hoc fix. When switching to bTokens this issue should be gone
+            if new_amount < -1000 {
+                return Err(LCError::InternalError);
+            } else {
+                return Ok(0);
+            }
         }
 
         Ok(new_amount)
     }
 
     pub fn adjust_total_shares(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("shares"));
         self.total_shares = Self::adjust_field(e, self.total_shares, adjusting_amount)?;
         Ok(())
     }
 
     pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("avail"));
         self.available = Self::adjust_field(e, self.available, adjusting_amount)?;
         Ok(())
     }
@@ -76,6 +83,7 @@ impl Pool {
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("borrowed"));
         self.total_borrowed = Self::adjust_field(e, self.total_borrowed, adjusting_amount)?;
         Ok(())
     }
@@ -85,6 +93,7 @@ impl Pool {
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("collat"));
         self.total_collateral = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
         Ok(())
     }
