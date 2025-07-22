@@ -32,6 +32,17 @@ export type BorrowTableItem = {
   action: string
 }
 
+export type MultiplyTableItem = {
+  raw: PoolWithPrice
+  maxAPY: number
+  multiplier: number
+  liquidity: number
+  supplied: number
+  borrowing: string
+  price: number
+  pool_address: string
+} & TableAsset
+
 export type BorrowCardTableItem = {
   raw: PoolWithPrice
   debt: string | number

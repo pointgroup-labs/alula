@@ -16,13 +16,11 @@ $label-variants: (
 $label-sizes: (
     lg: (
         font-size: 16px,
-        font-weight: 700,
-        line-height: 20px
+        font-weight: 700
     ),
     md: (
         font-size: 14px,
-        font-weight: 600,
-        line-height: normal
+        font-weight: 600
     )
 );
 
@@ -30,7 +28,6 @@ $label-sizes: (
     width: fit-content;
     padding: $spacing-4 $spacing-16;
     font-size: 16px;
-    font-style: normal;
     font-weight: 700;
     line-height: 20px;
     border-radius: 50px;

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { bigintToNumber, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
 const infoDialog = ref(false)
 
@@ -27,8 +27,9 @@ const fields = [
 
 const items = computed<MarketTableItem[]>(() => {
   return pools.value.map((p) => {
-    const tokenName = p.token_ticker
-    const icon = getTokenIcon(tokenName)
+    const tokenSymbol = p.token_ticker
+    const tokenName = getTokenName(tokenSymbol)
+    const icon = getTokenIcon(tokenSymbol)
     const total_supply = Number(bigintToNumber(p.available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
     const total_borrowed = Number(bigintToNumber(p.total_borrowed, assetDecimals.value)) || 0
     const depositApy = p.pool_apy.supply_bps / 100
@@ -38,7 +39,7 @@ const items = computed<MarketTableItem[]>(() => {
     const supply_limit = Number(bigintToNumber(p.config.supply_limit, assetDecimals.value)) || 0
     return {
       raw: p,
-      asset: { name: tokenName, symbol: tokenName, icon },
+      asset: { name: tokenName, symbol: tokenSymbol, icon },
       total_supply,
       total_borrowed,
       deposit_apy: `${truncatePercent(depositApy || 0, 2)}%`,
@@ -79,11 +80,12 @@ function amountToUsd(amount: number, price: number) {
     <j-skeleton
       height="36"
       full-width
+      style="border-radius: 8px;"
     />
     <j-skeleton
       height="80"
       full-width
-      style="margin-top: -8px;"
+      style="margin-top: -8px; border-radius: 8px;"
     />
   </template>
   <div
@@ -115,10 +117,10 @@ function amountToUsd(amount: number, price: number) {
           >
           <div class="market-table__asset__info">
             <div class="market-table__asset__info__name">
-              {{ data.item.asset.name }}
+              {{ data.item.asset.symbol }}
             </div>
             <div class="market-table__asset__info__symbol">
-              {{ data.item.asset.symbol }}
+              {{ data.item.asset.name }}
             </div>
           </div>
         </div>
@@ -238,109 +240,3 @@ function amountToUsd(amount: number, price: number) {
 
   <market-info-dialog v-model="infoDialog" />
 </template>
-
-<style lang="scss">
-.market-table {
-  th {
-    color: $neutral-6;
-    font-size: 16px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: 20px;
-
-    span {
-      width: 100%;
-      display: block;
-      text-align: var(--align, center);
-      white-space: nowrap;
-    }
-  }
-
-  tbody {
-    tr {
-      height: 80px;
-      cursor: pointer;
-
-      &:nth-child(even) {
-        td {
-          background-color: $neutral-2;
-        }
-      }
-    }
-
-    td {
-      text-align: center;
-      vertical-align: middle;
-    }
-  }
-
-  .table-cell {
-    width: 100%;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: 20px;
-    white-space: nowrap;
-  }
-
-  .with-price {
-    flex-direction: column;
-    align-items: flex-end;
-
-    span {
-      color: $neutral-12;
-      font-size: 12px;
-      font-weight: 500;
-      line-height: 16px;
-    }
-  }
-
-  &__asset {
-    display: flex;
-    align-items: center;
-    gap: $spacing-8;
-
-    img {
-      width: 40px;
-      height: 40px;
-      object-fit: contain;
-    }
-
-    &__info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      font-style: normal;
-
-      &__name {
-        font-size: 20px;
-        font-weight: 500;
-        line-height: 20px;
-        text-align: left;
-      }
-
-      &__symbol {
-        color: $neutral-6;
-        font-size: 12px;
-        font-weight: 500;
-        line-height: 16px;
-        text-align: left;
-      }
-    }
-  }
-
-  &__action {
-    gap: $spacing-8;
-  }
-
-  .no-data {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-}
-</style>

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { DepositObligation } from 'sdk'
 import type { SuppliedCardTableItem } from '~/types/table'
-import { bigintToNumber, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
@@ -35,8 +35,9 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
         pool_address,
       }
     }
-    const tokenName = pool.token_ticker
-    const icon = getTokenIcon(tokenName)
+    const tokenSymbol = pool.token_ticker
+    const tokenName = getTokenName(tokenSymbol)
+    const icon = getTokenIcon(tokenSymbol)
     const userShares = bigintToNumber(deposit.shares, decimals.value)
     const totalShares = bigintToNumber(pool.total_shares, decimals.value)
     const userBorrowInPoolPercentage = Number(userShares) / Number(totalShares)
@@ -52,7 +53,7 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
     const poolApy = pool.pool_apy.supply_bps / 100
     return {
       raw: pool,
-      asset: { name: tokenName, symbol: tokenName, icon },
+      asset: { name: tokenName, symbol: tokenSymbol, icon },
       balance,
       balanceUsd: formatPrice(balance * Number(pool.pool_price), 2, 2),
       price: Number(pool.pool_price),
@@ -109,7 +110,7 @@ watch(selectedPool, (p) => {
         :fields="fields"
         :items="items"
         responsive
-        class="account-card__table"
+        class="account-card__table market-table"
       >
         <template
           v-for="field in fields"
@@ -120,17 +121,17 @@ watch(selectedPool, (p) => {
         </template>
 
         <template #cell(asset)="data">
-          <div class="account-card__table__asset">
+          <div class="market-table__asset">
             <img
               :src="data.item.asset.icon"
               alt=""
             >
-            <div class="account-card__table__asset__info">
-              <div class="account-card__table__asset__info__name">
-                {{ data.item.asset.name }}
-              </div>
-              <div class="account-card__table__asset__info__symbol">
+            <div class="market-table__asset__info">
+              <div class="market-table__asset__info__name">
                 {{ data.item.asset.symbol }}
+              </div>
+              <div class="market-table__asset__info__symbol">
+                {{ data.item.asset.name }}
               </div>
             </div>
           </div>
@@ -217,91 +218,6 @@ watch(selectedPool, (p) => {
     line-height: 20px;
   }
 
-  &__table {
-    th {
-      color: $neutral-6;
-      font-size: 16px;
-      font-style: normal;
-      font-weight: 600;
-      line-height: 20px;
-
-      span {
-        width: 100%;
-        display: block;
-        text-align: var(--align, center);
-        white-space: nowrap;
-      }
-    }
-
-    tbody {
-      tr {
-        height: 80px;
-      }
-      td {
-        text-align: center;
-        vertical-align: middle;
-      }
-    }
-
-    .table-cell {
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-style: normal;
-      font-weight: 600;
-      line-height: 20px;
-      white-space: nowrap;
-    }
-
-    .with-price {
-      width: 100%;
-      flex-direction: column;
-      align-items: flex-end;
-
-      span {
-        color: $neutral-12;
-        font-size: 12px;
-        font-weight: 500;
-        line-height: 16px;
-      }
-    }
-
-    &__asset {
-      display: flex;
-      align-items: center;
-      gap: $spacing-8;
-
-      img {
-        width: 40px;
-        height: 40px;
-        object-fit: contain;
-      }
-
-      &__info {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        font-style: normal;
-
-        &__name {
-          font-size: 20px;
-          font-weight: 500;
-          line-height: 20px;
-          text-align: left;
-        }
-
-        &__symbol {
-          color: $neutral-6;
-          font-size: 12px;
-          font-weight: 500;
-          line-height: 16px;
-          text-align: left;
-        }
-      }
-    }
-  }
 
   .no-data {
     flex: 1;

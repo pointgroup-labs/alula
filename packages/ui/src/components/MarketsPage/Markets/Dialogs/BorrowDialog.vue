@@ -211,11 +211,11 @@ watch(() => modelValue, async (v) => {
         </template>
       </input-widget>
 
-      <div class="supply-info-table">
+      <div class="dialog-info-table">
         <div
           v-for="item in infoTableData"
           :key="item.label"
-          class="supply-info-table__item"
+          class="dialog-info-table__item"
         >
           <span>{{ item?.label }}</span>
           <span>

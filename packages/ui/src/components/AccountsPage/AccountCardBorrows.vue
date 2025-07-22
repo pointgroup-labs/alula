@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BorrowObligation } from 'sdk'
 import type { BorrowCardTableItem } from '~/types/table'
-import { bigintToNumber, destructurePoolAsset, formatPrice, getTokenIcon, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, destructurePoolAsset, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
@@ -34,8 +34,9 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
         action: 'Repay',
       }
     }
-    const tokenName = pool.token_ticker
-    const icon = getTokenIcon(tokenName)
+    const tokenSymbol = pool.token_ticker
+    const tokenName = getTokenName(tokenSymbol)
+    const icon = getTokenIcon(tokenSymbol)
     const userBorrowed = bigintToNumber(borrow.borrowed, decimals.value)
     const userBorrowedUsd = formatPrice(Number(userBorrowed) * Number(pool.pool_price), 2, 2)
 
@@ -44,7 +45,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
 
     return {
       raw: pool,
-      asset: { name: tokenName, symbol: tokenName, icon },
+      asset: { name: tokenName, symbol: tokenSymbol, icon },
       debt: userBorrowed,
       debtUsd: userBorrowedUsd,
       borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
@@ -99,7 +100,7 @@ watch(selectedPool, (p) => {
         :fields="fields"
         :items="items"
         responsive
-        class="account-card__table"
+        class="account-card__table market-table"
       >
         <template
           v-for="field in fields"
@@ -110,17 +111,17 @@ watch(selectedPool, (p) => {
         </template>
 
         <template #cell(asset)="data">
-          <div class="account-card__table__asset">
+          <div class="market-table__asset">
             <img
               :src="data.item.asset.icon"
               alt=""
             >
-            <div class="account-card__table__asset__info">
-              <div class="account-card__table__asset__info__name">
-                {{ data.item.asset.name }}
-              </div>
-              <div class="account-card__table__asset__info__symbol">
+            <div class="market-table__asset__info">
+              <div class="market-table__asset__info__name">
                 {{ data.item.asset.symbol }}
+              </div>
+              <div class="market-table__asset__info__symbol">
+                {{ data.item.asset.name }}
               </div>
             </div>
           </div>

@@ -46,6 +46,7 @@
     "sdk": "workspace:^",
     "stellar-sdk": "^13.3.0",
     "vue": "^3.5.17",
+    "vue-3-slider-component": "^1.0.2",
     "vue-chartjs": "^5.3.2",
     "vue-router": "^4.5.1"
   },

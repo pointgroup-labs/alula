@@ -1,17 +1,18 @@
 <script lang="ts" setup>
-import type { MarketTableItem } from '~/types/table'
+import type { MultiplyTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, shortenAddress } from '~/utils'
+import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, shortenAddress, truncatePercent } from '~/utils'
 
 const {
   data,
-  modelValue,
 } = defineProps<{
-  data?: MarketTableItem
-  modelValue: boolean
+  data?: MultiplyTableItem
 }>()
 
-const emits = defineEmits(['update:modelValue'])
+function getMaxDeposit(liquidity: number, multiplier: number): number {
+  if (multiplier <= 1) { return liquidity } // no loop
+  return liquidity / multiplier
+}
 
 const marketsStore = useMarketsStore()
 const market = useMarket()
@@ -34,6 +35,13 @@ const balance = computed(() => {
   }
   const [, asset_issuer] = destructurePoolAsset(data?.raw.name)
   return wallet.getAssetBalance(String(asset_issuer))
+})
+
+const precentFromMaxMultiply = ref(90)
+
+const maxMultiply = computed(() => data?.multiplier || 0)
+const selectedMultiplier = computed(() => {
+  return Number((precentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
 })
 
 const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
@@ -63,40 +71,35 @@ const infoTableData = computed(() => {
     return []
   }
 
-  const isSupplyLimited = data.supply_limit && data.supply_limit > 0
-  // eslint-disable-next-line vue/no-side-effects-in-computed-properties
-  supplyLimit.value = isSupplyLimited ? Math.max(Number(data.supply_limit) || 0 - Number(data.total_supply), 0) : 0
+  const liquidity = data.liquidity / data.price
+  const maxDeposit = getMaxDeposit(liquidity, Number(selectedMultiplier.value) || 0)
+
   return [
     {
-      name: 'limit',
-      label: 'Supply Limit',
-      value: isSupplyLimited ? formatPrice(supplyLimit.value || 0, 2, 2) : '-',
+      name: 'liquidity',
+      label: 'Liquidity Available',
+      value: `${formatPrice(maxDeposit || 0, 2, 2)} ${data.asset.symbol}`,
     },
     {
-      name: 'market',
-      label: 'Market',
-      value: 'Main',
+      name: 'maxApy',
+      label: 'Max APY',
+      value: `${truncatePercent(data.maxAPY || 0, 2)} %`,
     },
     {
-      name: 'contract',
-      label: 'Contract',
-      value: data.raw.pool_address || '',
+      name: 'multiplier',
+      label: 'Avg. Multiplier',
+      value: '90.00 %',
     },
     {
-      name: 'fee',
-      label: 'Transaction Fee',
-      value: `${txFee.value} XLM`,
+      name: 'supplied',
+      label: 'Total Supplied',
+      value: `${formatPrice(data.supplied || 0, 2, 2)} ${data.asset.symbol}`,
     },
   ]
 })
 
-const dialog = computed({
-  get() {
-    return modelValue
-  },
-  set(val) {
-    emits('update:modelValue', val)
-  },
+const dialog = defineModel<boolean>({
+  default: false,
 })
 
 async function supply() {
@@ -104,17 +107,15 @@ async function supply() {
     return
   }
   if (!amount.value || amount.value <= 0) {
-    focusInput('.supply-dialog__input')
+    focusInput('.multiply-dialog')
     return
   }
-  collateralOnly.value
-    ? await market.addCollateral(data?.raw.pool_address, amount.value, data?.raw.name)
-    : await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
+  console.log('MULTIPLIER', selectedMultiplier.value)
 }
 
 let interval: string | number | NodeJS.Timeout | undefined
 
-watch(() => modelValue, async (v) => {
+watch(dialog, async (v) => {
   clearInterval(interval)
   if (!v) {
     amount.value = 0
@@ -134,24 +135,22 @@ watch(() => modelValue, async (v) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="supply-dialog"
+    class-name="multiply-dialog"
   >
     <template #header>
-      <div class="supply-dialog__title">
-        <img
-          :src="data?.asset.icon"
-          :alt="`${data?.asset.symbol} icon`"
-        >
-        <span>Supply {{ data?.asset.symbol }}</span>
+      <div class="multiply-dialog__title">
+        <span>Multiply {{ data?.asset.symbol }}</span>
       </div>
     </template>
 
-    <div class="supply-dialog__body">
+    <div class="multiply-dialog__body">
       <input-widget
         v-model="amount"
         :balance="balance"
         :limit="supplyLimit"
-        class="supply-dialog__input"
+        class="multiply-dialog__input"
+        :icon="data?.asset.icon"
+        label-left="You Deposit"
         :rules="[
           (v) => {
             return v && Number(v) < balance || 'Insufficient balance'
@@ -188,28 +187,20 @@ watch(() => modelValue, async (v) => {
         </div>
       </div>
 
-      <j-toggle
-        v-model="collateralOnly"
-        size="small"
-      >
-        <template #append>
-          Collateral Only
-        </template>
-      </j-toggle>
+      <loop-multiply-select
+        v-model="precentFromMaxMultiply"
+        :multiplier="selectedMultiplier"
+        :max-multiply="Number(data?.multiplier).toFixed(0) || 0"
+      />
 
-      <div class="supply-dialog-action">
-        <div class="action-info">
-          <span>Supply APY</span>
-          <span>{{ data?.deposit_apy }}</span>
-        </div>
-
+      <div class="multiply-dialog-action">
         <market-dialog-action-btn
           variant="primary"
           :loading="loading"
           :pool="data?.raw"
           @click-handler="supply"
         >
-          Supply {{ data?.asset.symbol }}
+          Multiply {{ data?.asset.symbol }}
         </market-dialog-action-btn>
       </div>
     </div>
@@ -217,27 +208,18 @@ watch(() => modelValue, async (v) => {
 </template>
 
 <style lang="scss">
-.supply-dialog {
+.multiply-dialog {
   .modal-dialog {
     min-width: 350px;
     width: 350px;
   }
 
   &__title {
-    display: flex;
-    align-items: center;
-    gap: $spacing-8;
+    color: $dark;
     font-size: 20px;
     font-style: normal;
-    font-weight: 400;
+    font-weight: 500;
     line-height: 20px;
-
-    img {
-      width: 40px;
-      height: 40px;
-      object-fit: contain;
-      border-radius: 50%;
-    }
   }
 
   &__body {
@@ -247,11 +229,7 @@ watch(() => modelValue, async (v) => {
     gap: $spacing-16;
   }
 
-  .j-toggle__label {
-    font-size: 14px;
-  }
-
-  .supply-dialog-action {
+  .multiply-dialog-action {
     display: flex;
     justify-content: space-between;
     gap: $spacing-32;

@@ -11,6 +11,10 @@ export function getTokenIcon(token: string) {
     return TOKEN_ICONS[token.toLowerCase()] ?? TOKEN_ICONS.xlm
 }
 
+export function getTokenName(token: string) {
+    return token === 'XLM' ? 'Stellar' : token
+}
+
 export function generateExplorerLink(hash: string, entityId = 'tx') {
     return `https://stellar.expert/explorer/${RPC_NETWORK}/${entityId}/${hash}`
 }
