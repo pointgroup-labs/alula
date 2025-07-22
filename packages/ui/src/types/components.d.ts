@@ -56,6 +56,7 @@ declare module 'vue' {
     Markets: typeof import('./../components/MarketsPage/Markets/Markets.vue')['default']
     MarketsPage: typeof import('./../components/MarketsPage/MarketsPage.vue')['default']
     MarketTable: typeof import('./../components/MarketsPage/Markets/Tables/MarketTable.vue')['default']
+    MultiplyPage: typeof import('./../components/MultiplyPage/MultiplyPage.vue')['default']
     RepayDialog: typeof import('./../components/AccountsPage/Dialogs/RepayDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

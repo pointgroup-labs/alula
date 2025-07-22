@@ -6,26 +6,29 @@ const router = useRouter()
 const route = useRoute()
 const logo = computed(() => isDark.value ? logoDark : logoLight)
 
-const tabs = ['Markets', 'My Account']
+const tabs = [{
+  label: 'Markets',
+  route: '/',
+},
+{
+  label: 'Multiply',
+  route: '/multiply',
+},
+{
+  label: 'My Account',
+  route: '/account',
+}]
 
-const activeTab = ref(0)
+const activeTab = ref()
 
 watch(activeTab, (t) => {
-  if (tabs[t] === tabs[0]) {
-    router.push('/')
-    return
-  }
-  if (tabs[t] === tabs[1]) {
-    router.push({ name: 'account' })
-  }
+  router.push(t?.route || '/')
 })
 
 watch(() => route.path, (p) => {
-  if (p === '/') {
-    activeTab.value = 0
-  }
-  if (p === '/account') {
-    activeTab.value = 1
+  const tabIdx = tabs.findIndex(t => t?.route === p)
+  if (tabIdx !== -1) {
+    activeTab.value = tabs[tabIdx]
   }
 }, { immediate: true, once: true })
 </script>
@@ -41,12 +44,12 @@ watch(() => route.path, (p) => {
       <nav class="header-nav">
         <div
           v-for="tab in tabs"
-          :key="tab"
+          :key="tab.label"
           class="nav-link"
-          :class="{ 'nav-link--active': activeTab === tabs.indexOf(tab) }"
-          @click="activeTab = tabs.indexOf(tab)"
+          :class="{ 'nav-link--active': activeTab.route === tab.route }"
+          @click="activeTab = tab"
         >
-          {{ tab }}
+          {{ tab.label }}
         </div>
       </nav>
 
