@@ -11,7 +11,7 @@
 <template>
   <app-header />
   <NuxtPage />
-  <!-- <app-footer /> -->
+  <app-footer />
   <!-- <client-only>
     <cookie-modal />
   </client-only> -->

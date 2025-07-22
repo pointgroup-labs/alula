@@ -10,7 +10,14 @@ body {
   background-color: $neutral-2;
 }
 
+#__nuxt {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
 main {
+  flex: 1;
   padding: $spacing-24 0;
 }
 

@@ -11,6 +11,7 @@ declare module 'vue' {
     AccountCardBorrows: typeof import('./../components/AccountsPage/AccountCardBorrows.vue')['default']
     AccountCardSupplies: typeof import('./../components/AccountsPage/AccountCardSupplies.vue')['default']
     AccountPage: typeof import('./../components/AccountsPage/AccountPage.vue')['default']
+    AppFooter: typeof import('./../components/AppFooter.vue')['default']
     AppHeader: typeof import('./../components/AppHeader.vue')['default']
     AppSettings: typeof import('./../components/Settings/AppSettings.vue')['default']
     BorrowDialog: typeof import('./../components/MarketsPage/Markets/Dialogs/BorrowDialog.vue')['default']
