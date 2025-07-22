@@ -765,7 +765,10 @@ fn process_remove_collateral(
 
     let max_possible_collateral_removed_amount =
         obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
-    let removed_tokens_amount = i128::min(amount, max_possible_collateral_removed_amount);
+    let removed_tokens_amount = i128::min(
+        i128::min(amount, max_possible_collateral_removed_amount),
+        obligation.get_collateral(pool_address)?,
+    );
 
     obligation.remove_collateral(e, pool_address, removed_tokens_amount)?;
     pool.adjust_total_collateral(e, -removed_tokens_amount)?;

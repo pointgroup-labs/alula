@@ -280,6 +280,68 @@ fn test_withdraw_more_than_open_ltv_allows() {
 }
 
 #[test]
+fn withdraw_up_to_open_ltv() {
+    const MAX_BORROWING_AMOUNT: i128 =
+        (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
+
+    let TestFixture {
+        e,
+        contract_client,
+        contract_id,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    // Fill up the borrowing pool with liquidity
+    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    // Deposit gold as deposit that backs future borrows
+    contract_client.deposit(&user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let obligation = contract_client.get_user_obligation(&user);
+    e.as_contract(&contract_id, || {
+        let max_borrowing_amount = obligation
+            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
+            .unwrap();
+
+        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
+    });
+
+    // Borrow half
+    contract_client.borrow(&user, &usdc_pool_address, &MAX_BORROWING_AMOUNT);
+
+    let borrowed_amount =
+        get_obligation_borrowed(&contract_client, &user, &usdc_pool_address).unwrap();
+    assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT);
+
+    let obligation = contract_client.get_user_obligation(&user);
+    e.as_contract(&contract_id, || {
+        let max_borrowing_amount = obligation
+            .compute_max_healthy_collateral_removed_amount(&e, &gold_pool_address)
+            .unwrap();
+
+        assert_eq!(max_borrowing_amount, 0);
+    });
+
+    // Try withdraw
+    contract_client.withdraw(&user, &gold_pool_address, &1);
+
+    // Check that there's a deposit left and it is backing the borrowed funds
+    let deposit_amount =
+        get_obligation_tokens_from_shares(&e, &contract_client, &user, &gold_pool_address).unwrap();
+
+    // The deposit that backs borrowed funds must be present on the contract
+    assert_eq!(
+        deposit_amount,
+        (borrowed_amount * 100) / DEFAULT_LIQUIDATION_THRESHOLD
+    );
+}
+
+#[test]
 fn test_remove_all_with_i128_max() {
     let TestFixture {
         contract_client,

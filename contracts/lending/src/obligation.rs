@@ -149,8 +149,8 @@ impl Obligation {
             .map_over_or_underflow()?;
 
         let token_amount_left = if collateral_value <= open_ltv_collateral_value {
-            // Since overall borrowed assets value exceeds the collateral value scaled down with Open LTV,
-            // the borrow is prohibited
+            // Since current collateral value is already less than required open_ltv_collateral_value,
+            // the collateral removal is prohibited
             0
         } else {
             let value_left = collateral_value - open_ltv_collateral_value; // safe
@@ -177,16 +177,17 @@ impl Obligation {
         let collateral_value = self.compute_collateral_value(e)?;
 
         // TODO: Must be rewritten when markets are implemented
-        let open_ltv_collateral_value = collateral_value
+        // 'open_ltv_borrowed_value' == (collateral_value * pool.config.open_ltv_bps) / 10_000
+        let open_ltv_borrowed_value = collateral_value
             .fixed_div_floor(BPS_FACTOR, pool.config.open_ltv_bps)
             .map_over_or_underflow()?;
 
-        let max_healthy_borrow_amount = if borrowed_value >= open_ltv_collateral_value {
+        let max_healthy_borrow_amount = if borrowed_value >= open_ltv_borrowed_value {
             // Since overall borrowed assets value exceeds the collateral value scaled down with Open LTV,
             // the borrow is prohibited
             0
         } else {
-            let value_left = open_ltv_collateral_value - borrowed_value; // safe
+            let value_left = open_ltv_borrowed_value - borrowed_value; // safe
             let price = get_asset_price(e, &pool.token_ticker)?;
 
             value_left.checked_div(price).map_over_or_underflow()?
