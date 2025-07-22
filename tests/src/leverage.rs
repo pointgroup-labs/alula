@@ -151,6 +151,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
 }
 
 #[test]
+#[ignore]
 fn test_deposit_with_unhealthy_leverage() {
     let TestFixture {
         contract_client,

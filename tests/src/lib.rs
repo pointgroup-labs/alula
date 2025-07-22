@@ -408,6 +408,40 @@ pub fn assert_invariants(fixture: &TestFixture) {
         }
     }
 
+    // // Check that obligations data is consistent with pools
+    // let pool_addresses = std::vec![gold_pool_address, usdc_pool_address, btc_pool_address];
+
+    // for pool_addr in pool_addresses {
+    //     let (mut borrowed_sum, mut shares_sum, mut collateral_sum) = (0_i128, 0_i128, 0_i128);
+    //     for user in users.iter() {
+    //         let obligation = contract_client.get_user_obligation(&user);
+
+    //         for (pool_address, borrow_obligation) in obligation.borrows {
+    //             if &pool_address == pool_addr {
+    //                 borrowed_sum = borrowed_sum
+    //                     .checked_add(borrow_obligation.total_debt().unwrap())
+    //                     .unwrap();
+    //             }
+    //         }
+
+    //         for (pool_address, deposit_obligation) in obligation.deposits {
+    //             if &pool_address == pool_addr {
+    //                 shares_sum = shares_sum.checked_add(deposit_obligation.shares).unwrap();
+    //                 collateral_sum = collateral_sum
+    //                     .checked_add(deposit_obligation.collateral)
+    //                     .unwrap();
+    //             }
+    //         }
+    //     }
+
+    //     let pool = contract_client.get_pool(&pool_addr);
+
+    //     // assert!(borrowed_sum >= pool.total_borrowed);
+
+    //     assert_eq!(shares_sum, pool.total_shares);
+    //     assert_eq!(collateral_sum, pool.total_collateral);
+    // }
+
     // Functional invariants
     // You can always borrow and repay the available amount
     let new_borrower = Address::generate(e);

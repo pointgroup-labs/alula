@@ -1,11 +1,12 @@
 #![cfg(test)]
 
 use lending::constants::DEFAULT_LIQUIDATION_THRESHOLD;
+use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral,
-    get_obligation_tokens_from_shares, LCError, TestFixture, DEFAULT_COLLATERAL_AMOUNT,
-    DEFAULT_DEPOSIT_AMOUNT,
+    get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed,
+    get_obligation_collateral, get_obligation_tokens_from_shares, LCError, TestFixture,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
 };
 
 #[test]
@@ -371,4 +372,48 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
         collateral_amount,
         (borrowed_amount * 100) / DEFAULT_LIQUIDATION_THRESHOLD
     );
+}
+
+#[test]
+fn test_withdraw_small_with_interest_accrual() {
+    let TestFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = users.get(0).unwrap();
+    let user2 = users.get(1).unwrap();
+
+    let user3 = users.get(2).unwrap();
+
+    contract_client.deposit(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    // Borrow as a third user to cause increase in a share price
+    contract_client.add_collateral(&user3, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(&user3, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+
+    // Wait for 5 hours to pass by
+    e.ledger().with_mut(|li| li.timestamp += 60 * 60 * 5);
+
+    let borrow_obligation =
+        get_borrow_obligation(&contract_client, &user3, &usdc_pool_address).unwrap();
+
+    // Check that interest has accrued
+    assert!(borrow_obligation.unpaid_interest > 0);
+
+    // Try withdraw 1 token
+    let user_deposit_obligation_before =
+        get_deposit_obligation(&contract_client, &user, &usdc_pool_address).unwrap();
+
+    contract_client.withdraw(&user, &usdc_pool_address, &1);
+
+    let user_deposit_obligation_after =
+        get_deposit_obligation(&contract_client, &user, &usdc_pool_address).unwrap();
+
+    assert!(user_deposit_obligation_before.shares > user_deposit_obligation_after.shares);
 }

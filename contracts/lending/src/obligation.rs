@@ -128,7 +128,7 @@ impl Obligation {
     }
 
     /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a collateral) that can
-    /// be taken and which doesn't exceed the `open LTV` parameter on the pool
+    /// be removed so that the obligation's LTV is equal to the `open LTV` parameter on the pool
     pub fn compute_max_healthy_collateral_removed_amount(
         &self,
         e: &Env,
@@ -280,7 +280,7 @@ impl Obligation {
         let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
 
         if deposit_obligation.collateral < amount {
-            return Err(LCError::WithdrawOverBalance);
+            return Err(LCError::CollateralRemovalOverbalance);
         }
 
         deposit_obligation.adjust_collateral(e, -amount)?;
@@ -311,7 +311,7 @@ impl Obligation {
             .ok_or(LCError::ObligationDoesNotExist)?;
 
         let total_debt = borrow_obligation.total_debt()?;
-        let repaid_amount = i128::min(total_debt, amount);
+        let repaid_amount = i128::min(amount, total_debt);
 
         if repaid_amount == total_debt {
             self.borrows.remove(pool_address.clone());

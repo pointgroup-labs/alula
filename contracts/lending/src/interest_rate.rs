@@ -198,6 +198,8 @@ impl Pool {
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization ratio limit on a pool
+    ///
+    // TODO: We have to pre-compute the max available amount during Pool initialization, I think..
     pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, LCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;

@@ -10,6 +10,7 @@ use {
         math_utils::MathUtils,
         storage, LCError,
     },
+    soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec},
 };
 
@@ -146,9 +147,7 @@ impl Pool {
                 shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
             */
             self.total_shares
-                .checked_mul(tokens_amount)
-                .map_over_or_underflow()?
-                .checked_div(total)
+                .fixed_div_ceil(total, tokens_amount)
                 .map_over_or_underflow()?
         };
 
