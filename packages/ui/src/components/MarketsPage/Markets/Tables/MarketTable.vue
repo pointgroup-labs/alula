@@ -139,7 +139,7 @@ function amountToUsd(amount: number, price: number) {
       <template #cell(total_borrowed)="data">
         <j-tooltip tooltip-class="table-cell justify-content-end with-price">
           <div class="table-cell justify-content-end with-price">
-            {{ data.item.total_borrowed > 1000 ? shortenNumber(data.item.total_borrowed) : data.item.total_borrowed }}
+            {{ shortenNumber(data.item.total_borrowed) }}
             <span>${{ amountToUsd(data.item.total_borrowed, data.item.price) }}</span>
           </div>
           <template #content>

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
+import Decimal from 'decimal.js'
 import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, truncatePercent } from '~/utils'
 
 const client = useClientStore()
@@ -12,11 +13,18 @@ const assetDecimals = computed(() => client.assetDecimals)
 const pools = computed(() => marketsStore.selectedMarketPools)
 const loading = computed(() => marketsStore.state.loading)
 
-function calculateMaxMultiplier(ltvMax: number): number {
-  if (ltvMax <= 0 || ltvMax >= 1) {
-    throw new Error('LTV must be between 0 and 1')
+/**
+ * @param ltvByBps — LTV в basis points (0…10000)
+ * @returns number ≥1, max multiplyer
+ */
+function calculateMaxMultiplierFromBps(ltvByBps: number): number {
+  if (!Number.isInteger(ltvByBps) || ltvByBps < 0 || ltvByBps >= 10_000) {
+    throw new Error(`ltvByBps must be integer in [0,10000), got ${ltvByBps}`)
   }
-  return 1 / (1 - ltvMax)
+  const openLtv = new Decimal(ltvByBps).div(10_000)
+  return openLtv.eq(1)
+    ? Infinity
+    : new Decimal(1).div(new Decimal(1).minus(openLtv)).toNumber()
 }
 
 const fields = [
@@ -38,8 +46,8 @@ const items = computed<MultiplyTableItem[]>(() => {
       const icon = getTokenIcon(tokenSymbol)
       const supplied = Number(bigintToNumber(p.available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
       const liquidity = Number(bigintToNumber(p.available, assetDecimals.value))
-      const ltv = Number(p.config.open_ltv_bps) / 10_000
-      const multiplier = calculateMaxMultiplier(ltv)
+      const ltv = Number(p.config.open_ltv_bps)
+      const multiplier = calculateMaxMultiplierFromBps(ltv)
       const maxAPY = ((p.pool_apy.supply_bps - p.pool_apy.borrow_bps) * multiplier + p.pool_apy.borrow_bps) / 100
       return {
         raw: p,

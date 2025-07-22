@@ -9,16 +9,52 @@ const {
   data?: MultiplyTableItem
 }>()
 
-function getMaxDeposit(liquidity: number, multiplier: number): number {
-  if (multiplier <= 1) { return liquidity } // no loop
-  return liquidity / multiplier
+type LoopLimits = {
+  maxDeposit: number // сколько юзер может положить из кошелька
+  maxBorrow: number // сколько он сможет занять в долг
+  maxSupply: number // итоговый объём позиции (deposit + borrow)
+}
+
+/**
+ * Считает максимальные значения для looping-позиции
+ *
+ * @param walletBalance — сколько у юзера есть в кошельке
+ * @param poolLiquidity — доступная ликвидность пула (сколько можно занять)
+ * @param multiplier — выбранный мультиплай (≥1)
+ */
+function calculateLoopLimits(
+  walletBalance: number,
+  poolLiquidity: number,
+  multiplier: number,
+): LoopLimits {
+  if (multiplier < 1) {
+    return {
+      maxDeposit: 0,
+      maxBorrow: 0,
+      maxSupply: 0,
+    }
+  }
+
+  const maxByPool = multiplier === 1
+    ? walletBalance
+    : poolLiquidity / (multiplier - 1)
+
+  const maxDeposit = Math.min(walletBalance, maxByPool)
+
+  const maxBorrow = maxDeposit * (multiplier - 1)
+  const maxSupply = maxDeposit * multiplier
+
+  return {
+    maxDeposit,
+    maxBorrow,
+    maxSupply,
+  }
 }
 
 const marketsStore = useMarketsStore()
 const market = useMarket()
 
 const amount = toRef(market, 'depositAmount')
-const collateralOnly = toRef(market, 'collateralOnly')
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
@@ -72,18 +108,28 @@ const infoTableData = computed(() => {
   }
 
   const liquidity = data.liquidity / data.price
-  const maxDeposit = getMaxDeposit(liquidity, Number(selectedMultiplier.value) || 0)
+
+  // eslint-disable-next-line vue/no-side-effects-in-computed-properties
+  supplyLimit.value
+  = publicKey.value
+      ? calculateLoopLimits(balance.value || liquidity, liquidity, Number(selectedMultiplier.value) || 0)?.maxDeposit
+      : liquidity
 
   return [
     {
       name: 'liquidity',
       label: 'Liquidity Available',
-      value: `${formatPrice(maxDeposit || 0, 2, 2)} ${data.asset.symbol}`,
+      value: `${formatPrice(liquidity || 0, 2, 2)} ${data.asset.symbol}`,
     },
     {
       name: 'maxApy',
       label: 'Max APY',
       value: `${truncatePercent(data.maxAPY || 0, 2)} %`,
+    },
+    {
+      name: 'maxMultiply',
+      label: 'Max Multiply',
+      value: `${truncatePercent(supplyLimit.value || 0, 2)} ${data.asset.symbol}`,
     },
     {
       name: 'multiplier',
@@ -102,7 +148,7 @@ const dialog = defineModel<boolean>({
   default: false,
 })
 
-async function supply() {
+async function leverage() {
   if (!publicKey.value || !data?.raw.pool_address) {
     return
   }
@@ -110,7 +156,19 @@ async function supply() {
     focusInput('.multiply-dialog')
     return
   }
-  console.log('MULTIPLIER', selectedMultiplier.value)
+  const deposit_pool_address = data?.raw.pool_address
+  const borrow_pool_address = marketsStore.state.pollsData.find(p => p.token_ticker === 'XLM')?.pool_address || ''
+  const asset_code = data?.raw.token_ticker
+  if (!deposit_pool_address || !borrow_pool_address) {
+    return
+  }
+  await market.leverage(
+    deposit_pool_address,
+    borrow_pool_address,
+    Number(amount.value),
+    Number(selectedMultiplier.value),
+    asset_code,
+  )
 }
 
 let interval: string | number | NodeJS.Timeout | undefined
@@ -119,7 +177,6 @@ watch(dialog, async (v) => {
   clearInterval(interval)
   if (!v) {
     amount.value = 0
-    collateralOnly.value = false
     return
   }
 
@@ -156,7 +213,7 @@ watch(dialog, async (v) => {
             return v && Number(v) < balance || 'Insufficient balance'
           },
           (v) => {
-            return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
+            return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool leverage limit'
           },
         ]"
       >
@@ -198,7 +255,7 @@ watch(dialog, async (v) => {
           variant="primary"
           :loading="loading"
           :pool="data?.raw"
-          @click-handler="supply"
+          @click-handler="leverage"
         >
           Multiply {{ data?.asset.symbol }}
         </market-dialog-action-btn>

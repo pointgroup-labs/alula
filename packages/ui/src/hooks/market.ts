@@ -427,6 +427,70 @@ export function useMarket() {
         }
     }
 
+    async function leverage(deposit_pool_address: string, borrow_pool_address: string, amount: number, leverage_multiplier: number, asset_code: string) {
+        let leverageToast
+        try {
+            if (!wallet.publicKey) {
+                throw new Error('Wallet not connected')
+            }
+
+            if (!amount || amount <= 0) {
+                throw new Error('Amount should be greater than 0')
+            }
+
+            marketsStore.poolDepositAddr = deposit_pool_address
+            marketsStore.poolActionType = 'withdraw'
+
+            leverageToast = await Toast.create({
+                title: 'Withdraw Collateral',
+                body: `Sending transaction to withdraw collateral ${amount} ${asset_code}`,
+                modelValue: 30_000,
+                variant: 'info',
+                noProgress: false,
+            })
+
+            const res = await jLendClient.value.sdk.leverage(
+                wallet.publicKey,
+                deposit_pool_address,
+                borrow_pool_address,
+                amount,
+                leverage_multiplier,
+                connectionStore.kit)
+
+            withdrawAmount.value = undefined
+
+            await reloadData(deposit_pool_address)
+
+            Toast.create({
+                title: 'Leverage Success',
+                body: `You leveraged ${amount} ${asset_code} successfully`,
+                modelValue: 30_000,
+                alertProps: {
+                    variant: 'success',
+                },
+                actions: [
+                    {
+                        label: 'View Transaction',
+                        href: generateExplorerLink(String(res.txHash)),
+                    },
+                ],
+            })
+        } catch (error: any) {
+            const message = error?.message || error
+            Toast.create({
+                title: 'Leverage Error',
+                body: String(message),
+                variant: 'danger',
+                modelValue: 10_000,
+            })
+            throw error
+        } finally {
+            marketsStore.poolDepositAddr = undefined
+            marketsStore.poolActionType = undefined
+            leverageToast?.dismiss()
+        }
+    }
+
     async function reloadData(pool_address: string) {
         await Promise.all([
             marketsStore.updatePools(pool_address),
@@ -463,6 +527,8 @@ export function useMarket() {
 
         addCollateral,
         removeCollateral,
+
+        leverage,
 
         addTrustLine,
 

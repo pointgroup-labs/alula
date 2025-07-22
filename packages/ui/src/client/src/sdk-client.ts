@@ -20,6 +20,7 @@ export class SorobanClient {
             networkPassphrase: getNetworkPassphrase(rpc),
         })
 
+        console.log('SDK', this.sdk)
         this.sorobanServer = new SorobanRpc.Server(getRPC(rpc, 'soroban'))
         this.getDecimals()
         this.rpc = rpc
@@ -134,6 +135,21 @@ export class SorobanClient {
     }
 
     /**
+     * Leverage Tx
+     */
+    async leverageTx(user: string, deposit_pool_address: string, borrow_pool_address: string, amount: string | number, leverage_multiplier: number) {
+        console.log('leverage multiplier', leverage_multiplier * 10)
+        return await this.sdk.deposit_with_leverage(
+            {
+                user,
+                deposit_pool_address,
+                borrow_pool_address,
+                amount: amountToBigInt(String(amount), this.assetDecimals),
+                leverage_multiplier: leverage_multiplier * 10,
+            })
+    }
+
+    /**
      * Deposit
      */
     async deposit(
@@ -219,6 +235,24 @@ export class SorobanClient {
         const tx = await this.removeCollateralTx(user, pool_address, amount)
 
         console.log('%c[Remove Collateral tx]', 'color: #00ff00', tx)
+
+        return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
+    }
+
+    /**
+     * Leverage
+     */
+    async leverage(
+        user: string,
+        deposit_pool_address: string,
+        borrow_pool_address: string,
+        amount: number,
+        leverage_multiplier: number,
+        kit: any,
+    ) {
+        const tx = await this.leverageTx(user, deposit_pool_address, borrow_pool_address, amount, leverage_multiplier)
+
+        console.log('%c[Leverage tx]', 'color: #00ff00', tx)
 
         return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }
