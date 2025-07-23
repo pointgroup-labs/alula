@@ -64,7 +64,7 @@ function normalizeAmount(price: number) {
             full-width
           />
           <template v-else>
-            {{ marketSize }}
+            ${{ marketSize }}
           </template>
         </div>
       </div>
