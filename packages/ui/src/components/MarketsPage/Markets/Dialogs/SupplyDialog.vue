@@ -153,10 +153,10 @@ watch(() => modelValue, async (v) => {
         :limit="supplyLimit"
         class="supply-dialog__input"
         :rules="[
-          (v) => {
+          (v: string) => {
             return v && Number(v) < balance || 'Insufficient balance'
           },
-          (v) => {
+          (v: string) => {
             return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
           },
         ]"

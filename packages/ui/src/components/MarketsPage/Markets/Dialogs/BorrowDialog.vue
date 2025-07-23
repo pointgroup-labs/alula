@@ -201,7 +201,7 @@ watch(() => modelValue, async (v) => {
         :balance="availableToBorrow"
         :fee="POOL_REMAINING_BALANCE"
         :rules="[
-          (v) => {
+          (v: string) => {
             return v && Number(v) < availableToBorrow || 'Borrow limit exceeded'
           },
         ]"

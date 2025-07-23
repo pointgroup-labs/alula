@@ -188,7 +188,7 @@ watch(collateralBalance, (b) => {
         :balance="availableToWithdraw"
         class="withdraw-dialog__input"
         :rules="[
-          (v) => {
+          (v: string) => {
             return v && Number(v) <= availableToWithdraw || 'Withdraw limit exceeded'
           },
         ]"
