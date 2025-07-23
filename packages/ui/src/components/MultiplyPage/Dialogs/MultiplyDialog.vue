@@ -10,17 +10,15 @@ const {
 }>()
 
 type LoopLimits = {
-  maxDeposit: number // сколько юзер может положить из кошелька
-  maxBorrow: number // сколько он сможет занять в долг
-  maxSupply: number // итоговый объём позиции (deposit + borrow)
+  maxDeposit: number // max deposit
+  maxBorrow: number // max borrow
+  maxSupply: number // (deposit + borrow)
 }
 
 /**
- * Считает максимальные значения для looping-позиции
- *
- * @param walletBalance — сколько у юзера есть в кошельке
- * @param poolLiquidity — доступная ликвидность пула (сколько можно занять)
- * @param multiplier — выбранный мультиплай (≥1)
+ * @param walletBalance 
+ * @param poolLiquidity 
+ * @param multiplier 
  */
 function calculateLoopLimits(
   walletBalance: number,

@@ -15,7 +15,7 @@ const errorMap: Record<string, string> = {
     OverOrUnderflow: 'An arithmetic overflow or underflow was detected during calculation.',
     OracleDoesNotKnowAssetPrice: 'The oracle has no price data for the specified asset.',
     BorrowDoesNotExist: 'No borrow record found.',
-    HealthFactorIsLowerThanRequiredThreshold: 'Health factor is below the required threshold. Please deposit more collateral or try entering a smaller borrow amount.',
+    HealthFactorIsLowerThanRequiredThreshold: 'Health factor is below the required threshold. Please try entering a smaller borrow amount.',
     InvalidLiquidationThreshold: 'Invalid liquidation threshold.”',
     LiquidatedPositionIsHealthy: 'This position is healthy and cannot be liquidated.',
     LiquidationExceedsCloseFactor: 'Liquidation amount exceeds the allowed close factor.',
@@ -67,6 +67,7 @@ export function getErrorMessage(error: unknown): string {
 
 export function parseStellarError(error: unknown): string | undefined {
     const raw = getErrorMessage(error)
+    console.log('%c[raw error]', 'color: #FB4747', error)
 
     for (const key in errorMap) {
         if (raw.includes(key)) {

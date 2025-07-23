@@ -1,6 +1,7 @@
 import type { RPCcluster } from '../types'
 import { Networks, TransactionBuilder } from '@stellar/stellar-sdk'
 import { RPC_URLS, SOROBAN_RPC_URLS } from '../constants'
+import { parseStellarError } from './errors'
 
 export function getRPC(rpc: RPCcluster = 'public', rpcType: 'horizon' | 'soroban') {
     const rpcUrls: Record<string, string> = rpcType === 'horizon' ? RPC_URLS : SOROBAN_RPC_URLS
@@ -29,7 +30,6 @@ export async function sendSorobanTx(tx: any, user: string, network: RPCcluster, 
     console.log('[Tx send responce]', sendResponse)
 
     if (sendResponse.status === 'ERROR') {
-        // @ts-expect-error...
         const errorMessage = parseStellarError(tx.simulation?.error)
         throw new Error(errorMessage)
     }
