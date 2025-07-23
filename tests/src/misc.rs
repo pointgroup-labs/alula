@@ -2,12 +2,8 @@
 
 use {
     crate::TestFixture,
-    lending::{
-        contract::{LendingContract, LendingContractClient},
-        pool::MultiplyPair,
-        LCError,
-    },
-    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
+    lending::LCError,
+    soroban_sdk::{testutils::Address as _, Address},
 };
 
 #[test]
