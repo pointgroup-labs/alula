@@ -5,11 +5,12 @@ use {
             DEFAULT_LIQUIDATION_THRESHOLD, MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
             REFLECTOR_TESTNET_ADDRESS,
         },
+        events,
         interest_rate::CompoundRates,
         math_utils::MathUtils,
         obligation::{LiquidationValues, Obligation},
         oracle,
-        pool::{Pool, PoolAddress, PoolConfig},
+        pool::{MultiplyPair, Pool, PoolAddress, PoolConfig},
         storage::{self, GlobalState},
         swap, LCError,
     },
@@ -46,8 +47,10 @@ impl LendingContract {
         } else {
             DEFAULT_LIQUIDATION_THRESHOLD
         };
-        let liquidation_threshold_bps = liquidation_threshold_percent * BPS_IN_PERCENT;
 
+        events::constructor(&e, &admin, liquidation_threshold_percent);
+
+        let liquidation_threshold_bps = liquidation_threshold_percent * BPS_IN_PERCENT;
         let global_state = GlobalState {
             admin,
             status: true,
@@ -91,6 +94,33 @@ impl LendingContract {
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, LCError> {
         process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
+    }
+
+    /// Registers a multiply pair
+    ///
+    /// ### Arguments
+    /// * `deposit_pool` - address of a pool in a pair for a leveraged deposit
+    /// * `borrow_pool` - address of a pool in a pair for a leveraged borrow
+    pub fn register_multiply_pair(
+        e: Env,
+        deposit_pool: Address,
+        borrow_pool: Address,
+    ) -> Result<(), LCError> {
+        let admin = storage::get_global_state(&e).admin;
+        admin.require_auth();
+
+        if !(Pool::exists(&e, &deposit_pool) && Pool::exists(&e, &borrow_pool)) {
+            return Err(LCError::PoolDoesNotExist);
+        }
+
+        let pair = MultiplyPair {
+            deposit_pool,
+            borrow_pool,
+        };
+
+        Pool::register_multiply_pair(&e, pair);
+
+        Ok(())
     }
 
     /// Deposits tokens into the loan pool
@@ -307,7 +337,7 @@ impl LendingContract {
     /// The actual amount withdrawn is capped by the value difference between deposited and borrowed tokens in
     /// the leveraged position (minus operational fees). Passing [`u64::MAX`] (or [`i128::MAX`])
     /// can be used to withdraw all available tokens
-    pub fn deleverage_and_withdraw(
+    pub fn withdraw_from_leveraged(
         e: Env,
         user: Address,
         deposit_pool_address: Address,
@@ -316,7 +346,7 @@ impl LendingContract {
     ) -> Result<(), LCError> {
         user.require_auth();
 
-        process_deleverage_and_withdraw(
+        process_withdraw_from_leveraged(
             &e,
             &user,
             &deposit_pool_address,
@@ -385,6 +415,16 @@ impl LendingContract {
         Pool::get_all(&e)
     }
 
+    /// Returns a list of all user obligations in the protocol
+    pub fn get_all_obligations(e: Env) -> Vec<Address> {
+        Obligation::get_all(&e)
+    }
+
+    /// Returns a list of all multiply pairs in the protocol
+    pub fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair> {
+        Pool::get_all_multiply_pairs(&e)
+    }
+
     /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g., 2912 = 29.12%, etc)
     ///
     /// ### Arguments
@@ -405,6 +445,17 @@ impl LendingContract {
             borrow_bps: 4_000,
             supply_bps: 1_500,
         })
+    }
+
+    /// Resets the contract's storage. Useful when the contract's invariants are broken and require resetting on the testnet
+    /// without re-deploying the contract
+    pub fn reset_storage(e: Env) {
+        let admin = storage::get_global_state(&e).admin;
+        admin.require_auth();
+
+        storage::remove_all_obligations(&e);
+        storage::remove_all_pools(&e);
+        storage::remove_all_multiply_pairs(&e);
     }
 }
 
@@ -459,6 +510,8 @@ fn process_initialize_pool(
     pool.set(e);
     pool.register(e);
 
+    events::initialize_pool(e, token_address, &pool_address, token_ticker);
+
     Ok(pool_address)
 }
 
@@ -489,22 +542,24 @@ pub fn process_deposit(
         return Err(LCError::SupplyLimitExceeded);
     }
 
-    let shares_to_issue = pool.compute_shares_from_tokens(amount)?;
+    let issued_shares = pool.compute_shares_from_tokens(amount)?;
 
     let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
-    obligation.deposit(pool_address, shares_to_issue)?;
+    obligation.deposit(e, pool_address, issued_shares)?;
 
     // NB: Should the depositor accrue interest on his obligation in this place?
     // obligation.accrue_interest(&e);
 
-    pool.adjust_total_shares(shares_to_issue)?;
-    pool.adjust_available(amount)?;
+    pool.adjust_total_shares(e, issued_shares)?;
+    pool.adjust_available(e, amount)?;
 
     obligation.set(e);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(user, &e.current_contract_address(), &amount);
+
+    events::deposit(e, pool_address, user, amount, issued_shares);
 
     Ok(())
 }
@@ -521,6 +576,16 @@ fn process_swap(
     let received_amount = swap::swap_exact_tokens_for_tokens(
         e, user, token_in, token_out, amount_in, amount_out, None,
     )?;
+
+    events::swap(
+        e,
+        user,
+        token_in,
+        token_out,
+        amount_in,
+        amount_out,
+        received_amount,
+    );
 
     Ok(received_amount)
 }
@@ -540,19 +605,26 @@ fn process_borrow(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let available_borrow = pool.compute_available_borrow()?;
-    if amount > available_borrow {
-        return Err(LCError::BorrowLimitExceeded);
-    }
+    let max_healthy_borrow_amount =
+        obligation.compute_max_healthy_borrow_added_amount(e, pool_address)?;
+    let available_borrow = pool.compute_available_borrow(e)?;
 
-    if amount > pool.available {
+    let borrow_amount = i128::min(
+        max_healthy_borrow_amount,
+        i128::min(available_borrow, amount),
+    );
+
+    // TODO: Should this check actually happen here?
+    // TODO: Is this a good idea to let somebody borrow less then they want?
+    // I am not so sure, to be honest...
+    if borrow_amount > pool.available {
         return Err(LCError::NotEnoughPoolFunds);
     }
 
-    obligation.borrow(pool_address, amount)?;
+    obligation.borrow(e, pool_address, borrow_amount)?;
 
-    pool.adjust_total_borrowed(amount)?;
-    pool.adjust_available(-amount)?;
+    pool.adjust_total_borrowed(e, borrow_amount)?;
+    pool.adjust_available(e, -borrow_amount)?;
 
     if !obligation.is_healthy(e)? {
         return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
@@ -562,7 +634,9 @@ fn process_borrow(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &amount);
+    token_client.transfer(&e.current_contract_address(), user, &borrow_amount);
+
+    events::borrow(e, pool_address, user, borrow_amount);
 
     Ok(())
 }
@@ -581,14 +655,16 @@ fn process_add_collateral(
     let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
     obligation.accrue_interest(e)?;
 
-    obligation.add_collateral(pool_address, amount)?;
-    pool.adjust_total_collateral(amount)?;
+    obligation.add_collateral(e, pool_address, amount)?;
+    pool.adjust_total_collateral(e, amount)?;
 
     obligation.set(e);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(user, &e.current_contract_address(), &amount);
+
+    events::add_collateral(e, pool_address, user, amount);
 
     Ok(())
 }
@@ -608,10 +684,10 @@ fn process_repay(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let repaid_amount = obligation.repay(pool_address, amount)?;
+    let repaid_amount = obligation.repay(e, pool_address, amount)?;
 
-    pool.adjust_total_borrowed(-repaid_amount)?;
-    pool.adjust_available(repaid_amount)?;
+    pool.adjust_total_borrowed(e, -repaid_amount)?;
+    pool.adjust_available(e, repaid_amount)?;
 
     if obligation.is_empty() {
         // NB: This will never be hit because of the collateral required?
@@ -623,6 +699,8 @@ fn process_repay(
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(user, &e.current_contract_address(), &repaid_amount);
+
+    events::repay(e, pool_address, user, repaid_amount);
 
     Ok(())
 }
@@ -644,8 +722,7 @@ fn process_liquidate(
     }
 
     if borrow_pool_address == collateral_pool_address {
-        // TODO: replace InternalError
-        return Err(LCError::InternalError);
+        return Err(LCError::LiquidationWithEqualCollateralAndDepositPools);
     }
 
     let mut obligation = Obligation::try_get(e, borrower)?;
@@ -676,16 +753,16 @@ fn process_liquidate(
         amount,
     )?;
 
-    let total_collateral_tokens_received_by_the_liquidator = tokens_from_sold_shares
+    let collateral_seized_amount = tokens_from_sold_shares
         .checked_add(collateral_amount_sold)
         .map_over_or_underflow()?;
 
-    borrow_pool.adjust_total_borrowed(-liquidated_amount)?;
-    borrow_pool.adjust_available(liquidated_amount)?;
+    borrow_pool.adjust_total_borrowed(e, -liquidated_amount)?;
+    borrow_pool.adjust_available(e, liquidated_amount)?;
 
-    collateral_pool.adjust_total_shares(-shares_amount_sold)?;
-    collateral_pool.adjust_available(-tokens_from_sold_shares)?;
-    collateral_pool.adjust_total_collateral(-collateral_amount_sold)?;
+    collateral_pool.adjust_total_shares(e, -shares_amount_sold)?;
+    collateral_pool.adjust_available(e, -tokens_from_sold_shares)?;
+    collateral_pool.adjust_total_collateral(e, -collateral_amount_sold)?;
 
     obligation.set(e);
 
@@ -703,7 +780,17 @@ fn process_liquidate(
     collateral_token_client.transfer(
         &e.current_contract_address(),
         liquidator,
-        &total_collateral_tokens_received_by_the_liquidator,
+        &collateral_seized_amount,
+    );
+
+    events::liquidate(
+        e,
+        liquidator,
+        borrower,
+        borrow_pool_address,
+        collateral_pool_address,
+        liquidated_amount,
+        collateral_seized_amount,
     );
 
     Ok(())
@@ -726,10 +813,13 @@ fn process_remove_collateral(
 
     let max_possible_collateral_removed_amount =
         obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
-    let removed_tokens_amount = i128::min(amount, max_possible_collateral_removed_amount);
+    let removed_tokens_amount = i128::min(
+        i128::min(amount, max_possible_collateral_removed_amount),
+        obligation.get_collateral(pool_address)?,
+    );
 
-    obligation.remove_collateral(pool_address, removed_tokens_amount)?;
-    pool.adjust_total_collateral(-removed_tokens_amount)?;
+    obligation.remove_collateral(e, pool_address, removed_tokens_amount)?;
+    pool.adjust_total_collateral(e, -removed_tokens_amount)?;
 
     if !obligation.is_healthy(e)? {
         return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
@@ -744,6 +834,8 @@ fn process_remove_collateral(
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), user, &removed_tokens_amount);
+
+    events::remove_collateral(e, pool_address, user, removed_tokens_amount);
 
     Ok(())
 }
@@ -763,25 +855,28 @@ fn process_withdraw(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let max_possible_collateral_removed_amount =
+    let max_healthy_collateral_removed_amount =
         obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
 
-    // TODO: Prettify this somehow
-    let withdrawn_tokens_amount = i128::min(amount, max_possible_collateral_removed_amount);
+    let cap_withdrawn_tokens_amount = i128::min(amount, max_healthy_collateral_removed_amount);
 
-    let shares = pool.compute_shares_from_tokens(withdrawn_tokens_amount)?;
-    let burnt_shares_amount = i128::min(shares, obligation.get_shares(pool_address)?);
-    let withdrawn_tokens_amount = pool.compute_tokens_from_shares(burnt_shares_amount)?;
+    let obligation_shares = obligation.get_shares(pool_address)?;
+    let cap_shares_amount = pool.compute_shares_from_tokens(cap_withdrawn_tokens_amount)?;
+
+    let burnt_shares_amount = i128::min(cap_shares_amount, obligation_shares);
+
+    let withdrawn_tokens_amount = pool.compute_tokens_from_shares(e, burnt_shares_amount)?;
 
     if withdrawn_tokens_amount > pool.available {
         return Err(LCError::NotEnoughPoolFunds);
     }
 
-    obligation.withdraw(pool_address, burnt_shares_amount)?;
+    obligation.withdraw(e, pool_address, burnt_shares_amount)?;
 
-    pool.adjust_total_shares(-burnt_shares_amount)?;
-    pool.adjust_available(-withdrawn_tokens_amount)?;
+    pool.adjust_total_shares(e, -burnt_shares_amount)?;
+    pool.adjust_available(e, -withdrawn_tokens_amount)?;
 
+    // TODO: For now this check seems to be redundant
     if !obligation.is_healthy(e)? {
         return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
     }
@@ -799,6 +894,8 @@ fn process_withdraw(
         user,
         &withdrawn_tokens_amount,
     );
+
+    events::withdraw(e, pool_address, user, withdrawn_tokens_amount);
 
     Ok(())
 }
@@ -836,6 +933,8 @@ fn process_flash_loan(
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
     token_client.transfer(contract, &e.current_contract_address(), &amount_to_repay);
+
+    events::flash_loan(e, contract, pool_address, amount, fees);
 
     Ok(())
 }
@@ -887,6 +986,10 @@ fn process_deposit_with_leverage(
             user,
             &flash_borrow_amount,
         );
+
+        borrow_pool.adjust_available(e, -flash_borrow_amount)?;
+        // TODO: This `set` is required, since 'available' amount is later accounted when calling `process_borrow`
+        borrow_pool.set(e);
     }
 
     // Swap
@@ -931,14 +1034,25 @@ fn process_deposit_with_leverage(
             &flash_repay_amount,
         );
 
-        borrow_pool.adjust_available(flash_repay_amount)?;
+        borrow_pool.adjust_available(e, flash_repay_amount)?;
         borrow_pool.set(e);
+
+        events::deposit_with_leverage(
+            e,
+            user,
+            deposit_pool_address,
+            borrow_pool_address,
+            amount,
+            leverage_multiplier,
+            deposit_amount,
+            flash_borrow_amount,
+        );
     }
 
     Ok(())
 }
 
-pub fn process_deleverage_and_withdraw(
+pub fn process_withdraw_from_leveraged(
     e: &Env,
     user: &Address,
     deposit_pool_address: &Address,
@@ -950,7 +1064,7 @@ pub fn process_deleverage_and_withdraw(
     }
 
     let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
-        return Err(LCError::CollateralPoolDoesNotExist);
+        return Err(LCError::BorrowPoolDoesNotExist);
     };
 
     let Ok(deposit_pool) = Pool::try_get(e, deposit_pool_address) else {
@@ -967,15 +1081,16 @@ pub fn process_deleverage_and_withdraw(
 
     let obligation_shares = obligation.get_shares(deposit_pool_address)?;
     let tokens_per_obligation_shares =
-        deposit_pool.compute_tokens_from_shares(obligation_shares)?;
+        deposit_pool.compute_tokens_from_shares(e, obligation_shares)?;
 
     // Compute the max withdrawable amount
     let max_withdrawable_amount = compute_leveraged_position_max_withdrawable_amount(
         e,
+        user,
         &deposit_pool.token_address,
         &borrow_pool.token_address,
-        borrowed,
         tokens_per_obligation_shares,
+        borrowed,
     )?;
 
     let withdrawn_amount = i128::min(amount, max_withdrawable_amount);
@@ -986,7 +1101,7 @@ pub fn process_deleverage_and_withdraw(
         .map_over_or_underflow()?;
 
     let plain_leverage_amount = tokens_per_obligation_shares - max_withdrawable_amount; // safe
-    let plain_leverage_to_be_deleveraged = plain_leverage_amount
+    let plain_leverage_to_be_withdrawn = plain_leverage_amount
         .fixed_div_floor(BPS_FACTOR, scale_bps)
         .map_over_or_underflow()?;
 
@@ -995,7 +1110,7 @@ pub fn process_deleverage_and_withdraw(
         e,
         &deposit_pool.token_address,
         &borrow_pool.token_address,
-        plain_leverage_to_be_deleveraged,
+        plain_leverage_to_be_withdrawn,
     )?;
 
     if borrow_pool.available < flash_borrow_amount {
@@ -1010,13 +1125,13 @@ pub fn process_deleverage_and_withdraw(
     borrow_pool.refresh(e)?;
 
     // Withdraw
-    let withdraw_amount = withdrawn_amount
-        .checked_add(plain_leverage_to_be_deleveraged)
+    let withdrawn_amount = withdrawn_amount
+        .checked_add(plain_leverage_to_be_withdrawn)
         .map_over_or_underflow()?;
-    process_withdraw(e, user, deposit_pool_address, withdraw_amount)?;
+    process_withdraw(e, user, deposit_pool_address, withdrawn_amount)?;
 
     // Swap to get what must repay the flash loan
-    let amount_in = plain_leverage_to_be_deleveraged; // TODO: Maybe, add here 1 or 2 %?
+    let amount_in = plain_leverage_to_be_withdrawn; // TODO: Maybe, add here 1 or 2 %?
 
     let flash_loan_fee = flash_borrow_amount
         .checked_mul(DEFAULT_FLASH_LOAN_FEE_BPS)
@@ -1040,8 +1155,21 @@ pub fn process_deleverage_and_withdraw(
     // Flash Repay
     flash_borrowed_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
 
-    borrow_pool.adjust_available(flash_repay_amount)?;
+    borrow_pool.adjust_available(e, flash_repay_amount)?;
     borrow_pool.set(e);
+
+    let actual_amount_withdrawn = withdrawn_amount
+        .checked_sub(flash_repay_amount)
+        .map_over_or_underflow()?;
+
+    events::withdraw_from_leveraged(
+        e,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+        amount,
+        actual_amount_withdrawn,
+    );
 
     Ok(())
 }
@@ -1049,10 +1177,11 @@ pub fn process_deleverage_and_withdraw(
 // WARN: will everything be ok here with precision?
 fn compute_leveraged_position_max_withdrawable_amount(
     e: &Env,
+    user: &Address,
     deposited_token: &Address,
     borrowed_token: &Address,
-    borrowed_amount: i128,
     deposited_amount: i128,
+    borrowed_amount: i128,
 ) -> Result<i128, LCError> {
     let borrowed_token_swapped_amount =
         swap::get_amount_out(e, borrowed_token, deposited_token, borrowed_amount)?;
@@ -1066,8 +1195,18 @@ fn compute_leveraged_position_max_withdrawable_amount(
         .map_over_or_underflow()?;
 
     if swapped_amount_with_fees > deposited_amount {
-        // TODO: This can happen when multiply position contains a bad debt
-        // What to do in this case?
+        // WARN: This can happen when multiply position contains a bad debt
+        events::leveraged_position_bad_debt(
+            e,
+            user,
+            deposited_token,
+            borrowed_token,
+            deposited_amount,
+            borrowed_amount,
+            borrowed_token_swapped_amount,
+        );
+
+        // TODO: This has to be thought of when implementing security mechanisms
         return Err(LCError::InternalError);
     }
 

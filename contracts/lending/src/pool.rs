@@ -6,14 +6,25 @@ use {
             DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1,
             DEFAULT_SLOPE2, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
         },
+        events,
         math_utils::MathUtils,
         storage, LCError,
     },
-    soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec},
+    soroban_fixed_point_math::FixedPoint,
+    soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec},
 };
 
 pub type PoolAddress = Address;
 pub type UserAddress = Address;
+
+#[contracttype]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct MultiplyPair {
+    /// Address of a pool in a pair for a leveraged deposit
+    pub deposit_pool: Address,
+    /// Address of a pool in a pair for a leveraged borrow
+    pub borrow_pool: Address,
+}
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
@@ -45,48 +56,70 @@ pub struct Pool {
 }
 
 impl Pool {
-    fn adjust_field(current_value: i128, adjusting_amount: i128) -> Result<i128, LCError> {
+    fn adjust_field(e: &Env, current_value: i128, adjusting_amount: i128) -> Result<i128, LCError> {
         let new_amount = current_value
             .checked_add(adjusting_amount)
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
-            // TODO: Add event
-            // TODO: better error name
-            return Err(LCError::InternalError);
+            // TODO: Just an ad-hoc fix. When switching to bTokens this issue should likely be gone
+            events::pool_amount_becomes_negative(e, current_value, new_amount);
+
+            return Ok(0);
         }
 
         Ok(new_amount)
     }
 
-    pub fn adjust_total_shares(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        self.total_shares = Self::adjust_field(self.total_shares, adjusting_amount)?;
+    pub fn adjust_total_shares(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("shares"));
+        self.total_shares = Self::adjust_field(e, self.total_shares, adjusting_amount)?;
         Ok(())
     }
 
-    pub fn adjust_available(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        self.available = Self::adjust_field(self.available, adjusting_amount)?;
+    pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("avail"));
+        self.available = Self::adjust_field(e, self.available, adjusting_amount)?;
         Ok(())
     }
 
-    pub fn adjust_total_borrowed(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        self.total_borrowed = Self::adjust_field(self.total_borrowed, adjusting_amount)?;
+    pub fn adjust_total_borrowed(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("borrowed"));
+        self.total_borrowed = Self::adjust_field(e, self.total_borrowed, adjusting_amount)?;
         Ok(())
     }
 
-    pub fn adjust_total_collateral(&mut self, adjusting_amount: i128) -> Result<(), LCError> {
-        self.total_collateral = Self::adjust_field(self.total_collateral, adjusting_amount)?;
+    pub fn adjust_total_collateral(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("collat"));
+        self.total_collateral = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the `share` of the of shares in the pool
-    pub fn compute_tokens_from_shares(&self, shares_amount: i128) -> Result<i128, LCError> {
+    /// Computes tokens amount proportional to the share of the of `shares` in the pool
+    pub fn compute_tokens_from_shares(
+        &self,
+        e: &Env,
+        shares_amount: i128,
+    ) -> Result<i128, LCError> {
         if shares_amount == 0 {
             return Ok(0);
         }
 
         if self.total_shares < shares_amount {
-            // Total shares must never be smaller than shares that a single obligation has
+            events::pool_total_shares_smaller_than_individual_user_shares(
+                e,
+                self.total_shares,
+                shares_amount,
+            );
+
             return Err(LCError::InternalError);
         }
 
@@ -128,9 +161,7 @@ impl Pool {
                 shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
             */
             self.total_shares
-                .checked_mul(tokens_amount)
-                .map_over_or_underflow()?
-                .checked_div(total)
+                .fixed_div_ceil(total, tokens_amount)
                 .map_over_or_underflow()?
         };
 
@@ -165,6 +196,14 @@ impl Pool {
         storage::get_all_pools(e)
     }
 
+    pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
+        storage::get_all_multiply_pairs(e)
+    }
+
+    pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
+        storage::register_multiply_pair(e, pair)
+    }
+
     pub fn exists(e: &Env, address: &PoolAddress) -> bool {
         storage::pool_exists(e, address)
     }
@@ -172,6 +211,8 @@ impl Pool {
     /// Refreshes the pool with the contract's storage data
     pub fn refresh(&mut self, e: &Env) -> Result<(), LCError> {
         let Some(refreshed_pool) = storage::get_pool(e, &self.pool_address) else {
+            events::pool_is_missing_in_storage(e, &self.pool_address);
+
             return Err(LCError::InternalError);
         };
 

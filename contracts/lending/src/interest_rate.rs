@@ -4,6 +4,7 @@
 use {
     crate::{
         constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+        events,
         math_utils::{self, MathUtils},
         pool::Pool,
         LCError,
@@ -81,11 +82,11 @@ impl Pool {
             .fixed_mul_ceil(borrow_multiplier, SCALED_ONE)
             .map_over_or_underflow()?;
 
+        // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
+        // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_total_borrowed = self
             .total_borrowed
-            .checked_mul(new_accrual)
-            .map_over_or_underflow()?
-            .checked_div(self.last_accrual)
+            .fixed_div_ceil(self.last_accrual, new_accrual)
             .map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
@@ -197,11 +198,19 @@ impl Pool {
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization ratio limit on a pool
-    pub fn compute_available_borrow(&self) -> Result<i128, LCError> {
+    ///
+    // TODO: We have to pre-compute the max available amount during Pool initialization, I think..
+    pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, LCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
         if utilization_ratio > self.config.utilization_ratio_limit_bps {
+            events::utilization_ration_exceeds_limit(
+                e,
+                utilization_ratio,
+                self.config.utilization_ratio_limit_bps,
+            );
+
             return Err(LCError::InternalError);
         }
         let available_percentage_to_borrow_bps =
@@ -393,9 +402,8 @@ mod tests {
             .fixed_mul_ceil(expected_multipliers.borrow, SCALED_ONE)
             .unwrap();
         let expected_new_total_borrowed = initial_total_borrowed
-            .checked_mul(expected_new_accrual)
-            .unwrap()
-            .checked_div(initial_accrual)
+            .fixed_div_ceil(initial_accrual, expected_new_accrual)
+            .map_over_or_underflow()
             .unwrap();
 
         let result = pool.accrue_interest(&env);
