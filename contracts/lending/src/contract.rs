@@ -17,7 +17,7 @@ use {
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{
-        contract, contractimpl, log, symbol_short,
+        contract, contractimpl, log,
         token::{self, TokenClient},
         Address, BytesN, Env, Symbol, Vec,
     },
