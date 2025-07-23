@@ -39,6 +39,11 @@ export async function sendSorobanTx(tx: any, user: string, network: RPCcluster, 
         attempts: 30,
     })
 
+    if (result.status === 'FAILED') {
+        const errorMessage = `Transaction failed! Tx Hash: ${result.txHash}`
+        throw new Error(errorMessage)
+    }
+
     console.log('✅ Transaction submitted!', result)
 
     return result
