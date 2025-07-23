@@ -18,6 +18,15 @@ pub type PoolAddress = Address;
 pub type UserAddress = Address;
 
 #[contracttype]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct MultiplyPair {
+    /// Address of a pool in a pair for a leveraged deposit
+    pub deposit_pool: Address,
+    /// Address of a pool in a pair for a leveraged borrow
+    pub borrow_pool: Address,
+}
+
+#[contracttype]
 #[derive(Debug, Eq, PartialEq)]
 pub struct Pool {
     /// The address of the loan pool
@@ -53,14 +62,10 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
+            // TODO: Just an ad-hoc fix. When switching to bTokens this issue should likely be gone
             events::pool_amount_becomes_negative(e, current_value, new_amount);
 
-            // TODO: Just an ad-hoc fix. When switching to bTokens this issue should be gone
-            if new_amount < -1000 {
-                return Err(LCError::InternalError);
-            } else {
-                return Ok(0);
-            }
+            return Ok(0);
         }
 
         Ok(new_amount)
@@ -98,7 +103,7 @@ impl Pool {
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the `share` of the of shares in the pool
+    /// Computes tokens amount proportional to the share of the of `shares` in the pool
     pub fn compute_tokens_from_shares(
         &self,
         e: &Env,
@@ -189,6 +194,14 @@ impl Pool {
 
     pub fn get_all(e: &Env) -> Vec<PoolAddress> {
         storage::get_all_pools(e)
+    }
+
+    pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
+        storage::get_all_multiply_pairs(e)
+    }
+
+    pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
+        storage::register_multiply_pair(e, pair)
     }
 
     pub fn exists(e: &Env, address: &PoolAddress) -> bool {

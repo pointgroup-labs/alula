@@ -9,7 +9,7 @@ use {
         LCError,
     },
     soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contracttype, Address, Env, Map},
+    soroban_sdk::{contracttype, Address, Env, Map, Vec},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,7 +30,13 @@ pub struct Obligation {
 }
 
 impl Obligation {
+    /// Creates a new obligation for the user
+    ///
+    /// # WARNING
+    /// Modifies the obligation's pools storage data by appending the user's address to the obligation's list
     pub fn new(e: &Env, user: Address) -> Self {
+        storage::register_obligation(e, &user);
+
         Self {
             user,
             deposits: Map::new(e),
@@ -194,6 +200,10 @@ impl Obligation {
         };
 
         Ok(max_healthy_borrow_amount)
+    }
+
+    pub fn get_all(e: &Env) -> Vec<Address> {
+        storage::get_all_obligations(e)
     }
 
     fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {

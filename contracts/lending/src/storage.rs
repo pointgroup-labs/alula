@@ -5,7 +5,7 @@ use {
             SHARED_THRESHOLD,
         },
         obligation::Obligation,
-        pool::Pool,
+        pool::{MultiplyPair, Pool},
         LCError,
     },
     soroban_sdk::{contracttype, Address, Env, Symbol},
@@ -29,7 +29,8 @@ pub enum DataKey {
     Obligation(UserAddress),
     Accrual,
     AllPools,
-    // AllUsers,
+    AllObligations,
+    AllMultiplyPairs,
 }
 
 /// Instance bumper
@@ -81,6 +82,31 @@ pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<PoolAddress> {
     } else {
         soroban_sdk::Vec::new(e)
     }
+}
+
+pub fn get_all_multiply_pairs(e: &Env) -> soroban_sdk::Vec<MultiplyPair> {
+    let res = e.storage().persistent().get(&DataKey::AllMultiplyPairs);
+
+    if let Some(pairs) = res {
+        extend_shared_storage(e, &DataKey::AllMultiplyPairs);
+        pairs
+    } else {
+        soroban_sdk::Vec::new(e)
+    }
+}
+
+pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
+    let mut all_pairs = get_all_multiply_pairs(e);
+    all_pairs.push_back(pair);
+
+    let new_index = all_pairs.len() - 1;
+
+    e.storage()
+        .persistent()
+        .set(&DataKey::AllMultiplyPairs, &all_pairs);
+    extend_shared_storage(e, &DataKey::AllMultiplyPairs);
+
+    new_index
 }
 
 pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
@@ -143,6 +169,26 @@ pub fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
     extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
 }
 
+pub fn remove_pool(e: &Env, pool_address: &Address) {
+    e.storage()
+        .persistent()
+        .remove(&DataKey::Pool(pool_address.clone()));
+}
+
+pub fn remove_all_pools(e: &Env) {
+    let all_pools: soroban_sdk::Vec<PoolAddress> = get_all_pools(e);
+
+    for pool in all_pools.iter() {
+        remove_pool(e, &pool);
+    }
+
+    e.storage().persistent().remove(&DataKey::AllPools);
+}
+
+pub fn remove_all_multiply_pairs(e: &Env) {
+    e.storage().persistent().remove(&DataKey::AllMultiplyPairs);
+}
+
 // --- Obligation ---
 pub fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
     e.storage()
@@ -165,8 +211,41 @@ pub fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
     res
 }
 
+pub fn register_obligation(e: &Env, user_address: &Address) -> u32 {
+    let mut all_obligations = get_all_obligations(e);
+    all_obligations.push_back(user_address.clone());
+    let new_index = all_obligations.len() - 1;
+
+    e.storage()
+        .persistent()
+        .set(&DataKey::AllObligations, &all_obligations);
+    extend_shared_storage(e, &DataKey::AllObligations);
+
+    new_index
+}
+
 pub fn remove_obligation(e: &Env, user: &Address) {
     e.storage()
         .persistent()
         .remove(&DataKey::Obligation(user.clone()));
+}
+
+pub fn remove_all_obligations(e: &Env) {
+    let all_obligations: soroban_sdk::Vec<Address> = get_all_obligations(e);
+
+    for obligation in all_obligations.iter() {
+        remove_obligation(e, &obligation);
+    }
+
+    e.storage().persistent().remove(&DataKey::AllObligations);
+}
+
+pub fn get_all_obligations(e: &Env) -> soroban_sdk::Vec<UserAddress> {
+    let res = e.storage().persistent().get(&DataKey::AllObligations);
+    if let Some(obligations) = res {
+        extend_shared_storage(e, &DataKey::AllObligations);
+        obligations
+    } else {
+        soroban_sdk::Vec::new(e)
+    }
 }

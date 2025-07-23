@@ -2,7 +2,8 @@
 
 use {
     crate::{
-        get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
+        get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed,
+        get_obligation_tokens_from_shares,
         tests::{get_amount_scaled_down, get_amount_scaled_up},
         LCError, TestFixture, DEFAULT_DEPOSIT_AMOUNT,
     },
@@ -13,6 +14,7 @@ use {
         },
         swap,
     },
+    soroban_sdk::{testutils::Ledger, Env},
 };
 
 // ---- Deposit with leverage ----
@@ -269,7 +271,7 @@ fn test_withdraw_zero() {
     let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
     let obligation_before = contract_client.get_user_obligation(&user);
 
-    contract_client.deleverage_and_withdraw(&user, &usdc_pool_address, &gold_pool_address, &0);
+    contract_client.withdraw_from_leveraged(&user, &usdc_pool_address, &gold_pool_address, &0);
 
     let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
     let gold_pool_after = contract_client.get_pool(&usdc_pool_address);
@@ -306,7 +308,7 @@ fn test_withdraw_negative() {
 
     assert_eq!(
         Err(Ok(LCError::NegativeWithdraw)),
-        contract_client.try_deleverage_and_withdraw(
+        contract_client.try_withdraw_from_leveraged(
             &user,
             &usdc_pool_address,
             &gold_pool_address,
@@ -394,7 +396,7 @@ fn test_withdraw() {
     let withdrawable_amount = get_amount_scaled_down(amount_out, 10_00);
 
     // We must be able to withdraw the initial amount
-    contract_client.deleverage_and_withdraw(
+    contract_client.withdraw_from_leveraged(
         &user,
         &usdc_pool_address,
         &gold_pool_address,
@@ -490,7 +492,7 @@ fn test_withdraw_over_balance() {
     let withdrawable_amount = get_amount_scaled_down(amount_out, 2_00);
 
     // Withdrawing more than max available amount must succeed because of the inner cap
-    contract_client.deleverage_and_withdraw(
+    contract_client.withdraw_from_leveraged(
         &user,
         &usdc_pool_address,
         &gold_pool_address,
@@ -541,7 +543,7 @@ fn test_withdraw_all_available_with_i128_max() {
         .total_supply()
         .unwrap();
 
-    contract_client.deleverage_and_withdraw(
+    contract_client.withdraw_from_leveraged(
         &user,
         &usdc_pool_address,
         &gold_pool_address,
@@ -560,4 +562,205 @@ fn test_withdraw_all_available_with_i128_max() {
     // Full withdraw took place
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
     assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO: Add a more rigorous check)
+}
+
+#[test]
+fn custom_test1() {
+    // const LEVERAGE_MULTIPLIER: u32 = 2; // x4 leverage
+
+    let TestFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let me = users.get(0).unwrap();
+    let kyryl = users.get(1).unwrap();
+    let kyryl2 = users.get(2).unwrap();
+
+    // let deposit_amount: i128 = 50000000;
+
+    contract_client.deposit(&me, &gold_pool_address, &50000000);
+    contract_client.deposit(&me, &usdc_pool_address, &50000000);
+
+    contract_client.deposit(&kyryl, &usdc_pool_address, &12000000000);
+
+    contract_client.borrow(&kyryl, &gold_pool_address, &49900000);
+
+    wait_for(&e, 15);
+
+    contract_client.repay(&kyryl, &gold_pool_address, &49900000);
+
+    let kyryl_borrowed = get_borrow_obligation(&contract_client, &kyryl, &gold_pool_address)
+        .unwrap()
+        .borrowed;
+
+    wait_for(&e, 15);
+
+    contract_client.repay(&kyryl, &gold_pool_address, &kyryl_borrowed);
+
+    assert!(get_borrow_obligation(&contract_client, &kyryl, &gold_pool_address).is_err());
+
+    wait_for(&e, 11);
+
+    contract_client.withdraw(&kyryl, &usdc_pool_address, &12000000000);
+
+    assert!(get_deposit_obligation(&contract_client, &kyryl, &gold_pool_address).is_err());
+
+    wait_for(&e, 20);
+
+    contract_client.deposit(&kyryl, &usdc_pool_address, &11000000000);
+
+    wait_for(&e, 60 * 4); // 4 minutes
+
+    contract_client.deposit(&kyryl2, &gold_pool_address, &30000000000);
+
+    wait_for(&e, 30);
+
+    contract_client.borrow(&kyryl2, &usdc_pool_address, &1000000000);
+
+    let kyryl2_borrowed = get_borrow_obligation(&contract_client, &kyryl2, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
+
+    assert_eq!(kyryl2_borrowed, 1000000000);
+
+    wait_for(&e, 30);
+
+    contract_client.borrow(&kyryl2, &usdc_pool_address, &3000000000);
+
+    let kyryl2_borrowed = get_borrow_obligation(&contract_client, &kyryl2, &usdc_pool_address)
+        .unwrap()
+        .borrowed;
+
+    assert_eq!(kyryl2_borrowed, 1000000000 + 3000000000);
+
+    let kyryl2_total_debt = get_borrow_obligation(&contract_client, &kyryl2, &usdc_pool_address)
+        .unwrap()
+        .total_debt()
+        .unwrap();
+
+    assert!(kyryl2_total_debt > 1000000000 + 3000000000);
+
+    // Okay, what do we have at this point....
+    // Everything seems to be working just fine, to be honest...
+    // Now, we better check everything else...
+
+    wait_for(&e, 80 * 60); // 80 minutes
+
+    let kyryl2_gold_deposit =
+        get_deposit_obligation(&contract_client, &kyryl2, &gold_pool_address).unwrap();
+
+    let kyryl2_gold_deposit_tokens =
+        get_obligation_tokens_from_shares(&e, &contract_client, &kyryl2, &gold_pool_address)
+            .unwrap();
+    // let kyryl2_gold_borrow =
+    //     get_borrow_obligation(&contract_client, &kyryl2, &gold_pool_address).unwrap();
+
+    // let kyryl2_usdc_deposit =
+    //     get_deposit_obligation(&contract_client, &kyryl2, &usdc_pool_address).unwrap();
+    let kyryl2_usdc_borrow =
+        get_borrow_obligation(&contract_client, &kyryl2, &usdc_pool_address).unwrap();
+
+    let gold_pool = contract_client.get_pool(&gold_pool_address);
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
+
+    std::dbg!(
+        kyryl2_gold_deposit,
+        kyryl2_gold_deposit_tokens,
+        // kyryl2_gold_borrow,
+        // kyryl2_usdc_deposit,
+        kyryl2_usdc_borrow,
+        gold_pool,
+        usdc_pool,
+    );
+
+    contract_client.deposit_with_leverage(
+        &kyryl2,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &500000000,
+        &59,
+    );
+
+    // So, what should happen here?
+
+    // kyryl2 must have an increase in borrow for ~ 2500000000
+    // and increase in deposited tokens for ~ 3000000000
+
+    let kyryl2_gold_borrowed_new =
+        get_borrow_obligation(&contract_client, &kyryl2, &gold_pool_address)
+            .unwrap()
+            .total_debt()
+            .unwrap();
+
+    let kyryl2_usdc_deposited_new =
+        get_obligation_tokens_from_shares(&e, &contract_client, &kyryl2, &usdc_pool_address)
+            .unwrap();
+
+    assert!(somewhat_equals(
+        kyryl2_gold_borrowed_new,
+        (500000000 * 49) / 10,
+        1
+    ));
+
+    assert!(somewhat_equals(
+        kyryl2_usdc_deposited_new,
+        (500000000 * 59) / 10,
+        1
+    ));
+
+    wait_for(&e, 45);
+
+    // тепер робимо собі repay gold'и...
+
+    contract_client.repay(&kyryl2, &gold_pool_address, &1450145000);
+
+    wait_for(&e, 36);
+
+    contract_client.repay(&kyryl2, &usdc_pool_address, &3000000000);
+
+    wait_for(&e, 40);
+
+    let b_gold_before = get_borrow_obligation(&contract_client, &kyryl2, &gold_pool_address)
+        .unwrap()
+        .total_debt()
+        .unwrap();
+    let d_usdc_before =
+        get_obligation_tokens_from_shares(&e, &contract_client, &kyryl2, &usdc_pool_address)
+            .unwrap();
+
+    std::dbg!(b_gold_before, d_usdc_before);
+
+    contract_client.deposit_with_leverage(
+        &kyryl2,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &1000000000,
+        &45,
+    );
+
+    let b_gold_after = get_borrow_obligation(&contract_client, &kyryl2, &gold_pool_address)
+        .unwrap()
+        .total_debt()
+        .unwrap();
+    let d_usdc_after =
+        get_obligation_tokens_from_shares(&e, &contract_client, &kyryl2, &usdc_pool_address)
+            .unwrap();
+
+    std::dbg!(b_gold_after, d_usdc_after);
+}
+
+fn wait_for(e: &Env, seconds: u64) {
+    e.ledger().with_mut(|li| li.timestamp += seconds);
+}
+
+fn somewhat_equals(x: i128, y: i128, tolerance_percent: i128) -> bool {
+    let bigger = if x > y { x } else { y };
+    let tolerance = (bigger * tolerance_percent) / 100;
+
+    (x - y).abs() <= tolerance
 }

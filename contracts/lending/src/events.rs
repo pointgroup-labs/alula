@@ -187,11 +187,11 @@ pub fn deposit_with_leverage(
     e.events().publish(topics, data);
 }
 
-/// Emitted when a leveraged deposit position is deleveraged and withdrawn
+/// Emitted when a leveraged deposit position is withdrawn
 ///
-/// - topics - `["deleverage_and_withdraw", user: Address, deposit_pool: Address, borrow_pool: Address]`
+/// - topics - `["withdraw_from_leveraged", user: Address, deposit_pool: Address, borrow_pool: Address]`
 /// - data - `[amount: i128, actual_amount_withdrawn: i128]`
-pub fn deleverage_and_withdraw(
+pub fn withdraw_from_leveraged(
     e: &Env,
     user: &Address,
     deposit_pool_address: &Address,
@@ -200,7 +200,7 @@ pub fn deleverage_and_withdraw(
     actual_amount_withdrawn: i128,
 ) {
     let topics = (
-        Symbol::new(e, "deleverage_and_withdraw"),
+        Symbol::new(e, "withdraw_from_leveraged"),
         user,
         deposit_pool_address,
         borrow_pool_address,

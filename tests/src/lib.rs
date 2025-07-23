@@ -7,6 +7,7 @@ mod initialize;
 mod interest_rates;
 mod leverage;
 mod liquidate;
+mod misc;
 mod repay;
 mod swap;
 mod withdraw;
@@ -269,8 +270,8 @@ pub enum Command {
     TomDepositWithLeverage(DepositWithLeverage),
     JerryDepositWithLeverage(DepositWithLeverage),
 
-    TomDeleverageAndWithdraw(DeleverageAndWithdraw),
-    JerryDeleverageAndWithdraw(DeleverageAndWithdraw),
+    TomWithdrawFromLeveraged(WithdrawFromLeveraged),
+    JerryWithdrawFromLeveraged(WithdrawFromLeveraged),
     // PassTime(),
 }
 
@@ -285,7 +286,7 @@ impl Command {
             Command::TomDepositCollateral(command) => command.run(test_fixture, 0),
             Command::TomWithdrawCollateral(command) => command.run(test_fixture, 0),
             Command::TomDepositWithLeverage(command) => command.run(test_fixture, 0),
-            Command::TomDeleverageAndWithdraw(command) => command.run(test_fixture, 0),
+            Command::TomWithdrawFromLeveraged(command) => command.run(test_fixture, 0),
 
             Command::JerryRepay(command) => command.run(test_fixture, 1),
             Command::JerryBorrow(command) => command.run(test_fixture, 1),
@@ -295,7 +296,7 @@ impl Command {
             Command::JerryDepositCollateral(command) => command.run(test_fixture, 1),
             Command::JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
             Command::JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
-            Command::JerryDeleverageAndWithdraw(command) => command.run(test_fixture, 1),
+            Command::JerryWithdrawFromLeveraged(command) => command.run(test_fixture, 1),
         }
     }
 }
@@ -616,7 +617,7 @@ pub struct DepositWithLeverage {
 }
 
 #[derive(Arbitrary, Debug)]
-pub struct DeleverageAndWithdraw {
+pub struct WithdrawFromLeveraged {
     pub amount: Amount,
     pub deposit_token: Token,
     pub borrow_token: Token,
@@ -770,7 +771,7 @@ impl DepositWithLeverage {
     }
 }
 
-impl DeleverageAndWithdraw {
+impl WithdrawFromLeveraged {
     pub fn run(&self, test_fixture: &TestFixture, who: u32) {
         let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
         let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
@@ -782,7 +783,7 @@ impl DeleverageAndWithdraw {
         } = test_fixture;
 
         let user = users.get(who).unwrap();
-        let _ = contract_client.try_deleverage_and_withdraw(
+        let _ = contract_client.try_withdraw_from_leveraged(
             &user,
             &deposit_pool_address,
             &borrow_pool_address,
