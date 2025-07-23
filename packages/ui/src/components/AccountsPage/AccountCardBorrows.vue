@@ -37,7 +37,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
     const tokenSymbol = pool.token_ticker
     const tokenName = getTokenName(tokenSymbol)
     const icon = getTokenIcon(tokenSymbol)
-    const userBorrowed = bigintToNumber(borrow.borrowed, decimals.value)
+    const userBorrowed = bigintToNumber(borrow.borrowed + borrow.unpaid_interest, decimals.value)
     const userBorrowedUsd = formatPrice(Number(userBorrowed) * Number(pool.pool_price), 2, 2)
 
     const [, asset_issuer] = destructurePoolAsset(pool.name)

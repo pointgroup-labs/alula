@@ -203,7 +203,7 @@ export class SorobanClient {
         kit: any) {
         const tx = await this.repayTx(user, pool_address, String(amount))
 
-        console.log('%c[Withdraw tx]', 'color: #00ff00', tx)
+        console.log('%c[Repay tx]', 'color: #00ff00', tx)
 
         return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
     }

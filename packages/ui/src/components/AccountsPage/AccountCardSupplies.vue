@@ -218,7 +218,6 @@ watch(selectedPool, (p) => {
     line-height: 20px;
   }
 
-
   .no-data {
     flex: 1;
     display: flex;
