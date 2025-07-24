@@ -21,6 +21,10 @@ export const useConnectionStore = defineStore('connection', () => {
         WalletNetwork,
         XBULL_ID,
         xBullModule,
+        RabetModule,
+        LobstrModule,
+        HanaModule,
+        HotWalletModule,
       } = await import('@creit.tech/stellar-wallets-kit')
       const { WalletConnectAllowedMethods, WalletConnectModule } = await import('@creit.tech/stellar-wallets-kit/modules/walletconnect.module')
 
@@ -32,6 +36,10 @@ export const useConnectionStore = defineStore('connection', () => {
           new FreighterModule(),
           // eslint-disable-next-line new-cap
           new xBullModule(),
+          new RabetModule(),
+          new LobstrModule(),
+          new HanaModule(),
+          new HotWalletModule(),
           new WalletConnectModule({
             url: 'JLend',
             projectId: '3c5d0cb78534db1da6c199e29b775365',
@@ -53,6 +61,9 @@ export const useConnectionStore = defineStore('connection', () => {
     loading.value = true
     await kit.value.openModal({
       onWalletSelected: async (option: ISupportedWallet) => {
+        if (option.id === 'wallet_connect') {
+          loading.value = false
+        }
         try {
           kit.value.setWallet(option.id)
           const { address } = await kit.value.getAddress()
