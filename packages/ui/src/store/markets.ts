@@ -4,8 +4,10 @@ import { defineStore } from 'pinia'
 export const useMarketsStore = defineStore('markets', () => {
   const state = reactive<MarketsState>({
     poolAddresses: [],
-    pollsData: [],
+    pools: [],
+    leveragePools: [],
     loading: false,
+    loadingLeveragePools: false,
     markets: ['Main market', 'Assets'],
   })
 
@@ -20,7 +22,7 @@ export const useMarketsStore = defineStore('markets', () => {
   const selectedMarket = ref('Main market')
 
   const selectedMarketPools = computed(() => {
-    return state.pollsData.filter(p => selectedMarket.value.toLowerCase().includes(String(p.market?.toLowerCase())))
+    return state.pools.filter(p => selectedMarket.value.toLowerCase().includes(String(p.market?.toLowerCase())))
   })
 
   async function loadPools() {
@@ -31,12 +33,26 @@ export const useMarketsStore = defineStore('markets', () => {
       state.loading = true
       const allPools = await jLendClient.value?.sdk.getAllPools()
       state.poolAddresses = allPools
-      state.pollsData = await Promise.all(
+      state.pools = await Promise.all(
         allPools.map(async (pool_address: string) => await preparePool(pool_address)),
       )
-      console.log('%c[Pools]', 'color: #FFB726', state.pollsData)
+      console.log('%c[Pools]', 'color: #FFB726', state.pools)
     } finally {
       state.loading = false
+    }
+  }
+
+  async function loadLeveragePools() {
+    if (!isClient) {
+      return
+    }
+    try {
+      state.loadingLeveragePools = true
+      const allPools = await jLendClient.value?.sdk.getAllLeveragePools()
+      state.leveragePools = allPools || []
+      console.log('%c[Leverage Pools]', 'color: #FFB726', allPools)
+    } finally {
+      state.loadingLeveragePools = false
     }
   }
 
@@ -54,11 +70,14 @@ export const useMarketsStore = defineStore('markets', () => {
 
   async function updatePools(pool_address: string) {
     const preparedPool = await preparePool(pool_address)
-    state.pollsData = state.pollsData.map(p => (p.pool_address === pool_address ? preparedPool : p))
+    state.pools = state.pools.map(p => (p.pool_address === pool_address ? preparedPool : p))
   }
 
   onMounted(async () => {
-    await loadPools()
+    await Promise.all([
+      loadPools(),
+      loadLeveragePools(),
+    ])
   })
 
   return {
@@ -78,8 +97,10 @@ export const useMarketsStore = defineStore('markets', () => {
 
 export type MarketsState = {
   poolAddresses: string[]
-  pollsData: PoolWithPrice[]
+  pools: PoolWithPrice[]
+  leveragePools: LeveragePool[]
   loading: boolean
+  loadingLeveragePools: boolean
   markets: string[]
 }
 
@@ -88,5 +109,10 @@ export type PoolWithPrice = {
   pool_apy: CompoundRates
   market?: string
 } & Pool
+
+export type LeveragePool = {
+  borrow_pool: string
+  deposit_pool: string
+}
 
 export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay'

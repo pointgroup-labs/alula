@@ -11,7 +11,8 @@ const market = useMarket()
 const assetDecimals = computed(() => client.assetDecimals)
 
 const pools = computed(() => marketsStore.selectedMarketPools)
-const loading = computed(() => marketsStore.state.loading)
+const leveragePools = computed(() => marketsStore.state.leveragePools)
+const loading = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
 
 /**
  * @param ltvByBps — LTV в basis points (0…10000)
@@ -38,29 +39,36 @@ const fields = [
 ]
 
 const items = computed<MultiplyTableItem[]>(() => {
-  return pools.value
-    ?.filter(t => t.token_ticker !== 'XLM')
-    .map((p) => {
-      const tokenSymbol = p.token_ticker
-      const tokenName = getTokenName(tokenSymbol)
-      const icon = getTokenIcon(tokenSymbol)
-      const liquidity = Number(bigintToNumber(p.available, assetDecimals.value))
-      const ltv = Number(p.config.open_ltv_bps)
+  return leveragePools.value
+    ?.map(({ borrow_pool, deposit_pool }) => {
+      const depositPool = pools.value.find(pool => pool.pool_address === deposit_pool)!
+      const borrowPool = pools.value.find(pool => pool.pool_address === borrow_pool)!
+      const depositTokenSymbol = depositPool?.token_ticker
+      const borrowTokenSymbol = borrowPool?.token_ticker
+      const depositTokenName = getTokenName(String(depositTokenSymbol))
+      const depositTokenIcon = getTokenIcon(String(depositTokenSymbol))
+      const borrowTokenName = getTokenName(String(borrowTokenSymbol))
+      const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol))
+      const liquidity = depositPool && depositPool.available ? Number(bigintToNumber(depositPool.available, assetDecimals.value)) : 0
+      const ltv = Number(depositPool?.config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
-      const maxAPY = ((p.pool_apy.supply_bps - p.pool_apy.borrow_bps) * multiplier + p.pool_apy.borrow_bps) / 100
-      const borrowPool = pools.value.find(pool => pool.token_ticker === 'XLM')!
-      const supplied = Number(bigintToNumber(borrowPool.available + borrowPool.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
+      const maxAPY
+       = ((Number(depositPool?.pool_apy.supply_bps || 0) - Number(depositPool?.pool_apy.borrow_bps || 0))
+         * multiplier + Number(depositPool?.pool_apy.borrow_bps || 0)) / 100
+      const supplied
+      = borrowPool && borrowPool.available ? Number(bigintToNumber(borrowPool.available + borrowPool.total_borrowed, assetDecimals.value)) : 0
       return {
-        raw: p,
-        asset: { name: tokenName, symbol: tokenSymbol, icon },
-        maxAPY,
-        multiplier,
+        depositPool,
+        borrowPool,
+        asset: { name: depositTokenName, symbol: depositTokenSymbol, icon: depositTokenIcon },
+        borrowAsset: { name: borrowTokenName, symbol: borrowTokenSymbol, icon: borrowTokenIcon },
         liquidity,
+        multiplier,
+        maxAPY,
+        price: Number(depositPool?.pool_price) || 0,
+        borrowPoolPrice: Number(borrowPool?.pool_price) || 0,
+        pool_address: depositPool?.pool_address || '',
         supplied,
-        borrowing: borrowPool.token_ticker,
-        price: Number(p.pool_price),
-        borrowPoolPrice: Number(borrowPool.pool_price),
-        pool_address: p.pool_address,
       }
     })
 })
@@ -176,7 +184,7 @@ function amountToUsd(amount: number, price: number) {
 
       <template #cell(borrowing)="data">
         <div class="table-cell justify-content-end">
-          {{ data.item.borrowing }}
+          {{ data.item.borrowAsset.symbol }}
         </div>
       </template>
 

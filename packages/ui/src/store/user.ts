@@ -66,7 +66,7 @@ export const useUserStore = defineStore('user', () => {
 
     for (const deposit of deposits) {
       const [depositedPoolAddress, data] = deposit
-      const depositedPool = marketsStore.state.pollsData?.find(p => p.pool_address === depositedPoolAddress)
+      const depositedPool = marketsStore.state.pools?.find(p => p.pool_address === depositedPoolAddress)
 
       const collateral = data?.collateral || 0
       userDepositsInUsd += Number(bigintToNumber(collateral, assetDecimals)) * Number(depositedPool?.pool_price)
@@ -94,7 +94,7 @@ export const useUserStore = defineStore('user', () => {
 
     for (const borrow of borrows) {
       const [borrowedPoolAddress, data] = borrow
-      const borrowedPool = marketsStore.state.pollsData?.find(p => p.pool_address === borrowedPoolAddress)
+      const borrowedPool = marketsStore.state.pools?.find(p => p.pool_address === borrowedPoolAddress)
 
       const userBorrow = bigintToNumber(data?.borrowed, assetDecimals)
       if (!borrowedPool || !userBorrow) {

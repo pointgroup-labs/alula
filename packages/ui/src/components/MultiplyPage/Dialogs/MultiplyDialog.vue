@@ -64,10 +64,10 @@ const balance = computed(() => {
   if (!data) {
     return 0
   }
-  if (data.raw.token_ticker === 'XLM') {
+  if (data.depositPool.token_ticker === 'XLM') {
     return wallet.nativeBalance
   }
-  const [, asset_issuer] = destructurePoolAsset(data?.raw.name)
+  const [, asset_issuer] = destructurePoolAsset(data?.depositPool.name)
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
@@ -78,7 +78,7 @@ const selectedMultiplier = computed(() => {
   return Number((precentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
 })
 
-const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
+const loading = computed(() => marketsStore.poolDepositAddr === data?.depositPool.pool_address)
 const reloadFee = ref(false)
 
 const txFee = ref(0)
@@ -92,7 +92,7 @@ watchDebounced([
   }
   const tx = await jLendClient.value?.sdk.depositTx(
     publicKey.value,
-    d?.raw.pool_address || '',
+    d?.depositPool.pool_address || '',
     0,
   )
   txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
@@ -105,7 +105,7 @@ const infoTableData = computed(() => {
     return []
   }
 
-  const liquidity = data.liquidity / data.price
+  const liquidity = data.supplied * Number(data.borrowPool.pool_price) / data.price
 
   // eslint-disable-next-line vue/no-side-effects-in-computed-properties
   supplyLimit.value
@@ -147,16 +147,16 @@ const dialog = defineModel<boolean>({
 })
 
 async function leverage() {
-  if (!publicKey.value || !data?.raw.pool_address) {
+  if (!publicKey.value || !data?.depositPool.pool_address) {
     return
   }
   if (!amount.value || amount.value <= 0) {
     focusInput('.multiply-dialog')
     return
   }
-  const deposit_pool_address = data?.raw.pool_address
-  const borrow_pool_address = marketsStore.state.pollsData.find(p => p.token_ticker === 'XLM')?.pool_address || ''
-  const asset_code = data?.raw.token_ticker
+  const deposit_pool_address = data?.depositPool.pool_address
+  const borrow_pool_address = marketsStore.state.pools.find(p => p.token_ticker === 'XLM')?.pool_address || ''
+  const asset_code = data?.depositPool.token_ticker
   if (!deposit_pool_address || !borrow_pool_address) {
     return
   }
@@ -252,7 +252,7 @@ watch(dialog, async (v) => {
         <market-dialog-action-btn
           variant="primary"
           :loading="loading"
-          :pool="data?.raw"
+          :pool="data?.depositPool"
           @click-handler="leverage"
         >
           Multiply {{ data?.asset.symbol }}

@@ -7,7 +7,7 @@ const clientStore = useClientStore()
 const decimals = toRef(clientStore, 'assetDecimals')
 
 const loading = computed(() => marketsStore.state.loading)
-const pools = computed(() => marketsStore.state.pollsData)
+const pools = computed(() => marketsStore.state.pools)
 
 const poolsInfo = computed(() => {
   return pools.value?.reduce((acc, pool) => {

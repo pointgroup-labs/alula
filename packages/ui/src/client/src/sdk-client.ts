@@ -67,6 +67,13 @@ export class SorobanClient {
   }
 
   /**
+   * Get all leverage pools
+   */
+  async getAllLeveragePools() {
+    return (await this.sdk.get_all_multiply_pairs()).result
+  }
+
+  /**
    * Get pool info
    */
   async getPoolInfo(pool_address: string): Promise<Pool> {

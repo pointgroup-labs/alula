@@ -10,7 +10,7 @@ const userStore = useUserStore()
 const obligation = computed(() => userStore.userObligation)
 
 const marketsStore = useMarketsStore()
-const pools = computed(() => marketsStore.state.pollsData)
+const pools = computed(() => marketsStore.state.pools)
 
 const market = useMarket()
 

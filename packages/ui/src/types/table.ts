@@ -33,14 +33,19 @@ export type BorrowTableItem = {
 }
 
 export type MultiplyTableItem = {
-  raw: PoolWithPrice
-  maxAPY: number
-  multiplier: number
+  depositPool: PoolWithPrice
+  borrowPool: PoolWithPrice
+  borrowAsset: {
+    name: string
+    symbol: string
+    icon: string
+  }
   liquidity: number
-  supplied: number
-  borrowing: string
-  borrowPoolPrice: number
+  multiplier: number
+  maxAPY: number
   price: number
+  borrowPoolPrice: number
+  supplied: number
   pool_address: string
 } & TableAsset
 
