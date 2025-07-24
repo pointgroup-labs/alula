@@ -1,26 +1,25 @@
 @use 'sass:map';
-$primary: #006CE4;
-$secondary: #EAECF0;
-$accent: #FFD101;
-$warning: #FFB726;
-$danger: #FB4747;
-$success: #08B576;
+$primary: #006ce4;
+$secondary: #eaecf0;
+$accent: #ffd101;
+$warning: #ffb726;
+$danger: #fb4747;
+$success: #08b576;
 
 $dark: #111;
 
-$neutral-2: #F5F7FB;
-$neutral-3: #EAECF0;
-$neutral-5: #DFE0E2;
+$neutral-2: #f5f7fb;
+$neutral-3: #eaecf0;
+$neutral-5: #dfe0e2;
 $neutral-6: #4e4e4e;
 $neutral-9: #aaabad;
-$neutral-12: #8A8B8D;
-$neutral-13: #EAECF0;
-$neutral-16: #4E4F51;
+$neutral-12: #8a8b8d;
+$neutral-13: #eaecf0;
+$neutral-16: #4e4f51;
 $neutral-18: #262729;
 
 $success-50: #08b57680;
 $warning-50: #e49c0b80;
-
 
 $font-family-base: 'NTSomic', serif;
 
@@ -40,7 +39,6 @@ $spacing-40: 40px;
 $spacing-64: 64px;
 $spacing-70: 70px;
 $spacing-120: 120px;
-
 
 // border radius
 $radius-8: 8px;

@@ -11,7 +11,7 @@
     "build:ssr": "cross-env NUXT_ENV=production nuxt build",
     "build:staging:ssg": "cross-env NUXT_ENV=staging nuxt generate",
     "preview": "nuxt preview",
-    "lint": "eslint",
+    "lint": "eslint .",
     "lint:fix": "eslint --fix",
     "test": "vitest",
     "test:e2e": "cypress open",

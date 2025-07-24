@@ -16,9 +16,9 @@ type LoopLimits = {
 }
 
 /**
- * @param walletBalance 
- * @param poolLiquidity 
- * @param multiplier 
+ * @param walletBalance
+ * @param poolLiquidity
+ * @param multiplier
  */
 function calculateLoopLimits(
   walletBalance: number,

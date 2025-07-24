@@ -31,14 +31,14 @@ const dialog = computed({
           :src="market?.asset.icon"
           :alt="market?.asset.symbol"
         >
-        {{ market?.asset.name }} Info
-        <j-pill-label
+        {{ market?.asset.symbol }} Info
+        <!-- <j-pill-label
           variant="secondary"
           size="md"
           bg-color="#08b57680"
         >
           Can by collateral
-        </j-pill-label>
+        </j-pill-label> -->
       </div>
     </template>
 

@@ -6,18 +6,18 @@ export const SOROBAN_TESTNET_RPC_URL = 'https://soroban-testnet.stellar.org'
 export const SOROBAN_PUBLIC_RPC_URL = 'https://soroban.stellar.org'
 
 export const RPC_URLS = {
-    testnet: TESTNET_RPC_URL,
-    devnet: DEVNET_RPC_URL,
-    public: PUBLIC_RPC_URL,
+  testnet: TESTNET_RPC_URL,
+  devnet: DEVNET_RPC_URL,
+  public: PUBLIC_RPC_URL,
 }
 
 export const SOROBAN_RPC_URLS = {
-    testnet: SOROBAN_TESTNET_RPC_URL,
-    public: SOROBAN_PUBLIC_RPC_URL,
+  testnet: SOROBAN_TESTNET_RPC_URL,
+  public: SOROBAN_PUBLIC_RPC_URL,
 }
 
 export const SOROBAN_CONTRACT_ID = 'CATQ66HHMTBZQWIHJGCMBCEGAJPRJWJL265YNES6UXA2QO4J5OAZIPSU'
 
 export const CONTRACT_ID: Record<string, string> = {
-    testnet: SOROBAN_CONTRACT_ID,
+  testnet: SOROBAN_CONTRACT_ID,
 }

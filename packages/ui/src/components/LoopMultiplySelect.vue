@@ -37,7 +37,9 @@ function checkDepositOrBorrow() {
       <div class="loan-ltv-value__multiplier">
         Multiplier
 
-        <div class="loan-ltv-value__multiplier__value">x{{ multiplier }}</div>
+        <div class="loan-ltv-value__multiplier__value">
+          x{{ multiplier }}
+        </div>
       </div>
     </div>
     <vue-slider

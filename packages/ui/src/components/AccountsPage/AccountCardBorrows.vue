@@ -178,7 +178,6 @@ watch(selectedPool, (p) => {
         Loading...
       </j-loading-spinner>
     </div>
-
   </div>
 
   <repay-dialog

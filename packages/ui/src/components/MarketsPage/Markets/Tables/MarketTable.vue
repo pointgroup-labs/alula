@@ -146,7 +146,6 @@ function amountToUsd(amount: number, price: number) {
             {{ formatPrice(data.item.total_borrowed) }}
           </template>
         </j-tooltip>
-
       </template>
 
       <template #cell(deposit_apy)="data">

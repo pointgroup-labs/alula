@@ -44,7 +44,9 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
     </div>
 
     <div class="market-stats">
-      <div class="market-stats__apy">
+      <div
+        class="market-stats__apy"
+      >
         <div class="stats-apy">
           Supply APY
           <span>{{ market?.deposit_apy || '-' }}</span>
@@ -122,7 +124,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
     padding: 0 $spacing-12;
 
     &__apy {
-      width: 100px;
+      width: 110px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -160,6 +162,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
           align-items: center;
           justify-content: space-between;
           gap: 4px;
+          white-space: nowrap;
 
           span {
             color: $dark;

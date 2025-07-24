@@ -1,50 +1,50 @@
 $label-variants: (
-    primary: (
-        background-color: $primary,
-        color: #fff
-    ),
-    secondary: (
-        background-color: $neutral-5,
-        color: $dark
-    ),
-    accent: (
-        background-color: $accent,
-        color: $dark
-    )
+  primary: (
+    background-color: $primary,
+    color: #fff,
+  ),
+  secondary: (
+    background-color: $neutral-5,
+    color: $dark,
+  ),
+  accent: (
+    background-color: $accent,
+    color: $dark,
+  ),
 );
 
 $label-sizes: (
-    lg: (
-        font-size: 16px,
-        font-weight: 700
-    ),
-    md: (
-        font-size: 14px,
-        font-weight: 600
-    )
+  lg: (
+    font-size: 16px,
+    font-weight: 700,
+  ),
+  md: (
+    font-size: 14px,
+    font-weight: 600,
+  ),
 );
 
 .j-pill-label {
-    width: fit-content;
-    padding: $spacing-4 $spacing-16;
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 20px;
-    border-radius: 50px;
+  width: fit-content;
+  padding: $spacing-4 $spacing-16;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 20px;
+  border-radius: 50px;
 
-    @each $name, $zises in $label-sizes {
-        &.j-pill-label--#{$name} {
-            @each $prop, $value in $zises {
-                #{$prop}: #{$value};
-            }
-        }
+  @each $name, $zises in $label-sizes {
+    &.j-pill-label--#{$name} {
+      @each $prop, $value in $zises {
+        #{$prop}: #{$value};
+      }
     }
+  }
 
-    @each $name, $styles in $label-variants {
-        &.j-pill-label--#{$name} {
-            @each $prop, $value in $styles {
-                #{$prop}: #{$value};
-            }
-        }
+  @each $name, $styles in $label-variants {
+    &.j-pill-label--#{$name} {
+      @each $prop, $value in $styles {
+        #{$prop}: #{$value};
+      }
     }
+  }
 }

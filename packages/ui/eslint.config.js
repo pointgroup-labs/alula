@@ -1,5 +1,4 @@
 import antfu from '@antfu/eslint-config'
-import vue from 'eslint-plugin-vue'
 
 export default antfu(
   {
@@ -17,16 +16,15 @@ export default antfu(
     ignores: [
       '**/dist/**',
       '**/coverage/**',
+      '**/packages/jloop-sdk/**',
     ],
-  },
-  {
-    plugins: {
-      vue,
-    },
+  }, {
     rules: {
       'antfu/consistent-list-newline': 'off',
       'style/brace-style': ['error', '1tbs', { allowSingleLine: true }],
+      // 'max-statements-per-line': ['error', { max: 2 }],
       'regexp/no-unused-capturing-group': 'off',
+      // 'curly': ['error', 'all'],
       'no-console': 'off',
 
       // TypeScript specific rules
@@ -34,29 +32,14 @@ export default antfu(
 
       // Vue specific rules
       'vue/component-name-in-template-casing': ['error', 'kebab-case'],
-      'vue/max-attributes-per-line': ['error', {
-        singleline: 1,
-        multiline: 1,
-      }],
-      'vue/html-closing-bracket-newline': ['error', {
-        singleline: 'never',
-        multiline: 'always',
-      }],
-      'vue/html-indent': ['error', 2, {
-        attribute: 1,
-        baseIndent: 1,
-        closeBracket: 0,
-        alignAttributesVertically: true,
-        ignores: [],
-      }],
-      'vue/singleline-html-element-content-newline': 'off',
-      'vue/multiline-html-element-content-newline': 'off',
 
       // Node.js specific rules
       'node/prefer-global/process': 'off',
       'node/prefer-global/buffer': 'off',
 
       // Unicorn plugin rules
+      // 'unicorn/no-array-callback-reference': 'off',
+      // 'unicorn/no-array-method-this-argument': 'off',
       'unicorn/unicorn/prefer-global-this': 'off',
       'unicorn/no-typeof-undefined': 'off',
       'unicorn/expiring-todo-comments': 'off',

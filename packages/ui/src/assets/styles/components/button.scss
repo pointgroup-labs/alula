@@ -10,7 +10,7 @@
   &.btn-accent {
     background: $accent !important;
 
-    &[aria-pressed="false"] {
+    &[aria-pressed='false'] {
       border-color: transparent !important;
     }
 

@@ -1,17 +1,17 @@
 $toast-variants: (
   success: (
-    background-color: $success
+    background-color: $success,
   ),
   info: (
     background-color: $neutral-3,
-    color: $neutral-6
+    color: $neutral-6,
   ),
   warning: (
-    background-color: $warning
+    background-color: $warning,
   ),
   danger: (
-    background-color: $danger
-  )
+    background-color: $danger,
+  ),
 );
 
 .j-toast {
@@ -140,11 +140,11 @@ $toast-variants: (
     span {
       margin-left: $spacing-8;
 
-      &[data-name="alert-title--success"] {
+      &[data-name='alert-title--success'] {
         color: $success;
       }
 
-      &[data-name="alert-title--error"] {
+      &[data-name='alert-title--error'] {
         color: $danger;
       }
     }
