@@ -1,10 +1,12 @@
-import xlmIcom from '~/assets/img/assets/stellar.png'
-import usdcIcon from '~/assets/img/assets/usdc.svg'
+import eurcIcon from '~/assets/img/tokens/eurc.png'
+import xlmIcom from '~/assets/img/tokens/stellar.png'
+import usdcIcon from '~/assets/img/tokens/usdc.svg'
 import { RPC_NETWORK } from '~/config'
 
 export const TOKEN_ICONS: Record<string, string> = {
   xlm: xlmIcom,
   usdc: usdcIcon,
+  eurc: eurcIcon,
 }
 
 export function getTokenIcon(token: string) {

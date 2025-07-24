@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL } from '~/config'
+import { POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
 import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, shortenAddress } from '~/utils'
 
 const {
@@ -151,6 +151,7 @@ watch(() => modelValue, async (v) => {
         v-model="amount"
         :balance="balance"
         :limit="supplyLimit"
+        :fee="POOL_REMAINING_BALANCE + txFee"
         class="supply-dialog__input"
         :rules="[
           (v) => {

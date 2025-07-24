@@ -442,8 +442,8 @@ export function useMarket() {
       marketsStore.poolActionType = 'withdraw'
 
       leverageToast = await Toast.create({
-        title: 'Withdraw Collateral',
-        body: `Sending transaction to withdraw collateral ${amount} ${asset_code}`,
+        title: 'Leverage',
+        body: `Sending transaction to leverage ${amount} ${asset_code}`,
         modelValue: 30_000,
         variant: 'info',
         noProgress: false,
@@ -463,7 +463,7 @@ export function useMarket() {
 
       Toast.create({
         title: 'Leverage Success',
-        body: `You leveraged ${amount} ${asset_code} successfully`,
+        body: `You leverage successfully`,
         modelValue: 30_000,
         alertProps: {
           variant: 'success',
