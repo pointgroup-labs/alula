@@ -41,8 +41,6 @@ export const useUserStore = defineStore('user', () => {
   const clientStore = useClientStore()
   const jLendClient = computed(() => clientStore.jLendClient)
 
-  const Toast = useToast()
-
   const userObligation = ref()
   const loading = ref(false)
 
@@ -51,22 +49,6 @@ export const useUserStore = defineStore('user', () => {
       loading.value = true
       userObligation.value = await jLendClient.value.sdk.getUserObligation(wallet.publicKey)
       console.log('%c[User Obligation]', 'color: #FFB726', userObligation.value)
-    } catch (error: any) {
-      console.log(error)
-      Toast.create({
-        title: 'Failed to load user obligation',
-        variant: 'danger',
-        body: error?.message ?? error,
-        modelValue: 0,
-        actions: [
-          {
-            label: 'Retry',
-            onClick: () => {
-              loadUserObligation()
-            },
-          },
-        ],
-      })
     } finally {
       loading.value = false
     }

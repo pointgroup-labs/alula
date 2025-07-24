@@ -19,6 +19,7 @@ declare module 'vue' {
     CopyToClipboard: typeof import('./../components/CopyToClipboard.vue')['default']
     CustomLineChartLegend: typeof import('./../components/CustomLineChartLegend.vue')['default']
     CustomMixedChart: typeof import('./../components/CustomMixedChart.vue')['default']
+    FaucetMenu: typeof import('./../components/FaucetMenu.vue')['default']
     IAppArrowLeft: typeof import('~icons/app/arrow-left')['default']
     IAppArrowRight: typeof import('~icons/app/arrow-right')['default']
     IAppCopy: typeof import('~icons/app/copy')['default']
