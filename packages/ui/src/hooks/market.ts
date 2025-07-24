@@ -258,7 +258,9 @@ export function useMarket() {
         noProgress: false,
       })
 
-      const res = await jLendClient.value.sdk.repay(wallet.publicKey, pool_address, amount, connectionStore.kit)
+      const increasedAmount = Math.min(amount * 1.01, amount)
+
+      const res = await jLendClient.value.sdk.repay(wallet.publicKey, pool_address, increasedAmount, connectionStore.kit)
 
       repayAmount.value = undefined
 

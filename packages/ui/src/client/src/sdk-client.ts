@@ -137,14 +137,15 @@ export class SorobanClient {
    * Leverage Tx
    */
   async leverageTx(user: string, deposit_pool_address: string, borrow_pool_address: string, amount: string | number, leverage_multiplier: number) {
-    console.log('leverage multiplier', leverage_multiplier * 10)
+    const multiplier = leverage_multiplier * 100
+    console.log('leverage multiplier', multiplier)
     return await this.sdk.deposit_with_leverage(
       {
         user,
         deposit_pool_address,
         borrow_pool_address,
         amount: amountToBigInt(String(amount), this.assetDecimals),
-        leverage_multiplier: leverage_multiplier * 10,
+        leverage_multiplier: multiplier,
       })
   }
 
