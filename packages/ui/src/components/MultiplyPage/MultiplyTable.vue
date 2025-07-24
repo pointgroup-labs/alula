@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
 import Decimal from 'decimal.js'
-import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, truncatePercent } from '~/utils'
+import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
 const client = useClientStore()
 const marketsStore = useMarketsStore()
@@ -44,11 +44,12 @@ const items = computed<MultiplyTableItem[]>(() => {
       const tokenSymbol = p.token_ticker
       const tokenName = getTokenName(tokenSymbol)
       const icon = getTokenIcon(tokenSymbol)
-      const supplied = Number(bigintToNumber(p.available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
       const liquidity = Number(bigintToNumber(p.available, assetDecimals.value))
       const ltv = Number(p.config.open_ltv_bps)
       const multiplier = calculateMaxMultiplierFromBps(ltv)
       const maxAPY = ((p.pool_apy.supply_bps - p.pool_apy.borrow_bps) * multiplier + p.pool_apy.borrow_bps) / 100
+      const borrowPool = pools.value.find(pool => pool.token_ticker === 'XLM')!
+      const supplied = Number(bigintToNumber(borrowPool.available + borrowPool.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
       return {
         raw: p,
         asset: { name: tokenName, symbol: tokenSymbol, icon },
@@ -56,8 +57,9 @@ const items = computed<MultiplyTableItem[]>(() => {
         multiplier,
         liquidity,
         supplied,
-        borrowing: tokenSymbol,
+        borrowing: borrowPool.token_ticker,
         price: Number(p.pool_price),
+        borrowPoolPrice: Number(borrowPool.pool_price),
         pool_address: p.pool_address,
       }
     })
@@ -75,7 +77,7 @@ async function multiplyDialogHandler(data: { item: MultiplyTableItem }, action: 
 
 function amountToUsd(amount: number, price: number) {
   const usd = (Number(amount) * Number(price)) || 0
-  return formatPrice(usd.toFixed(2))
+  return shortenNumber(usd)
 }
 </script>
 
@@ -154,7 +156,7 @@ function amountToUsd(amount: number, price: number) {
 
       <template #cell(liquidity)="data">
         <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-          {{ formatPrice(data.item.liquidity.toFixed(2) || 0) }} {{ data.item.asset.symbol }}
+          {{ shortenNumber(data.item.liquidity || 0) }} {{ data.item.asset.symbol }}
           <span>${{ amountToUsd(data.item.liquidity, data.item.price) }}</span>
           <template #content>
             {{ formatPrice(data.item.liquidity) }}
@@ -164,8 +166,8 @@ function amountToUsd(amount: number, price: number) {
 
       <template #cell(supplied)="data">
         <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-          {{ formatPrice(data.item.supplied.toFixed(2) || 0) }} {{ data.item.asset.symbol }}
-          <span>${{ amountToUsd(data.item.supplied, data.item.price) }}</span>
+          {{ shortenNumber(data.item.supplied.toFixed(2) || 0) }} XLM
+          <span>${{ amountToUsd(data.item.supplied, data.item.borrowPoolPrice) }}</span>
           <template #content>
             {{ formatPrice(data.item.supplied) }}
           </template>

@@ -39,6 +39,7 @@ export type MultiplyTableItem = {
   liquidity: number
   supplied: number
   borrowing: string
+  borrowPoolPrice: number
   price: number
   pool_address: string
 } & TableAsset
