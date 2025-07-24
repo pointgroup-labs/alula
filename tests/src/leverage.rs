@@ -2,8 +2,7 @@
 
 use {
     crate::{
-        get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed,
-        get_obligation_tokens_from_shares,
+        get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
         tests::{get_amount_scaled_down, get_amount_scaled_up},
         LCError, TestFixture, DEFAULT_DEPOSIT_AMOUNT,
     },

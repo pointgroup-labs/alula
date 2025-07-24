@@ -1060,7 +1060,7 @@ fn process_deposit_with_leverage(
         // TODO: Likely, this check is redundant, since when depositing with leverage
         // you must always be able to borrow
         let max_healthy_borrow_amount =
-            obligation.compute_max_healthy_borrow_added_amount(e, &borrow_pool_address)?;
+            obligation.compute_max_healthy_borrow_added_amount(e, borrow_pool_address)?;
 
         if flash_borrow_amount > max_healthy_borrow_amount {
             // TODO: Some other error?
@@ -1190,8 +1190,8 @@ pub fn process_withdraw_from_leveraged(
     process_swap_for_exact_tokens(
         e,
         user,
-        &deposit_pool_address,
-        &borrow_pool_address,
+        deposit_pool_address,
+        borrow_pool_address,
         flash_repay_amount,
     )?;
 
