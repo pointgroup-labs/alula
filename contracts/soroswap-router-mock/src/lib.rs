@@ -36,6 +36,19 @@ pub struct MockSoroswapRouterContract;
 #[contractimpl]
 impl MockSoroswapRouterContract {
     // For now we assume 1:1 swap rate
+    pub fn router_get_amounts_in(
+        e: Env,
+        amount_out: i128,
+        path: Vec<Address>,
+    ) -> Result<Vec<i128>, CombinedRouterError> {
+        if path.len() < 2 {
+            return Err(CombinedRouterError::LibraryInvalidPath);
+        }
+
+        Ok(soroban_sdk::vec![&e, amount_out, amount_out])
+    }
+
+    // For now we assume 1:1 swap rate
     pub fn router_get_amounts_out(
         e: Env,
         amount_in: i128,

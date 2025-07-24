@@ -142,6 +142,19 @@ pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     res
 }
 
+pub fn obligation_exists(e: &Env, user_address: &Address) -> bool {
+    let res = e
+        .storage()
+        .persistent()
+        .has(&DataKey::Obligation(user_address.clone()));
+
+    if res {
+        extend_shared_storage(e, &DataKey::Obligation(user_address.clone()));
+    }
+
+    res
+}
+
 pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     let res = e
         .storage()
@@ -182,11 +195,17 @@ pub fn remove_all_pools(e: &Env) {
         remove_pool(e, &pool);
     }
 
-    e.storage().persistent().remove(&DataKey::AllPools);
+    if !all_pools.is_empty() {
+        e.storage().persistent().remove(&DataKey::AllPools);
+    }
 }
 
 pub fn remove_all_multiply_pairs(e: &Env) {
-    e.storage().persistent().remove(&DataKey::AllMultiplyPairs);
+    let all_pairs: soroban_sdk::Vec<MultiplyPair> = get_all_multiply_pairs(e);
+
+    if !all_pairs.is_empty() {
+        e.storage().persistent().remove(&DataKey::AllMultiplyPairs);
+    }
 }
 
 // --- Obligation ---
@@ -234,10 +253,15 @@ pub fn remove_all_obligations(e: &Env) {
     let all_obligations: soroban_sdk::Vec<Address> = get_all_obligations(e);
 
     for obligation in all_obligations.iter() {
-        remove_obligation(e, &obligation);
+        // TODO: This is an ad-hoc fix, and it's better to be rewritten well
+        if obligation_exists(e, &obligation) {
+            remove_obligation(e, &obligation);
+        }
     }
 
-    e.storage().persistent().remove(&DataKey::AllObligations);
+    if !all_obligations.is_empty() {
+        e.storage().persistent().remove(&DataKey::AllObligations);
+    }
 }
 
 pub fn get_all_obligations(e: &Env) -> soroban_sdk::Vec<UserAddress> {

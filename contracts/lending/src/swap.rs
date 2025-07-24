@@ -13,6 +13,30 @@ use {
 // TODO: Maybe, create some internal trait for common swap operations and
 // implement it for different swap providers?
 
+/// Gets the amount that the user must provide to receive a specific amount if a swap is performed at the current moment
+///
+/// ### Arguments
+/// * `token_in` - address of a token that would be taken from the user
+/// * `token_out` - address of a token that would be given to the user
+/// * `amount_out` - an exact amount of `token_in` that would be given to the user
+pub fn get_amount_in(
+    e: &Env,
+    token_in: &Address,
+    token_out: &Address,
+    amount_out: i128,
+) -> Result<i128, LCError> {
+    let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
+    let soroswap_router_client =
+        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+
+    let amounts_in = soroswap_router_client.router_get_amounts_in(&&amount_out, &path);
+    let Some(amount_in) = amounts_in.last() else {
+        return Err(LCError::DependencyContractError);
+    };
+
+    Ok(amount_in)
+}
+
 /// Gets the amount that user would receive if performed a swap at the current moment
 ///
 /// ### Arguments
@@ -26,12 +50,10 @@ pub fn get_amount_out(
     amount_in: i128,
 ) -> Result<i128, LCError> {
     let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
-
     let soroswap_router_client =
         soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
 
     let amounts_out = soroswap_router_client.router_get_amounts_out(&amount_in, &path);
-
     let Some(amount_out) = amounts_out.last() else {
         return Err(LCError::DependencyContractError);
     };

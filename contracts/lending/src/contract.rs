@@ -2,8 +2,8 @@ use {
     crate::{
         constants::{
             ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
-            DEFAULT_LIQUIDATION_THRESHOLD, MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
-            REFLECTOR_TESTNET_ADDRESS,
+            DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_LEVERAGE_MULTIPLIER,
+            MIN_LEVERAGE_MULTIPLIER, REFLECTOR_TESTNET_ADDRESS,
         },
         events,
         interest_rate::CompoundRates,
@@ -156,7 +156,7 @@ impl LendingContract {
     ) -> Result<i128, LCError> {
         user.require_auth();
 
-        process_swap(&e, &user, &token_in, &token_out, amount_in)
+        process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
     }
 
     /// Borrows tokens from the loan pool
@@ -306,7 +306,7 @@ impl LendingContract {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     /// * `amount` - original borrow amount before the leverage
-    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 7.0 for x7, 2.5 for x2.5, etc)
+    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 700 for x7, 255 for x2.55, etc)
     pub fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -327,13 +327,13 @@ impl LendingContract {
         )
     }
 
-    /// Deleverages and withdraws tokens from the leveraged deposit position
+    /// Withdraws tokens from the leveraged deposit position without affecting the leverage multiplier
     ///
     /// ### Arguments
     /// * `user` - user that deleverages and withdraws from the position
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
-    /// * `amount` - desired amount of tokens to withdraw.
+    /// * `amount` - desired amount of deposited tokens to withdraw.
     /// The actual amount withdrawn is capped by the value difference between deposited and borrowed tokens in
     /// the leveraged position (minus operational fees). Passing [`u64::MAX`] (or [`i128::MAX`])
     /// can be used to withdraw all available tokens
@@ -564,7 +564,33 @@ pub fn process_deposit(
     Ok(())
 }
 
-fn process_swap(
+fn process_swap_for_exact_tokens(
+    e: &Env,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_out: i128,
+) -> Result<i128, LCError> {
+    let amount_in = swap::get_amount_in(e, token_in, token_out, amount_out)?;
+
+    let received_amount = swap::swap_tokens_for_exact_tokens(
+        e, user, token_in, token_out, amount_in, amount_out, None,
+    )?;
+
+    events::swap(
+        e,
+        user,
+        token_in,
+        token_out,
+        amount_in,
+        amount_out,
+        received_amount,
+    );
+
+    Ok(received_amount)
+}
+
+fn process_swap_exact_tokens(
     e: &Env,
     user: &Address,
     token_in: &Address,
@@ -961,8 +987,10 @@ fn process_deposit_with_leverage(
         let scaled = leverage_multiplier
             .checked_mul(amount)
             .map_over_or_underflow()?
-            - amount.checked_mul(10).map_over_or_underflow()?; // safe
-        scaled / 10 // safe
+            - amount
+                .checked_mul(LEVERAGE_SCALE as i128)
+                .map_over_or_underflow()?; // safe
+        scaled / (LEVERAGE_SCALE as i128) // safe
     };
 
     let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
@@ -1024,6 +1052,21 @@ fn process_deposit_with_leverage(
             .checked_add(flash_borrow_amount)
             .map_over_or_underflow()?;
 
+        let Ok(obligation) = Obligation::try_get(e, user) else {
+            // TODO: Internal Error?
+            return Err(LCError::ObligationDoesNotExist);
+        };
+
+        // TODO: Likely, this check is redundant, since when depositing with leverage
+        // you must always be able to borrow
+        let max_healthy_borrow_amount =
+            obligation.compute_max_healthy_borrow_added_amount(e, &borrow_pool_address)?;
+
+        if flash_borrow_amount > max_healthy_borrow_amount {
+            // TODO: Some other error?
+            return Err(LCError::BorrowLimitExceeded);
+        }
+
         process_borrow(e, user, borrow_pool_address, flash_repay_amount)?;
         borrow_pool.refresh(e)?;
 
@@ -1067,7 +1110,7 @@ pub fn process_withdraw_from_leveraged(
         return Err(LCError::BorrowPoolDoesNotExist);
     };
 
-    let Ok(deposit_pool) = Pool::try_get(e, deposit_pool_address) else {
+    let Ok(mut deposit_pool) = Pool::try_get(e, deposit_pool_address) else {
         return Err(LCError::DepositDoesNotExist);
     };
 
@@ -1093,30 +1136,29 @@ pub fn process_withdraw_from_leveraged(
         borrowed,
     )?;
 
-    let withdrawn_amount = i128::min(amount, max_withdrawable_amount);
+    let expected_withdrawn_amount = i128::min(amount, max_withdrawable_amount);
 
     // Compute the flash borrow amount for deleverage
-    let scale_bps = withdrawn_amount
-        .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
+    let withdrawn_ratio_bps = expected_withdrawn_amount
+        .fixed_div_ceil(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
     let plain_leverage_amount = tokens_per_obligation_shares - max_withdrawable_amount; // safe
     let plain_leverage_to_be_withdrawn = plain_leverage_amount
-        .fixed_div_floor(BPS_FACTOR, scale_bps)
+        .fixed_div_floor(BPS_FACTOR, withdrawn_ratio_bps)
         .map_over_or_underflow()?;
 
-    // Flash Borrow
-    let flash_borrow_amount = swap::get_amount_out(
-        e,
-        &deposit_pool.token_address,
-        &borrow_pool.token_address,
-        plain_leverage_to_be_withdrawn,
-    )?;
+    // To maintain LTV for the leveraged position, the amount of borrowed tokens to be repaid
+    // must be proportional to the withdrawn amount of the deposited tokens
+    let flash_borrow_amount = borrowed
+        .fixed_div_ceil(BPS_FACTOR, withdrawn_ratio_bps)
+        .map_over_or_underflow()?;
 
     if borrow_pool.available < flash_borrow_amount {
         return Err(LCError::NotEnoughPoolFunds);
     }
 
+    // Flash Borrow
     let flash_borrowed_token_client = token::Client::new(e, borrow_pool_address);
     flash_borrowed_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
 
@@ -1125,13 +1167,15 @@ pub fn process_withdraw_from_leveraged(
     borrow_pool.refresh(e)?;
 
     // Withdraw
-    let withdrawn_amount = withdrawn_amount
+
+    let withdrawn_amount = expected_withdrawn_amount
         .checked_add(plain_leverage_to_be_withdrawn)
         .map_over_or_underflow()?;
-    process_withdraw(e, user, deposit_pool_address, withdrawn_amount)?;
 
-    // Swap to get what must repay the flash loan
-    let amount_in = plain_leverage_to_be_withdrawn; // TODO: Maybe, add here 1 or 2 %?
+    process_withdraw(e, user, deposit_pool_address, withdrawn_amount)?;
+    deposit_pool.refresh(e)?;
+
+    // Swap to get the flash repay amount
 
     let flash_loan_fee = flash_borrow_amount
         .checked_mul(DEFAULT_FLASH_LOAN_FEE_BPS)
@@ -1142,14 +1186,13 @@ pub fn process_withdraw_from_leveraged(
         .checked_add(flash_borrow_amount)
         .map_over_or_underflow()?;
 
-    swap::swap_tokens_for_exact_tokens(
+    // TODO: Here we must call an outer swap, since they are swapped from the user's wallet, right?
+    process_swap_for_exact_tokens(
         e,
         user,
-        &deposit_pool.token_address,
-        &borrow_pool.token_address,
-        amount_in,
+        &deposit_pool_address,
+        &borrow_pool_address,
         flash_repay_amount,
-        None,
     )?;
 
     // Flash Repay
@@ -1158,17 +1201,13 @@ pub fn process_withdraw_from_leveraged(
     borrow_pool.adjust_available(e, flash_repay_amount)?;
     borrow_pool.set(e);
 
-    let actual_amount_withdrawn = withdrawn_amount
-        .checked_sub(flash_repay_amount)
-        .map_over_or_underflow()?;
-
     events::withdraw_from_leveraged(
         e,
         user,
         deposit_pool_address,
         borrow_pool_address,
         amount,
-        actual_amount_withdrawn,
+        withdrawn_amount,
     );
 
     Ok(())

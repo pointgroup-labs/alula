@@ -48,8 +48,10 @@ pub const DEFAULT_MAX_SLIPPAGE_BPS: i128 = 1;
 pub const DEFAULT_FLASH_LOAN_FEE_BPS: i128 = 1;
 
 // ---- Deposit with leverage ----
-pub const MAX_LEVERAGE_MULTIPLIER: u32 = 1000;
-pub const MIN_LEVERAGE_MULTIPLIER: u32 = 10;
+pub const LEVERAGE_SCALE: u32 = 100;
+
+pub const MAX_LEVERAGE_MULTIPLIER: u32 = 100 * LEVERAGE_SCALE;
+pub const MIN_LEVERAGE_MULTIPLIER: u32 = 1 * LEVERAGE_SCALE;
 
 // ---- Contract Addresses ----
 pub const REFLECTOR_TESTNET_ADDRESS: &str =
