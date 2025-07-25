@@ -67,5 +67,6 @@ declare module 'vue' {
     SupplyDialog: typeof import('./../components/MarketsPage/Markets/Dialogs/SupplyDialog.vue')['default']
     TotalCard: typeof import('./../components/Widget/TotalCard.vue')['default']
     WithdrawDialog: typeof import('./../components/AccountsPage/Dialogs/WithdrawDialog.vue')['default']
+    WithdrawLeverageDialog: typeof import('./../components/MultiplyPage/Dialogs/WithdrawLeverageDialog.vue')['default']
   }
 }

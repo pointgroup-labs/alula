@@ -441,7 +441,7 @@ export function useMarket() {
       }
 
       marketsStore.poolDepositAddr = deposit_pool_address
-      marketsStore.poolActionType = 'withdraw'
+      marketsStore.poolActionType = 'leverage'
 
       leverageToast = await Toast.create({
         title: 'Leverage',
@@ -493,6 +493,69 @@ export function useMarket() {
     }
   }
 
+  async function withdrawLeverage(deposit_pool_address: string, borrow_pool_address: string, amount: number, asset_code: string) {
+    let withdrawToast
+    try {
+      if (!wallet.publicKey) {
+        throw new Error('Wallet not connected')
+      }
+
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+
+      marketsStore.poolDepositAddr = deposit_pool_address
+      marketsStore.poolActionType = 'withdrawLeverage'
+
+      withdrawToast = await Toast.create({
+        title: 'Withdraw Leverage',
+        body: `Sending transaction to leverage ${amount} ${asset_code}`,
+        modelValue: 30_000,
+        variant: 'info',
+        noProgress: false,
+      })
+
+      const res = await jLendClient.value.sdk.withdrawLeverage(
+        wallet.publicKey,
+        deposit_pool_address,
+        borrow_pool_address,
+        amount,
+        connectionStore.kit)
+
+      withdrawAmount.value = undefined
+
+      await reloadData(deposit_pool_address)
+
+      Toast.create({
+        title: 'Withdraw Leverage Success',
+        body: `You Withdraw successfully`,
+        modelValue: 30_000,
+        alertProps: {
+          variant: 'success',
+        },
+        actions: [
+          {
+            label: 'View Transaction',
+            href: generateExplorerLink(String(res.txHash)),
+          },
+        ],
+      })
+    } catch (error: any) {
+      const message = error?.message || error
+      Toast.create({
+        title: 'Withdraw Leverage Error',
+        body: String(message),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
+    } finally {
+      marketsStore.poolDepositAddr = undefined
+      marketsStore.poolActionType = undefined
+      withdrawToast?.dismiss()
+    }
+  }
+
   async function reloadData(pool_address: string) {
     await Promise.all([
       marketsStore.updatePools(pool_address),
@@ -531,6 +594,7 @@ export function useMarket() {
     removeCollateral,
 
     leverage,
+    withdrawLeverage,
 
     addTrustLine,
 

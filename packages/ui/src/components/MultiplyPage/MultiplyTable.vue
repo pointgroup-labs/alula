@@ -8,6 +8,9 @@ const marketsStore = useMarketsStore()
 
 const market = useMarket()
 
+const userStore = useUserStore()
+const obligation = computed(() => userStore.userObligation)
+
 const assetDecimals = computed(() => client.assetDecimals)
 
 const pools = computed(() => marketsStore.selectedMarketPools)
@@ -74,18 +77,32 @@ const items = computed<MultiplyTableItem[]>(() => {
 })
 
 const dialogSupply = ref(false)
-const dialogBorrow = ref(false)
+const withdrawDialog = ref(false)
 const selectedPoolAddress = ref()
 const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
 
-async function multiplyDialogHandler(data: { item: MultiplyTableItem }, action: 'supply' | 'borrow') {
+async function multiplyDialogHandler(data: { item: MultiplyTableItem }, action: 'supply' | 'withdraw') {
   selectedPoolAddress.value = data.item?.pool_address
-  action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
+  action === 'supply' ? dialogSupply.value = true : withdrawDialog.value = true
 }
 
 function amountToUsd(amount: number, price: number) {
   const usd = (Number(amount) * Number(price)) || 0
   return shortenNumber(usd)
+}
+
+function checkIsHaveMultiply(pool: MultiplyTableItem) {
+  const deposits = obligation.value?.deposits || []
+  const borrows = obligation.value?.borrows || []
+  if (deposits.length === 0 || borrows.length === 0) {
+    return false
+  }
+  const depositPoolAddress = pool.depositPool.pool_address
+  const borrowPoolAddress = pool.borrowPool.pool_address
+
+  const isDeposits = deposits.some((deposit: any) => deposit.includes(depositPoolAddress))
+  const isBorrows = borrows.some((deposit: any) => deposit.includes(borrowPoolAddress))
+  return isDeposits && isBorrows
 }
 </script>
 
@@ -194,11 +211,23 @@ function amountToUsd(amount: number, price: number) {
             size="lg"
             pill
             icon-right
-            :disabled="market.isDisabled(data.item.pool_address, 'deposit')"
-            :loading="market.isLoading(data.item.pool_address, 'deposit')"
+            :disabled="market.isDisabled(data.item.pool_address, 'leverage')"
+            :loading="market.isLoading(data.item.pool_address, 'leverage')"
             @click="multiplyDialogHandler(data, 'supply')"
           >
             Multiply
+          </j-btn>
+          <j-btn
+            v-if="checkIsHaveMultiply(data.item)"
+            size="lg"
+            variant="accent"
+            pill
+            icon-right
+            :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage')"
+            :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage')"
+            @click="multiplyDialogHandler(data, 'withdraw')"
+          >
+            Withdraw
           </j-btn>
         </div>
       </template>
@@ -222,6 +251,11 @@ function amountToUsd(amount: number, price: number) {
 
   <multiply-dialog
     v-model="dialogSupply"
+    :data="selectedPool"
+  />
+
+  <withdraw-leverage-dialog
+    v-model="withdrawDialog"
     :data="selectedPool"
   />
 </template>

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, shortenAddress, truncatePercent } from '~/utils'
+import { bigintToNumber, focusInput, formatPrice } from '~/utils'
 
 const {
   data,
@@ -9,53 +9,18 @@ const {
   data?: MultiplyTableItem
 }>()
 
-type LoopLimits = {
-  maxDeposit: number // max deposit
-  maxBorrow: number // max borrow
-  maxSupply: number // (deposit + borrow)
-}
-
-/**
- * @param walletBalance
- * @param poolLiquidity
- * @param multiplier
- */
-function calculateLoopLimits(
-  walletBalance: number,
-  poolLiquidity: number,
-  multiplier: number,
-): LoopLimits {
-  if (multiplier < 1) {
-    return {
-      maxDeposit: 0,
-      maxBorrow: 0,
-      maxSupply: 0,
-    }
-  }
-
-  const maxByPool = multiplier === 1
-    ? walletBalance
-    : poolLiquidity / (multiplier - 1)
-
-  const maxDeposit = Math.min(walletBalance, maxByPool)
-
-  const maxBorrow = maxDeposit * (multiplier - 1)
-  const maxSupply = maxDeposit * multiplier
-
-  return {
-    maxDeposit,
-    maxBorrow,
-    maxSupply,
-  }
-}
-
 const marketsStore = useMarketsStore()
 const market = useMarket()
 
-const amount = toRef(market, 'depositAmount')
+const userStore = useUserStore()
+const obligation = computed(() => userStore.userObligation)
+
+const amount = toRef(market, 'withdrawAmount')
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
+
+const decimals = computed(() => clientStore.assetDecimals)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -64,18 +29,18 @@ const balance = computed(() => {
   if (!data) {
     return 0
   }
-  if (data.depositPool.token_ticker === 'XLM') {
-    return wallet.nativeBalance
+  const depositPool = data.depositPool
+  const depositAsset = obligation.value?.deposits.find((deposit: any) => deposit.includes(depositPool?.pool_address))
+  if (!depositAsset) {
+    return 0
   }
-  const [, asset_issuer] = destructurePoolAsset(data?.depositPool.name)
-  return wallet.getAssetBalance(String(asset_issuer))
-})
-
-const precentFromMaxMultiply = ref(90)
-
-const maxMultiply = computed(() => data?.multiplier || 0)
-const selectedMultiplier = computed(() => {
-  return Number((precentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
+  const userShares = depositAsset[1].shares || 0
+  const userPoolSharesInPercentage = Number(userShares) / Number(depositPool.total_shares || 0)
+  const available = Number(bigintToNumber(depositPool.available, decimals.value))
+  const totalBorrowed = Number(bigintToNumber(depositPool.total_borrowed, decimals.value))
+  const totalSupplied = available + totalBorrowed
+  const userSupplied = totalSupplied * userPoolSharesInPercentage
+  return userSupplied || 0
 })
 
 const loading = computed(() => marketsStore.poolDepositAddr === data?.depositPool.pool_address)
@@ -90,62 +55,51 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await jLendClient.value?.sdk.leverageTx(
+  const tx = await jLendClient.value?.sdk.withdrawLeverageTx(
     publicKey.value,
     d?.depositPool.pool_address || '',
     d?.borrowPool.pool_address || '',
     1,
-    2,
   )
   txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
-
-const supplyLimit = ref(0)
 
 const infoTableData = computed(() => {
   if (!data) {
     return []
   }
 
-  const liquidity = data.supplied * Number(data.borrowPool.pool_price) / data.price
-
-  // eslint-disable-next-line vue/no-side-effects-in-computed-properties
-  supplyLimit.value
-  = publicKey.value
-      ? calculateLoopLimits(balance.value || liquidity, liquidity, Number(selectedMultiplier.value) || 0)?.maxDeposit
-      : liquidity
-
   return [
-    {
-      name: 'liquidity',
-      label: 'Liquidity Available',
-      value: `${formatPrice(liquidity || 0, 2, 2)} ${data.asset.symbol}`,
-    },
-    {
-      name: 'maxApy',
-      label: 'Max APY',
-      value: `${truncatePercent(data.maxAPY || 0, 2)} %`,
-    },
-    {
-      name: 'maxMultiply',
-      label: 'Max Multiply',
-      value: `${truncatePercent(supplyLimit.value || 0, 2)} ${data.asset.symbol}`,
-    },
-    {
-      name: 'multiplier',
-      label: 'Avg. Multiplier',
-      value: '90.00 %',
-    },
-    {
-      name: 'supplied',
-      label: 'Total Supplied',
-      value: `${formatPrice(data.supplied || 0, 2, 2)} ${data.asset.symbol}`,
-    },
+    // {
+    //   name: 'liquidity',
+    //   label: 'Liquidity Available',
+    //   value: 0,
+    // },
     {
       name: 'txFee',
       label: 'Transaction Fee',
-      value: `${txFee.value} XLM`,
+      value: `${txFee.value || 0} ${data.asset.symbol}`,
     },
+    // {
+    //   name: 'maxApy',
+    //   label: 'Max APY',
+    //   value: `${truncatePercent(data.maxAPY || 0, 2)} %`,
+    // },
+    // {
+    //   name: 'maxMultiply',
+    //   label: 'Max Multiply',
+    //   value: `${truncatePercent(supplyLimit.value || 0, 2)} ${data.asset.symbol}`,
+    // },
+    // {
+    //   name: 'multiplier',
+    //   label: 'Avg. Multiplier',
+    //   value: '90.00 %',
+    // },
+    // {
+    //   name: 'supplied',
+    //   label: 'Total Supplied',
+    //   value: `${formatPrice(data.supplied || 0, 2, 2)} ${data.asset.symbol}`,
+    // },
   ]
 })
 
@@ -153,7 +107,7 @@ const dialog = defineModel<boolean>({
   default: false,
 })
 
-async function leverage() {
+async function withdrawLeverage() {
   if (!publicKey.value || !data?.depositPool.pool_address) {
     return
   }
@@ -162,16 +116,15 @@ async function leverage() {
     return
   }
   const deposit_pool_address = data?.depositPool.pool_address
-  const borrow_pool_address = marketsStore.state.pools.find(p => p.token_ticker === 'XLM')?.pool_address || ''
+  const borrow_pool_address = data?.borrowPool.pool_address
   const asset_code = data?.depositPool.token_ticker
   if (!deposit_pool_address || !borrow_pool_address) {
     return
   }
-  await market.leverage(
+  await market.withdrawLeverage(
     deposit_pool_address,
     borrow_pool_address,
     Number(amount.value),
-    Number(selectedMultiplier.value),
     asset_code,
   )
 }
@@ -201,7 +154,7 @@ watch(dialog, async (v) => {
   >
     <template #header>
       <div class="multiply-dialog__title">
-        <span>Multiply {{ data?.asset.symbol }}</span>
+        <span>Withdraw {{ data?.asset.symbol }}</span>
       </div>
     </template>
 
@@ -209,7 +162,6 @@ watch(dialog, async (v) => {
       <input-widget
         v-model="amount"
         :balance="balance"
-        :limit="supplyLimit"
         class="multiply-dialog__input"
         :icon="data?.asset.icon"
         label-left="You Deposit"
@@ -217,13 +169,10 @@ watch(dialog, async (v) => {
           (v) => {
             return v && Number(v) < balance || 'Insufficient balance'
           },
-          (v) => {
-            return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool leverage limit'
-          },
         ]"
       >
         <template #label-right>
-          Wallet: {{ balance }} {{ data?.asset.symbol }}
+          Multiplied: {{ formatPrice(balance, 0, 7) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 
@@ -237,32 +186,18 @@ watch(dialog, async (v) => {
           class="dialog-info-table__item"
         >
           <span>{{ item?.label }}</span>
-          <template v-if="item?.name === 'contract'">
-            <a
-              :href="generateExplorerLink(String(item?.value), 'contract')"
-              target="_blank"
-            >{{ shortenAddress(item?.value, 5) }}
-              <i-app-export-icon />
-            </a>
-          </template>
-          <span v-else>{{ item?.value }}</span>
+          <span>{{ item?.value }}</span>
         </div>
       </div>
-
-      <loop-multiply-select
-        v-model="precentFromMaxMultiply"
-        :multiplier="selectedMultiplier"
-        :max-multiply="Number(data?.multiplier).toFixed(0) || 0"
-      />
 
       <div class="multiply-dialog-action">
         <market-dialog-action-btn
           variant="primary"
           :loading="loading"
           :pool="data?.depositPool"
-          @click-handler="leverage"
+          @click-handler="withdrawLeverage"
         >
-          Multiply {{ data?.asset.symbol }}
+          Withdraw {{ data?.asset.symbol }}
         </market-dialog-action-btn>
       </div>
     </div>

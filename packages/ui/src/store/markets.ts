@@ -115,4 +115,4 @@ export type LeveragePool = {
   deposit_pool: string
 }
 
-export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay'
+export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage'

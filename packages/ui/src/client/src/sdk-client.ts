@@ -145,7 +145,6 @@ export class SorobanClient {
    */
   async leverageTx(user: string, deposit_pool_address: string, borrow_pool_address: string, amount: string | number, leverage_multiplier: number) {
     const multiplier = leverage_multiplier * 100
-    console.log('leverage multiplier', multiplier)
     return await this.sdk.deposit_with_leverage(
       {
         user,
@@ -153,6 +152,20 @@ export class SorobanClient {
         borrow_pool_address,
         amount: amountToBigInt(String(amount), this.assetDecimals),
         leverage_multiplier: multiplier,
+      })
+  }
+
+  /**
+   * Withdraw Leverage Tx
+   */
+
+  async withdrawLeverageTx(user: string, deposit_pool_address: string, borrow_pool_address: string, amount: string | number) {
+    return await this.sdk.withdraw_from_leveraged(
+      {
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+        amount: amountToBigInt(String(amount), this.assetDecimals),
       })
   }
 
@@ -260,6 +273,23 @@ export class SorobanClient {
     const tx = await this.leverageTx(user, deposit_pool_address, borrow_pool_address, amount, leverage_multiplier)
 
     console.log('%c[Leverage tx]', 'color: #00ff00', tx)
+
+    return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
+  }
+
+  /**
+   * Withdraw Leverage
+   */
+  async withdrawLeverage(
+    user: string,
+    deposit_pool_address: string,
+    borrow_pool_address: string,
+    amount: number,
+    kit: any,
+  ) {
+    const tx = await this.withdrawLeverageTx(user, deposit_pool_address, borrow_pool_address, amount)
+
+    console.log('%c[Withdraw Leverage tx]', 'color: #00ff00', tx)
 
     return await sendSorobanTx(tx, user, this.rpc, this.sorobanServer, kit)
   }
