@@ -321,10 +321,19 @@ impl Obligation {
             .get(pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        let total_debt = borrow_obligation.total_debt()?;
-        let repaid_amount = i128::min(amount, total_debt);
+        let borrowed = borrow_obligation.borrowed;
+        let unpaid_interest = borrow_obligation.unpaid_interest;
 
-        if repaid_amount == total_debt {
+        let total_debt = borrowed
+            .checked_add(unpaid_interest)
+            .map_over_or_underflow()?;
+
+        let mut repaid_amount = i128::min(amount, total_debt);
+
+        if repaid_amount >= borrowed {
+            // WARN: This is a massive issue and must be fixed
+            // since this breaks the contract's invariant
+            repaid_amount = borrow_obligation.borrowed;
             self.borrows.remove(pool_address.clone());
         } else {
             if repaid_amount <= borrow_obligation.unpaid_interest {

@@ -17,7 +17,7 @@ use {
     moderc3156::FlashLoanClient,
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{
-        contract, contractimpl, log,
+        contract, contractimpl, log, symbol_short,
         token::{self, TokenClient},
         Address, BytesN, Env, Symbol, Vec,
     },
@@ -43,6 +43,7 @@ impl LendingContract {
             if lt <= 0 || lt > 100 {
                 return Err(LCError::InvalidLiquidationThreshold);
             }
+
             lt
         } else {
             DEFAULT_LIQUIDATION_THRESHOLD
@@ -195,6 +196,25 @@ impl LendingContract {
         process_add_collateral(&e, &user, &pool_address, amount)
     }
 
+    /// Removes collateral tokens from the loan pool to the user
+    ///
+    /// ### Arguments
+    /// * `user` - user which withdraws collateral tokens
+    /// * `pool_address` - address of a pool from which the withdrawal happens
+    /// * `amount` - desired amount of collateral tokens to remove.
+    /// The actual amount removed is capped to maintain the position's LTV at its Open LTV on the pool.
+    /// Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available collateral
+    pub fn remove_collateral(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), LCError> {
+        user.require_auth();
+
+        process_remove_collateral(&e, &user, &pool_address, amount)
+    }
+
     /// Repays borrowed tokens
     ///
     /// ### Arguments
@@ -238,25 +258,6 @@ impl LendingContract {
             &collateral_pool_address,
             amount,
         )
-    }
-
-    /// Removes collateral tokens from the loan pool to the user
-    ///
-    /// ### Arguments
-    /// * `user` - user which withdraws collateral tokens
-    /// * `pool_address` - address of a pool from which the withdrawal happens
-    /// * `amount` - desired amount of collateral tokens to remove.
-    /// The actual amount removed is capped to maintain the position's LTV at its Open LTV on the pool.
-    /// Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available collateral
-    pub fn remove_collateral(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-    ) -> Result<(), LCError> {
-        user.require_auth();
-
-        process_remove_collateral(&e, &user, &pool_address, amount)
     }
 
     /// Withdraws deposited tokens from the loan pool to the user
