@@ -320,7 +320,7 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     e.events().publish(topics, data);
 }
 
-// TODO: Write simple macro for this and ass `&str` there as input
+// TODO: Write simple macro for this and pass `&str` there as input
 pub fn dbg(e: &Env, symbol: Symbol) {
     let topics = (symbol,);
     let data = ();
