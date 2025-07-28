@@ -95,7 +95,10 @@ async function emitClickHandler() {
     pill
     @click="emitClickHandler"
   >
-    <slot v-if="isTrust || !publicKey" />
+    <template v-if="!publicKey">
+      Connect Wallet
+    </template>
+    <slot v-else-if="isTrust" />
     <template v-else>
       Add Trust
     </template>
