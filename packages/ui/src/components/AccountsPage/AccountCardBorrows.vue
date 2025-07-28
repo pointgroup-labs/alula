@@ -171,7 +171,7 @@ watch(selectedPool, (p) => {
         v-else
         class="no-data"
       >
-        <i-app-percentage-square-icon /> no borroved assets
+        <i-app-percentage-square-icon /> no borrowed assets
       </div>
 
       <j-loading-spinner v-if="userStore.loading">
