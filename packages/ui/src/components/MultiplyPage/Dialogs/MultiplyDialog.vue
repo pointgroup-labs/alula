@@ -218,7 +218,7 @@ watch(dialog, async (v) => {
   >
     <template #header>
       <div class="multiply-dialog__title">
-        <span>Multiply {{ data?.asset.symbol }}</span>
+        <span>Multiply {{ depositAsset.name }}</span>
       </div>
     </template>
 
@@ -239,7 +239,7 @@ watch(dialog, async (v) => {
         ]"
       >
         <template #label-right>
-          Wallet: {{ balance }} {{ data?.asset.symbol }}
+          Wallet: {{ balance }} {{ depositAsset.name }}
         </template>
         <template #prepend>
           <j-popover
