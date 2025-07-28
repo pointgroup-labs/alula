@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { getTokenIcon } from '~/utils'
+
 const Toast = useToast()
 
 const wallet = useWallet()
@@ -7,82 +9,75 @@ const publicKey = computed(() => wallet.publicKey)
 const clientStore = useClientStore()
 const jlendClient = computed(() => clientStore.jLendClient)
 
+const loading = ref(false)
+
 async function faucet() {
-  if (jlendClient.value?.sdk?.rpc !== 'testnet') {
-    return
-  }
-  let faucetToast
-  // eslint-disable-next-line prefer-const
-  faucetToast = await Toast.create({
-    title: 'Requesting Faucet',
-    variant: 'info',
-    noProgress: false,
-    modelValue: 20_000,
-  })
+  try {
+    if (jlendClient.value?.sdk?.rpc !== 'testnet') {
+      return
+    }
+    loading.value = true
+    let faucetToast
+    // eslint-disable-next-line prefer-const
+    faucetToast = await Toast.create({
+      title: 'Requesting Faucet',
+      variant: 'info',
+      noProgress: false,
+      modelValue: 20_000,
+    })
 
-  const res = await fetch(`https://friendbot.stellar.org/?addr=${publicKey.value}`)
-  const data = await res.json()
+    const res = await fetch(`https://friendbot.stellar.org/?addr=${publicKey.value}`)
+    const data = await res.json()
 
-  faucetToast?.dismiss()
+    faucetToast?.dismiss()
 
-  Toast.create({
-    title: data?.title || 'Faucet',
-    body: data?.detail || 'Funds have been successfully added to your balance.',
-    variant: 'info',
-  })
-  if (res?.ok) {
-    await wallet.loadBalances()
+    Toast.create({
+      title: data?.title || 'Faucet',
+      body: data?.detail || 'Funds have been successfully added to your balance.',
+      variant: 'info',
+    })
+    if (res?.ok) {
+      await wallet.loadBalances()
+    }
+  } finally {
+    loading.value = false
   }
 }
-
-onMounted(() => {
-  nextTick(() => {
-    const target = document.querySelector('.app-logo')
-    const menu = document.querySelector('#custom-menu') as HTMLElement
-
-    target?.addEventListener('contextmenu', (e) => {
-      const mouseEvent = e as MouseEvent
-      if (!publicKey.value || jlendClient.value?.sdk?.rpc !== 'testnet') {
-        return
-      }
-      mouseEvent.preventDefault()
-      if (!menu) {
-        return
-      }
-      menu.style.top = `${mouseEvent.clientY}px`
-      menu.style.left = `${mouseEvent.clientX}px`
-      menu.style.display = 'block'
-    })
-
-    document.addEventListener('click', () => {
-      menu.style.display = 'none'
-    })
-  })
-})
 </script>
 
 <template>
-  <div
-    id="custom-menu"
-    style="
-        position: absolute;
-        display: none;
-        background: white;
-        border: 1px solid #ccc;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        z-index: 1000;
-        padding: 10px;"
+  <j-btn
+    v-if="publicKey"
+    pill
+    size="lg"
+    class="faucet-btn"
+    variant="accent"
+    :loading="loading"
+    @click="faucet"
   >
-    <div @click="faucet">
-      Fauset XLM
-    </div>
-  </div>
+    <img
+      :src="getTokenIcon('native')"
+      alt="XLM"
+    > Fauset
+  </j-btn>
 </template>
 
 <style lang="scss">
-#custom-menu {
-  div {
-    cursor: pointer;
+.faucet-btn {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  opacity: 0.4;
+
+  &:hover {
+    opacity: 1;
+    transition: opacity 0.1s linear;
+  }
+
+  .btn-content {
+    img {
+      width: 20px;
+      height: 20px;
+    }
   }
 }
 </style>

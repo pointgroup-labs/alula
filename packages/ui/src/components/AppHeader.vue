@@ -36,20 +36,27 @@ watch(() => route.path, (p) => {
 <template>
   <header>
     <div class="header-wrapper container">
-      <img :src="logo" alt="stellar logo" class="app-logo">
-
-      <faucet-menu />
+      <img
+        :src="logo"
+        alt="stellar logo"
+        class="app-logo"
+      >
 
       <nav class="header-nav">
         <div
-          v-for="tab in tabs" :key="tab.label" class="nav-link"
-          :class="{ 'nav-link--active': activeTab.route === tab.route }" @click="activeTab = tab"
+          v-for="tab in tabs"
+          :key="tab.label"
+          class="nav-link"
+          :class="{ 'nav-link--active': activeTab.route === tab.route }"
+          @click="activeTab = tab"
         >
           {{ tab.label }}
         </div>
       </nav>
 
       <div class="header-actions">
+        <faucet-menu />
+
         <connect-wallet />
         <app-settings />
       </div>
