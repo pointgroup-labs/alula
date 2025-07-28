@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { Size } from 'bootstrap-vue-next'
 import Decimal from 'decimal.js'
-import { focusInput, formatPrice, parseFormattedPrice } from '~/utils'
+import { focusInput, formatPrice, getZeroCountAfterDecimal, parseFormattedPrice } from '~/utils'
 
 const {
   balance,
@@ -50,7 +50,9 @@ function max() {
   const b = new Decimal(balance)
   const f = new Decimal(fee)
   const result = b.minus(f).toNumber()
-  val.value = String(Math.max(Math.min(result, limit || balance), 0))
+  const maxVal = Math.max(Math.min(result, limit || balance), 0)
+  const decimals = String(maxVal).includes('e') ? getZeroCountAfterDecimal(maxVal) : null
+  val.value = decimals ? maxVal.toFixed(decimals) : String(maxVal)
   resetValidation.value = true
   nextTick(() => {
     resetValidation.value = false
