@@ -91,19 +91,19 @@ function amountToUsd(amount: number, price: number) {
   return shortenNumber(usd)
 }
 
-function checkIsHaveMultiply(pool: MultiplyTableItem) {
-  const deposits = obligation.value?.deposits || []
-  const borrows = obligation.value?.borrows || []
-  if (deposits.length === 0 || borrows.length === 0) {
-    return false
-  }
-  const depositPoolAddress = pool.depositPool.pool_address
-  const borrowPoolAddress = pool.borrowPool.pool_address
+// function checkIsHaveMultiply(pool: MultiplyTableItem) {
+//   const deposits = obligation.value?.deposits || []
+//   const borrows = obligation.value?.borrows || []
+//   if (deposits.length === 0 || borrows.length === 0) {
+//     return false
+//   }
+//   const depositPoolAddress = pool.depositPool.pool_address
+//   const borrowPoolAddress = pool.borrowPool.pool_address
 
-  const isDeposits = deposits.some((deposit: any) => deposit.includes(depositPoolAddress))
-  const isBorrows = borrows.some((deposit: any) => deposit.includes(borrowPoolAddress))
-  return isDeposits && isBorrows
-}
+//   const isDeposits = deposits.some((deposit: any) => deposit.includes(depositPoolAddress))
+//   const isBorrows = borrows.some((deposit: any) => deposit.includes(borrowPoolAddress))
+//   return isDeposits && isBorrows
+// }
 </script>
 
 <template>
@@ -217,7 +217,7 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
           >
             Multiply
           </j-btn>
-          <j-btn
+          <!-- <j-btn
             v-if="checkIsHaveMultiply(data.item)"
             size="lg"
             variant="accent"
@@ -228,7 +228,7 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
             @click="multiplyDialogHandler(data, 'withdraw')"
           >
             Withdraw
-          </j-btn>
+          </j-btn> -->
         </div>
       </template>
 
