@@ -270,8 +270,8 @@ watch(() => modelValue, async (v) => {
 <style lang="scss">
 .borrow-dialog {
   .modal-dialog {
-    min-width: 350px;
-    width: 350px;
+    min-width: 350px !important;
+    width: 350px !important;
   }
 
   .supply-warning {
