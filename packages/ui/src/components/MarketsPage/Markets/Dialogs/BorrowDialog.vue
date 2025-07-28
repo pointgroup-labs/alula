@@ -269,6 +269,11 @@ watch(() => modelValue, async (v) => {
 
 <style lang="scss">
 .borrow-dialog {
+  .modal-dialog {
+    min-width: 350px;
+    width: 350px;
+  }
+
   .supply-warning {
     padding: $spacing-16;
     border-radius: $spacing-8;
