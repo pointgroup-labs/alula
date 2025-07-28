@@ -250,6 +250,7 @@ watch(() => modelValue, async (v) => {
 
   .j-toggle__label {
     font-size: 14px;
+    user-select: none;
   }
 
   .supply-dialog-action {

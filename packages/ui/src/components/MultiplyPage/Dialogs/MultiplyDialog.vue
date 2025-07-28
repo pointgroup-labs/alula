@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, shortenAddress, truncatePercent } from '~/utils'
+import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, getTokenIcon, shortenAddress, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -60,14 +60,31 @@ const jLendClient = computed(() => clientStore.jLendClient)
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
+const isDepositMultiply = ref(false)
+
+const multiplyAssets = computed(() => {
+  const depositAsset = data?.depositPool.token_ticker
+  const borrowAsset = data?.borrowPool.token_ticker
+  return [depositAsset, borrowAsset].map((ticker) => {
+    return {
+      name: ticker,
+      icon: getTokenIcon(String(ticker)),
+    }
+  })
+})
+
+const depositAsset = computed(() => multiplyAssets.value[isDepositMultiply.value ? 0 : 1])
+const borrowAsset = computed(() => multiplyAssets.value[isDepositMultiply.value ? 1 : 0])
+
 const balance = computed(() => {
   if (!data) {
     return 0
   }
-  if (data.depositPool.token_ticker === 'XLM') {
+  const poolAsset = isDepositMultiply.value ? data.depositPool.name : data.borrowPool.name
+  if (poolAsset === 'native') {
     return wallet.nativeBalance
   }
-  const [, asset_issuer] = destructurePoolAsset(data?.depositPool.name)
+  const [, asset_issuer] = destructurePoolAsset(poolAsset)
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
@@ -111,7 +128,7 @@ const infoTableData = computed(() => {
 
   // eslint-disable-next-line vue/no-side-effects-in-computed-properties
   supplyLimit.value
-  = publicKey.value
+    = publicKey.value
       ? calculateLoopLimits(balance.value || liquidity, liquidity, Number(selectedMultiplier.value) || 0)?.maxDeposit
       : liquidity
 
@@ -211,7 +228,6 @@ watch(dialog, async (v) => {
         :balance="balance"
         :limit="supplyLimit"
         class="multiply-dialog__input"
-        :icon="data?.asset.icon"
         label-left="You Deposit"
         :rules="[
           (v) => {
@@ -225,7 +241,37 @@ watch(dialog, async (v) => {
         <template #label-right>
           Wallet: {{ balance }} {{ data?.asset.symbol }}
         </template>
+        <template #prepend>
+          <j-popover
+            class-name="asset-popover"
+            position="bottom"
+            :teleport-to-body="false"
+          >
+            <ul class="asset-popover__list">
+              <li
+                class="asset-popover__list-item asset-popover__list-item--disabled"
+              >
+                <img
+                  :src="borrowAsset?.icon"
+                  :alt="`${borrowAsset.name} icon`"
+                >
+                <span>{{ borrowAsset.name }}</span>
+              </li>
+            </ul>
+
+            <template #target>
+              <img
+                :src="depositAsset?.icon"
+                :alt="`${depositAsset.name} icon`"
+              >
+            </template>
+          </j-popover>
+        </template>
       </input-widget>
+
+      <div class="multiply-dialog__notice">
+        Notice: In this version, multiply via the borrow token is available.
+      </div>
 
       <div
         v-if="infoTableData.length > 0"
@@ -241,7 +287,8 @@ watch(dialog, async (v) => {
             <a
               :href="generateExplorerLink(String(item?.value), 'contract')"
               target="_blank"
-            >{{ shortenAddress(item?.value, 5) }}
+            >{{
+               shortenAddress(item?.value, 5) }}
               <i-app-export-icon />
             </a>
           </template>
@@ -276,6 +323,53 @@ watch(dialog, async (v) => {
     width: 350px;
   }
 
+  .j-input__prepend {
+    .popover-body {
+      padding: 0 !important;
+    }
+
+    .asset-popover {
+      width: 32px;
+      height: 32px;
+
+      img {
+        object-fit: contain;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+      }
+
+      &__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        &-item {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 8px;
+          cursor: pointer;
+          padding: $spacing-8 $spacing-12;
+
+          &:hover {
+            background-color: $neutral-5;
+          }
+
+          &--disabled {
+            cursor: not-allowed;
+            color: $neutral-12;
+          }
+
+          img {
+            width: 24px;
+            height: 24px;
+          }
+        }
+      }
+    }
+  }
+
   &__title {
     color: $dark;
     font-size: 20px;
@@ -289,6 +383,14 @@ watch(dialog, async (v) => {
     display: flex;
     flex-direction: column;
     gap: $spacing-16;
+  }
+
+  &__notice {
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 12px;
+    color: $neutral-12;
   }
 
   .multiply-dialog-action {

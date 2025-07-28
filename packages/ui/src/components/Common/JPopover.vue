@@ -6,15 +6,18 @@ const {
   closePopup,
   modelValue,
   className,
+  teleportToBody = true,
   ...props
 } = defineProps<
   {
+    teleportToBody?: boolean
     position?: 'top' | 'bottom'
     menuClass?: string
     closePopup?: boolean
     label?: string
     modelValue?: boolean
     className?: string
+    menuClassName?: string
   } & BButtonProps>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -55,19 +58,34 @@ onMounted(() => {
     :delay="{ show: 0, hide: 0 }"
     :boundary-padding="{ [boundary]: navHeight }"
     :custom-class="menuClass"
-    teleport-to="body"
+    :teleport-to="teleportToBody ? 'body' : undefined"
     lazy
     unmount-lazy
   >
-    <div class="popover-wrapper" @click="handleClickInside">
+    <div
+      class="popover-wrapper"
+      :class="menuClassName"
+      @click="handleClickInside"
+    >
       <slot />
     </div>
     <template #target>
-      <div v-if="slot?.target" :class="className" class="popover-target" @click="show = true">
-        <slot name="target" :active="show" />
+      <div
+        v-if="slot?.target"
+        :class="className"
+        class="popover-target"
+        @click="show = true"
+      >
+        <slot
+          name="target"
+          :active="show"
+        />
       </div>
 
-      <j-btn v-else v-bind="props">
+      <j-btn
+        v-else
+        v-bind="props"
+      >
         {{ label }}
       </j-btn>
     </template>

@@ -119,14 +119,19 @@ watch(() => balance, () => {
     </template>
 
     <template
-      v-if="icon"
+      v-if="icon || slot.prepend"
       #prepend
     >
       <img
+        v-if="icon"
         :src="icon"
         alt="token icon"
         class="j-input__icon"
       >
+      <slot
+        v-else
+        name="prepend"
+      />
     </template>
     <template #append>
       <j-btn
