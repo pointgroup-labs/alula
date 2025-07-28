@@ -8,8 +8,8 @@ const marketsStore = useMarketsStore()
 
 const market = useMarket()
 
-const userStore = useUserStore()
-const obligation = computed(() => userStore.userObligation)
+// const userStore = useUserStore()
+// const obligation = computed(() => userStore.userObligation)
 
 const assetDecimals = computed(() => client.assetDecimals)
 
