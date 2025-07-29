@@ -59,7 +59,9 @@ const items = computed<MultiplyTableItem[]>(() => {
        = ((Number(depositPool?.pool_apy.supply_bps || 0) - Number(depositPool?.pool_apy.borrow_bps || 0))
          * multiplier + Number(depositPool?.pool_apy.borrow_bps || 0)) / 100
       const supplied
-      = borrowPool && borrowPool.available ? Number(bigintToNumber(borrowPool.available + borrowPool.total_borrowed, assetDecimals.value)) : 0
+      = borrowPool && borrowPool.available
+        ? Number(bigintToNumber(borrowPool.available/*  + borrowPool.total_borrowed + borrowPool.total_collateral */, assetDecimals.value))
+        : 0
       return {
         depositPool,
         borrowPool,

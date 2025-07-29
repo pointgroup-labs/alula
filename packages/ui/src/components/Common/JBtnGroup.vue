@@ -25,7 +25,8 @@ function select(label: ButtonOpt) {
   <div class="j-btn-group">
     <template v-if="hasDefaultSlot">
       <slot
-        v-for="(btn) in buttons" :key="typeof btn === 'string' ? btn : btn.value"
+        v-for="(btn) in buttons"
+        :key="typeof btn === 'string' ? btn : btn.value"
         :label="typeof btn === 'string' ? btn : btn.label"
         :is-active="(typeof btn === 'string' ? btn : btn.label) === (typeof modelValue === 'string' ? modelValue : modelValue.label)"
         :select="() => select(btn)"
@@ -34,7 +35,9 @@ function select(label: ButtonOpt) {
 
     <template v-else>
       <j-btn
-        v-for="btn in buttons" v-bind="props" :key="typeof btn === 'string' ? btn : btn.value"
+        v-for="btn in buttons"
+        v-bind="props"
+        :key="typeof btn === 'string' ? btn : btn.value"
         :variant="(typeof btn === 'string' ? btn : btn.label) === (typeof modelValue === 'string' ? modelValue : modelValue.label) ? 'primary' : 'secondary'"
         @click="select(btn)"
       >

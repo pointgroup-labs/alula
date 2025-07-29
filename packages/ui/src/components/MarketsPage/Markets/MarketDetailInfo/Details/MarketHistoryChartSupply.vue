@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { ChartData, ChartOptions } from 'chart.js'
+import { CHART_FILTERS, SHORT_MONTHS } from '~/config'
 import { normalizeChartDate } from '~/utils/chart'
 
 // generate mock data
@@ -23,17 +24,13 @@ function generateMockData(): { date: string, value: number }[] {
   return data
 }
 
-const monthShirt = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-]
-
 const mockData = computed(() => generateMockData())
 
 const { width } = useWindowSize()
 
 const isMobile = computed(() => width.value <= 650)
 
-const filters = ['30 days', '1 month', '6 month']
+const filters = CHART_FILTERS
 
 const activeFilter = ref(filters[0])
 
@@ -45,19 +42,19 @@ const dataByFilters = computed(() => {
     .filter((item) => {
       const itemDate = new Date(item.date)
 
-      if (activeFilter.value === '30 days') {
+      if (activeFilter.value.value === 7) {
         const refDate = new Date(now)
-        refDate.setDate(now.getDate() - 30)
+        refDate.setDate(now.getDate() - 7)
         return itemDate >= refDate && itemDate <= now
       }
 
-      if (activeFilter.value === '1 month') {
+      if (activeFilter.value.value === 31) {
         const refDate = new Date(now)
         refDate.setMonth(now.getMonth() - 1)
         return itemDate >= refDate && itemDate <= now
       }
 
-      if (activeFilter.value === '6 month') {
+      if (activeFilter.value.value === 180) {
         const refDate = new Date(now)
         refDate.setMonth(now.getMonth() - 6)
         return itemDate >= refDate && itemDate <= now
@@ -83,9 +80,9 @@ watch([
   }
 
   chartData.value.labels = d.map((item) => {
-    if (f === '6 month') {
+    if (f.value === 180) {
       const month = new Date(item.date).getMonth()
-      return monthShirt[month]
+      return SHORT_MONTHS[month]
     }
     return normalizeChartDate(item.date)
   })
@@ -178,16 +175,16 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
         AVG: 0.14%
       </div>
 
-      <j-btn-group
+      <chart-date-filter
         v-model="activeFilter"
-        :buttons="filters"
-        class="history-chart__header__filters"
+        :filters="filters"
       />
+
     </div>
 
     <div class="history-chart__chart">
       <custom-mixed-chart
-        :key="activeFilter"
+        :key="activeFilter.value"
         :chart-data="chartData"
         :chart-options="chartOptions"
         :max-ticks-limit="6"
@@ -224,30 +221,6 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
         padding: $spacing-4 $spacing-12;
         border-radius: $spacing-4;
         background-color: $neutral-2;
-      }
-
-      &__filters {
-        width: fit-content;
-        margin-left: auto;
-        border-radius: $spacing-4;
-
-        .btn {
-          width: fit-content;
-          padding: $spacing-4 $spacing-8;
-          border-radius: $spacing-4;
-
-          .btn-content {
-            font-size: 11px;
-            font-style: normal;
-            font-weight: 500;
-            line-height: 12px;
-          }
-        }
-        .btn-primary {
-          background-color: $neutral-3;
-          color: $dark;
-          border-color: transparent;
-        }
       }
     }
 

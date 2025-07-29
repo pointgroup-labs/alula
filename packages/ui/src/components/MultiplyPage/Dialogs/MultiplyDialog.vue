@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, getTokenIcon, shortenAddress, truncatePercent } from '~/utils'
+import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, getTokenIcon, shortenAddress, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -9,44 +9,15 @@ const {
   data?: MultiplyTableItem
 }>()
 
-type LoopLimits = {
-  maxDeposit: number // max deposit
-  maxBorrow: number // max borrow
-  maxSupply: number // (deposit + borrow)
-}
-
-/**
- * @param walletBalance
- * @param poolLiquidity
- * @param multiplier
- */
-function calculateLoopLimits(
-  walletBalance: number,
-  poolLiquidity: number,
-  multiplier: number,
-): LoopLimits {
-  if (multiplier < 1) {
-    return {
-      maxDeposit: 0,
-      maxBorrow: 0,
-      maxSupply: 0,
-    }
+function calcRemainingMultiplyUSD(
+  borrowAvailableInUsd: number,
+  poolPrice: number,
+  selectedMultiplier: number,
+): number {
+  if (selectedMultiplier <= 1) {
+    return borrowAvailableInUsd
   }
-
-  const maxByPool = multiplier === 1
-    ? walletBalance
-    : poolLiquidity / (multiplier - 1)
-
-  const maxDeposit = Math.min(walletBalance, maxByPool)
-
-  const maxBorrow = maxDeposit * (multiplier - 1)
-  const maxSupply = maxDeposit * multiplier
-
-  return {
-    maxDeposit,
-    maxBorrow,
-    maxSupply,
-  }
+  return borrowAvailableInUsd / poolPrice / selectedMultiplier
 }
 
 const marketsStore = useMarketsStore()
@@ -60,7 +31,7 @@ const jLendClient = computed(() => clientStore.jLendClient)
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
-const isDepositMultiply = ref(false)
+const isDepositMultiply = ref(true)
 
 const multiplyAssets = computed(() => {
   const depositAsset = data?.depositPool.token_ticker
@@ -124,19 +95,23 @@ const infoTableData = computed(() => {
     return []
   }
 
-  const liquidity = data.supplied * Number(data.borrowPool.pool_price) / data.price
+  const depositPoolData = isDepositMultiply.value ? data.depositPool : data.borrowPool
+
+  const borrowPoolData = data.borrowPool
+  const borrowAvailable = bigintToNumber(borrowPoolData.available, clientStore.assetDecimals)
+  const borrowAvailableInUsd = Number(borrowAvailable) * Number(borrowPoolData.pool_price)
+
+  const maxMultiplyTicker = isDepositMultiply.value ? data.depositPool.token_ticker : data.borrowPool.token_ticker
 
   // eslint-disable-next-line vue/no-side-effects-in-computed-properties
   supplyLimit.value
-    = publicKey.value
-      ? calculateLoopLimits(balance.value || liquidity, liquidity, Number(selectedMultiplier.value) || 0)?.maxDeposit
-      : liquidity
+   = calcRemainingMultiplyUSD(borrowAvailableInUsd, Number(depositPoolData?.pool_price || 0), Number(selectedMultiplier.value) || 0)
 
   return [
     {
       name: 'liquidity',
       label: 'Liquidity Available',
-      value: `${formatPrice(liquidity || 0, 2, 2)} ${data.asset.symbol}`,
+      value: `${formatPrice(borrowAvailable || 0, 2, 2)} ${borrowPoolData.token_ticker}`,
     },
     {
       name: 'maxApy',
@@ -146,7 +121,7 @@ const infoTableData = computed(() => {
     {
       name: 'maxMultiply',
       label: 'Max Multiply',
-      value: `${truncatePercent(supplyLimit.value || 0, 2)} ${data.asset.symbol}`,
+      value: `${formatPrice(Number(supplyLimit.value).toFixed(2) || 0, 2)} ${maxMultiplyTicker}`,
     },
     {
       name: 'multiplier',
@@ -223,95 +198,110 @@ watch(dialog, async (v) => {
     </template>
 
     <div class="multiply-dialog__body">
-      <input-widget
-        v-model="amount"
-        :balance="balance"
-        :limit="supplyLimit"
-        class="multiply-dialog__input"
-        label-left="You Deposit"
-        :rules="[
-          (v) => {
-            return v && Number(v) < balance || 'Insufficient balance'
-          },
-          (v) => {
-            return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool leverage limit'
-          },
-        ]"
-      >
-        <template #label-right>
-          Wallet: {{ balance }} {{ depositAsset.name }}
-        </template>
-        <template #prepend>
-          <j-popover
-            class-name="asset-popover"
-            position="bottom"
-            :teleport-to-body="false"
-          >
-            <ul class="asset-popover__list">
-              <li
-                class="asset-popover__list-item asset-popover__list-item--disabled"
-              >
-                <img
-                  :src="borrowAsset?.icon"
-                  :alt="`${borrowAsset.name} icon`"
-                >
-                <span>{{ borrowAsset.name }}</span>
-              </li>
-            </ul>
-
-            <template #target>
-              <img
-                :src="depositAsset?.icon"
-                :alt="`${depositAsset.name} icon`"
-              >
-            </template>
-          </j-popover>
-        </template>
-      </input-widget>
-
-      <div class="multiply-dialog__notice">
-        Notice: In this version, multiply via the borrow token is available.
-      </div>
-
-      <div
-        v-if="infoTableData.length > 0"
-        class="dialog-info-table"
-      >
-        <div
-          v-for="item in infoTableData"
-          :key="item?.label"
-          class="dialog-info-table__item"
+      <div class="multiply-dialog__data">
+        <input-widget
+          v-model="amount"
+          :balance="balance"
+          :limit="supplyLimit"
+          class="multiply-dialog__input"
+          label-left="You Deposit"
+          :rules="[
+            (v) => {
+              return v && Number(v) < balance || 'Insufficient balance'
+            },
+            (v) => {
+              return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool leverage limit'
+            },
+          ]"
         >
-          <span>{{ item?.label }}</span>
-          <template v-if="item?.name === 'contract'">
-            <a
-              :href="generateExplorerLink(String(item?.value), 'contract')"
-              target="_blank"
-            >{{
-               shortenAddress(item?.value, 5) }}
-              <i-app-export-icon />
-            </a>
+          <template #label-right>
+            Wallet: {{ balance }} {{ depositAsset.name }}
           </template>
-          <span v-else>{{ item?.value }}</span>
+          <template #prepend>
+            <j-popover
+              class-name="asset-popover"
+              position="bottom"
+              :teleport-to-body="false"
+              close-popup
+            >
+              <ul class="asset-popover__list">
+                <li
+                  class="asset-popover__list-item "
+                  @click="isDepositMultiply = !isDepositMultiply"
+                >
+                  <!-- asset-popover__list-item--disabled -->
+                  <img
+                    :src="borrowAsset?.icon"
+                    :alt="`${borrowAsset.name} icon`"
+                  >
+                  <span>{{ borrowAsset.name }}</span>
+                </li>
+              </ul>
+
+              <template #target>
+                <img
+                  :src="depositAsset?.icon"
+                  :alt="`${depositAsset.name} icon`"
+                >
+              </template>
+            </j-popover>
+          </template>
+        </input-widget>
+
+        <div class="multiply-dialog__notice">
+          Notice: In this version, multiply via the borrow token is available.
+        </div>
+
+        <div
+          v-if="infoTableData.length > 0"
+          class="dialog-info-table"
+        >
+          <div
+            v-for="item in infoTableData"
+            :key="item?.label"
+            class="dialog-info-table__item"
+          >
+            <span>{{ item?.label }}</span>
+            <template v-if="item?.name === 'contract'">
+              <a
+                :href="generateExplorerLink(String(item?.value), 'contract')"
+                target="_blank"
+              >{{
+                 shortenAddress(item?.value, 5) }}
+                <i-app-export-icon />
+              </a>
+            </template>
+            <span v-else>{{ item?.value }}</span>
+          </div>
+        </div>
+
+        <loop-multiply-select
+          v-model="precentFromMaxMultiply"
+          :multiplier="selectedMultiplier"
+          :max-multiply="Number(data?.multiplier).toFixed(0) || 0"
+        />
+
+        <div class="multiply-dialog-action">
+          <market-dialog-action-btn
+            variant="primary"
+            :loading="loading"
+            :pool="data?.depositPool"
+            :disabled="Number(selectedMultiplier) <= 1"
+            @click-handler="leverage"
+          >
+            Multiply {{ data?.asset.symbol }}
+          </market-dialog-action-btn>
+        </div>
+
+        <div
+          v-if="Number(selectedMultiplier) <= 1"
+          class="multiply-dialog-action--warning"
+        >
+          Warning: The minimum multiplier is x1. Setting a lower value has no effect and is pointless.
         </div>
       </div>
 
-      <loop-multiply-select
-        v-model="precentFromMaxMultiply"
-        :multiplier="selectedMultiplier"
-        :max-multiply="Number(data?.multiplier).toFixed(0) || 0"
-      />
-
-      <div class="multiply-dialog-action">
-        <market-dialog-action-btn
-          variant="primary"
-          :loading="loading"
-          :pool="data?.depositPool"
-          @click-handler="leverage"
-        >
-          Multiply {{ data?.asset.symbol }}
-        </market-dialog-action-btn>
-      </div>
+      <multiply-apy-chart />
     </div>
   </j-dialog>
 </template>
@@ -319,8 +309,7 @@ watch(dialog, async (v) => {
 <style lang="scss">
 .multiply-dialog {
   .modal-dialog {
-    min-width: 350px;
-    width: 350px;
+    width: min-content;
   }
 
   .j-input__prepend {
@@ -381,8 +370,8 @@ watch(dialog, async (v) => {
   &__body {
     padding-top: $spacing-16;
     display: flex;
-    flex-direction: column;
-    gap: $spacing-16;
+    flex-direction: row;
+    gap: 48px;
   }
 
   &__notice {
@@ -391,6 +380,25 @@ watch(dialog, async (v) => {
     font-weight: 500;
     line-height: 12px;
     color: $neutral-12;
+  }
+
+  &__data {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-16;
+    min-width: 350px;
+    width: 350px;
+
+    &::after {
+      content: '';
+      width: 1px;
+      height: 100%;
+      background-color: $neutral-5;
+      position: absolute;
+      top: 0;
+      right: -24px;
+    }
   }
 
   .multiply-dialog-action {
@@ -423,6 +431,15 @@ watch(dialog, async (v) => {
 
     .btn {
       width: 100%;
+    }
+
+    &--warning {
+      color: $neutral-12;
+      font-size: 8px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 12px;
+      color: $danger;
     }
   }
 }

@@ -29,6 +29,19 @@ function checkDepositOrBorrow() {
     userSelectedMultiplier.value = 10
   }
 }
+
+function opacityHandler(val: any) {
+  const multiplier = Number(userSelectedMultiplier.value)
+  const value = Number(val.value)
+
+  if (multiplier < 20 && value === 0) {
+    return 1 + ((multiplier - 20) / 10)
+  }
+  if (multiplier > 80 && value === 100) {
+    return 1 - (multiplier - 80) / 10
+  }
+  return 1
+}
 </script>
 
 <template>
@@ -65,7 +78,10 @@ function checkDepositOrBorrow() {
           class="vue-slider-mark"
           :style="{ left: `${value.pos}%` }"
         >
-          <div class="vue-slider-mark__label">
+          <div
+            class="vue-slider-mark__label"
+            :style="{ opacity: opacityHandler(value) }"
+          >
             {{ value?.label }}
           </div>
         </div>

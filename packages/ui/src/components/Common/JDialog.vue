@@ -1,34 +1,35 @@
 <script lang="ts" setup>
-const {
-  modelValue,
-} = defineProps<{
+defineProps<{
   modelValue: boolean
   className?: string
   title?: string
 }>()
 
-const emits = defineEmits(['update:modelValue'])
-
 const { width } = useWindowSize()
 
-const dialog = computed({
-  get() {
-    return modelValue
-  },
-  set(val) {
-    emits('update:modelValue', val)
-  },
+const dialog = defineModel({
+  default: false,
 })
 </script>
 
 <template>
   <b-modal
-    v-model="dialog" :title="title" centered scrollable no-footer
-    class="j-dialog" :class="className" :content-class="{ 'modal-slide-up': width <= 650 }"
+    v-model="dialog"
+    :title="title"
+    centered
+    scrollable
+    no-footer
+    class="j-dialog"
+    :class="className"
+    :content-class="{ 'modal-slide-up': width <= 650 }"
   >
     <template #header>
       <slot name="header" />
-      <i-app-cross-icon class="close-icon" :color="isDark ? '#fff' : '#8A8B8D'" @click="dialog = false" />
+      <i-app-cross-icon
+        class="close-icon"
+        :color="isDark ? '#fff' : '#8A8B8D'"
+        @click="dialog = false"
+      />
     </template>
 
     <slot />
