@@ -30,7 +30,7 @@ pub fn get_amount_in(
         soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
 
     let amounts_in = soroswap_router_client.router_get_amounts_in(&amount_out, &path);
-    let Some(amount_in) = amounts_in.last() else {
+    let Some(amount_in) = amounts_in.first() else {
         return Err(LCError::DependencyContractError);
     };
 
