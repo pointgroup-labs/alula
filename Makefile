@@ -41,7 +41,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 clippy-fix: ## Fix clippy mistakes
-	cargo clippy --workspace --fix
+	cargo clippy --fix --tests
 
 clippy: check ## Check common mistakes with clippy
 	cargo clippy --tests
