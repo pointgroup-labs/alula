@@ -41,6 +41,7 @@
     "js-cookie": "^3.0.5",
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.1",
+    "nprogress": "^0.2.0",
     "nuxt": "^3.17.7",
     "pinia": "^3.0.3",
     "sdk": "workspace:^",
