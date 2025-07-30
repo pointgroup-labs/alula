@@ -748,7 +748,7 @@ fn process_repay(
     if obligation.is_empty() {
         // Obligation shouldn't be empty at this point due to some amount of collateral or deposit required
         // to repay the debt
-        events::obligation_unexpectedly_empty(e, user, pool_address);
+        events::obligation_is_unexpectedly_empty(e, user, pool_address);
 
         return Err(LCError::InternalError);
     }

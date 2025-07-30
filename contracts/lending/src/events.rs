@@ -360,7 +360,7 @@ pub fn pool_total_shares_smaller_than_total_supply(
 ///
 /// - topics - `["obligation_unexpectedly_empty"], user: Address, pool_address: Address]`
 /// - data - `[]`
-pub fn obligation_unexpectedly_empty(e: &Env, user: &Address, pool_address: &Address) {
+pub fn obligation_is_unexpectedly_empty(e: &Env, user: &Address, pool_address: &Address) {
     let topics = (
         Symbol::new(e, "obligation_unexpectedly_empty"),
         user,
