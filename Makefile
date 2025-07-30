@@ -19,7 +19,7 @@ FLASH_LOAN_TAKER_MOCK := flash-loan-taker-mock
 .DEFAULT_GOAL: help
 .PHONY: help
 
-# Downloads  a WASM file if it doesn't exist
+# Downloads a WASM file if it doesn't exist
 define download_wasm_contract
 	@if [ ! -f $(1) ]; then \
 		echo "Downloading $(1) WASM file..."; \
@@ -40,7 +40,7 @@ help: ## Show this help
 	@printf "\033[33m%s:\033[0m\n" 'Available commands'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-clippy-fix: check ## Fix clippy mistakes
+clippy-fix: ## Fix clippy mistakes
 	cargo clippy --workspace --fix
 
 clippy: check ## Check common mistakes with clippy
