@@ -147,10 +147,14 @@ impl Pool {
                 .checked_add(self.total_borrowed)
                 .map_over_or_underflow()?;
 
-            assert!(
-                total >= self.total_shares,
-                "Total shares amount must never be smaller than the total liquidity amount"
-            );
+            // assert!(
+            //     total >= self.total_shares,
+            //     "Total shares amount must never be smaller than the total liquidity amount"
+            // );
+            if total < self.total_shares {
+                return Err(LCError::InternalError);
+            }
+
             /*
             This must hold when issuing new shares:
                 shares_to_issue / (shares_to_issue + prev_total_shares) = deposited_amount / (deposited_amount + prev_total_borrowed + prev_available)

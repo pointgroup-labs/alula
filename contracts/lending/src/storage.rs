@@ -54,7 +54,6 @@ pub fn extend_shared_storage(e: &Env, key: &DataKey) {
         .extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
 
-#[allow(unused)]
 pub fn get_global_state(e: &Env) -> GlobalState {
     extend_instance_storage(e);
 
@@ -186,6 +185,8 @@ pub fn remove_pool(e: &Env, pool_address: &Address) {
     e.storage()
         .persistent()
         .remove(&DataKey::Pool(pool_address.clone()));
+
+    // TODO: remove address from `DataKey::AllPools`
 }
 
 pub fn remove_all_pools(e: &Env) {

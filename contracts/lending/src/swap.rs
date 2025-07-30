@@ -1,5 +1,6 @@
 //! Encapsulates operations related to the swapping of two tokens
 
+use crate::constants::DEFAULT_SWAP_DEADLINE_SECONDS;
 use {
     crate::{
         constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
@@ -9,7 +10,6 @@ use {
     soroban_fixed_point_math::FixedPoint,
     soroban_sdk::{Address, Env},
 };
-
 // TODO: Maybe, create some internal trait for common swap operations and
 // implement it for different swap providers?
 
@@ -98,7 +98,7 @@ pub fn swap_tokens_for_exact_tokens(
     let amount_in_max = amount_in
         .checked_add(
             amount_in
-                .fixed_div_floor(BPS_FACTOR, max_slippage_bps)
+                .fixed_mul_floor(max_slippage_bps, BPS_FACTOR)
                 .map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
@@ -156,12 +156,14 @@ pub fn swap_exact_tokens_for_tokens(
     let amount_out_min = amount_out
         .checked_sub(
             amount_out
-                .fixed_div_floor(BPS_FACTOR, max_slippage_bps)
+                .fixed_mul_floor(max_slippage_bps, BPS_FACTOR)
                 .map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
 
     let path = soroban_sdk::vec![e, token_in.clone(), token_out.clone()];
+
+    let deadline = e.ledger().timestamp() + DEFAULT_SWAP_DEADLINE_SECONDS;
 
     // TODO: For now we can only swap tokens with a direct path
     let swap_amounts = soroswap_router_client.swap_exact_tokens_for_tokens(
@@ -169,7 +171,7 @@ pub fn swap_exact_tokens_for_tokens(
         &amount_out_min,
         &path,
         user,
-        &u64::MAX, // WARN: What should be this deadline here?
+        &deadline,
     );
 
     // TODO: What warning\error\event exactly must happen here?
