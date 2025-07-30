@@ -117,7 +117,9 @@ pub fn swap_tokens_for_exact_tokens(
     );
 
     // TODO: What warning\error\event exactly must happen here?
-    let received_amount = swap_amounts.last().ok_or(LCError::InternalError)?;
+    let received_amount = swap_amounts
+        .last()
+        .ok_or(LCError::DependencyContractError)?;
 
     Ok(received_amount)
 }
@@ -177,7 +179,9 @@ pub fn swap_exact_tokens_for_tokens(
     );
 
     // TODO: What warning\error\event exactly must happen here?
-    let received_amount = swap_amounts.last().ok_or(LCError::InternalError)?;
+    let received_amount = swap_amounts
+        .last()
+        .ok_or(LCError::DependencyContractError)?;
 
     Ok(received_amount)
 }

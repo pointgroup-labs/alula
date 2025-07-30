@@ -1078,8 +1078,9 @@ fn process_deposit_with_leverage(
             .map_over_or_underflow()?;
 
         let Ok(obligation) = Obligation::try_get(e, user) else {
-            // TODO: Internal Error?
-            return Err(LCError::ObligationDoesNotExist);
+            events::obligation_is_missing_in_storage(e, user);
+
+            return Err(LCError::InternalError);
         };
 
         // TODO: Likely, this check is redundant, since when depositing with leverage
@@ -1089,6 +1090,7 @@ fn process_deposit_with_leverage(
 
         if flash_borrow_amount > max_healthy_borrow_amount {
             // TODO: Some other error?
+            // UPD: Will be fixed after unifying oracle and DEX prices on testnet
             return Err(LCError::BorrowLimitExceeded);
         }
 

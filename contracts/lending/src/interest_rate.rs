@@ -201,19 +201,20 @@ impl Pool {
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
-    // TODO: We have to pre-compute the max available amount during Pool initialization, I think..
+    // TODO: We better pre-compute the max available amount during Pool initialization
     pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, LCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
         if utilization_ratio > self.config.utilization_ratio_limit_bps {
-            events::utilization_ration_exceeds_limit(
+            // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time by itself, so
+            // for now, we simply emit an event. We can agree to stop accruing interest on a pool if this happens
+            events::utilization_ratio_exceeds_limit(
                 e,
                 utilization_ratio,
                 self.config.utilization_ratio_limit_bps,
             );
-
-            return Err(LCError::InternalError);
+            // return Err(LCError::InternalError);
         }
         let available_percentage_to_borrow_bps =
             self.config.utilization_ratio_limit_bps - utilization_ratio; // safe

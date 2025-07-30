@@ -76,7 +76,8 @@ impl Obligation {
             let total_debt = borrow_obligation.total_debt()?;
 
             let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
-                // TODO: Add event
+                events::pool_is_missing_in_storage(e, &borrow_pool_address);
+
                 return Err(LCError::InternalError);
             };
 
@@ -447,7 +448,8 @@ impl Obligation {
                 }
             } else {
                 // The case when full liquidation cannot take place because of not enough available
-                // amount in the pool TODO: Rewrite with using cTokens
+                // amount in the pool.
+                // TODO: Rewrite with using cTokens
                 let collateral_value_sum = full_collateral_value
                     .checked_add(tokens_from_shares_value)
                     .map_over_or_underflow()?;
