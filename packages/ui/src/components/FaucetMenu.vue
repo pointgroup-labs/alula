@@ -58,7 +58,7 @@ async function faucet() {
     <img
       :src="getTokenIcon('native')"
       alt="XLM"
-    > Fauset
+    > Faucet
   </j-btn>
 </template>
 

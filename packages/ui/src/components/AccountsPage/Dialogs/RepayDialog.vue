@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { BorrowCardTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL } from '~/config'
+import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
@@ -10,8 +10,6 @@ const {
   data?: BorrowCardTableItem
   modelValue: boolean
 }>()
-
-const emits = defineEmits(['update:modelValue'])
 
 const marketStore = useMarketsStore()
 const market = useMarket()
@@ -54,6 +52,7 @@ const healthFactor = computed(() => {
 watchDebounced([
   () => data,
   reloadFee,
+  () => wallet.publicKey.value,
 ], async ([d, _r]) => {
   if (!d || !wallet.publicKey) {
     return
@@ -86,14 +85,7 @@ const infoTableData = computed(() => {
   }]
 })
 
-const dialog = computed({
-  get() {
-    return modelValue
-  },
-  set(val) {
-    emits('update:modelValue', val)
-  },
-})
+const dialog = defineModel({ default: false })
 
 async function repay() {
   if (!data) {
@@ -118,7 +110,9 @@ let interval: string | number | NodeJS.Timeout | undefined
 watch(() => modelValue, async (v) => {
   clearInterval(interval)
   if (!v) {
-    amount.value = 0
+    setTimeout(() => {
+      amount.value = 0
+    }, CLEAR_DIALOG_TIMEOUT)
     return
   }
 

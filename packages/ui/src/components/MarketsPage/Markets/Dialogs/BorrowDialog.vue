@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
+import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
 import { bigintToNumber, destructurePoolAsset, focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
@@ -10,8 +10,6 @@ const {
   data?: MarketTableItem
   modelValue: boolean
 }>()
-
-const emits = defineEmits(['update:modelValue'])
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
@@ -35,6 +33,7 @@ const txFee = ref(0)
 watchDebounced([
   () => data,
   reloadFee,
+  publicKey,
 ], async ([d, _r]) => {
   if (!d || !publicKey.value) {
     return
@@ -138,14 +137,7 @@ const infoTableData = computed(() => {
   }]
 })
 
-const dialog = computed({
-  get() {
-    return modelValue
-  },
-  set(val) {
-    emits('update:modelValue', val)
-  },
-})
+const dialog = defineModel({ default: false })
 
 const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
 
@@ -166,7 +158,9 @@ let interval: string | number | NodeJS.Timeout | undefined
 watch(() => modelValue, async (v) => {
   clearInterval(interval)
   if (!v) {
-    amount.value = 0
+    setTimeout(() => {
+      amount.value = 0
+    }, CLEAR_DIALOG_TIMEOUT)
     agree.value = false
     return
   }

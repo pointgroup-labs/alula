@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL } from '~/config'
+import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, getTokenIcon, shortenAddress, truncatePercent } from '~/utils'
 
 const {
@@ -74,6 +74,7 @@ const txFee = ref(0)
 watchDebounced([
   () => data,
   reloadFee,
+  publicKey,
 ], async ([d, _r]) => {
   if (!d || !publicKey.value) {
     return
@@ -141,9 +142,7 @@ const infoTableData = computed(() => {
   ]
 })
 
-const dialog = defineModel<boolean>({
-  default: false,
-})
+const dialog = defineModel<boolean>({ default: false })
 
 async function leverage() {
   if (!publicKey.value || !data?.depositPool.pool_address) {
@@ -173,7 +172,9 @@ let interval: string | number | NodeJS.Timeout | undefined
 watch(dialog, async (v) => {
   clearInterval(interval)
   if (!v) {
-    amount.value = 0
+    setTimeout(() => {
+      amount.value = 0
+    }, CLEAR_DIALOG_TIMEOUT)
     return
   }
 

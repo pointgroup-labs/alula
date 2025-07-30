@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL } from '~/config'
+import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
@@ -10,8 +10,6 @@ const {
   data?: SuppliedCardTableItem
   modelValue: boolean
 }>()
-
-const emits = defineEmits(['update:modelValue'])
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
@@ -68,6 +66,7 @@ const availableToWithdraw = computed(() => {
 watchDebounced([
   () => data,
   reloadFee,
+  publicKey,
 ], async ([d, _r]) => {
   if (!d || !publicKey.value) {
     return
@@ -115,14 +114,7 @@ const infoTableData = computed(() => {
   }]
 })
 
-const dialog = computed({
-  get() {
-    return modelValue
-  },
-  set(val) {
-    emits('update:modelValue', val)
-  },
-})
+const dialog = defineModel({ default: false })
 
 async function withdraw() {
   if (!data) {
@@ -147,7 +139,9 @@ let interval: string | number | NodeJS.Timeout | undefined
 watch(() => modelValue, async (v) => {
   clearInterval(interval)
   if (!v) {
-    amount.value = 0
+    setTimeout(() => {
+      amount.value = 0
+    }, CLEAR_DIALOG_TIMEOUT)
     collateralOnly.value = false
     return
   }

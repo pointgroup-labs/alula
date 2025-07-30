@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
-import { RELOAD_FEE_INTERVAL } from '~/config'
+import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { bigintToNumber, focusInput, formatPrice } from '~/utils'
 
 const {
@@ -51,6 +51,7 @@ const txFee = ref(0)
 watchDebounced([
   () => data,
   reloadFee,
+  publicKey,
 ], async ([d, _r]) => {
   if (!d || !publicKey.value) {
     return
@@ -134,7 +135,9 @@ let interval: string | number | NodeJS.Timeout | undefined
 watch(dialog, async (v) => {
   clearInterval(interval)
   if (!v) {
-    amount.value = 0
+    setTimeout(() => {
+      amount.value = 0
+    }, CLEAR_DIALOG_TIMEOUT)
     return
   }
 
