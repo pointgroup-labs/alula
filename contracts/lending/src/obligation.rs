@@ -189,7 +189,7 @@ impl Obligation {
         // TODO: Must be rewritten when markets are implemented
         // 'open_ltv_borrowed_value' == (collateral_value * pool.config.open_ltv_bps) / 10_000
         let open_ltv_borrowed_value = collateral_value
-            .fixed_div_floor(BPS_FACTOR, pool.config.open_ltv_bps)
+            .fixed_mul_floor(pool.config.open_ltv_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let max_healthy_borrow_amount = if borrowed_value >= open_ltv_borrowed_value {
@@ -688,7 +688,7 @@ impl BorrowObligation {
         // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
         // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_debt = prev_debt
-            .fixed_div_floor(self.last_accrual, pool.last_accrual)
+            .fixed_div_ceil(self.last_accrual, pool.last_accrual)
             .map_over_or_underflow()?;
 
         let old_unpaid_interest = self.unpaid_interest;

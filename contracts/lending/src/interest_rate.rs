@@ -85,7 +85,7 @@ impl Pool {
         // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_total_borrowed = self
             .total_borrowed
-            .fixed_div_ceil(self.last_accrual, new_accrual)
+            .fixed_mul_floor(new_accrual, self.last_accrual)
             .map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
@@ -218,8 +218,8 @@ impl Pool {
         let available_percentage_to_borrow_bps =
             self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
 
-        available_percentage_to_borrow_bps
-            .fixed_div_ceil(BPS_FACTOR, total_supply)
+        total_supply
+            .fixed_mul_ceil(available_percentage_to_borrow_bps, BPS_FACTOR)
             .map_over_or_underflow()
     }
 
@@ -228,6 +228,7 @@ impl Pool {
             Ok(0)
         } else {
             self.total_borrowed
+                // TODO: Investigate why using `floor` here breaks fuzzing tests
                 .fixed_div_ceil(total, BPS_FACTOR)
                 .map_over_or_underflow()
         }
@@ -403,7 +404,7 @@ mod tests {
             .fixed_mul_ceil(expected_multipliers.borrow, SCALED_ONE)
             .unwrap();
         let expected_new_total_borrowed = initial_total_borrowed
-            .fixed_div_ceil(initial_accrual, expected_new_accrual)
+            .fixed_div_floor(initial_accrual, expected_new_accrual)
             .map_over_or_underflow()
             .unwrap();
 

@@ -1086,7 +1086,7 @@ fn process_deposit_with_leverage(
     if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
         // Borrow to repay the flash loan
         let flash_loan_fee = flash_borrow_amount
-            .fixed_div_floor(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
+            .fixed_mul_floor(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
             .map_over_or_underflow()?;
         let flash_repay_amount = flash_loan_fee
             .checked_add(flash_borrow_amount)
@@ -1180,18 +1180,18 @@ pub fn process_withdraw_from_leveraged(
 
     // Compute the flash borrow amount for deleverage
     let withdrawn_ratio_bps = expected_withdrawn_amount
-        .fixed_div_ceil(max_withdrawable_amount, BPS_FACTOR)
+        .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
     let plain_leverage_amount = tokens_per_obligation_shares - max_withdrawable_amount; // safe
     let plain_leverage_to_be_withdrawn = plain_leverage_amount
-        .fixed_div_floor(BPS_FACTOR, withdrawn_ratio_bps)
+        .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
         .map_over_or_underflow()?;
 
     // To maintain LTV for the leveraged position, the amount of borrowed tokens to be repaid
     // must be proportional to the withdrawn amount of the deposited tokens
     let flash_borrow_amount = borrowed
-        .fixed_div_ceil(BPS_FACTOR, withdrawn_ratio_bps)
+        .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
         .map_over_or_underflow()?;
 
     if borrow_pool.available < flash_borrow_amount {
@@ -1266,7 +1266,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
         swap::get_amount_out(e, borrowed_token, deposited_token, borrowed_amount)?;
 
     let flash_loan_fee = borrowed_token_swapped_amount
-        .fixed_div_ceil(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
+        .fixed_mul_floor(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
 
     let swapped_amount_with_fees = borrowed_token_swapped_amount

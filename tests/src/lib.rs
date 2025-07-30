@@ -995,13 +995,13 @@ mod tests {
 
     pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
         amount
-            .checked_sub(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
+            .checked_sub(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap())
             .unwrap()
     }
 
     pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
         amount
-            .checked_add(amount.fixed_div_floor(BPS_FACTOR, scale_bps).unwrap())
+            .checked_add(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap())
             .unwrap()
     }
 }

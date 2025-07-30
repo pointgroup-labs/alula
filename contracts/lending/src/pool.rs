@@ -189,6 +189,9 @@ impl Pool {
                 shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
             */
             self.total_shares
+                /* Using 'ceil' here has advantages when withdrawing\repaying small amounts of tokens.
+                Namely, if the token amount is really small, with `floor`, the respective amount of
+                shares to burn is 0, and doesn't make a difference  */
                 .fixed_div_ceil(total, tokens_amount)
                 .map_over_or_underflow()?
         };

@@ -29,7 +29,7 @@ define download_wasm_contract
 	fi
 endef
 
-# Build a contract to specified directory
+# Builds a contract to specified directory
 define build_contract
 	stellar contract build --package $(1) --out-dir $(2) $(3)
 endef
