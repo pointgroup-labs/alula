@@ -113,7 +113,7 @@ pub fn swap_tokens_for_exact_tokens(
         &amount_in_max,
         &path,
         user,
-        &u64::MAX, // WARN: What should be this deadline here?
+        &DEFAULT_SWAP_DEADLINE_SECONDS,
     );
 
     // TODO: What warning\error\event exactly must happen here?

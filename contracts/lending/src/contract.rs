@@ -685,12 +685,6 @@ fn process_borrow(
     pool.adjust_total_borrowed(e, borrow_amount)?;
     pool.adjust_available(e, -borrow_amount)?;
 
-    // TODO: This check is redundant. Remove it across the codebase
-    // and verify that everything works as expected
-    if !obligation.is_healthy(e)? {
-        return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
-    }
-
     obligation.set(e);
     pool.set(e);
 
@@ -886,10 +880,6 @@ fn process_remove_collateral(
     obligation.remove_collateral(e, pool_address, removed_tokens_amount)?;
     pool.adjust_total_collateral(e, -removed_tokens_amount)?;
 
-    if !obligation.is_healthy(e)? {
-        return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
-    }
-
     if obligation.is_empty() {
         obligation.remove(e);
     } else {
@@ -940,11 +930,6 @@ fn process_withdraw(
 
     pool.adjust_total_shares(e, -burnt_shares_amount)?;
     pool.adjust_available(e, -withdrawn_tokens_amount)?;
-
-    // TODO: For now this check seems to be redundant
-    if !obligation.is_healthy(e)? {
-        return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
-    }
 
     if obligation.is_empty() {
         obligation.remove(e);
