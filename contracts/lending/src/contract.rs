@@ -1086,7 +1086,7 @@ fn process_deposit_with_leverage(
     if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
         // Borrow to repay the flash loan
         let flash_loan_fee = flash_borrow_amount
-            .fixed_mul_floor(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
+            .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
             .map_over_or_underflow()?;
         let flash_repay_amount = flash_loan_fee
             .checked_add(flash_borrow_amount)
@@ -1218,10 +1218,9 @@ pub fn process_withdraw_from_leveraged(
     // Swap to get the flash repay amount
 
     let flash_loan_fee = flash_borrow_amount
-        .checked_mul(DEFAULT_FLASH_LOAN_FEE_BPS)
-        .map_over_or_underflow()?
-        .checked_div(BPS_FACTOR)
+        .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
+
     let flash_repay_amount = flash_loan_fee
         .checked_add(flash_borrow_amount)
         .map_over_or_underflow()?;
@@ -1266,7 +1265,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
         swap::get_amount_out(e, borrowed_token, deposited_token, borrowed_amount)?;
 
     let flash_loan_fee = borrowed_token_swapped_amount
-        .fixed_mul_floor(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
+        .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
 
     let swapped_amount_with_fees = borrowed_token_swapped_amount
