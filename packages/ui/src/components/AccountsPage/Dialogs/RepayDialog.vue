@@ -15,6 +15,7 @@ const marketStore = useMarketsStore()
 const market = useMarket()
 
 const wallet = useWallet()
+const publicKey = computed(() => wallet.publicKey)
 
 const clientStore = useClientStore()
 const jLendClient = computed(() => clientStore.jLendClient)
@@ -52,13 +53,13 @@ const healthFactor = computed(() => {
 watchDebounced([
   () => data,
   reloadFee,
-  () => wallet.publicKey.value,
+  publicKey,
 ], async ([d, _r]) => {
-  if (!d || !wallet.publicKey) {
+  if (!d || !publicKey.value) {
     return
   }
   const tx = await jLendClient.value?.sdk.repayTx(
-    wallet.publicKey,
+    publicKey.value,
     d?.pool_address || '',
     0,
   )
