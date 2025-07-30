@@ -1,4 +1,5 @@
 {
+  "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     "target": "esnext",
     "lib": [
@@ -25,7 +26,8 @@
     "types": [
       "vue",
       "vite/client",
-      "unplugin-vue-router/client"
+      "unplugin-vue-router/client",
+      "@nuxtjs/i18n"
     ],
     "allowJs": true,
     "strict": true,

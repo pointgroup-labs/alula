@@ -31,9 +31,3 @@
     }
   }
 }
-
-body.body--dark {
-  .form-check-input:checked[type='checkbox'] {
-    background-image: url("data:image/svg+xml,%3csvg%20width='16'%20height='16'%20viewBox='0%200%2016%2016'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cpath%20d='M2%207.66663L5.43934%2011.106C6.02513%2011.6918%206.97487%2011.6918%207.56066%2011.106L14%204.66663'%20stroke='black'%20stroke-width='1.5'%20stroke-linecap='round'%20stroke-linejoin='round'/%3e%3c/svg%3e") !important;
-  }
-}

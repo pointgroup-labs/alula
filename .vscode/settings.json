@@ -15,7 +15,7 @@
   "eslint.useFlatConfig": true,
   // Disable the default formatter
   "prettier.enable": false,
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   // Auto fix
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
@@ -83,9 +83,6 @@
     "toml",
     "yaml"
   ],
-  "[vue]": {
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-  },
   "material-icon-theme.activeIconPack": "vue",
   "material-icon-theme.files.associations": {},
   "material-icon-theme.rootFolders.associations": {

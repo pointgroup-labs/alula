@@ -150,7 +150,19 @@ export default defineNuxtConfig({
     '@bootstrap-vue-next/nuxt',
     '@vueuse/nuxt',
     '@pinia/nuxt',
+    '@nuxtjs/i18n',
   ],
+
+  i18n: {
+    strategy: 'no_prefix',
+    defaultLocale: 'en',
+    lazy: true,
+    langDir: resolve(__dirname, 'src/locales'),
+    locales: [
+      { code: 'en', name: 'English', file: 'en.json' },
+      { code: 'ua', name: 'Ukraine', file: 'ua.json' },
+    ],
+  },
 
   runtimeConfig: {
     public: {
@@ -194,11 +206,11 @@ export default defineNuxtConfig({
       // ],
     },
     manifest: {
-      name: env.NUXT_PUBLIC_APP_NAME ?? 'Stellar',
+      name: env.NUXT_PUBLIC_APP_NAME ?? 'Jlend',
       short_name:
         env.NUXT_PUBLIC_APP_SHORT_NAME
         ?? env.NUXT_PUBLIC_APP_NAME
-        ?? 'Stellar',
+        ?? 'JLend',
       description: env.NUXT_PUBLIC_APP_DESCRIPTION,
       theme_color: '#ffffff',
       display: 'standalone',
@@ -233,7 +245,7 @@ export default defineNuxtConfig({
     baseURL: env.NUXT_PUBLIC_BASE_URL || '/',
 
     head: {
-      title: env.NUXT_PUBLIC_APP_TITLE ?? 'Stellar',
+      title: env.NUXT_PUBLIC_APP_TITLE ?? 'JLend',
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       ],
