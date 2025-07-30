@@ -11,7 +11,7 @@ const {
 
 const marks = computed(() => {
   return {
-    0: 'x1',
+    20: 'x1',
     100: `x${maxMultiply}`,
   }
 })
@@ -58,7 +58,7 @@ function opacityHandler(val: any) {
     <vue-slider
       v-model="userSelectedMultiplier"
       :interval="0.1"
-      :min="0"
+      :min="1"
       :max="100"
       :dot-size="25"
       :contained="true"

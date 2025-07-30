@@ -68,3 +68,11 @@ export function bigintToNumber(
 export function destructurePoolAsset(poolAsset: string) {
   return poolAsset.split(':')
 }
+
+export function amountToUsdWithShort(amount: number, price: number, shorten = true) {
+  const amountInUsd = Number(amount) * Number(price)
+  if (shorten) {
+    return shortenNumber(amountInUsd || 0)
+  }
+  return formatPrice(amountInUsd || 0, 2, 2)
+}

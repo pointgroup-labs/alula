@@ -94,7 +94,10 @@ watch(() => forceValidation, (val) => {
 
 <template>
   <div class="j-input">
-    <div v-if="slots?.label" class="j-input__label">
+    <div
+      v-if="slots?.label"
+      class="j-input__label"
+    >
       <slot name="label" />
     </div>
     <b-input-group
@@ -102,7 +105,10 @@ watch(() => forceValidation, (val) => {
       :size="size"
     >
       <div class="input-wrapper">
-        <div v-if="inputLabel" class="input-wrapper__label">
+        <div
+          v-if="inputLabel"
+          class="input-wrapper__label"
+        >
           {{ inputLabel }}
         </div>
         <b-form-input
@@ -115,25 +121,38 @@ watch(() => forceValidation, (val) => {
           @blur="handleBlur"
         />
       </div>
-      <template v-if="slots.prepend" #prepend>
+      <template
+        v-if="slots.prepend"
+        #prepend
+      >
         <div class="j-input__prepend">
           <slot name="prepend" />
         </div>
       </template>
-      <template v-if="slots.append" #append>
+      <template
+        v-if="slots.append"
+        #append
+      >
         <div class="j-input__append">
           <slot name="append" />
         </div>
       </template>
 
       <transition name="fade-bottom">
-        <div v-if="errorMessage" class="validate-label">
+        <div
+          v-if="errorMessage"
+          class="validate-label"
+        >
           {{ errorMessage }}
         </div>
       </transition>
     </b-input-group>
 
-    <div v-if="slots.description" class="j-input__desc" :class="{ hide: errorMessage }">
+    <div
+      v-if="slots.description"
+      class="j-input__desc"
+      :class="{ hide: errorMessage }"
+    >
       <slot name="description" />
     </div>
   </div>

@@ -286,18 +286,11 @@ watch(dialog, async (v) => {
             variant="primary"
             :loading="loading"
             :pool="data?.depositPool"
-            :disabled="Number(selectedMultiplier) <= 1"
+            :disabled="Number(selectedMultiplier) < 1"
             @click-handler="leverage"
           >
             Multiply {{ data?.asset.symbol }}
           </market-dialog-action-btn>
-        </div>
-
-        <div
-          v-if="Number(selectedMultiplier) <= 1"
-          class="multiply-dialog-action--warning"
-        >
-          Warning: The minimum multiplier is x1. Setting a lower value has no effect and is pointless.
         </div>
       </div>
 
@@ -431,15 +424,6 @@ watch(dialog, async (v) => {
 
     .btn {
       width: 100%;
-    }
-
-    &--warning {
-      color: $neutral-12;
-      font-size: 8px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 12px;
-      color: $danger;
     }
   }
 }

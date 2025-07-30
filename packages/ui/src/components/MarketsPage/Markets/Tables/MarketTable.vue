@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
+import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
 const infoDialog = ref(false)
 
@@ -69,10 +69,6 @@ function onRowClicked(item: any, _index: number, _event: any) {
   marketsStore.selectedMarketInfo = item
   infoDialog.value = true
 }
-
-function amountToUsd(amount: number, price: number) {
-  return shortenNumber((Number(amount) * Number(price)) || 0)
-}
 </script>
 
 <template>
@@ -127,25 +123,31 @@ function amountToUsd(amount: number, price: number) {
       </template>
 
       <template #cell(total_supply)="data">
-        <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-          {{ data.item.total_supply > 1000 ? shortenNumber(data.item.total_supply) : data.item.total_supply }}
-          <span>${{ amountToUsd(data.item.total_supply, data.item.price) }}</span>
-          <template #content>
-            {{ formatPrice(data.item.total_supply) }}
-          </template>
-        </j-tooltip>
+        <div class="table-cell justify-content-end">
+          <j-tooltip tooltip-class="with-price">
+            <strong>{{ data.item.total_supply > 1000 ? shortenNumber(data.item.total_supply) : data.item.total_supply }}</strong>
+            <span>${{ amountToUsdWithShort(data.item.total_supply, data.item.price) }}</span>
+            <template #content>
+              {{ formatPrice(data.item.total_supply) }} {{ data.item.asset.symbol }}
+              <br>
+              <span>${{ amountToUsdWithShort(data.item.total_supply, data.item.price, false) }}</span>
+            </template>
+          </j-tooltip>
+        </div>
       </template>
 
       <template #cell(total_borrowed)="data">
-        <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-          <div class="table-cell justify-content-end with-price">
-            {{ shortenNumber(data.item.total_borrowed) }}
-            <span>${{ amountToUsd(data.item.total_borrowed, data.item.price) }}</span>
-          </div>
-          <template #content>
-            {{ formatPrice(data.item.total_borrowed) }}
-          </template>
-        </j-tooltip>
+        <div class="table-cell justify-content-end">
+          <j-tooltip tooltip-class="with-price">
+            <strong>{{ shortenNumber(data.item.total_borrowed) }}</strong>
+            <span>${{ amountToUsdWithShort(data.item.total_borrowed, data.item.price) }}</span>
+            <template #content>
+              {{ formatPrice(data.item.total_borrowed) }} {{ data.item.asset.symbol }}
+              <br>
+              <span>${{ amountToUsdWithShort(data.item.total_borrowed, data.item.price, false) }}</span>
+            </template>
+          </j-tooltip>
+        </div>
       </template>
 
       <template #cell(deposit_apy)="data">

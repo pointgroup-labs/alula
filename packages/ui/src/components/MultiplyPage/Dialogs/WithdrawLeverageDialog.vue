@@ -166,9 +166,7 @@ watch(dialog, async (v) => {
         :icon="data?.asset.icon"
         label-left="You Deposit"
         :rules="[
-          (v) => {
-            return v && Number(v) < balance || 'Insufficient balance'
-          },
+          (v) => v && Number(v) < balance || 'Insufficient balance',
         ]"
       >
         <template #label-right>

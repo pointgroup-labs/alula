@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
 import Decimal from 'decimal.js'
-import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
+import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
 const client = useClientStore()
 const marketsStore = useMarketsStore()
@@ -52,13 +52,13 @@ const items = computed<MultiplyTableItem[]>(() => {
       const depositTokenIcon = getTokenIcon(String(depositTokenSymbol))
       const borrowTokenName = getTokenName(String(borrowTokenSymbol))
       const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol))
-      const liquidity = depositPool && depositPool.available ? Number(bigintToNumber(depositPool.available, assetDecimals.value)) : 0
       const ltv = Number(depositPool?.config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
       const maxAPY
        = ((Number(depositPool?.pool_apy.supply_bps || 0) - Number(depositPool?.pool_apy.borrow_bps || 0))
          * multiplier + Number(depositPool?.pool_apy.borrow_bps || 0)) / 100
-      const supplied
+      const supplied = depositPool && depositPool.available ? Number(bigintToNumber(depositPool.available, assetDecimals.value)) : 0
+      const liquidity
       = borrowPool && borrowPool.available
         ? Number(bigintToNumber(borrowPool.available/*  + borrowPool.total_borrowed + borrowPool.total_collateral */, assetDecimals.value))
         : 0
@@ -86,11 +86,6 @@ const selectedPool = computed(() => items.value.find(item => item.pool_address =
 async function multiplyDialogHandler(data: { item: MultiplyTableItem }, action: 'supply' | 'withdraw') {
   selectedPoolAddress.value = data.item?.pool_address
   action === 'supply' ? dialogSupply.value = true : withdrawDialog.value = true
-}
-
-function amountToUsd(amount: number, price: number) {
-  const usd = (Number(amount) * Number(price)) || 0
-  return shortenNumber(usd)
 }
 
 function checkIsHaveMultiply(pool: MultiplyTableItem) {
@@ -154,10 +149,10 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
           >
           <div class="market-table__asset__info">
             <div class="market-table__asset__info__name">
-              {{ data.item.asset.symbol }}/XLM
+              {{ data.item.asset.symbol }}/{{ data.item.borrowAsset.symbol }}
             </div>
             <div class="market-table__asset__info__symbol">
-              {{ data.item.asset.name }} / Stellar
+              {{ data.item.asset.name }} / {{ data.item.borrowAsset.symbol }}
             </div>
           </div>
         </div>
@@ -182,23 +177,31 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
       </template>
 
       <template #cell(liquidity)="data">
-        <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-          {{ shortenNumber(data.item.liquidity || 0) }} {{ data.item.asset.symbol }}
-          <span>${{ amountToUsd(data.item.liquidity, data.item.price) }}</span>
-          <template #content>
-            {{ formatPrice(data.item.liquidity) }}
-          </template>
-        </j-tooltip>
+        <div class="table-cell justify-content-end">
+          <j-tooltip tooltip-class="with-price">
+            <strong>{{ shortenNumber(data.item.liquidity || 0) }} {{ data.item.borrowAsset.symbol }}</strong>
+            <span>${{ amountToUsdWithShort(data.item.liquidity, data.item.borrowPoolPrice) }}</span>
+            <template #content>
+              {{ formatPrice(data.item.liquidity) }} {{ data.item.borrowAsset.symbol }}
+              <br>
+              <span>${{ amountToUsdWithShort(data.item.liquidity, data.item.borrowPoolPrice, false) }}</span>
+            </template>
+          </j-tooltip>
+        </div>
       </template>
 
       <template #cell(supplied)="data">
-        <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-          {{ shortenNumber(data.item.supplied.toFixed(2) || 0) }} XLM
-          <span>${{ amountToUsd(data.item.supplied, data.item.borrowPoolPrice) }}</span>
-          <template #content>
-            {{ formatPrice(data.item.supplied) }}
-          </template>
-        </j-tooltip>
+        <div class="table-cell justify-content-end">
+          <j-tooltip tooltip-class="with-price">
+            <strong>{{ shortenNumber(data.item.supplied.toFixed(2) || 0) }} {{ data.item.asset.symbol }}</strong>
+            <span>${{ amountToUsdWithShort(data.item.supplied, data.item.price) }}</span>
+            <template #content>
+              {{ formatPrice(data.item.supplied) }} {{ data.item.asset.symbol }}
+              <br>
+              <span>${{ amountToUsdWithShort(data.item.supplied, data.item.price, false) }}</span>
+            </template>
+          </j-tooltip>
+        </div>
       </template>
 
       <template #cell(borrowing)="data">

@@ -1,0 +1,105 @@
+.market-table {
+  th {
+    color: $neutral-6;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 20px;
+    border-bottom: 1px solid $neutral-13;
+
+    span {
+      width: 100%;
+      display: block;
+      text-align: var(--align, center);
+      white-space: nowrap;
+    }
+  }
+
+  tbody {
+    tr {
+      height: 80px;
+      cursor: pointer;
+
+      &:nth-child(even) {
+        td {
+          background-color: $neutral-2;
+        }
+      }
+    }
+
+    td {
+      text-align: center;
+      vertical-align: middle;
+    }
+  }
+
+  .table-cell {
+    width: 100%;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 20px;
+    white-space: nowrap;
+  }
+
+  .with-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+    span {
+      color: $neutral-12;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 16px;
+    }
+  }
+
+  &__asset {
+    display: flex;
+    align-items: center;
+    gap: $spacing-8;
+
+    img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+    }
+
+    &__info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-style: normal;
+
+      &__name {
+        font-size: 20px;
+        font-weight: 500;
+        line-height: 20px;
+        text-align: left;
+      }
+
+      &__symbol {
+        color: $neutral-6;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 16px;
+        text-align: left;
+      }
+    }
+  }
+
+  &__action {
+    gap: $spacing-8;
+  }
+
+  .no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
