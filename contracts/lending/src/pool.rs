@@ -43,7 +43,7 @@ impl MultiplyPair {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn set(&self, e: &Env) {
-        storage::set_multiply_pair(e, &self);
+        storage::set_multiply_pair(e, self);
     }
 }
 
@@ -174,7 +174,7 @@ impl Pool {
             let total = self.total_supply()?;
 
             if self.total_shares > total {
-                events::pool_total_shares_smaller_than_total_supply(&e, self.total_shares, total);
+                events::pool_total_shares_smaller_than_total_supply(e, self.total_shares, total);
 
                 return Err(LCError::InternalError);
             }

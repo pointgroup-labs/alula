@@ -157,7 +157,7 @@ pub fn multiply_pair_exists(e: &Env, pair: &MultiplyPair) -> bool {
         .has(&DataKey::MultiplyPair(pair.clone()));
 
     if res {
-        extend_shared_storage(e, &&DataKey::MultiplyPair(pair.clone()));
+        extend_shared_storage(e, &DataKey::MultiplyPair(pair.clone()));
     }
 
     res

@@ -527,7 +527,7 @@ pub fn process_initialize_multiply_pair(
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
 ) -> Result<(), LCError> {
-    if !(Pool::exists(&e, &deposit_pool_address) && Pool::exists(&e, &borrow_pool_address)) {
+    if !(Pool::exists(e, deposit_pool_address) && Pool::exists(e, borrow_pool_address)) {
         return Err(LCError::PoolDoesNotExist);
     }
 
@@ -540,8 +540,8 @@ pub fn process_initialize_multiply_pair(
         return Err(LCError::MultiplyPairAlreadyExists);
     }
 
-    pair.set(&e);
-    pair.register(&e);
+    pair.set(e);
+    pair.register(e);
 
     Ok(())
 }
@@ -574,7 +574,7 @@ pub fn process_deposit(
         return Err(LCError::SupplyLimitExceeded);
     }
 
-    let issued_shares = pool.compute_shares_from_tokens(&e, amount)?;
+    let issued_shares = pool.compute_shares_from_tokens(e, amount)?;
 
     let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
     obligation.deposit(e, pool_address, issued_shares)?;
@@ -926,7 +926,7 @@ fn process_withdraw(
     let cap_withdrawn_tokens_amount = i128::min(amount, max_healthy_collateral_removed_amount);
 
     let obligation_shares = obligation.get_shares(pool_address)?;
-    let cap_shares_amount = pool.compute_shares_from_tokens(&e, cap_withdrawn_tokens_amount)?;
+    let cap_shares_amount = pool.compute_shares_from_tokens(e, cap_withdrawn_tokens_amount)?;
 
     let burnt_shares_amount = i128::min(cap_shares_amount, obligation_shares);
 

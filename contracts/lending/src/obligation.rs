@@ -437,7 +437,7 @@ impl Obligation {
                     .checked_div(collateral_price)
                     .map_over_or_underflow()?;
                 let shares_amount_sold =
-                    collateral_pool.compute_shares_from_tokens(&e, tokens_from_sold_shares)?;
+                    collateral_pool.compute_shares_from_tokens(e, tokens_from_sold_shares)?;
 
                 LiquidationValues {
                     liquidated_amount: amount,
