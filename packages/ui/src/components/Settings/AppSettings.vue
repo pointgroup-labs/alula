@@ -1,5 +1,7 @@
 <script lang="ts" setup>
 const isSettingsSidebar = ref(false)
+
+provide('isSidebar', isSettingsSidebar)
 </script>
 
 <template>

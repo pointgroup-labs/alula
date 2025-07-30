@@ -11,13 +11,11 @@ function menuHandler() {
   subMenu.value = !subMenu.value
 }
 
-if (isSidebar) {
-  watch(() => isSidebar.value, (val) => {
-    if (!val) {
-      subMenu.value = false
-    }
-  })
-}
+watch(() => isSidebar?.value, (val) => {
+  if (!val) {
+    subMenu.value = false
+  }
+}, { immediate: true })
 
 const labels = {
   en: 'English',

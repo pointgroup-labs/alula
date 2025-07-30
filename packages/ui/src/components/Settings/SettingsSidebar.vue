@@ -8,8 +8,6 @@ const emit = defineEmits(['close'])
 function close() {
   emit('close')
 }
-
-provide('isSidebar', isSidebar)
 </script>
 
 <template>
