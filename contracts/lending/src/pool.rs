@@ -1,20 +1,29 @@
-use {
-    crate::{
-        constants::{
-            BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
-            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
-            DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1,
-            DEFAULT_SLOPE2, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
-        },
-        events,
-        math_utils::MathUtils,
-        storage, LCError,
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
+
+use crate::{
+    constants::{
+        BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
+        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
+        DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+        DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
     },
-    soroban_sdk::{contracttype, Address, Env, String, Symbol, Vec},
+    events,
+    math_utils::MathUtils,
+    storage, LCError,
 };
 
 pub type PoolAddress = Address;
 pub type UserAddress = Address;
+
+#[contracttype]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct MultiplyPair {
+    /// Address of a pool in a pair for a leveraged deposit
+    pub deposit_pool: Address,
+    /// Address of a pool in a pair for a leveraged borrow
+    pub borrow_pool: Address,
+}
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
@@ -35,13 +44,15 @@ pub struct Pool {
     pub total_collateral: i128,
     /// Configuration settings for the pool
     pub config: PoolConfig,
-    /// The numerical value that is used to determine the scaling factor required for updating the borrowed amount
-    /// with interest, i.e. new_borrowed = (current_accrual \ last_accrual) * borrowed
+    /// The numerical value that is used to determine the scaling factor required for updating the
+    /// borrowed amount with interest, i.e. new_borrowed = (current_accrual \ last_accrual) *
+    /// borrowed
     pub last_accrual: i128,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the SAC's native asset code
-    /// and asset issuer concatenated with `:` for other SACs(e.g, "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
+    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
+    /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
+    /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
     pub name: String,
 }
 
@@ -52,20 +63,23 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
+            // TODO: Just an ad-hoc fix. When switching to bTokens this issue should likely be gone
             events::pool_amount_becomes_negative(e, current_value, new_amount);
 
-            return Err(LCError::InternalError);
+            return Ok(0);
         }
 
         Ok(new_amount)
     }
 
     pub fn adjust_total_shares(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("shares"));
         self.total_shares = Self::adjust_field(e, self.total_shares, adjusting_amount)?;
         Ok(())
     }
 
     pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("avail"));
         self.available = Self::adjust_field(e, self.available, adjusting_amount)?;
         Ok(())
     }
@@ -75,6 +89,7 @@ impl Pool {
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("borrowed"));
         self.total_borrowed = Self::adjust_field(e, self.total_borrowed, adjusting_amount)?;
         Ok(())
     }
@@ -84,11 +99,12 @@ impl Pool {
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), LCError> {
+        events::dbg(e, symbol_short!("collat"));
         self.total_collateral = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the `share` of the of shares in the pool
+    /// Computes tokens amount proportional to the share of the of `shares` in the pool
     pub fn compute_tokens_from_shares(
         &self,
         e: &Env,
@@ -118,7 +134,8 @@ impl Pool {
         Ok(tokens_amount)
     }
 
-    /// Computes shares amount which must be issued for\burnt from a depositor based on the deposited\withdrawn amount
+    /// Computes shares amount which must be issued for\burnt from a depositor based on the
+    /// deposited\withdrawn amount
     pub fn compute_shares_from_tokens(&self, tokens_amount: i128) -> Result<i128, LCError> {
         if tokens_amount == 0 {
             return Ok(0);
@@ -132,10 +149,14 @@ impl Pool {
                 .checked_add(self.total_borrowed)
                 .map_over_or_underflow()?;
 
-            assert!(
-                total >= self.total_shares,
-                "Total shares amount must never be smaller than the total liquidity amount"
-            );
+            // assert!(
+            //     total >= self.total_shares,
+            //     "Total shares amount must never be smaller than the total liquidity amount"
+            // );
+            if total < self.total_shares {
+                return Err(LCError::InternalError);
+            }
+
             /*
             This must hold when issuing new shares:
                 shares_to_issue / (shares_to_issue + prev_total_shares) = deposited_amount / (deposited_amount + prev_total_borrowed + prev_available)
@@ -146,9 +167,7 @@ impl Pool {
                 shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
             */
             self.total_shares
-                .checked_mul(tokens_amount)
-                .map_over_or_underflow()?
-                .checked_div(total)
+                .fixed_div_ceil(total, tokens_amount)
                 .map_over_or_underflow()?
         };
 
@@ -181,6 +200,14 @@ impl Pool {
 
     pub fn get_all(e: &Env) -> Vec<PoolAddress> {
         storage::get_all_pools(e)
+    }
+
+    pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
+        storage::get_all_multiply_pairs(e)
+    }
+
+    pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
+        storage::register_multiply_pair(e, pair)
     }
 
     pub fn exists(e: &Env, address: &PoolAddress) -> bool {
@@ -237,16 +264,17 @@ pub struct PoolConfig {
     pub liquidation_close_factor_bps: i128,
     /// Additional discount given to liquidators when purchasing collateral
     pub liquidation_incentive_bps: i128,
-    /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` + `total_borrowed`)
-    /// 0 denotes unlimited supply
+    /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` +
+    /// `total_borrowed`) 0 denotes unlimited supply
     pub supply_limit: i128,
     /// The maximum utilization ratio that is allowed to be reached via borrowing
     pub utilization_ratio_limit_bps: i128,
-    /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 = 70%, etc)
-    /// with respect to a total obligation's collateral value
+    /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 =
+    /// 70%, etc) with respect to a total obligation's collateral value
     pub open_ltv_bps: i128,
-    /// The maximum percentage of an asset's value that can be held in an individual obligation in basis points
-    /// with respect to a total obligation's collateral value. LTV greater than that makes borrow position eligible to liquidation
+    /// The maximum percentage of an asset's value that can be held in an individual obligation in
+    /// basis points with respect to a total obligation's collateral value. LTV greater than
+    /// that makes borrow position eligible to liquidation
     pub close_ltv_bps: i128,
 }
 

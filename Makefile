@@ -83,7 +83,8 @@ test-coverage: ## Test coverage
 	cargo +nightly llvm-cov --doc --no-report
 
 fmt: ## Format code using cargo
-	cargo fmt --all
+	cargo sort --grouped --workspace
+	cargo +nightly fmt --all
 
 clean: ## Clean build artifacts
 	cargo clean

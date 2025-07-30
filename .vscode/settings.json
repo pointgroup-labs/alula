@@ -9,6 +9,7 @@
     "contracttype",
     "doctest",
     "jpool",
+    "kyryl",
     "lastprice",
     "libfuzzer",
     "Liquidatable",

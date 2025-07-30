@@ -1,17 +1,43 @@
 //! Encapsulates operations related to the swapping of two tokens
 
-use {
-    crate::{
-        constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
-        math_utils::MathUtils,
-        soroswap_router, LCError,
-    },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{Address, Env},
-};
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{Address, Env};
 
+use crate::{
+    constants::{
+        BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, DEFAULT_SWAP_DEADLINE_SECONDS,
+        SOROSWAP_ROUTER_TESTNET_ADDRESS,
+    },
+    math_utils::MathUtils,
+    soroswap_router, LCError,
+};
 // TODO: Maybe, create some internal trait for common swap operations and
 // implement it for different swap providers?
+
+/// Gets the amount that the user must provide to receive a specific amount if a swap is performed
+/// at the current moment
+///
+/// ### Arguments
+/// * `token_in` - address of a token that would be taken from the user
+/// * `token_out` - address of a token that would be given to the user
+/// * `amount_out` - an exact amount of `token_in` that would be given to the user
+pub fn get_amount_in(
+    e: &Env,
+    token_in: &Address,
+    token_out: &Address,
+    amount_out: i128,
+) -> Result<i128, LCError> {
+    let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
+    let soroswap_router_client =
+        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+
+    let amounts_in = soroswap_router_client.router_get_amounts_in(&amount_out, &path);
+    let Some(amount_in) = amounts_in.first() else {
+        return Err(LCError::DependencyContractError);
+    };
+
+    Ok(amount_in)
+}
 
 /// Gets the amount that user would receive if performed a swap at the current moment
 ///
@@ -26,12 +52,10 @@ pub fn get_amount_out(
     amount_in: i128,
 ) -> Result<i128, LCError> {
     let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
-
     let soroswap_router_client =
         soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
 
     let amounts_out = soroswap_router_client.router_get_amounts_out(&amount_in, &path);
-
     let Some(amount_out) = amounts_out.last() else {
         return Err(LCError::DependencyContractError);
     };
@@ -76,7 +100,7 @@ pub fn swap_tokens_for_exact_tokens(
     let amount_in_max = amount_in
         .checked_add(
             amount_in
-                .fixed_div_floor(BPS_FACTOR, max_slippage_bps)
+                .fixed_mul_floor(max_slippage_bps, BPS_FACTOR)
                 .map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
@@ -134,12 +158,14 @@ pub fn swap_exact_tokens_for_tokens(
     let amount_out_min = amount_out
         .checked_sub(
             amount_out
-                .fixed_div_floor(BPS_FACTOR, max_slippage_bps)
+                .fixed_mul_floor(max_slippage_bps, BPS_FACTOR)
                 .map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
 
     let path = soroban_sdk::vec![e, token_in.clone(), token_out.clone()];
+
+    let deadline = e.ledger().timestamp() + DEFAULT_SWAP_DEADLINE_SECONDS;
 
     // TODO: For now we can only swap tokens with a direct path
     let swap_amounts = soroswap_router_client.swap_exact_tokens_for_tokens(
@@ -147,7 +173,7 @@ pub fn swap_exact_tokens_for_tokens(
         &amount_out_min,
         &path,
         user,
-        &u64::MAX, // WARN: What should be this deadline here?
+        &deadline,
     );
 
     // TODO: What warning\error\event exactly must happen here?

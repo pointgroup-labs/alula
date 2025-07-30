@@ -1,9 +1,7 @@
 #![cfg(test)]
 
-use {
-    lending::contract::{LendingContract, LendingContractClient},
-    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
-};
+use lending::contract::{LendingContract, LendingContractClient};
+use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env};
 
 #[test]
 fn test_pool_initialize() {
@@ -82,7 +80,7 @@ fn test_pool_initialize_non_conflicting() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_pool_reinitialize_no_salt() {
     let e = Env::default();
 
@@ -102,7 +100,7 @@ fn test_pool_reinitialize_no_salt() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_pool_reinitialize_with_salt() {
     let e = Env::default();
 

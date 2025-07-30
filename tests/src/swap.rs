@@ -1,10 +1,9 @@
 #![cfg(test)]
 
-use {
-    crate::{tests::get_amount_scaled_down, TestFixture},
-    lending::{constants::DEFAULT_MAX_SLIPPAGE_BPS, swap},
-    soroban_sdk::token::TokenClient,
-};
+use lending::{constants::DEFAULT_MAX_SLIPPAGE_BPS, swap};
+use soroban_sdk::token::TokenClient;
+
+use crate::{tests::get_amount_scaled_down, TestFixture};
 
 #[test]
 fn test_swap() {
@@ -45,6 +44,8 @@ fn test_swap() {
     assert_eq!(balance, amount_out_min_slippage);
     assert_eq!(
         new_gold_token_balance / 1_000_000,
-        (gold_token_balance - amount_out_min_slippage) / 1_000_000 // TODO: Check why do amounts differ in a few smallest units
+        (gold_token_balance - amount_out_min_slippage) / 1_000_000 /* TODO: Check why do amounts
+                                                                    * differ in a few smallest
+                                                                    * units */
     );
 }

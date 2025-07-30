@@ -7,26 +7,25 @@ mod initialize;
 mod interest_rates;
 mod leverage;
 mod liquidate;
+mod misc;
 mod repay;
 mod swap;
 mod withdraw;
 
-use {
-    arbitrary::Unstructured,
-    lending::{
-        constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
-        contract::{LendingContract, LendingContractClient},
-        obligation::{BorrowObligation, DepositObligation},
-        oracle,
-        pool::PoolConfig,
-        soroswap_router, LCError,
-    },
-    soroban_sdk::{
-        symbol_short,
-        testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
-        token::{self, StellarAssetClient, TokenClient},
-        vec, Address, Env, Vec,
-    },
+use arbitrary::Unstructured;
+use lending::{
+    constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    contract::{LendingContract, LendingContractClient},
+    obligation::{BorrowObligation, DepositObligation},
+    oracle,
+    pool::PoolConfig,
+    soroswap_router, LCError,
+};
+use soroban_sdk::{
+    symbol_short,
+    testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
+    token::{self, StellarAssetClient, TokenClient},
+    vec, Address, Env, Vec,
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
@@ -269,8 +268,8 @@ pub enum Command {
     TomDepositWithLeverage(DepositWithLeverage),
     JerryDepositWithLeverage(DepositWithLeverage),
 
-    TomDeleverageAndWithdraw(DeleverageAndWithdraw),
-    JerryDeleverageAndWithdraw(DeleverageAndWithdraw),
+    TomWithdrawFromLeveraged(WithdrawFromLeveraged),
+    JerryWithdrawFromLeveraged(WithdrawFromLeveraged),
     // PassTime(),
 }
 
@@ -285,7 +284,7 @@ impl Command {
             Command::TomDepositCollateral(command) => command.run(test_fixture, 0),
             Command::TomWithdrawCollateral(command) => command.run(test_fixture, 0),
             Command::TomDepositWithLeverage(command) => command.run(test_fixture, 0),
-            Command::TomDeleverageAndWithdraw(command) => command.run(test_fixture, 0),
+            Command::TomWithdrawFromLeveraged(command) => command.run(test_fixture, 0),
 
             Command::JerryRepay(command) => command.run(test_fixture, 1),
             Command::JerryBorrow(command) => command.run(test_fixture, 1),
@@ -295,7 +294,7 @@ impl Command {
             Command::JerryDepositCollateral(command) => command.run(test_fixture, 1),
             Command::JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
             Command::JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
-            Command::JerryDeleverageAndWithdraw(command) => command.run(test_fixture, 1),
+            Command::JerryWithdrawFromLeveraged(command) => command.run(test_fixture, 1),
         }
     }
 }
@@ -407,6 +406,40 @@ pub fn assert_invariants(fixture: &TestFixture) {
             assert!(is_healthy, "User obligation must be healthy");
         }
     }
+
+    // // Check that obligations data is consistent with pools
+    // let pool_addresses = std::vec![gold_pool_address, usdc_pool_address, btc_pool_address];
+
+    // for pool_addr in pool_addresses {
+    //     let (mut borrowed_sum, mut shares_sum, mut collateral_sum) = (0_i128, 0_i128, 0_i128);
+    //     for user in users.iter() {
+    //         let obligation = contract_client.get_user_obligation(&user);
+
+    //         for (pool_address, borrow_obligation) in obligation.borrows {
+    //             if &pool_address == pool_addr {
+    //                 borrowed_sum = borrowed_sum
+    //                     .checked_add(borrow_obligation.total_debt().unwrap())
+    //                     .unwrap();
+    //             }
+    //         }
+
+    //         for (pool_address, deposit_obligation) in obligation.deposits {
+    //             if &pool_address == pool_addr {
+    //                 shares_sum = shares_sum.checked_add(deposit_obligation.shares).unwrap();
+    //                 collateral_sum = collateral_sum
+    //                     .checked_add(deposit_obligation.collateral)
+    //                     .unwrap();
+    //             }
+    //         }
+    //     }
+
+    //     let pool = contract_client.get_pool(&pool_addr);
+
+    //     // assert!(borrowed_sum >= pool.total_borrowed);
+
+    //     assert_eq!(shares_sum, pool.total_shares);
+    //     assert_eq!(collateral_sum, pool.total_collateral);
+    // }
 
     // Functional invariants
     // You can always borrow and repay the available amount
@@ -582,7 +615,7 @@ pub struct DepositWithLeverage {
 }
 
 #[derive(Arbitrary, Debug)]
-pub struct DeleverageAndWithdraw {
+pub struct WithdrawFromLeveraged {
     pub amount: Amount,
     pub deposit_token: Token,
     pub borrow_token: Token,
@@ -736,7 +769,7 @@ impl DepositWithLeverage {
     }
 }
 
-impl DeleverageAndWithdraw {
+impl WithdrawFromLeveraged {
     pub fn run(&self, test_fixture: &TestFixture, who: u32) {
         let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
         let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
@@ -748,7 +781,7 @@ impl DeleverageAndWithdraw {
         } = test_fixture;
 
         let user = users.get(who).unwrap();
-        let _ = contract_client.try_deleverage_and_withdraw(
+        let _ = contract_client.try_withdraw_from_leveraged(
             &user,
             &deposit_pool_address,
             &borrow_pool_address,
@@ -842,18 +875,17 @@ pub fn get_borrow_obligation(
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        lending::{
-            constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
-            storage::DataKey,
-        },
-        soroban_fixed_point_math::FixedPoint,
-        soroban_sdk::testutils::{
-            storage::{Instance, Persistent},
-            Ledger,
-        },
+    use lending::{
+        constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
+        storage::DataKey,
     };
+    use soroban_fixed_point_math::FixedPoint;
+    use soroban_sdk::testutils::{
+        storage::{Instance, Persistent},
+        Ledger,
+    };
+
+    use super::*;
 
     #[test]
     fn test_storage_ttl_extension() {

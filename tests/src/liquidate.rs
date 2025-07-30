@@ -1,16 +1,15 @@
 #![cfg(test)]
 
-use {
-    crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    lending::{
-        constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
-        LCError,
-    },
-    soroban_sdk::{
-        testutils::{Address as _, Ledger},
-        Address,
-    },
+use lending::{
+    constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
+    LCError,
 };
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    Address,
+};
+
+use crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
 struct LiquidationTest {
     test_fixture: TestFixture<'static>,
@@ -518,7 +517,8 @@ fn test_liquidation_reduces_health_factor() {
                     println!("Position was still unhealthy after first liquidation");
                 }
                 Err(Ok(LCError::LiquidatedPositionIsHealthy)) => {
-                    // Position became healthy after first liquidation - this is the expected behavior
+                    // Position became healthy after first liquidation - this is the expected
+                    // behavior
                     println!("Position became healthy after liquidation");
                 }
                 Err(Ok(error)) => {
