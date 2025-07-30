@@ -326,6 +326,41 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     e.events().publish(topics, data);
 }
 
+/// Emitted when the total shares in a pool are found to be less than an individual user's shares.
+/// This indicates a severe logical inconsistency or a potential corruption of state,
+/// as individual shares should never exceed the total available shares in the pool
+///
+/// - topics - `["pool_total_shares_smaller_than_total_supply"]`
+/// - data - `[total_shares: i128, individual_shares: i128]`
+pub fn pool_total_shares_smaller_than_total_supply(
+    e: &Env,
+    total_shares: i128,
+    individual_shares: i128,
+) {
+    let topics = (Symbol::new(
+        e,
+        "pool_total_shares_smaller_than_total_supply",
+    ),);
+    let data = (total_shares, individual_shares);
+
+    e.events().publish(topics, data);
+}
+
+/// Emitted when obligation unexpectedly becomes empty. This is a severe invariant breakage
+///
+/// - topics - `["obligation_unexpectedly_empty"], user: Address, pool_address: Address]`
+/// - data - `[]`
+pub fn obligation_unexpectedly_empty(e: &Env, user: &Address, pool_address: &Address) {
+    let topics = (
+        Symbol::new(e, "obligation_unexpectedly_empty"),
+        user,
+        pool_address,
+    );
+    let data = ();
+
+    e.events().publish(topics, data);
+}
+
 // TODO: Write simple macro for this and pass `&str` there as input
 pub fn dbg(e: &Env, symbol: Symbol) {
     let topics = (symbol,);

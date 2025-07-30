@@ -1,7 +1,7 @@
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    contract, contractimpl, log,
+    contract, contractimpl,
     token::{self, TokenClient},
     Address, BytesN, Env, Symbol, Vec,
 };
@@ -97,15 +97,18 @@ impl LendingContract {
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, LCError> {
+        let admin = storage::get_global_state(&e).admin;
+        admin.require_auth();
+
         process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
     }
 
-    /// Registers a multiply pair
+    /// Initializes a multiply pair
     ///
     /// ### Arguments
     /// * `deposit_pool` - address of a pool in a pair for a leveraged deposit
     /// * `borrow_pool` - address of a pool in a pair for a leveraged borrow
-    pub fn register_multiply_pair(
+    pub fn initialize_multiply_pair(
         e: Env,
         deposit_pool: Address,
         borrow_pool: Address,
@@ -113,24 +116,13 @@ impl LendingContract {
         let admin = storage::get_global_state(&e).admin;
         admin.require_auth();
 
-        if !(Pool::exists(&e, &deposit_pool) && Pool::exists(&e, &borrow_pool)) {
-            return Err(LCError::PoolDoesNotExist);
-        }
-
-        let pair = MultiplyPair {
-            deposit_pool,
-            borrow_pool,
-        };
-
-        Pool::register_multiply_pair(&e, pair);
-
-        Ok(())
+        process_initialize_multiply_pair(&e, &deposit_pool, &borrow_pool)
     }
 
     /// Deposits tokens into the loan pool
     ///
     /// ### Arguments
-    /// * `user` - user which deposits a token
+    /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
     pub fn deposit(
@@ -144,7 +136,8 @@ impl LendingContract {
         process_deposit(&e, &user, &pool_address, amount)
     }
 
-    /// Swap tokens via a swap provider contract
+    /// Swap tokens via a swap provider contract. This guarantees a swap
+    /// and is agnostic to the possible price slippage
     ///
     /// ### Arguments
     /// * `user` - user which deposits a token
@@ -495,8 +488,7 @@ fn process_initialize_pool(
     }
 
     let config: PoolConfig = if let Some(config) = pool_config {
-        if let Err(err) = config.validate() {
-            log!(&e, "pool config error", err);
+        if config.validate().is_err() {
             return Err(LCError::InvalidLoanPoolConfig);
         }
 
@@ -530,14 +522,38 @@ fn process_initialize_pool(
     Ok(pool_address)
 }
 
+pub fn process_initialize_multiply_pair(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<(), LCError> {
+    if !(Pool::exists(&e, &deposit_pool_address) && Pool::exists(&e, &borrow_pool_address)) {
+        return Err(LCError::PoolDoesNotExist);
+    }
+
+    let pair = MultiplyPair {
+        deposit_pool: deposit_pool_address.clone(),
+        borrow_pool: borrow_pool_address.clone(),
+    };
+
+    if MultiplyPair::exists(e, &pair) {
+        return Err(LCError::MultiplyPairAlreadyExists);
+    }
+
+    pair.set(&e);
+    pair.register(&e);
+
+    Ok(())
+}
+
 pub fn process_deposit(
     e: &Env,
     user: &Address,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    // NB: Here and in all other `process_` functions we allow 0 amounts, since
-    // in this way we can always simulate method execution even when the contract's method
+    // NB: Here and in all other `process_` functions, we allow 0 amounts, since
+    // in this way, we can always simulate method execution even when the contract's method
     // demands transferring tokens from the user's account(whose might not have this token at all)
     if amount < 0 {
         return Err(LCError::NegativeDeposit);
@@ -547,6 +563,7 @@ pub fn process_deposit(
     pool.accrue_interest(e)?;
 
     let supply_limit = pool.config.supply_limit;
+
     if supply_limit != 0
         && pool
             .total_supply()?
@@ -557,12 +574,14 @@ pub fn process_deposit(
         return Err(LCError::SupplyLimitExceeded);
     }
 
-    let issued_shares = pool.compute_shares_from_tokens(amount)?;
+    let issued_shares = pool.compute_shares_from_tokens(&e, amount)?;
 
     let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
     obligation.deposit(e, pool_address, issued_shares)?;
 
     // NB: Should the depositor accrue interest on his obligation in this place?
+    // Well, ideally, you should never accrue interest on a specific obligation
+    // because of using debt tokens
     // obligation.accrue_interest(&e);
 
     pool.adjust_total_shares(e, issued_shares)?;
@@ -612,6 +631,7 @@ fn process_swap_exact_tokens(
     token_out: &Address,
     amount_in: i128,
 ) -> Result<i128, LCError> {
+    // Since `amount_out` is calculated within the call, there's no price slippage
     let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;
 
     let received_amount = swap::swap_exact_tokens_for_tokens(
@@ -646,6 +666,8 @@ fn process_borrow(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
+    // WARN: Is this a good idea to let somebody borrow less then they want?
+    // I am not so sure, to be honest
     let max_healthy_borrow_amount =
         obligation.compute_max_healthy_borrow_added_amount(e, pool_address)?;
     let available_borrow = pool.compute_available_borrow(e)?;
@@ -654,10 +676,6 @@ fn process_borrow(
         max_healthy_borrow_amount,
         i128::min(available_borrow, amount),
     );
-
-    // TODO: Should this check actually happen here?
-    // TODO: Is this a good idea to let somebody borrow less then they want?
-    // I am not so sure, to be honest...
     if borrow_amount > pool.available {
         return Err(LCError::NotEnoughPoolFunds);
     }
@@ -667,6 +685,8 @@ fn process_borrow(
     pool.adjust_total_borrowed(e, borrow_amount)?;
     pool.adjust_available(e, -borrow_amount)?;
 
+    // TODO: This check is redundant. Remove it across the codebase
+    // and verify that everything works as expected
     if !obligation.is_healthy(e)? {
         return Err(LCError::HealthFactorIsLowerThanRequiredThreshold);
     }
@@ -694,6 +714,7 @@ fn process_add_collateral(
 
     let mut pool = Pool::try_get(e, pool_address)?;
     let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
+
     obligation.accrue_interest(e)?;
 
     obligation.add_collateral(e, pool_address, amount)?;
@@ -731,11 +752,14 @@ fn process_repay(
     pool.adjust_available(e, repaid_amount)?;
 
     if obligation.is_empty() {
-        // NB: This will never be hit because of the collateral required?
-        obligation.remove(e);
-    } else {
-        obligation.set(e);
+        // Obligation shouldn't be empty at this point due to some amount of collateral or deposit required
+        // to repay the debt
+        events::obligation_unexpectedly_empty(e, user, pool_address);
+
+        return Err(LCError::InternalError);
     }
+
+    obligation.set(e);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -902,7 +926,7 @@ fn process_withdraw(
     let cap_withdrawn_tokens_amount = i128::min(amount, max_healthy_collateral_removed_amount);
 
     let obligation_shares = obligation.get_shares(pool_address)?;
-    let cap_shares_amount = pool.compute_shares_from_tokens(cap_withdrawn_tokens_amount)?;
+    let cap_shares_amount = pool.compute_shares_from_tokens(&e, cap_withdrawn_tokens_amount)?;
 
     let burnt_shares_amount = i128::min(cap_shares_amount, obligation_shares);
 
@@ -1032,8 +1056,7 @@ fn process_deposit_with_leverage(
         );
 
         borrow_pool.adjust_available(e, -flash_borrow_amount)?;
-        // TODO: This `set` is required, since 'available' amount is later accounted when calling
-        // `process_borrow`
+        // NB: This `set` is required, since 'available' amount is later accounted when calling `process_borrow`
         borrow_pool.set(e);
     }
 
@@ -1203,7 +1226,7 @@ pub fn process_withdraw_from_leveraged(
         .checked_add(flash_borrow_amount)
         .map_over_or_underflow()?;
 
-    // TODO: Here we must call an outer swap, since they are swapped from the user's wallet, right?
+    // WARN: Here we must call an outer swap, since they are swapped from the user's wallet, right?
     process_swap_for_exact_tokens(
         e,
         user,

@@ -23,7 +23,7 @@ use lending::{
 };
 use soroban_sdk::{
     symbol_short,
-    testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
+    testutils::{arbitrary::Arbitrary, Address as _, Ledger},
     token::{self, StellarAssetClient, TokenClient},
     vec, Address, Env, Vec,
 };
@@ -82,10 +82,7 @@ impl TestFixture<'_> {
     }
 
     fn new_with_pool_config(pool_config: PoolConfig) -> Self {
-        let e = Env::new_with_config(EnvTestConfig {
-            capture_snapshot_at_drop: false,
-        });
-        e.mock_all_auths();
+        let e = get_default_env();
         // TODO: Think more about what sometimes happens in tests
         // when this is opted out
         e.mock_all_auths_allowing_non_root_auth();
@@ -790,7 +787,6 @@ impl WithdrawFromLeveraged {
     }
 }
 
-#[allow(unused)]
 pub fn get_obligation_shares(
     contract_client: &LendingContractClient,
     user: &Address,
@@ -801,7 +797,6 @@ pub fn get_obligation_shares(
     Ok(deposit_obligation.shares)
 }
 
-#[allow(unused)]
 pub fn get_obligation_tokens_from_shares(
     e: &Env,
     contract_client: &LendingContractClient,
@@ -815,7 +810,6 @@ pub fn get_obligation_tokens_from_shares(
     pool.compute_tokens_from_shares(e, shares)
 }
 
-#[allow(unused)]
 pub fn get_obligation_borrowed(
     contract_client: &LendingContractClient,
     user: &Address,
@@ -826,7 +820,6 @@ pub fn get_obligation_borrowed(
     Ok(borrow_obligation.borrowed)
 }
 
-#[allow(unused)]
 pub fn get_obligation_collateral(
     contract_client: &LendingContractClient,
     user: &Address,
@@ -837,7 +830,6 @@ pub fn get_obligation_collateral(
     Ok(deposit_obligation.collateral)
 }
 
-#[allow(unused)]
 pub fn get_deposit_obligation(
     contract_client: &LendingContractClient,
     user: &Address,
@@ -855,7 +847,6 @@ pub fn get_deposit_obligation(
     Ok(deposit)
 }
 
-#[allow(unused)]
 pub fn get_borrow_obligation(
     contract_client: &LendingContractClient,
     user: &Address,
@@ -871,6 +862,13 @@ pub fn get_borrow_obligation(
         .ok_or(LCError::BorrowDoesNotExist)?;
 
     Ok(borrow)
+}
+
+pub fn get_default_env() -> Env {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    e
 }
 
 #[cfg(test)]

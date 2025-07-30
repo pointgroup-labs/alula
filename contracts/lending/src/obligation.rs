@@ -335,15 +335,15 @@ impl Obligation {
         let mut repaid_amount = i128::min(amount, total_debt);
 
         if repaid_amount >= borrowed {
-            // WARN: This is a massive issue and must be fixed
-            // since this breaks the contract's invariant
+            // WARN: Skipping interest repayment is a massive issue and must be fixed
+            // since this breaks one of the contract's most fundamental invariants
             repaid_amount = borrow_obligation.borrowed;
             self.borrows.remove(pool_address.clone());
         } else {
             if repaid_amount <= borrow_obligation.unpaid_interest {
                 borrow_obligation.adjust_unpaid_interest(e, -repaid_amount)?;
             } else {
-                let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest;
+                let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest; // safe
                 borrow_obligation.adjust_borrowed(e, -removed_from_borrowed)?;
                 borrow_obligation.adjust_unpaid_interest(e, -borrow_obligation.unpaid_interest)?;
             }
@@ -437,7 +437,7 @@ impl Obligation {
                     .checked_div(collateral_price)
                     .map_over_or_underflow()?;
                 let shares_amount_sold =
-                    collateral_pool.compute_shares_from_tokens(tokens_from_sold_shares)?;
+                    collateral_pool.compute_shares_from_tokens(&e, tokens_from_sold_shares)?;
 
                 LiquidationValues {
                     liquidated_amount: amount,
@@ -548,8 +548,8 @@ impl Obligation {
     /// Tries to get the user's obligation from the contract's storage
     ///
     /// # Returns
-    /// - `[Ok(Obligation)]` if a pool with the given address exists in the contract's storage
-    /// - `[Err(LCError::ObligationDoesNotExist)]` otherwise
+    /// - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
+    /// - [`Err(LCError::ObligationDoesNotExist)`] otherwise
     pub fn try_get(e: &Env, user: &Address) -> Result<Self, LCError> {
         storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)
     }
@@ -627,7 +627,6 @@ impl BorrowObligation {
         }
     }
 
-    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.borrowed == 0
     }

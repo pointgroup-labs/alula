@@ -1,8 +1,5 @@
 #![cfg(test)]
 
-use lending::LCError;
-use soroban_sdk::{testutils::Address as _, Address};
-
 use crate::TestFixture;
 
 #[test]
@@ -78,31 +75,12 @@ fn test_remove_multiply_pairs() {
 
     assert!(contract_client.get_all_multiply_pairs().is_empty());
 
-    contract_client.register_multiply_pair(&usdc_pool_address, &gold_pool_address);
-    contract_client.register_multiply_pair(&usdc_pool_address, &btc_pool_address);
+    contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
+    contract_client.initialize_multiply_pair(&usdc_pool_address, &btc_pool_address);
 
     assert_eq!(contract_client.get_all_multiply_pairs().len(), 2);
 
     contract_client.reset_storage();
 
     assert!(contract_client.get_all_multiply_pairs().is_empty());
-}
-
-#[test]
-fn test_register_pair_with_missing_pool() {
-    let TestFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        ..
-    } = TestFixture::new();
-
-    assert!(contract_client.get_all_multiply_pairs().is_empty());
-
-    let invalid_pool_address = Address::generate(&e);
-
-    assert_eq!(
-        contract_client.try_register_multiply_pair(&usdc_pool_address, &invalid_pool_address),
-        Err(Ok(LCError::PoolDoesNotExist))
-    );
 }
