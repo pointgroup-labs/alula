@@ -336,9 +336,8 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     e.events().publish(topics, data);
 }
 
-/// Emitted when the total shares in a pool are found to be less than an individual user's shares.
-/// This indicates a severe logical inconsistency or a potential corruption of state,
-/// as individual shares should never exceed the total available shares in the pool
+/// Emitted when the total shares in a pool are found to be less than the total supply.
+/// This must never happen with the shares model and, hence, indicates an invariant breakage
 ///
 /// - topics - `["pool_total_shares_smaller_than_total_supply"]`
 /// - data - `[total_shares: i128, individual_shares: i128]`

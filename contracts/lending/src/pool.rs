@@ -26,7 +26,7 @@ pub struct MultiplyPair {
 }
 
 impl MultiplyPair {
-    /// Registers a multiply pair in the contract's storage
+    /// Registers a multiply pair in the pairs list
     ///
     /// # WARNING
     /// Modifies the contract's storage
@@ -161,8 +161,6 @@ impl Pool {
         e: &Env,
         tokens_amount: i128,
     ) -> Result<i128, LCError> {
-        // delta s = delta t * (T / S)
-
         if tokens_amount == 0 {
             return Ok(0);
         }
