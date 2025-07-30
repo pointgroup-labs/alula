@@ -82,7 +82,7 @@ fn test_pool_initialize_non_conflicting() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_pool_reinitialize_no_salt() {
     let e = Env::default();
 
@@ -102,7 +102,7 @@ fn test_pool_reinitialize_no_salt() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_pool_reinitialize_with_salt() {
     let e = Env::default();
 

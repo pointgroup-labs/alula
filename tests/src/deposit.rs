@@ -154,7 +154,7 @@ fn test_deposit_non_existing_tokens() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #7)")]
+#[should_panic(expected = "Error(Contract, #30)")]
 fn test_deposit_negative() {
     let TestFixture {
         contract_client,
@@ -168,7 +168,7 @@ fn test_deposit_negative() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #2)")]
+#[should_panic(expected = "Error(Contract, #11)")]
 fn test_deposit_pool_does_not_exist() {
     let TestFixture {
         e,
