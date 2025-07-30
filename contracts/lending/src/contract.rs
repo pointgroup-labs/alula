@@ -317,8 +317,8 @@ impl LendingContract {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     /// * `amount` - original borrow amount before the leverage
-    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 700 for x7, 255 for x2.55,
-    ///   etc)
+    /// * `leverage_multiplier` - leverage multiplier, where the last two digits represent
+    ///   decimal places (e.g., 700 for x7.00, 255 for x2.55, etc.)
     pub fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -1280,11 +1280,9 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
     // Validate price is not too old
-    if MAX_ORACLE_PRICE_AGE_SECONDS > 0 {
-        let current_time = e.ledger().timestamp();
-        if current_time - price_data.timestamp > MAX_ORACLE_PRICE_AGE_SECONDS {
-            return Err(LCError::OracleStalePrice);
-        }
+    let current_time = e.ledger().timestamp();
+    if current_time - price_data.timestamp > MAX_ORACLE_PRICE_AGE_SECONDS {
+        return Err(LCError::OracleStalePrice);
     }
 
     Ok(price_data.price)

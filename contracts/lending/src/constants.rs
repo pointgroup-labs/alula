@@ -56,8 +56,7 @@ pub const MAX_LEVERAGE_MULTIPLIER: u32 = 100 * LEVERAGE_SCALE;
 pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE;
 
 // ---- Oracle ----
-// pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 900; // 15 minutes
-pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 0;
+pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 15 * 60; // TODO: What this value should be?
 
 // ---- Contract Addresses ----
 pub const REFLECTOR_TESTNET_ADDRESS: &str =

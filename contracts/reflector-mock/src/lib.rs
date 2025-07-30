@@ -22,10 +22,10 @@ pub mod mock_oracle {
 
     #[contractimpl]
     impl MockOracleContract {
-        pub fn lastprice(_e: Env, _asset: Asset) -> Option<PriceData> {
+        pub fn lastprice(e: Env, _asset: Asset) -> Option<PriceData> {
             Some(PriceData {
                 price: 100_000_000_000_000,
-                timestamp: 0,
+                timestamp: e.ledger().timestamp(),
             })
         }
 
