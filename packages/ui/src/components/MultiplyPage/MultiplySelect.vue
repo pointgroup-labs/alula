@@ -9,9 +9,11 @@ const {
   maxMultiply: number | string
 }>()
 
+const minMultiplyPercent = computed(() => maxMultiply && Math.round((1 / Number(maxMultiply)) * 100))
+
 const marks = computed(() => {
   return {
-    20: 'x1',
+    [minMultiplyPercent.value]: 'x1',
     100: `x${maxMultiply}`,
   }
 })
@@ -34,11 +36,11 @@ function opacityHandler(val: any) {
   const multiplier = Number(userSelectedMultiplier.value)
   const value = Number(val.value)
 
-  if (multiplier < 20 && value === 0) {
-    return 1 + ((multiplier - 20) / 10)
+  if (multiplier < value + 20 && value === minMultiplyPercent.value) {
+    return (multiplier - value - 5) / 10
   }
   if (multiplier > 80 && value === 100) {
-    return 1 - (multiplier - 80) / 10
+    return 1 - (multiplier - 85) / 10
   }
   return 1
 }
@@ -58,7 +60,7 @@ function opacityHandler(val: any) {
     <vue-slider
       v-model="userSelectedMultiplier"
       :interval="0.1"
-      :min="1"
+      :min="minMultiplyPercent"
       :max="100"
       :dot-size="25"
       :contained="true"

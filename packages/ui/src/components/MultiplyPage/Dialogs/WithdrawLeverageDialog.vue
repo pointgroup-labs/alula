@@ -159,44 +159,47 @@ watch(dialog, async (v) => {
     </template>
 
     <div class="multiply-dialog__body">
-      <input-widget
-        v-model="amount"
-        :balance="balance"
-        class="multiply-dialog__input"
-        :icon="data?.asset.icon"
-        label-left="You Deposit"
-        :rules="[
-          (v) => v && Number(v) < balance || 'Insufficient balance',
-        ]"
-      >
-        <template #label-right>
-          Multiplied: {{ formatPrice(balance, 0, 7) }} {{ data?.asset.symbol }}
-        </template>
-      </input-widget>
+      <div class="multiply-dialog__data">
 
-      <div
-        v-if="infoTableData.length > 0"
-        class="dialog-info-table"
-      >
+        <input-widget
+          v-model="amount"
+          :balance="balance"
+          class="multiply-dialog__input"
+          :icon="data?.asset.icon"
+          label-left="You Deposit"
+          :rules="[
+            (v) => v && Number(v) < balance || 'Insufficient balance',
+          ]"
+        >
+          <template #label-right>
+            Multiplied: {{ formatPrice(balance, 0, 7) }} {{ data?.asset.symbol }}
+          </template>
+        </input-widget>
+
         <div
-          v-for="item in infoTableData"
-          :key="item?.label"
-          class="dialog-info-table__item"
+          v-if="infoTableData.length > 0"
+          class="dialog-info-table"
         >
-          <span>{{ item?.label }}</span>
-          <span>{{ item?.value }}</span>
+          <div
+            v-for="item in infoTableData"
+            :key="item?.label"
+            class="dialog-info-table__item"
+          >
+            <span>{{ item?.label }}</span>
+            <span>{{ item?.value }}</span>
+          </div>
         </div>
-      </div>
 
-      <div class="multiply-dialog-action">
-        <market-dialog-action-btn
-          variant="primary"
-          :loading="loading"
-          :pool="data?.depositPool"
-          @click-handler="withdrawLeverage"
-        >
-          Withdraw {{ data?.asset.symbol }}
-        </market-dialog-action-btn>
+        <div class="multiply-dialog-action">
+          <market-dialog-action-btn
+            variant="primary"
+            :loading="loading"
+            :pool="data?.depositPool"
+            @click-handler="withdrawLeverage"
+          >
+            Withdraw {{ data?.asset.symbol }}
+          </market-dialog-action-btn>
+        </div>
       </div>
     </div>
   </j-dialog>

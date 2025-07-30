@@ -275,10 +275,10 @@ watch(dialog, async (v) => {
           </div>
         </div>
 
-        <loop-multiply-select
+        <multiply-select
           v-model="precentFromMaxMultiply"
           :multiplier="selectedMultiplier"
-          :max-multiply="Number(data?.multiplier).toFixed(0) || 0"
+          :max-multiply="maxMultiply"
         />
 
         <div class="multiply-dialog-action">

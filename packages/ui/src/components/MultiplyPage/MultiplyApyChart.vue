@@ -3,7 +3,7 @@ import type {
   ChartData,
   ChartOptions,
 } from 'chart.js'
-import { CHART_FILTERS } from '~/config'
+import { labelWithDateOrMonth } from '~/utils/chart'
 
 type ChartDataset = {
   apy: number
@@ -13,8 +13,6 @@ type ChartDataset = {
 type MockedHistoryDataItem = {
   [key: string]: ChartDataset[]
 }
-
-const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 const TOKEN_METRICS_OFFSET = [2, 3, 4, 5]
 
@@ -46,13 +44,12 @@ const LEGEND_COLORS = computed(() => {
   }, {} as { [key: string]: string })
 })
 
-const filters = CHART_FILTERS
-
-const activeFilter = ref(filters[0])
-
 const { width } = useWindowSize()
 
 const isMobile = computed(() => width.value <= 650)
+
+const chartFilter = useChartFilter()
+const activeFilter = toRef(chartFilter, 'activeFilter')
 
 const maxY = ref(5)
 const minY = ref(0)
@@ -78,35 +75,6 @@ const chartData = ref<ChartData<'bar' | 'line'>>({
 
 const historyData = computed(() => MOCK_HISTORY_DATA)
 
-function filterData(data: any) {
-  const now = new Date()
-  return [...data]
-    ?.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    .filter((item) => {
-      const itemDate = new Date(item.timestamp)
-
-      if (activeFilter.value.value === 7) {
-        const refDate = new Date(now)
-        refDate.setDate(now.getDate() - 7)
-        return itemDate >= refDate && itemDate <= now
-      }
-
-      if (activeFilter.value.value === 31) {
-        const refDate = new Date(now)
-        refDate.setMonth(now.getMonth() - 1)
-        return itemDate >= refDate && itemDate <= now
-      }
-
-      if (activeFilter.value.value === 180) {
-        const refDate = new Date(now)
-        refDate.setMonth(now.getMonth() - 6)
-        return itemDate >= refDate && itemDate <= now
-      }
-
-      return false
-    })
-}
-
 watch([
   historyData,
   activeFilter,
@@ -123,7 +91,7 @@ watch([
     const item = history[i]
 
     const multiplier = Object.keys(item)[0]
-    const values = filterData(Object.values(item).flat())
+    const values = chartFilter.filterData(Object.values(item).flat())
 
     const sortedPoints = values?.sort((a: ChartDataset, b: ChartDataset) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) || []
 
@@ -147,42 +115,7 @@ watch([
         backgroundColor: LEGEND_COLORS.value[String(el)],
         data: data?.[`multiplier_${el}`] || [],
       }
-    }), // {
-    //   type: 'line',
-    //   label: String(TOKEN_METRICS_OFFSET[0]),
-    //   borderColor: LEGEND_COLORS.value.x1,
-    //   backgroundColor: LEGEND_COLORS.value.x1,
-    //   data: data?.[`multiplier_${TOKEN_METRICS_OFFSET[0]}`] || [],
-    // },
-    // {
-    //   type: 'line',
-    //   label: String(TOKEN_METRICS_OFFSET[1]),
-    //   borderColor: LEGEND_COLORS.value.x2,
-    //   backgroundColor: LEGEND_COLORS.value.x2,
-    //   data: data?.[`multiplier_${TOKEN_METRICS_OFFSET[1]}`] || [],
-    // },
-    // {
-    //   type: 'line',
-    //   label: String(TOKEN_METRICS_OFFSET[2]),
-    //   borderColor: LEGEND_COLORS.value.x3,
-    //   backgroundColor: LEGEND_COLORS.value.x3,
-    //   data: data?.[`multiplier_${TOKEN_METRICS_OFFSET[2]}`] || [],
-    // },
-    // {
-    //   type: 'line',
-    //   label: String(TOKEN_METRICS_OFFSET[3]),
-    //   borderColor: LEGEND_COLORS.value.x4,
-    //   backgroundColor: LEGEND_COLORS.value.x4,
-    //   data: data?.[`multiplier_${TOKEN_METRICS_OFFSET[3]}`] || [],
-    // },
-    // {
-    //   type: 'line',
-    //   label: String(TOKEN_METRICS_OFFSET[4]),
-    //   borderColor: LEGEND_COLORS.value.x5,
-    //   backgroundColor: LEGEND_COLORS.value.x5,
-    //   data: data?.[`multiplier_${TOKEN_METRICS_OFFSET[4]}`] || [],
-    // },
-
+    }),
   }
 
   maxY.value = Math.max(...Object.values(data).flat()) + 1 || 15
@@ -230,15 +163,8 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
       x: {
         ticks: {
           callback(value) {
-            let rawLabel = this.getLabelForValue(Number(value))
-            if (activeFilter.value.value === 180) {
-              const month = new Date(rawLabel).getMonth()
-              const shortMonth = months[month].slice(0, 3)
-              rawLabel = shortMonth
-            } else {
-              rawLabel = prepareDateLabel(new Date(rawLabel))
-            }
-            return rawLabel
+            const rawLabel = this.getLabelForValue(Number(value))
+            return labelWithDateOrMonth(rawLabel, activeFilter.value.value === 180)
           },
         },
       },
@@ -277,7 +203,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
       <chart-date-filter
         v-model="activeFilter"
-        :filters="filters"
+        :filters="chartFilter.filters"
       />
     </div>
 
@@ -287,7 +213,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         :chart-data="chartData"
         :chart-options="chartOptions"
         chart-height="196px"
-        :max-ticks-limit="8"
+        :max-ticks-limit="6"
       />
     </div>
 

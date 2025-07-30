@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import type { ChartData, ChartOptions } from 'chart.js'
-import { CHART_FILTERS, SHORT_MONTHS } from '~/config'
-import { normalizeChartDate } from '~/utils/chart'
+import { labelWithDateOrMonth, normalizeChartDate } from '~/utils/chart'
 
 // generate mock data
 function generateMockData(): { date: string, value: number }[] {
@@ -30,9 +29,8 @@ const { width } = useWindowSize()
 
 const isMobile = computed(() => width.value <= 650)
 
-const filters = CHART_FILTERS
-
-const activeFilter = ref(filters[0])
+const chartFilter = useChartFilter()
+const activeFilter = toRef(chartFilter, 'activeFilter')
 
 const dataByFilters = computed(() => {
   const now = new Date()
@@ -79,13 +77,7 @@ watch([
     return
   }
 
-  chartData.value.labels = d.map((item) => {
-    if (f.value === 180) {
-      const month = new Date(item.date).getMonth()
-      return SHORT_MONTHS[month]
-    }
-    return normalizeChartDate(item.date)
-  })
+  chartData.value.labels = d.map(item => labelWithDateOrMonth(item.date, f.value === 180))
   chartData.value.datasets = [
     {
       type: 'line',
@@ -177,7 +169,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
       <chart-date-filter
         v-model="activeFilter"
-        :filters="filters"
+        :filters="chartFilter.filters"
       />
     </div>
 
