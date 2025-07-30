@@ -1,19 +1,18 @@
 #![cfg(test)]
 
-use {
-    crate::{
-        get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
-        tests::{get_amount_scaled_down, get_amount_scaled_up},
-        LCError, TestFixture, DEFAULT_DEPOSIT_AMOUNT,
+use lending::{
+    constants::{
+        DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, LEVERAGE_SCALE,
+        MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
     },
-    lending::{
-        constants::{
-            DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, LEVERAGE_SCALE,
-            MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
-        },
-        swap,
-    },
-    soroban_sdk::{testutils::Ledger, Env},
+    swap,
+};
+use soroban_sdk::{testutils::Ledger, Env};
+
+use crate::{
+    get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
+    tests::{get_amount_scaled_down, get_amount_scaled_up},
+    LCError, TestFixture, DEFAULT_DEPOSIT_AMOUNT,
 };
 
 // ---- Deposit with leverage ----
@@ -90,7 +89,8 @@ fn test_deposit_with_invalid_leverage_multiplier() {
     );
 }
 
-// TODO: Add tests which check for supply and borrow limit constraints. This affects flash loans, right?
+// TODO: Add tests which check for supply and borrow limit constraints. This affects flash loans,
+// right?
 #[test]
 fn test_deposit_with_no_leverage() {
     let TestFixture {
@@ -528,7 +528,9 @@ fn test_withdraw_over_balance() {
         .unwrap();
 
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees (TODO: Add a more rigorous check)
+    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees (TODO:
+                                                                         // Add a more rigorous
+                                                                         // check)
 }
 
 #[test]
@@ -581,7 +583,9 @@ fn test_withdraw_all_available_with_i128_max() {
 
     // Full withdraw took place
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO: Add a more rigorous check)
+    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO:
+                                                                         // Add a more rigorous
+                                                                         // check)
 }
 
 // #[test]

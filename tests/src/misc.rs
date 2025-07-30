@@ -1,10 +1,9 @@
 #![cfg(test)]
 
-use {
-    crate::TestFixture,
-    lending::LCError,
-    soroban_sdk::{testutils::Address as _, Address},
-};
+use lending::LCError;
+use soroban_sdk::{testutils::Address as _, Address};
+
+use crate::TestFixture;
 
 #[test]
 fn test_remove_obligation() {

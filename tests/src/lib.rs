@@ -12,22 +12,20 @@ mod repay;
 mod swap;
 mod withdraw;
 
-use {
-    arbitrary::Unstructured,
-    lending::{
-        constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
-        contract::{LendingContract, LendingContractClient},
-        obligation::{BorrowObligation, DepositObligation},
-        oracle,
-        pool::PoolConfig,
-        soroswap_router, LCError,
-    },
-    soroban_sdk::{
-        symbol_short,
-        testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
-        token::{self, StellarAssetClient, TokenClient},
-        vec, Address, Env, Vec,
-    },
+use arbitrary::Unstructured;
+use lending::{
+    constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    contract::{LendingContract, LendingContractClient},
+    obligation::{BorrowObligation, DepositObligation},
+    oracle,
+    pool::PoolConfig,
+    soroswap_router, LCError,
+};
+use soroban_sdk::{
+    symbol_short,
+    testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
+    token::{self, StellarAssetClient, TokenClient},
+    vec, Address, Env, Vec,
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
@@ -877,18 +875,17 @@ pub fn get_borrow_obligation(
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        lending::{
-            constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
-            storage::DataKey,
-        },
-        soroban_fixed_point_math::FixedPoint,
-        soroban_sdk::testutils::{
-            storage::{Instance, Persistent},
-            Ledger,
-        },
+    use lending::{
+        constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
+        storage::DataKey,
     };
+    use soroban_fixed_point_math::FixedPoint;
+    use soroban_sdk::testutils::{
+        storage::{Instance, Persistent},
+        Ledger,
+    };
+
+    use super::*;
 
     #[test]
     fn test_storage_ttl_extension() {

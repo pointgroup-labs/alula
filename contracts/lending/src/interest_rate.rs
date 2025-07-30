@@ -1,16 +1,15 @@
 //! `JLend` for now uses kinked interest rates.
 //! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
 
-use {
-    crate::{
-        constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
-        events,
-        math_utils::{self, MathUtils},
-        pool::Pool,
-        LCError,
-    },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contracttype, Env},
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{contracttype, Env};
+
+use crate::{
+    constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+    events,
+    math_utils::{self, MathUtils},
+    pool::Pool,
+    LCError,
 };
 
 pub const SCALED_ONE: i128 = ACCRUAL_INIT;
@@ -105,7 +104,8 @@ impl Pool {
             .try_into()
     }
 
-    /// Calculates the compound rate multipliers for borrowing and supplying based on the time passed.
+    /// Calculates the compound rate multipliers for borrowing and supplying based on the time
+    /// passed.
     ///
     /// # Arguments
     ///
@@ -148,8 +148,9 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if total == 0 {
-            // Is [`SCALED_ONE`], since if a pool doesn't yet have deposits, its next APY update must be
-            // as a `deposit` which implies that its compound deposit interest will be set to 0 regardless.
+            // Is [`SCALED_ONE`], since if a pool doesn't yet have deposits, its next APY update
+            // must be as a `deposit` which implies that its compound deposit interest
+            // will be set to 0 regardless.
             return Ok(SCALED_ONE);
         }
 
@@ -179,7 +180,8 @@ impl Pool {
     ///
     /// # Rate Calculation
     /// - **Below optimal utilization**: `base_rate + (utilization_ratio * slope1)`
-    /// - **Above optimal utilization**: `base_rate + (optimal_ur * slope1) + ((utilization_ratio - optimal_ur) * slope2)`
+    /// - **Above optimal utilization**: `base_rate + (optimal_ur * slope1) + ((utilization_ratio -
+    ///   optimal_ur) * slope2)`
     ///
     /// # Returns
     /// Interest rate scaled by [`SCALED_ONE`] (e.g., `1000000000000` = 0.1% per second)
@@ -197,8 +199,8 @@ impl Pool {
         self.calculate_interest_rate(utilization_ratio_bps)
     }
 
-    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization ratio limit on a pool
-    ///
+    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
+    /// ratio limit on a pool
     // TODO: We have to pre-compute the max available amount during Pool initialization, I think..
     pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, LCError> {
         let total_supply = self.total_supply()?;
@@ -271,15 +273,14 @@ impl Pool {
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        crate::pool::PoolConfig,
-        soroban_sdk::{
-            symbol_short,
-            testutils::{Address as _, Ledger},
-            Address, Env, String,
-        },
+    use soroban_sdk::{
+        symbol_short,
+        testutils::{Address as _, Ledger},
+        Address, Env, String,
     };
+
+    use super::*;
+    use crate::pool::PoolConfig;
 
     fn create_test_pool(e: &Env) -> Pool {
         let token_address = Address::generate(e);

@@ -1,19 +1,21 @@
 //! Encapsulates operations related to the swapping of two tokens
 
-use crate::constants::DEFAULT_SWAP_DEADLINE_SECONDS;
-use {
-    crate::{
-        constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
-        math_utils::MathUtils,
-        soroswap_router, LCError,
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{Address, Env};
+
+use crate::{
+    constants::{
+        BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, DEFAULT_SWAP_DEADLINE_SECONDS,
+        SOROSWAP_ROUTER_TESTNET_ADDRESS,
     },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{Address, Env},
+    math_utils::MathUtils,
+    soroswap_router, LCError,
 };
 // TODO: Maybe, create some internal trait for common swap operations and
 // implement it for different swap providers?
 
-/// Gets the amount that the user must provide to receive a specific amount if a swap is performed at the current moment
+/// Gets the amount that the user must provide to receive a specific amount if a swap is performed
+/// at the current moment
 ///
 /// ### Arguments
 /// * `token_in` - address of a token that would be taken from the user

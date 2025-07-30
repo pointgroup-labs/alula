@@ -1,17 +1,16 @@
-use {
-    crate::{
-        constants::{
-            BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
-            DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
-            DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1,
-            DEFAULT_SLOPE2, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
-        },
-        events,
-        math_utils::MathUtils,
-        storage, LCError,
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
+
+use crate::{
+    constants::{
+        BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
+        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
+        DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2,
+        DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
     },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec},
+    events,
+    math_utils::MathUtils,
+    storage, LCError,
 };
 
 pub type PoolAddress = Address;
@@ -45,13 +44,15 @@ pub struct Pool {
     pub total_collateral: i128,
     /// Configuration settings for the pool
     pub config: PoolConfig,
-    /// The numerical value that is used to determine the scaling factor required for updating the borrowed amount
-    /// with interest, i.e. new_borrowed = (current_accrual \ last_accrual) * borrowed
+    /// The numerical value that is used to determine the scaling factor required for updating the
+    /// borrowed amount with interest, i.e. new_borrowed = (current_accrual \ last_accrual) *
+    /// borrowed
     pub last_accrual: i128,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the SAC's native asset code
-    /// and asset issuer concatenated with `:` for other SACs(e.g, "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
+    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
+    /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
+    /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
     pub name: String,
 }
 
@@ -133,7 +134,8 @@ impl Pool {
         Ok(tokens_amount)
     }
 
-    /// Computes shares amount which must be issued for\burnt from a depositor based on the deposited\withdrawn amount
+    /// Computes shares amount which must be issued for\burnt from a depositor based on the
+    /// deposited\withdrawn amount
     pub fn compute_shares_from_tokens(&self, tokens_amount: i128) -> Result<i128, LCError> {
         if tokens_amount == 0 {
             return Ok(0);
@@ -262,16 +264,17 @@ pub struct PoolConfig {
     pub liquidation_close_factor_bps: i128,
     /// Additional discount given to liquidators when purchasing collateral
     pub liquidation_incentive_bps: i128,
-    /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` + `total_borrowed`)
-    /// 0 denotes unlimited supply
+    /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` +
+    /// `total_borrowed`) 0 denotes unlimited supply
     pub supply_limit: i128,
     /// The maximum utilization ratio that is allowed to be reached via borrowing
     pub utilization_ratio_limit_bps: i128,
-    /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 = 70%, etc)
-    /// with respect to a total obligation's collateral value
+    /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 =
+    /// 70%, etc) with respect to a total obligation's collateral value
     pub open_ltv_bps: i128,
-    /// The maximum percentage of an asset's value that can be held in an individual obligation in basis points
-    /// with respect to a total obligation's collateral value. LTV greater than that makes borrow position eligible to liquidation
+    /// The maximum percentage of an asset's value that can be held in an individual obligation in
+    /// basis points with respect to a total obligation's collateral value. LTV greater than
+    /// that makes borrow position eligible to liquidation
     pub close_ltv_bps: i128,
 }
 

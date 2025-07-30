@@ -1,4 +1,6 @@
-use {crate::LCError, soroban_fixed_point_math::FixedPoint};
+use soroban_fixed_point_math::FixedPoint;
+
+use crate::LCError;
 
 pub trait MathUtils {
     fn map_over_or_underflow(self) -> Result<i128, LCError>;
@@ -22,7 +24,8 @@ impl MathUtils for Option<i128> {
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if overflow occurs
+/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if
+///   overflow occurs
 pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
     // Early return for common cases to save gas
     if exp == 0 {
@@ -51,7 +54,8 @@ pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, 
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if overflow occurs
+/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if
+///   overflow occurs
 pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
     // Early return for common cases to save gas
     if exp == 0 {
@@ -94,7 +98,8 @@ fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, LCError>` - The product x*y/denominator (rounded up), or an error if overflow occurs
+/// * `Result<i128, LCError>` - The product x*y/denominator (rounded up), or an error if overflow
+///   occurs
 #[inline]
 pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
     x.fixed_mul_ceil(y, denominator).map_over_or_underflow()
@@ -104,10 +109,12 @@ pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, LCErr
 mod tests {
     extern crate alloc;
 
+    use alloc::vec::Vec;
+
+    use soroban_sdk::testutils::arbitrary::std::println;
+
     use super::*;
     use crate::error::LendingContractError;
-    use alloc::vec::Vec;
-    use soroban_sdk::testutils::arbitrary::std::println;
 
     #[test]
     fn test_fixed_mul_ceil_vs_floor() {
@@ -194,7 +201,8 @@ mod tests {
 
     #[test]
     fn test_bin_pow_one_exponent() {
-        // Any base raised to power 1 should return the product of base and denominator, divided by denominator
+        // Any base raised to power 1 should return the product of base and denominator, divided by
+        // denominator
         let denominators = [1_i128, 10, 1_000, 1_000_000];
 
         for &denominator in &denominators {
@@ -616,10 +624,11 @@ mod tests {
                 let diff = (results[results.len() - 1] - results[results.len() - 2]).abs();
                 let relative_tolerance = 0.01; // 1% tolerance between different denominator scales
                 assert!(
-                  diff < relative_tolerance,
-                  "Results with different denominators should be relatively close: {:?} (difference: {})",
-                  results,
-                  diff
+                    diff < relative_tolerance,
+                    "Results with different denominators should be relatively close: {:?} \
+                     (difference: {})",
+                    results,
+                    diff
                 );
             }
         }

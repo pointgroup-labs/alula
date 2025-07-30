@@ -1,10 +1,9 @@
 #![cfg(test)]
 
-use {
-    crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    lending::LCError,
-    soroban_sdk::{testutils::Ledger, Address},
-};
+use lending::LCError;
+use soroban_sdk::{testutils::Ledger, Address};
+
+use crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
 #[test]
 fn test_repay_zero() {

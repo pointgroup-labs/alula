@@ -1,9 +1,7 @@
 #![cfg(test)]
 
-use {
-    lending::contract::{LendingContract, LendingContractClient},
-    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
-};
+use lending::contract::{LendingContract, LendingContractClient};
+use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env};
 
 #[test]
 fn test_pool_initialize() {

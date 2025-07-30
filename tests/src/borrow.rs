@@ -1,16 +1,15 @@
 #![cfg(test)]
 
-use {
-    crate::{
-        get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed, TestFixture,
-        DEFAULT_DEPOSIT_AMOUNT,
-    },
-    lending::{
-        constants::{BPS_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
-        pool::PoolConfig,
-        LCError,
-    },
-    soroban_sdk::Address,
+use lending::{
+    constants::{BPS_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
+    pool::PoolConfig,
+    LCError,
+};
+use soroban_sdk::Address;
+
+use crate::{
+    get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed, TestFixture,
+    DEFAULT_DEPOSIT_AMOUNT,
 };
 
 #[test]
@@ -100,7 +99,8 @@ fn test_borrow_zero() {
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
 
-    // TODO: This borrow will create a `BorrowObligation` with `borrowed` == 0. Should we care about that?
+    // TODO: This borrow will create a `BorrowObligation` with `borrowed` == 0. Should we care about
+    // that?
     contract_client.borrow(&user, &usdc_pool_address, &0);
 
     let pool_after = contract_client.get_pool(&usdc_pool_address);
