@@ -1,14 +1,13 @@
-use {
-    crate::{
-        constants::{
-            INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP,
-            SHARED_THRESHOLD,
-        },
-        obligation::Obligation,
-        pool::{MultiplyPair, Pool},
-        LCError,
+use soroban_sdk::{contracttype, Address, Env, Symbol};
+
+use crate::{
+    constants::{
+        INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP,
+        SHARED_THRESHOLD,
     },
-    soroban_sdk::{contracttype, Address, Env, Symbol},
+    obligation::Obligation,
+    pool::{MultiplyPair, Pool},
+    LCError,
 };
 
 pub type PoolAddress = Address;

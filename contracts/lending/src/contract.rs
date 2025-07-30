@@ -1,26 +1,25 @@
-use {
-    crate::{
-        constants::{
-            ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
-            DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_LEVERAGE_MULTIPLIER,
-            MIN_LEVERAGE_MULTIPLIER, REFLECTOR_TESTNET_ADDRESS,
-        },
-        events,
-        interest_rate::CompoundRates,
-        math_utils::MathUtils,
-        obligation::{LiquidationValues, Obligation},
-        oracle,
-        pool::{MultiplyPair, Pool, PoolAddress, PoolConfig},
-        storage::{self, GlobalState},
-        swap, LCError,
+use moderc3156::FlashLoanClient;
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{
+    contract, contractimpl, log,
+    token::{self, TokenClient},
+    Address, BytesN, Env, Symbol, Vec,
+};
+
+use crate::{
+    constants::{
+        ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
+        DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_LEVERAGE_MULTIPLIER,
+        MAX_ORACLE_PRICE_AGE_SECONDS, MIN_LEVERAGE_MULTIPLIER, REFLECTOR_TESTNET_ADDRESS,
     },
-    moderc3156::FlashLoanClient,
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{
-        contract, contractimpl, log,
-        token::{self, TokenClient},
-        Address, BytesN, Env, Symbol, Vec,
-    },
+    events,
+    interest_rate::CompoundRates,
+    math_utils::MathUtils,
+    obligation::{LiquidationValues, Obligation},
+    oracle,
+    pool::{MultiplyPair, Pool, PoolAddress, PoolConfig},
+    storage::{self, GlobalState},
+    swap, LCError,
 };
 
 #[contract]
@@ -66,7 +65,8 @@ impl LendingContract {
     /// Upgrades the lending contract
     ///
     /// ### Arguments
-    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a new version of the contract
+    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
+    ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         // TODO: Implement decentralized governance of the contract
         let admin = storage::get_global_state(&e).admin;
@@ -85,12 +85,15 @@ impl LendingContract {
     /// ### Arguments
     /// * `token_address` - address of a corresponding Soroban Asset Contract
     /// * `token_symbol` - symbol which represents a pool's token
-    /// * `salt` - optional salt data, which when provided is used along with `token_address` to derive a deterministic pool address
-    /// * `pool_config` - optional `PoolConfig` data. If not provided - a default pool config is used
+    /// * `salt` - optional salt data, which when provided is used along with `token_address` to
+    ///   derive a deterministic pool address
+    /// * `pool_config` - optional `PoolConfig` data. If not provided - a default pool config is
+    ///   used
     pub fn initialize_pool(
         e: Env,
         token_address: Address,
-        token_ticker: Symbol, // NB: Token Interface contains a `.symbol()` endpoint, which can be used for retrieving a token's ticker
+        token_ticker: Symbol, /* NB: Token Interface contains a `.symbol()` endpoint, which can
+                               * be used for retrieving a token's ticker */
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, LCError> {
@@ -202,8 +205,9 @@ impl LendingContract {
     /// * `user` - user which withdraws collateral tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - desired amount of collateral tokens to remove.
-    /// The actual amount removed is capped to maintain the position's LTV at its Open LTV on the pool.
-    /// Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available collateral
+    /// The actual amount removed is capped to maintain the position's LTV at its Open LTV on the
+    /// pool. Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available
+    /// collateral
     pub fn remove_collateral(
         e: Env,
         user: Address,
@@ -220,7 +224,8 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user which repays borrowed tokens
     /// * `pool_address` - address of a pool from which the borrow happened
-    /// * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only the outstanding debt will be repaid.
+    /// * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only
+    ///   the outstanding debt will be repaid.
     /// Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
     pub fn repay(
         e: Env,
@@ -237,8 +242,10 @@ impl LendingContract {
     ///
     /// ### Arguments
     /// * `liquidator` - agent which liquidates the borrower's position
-    /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the liquidator
-    /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with a discount
+    /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
+    ///   liquidator
+    /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
+    ///   a discount
     /// * `amount` - amount of repaid tokens
     pub fn liquidate(
         e: Env,
@@ -266,8 +273,9 @@ impl LendingContract {
     /// * `user` - user which withdraws deposited tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - desired amount of tokens to withdraw.
-    /// The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the pool.
-    /// Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens available for it
+    /// The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
+    /// pool. Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens
+    /// available for it
     pub fn withdraw(
         e: Env,
         user: Address,
@@ -282,7 +290,8 @@ impl LendingContract {
     /// Creates a flash loan
     ///
     /// ### Arguments
-    /// * `contract` - contract's address which leverages the flash loaned amount and adheres to `erc3156` standard
+    /// * `contract` - contract's address which leverages the flash loaned amount and adheres to
+    ///   `erc3156` standard
     /// * `pool_address` - address of a pool from which the flash loan happens
     /// * `amount` - amount of lent tokens
     pub fn flash_loan(
@@ -296,7 +305,8 @@ impl LendingContract {
         process_flash_loan(&e, &contract, &pool_address, amount)
     }
 
-    /// Deposits tokens into the loan pool with leverage. Leverage is achieved by utilizing flash loan and token swap
+    /// Deposits tokens into the loan pool with leverage. Leverage is achieved by utilizing flash
+    /// loan and token swap
     ///
     /// # WARNING
     /// This increases the perceived `supply APR` only
@@ -307,7 +317,8 @@ impl LendingContract {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     /// * `amount` - original borrow amount before the leverage
-    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 700 for x7, 255 for x2.55, etc)
+    /// * `leverage_multiplier` - leverage multiplier as a decimal (e.g., 700 for x7, 255 for x2.55,
+    ///   etc)
     pub fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -328,16 +339,17 @@ impl LendingContract {
         )
     }
 
-    /// Withdraws tokens from the leveraged deposit position without affecting the leverage multiplier
+    /// Withdraws tokens from the leveraged deposit position without affecting the leverage
+    /// multiplier
     ///
     /// ### Arguments
     /// * `user` - user that deleverages and withdraws from the position
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
     /// * `amount` - desired amount of deposited tokens to withdraw.
-    /// The actual amount withdrawn is capped by the value difference between deposited and borrowed tokens in
-    /// the leveraged position (minus operational fees). Passing [`u64::MAX`] (or [`i128::MAX`])
-    /// can be used to withdraw all available tokens
+    /// The actual amount withdrawn is capped by the value difference between deposited and borrowed
+    /// tokens in the leveraged position (minus operational fees). Passing [`u64::MAX`] (or
+    /// [`i128::MAX`]) can be used to withdraw all available tokens
     pub fn withdraw_from_leveraged(
         e: Env,
         user: Address,
@@ -426,7 +438,8 @@ impl LendingContract {
         Pool::get_all_multiply_pairs(&e)
     }
 
-    /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g., 2912 = 29.12%, etc)
+    /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g.,
+    /// 2912 = 29.12%, etc)
     ///
     /// ### Arguments
     /// * `pool_address` - address of a pool for which APY is returned
@@ -436,7 +449,8 @@ impl LendingContract {
         pool.get_apy()
     }
 
-    /// Returns APY calculated for the optimal utilization ratio of a pool in basis points (e.g., 4000 = 40.00%, etc)
+    /// Returns APY calculated for the optimal utilization ratio of a pool in basis points (e.g.,
+    /// 4000 = 40.00%, etc)
     ///
     /// ### Arguments
     /// * `pool_address` - address of a pool for which optimal APY is returned
@@ -448,8 +462,8 @@ impl LendingContract {
         })
     }
 
-    /// Resets the contract's storage. Useful when the contract's invariants are broken and require resetting on the testnet
-    /// without re-deploying the contract
+    /// Resets the contract's storage. Useful when the contract's invariants are broken and require
+    /// resetting on the testnet without re-deploying the contract
     pub fn reset_storage(e: Env) {
         let admin = storage::get_global_state(&e).admin;
         admin.require_auth();
@@ -955,7 +969,7 @@ fn process_flash_loan(
 
     // WARN: Does this have enough precision?
     let fees = amount
-        .fixed_div_floor(BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS)
+        .fixed_mul_floor(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
@@ -1005,7 +1019,8 @@ fn process_deposit_with_leverage(
     let flash_loaned_token_client = token::Client::new(e, borrow_pool_address);
     if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
         // Flash Borrow
-        // TODO: Think of why it can be beneficial to account for flash borrow limits as in other lending protocols
+        // TODO: Think of why it can be beneficial to account for flash borrow limits as in other
+        // lending protocols
         if borrow_pool.available < flash_borrow_amount {
             return Err(LCError::NotEnoughPoolFunds);
         }
@@ -1017,7 +1032,8 @@ fn process_deposit_with_leverage(
         );
 
         borrow_pool.adjust_available(e, -flash_borrow_amount)?;
-        // TODO: This `set` is required, since 'available' amount is later accounted when calling `process_borrow`
+        // TODO: This `set` is required, since 'available' amount is later accounted when calling
+        // `process_borrow`
         borrow_pool.set(e);
     }
 
@@ -1259,11 +1275,19 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 
     let asset = oracle::Asset::Other(ticker.clone());
 
-    let last_price = reflector_contract
+    let price_data = reflector_contract
         .lastprice(&asset)
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
-    Ok(last_price.price)
+    // Validate price is not too old
+    if MAX_ORACLE_PRICE_AGE_SECONDS > 0 {
+        let current_time = e.ledger().timestamp();
+        if current_time - price_data.timestamp > MAX_ORACLE_PRICE_AGE_SECONDS {
+            return Err(LCError::OracleStalePrice);
+        }
+    }
+
+    Ok(price_data.price)
 }
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
