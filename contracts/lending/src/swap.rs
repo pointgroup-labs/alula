@@ -1,6 +1,4 @@
-//! Encapsulates operations related to the swapping of two tokens
-use core::u64;
-
+//! Encapsulates operations related to the swapping of two
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env};
 
