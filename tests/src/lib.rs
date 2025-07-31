@@ -14,7 +14,7 @@ mod withdraw;
 
 use arbitrary::Unstructured;
 use lending::{
-    constants::{INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    constants::{INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
     contract::{LendingContract, LendingContractClient},
     obligation::{BorrowObligation, DepositObligation},
     oracle,
@@ -103,7 +103,7 @@ impl TestFixture<'_> {
 
         let contract_client = LendingContractClient::new(&e, &contract_id);
 
-        let oracle_address = Address::from_str(&e, REFLECTOR_TESTNET_ADDRESS);
+        let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
         e.register_at(&oracle_address, oracle::WASM, ());
         let oracle_client = oracle::Client::new(&e, &oracle_address);
 

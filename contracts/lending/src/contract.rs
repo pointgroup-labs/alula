@@ -10,7 +10,7 @@ use crate::{
     constants::{
         ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
         DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_LEVERAGE_MULTIPLIER,
-        MAX_ORACLE_PRICE_AGE_SECONDS, MIN_LEVERAGE_MULTIPLIER, REFLECTOR_TESTNET_ADDRESS,
+        MAX_ORACLE_PRICE_AGE_SECONDS, MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
     },
     events,
     interest_rate::CompoundRates,
@@ -1279,7 +1279,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
 }
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
-    let reflector_address = Address::from_str(e, REFLECTOR_TESTNET_ADDRESS);
+    let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
     let reflector_contract = oracle::Client::new(e, &reflector_address);
 
     let asset = oracle::Asset::Other(ticker.clone());
@@ -1298,7 +1298,7 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 }
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
-    let reflector_address = Address::from_str(e, REFLECTOR_TESTNET_ADDRESS);
+    let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
     let reflector_contract = oracle::Client::new(e, &reflector_address);
 
     reflector_contract.decimals()

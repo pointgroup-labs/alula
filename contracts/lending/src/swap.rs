@@ -1,13 +1,11 @@
 //! Encapsulates operations related to the swapping of two tokens
+use core::u64;
 
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env};
 
 use crate::{
-    constants::{
-        BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, DEFAULT_SWAP_DEADLINE_SECONDS,
-        SOROSWAP_ROUTER_TESTNET_ADDRESS,
-    },
+    constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
     math_utils::MathUtils,
     soroswap_router, LCError,
 };
@@ -113,7 +111,7 @@ pub fn swap_tokens_for_exact_tokens(
         &amount_in_max,
         &path,
         user,
-        &DEFAULT_SWAP_DEADLINE_SECONDS,
+        &u64::MAX,
     );
 
     // TODO: What warning\error\event exactly must happen here?
@@ -167,15 +165,13 @@ pub fn swap_exact_tokens_for_tokens(
 
     let path = soroban_sdk::vec![e, token_in.clone(), token_out.clone()];
 
-    let deadline = e.ledger().timestamp() + DEFAULT_SWAP_DEADLINE_SECONDS;
-
     // TODO: For now we can only swap tokens with a direct path
     let swap_amounts = soroswap_router_client.swap_exact_tokens_for_tokens(
         &amount_in,
         &amount_out_min,
         &path,
         user,
-        &deadline,
+        &u64::MAX,
     );
 
     // TODO: What warning\error\event exactly must happen here?
