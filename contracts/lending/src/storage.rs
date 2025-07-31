@@ -26,6 +26,7 @@ pub enum DataKey {
     GlobalState,
     Pool(PoolAddress),
     Obligation(UserAddress),
+    MultiplyPair(MultiplyPair),
     Accrual,
     AllPools,
     AllObligations,
@@ -127,6 +128,15 @@ pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
 }
 
+pub fn set_multiply_pair(e: &Env, pair: &MultiplyPair) {
+    e.storage()
+        .persistent()
+        // NB: Should we allow multiple pairs with the same pools?
+        .set(&DataKey::MultiplyPair(pair.clone()), pair);
+
+    extend_shared_storage(e, &DataKey::MultiplyPair(pair.clone()));
+}
+
 pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     let res = e
         .storage()
@@ -135,6 +145,19 @@ pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
 
     if res {
         extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
+    }
+
+    res
+}
+
+pub fn multiply_pair_exists(e: &Env, pair: &MultiplyPair) -> bool {
+    let res: bool = e
+        .storage()
+        .persistent()
+        .has(&DataKey::MultiplyPair(pair.clone()));
+
+    if res {
+        extend_shared_storage(e, &DataKey::MultiplyPair(pair.clone()));
     }
 
     res

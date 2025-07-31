@@ -254,16 +254,14 @@ pub fn leveraged_position_bad_debt(
 
 /// Emitted when a pool's utilization ratio exceeds a predefined limit
 ///
-/// - topics - `["utilization_ration_exceeds_limit"]`
+/// - topics - `["utilization_ratio_exceeds_limit"]`
 /// - data - `[utilization_ratio_bps: i128, utilization_ratio_limit_bps: i128]`
-pub fn utilization_ration_exceeds_limit(
+pub fn utilization_ratio_exceeds_limit(
     e: &Env,
     utilization_ratio_bps: i128,
     utilization_ratio_limit_bps: i128,
 ) {
-    // TODO: This can happen when `total_borrowed` amount on a pool accrued over time by itself, so,
-    // maybe, treat it as a regular error?
-    let topics = (Symbol::new(e, "utilization_ration_exceeds_limit"),);
+    let topics = (Symbol::new(e, "utilization_ratio_exceeds_limit"),);
     let data = (utilization_ratio_bps, utilization_ratio_limit_bps);
 
     e.events().publish(topics, data);
@@ -276,6 +274,18 @@ pub fn utilization_ration_exceeds_limit(
 /// - data - `[]`
 pub fn pool_is_missing_in_storage(e: &Env, pool_address: &Address) {
     let topics = (Symbol::new(e, "pool_is_missing_in_storage"), pool_address);
+    let data = ();
+
+    e.events().publish(topics, data);
+}
+
+/// Emitted when an attempt is made to interact with an obligation that does not exist in storage.
+/// This indicates a potential issue with the user address or a data inconsistency
+///
+/// - topics - `["obligation_is_missing_in_storage", user: Address]`
+/// - data - `[]`
+pub fn obligation_is_missing_in_storage(e: &Env, user: &Address) {
+    let topics = (Symbol::new(e, "obligation_is_missing_in_storage"), user);
     let data = ();
 
     e.events().publish(topics, data);
@@ -322,6 +332,40 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
         "pool_total_shares_smaller_than_individual_user_shares",
     ),);
     let data = (total_shares, individual_shares);
+
+    e.events().publish(topics, data);
+}
+
+/// Emitted when the total shares in a pool are found to be less than the total supply.
+/// This must never happen with the shares model and, hence, indicates an invariant breakage
+///
+/// - topics - `["pool_total_shares_smaller_than_total_supply"]`
+/// - data - `[total_shares: i128, individual_shares: i128]`
+pub fn pool_total_shares_smaller_than_total_supply(
+    e: &Env,
+    total_shares: i128,
+    individual_shares: i128,
+) {
+    let topics = (Symbol::new(
+        e,
+        "pool_total_shares_smaller_than_total_supply",
+    ),);
+    let data = (total_shares, individual_shares);
+
+    e.events().publish(topics, data);
+}
+
+/// Emitted when obligation unexpectedly becomes empty. This is a severe invariant breakage
+///
+/// - topics - `["obligation_unexpectedly_empty"], user: Address, pool_address: Address]`
+/// - data - `[]`
+pub fn obligation_is_unexpectedly_empty(e: &Env, user: &Address, pool_address: &Address) {
+    let topics = (
+        Symbol::new(e, "obligation_unexpectedly_empty"),
+        user,
+        pool_address,
+    );
+    let data = ();
 
     e.events().publish(topics, data);
 }

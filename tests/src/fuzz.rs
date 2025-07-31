@@ -1,10 +1,9 @@
 #![cfg(test)]
 
-#[allow(unused)]
 use crate::{
     assert_invariants, Amount, Borrow,
     Command::{self, *},
-    Deposit, DepositWithLeverage, Input, Repay, TestFixture,
+    Deposit, DepositWithLeverage, Repay, TestFixture,
     Token::*,
     Withdraw, WithdrawCollateral,
 };

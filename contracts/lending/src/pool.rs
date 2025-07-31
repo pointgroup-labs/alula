@@ -25,6 +25,28 @@ pub struct MultiplyPair {
     pub borrow_pool: Address,
 }
 
+impl MultiplyPair {
+    /// Registers a multiply pair in the pairs list
+    ///
+    /// # WARNING
+    /// Modifies the contract's storage
+    pub fn register(&self, e: &Env) -> u32 {
+        storage::register_multiply_pair(e, self.clone())
+    }
+
+    pub fn exists(e: &Env, pair: &MultiplyPair) -> bool {
+        storage::multiply_pair_exists(e, pair)
+    }
+
+    /// Saves\updates multiply pair in the contract's storage
+    ///
+    /// # WARNING
+    /// Modifies the contract's storage
+    pub fn set(&self, e: &Env) {
+        storage::set_multiply_pair(e, self);
+    }
+}
+
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
 pub struct Pool {
@@ -104,7 +126,7 @@ impl Pool {
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the share of the of `shares` in the pool
+    /// Computes tokens amount proportional to the share of the of `shares` in the pool, based on the supplied tokens amount
     pub fn compute_tokens_from_shares(
         &self,
         e: &Env,
@@ -126,9 +148,7 @@ impl Pool {
 
         let total_supply = self.total_supply()?;
         let tokens_amount = total_supply
-            .checked_mul(shares_amount)
-            .map_over_or_underflow()?
-            .checked_div(self.total_shares)
+            .fixed_div_floor(self.total_shares, shares_amount)
             .map_over_or_underflow()?;
 
         Ok(tokens_amount)
@@ -136,24 +156,24 @@ impl Pool {
 
     /// Computes shares amount which must be issued for\burnt from a depositor based on the
     /// deposited\withdrawn amount
-    pub fn compute_shares_from_tokens(&self, tokens_amount: i128) -> Result<i128, LCError> {
+    pub fn compute_shares_from_tokens(
+        &self,
+        e: &Env,
+        tokens_amount: i128,
+    ) -> Result<i128, LCError> {
         if tokens_amount == 0 {
             return Ok(0);
         }
 
         let shares_amount = if self.total_shares == 0 {
+            // NB: Is it reasonable to make the initial amount smaller?
             tokens_amount
         } else {
-            let total = self
-                .available
-                .checked_add(self.total_borrowed)
-                .map_over_or_underflow()?;
+            let total = self.total_supply()?;
 
-            // assert!(
-            //     total >= self.total_shares,
-            //     "Total shares amount must never be smaller than the total liquidity amount"
-            // );
-            if total < self.total_shares {
+            if self.total_shares > total {
+                events::pool_total_shares_smaller_than_total_supply(e, self.total_shares, total);
+
                 return Err(LCError::InternalError);
             }
 
@@ -167,6 +187,9 @@ impl Pool {
                 shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
             */
             self.total_shares
+                /* Using 'ceil' here has advantages when withdrawing\repaying small amounts of tokens.
+                Namely, if the token amount is really small, with `floor`, the respective amount of
+                shares to burn is 0, and doesn't make a difference  */
                 .fixed_div_ceil(total, tokens_amount)
                 .map_over_or_underflow()?
         };
@@ -192,8 +215,8 @@ impl Pool {
     /// Tries to get the pool from the contract's storage
     ///
     /// # Returns
-    /// - `[Ok(Pool)]` if a pool with the given address exists in the contract's storage
-    /// - `[Err(LCError::PoolDoesNotExist)]` otherwise
+    /// - [`Ok(Pool)`] if a pool with the given address exists in the contract's storage
+    /// - [`Err(LCError::PoolDoesNotExist)`] otherwise
     pub fn try_get(e: &Env, pool_address: &Address) -> Result<Self, LCError> {
         storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)
     }
@@ -204,10 +227,6 @@ impl Pool {
 
     pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
         storage::get_all_multiply_pairs(e)
-    }
-
-    pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
-        storage::register_multiply_pair(e, pair)
     }
 
     pub fn exists(e: &Env, address: &PoolAddress) -> bool {

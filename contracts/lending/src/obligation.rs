@@ -76,7 +76,8 @@ impl Obligation {
             let total_debt = borrow_obligation.total_debt()?;
 
             let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
-                // TODO: Add event
+                events::pool_is_missing_in_storage(e, &borrow_pool_address);
+
                 return Err(LCError::InternalError);
             };
 
@@ -189,7 +190,7 @@ impl Obligation {
         // TODO: Must be rewritten when markets are implemented
         // 'open_ltv_borrowed_value' == (collateral_value * pool.config.open_ltv_bps) / 10_000
         let open_ltv_borrowed_value = collateral_value
-            .fixed_div_floor(BPS_FACTOR, pool.config.open_ltv_bps)
+            .fixed_mul_floor(pool.config.open_ltv_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let max_healthy_borrow_amount = if borrowed_value >= open_ltv_borrowed_value {
@@ -335,15 +336,15 @@ impl Obligation {
         let mut repaid_amount = i128::min(amount, total_debt);
 
         if repaid_amount >= borrowed {
-            // WARN: This is a massive issue and must be fixed
-            // since this breaks the contract's invariant
+            // WARN: Skipping interest repayment is a massive issue and must be fixed
+            // since this breaks one of the contract's most fundamental invariants
             repaid_amount = borrow_obligation.borrowed;
             self.borrows.remove(pool_address.clone());
         } else {
             if repaid_amount <= borrow_obligation.unpaid_interest {
                 borrow_obligation.adjust_unpaid_interest(e, -repaid_amount)?;
             } else {
-                let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest;
+                let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest; // safe
                 borrow_obligation.adjust_borrowed(e, -removed_from_borrowed)?;
                 borrow_obligation.adjust_unpaid_interest(e, -borrow_obligation.unpaid_interest)?;
             }
@@ -437,7 +438,7 @@ impl Obligation {
                     .checked_div(collateral_price)
                     .map_over_or_underflow()?;
                 let shares_amount_sold =
-                    collateral_pool.compute_shares_from_tokens(tokens_from_sold_shares)?;
+                    collateral_pool.compute_shares_from_tokens(e, tokens_from_sold_shares)?;
 
                 LiquidationValues {
                     liquidated_amount: amount,
@@ -447,7 +448,8 @@ impl Obligation {
                 }
             } else {
                 // The case when full liquidation cannot take place because of not enough available
-                // amount in the pool TODO: Rewrite with using cTokens
+                // amount in the pool.
+                // TODO: Rewrite with using cTokens
                 let collateral_value_sum = full_collateral_value
                     .checked_add(tokens_from_shares_value)
                     .map_over_or_underflow()?;
@@ -548,8 +550,8 @@ impl Obligation {
     /// Tries to get the user's obligation from the contract's storage
     ///
     /// # Returns
-    /// - `[Ok(Obligation)]` if a pool with the given address exists in the contract's storage
-    /// - `[Err(LCError::ObligationDoesNotExist)]` otherwise
+    /// - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
+    /// - [`Err(LCError::ObligationDoesNotExist)`] otherwise
     pub fn try_get(e: &Env, user: &Address) -> Result<Self, LCError> {
         storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)
     }
@@ -627,7 +629,6 @@ impl BorrowObligation {
         }
     }
 
-    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.borrowed == 0
     }
@@ -689,7 +690,7 @@ impl BorrowObligation {
         // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
         // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_debt = prev_debt
-            .fixed_div_floor(self.last_accrual, pool.last_accrual)
+            .fixed_div_ceil(self.last_accrual, pool.last_accrual)
             .map_over_or_underflow()?;
 
         let old_unpaid_interest = self.unpaid_interest;

@@ -10,7 +10,8 @@ use soroban_sdk::{
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
-// WARN: This is a plain copied enum and it is not synchronized with the deployed contract's errors
+// WARN: This is a plain copied enum and it is not synchronized with the deployed contract's errors.
+// Likely, the Soroswap team will not break the backward compatibility, so this is relatively fine
 pub enum CombinedRouterError {
     RouterNotInitialized = 501,
     RouterNegativeNotAllowed = 502,
