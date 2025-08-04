@@ -175,6 +175,7 @@ export default defineNuxtConfig({
   // debug: true,
   nitro: {
     logLevel: 'debug',
+    preset: 'github_pages'
     // preset: 'node',
     // devErrorHandler: true,
     // prerender: {
