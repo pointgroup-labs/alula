@@ -121,11 +121,11 @@ function handleLanguage(lang: string) {
   }
 }
 
-// body.body--dark {
-//   .setting-item.language {
-//     .language-selected-lang {
-//       color: $neutral-4;
-//     }
-//   }
-// }
+body.body--dark {
+  .setting-item.language {
+    .language-selected-lang {
+      color: $neutral-12;
+    }
+  }
+}
 </style>

@@ -90,4 +90,12 @@ function normalizeAmount(price: number) {
     }
   }
 }
+
+body.body--dark {
+  .market-size {
+    .total-card__info {
+      color: $neutral-5;
+    }
+  }
+}
 </style>

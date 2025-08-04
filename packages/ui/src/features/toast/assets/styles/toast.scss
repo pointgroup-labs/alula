@@ -209,27 +209,25 @@ $toast-variants: (
 }
 
 body.body--dark {
-  .toast-alert {
-    .toast-body {
+  .j-toast:not(.toast-alert) {
+    &.toast--info {
       background-color: $neutral-18;
-    }
-
-    .alert-close {
       color: #fff;
     }
+  }
+  .toast-alert {
+    background-color: $neutral-18;
+    box-shadow:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
-    .alert-content {
-      color: #fff;
+    .alert-content__actions .btn {
+      background-color: $neutral-3;
+      color: $dark;
     }
 
-    .alert-content__actions {
-      .btn {
-        background-color: $neutral-13;
-        color: $dark;
-      }
-      a {
-        color: $neutral-5;
-      }
+    .alert-content a {
+      color: $neutral-3;
     }
   }
 }

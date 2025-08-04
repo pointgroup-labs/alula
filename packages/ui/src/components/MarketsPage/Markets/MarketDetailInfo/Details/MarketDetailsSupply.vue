@@ -33,14 +33,13 @@ const isSupplyLimit = computed(() => Number(pool.value?.config.supply_limit) > 0
 const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.supply_limit, decimals.value)) : 0)
 const totalSuppliedInUsd = computed(() => totalSupplied.value * market.value?.price || 0)
 const supplyLimitInUsd = computed(() => supplyLimit.value * market.value?.price || 0)
-const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value / supplyLimit.value * 100).toFixed(2) : 100,
-)
+const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value / supplyLimit.value * 100).toFixed(2) : 100)
 </script>
 
 <template>
   <div class="market-details">
     <div class="market-details__title">
-      Supply Info {{ progress }}
+      Supply Info
     </div>
 
     <div class="market-stats">
@@ -191,6 +190,48 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
         font-size: 12px;
         font-weight: 500;
         line-height: 16px;
+      }
+    }
+  }
+}
+
+body.body--dark {
+  .market-info-dialog {
+    .market-stats__apy {
+      .stats-apy {
+        color: $neutral-12;
+
+        span {
+          color: #fff;
+        }
+      }
+
+      .stats-params__item {
+        color: $neutral-12;
+
+        span {
+          color: $neutral-9;
+        }
+      }
+    }
+
+    .market-progress__info__title {
+      color: $neutral-7;
+    }
+
+    .market-progress__info__data span {
+      color: $neutral-9;
+    }
+
+    .market-penalty {
+      color: $neutral-9;
+
+      span {
+        color: $neutral-9;
+      }
+
+      svg {
+        color: $neutral-9;
       }
     }
   }

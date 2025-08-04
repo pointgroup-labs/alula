@@ -355,4 +355,14 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
     line-height: 16px;
   }
 }
+
+body.body--dark {
+  .loop-multiply__vault-title {
+    color: #fff;
+  }
+
+  .loop-multiply__vault-info {
+    color: $neutral-7;
+  }
+}
 </style>

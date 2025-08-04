@@ -263,4 +263,18 @@ watch(() => modelValue, async (v) => {
     }
   }
 }
+
+body.body--dark {
+  .account-dialog {
+    .account-info-table__item:nth-child(even) {
+      background-color: $neutral-18;
+    }
+
+    &-action {
+      .btn-dark {
+        background-color: $neutral-18;
+      }
+    }
+  }
+}
 </style>

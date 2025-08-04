@@ -144,14 +144,14 @@ onMounted(() => {
   }
 }
 
-// body.body--dark {
-//   .sidebar-wrapper {
-//     background-color: $dark-bg;
-//     color: #fff;
+body.body--dark {
+  .sidebar-wrapper {
+    background-color: $dark;
+    color: #fff;
 
-//     .btn-close {
-//       background-color: #fff;
-//     }
-//   }
-// }
+    .btn-close {
+      background: #fff;
+    }
+  }
+}
 </style>

@@ -27,8 +27,10 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '∞')
         :progress="Number(progress)"
         :width="60"
         :stroke-width="25"
-        stroke-bg="#EAECF0"
+        :stroke-bg="isDark ? '#262729' : '#EAECF0'"
         :stroke-color="color"
+        :background="isDark ? '#111' : '#fff'"
+        :color="isDark ? '#fff' : '#111'"
       />
 
       <slot />

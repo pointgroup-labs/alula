@@ -81,8 +81,8 @@ watch([
   chartData.value.datasets = [
     {
       type: 'line',
-      borderColor: '#4dbef1',
-      backgroundColor: '#4dbef1',
+      borderColor: isDark.value ? '#006CE4' : '#4dbef1',
+      backgroundColor: isDark.value ? '#006CE4' : '#4dbef1',
       label: 'Supply APR',
       data: d.map((item) => {
         maxY.value = Math.max(maxY.value, item.value)
@@ -217,6 +217,15 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
 
     &__chart {
       height: 196px;
+    }
+  }
+}
+
+body.body--dark {
+  .market-history-chart {
+    .history-chart__header__badge {
+      background: $neutral-18;
+      color: $neutral-9;
     }
   }
 }

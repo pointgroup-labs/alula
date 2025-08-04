@@ -17,7 +17,14 @@
     &:checked {
       background-color: var(--toggle-color, $primary) !important;
       border-color: var(--toggle-color, $primary) !important;
-      background-position: 16px center;
+      background-position: 17px center;
     }
+  }
+}
+
+body.body--dark {
+  .form-check-input {
+    background-color: $neutral-16;
+    border-color: $neutral-16 !important;
   }
 }

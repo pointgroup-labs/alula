@@ -178,4 +178,17 @@ watch(() => balance, () => {
     }
   }
 }
+
+body.body--dark {
+  .input-widget {
+    .input-group {
+      background-color: $dark;
+      border: 1px solid $neutral-16;
+    }
+  }
+
+  .j-input__btn {
+    color: $dark;
+  }
+}
 </style>

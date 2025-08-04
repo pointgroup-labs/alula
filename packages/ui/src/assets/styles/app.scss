@@ -1,7 +1,7 @@
-@import "fonts";
-@import "bootstrap";
-@import "variables";
-@import "components";
+@import 'fonts';
+@import 'bootstrap';
+@import 'variables';
+@import 'components';
 
 html,
 body {
@@ -92,5 +92,26 @@ body:has(stellar-wallets-modal) {
   #teleports {
     position: relative;
     z-index: 10 !important;
+  }
+}
+
+body.body--dark {
+  background-color: $dark;
+  color: #fff;
+
+  .card {
+    background-color: $neutral-18;
+  }
+
+  .modal {
+    .modal-content {
+      background-color: $dark;
+      color: #fff;
+    }
+  }
+
+  .separator, 
+  .separator-vert {
+    background-color: $neutral-16;
   }
 }

@@ -281,4 +281,12 @@ watch(() => modelValue, async (v) => {
     }
   }
 }
+
+body.body--dark {
+  .supply-dialog {
+    .j-input .j-input__label {
+      color: $neutral-12;
+    }
+  }
+}
 </style>

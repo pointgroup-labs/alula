@@ -40,4 +40,14 @@ const selectedMarket = toRef(marketsStore, 'selectedMarket')
     }
   }
 }
+
+body.body--dark {
+  .market-filters {
+    .btn-secondary {
+      background: $neutral-16;
+      border-color: $neutral-16;
+      color: $neutral-7;
+    }
+  }
+}
 </style>

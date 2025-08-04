@@ -28,4 +28,17 @@ provide('isSidebar', isSettingsSidebar)
     margin-top: 2px;
   }
 }
+
+body.body--dark {
+  .settings-btn {
+    background-color: $neutral-16 !important;
+    border-color: $neutral-16 !important;
+
+    .settings-icon {
+      path {
+        color: #c4c5c7;
+      }
+    }
+  }
+}
 </style>

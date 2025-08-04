@@ -302,4 +302,13 @@ watch(() => modelValue, async (v) => {
     gap: $spacing-8;
   }
 }
+
+body.body--dark {
+  .borrow-dialog {
+    .supply-warning {
+      background-color: $neutral-18;
+      color: $neutral-12;
+    }
+  }
+}
 </style>

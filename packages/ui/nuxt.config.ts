@@ -261,21 +261,21 @@ export default defineNuxtConfig({
           content: `${env.NUXT_PUBLIC_APP_URL}/og-image-1200x630.png`,
         },
       ],
-      // script: [
-      //   {
-      //     innerHTML: `
-      //       (function() {
-      //         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      //         const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
-      //         const isDarkMode = setting === 'dark' || (prefersDark && setting !== 'light')
-      //         document.body.classList.toggle('body--dark', isDarkMode)
-      //         document.body.classList.toggle('body--light', !isDarkMode)
-      //       })();
-      //     `,
-      //     type: 'text/javascript',
-      //     body: true,
-      //   } as any,
-      // ],
+      script: [
+        {
+          innerHTML: `
+            (function() {
+              const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
+              const isDarkMode = setting === 'dark' || (prefersDark && setting !== 'light')
+              document.body.classList.toggle('body--dark', isDarkMode)
+              document.body.classList.toggle('body--light', !isDarkMode)
+            })();
+          `,
+          type: 'text/javascript',
+          body: true,
+        } as any,
+      ],
     },
   },
 

@@ -7,8 +7,12 @@ $label-variants: (
     background-color: $neutral-5,
     color: $dark,
   ),
-  accent: (
-    background-color: $accent,
+  warning: (
+    background-color: rgba(228, 156, 11, 0.5),
+    color: $dark,
+  ),
+  success: (
+    background-color: rgba(8, 181, 118, 0.5),
     color: $dark,
   ),
 );
@@ -46,5 +50,15 @@ $label-sizes: (
         #{$prop}: #{$value};
       }
     }
+  }
+}
+
+body.body--dark {
+  .j-pill-label--success {
+    background: $success;
+  }
+
+  .j-pill-label--warning {
+    background: $warning;
   }
 }

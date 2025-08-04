@@ -106,4 +106,20 @@ header {
     gap: $spacing-12;
   }
 }
+
+body.body--dark {
+  header {
+    background-color: $dark;
+
+    .nav-link {
+      &:hover {
+        background-color: $neutral-18;
+      }
+
+      &--active {
+        background-color: $neutral-16;
+      }
+    }
+  }
+}
 </style>

@@ -67,4 +67,30 @@ const activeFilter = computed({
     }
   }
 }
+
+body.body--dark {
+  .chart-date-filters {
+    background-color: $neutral-18;
+
+    .btn {
+      color: $neutral-9;
+    }
+
+    .btn-primary {
+      background-color: $dark;
+
+      &:hover {
+        border-color: $dark;
+      }
+    }
+
+    .btn-secondary {
+      background-color: $neutral-18;
+
+      &:hover {
+        border-color: $neutral-18;
+      }
+    }
+  }
+}
 </style>

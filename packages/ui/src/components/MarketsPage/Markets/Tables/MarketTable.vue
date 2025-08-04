@@ -154,7 +154,7 @@ function onRowClicked(item: any, _index: number, _event: any) {
         <div class="table-cell justify-content-center">
           <j-pill-label
             color="#111"
-            bg-color="rgba(8, 181, 118, 0.50)"
+            variant="success"
             size="md"
           >
             {{ data.item.deposit_apy }}
@@ -166,7 +166,7 @@ function onRowClicked(item: any, _index: number, _event: any) {
         <div class="table-cell justify-content-center">
           <j-pill-label
             color="#111"
-            bg-color="rgba(228, 156, 11, 0.50)"
+            variant="warning"
             size="md"
           >
             {{ data.item.borrow_apy }}

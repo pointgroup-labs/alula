@@ -148,4 +148,20 @@ const utilizationRate = computed(() => {
     }
   }
 }
+
+body.body--dark {
+  .market-info-dialog .interest-wrapper {
+    .interest-rate span {
+      color: #fff;
+    }
+
+    .interest-link {
+      color: $neutral-9;
+
+      svg {
+        color: $neutral-9;
+      }
+    }
+  }
+}
 </style>

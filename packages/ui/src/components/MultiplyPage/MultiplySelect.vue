@@ -222,40 +222,10 @@ $multiplier-color: #c7c7c7;
   }
 }
 
-// body.body--dark {
-//   .loop-multiply {
-//     .loan-ltv-value__hf {
-//       background-color: $green-900;
-//       color: #fff;
-//     }
-
-//     .ltv-select-slider {
-//       .vue-slider-rail::before {
-//         background-color: $neutral-600;
-//       }
-
-//       .vue-slider-marks {
-//         &::before {
-//           // background-color: $neutral-800;
-//           background-color: $neutral-600;
-//         }
-//       }
-
-//       .vue-slider-mark {
-//         &:first-child,
-//         &:last-child {
-//           background-color: $neutral-600;
-//         }
-//       }
-
-//       .vue-slider-dot {
-//         .slider-thumb {
-//           &--mid {
-//             background-color: $purple-300;
-//           }
-//         }
-//       }
-//     }
-//   }
-// }
+body.body--dark {
+  .loan-ltv-value__multiplier__value {
+    background-color: $success;
+    color: $dark;
+  }
+}
 </style>

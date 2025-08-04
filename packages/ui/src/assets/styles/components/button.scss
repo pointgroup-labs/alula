@@ -9,6 +9,7 @@
 
   &.btn-accent {
     background: $accent !important;
+    color: $dark !important;
 
     &[aria-pressed='false'] {
       border-color: transparent !important;
@@ -133,12 +134,12 @@ body.body--dark {
   .btn-secondary {
     // background-color: $neutral-900;
     // border-color: $neutral-900;
-    color: #fff;
+    // color: #fff;
 
     &:active {
       // background-color: lighten($neutral-900, 10%);
       // border-color: lighten($neutral-900, 10%);
-      color: #fff;
+      // color: #fff;
     }
   }
 }
