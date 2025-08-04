@@ -178,13 +178,16 @@ export default defineNuxtConfig({
     preset: 'github_pages',
     prerender: {
       crawlLinks: true,
-      // routes: ['/multiply', '/account'],
     },
     // preset: 'node',
     // devErrorHandler: true,
     // prerender: {
     //   failOnError: false,
     // },
+  },
+  generate: {
+    // @ts-expect-error...
+    fallback: '404.html',
   },
   pwa: {
     registerType: 'autoUpdate',
