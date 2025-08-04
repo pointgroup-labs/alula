@@ -66,11 +66,14 @@ export function getErrorMessage(error: unknown): string {
 }
 
 export function parseStellarError(error: unknown): string | undefined {
+  if (!error) {
+    return 'Unknown error'
+  }
   const raw = getErrorMessage(error)
   console.log('%c[raw error]', 'color: #FB4747', error)
 
   for (const key in errorMap) {
-    if (raw.includes(key)) {
+    if (raw?.includes(key)) {
       return String(errorMap[key])
     }
   }

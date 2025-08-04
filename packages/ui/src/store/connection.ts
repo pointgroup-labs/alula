@@ -14,6 +14,8 @@ export const useConnectionStore = defineStore('connection', () => {
 
   onMounted(async () => {
     if (isClient) {
+      const savedWalletId = localStorage.getItem('selectedWalletId')
+
       const {
         AlbedoModule,
         FreighterModule,
@@ -30,7 +32,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
       kit.value = new StellarWalletsKit({
         network: WalletNetwork.TESTNET,
-        selectedWalletId: XBULL_ID,
+        selectedWalletId: savedWalletId ?? XBULL_ID,
         modules: [
           new AlbedoModule(),
           new FreighterModule(),
@@ -51,6 +53,17 @@ export const useConnectionStore = defineStore('connection', () => {
           }),
         ],
       })
+
+      if (savedWalletId) {
+        try {
+          await kit.value.setWallet(savedWalletId)
+          const { address } = await kit.value.getAddress()
+          await walletStore.initWallet(address)
+          publicKey.value = address
+        } catch {
+          localStorage.removeItem('selectedWalletId')
+        }
+      }
     }
   })
 
@@ -58,9 +71,12 @@ export const useConnectionStore = defineStore('connection', () => {
     if (publicKey.value) {
       return
     }
+
     loading.value = true
     await kit.value.openModal({
       onWalletSelected: async (option: ISupportedWallet) => {
+        localStorage.setItem('selectedWalletId', option.id)
+
         if (option.id === 'wallet_connect') {
           loading.value = false
         }
@@ -84,6 +100,7 @@ export const useConnectionStore = defineStore('connection', () => {
     jLendClient.value?.reset()
     publicKey.value = undefined
     balances.value = undefined
+    localStorage.setItem('selectedWalletId', '')
   }
 
   return {
