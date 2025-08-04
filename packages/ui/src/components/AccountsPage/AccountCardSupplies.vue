@@ -232,4 +232,12 @@ watch(selectedPool, (p) => {
     line-height: 16px;
   }
 }
+
+body.body--dark {
+  .account-card {
+    .no-data {
+      color: $neutral-9;
+    }
+  }
+}
 </style>
