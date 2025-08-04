@@ -20,6 +20,9 @@ export default defineNuxtConfig({
   dir: {
     public: '../public',
   },
+  app: {
+    trailingSlash: 'append',
+  },
   ssr: env.NODE_ENV !== 'development',
   devServer: {
     port: 3000,
@@ -177,7 +180,13 @@ export default defineNuxtConfig({
     logLevel: 'debug',
     preset: 'github_pages',
     prerender: {
-      crawlLinks: true,
+      crawlLinks: true, // будет собирать ссылки из HTML
+      routes: [
+        '/multiply',
+        '/account',
+      ],
+      autoSubfolderIndex: true,
+      failOnError: true,
     },
     // preset: 'node',
     // devErrorHandler: true,
