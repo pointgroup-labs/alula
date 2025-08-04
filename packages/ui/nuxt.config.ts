@@ -175,7 +175,11 @@ export default defineNuxtConfig({
   // debug: true,
   nitro: {
     logLevel: 'debug',
-    preset: 'github_pages'
+    preset: 'github_pages',
+    prerender: {
+      crawlLinks: true,
+      // routes: ['/multiply', '/account'],
+    },
     // preset: 'node',
     // devErrorHandler: true,
     // prerender: {
