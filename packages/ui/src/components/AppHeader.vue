@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import logoDark from '~/assets/img/logo-dark.svg'
 import logoLight from '~/assets/img/logo-light.svg'
+import { isDark } from '~/hooks/theme'
 
 const router = useRouter()
 const route = useRoute()
