@@ -37,11 +37,13 @@ watch(() => route.path, (p) => {
 <template>
   <header>
     <div class="header-wrapper container">
-      <img
-        :src="logo"
-        alt="stellar logo"
-        class="app-logo"
-      >
+      <client-only>
+        <img
+          :src="logo"
+          alt="stellar logo"
+          class="app-logo"
+        >
+      </client-only>
 
       <nav class="header-nav">
         <div
