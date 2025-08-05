@@ -1,4 +1,3 @@
-import type { ISupportedWallet } from '@creit.tech/stellar-wallets-kit'
 import { defineStore } from 'pinia'
 
 export const useConnectionStore = defineStore('connection', () => {
@@ -13,7 +12,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const kit = ref()
 
   onMounted(async () => {
-    if (isClient) {
+    if (import.meta.client) {
       const savedWalletId = localStorage.getItem('selectedWalletId')
 
       const {
@@ -28,6 +27,7 @@ export const useConnectionStore = defineStore('connection', () => {
         HanaModule,
         HotWalletModule,
       } = await import('@creit.tech/stellar-wallets-kit')
+
       const { WalletConnectAllowedMethods, WalletConnectModule } = await import('@creit.tech/stellar-wallets-kit/modules/walletconnect.module')
 
       kit.value = new StellarWalletsKit({
@@ -74,7 +74,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     loading.value = true
     await kit.value.openModal({
-      onWalletSelected: async (option: ISupportedWallet) => {
+      onWalletSelected: async (option: any) => {
         localStorage.setItem('selectedWalletId', option.id)
 
         if (option.id === 'wallet_connect') {

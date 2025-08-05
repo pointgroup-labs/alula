@@ -1,6 +1,4 @@
-import type { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit'
 import type { RPCcluster } from '../types'
-import { WalletNetwork } from '@creit.tech/stellar-wallets-kit'
 import { Account, Asset, BASE_FEE, Horizon, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import { getNetworkPassphrase, getRPC } from '../utils'
 import { SorobanClient } from './sdk-client'
@@ -38,7 +36,7 @@ export class StellarClient {
     publicKey: string,
     assetCode: string,
     assetIssuer: string,
-    kit: StellarWalletsKit) {
+    kit: any) {
     const networkPassphrase = getNetworkPassphrase(this.sdk.rpc)
     const accountResponse = await this.server.loadAccount(publicKey)
     const account = new Account(accountResponse.accountId(), accountResponse.sequence.toString())
@@ -59,7 +57,7 @@ export class StellarClient {
 
     const { signedTxXdr } = await kit.signTransaction(transaction.toXDR(), {
       address: publicKey,
-      networkPassphrase: WalletNetwork.TESTNET,
+      networkPassphrase,
     })
 
     console.log('[signedTxXdr]', signedTxXdr)

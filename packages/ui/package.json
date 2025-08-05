@@ -10,7 +10,7 @@
     "build:ssg": "pnpm build:sdk && cross-env NUXT_ENV=production nuxt generate",
     "build:ssr": "cross-env NUXT_ENV=production nuxt build",
     "build:staging:ssg": "cross-env NUXT_ENV=staging nuxt generate",
-    "preview": "nuxt preview",
+    "preview": "npx serve dist",
     "lint": "eslint .",
     "lint:fix": "eslint --fix",
     "test": "vitest",
