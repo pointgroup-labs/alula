@@ -26,20 +26,20 @@ fn test_swap() {
         .address();
     let new_token_client = TokenClient::new(&e, &new_token_address);
 
-    let new_token_balance: i128 = new_token_client.balance(&user);
+    let new_token_balance: i128 = new_token_client.balance(user);
     assert_eq!(new_token_balance, 0);
 
-    let gold_token_balance = gold_token_client.balance(&user);
+    let gold_token_balance = gold_token_client.balance(user);
 
     let amount_out =
         swap::get_amount_out(&e, &gold_pool_address, &new_token_address, AMOUNT_IN).unwrap();
 
-    contract_client.swap(&user, &gold_pool_address, &new_token_address, &AMOUNT_IN);
+    contract_client.swap(user, &gold_pool_address, &new_token_address, &AMOUNT_IN);
 
     let amount_out_min_slippage = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
 
-    let balance = new_token_client.balance(&user);
-    let new_gold_token_balance = gold_token_client.balance(&user);
+    let balance = new_token_client.balance(user);
+    let new_gold_token_balance = gold_token_client.balance(user);
 
     assert_eq!(balance, amount_out_min_slippage);
     assert_eq!(

@@ -13,13 +13,13 @@ fn test_remove_obligation() {
 
     let user = &users[0];
 
-    assert!(contract_client.try_get_user_obligation(&user).is_err());
+    assert!(contract_client.try_get_user_obligation(user).is_err());
 
-    contract_client.deposit(&user, &usdc_pool_address, &1000);
-    assert!(contract_client.try_get_user_obligation(&user).is_ok());
+    contract_client.deposit(user, &usdc_pool_address, &1000);
+    assert!(contract_client.try_get_user_obligation(user).is_ok());
 
     contract_client.reset_storage();
-    assert!(contract_client.try_get_user_obligation(&user).is_err());
+    assert!(contract_client.try_get_user_obligation(user).is_err());
 }
 
 #[test]
@@ -36,17 +36,17 @@ fn test_remove_many_obligations() {
 
     assert!(contract_client.get_all_obligations().is_empty());
 
-    contract_client.deposit(&user1, &usdc_pool_address, &1000);
-    contract_client.deposit(&user2, &usdc_pool_address, &1000);
+    contract_client.deposit(user1, &usdc_pool_address, &1000);
+    contract_client.deposit(user2, &usdc_pool_address, &1000);
 
-    assert!(contract_client.try_get_user_obligation(&user1).is_ok());
-    assert!(contract_client.try_get_user_obligation(&user2).is_ok());
+    assert!(contract_client.try_get_user_obligation(user1).is_ok());
+    assert!(contract_client.try_get_user_obligation(user2).is_ok());
     assert_eq!(contract_client.get_all_obligations().len(), 2);
 
     contract_client.reset_storage();
 
-    assert!(contract_client.try_get_user_obligation(&user1).is_err());
-    assert!(contract_client.try_get_user_obligation(&user2).is_err());
+    assert!(contract_client.try_get_user_obligation(user1).is_err());
+    assert!(contract_client.try_get_user_obligation(user2).is_err());
     assert!(contract_client.get_all_obligations().is_empty());
 }
 

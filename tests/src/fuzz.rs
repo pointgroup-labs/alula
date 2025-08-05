@@ -1,16 +1,8 @@
 #![cfg(test)]
 
-use soroban_sdk::{testutils::Address as _, Address};
+use crate::{Input, TestFixture};
 
-use crate::{
-    Amount, Borrow,
-    Command::{self, *},
-    Deposit, DepositCollateral, DepositWithLeverage, Input, Liquidate, PassTime, Repay,
-    TestFixture,
-    Token::*,
-    Withdraw, WithdrawCollateral, WithdrawFromLeveraged,
-};
-
+#[allow(unused)]
 fn test_fuzzed_issue(input: &Input) {
     let test_fixture = TestFixture::new();
     test_fixture.e.cost_estimate().budget().reset_unlimited();

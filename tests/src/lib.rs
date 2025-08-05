@@ -12,22 +12,17 @@ mod withdraw;
 
 use arbitrary::Unstructured;
 use lending::{
-    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    constants::{INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
     contract::{LendingContract, LendingContractClient},
     obligation::{BorrowObligation, DepositObligation},
     pool::PoolConfig,
     soroswap_router, LCError,
 };
-use sep_40_oracle::{
-    testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM},
-    PriceFeedClient,
-};
-use soroban_fixed_point_math::FixedPoint;
+use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_sdk::{
     symbol_short,
     testutils::{arbitrary::Arbitrary, Address as _, Ledger, LedgerInfo},
     token::{self, StellarAssetClient, TokenClient},
-    xdr::Price,
     Address, Env, Symbol,
 };
 
@@ -270,7 +265,7 @@ impl TestFixture<'_> {
 
         let clients = pools
             .iter()
-            .map(|pool| token::Client::new(&e, &pool.token_address))
+            .map(|pool| token::Client::new(e, &pool.token_address))
             .collect::<Vec<_>>();
 
         // Pool data must be non-negative
@@ -295,7 +290,7 @@ impl TestFixture<'_> {
         }
 
         // Check that you can always borrow what's available on the pool
-        let new_borrower = Address::generate(&e);
+        let new_borrower = Address::generate(e);
 
         let collateral_amount = pools
             .iter()
@@ -347,6 +342,7 @@ impl TestFixture<'_> {
 }
 
 pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClient) {
+    #[allow(clippy::zero_prefixed_literal)]
     oracle_client.set_price_stable(&soroban_sdk::vec![
         e,
         0_30000000000000, // GOLD
@@ -380,7 +376,7 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
     sac_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
 
     for user in users {
-        sac_client.mint(&user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
+        sac_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
     }
 
     TestAssetSetup {
@@ -696,13 +692,13 @@ impl RunCommand for DepositWithLeverage {
             let (flash_loan_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
 
             contract_client.deposit(
-                &flash_loan_provider,
+                flash_loan_provider,
                 &borrow_pool_address,
                 &self.flash_loan_amount.0,
             );
 
             let _ = contract_client.try_deposit_with_leverage(
-                &lender,
+                lender,
                 &deposit_pool_address,
                 &borrow_pool_address,
                 &self.amount.0,
@@ -855,7 +851,7 @@ mod tests {
         });
 
         // Extend individual user's storage
-        contract_client.deposit(&user, &usdc_pool_address, &1);
+        contract_client.deposit(user, &usdc_pool_address, &1);
 
         e.as_contract(&contract_id, || {
             assert_eq!(
@@ -916,7 +912,7 @@ mod tests {
         });
 
         // Deposit once more to bump shared persistent token storage
-        contract_client.deposit(&user, &usdc_pool_address, &1);
+        contract_client.deposit(user, &usdc_pool_address, &1);
 
         e.as_contract(&contract_id, || {
             assert_eq!(

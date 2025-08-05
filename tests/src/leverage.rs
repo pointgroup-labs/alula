@@ -33,13 +33,13 @@ fn test_deposit_zero() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
     let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &0,
@@ -68,7 +68,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
     assert_eq!(
         Err(Ok(LCError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
-            &user,
+            user,
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
@@ -79,7 +79,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
     assert_eq!(
         Err(Ok(LCError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
-            &user,
+            user,
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
@@ -104,7 +104,7 @@ fn test_deposit_with_no_leverage() {
     let user = &users[0];
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -113,7 +113,7 @@ fn test_deposit_with_no_leverage() {
 
     // Check if this is equivalent to a plain deposit
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     let amount_out = swap::get_amount_out(
         &e,
@@ -126,7 +126,7 @@ fn test_deposit_with_no_leverage() {
 
     assert_eq!(expected_deposited_amount, obligation_tokens_from_shares);
     // No borrowing position must be created
-    assert!(get_borrow_obligation(&contract_client, &user, &gold_pool_address).is_err());
+    assert!(get_borrow_obligation(&contract_client, user, &gold_pool_address).is_err());
 }
 
 #[test]
@@ -146,7 +146,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
 
     assert_eq!(
         contract_client.try_deposit_with_leverage(
-            &user,
+            user,
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
@@ -174,11 +174,11 @@ fn test_deposit_with_unhealthy_leverage() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     assert_eq!(
         contract_client.try_deposit_with_leverage(
-            &user,
+            user,
             &usdc_pool_address,
             &gold_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
@@ -206,10 +206,10 @@ fn test_deposit_with_leverage() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -218,10 +218,10 @@ fn test_deposit_with_leverage() {
 
     // Check obligation
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     let obligation_borrowed =
-        get_obligation_borrowed(&contract_client, &user, &gold_pool_address).unwrap();
+        get_obligation_borrowed(&contract_client, user, &gold_pool_address).unwrap();
 
     let amount_in = LEVERAGE as i128 * DEFAULT_DEPOSIT_AMOUNT;
     let amount_out =
@@ -270,10 +270,10 @@ fn test_withdraw_zero() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -282,13 +282,13 @@ fn test_withdraw_zero() {
 
     let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
     let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
-    let obligation_before = contract_client.get_user_obligation(&user);
+    let obligation_before = contract_client.get_user_obligation(user);
 
-    contract_client.withdraw_from_leveraged(&user, &usdc_pool_address, &gold_pool_address, &0);
+    contract_client.withdraw_from_leveraged(user, &usdc_pool_address, &gold_pool_address, &0);
 
     let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
     let gold_pool_after = contract_client.get_pool(&usdc_pool_address);
-    let obligation_after = contract_client.get_user_obligation(&user);
+    let obligation_after = contract_client.get_user_obligation(user);
 
     assert_eq!(usdc_pool_before, usdc_pool_after);
     assert_eq!(gold_pool_before, gold_pool_after);
@@ -312,10 +312,10 @@ fn test_withdraw_negative() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -325,7 +325,7 @@ fn test_withdraw_negative() {
     assert_eq!(
         Err(Ok(LCError::NegativeWithdraw)),
         contract_client.try_withdraw_from_leveraged(
-            &user,
+            user,
             &usdc_pool_address,
             &gold_pool_address,
             &-1
@@ -347,7 +347,7 @@ fn test_withdraw_for_position_with_no_leverage() {
     let user = &users[0];
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -355,7 +355,7 @@ fn test_withdraw_for_position_with_no_leverage() {
     );
 
     // No borrow position must exist
-    assert!(get_borrow_obligation(&contract_client, &user, &gold_pool_address).is_err());
+    assert!(get_borrow_obligation(&contract_client, user, &gold_pool_address).is_err());
 
     // Check obligation
     let amount_out = swap::get_amount_out(
@@ -368,10 +368,10 @@ fn test_withdraw_for_position_with_no_leverage() {
 
     let expected_amount = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     // No borrow position must exist still
-    assert!(get_borrow_obligation(&contract_client, &user, &gold_pool_address).is_err());
+    assert!(get_borrow_obligation(&contract_client, user, &gold_pool_address).is_err());
     assert_eq!(expected_amount, obligation_tokens_from_shares);
 }
 
@@ -393,10 +393,10 @@ fn test_withdraw() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -414,7 +414,7 @@ fn test_withdraw() {
 
     // We must be able to withdraw the initial amount
     contract_client.withdraw_from_leveraged(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &withdrawable_amount,
@@ -431,10 +431,10 @@ fn test_withdraw() {
     .unwrap();
 
     let obligation_borrowed =
-        get_obligation_borrowed(&contract_client, &user, &gold_pool_address).unwrap();
+        get_obligation_borrowed(&contract_client, user, &gold_pool_address).unwrap();
 
     let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&e, &contract_client, &user, &usdc_pool_address).unwrap();
+        get_obligation_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     // less than 10% of originally deposited value must be left
     let expected_deposit_left_upper_bound_amount =
@@ -485,7 +485,7 @@ fn test_withdraw_over_balance() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     let borrowed_token_supply_before = contract_client
         .get_pool(&gold_pool_address)
@@ -493,7 +493,7 @@ fn test_withdraw_over_balance() {
         .unwrap();
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT),
@@ -511,7 +511,7 @@ fn test_withdraw_over_balance() {
 
     // Withdrawing more than max available amount must succeed because of the inner cap
     contract_client.withdraw_from_leveraged(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &(10 * withdrawable_amount / 9),
@@ -549,10 +549,10 @@ fn test_withdraw_all_available_with_i128_max() {
     let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.deposit_with_leverage(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT),
@@ -565,7 +565,7 @@ fn test_withdraw_all_available_with_i128_max() {
         .unwrap();
 
     contract_client.withdraw_from_leveraged(
-        &user,
+        user,
         &usdc_pool_address,
         &gold_pool_address,
         &i128::MAX,

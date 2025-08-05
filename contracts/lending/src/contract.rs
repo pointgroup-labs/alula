@@ -1300,7 +1300,7 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
     let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
-    let reflector_contract = PriceFeedClient::new(&e, &reflector_address);
+    let reflector_contract = PriceFeedClient::new(e, &reflector_address);
 
     reflector_contract.decimals()
 }

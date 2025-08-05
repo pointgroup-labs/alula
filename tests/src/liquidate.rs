@@ -324,7 +324,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     let liquidator = &fixture.users[2];
     // Lender provides liquidity
     fixture.contract_client.deposit(
-        &lender,
+        lender,
         &fixture.usdc_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT * 5),
     );
@@ -332,7 +332,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     // Create minimal collateral position
     let minimal_collateral = DEFAULT_DEPOSIT_AMOUNT / 10; // Very small collateral
     fixture.contract_client.add_collateral(
-        &borrower,
+        borrower,
         &fixture.gold_pool_address,
         &minimal_collateral,
     );
@@ -341,7 +341,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     let max_borrow = (minimal_collateral * DEFAULT_LIQUIDATION_THRESHOLD) / 100; // 80% of collateral value
     fixture
         .contract_client
-        .borrow(&borrower, &fixture.usdc_pool_address, &max_borrow);
+        .borrow(borrower, &fixture.usdc_pool_address, &max_borrow);
 
     // Accrue interest to make position unhealthy
     fixture
@@ -352,7 +352,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     // Get current borrowed amount (should include accrued interest)
     let total_debt = get_borrow_obligation(
         &fixture.contract_client,
-        &borrower,
+        borrower,
         &fixture.usdc_pool_address,
     )
     .unwrap()
@@ -365,8 +365,8 @@ fn test_liquidate_exceeds_close_factor_fails() {
 
     // This should fail with close factor exceeded
     let result = fixture.contract_client.try_liquidate(
-        &liquidator,
-        &borrower,
+        liquidator,
+        borrower,
         &fixture.usdc_pool_address,
         &fixture.gold_pool_address,
         &over_limit,
