@@ -50,8 +50,7 @@ jobs:
           NODE_OPTIONS: --max_old_space_size=4096
         run: |
           pnpm run build:ssg
-          cp .output/public/index.html .output/public/404.html || true
-          touch .output/public/.nojekyll || true
+          cp dist/index.html dist/404.html && touch dist/.nojekyll
         working-directory: ${{ env.WORKDIR }}
 
       - name: Setup Pages
@@ -60,7 +59,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ env.WORKDIR }}/.output/public
+          path: ${{ env.WORKDIR }}/dist
 
   deploy:
     runs-on: ubuntu-latest
