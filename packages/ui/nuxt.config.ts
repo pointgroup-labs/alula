@@ -263,8 +263,17 @@ export default defineNuxtConfig({
         },
       ],
       script: [
+
         {
-          innerHTML: ``,
+          innerHTML: `
+          (function(){
+              const p = location.pathname;
+              if (p.length > 1 && p.endsWith('/')) {
+                const np = p.replace(/\\/+$/, '');
+                location.replace(np + location.search + location.hash);
+              }
+            })();
+            `,
           type: 'text/javascript',
           body: true,
         } as any,
