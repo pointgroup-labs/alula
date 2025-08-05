@@ -266,14 +266,14 @@ export default defineNuxtConfig({
 
         {
           innerHTML: `
-          (function(){
-              const p = location.pathname;
-              if (p.length > 1 && p.endsWith('/')) {
-                const np = p.replace(/\\/+$/, '');
-                location.replace(np + location.search + location.hash);
-              }
+             (function() {
+              const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
+              const isDarkMode = setting === 'dark' || (prefersDark && setting !== 'light')
+              document.body.classList.toggle('body--dark', isDarkMode)
+              document.body.classList.toggle('body--light', !isDarkMode)
             })();
-            `,
+          `,
           type: 'text/javascript',
           body: true,
         } as any,
