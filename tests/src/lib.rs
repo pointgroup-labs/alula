@@ -179,7 +179,7 @@ impl TestFixture<'_> {
                 Asset::Other(usdc_ticker),
             ],
             &7,
-            &300,
+            &123, // resolution is irrelevant because of stable prices
         );
 
         make_oracle_prices_equal(&e, &oracle_client);
@@ -493,7 +493,7 @@ impl Command {
     }
 }
 
-#[derive(Arbitrary, Debug, Default)]
+#[derive(Arbitrary, Debug)]
 pub struct Amount(
     #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u64::MAX as i128)))] pub i128,
 );
