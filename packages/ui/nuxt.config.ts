@@ -151,6 +151,7 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
     '@pinia/nuxt',
     '@nuxtjs/i18n',
+    '@vite-pwa/nuxt',
   ],
 
   i18n: {
