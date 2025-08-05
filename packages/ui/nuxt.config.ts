@@ -246,6 +246,9 @@ export default defineNuxtConfig({
   },
 
   app: {
+    // @ts-expect-error...
+    trailingSlash: 'remove',
+
     baseURL: env.NUXT_PUBLIC_BASE_URL || '/',
 
     head: {
@@ -273,8 +276,8 @@ export default defineNuxtConfig({
               const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
               const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
               const isDarkMode = setting === 'dark' || (prefersDark && setting !== 'light')
-              document.body.classList.toggle('body--dark', isDarkMode)
-              document.body.classList.toggle('body--light', !isDarkMode)
+              document?.body?.classList.toggle('body--dark', isDarkMode)
+              document?.body?.classList.toggle('body--light', !isDarkMode)
             })();
           `,
           type: 'text/javascript',
