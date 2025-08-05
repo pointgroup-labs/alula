@@ -71,7 +71,7 @@ mod test {
             test_fixture.contract_client.deposit(
                 lender,
                 &test_fixture.usdc_pool_address,
-                &(DEFAULT_DEPOSIT_AMOUNT),
+                &DEFAULT_DEPOSIT_AMOUNT,
             );
 
             Self {

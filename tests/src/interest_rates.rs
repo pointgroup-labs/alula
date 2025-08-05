@@ -20,7 +20,7 @@ fn test_interest_rates() {
     // Deposit gold as a collateral to satisfy the health factor threshold
     contract_client.add_collateral(user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // 0% UR
     let rates = contract_client.get_apy(&usdc_pool_address);

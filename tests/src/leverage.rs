@@ -496,7 +496,7 @@ fn test_withdraw_over_balance() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
-        &(DEFAULT_DEPOSIT_AMOUNT),
+        &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );
 
@@ -555,7 +555,7 @@ fn test_withdraw_all_available_with_i128_max() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
-        &(DEFAULT_DEPOSIT_AMOUNT),
+        &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );
 

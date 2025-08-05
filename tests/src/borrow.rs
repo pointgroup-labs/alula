@@ -26,7 +26,7 @@ fn test_borrow() {
     // Deposit gold to satisfy the health factor threshold
     contract_client.deposit(user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.borrow(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation_borrowed = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
@@ -63,7 +63,7 @@ fn test_exceed_borrow_limit() {
     contract_client.deposit(user, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT));
 
     // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     contract_client.borrow(
         user,
@@ -91,10 +91,10 @@ fn test_borrow_zero() {
     let user2 = &users[1];
 
     // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
 
@@ -121,10 +121,10 @@ fn test_borrow_negative() {
     let user2 = &users[1];
 
     // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &-1),
@@ -146,7 +146,7 @@ fn test_borrow_health_factor_add_collateral() {
     let user = &users[0];
     let user2 = &users[1];
     // Deposit gold to satisfy the health factor threshold
-    contract_client.add_collateral(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let deposit_obligation =
         get_deposit_obligation(&contract_client, user, &gold_pool_address).unwrap();
@@ -170,12 +170,12 @@ fn test_borrow_health_factor_add_collateral() {
 
     // Borrow which leads to the health factor threshold constraint violation
     assert_eq!(
-        contract_client.try_borrow(user, &usdc_pool_address, &(1)),
+        contract_client.try_borrow(user, &usdc_pool_address, &1),
         Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
     );
 
     // Improve health factor
-    contract_client.add_collateral(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // Borrow without health factor violation
     contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
@@ -195,7 +195,7 @@ fn test_borrow_health_factor_deposit() {
     let user = &users[0];
     let user2 = &users[1];
     // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
@@ -211,12 +211,12 @@ fn test_borrow_health_factor_deposit() {
 
     // Borrow which leads to the health factor threshold constraint violation
     assert_eq!(
-        contract_client.try_borrow(user, &usdc_pool_address, &(1)),
+        contract_client.try_borrow(user, &usdc_pool_address, &1),
         Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
     );
 
     // Improve health factor
-    contract_client.deposit(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // Borrow without health factor violation
     contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
