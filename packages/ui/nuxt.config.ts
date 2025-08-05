@@ -264,23 +264,7 @@ export default defineNuxtConfig({
       ],
       script: [
         {
-          innerHTML: `
-            (function() {
-              const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-              const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
-              const isDarkMode = setting === 'dark' || (prefersDark && setting !== 'light')
-              document.body.classList.toggle('body--dark', isDarkMode)
-              document.body.classList.toggle('body--light', !isDarkMode)
-            })();
-
-            (function() {
-            const p = window.location.pathname;
-            if (p.length > 1 && p.endsWith('/')) {
-              const np = p.replace(/\/+$/, '');
-              window.location.replace(np + window.location.search + window.location.hash);
-            }
-            })();
-          `,
+          innerHTML: ``,
           type: 'text/javascript',
           body: true,
         } as any,
