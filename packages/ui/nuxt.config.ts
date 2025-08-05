@@ -154,13 +154,6 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt',
   ],
 
-  router: {
-    options: {
-      // @ts-expect-error...
-      trailingSlash: false,
-    },
-  },
-
   i18n: {
     strategy: 'no_prefix',
     defaultLocale: 'en',
@@ -250,6 +243,9 @@ export default defineNuxtConfig({
   },
 
   app: {
+    // @ts-expect-error...
+    trailingSlash: 'remove',
+
     baseURL: env.NUXT_PUBLIC_BASE_URL || '/',
 
     head: {
