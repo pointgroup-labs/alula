@@ -1,4 +1,5 @@
 use moderc3156::FlashLoanClient;
+use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     contract, contractimpl,
@@ -16,7 +17,6 @@ use crate::{
     interest_rate::CompoundRates,
     math_utils::MathUtils,
     obligation::{LiquidationValues, Obligation},
-    oracle,
     pool::{MultiplyPair, Pool, PoolAddress, PoolConfig},
     storage::{self, GlobalState},
     swap, LCError,
@@ -310,8 +310,8 @@ impl LendingContract {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     /// * `amount` - original borrow amount before the leverage
-    /// * `leverage_multiplier` - leverage multiplier, where the last two digits represent
-    ///   decimal places (e.g., 700 for x7.00, 255 for x2.55, etc.)
+    /// * `leverage_multiplier` - leverage multiplier, where the last two digits represent decimal
+    ///   places (e.g., 700 for x7.00, 255 for x2.55, etc.)
     pub fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -746,8 +746,8 @@ fn process_repay(
     pool.adjust_available(e, repaid_amount)?;
 
     if obligation.is_empty() {
-        // Obligation shouldn't be empty at this point due to some amount of collateral or deposit required
-        // to repay the debt
+        // Obligation shouldn't be empty at this point due to some amount of collateral or deposit
+        // required to repay the debt
         events::obligation_is_unexpectedly_empty(e, user, pool_address);
 
         return Err(LCError::InternalError);
@@ -1041,7 +1041,8 @@ fn process_deposit_with_leverage(
         );
 
         borrow_pool.adjust_available(e, -flash_borrow_amount)?;
-        // NB: This `set` is required, since 'available' amount is later accounted when calling `process_borrow`
+        // NB: This `set` is required, since 'available' amount is later accounted when calling
+        // `process_borrow`
         borrow_pool.set(e);
     }
 
@@ -1280,9 +1281,9 @@ fn compute_leveraged_position_max_withdrawable_amount(
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
     let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
-    let reflector_contract = oracle::Client::new(e, &reflector_address);
+    let reflector_contract = PriceFeedClient::new(e, &reflector_address);
 
-    let asset = oracle::Asset::Other(ticker.clone());
+    let asset = Asset::Other(ticker.clone());
 
     let price_data = reflector_contract
         .lastprice(&asset)
@@ -1299,7 +1300,7 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
     let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
-    let reflector_contract = oracle::Client::new(e, &reflector_address);
+    let reflector_contract = PriceFeedClient::new(e, &reflector_address);
 
     reflector_contract.decimals()
 }

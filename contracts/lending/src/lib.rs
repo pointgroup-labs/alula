@@ -7,7 +7,6 @@ pub mod events;
 pub mod interest_rate;
 pub mod math_utils;
 pub mod obligation;
-pub mod oracle;
 pub mod pool;
 pub mod soroswap_router;
 pub mod storage;

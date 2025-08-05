@@ -63,15 +63,15 @@ mod test {
     impl FlashLoanTest<'_> {
         fn new() -> Self {
             let test_fixture = TestFixture::new();
-            let lender = test_fixture.users.get(0).unwrap();
+            let lender = &test_fixture.users[0];
             let flash_loan_taker_contract_id =
                 test_fixture.e.register(FlashLoanLiquidatorContract, ());
 
             // Deposit usdc as some lender to have a non-empty loan pool
             test_fixture.contract_client.deposit(
-                &lender,
+                lender,
                 &test_fixture.usdc_pool_address,
-                &(DEFAULT_DEPOSIT_AMOUNT),
+                &DEFAULT_DEPOSIT_AMOUNT,
             );
 
             Self {

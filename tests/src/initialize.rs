@@ -1,12 +1,13 @@
 #![cfg(test)]
 
-use crate::get_default_env;
 use lending::{
     contract::{LendingContract, LendingContractClient},
     pool::MultiplyPair,
     storage, LCError,
 };
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN};
+
+use crate::get_default_env;
 
 #[test]
 fn test_pool_initialize() {

@@ -64,7 +64,7 @@ impl Pool {
             return Err(LCError::InvalidTimestamp);
         }
 
-        let seconds_passed = current_timestamp - self.last_accrual_timestamp;
+        let seconds_passed = current_timestamp - self.last_accrual_timestamp; // safe
         if seconds_passed == 0 {
             return Ok(()); // No time passed, no interest to accrue
         }
@@ -207,8 +207,9 @@ impl Pool {
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
         if utilization_ratio > self.config.utilization_ratio_limit_bps {
-            // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time by itself, so
-            // for now, we simply emit an event. We can agree to stop accruing interest on a pool if this happens
+            // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time
+            // by itself, so for now, we simply emit an event. We can agree to stop
+            // accruing interest on a pool if this happens
             events::utilization_ratio_exceeds_limit(
                 e,
                 utilization_ratio,

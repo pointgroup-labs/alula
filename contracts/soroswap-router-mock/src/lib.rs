@@ -37,6 +37,7 @@ pub struct MockSoroswapRouterContract;
 #[contractimpl]
 impl MockSoroswapRouterContract {
     // For now we assume 1:1 swap rate
+    // TODO: We can take prices here from `PriceFeedClient`
     pub fn router_get_amounts_in(
         e: Env,
         amount_out: i128,

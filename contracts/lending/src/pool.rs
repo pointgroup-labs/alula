@@ -126,7 +126,8 @@ impl Pool {
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the share of the of `shares` in the pool, based on the supplied tokens amount
+    /// Computes tokens amount proportional to the share of the of `shares` in the pool, based on
+    /// the supplied tokens amount
     pub fn compute_tokens_from_shares(
         &self,
         e: &Env,

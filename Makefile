@@ -60,7 +60,7 @@ build-deploy: download ## Build contracts for deployment
 	$(call build_contract,$(LENDING_CONTRACT),$(DEPLOY_DIR),--features deploy)
 
 build-init: ## Build init
-	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
+	mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
 
 download: build-init ## Downloads dependency contracts
 	@echo "Checking for WASM files..."
@@ -80,6 +80,9 @@ sdk: build-optimize ## Generate typescript sdk
 
 test: build ## Run tests
 	cargo nextest run --locked --workspace
+
+fuzz: ## Run fuzzing suite
+	RUST_BACKTRACE=1 cargo +nightly fuzz run --fuzz-dir=tests/fuzz --sanitizer=thread fuzz_target -- -max_len=1048576
 
 test-coverage: ## Test coverage
 	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
