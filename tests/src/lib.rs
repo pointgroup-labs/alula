@@ -275,7 +275,8 @@ impl TestFixture<'_> {
             assert!(pool.total_shares >= 0);
         }
 
-        // Contract's token balances shouldn't be smaller than the corresponding `available` values on pools
+        // Contract's token balances shouldn't be smaller than the corresponding `available` values
+        // on pools
         let token_balances = clients
             .iter()
             .map(|client| client.balance(contract_id))
@@ -390,8 +391,8 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
 pub trait RunCommand {
     fn run(&self, test_fixture: &TestFixture, who: usize);
 }
-// TODO: This screams `add macro`, though, it's unlikely that many more actors/commands will be added
-// so, maybe, it's an overkill
+// TODO: This screams `add macro`, though, it's unlikely that many more actors/commands will be
+// added so, maybe, it's an overkill
 #[derive(Arbitrary, Debug)]
 pub enum Command {
     TomRepay(Repay),

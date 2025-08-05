@@ -106,11 +106,7 @@ fn test_repay_with_interest_accrual() {
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Borrow 50% of the deposited value
-    contract_client.borrow(
-        user,
-        &usdc_pool_address,
-        &(5 * DEFAULT_DEPOSIT_AMOUNT / 10),
-    );
+    contract_client.borrow(user, &usdc_pool_address, &(5 * DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let obligation_borrowed = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()
@@ -184,11 +180,7 @@ fn test_repay_unpaid_interest_only() {
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     // Borrow 50% of the deposited value
-    contract_client.borrow(
-        user,
-        &usdc_pool_address,
-        &(5 * DEFAULT_DEPOSIT_AMOUNT / 10),
-    );
+    contract_client.borrow(user, &usdc_pool_address, &(5 * DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let unpaid_interest = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()

@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-
 use crate::{TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
 #[test]

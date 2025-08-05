@@ -10,8 +10,8 @@ doctest = true
 
 [dependencies]
 moderc3156 = { workspace = true }
-soroban-fixed-point-math = { workspace = true }
 sep-40-oracle = { workspace = true }
+soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]
