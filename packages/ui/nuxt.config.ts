@@ -176,6 +176,9 @@ export default defineNuxtConfig({
   // debug: true,
   nitro: {
     logLevel: 'debug',
+    prerender: {
+      autoSubfolderIndex: false,
+    },
     // preset: 'node',
     // devErrorHandler: true,
     // prerender: {
