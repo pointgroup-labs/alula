@@ -154,6 +154,13 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt',
   ],
 
+  router: {
+    options: {
+      // @ts-expect-error...
+      trailingSlash: false,
+    },
+  },
+
   i18n: {
     strategy: 'no_prefix',
     defaultLocale: 'en',
@@ -270,8 +277,8 @@ export default defineNuxtConfig({
               const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
               const setting = localStorage.getItem('vueuse-color-scheme') || 'auto'
               const isDarkMode = setting === 'dark' || (prefersDark && setting !== 'light')
-              document.body.classList.toggle('body--dark', isDarkMode)
-              document.body.classList.toggle('body--light', !isDarkMode)
+              document?.body?.classList.toggle('body--dark', isDarkMode)
+              document?.body?.classList.toggle('body--light', !isDarkMode)
             })();
           `,
           type: 'text/javascript',

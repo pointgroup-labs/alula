@@ -3657,8 +3657,8 @@ packages:
   bare-semver@1.0.1:
     resolution: {integrity: sha512-UtggzHLiTrmFOC/ogQ+Hy7VfoKoIwrP1UFcYtTxoCUdLtsIErT8+SWtOC2DH/snT9h+xDrcBEPcwKei1mzemgg==}
 
-  bare-url@2.1.6:
-    resolution: {integrity: sha512-FgjDeR+/yDH34By4I0qB5NxAoWv7dOTYcOXwn73kr+c93HyC2lU6tnjifqUe33LKMJcDyCYPQjEAqgOQiXkE2Q==}
+  bare-url@2.2.0:
+    resolution: {integrity: sha512-mSNJA/0wTDIg0OzID851OYbBjDVh7c95TLN6w9+bgQntR0hy8mxZ0yBKWWUH7j1YCM7z2+y0B1DKSSSziFEE0g==}
 
   base-x@3.0.11:
     resolution: {integrity: sha512-xz7wQ8xDhdyP7tQxwdteLYeFfS68tSMNCZ/Y37WJ4bhGfKPpqEIlmIyueQHqOyoPhE6xNUqjzRr8ra0eF9VRvA==}
@@ -13032,22 +13032,22 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
-  bare-addon-resolve@1.9.4(bare-url@2.1.6):
+  bare-addon-resolve@1.9.4(bare-url@2.2.0):
     dependencies:
-      bare-module-resolve: 1.11.1(bare-url@2.1.6)
+      bare-module-resolve: 1.11.1(bare-url@2.2.0)
       bare-semver: 1.0.1
     optionalDependencies:
-      bare-url: 2.1.6
+      bare-url: 2.2.0
     optional: true
 
   bare-events@2.6.0:
     optional: true
 
-  bare-module-resolve@1.11.1(bare-url@2.1.6):
+  bare-module-resolve@1.11.1(bare-url@2.2.0):
     dependencies:
       bare-semver: 1.0.1
     optionalDependencies:
-      bare-url: 2.1.6
+      bare-url: 2.2.0
     optional: true
 
   bare-os@3.6.1:
@@ -13061,7 +13061,7 @@ snapshots:
   bare-semver@1.0.1:
     optional: true
 
-  bare-url@2.1.6:
+  bare-url@2.2.0:
     dependencies:
       bare-path: 3.0.0
     optional: true
@@ -17117,8 +17117,8 @@ snapshots:
 
   require-addon@1.1.0:
     dependencies:
-      bare-addon-resolve: 1.9.4(bare-url@2.1.6)
-      bare-url: 2.1.6
+      bare-addon-resolve: 1.9.4(bare-url@2.2.0)
+      bare-url: 2.2.0
     optional: true
 
   require-directory@2.1.1: {}
