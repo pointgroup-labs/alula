@@ -113,12 +113,12 @@ watchEffect(() => {
 
 <style lang="scss">
 $tooltip-bg-color: white !default;
-// $tooltip-dark-bg-color: $dark-bg !default;
+$tooltip-dark-bg-color: $dark !default;
 $tooltip-padding-y: 12px !default;
 $tooltip-padding-x: 12px !default;
 $tooltip-border-radius: 12px !default;
 $tooltip-border-color: #ebebeb !default;
-// $tooltip-dark-border-color: $neutral-900 !default;
+$tooltip-dark-border-color: $neutral-18 !default;
 
 .tooltip-content {
   background-color: $tooltip-bg-color;
@@ -138,10 +138,10 @@ $tooltip-border-color: #ebebeb !default;
 }
 
 body.body--dark {
-  // .tooltip-content {
-  //   background-color: $tooltip-dark-bg-color;
-  //   border-color: $tooltip-dark-border-color;
-  //   color: #fff;
-  // }
+  .tooltip-content {
+    background-color: $tooltip-dark-bg-color;
+    border-color: $tooltip-dark-border-color;
+    color: #fff;
+  }
 }
 </style>

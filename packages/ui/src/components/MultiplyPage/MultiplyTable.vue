@@ -49,9 +49,9 @@ const items = computed<MultiplyTableItem[]>(() => {
       const depositTokenSymbol = depositPool?.token_ticker
       const borrowTokenSymbol = borrowPool?.token_ticker
       const depositTokenName = getTokenName(String(depositTokenSymbol))
-      const depositTokenIcon = getTokenIcon(String(depositTokenSymbol))
+      const depositTokenIcon = getTokenIcon(String(depositTokenSymbol)) || ''
       const borrowTokenName = getTokenName(String(borrowTokenSymbol))
-      const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol))
+      const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol)) || ''
       const ltv = Number(depositPool?.config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
       const maxAPY
@@ -168,8 +168,8 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
         <div class="table-cell justify-content-center">
           <j-pill-label
             color="#111"
-            bg-color="rgba(8, 181, 118, 0.50)"
             size="md"
+            variant="success"
           >
             {{ truncatePercent(data.item.multiplier || 0, 2) }}x
           </j-pill-label>

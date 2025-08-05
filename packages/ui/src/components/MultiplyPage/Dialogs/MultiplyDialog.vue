@@ -144,6 +144,10 @@ const infoTableData = computed(() => {
 
 const dialog = defineModel<boolean>({ default: false })
 
+function swapAsset() {
+  isDepositMultiply.value = !isDepositMultiply.value
+}
+
 async function leverage() {
   if (!publicKey.value || !data?.depositPool.pool_address) {
     return
@@ -185,6 +189,7 @@ watch(dialog, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
+console.log('data', data)
 </script>
 
 <template>
@@ -194,12 +199,31 @@ watch(dialog, async (v) => {
   >
     <template #header>
       <div class="multiply-dialog__title">
-        <span>Multiply {{ depositAsset.name }}</span>
+        <span>Multiply</span>
       </div>
+
     </template>
 
     <div class="multiply-dialog__body">
       <div class="multiply-dialog__data">
+        <div class="multiply-dialog__assets">
+
+          <div class="asset-data">
+            <img :src="depositAsset?.icon">
+            <span>{{ depositAsset?.name }} </span>
+          </div>
+          <div
+            class="asset-swapper"
+            @click="swapAsset"
+          >
+            <i-app-repeat />
+          </div>
+          <div class="asset-data">
+            <img :src="borrowAsset?.icon">
+            <span>{{ borrowAsset?.name }} </span>
+          </div>
+        </div>
+
         <input-widget
           v-model="amount"
           :balance="balance"
@@ -216,41 +240,18 @@ watch(dialog, async (v) => {
           ]"
         >
           <template #label-right>
-            Wallet: {{ balance }} {{ depositAsset.name }}
+            Wallet: {{ balance }} {{ depositAsset?.name }}
           </template>
           <template #prepend>
-            <j-popover
-              class-name="asset-popover"
-              position="bottom"
-              :teleport-to-body="false"
-              close-popup
+            <img
+              :src="depositAsset?.icon"
+              :alt="`${depositAsset?.name} icon`"
             >
-              <ul class="asset-popover__list">
-                <li
-                  class="asset-popover__list-item "
-                  @click="isDepositMultiply = !isDepositMultiply"
-                >
-                  <!-- asset-popover__list-item--disabled -->
-                  <img
-                    :src="borrowAsset?.icon"
-                    :alt="`${borrowAsset.name} icon`"
-                  >
-                  <span>{{ borrowAsset.name }}</span>
-                </li>
-              </ul>
-
-              <template #target>
-                <img
-                  :src="depositAsset?.icon"
-                  :alt="`${depositAsset.name} icon`"
-                >
-              </template>
-            </j-popover>
           </template>
         </input-widget>
 
         <div class="multiply-dialog__notice">
-          Notice: In this version, multiply via the borrow token is available.
+          Notice: In this version, multiply via the {{ data?.borrowAsset.symbol }} token is available.
         </div>
 
         <div
@@ -307,49 +308,11 @@ watch(dialog, async (v) => {
   }
 
   .j-input__prepend {
-    .popover-body {
-      padding: 0 !important;
-    }
-
-    .asset-popover {
+    img {
       width: 32px;
       height: 32px;
-
-      img {
-        object-fit: contain;
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-      }
-
-      &__list {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-
-        &-item {
-          display: flex;
-          align-items: center;
-          justify-content: flex-start;
-          gap: 8px;
-          cursor: pointer;
-          padding: $spacing-8 $spacing-12;
-
-          &:hover {
-            background-color: $neutral-5;
-          }
-
-          &--disabled {
-            cursor: not-allowed;
-            color: $neutral-12;
-          }
-
-          img {
-            width: 24px;
-            height: 24px;
-          }
-        }
-      }
+      object-fit: contain;
+      border-radius: 50%;
     }
   }
 
@@ -374,6 +337,47 @@ watch(dialog, async (v) => {
     font-weight: 500;
     line-height: 12px;
     color: $neutral-12;
+  }
+
+  &__assets {
+    display: flex;
+    align-items: center;
+    gap: $spacing-6;
+    user-select: none;
+    border-bottom: 1px solid $neutral-5;
+    padding-bottom: $spacing-16;
+
+    .asset-data {
+      display: flex;
+      align-items: center;
+      gap: $spacing-6;
+      font-size: 18px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 20px;
+
+      img {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+        border-radius: 50%;
+      }
+    }
+
+    .asset-swapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: $spacing-4 $spacing-16;
+      background-color: $neutral-3;
+      border-radius: 100px;
+      cursor: pointer;
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
   }
 
   &__data {
@@ -426,6 +430,17 @@ watch(dialog, async (v) => {
     .btn {
       width: 100%;
     }
+  }
+}
+
+body.body--dark {
+  .multiply-dialog__assets {
+   border-color: $neutral-16;
+
+   .asset-swapper {
+    background-color: $neutral-16;
+    color: $neutral-9;
+   }
   }
 }
 </style>

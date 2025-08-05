@@ -86,4 +86,13 @@ function copy() {
     }
   }
 }
+
+body.body--dark {
+  .wallet-popover__item {
+    color: #fff;
+    &:hover {
+      background-color: $neutral-18;
+    }
+  }
+}
 </style>

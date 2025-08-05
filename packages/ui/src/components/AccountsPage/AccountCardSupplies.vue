@@ -153,7 +153,7 @@ watch(selectedPool, (p) => {
           <div class="table-cell justify-content-center">
             <j-pill-label
               color="#111"
-              bg-color="#08b57680"
+              variant="success"
               size="md"
             >
               {{ data.item.supply_apy }}
@@ -238,6 +238,9 @@ watch(selectedPool, (p) => {
 
 body.body--dark {
   .account-card {
+    &__title {
+      color: #fff;
+    }
     .no-data {
       color: $neutral-9;
     }

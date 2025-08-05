@@ -61,6 +61,7 @@ function normalizeAmount(price: number) {
           <j-skeleton
             v-if="loading"
             height="28"
+            style="border-radius: 6px;"
             full-width
           />
           <template v-else>

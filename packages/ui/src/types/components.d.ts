@@ -27,6 +27,7 @@ declare module 'vue' {
     IAppCrossIcon: typeof import('~icons/app/cross-icon')['default']
     IAppExportIcon: typeof import('~icons/app/export-icon')['default']
     IAppPercentageSquareIcon: typeof import('~icons/app/percentage-square-icon')['default']
+    IAppRepeat: typeof import('~icons/app/repeat')['default']
     IAppSettingsIcon: typeof import('~icons/app/settings-icon')['default']
     IAppStrongboxIcon: typeof import('~icons/app/strongbox-icon')['default']
     IAppWarningColor: typeof import('~icons/app/warning-color')['default']

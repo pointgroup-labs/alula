@@ -101,4 +101,11 @@ onMounted(() => {
   width: fit-content;
   cursor: pointer;
 }
+
+body.body--dark {
+  .popover {
+    background-color: $dark;
+    border: 1px solid $neutral-18;
+  }
+}
 </style>

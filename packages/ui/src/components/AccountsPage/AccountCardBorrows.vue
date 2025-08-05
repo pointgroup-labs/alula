@@ -151,7 +151,7 @@ watch(selectedPool, (p) => {
           <div class="table-cell justify-content-center">
             <j-pill-label
               color="#111"
-              bg-color="#e49c0b80"
+              variant="warning"
               size="md"
             >
               {{ data.item.borrow_apy }}

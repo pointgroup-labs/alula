@@ -32,4 +32,14 @@ function close() {
     }
   }
 }
+
+body.body--dark {
+  .settings-sidebar {
+    .setting-item {
+      &:not(:last-child) {
+        border-color: $neutral-16;
+      }
+    }
+  }
+}
 </style>
