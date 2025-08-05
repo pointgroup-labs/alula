@@ -18,7 +18,7 @@ const __dirname = dirname(__filename)
 export default defineNuxtConfig({
   srcDir: 'src/',
   dir: {
-    public: '../public',
+    public: resolve(__dirname, 'public'),
   },
   ssr: env.NODE_ENV !== 'development',
   devServer: {
@@ -239,9 +239,9 @@ export default defineNuxtConfig({
     },
     includeAssets: [
       '/img/apple-touch-icon.png',
-      '/img/favicon.svg',
-      '/img/favicon.ico',
-      '/img/robots.txt',
+      '/favicon.svg',
+      '/favicon.ico',
+      '/robots.txt',
     ],
   },
 
