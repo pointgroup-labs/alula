@@ -11,7 +11,7 @@ fn test_remove_obligation() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     assert!(contract_client.try_get_user_obligation(&user).is_err());
 
@@ -31,8 +31,8 @@ fn test_remove_many_obligations() {
         ..
     } = TestFixture::new();
 
-    let user1 = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user1 = &users[0];
+    let user2 = &users[2];
 
     assert!(contract_client.get_all_obligations().is_empty());
 

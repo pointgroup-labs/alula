@@ -18,7 +18,7 @@ fn test_withdraw_zero() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation_shares = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
@@ -52,7 +52,7 @@ fn test_withdraw() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation_shares = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
@@ -96,7 +96,7 @@ fn test_remove_collateral_zero() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
@@ -121,7 +121,7 @@ fn test_remove_collateral_negative() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     assert_eq!(
@@ -139,7 +139,7 @@ fn test_remove_collateral() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let obligation_collateral = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
@@ -189,8 +189,8 @@ fn test_withdraw_all_with_i128_max() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     contract_client.deposit(&user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -232,8 +232,8 @@ fn test_withdraw_more_than_open_ltv_allows() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Fill up the borrowing pool with liquidity
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -294,8 +294,8 @@ fn withdraw_up_to_open_ltv() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Fill up the borrowing pool with liquidity
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -350,7 +350,7 @@ fn test_remove_all_with_i128_max() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
@@ -389,8 +389,8 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit funds in a pool to borrow them later
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -447,10 +447,10 @@ fn test_withdraw_small_with_interest_accrual() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
-    let user3 = users.get(2).unwrap();
+    let user3 = &users[2];
 
     contract_client.deposit(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);

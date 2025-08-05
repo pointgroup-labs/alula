@@ -18,7 +18,7 @@ fn test_deposit() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.deposit(&user, &usdc_token_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let deposit_obligation = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
@@ -67,7 +67,7 @@ fn test_exceed_supply_limit() {
         ..
     } = TestFixture::new_with_pool_config(pool_config);
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.deposit(&user, &usdc_token_address, &(SUPPLY_LIMIT));
 
     assert_eq!(
@@ -85,7 +85,7 @@ fn test_add_collateral() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.add_collateral(&user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let obligation_collateral = get_deposit_obligation(&contract_client, &user, &usdc_pool_address)
@@ -108,7 +108,7 @@ fn test_add_collateral_zero() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
 
@@ -128,7 +128,7 @@ fn test_add_collateral_negative() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     assert_eq!(
         contract_client.try_add_collateral(&user, &usdc_pool_address, &-1),
@@ -148,7 +148,7 @@ fn test_deposit_non_existing_tokens() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.deposit(&user, &usdc_pool_address, &DEPOSIT_AMOUNT);
 }
 
@@ -162,7 +162,7 @@ fn test_deposit_negative() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.deposit(&user, &usdc_token_address, &-1);
 }
 
@@ -178,6 +178,6 @@ fn test_deposit_pool_does_not_exist() {
 
     let missing_pool_address = Address::generate(&e);
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
     contract_client.deposit(&user, &missing_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 }

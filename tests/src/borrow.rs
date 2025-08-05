@@ -22,8 +22,8 @@ fn test_borrow() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
     // Deposit gold to satisfy the health factor threshold
     contract_client.deposit(&user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
@@ -57,8 +57,8 @@ fn test_exceed_borrow_limit() {
         ..
     } = TestFixture::new_with_pool_config(pool_config);
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit gold to satisfy the health factor threshold
     contract_client.deposit(&user, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT));
@@ -88,8 +88,8 @@ fn test_borrow_zero() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
@@ -99,7 +99,8 @@ fn test_borrow_zero() {
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
 
-    // NB: This borrow will create a `BorrowObligation` with `borrowed` == 0. Should we care about that?
+    // NB: This borrow will create a `BorrowObligation` with `borrowed` == 0. Should we care about
+    // that?
     contract_client.borrow(&user, &usdc_pool_address, &0);
 
     let pool_after = contract_client.get_pool(&usdc_pool_address);
@@ -117,8 +118,8 @@ fn test_borrow_negative() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit usdc as another user to have a non-empty loan pool
     contract_client.deposit(&user2, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
@@ -143,8 +144,8 @@ fn test_borrow_health_factor_add_collateral() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
     // Deposit gold to satisfy the health factor threshold
     contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
 
@@ -192,8 +193,8 @@ fn test_borrow_health_factor_deposit() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
     // Deposit gold to satisfy the health factor threshold
     contract_client.deposit(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
 
@@ -237,8 +238,8 @@ fn borrow_more_than_open_ltv_allows() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Fill up the borrowing pool with liquidity
     contract_client.deposit(&user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);

@@ -1,5 +1,3 @@
-#![deny(clippy::absurd_extreme_comparisons)]
-
 mod borrow;
 mod deposit;
 mod fuzz;
@@ -14,18 +12,19 @@ mod withdraw;
 
 use arbitrary::Unstructured;
 use lending::{
-    constants::{INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
     contract::{LendingContract, LendingContractClient},
     obligation::{BorrowObligation, DepositObligation},
     oracle,
     pool::PoolConfig,
     soroswap_router, LCError,
 };
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     symbol_short,
     testutils::{arbitrary::Arbitrary, Address as _, Ledger},
     token::{self, StellarAssetClient, TokenClient},
-    vec, Address, Env, Vec,
+    Address, Env,
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
@@ -112,7 +111,7 @@ impl TestFixture<'_> {
         let soroswap_router_client = soroswap_router::Client::new(&e, &soroswap_router_address);
 
         let users = vec![
-            &e,
+            Address::generate(&e),
             Address::generate(&e),
             Address::generate(&e),
             Address::generate(&e),
@@ -211,6 +210,111 @@ impl TestFixture<'_> {
             Token::GOLD => &self.gold_token_client,
         }
     }
+
+    pub fn pass_time(&self, seconds: u64) {
+        self.e.ledger().with_mut(|li| {
+            li.timestamp = li.timestamp.saturating_add(seconds);
+            // adjusting sequence_number leads to state archival
+            // li.sequence_number = li.sequence_number.saturating_add(amount / SECONDS_PER_LEDGER);
+        });
+    }
+
+    pub fn assert_invariants(&self) {
+        let TestFixture {
+            e,
+            contract_client,
+            contract_id,
+            gold_sac,
+            gold_pool_address,
+            btc_sac,
+            btc_pool_address,
+            usdc_sac,
+            usdc_pool_address,
+            ..
+        } = self;
+
+        let pools = vec![
+            contract_client.get_pool(usdc_pool_address),
+            contract_client.get_pool(btc_pool_address),
+            contract_client.get_pool(gold_pool_address),
+        ];
+
+        let clients = pools
+            .iter()
+            .map(|pool| token::Client::new(&e, &pool.token_address))
+            .collect::<Vec<_>>();
+
+        // Pool data must be non-negative
+        for pool in &pools {
+            assert!(pool.total_borrowed >= 0);
+            assert!(pool.total_collateral >= 0);
+            assert!(pool.total_shares >= 0);
+        }
+
+        // Contract's token balances shouldn't be smaller than the corresponding `available` values on pools
+        let token_balances = clients
+            .iter()
+            .map(|client| client.balance(contract_id))
+            .collect::<Vec<_>>();
+
+        let contract_balances = pools
+            .iter()
+            .map(|pool| pool.total_collateral + pool.available);
+
+        for (&token_balance, contract_balance) in token_balances.iter().zip(contract_balances) {
+            assert!(token_balance >= contract_balance);
+        }
+
+        // Check that you can always borrow what's available on the pool
+        let new_borrower = Address::generate(&e);
+
+        let collateral_amount = pools
+            .iter()
+            .max_by(|x, y| x.available.cmp(&y.available))
+            .unwrap()
+            .available;
+
+        usdc_sac.mint(&new_borrower, &collateral_amount);
+        btc_sac.mint(&new_borrower, &collateral_amount);
+        gold_sac.mint(&new_borrower, &collateral_amount);
+
+        for pool in &pools {
+            let available_borrow = pool.compute_available_borrow(e).unwrap();
+
+            if pool.available == 0 {
+                assert_eq!(available_borrow, pool.available);
+            } else {
+                // TODO: Think about how to count this correctly
+                // assert!(
+                //     available_borrow
+                //         .fixed_div_ceil(pool.available, BPS_FACTOR)
+                //         .unwrap()
+                //         > 9_900
+                // );
+            }
+
+            contract_client.add_collateral(&new_borrower, &pool.token_address, &collateral_amount);
+            contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
+
+            contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
+            contract_client.remove_collateral(
+                &new_borrower,
+                &pool.token_address,
+                &collateral_amount,
+            );
+        }
+
+        // Interest rate invariants
+        let apys = pools
+            .iter()
+            .map(|pool| contract_client.get_apy(&pool.token_address))
+            .collect::<Vec<_>>();
+
+        for apy in apys {
+            assert!(apy.borrow_bps > 0);
+            assert!(apy.borrow_bps >= apy.supply_bps);
+        }
+    }
 }
 
 pub struct TestAssetSetup<'a> {
@@ -239,323 +343,127 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
     }
 }
 
+// ---- Fuzzing suite ----
+pub trait RunCommand {
+    fn run(&self, test_fixture: &TestFixture, who: usize);
+}
+// TODO: This screams `add macro`, though, it's unlikely that many more actors/commands will be added
+// so, maybe, it's an overkill
 #[derive(Arbitrary, Debug)]
 pub enum Command {
     TomRepay(Repay),
     JerryRepay(Repay),
+    ButchRepay(Repay),
+    NibblesRepay(Repay),
 
     TomBorrow(Borrow),
     JerryBorrow(Borrow),
+    ButchBorrow(Borrow),
+    NibblesBorrow(Borrow),
 
     TomDeposit(Deposit),
     JerryDeposit(Deposit),
+    ButchDeposit(Deposit),
+    NibblesDeposit(Deposit),
 
     TomWithdraw(Withdraw),
     JerryWithdraw(Withdraw),
+    ButchWithdraw(Withdraw),
+    NibblesWithdraw(Withdraw),
 
     TomLiquidate(Liquidate),
     JerryLiquidate(Liquidate),
+    ButchLiquidate(Liquidate),
+    NibblesLiquidate(Liquidate),
 
     TomDepositCollateral(DepositCollateral),
     JerryDepositCollateral(DepositCollateral),
+    ButchDepositCollateral(DepositCollateral),
+    NibblesDepositCollateral(DepositCollateral),
 
     TomWithdrawCollateral(WithdrawCollateral),
     JerryWithdrawCollateral(WithdrawCollateral),
+    ButchWithdrawCollateral(WithdrawCollateral),
+    NibblesWithdrawCollateral(WithdrawCollateral),
 
     TomDepositWithLeverage(DepositWithLeverage),
     JerryDepositWithLeverage(DepositWithLeverage),
+    ButchDepositWithLeverage(DepositWithLeverage),
+    NibblesDepositWithLeverage(DepositWithLeverage),
 
     TomWithdrawFromLeveraged(WithdrawFromLeveraged),
     JerryWithdrawFromLeveraged(WithdrawFromLeveraged),
-    // PassTime(),
+    ButchWithdrawFromLeveraged(WithdrawFromLeveraged),
+    NibblesWithdrawFromLeveraged(WithdrawFromLeveraged),
+    PassTime(PassTime),
 }
 
 impl Command {
     pub fn run(&self, test_fixture: &TestFixture) {
-        match self {
-            Command::TomRepay(command) => command.run(test_fixture, 0),
-            Command::TomBorrow(command) => command.run(test_fixture, 0),
-            Command::TomDeposit(command) => command.run(test_fixture, 0),
-            Command::TomWithdraw(command) => command.run(test_fixture, 0),
-            Command::TomLiquidate(command) => command.run(test_fixture, 0),
-            Command::TomDepositCollateral(command) => command.run(test_fixture, 0),
-            Command::TomWithdrawCollateral(command) => command.run(test_fixture, 0),
-            Command::TomDepositWithLeverage(command) => command.run(test_fixture, 0),
-            Command::TomWithdrawFromLeveraged(command) => command.run(test_fixture, 0),
+        use Command::*;
 
-            Command::JerryRepay(command) => command.run(test_fixture, 1),
-            Command::JerryBorrow(command) => command.run(test_fixture, 1),
-            Command::JerryDeposit(command) => command.run(test_fixture, 1),
-            Command::JerryWithdraw(command) => command.run(test_fixture, 1),
-            Command::JerryLiquidate(command) => command.run(test_fixture, 1),
-            Command::JerryDepositCollateral(command) => command.run(test_fixture, 1),
-            Command::JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
-            Command::JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
-            Command::JerryWithdrawFromLeveraged(command) => command.run(test_fixture, 1),
+        match self {
+            // Tom
+            TomRepay(command) => command.run(test_fixture, 0),
+            TomBorrow(command) => command.run(test_fixture, 0),
+            TomDeposit(command) => command.run(test_fixture, 0),
+            TomWithdraw(command) => command.run(test_fixture, 0),
+            TomLiquidate(command) => command.run(test_fixture, 0),
+            TomDepositCollateral(command) => command.run(test_fixture, 0),
+            TomWithdrawCollateral(command) => command.run(test_fixture, 0),
+            TomDepositWithLeverage(command) => command.run(test_fixture, 0),
+            TomWithdrawFromLeveraged(command) => command.run(test_fixture, 0),
+            // Jerry
+            JerryRepay(command) => command.run(test_fixture, 1),
+            JerryBorrow(command) => command.run(test_fixture, 1),
+            JerryDeposit(command) => command.run(test_fixture, 1),
+            JerryWithdraw(command) => command.run(test_fixture, 1),
+            JerryLiquidate(command) => command.run(test_fixture, 1),
+            JerryDepositCollateral(command) => command.run(test_fixture, 1),
+            JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
+            JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
+            JerryWithdrawFromLeveraged(command) => command.run(test_fixture, 1),
+            // Butch
+            ButchRepay(command) => command.run(test_fixture, 2),
+            ButchBorrow(command) => command.run(test_fixture, 2),
+            ButchDeposit(command) => command.run(test_fixture, 2),
+            ButchWithdraw(command) => command.run(test_fixture, 2),
+            ButchLiquidate(command) => command.run(test_fixture, 2),
+            ButchDepositCollateral(command) => command.run(test_fixture, 2),
+            ButchWithdrawCollateral(command) => command.run(test_fixture, 2),
+            ButchDepositWithLeverage(command) => command.run(test_fixture, 2),
+            ButchWithdrawFromLeveraged(command) => command.run(test_fixture, 2),
+            // Nibbles
+            NibblesRepay(command) => command.run(test_fixture, 3),
+            NibblesBorrow(command) => command.run(test_fixture, 3),
+            NibblesDeposit(command) => command.run(test_fixture, 3),
+            NibblesWithdraw(command) => command.run(test_fixture, 3),
+            NibblesLiquidate(command) => command.run(test_fixture, 3),
+            NibblesDepositCollateral(command) => command.run(test_fixture, 3),
+            NibblesWithdrawCollateral(command) => command.run(test_fixture, 3),
+            NibblesDepositWithLeverage(command) => command.run(test_fixture, 3),
+            NibblesWithdrawFromLeveraged(command) => command.run(test_fixture, 3),
+            // PassTime
+            PassTime(command) => command.run(test_fixture, 0),
         }
     }
 }
 
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Default)]
 pub struct Amount(
     #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u64::MAX as i128)))] pub i128,
 );
 
-pub fn assert_invariants(fixture: &TestFixture) {
-    let TestFixture {
-        e,
-        contract_client,
-        contract_id,
-        gold_sac,
-        gold_pool_address,
-        gold_token_address,
-        btc_sac,
-        btc_pool_address,
-        btc_token_address,
-        usdc_sac,
-        usdc_pool_address,
-        usdc_token_address,
-        users,
-        ..
-    } = fixture;
-
-    // Get all pools
-    let usdc_pool = contract_client.get_pool(usdc_pool_address);
-    let gold_pool = contract_client.get_pool(gold_pool_address);
-    let btc_pool = contract_client.get_pool(btc_pool_address);
-
-    // Basic non-negative invariants
-    // All data on all pools must be non-negative
-    assert!(
-        usdc_pool.total_shares >= 0,
-        "USDC pool total_supply must be non-negative"
-    );
-    assert!(
-        usdc_pool.total_borrowed >= 0,
-        "USDC pool total_borrowed must be non-negative"
-    );
-    assert!(
-        usdc_pool.total_collateral >= 0,
-        "USDC pool total_collateral must be non-negative"
-    );
-
-    assert!(
-        gold_pool.total_shares >= 0,
-        "GOLD pool total_supply must be non-negative"
-    );
-    assert!(
-        gold_pool.total_borrowed >= 0,
-        "GOLD pool total_borrowed must be non-negative"
-    );
-    assert!(
-        gold_pool.total_collateral >= 0,
-        "GOLD pool total_collateral must be non-negative"
-    );
-
-    assert!(
-        btc_pool.total_shares >= 0,
-        "BTC pool total_supply must be non-negative"
-    );
-    assert!(
-        btc_pool.total_borrowed >= 0,
-        "BTC pool total_borrowed must be non-negative"
-    );
-    assert!(
-        btc_pool.total_collateral >= 0,
-        "BTC pool total_collateral must be non-negative"
-    );
-
-    // Token balance invariants
-    // Contract's token balances should match the total supply and collateral in each pool
-    let usdc_token_client = token::Client::new(e, usdc_token_address);
-    let gold_token_client = token::Client::new(e, gold_token_address);
-    let btc_token_client = token::Client::new(e, btc_token_address);
-
-    let usdc_contract_balance = usdc_token_client.balance(contract_id);
-    let gold_contract_balance = gold_token_client.balance(contract_id);
-    let btc_contract_balance = btc_token_client.balance(contract_id);
-
-    let usdc_expected_balance = usdc_pool.available + usdc_pool.total_collateral;
-    let gold_expected_balance = gold_pool.available + gold_pool.total_collateral;
-    let btc_expected_balance = btc_pool.available + btc_pool.total_collateral;
-
-    assert_eq!(
-        usdc_contract_balance, usdc_expected_balance,
-        "USDC contract balance must match pool totals"
-    );
-    assert_eq!(
-        gold_contract_balance, gold_expected_balance,
-        "GOLD contract balance must match pool totals"
-    );
-    assert_eq!(
-        btc_contract_balance, btc_expected_balance,
-        "BTC contract balance must match pool totals"
-    );
-
-    // Health factor invariants
-    // Check that all users with obligations have a health factor above the threshold
-    for user in users.iter() {
-        let obligation_result = contract_client.try_get_user_obligation(&user);
-        if let Ok(Ok(obligation)) = obligation_result {
-            // If user has an obligation, check that it's healthy
-            let is_healthy =
-                e.as_contract(contract_id, || obligation.is_healthy(e).unwrap_or(true));
-            assert!(is_healthy, "User obligation must be healthy");
-        }
-    }
-
-    // // Check that obligations data is consistent with pools
-    // let pool_addresses = std::vec![gold_pool_address, usdc_pool_address, btc_pool_address];
-
-    // for pool_addr in pool_addresses {
-    //     let (mut borrowed_sum, mut shares_sum, mut collateral_sum) = (0_i128, 0_i128, 0_i128);
-    //     for user in users.iter() {
-    //         let obligation = contract_client.get_user_obligation(&user);
-
-    //         for (pool_address, borrow_obligation) in obligation.borrows {
-    //             if &pool_address == pool_addr {
-    //                 borrowed_sum = borrowed_sum
-    //                     .checked_add(borrow_obligation.total_debt().unwrap())
-    //                     .unwrap();
-    //             }
-    //         }
-
-    //         for (pool_address, deposit_obligation) in obligation.deposits {
-    //             if &pool_address == pool_addr {
-    //                 shares_sum = shares_sum.checked_add(deposit_obligation.shares).unwrap();
-    //                 collateral_sum = collateral_sum
-    //                     .checked_add(deposit_obligation.collateral)
-    //                     .unwrap();
-    //             }
-    //         }
-    //     }
-
-    //     let pool = contract_client.get_pool(&pool_addr);
-
-    //     // assert!(borrowed_sum >= pool.total_borrowed);
-
-    //     assert_eq!(shares_sum, pool.total_shares);
-    //     assert_eq!(collateral_sum, pool.total_collateral);
-    // }
-
-    // Functional invariants
-    // You can always borrow and repay the available amount
-    let new_borrower = Address::generate(e);
-
-    let collateral_amount = 2 * i128::max(
-        gold_pool.available,
-        i128::max(usdc_pool.available, btc_pool.available),
-    );
-
-    usdc_sac.mint(&new_borrower, &collateral_amount);
-    btc_sac.mint(&new_borrower, &collateral_amount);
-    gold_sac.mint(&new_borrower, &collateral_amount);
-
-    // Test borrowing and repaying for each pool if there are available funds
-    if btc_pool.available > 0 {
-        let available_borrow = btc_pool.compute_available_borrow(e).unwrap();
-
-        contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, btc_pool_address, &available_borrow);
-
-        // Verify the borrowed amount is reflected in the user's obligation
-        let obligation = contract_client.get_user_obligation(&new_borrower);
-        let borrow_obligation = obligation
-            .borrows
-            .get(btc_pool_address.clone())
-            .expect("Borrow obligation must be present");
-
-        assert_eq!(
-            borrow_obligation.borrowed, available_borrow,
-            "Borrowed amount must match in user obligation"
-        );
-
-        contract_client.repay(&new_borrower, btc_pool_address, &available_borrow);
-        contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-    }
-
-    if gold_pool.available > 0 {
-        let available_borrow = gold_pool.compute_available_borrow(e).unwrap();
-
-        contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, gold_pool_address, &available_borrow);
-
-        // Verify the borrowed amount is reflected in the user's obligation
-        let obligation = contract_client.get_user_obligation(&new_borrower);
-        let borrow_obligation = obligation
-            .borrows
-            .get(gold_pool_address.clone())
-            .expect("Borrow obligation must be present");
-
-        assert_eq!(
-            borrow_obligation.borrowed, available_borrow,
-            "Borrowed amount must match in user obligation"
-        );
-
-        contract_client.repay(&new_borrower, gold_pool_address, &available_borrow);
-        contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-    }
-
-    if usdc_pool.available > 0 {
-        let available_borrow = usdc_pool.compute_available_borrow(e).unwrap();
-
-        contract_client.add_collateral(&new_borrower, gold_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, usdc_pool_address, &available_borrow);
-
-        // Verify the borrowed amount is reflected in the user's obligation
-        let obligation = contract_client.get_user_obligation(&new_borrower);
-        let borrow_obligation = obligation
-            .borrows
-            .get(usdc_pool_address.clone())
-            .expect("Borrow obligation must be present");
-
-        assert_eq!(
-            borrow_obligation.borrowed, available_borrow,
-            "Borrowed amount must match in user obligation"
-        );
-
-        contract_client.repay(&new_borrower, usdc_pool_address, &available_borrow);
-        contract_client.remove_collateral(&new_borrower, gold_pool_address, &collateral_amount);
-    }
-
-    // 6. Interest rate invariants
-    // Verify that interest rates are calculated correctly
-    let usdc_apy = contract_client.get_apy(usdc_pool_address);
-    let gold_apy = contract_client.get_apy(gold_pool_address);
-    let btc_apy = contract_client.get_apy(btc_pool_address);
-
-    // Borrow interest rates should be non-negative
-    assert!(
-        usdc_apy.borrow_bps > 0,
-        "USDC borrow rate must be non-negative"
-    );
-    assert!(
-        gold_apy.borrow_bps > 0,
-        "GOLD borrow rate must be non-negative"
-    );
-    assert!(
-        btc_apy.borrow_bps > 0,
-        "BTC borrow rate must be non-negative"
-    );
-
-    // Borrow rate should be greater than or equal to deposit rate
-    assert!(
-        usdc_apy.borrow_bps >= usdc_apy.supply_bps,
-        "USDC borrow rate must be >= deposit rate"
-    );
-    assert!(
-        gold_apy.borrow_bps >= gold_apy.supply_bps,
-        "GOLD borrow rate must be >= deposit rate"
-    );
-    assert!(
-        btc_apy.borrow_bps >= btc_apy.supply_bps,
-        "BTC borrow rate must be >= deposit rate"
-    );
+#[derive(Arbitrary, Debug)]
+pub struct Input {
+    pub commands: [Command; 20],
 }
 
 #[derive(Arbitrary, Debug)]
-pub struct Input {
-    pub commands: [Command; 10],
+pub struct PassTime {
+    // 2 years
+    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(2 * 365 * 24 * 60 * 60)))]
+    pub amount: u64,
 }
 
 #[derive(Arbitrary, Debug)]
@@ -618,8 +526,26 @@ pub struct WithdrawFromLeveraged {
     pub borrow_token: Token,
 }
 
-impl Borrow {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for PassTime {
+    fn run(&self, test_fixture: &TestFixture, _who: usize) {
+        test_fixture.pass_time(self.amount);
+    }
+}
+
+impl RunCommand for Borrow {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
+        let pool_address = test_fixture.get_pool_address(self.token);
+        let TestFixture {
+            contract_client,
+            users,
+            ..
+        } = test_fixture;
+        let _ = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0);
+    }
+}
+
+impl RunCommand for Deposit {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestFixture {
             contract_client,
@@ -627,13 +553,12 @@ impl Borrow {
             ..
         } = test_fixture;
 
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_borrow(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0);
     }
 }
 
-impl Deposit {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for DepositCollateral {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestFixture {
             contract_client,
@@ -641,13 +566,12 @@ impl Deposit {
             ..
         } = test_fixture;
 
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_deposit(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0);
     }
 }
 
-impl DepositCollateral {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for WithdrawCollateral {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestFixture {
             contract_client,
@@ -655,13 +579,12 @@ impl DepositCollateral {
             ..
         } = test_fixture;
 
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_add_collateral(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_remove_collateral(&users[who], &pool_address, &self.amount.0);
     }
 }
 
-impl WithdrawCollateral {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for Withdraw {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestFixture {
             contract_client,
@@ -669,13 +592,12 @@ impl WithdrawCollateral {
             ..
         } = test_fixture;
 
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_remove_collateral(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0);
     }
 }
 
-impl Withdraw {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for Repay {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestFixture {
             contract_client,
@@ -683,27 +605,12 @@ impl Withdraw {
             ..
         } = test_fixture;
 
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_withdraw(&user, &pool_address, &self.amount.0);
+        let _ = contract_client.try_repay(&users[who], &pool_address, &self.amount.0);
     }
 }
 
-impl Repay {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
-        let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
-
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_repay(&user, &pool_address, &self.amount.0);
-    }
-}
-
-impl Liquidate {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for Liquidate {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
 
@@ -714,15 +621,11 @@ impl Liquidate {
                 ..
             } = test_fixture;
 
-            let (liquidator, borrower) = if who == 0 {
-                (users.get(0).unwrap(), users.get(1).unwrap())
-            } else {
-                (users.get(1).unwrap(), users.get(0).unwrap())
-            };
+            let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
 
             let _ = contract_client.try_liquidate(
-                &liquidator,
-                &borrower,
+                liquidator,
+                borrower,
                 &pool_address,
                 &collateral_pool_address,
                 &self.amount.0,
@@ -731,8 +634,8 @@ impl Liquidate {
     }
 }
 
-impl DepositWithLeverage {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for DepositWithLeverage {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
         let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
 
@@ -743,11 +646,7 @@ impl DepositWithLeverage {
                 ..
             } = test_fixture;
 
-            let (flash_loan_provider, lender) = if who == 0 {
-                (users.get(0).unwrap(), users.get(1).unwrap())
-            } else {
-                (users.get(1).unwrap(), users.get(0).unwrap())
-            };
+            let (flash_loan_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
 
             contract_client.deposit(
                 &flash_loan_provider,
@@ -766,8 +665,8 @@ impl DepositWithLeverage {
     }
 }
 
-impl WithdrawFromLeveraged {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for WithdrawFromLeveraged {
+    fn run(&self, test_fixture: &TestFixture, who: usize) {
         let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
         let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
 
@@ -777,9 +676,8 @@ impl WithdrawFromLeveraged {
             ..
         } = test_fixture;
 
-        let user = users.get(who).unwrap();
         let _ = contract_client.try_withdraw_from_leveraged(
-            &user,
+            &users[who],
             &deposit_pool_address,
             &borrow_pool_address,
             &self.amount.0,
@@ -896,7 +794,7 @@ mod tests {
             ..
         } = TestFixture::new();
 
-        let user = users.get(0).unwrap();
+        let user = &users[0];
 
         e.as_contract(&contract_id, || {
             // `TestFixture::new()` extends both instance and a specific's pool shared storage

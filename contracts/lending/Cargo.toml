@@ -14,6 +14,7 @@ soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]
+sep-40-oracle = { version = "1.2.2", features = ["testutils"] }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [features]

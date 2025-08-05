@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use tests::{assert_invariants, Input, TestFixture};
+use tests::{Input, TestFixture};
 
 fuzz_target!(|input: Input| {
     let fixture = TestFixture::new();
@@ -12,6 +12,6 @@ fuzz_target!(|input: Input| {
 
     for command in commands {
         command.run(&fixture);
-        assert_invariants(&fixture);
+        fixture.assert_invariants();
     }
 });

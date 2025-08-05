@@ -21,9 +21,9 @@ impl LiquidationTest {
     /// Creates a standard setup with healthy position
     fn new() -> Self {
         let test_fixture = TestFixture::new();
-        let borrower = test_fixture.users.get(0).unwrap();
-        let lender = test_fixture.users.get(1).unwrap();
-        let liquidator = test_fixture.users.get(2).unwrap();
+        let borrower = test_fixture.users[0].clone();
+        let lender = test_fixture.users[1].clone();
+        let liquidator = test_fixture.users[2].clone();
 
         // Lender provides liquidity
         test_fixture.contract_client.deposit(
@@ -67,9 +67,9 @@ impl LiquidationTest {
     /// Creates a risky position closer to liquidation threshold
     fn risky() -> Self {
         let test_fixture = TestFixture::new();
-        let borrower = test_fixture.users.get(0).unwrap();
-        let lender = test_fixture.users.get(1).unwrap();
-        let liquidator = test_fixture.users.get(2).unwrap();
+        let borrower = test_fixture.users[0].clone();
+        let lender = test_fixture.users[1].clone();
+        let liquidator = test_fixture.users[2].clone();
 
         // Lender provides liquidity
         test_fixture.contract_client.deposit(
@@ -101,9 +101,9 @@ impl LiquidationTest {
 
     fn risky_with_deposit_as_collateral() -> Self {
         let test_fixture = TestFixture::new();
-        let borrower = test_fixture.users.get(0).unwrap();
-        let lender = test_fixture.users.get(1).unwrap();
-        let liquidator = test_fixture.users.get(2).unwrap();
+        let borrower = test_fixture.users[0].clone();
+        let lender = test_fixture.users[1].clone();
+        let liquidator = test_fixture.users[2].clone();
 
         // Lender provides liquidity
         test_fixture.contract_client.deposit(
@@ -319,9 +319,9 @@ fn test_liquidate_exceeds_close_factor_fails() {
     // Create a position that's definitely unhealthy
     let fixture = TestFixture::new();
 
-    let borrower = fixture.users.get(0).unwrap();
-    let lender = fixture.users.get(1).unwrap();
-    let liquidator = fixture.users.get(2).unwrap();
+    let borrower = &fixture.users[0];
+    let lender = &fixture.users[1];
+    let liquidator = &fixture.users[2];
 
     // Lender provides liquidity
     fixture.contract_client.deposit(

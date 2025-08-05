@@ -29,8 +29,8 @@ fn test_deposit_zero() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
@@ -63,7 +63,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     assert_eq!(
         Err(Ok(LCError::InvalidLeverageMultiplier)),
@@ -101,7 +101,7 @@ fn test_deposit_with_no_leverage() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     contract_client.deposit_with_leverage(
         &user,
@@ -142,7 +142,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     assert_eq!(
         contract_client.try_deposit_with_leverage(
@@ -170,8 +170,8 @@ fn test_deposit_with_unhealthy_leverage() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
@@ -202,8 +202,8 @@ fn test_deposit_with_leverage() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
@@ -266,8 +266,8 @@ fn test_withdraw_zero() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
@@ -308,8 +308,8 @@ fn test_withdraw_negative() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
@@ -344,7 +344,7 @@ fn test_withdraw_for_position_with_no_leverage() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     contract_client.deposit_with_leverage(
         &user,
@@ -389,8 +389,8 @@ fn test_withdraw() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
@@ -481,8 +481,8 @@ fn test_withdraw_over_balance() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
@@ -545,8 +545,8 @@ fn test_withdraw_all_available_with_i128_max() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
 
     // Deposit into a different pool to make flash loans possible
     contract_client.deposit(&user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));

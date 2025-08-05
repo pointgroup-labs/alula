@@ -15,8 +15,8 @@ fn test_repay_zero() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
     // Deposit gold as a collateral to satisfy the health factor threshold
     contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
@@ -49,8 +49,8 @@ fn test_repay() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[1];
     // Deposit gold as a collateral to satisfy the health factor threshold
     contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
@@ -99,8 +99,8 @@ fn test_repay_with_interest_accrual() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[2];
     // Deposit gold as a collateral to satisfy the health factor threshold
     contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
@@ -176,8 +176,8 @@ fn test_repay_unpaid_interest_only() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[2];
 
     // Deposit gold as a collateral to satisfy the health factor threshold
     contract_client.add_collateral(&user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
@@ -225,8 +225,8 @@ fn test_repay_more_than_borrowed() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[2];
 
     // Deposit gold as a collateral to satisfy the health factor threshold
     contract_client.add_collateral(&user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
@@ -261,8 +261,8 @@ fn test_repay_all_with_i128_max() {
         ..
     } = TestFixture::new();
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
+    let user = &users[0];
+    let user2 = &users[2];
 
     // Deposit gold as a collateral to satisfy the health factor threshold
     contract_client.add_collateral(&user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));

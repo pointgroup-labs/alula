@@ -1,166 +1,92 @@
 #![cfg(test)]
 
+use soroban_sdk::{testutils::Address as _, Address};
+
 use crate::{
-    assert_invariants, Amount, Borrow,
+    Amount, Borrow,
     Command::{self, *},
-    Deposit, DepositWithLeverage, Repay, TestFixture,
+    Deposit, DepositCollateral, DepositWithLeverage, Input, Liquidate, PassTime, Repay,
+    TestFixture,
     Token::*,
-    Withdraw, WithdrawCollateral,
+    Withdraw, WithdrawCollateral, WithdrawFromLeveraged,
 };
 
-#[test]
-fn test_transfer_over_balance() {
-    // Copied from the failing `cargo fuzz` output
-    let commands = [
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: BTC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: BTC,
-        }),
-        JerryWithdrawCollateral(WithdrawCollateral {
-            amount: Amount(18446744073709491750),
-            token: BTC,
-        }),
-        JerryRepay(Repay {
-            amount: Amount(2748926567846913657),
-            token: USDC,
-        }),
-        TomWithdraw(Withdraw {
-            amount: Amount(8753160913407277433),
-            token: USDC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: BTC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926861050014314),
-            token: BTC,
-        }),
-        JerryBorrow(Borrow {
-            amount: Amount(4702111411259206250),
-            token: USDC,
-        }),
-        JerryDeposit(Deposit {
-            amount: Amount(7668058027634803009),
-            token: BTC,
-        }),
-        JerryBorrow(Borrow {
-            amount: Amount(4702111234474983745),
-            token: BTC,
-        }),
-    ];
-
-    test_fuzzed_issue(&commands);
-}
-
-#[test]
-fn test_repay_breaks_token_balance_invariant() {
-    let commands = [
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: BTC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: BTC,
-        }),
-        TomDeposit(Deposit {
-            amount: Amount(4702111234474983745),
-            token: BTC,
-        }),
-        TomDeposit(Deposit {
-            amount: Amount(4694481606870967846),
-            token: BTC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: BTC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: BTC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926861050014314),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        TomRepay(Repay {
-            amount: Amount(17672478161302012225),
-            token: BTC,
-        }),
-    ];
-
-    test_fuzzed_issue(&commands);
-}
-
-#[test]
-fn test_div_by_zero() {
-    let commands = [
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913574),
-            token: GOLD,
-        }),
-        JerryDepositWithLeverage(DepositWithLeverage {
-            amount: Amount(15647235900636014118),
-            deposit_token: BTC,
-            borrow_token: USDC,
-            flash_loan_amount: Amount(7668897261177436522),
-            leverage: 1785358954,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        JerryWithdraw(Withdraw {
-            amount: Amount(7668058320836127338),
-            token: USDC,
-        }),
-        TomBorrow(Borrow {
-            amount: Amount(2748926567846913572),
-            token: BTC,
-        }),
-    ];
-
-    test_fuzzed_issue(&commands);
-}
-
-fn test_fuzzed_issue(commands: &[Command]) {
+fn test_fuzzed_issue(input: &Input) {
     let test_fixture = TestFixture::new();
+    test_fixture.e.cost_estimate().budget().reset_unlimited();
 
-    for command in commands {
+    for command in &input.commands {
         command.run(&test_fixture);
-        assert_invariants(&test_fixture);
+        test_fixture.assert_invariants();
     }
+}
+
+#[test]
+fn failing() {
+    let input = Input {
+        commands: [
+            TomDeposit(Deposit {
+                amount: Amount(1458528137475617424),
+                token: BTC,
+            }),
+            NibblesWithdraw(Withdraw {
+                amount: Amount(7668058320836127449),
+                token: GOLD,
+            }),
+            PassTime(PassTime { amount: 195287065 }),
+            PassTime(PassTime { amount: 195287282 }),
+            PassTime(PassTime { amount: 195287282 }),
+            NibblesWithdraw(Withdraw {
+                amount: Amount(7668058320838956430),
+                token: USDC,
+            }),
+            NibblesWithdraw(Withdraw {
+                amount: Amount(7668058527715977834),
+                token: GOLD,
+            }),
+            PassTime(PassTime { amount: 144439036 }),
+            NibblesDepositCollateral(DepositCollateral {
+                amount: Amount(5654752612283509176),
+                token: GOLD,
+            }),
+            TomWithdrawFromLeveraged(WithdrawFromLeveraged {
+                amount: Amount(5435941496873273144),
+                deposit_token: USDC,
+                borrow_token: USDC,
+            }),
+            TomRepay(Repay {
+                amount: Amount(894644481270901354),
+                token: GOLD,
+            }),
+            PassTime(PassTime { amount: 195287282 }),
+            JerryBorrow(Borrow {
+                amount: Amount(2810246167479189503),
+                token: GOLD,
+            }),
+            PassTime(PassTime { amount: 208558949 }),
+            NibblesWithdraw(Withdraw {
+                amount: Amount(7680209178453502570),
+                token: USDC,
+            }),
+            ButchDepositCollateral(DepositCollateral {
+                amount: Amount(10766534864467066879),
+                token: GOLD,
+            }),
+            PassTime(PassTime { amount: 130058565 }),
+            TomDepositCollateral(DepositCollateral {
+                amount: Amount(7772906986614860479),
+                token: BTC,
+            }),
+            JerryRepay(Repay {
+                amount: Amount(10),
+                token: BTC,
+            }),
+            TomRepay(Repay {
+                amount: Amount(0),
+                token: BTC,
+            }),
+        ],
+    };
+
+    test_fuzzed_issue(&input);
 }

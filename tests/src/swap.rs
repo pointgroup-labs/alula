@@ -19,7 +19,7 @@ fn test_swap() {
         ..
     } = TestFixture::new();
 
-    let user = users.get(0).unwrap();
+    let user = &users[0];
 
     let new_token_address = e
         .register_stellar_asset_contract_v2(soroswap_router_address.clone())
