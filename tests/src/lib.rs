@@ -22,7 +22,7 @@ use lending::{
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     symbol_short,
-    testutils::{arbitrary::Arbitrary, Address as _, Ledger},
+    testutils::{arbitrary::Arbitrary, Address as _, Ledger, LedgerInfo},
     token::{self, StellarAssetClient, TokenClient},
     Address, Env,
 };
@@ -86,9 +86,16 @@ impl TestFixture<'_> {
         // when this is opted out
         e.mock_all_auths_allowing_non_root_auth();
 
-        e.ledger().with_mut(|li| {
-            li.sequence_number = 0;
-            li.max_entry_ttl = INDIVIDUAL_BUMP + 1;
+        // NB: Taken from blend
+        e.ledger().set(LedgerInfo {
+            timestamp: 1514764800, // January 1, 2018
+            protocol_version: 22,
+            sequence_number: 0, // TODO: Change this to something like 100 and fix failing test
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 500000,
+            min_persistent_entry_ttl: 500000,
+            max_entry_ttl: INDIVIDUAL_BUMP + 1,
         });
 
         let contract_admin = Address::generate(&e);
