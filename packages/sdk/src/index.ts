@@ -1,18 +1,10 @@
 import type {
-  Duration,
-  i32,
-  i64,
   i128,
-  i256,
   Option,
-  Typepoint,
   u32,
   u64,
-  u128,
-  u256,
 } from '@stellar/stellar-sdk/contract'
 import { Buffer } from 'node:buffer'
-import { Address } from '@stellar/stellar-sdk'
 import {
   AssembledTransaction,
   Client as ContractClient,
@@ -27,7 +19,6 @@ export * as contract from '@stellar/stellar-sdk/contract'
 export * as rpc from '@stellar/stellar-sdk/rpc'
 
 if (typeof window !== 'undefined') {
-  // @ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer
 }
 

@@ -3,10 +3,10 @@ import { Networks, TransactionBuilder } from '@stellar/stellar-sdk'
 import { RPC_URLS, SOROBAN_RPC_URLS } from '../constants'
 import { parseStellarError } from './errors'
 
-export function getRPC(rpc: RPCcluster = 'public', rpcType: 'horizon' | 'soroban') {
+export function getRPC(rpc: RPCcluster = 'public', rpcType: 'horizon' | 'soroban'): string {
   const rpcUrls: Record<string, string> = rpcType === 'horizon' ? RPC_URLS : SOROBAN_RPC_URLS
   const url = rpcUrls[rpc] ?? rpcUrls.public
-  return url
+  return String(url)
 }
 
 export function getNetworkPassphrase(rpc: RPCcluster = 'public') {

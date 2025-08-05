@@ -1,4 +1,4 @@
-import { Client } from 'sdk'
+import { Client } from '@jlend/sdk'
 
 const TESTNET_CONTRACT_ID = 'CBVR4635CDX2YUP32PXL2TD6KEMWP7MDGL4T4OF43GHDCLZTRQNVKWJ6'
 const TESTNET_RPC_URL = 'https://soroban-testnet.stellar.org'

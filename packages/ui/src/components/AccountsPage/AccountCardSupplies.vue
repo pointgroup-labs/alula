@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DepositObligation } from 'sdk'
+import type { DepositObligation } from '@jlend/sdk'
 import type { SuppliedCardTableItem } from '~/types/table'
 import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
@@ -139,7 +139,9 @@ watch(selectedPool, (p) => {
 
         <template #cell(balance)="data">
           <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-            {{ Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5) }}
+            {{
+              Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5)
+            }}
             <span>${{ data.item.balanceUsd }}</span>
             <template #content>
               {{ formatPrice(data.item.balance) }}
@@ -179,7 +181,8 @@ watch(selectedPool, (p) => {
         v-else
         class="no-data"
       >
-        <i-app-strongbox-icon />  no supplied assets
+        <i-app-strongbox-icon />
+        no supplied assets
       </div>
 
       <j-loading-spinner v-if="userStore.loading">

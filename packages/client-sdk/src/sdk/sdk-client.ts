@@ -1,7 +1,7 @@
-import type { CompoundRates, Obligation, Pool } from 'sdk'
+import type { CompoundRates, Obligation, Pool } from '@jlend/sdk'
 import type { RPCcluster } from '../types'
+import { Client } from '@jlend/sdk'
 import { rpc as SorobanRpc } from '@stellar/stellar-sdk'
-import { Client } from 'sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
 import { amountToBigInt, getNetworkPassphrase, getRPC, normalizeAssetAmount, sendSorobanTx } from '../utils'
 

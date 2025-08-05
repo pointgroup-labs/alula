@@ -1,6 +1,6 @@
 <script lang="ts" setup>
+import type { Pool } from '@jlend/sdk'
 import type { BButtonProps } from 'bootstrap-vue-next'
-import type { Pool } from 'sdk'
 import { clickElement, destructurePoolAsset, generateExplorerLink, shortenAddress } from '~/utils'
 
 const {

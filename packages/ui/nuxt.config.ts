@@ -102,7 +102,7 @@ export default defineNuxtConfig({
         scss: {
           additionalData: `@import "~/assets/styles/variables.scss";`, // global variables
           silenceDeprecations: ['mixed-decls', 'color-functions', 'global-builtin', 'import', 'legacy-js-api'],
-          api: 'modern-compiler',
+          // api: 'modern-compiler',
           // Optimize for production
           // outputStyle: isProd ? 'compressed' : 'expanded',
           // sourceMap: isDev,
@@ -176,6 +176,9 @@ export default defineNuxtConfig({
   // debug: true,
   nitro: {
     logLevel: 'debug',
+    prerender: {
+      autoSubfolderIndex: false,
+    },
     // preset: 'node',
     // devErrorHandler: true,
     // prerender: {
