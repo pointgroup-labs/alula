@@ -1,5 +1,5 @@
-import type { RPCcluster } from '@stellar-client'
-import { StellarClient } from '@stellar-client'
+import type { RPCcluster } from '@jlend/client-sdk'
+import { StellarClient } from '@jlend/client-sdk'
 import { useRuntimeConfig } from 'nuxt/app'
 import { defineStore } from 'pinia'
 
