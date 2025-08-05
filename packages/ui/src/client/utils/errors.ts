@@ -1,4 +1,4 @@
-import { LendingContractError } from 'sdk'
+import { LendingContractError } from '@jlend/sdk'
 
 const errorMap: Record<string, string> = {
   InternalError: 'An unexpected internal error occurred.',

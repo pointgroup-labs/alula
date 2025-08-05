@@ -18,5 +18,17 @@
     "eslint": "^9.30.1",
     "eslint-plugin-format": "^1.0.1",
     "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "tslib"
+      ]
+    },
+    "allowedDeprecatedVersions": {
+    },
+    "overrides": {
+      "@stellar/stellar-sdk": ">=14.0.0-rc.2"
+    }
   }
 }

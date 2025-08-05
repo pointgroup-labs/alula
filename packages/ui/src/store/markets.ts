@@ -1,4 +1,4 @@
-import type { CompoundRates, Pool } from 'sdk'
+import type { CompoundRates, Pool } from '@jlend/sdk'
 import { defineStore } from 'pinia'
 
 export const useMarketsStore = defineStore('markets', () => {

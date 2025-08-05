@@ -1,7 +1,15 @@
 <script lang="ts" setup>
-import type { BorrowObligation } from 'sdk'
+import type { BorrowObligation } from '@jlend/sdk'
 import type { BorrowCardTableItem } from '~/types/table'
-import { bigintToNumber, destructurePoolAsset, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
+import {
+  bigintToNumber,
+  destructurePoolAsset,
+  formatPrice,
+  getTokenIcon,
+  getTokenName,
+  shortenNumber,
+  truncatePercent,
+} from '~/utils'
 
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
@@ -129,7 +137,9 @@ watch(selectedPool, (p) => {
 
         <template #cell(debt)="data">
           <j-tooltip tooltip-class="table-cell table-cell__dept justify-content-end with-price">
-            {{ Number(data.item.debt) > 1000 ? shortenNumber(Number(data.item.debt)) : Number(data.item.debt).toFixed(5) }}
+            {{
+              Number(data.item.debt) > 1000 ? shortenNumber(Number(data.item.debt)) : Number(data.item.debt).toFixed(5)
+            }}
             <span>${{ data.item.debtUsd }}</span>
             <template #content>
               {{ formatPrice(data.item.debt) }}
@@ -171,7 +181,8 @@ watch(selectedPool, (p) => {
         v-else
         class="no-data"
       >
-        <i-app-percentage-square-icon /> no borrowed assets
+        <i-app-percentage-square-icon />
+        no borrowed assets
       </div>
 
       <j-loading-spinner v-if="userStore.loading">

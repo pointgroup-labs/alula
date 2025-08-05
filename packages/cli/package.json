@@ -1,7 +1,7 @@
 {
   "name": "@jlend/cli",
   "dependencies": {
-    "@stellar/stellar-sdk": "^13.3.0",
-    "sdk": "workspace:"
+    "@jlend/sdk": "workspace:",
+    "@stellar/stellar-sdk": "^13.3.0"
   }
 }
