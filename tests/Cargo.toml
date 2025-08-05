@@ -11,6 +11,7 @@ doctest = false
 arbitrary = { version = "1", features = ["derive"] }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
+sep-40-oracle = { workspace = true, features = ["testutils"] }
 
 [dependencies.lending]
 path = "../contracts/lending"

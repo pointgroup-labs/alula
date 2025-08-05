@@ -1466,6 +1466,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "lending",
+ "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk",
 ]

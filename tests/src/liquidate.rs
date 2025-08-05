@@ -322,7 +322,6 @@ fn test_liquidate_exceeds_close_factor_fails() {
     let borrower = &fixture.users[0];
     let lender = &fixture.users[1];
     let liquidator = &fixture.users[2];
-
     // Lender provides liquidity
     fixture.contract_client.deposit(
         &lender,

@@ -15,16 +15,20 @@ use lending::{
     constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
     contract::{LendingContract, LendingContractClient},
     obligation::{BorrowObligation, DepositObligation},
-    oracle,
     pool::PoolConfig,
     soroswap_router, LCError,
+};
+use sep_40_oracle::{
+    testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM},
+    PriceFeedClient,
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     symbol_short,
     testutils::{arbitrary::Arbitrary, Address as _, Ledger, LedgerInfo},
     token::{self, StellarAssetClient, TokenClient},
-    Address, Env,
+    xdr::Price,
+    Address, Env, Symbol,
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
@@ -47,7 +51,7 @@ pub struct TestFixture<'a> {
     pub contract_admin: Address,
     pub users: Vec<Address>,
     // Oracle
-    pub oracle_client: oracle::Client<'a>,
+    pub oracle_client: MockPriceOracleClient<'a>,
     pub oracle_address: Address,
     // Swap Router
     pub soroswap_router_client: soroswap_router::Client<'a>,
@@ -110,8 +114,8 @@ impl TestFixture<'_> {
         let contract_client = LendingContractClient::new(&e, &contract_id);
 
         let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
-        e.register_at(&oracle_address, oracle::WASM, ());
-        let oracle_client = oracle::Client::new(&e, &oracle_address);
+        e.register_at(&oracle_address, MockPriceOracleWASM, ());
+        let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
         let soroswap_router_address = Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS);
         e.register_at(&soroswap_router_address, soroswap_router::WASM, ());
@@ -129,6 +133,7 @@ impl TestFixture<'_> {
         let btc_admin = Address::generate(&e);
 
         // GOLD
+        let gold_ticker = symbol_short!("GOLD");
         let TestAssetSetup {
             sac_client: gold_sac,
             token_client: gold_token_client,
@@ -136,12 +141,13 @@ impl TestFixture<'_> {
         } = setup_test_asset(&e, &gold_admin, &users);
         let gold_pool_address = contract_client.initialize_pool(
             &gold_token_address,
-            &symbol_short!("GOLD"),
+            &gold_ticker,
             &None,
             &Some(pool_config),
         );
 
         // BTC
+        let btc_ticker = symbol_short!("BTC");
         let TestAssetSetup {
             sac_client: btc_sac,
             token_client: btc_token_client,
@@ -149,12 +155,13 @@ impl TestFixture<'_> {
         } = setup_test_asset(&e, &btc_admin, &users);
         let btc_pool_address = contract_client.initialize_pool(
             &btc_token_address,
-            &symbol_short!("BTC"),
+            &btc_ticker,
             &None,
             &Some(pool_config),
         );
 
         // USDC
+        let usdc_ticker = symbol_short!("USDC");
         let TestAssetSetup {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
@@ -162,10 +169,25 @@ impl TestFixture<'_> {
         } = setup_test_asset(&e, &usdc_admin, &users);
         let usdc_pool_address = contract_client.initialize_pool(
             &usdc_token_address,
-            &symbol_short!("USDC"),
+            &usdc_ticker,
             &None,
             &Some(pool_config),
         );
+
+        oracle_client.set_data(
+            &contract_admin,
+            &Asset::Other(Symbol::new(&e, "USD")),
+            &soroban_sdk::vec![
+                &e,
+                Asset::Other(gold_ticker),
+                Asset::Other(btc_ticker),
+                Asset::Other(usdc_ticker),
+            ],
+            &7,
+            &300,
+        );
+
+        make_oracle_prices_equal(&e, &oracle_client);
 
         Self {
             e,
@@ -322,6 +344,24 @@ impl TestFixture<'_> {
             assert!(apy.borrow_bps >= apy.supply_bps);
         }
     }
+}
+
+pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![
+        e,
+        0_30000000000000, // GOLD
+        5_00000000000000, // BTC
+        0_00010000000000, // USDC
+    ]);
+}
+
+pub fn make_oracle_prices_equal(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![
+        e,
+        1_00000000000000, // GOLD
+        1_00000000000000, // BTC
+        1_00000000000000, // USDC
+    ]);
 }
 
 pub struct TestAssetSetup<'a> {
