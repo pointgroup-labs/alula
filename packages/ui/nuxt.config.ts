@@ -182,6 +182,13 @@ export default defineNuxtConfig({
     //   failOnError: false,
     // },
   },
+  experimental: {
+    defaults: {
+      nuxtLink: {
+        trailingSlash: 'remove',
+      },
+    },
+  },
   pwa: {
     registerType: 'autoUpdate',
     workbox: {
