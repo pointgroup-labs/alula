@@ -303,30 +303,6 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   line-height: 16px;
   display: flex;
   justify-content: space-between;
-
-  .j-btn-group {
-    width: max-content;
-    border-radius: $spacing-4;
-
-    .btn {
-      padding: $spacing-4 $spacing-8;
-      border-radius: $spacing-4;
-
-      &.btn-primary {
-        background-color: $neutral-3;
-        color: $dark;
-        border-color: $neutral-3;
-      }
-
-      .btn-content {
-        font-size: 11px;
-        font-style: normal;
-        font-weight: 500;
-        line-height: 12px;
-        white-space: nowrap;
-      }
-    }
-  }
 }
 
 .loop-multiply__chart {
@@ -363,6 +339,10 @@ body.body--dark {
 
   .loop-multiply__vault-info {
     color: $neutral-7;
+  }
+
+  .loop-multiply__title {
+    color: #fff;
   }
 }
 </style>
