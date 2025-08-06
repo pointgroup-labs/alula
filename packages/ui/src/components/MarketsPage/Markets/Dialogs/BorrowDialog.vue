@@ -177,7 +177,7 @@ watch(() => modelValue, async (v) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="supply-dialog borrow-dialog"
+    class-name="supply-dialog borrow-dialog dialog-default"
   >
     <template #header>
       <div class="supply-dialog__title">
@@ -263,11 +263,6 @@ watch(() => modelValue, async (v) => {
 
 <style lang="scss">
 .borrow-dialog {
-  .modal-dialog {
-    min-width: 350px !important;
-    width: 350px !important;
-  }
-
   .supply-warning {
     padding: $spacing-16;
     border-radius: $spacing-8;

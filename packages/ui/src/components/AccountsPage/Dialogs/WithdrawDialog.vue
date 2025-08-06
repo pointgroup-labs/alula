@@ -68,7 +68,7 @@ watchDebounced([
   reloadFee,
   publicKey,
 ], async ([d, _r]) => {
-  if (!d || !publicKey.value) {
+  if (!d?.pool_address || !publicKey.value) {
     return
   }
   const tx = await jLendClient.value?.sdk.withdrawTx(
@@ -164,7 +164,7 @@ watch(collateralBalance, (b) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="account-dialog"
+    class-name="account-dialog dialog-default"
   >
     <template #header>
       <div class="account-dialog__title">
@@ -202,6 +202,7 @@ watch(collateralBalance, (b) => {
           <span>
             <template v-if="item?.name === 'healthFactor' && loading">
               <j-loading-spinner
+                :color="isDark ? '#fff' : '#111'"
                 width="14px"
                 style="padding: 0; width: 14px; margin-left: auto"
               />
@@ -236,3 +237,83 @@ watch(collateralBalance, (b) => {
     </div>
   </j-dialog>
 </template>
+
+<style lang="scss">
+.account-dialog {
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-8;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 20px;
+
+    img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+  }
+
+  &__body {
+    padding-top: $spacing-16;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-16;
+  }
+
+  .account-info-table {
+    display: flex;
+    flex-direction: column;
+
+    &__item {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      justify-content: space-between;
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 12px;
+
+      &:nth-child(even) {
+        background-color: $neutral-2;
+      }
+
+      span {
+        padding: $spacing-6 $spacing-16;
+
+        &:nth-child(2) {
+          text-align: right;
+        }
+      }
+    }
+  }
+
+  .account-dialog-action {
+    display: flex;
+    justify-content: space-between;
+    gap: $spacing-32;
+
+    .btn {
+      width: 192px;
+      margin-left: auto;
+    }
+  }
+}
+
+body.body--dark {
+  .account-dialog {
+    .account-info-table__item:nth-child(even) {
+      background-color: $neutral-18;
+    }
+
+    &-action {
+      .btn-dark {
+        background-color: $neutral-18;
+      }
+    }
+  }
+}
+</style>

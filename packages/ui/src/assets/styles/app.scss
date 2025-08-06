@@ -73,6 +73,13 @@ h2 {
   }
 }
 
+.dialog-default {
+  .modal-dialog {
+    min-width: 350px !important;
+    width: 350px !important;
+  }
+}
+
 .table-wrapper {
   position: relative;
 

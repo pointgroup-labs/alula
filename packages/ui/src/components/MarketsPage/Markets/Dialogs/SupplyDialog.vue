@@ -129,7 +129,7 @@ watch(() => modelValue, async (v) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="supply-dialog"
+    class-name="supply-dialog dialog-default"
   >
     <template #header>
       <div class="supply-dialog__title">
@@ -214,11 +214,6 @@ watch(() => modelValue, async (v) => {
 
 <style lang="scss">
 .supply-dialog {
-  .modal-dialog {
-    min-width: 350px;
-    width: 350px;
-  }
-
   &__title {
     display: flex;
     align-items: center;

@@ -72,7 +72,6 @@ function handleLanguage(lang: string) {
 
 <style lang="scss">
 .setting-item.language {
-  padding-top: $spacing-24;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -125,6 +124,14 @@ body.body--dark {
   .setting-item.language {
     .language-selected-lang {
       color: $neutral-12;
+
+      i {
+        svg {
+          path {
+            stroke: $neutral-12;
+          }
+        }
+      }
     }
   }
 }

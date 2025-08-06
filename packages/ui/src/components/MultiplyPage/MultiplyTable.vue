@@ -267,6 +267,10 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
 
 <style lang="scss">
 .multiply-table {
+  tbody tr {
+    cursor: default;
+  }
+
   .cell-apy {
     color: $success;
     font-size: 16px;

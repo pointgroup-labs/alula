@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import copyIcon from '~/assets/img/icons/copy.svg?raw'
+import { isDark } from '~/hooks/theme'
 
 const {
   color = '#878787',
@@ -14,6 +15,8 @@ const {
 
 const Toast = useToast()
 
+const iconColor = computed(() => isDark.value ? '#8a8b8d' : color)
+
 function copy() {
   navigator.clipboard.writeText(text)
   Toast.create({
@@ -26,7 +29,7 @@ function copy() {
 <template>
   <j-tooltip>
     <i
-      :style="{ color }"
+      :style="{ color: iconColor }"
       class="copy-icon"
       @click="copy"
       v-html="copyIcon"

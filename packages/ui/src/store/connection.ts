@@ -6,15 +6,16 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const jLendClient = computed(() => clientStore.jLendClient)
 
+  const selectedWalletId = useLocalStorage('selectedWalletId', '')
+
   const { publicKey, balances } = toRefs(walletStore)
+
   const loading = ref(false)
 
   const kit = ref()
 
   onMounted(async () => {
     if (import.meta.client) {
-      const savedWalletId = localStorage.getItem('selectedWalletId')
-
       const {
         AlbedoModule,
         FreighterModule,
@@ -32,7 +33,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
       kit.value = new StellarWalletsKit({
         network: WalletNetwork.TESTNET,
-        selectedWalletId: savedWalletId ?? XBULL_ID,
+        selectedWalletId: selectedWalletId.value ?? XBULL_ID,
         modules: [
           new AlbedoModule(),
           new FreighterModule(),
@@ -54,14 +55,14 @@ export const useConnectionStore = defineStore('connection', () => {
         ],
       })
 
-      if (savedWalletId) {
+      if (selectedWalletId.value) {
         try {
-          await kit.value.setWallet(savedWalletId)
+          await kit.value.setWallet(selectedWalletId.value)
           const { address } = await kit.value.getAddress()
           await walletStore.initWallet(address)
           publicKey.value = address
         } catch {
-          localStorage.removeItem('selectedWalletId')
+          selectedWalletId.value = ''
         }
       }
     }
@@ -75,7 +76,7 @@ export const useConnectionStore = defineStore('connection', () => {
     loading.value = true
     await kit.value.openModal({
       onWalletSelected: async (option: any) => {
-        localStorage.setItem('selectedWalletId', option.id)
+        selectedWalletId.value = option.id
 
         if (option.id === 'wallet_connect') {
           loading.value = false
@@ -100,12 +101,14 @@ export const useConnectionStore = defineStore('connection', () => {
     jLendClient.value?.reset()
     publicKey.value = undefined
     balances.value = undefined
-    localStorage.setItem('selectedWalletId', '')
+    selectedWalletId.value = ''
   }
 
   return {
     kit,
     loading,
+
+    selectedWalletId,
 
     disconnect,
     connectWallet,

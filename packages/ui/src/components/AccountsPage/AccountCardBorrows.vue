@@ -22,6 +22,8 @@ const pools = computed(() => marketsStore.state.pools)
 
 const market = useMarket()
 
+const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
+
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'debt', label: 'Debt', align: 'right' },
@@ -35,12 +37,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
     const [pool_address, borrow] = item
     const pool = pools.value.find(p => p.pool_address === pool_address)
     if (!pool) {
-      return {
-        asset: { name: 'Unknown', symbol: 'Unknown', icon: '' },
-        balance: '0',
-        supply_apy: '0%',
-        action: 'Repay',
-      }
+      return null
     }
     const tokenSymbol = pool.token_ticker
     const tokenName = getTokenName(tokenSymbol)
@@ -61,7 +58,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
       pool_address,
       asset_issuer,
     }
-  })
+  })?.filter((item: BorrowCardTableItem) => item)
 })
 
 const dialog = ref(false)
@@ -86,7 +83,7 @@ watch(selectedPool, (p) => {
       Your Borrows
     </div>
 
-    <template v-if="items.length === 0 && userStore.loading">
+    <template v-if="items.length === 0 && (userStore.loading || loadingMarkets)">
       <j-skeleton
         height="36"
         full-width
@@ -108,7 +105,7 @@ watch(selectedPool, (p) => {
         :fields="fields"
         :items="items"
         responsive
-        class="account-card__table market-table"
+        class="account-table market-table"
       >
         <template
           v-for="field in fields"

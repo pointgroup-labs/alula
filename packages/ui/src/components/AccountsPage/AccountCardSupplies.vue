@@ -14,6 +14,8 @@ const pools = computed(() => marketsStore.state.pools)
 
 const market = useMarket()
 
+const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
+
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'balance', label: 'Balance', align: 'right' },
@@ -27,13 +29,7 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
     const [pool_address, deposit] = item
     const pool = pools.value.find(p => p.pool_address === pool_address)
     if (!pool) {
-      return {
-        asset: { name: 'Unknown', symbol: 'Unknown', icon: '' },
-        balance: '0',
-        supply_apy: '0%',
-        action: 'Withdraw',
-        pool_address,
-      }
+      return null
     }
     const tokenSymbol = pool.token_ticker
     const tokenName = getTokenName(tokenSymbol)
@@ -51,6 +47,7 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
     const balance = Number(userSupplied) + Number(userCollateral)
 
     const poolApy = pool.pool_apy.supply_bps / 100
+
     return {
       raw: pool,
       asset: { name: tokenName, symbol: tokenSymbol, icon },
@@ -63,7 +60,7 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
       pool_address,
       collateral: userCollateral,
     }
-  })
+  })?.filter((item: SuppliedCardTableItem) => item)
 })
 
 const dialog = ref(false)
@@ -88,7 +85,7 @@ watch(selectedPool, (p) => {
       Your Supplies
     </div>
 
-    <template v-if="items.length === 0 && userStore.loading">
+    <template v-if="items.length === 0 && (userStore.loading || loadingMarkets)">
       <j-skeleton
         height="36"
         full-width
@@ -110,7 +107,7 @@ watch(selectedPool, (p) => {
         :fields="fields"
         :items="items"
         responsive
-        class="account-card__table market-table"
+        class="account-table market-table"
       >
         <template
           v-for="field in fields"
@@ -236,6 +233,12 @@ watch(selectedPool, (p) => {
   }
 }
 
+.account-table {
+  tbody tr {
+    cursor: default;
+  }
+}
+
 body.body--dark {
   .account-card {
     &__title {
@@ -243,6 +246,14 @@ body.body--dark {
     }
     .no-data {
       color: $neutral-9;
+    }
+    .loading-spinner {
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+
+      .spinner-border {
+        color: #fff !important;
+      }
     }
   }
 }

@@ -36,6 +36,5 @@ export const useWallet = defineStore('wallet', () => {
     initWallet,
     loadBalances,
     getAssetBalance,
-
   }
 })

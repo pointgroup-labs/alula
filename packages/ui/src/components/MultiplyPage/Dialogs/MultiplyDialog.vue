@@ -205,24 +205,6 @@ watch(dialog, async (v) => {
 
     <div class="multiply-dialog__body">
       <div class="multiply-dialog__data">
-        <client-only>
-          <div class="multiply-assets">
-            <div class="asset-data">
-              <img :src="depositAsset?.icon">
-              <span>{{ depositAsset?.name }} </span>
-            </div>
-            <div
-              class="asset-swapper"
-              @click="swapAsset"
-            >
-              <i-app-repeat />
-            </div>
-            <div class="asset-data">
-              <img :src="borrowAsset?.icon">
-              <span>{{ borrowAsset?.name }} </span>
-            </div>
-          </div>
-        </client-only>
 
         <input-widget
           v-model="amount"
@@ -243,10 +225,32 @@ watch(dialog, async (v) => {
             Wallet: {{ balance }} {{ depositAsset?.name }}
           </template>
           <template #prepend>
-            <img
-              :src="depositAsset?.icon"
-              :alt="`${depositAsset?.name} icon`"
+            <j-popover
+              position="bottom"
+              :teleport-to-body="false"
+              close-popup
             >
+              <div
+                class="popover-borrow-asset"
+                @click="swapAsset"
+              >
+                <img
+                  :src="borrowAsset?.icon"
+                  :alt="`${borrowAsset?.name} icon`"
+                >
+                {{ borrowAsset?.name }}
+              </div>
+              <template #target="{ active }">
+                <img
+                  :src="depositAsset?.icon"
+                  :alt="`${depositAsset?.name} icon`"
+                >
+                <i-app-arrow-up
+                  class="arrow-icon"
+                  :class="{ 'arrow-icon--active': active }"
+                />
+              </template>
+            </j-popover>
           </template>
         </input-widget>
 
@@ -308,6 +312,38 @@ watch(dialog, async (v) => {
   }
 
   .j-input__prepend {
+    width: 40px;
+    min-width: 40px;
+
+    .popover {
+      &-body {
+        padding: $spacing-12;
+      }
+
+      .popover-borrow-asset {
+        display: flex;
+        align-items: center;
+        gap: $spacing-6;
+        cursor: pointer;
+      }
+    }
+
+    .popover-target {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .arrow-icon {
+      width: 18px;
+      height: 18px;
+      transform: rotate(180deg);
+
+      &--active {
+        transform: rotate(0deg);
+      }
+    }
+
     img {
       width: 32px;
       height: 32px;
@@ -337,47 +373,6 @@ watch(dialog, async (v) => {
     font-weight: 500;
     line-height: 12px;
     color: $neutral-12;
-  }
-
-  .multiply-assets {
-    display: flex;
-    align-items: center;
-    gap: $spacing-6;
-    user-select: none;
-    border-bottom: 1px solid $neutral-5;
-    padding-bottom: $spacing-16;
-
-    .asset-data {
-      display: flex;
-      align-items: center;
-      gap: $spacing-6;
-      font-size: 18px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 20px;
-
-      img {
-        width: 30px;
-        height: 30px;
-        object-fit: contain;
-        border-radius: 50%;
-      }
-    }
-
-    .asset-swapper {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: $spacing-4 $spacing-16;
-      background-color: $neutral-3;
-      border-radius: 100px;
-      cursor: pointer;
-
-      svg {
-        width: 16px;
-        height: 16px;
-      }
-    }
   }
 
   &__data {
@@ -434,12 +429,9 @@ watch(dialog, async (v) => {
 }
 
 body.body--dark {
-  .multiply-assets {
-    border-color: $neutral-16;
-
-    .asset-swapper {
-      background-color: $neutral-16;
-      color: $neutral-9;
+  .multiply-dialog .j-input__prepend .popover {
+    .popover-borrow-asset {
+      color: #fff;
     }
   }
 }

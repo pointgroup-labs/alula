@@ -17,6 +17,7 @@ function close() {
     class-name="settings-sidebar"
     @close="close"
   >
+    <settings-connect />
     <settings-language />
     <settings-theme />
   </sidebar>
@@ -24,22 +25,21 @@ function close() {
 
 <style lang="scss">
 .settings-sidebar {
-  .setting-item {
-    padding: $spacing-24 0;
+  .sidebar-body {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-24;
+    padding-top: $spacing-24;
+  }
 
-    &:not(:last-child) {
-      border-bottom: 1px solid $secondary;
-    }
+  .setting-item__title {
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 20px;
   }
 }
 
 body.body--dark {
-  .settings-sidebar {
-    .setting-item {
-      &:not(:last-child) {
-        border-color: $neutral-16;
-      }
-    }
-  }
 }
 </style>
