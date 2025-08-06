@@ -21,6 +21,10 @@
         background-color: $primary !important;
         border-color: $primary !important;
       }
+
+      &:focus {
+        box-shadow: none !important;
+      }
     }
 
     &-label {
@@ -28,6 +32,7 @@
       font-style: normal;
       line-height: 16px;
       letter-spacing: -0.14px;
+      user-select: none;
     }
   }
 }
