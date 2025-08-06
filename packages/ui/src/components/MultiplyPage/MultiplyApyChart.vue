@@ -107,7 +107,7 @@ watch([
 
   chartData.value = {
     labels,
-    datasets: TOKEN_METRICS_OFFSET.map((el: any) => {
+    datasets: TOKEN_METRICS_OFFSET?.map((el: any) => {
       return {
         type: 'line',
         label: String(el),
