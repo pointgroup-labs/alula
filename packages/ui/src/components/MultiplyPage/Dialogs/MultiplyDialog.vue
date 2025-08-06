@@ -206,23 +206,24 @@ console.log('data', data)
 
     <div class="multiply-dialog__body">
       <div class="multiply-dialog__data">
-        <div class="multiply-dialog__assets">
-
-          <div class="asset-data">
-            <img :src="depositAsset?.icon">
-            <span>{{ depositAsset?.name }} </span>
+        <client-only>
+          <div class="multiply-assets">
+            <div class="asset-data">
+              <img :src="depositAsset?.icon">
+              <span>{{ depositAsset?.name }} </span>
+            </div>
+            <div
+              class="asset-swapper"
+              @click="swapAsset"
+            >
+              <i-app-repeat />
+            </div>
+            <div class="asset-data">
+              <img :src="borrowAsset?.icon">
+              <span>{{ borrowAsset?.name }} </span>
+            </div>
           </div>
-          <div
-            class="asset-swapper"
-            @click="swapAsset"
-          >
-            <i-app-repeat />
-          </div>
-          <div class="asset-data">
-            <img :src="borrowAsset?.icon">
-            <span>{{ borrowAsset?.name }} </span>
-          </div>
-        </div>
+        </client-only>
 
         <input-widget
           v-model="amount"
@@ -339,7 +340,7 @@ console.log('data', data)
     color: $neutral-12;
   }
 
-  &__assets {
+  .multiply-assets {
     display: flex;
     align-items: center;
     gap: $spacing-6;
@@ -434,13 +435,13 @@ console.log('data', data)
 }
 
 body.body--dark {
-  .multiply-dialog__assets {
-   border-color: $neutral-16;
+  .multiply-assets {
+    border-color: $neutral-16;
 
-   .asset-swapper {
-    background-color: $neutral-16;
-    color: $neutral-9;
-   }
+    .asset-swapper {
+      background-color: $neutral-16;
+      color: $neutral-9;
+    }
   }
 }
 </style>

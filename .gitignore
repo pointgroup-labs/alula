@@ -78,6 +78,7 @@ packages/ui/dist-ssr
 packages/ui/cross-env
 packages/ui/.nuxt
 packages/ui/.output
+packages/ui/dist
 packages/ui/.local
 packages/ui/.vite-ssg-dist
 packages/ui/.vite-ssg-temp

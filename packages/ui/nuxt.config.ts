@@ -1,6 +1,7 @@
 // eslint-disable-next-line unicorn/import-style
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import { defineNuxtConfig } from 'nuxt/config'
 import AutoImport from 'unplugin-auto-import/vite'
 import { FileSystemIconLoader } from 'unplugin-icons/loaders'
@@ -8,7 +9,6 @@ import IconsResolver from 'unplugin-icons/resolver'
 import Icons from 'unplugin-icons/vite'
 import ViteComponents from 'unplugin-vue-components/vite'
 import { loadEnv } from 'vite'
-// import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 const env = loadEnv(process.env.NUXT_ENV || 'development', process.cwd(), '')
 
