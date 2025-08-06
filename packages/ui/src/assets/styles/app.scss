@@ -65,8 +65,12 @@ h2 {
   display: flex;
 }
 
-.modal.fade .modal-dialog {
-  transition: transform 0.1s ease-out;
+.modal.fade {
+  transition: opacity 0.1s ease-out !important;
+
+  .modal-dialog {
+    transition: transform 0.1s ease-out !important;
+  }
 }
 
 .table-wrapper {
