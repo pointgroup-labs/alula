@@ -1,5 +1,4 @@
 @import 'fonts';
-@import 'bootstrap';
 @import 'variables';
 @import 'components';
 
@@ -110,7 +109,7 @@ body.body--dark {
     }
   }
 
-  .separator, 
+  .separator,
   .separator-vert {
     background-color: $neutral-16;
   }

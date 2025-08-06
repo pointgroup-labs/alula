@@ -102,24 +102,3 @@ $accordion-body-padding-x: 0;
 
 //popover
 $popover-max-width: fit-content;
-
-@import 'bootstrap/scss/functions';
-@import 'bootstrap/scss/variables';
-@import 'bootstrap/scss/maps';
-@import 'bootstrap/scss/mixins';
-@import 'bootstrap/scss/utilities';
-
-// $custom-colors: (
-//   'dark-gray': $dark-bg,
-// );
-
-// $theme-colors: map.merge($theme-colors, $custom-colors);
-
-@import 'bootstrap/scss/buttons';
-
-.btn-md {
-  @include button-size($btn-padding-y-md, $btn-padding-x-md, $btn-font-size-md, $btn-border-radius-md);
-}
-
-// checkbox
-$form-check-input-checked-bg-image: url(~/assets/img/icons/check-icon.svg);
