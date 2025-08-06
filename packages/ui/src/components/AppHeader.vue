@@ -1,7 +1,12 @@
 <script lang="ts" setup>
+import marketsTabIcon from '~/assets/img/icons/chart-square-icon.svg?raw'
+import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
+import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
 import logoDark from '~/assets/img/logo-dark.svg'
 import logoLight from '~/assets/img/logo-light.svg'
 import { isDark } from '~/hooks/theme'
+
+const { width } = useWindowSize()
 
 const router = useRouter()
 const route = useRoute()
@@ -10,15 +15,21 @@ const logo = computed(() => isDark.value ? logoDark : logoLight)
 const tabs = [{
   label: 'Markets',
   route: '/',
+  icon: marketsTabIcon,
 },
 {
   label: 'Multiply',
   route: '/multiply',
+  icon: multiplyTabIcon,
 },
 {
   label: 'My Account',
   route: '/account',
+  icon: accountTabIcon,
+  shortLabel: 'Account',
 }]
+
+provide('navTabs', tabs)
 
 const activeTab = ref()
 
@@ -45,7 +56,10 @@ watch(() => route.path, (p) => {
         >
       </client-only>
 
-      <nav class="header-nav">
+      <nav
+        v-if="width >= 1024"
+        class="header-nav"
+      >
         <div
           v-for="tab in tabs"
           :key="tab.label"

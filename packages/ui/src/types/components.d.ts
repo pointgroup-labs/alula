@@ -71,6 +71,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SettingsConnect: typeof import('./../components/Settings/Options/SettingsConnect.vue')['default']
     SettingsLanguage: typeof import('./../components/Settings/Options/SettingsLanguage.vue')['default']
+    SettingsNavigation: typeof import('./../components/Settings/Options/SettingsNavigation.vue')['default']
     SettingsSidebar: typeof import('./../components/Settings/SettingsSidebar.vue')['default']
     SettingsTheme: typeof import('./../components/Settings/Options/SettingsTheme.vue')['default']
     Sidebar: typeof import('./../components/Sidebar/Sidebar.vue')['default']

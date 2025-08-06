@@ -88,7 +88,7 @@ function disconnect() {
 body.body--dark {
   .setting-item.connect {
     .wallet-info__name {
-      color: $neutral-12;
+      color: $neutral-6;
     }
 
     .disconnect-icon {
