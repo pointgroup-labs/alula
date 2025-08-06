@@ -189,7 +189,6 @@ watch(dialog, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
-console.log('data', data)
 </script>
 
 <template>
