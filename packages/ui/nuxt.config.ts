@@ -147,6 +147,11 @@ export default defineNuxtConfig({
     },
   },
 
+  experimental: {
+    // @ts-expect-error...
+    inlineSSRStyles: false,
+  },
+
   plugins: [
     // '~/plugins/gsap.ts',
     // '~/plugins/lotttie.ts',
