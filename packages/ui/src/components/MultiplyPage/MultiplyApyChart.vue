@@ -39,7 +39,7 @@ const colors = [
 
 const LEGEND_COLORS = computed(() => {
   return TOKEN_METRICS_OFFSET.reduce((acc, el, index) => {
-    acc[String(el)] = colors[index as number]
+    acc[String(el)] = colors[index as number] ?? '#00C4FF'
     return acc
   }, {} as { [key: string]: string })
 })
@@ -88,7 +88,7 @@ watch([
   const data: { [key: string]: number[] } = {}
 
   for (let i = 0; i < history?.length; i++) {
-    const item = history[i]
+    const item: any = history[i]
 
     const multiplier = Object.keys(item)[0]
     const values = chartFilter.filterData(Object.values(item).flat())
@@ -164,7 +164,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         ticks: {
           callback(value) {
             const rawLabel = this.getLabelForValue(Number(value))
-            return labelWithDateOrMonth(rawLabel, activeFilter.value.value === 180)
+            return labelWithDateOrMonth(rawLabel, activeFilter.value?.value === 180)
           },
         },
       },
@@ -184,7 +184,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         bodySpacing: 8,
         callbacks: {
           title(context) {
-            return prepareDateLabel(new Date(context[0]?.label), true)
+            return prepareDateLabel(new Date(context[0]?.label ?? ''), true)
           },
           label(context) {
             return `${context.dataset.label}x: ${Number(context.raw).toFixed(2)}%`
