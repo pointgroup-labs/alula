@@ -81,13 +81,22 @@ const progress = computed(() => borrowCap.value.toFixed(2))
             <span>${{ shortenNumber(Number(totalBorrowedUsd)) }} / ${{ shortenNumber(Number(totalSuppliedUsd)) }}</span>
           </div>
         </div>
+        <a
+          :href="generateExplorerLink(pool?.pool_address, 'contract')"
+          target="_blank"
+          class="market-penalty "
+        >
+          View contract
+
+          <i-app-export-icon color="#111" />
+        </a>
       </market-progress>
 
-      <div class="separator-vert" />
+      <div class="separator-vert hide-xs" />
       <a
         :href="generateExplorerLink(pool?.pool_address, 'contract')"
         target="_blank"
-        class="market-penalty justify-content-center"
+        class="market-penalty justify-content-center hide-xs"
       >
         View contract
 

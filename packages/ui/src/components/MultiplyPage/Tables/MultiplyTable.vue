@@ -3,6 +3,8 @@ import type { MultiplyTableItem } from '~/types/table'
 import Decimal from 'decimal.js'
 import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
+const { width } = useWindowSize()
+
 const client = useClientStore()
 const marketsStore = useMarketsStore()
 
@@ -83,8 +85,8 @@ const withdrawDialog = ref(false)
 const selectedPoolAddress = ref()
 const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
 
-async function multiplyDialogHandler(data: { item: MultiplyTableItem }, action: 'supply' | 'withdraw') {
-  selectedPoolAddress.value = data.item?.pool_address
+async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' | 'withdraw') {
+  selectedPoolAddress.value = item?.pool_address
   action === 'supply' ? dialogSupply.value = true : withdrawDialog.value = true
 }
 
@@ -121,6 +123,7 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
     class="table-wrapper"
   >
     <BTable
+      v-if="width >= 1024"
       show-empty
       borderless
       :fields="fields"
@@ -218,7 +221,7 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
             icon-right
             :disabled="market.isDisabled(data.item.pool_address, 'leverage')"
             :loading="market.isLoading(data.item.pool_address, 'leverage')"
-            @click="multiplyDialogHandler(data, 'supply')"
+            @click="multiplyDialogHandler(data.item, 'supply')"
           >
             Multiply
           </j-btn>
@@ -230,7 +233,7 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
             icon-right
             :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage')"
             :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage')"
-            @click="multiplyDialogHandler(data, 'withdraw')"
+            @click="multiplyDialogHandler(data.item, 'withdraw')"
           >
             Withdraw
           </j-btn>
@@ -248,6 +251,12 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
         </div>
       </template>
     </BTable>
+
+    <multiply-table-mobile
+      v-else
+      :items="items"
+      @dialog-handler="(e: any) => multiplyDialogHandler(e.item, e.action)"
+    />
 
     <j-loading-spinner v-if="loading">
       Loading...

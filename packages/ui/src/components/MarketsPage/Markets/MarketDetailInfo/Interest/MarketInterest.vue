@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { bigintToNumber, truncatePercent } from '~/utils'
 
+const { width } = useWindowSize()
+
 const marketsStore = useMarketsStore()
 const pool = computed(() => marketsStore.selectedMarketInfo?.raw)
 
@@ -43,24 +45,31 @@ const utilizationRate = computed(() => {
         Rate Strategy <i-app-export-icon />
       </a>
 
-      <div class="separator-vert" />
+      <div class="separator-vert hide-xs" />
     </div>
     <div class="separator" />
 
-    <div class="interest-legend">
-      <div
-        class="interest-legend__item"
-        :style="{ '--legend-color': '#006CE4' }"
+    <!-- <client-only>
+      <dynamic-teleport
+        :is-teleport="width <= 650"
+        to=".market-interest-chart"
       >
-        Borrow APR
-      </div>
-      <div
-        class="interest-legend__item"
-        :style="{ '--legend-color': '#FFD101' }"
-      >
-        Utilization Rate
-      </div>
-    </div>
+        <div class="market-interest-legend">
+          <div
+            class="market-interest-legend__item"
+            :style="{ '--legend-color': '#006CE4' }"
+          >
+            Borrow APR
+          </div>
+          <div
+            class="market-interest-legend__item"
+            :style="{ '--legend-color': '#FFD101' }"
+          >
+            Utilization Rate
+          </div>
+        </div>
+      </dynamic-teleport>
+    </client-only> -->
   </div>
 </template>
 
@@ -82,6 +91,10 @@ const utilizationRate = computed(() => {
       padding: 0 $spacing-12;
       display: flex;
       gap: $spacing-24;
+
+      @media (max-width: $breakpoint-xs) {
+        justify-content: space-between;
+      }
     }
 
     .interest-rate {
@@ -120,31 +133,36 @@ const utilizationRate = computed(() => {
         margin-bottom: -2px;
       }
     }
+  }
+}
 
-    .interest-legend {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: $spacing-12;
-      font-size: 11px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 12px;
+.market-interest-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $spacing-12;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 12px;
 
-      &__item {
-        display: flex;
-        align-items: center;
-        gap: $spacing-4;
+  @media (max-width: $breakpoint-xs) {
+    justify-content: center;
+    padding: $spacing-12 0 $spacing-16;
+  }
 
-        &::before {
-          content: '';
-          display: block;
-          width: 12px;
-          height: 12px;
-          border-radius: 50px;
-          background-color: var(--legend-color);
-        }
-      }
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-4;
+
+    &::before {
+      content: '';
+      display: block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50px;
+      background-color: var(--legend-color);
     }
   }
 }

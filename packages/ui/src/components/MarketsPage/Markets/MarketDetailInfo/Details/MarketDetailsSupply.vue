@@ -81,11 +81,16 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
             <span>${{ shortenNumber(totalSuppliedInUsd, 2) }} / {{ isSupplyLimit ? `$${shortenNumber(supplyLimitInUsd, 2)}` : '∞' }}</span>
           </div>
         </div>
+        <div class="market-penalty">
+          Liquidation Penalty:
+
+          <span>{{ liquidationPenalty }}%</span>
+        </div>
       </market-progress>
 
-      <div class="separator-vert" />
+      <div class="separator-vert hide-xs" />
 
-      <div class="market-penalty">
+      <div class="market-penalty hide-xs">
         Liquidation Penalty:
 
         <span>{{ liquidationPenalty }}%</span>
@@ -105,6 +110,10 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
     display: flex;
     flex-direction: column;
     gap: $spacing-16;
+
+    @media (max-width: $breakpoint-xs) {
+      width: 100%;
+    }
 
     &__title {
       padding: 0 $spacing-12;
@@ -184,6 +193,12 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
       font-style: normal;
       font-weight: 500;
       line-height: 12px;
+
+      @media (max-width: $breakpoint-xs) {
+        width: 100%;
+        justify-content: flex-start;
+        gap: $spacing-12;
+      }
 
       span {
         color: $dark;

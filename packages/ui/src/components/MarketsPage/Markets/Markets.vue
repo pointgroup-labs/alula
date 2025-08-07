@@ -11,6 +11,10 @@
   flex-direction: column;
   gap: $spacing-16;
 
+  @media (max-width: $breakpoint-sm) {
+    gap: 10px;
+  }
+
   .markets-tabs {
     width: fit-content;
 

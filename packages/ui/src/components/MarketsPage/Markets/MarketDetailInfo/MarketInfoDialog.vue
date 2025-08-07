@@ -58,6 +58,11 @@ const dialog = computed({
 .market-info-dialog {
   .modal-content {
     max-width: 1104px;
+
+    @media (max-width: $breakpoint-xs) {
+      max-width: 100dvw;
+      overflow-y: auto;
+    }
   }
 
   .modal-body {
@@ -71,6 +76,11 @@ const dialog = computed({
     display: flex;
     gap: $spacing-24;
     padding-top: $spacing-16;
+
+    @media (max-width: $breakpoint-xs) {
+      flex-direction: column;
+      gap: $spacing-8;
+    }
   }
 
   .market-info {

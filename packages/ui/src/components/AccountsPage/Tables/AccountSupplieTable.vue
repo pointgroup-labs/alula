@@ -3,6 +3,8 @@ import type { DepositObligation } from '@jlend/sdk'
 import type { SuppliedCardTableItem } from '~/types/table'
 import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
+const { width } = useWindowSize()
+
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
 
@@ -67,8 +69,8 @@ const dialog = ref(false)
 const selectedPoolAddress = ref()
 const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
 
-function withdrawDialogHandler(data: { item: any }) {
-  selectedPoolAddress.value = data.item?.pool_address
+function withdrawDialogHandler(item: SuppliedCardTableItem) {
+  selectedPoolAddress.value = item?.pool_address
   dialog.value = true
 }
 
@@ -101,79 +103,87 @@ watch(selectedPool, (p) => {
       v-else
       class="table-wrapper"
     >
-      <BTable
-        v-if="items.length > 0"
-        borderless
-        :fields="fields"
-        :items="items"
-        responsive
-        class="account-table market-table"
-      >
-        <template
-          v-for="field in fields"
-          :key="field.key"
-          #[`head(${field.key})`]="data"
+      <template v-if="items.length > 0">
+        <BTable
+          v-if="width >= 1024"
+          borderless
+          :fields="fields"
+          :items="items"
+          responsive
+          class="account-table market-table"
         >
-          <span :style="{ '--align': field.align }">{{ data.label }}</span>
-        </template>
+          <template
+            v-for="field in fields"
+            :key="field.key"
+            #[`head(${field.key})`]="data"
+          >
+            <span :style="{ '--align': field.align }">{{ data.label }}</span>
+          </template>
 
-        <template #cell(asset)="data">
-          <div class="market-table__asset">
-            <img
-              :src="data.item.asset.icon"
-              alt=""
-            >
-            <div class="market-table__asset__info">
-              <div class="market-table__asset__info__name">
-                {{ data.item.asset.symbol }}
-              </div>
-              <div class="market-table__asset__info__symbol">
-                {{ data.item.asset.name }}
+          <template #cell(asset)="data">
+            <div class="market-table__asset">
+              <img
+                :src="data.item.asset.icon"
+                alt=""
+              >
+              <div class="market-table__asset__info">
+                <div class="market-table__asset__info__name">
+                  {{ data.item.asset.symbol }}
+                </div>
+                <div class="market-table__asset__info__symbol">
+                  {{ data.item.asset.name }}
+                </div>
               </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template #cell(balance)="data">
-          <j-tooltip tooltip-class="table-cell justify-content-end with-price">
-            {{
-              Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5)
-            }}
-            <span>${{ data.item.balanceUsd }}</span>
-            <template #content>
-              {{ formatPrice(data.item.balance) }}
-            </template>
-          </j-tooltip>
-        </template>
+          <template #cell(balance)="data">
+            <j-tooltip tooltip-class="table-cell justify-content-end with-price">
+              {{
+                Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5)
+              }}
+              <span>${{ data.item.balanceUsd }}</span>
+              <template #content>
+                {{ formatPrice(data.item.balance) }}
+              </template>
+            </j-tooltip>
+          </template>
 
-        <template #cell(supply_apy)="data">
-          <div class="table-cell justify-content-center">
-            <j-pill-label
-              color="#111"
-              variant="success"
-              size="md"
-            >
-              {{ data.item.supply_apy }}
-            </j-pill-label>
-          </div>
-        </template>
+          <template #cell(supply_apy)="data">
+            <div class="table-cell justify-content-center">
+              <j-pill-label
+                color="#111"
+                variant="success"
+                size="md"
+              >
+                {{ data.item.supply_apy }}
+              </j-pill-label>
+            </div>
+          </template>
 
-        <template #cell(action)="data">
-          <div class="table-cell justify-content-center">
-            <j-btn
-              pill
-              variant="dark"
-              size="lg"
-              :disabled="market.isDisabled(data.item.pool_address, 'withdraw')"
-              :loading="market.isLoading(data.item.pool_address, 'withdraw')"
-              @click="withdrawDialogHandler(data)"
-            >
-              {{ data.item.action }}
-            </j-btn>
-          </div>
-        </template>
-      </BTable>
+          <template #cell(action)="data">
+            <div class="table-cell justify-content-center">
+              <j-btn
+                pill
+                variant="dark"
+                size="lg"
+                :disabled="market.isDisabled(data.item.pool_address, 'withdraw')"
+                :loading="market.isLoading(data.item.pool_address, 'withdraw')"
+                @click="withdrawDialogHandler(data.item)"
+              >
+                {{ data.item.action }}
+              </j-btn>
+            </div>
+          </template>
+        </BTable>
 
+        <account-supplie-table-mobile
+          v-else
+          :items="items"
+          @dialog-handler="(e: any) => withdrawDialogHandler(e.item)"
+        />
+
+      </template>
       <div
         v-else
         class="no-data"
@@ -216,6 +226,10 @@ watch(selectedPool, (p) => {
     font-style: normal;
     font-weight: 700;
     line-height: 20px;
+
+    @media (max-width: $breakpoint-sm) {
+      font-size: 16px;
+    }
   }
 
   .no-data {

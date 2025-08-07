@@ -68,7 +68,7 @@ const dialog = defineModel({
       align-items: flex-end;
 
       .modal-content {
-        max-height: 70%;
+        max-height: 90%;
         border-radius: $spacing-24 $spacing-24 0 0;
         padding: $spacing-24;
       }

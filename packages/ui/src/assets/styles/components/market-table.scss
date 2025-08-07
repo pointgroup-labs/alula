@@ -98,6 +98,14 @@
   }
 }
 
+.no-table-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-16;
+  font-size: 14px;
+}
+
 body.body--dark {
   .market-table {
     th {
@@ -111,10 +119,6 @@ body.body--dark {
       color: #fff;
     }
 
-    tr:nth-child(even) td {
-      background-color: $dark;
-    }
-
     .market-table__asset__info__symbol {
       color: $neutral-7;
     }
@@ -122,5 +126,9 @@ body.body--dark {
     .with-price span {
       color: $neutral-7;
     }
+  }
+
+  .no-table-data {
+    color: $neutral-7;
   }
 }

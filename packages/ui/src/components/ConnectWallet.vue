@@ -1,5 +1,11 @@
 <script lang="ts" setup>
+import type { BButtonProps } from 'bootstrap-vue-next'
 import { shortenAddress } from '~/utils'
+
+const {
+  size = 'lg',
+} = defineProps<{
+} & BButtonProps>()
 
 const connection = useConnectionStore()
 const wallet = useWallet()
@@ -30,7 +36,7 @@ function copy() {
     v-if="!publicKey"
     :loading="loading"
     pill
-    size="lg"
+    :size="size"
     class="connect-wallet"
     @click="connectWallet"
   >
@@ -58,7 +64,7 @@ function copy() {
       <j-btn
         :loading="loading"
         pill
-        size="lg"
+        :size="size"
         class="connect-wallet"
       >
         {{ shortenAddress(publicKey) }}

@@ -1,0 +1,129 @@
+.table-mobile-card {
+  padding: $spacing-16;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: $spacing-16;
+  border-radius: 20px;
+  border: 1px solid $neutral-3;
+  background: #fff;
+
+  .mobile-card-top {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .card-asset {
+      display: flex;
+      align-items: center;
+      gap: $spacing-8;
+
+      img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        border-radius: 50%;
+      }
+
+      &__info {
+        display: flex;
+        flex-direction: column;
+
+        &__name {
+          font-size: 16px;
+          font-weight: 500;
+          line-height: 20px;
+          text-align: left;
+          font-style: normal;
+        }
+
+        &__symbol {
+          color: $neutral-6;
+          font-size: 11px;
+          font-style: normal;
+          font-weight: 500;
+          line-height: 12px;
+          text-align: left;
+        }
+      }
+    }
+
+    .card-top-info {
+      display: flex;
+      gap: $spacing-8;
+    }
+  }
+
+  .mobile-card-body {
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    padding: 0;
+  }
+
+  .mobile-card-footer {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: $spacing-12;
+
+    .btn {
+      width: 100%;
+    }
+  }
+
+  .info-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    &__title {
+      color: $neutral-6;
+      font-size: 10px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 12px;
+    }
+
+    &__value {
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 16px;
+    }
+  }
+
+  .with-pill {
+    gap: 5px;
+
+    .info-wrapper__title {
+      color: $dark;
+    }
+  }
+}
+
+body.body--dark {
+  .table-mobile-card {
+    background-color: $dark;
+    border-color: $dark;
+
+    .card-asset__info__name {
+      color: #fff;
+    }
+
+    .card-asset__info__symbol {
+      color: $neutral-9;
+    }
+
+    .info-wrapper__title {
+      color: $neutral-9;
+    }
+
+    .info-wrapper__value {
+      color: #fff;
+    }
+  }
+}

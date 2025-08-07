@@ -212,6 +212,10 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         padding: $spacing-4 $spacing-12;
         border-radius: $spacing-4;
         background-color: $neutral-2;
+
+        @media (max-width: $breakpoint-xs) {
+          display: none;
+        }
       }
 
       &__filters {
@@ -241,6 +245,18 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
     &__chart {
       height: 196px;
+    }
+  }
+}
+
+body.body--dark {
+  .market-history-chart {
+    .history-chart {
+      &__header {
+        &__title {
+          color: $neutral-9;
+        }
+      }
     }
   }
 }

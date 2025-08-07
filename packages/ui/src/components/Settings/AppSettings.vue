@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+const { width } = useWindowSize()
 const isSettingsSidebar = ref(false)
 
 provide('isSidebar', isSettingsSidebar)
@@ -8,11 +9,19 @@ provide('isSidebar', isSettingsSidebar)
   <j-btn
     rounded
     variant="secondary"
-    size="lg"
+    :size="width > 650 ? 'lg' : 'md'"
     class="settings-btn"
     @click="isSettingsSidebar = true"
   >
-    <i-app-settings-icon class="settings-icon" />
+    <i-app-settings-icon
+      v-if="width >= 1024"
+      class="settings-icon"
+    />
+    <i-app-menu-icon
+      v-else
+      class="settings-icon"
+    />
+
   </j-btn>
 
   <settings-sidebar

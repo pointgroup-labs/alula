@@ -290,5 +290,9 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 .market-interest-chart {
   height: 115px;
   width: 424px;
+
+  @media (max-width: $breakpoint-xs) {
+    width: 100%;
+  }
 }
 </style>

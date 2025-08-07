@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+const emits = defineEmits(['close'])
+
 const tabs: Record<string, string>[] = inject('navTabs', [])
 const route = useRoute()
 
@@ -17,6 +19,7 @@ function isActiveRoute(tab: Record<string, string>) {
       class="navigation-item"
       :class="{ 'navigation-item--active': isActiveRoute(tab) }"
       :to="String(tab?.route)"
+      @click="emits('close')"
     >
       <i v-html="tab.icon" />
       {{ tab?.shortLabel || tab.label }}

@@ -171,9 +171,9 @@ watch(() => modelValue, (val) => {
 
 watch(showOptions, (val) => {
   if (val) {
-    setTimeout(() => document.addEventListener('click', handleClickOutside), 100)
+    setTimeout(() => document.addEventListener('dialogHandler', handleClickOutside), 100)
   } else {
-    document.removeEventListener('click', handleClickOutside)
+    document.removeEventListener('dialogHandler', handleClickOutside)
   }
 })
 

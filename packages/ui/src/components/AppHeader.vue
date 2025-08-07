@@ -4,13 +4,15 @@ import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
 import logoDark from '~/assets/img/logo-dark.svg'
 import logoLight from '~/assets/img/logo-light.svg'
+import logoMobileDark from '~/assets/img/logo-mobile-dark.svg'
+import logoMobileLight from '~/assets/img/logo-mobile-light.svg'
 import { isDark } from '~/hooks/theme'
 
 const { width } = useWindowSize()
 
 const router = useRouter()
 const route = useRoute()
-const logo = computed(() => isDark.value ? logoDark : logoLight)
+const logo = computed(() => width.value >= 1024 ? (isDark.value ? logoDark : logoLight) : (isDark.value ? logoMobileDark : logoMobileLight))
 
 const tabs = [{
   label: 'Markets',
@@ -72,9 +74,9 @@ watch(() => route.path, (p) => {
       </nav>
 
       <div class="header-actions">
-        <faucet-menu />
+        <faucet-menu v-if="width >= 1024" />
 
-        <connect-wallet />
+        <connect-wallet :size="width > 650 ? 'lg' : 'md'" />
         <app-settings />
       </div>
     </div>

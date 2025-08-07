@@ -27,7 +27,10 @@ function close() {
     @close="close"
   >
     <settings-connect />
-    <settings-navigation v-if="isShowMobileElements" />
+    <settings-navigation
+      v-if="isShowMobileElements"
+      @close="close"
+    />
     <market-info v-if="isShowMobileElements" />
     <settings-language />
     <settings-theme />

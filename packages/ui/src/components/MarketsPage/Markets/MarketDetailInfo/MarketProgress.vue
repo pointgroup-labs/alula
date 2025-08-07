@@ -36,10 +36,10 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '∞')
       <slot />
     </div>
 
-    <div class="separator" />
+    <div class="separator hide-xs" />
 
     <div
-      class="market-progress__details"
+      class="market-progress__details hide-xs"
       :style="{ '--color': detailsColor }"
     >
       <div class="market-cap">
@@ -64,6 +64,12 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '∞')
   align-items: center;
   gap: $spacing-12;
 
+  @media (max-width: $breakpoint-xs) {
+    height: auto;
+    flex-wrap: wrap;
+    justify-content: flex-start !important;
+  }
+
   .j-circular-progress {
     font-size: 10px;
     font-style: normal;
@@ -84,6 +90,11 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '∞')
     display: flex;
     flex-direction: column;
     gap: $spacing-8;
+
+    @media (max-width: $breakpoint-xs) {
+      width: calc(100% - 72px);
+      align-items: flex-start !important;
+    }
 
     &__title {
       font-size: 12px;

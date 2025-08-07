@@ -26,6 +26,11 @@ $label-sizes: (
     font-size: 14px,
     font-weight: 600,
   ),
+  sm: (
+    font-size: 12px,
+    font-weight: 700,
+    line-height: 16px,
+  ),
 );
 
 .j-pill-label {

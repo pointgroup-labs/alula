@@ -9,8 +9,8 @@ const appLogo = computed(() => isDark.value ? logoDark : logoLight)
   <div class="market-info__bottom">
     <market-interest />
     <market-interest-chart />
-    <div class="separator-vert" />
-    <div class="logo-with-text">
+    <div class="separator-vert hide-xs" />
+    <div class="logo-with-text hide-xs">
       <img
         :src="appLogo"
         alt="app logo"
@@ -27,6 +27,11 @@ const appLogo = computed(() => isDark.value ? logoDark : logoLight)
   .market-info__bottom {
     display: flex;
     gap: $spacing-16;
+
+    @media (max-width: $breakpoint-xs) {
+      flex-direction: column;
+      gap: $spacing-8;
+    }
 
     .logo-with-text {
       flex: 1;

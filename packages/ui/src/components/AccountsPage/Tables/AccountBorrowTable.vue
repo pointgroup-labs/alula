@@ -11,6 +11,8 @@ import {
   truncatePercent,
 } from '~/utils'
 
+const { width } = useWindowSize()
+
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)
 
@@ -65,8 +67,8 @@ const dialog = ref(false)
 const selectedPoolAddress = ref()
 const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
 
-function withdrawDialogHandler(data: { item: any }) {
-  selectedPoolAddress.value = data.item?.pool_address
+function withdrawDialogHandler(item: BorrowCardTableItem) {
+  selectedPoolAddress.value = item?.pool_address
   dialog.value = true
 }
 
@@ -99,80 +101,88 @@ watch(selectedPool, (p) => {
       v-else
       class="table-wrapper"
     >
-      <BTable
-        v-if="items.length > 0"
-        borderless
-        :fields="fields"
-        :items="items"
-        responsive
-        class="account-table market-table"
-      >
-        <template
-          v-for="field in fields"
-          :key="field.key"
-          #[`head(${field.key})`]="data"
+      <template v-if="items.length > 0">
+        <BTable
+          v-if="width >= 1024"
+          borderless
+          :fields="fields"
+          :items="items"
+          responsive
+          class="account-table market-table"
         >
-          <span :style="{ '--align': field.align }">{{ data.label }}</span>
-        </template>
+          <template
+            v-for="field in fields"
+            :key="field.key"
+            #[`head(${field.key})`]="data"
+          >
+            <span :style="{ '--align': field.align }">{{ data.label }}</span>
+          </template>
 
-        <template #cell(asset)="data">
-          <div class="market-table__asset">
-            <img
-              :src="data.item.asset.icon"
-              alt=""
-            >
-            <div class="market-table__asset__info">
-              <div class="market-table__asset__info__name">
-                {{ data.item.asset.symbol }}
-              </div>
-              <div class="market-table__asset__info__symbol">
-                {{ data.item.asset.name }}
+          <template #cell(asset)="data">
+            <div class="market-table__asset">
+              <img
+                :src="data.item.asset.icon"
+                alt=""
+              >
+              <div class="market-table__asset__info">
+                <div class="market-table__asset__info__name">
+                  {{ data.item.asset.symbol }}
+                </div>
+                <div class="market-table__asset__info__symbol">
+                  {{ data.item.asset.name }}
+                </div>
               </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template #cell(debt)="data">
-          <j-tooltip tooltip-class="table-cell table-cell__dept justify-content-end with-price">
-            {{
-              Number(data.item.debt) > 1000 ? shortenNumber(Number(data.item.debt)) : Number(data.item.debt).toFixed(5)
-            }}
-            <span>${{ data.item.debtUsd }}</span>
-            <template #content>
-              {{ formatPrice(data.item.debt) }}
-            </template>
-          </j-tooltip>
-        </template>
+          <template #cell(debt)="data">
+            <j-tooltip tooltip-class="table-cell table-cell__dept justify-content-end with-price">
+              {{
+                Number(data.item.debt) > 1000 ? shortenNumber(Number(data.item.debt)) : Number(data.item.debt).toFixed(5)
+              }}
+              <span>${{ data.item.debtUsd }}</span>
+              <template #content>
+                {{ formatPrice(data.item.debt) }}
+              </template>
+            </j-tooltip>
+          </template>
 
-        <template #cell(borrow_apy)="data">
-          <div class="table-cell justify-content-center">
-            <j-pill-label
-              color="#111"
-              variant="warning"
-              size="md"
-            >
-              {{ data.item.borrow_apy }}
-            </j-pill-label>
-          </div>
-        </template>
+          <template #cell(borrow_apy)="data">
+            <div class="table-cell justify-content-center">
+              <j-pill-label
+                color="#111"
+                variant="warning"
+                size="md"
+              >
+                {{ data.item.borrow_apy }}
+              </j-pill-label>
+            </div>
+          </template>
 
-        <template #cell(action)="data">
-          <div class="table-cell justify-content-center">
-            <j-btn
-              pill
-              variant="success"
-              icon-right
-              size="lg"
-              class="repay-btn"
-              :disabled="market.isDisabled(data.item.pool_address, 'repay')"
-              :loading="market.isLoading(data.item.pool_address, 'repay')"
-              @click="withdrawDialogHandler(data)"
-            >
-              {{ data.item.action }}
-            </j-btn>
-          </div>
-        </template>
-      </BTable>
+          <template #cell(action)="data">
+            <div class="table-cell justify-content-center">
+              <j-btn
+                pill
+                variant="success"
+                icon-right
+                size="lg"
+                class="repay-btn"
+                :disabled="market.isDisabled(data.item.pool_address, 'repay')"
+                :loading="market.isLoading(data.item.pool_address, 'repay')"
+                @click="withdrawDialogHandler(data.item)"
+              >
+                {{ data.item.action }}
+              </j-btn>
+            </div>
+          </template>
+        </BTable>
+
+        <account-borrow-table-mobile
+          v-else
+          :items="items"
+          @dialog-handler="(e: any) => withdrawDialogHandler(e.item)"
+        />
+      </template>
 
       <div
         v-else

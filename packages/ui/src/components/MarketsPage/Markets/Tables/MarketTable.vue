@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
+import { amountToUsdWithShort, formatPrice, shortenNumber } from '~/utils'
+
+const { width } = useWindowSize()
 
 const infoDialog = ref(false)
 
@@ -26,10 +28,10 @@ const fields = [
 ]
 
 const items = computed<MarketTableItem[]>(() => {
-  return pools.value.map((p) => {
+  return pools.value?.map((p) => {
     const tokenSymbol = p.token_ticker
     const tokenName = getTokenName(tokenSymbol)
-    const icon = getTokenIcon(tokenSymbol)
+    const icon = getTokenIcon(tokenSymbol) || ''
     const total_supply = Number(bigintToNumber(p.available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
     const total_borrowed = Number(bigintToNumber(p.total_borrowed, assetDecimals.value)) || 0
     const depositApy = p.pool_apy.supply_bps / 100
@@ -60,12 +62,12 @@ const dialogBorrow = ref(false)
 const selectedPoolAddress = ref()
 const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
 
-async function supplyDialogHandler(data: { item: MarketTableItem }, action: 'supply' | 'borrow') {
-  selectedPoolAddress.value = data.item?.pool_address
+async function supplyDialogHandler(item: MarketTableItem, action: 'supply' | 'borrow') {
+  selectedPoolAddress.value = item?.pool_address
   action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
 }
 
-function onRowClicked(item: any, _index: number, _event: any) {
+function onRowClicked(item: MarketTableItem, _index: number, _event: any) {
   marketsStore.selectedMarketInfo = item
   infoDialog.value = true
 }
@@ -89,6 +91,7 @@ function onRowClicked(item: any, _index: number, _event: any) {
     class="table-wrapper"
   >
     <BTable
+      v-if="width >= 1024"
       show-empty
       borderless
       :fields="fields"
@@ -125,7 +128,7 @@ function onRowClicked(item: any, _index: number, _event: any) {
       <template #cell(total_supply)="data">
         <div class="table-cell justify-content-end">
           <j-tooltip tooltip-class="with-price">
-            <strong>{{ data.item.total_supply > 1000 ? shortenNumber(data.item.total_supply) : data.item.total_supply }}</strong>
+            <strong>{{ shortenNumber(data.item.total_supply) }}</strong>
             <span>${{ amountToUsdWithShort(data.item.total_supply, data.item.price) }}</span>
             <template #content>
               {{ formatPrice(data.item.total_supply) }} {{ data.item.asset.symbol }}
@@ -194,7 +197,7 @@ function onRowClicked(item: any, _index: number, _event: any) {
             icon-right
             :disabled="market.isDisabled(data.item.pool_address, 'deposit')"
             :loading="market.isLoading(data.item.pool_address, 'deposit')"
-            @click="supplyDialogHandler(data, 'supply')"
+            @click="supplyDialogHandler(data.item, 'supply')"
           >
             Supply
           </j-btn>
@@ -205,7 +208,7 @@ function onRowClicked(item: any, _index: number, _event: any) {
             variant="accent"
             :disabled="market.isDisabled(data.item.pool_address, 'borrow')"
             :loading="market.isLoading(data.item.pool_address, 'borrow')"
-            @click="supplyDialogHandler(data, 'borrow')"
+            @click="supplyDialogHandler(data.item, 'borrow')"
           >
             Borrow
           </j-btn>
@@ -223,6 +226,13 @@ function onRowClicked(item: any, _index: number, _event: any) {
         </div>
       </template>
     </BTable>
+
+    <market-table-mobile
+      v-else
+      :items="items"
+      @dialog-handler="(e) => supplyDialogHandler(e.item, e.action)"
+      @on-row-clicked="onRowClicked"
+    />
 
     <j-loading-spinner v-if="loading">
       Loading...
