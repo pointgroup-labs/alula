@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type {
-  ChartData,
   ChartOptions,
 } from 'chart.js'
 import { labelWithDateOrMonth } from '~/utils/chart'
@@ -68,7 +67,7 @@ function prepareDateLabel(date: Date, withYear = false) {
   return res
 }
 
-const chartData = ref<ChartData<'bar' | 'line'>>({
+const chartData = ref<any>({
   labels: [],
   datasets: [],
 })

@@ -1,9 +1,9 @@
 .market-table {
   th {
-    color: $neutral-6;
-    font-size: 16px;
+    color: $neutral-12;
+    font-size: 14px;
     font-style: normal;
-    font-weight: 600;
+    font-weight: 400;
     line-height: 20px;
     border-bottom: 1px solid $neutral-13;
 
@@ -19,12 +19,6 @@
     tr {
       height: 80px;
       cursor: pointer;
-
-      &:nth-child(even) {
-        td {
-          background-color: $neutral-2;
-        }
-      }
     }
 
     td {
@@ -39,7 +33,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 15px;
     font-style: normal;
     font-weight: 600;
     line-height: 20px;
