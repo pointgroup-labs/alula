@@ -49,7 +49,7 @@ const utilizationRate = computed(() => {
     </div>
     <div class="separator" />
 
-    <!-- <client-only>
+    <client-only>
       <dynamic-teleport
         :is-teleport="width <= 650"
         to=".market-interest-chart"
@@ -69,7 +69,7 @@ const utilizationRate = computed(() => {
           </div>
         </div>
       </dynamic-teleport>
-    </client-only> -->
+    </client-only>
   </div>
 </template>
 
