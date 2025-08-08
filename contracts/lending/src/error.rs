@@ -56,4 +56,5 @@ pub enum LendingContractError {
     InvalidLeverageMultiplier = 70,
     InvalidSwapSlippage = 71,
     MultiplyPairAlreadyExists = 72,
+    MultiplyPairDoesNotExist = 73,
 }

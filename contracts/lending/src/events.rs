@@ -370,6 +370,37 @@ pub fn obligation_is_unexpectedly_empty(e: &Env, user: &Address, pool_address: &
     e.events().publish(topics, data);
 }
 
+/// Emitted when an unexpected amount has been received after a deterministic swap operation via a swap
+/// provider
+///
+/// - topics - `["received_unexpected_amount_after_swap"], user: Address, pool_address: Address]`
+/// - data - `[amount_in: i128, amount_out: i128, expected_amount_in: i128, expected_amount_out: i128]`
+pub fn received_unexpected_amount_after_swap(
+    e: &Env,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in: i128,
+    amount_out: i128,
+    expected_amount_in: i128,
+    expected_amount_out: i128,
+) {
+    let topics = (
+        Symbol::new(e, "received_unexpected_amount_after_swap"),
+        user,
+        token_in,
+        token_out,
+    );
+    let data = (
+        amount_in,
+        amount_out,
+        expected_amount_in,
+        expected_amount_out,
+    );
+
+    e.events().publish(topics, data);
+}
+
 // TODO: Write simple macro for this and pass `&str` there as input
 pub fn dbg(e: &Env, symbol: Symbol) {
     let topics = (symbol,);

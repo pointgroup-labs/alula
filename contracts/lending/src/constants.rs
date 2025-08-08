@@ -51,7 +51,7 @@ pub const DEFAULT_FLASH_LOAN_FEE_BPS: i128 = 1;
 
 // ---- Deposit with leverage ----
 pub const LEVERAGE_SCALE: u32 = 100;
-pub const MAX_LEVERAGE_MULTIPLIER: u32 = 100 * LEVERAGE_SCALE;
+pub const MAX_LEVERAGE_MULTIPLIER: u32 = 101 * LEVERAGE_SCALE; // 1.01
 pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE;
 
 // ---- Oracle ----
