@@ -191,46 +191,82 @@ onMounted(() => {
 </script>
 
 <template>
-  <div ref="element" :class="uniqueSelectClass">
+  <div
+    ref="element"
+    :class="uniqueSelectClass"
+  >
     <j-btn
-      class="trigger btn-select" :variant="variant" :size="size" :outline="outline" :disabled="disabled"
+      class="trigger btn-select"
+      :variant="variant"
+      :size="size"
+      :outline="outline"
+      :disabled="disabled"
       @click="toggleOptions"
     >
       <div class="select-label">
-        <slot v-if="slot?.label" name="label" />
+        <slot
+          v-if="slot?.label"
+          name="label"
+        />
         <span v-else>{{ selectedLabel }}</span>
       </div>
       <template #append>
         <i
-          v-if="resetIcon && selectedOption?.length > 0" class="chevron-icon" @click="resetWithEmit"
+          v-if="resetIcon && selectedOption?.length > 0"
+          class="chevron-icon"
+          @click="resetWithEmit"
           v-html="closeIcon"
         />
-        <i v-else class="chevron-icon" :class="{ open: showOptions }" v-html="chevronIcon" />
+        <i
+          v-else
+          class="chevron-icon"
+          :class="{ open: showOptions }"
+          v-html="chevronIcon"
+        />
       </template>
     </j-btn>
     <teleport to="body">
       <transition name="fade">
         <div
-          v-if="showOptions" class="dropdown-menu-options" :class="[uniqueMenuClass, menuClass]" v-bind="containerProps"
+          v-if="showOptions"
+          class="dropdown-menu-options"
+          :class="[uniqueMenuClass, menuClass]"
+          v-bind="containerProps"
           :style="[dropdownStyles, { height: menuHeight }]"
         >
-          <div v-if="slot?.search" ref="searchEl">
+          <div
+            v-if="slot?.search"
+            ref="searchEl"
+          >
             <slot name="search" />
           </div>
 
           <ul v-bind="wrapperProps">
             <li v-if="search">
-              <j-input v-model="searchInput" placeholder="Search" size="sm" />
+              <j-input
+                v-model="searchInput"
+                placeholder="Search"
+                size="sm"
+              />
             </li>
-            <li v-if="filteredOptions.length === 0" class="dropdown-options-item no-data">
+            <li
+              v-if="filteredOptions.length === 0"
+              class="dropdown-options-item no-data"
+            >
               No data
             </li>
             <li
-              v-for="(option, index) in list" :key="option?.data?.[optionKey] || index"
+              v-for="(option, index) in list"
+              :key="option?.data?.[optionKey] || index"
               :class="{ 'active-option': selectedOption?.findIndex(item => item?.[optionKey] === option?.data?.[optionKey]) !== -1 }"
-              class="dropdown-options-item" @click="selectOption(option.data)"
+              class="dropdown-options-item"
+              @click="selectOption(option.data)"
             >
-              <slot v-if="slot?.option" name="option" :option="option.data" />
+              <slot
+                v-if="slot?.option"
+                name="option"
+                :option="option.data"
+              />
               <span v-else>{{ option?.data.label || option }}</span>
             </li>
           </ul>

@@ -57,7 +57,7 @@ onMounted(() => {
     :close-on-hide="true"
     :delay="{ show: 0, hide: 0 }"
     :boundary-padding="{ [boundary]: navHeight }"
-    :custom-class="menuClass"
+    :class="menuClass"
     :teleport-to="teleportToBody ? 'body' : undefined"
     lazy
     unmount-lazy

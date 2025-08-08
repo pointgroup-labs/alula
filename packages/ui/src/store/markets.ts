@@ -14,6 +14,9 @@ export const useMarketsStore = defineStore('markets', () => {
   const clientStore = useClientStore()
   const jLendClient = computed(() => clientStore.jLendClient)
 
+  const rpcStore = useRpcStore()
+  const network = computed(() => rpcStore.network)
+
   const poolDepositAddr = ref()
   const poolActionType = ref<TableActionType>()
 
@@ -73,11 +76,19 @@ export const useMarketsStore = defineStore('markets', () => {
     state.pools = state.pools.map(p => (p.pool_address === pool_address ? preparedPool : p))
   }
 
-  onMounted(async () => {
+  async function loadPoolsData() {
+    state.poolAddresses = []
+    state.pools = []
+    state.leveragePools = []
+
     await Promise.all([
       loadPools(),
       loadLeveragePools(),
     ])
+  }
+
+  watch(network, async () => {
+    await loadPoolsData()
   })
 
   return {

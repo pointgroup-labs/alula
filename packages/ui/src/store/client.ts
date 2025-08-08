@@ -1,18 +1,23 @@
 import type { RPCcluster } from '@jlend/client-sdk'
 import { StellarClient } from '@jlend/client-sdk'
-import { useRuntimeConfig } from 'nuxt/app'
+// import { useRuntimeConfig } from 'nuxt/app'
 import { defineStore } from 'pinia'
 
 export const useClientStore = defineStore('client', () => {
-  const config = useRuntimeConfig()
+  // const config = useRuntimeConfig()
+
+  const rpcStore = useRpcStore()
+
+  const network = computed(() => rpcStore.network)
 
   const walletStore = useWallet()
 
   const publicKey = computed(() => walletStore.publicKey)
 
-  const clientNetwork = computed(() => config.public.JLEND_CLIENT_NETWORK || 'testnet')
+  const jLendClient = computed(() => import.meta.client && network.value
+    ? StellarClient.fromAddress(publicKey.value, network.value as RPCcluster)
+    : {} as StellarClient)
 
-  const jLendClient = computed(() => isClient ? StellarClient.fromAddress(publicKey.value, clientNetwork.value as RPCcluster) : {} as StellarClient)
   const assetDecimals = computed(() => jLendClient.value?.sdk?.assetDecimals || 7)
   return {
     jLendClient,

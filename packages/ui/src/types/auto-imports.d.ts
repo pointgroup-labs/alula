@@ -9,6 +9,8 @@ declare global {
   const AlertToast: typeof import('../features/toast/index')['AlertToast']
   const DefaultToast: typeof import('../features/toast/index')['DefaultToast']
   const EffectScope: typeof import('vue')['EffectScope']
+  const Network: typeof import('../store/rpc')['Network']
+  const NetworkPassphrase: typeof import('../store/rpc')['NetworkPassphrase']
   const asyncComputed: typeof import('@vueuse/core')['asyncComputed']
   const autoResetRef: typeof import('@vueuse/core')['autoResetRef']
   const computed: typeof import('vue')['computed']
@@ -236,6 +238,8 @@ declare global {
   const useRafFn: typeof import('@vueuse/core')['useRafFn']
   const useRefHistory: typeof import('@vueuse/core')['useRefHistory']
   const useResizeObserver: typeof import('@vueuse/core')['useResizeObserver']
+  const useRpc: typeof import('../store/rpc')['useRpc']
+  const useRpcStore: typeof import('../store/rpc')['useRpcStore']
   const useSSRWidth: typeof import('@vueuse/core')['useSSRWidth']
   const useScreenOrientation: typeof import('@vueuse/core')['useScreenOrientation']
   const useScreenSafeArea: typeof import('@vueuse/core')['useScreenSafeArea']
@@ -315,6 +319,9 @@ declare global {
   export type { MarketsState, PoolWithPrice, LeveragePool, TableActionType } from '../store/markets'
   import('../store/markets')
   // @ts-ignore
+  export type { Network } from '../store/rpc'
+  import('../store/rpc')
+  // @ts-ignore
   export type { ToastAction, AlertToastVariant, ToastProps } from '../features/toast/toast'
   import('../features/toast/toast')
 }
@@ -327,6 +334,7 @@ declare module 'vue' {
     readonly AlertToast: UnwrapRef<typeof import('../features/toast/index')['AlertToast']>
     readonly DefaultToast: UnwrapRef<typeof import('../features/toast/index')['DefaultToast']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
+    readonly Network: UnwrapRef<typeof import('../store/rpc')['Network']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
@@ -554,6 +562,7 @@ declare module 'vue' {
     readonly useRafFn: UnwrapRef<typeof import('@vueuse/core')['useRafFn']>
     readonly useRefHistory: UnwrapRef<typeof import('@vueuse/core')['useRefHistory']>
     readonly useResizeObserver: UnwrapRef<typeof import('@vueuse/core')['useResizeObserver']>
+    readonly useRpcStore: UnwrapRef<typeof import('../store/rpc')['useRpcStore']>
     readonly useSSRWidth: UnwrapRef<typeof import('@vueuse/core')['useSSRWidth']>
     readonly useScreenOrientation: UnwrapRef<typeof import('@vueuse/core')['useScreenOrientation']>
     readonly useScreenSafeArea: UnwrapRef<typeof import('@vueuse/core')['useScreenSafeArea']>

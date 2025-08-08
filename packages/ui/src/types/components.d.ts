@@ -79,6 +79,7 @@ declare module 'vue' {
     SettingsConnect: typeof import('./../components/Settings/Options/SettingsConnect.vue')['default']
     SettingsLanguage: typeof import('./../components/Settings/Options/SettingsLanguage.vue')['default']
     SettingsNavigation: typeof import('./../components/Settings/Options/SettingsNavigation.vue')['default']
+    SettingsNetwork: typeof import('./../components/Settings/Options/SettingsNetwork.vue')['default']
     SettingsSidebar: typeof import('./../components/Settings/SettingsSidebar.vue')['default']
     SettingsTheme: typeof import('./../components/Settings/Options/SettingsTheme.vue')['default']
     Sidebar: typeof import('./../components/Sidebar/Sidebar.vue')['default']

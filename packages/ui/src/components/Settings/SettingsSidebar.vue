@@ -34,6 +34,7 @@ function close() {
     <market-info v-if="isShowMobileElements" />
     <settings-language />
     <settings-theme />
+    <settings-network />
 
     <client-only>
       <img
