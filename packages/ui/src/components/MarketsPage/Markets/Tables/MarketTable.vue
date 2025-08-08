@@ -74,18 +74,10 @@ function onRowClicked(item: MarketTableItem, _index: number, _event: any) {
 </script>
 
 <template>
-  <template v-if="pools.length === 0 && loading">
-    <j-skeleton
-      height="36"
-      full-width
-      style="border-radius: 8px;"
-    />
-    <j-skeleton
-      height="80"
-      full-width
-      style="margin-top: -8px; border-radius: 8px;"
-    />
-  </template>
+  <div v-if="pools.length === 0 && loading">
+    <table-skeleton v-if="width > 650" />
+    <table-skeleton-mobile v-else />
+  </div>
   <div
     v-else
     class="table-wrapper"

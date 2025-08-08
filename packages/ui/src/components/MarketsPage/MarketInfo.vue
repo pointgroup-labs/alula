@@ -30,12 +30,9 @@ function normalizeAmount(price: number) {
 <template>
   <div class="market-info">
     <template v-if="loading">
-      <j-skeleton
+      <market-info-skeleton
         v-for="i in 2"
         :key="i"
-        width="337"
-        height="168"
-        style="border-radius: 16px;"
       />
     </template>
     <template v-else>

@@ -125,7 +125,7 @@ async function withdrawLeverage() {
   await market.withdrawLeverage(
     deposit_pool_address,
     borrow_pool_address,
-    Number(amount.value),
+    amount.value,
     asset_code,
   )
 }
@@ -153,7 +153,7 @@ watch(dialog, async (v) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="multiply-dialog"
+    class-name="multiply-dialog dialog-default"
   >
     <template #header>
       <div class="multiply-dialog__title">
@@ -210,11 +210,6 @@ watch(dialog, async (v) => {
 
 <style lang="scss">
 .multiply-dialog {
-  .modal-dialog {
-    min-width: 350px;
-    width: 350px;
-  }
-
   &__title {
     color: $dark;
     font-size: 20px;

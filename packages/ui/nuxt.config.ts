@@ -64,7 +64,6 @@ export default defineNuxtConfig({
           'features/toast',
         ],
         vueTemplate: true,
-        viteOptimizeDeps: true,
         injectAtEnd: true,
       }),
       // https://github.com/antfu/unplugin-icons

@@ -162,10 +162,11 @@ async function leverage() {
   if (!deposit_pool_address || !borrow_pool_address) {
     return
   }
+
   await market.leverage(
     deposit_pool_address,
     borrow_pool_address,
-    Number(amount.value),
+    amount.value,
     Number(selectedMultiplier.value),
     asset_code,
   )
@@ -309,6 +310,10 @@ watch(dialog, async (v) => {
 .multiply-dialog {
   .modal-dialog {
     width: min-content;
+
+    @media (max-width: $breakpoint-xs) {
+      width: 100%;
+    }
   }
 
   .j-input__prepend {
@@ -365,6 +370,11 @@ watch(dialog, async (v) => {
     display: flex;
     flex-direction: row;
     gap: 48px;
+
+    @media (max-width: $breakpoint-xs) {
+      flex-direction: column-reverse;
+      gap: $spacing-16;
+    }
   }
 
   &__notice {
@@ -380,8 +390,11 @@ watch(dialog, async (v) => {
     display: flex;
     flex-direction: column;
     gap: $spacing-16;
-    min-width: 350px;
-    width: 350px;
+
+    @media (max-width: $breakpoint-xs) {
+      min-width: 100%;
+      width: 100%;
+    }
 
     &::after {
       content: '';
@@ -391,6 +404,10 @@ watch(dialog, async (v) => {
       position: absolute;
       top: 0;
       right: -24px;
+
+      @media (max-width: $breakpoint-xs) {
+        display: none;
+      }
     }
   }
 

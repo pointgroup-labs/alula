@@ -1,38 +1,47 @@
 <script lang="ts" setup>
-const {
-  to,
-} = defineProps<{
+const props = defineProps<{
   to: string
   isTeleport?: boolean
 }>()
 
-const isElement = ref(false)
+const targetEl = shallowRef<HTMLElement | null>(null)
+const ready = ref(false)
+let observer: MutationObserver | null = null
 
-const checkElement = () => {
-  const el = document.querySelector(to)
-  isElement.value = !!el
+const resolveTarget = () => {
+  const el = document.querySelector(props.to) as HTMLElement | null
+  if (el && el !== targetEl.value) {
+    targetEl.value = el
+    requestAnimationFrame(() => { ready.value = true })
+  }
 }
 
-watchEffect(() => {
-  if (import.meta.client) {
-    checkElement()
-
-    const observer = new MutationObserver(() => checkElement())
+onMounted(() => {
+  nextTick().then(() => {
+    resolveTarget()
+    observer = new MutationObserver(resolveTarget)
     observer.observe(document.body, { childList: true, subtree: true })
+  })
+})
 
-    return () => observer.disconnect()
-  }
+onBeforeUnmount(() => observer?.disconnect())
+
+watch(() => props.to, () => {
+  ready.value = false
+  targetEl.value = null
+  resolveTarget()
 })
 </script>
 
 <template>
-  <teleport
-    v-if="isTeleport && isElement"
-    :to="to"
-  >
-    <slot />
-  </teleport>
-  <template v-else>
-    <slot />
-  </template>
+  <ClientOnly>
+    <teleport
+      v-if="isTeleport && ready && targetEl"
+      :key="`${props.to}::${!!targetEl}`"
+      :to="targetEl"
+    >
+      <slot />
+    </teleport>
+    <slot v-else />
+  </ClientOnly>
 </template>

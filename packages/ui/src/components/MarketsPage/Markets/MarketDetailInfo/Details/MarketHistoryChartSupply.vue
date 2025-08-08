@@ -3,8 +3,8 @@ import type { ChartData, ChartOptions } from 'chart.js'
 import { labelWithDateOrMonth, normalizeChartDate } from '~/utils/chart'
 
 // generate mock data
-function generateMockData(): { date: string, value: number }[] {
-  const data: { date: string, value: number }[] = []
+function generateMockData(): { timestamp: string, value: number }[] {
+  const data: { timestamp: string, value: number }[] = []
   const today = new Date()
   const startDate = new Date()
   startDate.setMonth(today.getMonth() - 6)
@@ -15,7 +15,7 @@ function generateMockData(): { date: string, value: number }[] {
   while (currentDate <= today) {
     const dateStr = currentDate.toISOString().split('T')[0] // YYYY-MM-DD
     const value = +(Math.random() * (10 - 5) + 5).toFixed(1) // от 5.0 до 10.0 с 1 знаком после запятой
-    data.push({ date: String(dateStr), value })
+    data.push({ timestamp: String(dateStr), value })
 
     currentDate.setDate(currentDate.getDate() + 1)
   }
@@ -32,36 +32,6 @@ const isMobile = computed(() => width.value <= 650)
 const chartFilter = useChartFilter()
 const activeFilter = toRef(chartFilter, 'activeFilter')
 
-const dataByFilters = computed(() => {
-  const now = new Date()
-
-  return [...mockData.value]
-    ?.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .filter((item) => {
-      const itemDate = new Date(item.date)
-
-      if (activeFilter.value.value === 7) {
-        const refDate = new Date(now)
-        refDate.setDate(now.getDate() - 7)
-        return itemDate >= refDate && itemDate <= now
-      }
-
-      if (activeFilter.value.value === 31) {
-        const refDate = new Date(now)
-        refDate.setMonth(now.getMonth() - 1)
-        return itemDate >= refDate && itemDate <= now
-      }
-
-      if (activeFilter.value.value === 180) {
-        const refDate = new Date(now)
-        refDate.setMonth(now.getMonth() - 6)
-        return itemDate >= refDate && itemDate <= now
-      }
-
-      return false
-    })
-})
-
 const maxY = ref(12)
 
 const chartData = ref<ChartData<'line'>>({
@@ -70,21 +40,23 @@ const chartData = ref<ChartData<'line'>>({
 })
 
 watch([
-  dataByFilters,
+  mockData,
   activeFilter,
 ], ([d, f]) => {
   if (!d || !f) {
     return
   }
 
-  chartData.value.labels = d.map(item => labelWithDateOrMonth(item.date, f.value === 180))
+  const filteredData = chartFilter.filterData(d)
+
+  chartData.value.labels = filteredData?.map(item => item.timestamp)
   chartData.value.datasets = [
     {
       type: 'line',
       borderColor: isDark.value ? '#006CE4' : '#4dbef1',
       backgroundColor: isDark.value ? '#006CE4' : '#4dbef1',
       label: 'Supply APR',
-      data: d.map((item) => {
+      data: filteredData?.map((item) => {
         maxY.value = Math.max(maxY.value, item.value)
         return item.value
       }),
@@ -129,6 +101,15 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
           dash: [2, 2],
         },
       },
+      x: {
+        ticks: {
+          callback(value) {
+            const rawLabel = this.getLabelForValue(Number(value))
+            const withYear = activeFilter.value?.value !== 180 && width.value >= 650
+            return labelWithDateOrMonth(rawLabel, activeFilter.value?.value === 180, withYear)
+          },
+        },
+      },
     },
     plugins: {
       tooltip: {
@@ -137,12 +118,8 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
         bodySpacing: 8,
         callbacks: {
           title(context: any) {
-            const dataIndex = context[0]?.dataIndex
-            const data = dataByFilters.value[dataIndex]
-            if (!data?.date) {
-              return context[0]?.label
-            }
-            return normalizeChartDate(data.date)
+            const date = context[0]?.label
+            return normalizeChartDate(date, true)
           },
           label(context: any) {
             return context[0]?.label

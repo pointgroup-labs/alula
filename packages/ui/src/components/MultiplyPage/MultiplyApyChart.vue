@@ -53,20 +53,6 @@ const activeFilter = toRef(chartFilter, 'activeFilter')
 const maxY = ref(5)
 const minY = ref(0)
 
-function prepareDateLabel(date: Date, withYear = false) {
-  if (!date) {
-    return ''
-  }
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  let res = `${day}.${month}`
-  if (withYear) {
-    const year = String(date.getFullYear()).padStart(2, '0')
-    res += `.${year}`
-  }
-  return res
-}
-
 const chartData = ref<any>({
   labels: [],
   datasets: [],
@@ -163,7 +149,8 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         ticks: {
           callback(value) {
             const rawLabel = this.getLabelForValue(Number(value))
-            return labelWithDateOrMonth(rawLabel, activeFilter.value?.value === 180)
+            const withYear = activeFilter.value?.value !== 180 && width.value >= 650
+            return labelWithDateOrMonth(rawLabel, activeFilter.value?.value === 180, withYear)
           },
         },
       },
@@ -183,7 +170,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         bodySpacing: 8,
         callbacks: {
           title(context) {
-            return prepareDateLabel(new Date(context[0]?.label ?? ''), true)
+            return normalizeChartDate(context[0]?.label ?? '', true)
           },
           label(context) {
             return `${context.dataset.label}x: ${Number(context.raw).toFixed(2)}%`
@@ -212,7 +199,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         :chart-data="chartData"
         :chart-options="chartOptions"
         chart-height="196px"
-        :max-ticks-limit="6"
+        :max-ticks-limit="4"
       />
     </div>
 
@@ -227,7 +214,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
       </div>
     </div>
 
-    <div class="loop-multiply__vault">
+    <div class="loop-multiply__vault hide-xs">
       <div class="loop-multiply__vault-title">
         Vault Info
       </div>
@@ -248,6 +235,10 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   display: flex;
   flex-direction: column;
   gap: $spacing-16;
+
+  @media (max-width: $breakpoint-sm) {
+    width: 100%;
+  }
 
   .loop-multiply__legend {
     display: flex;

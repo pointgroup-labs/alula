@@ -85,17 +85,10 @@ watch(selectedPool, (p) => {
       Your Borrows
     </div>
 
-    <template v-if="items.length === 0 && (userStore.loading || loadingMarkets)">
-      <j-skeleton
-        height="36"
-        full-width
-      />
-      <j-skeleton
-        height="80"
-        full-width
-        style="margin-top: -8px;"
-      />
-    </template>
+    <div v-if="items.length === 0 && (userStore.loading || loadingMarkets)">
+      <table-skeleton v-if="width > 650" />
+      <table-skeleton-mobile v-else />
+    </div>
 
     <div
       v-else

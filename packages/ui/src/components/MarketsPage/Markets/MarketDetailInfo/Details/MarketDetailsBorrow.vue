@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { bigintToNumber, generateExplorerLink, shortenNumber, truncatePercent } from '~/utils'
 
+const { width } = useWindowSize()
+
 const clientStore = useClientStore()
 const marketsStore = useMarketsStore()
 const market = computed(() => marketsStore.selectedMarketInfo)
@@ -82,9 +84,10 @@ const progress = computed(() => borrowCap.value.toFixed(2))
           </div>
         </div>
         <a
+          v-if="width <= 650"
           :href="generateExplorerLink(pool?.pool_address, 'contract')"
           target="_blank"
-          class="market-penalty "
+          class="market-penalty"
         >
           View contract
 

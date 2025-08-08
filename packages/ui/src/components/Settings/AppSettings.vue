@@ -13,15 +13,16 @@ provide('isSidebar', isSettingsSidebar)
     class="settings-btn"
     @click="isSettingsSidebar = true"
   >
-    <i-app-settings-icon
-      v-if="width >= 1024"
-      class="settings-icon"
-    />
-    <i-app-menu-icon
-      v-else
-      class="settings-icon"
-    />
-
+    <client-only>
+      <i-app-settings-icon
+        v-if="width >= 1024"
+        class="settings-icon"
+      />
+      <i-app-menu-icon
+        v-else
+        class="settings-icon"
+      />
+    </client-only>
   </j-btn>
 
   <settings-sidebar
