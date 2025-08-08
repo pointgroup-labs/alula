@@ -161,10 +161,8 @@ fn test_multiply_pair_initialize() {
     e.as_contract(&contract_id, || {
         assert!(storage::multiply_pair_exists(
             &e,
-            &MultiplyPair {
-                deposit_pool: deposit_token_address,
-                borrow_pool: borrow_token_address,
-            },
+            &deposit_token_address,
+            &borrow_token_address,
         ));
     })
 }

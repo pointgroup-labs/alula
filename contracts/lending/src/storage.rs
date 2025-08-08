@@ -12,6 +12,8 @@ use crate::{
 
 pub type PoolAddress = Address;
 pub type UserAddress = Address;
+pub type DepositPoolAddress = Address;
+pub type BorrowPoolAddress = Address;
 
 #[contracttype]
 pub struct GlobalState {
@@ -26,7 +28,7 @@ pub enum DataKey {
     GlobalState,
     Pool(PoolAddress),
     Obligation(UserAddress),
-    MultiplyPair(MultiplyPair),
+    MultiplyPair((DepositPoolAddress, BorrowPoolAddress)),
     Accrual,
     AllPools,
     AllObligations,
@@ -129,12 +131,12 @@ pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
 }
 
 pub fn set_multiply_pair(e: &Env, pair: &MultiplyPair) {
-    e.storage()
-        .persistent()
-        // NB: Should we allow multiple pairs with the same pools?
-        .set(&DataKey::MultiplyPair(pair.clone()), pair);
+    // e.storage()
+    //     .persistent()
+    //     // NB: Should we allow multiple pairs with the same pools?
+    //     .set(&DataKey::MultiplyPair(pair.clone()), pair);
 
-    extend_shared_storage(e, &DataKey::MultiplyPair(pair.clone()));
+    // extend_shared_storage(e, &DataKey::MultiplyPair(pair.clone()));
 }
 
 pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
@@ -150,14 +152,18 @@ pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     res
 }
 
-pub fn multiply_pair_exists(e: &Env, pair: &MultiplyPair) -> bool {
-    let res: bool = e
-        .storage()
-        .persistent()
-        .has(&DataKey::MultiplyPair(pair.clone()));
+pub fn multiply_pair_exists(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> bool {
+    let pair_key =
+        DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
+
+    let res: bool = e.storage().persistent().has(&pair_key);
 
     if res {
-        extend_shared_storage(e, &DataKey::MultiplyPair(pair.clone()));
+        extend_shared_storage(e, &pair_key);
     }
 
     res
@@ -184,6 +190,23 @@ pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
 
     if res.is_some() {
         extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
+    }
+
+    res
+}
+
+pub fn get_multiply_pair(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Option<MultiplyPair> {
+    let pair_key =
+        DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
+
+    let res = e.storage().persistent().get(&pair_key);
+
+    if res.is_some() {
+        extend_shared_storage(e, &pair_key);
     }
 
     res
@@ -236,9 +259,9 @@ pub fn remove_all_multiply_pairs(e: &Env) {
 }
 
 pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
-    e.storage()
-        .persistent()
-        .remove(&DataKey::MultiplyPair(pair.clone()));
+    // e.storage()
+    //     .persistent()
+    //     .remove(&DataKey::MultiplyPair(pair.clone()));
 
     // TODO: remove address from `DataKey::AllMultiplyPairs`
 }

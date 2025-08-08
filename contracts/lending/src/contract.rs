@@ -313,14 +313,11 @@ impl LendingContract {
         let admin = storage::get_global_state(&e).admin;
         admin.require_auth();
 
-        let pair = MultiplyPair {
-            deposit_pool,
-            borrow_pool,
+        let Ok(pair) = MultiplyPair::try_get(&e, &deposit_pool, &borrow_pool) else {
+            return Ok(());
         };
 
-        if MultiplyPair::exists(&e, &pair) {
-            storage::remove_multiply_pair(&e, &pair);
-        }
+        pair.remove(&e);
 
         Ok(())
     }
@@ -329,13 +326,8 @@ impl LendingContract {
         e: Env,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
-    ) -> Result<bool, LCError> {
-        let pair = MultiplyPair {
-            deposit_pool: deposit_pool_address,
-            borrow_pool: borrow_pool_address,
-        };
-
-        Ok(MultiplyPair::exists(&e, &pair))
+    ) -> bool {
+        MultiplyPair::exists(&e, &deposit_pool_address, &borrow_pool_address)
     }
 
     /// Deposits tokens into the loan pool with leverage. Leverage is achieved by utilizing flash
@@ -575,14 +567,20 @@ pub fn process_initialize_multiply_pair(
         return Err(LCError::PoolDoesNotExist);
     }
 
-    let pair = MultiplyPair {
-        deposit_pool: deposit_pool_address.clone(),
-        borrow_pool: borrow_pool_address.clone(),
-    };
+    let borrow_pool_open_ltv_bps = Pool::try_get(e, &borrow_pool_address)
+        .unwrap()
+        .config
+        .open_ltv_bps;
 
-    if MultiplyPair::exists(e, &pair) {
+    if MultiplyPair::exists(e, &deposit_pool_address, &borrow_pool_address) {
         return Err(LCError::MultiplyPairAlreadyExists);
     }
+
+    let pair = MultiplyPair::new(
+        deposit_pool_address,
+        borrow_pool_address,
+        borrow_pool_open_ltv_bps,
+    );
 
     pair.set(e);
     pair.register(e);
@@ -1052,14 +1050,16 @@ fn process_deposit_with_leverage(
 
     // TODO: Add max multiplier check
 
-    let pair = MultiplyPair {
-        deposit_pool: deposit_pool_address.clone(),
-        borrow_pool: borrow_pool_address.clone(),
-    };
+    let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
 
-    if !MultiplyPair::exists(e, &pair) {
-        return Err(LCError::MultiplyPairDoesNotExist);
-    }
+    // let pair = MultiplyPair {
+    //     deposit_pool: deposit_pool_address.clone(),
+    //     borrow_pool: borrow_pool_address.clone(),
+    // };
+
+    // if !MultiplyPair::exists(e, &pair) {
+    //     return Err(LCError::MultiplyPairDoesNotExist);
+    // }
 
     let deposit_pool = Pool::try_get(e, deposit_pool_address).map_err(|_| {
         events::pool_is_missing_in_storage(e, deposit_pool_address);
