@@ -242,14 +242,19 @@ watch(dialog, async (v) => {
                 {{ borrowAsset?.name }}
               </div>
               <template #target="{ active }">
-                <img
-                  :src="depositAsset?.icon"
-                  :alt="`${depositAsset?.name} icon`"
-                >
-                <i-app-arrow-up
-                  class="arrow-icon"
-                  :class="{ 'arrow-icon--active': active }"
-                />
+                <j-tooltip>
+                  <img
+                    :src="depositAsset?.icon"
+                    :alt="`${depositAsset?.name} icon`"
+                  >
+                  <i-app-arrow-up
+                    class="arrow-icon"
+                    :class="{ 'arrow-icon--active': active }"
+                  />
+                  <template #content>
+                    Change multiply asset to {{ borrowAsset?.name }}
+                  </template>
+                </j-tooltip>
               </template>
             </j-popover>
           </template>
@@ -334,9 +339,12 @@ watch(dialog, async (v) => {
     }
 
     .popover-target {
-      display: flex;
-      align-items: center;
-      gap: 2px;
+      & > div {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        cursor: pointer;
+      }
     }
 
     .arrow-icon {
