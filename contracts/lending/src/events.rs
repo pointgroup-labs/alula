@@ -370,6 +370,7 @@ pub fn obligation_is_unexpectedly_empty(e: &Env, user: &Address, pool_address: &
     e.events().publish(topics, data);
 }
 
+#[allow(clippy::too_many_arguments)]
 /// Emitted when an unexpected amount has been received after a deterministic swap operation via a swap
 /// provider
 ///

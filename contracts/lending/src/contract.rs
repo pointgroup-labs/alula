@@ -1088,7 +1088,7 @@ fn process_deposit_with_leverage2(
     borrow_pool.adjust_available(e, -flash_borrow_amount)?;
     // NB: This `set` is required, since 'available' amount is later accounted when calling
     // `process_borrow`
-    borrow_pool.set(&e);
+    borrow_pool.set(e);
 
     // -- Swap --
     // NB: Since both 'amount_in' and 'amount_out' are calculated in the current contract call,
