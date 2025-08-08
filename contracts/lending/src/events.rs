@@ -371,12 +371,13 @@ pub fn obligation_is_unexpectedly_empty(e: &Env, user: &Address, pool_address: &
 }
 
 #[allow(clippy::too_many_arguments)]
-/// Emitted when an unexpected amount has been received after a deterministic swap operation via a swap
-/// provider
+/// Emitted when an unexpected amount has been received after a deterministic swap operation via a
+/// swap provider
 ///
-/// - topics - `["received_unexpected_amount_after_swap"], user: Address, pool_address: Address]`
-/// - data - `[amount_in: i128, amount_out: i128, expected_amount_in: i128, expected_amount_out: i128]`
-pub fn received_unexpected_amount_after_swap(
+/// - topics - `["received_unexpected_swap_amount"], user: Address, pool_address: Address]`
+/// - data - `[amount_in: i128, amount_out: i128, expected_amount_in: i128, expected_amount_out:
+///   i128]`
+pub fn received_unexpected_swap_amount(
     e: &Env,
     user: &Address,
     token_in: &Address,
@@ -387,7 +388,7 @@ pub fn received_unexpected_amount_after_swap(
     expected_amount_out: i128,
 ) {
     let topics = (
-        Symbol::new(e, "received_unexpected_amount_after_swap"),
+        Symbol::new(e, "received_unexpected_swap_amount"),
         user,
         token_in,
         token_out,

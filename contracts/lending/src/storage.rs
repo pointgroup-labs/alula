@@ -226,9 +226,21 @@ pub fn remove_all_pools(e: &Env) {
 pub fn remove_all_multiply_pairs(e: &Env) {
     let all_pairs: soroban_sdk::Vec<MultiplyPair> = get_all_multiply_pairs(e);
 
+    for pair in all_pairs.iter() {
+        remove_multiply_pair(e, &pair);
+    }
+
     if !all_pairs.is_empty() {
         e.storage().persistent().remove(&DataKey::AllMultiplyPairs);
     }
+}
+
+pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
+    e.storage()
+        .persistent()
+        .remove(&DataKey::MultiplyPair(pair.clone()));
+
+    // TODO: remove address from `DataKey::AllMultiplyPairs`
 }
 
 // --- Obligation ---
@@ -276,7 +288,7 @@ pub fn remove_all_obligations(e: &Env) {
     let all_obligations: soroban_sdk::Vec<Address> = get_all_obligations(e);
 
     for obligation in all_obligations.iter() {
-        // TODO: This is an ad-hoc fix, and it's better to be rewritten well
+        // TODO: This is an ad-hoc fix, and it's better to be rewritten well!!!
         if obligation_exists(e, &obligation) {
             remove_obligation(e, &obligation);
         }
