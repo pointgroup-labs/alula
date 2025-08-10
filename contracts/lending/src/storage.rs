@@ -5,8 +5,9 @@ use crate::{
         INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP,
         SHARED_THRESHOLD,
     },
+    multiply_pair::MultiplyPair,
     obligation::Obligation,
-    pool::{MultiplyPair, Pool},
+    pool::Pool,
     LCError,
 };
 

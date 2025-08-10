@@ -16,8 +16,9 @@ use crate::{
     events,
     interest_rate::CompoundRates,
     math_utils::MathUtils,
+    multiply_pair::MultiplyPair,
     obligation::{LiquidationValues, Obligation},
-    pool::{MultiplyPair, Pool, PoolAddress, PoolConfig},
+    pool::{Pool, PoolAddress, PoolConfig},
     storage::{self, GlobalState},
     swap, LCError,
 };
@@ -1048,18 +1049,11 @@ fn process_deposit_with_leverage(
         return Err(LCError::InvalidLeverageMultiplier);
     }
 
-    // TODO: Add max multiplier check
-
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
 
-    // let pair = MultiplyPair {
-    //     deposit_pool: deposit_pool_address.clone(),
-    //     borrow_pool: borrow_pool_address.clone(),
-    // };
-
-    // if !MultiplyPair::exists(e, &pair) {
-    //     return Err(LCError::MultiplyPairDoesNotExist);
-    // }
+    if leverage_multiplier > pair.max_leverage_multiplier {
+        return Err(LCError::InvalidLeverageMultiplier);
+    }
 
     let deposit_pool = Pool::try_get(e, deposit_pool_address).map_err(|_| {
         events::pool_is_missing_in_storage(e, deposit_pool_address);

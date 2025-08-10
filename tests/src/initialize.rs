@@ -2,7 +2,6 @@
 
 use lending::{
     contract::{LendingContract, LendingContractClient},
-    pool::MultiplyPair,
     storage, LCError,
 };
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN};

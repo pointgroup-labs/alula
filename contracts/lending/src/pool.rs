@@ -3,107 +3,19 @@ use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec}
 
 use crate::{
     constants::{
-        BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
+        BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
         DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
         DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2,
         DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT, LEVERAGE_SCALE,
     },
     events,
     math_utils::MathUtils,
+    multiply_pair::MultiplyPair,
     storage, LCError,
 };
 
 pub type PoolAddress = Address;
 pub type UserAddress = Address;
-
-// TODO: Add a separate module per 'MultiplyPair'
-#[contracttype]
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct MultiplyPair {
-    /// Address of a pool in a pair for a leveraged deposit
-    pub deposit_pool: Address,
-    /// Address of a pool in a pair for a leveraged borrow
-    pub borrow_pool: Address,
-    /// Maximum leverage multiplier based on borrow pool openLTV value. Scaled with [`LEVERAGE_SCALE`]
-    pub max_leverage_multiplier: i128,
-}
-
-impl MultiplyPair {
-    pub fn new(
-        deposit_pool_address: &Address,
-        borrow_pool_address: &Address,
-        borrow_pool_open_ltv_bps: i128,
-    ) -> Self {
-        let max_leverage_multiplier =
-            Self::compute_max_leverage_multiplier(borrow_pool_open_ltv_bps);
-
-        Self {
-            deposit_pool: deposit_pool_address.clone(),
-            borrow_pool: borrow_pool_address.clone(),
-            max_leverage_multiplier,
-        }
-    }
-
-    /// Tries to get the multiply pair from the contract's storage
-    ///
-    /// # Returns
-    /// - [`Ok(MultiplyPair)`] if a multiply pair for the given deposit and pools addresses exists in the contract's storage
-    /// - [`Err(LCError::MultiplyPairDoesNotExist)`] otherwise
-    pub fn try_get(
-        e: &Env,
-        deposit_pool_address: &Address,
-        borrow_pool_address: &Address,
-    ) -> Result<Self, LCError> {
-        // storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)
-        storage::get_multiply_pair(e, deposit_pool_address, borrow_pool_address)
-            .ok_or(LCError::MultiplyPairDoesNotExist)
-    }
-
-    /// Registers a multiply pair in the pairs list
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
-    pub fn register(&self, e: &Env) -> u32 {
-        storage::register_multiply_pair(e, self.clone())
-    }
-
-    pub fn exists(e: &Env, deposit_pool_address: &Address, borrow_pool_address: &Address) -> bool {
-        storage::multiply_pair_exists(e, deposit_pool_address, borrow_pool_address)
-    }
-
-    /// Saves\updates multiply pair in the contract's storage
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
-    pub fn set(&self, e: &Env) {
-        storage::set_multiply_pair(e, self);
-    }
-
-    fn compute_max_leverage_multiplier(borrow_pool_open_ltv_bps: i128) -> i128 {
-        // compile-time assertion, hence, no error is returned
-        const _: () = assert!(
-            (LEVERAGE_SCALE as i128) < BPS_FACTOR,
-            "leverage_scale_is_too_big"
-        );
-
-        let scales_in_bps_factor = BPS_FACTOR / (LEVERAGE_SCALE as i128);
-
-        // 'max_leverage_multiplier' = 1/(1 - openLTV)
-        let denominator = BPS_FACTOR - borrow_pool_open_ltv_bps; // safe
-        let numerator = BPS_FACTOR;
-
-        let max_multiplier_bps = numerator
-            .fixed_div_ceil(denominator, BPS_FACTOR)
-            .map_over_or_underflow()
-            .unwrap(); // safe
-
-        max_multiplier_bps / scales_in_bps_factor // safe
-    }
-
-    pub fn remove(&self, e: &Env) {
-        // if self
-    }
-}
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
