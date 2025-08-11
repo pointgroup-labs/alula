@@ -231,7 +231,7 @@ pub fn accrue_interest(e: &Env, user: &Address) {
 ///
 /// - topics - `["leveraged_position_bad_debt", user: Address, deposit_pool_address: Address,
 ///   borrow_pool_address: Address]`
-/// - data - `[deposited_amount: i128, borrowed_amount: i128, borrowed_amount_swapped: i128]`
+/// - data - `[deposited_amount: i128, borrowed_amount: i128, deposited_amount_swapped: i128]`
 pub fn leveraged_position_bad_debt(
     e: &Env,
     user: &Address,
@@ -239,7 +239,7 @@ pub fn leveraged_position_bad_debt(
     borrow_pool_address: &Address,
     deposited_amount: i128,
     borrowed_amount: i128,
-    borrowed_amount_swapped: i128,
+    deposited_amount_swapped: i128,
 ) {
     let topics = (
         Symbol::new(e, "leveraged_position_bad_debt"),
@@ -247,7 +247,7 @@ pub fn leveraged_position_bad_debt(
         deposit_pool_address,
         borrow_pool_address,
     );
-    let data = (deposited_amount, borrowed_amount, borrowed_amount_swapped);
+    let data = (deposited_amount, borrowed_amount, deposited_amount_swapped);
 
     e.events().publish(topics, data);
 }

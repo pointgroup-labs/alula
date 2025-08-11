@@ -81,7 +81,7 @@ pub fn swap_tokens_for_exact_tokens(
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, LCError> {
     let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
-        if slippage <= 0 || slippage > BPS_FACTOR {
+        if !(0..=BPS_FACTOR).contains(&slippage) {
             return Err(LCError::InvalidSwapSlippage);
         }
 

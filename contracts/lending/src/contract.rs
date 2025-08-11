@@ -1289,6 +1289,8 @@ pub fn process_withdraw_from_leveraged(
     // Flash Borrow
     let flash_borrowed_token_client = token::Client::new(e, borrow_pool_address);
     flash_borrowed_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
+    borrow_pool.adjust_available(e, -flash_borrow_amount)?;
+    borrow_pool.set(e);
 
     // Repay Debt
     process_repay(e, user, borrow_pool_address, flash_borrow_amount)?;
@@ -1311,13 +1313,20 @@ pub fn process_withdraw_from_leveraged(
         .checked_add(flash_borrow_amount)
         .map_over_or_underflow()?;
 
-    // WARN: Here we must call an outer swap, since they are swapped from the user's wallet, right?
-    process_swap_for_exact_tokens(
+    let amount_in = swap::get_amount_in(
+        e,
+        &deposit_pool.token_address,
+        &borrow_pool.token_address,
+        flash_repay_amount,
+    )?;
+    swap::swap_tokens_for_exact_tokens(
         e,
         user,
-        deposit_pool_address,
-        borrow_pool_address,
+        &deposit_pool.token_address,
+        &borrow_pool.token_address,
+        amount_in,
         flash_repay_amount,
+        Some(0),
     )?;
 
     // Flash Repay
@@ -1347,18 +1356,17 @@ fn compute_leveraged_position_max_withdrawable_amount(
     deposited_amount: i128,
     borrowed_amount: i128,
 ) -> Result<i128, LCError> {
-    let borrowed_token_swapped_amount =
-        swap::get_amount_out(e, borrowed_token, deposited_token, borrowed_amount)?;
-
-    let flash_loan_fee = borrowed_token_swapped_amount
+    let flash_loan_fee = borrowed_amount
         .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
-
-    let swapped_amount_with_fees = borrowed_token_swapped_amount
+    let flash_repay_amount = borrowed_amount
         .checked_add(flash_loan_fee)
         .map_over_or_underflow()?;
 
-    if swapped_amount_with_fees > deposited_amount {
+    let deposit_tokens_to_repay_flash_loan =
+        swap::get_amount_in(e, deposited_token, borrowed_token, flash_repay_amount)?;
+
+    if deposit_tokens_to_repay_flash_loan > deposited_amount {
         // WARN: This can happen when multiply position contains a bad debt
         events::leveraged_position_bad_debt(
             e,
@@ -1367,14 +1375,14 @@ fn compute_leveraged_position_max_withdrawable_amount(
             borrowed_token,
             deposited_amount,
             borrowed_amount,
-            borrowed_token_swapped_amount,
+            deposit_tokens_to_repay_flash_loan,
         );
 
         // TODO: This has to be thought of when implementing security mechanisms
         return Err(LCError::InternalError);
     }
 
-    Ok(deposited_amount - swapped_amount_with_fees) // safe
+    Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe
 }
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {

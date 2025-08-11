@@ -163,9 +163,8 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
 }
 
 #[test]
-#[ignore]
 fn test_deposit_with_unhealthy_leverage() {
-    const LEVERAGE: u32 = 40;
+    const LEVERAGE: u32 = 5;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
     let TestFixture {
@@ -191,7 +190,7 @@ fn test_deposit_with_unhealthy_leverage() {
             &DEFAULT_DEPOSIT_AMOUNT,
             &LEVERAGE_MULTIPLIER,
         ),
-        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
+        Err(Ok(LCError::InvalidLeverageMultiplier))
     );
 }
 
@@ -476,7 +475,7 @@ fn test_withdraw() {
         DEFAULT_DEPOSIT_AMOUNT,
     )
     .unwrap();
-    let withdrawable_amount = get_amount_scaled_down(amount_out, 10_00);
+    let withdrawable_amount = get_amount_scaled_down(amount_out, 10_00); // 90%
 
     // We must be able to withdraw the initial amount
     contract_client.withdraw_from_leveraged(
