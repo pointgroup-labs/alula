@@ -1138,7 +1138,10 @@ fn process_deposit_with_leverage(
         Some(0),
     )?;
 
-    // WARN: Why aren't they actually equal here?
+    // NB: For some reason, Soroswap adds 1 to `amount_in` in `router_get_amounts_in`.
+    // See: https://github.com/soroswap/core/blob/c157c676d189a39ab8a3869a1011d3a259c36e22/contracts/library/src/quotes.rs#L77.
+    // This is likely the reason why 'received_amount' is bigger than 'amount_out', which is not an
+    // issue, though
     if received_amount < amount_out {
         events::received_unexpected_swap_amount(
             e,
