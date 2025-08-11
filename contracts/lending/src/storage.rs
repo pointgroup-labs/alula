@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Env, Symbol, Vec};
+use soroban_sdk::{contracttype, Address, Env, Vec};
 
 use crate::{
     constants::{
@@ -8,7 +8,6 @@ use crate::{
     multiply_pair::MultiplyPair,
     obligation::Obligation,
     pool::Pool,
-    LCError,
 };
 
 pub type PoolAddress = Address;

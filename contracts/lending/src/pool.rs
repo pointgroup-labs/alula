@@ -342,7 +342,7 @@ impl PoolConfig {
             return Err("slope1 must be less than slope2 for kinked model to work");
         }
 
-        if open_ltv_bps < 0 || open_ltv_bps >= (100 * BPS_IN_PERCENT) {
+        if !(0..(100 * BPS_IN_PERCENT)).contains(&open_ltv_bps) {
             return Err("Open LTV must be between 0% and 100%");
         }
 

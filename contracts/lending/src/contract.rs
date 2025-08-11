@@ -568,12 +568,12 @@ pub fn process_initialize_multiply_pair(
         return Err(LCError::DepositPoolDoesNotExist);
     }
 
-    let borrow_pool_open_ltv_bps = Pool::try_get(e, &borrow_pool_address)
+    let borrow_pool_open_ltv_bps = Pool::try_get(e, borrow_pool_address)
         .map_err(|_| LCError::BorrowPoolDoesNotExist)?
         .config
         .open_ltv_bps;
 
-    if MultiplyPair::exists(e, &deposit_pool_address, &borrow_pool_address) {
+    if MultiplyPair::exists(e, deposit_pool_address, borrow_pool_address) {
         return Err(LCError::MultiplyPairAlreadyExists);
     }
 
