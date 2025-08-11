@@ -1,18 +1,19 @@
-use {
-    crate::{
-        constants::{
-            INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP,
-            SHARED_THRESHOLD,
-        },
-        obligation::Obligation,
-        pool::{MultiplyPair, Pool},
-        LCError,
+use soroban_sdk::{contracttype, Address, Env, Vec};
+
+use crate::{
+    constants::{
+        INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP,
+        SHARED_THRESHOLD,
     },
-    soroban_sdk::{contracttype, Address, Env, Symbol},
+    multiply_pair::MultiplyPair,
+    obligation::Obligation,
+    pool::Pool,
 };
 
-// pub type Address = Address;
-// pub type UserAddress = Address;
+pub type PoolAddress = Address;
+pub type UserAddress = Address;
+pub type DepositPoolAddress = Address;
+pub type BorrowPoolAddress = Address;
 
 #[contracttype]
 pub struct GlobalState {
@@ -25,8 +26,9 @@ pub struct GlobalState {
 #[contracttype]
 pub enum DataKey {
     GlobalState,
-    Pool(Address),
-    Obligation(Address),
+    Pool(PoolAddress),
+    Obligation(UserAddress),
+    MultiplyPair((DepositPoolAddress, BorrowPoolAddress)),
     Accrual,
     AllPools,
     AllObligations,
@@ -54,7 +56,6 @@ pub fn extend_shared_storage(e: &Env, key: &DataKey) {
         .extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
 
-#[allow(unused)]
 pub fn get_global_state(e: &Env) -> GlobalState {
     extend_instance_storage(e);
 
@@ -73,22 +74,95 @@ pub fn set_global_state(e: &Env, global_state: &GlobalState) {
 }
 
 // --- Pool ---
-
-pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<Address> {
+pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<PoolAddress> {
     let res = e.storage().persistent().get(&DataKey::AllPools);
+
     if let Some(pools) = res {
         extend_shared_storage(e, &DataKey::AllPools);
+
         pools
     } else {
         soroban_sdk::Vec::new(e)
     }
 }
 
+pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
+    let mut all_pools = get_all_pools(e);
+    all_pools.push_back(pool_address.clone());
+
+    let new_index = all_pools.len() - 1;
+
+    e.storage().persistent().set(&DataKey::AllPools, &all_pools);
+    extend_shared_storage(e, &DataKey::AllPools);
+
+    new_index
+}
+
+pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
+    let key = DataKey::Pool(pool_address.clone());
+
+    e.storage().persistent().set(&key, pool);
+
+    extend_shared_storage(e, &key);
+}
+
+pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
+    let key = DataKey::Pool(pool_address.clone());
+
+    let res = e.storage().persistent().has(&key);
+
+    if res {
+        extend_shared_storage(e, &key);
+    }
+
+    res
+}
+
+pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
+    let key = DataKey::Pool(pool_address.clone());
+
+    let res = e.storage().persistent().get(&key);
+
+    if res.is_some() {
+        extend_shared_storage(e, &key);
+    }
+
+    res
+}
+
+pub fn remove_pool(e: &Env, pool_address: &Address) {
+    let key = DataKey::Pool(pool_address.clone());
+
+    e.storage().persistent().remove(&key);
+
+    let pools = get_all_pools(e);
+    let mut new_pools = Vec::new(e);
+
+    // TODO: This doesn't scale well. Start using [`soroban_sdk::Map`]
+    for pool_addr in pools.iter() {
+        if pool_addr != *pool_address {
+            new_pools.push_back(pool_addr);
+        }
+    }
+
+    e.storage().persistent().set(&DataKey::AllPools, &new_pools);
+}
+
+pub fn remove_all_pools(e: &Env) {
+    let all_pools: soroban_sdk::Vec<PoolAddress> = get_all_pools(e);
+
+    for pool in all_pools.iter() {
+        remove_pool(e, &pool);
+    }
+}
+
+// --- Multiply Pair ---
 pub fn get_all_multiply_pairs(e: &Env) -> soroban_sdk::Vec<MultiplyPair> {
     let res = e.storage().persistent().get(&DataKey::AllMultiplyPairs);
 
     if let Some(pairs) = res {
         extend_shared_storage(e, &DataKey::AllMultiplyPairs);
+
         pairs
     } else {
         soroban_sdk::Vec::new(e)
@@ -109,103 +183,109 @@ pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
     new_index
 }
 
-pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
-    let mut all_pools = get_all_pools(e);
-    all_pools.push_back(pool_address.clone());
+pub fn set_multiply_pair(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+    pair: &MultiplyPair,
+) {
+    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
 
-    let new_index = all_pools.len() - 1;
-
-    e.storage().persistent().set(&DataKey::AllPools, &all_pools);
-    extend_shared_storage(e, &DataKey::AllPools);
-
-    new_index
-}
-
-pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     e.storage()
         .persistent()
-        .set(&DataKey::Pool(pool_address.clone()), pool);
+        // NB: Should we allow multiple pairs with the same pools?
+        .set(&key, pair);
 
-    extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
+    extend_shared_storage(e, &key);
 }
 
-pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
-    let res = e
-        .storage()
-        .persistent()
-        .has(&DataKey::Pool(pool_address.clone()));
+pub fn multiply_pair_exists(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> bool {
+    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
+
+    let res: bool = e.storage().persistent().has(&key);
 
     if res {
-        extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
+        extend_shared_storage(e, &key);
     }
 
     res
 }
 
-pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
-    let res = e
-        .storage()
-        .persistent()
-        .get(&DataKey::Pool(pool_address.clone()));
+pub fn get_multiply_pair(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Option<MultiplyPair> {
+    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
+
+    let res = e.storage().persistent().get(&key);
 
     if res.is_some() {
-        extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
+        extend_shared_storage(e, &key);
     }
 
     res
 }
 
-pub fn get_pool_ticker(e: &Env, pool_address: &Address) -> Result<Symbol, LCError> {
-    let pool = get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
+pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
+    let key = DataKey::MultiplyPair((pair.deposit_pool.clone(), pair.borrow_pool.clone()));
 
-    Ok(pool.token_ticker)
-}
+    e.storage().persistent().remove(&key);
 
-pub fn set_pool_data(e: &Env, pool_address: &Address, pool_data: &Pool) {
-    e.storage()
-        .persistent()
-        .set(&DataKey::Pool(pool_address.clone()), pool_data);
+    let pairs = get_all_multiply_pairs(e);
+    let mut new_pairs = Vec::new(e);
 
-    extend_shared_storage(e, &DataKey::Pool(pool_address.clone()));
-}
-
-pub fn remove_pool(e: &Env, pool_address: &Address) {
-    e.storage()
-        .persistent()
-        .remove(&DataKey::Pool(pool_address.clone()));
-}
-
-pub fn remove_all_pools(e: &Env) {
-    let all_pools: soroban_sdk::Vec<PoolAddress> = get_all_pools(e);
-
-    for pool in all_pools.iter() {
-        remove_pool(e, &pool);
+    for p in pairs.iter() {
+        if p != *pair {
+            new_pairs.push_back(p);
+        }
     }
 
-    e.storage().persistent().remove(&DataKey::AllPools);
+    e.storage()
+        .persistent()
+        .set(&DataKey::AllMultiplyPairs, &new_pairs);
 }
 
 pub fn remove_all_multiply_pairs(e: &Env) {
-    e.storage().persistent().remove(&DataKey::AllMultiplyPairs);
+    let all_pairs: soroban_sdk::Vec<MultiplyPair> = get_all_multiply_pairs(e);
+
+    for pair in all_pairs.iter() {
+        remove_multiply_pair(e, &pair);
+    }
 }
 
 // --- Obligation ---
 pub fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
-    e.storage()
-        .persistent()
-        .set(&DataKey::Obligation(user.clone()), obligation);
+    let key = DataKey::Obligation(user.clone());
 
-    extend_individual_storage(e, &DataKey::Obligation(user.clone()));
+    e.storage().persistent().set(&key, obligation);
+
+    extend_individual_storage(e, &key);
 }
 
-pub fn get_obligation(e: &Env, user: &Address) -> Option<Obligation> {
-    let res = e
-        .storage()
-        .persistent()
-        .get(&DataKey::Obligation(user.clone()));
+pub fn get_obligation(e: &Env, user_address: &Address) -> Option<Obligation> {
+    let key = DataKey::Obligation(user_address.clone());
+
+    let res = e.storage().persistent().get(&key);
 
     if res.is_some() {
-        extend_individual_storage(e, &DataKey::Obligation(user.clone()));
+        extend_individual_storage(e, &key);
+    }
+
+    res
+}
+
+pub fn obligation_exists(e: &Env, user_address: &Address) -> bool {
+    let key = DataKey::Obligation(user_address.clone());
+
+    let res = e.storage().persistent().has(&key);
+
+    if res {
+        extend_shared_storage(e, &key);
     }
 
     res
@@ -224,10 +304,24 @@ pub fn register_obligation(e: &Env, user_address: &Address) -> u32 {
     new_index
 }
 
-pub fn remove_obligation(e: &Env, user: &Address) {
+pub fn remove_obligation(e: &Env, user_address: &Address) {
+    let key = DataKey::Obligation(user_address.clone());
+
+    e.storage().persistent().remove(&key);
+
+    let obligations = get_all_obligations(e);
+    let mut new_obligations = Vec::new(e);
+
+    // WARN: This doesn't scale well, so it better be rewritten with 'Map'
+    for obligation in obligations.iter() {
+        if obligation != *user_address {
+            new_obligations.push_back(obligation);
+        }
+    }
+
     e.storage()
         .persistent()
-        .remove(&DataKey::Obligation(user.clone()));
+        .set(&DataKey::AllObligations, &new_obligations);
 }
 
 pub fn remove_all_obligations(e: &Env) {
@@ -236,8 +330,6 @@ pub fn remove_all_obligations(e: &Env) {
     for obligation in all_obligations.iter() {
         remove_obligation(e, &obligation);
     }
-
-    e.storage().persistent().remove(&DataKey::AllObligations);
 }
 
 pub fn get_all_obligations(e: &Env) -> soroban_sdk::Vec<UserAddress> {

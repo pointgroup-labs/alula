@@ -1,16 +1,15 @@
 #![cfg(test)]
 
-use {
-    crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    lending::{
-        constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
-        LCError,
-    },
-    soroban_sdk::{
-        testutils::{Address as _, Ledger},
-        Address,
-    },
+use lending::{
+    constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
+    LCError,
 };
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    Address,
+};
+
+use crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
 
 struct LiquidationTest {
     test_fixture: TestFixture<'static>,
@@ -22,9 +21,9 @@ impl LiquidationTest {
     /// Creates a standard setup with healthy position
     fn new() -> Self {
         let test_fixture = TestFixture::new();
-        let borrower = test_fixture.users.get(0).unwrap();
-        let lender = test_fixture.users.get(1).unwrap();
-        let liquidator = test_fixture.users.get(2).unwrap();
+        let borrower = test_fixture.users[0].clone();
+        let lender = test_fixture.users[1].clone();
+        let liquidator = test_fixture.users[2].clone();
 
         // Lender provides liquidity
         test_fixture.contract_client.deposit(
@@ -68,9 +67,9 @@ impl LiquidationTest {
     /// Creates a risky position closer to liquidation threshold
     fn risky() -> Self {
         let test_fixture = TestFixture::new();
-        let borrower = test_fixture.users.get(0).unwrap();
-        let lender = test_fixture.users.get(1).unwrap();
-        let liquidator = test_fixture.users.get(2).unwrap();
+        let borrower = test_fixture.users[0].clone();
+        let lender = test_fixture.users[1].clone();
+        let liquidator = test_fixture.users[2].clone();
 
         // Lender provides liquidity
         test_fixture.contract_client.deposit(
@@ -102,9 +101,9 @@ impl LiquidationTest {
 
     fn risky_with_deposit_as_collateral() -> Self {
         let test_fixture = TestFixture::new();
-        let borrower = test_fixture.users.get(0).unwrap();
-        let lender = test_fixture.users.get(1).unwrap();
-        let liquidator = test_fixture.users.get(2).unwrap();
+        let borrower = test_fixture.users[0].clone();
+        let lender = test_fixture.users[1].clone();
+        let liquidator = test_fixture.users[2].clone();
 
         // Lender provides liquidity
         test_fixture.contract_client.deposit(
@@ -320,13 +319,12 @@ fn test_liquidate_exceeds_close_factor_fails() {
     // Create a position that's definitely unhealthy
     let fixture = TestFixture::new();
 
-    let borrower = fixture.users.get(0).unwrap();
-    let lender = fixture.users.get(1).unwrap();
-    let liquidator = fixture.users.get(2).unwrap();
-
+    let borrower = &fixture.users[0];
+    let lender = &fixture.users[1];
+    let liquidator = &fixture.users[2];
     // Lender provides liquidity
     fixture.contract_client.deposit(
-        &lender,
+        lender,
         &fixture.usdc_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT * 5),
     );
@@ -334,7 +332,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     // Create minimal collateral position
     let minimal_collateral = DEFAULT_DEPOSIT_AMOUNT / 10; // Very small collateral
     fixture.contract_client.add_collateral(
-        &borrower,
+        borrower,
         &fixture.gold_pool_address,
         &minimal_collateral,
     );
@@ -343,7 +341,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     let max_borrow = (minimal_collateral * DEFAULT_LIQUIDATION_THRESHOLD) / 100; // 80% of collateral value
     fixture
         .contract_client
-        .borrow(&borrower, &fixture.usdc_pool_address, &max_borrow);
+        .borrow(borrower, &fixture.usdc_pool_address, &max_borrow);
 
     // Accrue interest to make position unhealthy
     fixture
@@ -354,7 +352,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     // Get current borrowed amount (should include accrued interest)
     let total_debt = get_borrow_obligation(
         &fixture.contract_client,
-        &borrower,
+        borrower,
         &fixture.usdc_pool_address,
     )
     .unwrap()
@@ -367,8 +365,8 @@ fn test_liquidate_exceeds_close_factor_fails() {
 
     // This should fail with close factor exceeded
     let result = fixture.contract_client.try_liquidate(
-        &liquidator,
-        &borrower,
+        liquidator,
+        borrower,
         &fixture.usdc_pool_address,
         &fixture.gold_pool_address,
         &over_limit,
@@ -518,7 +516,8 @@ fn test_liquidation_reduces_health_factor() {
                     println!("Position was still unhealthy after first liquidation");
                 }
                 Err(Ok(LCError::LiquidatedPositionIsHealthy)) => {
-                    // Position became healthy after first liquidation - this is the expected behavior
+                    // Position became healthy after first liquidation - this is the expected
+                    // behavior
                     println!("Position became healthy after liquidation");
                 }
                 Err(Ok(error)) => {

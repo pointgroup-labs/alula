@@ -1,13 +1,16 @@
 #![cfg(test)]
 
-use {
-    lending::contract::{LendingContract, LendingContractClient},
-    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
+use lending::{
+    contract::{LendingContract, LendingContractClient},
+    storage, LCError,
 };
+use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN};
+
+use crate::get_default_env;
 
 #[test]
 fn test_pool_initialize() {
-    let e = Env::default();
+    let e = get_default_env();
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
@@ -33,7 +36,7 @@ fn test_pool_initialize() {
 
 #[test]
 fn test_pool_initialize_with_different_salt() {
-    let e = Env::default();
+    let e = get_default_env();
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
@@ -55,7 +58,7 @@ fn test_pool_initialize_with_different_salt() {
 
 #[test]
 fn test_pool_initialize_non_conflicting() {
-    let e = Env::default();
+    let e = get_default_env();
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
@@ -82,9 +85,9 @@ fn test_pool_initialize_non_conflicting() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_pool_reinitialize_no_salt() {
-    let e = Env::default();
+    let e = get_default_env();
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
@@ -102,9 +105,9 @@ fn test_pool_reinitialize_no_salt() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_pool_reinitialize_with_salt() {
-    let e = Env::default();
+    let e = get_default_env();
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
@@ -121,4 +124,101 @@ fn test_pool_reinitialize_with_salt() {
 
     contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt.clone()), &None);
     contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt), &None);
+}
+
+#[test]
+fn test_multiply_pair_initialize() {
+    let e = get_default_env();
+
+    let contract_admin = Address::generate(&e);
+    let contract_id = e.register(
+        LendingContract,
+        (contract_admin.clone(), Option::<i128>::None),
+    );
+    let contract_client = LendingContractClient::new(&e, &contract_id);
+
+    // Initialize pools first
+    let deposit_token_admin = Address::generate(&e);
+    let deposit_token_address = e
+        .register_stellar_asset_contract_v2(deposit_token_admin)
+        .address();
+    let deposit_token_ticker = symbol_short!("TCK1");
+
+    let borrow_token_admin = Address::generate(&e);
+    let borrow_token_address = e
+        .register_stellar_asset_contract_v2(borrow_token_admin)
+        .address();
+    let borrow_token_ticker = symbol_short!("TCK2");
+
+    contract_client.initialize_pool(&deposit_token_address, &deposit_token_ticker, &None, &None);
+    contract_client.initialize_pool(&borrow_token_address, &borrow_token_ticker, &None, &None);
+
+    // Initialize a multiply pair
+    contract_client.initialize_multiply_pair(&deposit_token_address, &borrow_token_address);
+
+    // Check that pair is initialized
+    e.as_contract(&contract_id, || {
+        assert!(storage::multiply_pair_exists(
+            &e,
+            &deposit_token_address,
+            &borrow_token_address,
+        ));
+    })
+}
+
+#[test]
+fn test_multiply_pair_already_initialized() {
+    let e = get_default_env();
+
+    let contract_admin = Address::generate(&e);
+    let contract_id = e.register(
+        LendingContract,
+        (contract_admin.clone(), Option::<i128>::None),
+    );
+    let contract_client = LendingContractClient::new(&e, &contract_id);
+
+    // Initialize pools first
+    let deposit_token_admin = Address::generate(&e);
+    let deposit_token_address = e
+        .register_stellar_asset_contract_v2(deposit_token_admin)
+        .address();
+    let deposit_token_ticker = symbol_short!("TCK1");
+
+    let borrow_token_admin = Address::generate(&e);
+    let borrow_token_address = e
+        .register_stellar_asset_contract_v2(borrow_token_admin)
+        .address();
+    let borrow_token_ticker = symbol_short!("TCK2");
+
+    contract_client.initialize_pool(&deposit_token_address, &deposit_token_ticker, &None, &None);
+    contract_client.initialize_pool(&borrow_token_address, &borrow_token_ticker, &None, &None);
+
+    // Initialize a multiply pair
+    contract_client.initialize_multiply_pair(&deposit_token_address, &borrow_token_address);
+
+    assert_eq!(
+        contract_client.try_initialize_multiply_pair(&deposit_token_address, &borrow_token_address),
+        Err(Ok(LCError::MultiplyPairAlreadyExists))
+    );
+}
+
+#[test]
+fn test_multiply_pair_with_inexistent_pool() {
+    let e = get_default_env();
+
+    let contract_admin = Address::generate(&e);
+    let contract_id = e.register(
+        LendingContract,
+        (contract_admin.clone(), Option::<i128>::None),
+    );
+    let contract_client = LendingContractClient::new(&e, &contract_id);
+
+    let borrow_pool_address = Address::generate(&e);
+    let deposit_pool_address = Address::generate(&e);
+
+    // Try to initialize a multiply pair
+    assert_eq!(
+        contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
+        Err(Ok(LCError::DepositPoolDoesNotExist))
+    );
 }

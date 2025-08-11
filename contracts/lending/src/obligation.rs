@@ -1,15 +1,14 @@
-use {
-    crate::{
-        constants::{ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
-        contract::get_asset_price,
-        events,
-        math_utils::MathUtils,
-        pool::{Pool, PoolConfig},
-        storage::{self, get_global_state},
-        LCError,
-    },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contracttype, Address, Env, Map, Vec},
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{contracttype, Address, Env, Map, Vec};
+
+use crate::{
+    constants::{ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
+    contract::get_asset_price,
+    events,
+    math_utils::MathUtils,
+    pool::{Pool, PoolConfig},
+    storage::{self, get_global_state},
+    LCError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,7 +32,8 @@ impl Obligation {
     /// Creates a new obligation for the user
     ///
     /// # WARNING
-    /// Modifies the obligation's pools storage data by appending the user's address to the obligation's list
+    /// Modifies the obligation's pools storage data by appending the user's address to the
+    /// obligation's list
     pub fn new(e: &Env, user: Address) -> Self {
         storage::register_obligation(e, &user);
 
@@ -47,11 +47,13 @@ impl Obligation {
     /// Accrues interest on all borrows for the obligation
     ///
     /// # WARNING
-    /// Modifies the obligation's pools storage data, but **DOESN'T** modify the obligation's storage data
+    /// Modifies the obligation's pools storage data, but **DOESN'T** modify the obligation's
+    /// storage data
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         for (pool_address, mut borrow_obligation) in self.borrows.iter() {
             borrow_obligation.accrue_interest(e, &pool_address)?;
-            // TODO: Check if you can modify and iterate through [`soroban_sdk::Map`] at the same time
+            // TODO: Check if you can modify and iterate through [`soroban_sdk::Map`] at the same
+            // time
             self.borrows.set(pool_address, borrow_obligation);
         }
 
@@ -74,7 +76,8 @@ impl Obligation {
             let total_debt = borrow_obligation.total_debt()?;
 
             let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
-                // TODO: Add event
+                events::pool_is_missing_in_storage(e, &borrow_pool_address);
+
                 return Err(LCError::InternalError);
             };
 
@@ -92,7 +95,8 @@ impl Obligation {
         Ok(borrowed_value_sum)
     }
 
-    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per obligation
+    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
+    /// obligation
     fn compute_collateral_value(&self, e: &Env) -> Result<i128, LCError> {
         let mut collateral_value_sum = 0_i128;
 
@@ -133,8 +137,9 @@ impl Obligation {
         Ok(collateral_value_sum)
     }
 
-    /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a collateral) that can
-    /// be removed so that the obligation's LTV is equal to the `open LTV` parameter on the pool
+    /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a
+    /// collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
+    /// parameter on the pool
     pub fn compute_max_healthy_collateral_removed_amount(
         &self,
         e: &Env,
@@ -155,8 +160,8 @@ impl Obligation {
             .map_over_or_underflow()?;
 
         let token_amount_left = if collateral_value <= open_ltv_collateral_value {
-            // Since current collateral value is already less than required open_ltv_collateral_value,
-            // the collateral removal is prohibited
+            // Since current collateral value is already less than required
+            // open_ltv_collateral_value, the collateral removal is prohibited
             0
         } else {
             let value_left = collateral_value - open_ltv_collateral_value; // safe
@@ -185,12 +190,12 @@ impl Obligation {
         // TODO: Must be rewritten when markets are implemented
         // 'open_ltv_borrowed_value' == (collateral_value * pool.config.open_ltv_bps) / 10_000
         let open_ltv_borrowed_value = collateral_value
-            .fixed_div_floor(BPS_FACTOR, pool.config.open_ltv_bps)
+            .fixed_mul_floor(pool.config.open_ltv_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let max_healthy_borrow_amount = if borrowed_value >= open_ltv_borrowed_value {
-            // Since overall borrowed assets value exceeds the collateral value scaled down with Open LTV,
-            // the borrow is prohibited
+            // Since overall borrowed assets value exceeds the collateral value scaled down with
+            // Open LTV, the borrow is prohibited
             0
         } else {
             let value_left = open_ltv_borrowed_value - borrowed_value; // safe
@@ -217,8 +222,8 @@ impl Obligation {
             return Ok(i128::MAX);
         }
 
-        // TODO: Instead of `liquidation_threshold_bps`, the minimal `close_ltv` value per borrowed assets in the market
-        // must be used when switching to markets
+        // TODO: Instead of `liquidation_threshold_bps`, the minimal `close_ltv` value per borrowed
+        // assets in the market must be used when switching to markets
         let numerator = collateral_value
             .checked_mul(liquidation_threshold_bps)
             .map_over_or_underflow()?;
@@ -305,8 +310,8 @@ impl Obligation {
         Ok(())
     }
 
-    /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt -
-    /// the real repaid amount is calculated as `min(debt, repaid_amount)`
+    /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt
+    /// - the real repaid amount is calculated as `min(debt, repaid_amount)`
     ///
     /// # Returns
     /// [`Result::Ok(repaid_amount)`] in success and [`Err(LCError)`] in failure
@@ -321,16 +326,25 @@ impl Obligation {
             .get(pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        let total_debt = borrow_obligation.total_debt()?;
-        let repaid_amount = i128::min(amount, total_debt);
+        let borrowed = borrow_obligation.borrowed;
+        let unpaid_interest = borrow_obligation.unpaid_interest;
 
-        if repaid_amount == total_debt {
+        let total_debt = borrowed
+            .checked_add(unpaid_interest)
+            .map_over_or_underflow()?;
+
+        let mut repaid_amount = i128::min(amount, total_debt);
+
+        if repaid_amount >= borrowed {
+            // WARN: Skipping interest repayment is a massive issue and must be fixed
+            // since this breaks one of the contract's most fundamental invariants
+            repaid_amount = borrow_obligation.borrowed;
             self.borrows.remove(pool_address.clone());
         } else {
             if repaid_amount <= borrow_obligation.unpaid_interest {
                 borrow_obligation.adjust_unpaid_interest(e, -repaid_amount)?;
             } else {
-                let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest;
+                let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest; // safe
                 borrow_obligation.adjust_borrowed(e, -removed_from_borrowed)?;
                 borrow_obligation.adjust_unpaid_interest(e, -borrow_obligation.unpaid_interest)?;
             }
@@ -381,7 +395,8 @@ impl Obligation {
         let liquidation_value = amount.checked_mul(borrowed_price).map_over_or_underflow()?;
 
         // Value, which liquidator would like to receive if a full liquidation takes place
-        // 'liquidation_value_with_incentive' == (liquidation_value * (10_000 + liquidation_incentive_bps)) / 10_000
+        // 'liquidation_value_with_incentive' == (liquidation_value * (10_000 +
+        // liquidation_incentive_bps)) / 10_000
         let liquidation_value_with_incentive = liquidation_value
             .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
@@ -423,7 +438,7 @@ impl Obligation {
                     .checked_div(collateral_price)
                     .map_over_or_underflow()?;
                 let shares_amount_sold =
-                    collateral_pool.compute_shares_from_tokens(tokens_from_sold_shares)?;
+                    collateral_pool.compute_shares_from_tokens(e, tokens_from_sold_shares)?;
 
                 LiquidationValues {
                     liquidated_amount: amount,
@@ -432,7 +447,8 @@ impl Obligation {
                     tokens_from_sold_shares,
                 }
             } else {
-                // The case when full liquidation cannot take place because of not enough available amount in the pool
+                // The case when full liquidation cannot take place because of not enough available
+                // amount in the pool.
                 // TODO: Rewrite with using cTokens
                 let collateral_value_sum = full_collateral_value
                     .checked_add(tokens_from_shares_value)
@@ -534,8 +550,8 @@ impl Obligation {
     /// Tries to get the user's obligation from the contract's storage
     ///
     /// # Returns
-    /// - `[Ok(Obligation)]` if a pool with the given address exists in the contract's storage
-    /// - `[Err(LCError::ObligationDoesNotExist)]` otherwise
+    /// - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
+    /// - [`Err(LCError::ObligationDoesNotExist)`] otherwise
     pub fn try_get(e: &Env, user: &Address) -> Result<Self, LCError> {
         storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)
     }
@@ -598,8 +614,9 @@ pub struct BorrowObligation {
     pub borrowed: i128,
     /// The amount of unpaid interest
     pub unpaid_interest: i128,
-    /// The numerical value that is used to determine the scaling factor required for updating the position amount
-    /// with interest, i.e. new_borrowed = (current_accrual \ last_accrual) * borrowed
+    /// The numerical value that is used to determine the scaling factor required for updating the
+    /// position amount with interest, i.e. new_borrowed = (current_accrual \ last_accrual) *
+    /// borrowed
     pub last_accrual: i128,
 }
 
@@ -612,7 +629,6 @@ impl BorrowObligation {
         }
     }
 
-    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.borrowed == 0
     }
@@ -674,7 +690,7 @@ impl BorrowObligation {
         // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
         // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_debt = prev_debt
-            .fixed_div_floor(self.last_accrual, pool.last_accrual)
+            .fixed_div_ceil(self.last_accrual, pool.last_accrual)
             .map_over_or_underflow()?;
 
         let old_unpaid_interest = self.unpaid_interest;

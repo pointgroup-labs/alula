@@ -9,11 +9,13 @@ crate-type = ["lib", "cdylib"]
 doctest = true
 
 [dependencies]
+moderc3156 = { workspace = true }
+sep-40-oracle = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
-moderc3156 = { workspace = true }
 
 [dev-dependencies]
+sep-40-oracle = { workspace = true, features = ["testutils"] }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [features]

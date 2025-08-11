@@ -11,12 +11,14 @@ pub const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;
 pub const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
 pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 
-// Shared persistent storage extension must be spread among all shared resource users, so it must be cheap and paid regularly
+// Shared persistent storage extension must be spread among all shared resource users, so it must be
+// cheap and paid regularly
 pub const SHARED_THRESHOLD: u32 = 50 * LEDGERS_PER_DAY;
 pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + LEDGERS_PER_DAY;
 
-// Individual persistent storage extension is usually paid by the data owners. It should neither be paid very
-// often (in order to not pay for extension operation) nor very rare (to minimize the risk of archival)
+// Individual persistent storage extension is usually paid by the data owners. It should neither be
+// paid very often (in order to not pay for extension operation) nor very rare (to minimize the risk
+// of archival)
 pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
@@ -48,12 +50,14 @@ pub const DEFAULT_MAX_SLIPPAGE_BPS: i128 = 1;
 pub const DEFAULT_FLASH_LOAN_FEE_BPS: i128 = 1;
 
 // ---- Deposit with leverage ----
-pub const MAX_LEVERAGE_MULTIPLIER: u32 = 1000;
-pub const MIN_LEVERAGE_MULTIPLIER: u32 = 10;
+pub const LEVERAGE_SCALE: u32 = 100;
+pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE;
+
+// ---- Oracle ----
+pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 15 * 60; // TODO: How to properly pick this value?
 
 // ---- Contract Addresses ----
-pub const REFLECTOR_TESTNET_ADDRESS: &str =
-    "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
+pub const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
 pub const SOROSWAP_ROUTER_TESTNET_ADDRESS: &str =
     "CBEEH4UPEYYJIT6INNYMXOXP5UTN6IBU3NKQFOFUYCZM2IHYITW6N22Z";

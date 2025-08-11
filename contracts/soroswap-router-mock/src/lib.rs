@@ -10,7 +10,8 @@ use soroban_sdk::{
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
-// WARN: This is a plain copied enum and it is not synchronized with the deployed contract's errors
+// WARN: This is a plain copied enum and it is not synchronized with the deployed contract's errors.
+// Likely, the Soroswap team will not break the backward compatibility, so this is relatively fine
 pub enum CombinedRouterError {
     RouterNotInitialized = 501,
     RouterNegativeNotAllowed = 502,
@@ -35,6 +36,20 @@ pub struct MockSoroswapRouterContract;
 
 #[contractimpl]
 impl MockSoroswapRouterContract {
+    // For now we assume 1:1 swap rate
+    // TODO: We can take prices here from `PriceFeedClient`
+    pub fn router_get_amounts_in(
+        e: Env,
+        amount_out: i128,
+        path: Vec<Address>,
+    ) -> Result<Vec<i128>, CombinedRouterError> {
+        if path.len() < 2 {
+            return Err(CombinedRouterError::LibraryInvalidPath);
+        }
+
+        Ok(soroban_sdk::vec![&e, amount_out, amount_out])
+    }
+
     // For now we assume 1:1 swap rate
     pub fn router_get_amounts_out(
         e: Env,

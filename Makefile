@@ -19,7 +19,7 @@ FLASH_LOAN_TAKER_MOCK := flash-loan-taker-mock
 .DEFAULT_GOAL: help
 .PHONY: help
 
-# Downloads  a WASM file if it doesn't exist
+# Downloads a WASM file if it doesn't exist
 define download_wasm_contract
 	@if [ ! -f $(1) ]; then \
 		echo "Downloading $(1) WASM file..."; \
@@ -29,7 +29,7 @@ define download_wasm_contract
 	fi
 endef
 
-# Build a contract to specified directory
+# Builds a contract to specified directory
 define build_contract
 	stellar contract build --package $(1) --out-dir $(2) $(3)
 endef
@@ -39,6 +39,9 @@ endef
 help: ## Show this help
 	@printf "\033[33m%s:\033[0m\n" 'Available commands'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+clippy-fix: ## Fix clippy mistakes
+	cargo clippy --fix --tests
 
 clippy: check ## Check common mistakes with clippy
 	cargo clippy --tests
@@ -57,7 +60,7 @@ build-deploy: download ## Build contracts for deployment
 	$(call build_contract,$(LENDING_CONTRACT),$(DEPLOY_DIR),--features deploy)
 
 build-init: ## Build init
-	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
+	mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
 
 download: build-init ## Downloads dependency contracts
 	@echo "Checking for WASM files..."
@@ -78,12 +81,16 @@ sdk: build-optimize ## Generate typescript sdk
 test: build ## Run tests
 	cargo nextest run --locked --workspace
 
+fuzz: ## Run fuzzing suite
+	RUST_BACKTRACE=1 cargo +nightly fuzz run --fuzz-dir=tests/fuzz --sanitizer=thread fuzz_target -- -max_len=1048576
+
 test-coverage: ## Test coverage
 	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
 	cargo +nightly llvm-cov --doc --no-report
 
 fmt: ## Format code using cargo
-	cargo fmt --all
+	cargo sort --grouped --workspace
+	cargo +nightly fmt --all
 
 clean: ## Clean build artifacts
 	cargo clean

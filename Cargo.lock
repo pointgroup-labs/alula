@@ -775,6 +775,7 @@ name = "lending"
 version = "0.0.0"
 dependencies = [
  "moderc3156",
+ "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk",
 ]
@@ -799,9 +800,9 @@ checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
 
 [[package]]
 name = "libfuzzer-sys"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf78f52d400cf2d84a3a973a78a592b4adc535739e0a5597a0da6f0c357adc75"
+checksum = "5037190e1f70cbeef565bd267599242926f724d3b8a9f510fd7e0b540cfa4404"
 dependencies = [
  "arbitrary",
  "cc",
@@ -1056,6 +1057,15 @@ name = "semver"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6fa9c48d24d85fb3de5ad847117517440f6beceb7798af16b4a87d616b8d0"
+
+[[package]]
+name = "sep-40-oracle"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c74effc5087a6b91b28ca5d429efed3eccf2d70cb9fd1cde544a7faf0723a63"
+dependencies = [
+ "soroban-sdk",
+]
 
 [[package]]
 name = "serde"
@@ -1456,6 +1466,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "lending",
+ "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk",
 ]

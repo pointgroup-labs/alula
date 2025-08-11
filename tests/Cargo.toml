@@ -9,6 +9,7 @@ doctest = false
 
 [dependencies]
 arbitrary = { version = "1", features = ["derive"] }
+sep-40-oracle = { workspace = true, features = ["testutils"] }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 

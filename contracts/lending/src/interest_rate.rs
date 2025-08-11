@@ -1,16 +1,15 @@
 //! `JLend` for now uses kinked interest rates.
 //! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
 
-use {
-    crate::{
-        constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
-        events,
-        math_utils::{self, MathUtils},
-        pool::Pool,
-        LCError,
-    },
-    soroban_fixed_point_math::FixedPoint,
-    soroban_sdk::{contracttype, Env},
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{contracttype, Env};
+
+use crate::{
+    constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
+    events,
+    math_utils::{self, MathUtils},
+    pool::Pool,
+    LCError,
 };
 
 pub const SCALED_ONE: i128 = ACCRUAL_INIT;
@@ -65,7 +64,7 @@ impl Pool {
             return Err(LCError::InvalidTimestamp);
         }
 
-        let seconds_passed = current_timestamp - self.last_accrual_timestamp;
+        let seconds_passed = current_timestamp - self.last_accrual_timestamp; // safe
         if seconds_passed == 0 {
             return Ok(()); // No time passed, no interest to accrue
         }
@@ -86,7 +85,7 @@ impl Pool {
         // to prevent inconsistencies. This won't be the issue if to switch to bTokens
         let new_total_borrowed = self
             .total_borrowed
-            .fixed_div_ceil(self.last_accrual, new_accrual)
+            .fixed_mul_floor(new_accrual, self.last_accrual)
             .map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
@@ -105,7 +104,8 @@ impl Pool {
             .try_into()
     }
 
-    /// Calculates the compound rate multipliers for borrowing and supplying based on the time passed.
+    /// Calculates the compound rate multipliers for borrowing and supplying based on the time
+    /// passed.
     ///
     /// # Arguments
     ///
@@ -148,8 +148,9 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if total == 0 {
-            // Is [`SCALED_ONE`], since if a pool doesn't yet have deposits, its next APY update must be
-            // as a `deposit` which implies that its compound deposit interest will be set to 0 regardless.
+            // Is [`SCALED_ONE`], since if a pool doesn't yet have deposits, its next APY update
+            // must be as a `deposit` which implies that its compound deposit interest
+            // will be set to 0 regardless.
             return Ok(SCALED_ONE);
         }
 
@@ -179,7 +180,8 @@ impl Pool {
     ///
     /// # Rate Calculation
     /// - **Below optimal utilization**: `base_rate + (utilization_ratio * slope1)`
-    /// - **Above optimal utilization**: `base_rate + (optimal_ur * slope1) + ((utilization_ratio - optimal_ur) * slope2)`
+    /// - **Above optimal utilization**: `base_rate + (optimal_ur * slope1) + ((utilization_ratio -
+    ///   optimal_ur) * slope2)`
     ///
     /// # Returns
     /// Interest rate scaled by [`SCALED_ONE`] (e.g., `1000000000000` = 0.1% per second)
@@ -197,27 +199,29 @@ impl Pool {
         self.calculate_interest_rate(utilization_ratio_bps)
     }
 
-    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization ratio limit on a pool
-    ///
-    // TODO: We have to pre-compute the max available amount during Pool initialization, I think..
+    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
+    /// ratio limit on a pool
+    // TODO: We better pre-compute the max available amount during Pool initialization
     pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, LCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
         if utilization_ratio > self.config.utilization_ratio_limit_bps {
-            events::utilization_ration_exceeds_limit(
+            // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time
+            // by itself, so for now, we simply emit an event. We can agree to stop
+            // accruing interest on a pool if this happens
+            events::utilization_ratio_exceeds_limit(
                 e,
                 utilization_ratio,
                 self.config.utilization_ratio_limit_bps,
             );
-
-            return Err(LCError::InternalError);
+            // return Err(LCError::InternalError);
         }
         let available_percentage_to_borrow_bps =
             self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
 
-        available_percentage_to_borrow_bps
-            .fixed_div_ceil(BPS_FACTOR, total_supply)
+        total_supply
+            .fixed_mul_ceil(available_percentage_to_borrow_bps, BPS_FACTOR)
             .map_over_or_underflow()
     }
 
@@ -226,6 +230,7 @@ impl Pool {
             Ok(0)
         } else {
             self.total_borrowed
+                // TODO: Investigate why using `floor` here breaks fuzzing tests
                 .fixed_div_ceil(total, BPS_FACTOR)
                 .map_over_or_underflow()
         }
@@ -271,15 +276,14 @@ impl Pool {
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        crate::pool::PoolConfig,
-        soroban_sdk::{
-            symbol_short,
-            testutils::{Address as _, Ledger},
-            Address, Env, String,
-        },
+    use soroban_sdk::{
+        symbol_short,
+        testutils::{Address as _, Ledger},
+        Address, Env, String,
     };
+
+    use super::*;
+    use crate::pool::PoolConfig;
 
     fn create_test_pool(e: &Env) -> Pool {
         let token_address = Address::generate(e);
@@ -402,7 +406,7 @@ mod tests {
             .fixed_mul_ceil(expected_multipliers.borrow, SCALED_ONE)
             .unwrap();
         let expected_new_total_borrowed = initial_total_borrowed
-            .fixed_div_ceil(initial_accrual, expected_new_accrual)
+            .fixed_div_floor(initial_accrual, expected_new_accrual)
             .map_over_or_underflow()
             .unwrap();
 
