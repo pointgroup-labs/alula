@@ -10,8 +10,8 @@ use soroban_sdk::{
 use crate::{
     constants::{
         ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
-        DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_LEVERAGE_MULTIPLIER,
-        MAX_ORACLE_PRICE_AGE_SECONDS, MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
+        DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS,
+        MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
     },
     events,
     interest_rate::CompoundRates,
@@ -444,6 +444,19 @@ impl LendingContract {
     /// Returns a list of all user obligations in the protocol
     pub fn get_all_obligations(e: Env) -> Vec<Address> {
         Obligation::get_all(&e)
+    }
+
+    /// Returns the specific multiply pair
+    ///
+    /// ### Arguments
+    /// * `deposit_pool_address` - deposit pool of a pair that is returned
+    /// * `borrow_pool_address` - borrow pool of a pair that is returned
+    pub fn get_multiply_pair(
+        e: Env,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<MultiplyPair, LCError> {
+        MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)
     }
 
     /// Returns a list of all multiply pairs in the protocol
@@ -1029,13 +1042,9 @@ fn process_deposit_with_leverage(
         return Err(LCError::NegativeDeposit);
     }
 
-    if !(MIN_LEVERAGE_MULTIPLIER..=MAX_LEVERAGE_MULTIPLIER).contains(&leverage_multiplier) {
-        return Err(LCError::InvalidLeverageMultiplier);
-    }
-
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
 
-    if leverage_multiplier > pair.max_leverage_multiplier {
+    if !(MIN_LEVERAGE_MULTIPLIER..=pair.max_leverage_multiplier).contains(&leverage_multiplier) {
         return Err(LCError::InvalidLeverageMultiplier);
     }
 

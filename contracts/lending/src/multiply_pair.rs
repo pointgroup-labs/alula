@@ -14,7 +14,8 @@ pub struct MultiplyPair {
     pub deposit_pool: Address,
     /// Address of a pool in a pair for a leveraged borrow
     pub borrow_pool: Address,
-    /// Maximum leverage multiplier based on borrow pool openLTV value. Scaled with [`LEVERAGE_SCALE`]
+    /// Maximum leverage multiplier based on borrow pool openLTV value. Scaled with
+    /// [`LEVERAGE_SCALE`]
     pub max_leverage_multiplier: u32,
 }
 
@@ -40,7 +41,8 @@ impl MultiplyPair {
     /// Tries to get the multiply pair from the contract's storage
     ///
     /// # Returns
-    /// - [`Ok(MultiplyPair)`] if a multiply pair for the given deposit and pools addresses exists in the contract's storage
+    /// - [`Ok(MultiplyPair)`] if a multiply pair for the given deposit and pools addresses exists
+    ///   in the contract's storage
     /// - [`Err(LCError::MultiplyPairDoesNotExist)`] otherwise
     pub fn try_get(
         e: &Env,
@@ -78,9 +80,9 @@ impl MultiplyPair {
 
     // TODO: Likely 'deposit as margin' will contain a different value
     /// Computes the maximum leverage multiplier (for 'borrow as margin' case):
-    /// `max_multiplier = (1 + flash_loan_fee) / ((1 + flash_loan_fee) - (1 - max_swap_fee_bps) * openLTV)`.
-    /// Since flash loan fee and swap fee are a part of the final 'borrow' position, accounting them makes
-    /// maximum multiplier smaller, so this is a must have
+    /// `max_multiplier = (1 + flash_loan_fee) / ((1 + flash_loan_fee) - (1 - max_swap_fee_bps) *
+    /// openLTV)`. Since flash loan fee and swap fee are a part of the final 'borrow' position,
+    /// accounting them makes maximum multiplier smaller, so this is a must have
     fn compute_max_leverage_multiplier(
         flash_loan_fee_bps: i128,
         max_swap_fee_bps: i128,
@@ -168,7 +170,8 @@ mod tests {
 
                 assert!(
                     calculated_multiplier < theoretical_max_multiplier_bps,
-                    "Multiplier should be smaller than theoretical max for fees: flash_loan_fee_bps={}, max_swap_fee_bps={}",
+                    "Multiplier should be smaller than theoretical max for fees: \
+                     flash_loan_fee_bps={}, max_swap_fee_bps={}",
                     flash_loan_fee_bps,
                     max_swap_fee_bps
                 );

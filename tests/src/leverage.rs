@@ -3,7 +3,7 @@
 use lending::{
     constants::{
         DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, LEVERAGE_SCALE,
-        MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
+        MIN_LEVERAGE_MULTIPLIER,
     },
     swap,
 };
@@ -78,6 +78,10 @@ fn test_deposit_with_invalid_leverage_multiplier() {
         )
     );
 
+    let max_leverage_multiplier = contract_client
+        .get_multiply_pair(&usdc_pool_address, &gold_pool_address)
+        .max_leverage_multiplier;
+
     assert_eq!(
         Err(Ok(LCError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
@@ -86,7 +90,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
             &gold_pool_address,
             &false,
             &DEFAULT_DEPOSIT_AMOUNT,
-            &(MAX_LEVERAGE_MULTIPLIER + 1),
+            &(max_leverage_multiplier + 1),
         )
     );
 }
