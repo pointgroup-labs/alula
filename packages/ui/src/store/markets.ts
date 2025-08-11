@@ -60,9 +60,11 @@ export const useMarketsStore = defineStore('markets', () => {
   }
 
   async function preparePool(pool_address: string) {
-    const poolInfo = await jLendClient.value?.sdk.getPoolInfo(pool_address)
-    const pool_price = await jLendClient.value?.sdk.getPoolAssetOraclePrice(pool_address)
-    const pool_apy = await jLendClient.value?.sdk.getPoolApy(pool_address)
+    const [poolInfo, pool_price, pool_apy] = await Promise.all([
+      jLendClient.value?.sdk.getPoolInfo(pool_address),
+      jLendClient.value?.sdk.getPoolAssetOraclePrice(pool_address),
+      jLendClient.value?.sdk.getPoolApy(pool_address),
+    ])
     return {
       ...poolInfo,
       pool_price,
