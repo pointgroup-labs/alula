@@ -465,7 +465,7 @@ impl LendingContract {
 
     /// Returns a list of all multiply pairs in the protocol
     pub fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair> {
-        Pool::get_all_multiply_pairs(&e)
+        MultiplyPair::get_all(&e)
     }
 
     /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g.,
@@ -564,12 +564,12 @@ pub fn process_initialize_multiply_pair(
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
 ) -> Result<(), LCError> {
-    if !(Pool::exists(e, deposit_pool_address) && Pool::exists(e, borrow_pool_address)) {
-        return Err(LCError::PoolDoesNotExist);
+    if !Pool::exists(e, deposit_pool_address) {
+        return Err(LCError::DepositPoolDoesNotExist);
     }
 
     let borrow_pool_open_ltv_bps = Pool::try_get(e, &borrow_pool_address)
-        .unwrap()
+        .map_err(|_| LCError::BorrowPoolDoesNotExist)?
         .config
         .open_ltv_bps;
 

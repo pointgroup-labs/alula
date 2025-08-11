@@ -219,6 +219,6 @@ fn test_multiply_pair_with_inexistent_pool() {
     // Try to initialize a multiply pair
     assert_eq!(
         contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
-        Err(Ok(LCError::PoolDoesNotExist))
+        Err(Ok(LCError::DepositPoolDoesNotExist))
     );
 }

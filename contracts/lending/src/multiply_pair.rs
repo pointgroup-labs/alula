@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{contracttype, Address, Env};
+use soroban_sdk::{contracttype, Address, Env, Vec};
 
 use crate::{
     constants::{BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, LEVERAGE_SCALE},
@@ -69,7 +69,11 @@ impl MultiplyPair {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn set(&self, e: &Env) {
-        storage::set_multiply_pair(e, self);
+        storage::set_multiply_pair(e, &self.deposit_pool, &self.borrow_pool, self);
+    }
+
+    pub fn get_all(e: &Env) -> Vec<MultiplyPair> {
+        storage::get_all_multiply_pairs(e)
     }
 
     // TODO: Likely 'deposit as margin' will contain a different value

@@ -136,7 +136,7 @@ fn test_deposit_with_no_leverage() {
 
 #[test]
 fn test_deposit_with_unavailable_flash_loan_capacity() {
-    const LEVERAGE: u32 = 11; // x11 leverage
+    const LEVERAGE: u32 = 4; // x4 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
     let TestFixture {
@@ -155,7 +155,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
             &usdc_pool_address,
             &gold_pool_address,
             &false,
-            &DEFAULT_DEPOSIT_AMOUNT,
+            &(10 * DEFAULT_DEPOSIT_AMOUNT),
             &LEVERAGE_MULTIPLIER,
         ),
         Err(Ok(LCError::NotEnoughPoolFunds))

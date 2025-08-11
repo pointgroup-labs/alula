@@ -6,11 +6,10 @@ use crate::{
         BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
         DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
         DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2,
-        DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT, LEVERAGE_SCALE,
+        DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
     },
     events,
     math_utils::MathUtils,
-    multiply_pair::MultiplyPair,
     storage, LCError,
 };
 
@@ -196,10 +195,6 @@ impl Pool {
         storage::get_all_pools(e)
     }
 
-    pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
-        storage::get_all_multiply_pairs(e)
-    }
-
     pub fn exists(e: &Env, address: &PoolAddress) -> bool {
         storage::pool_exists(e, address)
     }
@@ -347,7 +342,7 @@ impl PoolConfig {
             return Err("slope1 must be less than slope2 for kinked model to work");
         }
 
-        if open_ltv_bps < 0 || open_ltv_bps >= 100 {
+        if open_ltv_bps < 0 || open_ltv_bps >= (100 * BPS_IN_PERCENT) {
             return Err("Open LTV must be between 0% and 100%");
         }
 
