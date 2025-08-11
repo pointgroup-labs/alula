@@ -199,9 +199,6 @@ impl Pool {
         storage::pool_exists(e, address)
     }
 
-    /// Removes the pool from the storage and from the pool list if the pool exists
-    pub fn remove(e: &Env, address: &PoolAddress) {}
-
     /// Refreshes the pool with the contract's storage data
     pub fn refresh(&mut self, e: &Env) -> Result<(), LCError> {
         let Some(refreshed_pool) = storage::get_pool(e, &self.pool_address) else {

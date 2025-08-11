@@ -116,10 +116,6 @@ impl MultiplyPair {
         // Scale the result for the final output
         (max_multiplier_bps / SCALE) as u32 // safe
     }
-
-    pub fn remove(&self, e: &Env) {
-        // if self
-    }
 }
 
 #[cfg(test)]

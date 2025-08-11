@@ -306,23 +306,6 @@ impl LendingContract {
         storage::remove_all_multiply_pairs(&e);
     }
 
-    pub fn remove_multiply_pair_if_exists(
-        e: Env,
-        deposit_pool: Address,
-        borrow_pool: Address,
-    ) -> Result<(), LCError> {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
-
-        let Ok(pair) = MultiplyPair::try_get(&e, &deposit_pool, &borrow_pool) else {
-            return Ok(());
-        };
-
-        pair.remove(&e);
-
-        Ok(())
-    }
-
     pub fn check_multiply_pair_exists(
         e: Env,
         deposit_pool_address: Address,
@@ -641,6 +624,7 @@ pub fn process_deposit(
     Ok(())
 }
 
+#[allow(unused)]
 fn process_swap_for_exact_tokens(
     e: &Env,
     user: &Address,
