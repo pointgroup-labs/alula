@@ -45,6 +45,7 @@ pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = 100 * BPS_IN_PERCENT;
 
 // ---- Swap ----
 pub const DEFAULT_MAX_SLIPPAGE_BPS: i128 = 1;
+pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1;
 
 // ---- Flash Loan ----
 pub const DEFAULT_FLASH_LOAN_FEE_BPS: i128 = 1;

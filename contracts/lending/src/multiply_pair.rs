@@ -2,7 +2,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{contracttype, Address, Env, Vec};
 
 use crate::{
-    constants::{BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, LEVERAGE_SCALE},
+    constants::{BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE},
     math_utils::MathUtils,
     storage, LCError,
 };
@@ -27,7 +27,7 @@ impl MultiplyPair {
     ) -> Self {
         let max_leverage_multiplier = Self::compute_max_leverage_multiplier(
             DEFAULT_FLASH_LOAN_FEE_BPS,
-            DEFAULT_MAX_SLIPPAGE_BPS,
+            DEFAULT_MAX_SWAP_FEE_BPS,
             borrow_pool_open_ltv_bps,
         );
 
@@ -49,7 +49,6 @@ impl MultiplyPair {
         deposit_pool_address: &Address,
         borrow_pool_address: &Address,
     ) -> Result<Self, LCError> {
-        // storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)
         storage::get_multiply_pair(e, deposit_pool_address, borrow_pool_address)
             .ok_or(LCError::MultiplyPairDoesNotExist)
     }
@@ -111,7 +110,7 @@ impl MultiplyPair {
 
         // Full calculation: multiplier = numerator / denominator
         let max_multiplier_bps = numerator_term
-            .fixed_div_ceil(denominator, BPS_FACTOR)
+            .fixed_div_floor(denominator, BPS_FACTOR)
             .map_over_or_underflow()
             .unwrap(); // safe
 

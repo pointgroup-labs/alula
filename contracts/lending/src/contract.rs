@@ -1063,13 +1063,14 @@ fn process_deposit_with_leverage(
     //  -- Calculate parameters --
     let leverage_multiplier_minus_1 = leverage_multiplier - LEVERAGE_SCALE; // safe
     let (flash_borrow_amount, amount_in, amount_out) = if base_as_margin {
-        // 'flash_borrow_amount' = 'amount_in' you need to get the base leverage as 'amount_out'
-        // after swap 'amount_in' = flash_borrow_amount
+        // 'flash_borrow_amount' = 'amount_in' you need to get the base_leverage as 'amount_out'
+        // after swap
+        // 'amount_in' = flash_borrow_amount
         // 'amount_out' = base_leverage
         let scaled_base_leverage_amount = amount
             .checked_mul(leverage_multiplier_minus_1 as i128)
             .map_over_or_underflow()?;
-        let base_leverage_amount = scaled_base_leverage_amount / (LEVERAGE_SCALE as i128);
+        let base_leverage_amount = scaled_base_leverage_amount / (LEVERAGE_SCALE as i128); // safe
 
         // Calculate the flash borrow amount
         let amount_out = base_leverage_amount;
