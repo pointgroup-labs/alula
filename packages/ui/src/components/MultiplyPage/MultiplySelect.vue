@@ -9,11 +9,11 @@ const {
   maxMultiply: number | string
 }>()
 
-const minMultiplyPercent = computed(() => maxMultiply && Math.round((1 / Number(maxMultiply)) * 100))
+const minMultiplyPercent = computed(() => maxMultiply && Math.round((1.1 / Number(maxMultiply)) * 100))
 
 const marks = computed(() => {
   return {
-    [minMultiplyPercent.value]: 'x1',
+    [minMultiplyPercent.value]: 'x1.1',
     100: `x${maxMultiply}`,
   }
 })

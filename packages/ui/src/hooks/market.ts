@@ -429,7 +429,13 @@ export function useMarket() {
     }
   }
 
-  async function leverage(deposit_pool_address: string, borrow_pool_address: string, amount: number, leverage_multiplier: number, asset_code: string) {
+  async function leverage(
+    deposit_pool_address: string,
+    borrow_pool_address: string,
+    deposit_as_margin: boolean,
+    amount: number,
+    leverage_multiplier: number,
+    asset_code: string) {
     let leverageToast
     try {
       if (!wallet.publicKey) {
@@ -455,6 +461,7 @@ export function useMarket() {
         wallet.publicKey,
         deposit_pool_address,
         borrow_pool_address,
+        deposit_as_margin,
         amount,
         leverage_multiplier,
         connectionStore.kit)

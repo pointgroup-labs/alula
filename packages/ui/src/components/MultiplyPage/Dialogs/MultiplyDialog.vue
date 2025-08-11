@@ -83,6 +83,7 @@ watchDebounced([
     publicKey.value,
     d?.depositPool.pool_address || '',
     d?.borrowPool.pool_address || '',
+    isDepositMultiply.value,
     1,
     2,
   )
@@ -166,6 +167,7 @@ async function leverage() {
   await market.leverage(
     deposit_pool_address,
     borrow_pool_address,
+    isDepositMultiply.value,
     amount.value,
     Number(selectedMultiplier.value),
     asset_code,
