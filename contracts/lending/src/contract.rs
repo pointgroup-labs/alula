@@ -1034,7 +1034,7 @@ fn process_deposit_with_leverage(
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
-    base_as_margin: bool,
+    deposit_as_margin: bool,
     amount: i128,
     leverage_multiplier: u32,
 ) -> Result<(), LCError> {
@@ -1062,7 +1062,7 @@ fn process_deposit_with_leverage(
 
     //  -- Calculate parameters --
     let leverage_multiplier_minus_1 = leverage_multiplier - LEVERAGE_SCALE; // safe
-    let (flash_borrow_amount, amount_in, amount_out) = if base_as_margin {
+    let (flash_borrow_amount, amount_in, amount_out) = if deposit_as_margin {
         // 'flash_borrow_amount' = 'amount_in' you need to get the base_leverage as 'amount_out'
         // after swap
         // 'amount_in' = flash_borrow_amount
@@ -1158,7 +1158,7 @@ fn process_deposit_with_leverage(
     }
 
     // -- Deposit swapped tokens --
-    let deposit_amount = if base_as_margin {
+    let deposit_amount = if deposit_as_margin {
         received_amount
             .checked_add(amount)
             .map_over_or_underflow()?
