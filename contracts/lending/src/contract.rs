@@ -325,8 +325,8 @@ impl LendingContract {
     /// * `user` - user that deposits tokens with leverage
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
-    /// * `deposit_as_margin` - flag that determines which asset(deposited or borrowed) will
-    /// be used as the provided by the user initial margin amount
+    /// * `deposit_as_margin` - flag that determines which asset(deposited or borrowed) will be used
+    ///   as the provided by the user initial margin amount
     /// * `amount` - original borrow amount before the leverage
     /// * `leverage_multiplier` - leverage multiplier, where the last two digits represent decimal
     ///   places (e.g., 700 for x7.00, 255 for x2.55, etc.)
@@ -1107,14 +1107,14 @@ fn process_deposit_with_leverage(
 
     // -- Flash Borrow --
     // TODO: Think of why it can be beneficial to account for flash borrow limits as in other
-    // lending protocols
+    //  lending protocols
     if borrow_pool.available < flash_borrow_amount {
         return Err(LCError::NotEnoughPoolFunds);
     }
 
     // TODO: Check, why on blend_v2 they use 'token_client.transfer_allowance' instead
-    // of 'token_client.transfer' for flash loans
-    let flash_loan_token_client = token::Client::new(e, borrow_pool_address);
+    //  of 'token_client.transfer' for flash loans
+    let flash_loan_token_client = token::Client::new(e, &borrow_pool.token_address);
     flash_loan_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
 
     borrow_pool.adjust_available(e, -flash_borrow_amount)?;
@@ -1284,7 +1284,7 @@ pub fn process_withdraw_from_leveraged(
     }
 
     // Flash Borrow
-    let flash_borrowed_token_client = token::Client::new(e, borrow_pool_address);
+    let flash_borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
     flash_borrowed_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
     borrow_pool.adjust_available(e, -flash_borrow_amount)?;
     borrow_pool.set(e);
@@ -1392,9 +1392,11 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .lastprice(&asset)
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
-    // Validate price is not too old
+    // Validate price is not too old and not from the future
     let current_time = e.ledger().timestamp();
-    if current_time - price_data.timestamp > MAX_ORACLE_PRICE_AGE_SECONDS {
+    if price_data.timestamp > current_time
+        || current_time.saturating_sub(price_data.timestamp) > MAX_ORACLE_PRICE_AGE_SECONDS
+    {
         return Err(LCError::OracleStalePrice);
     }
 
