@@ -391,10 +391,10 @@ mod tests {
         base = 1_000_000_000_000_i128; // 10^12, or 1,000,000 in fixed-point
         result = bin_pow(base, 2, denominator);
 
-        if result.is_ok() {
+        if let Ok(result) = result {
             // If this works, we can verify the result
             let expected = base.pow(2) / denominator;
-            let actual = result.unwrap();
+            let actual = result;
             assert!(
                 (actual - expected).abs() <= 1, // Allow for small rounding differences
                 "For base {}, expected approximately {}, got {}",
