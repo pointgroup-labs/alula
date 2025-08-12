@@ -2,12 +2,12 @@ use moderc3156::FlashLoanClient;
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    contract, contractimpl,
+    Address, BytesN, Env, Symbol, Vec, contract, contractimpl,
     token::{self, TokenClient},
-    Address, BytesN, Env, Symbol, Vec,
 };
 
 use crate::{
+    LCError,
     constants::{
         ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
         DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_LEVERAGE_MULTIPLIER,
@@ -19,7 +19,7 @@ use crate::{
     obligation::{LiquidationValues, Obligation},
     pool::{MultiplyPair, Pool, PoolAddress, PoolConfig},
     storage::{self, GlobalState},
-    swap, LCError,
+    swap,
 };
 
 #[contract]
