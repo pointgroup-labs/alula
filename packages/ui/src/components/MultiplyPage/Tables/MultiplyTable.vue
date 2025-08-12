@@ -15,7 +15,7 @@ const obligation = computed(() => userStore.userObligation)
 
 const assetDecimals = computed(() => client.assetDecimals)
 
-const pools = computed(() => marketsStore.selectedMarketPools)
+const pools = computed(() => marketsStore.state.pools)
 const leveragePools = computed(() => marketsStore.state.leveragePools)
 const loading = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
 
