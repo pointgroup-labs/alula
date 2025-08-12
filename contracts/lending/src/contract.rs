@@ -1395,10 +1395,9 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
     // Validate price is not too old and not from the future
-    let current_time = e.ledger().timestamp();
-    if price_data.timestamp > current_time
-        || current_time.saturating_sub(price_data.timestamp) > MAX_ORACLE_PRICE_AGE_SECONDS
-    {
+    let now = e.ledger().timestamp();
+    let age = now.saturating_sub(price_data.timestamp);
+    if age > MAX_ORACLE_PRICE_AGE_SECONDS || price_data.timestamp > now {
         return Err(LCError::OracleStalePrice);
     }
 
