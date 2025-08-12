@@ -74,8 +74,6 @@ watch(() => route.path, (p) => {
       </nav>
 
       <div class="header-actions">
-        <faucet-menu v-if="width >= 1024" />
-
         <connect-wallet :size="width > 650 ? 'lg' : 'md'" />
         <app-settings />
       </div>

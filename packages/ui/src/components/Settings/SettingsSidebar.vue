@@ -36,6 +36,8 @@ function close() {
     <settings-theme />
     <settings-network />
 
+    <faucet-menu />
+
     <client-only>
       <img
         :src="logoWithText"
@@ -43,6 +45,7 @@ function close() {
         class="sidebar-logo"
       >
     </client-only>
+
   </sidebar>
 </template>
 

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { Pool } from '@jlend/sdk'
 import type { BButtonProps } from 'bootstrap-vue-next'
-import { clickElement, destructurePoolAsset, generateExplorerLink, shortenAddress } from '~/utils'
+import { clickElement, destructurePoolAsset, shortenAddress } from '~/utils'
 
 const {
   loading = false,
@@ -18,6 +18,7 @@ const {
 const emit = defineEmits(['clickHandler', 'closeModal'])
 
 const Toast = useToast()
+const { generateExplorerLink } = useExplorerLink()
 
 const txLoading = ref(false)
 const isLoading = computed(() => txLoading.value || loading)
@@ -39,10 +40,10 @@ async function addTrust() {
   try {
     txLoading.value = true
     const [asset, issuer] = assetData.value
-    const res = await market.addTrustLine(asset, issuer)
+    const res = await market.addTrustLine(String(asset), String(issuer))
     Toast.create({
       title: 'Add Trust Success',
-      body: `You added trustline for ${asset} ${shortenAddress(issuer, 6)}`,
+      body: `You added trustline for ${asset} ${shortenAddress(String(issuer), 6)}`,
       modelValue: 30_000,
       alertProps: {
         variant: 'success',

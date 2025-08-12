@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 
+const { width } = useWindowSize()
+
 const clientStore = useClientStore()
 const marketsStore = useMarketsStore()
 const market = computed(() => marketsStore.selectedMarketInfo)
@@ -76,12 +78,15 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
             Total Supplied
           </div>
           <div class="market-progress__info__data">
-            {{ shortenNumber(totalSupplied) }} / {{ isSupplyLimit ? shortenNumber(supplyLimit) : '∞' }}
+            {{ shortenNumber(totalSupplied) }} / {{ isSupplyLimit ? shortenNumber(supplyLimit) : '-' }}
 
-            <span>${{ shortenNumber(totalSuppliedInUsd, 2) }} / {{ isSupplyLimit ? `$${shortenNumber(supplyLimitInUsd, 2)}` : '∞' }}</span>
+            <span>${{ shortenNumber(totalSuppliedInUsd, 2) }} / {{ isSupplyLimit ? `$${shortenNumber(supplyLimitInUsd, 2)}` : '-' }}</span>
           </div>
         </div>
-        <div class="market-penalty">
+        <div
+          v-if="width <= 650"
+          class="market-penalty"
+        >
           Liquidation Penalty:
 
           <span>{{ liquidationPenalty }}%</span>

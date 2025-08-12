@@ -16,7 +16,7 @@ const {
   detailsColor?: string
 }>()
 
-const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '∞')
+const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '-')
 </script>
 
 <template>

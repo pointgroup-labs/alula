@@ -101,7 +101,7 @@ async function repay() {
     loading.value = true
     marketStore.poolDepositAddr = data?.pool_address
 
-    await market.repay(data?.pool_address, amount.value, balance.value, data?.asset.symbol)
+    await market.repay(data?.pool_address, amount.value, balance.value, data?.raw?.name)
   } finally {
     loading.value = false
   }

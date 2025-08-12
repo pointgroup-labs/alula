@@ -3,6 +3,10 @@ import { getTokenIcon } from '~/utils'
 
 const Toast = useToast()
 
+const rpcStore = useRpcStore()
+
+const isTestNet = computed(() => rpcStore.network === 'testnet')
+
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
@@ -17,9 +21,7 @@ async function faucet() {
       return
     }
     loading.value = true
-    let faucetToast
-    // eslint-disable-next-line prefer-const
-    faucetToast = await Toast.create({
+    const faucetToast = await Toast.create({
       title: 'Requesting Faucet',
       variant: 'info',
       noProgress: false,
@@ -47,7 +49,7 @@ async function faucet() {
 
 <template>
   <j-btn
-    v-if="publicKey"
+    v-if="publicKey && isTestNet"
     pill
     size="lg"
     class="faucet-btn"
@@ -58,20 +60,13 @@ async function faucet() {
     <img
       :src="getTokenIcon('native')"
       alt="XLM"
-    > Faucet
+    > Faucet XLM - TestNet
   </j-btn>
 </template>
 
 <style lang="scss">
 .faucet-btn {
-  padding-left: 16px !important;
-  padding-right: 16px !important;
-  opacity: 0.4;
-
-  &:hover {
-    opacity: 1;
-    transition: opacity 0.1s linear;
-  }
+  width: 100%;
 
   .btn-content {
     img {

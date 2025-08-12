@@ -127,8 +127,8 @@ async function withdraw() {
   try {
     loading.value = true
     collateralOnly.value
-      ? await market.removeCollateral(data?.pool_address, amount.value, collateralBalance.value, data?.asset.symbol)
-      : await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.asset.symbol)
+      ? await market.removeCollateral(data?.pool_address, amount.value, collateralBalance.value, data?.raw?.name)
+      : await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.raw?.name)
   } finally {
     loading.value = false
   }

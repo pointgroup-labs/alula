@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
-import { destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, shortenAddress } from '~/utils'
+import { destructurePoolAsset, focusInput, formatPrice, shortenAddress } from '~/utils'
 
 const {
   data,
@@ -10,6 +10,8 @@ const {
   data?: MarketTableItem
   modelValue: boolean
 }>()
+
+const { generateExplorerLink } = useExplorerLink()
 
 const marketsStore = useMarketsStore()
 const market = useMarket()

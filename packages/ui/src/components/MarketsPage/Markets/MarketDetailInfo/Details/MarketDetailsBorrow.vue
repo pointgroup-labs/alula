@@ -1,7 +1,9 @@
 <script lang="ts" setup>
-import { bigintToNumber, generateExplorerLink, shortenNumber, truncatePercent } from '~/utils'
+import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
+
+const { generateExplorerLink } = useExplorerLink()
 
 const clientStore = useClientStore()
 const marketsStore = useMarketsStore()

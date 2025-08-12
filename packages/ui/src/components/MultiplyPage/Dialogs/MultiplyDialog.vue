@@ -1,13 +1,15 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, generateExplorerLink, getTokenIcon, shortenAddress, truncatePercent } from '~/utils'
+import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, getTokenIcon, shortenAddress, truncatePercent } from '~/utils'
 
 const {
   data,
 } = defineProps<{
   data?: MultiplyTableItem
 }>()
+
+const { generateExplorerLink } = useExplorerLink()
 
 function calcRemainingMultiplyUSD(
   borrowAvailableInUsd: number,
