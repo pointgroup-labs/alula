@@ -23,6 +23,13 @@ use crate::{
     swap, LCError,
 };
 
+#[inline(always)]
+fn require_admin(e: &Env) -> Address {
+    let admin = storage::get_global_state(e).admin;
+    admin.require_auth();
+    admin
+}
+
 #[contract]
 /// Lending Smart Contract. Allows users to lend and borrow other users' assets
 pub struct LendingContract;
@@ -70,8 +77,7 @@ impl LendingContract {
     ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         // TODO: Implement decentralized governance of the contract
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
@@ -98,8 +104,7 @@ impl LendingContract {
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, LCError> {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
     }
@@ -114,8 +119,7 @@ impl LendingContract {
         deposit_pool: Address,
         borrow_pool: Address,
     ) -> Result<(), LCError> {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         process_initialize_multiply_pair(&e, &deposit_pool, &borrow_pool)
     }
@@ -300,8 +304,7 @@ impl LendingContract {
     }
 
     pub fn clean_multiply_pairs(e: Env) {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         storage::remove_all_multiply_pairs(&e);
     }
@@ -491,8 +494,7 @@ impl LendingContract {
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
     /// resetting on the testnet without re-deploying the contract
     pub fn reset_storage(e: Env) {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         storage::remove_all_obligations(&e);
         storage::remove_all_pools(&e);
@@ -520,14 +522,14 @@ fn process_initialize_pool(
         return Err(LCError::PoolAlreadyExists);
     }
 
-    let config: PoolConfig = if let Some(config) = pool_config {
-        if config.validate().is_err() {
-            return Err(LCError::InvalidLoanPoolConfig);
+    let config: PoolConfig = match pool_config {
+        Some(cfg) => {
+            if cfg.validate().is_err() {
+                return Err(LCError::InvalidLoanPoolConfig);
+            }
+            *cfg
         }
-
-        *config
-    } else {
-        Default::default()
+        None => Default::default(),
     };
 
     let token_client = TokenClient::new(e, token_address);
