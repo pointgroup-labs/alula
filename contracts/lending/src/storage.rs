@@ -74,7 +74,7 @@ pub fn set_global_state(e: &Env, global_state: &GlobalState) {
 }
 
 // --- Pool ---
-pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<PoolAddress> {
+pub fn get_all_pools(e: &Env) -> Vec<PoolAddress> {
     let res = e.storage().persistent().get(&DataKey::AllPools);
 
     if let Some(pools) = res {
@@ -82,7 +82,7 @@ pub fn get_all_pools(e: &Env) -> soroban_sdk::Vec<PoolAddress> {
 
         pools
     } else {
-        soroban_sdk::Vec::new(e)
+        Vec::new(e)
     }
 }
 
@@ -149,7 +149,7 @@ pub fn remove_pool(e: &Env, pool_address: &Address) {
 }
 
 pub fn remove_all_pools(e: &Env) {
-    let all_pools: soroban_sdk::Vec<PoolAddress> = get_all_pools(e);
+    let all_pools: Vec<PoolAddress> = get_all_pools(e);
 
     for pool in all_pools.iter() {
         remove_pool(e, &pool);
@@ -157,7 +157,7 @@ pub fn remove_all_pools(e: &Env) {
 }
 
 // --- Multiply Pair ---
-pub fn get_all_multiply_pairs(e: &Env) -> soroban_sdk::Vec<MultiplyPair> {
+pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
     let res = e.storage().persistent().get(&DataKey::AllMultiplyPairs);
 
     if let Some(pairs) = res {
@@ -165,7 +165,7 @@ pub fn get_all_multiply_pairs(e: &Env) -> soroban_sdk::Vec<MultiplyPair> {
 
         pairs
     } else {
-        soroban_sdk::Vec::new(e)
+        Vec::new(e)
     }
 }
 
@@ -251,7 +251,7 @@ pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
 }
 
 pub fn remove_all_multiply_pairs(e: &Env) {
-    let all_pairs: soroban_sdk::Vec<MultiplyPair> = get_all_multiply_pairs(e);
+    let all_pairs: Vec<MultiplyPair> = get_all_multiply_pairs(e);
 
     for pair in all_pairs.iter() {
         remove_multiply_pair(e, &pair);
@@ -325,19 +325,19 @@ pub fn remove_obligation(e: &Env, user_address: &Address) {
 }
 
 pub fn remove_all_obligations(e: &Env) {
-    let all_obligations: soroban_sdk::Vec<Address> = get_all_obligations(e);
+    let all_obligations: Vec<Address> = get_all_obligations(e);
 
     for obligation in all_obligations.iter() {
         remove_obligation(e, &obligation);
     }
 }
 
-pub fn get_all_obligations(e: &Env) -> soroban_sdk::Vec<UserAddress> {
+pub fn get_all_obligations(e: &Env) -> Vec<UserAddress> {
     let res = e.storage().persistent().get(&DataKey::AllObligations);
     if let Some(obligations) = res {
         extend_shared_storage(e, &DataKey::AllObligations);
         obligations
     } else {
-        soroban_sdk::Vec::new(e)
+        Vec::new(e)
     }
 }
