@@ -17,37 +17,6 @@ pub type PoolAddress = Address;
 pub type UserAddress = Address;
 
 #[contracttype]
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct MultiplyPair {
-    /// Address of a pool in a pair for a leveraged deposit
-    pub deposit_pool: Address,
-    /// Address of a pool in a pair for a leveraged borrow
-    pub borrow_pool: Address,
-}
-
-impl MultiplyPair {
-    /// Registers a multiply pair in the pairs list
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
-    pub fn register(&self, e: &Env) -> u32 {
-        storage::register_multiply_pair(e, self.clone())
-    }
-
-    pub fn exists(e: &Env, pair: &MultiplyPair) -> bool {
-        storage::multiply_pair_exists(e, pair)
-    }
-
-    /// Saves\updates multiply pair in the contract's storage
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
-    pub fn set(&self, e: &Env) {
-        storage::set_multiply_pair(e, self);
-    }
-}
-
-#[contracttype]
 #[derive(Debug, Eq, PartialEq)]
 pub struct Pool {
     /// The address of the loan pool
@@ -226,10 +195,6 @@ impl Pool {
         storage::get_all_pools(e)
     }
 
-    pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
-        storage::get_all_multiply_pairs(e)
-    }
-
     pub fn exists(e: &Env, address: &PoolAddress) -> bool {
         storage::pool_exists(e, address)
     }
@@ -374,7 +339,7 @@ impl PoolConfig {
             return Err("slope1 must be less than slope2 for kinked model to work");
         }
 
-        if !is_valid_percent(open_ltv_bps) {
+        if !(0..(100 * BPS_IN_PERCENT)).contains(&open_ltv_bps) {
             return Err("Open LTV must be between 0% and 100%");
         }
 

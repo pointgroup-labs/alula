@@ -7,6 +7,7 @@ mod leverage;
 mod liquidate;
 mod misc;
 mod repay;
+mod security;
 mod swap;
 mod withdraw;
 
@@ -168,6 +169,9 @@ impl TestFixture<'_> {
             &None,
             &Some(pool_config),
         );
+
+        // Initialize USDC/GOLD multiply pair
+        contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
 
         oracle_client.set_data(
             &contract_admin,
@@ -702,6 +706,7 @@ impl RunCommand for DepositWithLeverage {
                 lender,
                 &deposit_pool_address,
                 &borrow_pool_address,
+                &false,
                 &self.amount.0,
                 &self.leverage,
             );

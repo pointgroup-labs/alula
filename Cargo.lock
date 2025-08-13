@@ -784,6 +784,7 @@ dependencies = [
 name = "lending-fuzz"
 version = "0.0.0"
 dependencies = [
+ "arbitrary",
  "extension-trait",
  "lending",
  "libfuzzer-sys",

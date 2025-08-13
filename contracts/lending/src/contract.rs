@@ -10,17 +10,25 @@ use soroban_sdk::{
 use crate::{
     constants::{
         ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
-        DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_LEVERAGE_MULTIPLIER,
-        MAX_ORACLE_PRICE_AGE_SECONDS, MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
+        DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS,
+        MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
     },
     events,
     interest_rate::CompoundRates,
     math_utils::MathUtils,
+    multiply_pair::MultiplyPair,
     obligation::{LiquidationValues, Obligation},
-    pool::{MultiplyPair, Pool, PoolAddress, PoolConfig},
+    pool::{Pool, PoolAddress, PoolConfig},
     storage::{self, GlobalState},
     swap, LCError,
 };
+
+#[inline(always)]
+fn require_admin(e: &Env) -> Address {
+    let admin = storage::get_global_state(e).admin;
+    admin.require_auth();
+    admin
+}
 
 #[contract]
 /// Lending Smart Contract. Allows users to lend and borrow other users' assets
@@ -69,8 +77,7 @@ impl LendingContract {
     ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         // TODO: Implement decentralized governance of the contract
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
@@ -97,8 +104,7 @@ impl LendingContract {
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, LCError> {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
     }
@@ -113,8 +119,7 @@ impl LendingContract {
         deposit_pool: Address,
         borrow_pool: Address,
     ) -> Result<(), LCError> {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         process_initialize_multiply_pair(&e, &deposit_pool, &borrow_pool)
     }
@@ -298,6 +303,20 @@ impl LendingContract {
         process_flash_loan(&e, &contract, &pool_address, amount)
     }
 
+    pub fn clean_multiply_pairs(e: Env) {
+        require_admin(&e);
+
+        storage::remove_all_multiply_pairs(&e);
+    }
+
+    pub fn check_multiply_pair_exists(
+        e: Env,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> bool {
+        MultiplyPair::exists(&e, &deposit_pool_address, &borrow_pool_address)
+    }
+
     /// Deposits tokens into the loan pool with leverage. Leverage is achieved by utilizing flash
     /// loan and token swap
     ///
@@ -309,6 +328,8 @@ impl LendingContract {
     /// * `user` - user that deposits tokens with leverage
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
+    /// * `deposit_as_margin` - flag that determines which asset(deposited or borrowed) will be used
+    ///   as the provided by the user initial margin amount
     /// * `amount` - original borrow amount before the leverage
     /// * `leverage_multiplier` - leverage multiplier, where the last two digits represent decimal
     ///   places (e.g., 700 for x7.00, 255 for x2.55, etc.)
@@ -317,6 +338,7 @@ impl LendingContract {
         user: Address,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
+        deposit_as_margin: bool,
         amount: i128,
         leverage_multiplier: u32,
     ) -> Result<(), LCError> {
@@ -327,6 +349,7 @@ impl LendingContract {
             &user,
             &deposit_pool_address,
             &borrow_pool_address,
+            deposit_as_margin,
             amount,
             leverage_multiplier,
         )
@@ -426,9 +449,22 @@ impl LendingContract {
         Obligation::get_all(&e)
     }
 
+    /// Returns the specific multiply pair
+    ///
+    /// ### Arguments
+    /// * `deposit_pool_address` - deposit pool of a pair that is returned
+    /// * `borrow_pool_address` - borrow pool of a pair that is returned
+    pub fn get_multiply_pair(
+        e: Env,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<MultiplyPair, LCError> {
+        MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)
+    }
+
     /// Returns a list of all multiply pairs in the protocol
     pub fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair> {
-        Pool::get_all_multiply_pairs(&e)
+        MultiplyPair::get_all(&e)
     }
 
     /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g.,
@@ -458,8 +494,7 @@ impl LendingContract {
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
     /// resetting on the testnet without re-deploying the contract
     pub fn reset_storage(e: Env) {
-        let admin = storage::get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         storage::remove_all_obligations(&e);
         storage::remove_all_pools(&e);
@@ -487,14 +522,14 @@ fn process_initialize_pool(
         return Err(LCError::PoolAlreadyExists);
     }
 
-    let config: PoolConfig = if let Some(config) = pool_config {
-        if config.validate().is_err() {
-            return Err(LCError::InvalidLoanPoolConfig);
+    let config: PoolConfig = match pool_config {
+        Some(cfg) => {
+            if cfg.validate().is_err() {
+                return Err(LCError::InvalidLoanPoolConfig);
+            }
+            *cfg
         }
-
-        *config
-    } else {
-        Default::default()
+        None => Default::default(),
     };
 
     let token_client = TokenClient::new(e, token_address);
@@ -527,18 +562,24 @@ pub fn process_initialize_multiply_pair(
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
 ) -> Result<(), LCError> {
-    if !(Pool::exists(e, deposit_pool_address) && Pool::exists(e, borrow_pool_address)) {
-        return Err(LCError::PoolDoesNotExist);
+    if !Pool::exists(e, deposit_pool_address) {
+        return Err(LCError::DepositPoolDoesNotExist);
     }
 
-    let pair = MultiplyPair {
-        deposit_pool: deposit_pool_address.clone(),
-        borrow_pool: borrow_pool_address.clone(),
-    };
+    let borrow_pool_open_ltv_bps = Pool::try_get(e, borrow_pool_address)
+        .map_err(|_| LCError::BorrowPoolDoesNotExist)?
+        .config
+        .open_ltv_bps;
 
-    if MultiplyPair::exists(e, &pair) {
+    if MultiplyPair::exists(e, deposit_pool_address, borrow_pool_address) {
         return Err(LCError::MultiplyPairAlreadyExists);
     }
+
+    let pair = MultiplyPair::new(
+        deposit_pool_address,
+        borrow_pool_address,
+        borrow_pool_open_ltv_bps,
+    );
 
     pair.set(e);
     pair.register(e);
@@ -598,6 +639,7 @@ pub fn process_deposit(
     Ok(())
 }
 
+#[allow(unused)]
 fn process_swap_for_exact_tokens(
     e: &Env,
     user: &Address,
@@ -994,6 +1036,7 @@ fn process_deposit_with_leverage(
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
+    deposit_as_margin: bool,
     amount: i128,
     leverage_multiplier: u32,
 ) -> Result<(), LCError> {
@@ -1001,124 +1044,180 @@ fn process_deposit_with_leverage(
         return Err(LCError::NegativeDeposit);
     }
 
-    if !(MIN_LEVERAGE_MULTIPLIER..=MAX_LEVERAGE_MULTIPLIER).contains(&leverage_multiplier) {
+    let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
+
+    if !(MIN_LEVERAGE_MULTIPLIER..=pair.max_leverage_multiplier).contains(&leverage_multiplier) {
         return Err(LCError::InvalidLeverageMultiplier);
     }
 
-    let flash_borrow_amount = {
-        let leverage_multiplier = leverage_multiplier as i128;
+    let deposit_pool = Pool::try_get(e, deposit_pool_address).map_err(|_| {
+        events::pool_is_missing_in_storage(e, deposit_pool_address);
+        // Invariant breakage, since a multiply pair cannot exist over non-existing pools
+        LCError::InternalError
+    })?;
 
-        let scaled = leverage_multiplier
-            .checked_mul(amount)
-            .map_over_or_underflow()?
-            - amount
-                .checked_mul(LEVERAGE_SCALE as i128)
-                .map_over_or_underflow()?; // safe
-        scaled / (LEVERAGE_SCALE as i128) // safe
+    let mut borrow_pool = Pool::try_get(e, borrow_pool_address).map_err(|_| {
+        events::pool_is_missing_in_storage(e, borrow_pool_address);
+        // Same here
+        LCError::InternalError
+    })?;
+
+    //  -- Calculate parameters --
+    let leverage_multiplier_minus_1 = leverage_multiplier - LEVERAGE_SCALE; // safe
+    let (flash_borrow_amount, amount_in, amount_out) = if deposit_as_margin {
+        // 'flash_borrow_amount' = 'amount_in' you need to get the base_leverage as 'amount_out'
+        // after swap
+        // 'amount_in' = flash_borrow_amount
+        // 'amount_out' = base_leverage
+        let scaled_base_leverage_amount = amount
+            .checked_mul(leverage_multiplier_minus_1 as i128)
+            .map_over_or_underflow()?;
+        let base_leverage_amount = scaled_base_leverage_amount / (LEVERAGE_SCALE as i128); // safe
+
+        // Calculate the flash borrow amount
+        let amount_out = base_leverage_amount;
+        let amount_in = swap::get_amount_in(
+            e,
+            &borrow_pool.token_address,
+            &deposit_pool.token_address,
+            amount_out,
+        )?;
+        let flash_borrow_amount = amount_in;
+
+        (flash_borrow_amount, amount_in, amount_out)
+    } else {
+        // 'flash_borrow_amount' = amount * (leverage_multiplier - 1)
+        // 'amount_in' = amount + flash_borrow_amount
+        // 'amount_out' = 'amount_out' you get after swapping 'amount_in'
+        let scaled_flash_borrow_amount = amount
+            .checked_mul(leverage_multiplier_minus_1 as i128)
+            .map_over_or_underflow()?;
+
+        let flash_borrow_amount = scaled_flash_borrow_amount / (LEVERAGE_SCALE as i128); // safe
+        let amount_in = amount
+            .checked_add(flash_borrow_amount)
+            .map_over_or_underflow()?;
+        let amount_out = swap::get_amount_out(
+            e,
+            &borrow_pool.token_address,
+            &deposit_pool.token_address,
+            amount_in,
+        )?;
+
+        (flash_borrow_amount, amount_in, amount_out)
     };
 
-    let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
-        return Err(LCError::CollateralPoolDoesNotExist);
-    };
-
-    let Ok(deposit_pool) = Pool::try_get(e, deposit_pool_address) else {
-        return Err(LCError::DepositDoesNotExist);
-    };
-
-    let flash_loaned_token_client = token::Client::new(e, borrow_pool_address);
-    if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
-        // Flash Borrow
-        // TODO: Think of why it can be beneficial to account for flash borrow limits as in other
-        // lending protocols
-        if borrow_pool.available < flash_borrow_amount {
-            return Err(LCError::NotEnoughPoolFunds);
-        }
-
-        flash_loaned_token_client.transfer(
-            &e.current_contract_address(),
-            user,
-            &flash_borrow_amount,
-        );
-
-        borrow_pool.adjust_available(e, -flash_borrow_amount)?;
-        // NB: This `set` is required, since 'available' amount is later accounted when calling
-        // `process_borrow`
-        borrow_pool.set(e);
+    // -- Flash Borrow --
+    // TODO: Think of why it can be beneficial to account for flash borrow limits as in other
+    //  lending protocols
+    if borrow_pool.available < flash_borrow_amount {
+        return Err(LCError::NotEnoughPoolFunds);
     }
 
-    // Swap
-    let amount_in = amount
-        .checked_add(flash_borrow_amount)
-        .map_over_or_underflow()?;
-    let amount_out = swap::get_amount_out(
-        e,
-        &borrow_pool.token_address,
-        &deposit_pool.token_address,
-        amount_in,
-    )?;
-    let deposit_amount = swap::swap_exact_tokens_for_tokens(
+    // TODO: Check, why on blend_v2 they use 'token_client.transfer_allowance' instead
+    //  of 'token_client.transfer' for flash loans
+    let flash_loan_token_client = token::Client::new(e, &borrow_pool.token_address);
+    flash_loan_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
+
+    borrow_pool.adjust_available(e, -flash_borrow_amount)?;
+    // NB: This `set` is required, since 'available' amount is later accounted when calling
+    // `process_borrow`
+    borrow_pool.set(e);
+
+    // -- Swap --
+    // NB: Since both 'amount_in' and 'amount_out' are calculated in the current contract call,
+    // no slippage will take place and 'swap_exact_tokens_for_tokens' and
+    // 'swap_tokens_for_exact_tokens' aren't different. This can likely be adjusted when
+    // implementing safety mechanisms that account for slippage when depositing with leverage
+    // via UI
+    let received_amount = swap::swap_exact_tokens_for_tokens(
         e,
         user,
         &borrow_pool.token_address,
         &deposit_pool.token_address,
         amount_in,
         amount_out,
-        None,
+        Some(0),
     )?;
 
-    // Deposit swapped tokens
-    process_deposit(e, user, deposit_pool_address, deposit_amount)?;
-
-    if leverage_multiplier > MIN_LEVERAGE_MULTIPLIER {
-        // Borrow to repay the flash loan
-        let flash_loan_fee = flash_borrow_amount
-            .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
-            .map_over_or_underflow()?;
-        let flash_repay_amount = flash_loan_fee
-            .checked_add(flash_borrow_amount)
-            .map_over_or_underflow()?;
-
-        let Ok(obligation) = Obligation::try_get(e, user) else {
-            events::obligation_is_missing_in_storage(e, user);
-
-            return Err(LCError::InternalError);
-        };
-
-        // TODO: Likely, this check is redundant, since when depositing with leverage
-        // you must always be able to borrow
-        let max_healthy_borrow_amount =
-            obligation.compute_max_healthy_borrow_added_amount(e, borrow_pool_address)?;
-
-        if flash_borrow_amount > max_healthy_borrow_amount {
-            // TODO: Some other error?
-            // UPD: Will be fixed after unifying oracle and DEX prices on testnet
-            return Err(LCError::BorrowLimitExceeded);
-        }
-
-        process_borrow(e, user, borrow_pool_address, flash_repay_amount)?;
-        borrow_pool.refresh(e)?;
-
-        // Repay flash loan
-        flash_loaned_token_client.transfer(
-            user,
-            &e.current_contract_address(),
-            &flash_repay_amount,
-        );
-
-        borrow_pool.adjust_available(e, flash_repay_amount)?;
-        borrow_pool.set(e);
-
-        events::deposit_with_leverage(
+    // NB: For some reason, Soroswap adds 1 to `amount_in` in `router_get_amounts_in`.
+    // See: https://github.com/soroswap/core/blob/c157c676d189a39ab8a3869a1011d3a259c36e22/contracts/library/src/quotes.rs#L77.
+    // This is likely the reason why 'received_amount' is bigger than 'amount_out', which is not an
+    // issue, though
+    if received_amount < amount_out {
+        events::received_unexpected_swap_amount(
             e,
             user,
-            deposit_pool_address,
-            borrow_pool_address,
-            amount,
-            leverage_multiplier,
-            deposit_amount,
-            flash_borrow_amount,
+            &borrow_pool.token_address,
+            &deposit_pool.token_address,
+            amount_in,
+            received_amount,
+            amount_in,
+            amount_out,
         );
+
+        return Err(LCError::DependencyContractError);
     }
+
+    // -- Deposit swapped tokens --
+    let deposit_amount = if deposit_as_margin {
+        received_amount
+            .checked_add(amount)
+            .map_over_or_underflow()?
+    } else {
+        received_amount
+    };
+
+    process_deposit(e, user, deposit_pool_address, deposit_amount)?;
+
+    // -- Borrow to repay the flash loan --
+    let flash_loan_fee = flash_borrow_amount
+        .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
+        .map_over_or_underflow()?;
+    let flash_repay_amount = flash_borrow_amount
+        .checked_add(flash_loan_fee)
+        .map_over_or_underflow()?;
+
+    let Ok(obligation) = Obligation::try_get(e, user) else {
+        events::obligation_is_missing_in_storage(e, user);
+
+        return Err(LCError::InternalError);
+    };
+
+    // UPD: This check will be removed after unifying oracle and DEX prices on testnet
+    let max_healthy_borrow_amount =
+        obligation.compute_max_healthy_borrow_added_amount(e, borrow_pool_address)?;
+
+    if flash_repay_amount > max_healthy_borrow_amount {
+        return Err(LCError::BorrowLimitExceeded);
+    }
+
+    // NB: Notice that we 'flash borrow' and 'borrow' to repay the flash loan from the
+    // same pool here. Can this be somehow utilized?
+    // We for sure must get the `flash borrow` amount in order to swap, right?
+    // After that, we borrow it to repay in the same pool, which seems redundant.
+    // This approach, though, has as the advantage that we utilize `process_borrow`,
+    // so, maybe, it's better to leave it as it is now
+
+    process_borrow(e, user, borrow_pool_address, flash_repay_amount)?;
+    borrow_pool.refresh(e)?;
+
+    // Repay the flash loan
+    flash_loan_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
+
+    borrow_pool.adjust_available(e, flash_repay_amount)?;
+    borrow_pool.set(e);
+
+    events::deposit_with_leverage(
+        e,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+        amount,
+        leverage_multiplier,
+        deposit_amount,
+        flash_borrow_amount,
+    );
 
     Ok(())
 }
@@ -1187,15 +1286,16 @@ pub fn process_withdraw_from_leveraged(
     }
 
     // Flash Borrow
-    let flash_borrowed_token_client = token::Client::new(e, borrow_pool_address);
+    let flash_borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
     flash_borrowed_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
+    borrow_pool.adjust_available(e, -flash_borrow_amount)?;
+    borrow_pool.set(e);
 
     // Repay Debt
     process_repay(e, user, borrow_pool_address, flash_borrow_amount)?;
     borrow_pool.refresh(e)?;
 
     // Withdraw
-
     let withdrawn_amount = expected_withdrawn_amount
         .checked_add(plain_leverage_to_be_withdrawn)
         .map_over_or_underflow()?;
@@ -1204,7 +1304,6 @@ pub fn process_withdraw_from_leveraged(
     deposit_pool.refresh(e)?;
 
     // Swap to get the flash repay amount
-
     let flash_loan_fee = flash_borrow_amount
         .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
@@ -1213,13 +1312,20 @@ pub fn process_withdraw_from_leveraged(
         .checked_add(flash_borrow_amount)
         .map_over_or_underflow()?;
 
-    // WARN: Here we must call an outer swap, since they are swapped from the user's wallet, right?
-    process_swap_for_exact_tokens(
+    let amount_in = swap::get_amount_in(
+        e,
+        &deposit_pool.token_address,
+        &borrow_pool.token_address,
+        flash_repay_amount,
+    )?;
+    swap::swap_tokens_for_exact_tokens(
         e,
         user,
-        deposit_pool_address,
-        borrow_pool_address,
+        &deposit_pool.token_address,
+        &borrow_pool.token_address,
+        amount_in,
         flash_repay_amount,
+        Some(0),
     )?;
 
     // Flash Repay
@@ -1249,18 +1355,17 @@ fn compute_leveraged_position_max_withdrawable_amount(
     deposited_amount: i128,
     borrowed_amount: i128,
 ) -> Result<i128, LCError> {
-    let borrowed_token_swapped_amount =
-        swap::get_amount_out(e, borrowed_token, deposited_token, borrowed_amount)?;
-
-    let flash_loan_fee = borrowed_token_swapped_amount
+    let flash_loan_fee = borrowed_amount
         .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
-
-    let swapped_amount_with_fees = borrowed_token_swapped_amount
+    let flash_repay_amount = borrowed_amount
         .checked_add(flash_loan_fee)
         .map_over_or_underflow()?;
 
-    if swapped_amount_with_fees > deposited_amount {
+    let deposit_tokens_to_repay_flash_loan =
+        swap::get_amount_in(e, deposited_token, borrowed_token, flash_repay_amount)?;
+
+    if deposit_tokens_to_repay_flash_loan > deposited_amount {
         // WARN: This can happen when multiply position contains a bad debt
         events::leveraged_position_bad_debt(
             e,
@@ -1269,14 +1374,14 @@ fn compute_leveraged_position_max_withdrawable_amount(
             borrowed_token,
             deposited_amount,
             borrowed_amount,
-            borrowed_token_swapped_amount,
+            deposit_tokens_to_repay_flash_loan,
         );
 
         // TODO: This has to be thought of when implementing security mechanisms
         return Err(LCError::InternalError);
     }
 
-    Ok(deposited_amount - swapped_amount_with_fees) // safe
+    Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe
 }
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
@@ -1289,9 +1394,10 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
         .lastprice(&asset)
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
-    // Validate price is not too old
-    let current_time = e.ledger().timestamp();
-    if current_time - price_data.timestamp > MAX_ORACLE_PRICE_AGE_SECONDS {
+    // Validate price is not too old and not from the future
+    let now = e.ledger().timestamp();
+    let age = now.saturating_sub(price_data.timestamp);
+    if age > MAX_ORACLE_PRICE_AGE_SECONDS || price_data.timestamp > now {
         return Err(LCError::OracleStalePrice);
     }
 

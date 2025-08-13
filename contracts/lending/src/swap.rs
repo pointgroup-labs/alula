@@ -81,7 +81,7 @@ pub fn swap_tokens_for_exact_tokens(
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, LCError> {
     let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
-        if slippage <= 0 || slippage > BPS_FACTOR {
+        if !(0..=BPS_FACTOR).contains(&slippage) {
             return Err(LCError::InvalidSwapSlippage);
         }
 
@@ -128,7 +128,8 @@ pub fn swap_tokens_for_exact_tokens(
 /// * `token_out` - address of a token that is given to the user
 /// * `amount_in` - exact amount of the `token_in`
 /// * `amount_out` - desired amount of the `token_out`
-/// * `max_slippage_bps` - basis points percentage of the maximum allowed `amount_out` slippage
+/// * `max_slippage_bps` - basis points percentage of the maximum allowed `amount_out` slippage.
+///   [`DEFAULT_MAX_SLIPPAGE_BPS`] if [`None`]
 /// # Returns
 /// Given to user `token_out` amount
 pub fn swap_exact_tokens_for_tokens(
@@ -141,7 +142,7 @@ pub fn swap_exact_tokens_for_tokens(
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, LCError> {
     let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
-        if slippage <= 0 || slippage > BPS_FACTOR {
+        if !(0..=BPS_FACTOR).contains(&slippage) {
             return Err(LCError::InvalidSwapSlippage);
         }
 
