@@ -7,6 +7,7 @@ mod leverage;
 mod liquidate;
 mod misc;
 mod repay;
+mod security;
 mod swap;
 mod withdraw;
 
