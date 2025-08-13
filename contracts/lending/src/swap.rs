@@ -3,9 +3,10 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env};
 
 use crate::{
-    constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    LCError,
+    constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, ROUTER_ADDRESS},
     math_utils::MathUtils,
-    soroswap_router, LCError,
+    soroswap_router as router,
 };
 // TODO: Maybe, create some internal trait for common swap operations and
 // implement it for different swap providers?
@@ -24,10 +25,9 @@ pub fn get_amount_in(
     amount_out: i128,
 ) -> Result<i128, LCError> {
     let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
-    let soroswap_router_client =
-        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
-    let amounts_in = soroswap_router_client.router_get_amounts_in(&amount_out, &path);
+    let amounts_in = router_client.router_get_amounts_in(&amount_out, &path);
     let Some(amount_in) = amounts_in.first() else {
         return Err(LCError::DependencyContractError);
     };
@@ -48,10 +48,9 @@ pub fn get_amount_out(
     amount_in: i128,
 ) -> Result<i128, LCError> {
     let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
-    let soroswap_router_client =
-        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
-    let amounts_out = soroswap_router_client.router_get_amounts_out(&amount_in, &path);
+    let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
     let Some(amount_out) = amounts_out.last() else {
         return Err(LCError::DependencyContractError);
     };
@@ -90,8 +89,7 @@ pub fn swap_tokens_for_exact_tokens(
         DEFAULT_MAX_SLIPPAGE_BPS
     };
 
-    let soroswap_router_client =
-        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amount_in_max = amount_in
         .checked_add(
@@ -104,7 +102,7 @@ pub fn swap_tokens_for_exact_tokens(
     let path = soroban_sdk::vec![e, token_in.clone(), token_out.clone()];
 
     // TODO: For now we can only swap tokens with a direct path
-    let swap_amounts = soroswap_router_client.swap_tokens_for_exact_tokens(
+    let swap_amounts = router_client.swap_tokens_for_exact_tokens(
         &amount_out,
         &amount_in_max,
         &path,
@@ -150,8 +148,7 @@ pub fn swap_exact_tokens_for_tokens(
         DEFAULT_MAX_SLIPPAGE_BPS
     };
 
-    let soroswap_router_client =
-        soroswap_router::Client::new(e, &Address::from_str(e, SOROSWAP_ROUTER_TESTNET_ADDRESS));
+    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amount_out_min = amount_out
         .checked_sub(
@@ -164,7 +161,7 @@ pub fn swap_exact_tokens_for_tokens(
     let path = soroban_sdk::vec![e, token_in.clone(), token_out.clone()];
 
     // TODO: For now we can only swap tokens with a direct path
-    let swap_amounts = soroswap_router_client.swap_exact_tokens_for_tokens(
+    let swap_amounts = router_client.swap_exact_tokens_for_tokens(
         &amount_in,
         &amount_out_min,
         &path,

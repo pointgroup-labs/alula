@@ -12,18 +12,18 @@ mod withdraw;
 
 use arbitrary::Unstructured;
 use lending::{
-    constants::{INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    LCError,
+    constants::{INDIVIDUAL_BUMP, ORACLE_ADDRESS, ROUTER_ADDRESS},
     contract::{LendingContract, LendingContractClient},
     obligation::{BorrowObligation, DepositObligation},
     pool::PoolConfig,
-    soroswap_router, LCError,
+    soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_sdk::{
-    symbol_short,
-    testutils::{arbitrary::Arbitrary, Address as _, Ledger, LedgerInfo},
+    Address, Env, Symbol, symbol_short,
+    testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
     token::{self, StellarAssetClient, TokenClient},
-    Address, Env, Symbol,
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
@@ -49,8 +49,8 @@ pub struct TestFixture<'a> {
     pub oracle_client: MockPriceOracleClient<'a>,
     pub oracle_address: Address,
     // Swap Router
-    pub soroswap_router_client: soroswap_router::Client<'a>,
-    pub soroswap_router_address: Address,
+    pub router_client: router::Client<'a>,
+    pub router_address: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
@@ -112,9 +112,9 @@ impl TestFixture<'_> {
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
-        let soroswap_router_address = Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS);
-        e.register_at(&soroswap_router_address, soroswap_router::WASM, ());
-        let soroswap_router_client = soroswap_router::Client::new(&e, &soroswap_router_address);
+        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
+        e.register_at(&router_address, router::WASM, ());
+        let router_client = router::Client::new(&e, &router_address);
 
         let users = vec![
             Address::generate(&e),
@@ -169,6 +169,10 @@ impl TestFixture<'_> {
             &Some(pool_config),
         );
 
+        router_client.map_address_to_ticker(&usdc_ticker, &usdc_token_address);
+        router_client.map_address_to_ticker(&gold_ticker, &gold_token_address);
+        router_client.map_address_to_ticker(&btc_ticker, &btc_token_address);
+
         oracle_client.set_data(
             &contract_admin,
             &Asset::Other(Symbol::new(&e, "USD")),
@@ -178,7 +182,7 @@ impl TestFixture<'_> {
                 Asset::Other(btc_ticker),
                 Asset::Other(usdc_ticker),
             ],
-            &7,
+            &14,
             &123, // resolution is irrelevant because of stable prices
         );
 
@@ -193,8 +197,8 @@ impl TestFixture<'_> {
             oracle_client,
             oracle_address,
             // Swap router
-            soroswap_router_client,
-            soroswap_router_address,
+            router_client,
+            router_address,
             // GOLD
             gold_sac,
             gold_token_client,
@@ -346,9 +350,9 @@ pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClie
     #[allow(clippy::zero_prefixed_literal)]
     oracle_client.set_price_stable(&soroban_sdk::vec![
         e,
-        0_30000000000000, // GOLD
-        5_00000000000000, // BTC
-        0_00010000000000, // USDC
+        3_00000000000000,  // GOLD
+        50_00000000000000, // BTC
+        1_00000000000000,  // USDC
     ]);
 }
 
@@ -821,8 +825,8 @@ mod tests {
     };
     use soroban_fixed_point_math::FixedPoint;
     use soroban_sdk::testutils::{
-        storage::{Instance, Persistent},
         Ledger,
+        storage::{Instance, Persistent},
     };
 
     use super::*;

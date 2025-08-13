@@ -1280,12 +1280,12 @@ fn compute_leveraged_position_max_withdrawable_amount(
 }
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
-    let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
-    let reflector_contract = PriceFeedClient::new(e, &reflector_address);
+    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
     let asset = Asset::Other(ticker.clone());
 
-    let price_data = reflector_contract
+    let price_data = oracle_contract
         .lastprice(&asset)
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
@@ -1299,8 +1299,8 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 }
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
-    let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
-    let reflector_contract = PriceFeedClient::new(e, &reflector_address);
+    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
-    reflector_contract.decimals()
+    oracle_contract.decimals()
 }

@@ -1426,6 +1426,8 @@ dependencies = [
 name = "soroswap-router-mock"
 version = "0.0.0"
 dependencies = [
+ "sep-40-oracle",
+ "soroban-fixed-point-math",
  "soroban-sdk",
 ]
 

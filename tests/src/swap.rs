@@ -1,9 +1,9 @@
 #![cfg(test)]
 
 use lending::{constants::DEFAULT_MAX_SLIPPAGE_BPS, swap};
-use soroban_sdk::token::TokenClient;
+use soroban_sdk::{token::TokenClient, vec as svec};
 
-use crate::{tests::get_amount_scaled_down, TestFixture};
+use crate::{TestFixture, make_oracle_prices_different, tests::get_amount_scaled_down};
 
 #[test]
 fn test_swap() {
@@ -15,14 +15,14 @@ fn test_swap() {
         users,
         gold_pool_address,
         gold_token_client,
-        soroswap_router_address,
+        router_address,
         ..
     } = TestFixture::new();
 
     let user = &users[0];
 
     let new_token_address = e
-        .register_stellar_asset_contract_v2(soroswap_router_address.clone())
+        .register_stellar_asset_contract_v2(router_address.clone())
         .address();
     let new_token_client = TokenClient::new(&e, &new_token_address);
 
@@ -48,4 +48,49 @@ fn test_swap() {
                                                                     * differ in a few smallest
                                                                     * units */
     );
+}
+
+#[test]
+fn test_get_amount_out() {
+    const AMOUNT_IN: i128 = 50_00;
+
+    let TestFixture {
+        e,
+        gold_token_address,
+        usdc_token_address,
+        oracle_client,
+        router_client,
+        ..
+    } = TestFixture::new();
+
+    make_oracle_prices_different(&e, &oracle_client);
+
+    let path = svec![&e, gold_token_address.clone(), usdc_token_address.clone()];
+    let amount_out1 = router_client
+        .router_get_amounts_out(&AMOUNT_IN, &path)
+        .last()
+        .unwrap();
+    dbg!(amount_out1);
+
+    let amount_in1 = router_client
+        .router_get_amounts_in(&amount_out1, &path)
+        .first()
+        .unwrap();
+    std::dbg!(amount_in1);
+
+    // ------
+
+    let path: soroban_sdk::Vec<soroban_sdk::Address> =
+        svec![&e, usdc_token_address.clone(), gold_token_address.clone()];
+    let amount_out2 = router_client
+        .router_get_amounts_out(&AMOUNT_IN, &path)
+        .last()
+        .unwrap();
+    std::dbg!(amount_out2);
+
+    let amount_in2 = router_client
+        .router_get_amounts_in(&amount_out2, &path)
+        .first()
+        .unwrap();
+    std::dbg!(amount_in2);
 }
