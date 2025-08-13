@@ -774,11 +774,9 @@ pub struct LiquidationValues {
 
 #[cfg(test)]
 mod tests {
+    use soroban_sdk::{testutils::Address as _, Address, Env, Map};
+
     use super::*;
-    use soroban_sdk::{
-        testutils::Address as _,
-        Env, Address, Map,
-    };
 
     fn create_test_env() -> Env {
         let env = Env::default();
