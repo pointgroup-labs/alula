@@ -35,10 +35,11 @@ onMounted(() => {
 <template>
   <teleport to="body">
     <transition name="fade">
-      <div
+      <aside
         v-show="isSidebar"
         class="sidebar"
         :class="className"
+        role="dialog"
       >
         <div
           class="sidebar-bg"
@@ -69,7 +70,7 @@ onMounted(() => {
             </div>
           </div>
         </transition>
-      </div>
+      </aside>
     </transition>
   </teleport>
 </template>

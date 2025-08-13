@@ -19,7 +19,7 @@
 <style scoped lang="scss">
 footer {
   padding: 40px 0;
-  color: $neutral-12;
+  color: $neutral-6;
   font-size: 12px;
   font-style: normal;
   font-weight: 500;
@@ -38,6 +38,6 @@ nav {
 
 a {
   text-decoration: none;
-  color: $neutral-12;
+  color: $neutral-6;
 }
 </style>

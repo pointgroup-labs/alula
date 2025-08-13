@@ -95,13 +95,6 @@ export default defineNuxtConfig({
     esbuild: {
       legalComments: 'none',
     },
-    build: {
-      terserOptions: {
-        format: {
-          comments: false,
-        },
-      },
-    },
     css: {
       preprocessorOptions: {
         scss: {
@@ -144,11 +137,18 @@ export default defineNuxtConfig({
       ],
       // exclude: ['bootstrap-vue-next'],
     },
+    build: {
+      cssCodeSplit: true,
+      terserOptions: {
+        format: {
+          comments: false,
+        },
+      },
+    },
   },
 
   experimental: {
-    // @ts-expect-error...
-    inlineSSRStyles: false,
+    // inlineSSRStyles: false,
   },
 
   plugins: [
@@ -230,17 +230,17 @@ export default defineNuxtConfig({
       display: 'standalone',
       icons: [
         {
-          src: '/img/pwa-192x192.png',
+          src: '/pwa-192x192.png',
           sizes: '192x192',
           type: 'image/png',
         },
         {
-          src: '/img/pwa-512x512.png',
+          src: '/pwa-512x512.png',
           sizes: '512x512',
           type: 'image/png',
         },
         {
-          src: '/img/pwa-512x512.png',
+          src: '/pwa-512x512.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'any maskable',
@@ -259,12 +259,21 @@ export default defineNuxtConfig({
     // @ts-expect-error...
     trailingSlash: 'remove',
 
+    // remove prefetch from all nuxt-link
+    pageTransition: false,
+
     baseURL: env.NUXT_PUBLIC_BASE_URL || '/',
 
     head: {
+      htmlAttrs: {
+        lang: 'en',
+      },
       title: env.NUXT_PUBLIC_APP_TITLE ?? 'JLend',
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        // Preconnect wallet connect
+        { rel: 'preconnect', href: 'https://walletconnect.com', crossorigin: '' },
+        { rel: 'preconnect', href: 'https://verify.walletconnect.com', crossorigin: '' },
       ],
       meta: [
         { name: 'description', content: env.NUXT_PUBLIC_APP_DESCRIPTION },
