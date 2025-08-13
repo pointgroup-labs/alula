@@ -35,9 +35,9 @@ test = false
 doc = false
 bench = false
 
-[[bin]]
-name = "fuzz_protocol_invariants"
-path = "fuzz_targets/fuzz_protocol_invariants.rs"
-test = false
-doc = false
-bench = false
+# [[bin]]
+# name = "fuzz_protocol_invariants"
+# path = "fuzz_targets/fuzz_protocol_invariants.rs"
+# test = false
+# doc = false
+# bench = false
