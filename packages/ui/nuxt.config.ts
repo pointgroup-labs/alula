@@ -139,7 +139,6 @@ export default defineNuxtConfig({
     },
     build: {
       cssCodeSplit: true,
-      sourcemap: true,
       terserOptions: {
         format: {
           comments: false,
