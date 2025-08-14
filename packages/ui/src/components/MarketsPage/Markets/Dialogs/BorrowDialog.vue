@@ -139,7 +139,7 @@ const infoTableData = computed(() => {
 
 const dialog = defineModel({ default: false })
 
-const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
+const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool_address)
 
 async function borrow() {
   if (!publicKey.value || !data?.raw.pool_address) {

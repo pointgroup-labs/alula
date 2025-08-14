@@ -44,7 +44,7 @@ $toast-variants: (
 }
 
 .j-toast:not(.toast-alert) {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   border-radius: $spacing-8 !important;
   overflow: hidden;
   font-family: $font-family-base;

@@ -1,10 +1,12 @@
 <script lang="ts" setup>
+import type { MarketTableItem } from '~/types/table'
 import { bigintToNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
 
-const marketsStore = useMarketsStore()
-const pool = computed(() => marketsStore.selectedMarketInfo?.raw)
+const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
+  
+const pool = computed(() => selectedMarketDetails.value?.raw)
 
 const clientStore = useClientStore()
 const decimals = computed(() => clientStore.assetDecimals)

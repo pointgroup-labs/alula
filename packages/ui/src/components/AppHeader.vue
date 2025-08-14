@@ -10,7 +10,6 @@ import { isDark } from '~/hooks/theme'
 
 const { width } = useWindowSize()
 
-const router = useRouter()
 const route = useRoute()
 const logo = computed(() => width.value >= 1024 ? (isDark.value ? logoDark : logoLight) : (isDark.value ? logoMobileDark : logoMobileLight))
 
@@ -35,10 +34,6 @@ provide('navTabs', tabs)
 
 const activeTab = ref()
 
-watch(activeTab, (t) => {
-  router.push(t?.route || '/')
-})
-
 watch(() => route.path, (p) => {
   const tabIdx = tabs.findIndex(t => t?.route === p)
   if (tabIdx !== -1) {
@@ -62,15 +57,16 @@ watch(() => route.path, (p) => {
         v-if="width >= 1024"
         class="header-nav"
       >
-        <div
+        <nuxt-link
           v-for="tab in tabs"
           :key="tab.label"
+          :to="tab.route"
           class="nav-link"
           :class="{ 'nav-link--active': activeTab.route === tab.route }"
           @click="activeTab = tab"
         >
           {{ tab.label }}
-        </div>
+        </nuxt-link>
       </nav>
 
       <div class="header-actions">

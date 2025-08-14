@@ -66,11 +66,11 @@ const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
 })
 
 const dialog = ref(false)
-const selectedPoolAddress = ref()
-const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
+const selectedMarketAddress = ref()
+const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedMarketAddress.value))
 
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
-  selectedPoolAddress.value = item?.pool_address
+  selectedMarketAddress.value = item?.pool_address
   dialog.value = true
 }
 

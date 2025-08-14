@@ -4,12 +4,16 @@ import { amountToUsdWithShort, formatPrice, shortenNumber } from '~/utils'
 
 const { width } = useWindowSize()
 
-const infoDialog = ref(false)
-
 const client = useClientStore()
 const marketsStore = useMarketsStore()
 
 const market = useMarket()
+
+const dialogSupply = toRef(marketsStore, 'dialogSupply')
+const dialogBorrow = toRef(marketsStore, 'dialogBorrow')
+const infoDialog = toRef(marketsStore, 'marketInfoDialog')
+
+const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
 
 const assetDecimals = computed(() => client.assetDecimals)
 
@@ -57,20 +61,21 @@ const items = computed<MarketTableItem[]>(() => {
   })
 })
 
-const dialogSupply = ref(false)
-const dialogBorrow = ref(false)
-const selectedPoolAddress = ref()
-const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
+const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedMarketAddress.value))
 
 async function supplyDialogHandler(item: MarketTableItem, action: 'supply' | 'borrow') {
-  selectedPoolAddress.value = item?.pool_address
+  selectedMarketAddress.value = item?.pool_address
   action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
 }
 
 function onRowClicked(item: MarketTableItem, _index: number, _event: any) {
-  marketsStore.selectedMarketInfo = item
+  selectedMarketAddress.value = item.pool_address
   infoDialog.value = true
 }
+
+const selectedMarketDetails = computed(() => items.value.find(item => item.pool_address === selectedMarketAddress.value))
+
+provide('selectedMarketDetails', selectedMarketDetails)
 </script>
 
 <template>

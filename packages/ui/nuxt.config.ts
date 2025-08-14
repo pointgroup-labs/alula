@@ -168,6 +168,7 @@ export default defineNuxtConfig({
     strategy: 'no_prefix',
     defaultLocale: 'en',
     lazy: true,
+    alwaysRedirect: false,
     langDir: resolve(__dirname, 'src/locales'),
     locales: [
       { code: 'en', name: 'English', file: 'en.json' },

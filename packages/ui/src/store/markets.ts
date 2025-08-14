@@ -1,6 +1,8 @@
 import type { CompoundRates, Pool } from '@jlend/sdk'
 import { defineStore } from 'pinia'
 
+const MAIN_MARKET_NAME = 'Main market'
+
 export const useMarketsStore = defineStore('markets', () => {
   const state = reactive<MarketsState>({
     poolAddresses: [],
@@ -8,8 +10,11 @@ export const useMarketsStore = defineStore('markets', () => {
     leveragePools: [],
     loading: false,
     loadingLeveragePools: false,
-    markets: ['Main market', 'Assets'],
+    markets: [MAIN_MARKET_NAME, 'Assets'],
   })
+
+  const route = useRoute()
+  const router = useRouter()
 
   const clientStore = useClientStore()
   const jLendClient = computed(() => clientStore.jLendClient)
@@ -17,15 +22,23 @@ export const useMarketsStore = defineStore('markets', () => {
   const rpcStore = useRpcStore()
   const network = computed(() => rpcStore.network)
 
-  const poolDepositAddr = ref()
+  const poolActiveAddress = ref()
   const poolActionType = ref<TableActionType>()
 
-  const selectedMarketInfo = ref()
+  const dialogSupply = ref(false)
+  const dialogBorrow = ref(false)
+  const dialogLeverage = ref(false)
+  const dialogWithdrawLeverage = ref(false)
 
-  const selectedMarket = ref('Main market')
+  // selected pool address to show market info in supply/borrow dialogs
+  const selectedMarketAddress = ref()
+
+  const marketInfoDialog = ref(false)
+
+  const activeMarket = ref<string>(MAIN_MARKET_NAME)
 
   const selectedMarketPools = computed(() => {
-    return state.pools.filter(p => selectedMarket.value.toLowerCase().includes(String(p.market?.toLowerCase())))
+    return state.pools.filter(p => activeMarket.value.toLowerCase().includes(String(p.market?.toLowerCase())))
   })
 
   async function loadPools() {
@@ -93,15 +106,105 @@ export const useMarketsStore = defineStore('markets', () => {
     await loadPoolsData()
   })
 
+  watch([
+    () => route.path,
+    activeMarket,
+  ], ([path, marketName]) => {
+    if (path !== '/') {
+      return
+    }
+    const q = { ...route.query }
+
+    if (marketName === MAIN_MARKET_NAME) {
+      delete q['active-market']
+    } else {
+      q['active-market'] = marketName
+    }
+    router.replace({ query: { ...q } })
+  })
+
+  watch([
+    dialogSupply,
+    dialogBorrow,
+    marketInfoDialog,
+    dialogLeverage,
+    dialogWithdrawLeverage,
+  ], ([supply, borrow, infoDialog, leverage, withdrawLeverage]) => {
+    const market = selectedMarketAddress.value
+    const query = { ...route.query }
+
+    const map: Record<string, boolean> = {
+      supply,
+      borrow,
+      'market-info': infoDialog,
+      leverage,
+      'withdraw-leverage': withdrawLeverage,
+    }
+
+    const active = Object.entries(map).find(([, v]) => v)?.[0]
+
+    if (active) {
+      router.replace({ query: { ...query, dialog: active, market } })
+    } else {
+      delete query.dialog
+      delete query.market
+      delete query['collateral-only']
+      router.replace({ query })
+    }
+  })
+
+  const stop = watch(selectedMarketPools, (pools) => {
+    if (pools?.length > 0) {
+      const q = route.query
+      selectedMarketAddress.value = q?.market
+
+      if (!pools.some(p => p.pool_address === q?.market) || !selectedMarketAddress.value) {
+        stop()
+        return
+      }
+      if (q.dialog === 'supply') {
+        dialogSupply.value = true
+      }
+      if (q.dialog === 'borrow') {
+        dialogBorrow.value = true
+      }
+      if (q.dialog === 'leverage') {
+        dialogLeverage.value = true
+      }
+      if (q.dialog === 'withdraw-leverage') {
+        dialogWithdrawLeverage.value = true
+      }
+      if (q.dialog === 'market-info') {
+        marketInfoDialog.value = true
+      }
+      stop()
+    }
+  })
+
+  onMounted(() => {
+    const activeMarketQuery = route.query?.['active-market']
+    if (activeMarketQuery) {
+      activeMarket.value = String(activeMarketQuery)
+    }
+  })
+
   return {
     state,
 
-    selectedMarket,
-    selectedMarketInfo,
+    activeMarket,
+
     selectedMarketPools,
 
+    dialogSupply,
+    dialogBorrow,
+    dialogLeverage,
+    marketInfoDialog,
+    dialogWithdrawLeverage,
+
+    selectedMarketAddress,
+
     poolActionType,
-    poolDepositAddr,
+    poolActiveAddress,
 
     updatePools,
 

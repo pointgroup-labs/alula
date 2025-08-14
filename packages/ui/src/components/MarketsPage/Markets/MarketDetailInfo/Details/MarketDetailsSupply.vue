@@ -1,13 +1,14 @@
 <script lang="ts" setup>
+import type { MarketTableItem } from '~/types/table'
 import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
 
 const clientStore = useClientStore()
-const marketsStore = useMarketsStore()
-const market = computed(() => marketsStore.selectedMarketInfo)
 
-const pool = computed(() => market.value?.raw)
+const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
+
+const pool = computed(() => selectedMarketDetails.value?.raw)
 
 const decimals = computed(() => clientStore.assetDecimals)
 
@@ -33,8 +34,8 @@ const liquidationPenalty = computed(() => (Number(pool.value?.config.liquidation
 
 const isSupplyLimit = computed(() => Number(pool.value?.config.supply_limit) > 0)
 const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.supply_limit, decimals.value)) : 0)
-const totalSuppliedInUsd = computed(() => totalSupplied.value * market.value?.price || 0)
-const supplyLimitInUsd = computed(() => supplyLimit.value * market.value?.price || 0)
+const totalSuppliedInUsd = computed(() => totalSupplied.value * selectedMarketDetails.value?.price || 0)
+const supplyLimitInUsd = computed(() => supplyLimit.value * selectedMarketDetails.value?.price || 0)
 const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value / supplyLimit.value * 100).toFixed(2) : 100)
 </script>
 
@@ -50,7 +51,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
       >
         <div class="stats-apy">
           Supply APY
-          <span>{{ market?.deposit_apy || '-' }}</span>
+          <span>{{ selectedMarketDetails?.deposit_apy || '-' }}</span>
         </div>
         <div class="stats-params">
           <div class="stats-params__item">

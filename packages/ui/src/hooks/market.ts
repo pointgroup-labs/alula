@@ -61,7 +61,7 @@ export function useMarket() {
     body: string
     exec: () => Promise<{ txHash?: string }>
   }) {
-    marketsStore.poolDepositAddr = opts.pool
+    marketsStore.poolActiveAddress = opts.pool
     marketsStore.poolActionType = opts.type
     const info = await Toast.create({
       title: opts.title,
@@ -91,7 +91,7 @@ export function useMarket() {
       })
       throw error
     } finally {
-      marketsStore.poolDepositAddr = undefined
+      marketsStore.poolActiveAddress = undefined
       marketsStore.poolActionType = undefined
       info?.dismiss()
     }
@@ -346,14 +346,14 @@ export function useMarket() {
   }
 
   function isDisabled(pool_address: string, actionType: TableActionType) {
-    return marketsStore.poolDepositAddr
-      ? pool_address !== marketsStore.poolDepositAddr || marketsStore.poolActionType !== actionType
+    return marketsStore.poolActiveAddress
+      ? pool_address !== marketsStore.poolActiveAddress || marketsStore.poolActionType !== actionType
       : false
   }
 
   function isLoading(pool_address: string, actionType: TableActionType) {
-    return marketsStore.poolDepositAddr
-      ? pool_address === marketsStore.poolDepositAddr && marketsStore.poolActionType === actionType
+    return marketsStore.poolActiveAddress
+      ? pool_address === marketsStore.poolActiveAddress && marketsStore.poolActionType === actionType
       : false
   }
 

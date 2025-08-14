@@ -1,22 +1,10 @@
 <script lang="ts" setup>
-const {
-  modelValue,
-} = defineProps<{
-  modelValue: boolean
-}>()
+import type { MarketTableItem } from '~/types/table'
 
-const emits = defineEmits(['update:modelValue'])
+const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
 
-const marketsStore = useMarketsStore()
-const market = computed(() => marketsStore.selectedMarketInfo)
-
-const dialog = computed({
-  get() {
-    return modelValue
-  },
-  set(val) {
-    emits('update:modelValue', val)
-  },
+const dialog = defineModel({
+  default: false,
 })
 </script>
 
@@ -28,10 +16,10 @@ const dialog = computed({
     <template #header>
       <div class="market-info">
         <img
-          :src="market?.asset.icon"
-          :alt="market?.asset.symbol"
+          :src="selectedMarketDetails?.asset.icon"
+          :alt="selectedMarketDetails?.asset.symbol"
         >
-        {{ market?.asset.symbol }} Info
+        {{ selectedMarketDetails?.asset.symbol }} Info
         <!-- <j-pill-label
           variant="secondary"
           size="md"

@@ -43,7 +43,7 @@ const balance = computed(() => {
   return userSupplied || 0
 })
 
-const loading = computed(() => marketsStore.poolDepositAddr === data?.depositPool.pool_address)
+const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
 const reloadFee = ref(false)
 
 const txFee = ref(0)

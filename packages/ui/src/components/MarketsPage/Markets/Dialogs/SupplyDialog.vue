@@ -11,6 +11,9 @@ const {
   modelValue: boolean
 }>()
 
+const router = useRouter()
+const route = useRoute()
+
 const { generateExplorerLink } = useExplorerLink()
 
 const marketsStore = useMarketsStore()
@@ -36,7 +39,7 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
-const loading = computed(() => marketsStore.poolDepositAddr === data?.raw.pool_address)
+const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool_address)
 const reloadFee = ref(false)
 
 const txFee = ref(0)
@@ -126,6 +129,22 @@ watch(() => modelValue, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
+
+watchDebounced(collateralOnly, (c) => {
+  const query = { ...route.query }
+  if (c) {
+    query['collateral-only'] = 'true'
+  } else {
+    delete query['collateral-only']
+  }
+  router.replace({ query })
+}, { debounce: 100 })
+
+watch(() => route.query, (q) => {
+  if (q['collateral-only']) {
+    collateralOnly.value = true
+  }
+}, { immediate: true, once: true })
 </script>
 
 <template>

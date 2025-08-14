@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { MarketTableItem } from '~/types/table'
 import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
@@ -6,10 +7,10 @@ const { width } = useWindowSize()
 const { generateExplorerLink } = useExplorerLink()
 
 const clientStore = useClientStore()
-const marketsStore = useMarketsStore()
-const market = computed(() => marketsStore.selectedMarketInfo)
 
-const pool = computed(() => market.value?.raw)
+const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
+
+const pool = computed(() => selectedMarketDetails.value?.raw)
 
 const decimals = computed(() => clientStore.assetDecimals)
 
@@ -20,8 +21,8 @@ const totalSupplied = computed(() => {
   return (supplied * openLTV) || 0
 })
 
-const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * pool.value?.pool_price).toFixed(2) || 0)
-const totalSuppliedUsd = computed(() => Number(totalSupplied.value * pool.value?.pool_price).toFixed(2) || 0)
+const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(pool.value?.pool_price || 0)).toFixed(2) || 0)
+const totalSuppliedUsd = computed(() => Number(totalSupplied.value * Number(pool.value?.pool_price || 0)).toFixed(2) || 0)
 
 const borrowCap = computed(() => {
   if (!pool.value) {
@@ -52,7 +53,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
       <div class="market-stats__apy">
         <div class="stats-apy">
           Borrow APY
-          <span>{{ market?.borrow_apy || '-' }}</span>
+          <span>{{ selectedMarketDetails?.borrow_apy || '-' }}</span>
         </div>
         <div class="stats-params">
           <div class="stats-params__item">

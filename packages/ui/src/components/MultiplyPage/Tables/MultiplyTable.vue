@@ -8,6 +8,11 @@ const { width } = useWindowSize()
 const client = useClientStore()
 const marketsStore = useMarketsStore()
 
+const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
+
+const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
+const dialogWithdrawLeverage = toRef(marketsStore, 'dialogWithdrawLeverage')
+
 const market = useMarket()
 
 const userStore = useUserStore()
@@ -80,20 +85,19 @@ const items = computed<MultiplyTableItem[]>(() => {
     })
 })
 
-const dialogSupply = ref(false)
-const withdrawDialog = ref(false)
-const selectedPoolAddress = ref()
-const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedPoolAddress.value))
+const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedMarketAddress.value))
 
 async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' | 'withdraw') {
-  selectedPoolAddress.value = item?.pool_address
-  action === 'supply' ? dialogSupply.value = true : withdrawDialog.value = true
+  selectedMarketAddress.value = item?.pool_address
+  action === 'supply' ? dialogLeverage.value = true : dialogWithdrawLeverage.value = true
 }
 
-function checkIsHaveMultiply(pool: MultiplyTableItem) {
+function checkIsHaveMultiply(poolAddress: string) {
   const deposits = obligation.value?.deposits || []
   const borrows = obligation.value?.borrows || []
-  if (deposits.length === 0 || borrows.length === 0) {
+  const pool = items.value.find(item => item.pool_address === poolAddress)
+  if (deposits.length === 0 || borrows.length === 0 || !pool) {
+    dialogWithdrawLeverage.value = false
     return false
   }
   const depositPoolAddress = pool.depositPool.pool_address
@@ -218,7 +222,7 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
             Multiply
           </j-btn>
           <j-btn
-            v-if="checkIsHaveMultiply(data.item)"
+            v-if="checkIsHaveMultiply(data.item.pool_address)"
             size="lg"
             variant="accent"
             pill
@@ -256,12 +260,13 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
   </div>
 
   <multiply-dialog
-    v-model="dialogSupply"
+    v-model="dialogLeverage"
     :data="selectedPool"
   />
 
   <withdraw-leverage-dialog
-    v-model="withdrawDialog"
+    v-if="checkIsHaveMultiply(selectedMarketAddress)"
+    v-model="dialogWithdrawLeverage"
     :data="selectedPool"
   />
 </template>

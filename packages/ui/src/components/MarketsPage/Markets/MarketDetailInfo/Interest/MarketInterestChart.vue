@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { ChartData, ChartOptions } from 'chart.js'
+import type { MarketTableItem } from '~/types/table'
 import { Chart } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { truncatePercent } from '~/utils'
@@ -12,9 +13,9 @@ const { width } = useWindowSize()
 
 const isMobile = computed(() => width.value <= 650)
 
-const marketStore = useMarketsStore()
-const pool = computed(() => marketStore.selectedMarketInfo)
-const poolConfig = computed(() => pool.value?.raw.config)
+const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
+
+const poolConfig = computed(() => selectedMarketDetails.value?.raw.config)
 
 // APR for chart
 const modelParams = {
@@ -63,11 +64,11 @@ const dataPointsChart = computed(() => {
 
 // APR data
 const currentUtilization = computed(() => {
-  if (!pool.value) {
+  if (!selectedMarketDetails.value) {
     return 0
   }
-  const borrowed = Number(pool.value.total_borrowed)
-  const available = Number(pool.value.available)
+  const borrowed = Number(selectedMarketDetails.value.total_borrowed)
+  const available = Number(selectedMarketDetails.value.available)
   const sup = borrowed + available
   return sup === 0 ? 0 : borrowed / sup
 })

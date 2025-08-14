@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 const marketsStore = useMarketsStore()
-const selectedMarket = toRef(marketsStore, 'selectedMarket')
+const activeMarket = toRef(marketsStore, 'activeMarket')
 </script>
 
 <template>
@@ -9,9 +9,9 @@ const selectedMarket = toRef(marketsStore, 'selectedMarket')
       v-for="market in marketsStore.state.markets"
       :key="market"
       pill
-      :variant="market.toLowerCase() === selectedMarket.toLowerCase() ? 'secondary' : 'light'"
+      :variant="market.toLowerCase() === activeMarket.toLowerCase() ? 'secondary' : 'light'"
       size="sm"
-      @click="selectedMarket = market"
+      @click="activeMarket = market"
     >
       {{ market }}
     </j-btn>

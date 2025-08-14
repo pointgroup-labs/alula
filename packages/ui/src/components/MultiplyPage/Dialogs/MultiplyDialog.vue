@@ -68,7 +68,7 @@ const selectedMultiplier = computed(() => {
   return Number((precentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
 })
 
-const loading = computed(() => marketsStore.poolDepositAddr === data?.depositPool.pool_address)
+const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
 const reloadFee = ref(false)
 
 const txFee = ref(0)
