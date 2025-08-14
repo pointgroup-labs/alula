@@ -60,7 +60,7 @@ const {
     height: 76px;
     width: 100%;
     left: -8px;
-    background: url(~/assets/img/card/collateral-bg.svg) no-repeat;
+    background: url(~/assets/img/card/collateral-bg.webp) no-repeat;
     background-size: contain;
     background-position: bottom;
   }

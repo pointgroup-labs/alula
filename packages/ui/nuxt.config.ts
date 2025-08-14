@@ -139,6 +139,7 @@ export default defineNuxtConfig({
     },
     build: {
       cssCodeSplit: true,
+      sourcemap: true,
       terserOptions: {
         format: {
           comments: false,
@@ -184,12 +185,17 @@ export default defineNuxtConfig({
       JLEND_CLIENT_NETWORK: env.NUXT_PUBLIC_NETWORK,
     },
   },
+  routeRules: {
+    '/': { isr: 60 },
+    '/assets/**': { headers: { 'cache-control': 'public,max-age=31536000,immutable' } },
+  },
   // debug: true,
   nitro: {
     logLevel: 'debug',
     prerender: {
       autoSubfolderIndex: false,
     },
+    compressPublicAssets: true,
     // preset: 'node',
     // devErrorHandler: true,
     // prerender: {
