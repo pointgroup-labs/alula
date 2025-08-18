@@ -2,14 +2,14 @@
 //! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
 
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{contracttype, Env};
+use soroban_sdk::{Env, contracttype};
 
 use crate::{
+    LCError,
     constants::{ACCRUAL_INIT, BPS_FACTOR, SECONDS_IN_YEAR},
     events,
     math_utils::{self, MathUtils},
     pool::Pool,
-    LCError,
 };
 
 pub const SCALED_ONE: i128 = ACCRUAL_INIT;
@@ -277,9 +277,8 @@ impl Pool {
 #[cfg(test)]
 mod tests {
     use soroban_sdk::{
-        symbol_short,
+        Address, Env, String, symbol_short,
         testutils::{Address as _, Ledger},
-        Address, Env, String,
     };
 
     use super::*;

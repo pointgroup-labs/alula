@@ -1,7 +1,8 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype, symbol_short};
 
 use crate::{
+    LCError,
     constants::{
         BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
         DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
@@ -10,7 +11,7 @@ use crate::{
     },
     events,
     math_utils::MathUtils,
-    storage, LCError,
+    storage,
 };
 
 pub type PoolAddress = Address;

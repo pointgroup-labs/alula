@@ -4,9 +4,9 @@ use lending::constants::DEFAULT_LIQUIDATION_THRESHOLD;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed,
-    get_obligation_collateral, get_obligation_tokens_from_shares, LCError, TestFixture,
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, LCError, TestFixture, get_borrow_obligation,
+    get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral,
+    get_obligation_tokens_from_shares,
 };
 
 #[test]

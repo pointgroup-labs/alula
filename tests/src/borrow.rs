@@ -1,14 +1,14 @@
 #![cfg(test)]
 
 use lending::{
+    LCError,
     constants::{BPS_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
     pool::PoolConfig,
-    LCError,
 };
 
 use crate::{
-    get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed, TestFixture,
-    DEFAULT_DEPOSIT_AMOUNT,
+    DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation, get_deposit_obligation,
+    get_obligation_borrowed,
 };
 
 #[test]

@@ -9,9 +9,9 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = { workspace = true }
-soroban-fixed-point-math = { workspace = true }
 sep-40-oracle = { workspace = true }
+soroban-fixed-point-math = { workspace = true }
+soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

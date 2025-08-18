@@ -1,7 +1,7 @@
 #![no_std]
 
 pub mod mock_oracle {
-    use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol};
+    use soroban_sdk::{Address, Env, Symbol, contract, contractimpl, contracttype};
 
     #[contracttype]
     #[derive(Debug)]

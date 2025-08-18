@@ -1,11 +1,11 @@
 #![cfg(test)]
 
-use lending::{pool::PoolConfig, LCError};
-use soroban_sdk::{testutils::Address as _, Address};
+use lending::{LCError, pool::PoolConfig};
+use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
-    get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
-    DEFAULT_USER_ASSET_MINT_AMOUNT,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT, TestFixture,
+    get_deposit_obligation,
 };
 
 #[test]

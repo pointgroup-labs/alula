@@ -2,9 +2,8 @@
 
 use moderc3156::ModErc3156;
 use soroban_sdk::{
-    contract, contractimpl,
+    Address, Env, contract, contractimpl,
     token::{StellarAssetClient, TokenClient},
-    Address, Env,
 };
 
 const FAILING_CALL_AMOUNT: i128 = 777;
@@ -51,9 +50,9 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 mod test {
     use lending::LCError;
     use soroban_sdk::Address;
-    use tests::{TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+    use tests::{DEFAULT_DEPOSIT_AMOUNT, TestFixture};
 
-    use super::{FlashLoanLiquidatorContract, FAILING_CALL_AMOUNT};
+    use super::{FAILING_CALL_AMOUNT, FlashLoanLiquidatorContract};
 
     struct FlashLoanTest<'a> {
         test_fixture: TestFixture<'a>,
@@ -130,14 +129,16 @@ mod test {
             ..
         } = FlashLoanTest::new();
 
-        assert!(test_fixture
-            .contract_client
-            .try_flash_loan(
-                &flash_loan_taker_contract_id,
-                &test_fixture.usdc_pool_address,
-                &FAILING_CALL_AMOUNT,
-            )
-            .is_err());
+        assert!(
+            test_fixture
+                .contract_client
+                .try_flash_loan(
+                    &flash_loan_taker_contract_id,
+                    &test_fixture.usdc_pool_address,
+                    &FAILING_CALL_AMOUNT,
+                )
+                .is_err()
+        );
     }
 
     #[test]

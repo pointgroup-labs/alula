@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use tests::{make_oracle_prices_different, Input, TestFixture};
+use tests::{Input, TestFixture, make_oracle_prices_different};
 
 fuzz_target!(|input: Input| {
     let fixture = TestFixture::new();

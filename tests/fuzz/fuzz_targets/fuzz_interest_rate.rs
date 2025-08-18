@@ -3,9 +3,8 @@
 use lending::pool::{Pool, PoolConfig};
 use libfuzzer_sys::fuzz_target;
 use soroban_sdk::{
-    symbol_short,
-    testutils::{arbitrary::Arbitrary, Address as _},
-    Env,
+    Env, symbol_short,
+    testutils::{Address as _, arbitrary::Arbitrary},
 };
 
 #[derive(Arbitrary, Debug)]

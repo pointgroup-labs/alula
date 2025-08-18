@@ -170,9 +170,9 @@ impl TestFixture<'_> {
             &Some(pool_config),
         );
 
-        router_client.map_address_to_ticker(&usdc_ticker, &usdc_token_address);
-        router_client.map_address_to_ticker(&gold_ticker, &gold_token_address);
-        router_client.map_address_to_ticker(&btc_ticker, &btc_token_address);
+        router_client.map_address_to_ticker(&usdc_token_address, &usdc_ticker);
+        router_client.map_address_to_ticker(&gold_token_address, &gold_ticker);
+        router_client.map_address_to_ticker(&btc_token_address, &btc_ticker);
         // Initialize USDC/GOLD multiply pair
         contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
 
@@ -819,6 +819,10 @@ pub fn get_default_env() -> Env {
     e.mock_all_auths();
 
     e
+}
+
+pub fn approximately_equal() -> bool {
+    false
 }
 
 #[cfg(test)]

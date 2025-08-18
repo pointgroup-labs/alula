@@ -3,7 +3,7 @@
 use lending::LCError;
 use soroban_sdk::testutils::Ledger;
 
-use crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+use crate::{DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation};
 
 #[test]
 fn test_repay_zero() {

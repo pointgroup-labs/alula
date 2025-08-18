@@ -9,9 +9,9 @@ use lending::{
 };
 
 use crate::{
-    get_borrow_obligation, get_obligation_borrowed, get_obligation_tokens_from_shares,
+    DEFAULT_DEPOSIT_AMOUNT, LCError, TestFixture, get_borrow_obligation, get_obligation_borrowed,
+    get_obligation_tokens_from_shares,
     tests::{get_amount_scaled_down, get_amount_scaled_up},
-    LCError, TestFixture, DEFAULT_DEPOSIT_AMOUNT,
 };
 
 // ---- Deposit with leverage ----
@@ -117,7 +117,7 @@ fn test_deposit_with_no_leverage() {
         &gold_pool_address,
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
-        &MIN_LEVERAGE_MULTIPLIER, // x1
+        &MIN_LEVERAGE_MULTIPLIER, // x1.1
     );
 
     // Check if this is equivalent to a plain deposit
@@ -598,8 +598,8 @@ fn test_withdraw_over_balance() {
 
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
     assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees (TODO:
-                                                                         // Add a more rigorous
-                                                                         // check)
+    // Add a more rigorous
+    // check)
 }
 
 #[test]
@@ -654,6 +654,6 @@ fn test_withdraw_all_available_with_i128_max() {
     // Full withdraw took place
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
     assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO:
-                                                                         // Add a more rigorous
-                                                                         // check)
+    // Add a more rigorous
+    // check)
 }
