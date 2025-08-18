@@ -7,6 +7,7 @@ mod leverage;
 mod liquidate;
 mod misc;
 mod repay;
+mod security;
 mod swap;
 mod withdraw;
 
@@ -172,6 +173,8 @@ impl TestFixture<'_> {
         router_client.map_address_to_ticker(&usdc_ticker, &usdc_token_address);
         router_client.map_address_to_ticker(&gold_ticker, &gold_token_address);
         router_client.map_address_to_ticker(&btc_ticker, &btc_token_address);
+        // Initialize USDC/GOLD multiply pair
+        contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
 
         oracle_client.set_data(
             &contract_admin,
@@ -706,6 +709,7 @@ impl RunCommand for DepositWithLeverage {
                 lender,
                 &deposit_pool_address,
                 &borrow_pool_address,
+                &false,
                 &self.amount.0,
                 &self.leverage,
             );

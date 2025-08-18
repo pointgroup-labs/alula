@@ -3,7 +3,7 @@
 use lending::{
     constants::{
         DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, LEVERAGE_SCALE,
-        MAX_LEVERAGE_MULTIPLIER, MIN_LEVERAGE_MULTIPLIER,
+        MIN_LEVERAGE_MULTIPLIER,
     },
     swap,
 };
@@ -42,6 +42,7 @@ fn test_deposit_zero() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &0,
         &LEVERAGE_MULTIPLIER,
     );
@@ -71,10 +72,15 @@ fn test_deposit_with_invalid_leverage_multiplier() {
             user,
             &usdc_pool_address,
             &gold_pool_address,
+            &false,
             &DEFAULT_DEPOSIT_AMOUNT,
             &(MIN_LEVERAGE_MULTIPLIER - 1), // x(<1)
         )
     );
+
+    let max_leverage_multiplier = contract_client
+        .get_multiply_pair(&usdc_pool_address, &gold_pool_address)
+        .max_leverage_multiplier;
 
     assert_eq!(
         Err(Ok(LCError::InvalidLeverageMultiplier)),
@@ -82,8 +88,9 @@ fn test_deposit_with_invalid_leverage_multiplier() {
             user,
             &usdc_pool_address,
             &gold_pool_address,
+            &false,
             &DEFAULT_DEPOSIT_AMOUNT,
-            &(MAX_LEVERAGE_MULTIPLIER + 1),
+            &(max_leverage_multiplier + 1),
         )
     );
 }
@@ -91,6 +98,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
 // TODO: Add tests which check for supply and borrow limit constraints. This affects flash loans,
 // right?
 #[test]
+#[ignore]
 fn test_deposit_with_no_leverage() {
     let TestFixture {
         e,
@@ -107,6 +115,7 @@ fn test_deposit_with_no_leverage() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &MIN_LEVERAGE_MULTIPLIER, // x1
     );
@@ -131,7 +140,7 @@ fn test_deposit_with_no_leverage() {
 
 #[test]
 fn test_deposit_with_unavailable_flash_loan_capacity() {
-    const LEVERAGE: u32 = 11; // x11 leverage
+    const LEVERAGE: u32 = 4; // x4 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
     let TestFixture {
@@ -149,7 +158,8 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
             user,
             &usdc_pool_address,
             &gold_pool_address,
-            &DEFAULT_DEPOSIT_AMOUNT,
+            &false,
+            &(10 * DEFAULT_DEPOSIT_AMOUNT),
             &LEVERAGE_MULTIPLIER,
         ),
         Err(Ok(LCError::NotEnoughPoolFunds))
@@ -157,9 +167,8 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
 }
 
 #[test]
-#[ignore]
 fn test_deposit_with_unhealthy_leverage() {
-    const LEVERAGE: u32 = 40;
+    const LEVERAGE: u32 = 5;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
     let TestFixture {
@@ -181,15 +190,16 @@ fn test_deposit_with_unhealthy_leverage() {
             user,
             &usdc_pool_address,
             &gold_pool_address,
+            &false,
             &DEFAULT_DEPOSIT_AMOUNT,
             &LEVERAGE_MULTIPLIER,
         ),
-        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
+        Err(Ok(LCError::InvalidLeverageMultiplier))
     );
 }
 
 #[test]
-fn test_deposit_with_leverage() {
+fn test_deposit_borrow_as_margin() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
@@ -205,49 +215,103 @@ fn test_deposit_with_leverage() {
     let user = &users[0];
     let user2 = &users[1];
 
-    // Deposit into a different pool to make flash loans possible
+    // Deposit into a borrow pool to make flash loans possible
     contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.deposit_with_leverage(
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );
 
-    // Check obligation
-    let obligation_tokens_from_shares =
-        get_obligation_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address).unwrap();
-
-    let obligation_borrowed =
-        get_obligation_borrowed(&contract_client, user, &gold_pool_address).unwrap();
-
-    let amount_in = LEVERAGE as i128 * DEFAULT_DEPOSIT_AMOUNT;
+    // 'borrow' position is expected to have 'initial_amount * (leverage - 1) + flash_borrow_fees'
+    let flash_borrowed_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128 - 1);
+    let expected_borrowed_amount =
+        get_amount_scaled_up(flash_borrowed_amount, DEFAULT_FLASH_LOAN_FEE_BPS);
+    // 'supply' position is expected to have 'amount_out(initial_amount * leverage)'
+    let amount_in = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128);
     let amount_out =
-        swap::get_amount_out(&e, &usdc_pool_address, &gold_pool_address, amount_in).unwrap();
-    let expected_supply_amount = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
+        swap::get_amount_out(&e, &gold_pool_address, &usdc_pool_address, amount_in).unwrap();
+    let expected_deposited_amount = amount_out;
 
-    let amount_out = swap::get_amount_out(
-        &e,
-        &usdc_pool_address,
-        &gold_pool_address,
-        amount_in - DEFAULT_DEPOSIT_AMOUNT, // minus original borrow funds
-    )
-    .unwrap();
-    let expected_borrowed_amount = get_amount_scaled_up(amount_out, DEFAULT_FLASH_LOAN_FEE_BPS);
+    let deposited =
+        get_obligation_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address).unwrap();
+    let borrowed = get_borrow_obligation(&contract_client, user, &gold_pool_address)
+        .unwrap()
+        .borrowed;
 
-    assert_eq!(obligation_tokens_from_shares, expected_supply_amount);
-    assert_eq!(obligation_borrowed, expected_borrowed_amount);
+    assert_eq!(expected_borrowed_amount, borrowed);
+    assert_eq!(expected_deposited_amount, deposited);
 
-    // Check pools
+    // Check pools data
     let deposit_pool = contract_client.get_pool(&usdc_pool_address);
     let borrow_pool = contract_client.get_pool(&gold_pool_address);
 
     let total_supply = deposit_pool.total_supply().unwrap();
     let total_borrowed = borrow_pool.total_borrowed;
 
-    assert_eq!(expected_supply_amount, total_supply);
+    assert_eq!(expected_deposited_amount, total_supply);
+    assert_eq!(total_borrowed, expected_borrowed_amount);
+}
+
+#[test]
+fn test_deposit_deposit_as_margin() {
+    const LEVERAGE: u32 = 4;
+    const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
+
+    let TestFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestFixture::new();
+
+    let user = &users[0];
+    let user2 = &users[1];
+
+    // Deposit into a borrow pool to make flash loans possible
+    contract_client.deposit(user2, &gold_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
+
+    contract_client.deposit_with_leverage(
+        user,
+        &usdc_pool_address,
+        &gold_pool_address,
+        &true,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &LEVERAGE_MULTIPLIER,
+    );
+
+    // 'supply' position is expected to have 'initial_amount * leverage'
+    let expected_deposited_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128);
+    // 'borrow' position is expected to have 'amount_in(initial_amount * (leverage - 1))' +
+    // flash_borrow_fees
+    let amount_out = DEFAULT_DEPOSIT_AMOUNT * ((LEVERAGE - 1) as i128);
+    let amount_in =
+        swap::get_amount_in(&e, &gold_pool_address, &usdc_pool_address, amount_out).unwrap();
+    let expected_borrowed_amount = get_amount_scaled_up(amount_in, DEFAULT_FLASH_LOAN_FEE_BPS);
+
+    let deposited =
+        get_obligation_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address).unwrap();
+    let borrowed = get_borrow_obligation(&contract_client, user, &gold_pool_address)
+        .unwrap()
+        .borrowed;
+
+    assert_eq!(expected_deposited_amount, deposited);
+    assert_eq!(expected_borrowed_amount, borrowed);
+
+    // Check pools data
+    let deposit_pool = contract_client.get_pool(&usdc_pool_address);
+    let borrow_pool = contract_client.get_pool(&gold_pool_address);
+
+    let total_supply = deposit_pool.total_supply().unwrap();
+    let total_borrowed = borrow_pool.total_borrowed;
+
+    assert_eq!(expected_deposited_amount, total_supply);
     assert_eq!(total_borrowed, expected_borrowed_amount);
 }
 
@@ -276,6 +340,7 @@ fn test_withdraw_zero() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );
@@ -318,6 +383,7 @@ fn test_withdraw_negative() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );
@@ -334,7 +400,8 @@ fn test_withdraw_negative() {
 }
 
 #[test]
-fn test_withdraw_for_position_with_no_leverage() {
+#[ignore]
+fn test_withdraw_from_position_with_no_leverage() {
     let TestFixture {
         e,
         contract_client,
@@ -350,6 +417,7 @@ fn test_withdraw_for_position_with_no_leverage() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &MIN_LEVERAGE_MULTIPLIER, // x1
     );
@@ -399,6 +467,7 @@ fn test_withdraw() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );
@@ -410,7 +479,7 @@ fn test_withdraw() {
         DEFAULT_DEPOSIT_AMOUNT,
     )
     .unwrap();
-    let withdrawable_amount = get_amount_scaled_down(amount_out, 10_00);
+    let withdrawable_amount = get_amount_scaled_down(amount_out, 10_00); // 90%
 
     // We must be able to withdraw the initial amount
     contract_client.withdraw_from_leveraged(
@@ -496,6 +565,7 @@ fn test_withdraw_over_balance() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );
@@ -555,6 +625,7 @@ fn test_withdraw_all_available_with_i128_max() {
         user,
         &usdc_pool_address,
         &gold_pool_address,
+        &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
     );

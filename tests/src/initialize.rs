@@ -2,7 +2,6 @@
 
 use lending::{
     contract::{LendingContract, LendingContractClient},
-    pool::MultiplyPair,
     storage, LCError,
 };
 use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN};
@@ -161,10 +160,8 @@ fn test_multiply_pair_initialize() {
     e.as_contract(&contract_id, || {
         assert!(storage::multiply_pair_exists(
             &e,
-            &MultiplyPair {
-                deposit_pool: deposit_token_address,
-                borrow_pool: borrow_token_address,
-            },
+            &deposit_token_address,
+            &borrow_token_address,
         ));
     })
 }
@@ -222,6 +219,6 @@ fn test_multiply_pair_with_inexistent_pool() {
     // Try to initialize a multiply pair
     assert_eq!(
         contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
-        Err(Ok(LCError::PoolDoesNotExist))
+        Err(Ok(LCError::DepositPoolDoesNotExist))
     );
 }

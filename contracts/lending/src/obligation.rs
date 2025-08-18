@@ -219,7 +219,7 @@ impl Obligation {
 
         if borrowed_value == 0 {
             // If nothing is borrowed - it's the healthiest obligation it can be
-            return Ok(i128::MAX);
+            return Ok(i64::MAX as i128);
         }
 
         // TODO: Instead of `liquidation_threshold_bps`, the minimal `close_ltv` value per borrowed
@@ -770,4 +770,93 @@ pub struct LiquidationValues {
     pub shares_amount_sold: i128,
     /// The number of tokens that correspond to the sold shares
     pub tokens_from_sold_shares: i128,
+}
+
+#[cfg(test)]
+mod tests {
+    use soroban_sdk::{testutils::Address as _, Address, Env, Map};
+
+    use super::*;
+
+    fn create_test_env() -> Env {
+        let env = Env::default();
+        env.mock_all_auths();
+        env
+    }
+
+    fn create_test_obligation(env: &Env, user: Address) -> Obligation {
+        let deposits = Map::new(env);
+        let borrows = Map::new(env);
+
+        Obligation {
+            user,
+            deposits,
+            borrows,
+        }
+    }
+
+    #[test]
+    fn test_obligation_is_empty() {
+        let env = create_test_env();
+        let user = Address::generate(&env);
+        let obligation = create_test_obligation(&env, user);
+
+        assert!(obligation.is_empty());
+    }
+
+    #[test]
+    fn test_deposit_obligation_is_empty() {
+        let deposit_obligation = DepositObligation {
+            shares: 0,
+            collateral: 0,
+        };
+
+        assert!(deposit_obligation.is_empty());
+
+        let non_empty_deposit = DepositObligation {
+            shares: 1,
+            collateral: 0,
+        };
+
+        assert!(!non_empty_deposit.is_empty());
+    }
+
+    #[test]
+    fn test_borrow_obligation_successful_adjustments() {
+        let env = create_test_env();
+        let mut borrow_obligation = BorrowObligation {
+            borrowed: 100,
+            unpaid_interest: 50,
+            last_accrual: 1_000_000,
+        };
+
+        // Test successful borrowed adjustment
+        let result = borrow_obligation.adjust_borrowed(&env, 25);
+        assert!(result.is_ok());
+        assert_eq!(borrow_obligation.borrowed, 125);
+
+        // Test successful unpaid interest adjustment
+        let result = borrow_obligation.adjust_unpaid_interest(&env, 10);
+        assert!(result.is_ok());
+        assert_eq!(borrow_obligation.unpaid_interest, 60);
+    }
+
+    #[test]
+    fn test_deposit_obligation_successful_adjustments() {
+        let env = create_test_env();
+        let mut deposit_obligation = DepositObligation {
+            shares: 100,
+            collateral: 50,
+        };
+
+        // Test successful shares adjustment
+        let result = deposit_obligation.adjust_shares(&env, 25);
+        assert!(result.is_ok());
+        assert_eq!(deposit_obligation.shares, 125);
+
+        // Test successful collateral adjustment
+        let result = deposit_obligation.adjust_collateral(&env, 10);
+        assert!(result.is_ok());
+        assert_eq!(deposit_obligation.collateral, 60);
+    }
 }

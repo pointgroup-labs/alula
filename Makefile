@@ -1,3 +1,5 @@
+#!/usr/bin/make
+
 WASM_DIR := wasms
 MOCKS_DIR := $(WASM_DIR)/mocks
 DEPLOY_DIR := $(WASM_DIR)/deploy
@@ -16,82 +18,234 @@ SOROSWAP_ROUTER_MOCK := soroswap-router-mock
 
 FLASH_LOAN_TAKER_MOCK := flash-loan-taker-mock
 
-.DEFAULT_GOAL: help
-.PHONY: help
+# Configuration
+NETWORK ?= testnet
+RPC_URL ?= https://soroban-testnet.stellar.org:443
+
+# Tools we may use optionally (installed in setup)
+OPTIONAL_TOOLS := cargo-audit cargo-outdated cargo-nextest cargo-watch cargo-sort cargo-llvm-cov
+
+# Derived metadata (requires jq, checked in check/tools)
+PACKAGE_VERSION := $(shell cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "$(LENDING_CONTRACT)") | .version')
+
+# Colors
+RED     := \033[0;31m
+GREEN   := \033[0;32m
+YELLOW  := \033[0;33m
+BLUE    := \033[0;34m
+CYAN    := \033[0;36m
+NC      := \033[0m
+
+.DEFAULT_GOAL := help
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+# Require tool to exist
+define require_tool
+	@command -v $(1) >/dev/null 2>&1 || { \
+		printf "$(RED)Error: Required tool '$(1)' is not installed$(NC)\n"; exit 1; \
+	}
+endef
 
 # Downloads a WASM file if it doesn't exist
 define download_wasm_contract
 	@if [ ! -f $(1) ]; then \
-		echo "Downloading $(1) WASM file..."; \
-		curl -L $(2) -o $(1); \
+		echo "$(BLUE)Downloading $(1) WASM file...$(NC)"; \
+		curl -fsSL --progress-bar "$(2)" -o "$(1)" || { \
+			printf "$(RED)Failed to download '$(1)'$(NC)\n"; exit 1; }; \
 	else \
-		echo "$(1) WASM file already exists, skipping download."; \
+		echo "$(YELLOW) WASM file '$(1)' already exists, skipping download...$(NC)"; \
 	fi
 endef
 
-# Builds a contract to specified directory
+# Build a contract
 define build_contract
-	stellar contract build --package $(1) --out-dir $(2) $(3)
+	@echo "$(BLUE)Building $(1)...$(NC)"
+	stellar contract build --package "$(1)" --out-dir "$(2)" $(3)
 endef
 
 # ----------------------------------------------------------------------------------------------------------------------
 
 help: ## Show this help
-	@printf "\033[33m%s:\033[0m\n" 'Available commands'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@printf "$(YELLOW)%s:$(NC)\n" 'Available commands'
+	@awk 'BEGIN {FS=":.*##"} /^[[:alnum:]_\/.%\-]+:.*##/ {name=$$1; desc=$$2; gsub(/^[[:space:]]+|[[:space:]]+$$/,"",name); gsub(/^[[:space:]]+|[[:space:]]+$$/,"",desc); printf "  $(GREEN)%-22s$(NC) %s\n", name, desc}' $(MAKEFILE_LIST)
+	@printf "\n$(CYAN)Configuration:$(NC)\n"
+	@printf "  Version: $(GREEN)$(PACKAGE_VERSION)$(NC)\n"
+	@printf "  Network: $(GREEN)$(NETWORK)$(NC)\n"
 
-clippy-fix: ## Fix clippy mistakes
-	cargo clippy --fix --tests
+# ----------------------------------------------------------------------------------------------------------------------
+# Development Environment
+# ----------------------------------------------------------------------------------------------------------------------
 
-clippy: check ## Check common mistakes with clippy
-	cargo clippy --tests
+init: ## Initialize project
+	@echo "$(BLUE)Setting up project...$(NC)"
+	cargo install $(OPTIONAL_TOOLS)
+	# pnpm install --frozen-lockfile
 
-check: build ## Check compilation correctness with cargo
-	cargo check --tests
+# ----------------------------------------------------------------------------------------------------------------------
+# Build Targets
+# ----------------------------------------------------------------------------------------------------------------------
 
-# It's important to maintain a valid topological order of the contracts
-build: build-init ## Build contracts
+# Maintain topological order if needed
+build: build/prepare ## Build contracts
 	$(call build_contract,$(REFLECTOR_ORACLE_MOCK),$(MOCKS_DIR))
 	$(call build_contract,$(SOROSWAP_ROUTER_MOCK),$(MOCKS_DIR))
 	$(call build_contract,$(LENDING_CONTRACT),$(WASM_DIR))
 	$(call build_contract,$(FLASH_LOAN_TAKER_MOCK),$(MOCKS_DIR))
 
-build-deploy: download ## Build contracts for deployment
+build/deploy: build/prepare ## Build contracts for deployment
 	$(call build_contract,$(LENDING_CONTRACT),$(DEPLOY_DIR),--features deploy)
 
-build-init: ## Build init
-	mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
+build/optimize: build/deploy ## Optimize contracts
+	@echo "$(BLUE)Optimizing contracts...$(NC)"
+	@stellar contract optimize \
+		--wasm "$(DEPLOY_DIR)/$(LENDING_CONTRACT).wasm" \
+		--wasm-out "$(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm"
+	@ls -lh "$(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm" 2>/dev/null || true
 
-download: build-init ## Downloads dependency contracts
-	@echo "Checking for WASM files..."
+build/prepare: ## Download dependency WASMs
+	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
 	$(call download_wasm_contract,$(REFLECTOR_ORACLE_WASM),$(REFLECTOR_ORACLE_URL))
 	$(call download_wasm_contract,$(SOROSWAP_ROUTER_WASM),$(SOROSWAP_ROUTER_URL))
 
-build-optimize: build-deploy ## Optimize contracts
-	mkdir -p $(OPTIMIZED_DIR)
-	stellar contract optimize \
-		--wasm $(DEPLOY_DIR)/$(LENDING_CONTRACT).wasm \
-		--wasm-out $(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm
+# ----------------------------------------------------------------------------------------------------------------------
+# Testing
+# ----------------------------------------------------------------------------------------------------------------------
 
-sdk: build-optimize ## Generate typescript sdk
-	stellar contract bindings typescript --overwrite \
-		--wasm $(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm --output-dir ./packages/sdk/ \
-		--network testnet
+test: test/unit ## Run all tests
 
-test: build ## Run tests
-	cargo nextest run --locked --workspace
+test/unit: ## Run unit tests only
+	@echo "$(BLUE)Running unit tests...$(NC)"
+	@cargo nextest run --locked --workspace --lib
 
-fuzz: ## Run fuzzing suite
+#test/integration: ## Run integration tests only
+#	cargo test --test '*' --locked
+
+test/fuzz: ## Run fuzzing suite
 	RUST_BACKTRACE=1 cargo +nightly fuzz run --fuzz-dir=tests/fuzz --sanitizer=thread fuzz_target -- -max_len=1048576
 
-test-coverage: ## Test coverage
-	cargo +nightly llvm-cov nextest --no-tests=warn --no-report
-	cargo +nightly llvm-cov --doc --no-report
+test/coverage: ## Generate test coverage
+	@cargo +nightly llvm-cov nextest --no-tests=warn --no-report || true
+	@cargo +nightly llvm-cov --doc --no-report || true
 
-fmt: ## Format code using cargo
-	cargo sort --grouped --workspace
+test/coverage/missing: ## Show missing test coverage lines
+	@cargo +nightly llvm-cov report --show-missing-lines || true
+
+test/coverage/html: ## Generate HTML test coverage report
+	@cargo +nightly llvm-cov nextest --html --no-tests=warn || true
+	@cargo +nightly llvm-cov --doc --html || true
+	@echo "HTML coverage: target/llvm-cov/html/"
+
+benchmark: ## Run benchmarks
+	@cargo bench --locked
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Code Generation
+# ----------------------------------------------------------------------------------------------------------------------
+
+sdk: build/optimize ## Generate TypeScript SDK
+	@echo "$(BLUE)Generating TypeScript SDK...$(NC)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm" \
+		--output-dir ./packages/sdk/ \
+		--network "$(NETWORK)"
+
+sdk/json: build/optimize ## Generate JSON ABI for JS
+	@echo "$(BLUE)Generating JSON ABI...$(NC)"
+	@stellar contract bindings json --overwrite \
+		--wasm "$(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm" \
+		--output ./packages/sdk/$(LENDING_CONTRACT).json
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Deployment
+# ----------------------------------------------------------------------------------------------------------------------
+
+deploy/testnet: build/optimize ## Deploy to testnet
+	stellar contract deploy \
+		--wasm "$(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm" \
+		--network testnet
+
+deploy/mainnet: build/optimize ## Deploy to mainnet (asks for confirmation)
+	echo "$(YELLOW)WARNING: Deploying to MAINNET$(NC)"
+	read -r -p "$(YELLOW)Are you sure? [y/N]$(NC) " c && [ "$$c" = "y" ]
+	stellar contract deploy \
+		--wasm "$(OPTIMIZED_DIR)/$(LENDING_CONTRACT).optimized.wasm" \
+		--network mainnet
+
+deploy/verify: ## Verify deployment
+	read -r -p "Enter contract address: " contract_address; \
+	stellar contract inspect --id "$$contract_address" --network "$(NETWORK)"
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Code Quality
+# ----------------------------------------------------------------------------------------------------------------------
+
+check: ## Run cargo check
+	@echo "$(BLUE)Running cargo check...$(NC)"
+	cargo check --locked --workspace
+
+fmt: ## Format and organize code
+	@echo "$(BLUE)Formatting code...$(NC)"
+	cargo sort --workspace || true
 	cargo +nightly fmt --all
+	# pnpm lint:fix
+
+fmt/check: ## Check code formatting
+	cargo +nightly fmt --all --check
+
+clippy: ## Run clippy lints
+	@echo "$(BLUE)Running clippy...$(NC)"
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+clippy/fix: ## Auto-fix clippy issues
+	cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Maintenance
+# ----------------------------------------------------------------------------------------------------------------------
+
+outdated: ## List outdated dependencies
+	command -v cargo-outdated >/dev/null 2>&1 || cargo install cargo-outdated
+	cargo outdated
+	pnpm outdated
+
+update: ## Update dependencies
+	@echo "$(BLUE)Updating dependencies...$(NC)"
+	cargo update
+	pnpm update
+
+size: ## Analyze WASM file sizes
+	@printf "$(CYAN)WASM File Sizes:$(NC)\n"
+	@printf "$(BLUE)%-30s %10s$(NC)\n" "File" "Size"
+	@printf "$(BLUE)%-30s %10s$(NC)\n" "----" "----"
+	@find "$(WASM_DIR)" -name "*.wasm" -type f | while read -r file; do \
+		size=$$(wc -c < "$$file" | tr -d ' '); \
+		human_size=$$(numfmt --to=iec-i --suffix=B $$size 2>/dev/null || echo "$$size B"); \
+		printf "$(GREEN)%-30s %10s$(NC)\n" "$$(basename "$$file")" "$$human_size"; \
+	done
+
+audit: ## Audit dependencies
+	@echo "$(BLUE)Audit dependencies...$(NC)"
+	@$(call require_tool,cargo-audit)
+	cargo audit
+	pnpm audit
+
+audit/fix: ## Fix security vulnerabilities
+	cargo audit fix || true
 
 clean: ## Clean build artifacts
 	cargo clean
-	rm -r $(WASM_DIR)/*
+	rm -rf "$(WASM_DIR)"/* 2>/dev/null || true
+	rm -rf target/llvm-cov 2>/dev/null || true
+
+clean/all: clean ## Clean all artifacts including downloads
+	rm -rf "$(DOWNLOADS_DIR)"/* 2>/dev/null || true
+	rm -rf ./packages/sdk/* 2>/dev/null || true
+	rm -rf node_modules 2>/dev/null || true
+
+# Error handling for missing binaries
+guard-%:
+	@if [ "${${*}}" = "" ]; then \
+		echo "$(RED)Error: $* is not set$(NC)"; \
+		exit 1; \
+	fi

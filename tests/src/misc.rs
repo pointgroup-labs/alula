@@ -68,14 +68,12 @@ fn test_remove_multiply_pairs() {
     let TestFixture {
         contract_client,
         usdc_pool_address,
-        gold_pool_address,
         btc_pool_address,
         ..
     } = TestFixture::new();
 
-    assert!(contract_client.get_all_multiply_pairs().is_empty());
+    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // 1 pair is set initially
 
-    contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
     contract_client.initialize_multiply_pair(&usdc_pool_address, &btc_pool_address);
 
     assert_eq!(contract_client.get_all_multiply_pairs().len(), 2);
