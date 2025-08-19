@@ -1,14 +1,12 @@
 #![cfg(test)]
 
-use lending::{constants::DEFAULT_MAX_SLIPPAGE_BPS, swap};
-use sep_40_oracle::testutils::{Asset, MockPriceOracleClient};
-use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Env, Symbol, symbol_short, token::TokenClient, vec as svec};
+use lending::swap;
+use soroban_sdk::vec as svec;
 
-use crate::{TestFixture, make_oracle_prices_different, tests::get_amount_scaled_down};
+use crate::{TestFixture, assert_approx_eq_rel, make_oracle_prices_different};
 
 #[test]
-fn test_swap() {
+fn test_swap_equal_prices() {
     const AMOUNT_IN: i128 = 100_000;
 
     let TestFixture {
@@ -17,44 +15,94 @@ fn test_swap() {
         users,
         usdc_pool_address,
         usdc_token_client,
-        router_address,
+        usdc_token_address,
+        btc_pool_address,
+        btc_token_client,
+        btc_token_address,
         ..
     } = TestFixture::new();
 
     let user = &users[0];
 
-    let new_token_address = e
-        .register_stellar_asset_contract_v2(router_address.clone())
-        .address();
-    let new_token_client = TokenClient::new(&e, &new_token_address);
+    let user_btc_balance_before = btc_token_client.balance(user);
+    let user_usdc_balance_before = usdc_token_client.balance(user);
 
-    let new_token_balance: i128 = new_token_client.balance(user);
-    assert_eq!(new_token_balance, 0);
+    // TODO: Here we depend on the inner module, which encapsulates 'swap' operations.
+    // Later, we can depend on the contract's API, which returns proper amounts out and amounts in.
+    // It can also be used to present slippage when depositing with leverage on UI
+    let amount_out =
+        swap::get_amount_out(&e, &btc_token_address, &usdc_token_address, AMOUNT_IN).unwrap();
+    let receiving_amount =
+        contract_client.swap(user, &btc_pool_address, &usdc_pool_address, &AMOUNT_IN);
 
-    let usdc_token_balance = usdc_token_client.balance(user);
+    assert_eq!(receiving_amount, amount_out);
+
+    let user_btc_balance_after = btc_token_client.balance(user);
+    let user_usdc_balance_after = usdc_token_client.balance(user);
+
+    let btc_balance_diff = user_btc_balance_after - user_btc_balance_before;
+    let usdc_balance_diff = user_usdc_balance_after - user_usdc_balance_before;
+
+    // BTC is swapped for USDC
+    assert!(btc_balance_diff < 0 && usdc_balance_diff > 0);
+
+    let abs_btc_balance_diff = -btc_balance_diff;
+
+    assert_eq!(abs_btc_balance_diff, AMOUNT_IN);
+    assert_eq!(usdc_balance_diff, amount_out);
+}
+
+#[test]
+fn test_swap_different_prices() {
+    const AMOUNT_IN: i128 = 100_000;
+
+    let TestFixture {
+        e,
+        contract_client,
+        users,
+        usdc_pool_address,
+        usdc_token_client,
+        usdc_token_address,
+        gold_pool_address,
+        gold_token_client,
+        gold_token_address,
+        oracle_client,
+        ..
+    } = TestFixture::new();
+
+    make_oracle_prices_different(&e, &oracle_client);
+
+    let user = &users[0];
+
+    let user_gold_balance_before = gold_token_client.balance(user);
+    let user_usdc_balance_before = usdc_token_client.balance(user);
 
     let amount_out =
-        swap::get_amount_out(&e, &usdc_pool_address, &new_token_address, AMOUNT_IN).unwrap();
+        swap::get_amount_out(&e, &gold_token_address, &usdc_token_address, AMOUNT_IN).unwrap();
+    let received_amount =
+        contract_client.swap(user, &gold_pool_address, &usdc_pool_address, &AMOUNT_IN);
 
-    contract_client.swap(user, &usdc_pool_address, &new_token_address, &AMOUNT_IN);
+    assert_eq!(received_amount, amount_out);
 
-    let amount_out_min_slippage = get_amount_scaled_down(amount_out, DEFAULT_MAX_SLIPPAGE_BPS);
+    let user_gold_balance_after = gold_token_client.balance(user);
+    let user_usdc_balance_after = usdc_token_client.balance(user);
 
-    let balance = new_token_client.balance(user);
-    let new_usdc_token_balance = usdc_token_client.balance(user);
+    let gold_balance_diff = user_gold_balance_after - user_gold_balance_before;
+    let usdc_balance_diff = user_usdc_balance_after - user_usdc_balance_before;
 
-    assert_eq!(balance, amount_out_min_slippage);
-    assert_eq!(
-        new_usdc_token_balance / 1_000_000,
-        (usdc_token_balance - amount_out_min_slippage) / 1_000_000 /* TODO: Check why do amounts
-                                                                    * differ in a few smallest
-                                                                    * units */
-    );
+    // GOLD is swapped for USDC
+    assert!(gold_balance_diff < 0 && usdc_balance_diff > 0);
+
+    let abs_gold_balance_diff = -gold_balance_diff;
+
+    assert_eq!(abs_gold_balance_diff, AMOUNT_IN);
+    assert_eq!(usdc_balance_diff, amount_out);
 }
 
 #[test]
 fn test_get_amount_out() {
     const AMOUNT_IN: i128 = 5_000;
+    const DELTA_BPS: i128 = 5; // 0.05 %
 
     let TestFixture {
         e,
@@ -67,29 +115,68 @@ fn test_get_amount_out() {
 
     make_oracle_prices_different(&e, &oracle_client);
 
-    let path = svec![&e, gold_token_address.clone(), usdc_token_address.clone()];
-    let amount_out1 = router_client
-        .router_get_amounts_out(&AMOUNT_IN, &path)
+    let gold_usdc_path = svec![&e, gold_token_address.clone(), usdc_token_address.clone()];
+    let usdc_gold_path = svec![&e, usdc_token_address.clone(), gold_token_address.clone()];
+
+    let gold_usdc_amount_out = router_client
+        .router_get_amounts_out(&AMOUNT_IN, &gold_usdc_path)
         .last()
         .unwrap();
-    dbg!(amount_out1);
-
-    let amount_in1 = router_client
-        .router_get_amounts_in(&amount_out1, &path)
+    let gold_usdc_amount_in = router_client
+        .router_get_amounts_in(&gold_usdc_amount_out, &gold_usdc_path)
         .first()
         .unwrap();
-    std::dbg!(amount_in1);
 
-    // ------
-
-    let path: soroban_sdk::Vec<soroban_sdk::Address> =
-        svec![&e, usdc_token_address.clone(), gold_token_address.clone()];
-    let amount_out2 = router_client
-        .router_get_amounts_out(&AMOUNT_IN, &path)
+    let usdc_gold_amount_out = router_client
+        .router_get_amounts_out(&AMOUNT_IN, &usdc_gold_path)
         .last()
         .unwrap();
-    std::dbg!(amount_out2);
+    let usdc_gold_amount_in = router_client
+        .router_get_amounts_in(&usdc_gold_amount_out, &usdc_gold_path)
+        .first()
+        .unwrap();
 
-    let amount_in2 = router_client.router_get_amounts_in(&amount_out2, &path);
-    std::dbg!(amount_in2);
+    // NB: Approximate check takes place because of the rounding that occurs in the whole numbers'
+    // arithmetic
+    assert_approx_eq_rel(gold_usdc_amount_in, AMOUNT_IN, DELTA_BPS);
+    assert_approx_eq_rel(usdc_gold_amount_in, AMOUNT_IN, DELTA_BPS);
+}
+
+#[test]
+fn test_get_amount_in() {
+    const AMOUNT_OUT: i128 = 5_000;
+    const DELTA_BPS: i128 = 5; // 0.05 %
+
+    let TestFixture {
+        e,
+        gold_token_address,
+        usdc_token_address,
+        oracle_client,
+        ..
+    } = TestFixture::new();
+
+    make_oracle_prices_different(&e, &oracle_client);
+
+    let gold_usdc_amount_in =
+        swap::get_amount_in(&e, &gold_token_address, &usdc_token_address, AMOUNT_OUT).unwrap();
+    let gold_usdc_amount_out = swap::get_amount_out(
+        &e,
+        &gold_token_address,
+        &usdc_token_address,
+        gold_usdc_amount_in,
+    )
+    .unwrap();
+
+    let usdc_gold_amount_in =
+        swap::get_amount_in(&e, &usdc_token_address, &gold_token_address, AMOUNT_OUT).unwrap();
+    let usdc_gold_amount_out = swap::get_amount_out(
+        &e,
+        &usdc_token_address,
+        &gold_token_address,
+        usdc_gold_amount_in,
+    )
+    .unwrap();
+
+    assert_approx_eq_rel(gold_usdc_amount_out, AMOUNT_OUT, DELTA_BPS);
+    assert_approx_eq_rel(usdc_gold_amount_out, AMOUNT_OUT, DELTA_BPS);
 }

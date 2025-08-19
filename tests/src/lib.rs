@@ -11,16 +11,19 @@ mod security;
 mod swap;
 mod withdraw;
 
+use std::ops::{Add, Sub};
+
 use arbitrary::Unstructured;
 use lending::{
     LCError,
-    constants::{INDIVIDUAL_BUMP, ORACLE_ADDRESS, ROUTER_ADDRESS},
+    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ORACLE_ADDRESS, ROUTER_ADDRESS},
     contract::{LendingContract, LendingContractClient},
     obligation::{BorrowObligation, DepositObligation},
     pool::PoolConfig,
     soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, Env, Symbol, symbol_short,
     testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
@@ -29,7 +32,7 @@ use soroban_sdk::{
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
 pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
-pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 2;
+pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 
@@ -737,7 +740,10 @@ impl RunCommand for WithdrawFromLeveraged {
     }
 }
 
-pub fn get_obligation_shares(
+// ---- Helpers that encapsulate access to inner structures ----
+
+// -- Obligation --
+pub fn get_obligation_deposit_shares(
     contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
@@ -745,19 +751,6 @@ pub fn get_obligation_shares(
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.shares)
-}
-
-pub fn get_obligation_tokens_from_shares(
-    e: &Env,
-    contract_client: &LendingContractClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<i128, LCError> {
-    let shares = get_obligation_shares(contract_client, user, pool_address)?;
-
-    let pool = contract_client.get_pool(pool_address);
-
-    pool.compute_tokens_from_shares(e, shares)
 }
 
 pub fn get_obligation_borrowed(
@@ -778,6 +771,20 @@ pub fn get_obligation_collateral(
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.collateral)
+}
+
+pub fn get_obligation_computed_tokens_from_shares(
+    e: &Env,
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let user_shares = get_obligation_deposit_shares(contract_client, user, pool_address)?;
+
+    let tokens_from_shares = pool.compute_tokens_from_shares(e, user_shares)?;
+
+    Ok(tokens_from_shares)
 }
 
 pub fn get_deposit_obligation(
@@ -814,6 +821,37 @@ pub fn get_borrow_obligation(
     Ok(borrow)
 }
 
+// -- Pool --
+pub fn get_pool_total_shares(
+    contract_client: &LendingContractClient,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address); // isn't this weird that this is infallible?
+
+    Ok(pool.total_shares)
+}
+
+pub fn get_pool_total_supply(
+    contract_client: &LendingContractClient,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let total_supply = pool.total_supply()?;
+
+    Ok(total_supply)
+}
+
+pub fn get_pool_available(
+    contract_client: &LendingContractClient,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    Ok(pool.available)
+}
+
+// ---- Misc ----
+
 pub fn get_default_env() -> Env {
     let e = Env::default();
     e.mock_all_auths();
@@ -821,8 +859,27 @@ pub fn get_default_env() -> Env {
     e
 }
 
-pub fn approximately_equal() -> bool {
-    false
+pub fn assert_approx_eq_abs<T>(a: T, b: T, delta: T)
+where
+    T: PartialOrd + Add<Output = T> + Sub<Output = T> + Copy + core::fmt::Debug,
+{
+    assert!(
+        a >= b - delta && a <= b + delta,
+        "assertion failed: `(left != right)` (left: `{:?}`, right: `{:?}`, delta: `{:?}`)",
+        a,
+        b,
+        delta
+    );
+}
+
+/// Assert that `a` is approximately equal to `b` within a relative error of `delta`. Taken from
+/// blend
+///
+/// ### Arguments
+/// * `delta_bps` - percentage represented in basis points such that 15% is 15_00
+pub fn assert_approx_eq_rel(a: i128, b: i128, delta_bps: i128) {
+    let abs_delta = b.fixed_mul_floor(delta_bps, BPS_FACTOR).unwrap();
+    assert_approx_eq_abs(a, b, abs_delta);
 }
 
 #[cfg(test)]
