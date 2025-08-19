@@ -1,4 +1,5 @@
-use soroban_sdk::{contracttype, Address, Env, Vec};
+use sep_40_oracle::Asset;
+use soroban_sdk::{contracttype, Address, Env};
 
 /// Average ledger close time on Stellar
 pub const SECONDS_PER_LEDGER: u32 = 6;
@@ -11,6 +12,7 @@ pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 #[contracttype]
 enum DataKey {
     Admin,
+    Assets, // Must be a HashSet, no? HashSet of symbols
 }
 
 pub fn set_admin(e: &Env, admin: &Address) {
@@ -22,6 +24,14 @@ pub fn get_admin(e: &Env) -> Option<Address> {
 
     e.storage().instance().get(&DataKey::Admin)
 }
+
+pub fn add_asset(e: &Env, asset: &Asset) {
+    extend_instance_storage(e);
+
+    // let assets:
+}
+
+pub fn remove_asset() {}
 
 /// Instance bumper
 pub fn extend_instance_storage(e: &Env) {
