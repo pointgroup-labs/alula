@@ -117,8 +117,8 @@ fuzz_target!(|input: InterestRateInput| {
     // Test shares/tokens conversion consistency (if pool has shares and supply)
     if pool.total_shares > 0 && pool.total_supply().unwrap_or(0) > 0 {
         let test_shares = input.test_shares.min(pool.total_shares); // Don't exceed total shares
-        if test_shares > 0 {
-            if let Ok(tokens) = pool.compute_tokens_from_shares(&env, test_shares) {
+        if test_shares > 0
+            && let Ok(tokens) = pool.compute_tokens_from_shares(&env, test_shares) {
                 assert!(
                     tokens >= 0,
                     "Tokens from shares cannot be negative: {}",
@@ -126,8 +126,8 @@ fuzz_target!(|input: InterestRateInput| {
                 );
 
                 // Test reverse conversion
-                if tokens > 0 {
-                    if let Ok(shares_back) = pool.compute_shares_from_tokens(&env, tokens) {
+                if tokens > 0
+                    && let Ok(shares_back) = pool.compute_shares_from_tokens(&env, tokens) {
                         // Allow for small rounding differences (within reasonable bounds)
                         let diff = (shares_back - test_shares).abs();
                         let max_diff = test_shares.max(1); // Allow proportional difference
@@ -139,16 +139,14 @@ fuzz_target!(|input: InterestRateInput| {
                             diff
                         );
                     }
-                }
             }
-        }
     }
 
     // Test tokens to shares conversion
     if pool.total_shares > 0 && pool.total_supply().unwrap_or(0) > 0 {
         let test_tokens = input.test_tokens.min(pool.total_supply().unwrap_or(0));
-        if test_tokens > 0 {
-            if let Ok(shares) = pool.compute_shares_from_tokens(&env, test_tokens) {
+        if test_tokens > 0
+            && let Ok(shares) = pool.compute_shares_from_tokens(&env, test_tokens) {
                 assert!(
                     shares >= 0,
                     "Shares from tokens cannot be negative: {}",
@@ -170,7 +168,6 @@ fuzz_target!(|input: InterestRateInput| {
                     );
                 }
             }
-        }
     }
 
     // Test that pool is not in an invalid state

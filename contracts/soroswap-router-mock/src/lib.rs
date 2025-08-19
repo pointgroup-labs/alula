@@ -145,8 +145,8 @@ fn burn_and_mint_tokens(
     minted_amount: i128,
     to: &Address,
 ) {
-    let minted_sac_client = StellarAssetClient::new(&e, minted_token);
-    let burnt_token_client = TokenClient::new(&e, burnt_token);
+    let minted_sac_client = StellarAssetClient::new(e, minted_token);
+    let burnt_token_client = TokenClient::new(e, burnt_token);
 
     minted_sac_client.mint(to, &minted_amount);
     burnt_token_client.burn(to, &burnt_amount);
@@ -183,8 +183,8 @@ fn get_amounts_in(
 
     let (first_ticker, last_ticker) = get_end_tickers_from_path(e, path);
 
-    let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
-    let oracle_contract = PriceFeedClient::new(&e, &oracle_address);
+    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
     let decimals = oracle_contract.decimals();
 
     let price_scaling_factor = i128::pow(10, decimals);
@@ -198,9 +198,9 @@ fn get_amounts_in(
             .price;
 
         let value = amount_out.checked_mul(price).unwrap();
-        let amount_in = value.checked_div(price_scaling_factor).unwrap();
+        
 
-        amount_in
+        value.checked_div(price_scaling_factor).unwrap()
     } else if usdc_as_token_out {
         let price = oracle_contract
             .lastprice(&Asset::Other(first_ticker.clone()))
@@ -208,9 +208,9 @@ fn get_amounts_in(
             .price;
 
         let amount_out_scaled = amount_out.checked_mul(price_scaling_factor).unwrap();
-        let amount_in = amount_out_scaled.checked_div(price).unwrap();
+        
 
-        amount_in
+        amount_out_scaled.checked_div(price).unwrap()
     } else {
         // Mocked router supports only pairs with USDC
         return Err(CombinedRouterError::RouterPairDoesNotExist);
@@ -235,8 +235,8 @@ fn get_amounts_out(
 
     let (first_ticker, last_ticker) = get_end_tickers_from_path(e, path);
 
-    let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
-    let oracle_contract = PriceFeedClient::new(&e, &oracle_address);
+    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
     let decimals = oracle_contract.decimals();
 
     // 'amount_in_minus_fees' = amount_in * (997/1000)
@@ -257,9 +257,9 @@ fn get_amounts_out(
         let amount_in_scaled = amount_in_minus_fees
             .checked_mul(price_scaling_factor)
             .unwrap();
-        let amount_out = amount_in_scaled.checked_div(price).unwrap();
+        
 
-        amount_out
+        amount_in_scaled.checked_div(price).unwrap()
     } else if usdc_as_token_out {
         let price = oracle_contract
             .lastprice(&Asset::Other(first_ticker.clone()))
@@ -267,9 +267,9 @@ fn get_amounts_out(
             .price;
 
         let value = amount_in_minus_fees.checked_mul(price).unwrap();
-        let amount_out = value.checked_div(price_scaling_factor).unwrap();
+        
 
-        amount_out
+        value.checked_div(price_scaling_factor).unwrap()
     } else {
         // Mocked router supports only pairs with USDC
         return Err(CombinedRouterError::RouterPairDoesNotExist);
@@ -285,8 +285,8 @@ fn get_ticker_by_address(e: &Env, address: &Address) -> Option<Symbol> {
 }
 
 fn get_end_tickers_from_path(e: &Env, path: &Vec<Address>) -> (Symbol, Symbol) {
-    let first_ticker = get_ticker_by_address(&e, &path.first().unwrap()).unwrap();
-    let last_ticker = get_ticker_by_address(&e, &path.last().unwrap()).unwrap();
+    let first_ticker = get_ticker_by_address(e, &path.first().unwrap()).unwrap();
+    let last_ticker = get_ticker_by_address(e, &path.last().unwrap()).unwrap();
 
     (first_ticker, last_ticker)
 }
