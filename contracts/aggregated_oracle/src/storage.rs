@@ -30,7 +30,7 @@ pub fn add_asset(e: &Env, asset: &Asset, token_address: &Address) {
         .storage()
         .instance()
         .get(&DataKey::Assets)
-        .unwrap_or(Map::new(&e));
+        .unwrap_or(Map::new(e));
     assets.set(asset.clone(), token_address.clone());
 }
 
