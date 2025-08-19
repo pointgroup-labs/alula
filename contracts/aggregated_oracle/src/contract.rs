@@ -22,52 +22,54 @@ impl AggregatedOracleContract {
 
     pub fn add_asset(e: Env, asset: Asset) {
         require_admin(&e);
+
+        storage::add_asset(&e, &asset);
     }
 
-    // Some constructor or some initialization method?? Likely a good idea
-    pub fn remove_asset(env: Env, asset: Asset) {
-        // vec![&env, String::from_str(&env, "Hello"), to]
+    pub fn remove_asset(e: Env, asset: Asset) {
+        require_admin(&e);
+
+        storage::remove_asset(&e, &asset);
     }
 }
 
 #[contractimpl]
 impl PriceFeedTrait for AggregatedOracleContract {
-    fn base(_env: Env) -> Asset {
+    fn base(_e: Env) -> Asset {
         Asset::Other(USD_SYMBOL)
     }
 
-    fn assets(env: Env) -> Vec<Asset> {
-        todo!()
+    fn assets(e: Env) -> Vec<Asset> {
+        storage::get_assets(&e)
     }
 
-    fn decimals(env: Env) -> u32 {
-        8
+    fn decimals(_e: Env) -> u32 {
+        // NB: Same as in https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63
+        14
     }
 
-    fn resolution(env: Env) -> u32 {
-        60
+    fn resolution(_e: Env) -> u32 {
+        // NB: Same as in https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63
+        300
     }
 
-    fn price(env: Env, asset: Asset, x: u64) -> Option<PriceData> {
-        todo!()
+    fn price(_e: Env, _asset: Asset, _timestamp: u64) -> Option<PriceData> {
+        unimplemented!()
     }
 
-    fn prices(env: Env, asset: Asset, x: u32) -> Option<Vec<PriceData>> {
-        todo!()
+    fn prices(_e: Env, _asset: Asset, _records: u32) -> Option<Vec<PriceData>> {
+        unimplemented!()
     }
 
-    fn lastprice(env: Env, asset: Asset) -> Option<PriceData> {
+    fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
         todo!()
     }
 }
 
 // ---- Helpers ----
-/// Verifies that a caller is the registered admin
-/// Panics:
-///
-/// If caller is not a registered admin
+
 fn require_admin(e: &Env) {
     let admin = storage::get_admin(e)
-        .unwrap_or_else(|| panic_with_error!(e, AggregatedOracleContractError::InternalError));
+        .unwrap_or_else(|| panic_with_error!(e, AggregatedOracleContractError::NotAnAdmin));
     admin.require_auth();
 }

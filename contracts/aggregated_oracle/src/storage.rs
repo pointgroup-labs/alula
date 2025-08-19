@@ -1,5 +1,5 @@
 use sep_40_oracle::Asset;
-use soroban_sdk::{contracttype, Address, Env};
+use soroban_sdk::{contracttype, vec as svec, Address, Env, Vec};
 
 use crate::helpers::AssetsSet;
 
@@ -14,7 +14,7 @@ pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 #[contracttype]
 pub enum DataKey {
     Admin,
-    Assets, // Must be a HashSet, no? HashSet of symbols
+    Assets,
 }
 
 pub fn set_admin(e: &Env, admin: &Address) {
@@ -27,13 +27,39 @@ pub fn get_admin(e: &Env) -> Option<Address> {
     e.storage().instance().get(&DataKey::Admin)
 }
 
+/// Adds asset to the set of assets
 pub fn add_asset(e: &Env, asset: &Asset) {
     extend_instance_storage(e);
 
-    let assets: Option<AssetsSet> = e.storage().instance().get(&DataKey::Assets);
+    let mut assets: AssetsSet = e
+        .storage()
+        .instance()
+        .get(&DataKey::Assets)
+        .unwrap_or(AssetsSet::new(&e));
+    assets.insert(asset.clone());
 }
 
-pub fn remove_asset() {}
+/// Removes asset from the set of assets
+pub fn remove_asset(e: &Env, asset: &Asset) {
+    extend_instance_storage(e);
+
+    let Some(mut assets): Option<AssetsSet> = e.storage().instance().get(&DataKey::Assets) else {
+        return;
+    };
+    assets.remove(asset.clone());
+}
+
+/// Returns a [`Vec`] of all added assets
+pub fn get_assets(e: &Env) -> Vec<Asset> {
+    extend_instance_storage(e);
+
+    if let Some(assets) = e.storage().instance().get(&DataKey::Assets) {
+        let assets: AssetsSet = assets;
+        assets.entries()
+    } else {
+        svec![e]
+    }
+}
 
 /// Instance bumper
 pub fn extend_instance_storage(e: &Env) {
