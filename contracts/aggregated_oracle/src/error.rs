@@ -7,4 +7,5 @@ pub enum AggregatedOracleContractError {
     // Core errors (0-9)
     InternalError = 0,
     NotAnAdmin = 1,
+    OverOrUnderflow = 2,
 }

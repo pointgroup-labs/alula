@@ -3,9 +3,11 @@ use soroban_sdk::{
     contract, contractimpl, panic_with_error, symbol_short, Address, Env, Symbol, Vec,
 };
 
-use crate::{error::AggregatedOracleContractError, storage};
-
-const USD_SYMBOL: Symbol = symbol_short!("USD");
+use crate::{
+    constants::{DECIMALS, RESOLUTION, USD_SYMBOL},
+    error::AggregatedOracleContractError,
+    storage,
+};
 
 #[contract]
 pub struct AggregatedOracleContract;
@@ -44,13 +46,11 @@ impl PriceFeedTrait for AggregatedOracleContract {
     }
 
     fn decimals(_e: Env) -> u32 {
-        // NB: Same as in https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63
-        14
+        DECIMALS
     }
 
     fn resolution(_e: Env) -> u32 {
-        // NB: Same as in https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63
-        300
+        RESOLUTION
     }
 
     fn price(_e: Env, _asset: Asset, _timestamp: u64) -> Option<PriceData> {
