@@ -1,9 +1,10 @@
 use sep_40_oracle::Asset;
-use soroban_sdk::{panic_with_error, symbol_short, Address, Env};
+use soroban_sdk::{panic_with_error, Address, Env};
 
 use crate::{
     constants::{DECIMALS, ROUTER_ADDRESS, USDC_SAC_ADDRESS},
-    error::AggregatedOracleContractError,
+    error::AOCError,
+    storage,
 };
 
 mod router {
@@ -16,14 +17,14 @@ mod pair {
     contractimport!(file = "../../wasms/downloads/soroswap-pair.wasm");
 }
 
-pub fn get_price(e: &Env, asset: &Asset) -> i128 {
-    let token_address = map_asset_to_token_address(e, asset);
+pub fn get_price(e: &Env, asset: &Asset) -> Option<i128> {
+    let token_address = get_token_address(e, asset)?;
     let usdc_sac_address = Address::from_str(e, USDC_SAC_ADDRESS);
 
     let (reserve_0, reserve_1) =
         get_reserves(e, &Address::from_str(e, USDC_SAC_ADDRESS), &token_address);
 
-    if token_address == usdc_sac_address {
+    let price = if token_address == usdc_sac_address {
         i128::pow(10, DECIMALS)
     } else {
         // See: https://github.com/soroswap/core/blob/main/contracts/library/src/tokens.rs#L37
@@ -35,19 +36,17 @@ pub fn get_price(e: &Env, asset: &Asset) -> i128 {
 
         let token_reserve_scaled = token_reserve
             .checked_mul(i128::pow(10, DECIMALS))
-            .unwrap_or_else(|| {
-                panic_with_error!(e, AggregatedOracleContractError::OverOrUnderflow)
-            });
+            .unwrap_or_else(|| panic_with_error!(e, AOCError::OverOrUnderflow));
 
         // 'price' = reserve_x / reserve_y
         let price = token_reserve_scaled
             .checked_div(usdc_reserve)
-            .unwrap_or_else(|| {
-                panic_with_error!(e, AggregatedOracleContractError::OverOrUnderflow)
-            });
+            .unwrap_or_else(|| panic_with_error!(e, AOCError::OverOrUnderflow));
 
         price
-    }
+    };
+
+    Some(price)
 }
 
 /// # Returns
@@ -62,13 +61,6 @@ fn get_reserves(e: &Env, token_a: &Address, token_b: &Address) -> (i128, i128) {
     pair_client.get_reserves()
 }
 
-fn map_asset_to_token_address(e: &Env, asset: &Asset) -> Address {
-    let Asset::Other(symbol) = asset.clone() else {
-        panic_with_error!(e, AggregatedOracleContractError::InternalError);
-    };
-
-    // if symbol == USD_SYMBOL {
-    // } else {
-    // }
-    todo!()
+fn get_token_address(e: &Env, asset: &Asset) -> Option<Address> {
+    storage::get_token_address(e, asset)
 }

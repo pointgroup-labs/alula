@@ -1,9 +1,9 @@
 use sep_40_oracle::Asset;
-use soroban_sdk::{contracttype, vec as svec, Address, Env, Vec};
+use soroban_sdk::{contracttype, vec as svec, Address, Env, Map, Vec};
 
 use crate::{
     constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD},
-    helpers::AssetsSet,
+    // helpers::AssetsSet,
 };
 
 #[contracttype]
@@ -23,37 +23,50 @@ pub fn get_admin(e: &Env) -> Option<Address> {
 }
 
 /// Adds asset to the set of assets
-pub fn add_asset(e: &Env, asset: &Asset) {
+pub fn add_asset(e: &Env, asset: &Asset, token_address: &Address) {
     extend_instance_storage(e);
 
-    let mut assets: AssetsSet = e
+    let mut assets: Map<Asset, Address> = e
         .storage()
         .instance()
         .get(&DataKey::Assets)
-        .unwrap_or(AssetsSet::new(&e));
-    assets.insert(asset.clone());
+        .unwrap_or(Map::new(&e));
+    assets.set(asset.clone(), token_address.clone());
 }
 
 /// Removes asset from the set of assets
 pub fn remove_asset(e: &Env, asset: &Asset) {
     extend_instance_storage(e);
 
-    let Some(mut assets): Option<AssetsSet> = e.storage().instance().get(&DataKey::Assets) else {
+    let Some(mut assets): Option<Map<Asset, Address>> =
+        e.storage().instance().get(&DataKey::Assets)
+    else {
         return;
     };
     assets.remove(asset.clone());
 }
 
-/// Returns a [`Vec`] of all added assets
+/// # Returns
+/// [`Vec`] of all added assets
 pub fn get_assets(e: &Env) -> Vec<Asset> {
     extend_instance_storage(e);
 
     if let Some(assets) = e.storage().instance().get(&DataKey::Assets) {
-        let assets: AssetsSet = assets;
-        assets.entries()
+        let assets: Map<Asset, Address> = assets;
+        assets.keys()
     } else {
         svec![e]
     }
+}
+
+/// # Returns
+/// `Some(Address)` if asset exists in the storage. `None` otherwise
+pub fn get_token_address(e: &Env, asset: &Asset) -> Option<Address> {
+    extend_instance_storage(e);
+
+    let assets: Map<Asset, Address> = e.storage().instance().get(&DataKey::Assets)?;
+
+    assets.get(asset.clone())
 }
 
 /// Instance bumper

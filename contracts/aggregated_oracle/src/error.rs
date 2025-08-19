@@ -8,4 +8,8 @@ pub enum AggregatedOracleContractError {
     InternalError = 0,
     NotAnAdmin = 1,
     OverOrUnderflow = 2,
+    Unimplemented = 3,
+    UnknownAsset = 43,
 }
+
+pub type AOCError = AggregatedOracleContractError;
