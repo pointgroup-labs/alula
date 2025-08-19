@@ -198,7 +198,6 @@ fn get_amounts_in(
             .price;
 
         let value = amount_out.checked_mul(price).unwrap();
-        
 
         value.checked_div(price_scaling_factor).unwrap()
     } else if usdc_as_token_out {
@@ -208,7 +207,6 @@ fn get_amounts_in(
             .price;
 
         let amount_out_scaled = amount_out.checked_mul(price_scaling_factor).unwrap();
-        
 
         amount_out_scaled.checked_div(price).unwrap()
     } else {
@@ -257,7 +255,6 @@ fn get_amounts_out(
         let amount_in_scaled = amount_in_minus_fees
             .checked_mul(price_scaling_factor)
             .unwrap();
-        
 
         amount_in_scaled.checked_div(price).unwrap()
     } else if usdc_as_token_out {
@@ -267,7 +264,6 @@ fn get_amounts_out(
             .price;
 
         let value = amount_in_minus_fees.checked_mul(price).unwrap();
-        
 
         value.checked_div(price_scaling_factor).unwrap()
     } else {

@@ -118,56 +118,57 @@ fuzz_target!(|input: InterestRateInput| {
     if pool.total_shares > 0 && pool.total_supply().unwrap_or(0) > 0 {
         let test_shares = input.test_shares.min(pool.total_shares); // Don't exceed total shares
         if test_shares > 0
-            && let Ok(tokens) = pool.compute_tokens_from_shares(&env, test_shares) {
-                assert!(
-                    tokens >= 0,
-                    "Tokens from shares cannot be negative: {}",
-                    tokens
-                );
+            && let Ok(tokens) = pool.compute_tokens_from_shares(&env, test_shares)
+        {
+            assert!(
+                tokens >= 0,
+                "Tokens from shares cannot be negative: {}",
+                tokens
+            );
 
-                // Test reverse conversion
-                if tokens > 0
-                    && let Ok(shares_back) = pool.compute_shares_from_tokens(&env, tokens) {
-                        // Allow for small rounding differences (within reasonable bounds)
-                        let diff = (shares_back - test_shares).abs();
-                        let max_diff = test_shares.max(1); // Allow proportional difference
-                        assert!(
-                            diff <= max_diff,
-                            "Share conversion inconsistency: {} vs {} (diff: {})",
-                            test_shares,
-                            shares_back,
-                            diff
-                        );
-                    }
+            // Test reverse conversion
+            if tokens > 0
+                && let Ok(shares_back) = pool.compute_shares_from_tokens(&env, tokens)
+            {
+                // Allow for small rounding differences (within reasonable bounds)
+                let diff = (shares_back - test_shares).abs();
+                let max_diff = test_shares.max(1); // Allow proportional difference
+                assert!(
+                    diff <= max_diff,
+                    "Share conversion inconsistency: {} vs {} (diff: {})",
+                    test_shares,
+                    shares_back,
+                    diff
+                );
             }
+        }
     }
 
     // Test tokens to shares conversion
     if pool.total_shares > 0 && pool.total_supply().unwrap_or(0) > 0 {
         let test_tokens = input.test_tokens.min(pool.total_supply().unwrap_or(0));
         if test_tokens > 0
-            && let Ok(shares) = pool.compute_shares_from_tokens(&env, test_tokens) {
-                assert!(
-                    shares >= 0,
-                    "Shares from tokens cannot be negative: {}",
-                    shares
-                );
+            && let Ok(shares) = pool.compute_shares_from_tokens(&env, test_tokens)
+        {
+            assert!(
+                shares >= 0,
+                "Shares from tokens cannot be negative: {}",
+                shares
+            );
 
-                // Test that we don't exceed total shares unreasonably
-                // (some slight excess might be due to rounding with fixed point math)
-                if shares > pool.total_shares {
-                    let excess_ratio =
-                        (shares - pool.total_shares) * 1000 / pool.total_shares.max(1);
-                    assert!(
-                        excess_ratio <= 10, // Allow up to 1% excess due to rounding
-                        "Computed shares {} significantly exceed total shares {} (excess ratio: \
-                         {}‰)",
-                        shares,
-                        pool.total_shares,
-                        excess_ratio
-                    );
-                }
+            // Test that we don't exceed total shares unreasonably
+            // (some slight excess might be due to rounding with fixed point math)
+            if shares > pool.total_shares {
+                let excess_ratio = (shares - pool.total_shares) * 1000 / pool.total_shares.max(1);
+                assert!(
+                    excess_ratio <= 10, // Allow up to 1% excess due to rounding
+                    "Computed shares {} significantly exceed total shares {} (excess ratio: {}‰)",
+                    shares,
+                    pool.total_shares,
+                    excess_ratio
+                );
             }
+        }
     }
 
     // Test that pool is not in an invalid state
