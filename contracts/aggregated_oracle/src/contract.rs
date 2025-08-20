@@ -1,5 +1,5 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Vec};
+use soroban_sdk::{contract, contractimpl, panic_with_error, Address, BytesN, Env, Vec};
 
 use crate::{
     constants::{DECIMALS, RESOLUTION, USD_SYMBOL},
@@ -20,12 +20,33 @@ impl AggregatedOracleContract {
         storage::set_admin(&e, &admin);
     }
 
+    /// Upgrades the contract
+    ///
+    /// ### Arguments
+    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
+    ///   new version of the contract
+    pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
+        // TODO: Implement decentralized governance of the contract
+        require_admin(&e);
+
+        e.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    /// Adds an asset to the contract's list
+    ///
+    /// ### Arguments
+    /// * `asset` - an asset that is added
+    /// * `token_address` - an address of the added asset's token contract
     pub fn add_asset(e: Env, asset: Asset, token_address: Address) {
         require_admin(&e);
 
         storage::add_asset(&e, &asset, &token_address);
     }
 
+    /// Removes an asset from the contract's list
+    ///
+    /// ### Arguments
+    /// * `asset` - an asset that is removed
     pub fn remove_asset(e: Env, asset: Asset) {
         require_admin(&e);
 

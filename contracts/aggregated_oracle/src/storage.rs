@@ -1,10 +1,7 @@
 use sep_40_oracle::Asset;
 use soroban_sdk::{contracttype, vec as svec, Address, Env, Map, Vec};
 
-use crate::{
-    constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD},
-    // helpers::AssetsSet,
-};
+use crate::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
 
 #[contracttype]
 pub enum DataKey {
@@ -22,7 +19,7 @@ pub fn get_admin(e: &Env) -> Option<Address> {
     e.storage().instance().get(&DataKey::Admin)
 }
 
-/// Adds asset to the set of assets
+/// Adds asset to the storage
 pub fn add_asset(e: &Env, asset: &Asset, token_address: &Address) {
     extend_instance_storage(e);
 
@@ -32,6 +29,8 @@ pub fn add_asset(e: &Env, asset: &Asset, token_address: &Address) {
         .get(&DataKey::Assets)
         .unwrap_or(Map::new(e));
     assets.set(asset.clone(), token_address.clone());
+
+    e.storage().instance().set(&DataKey::Assets, &assets);
 }
 
 /// Removes asset from the set of assets
@@ -44,6 +43,8 @@ pub fn remove_asset(e: &Env, asset: &Asset) {
         return;
     };
     assets.remove(asset.clone());
+
+    e.storage().instance().set(&DataKey::Assets, &assets);
 }
 
 /// # Returns
@@ -53,6 +54,7 @@ pub fn get_assets(e: &Env) -> Vec<Asset> {
 
     if let Some(assets) = e.storage().instance().get(&DataKey::Assets) {
         let assets: Map<Asset, Address> = assets;
+
         assets.keys()
     } else {
         svec![e]
