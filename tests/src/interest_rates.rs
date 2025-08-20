@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::{TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+use crate::{DEFAULT_DEPOSIT_AMOUNT, TestFixture};
 
 #[test]
 #[allow(clippy::mistyped_literal_suffixes)]

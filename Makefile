@@ -16,6 +16,9 @@ SOROSWAP_ROUTER_URL := https://github.com/soroswap/core/releases/download/workfl
 SOROSWAP_ROUTER_WASM := $(DOWNLOADS_DIR)/soroswap-router.wasm
 SOROSWAP_ROUTER_MOCK := soroswap-router-mock
 
+SOROSWAP_PAIR_URL := https://github.com/soroswap/core/releases/download/workflow%2FsorobanBuildForStellarExpert__contracts_pair_soroswap-pair_pkg0.0.1_cli21.0.0/soroswap-pair_v0.0.1.wasm
+SOROSWAP_PAIR_WASM := $(DOWNLOADS_DIR)/soroswap-pair.wasm
+
 FLASH_LOAN_TAKER_MOCK := flash-loan-taker-mock
 
 # Configuration
@@ -107,6 +110,7 @@ build/prepare: ## Download dependency WASMs
 	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
 	$(call download_wasm_contract,$(REFLECTOR_ORACLE_WASM),$(REFLECTOR_ORACLE_URL))
 	$(call download_wasm_contract,$(SOROSWAP_ROUTER_WASM),$(SOROSWAP_ROUTER_URL))
+	$(call download_wasm_contract,$(SOROSWAP_PAIR_WASM),$(SOROSWAP_PAIR_URL))
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Testing

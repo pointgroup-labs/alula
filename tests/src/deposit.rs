@@ -1,34 +1,39 @@
 #![cfg(test)]
 
-use lending::{pool::PoolConfig, LCError};
-use soroban_sdk::{testutils::Address as _, Address};
+use lending::{LCError, pool::PoolConfig};
+use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
-    get_deposit_obligation, TestFixture, DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
-    DEFAULT_USER_ASSET_MINT_AMOUNT,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT, TestFixture,
+    get_deposit_obligation, get_obligation_computed_tokens_from_shares,
+    get_obligation_deposit_shares, get_pool_available, get_pool_total_shares,
 };
 
 #[test]
 fn test_deposit() {
     let TestFixture {
+        e,
         contract_client,
-        usdc_token_address,
         usdc_pool_address,
         users,
         ..
     } = TestFixture::new();
 
     let user = &users[0];
-    contract_client.deposit(user, &usdc_token_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let deposit_obligation = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .shares;
-    let pool_deposited = contract_client.get_pool(&usdc_pool_address).total_shares;
+    let total_shares_after = get_pool_total_shares(&contract_client, &usdc_pool_address).unwrap();
+    let tokens_from_shares_after =
+        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address)
+            .unwrap();
+    let shares_after =
+        get_obligation_deposit_shares(&contract_client, user, &usdc_pool_address).unwrap();
+    let available_after = get_pool_available(&contract_client, &usdc_pool_address).unwrap();
 
-    // TODO: We should introduce operation fees which will make the deposited amount smaller
-    assert_eq!(deposit_obligation, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_deposited, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(total_shares_after, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(tokens_from_shares_after, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(shares_after, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(available_after, DEFAULT_DEPOSIT_AMOUNT);
 }
 
 #[test]

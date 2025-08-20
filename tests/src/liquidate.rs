@@ -1,15 +1,15 @@
 #![cfg(test)]
 
 use lending::{
-    constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
     LCError,
+    constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
 };
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
     Address,
+    testutils::{Address as _, Ledger},
 };
 
-use crate::{get_borrow_obligation, get_deposit_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT};
+use crate::{DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation, get_deposit_obligation};
 
 struct LiquidationTest {
     test_fixture: TestFixture<'static>,

@@ -1,7 +1,7 @@
 #![cfg(test)]
 
-use lending::{contract::LendingContractClient, LCError};
-use soroban_sdk::{symbol_short, testutils::Address as _, Address, Bytes, BytesN};
+use lending::{LCError, contract::LendingContractClient};
+use soroban_sdk::{Address, Bytes, BytesN, symbol_short, testutils::Address as _};
 
 use crate::TestFixture;
 

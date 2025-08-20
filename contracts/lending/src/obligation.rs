@@ -1,14 +1,14 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{contracttype, Address, Env, Map, Vec};
+use soroban_sdk::{Address, Env, Map, Vec, contracttype};
 
 use crate::{
+    LCError,
     constants::{ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
     contract::get_asset_price,
     events,
     math_utils::MathUtils,
     pool::{Pool, PoolConfig},
     storage::{self, get_global_state},
-    LCError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -774,7 +774,7 @@ pub struct LiquidationValues {
 
 #[cfg(test)]
 mod tests {
-    use soroban_sdk::{testutils::Address as _, Address, Env, Map};
+    use soroban_sdk::{Address, Env, Map, testutils::Address as _};
 
     use super::*;
 

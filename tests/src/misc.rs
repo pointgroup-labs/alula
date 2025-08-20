@@ -1,6 +1,51 @@
 #![cfg(test)]
 
+use lending::LCError;
+use soroban_sdk::{Address, testutils::Address as _};
+
 use crate::TestFixture;
+
+#[test]
+fn test_obligation_does_not_exist_prior_anything() {
+    let TestFixture {
+        users,
+        contract_client,
+        ..
+    } = TestFixture::new();
+
+    let user = &users[0];
+
+    let obligation = contract_client.try_get_user_obligation(user);
+    assert_eq!(obligation, Err(Ok(LCError::ObligationDoesNotExist)));
+}
+
+#[test]
+fn test_pool_with_random_address_does_not_exist() {
+    let TestFixture {
+        e, contract_client, ..
+    } = TestFixture::new();
+
+    let rand_addr = Address::generate(&e);
+    let res = contract_client.try_get_pool(&rand_addr);
+
+    assert_eq!(res, Err(Ok(LCError::PoolDoesNotExist)));
+}
+
+#[test]
+fn test_pool_is_empty_prior_anything() {
+    let TestFixture {
+        contract_client,
+        usdc_pool_address,
+        ..
+    } = TestFixture::new();
+
+    let pool = contract_client.get_pool(&usdc_pool_address);
+
+    assert_eq!(pool.total_borrowed, 0);
+    assert_eq!(pool.total_collateral, 0);
+    assert_eq!(pool.total_shares, 0);
+    assert_eq!(pool.available, 0);
+}
 
 #[test]
 fn test_remove_obligation() {

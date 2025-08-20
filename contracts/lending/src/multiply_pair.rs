@@ -1,10 +1,11 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{contracttype, Address, Env, Vec};
+use soroban_sdk::{Address, Env, Vec, contracttype};
 
 use crate::{
+    LCError,
     constants::{BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE},
     math_utils::MathUtils,
-    storage, LCError,
+    storage,
 };
 
 #[contracttype]

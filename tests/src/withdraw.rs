@@ -4,9 +4,9 @@ use lending::constants::DEFAULT_LIQUIDATION_THRESHOLD;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed,
-    get_obligation_collateral, get_obligation_tokens_from_shares, LCError, TestFixture,
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, LCError, TestFixture, get_borrow_obligation,
+    get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral,
+    get_obligation_computed_tokens_from_shares,
 };
 
 #[test]
@@ -270,7 +270,8 @@ fn test_withdraw_more_than_open_ltv_allows() {
 
     // Check that there's a deposit left and it is backing the borrowed funds
     let deposit_amount =
-        get_obligation_tokens_from_shares(&e, &contract_client, user, &gold_pool_address).unwrap();
+        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &gold_pool_address)
+            .unwrap();
 
     // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(
@@ -332,7 +333,8 @@ fn withdraw_up_to_open_ltv() {
 
     // Check that there's a deposit left and it is backing the borrowed funds
     let deposit_amount =
-        get_obligation_tokens_from_shares(&e, &contract_client, user, &gold_pool_address).unwrap();
+        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &gold_pool_address)
+            .unwrap();
 
     // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(

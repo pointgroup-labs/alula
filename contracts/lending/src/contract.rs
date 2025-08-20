@@ -2,12 +2,12 @@ use moderc3156::FlashLoanClient;
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    contract, contractimpl,
+    Address, BytesN, Env, Symbol, Vec, contract, contractimpl,
     token::{self, TokenClient},
-    Address, BytesN, Env, Symbol, Vec,
 };
 
 use crate::{
+    LCError,
     constants::{
         ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
         DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS,
@@ -20,7 +20,7 @@ use crate::{
     obligation::{LiquidationValues, Obligation},
     pool::{Pool, PoolAddress, PoolConfig},
     storage::{self, GlobalState},
-    swap, LCError,
+    swap,
 };
 
 #[inline(always)]
@@ -1385,12 +1385,12 @@ fn compute_leveraged_position_max_withdrawable_amount(
 }
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
-    let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
-    let reflector_contract = PriceFeedClient::new(e, &reflector_address);
+    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
     let asset = Asset::Other(ticker.clone());
 
-    let price_data = reflector_contract
+    let price_data = oracle_contract
         .lastprice(&asset)
         .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
 
@@ -1405,8 +1405,8 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 }
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
-    let reflector_address = Address::from_str(e, ORACLE_ADDRESS);
-    let reflector_contract = PriceFeedClient::new(e, &reflector_address);
+    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
-    reflector_contract.decimals()
+    oracle_contract.decimals()
 }

@@ -1,10 +1,11 @@
 #![cfg(test)]
 
 use lending::{
+    LCError,
     contract::{LendingContract, LendingContractClient},
-    storage, LCError,
+    storage,
 };
-use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN};
+use soroban_sdk::{Address, BytesN, symbol_short, testutils::Address as _};
 
 use crate::get_default_env;
 

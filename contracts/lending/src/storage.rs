@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Env, Vec};
+use soroban_sdk::{Address, Env, Vec, contracttype};
 
 use crate::{
     constants::{

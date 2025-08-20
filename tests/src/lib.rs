@@ -11,25 +11,28 @@ mod security;
 mod swap;
 mod withdraw;
 
+use std::ops::{Add, Sub};
+
 use arbitrary::Unstructured;
 use lending::{
-    constants::{INDIVIDUAL_BUMP, ORACLE_ADDRESS, SOROSWAP_ROUTER_TESTNET_ADDRESS},
+    LCError,
+    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ORACLE_ADDRESS, ROUTER_ADDRESS},
     contract::{LendingContract, LendingContractClient},
     obligation::{BorrowObligation, DepositObligation},
     pool::PoolConfig,
-    soroswap_router, LCError,
+    soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    symbol_short,
-    testutils::{arbitrary::Arbitrary, Address as _, Ledger, LedgerInfo},
+    Address, Env, Symbol, symbol_short,
+    testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
     token::{self, StellarAssetClient, TokenClient},
-    Address, Env, Symbol,
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
 pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
-pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 2;
+pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 
@@ -50,8 +53,8 @@ pub struct TestFixture<'a> {
     pub oracle_client: MockPriceOracleClient<'a>,
     pub oracle_address: Address,
     // Swap Router
-    pub soroswap_router_client: soroswap_router::Client<'a>,
-    pub soroswap_router_address: Address,
+    pub router_client: router::Client<'a>,
+    pub router_address: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
@@ -113,9 +116,9 @@ impl TestFixture<'_> {
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
-        let soroswap_router_address = Address::from_str(&e, SOROSWAP_ROUTER_TESTNET_ADDRESS);
-        e.register_at(&soroswap_router_address, soroswap_router::WASM, ());
-        let soroswap_router_client = soroswap_router::Client::new(&e, &soroswap_router_address);
+        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
+        e.register_at(&router_address, router::WASM, ());
+        let router_client = router::Client::new(&e, &router_address);
 
         let users = vec![
             Address::generate(&e),
@@ -170,6 +173,9 @@ impl TestFixture<'_> {
             &Some(pool_config),
         );
 
+        router_client.map_address_to_ticker(&usdc_token_address, &usdc_ticker);
+        router_client.map_address_to_ticker(&gold_token_address, &gold_ticker);
+        router_client.map_address_to_ticker(&btc_token_address, &btc_ticker);
         // Initialize USDC/GOLD multiply pair
         contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
 
@@ -182,7 +188,7 @@ impl TestFixture<'_> {
                 Asset::Other(btc_ticker),
                 Asset::Other(usdc_ticker),
             ],
-            &7,
+            &14,
             &123, // resolution is irrelevant because of stable prices
         );
 
@@ -197,8 +203,8 @@ impl TestFixture<'_> {
             oracle_client,
             oracle_address,
             // Swap router
-            soroswap_router_client,
-            soroswap_router_address,
+            router_client,
+            router_address,
             // GOLD
             gold_sac,
             gold_token_client,
@@ -350,9 +356,9 @@ pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClie
     #[allow(clippy::zero_prefixed_literal)]
     oracle_client.set_price_stable(&soroban_sdk::vec![
         e,
-        0_30000000000000, // GOLD
-        5_00000000000000, // BTC
-        0_00010000000000, // USDC
+        3_00000000000000,  // GOLD
+        50_00000000000000, // BTC
+        1_00000000000000,  // USDC
     ]);
 }
 
@@ -734,7 +740,10 @@ impl RunCommand for WithdrawFromLeveraged {
     }
 }
 
-pub fn get_obligation_shares(
+// ---- Helpers that encapsulate access to inner structures ----
+
+// -- Obligation --
+pub fn get_obligation_deposit_shares(
     contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
@@ -742,19 +751,6 @@ pub fn get_obligation_shares(
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.shares)
-}
-
-pub fn get_obligation_tokens_from_shares(
-    e: &Env,
-    contract_client: &LendingContractClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<i128, LCError> {
-    let shares = get_obligation_shares(contract_client, user, pool_address)?;
-
-    let pool = contract_client.get_pool(pool_address);
-
-    pool.compute_tokens_from_shares(e, shares)
 }
 
 pub fn get_obligation_borrowed(
@@ -775,6 +771,20 @@ pub fn get_obligation_collateral(
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.collateral)
+}
+
+pub fn get_obligation_computed_tokens_from_shares(
+    e: &Env,
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let user_shares = get_obligation_deposit_shares(contract_client, user, pool_address)?;
+
+    let tokens_from_shares = pool.compute_tokens_from_shares(e, user_shares)?;
+
+    Ok(tokens_from_shares)
 }
 
 pub fn get_deposit_obligation(
@@ -811,11 +821,65 @@ pub fn get_borrow_obligation(
     Ok(borrow)
 }
 
+// -- Pool --
+pub fn get_pool_total_shares(
+    contract_client: &LendingContractClient,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    Ok(pool.total_shares)
+}
+
+pub fn get_pool_total_supply(
+    contract_client: &LendingContractClient,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let total_supply = pool.total_supply()?;
+
+    Ok(total_supply)
+}
+
+pub fn get_pool_available(
+    contract_client: &LendingContractClient,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    Ok(pool.available)
+}
+
+// ---- Misc ----
+
 pub fn get_default_env() -> Env {
     let e = Env::default();
     e.mock_all_auths();
 
     e
+}
+
+pub fn assert_approx_eq_abs<T>(a: T, b: T, delta: T)
+where
+    T: PartialOrd + Add<Output = T> + Sub<Output = T> + Copy + core::fmt::Debug,
+{
+    assert!(
+        a >= b - delta && a <= b + delta,
+        "assertion failed: `(left != right)` (left: `{:?}`, right: `{:?}`, delta: `{:?}`)",
+        a,
+        b,
+        delta
+    );
+}
+
+/// Asserts that `a` is approximately equal to `b` within a relative error of `delta`. Taken from
+/// blend
+///
+/// ### Arguments
+/// * `delta_bps` - percentage represented in basis points such that 15% is 15_00
+pub fn assert_approx_eq_rel(a: i128, b: i128, delta_bps: i128) {
+    let abs_delta = b.fixed_mul_floor(delta_bps, BPS_FACTOR).unwrap();
+    assert_approx_eq_abs(a, b, abs_delta);
 }
 
 #[cfg(test)]
@@ -826,8 +890,8 @@ mod tests {
     };
     use soroban_fixed_point_math::FixedPoint;
     use soroban_sdk::testutils::{
-        storage::{Instance, Persistent},
         Ledger,
+        storage::{Instance, Persistent},
     };
 
     use super::*;
