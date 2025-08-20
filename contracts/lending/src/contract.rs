@@ -1,5 +1,5 @@
 use moderc3156::FlashLoanClient;
-use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
+use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, Symbol, Vec, contract, contractimpl,
@@ -499,28 +499,6 @@ impl LendingContract {
         storage::remove_all_obligations(&e);
         storage::remove_all_pools(&e);
         storage::remove_all_multiply_pairs(&e);
-    }
-
-    pub fn test_aggregated_oracle_price(e: Env, asset: Symbol) -> Result<PriceData, LCError> {
-        let asset = Asset::Other(asset);
-        const AGGREGATED_ORACLE_ADDRESS: &str =
-            "CCMRMA3P4AJ4T4CBHUBYXBFX7TNZLPVWNUVCR2775OH7KLDJJZXLI32P";
-
-        let oracle_address = Address::from_str(&e, AGGREGATED_ORACLE_ADDRESS);
-        let oracle_contract = PriceFeedClient::new(&e, &oracle_address);
-
-        let price_data = oracle_contract
-            .lastprice(&asset)
-            .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
-
-        // Validate price is not too old and not from the future
-        let now = e.ledger().timestamp();
-        let age = now.saturating_sub(price_data.timestamp);
-        if age > MAX_ORACLE_PRICE_AGE_SECONDS || price_data.timestamp > now {
-            return Err(LCError::OracleStalePrice);
-        }
-
-        Ok(price_data)
     }
 }
 

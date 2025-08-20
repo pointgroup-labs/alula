@@ -1,6 +1,6 @@
 use soroban_sdk::{Symbol, symbol_short};
 
-/// Standard SEP-40 parameters(same as in https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63)
+/// Standard SEP-40 parameters(same as in <https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63>)
 pub const DECIMALS: u32 = 14;
 pub const RESOLUTION: u32 = 300;
 
