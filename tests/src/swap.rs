@@ -32,10 +32,10 @@ fn test_swap_equal_prices() {
     // It can also be used to present slippage when depositing with leverage on UI
     let amount_out =
         swap::get_amount_out(&e, &btc_token_address, &usdc_token_address, AMOUNT_IN).unwrap();
-    let receiving_amount =
+    let received_amount =
         contract_client.swap(user, &btc_pool_address, &usdc_pool_address, &AMOUNT_IN);
 
-    assert_eq!(receiving_amount, amount_out);
+    assert_eq!(received_amount, amount_out);
 
     let user_btc_balance_after = btc_token_client.balance(user);
     let user_usdc_balance_after = usdc_token_client.balance(user);
@@ -141,6 +141,8 @@ fn test_get_amount_out() {
     assert_approx_eq_rel(gold_usdc_amount_in, AMOUNT_IN, DELTA_BPS);
     assert_approx_eq_rel(usdc_gold_amount_in, AMOUNT_IN, DELTA_BPS);
 }
+
+// TODO: Add a test for `swap_exact_tokens` and `get_amount_in` consistency after adding such a `swap` endpoint
 
 #[test]
 fn test_get_amount_in() {

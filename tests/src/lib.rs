@@ -826,7 +826,7 @@ pub fn get_pool_total_shares(
     contract_client: &LendingContractClient,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
-    let pool = contract_client.get_pool(pool_address); // isn't this weird that this is infallible?
+    let pool = contract_client.get_pool(pool_address);
 
     Ok(pool.total_shares)
 }
@@ -872,7 +872,7 @@ where
     );
 }
 
-/// Assert that `a` is approximately equal to `b` within a relative error of `delta`. Taken from
+/// Asserts that `a` is approximately equal to `b` within a relative error of `delta`. Taken from
 /// blend
 ///
 /// ### Arguments

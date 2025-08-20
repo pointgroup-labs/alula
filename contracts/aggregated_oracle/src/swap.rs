@@ -4,7 +4,7 @@ use sep_40_oracle::Asset;
 use soroban_sdk::{Address, Env, panic_with_error};
 
 use crate::{
-    constants::{ROUTER_ADDRESS, SCALED_ONE, USDC_SAC_ADDRESS},
+    constants::{PRICE_SCALING_FACTOR, ROUTER_ADDRESS, USDC_SAC_ADDRESS},
     error::AOCError,
     storage,
 };
@@ -14,7 +14,7 @@ pub fn get_price(e: &Env, asset: &Asset) -> Option<i128> {
     let usdc_sac_address = Address::from_str(e, USDC_SAC_ADDRESS);
 
     let price = if token_address == usdc_sac_address {
-        SCALED_ONE
+        PRICE_SCALING_FACTOR
     } else {
         let (reserve_0, reserve_1) =
             get_reserves(e, &Address::from_str(e, USDC_SAC_ADDRESS), &token_address);
@@ -27,7 +27,7 @@ pub fn get_price(e: &Env, asset: &Asset) -> Option<i128> {
         };
 
         let token_reserve_scaled = token_reserve
-            .checked_mul(SCALED_ONE)
+            .checked_mul(PRICE_SCALING_FACTOR)
             .unwrap_or_else(|| panic_with_error!(e, AOCError::OverOrUnderflow));
 
         // 'price' = reserve_x / reserve_y
