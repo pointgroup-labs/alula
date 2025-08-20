@@ -125,7 +125,7 @@ const infoTableData = computed(() => {
     {
       name: 'maxMultiply',
       label: 'Max Multiply',
-      value: `${formatPrice(Number(supplyLimit.value).toFixed(2) || 0, 2)} ${maxMultiplyTicker}`,
+      value: `${formatPrice(Number(supplyLimit.value || 0).toFixed(2), 2)} ${maxMultiplyTicker}`,
     },
     {
       name: 'multiplier',

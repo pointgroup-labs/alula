@@ -117,7 +117,7 @@ const infoTableData = computed(() => {
   },
   {
     label: 'User available amount to borrow',
-    value: shortenNumber(availableToBorrow.value),
+    value: shortenNumber(availableToBorrow.value || 0),
   },
   {
     label: 'Max LTV',
