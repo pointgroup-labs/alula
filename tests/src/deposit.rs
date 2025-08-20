@@ -23,17 +23,17 @@ fn test_deposit() {
     contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let total_shares_after = get_pool_total_shares(&contract_client, &usdc_pool_address).unwrap();
-    let tokens_after =
+    let tokens_from_shares_after =
         get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address)
             .unwrap();
     let shares_after =
         get_obligation_deposit_shares(&contract_client, user, &usdc_pool_address).unwrap();
-    let available_amount = get_pool_available(&contract_client, &usdc_pool_address).unwrap();
+    let available_after = get_pool_available(&contract_client, &usdc_pool_address).unwrap();
 
     assert_eq!(total_shares_after, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(tokens_after, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(tokens_from_shares_after, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(shares_after, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(available_amount, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(available_after, DEFAULT_DEPOSIT_AMOUNT);
 }
 
 #[test]
