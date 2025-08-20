@@ -26,13 +26,13 @@ pub fn get_price(e: &Env, asset: &Asset) -> Option<i128> {
             (reserve_1, reserve_0)
         };
 
-        let token_reserve_scaled = token_reserve
+        let usdc_reserve_scaled = usdc_reserve
             .checked_mul(PRICE_SCALING_FACTOR)
             .unwrap_or_else(|| panic_with_error!(e, AOCError::OverOrUnderflow));
 
         // 'price' = reserve_x / reserve_y
-        token_reserve_scaled
-            .checked_div(usdc_reserve)
+        usdc_reserve_scaled
+            .checked_div(token_reserve)
             .unwrap_or_else(|| panic_with_error!(e, AOCError::OverOrUnderflow))
     };
 

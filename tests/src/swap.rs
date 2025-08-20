@@ -142,7 +142,8 @@ fn test_get_amount_out() {
     assert_approx_eq_rel(usdc_gold_amount_in, AMOUNT_IN, DELTA_BPS);
 }
 
-// TODO: Add a test for `swap_exact_tokens` and `get_amount_in` consistency after adding such a `swap` endpoint
+// TODO: Add a test for `swap_exact_tokens` and `get_amount_in` consistency after adding such a
+// `swap` endpoint
 
 #[test]
 fn test_get_amount_in() {
