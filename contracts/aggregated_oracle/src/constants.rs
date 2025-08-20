@@ -1,4 +1,4 @@
-use soroban_sdk::{symbol_short, Symbol};
+use soroban_sdk::{Symbol, symbol_short};
 
 pub const USD_SYMBOL: Symbol = symbol_short!("USD");
 
@@ -7,15 +7,15 @@ pub const SECONDS_PER_LEDGER: u32 = 6;
 pub const SECONDS_PER_DAY: u32 = 24 * 60 * 60;
 pub const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;
 
-/// ---- TTL extension ----
+/// TTL extension
 pub const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
 pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 
+/// Dependency contracts
 pub const ROUTER_ADDRESS: &str = "CCMAPXWVZD4USEKDWRYS7DA4Y3D7E2SDMGBFJUCEXTC7VN6CUBGWPFUS";
 pub const USDC_SAC_ADDRESS: &str = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
-pub const XLM_SAC_ADDRESS: &str = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 
-// NB: Same as in https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63
+/// Standard SEP-40 parameters(same as in https://stellar.expert/explorer/testnet/contract/CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63)
 pub const DECIMALS: u32 = 14;
 pub const RESOLUTION: u32 = 300;
 

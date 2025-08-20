@@ -6,10 +6,8 @@ use soroban_sdk::contracterror;
 pub enum AggregatedOracleContractError {
     // Core errors (0-9)
     InternalError = 0,
-    NotAnAdmin = 1,
-    OverOrUnderflow = 2,
-    Unimplemented = 3,
-    UnknownAsset = 43,
+    OverOrUnderflow = 1,
+    Unimplemented = 2,
 }
 
 pub type AOCError = AggregatedOracleContractError;

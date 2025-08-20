@@ -1,5 +1,5 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, BytesN, Env, Vec};
+use soroban_sdk::{Address, BytesN, Env, Vec, contract, contractimpl, panic_with_error};
 
 use crate::{
     constants::{DECIMALS, RESOLUTION, USD_SYMBOL},
@@ -35,9 +35,13 @@ impl AggregatedOracleContract {
     /// Adds an asset to the contract's list
     ///
     /// ### Arguments
-    /// * `asset` - an asset that is added
-    /// * `token_address` - an address of the added asset's token contract
-    pub fn add_asset(e: Env, asset: Asset, token_address: Address) {
+    /// * `asset` - asset that is added
+    /// * `token_address` - address of the added asset's token contract
+    pub fn add_asset(
+        e: Env,
+        asset: Asset,
+        token_address: Address, // NB: Can this be both a SAC and a non-SAC token contract?
+    ) {
         require_admin(&e);
 
         storage::add_asset(&e, &asset, &token_address);
@@ -46,7 +50,7 @@ impl AggregatedOracleContract {
     /// Removes an asset from the contract's list
     ///
     /// ### Arguments
-    /// * `asset` - an asset that is removed
+    /// * `asset` - asset that is removed
     pub fn remove_asset(e: Env, asset: Asset) {
         require_admin(&e);
 
@@ -94,6 +98,7 @@ impl PriceFeedTrait for AggregatedOracleContract {
 // ---- Helpers ----
 
 fn require_admin(e: &Env) {
-    let admin = storage::get_admin(e).unwrap_or_else(|| panic_with_error!(e, AOCError::NotAnAdmin));
+    let admin =
+        storage::get_admin(e).unwrap_or_else(|| panic_with_error!(e, AOCError::InternalError));
     admin.require_auth();
 }

@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aggregated_oracle"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "sep-40-oracle",
  "soroban-sdk",
@@ -786,7 +786,7 @@ dependencies = [
 
 [[package]]
 name = "lending"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "moderc3156",
  "sep-40-oracle",

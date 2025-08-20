@@ -1,5 +1,5 @@
 use sep_40_oracle::Asset;
-use soroban_sdk::{contracttype, vec as svec, Address, Env, Map, Vec};
+use soroban_sdk::{Address, Env, Map, Vec, contracttype, vec as svec};
 
 use crate::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
 
@@ -33,18 +33,16 @@ pub fn add_asset(e: &Env, asset: &Asset, token_address: &Address) {
     e.storage().instance().set(&DataKey::Assets, &assets);
 }
 
-/// Removes asset from the set of assets
+/// Removes asset from the storage
 pub fn remove_asset(e: &Env, asset: &Asset) {
     extend_instance_storage(e);
 
-    let Some(mut assets): Option<Map<Asset, Address>> =
-        e.storage().instance().get(&DataKey::Assets)
-    else {
-        return;
-    };
-    assets.remove(asset.clone());
+    if let Some(assets) = e.storage().instance().get(&DataKey::Assets) {
+        let mut assets: Map<Asset, Address> = assets;
+        assets.remove(asset.clone());
 
-    e.storage().instance().set(&DataKey::Assets, &assets);
+        e.storage().instance().set(&DataKey::Assets, &assets);
+    };
 }
 
 /// # Returns

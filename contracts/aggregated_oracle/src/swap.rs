@@ -1,7 +1,7 @@
 #![allow(clippy::too_many_arguments)] // Omitting Soroswap's clippy warnings
 
 use sep_40_oracle::Asset;
-use soroban_sdk::{panic_with_error, Address, Env};
+use soroban_sdk::{Address, Env, panic_with_error};
 
 use crate::{
     constants::{ROUTER_ADDRESS, SCALED_ONE, USDC_SAC_ADDRESS},
