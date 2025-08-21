@@ -209,7 +209,7 @@ watch(dialog, async (v) => {
     </template>
 
     <div class="multiply-dialog__body">
-      <div class="multiply-dialog__data">
+      <div class="multiply-dialog__data with-border">
 
         <input-widget
           v-model="amount"
@@ -408,17 +408,19 @@ watch(dialog, async (v) => {
       width: 100%;
     }
 
-    &::after {
-      content: '';
-      width: 1px;
-      height: 100%;
-      background-color: $neutral-5;
-      position: absolute;
-      top: 0;
-      right: -24px;
+    &.with-border {
+      &::after {
+        content: '';
+        width: 1px;
+        height: 100%;
+        background-color: $neutral-5;
+        position: absolute;
+        top: 0;
+        right: -24px;
 
-      @media (max-width: $breakpoint-xs) {
-        display: none;
+        @media (max-width: $breakpoint-xs) {
+          display: none;
+        }
       }
     }
   }
@@ -458,9 +460,19 @@ watch(dialog, async (v) => {
 }
 
 body.body--dark {
-  .multiply-dialog .j-input__prepend .popover {
-    .popover-borrow-asset {
-      color: #fff;
+  .multiply-dialog {
+    .j-input__prepend .popover {
+      .popover-borrow-asset {
+        color: #fff;
+      }
+    }
+
+    &__data {
+      &.with-border {
+        &::after {
+          background: $neutral-18;
+        }
+      }
     }
   }
 }
