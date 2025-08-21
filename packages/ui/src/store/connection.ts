@@ -9,7 +9,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const jLendClient = computed(() => clientStore.jLendClient)
 
-  const selectedWalletId = useLocalStorage('selectedWalletId', '')
+  const selectedWalletId = useLocalStorage('selectedWalletId', '', { initOnMounted: true })
 
   const { publicKey, balances } = toRefs(walletStore)
 
