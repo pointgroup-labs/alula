@@ -8,13 +8,14 @@ use soroban_sdk::{
 
 use crate::{
     LCError,
+    accrual::AccrualModel,
     constants::{
-        ACCRUAL_INIT, BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS,
-        DEFAULT_LIQUIDATION_THRESHOLD, LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS,
-        MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
+        BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_LIQUIDATION_THRESHOLD,
+        LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS, MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
     },
     events,
     interest_rate::CompoundRates,
+    interest_rate_m::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{LiquidationValues, Obligation},
@@ -475,7 +476,8 @@ impl LendingContract {
     pub fn get_apy(e: Env, pool_address: Address) -> Result<CompoundRates, LCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        pool.get_apy()
+        // pool.get_apy()
+        todo!()
     }
 
     /// Returns APY calculated for the optimal utilization ratio of a pool in basis points (e.g.,
@@ -535,8 +537,13 @@ fn process_initialize_pool(
     let token_client = TokenClient::new(e, token_address);
     let name = token_client.name();
 
+    let accrual_model = AccrualModel::Compounded;
+    let interest_rate_model = InterestRateModel::Kinked(KinkedIRConfig::default());
+
     let pool = Pool {
         name,
+        accrual_model,
+        interest_rate_model,
         config,
         pool_address: pool_address.clone(),
         token_ticker: token_ticker.clone(),
@@ -545,7 +552,6 @@ fn process_initialize_pool(
         total_shares: 0,
         total_borrowed: 0,
         total_collateral: 0,
-        last_accrual: ACCRUAL_INIT,
         last_accrual_timestamp: e.ledger().timestamp(),
     };
 

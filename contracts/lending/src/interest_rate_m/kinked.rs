@@ -1,0 +1,158 @@
+//! Kinked Interest Rate model implementation.
+//! For more details, see: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
+
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{Env, contracttype, panic_with_error};
+
+use crate::{
+    LCError,
+    constants::{
+        BPS_FACTOR, DEFAULT_BASE_APR_BPS, DEFAULT_KINK2_APR_BPS,
+        DEFAULT_KINK2_UTILIZATION_RATIO_BPS, DEFAULT_MAX_APR_BPS, DEFAULT_TARGET_KINK_APR_BPS,
+        DEFAULT_TARGET_KINK_UTILIZATION_RATIO_BPS,
+    },
+    interest_rate_m::InterestRate,
+    math_utils::MathUtils,
+};
+
+#[contracttype]
+#[derive(Debug)]
+pub struct KinkedIRConfig {
+    /// Base APR that is accrued regardless of the utilization ratio of a pool
+    base_apr_bps: u64,
+    /// Target kink utilization ratio
+    target_kink_ur_bps: u64,
+    /// APR that is accrued when the utilization ratio is at the target value
+    target_kink_apr_bps: u64,
+    /// Kink 2 utilization ratio
+    kink2_ur_bps: u64,
+    /// APR that is accrued when the utilization ratio is at the second kink value
+    kink2_apr_bps: u64,
+    /// APR that is accrued when the utilization ratio is at 100%
+    max_apr_bps: u64,
+}
+
+impl Default for KinkedIRConfig {
+    fn default() -> Self {
+        Self {
+            base_apr_bps: DEFAULT_BASE_APR_BPS,
+            target_kink_ur_bps: DEFAULT_TARGET_KINK_UTILIZATION_RATIO_BPS,
+            target_kink_apr_bps: DEFAULT_TARGET_KINK_APR_BPS,
+            kink2_ur_bps: DEFAULT_KINK2_UTILIZATION_RATIO_BPS,
+            kink2_apr_bps: DEFAULT_KINK2_APR_BPS,
+            max_apr_bps: DEFAULT_MAX_APR_BPS,
+        }
+    }
+}
+
+impl InterestRate for KinkedIRConfig {
+    fn compute_borrow_apr(&self, utilization_ratio_bps: u64) -> Result<u64, LCError> {
+        if utilization_ratio_bps < self.target_kink_ur_bps {
+            self.calculate_pre_target_kink_apr(utilization_ratio_bps)
+        } else if utilization_ratio_bps < self.kink2_ur_bps {
+            self.calculate_pre_kink_2_apr(utilization_ratio_bps)
+        } else {
+            self.calculate_post_kink_2_apr(utilization_ratio_bps)
+        }
+    }
+}
+
+impl KinkedIRConfig {
+    pub fn new(
+        e: &Env,
+        base_apr_bps: u64,
+        target_kink_ur_bps: u64,
+        target_kink_apr_bps: u64,
+        kink2_ur_bps: u64,
+        kink2_apr_bps: u64,
+        max_apr_bps: u64,
+    ) -> Self {
+        let config = Self {
+            base_apr_bps,
+            target_kink_ur_bps,
+            target_kink_apr_bps,
+            kink2_ur_bps,
+            kink2_apr_bps,
+            max_apr_bps,
+        };
+
+        if config.validate().is_err() {
+            panic_with_error!(e, LCError::InvalidLoanPoolConfig);
+        }
+
+        config
+    }
+
+    fn validate(&self) -> Result<(), &str> {
+        let &Self {
+            base_apr_bps,
+            target_kink_apr_bps,
+            kink2_apr_bps,
+            max_apr_bps,
+            target_kink_ur_bps,
+            kink2_ur_bps,
+            ..
+        } = self;
+
+        // Які в нас тут мають бути обмеження?
+
+        // if base_apr
+
+        Ok(())
+    }
+
+    /// Computes borrow `APR` if the utilization ratio precedes the target utilization ratio
+    fn calculate_pre_target_kink_apr(&self, utilization_ratio_bps: u64) -> Result<u64, LCError> {
+        // 'borrow_APR' = base_apr + (utilization_ratio_bps/target_kink_bps) * (target_kink_apr_bps
+        // - base_apr_bps)
+        let target_base_diff_apr_bps = self.target_kink_apr_bps - self.base_apr_bps; // safe
+
+        let product_term = target_base_diff_apr_bps
+            .fixed_mul_floor(utilization_ratio_bps, self.target_kink_ur_bps)
+            .map_over_or_underflow()?;
+        let res = target_base_diff_apr_bps
+            .checked_add(product_term)
+            .map_over_or_underflow()?;
+
+        Ok(res)
+    }
+
+    fn calculate_pre_kink_2_apr(&self, utilization_ratio_bps: u64) -> Result<u64, LCError> {
+        // 'borrow_APR' = target_kink_apr + [(utilization_ratio_bps -
+        // target_kink_ur_bps)/(kink2_ur_bps - target_kink_ur_bps)]*(kink2_apr - target_kink_apr)
+
+        let ur_diff = utilization_ratio_bps - self.target_kink_ur_bps; // safe
+        let max_ur_diff = self.kink2_ur_bps - self.target_kink_ur_bps; // safe
+        let kink2_target_diff_apr = self.kink2_apr_bps - self.target_kink_apr_bps; // safe
+
+        let second_term = kink2_target_diff_apr
+            .fixed_mul_floor(ur_diff, max_ur_diff)
+            .map_over_or_underflow()?;
+        let res = self
+            .target_kink_apr_bps
+            .checked_add(second_term)
+            .map_over_or_underflow()?;
+
+        Ok(res)
+    }
+
+    fn calculate_post_kink_2_apr(&self, utilization_ratio_bps: u64) -> Result<u64, LCError> {
+        // `borrow_APR` = kink2_apr + [(utilization_ratio_bps - kink2_ur_bps)/(10_000 -
+        // kink2_ur_bps)]*(max_apr - kink2_apr)
+
+        let ur_diff = utilization_ratio_bps - self.kink2_ur_bps; // safe
+        let max_ur_diff = (BPS_FACTOR as u64) - self.kink2_ur_bps; // safe
+        let max_kink2_diff_apr = self.max_apr_bps - self.kink2_apr_bps; // safe
+
+        let second_term = max_kink2_diff_apr
+            .fixed_mul_floor(ur_diff, max_ur_diff)
+            .map_over_or_underflow()?;
+
+        let res = self
+            .kink2_apr_bps
+            .checked_add(second_term)
+            .map_over_or_underflow()?;
+
+        Ok(res)
+    }
+}

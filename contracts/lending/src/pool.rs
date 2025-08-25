@@ -3,6 +3,7 @@ use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype, symbol_short}
 
 use crate::{
     LCError,
+    accrual::AccrualModel,
     constants::{
         BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
         DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
@@ -10,6 +11,7 @@ use crate::{
         DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
     },
     events,
+    interest_rate_m::InterestRateModel,
     math_utils::MathUtils,
     storage,
 };
@@ -18,7 +20,6 @@ pub type PoolAddress = Address;
 pub type UserAddress = Address;
 
 #[contracttype]
-#[derive(Debug, Eq, PartialEq)]
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
@@ -34,12 +35,12 @@ pub struct Pool {
     pub available: i128,
     /// The total amount of deposited collateral assets that don't accrue interest
     pub total_collateral: i128,
+    /// Interest rate model(+configuration) used for interest rate calculation
+    pub interest_rate_model: InterestRateModel,
+    /// Accrual model used for accruing `total_borrowed` amount on the pool
+    pub accrual_model: AccrualModel,
     /// Configuration settings for the pool
     pub config: PoolConfig,
-    /// The numerical value that is used to determine the scaling factor required for updating the
-    /// borrowed amount with interest, i.e. new_borrowed = (current_accrual \ last_accrual) *
-    /// borrowed
-    pub last_accrual: i128,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
@@ -47,6 +48,37 @@ pub struct Pool {
     /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
     pub name: String,
 }
+
+// #[contracttype]
+// #[derive(Debug, Eq, PartialEq)]
+// pub struct Pool {
+//     /// The address of the loan pool
+//     pub pool_address: Address,
+//     /// The address of the token associated with the pool
+//     pub token_address: Address,
+//     /// The ticker symbol of the associated token, which is used to identify the token in the
+// pool     pub token_ticker: Symbol,
+//     /// The total amount of borrowed assets. This value increases with interest rate accrual
+//     pub total_borrowed: i128,
+//     /// The total amount of deposited assets that accrue interest
+//     pub total_shares: i128,
+//     /// The currently available for borrowing tokens
+//     pub available: i128,
+//     /// The total amount of deposited collateral assets that don't accrue interest
+//     pub total_collateral: i128,
+//     /// Configuration settings for the pool
+//     pub config: PoolConfig,
+//     /// The numerical value that is used to determine the scaling factor required for updating
+// the     /// borrowed amount with interest, i.e. new_borrowed = (current_accrual \ last_accrual) *
+//     /// borrowed
+//     pub last_accrual: i128,
+//     /// The timestamp of the last accrual re-calculation
+//     pub last_accrual_timestamp: u64,
+//     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
+//     /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
+//     /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
+//     pub name: String,
+// }
 
 impl Pool {
     fn adjust_field(e: &Env, current_value: i128, adjusting_amount: i128) -> Result<i128, LCError> {
@@ -232,18 +264,23 @@ impl Pool {
 
 #[contracttype]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct PoolConfig2 {
+    pub reserve_ratio_bps: i128,
+    pub liquidation_close_factor_bps: i128,
+    pub liquidation_incentive_bps: i128,
+    pub supply_limit: i128,
+    pub utilization_ratio_limit_bps: i128,
+    pub open_ltv_bps: i128,
+    pub close_ltv_bps: i128,
+    // TODO: in which units this must be?
+    pub liability_factor: i128,
+}
+
+#[contracttype]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+// TODO: Soon, this config will become obsolete and will be
+// replaced by a few adjacent configs
 pub struct PoolConfig {
-    /// Base interest rate applied regardless of utilization, expressed per second
-    /// in 1/`SCALED_ONE` units. Must be positive
-    pub base_rate_per_second: i128,
-    /// Positive Optimal Utilization Ratio
-    pub optimal_utilization_ratio_bps: i128,
-    /// Interest rate slope before reaching optimal utilization ratio
-    /// Controls how aggressively rates increase with utilization below the optimal point
-    pub slope1: i128,
-    /// Interest rate slope after exceeding optimal utilization ratio
-    /// Controls how aggressively rates increase with utilization above the optimal point
-    pub slope2: i128,
     /// Percentage of interest payments allocated to protocol reserves
     pub reserve_ratio_bps: i128,
     /// Maximum percentage of a borrower's debt that can be liquidated

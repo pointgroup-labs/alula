@@ -2,12 +2,12 @@ use soroban_fixed_point_math::FixedPoint;
 
 use crate::LCError;
 
-pub trait MathUtils {
-    fn map_over_or_underflow(self) -> Result<i128, LCError>;
+pub trait MathUtils<T> {
+    fn map_over_or_underflow(self) -> Result<T, LCError>;
 }
 
-impl MathUtils for Option<i128> {
-    fn map_over_or_underflow(self) -> Result<i128, LCError> {
+impl<T> MathUtils<T> for Option<T> {
+    fn map_over_or_underflow(self) -> Result<T, LCError> {
         self.ok_or(LCError::OverOrUnderflow)
     }
 }

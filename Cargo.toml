@@ -3,6 +3,7 @@ resolver = "2"
 members = ["contracts/*", "tests", "tests/fuzz"]
 
 [workspace.dependencies]
+enum_dispatch = "0.3.13"
 moderc3156 = { git = "https://github.com/xycloo/xycloans", rev = "d9a7ae1" }
 sep-40-oracle = { version = "1.2.2" }
 soroban-fixed-point-math = "1.3.0"
