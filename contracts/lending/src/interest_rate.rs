@@ -9,7 +9,7 @@ use crate::{
     accrual::Accrual,
     constants::{BPS_FACTOR, SECONDS_IN_YEAR},
     events,
-    interest_rate_m::InterestRate,
+    interest_rate_model::InterestRate,
     math_utils::MathUtils,
     pool::Pool,
 };
@@ -32,30 +32,6 @@ pub struct AnnualPercentageYields {
     pub borrow_bps: u32,
     pub supply_bps: u32,
 }
-
-// impl TryFrom<CompoundRateMultipliers> for CompoundRates {
-//     type Error = LCError;
-
-//     fn try_from(value: CompoundRateMultipliers) -> Result<Self, Self::Error> {
-//         const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
-
-//         let borrow_multiplier_bps =
-//             u32::try_from(value.borrow / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
-//         let supply_multiplier_bps =
-//             u32::try_from(value.supply / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
-
-//         let borrow_bps = borrow_multiplier_bps
-//             .checked_sub(BPS_FACTOR as u32)
-//             .ok_or(LCError::OverOrUnderflow)?;
-
-//         let supply_bps = supply_multiplier_bps.saturating_sub(BPS_FACTOR as u32);
-
-//         Ok(Self {
-//             borrow_bps,
-//             supply_bps,
-//         })
-//     }
-// }
 
 fn multiplier_to_percentage_yield(multiplier: i128) -> Result<u32, LCError> {
     const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
@@ -119,26 +95,6 @@ impl Pool {
 
         Ok(res)
     }
-
-    // fn update_accruals(&mut self, borrow_multiplier: i128, timestamp: u64) -> Result<(), LCError>
-    // {     let new_accrual = self
-    //         .last_accrual
-    //         .fixed_mul_ceil(borrow_multiplier, SCALED_ONE)
-    //         .map_over_or_underflow()?;
-
-    //     // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
-    //     // to prevent inconsistencies. This won't be the issue if to switch to bTokens
-    //     let new_total_borrowed = self
-    //         .total_borrowed
-    //         .fixed_mul_floor(new_accrual, self.last_accrual)
-    //         .map_over_or_underflow()?;
-
-    //     self.total_borrowed = new_total_borrowed;
-    //     self.last_accrual = new_accrual;
-    //     self.last_accrual_timestamp = timestamp;
-
-    //     Ok(())
-    // // }
 
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, LCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
@@ -204,43 +160,6 @@ impl Pool {
                 .map_over_or_underflow()
         }
     }
-
-    // fn calculate_interest_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError> {
-    //     if utilization_ratio_bps < self.config.optimal_utilization_ratio_bps {
-    //         self.calculate_pre_threshold_rate(utilization_ratio_bps)
-    //     } else {
-    //         self.calculate_post_threshold_rate(utilization_ratio_bps)
-    //     }
-    // }
-
-    // fn calculate_pre_threshold_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError>
-    // {     self.config
-    //         .base_rate_per_second
-    //         .checked_add(
-    //             self.config
-    //                 .slope1
-    //                 .checked_mul(utilization_ratio_bps)
-    //                 .map_over_or_underflow()?,
-    //         )
-    //         .map_over_or_underflow()
-    // }
-
-    // fn calculate_post_threshold_rate(&self, utilization_ratio_bps: i128) -> Result<i128, LCError>
-    // {     let pre_threshold_rate =
-    //         self.calculate_pre_threshold_rate(self.config.optimal_utilization_ratio_bps)?;
-
-    //     let excess_utilization = utilization_ratio_bps
-    //         .checked_sub(self.config.optimal_utilization_ratio_bps)
-    //         .map_over_or_underflow()?;
-
-    //     let post_threshold_rate = excess_utilization
-    //         .checked_mul(self.config.slope2)
-    //         .map_over_or_underflow()?;
-
-    //     pre_threshold_rate
-    //         .checked_add(post_threshold_rate)
-    //         .map_over_or_underflow()
-    // }
 }
 
 #[cfg(test)]
@@ -253,7 +172,7 @@ mod tests {
     use super::*;
     use crate::{
         accrual::AccrualModel,
-        interest_rate_m::{InterestRateModel, kinked::KinkedIRConfig},
+        interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
         pool::PoolConfig,
     };
 

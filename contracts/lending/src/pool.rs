@@ -10,7 +10,7 @@ use crate::{
         DEFAULT_UTILIZATION_RATIO_LIMIT, MAX_LIABILITY_FACTOR,
     },
     events,
-    interest_rate_m::InterestRateModel,
+    interest_rate_model::InterestRateModel,
     math_utils::MathUtils,
     storage,
 };

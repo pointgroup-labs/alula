@@ -2,7 +2,7 @@
 
 use lending::{
     accrual::AccrualModel,
-    interest_rate_m::{InterestRateModel, kinked::KinkedIRConfig},
+    interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     pool::{Pool, PoolConfig},
 };
 use libfuzzer_sys::fuzz_target;

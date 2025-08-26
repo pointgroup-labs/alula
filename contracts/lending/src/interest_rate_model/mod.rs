@@ -1,7 +1,7 @@
 use enum_dispatch::enum_dispatch;
 use soroban_sdk::contracttype;
 
-use crate::{LCError, interest_rate_m::kinked::KinkedIRConfig};
+use crate::{LCError, interest_rate_model::kinked::KinkedIRConfig};
 
 #[enum_dispatch]
 pub trait InterestRate {

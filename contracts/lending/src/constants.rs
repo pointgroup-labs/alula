@@ -63,9 +63,6 @@ pub const DEFAULT_SLOPE1: i128 = 1;
 /// Slope 2 (post-optimal utilization) in bps per utilization unit
 pub const DEFAULT_SLOPE2: i128 = 10;
 
-// /// Initial accrual scaler (fixed-point anchor)
-// pub const ACCRUAL_INIT: i128 = 1_000_000_000_000;
-
 // ---- Interest Rate and Accrual 2 ----
 pub const DEFAULT_BASE_APR_BPS: u64 = 1; // 0.01%
 pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: u64 = 7_000; // 70%

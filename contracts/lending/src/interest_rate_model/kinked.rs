@@ -11,7 +11,7 @@ use crate::{
         DEFAULT_KINK1_UTILIZATION_RATIO_BPS, DEFAULT_KINK2_APR_BPS,
         DEFAULT_KINK2_UTILIZATION_RATIO_BPS, DEFAULT_MAX_APR_BPS,
     },
-    interest_rate_m::InterestRate,
+    interest_rate_model::InterestRate,
     math_utils::MathUtils,
 };
 
@@ -83,17 +83,9 @@ impl KinkedIRConfig {
         config
     }
 
-    // Can we have some meaningful validation here?
+    // TODO: Add some meaningful validation here..
     fn validate(&self) -> Result<(), &str> {
-        let &Self {
-            base_apr_bps,
-            kink1_apr_bps,
-            kink2_apr_bps,
-            max_apr_bps,
-            kink1_ur_bps,
-            kink2_ur_bps,
-            ..
-        } = self;
+        let &Self { .. } = self;
 
         Ok(())
     }

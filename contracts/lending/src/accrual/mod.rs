@@ -1,5 +1,3 @@
-// This must define the trait
-
 use soroban_sdk::contracttype;
 
 use crate::{
@@ -35,8 +33,6 @@ impl Accrual for AccrualModel {
                 let seconds_passed = seconds_passed as u64;
 
                 math_utils::bin_pow(growth_factor, seconds_passed, NEW_SCALED_ONE)
-
-                // this will return 1.01004 * NEW_SCALED_ONE for .01 APR which is minimum
             }
         }
     }

@@ -15,7 +15,7 @@ use crate::{
     },
     events,
     interest_rate::AnnualPercentageYields,
-    interest_rate_m::{InterestRateModel, kinked::KinkedIRConfig},
+    interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::Obligation,
