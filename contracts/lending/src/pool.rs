@@ -256,17 +256,15 @@ impl Pool {
 
     /// Checks if the pool is empty
     pub fn is_empty(&self) -> bool {
-        if self.total_j_tokens_amount == 0 {
-            if self.available != 0 {
+        if self.total_j_tokens_amount == 0
+            && self.available != 0 {
                 // TODO: What to do in these cases?
             }
-        }
 
-        if self.total_d_tokens_amount == 0 {
-            if self.total_borrowed != 0 {
+        if self.total_d_tokens_amount == 0
+            && self.total_borrowed != 0 {
                 // TODO: What to do in these cases?
             }
-        }
 
         self.total_j_tokens_amount == 0
             && self.total_d_tokens_amount == 0

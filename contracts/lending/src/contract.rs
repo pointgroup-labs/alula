@@ -418,7 +418,7 @@ impl LendingContract {
     /// ### Arguments
     /// * `user` - user whose obligation interest is accrued
     pub fn accrue_interest(e: Env, user: Address) -> Result<(), LCError> {
-        let mut obligation = Obligation::try_get(&e, &user)?;
+        let obligation = Obligation::try_get(&e, &user)?;
 
         obligation.accrue_interest(&e)?;
         obligation.set(&e);

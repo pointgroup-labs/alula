@@ -1,4 +1,3 @@
-use core::borrow;
 
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, Map, Vec, contracttype};
@@ -9,7 +8,7 @@ use crate::{
     contract::get_asset_price,
     events,
     math_utils::MathUtils,
-    pool::{Pool, PoolConfig},
+    pool::Pool,
     storage,
 };
 
@@ -402,10 +401,10 @@ impl Obligation {
             .borrows
             .get(pool_address.clone())
             .ok_or(LCError::DepositDoesNotExist)?;
-        let borrow_pool = Pool::try_get(&e, pool_address)?;
+        let borrow_pool = Pool::try_get(e, pool_address)?;
 
         let total_debt =
-            borrow_pool.compute_tokens_from_d_tokens(&e, borrow_obligation.d_tokens)?;
+            borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
         let borrowed = borrow_obligation.borrowed;
 
         if total_debt < borrowed {
@@ -430,7 +429,7 @@ impl Obligation {
         let borrow_obligation = self
             .borrows
             .get(pool_address.clone())
-            .ok_or_else(|| LCError::BorrowDoesNotExist)?;
+            .ok_or(LCError::BorrowDoesNotExist)?;
         let borrow_pool = Pool::try_get(e, pool_address).map_err(|_| {
             // TODO: Add an event?
 
@@ -552,11 +551,10 @@ impl DepositObligation {
     }
 
     pub fn is_empty(&self) -> bool {
-        if self.j_tokens == 0 {
-            if self.deposited != 0 {
+        if self.j_tokens == 0
+            && self.deposited != 0 {
                 // TODO: Invariant breakage
             }
-        }
 
         self.j_tokens == 0 && self.collateral == 0
     }
