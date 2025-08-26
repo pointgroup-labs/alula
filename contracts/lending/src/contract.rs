@@ -808,49 +808,10 @@ fn process_withdraw(
 ) -> Result<(), LCError> {
     require_nonnegative(amount)?;
 
-    // let mut obligation = Obligation::try_get(e, user)?;
-    // obligation.accrue_interest(e)?;
+    // TODO: Refactor when markets are a thing
+    todo!();
 
-    // let mut pool = Pool::try_get(e, pool_address)?;
-
-    // let max_healthy_collateral_removed_amount =
-    //     obligation.compute_max_healthy_collateral_removed_amount(e, pool_address)?;
-
-    // let cap_withdrawn_tokens_amount = i128::min(amount, max_healthy_collateral_removed_amount);
-
-    // let obligation_shares = obligation.get_shares(pool_address)?;
-    // let cap_shares_amount = pool.compute_shares_from_tokens(e, cap_withdrawn_tokens_amount)?;
-
-    // let burnt_shares_amount = i128::min(cap_shares_amount, obligation_shares);
-
-    // let withdrawn_tokens_amount = pool.compute_tokens_from_shares(e, burnt_shares_amount)?;
-
-    // if withdrawn_tokens_amount > pool.available {
-    //     return Err(LCError::NotEnoughPoolFunds);
-    // }
-
-    // obligation.withdraw(e, pool_address, burnt_shares_amount)?;
-
-    // pool.adjust(e, -burnt_shares_amount)?;
-    // pool.adjust_available(e, -withdrawn_tokens_amount)?;
-
-    // if obligation.is_empty() {
-    //     obligation.remove(e);
-    // } else {
-    //     obligation.set(e);
-    // }
-    // pool.set(e);
-
-    // let token_client = token::Client::new(e, &pool.token_address);
-    // token_client.transfer(
-    //     &e.current_contract_address(),
-    //     user,
-    //     &withdrawn_tokens_amount,
-    // );
-
-    // events::withdraw(e, pool_address, user, withdrawn_tokens_amount);
-
-    Ok(())
+    // Ok(())
 }
 
 fn process_flash_loan(
