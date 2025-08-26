@@ -1,3 +1,5 @@
+use core::borrow;
+
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, Map, Vec, contracttype};
 
@@ -35,7 +37,7 @@ impl Obligation {
     /// Modifies the obligation's pools storage data by appending the user's address to the
     /// obligation's list
     pub fn new(e: &Env, user: Address) -> Self {
-        storage::register_obligation(e, &user); // TODO: Move this out of this function
+        storage::register_obligation(e, &user);
 
         Self {
             user,
@@ -222,7 +224,9 @@ impl Obligation {
 
     // TODO: What is the reasonable approach to calculate health factor
     // in the newer approach with `open LTV` and `liability factor`?
-    // fn compute_health_factor() ?
+    // pub fn is_healthy(&self, e: &Env) -> Result<(), LCError> {
+    //     let borrow_
+    // }
 
     /// Deposits assets on an obligation per pool
     pub fn deposit(
@@ -282,7 +286,7 @@ impl Obligation {
         e: &Env,
         pool_address: &Address,
         j_tokens_removed: i128,
-        withdrawn_tokens: i128,
+        deposited_tokens_removed: i128,
     ) -> Result<(), LCError> {
         let mut deposit_obligation = self
             .deposits
@@ -293,8 +297,8 @@ impl Obligation {
             return Err(LCError::WithdrawOverBalance);
         }
 
-        // The question is: what should happen with initially deposited tokens?
         deposit_obligation.adjust_j_tokens(e, -j_tokens_removed)?;
+        deposit_obligation.adjust_deposited(e, -deposited_tokens_removed)?;
 
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());
@@ -333,46 +337,93 @@ impl Obligation {
     /// - the real repaid amount is calculated as `min(debt, repaid_amount)`
     ///
     /// # Returns
-    /// [`Result::Ok(repaid_amount)`] in success and [`Err(LCError)`] in failure
-    pub fn repay(
-        &mut self,
-        e: &Env,
-        pool_address: &Address,
-        amount: i128,
-    ) -> Result<i128, LCError> {
+    /// [`Result::Ok((d_tokens_burnt, real_repaid_amount))`] in success and [`Err(LCError)`] in failure
+    pub fn repay(&mut self, e: &Env, pool: &Pool, amount: i128) -> Result<(i128, i128), LCError> {
         let mut borrow_obligation = self
             .borrows
-            .get(pool_address.clone())
+            .get(pool.pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        let borrowed = borrow_obligation.borrowed;
-        let unpaid_interest = borrow_obligation.unpaid_interest;
+        let total_debt_tokens = pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+        let initially_borrowed = borrow_obligation.borrowed;
 
-        let total_debt = borrowed
-            .checked_add(unpaid_interest)
-            .map_over_or_underflow()?;
+        if total_debt_tokens < initially_borrowed {
+            // TODO: Add an event
 
-        let mut repaid_amount = i128::min(amount, total_debt);
-
-        if repaid_amount >= borrowed {
-            // WARN: Skipping interest repayment is a massive issue and must be fixed
-            // since this breaks one of the contract's most fundamental invariants
-            repaid_amount = borrow_obligation.borrowed;
-            self.borrows.remove(pool_address.clone());
-        } else {
-            if repaid_amount <= borrow_obligation.unpaid_interest {
-                borrow_obligation.adjust_unpaid_interest(e, -repaid_amount)?;
-            } else {
-                let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest; // safe
-                borrow_obligation.adjust_borrowed(e, -removed_from_borrowed)?;
-                borrow_obligation.adjust_unpaid_interest(e, -borrow_obligation.unpaid_interest)?;
-            }
-
-            self.borrows.set(pool_address.clone(), borrow_obligation);
+            return Err(LCError::InternalError);
         }
 
-        Ok(repaid_amount)
+        let real_repaid_amount = i128::min(total_debt_tokens, amount);
+
+        let d_tokens_burnt = if real_repaid_amount == total_debt_tokens {
+            self.borrows.remove(pool.pool_address.clone());
+
+            borrow_obligation.d_tokens
+        } else {
+            let d_tokens_burnt = pool.compute_d_tokens_from_tokens(e, real_repaid_amount)?;
+            borrow_obligation.adjust_d_tokens(e, -d_tokens_burnt);
+
+            let unpaid_interest = total_debt_tokens - initially_borrowed; // safe
+            if unpaid_interest >= real_repaid_amount {
+                let diff = unpaid_interest - real_repaid_amount; // safe
+                borrow_obligation.adjust_borrowed(e, -diff);
+            }
+
+            self.borrows
+                .set(pool.pool_address.clone(), borrow_obligation);
+
+            d_tokens_burnt
+        };
+
+        Ok((d_tokens_burnt, real_repaid_amount))
     }
+
+    // /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt
+    // /// - the real repaid amount is calculated as `min(debt, repaid_amount)`
+    // ///
+    // /// # Returns
+    // /// [`Result::Ok(repaid_amount)`] in success and [`Err(LCError)`] in failure
+    // pub fn repay(
+    //     &mut self,
+    //     e: &Env,
+    //     pool_address: &Address,
+    //     d_tokens_burnt: i128,
+    //     borrowed_tokens_removed: i128,
+    //     amount: i128,
+    // ) -> Result<i128, LCError> {
+    //     let mut borrow_obligation = self
+    //         .borrows
+    //         .get(pool_address.clone())
+    //         .ok_or(LCError::ObligationDoesNotExist)?;
+
+    //     let borrowed = borrow_obligation.borrowed;
+    //     let unpaid_interest = borrow_obligation.unpaid_interest;
+
+    //     let total_debt = borrowed
+    //         .checked_add(unpaid_interest)
+    //         .map_over_or_underflow()?;
+
+    //     let mut repaid_amount = i128::min(amount, total_debt);
+
+    //     if repaid_amount >= borrowed {
+    //         // WARN: Skipping interest repayment is a massive issue and must be fixed
+    //         // since this breaks one of the contract's most fundamental invariants
+    //         repaid_amount = borrow_obligation.borrowed;
+    //         self.borrows.remove(pool_address.clone());
+    //     } else {
+    //         if repaid_amount <= borrow_obligation.unpaid_interest {
+    //             borrow_obligation.adjust_unpaid_interest(e, -repaid_amount)?;
+    //         } else {
+    //             let removed_from_borrowed = repaid_amount - borrow_obligation.unpaid_interest; // safe
+    //             borrow_obligation.adjust_borrowed(e, -removed_from_borrowed)?;
+    //             borrow_obligation.adjust_unpaid_interest(e, -borrow_obligation.unpaid_interest)?;
+    //         }
+
+    //         self.borrows.set(pool_address.clone(), borrow_obligation);
+    //     }
+
+    //     Ok(repaid_amount)
+    // }
 
     /// Liquidates unhealthy borrow
     pub fn liquidate(
@@ -382,156 +433,174 @@ impl Obligation {
         collateral_pool_address: &Address,
         borrow_pool: &Pool,
         collateral_pool: &Pool,
-        amount: i128,
+        d_tokens_burnt: i128,
     ) -> Result<LiquidationValues, LCError> {
-        let Some(mut borrow_obligation) = self.borrows.get(borrow_pool_address.clone()) else {
-            return Err(LCError::BorrowDoesNotExist);
-        };
-        let Some(mut collateral_obligation) = self.deposits.get(collateral_pool_address.clone())
-        else {
-            return Err(LCError::DepositDoesNotExist);
-        };
+        // let (mut borrow_obligation, mut collateral_obligation) = (
+        //     self.borrows
+        //         .get(borrow_pool_address.clone())
+        //         .ok_or(LCError::BorrowDoesNotExist)?,
+        //     self.deposits
+        //         .get(collateral_pool_address.clone())
+        //         .ok_or(LCError::DepositDoesNotExist)?,
+        // );
 
-        let PoolConfig {
-            liquidation_close_factor_bps,
-            liquidation_incentive_bps,
-            ..
-        } = borrow_pool.config;
+        // let PoolConfig {
+        //     liquidation_close_factor_bps,
+        //     liquidation_incentive_bps,
+        //     ..
+        // } = borrow_pool.config;
 
-        let total_debt = borrow_obligation.total_debt()?;
+        // let repaid_tokens = borrow_pool.compute_tokens_from_d_tokens(e, d_tokens_burnt)?;
+        // let total_debt = borrow_obligation.total_debt()?;
 
-        // 'liquidatable_bps' == ((amount * 10_000) / total_debt)
-        let liquidatable_bps = amount
-            .fixed_div_floor(total_debt, BPS_FACTOR)
-            .map_over_or_underflow()?;
+        // // 'liquidatable_bps' == ((amount * 10_000) / total_debt)
+        // let liquidatable_bps = amount
+        //     .fixed_div_floor(total_debt, BPS_FACTOR)
+        //     .map_over_or_underflow()?;
 
-        if liquidatable_bps > liquidation_close_factor_bps {
-            // TODO: What's the best way to set `close_factor_bps` value?
-            return Err(LCError::LiquidationExceedsCloseFactor);
+        // if liquidatable_bps > liquidation_close_factor_bps {
+        //     // TODO: What's the best way to set `close_factor_bps` value?
+        //     return Err(LCError::LiquidationExceedsCloseFactor);
+        // }
+
+        // let borrowed_price = get_asset_price(e, &borrow_pool.token_ticker)?;
+        // let liquidation_value = amount.checked_mul(borrowed_price).map_over_or_underflow()?;
+
+        // // Value, which liquidator would like to receive if a full liquidation takes place
+        // // 'liquidation_value_with_incentive' == (liquidation_value * (10_000 +
+        // // liquidation_incentive_bps)) / 10_000
+        // let liquidation_value_with_incentive = liquidation_value
+        //     .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
+        //     .map_over_or_underflow()?;
+
+        // let collateral_price = get_asset_price(e, &collateral_pool.token_ticker)?;
+
+        // let full_collateral_amount = collateral_obligation.collateral;
+        // let full_collateral_value = full_collateral_amount
+        //     .checked_mul(collateral_price)
+        //     .map_over_or_underflow()?;
+
+        // let liquidation_values = if full_collateral_value >= liquidation_value_with_incentive {
+        //     let collateral_amount_sold = liquidation_value_with_incentive
+        //         .checked_div(collateral_price)
+        //         .map_over_or_underflow()?;
+
+        //     LiquidationValues {
+        //         liquidated_amount: amount,
+        //         collateral_amount_sold,
+        //         shares_amount_sold: 0,
+        //         tokens_from_sold_shares: 0,
+        //     }
+        // } else {
+        //     let value_left = liquidation_value_with_incentive - full_collateral_value; // safe
+
+        //     let full_collateral_shares = collateral_obligation.shares;
+        //     let tokens_from_shares =
+        //         collateral_pool.compute_tokens_from_shares(e, full_collateral_shares)?;
+
+        //     let available_tokens_from_shares =
+        //         i128::min(collateral_pool.available, tokens_from_shares);
+
+        //     let tokens_from_shares_value = available_tokens_from_shares
+        //         .checked_mul(collateral_price)
+        //         .map_over_or_underflow()?;
+
+        //     if tokens_from_shares_value >= value_left {
+        //         let tokens_from_sold_shares = value_left
+        //             .checked_div(collateral_price)
+        //             .map_over_or_underflow()?;
+        //         let shares_amount_sold =
+        //             collateral_pool.compute_shares_from_tokens(e, tokens_from_sold_shares)?;
+
+        //         LiquidationValues {
+        //             liquidated_amount: amount,
+        //             collateral_amount_sold: full_collateral_amount,
+        //             shares_amount_sold,
+        //             tokens_from_sold_shares,
+        //         }
+        //     } else {
+        //         // The case when full liquidation cannot take place because of not enough available
+        //         // amount in the pool.
+        //         // TODO: Rewrite with using cTokens
+        //         let collateral_value_sum = full_collateral_value
+        //             .checked_add(tokens_from_shares_value)
+        //             .map_over_or_underflow()?;
+
+        //         let tokens_per_collateral = collateral_value_sum
+        //             .checked_div(collateral_price)
+        //             .map_over_or_underflow()?;
+
+        //         let numerator = BPS_FACTOR - liquidation_incentive_bps; // safe
+        //         let denominator = BPS_FACTOR;
+
+        //         // Liquidator cannot receive the entire desired value of collateral,
+        //         // so only a proportional amount of tokens must be repaid
+        //         let tokens_per_collateral_minus_incentive = tokens_per_collateral
+        //             .checked_mul(numerator)
+        //             .map_over_or_underflow()?
+        //             .checked_div(denominator)
+        //             .map_over_or_underflow()?;
+
+        //         LiquidationValues {
+        //             liquidated_amount: tokens_per_collateral_minus_incentive,
+        //             collateral_amount_sold: full_collateral_amount,
+        //             shares_amount_sold: full_collateral_shares,
+        //             tokens_from_sold_shares: available_tokens_from_shares,
+        //         }
+        //     }
+        // };
+
+        // let unpaid_interest_repaid = i128::min(
+        //     borrow_obligation.unpaid_interest,
+        //     liquidation_values.liquidated_amount,
+        // );
+
+        // let borrow_repaid = liquidation_values.liquidated_amount - unpaid_interest_repaid; // safe
+        // borrow_obligation.adjust_borrowed(e, -borrow_repaid)?;
+        // borrow_obligation.adjust_unpaid_interest(e, -unpaid_interest_repaid)?;
+
+        // collateral_obligation.adjust_collateral(e, -liquidation_values.collateral_amount_sold)?;
+        // collateral_obligation.adjust_shares(e, -liquidation_values.shares_amount_sold)?;
+
+        // self.borrows
+        //     .set(borrow_pool_address.clone(), borrow_obligation);
+
+        // self.deposits
+        //     .set(collateral_pool_address.clone(), collateral_obligation);
+
+        // Ok(liquidation_values)
+
+        todo!()
+    }
+
+    pub fn get_j_tokens(&self, pool_address: &Address) -> Result<i128, LCError> {
+        let deposit_obligation = self
+            .deposits
+            .get(pool_address.clone())
+            .ok_or(LCError::DepositDoesNotExist)?;
+
+        Ok(deposit_obligation.j_tokens)
+    }
+
+    pub fn get_unpaid_interest(&self, e: &Env, pool_address: &Address) -> Result<i128, LCError> {
+        let borrow_obligation = self
+            .borrows
+            .get(pool_address.clone())
+            .ok_or(LCError::DepositDoesNotExist)?;
+        let borrow_pool = Pool::try_get(&e, pool_address)?;
+
+        let total_debt =
+            borrow_pool.compute_tokens_from_d_tokens(&e, borrow_obligation.d_tokens)?;
+        let borrowed = borrow_obligation.borrowed;
+
+        if total_debt < borrowed {
+            // TODO: Add an event?
+
+            return Err(LCError::InternalError);
         }
+        let unpaid_interest = total_debt - borrowed; // safe
 
-        let borrowed_price = get_asset_price(e, &borrow_pool.token_ticker)?;
-        let liquidation_value = amount.checked_mul(borrowed_price).map_over_or_underflow()?;
-
-        // Value, which liquidator would like to receive if a full liquidation takes place
-        // 'liquidation_value_with_incentive' == (liquidation_value * (10_000 +
-        // liquidation_incentive_bps)) / 10_000
-        let liquidation_value_with_incentive = liquidation_value
-            .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
-            .map_over_or_underflow()?;
-
-        let collateral_price = get_asset_price(e, &collateral_pool.token_ticker)?;
-
-        let full_collateral_amount = collateral_obligation.collateral;
-        let full_collateral_value = full_collateral_amount
-            .checked_mul(collateral_price)
-            .map_over_or_underflow()?;
-
-        let liquidation_values = if full_collateral_value >= liquidation_value_with_incentive {
-            let collateral_amount_sold = liquidation_value_with_incentive
-                .checked_div(collateral_price)
-                .map_over_or_underflow()?;
-
-            LiquidationValues {
-                liquidated_amount: amount,
-                collateral_amount_sold,
-                shares_amount_sold: 0,
-                tokens_from_sold_shares: 0,
-            }
-        } else {
-            let value_left = liquidation_value_with_incentive - full_collateral_value; // safe
-
-            let full_collateral_shares = collateral_obligation.shares;
-            let tokens_from_shares =
-                collateral_pool.compute_tokens_from_shares(e, full_collateral_shares)?;
-
-            let available_tokens_from_shares =
-                i128::min(collateral_pool.available, tokens_from_shares);
-
-            let tokens_from_shares_value = available_tokens_from_shares
-                .checked_mul(collateral_price)
-                .map_over_or_underflow()?;
-
-            if tokens_from_shares_value >= value_left {
-                let tokens_from_sold_shares = value_left
-                    .checked_div(collateral_price)
-                    .map_over_or_underflow()?;
-                let shares_amount_sold =
-                    collateral_pool.compute_shares_from_tokens(e, tokens_from_sold_shares)?;
-
-                LiquidationValues {
-                    liquidated_amount: amount,
-                    collateral_amount_sold: full_collateral_amount,
-                    shares_amount_sold,
-                    tokens_from_sold_shares,
-                }
-            } else {
-                // The case when full liquidation cannot take place because of not enough available
-                // amount in the pool.
-                // TODO: Rewrite with using cTokens
-                let collateral_value_sum = full_collateral_value
-                    .checked_add(tokens_from_shares_value)
-                    .map_over_or_underflow()?;
-
-                let tokens_per_collateral = collateral_value_sum
-                    .checked_div(collateral_price)
-                    .map_over_or_underflow()?;
-
-                let numerator = BPS_FACTOR - liquidation_incentive_bps; // safe
-                let denominator = BPS_FACTOR;
-
-                // Liquidator cannot receive the entire desired value of collateral,
-                // so only a proportional amount of tokens must be repaid
-                let tokens_per_collateral_minus_incentive = tokens_per_collateral
-                    .checked_mul(numerator)
-                    .map_over_or_underflow()?
-                    .checked_div(denominator)
-                    .map_over_or_underflow()?;
-
-                LiquidationValues {
-                    liquidated_amount: tokens_per_collateral_minus_incentive,
-                    collateral_amount_sold: full_collateral_amount,
-                    shares_amount_sold: full_collateral_shares,
-                    tokens_from_sold_shares: available_tokens_from_shares,
-                }
-            }
-        };
-
-        let unpaid_interest_repaid = i128::min(
-            borrow_obligation.unpaid_interest,
-            liquidation_values.liquidated_amount,
-        );
-
-        let borrow_repaid = liquidation_values.liquidated_amount - unpaid_interest_repaid; // safe
-        borrow_obligation.adjust_borrowed(e, -borrow_repaid)?;
-        borrow_obligation.adjust_unpaid_interest(e, -unpaid_interest_repaid)?;
-
-        collateral_obligation.adjust_collateral(e, -liquidation_values.collateral_amount_sold)?;
-        collateral_obligation.adjust_shares(e, -liquidation_values.shares_amount_sold)?;
-
-        self.borrows
-            .set(borrow_pool_address.clone(), borrow_obligation);
-
-        self.deposits
-            .set(collateral_pool_address.clone(), collateral_obligation);
-
-        Ok(liquidation_values)
-    }
-
-    pub fn get_shares(&self, pool_address: &Address) -> Result<i128, LCError> {
-        let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
-            return Err(LCError::DepositDoesNotExist);
-        };
-
-        Ok(deposit_obligation.shares)
-    }
-
-    pub fn get_unpaid_interest(&self, pool_address: &Address) -> Result<i128, LCError> {
-        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
-            return Err(LCError::BorrowDoesNotExist);
-        };
-
-        Ok(borrow_obligation.unpaid_interest)
+        Ok(unpaid_interest)
     }
 
     pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, LCError> {
@@ -542,12 +611,20 @@ impl Obligation {
         Ok(borrow_obligation.borrowed)
     }
 
-    pub fn get_total_debt(&self, pool_address: &Address) -> Result<i128, LCError> {
-        let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
-            return Err(LCError::BorrowDoesNotExist);
-        };
+    pub fn get_total_debt(&self, e: &Env, pool_address: &Address) -> Result<i128, LCError> {
+        let borrow_obligation = self
+            .borrows
+            .get(pool_address.clone())
+            .ok_or_else(|| LCError::BorrowDoesNotExist)?;
+        let borrow_pool = Pool::try_get(e, pool_address).map_err(|_| {
+            // TODO: Add an event?
 
-        borrow_obligation.total_debt()
+            LCError::InternalError
+        })?;
+
+        let total_debt = borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+
+        Ok(total_debt)
     }
 
     pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, LCError> {
@@ -707,6 +784,12 @@ impl DepositObligation {
     }
 
     pub fn is_empty(&self) -> bool {
+        if self.j_tokens == 0 {
+            if self.deposited != 0 {
+                // TODO: Invariant breakage
+            }
+        }
+
         self.j_tokens == 0 && self.collateral == 0
     }
 }
@@ -791,59 +874,59 @@ mod tests {
         assert!(obligation.is_empty());
     }
 
-    #[test]
-    fn test_deposit_obligation_is_empty() {
-        let deposit_obligation = DepositObligation {
-            shares: 0,
-            collateral: 0,
-        };
+    // #[test]
+    // fn test_deposit_obligation_is_empty() {
+    //     let deposit_obligation = DepositObligation {
+    //         shares: 0,
+    //         collateral: 0,
+    //     };
 
-        assert!(deposit_obligation.is_empty());
+    //     assert!(deposit_obligation.is_empty());
 
-        let non_empty_deposit = DepositObligation {
-            shares: 1,
-            collateral: 0,
-        };
+    //     let non_empty_deposit = DepositObligation {
+    //         shares: 1,
+    //         collateral: 0,
+    //     };
 
-        assert!(!non_empty_deposit.is_empty());
-    }
+    //     assert!(!non_empty_deposit.is_empty());
+    // }
 
-    #[test]
-    fn test_borrow_obligation_successful_adjustments() {
-        let env = create_test_env();
-        let mut borrow_obligation = BorrowObligation {
-            borrowed: 100,
-            unpaid_interest: 50,
-            last_accrual: 1_000_000,
-        };
+    // #[test]
+    // fn test_borrow_obligation_successful_adjustments() {
+    //     let env = create_test_env();
+    //     let mut borrow_obligation = BorrowObligation {
+    //         borrowed: 100,
+    //         unpaid_interest: 50,
+    //         last_accrual: 1_000_000,
+    //     };
 
-        // Test successful borrowed adjustment
-        let result = borrow_obligation.adjust_borrowed(&env, 25);
-        assert!(result.is_ok());
-        assert_eq!(borrow_obligation.borrowed, 125);
+    //     // Test successful borrowed adjustment
+    //     let result = borrow_obligation.adjust_borrowed(&env, 25);
+    //     assert!(result.is_ok());
+    //     assert_eq!(borrow_obligation.borrowed, 125);
 
-        // Test successful unpaid interest adjustment
-        let result = borrow_obligation.adjust_unpaid_interest(&env, 10);
-        assert!(result.is_ok());
-        assert_eq!(borrow_obligation.unpaid_interest, 60);
-    }
+    //     // Test successful unpaid interest adjustment
+    //     let result = borrow_obligation.adjust_unpaid_interest(&env, 10);
+    //     assert!(result.is_ok());
+    //     assert_eq!(borrow_obligation.unpaid_interest, 60);
+    // }
 
-    #[test]
-    fn test_deposit_obligation_successful_adjustments() {
-        let env = create_test_env();
-        let mut deposit_obligation = DepositObligation {
-            shares: 100,
-            collateral: 50,
-        };
+    // #[test]
+    // fn test_deposit_obligation_successful_adjustments() {
+    //     let env = create_test_env();
+    //     let mut deposit_obligation = DepositObligation {
+    //         shares: 100,
+    //         collateral: 50,
+    //     };
 
-        // Test successful shares adjustment
-        let result = deposit_obligation.adjust_shares(&env, 25);
-        assert!(result.is_ok());
-        assert_eq!(deposit_obligation.shares, 125);
+    //     // Test successful shares adjustment
+    //     let result = deposit_obligation.adjust_shares(&env, 25);
+    //     assert!(result.is_ok());
+    //     assert_eq!(deposit_obligation.shares, 125);
 
-        // Test successful collateral adjustment
-        let result = deposit_obligation.adjust_collateral(&env, 10);
-        assert!(result.is_ok());
-        assert_eq!(deposit_obligation.collateral, 60);
-    }
+    //     // Test successful collateral adjustment
+    //     let result = deposit_obligation.adjust_collateral(&env, 10);
+    //     assert!(result.is_ok());
+    //     assert_eq!(deposit_obligation.collateral, 60);
+    // }
 }

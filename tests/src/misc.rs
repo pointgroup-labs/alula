@@ -43,7 +43,7 @@ fn test_pool_is_empty_prior_anything() {
 
     assert_eq!(pool.total_borrowed, 0);
     assert_eq!(pool.total_collateral, 0);
-    assert_eq!(pool.total_shares, 0);
+    assert_eq!(pool.total_j_tokens_amount, 0);
     assert_eq!(pool.available, 0);
 }
 

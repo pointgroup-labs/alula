@@ -16,10 +16,16 @@ pub fn constructor(e: &Env, admin: &Address, liquidation_threshold_percent: i128
 /// Emitted when depositing tokens
 ///
 /// - topics - `["deposit", pool_address: Address, user: Address]`
-/// - data - `[amount: i128, shares_issued: i128]`
-pub fn deposit(e: &Env, pool_address: &Address, user: &Address, amount: i128, shares_issued: i128) {
+/// - data - `[amount: i128, j_tokens_issued: i128]`
+pub fn deposit(
+    e: &Env,
+    pool_address: &Address,
+    user: &Address,
+    amount: i128,
+    j_tokens_issued: i128,
+) {
     let topics = (Symbol::new(e, "deposit"), pool_address, user);
-    let data = (amount, shares_issued);
+    let data = (amount, j_tokens_issued);
 
     e.events().publish(topics, data);
 }
@@ -62,10 +68,16 @@ pub fn swap(
 /// Emitted when tokens are borrowed from a pool
 ///
 /// - topics - `["borrow", pool_address: Address, user: Address]`
-/// - data - `[amount: i128]`
-pub fn borrow(e: &Env, pool_address: &Address, user: &Address, amount: i128) {
+/// - data - `[real_borrowed_amount: i128, d_tokens_issued: i128]`
+pub fn borrow(
+    e: &Env,
+    pool_address: &Address,
+    user: &Address,
+    real_borrowed_amount: i128,
+    d_tokens_issued: i128,
+) {
     let topics = (Symbol::new(e, "borrow"), pool_address, user);
-    let data = (amount,);
+    let data = (real_borrowed_amount, d_tokens_issued);
 
     e.events().publish(topics, data);
 }
@@ -224,6 +236,24 @@ pub fn accrue_interest(e: &Env, user: &Address) {
 }
 
 // ----- Internal Error Events -----
+
+/// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the storage timestamp
+///
+/// - topics - `["current_ledger_timestamp_smaller_than_stored_timestamp"]`
+/// - data - `[current_timestamp: i128, stored_timestamp: i128]`
+pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
+    e: &Env,
+    current_timestamp: u64,
+    stored_timestamp: u64,
+) {
+    let topics = (Symbol::new(
+        e,
+        "current_ledger_timestamp_smaller_than_stored_timestamp",
+    ),);
+    let data = (current_timestamp, stored_timestamp);
+
+    e.events().publish(topics, data);
+}
 
 /// Emitted when a leveraged position incurs bad debt. This typically happens when the value
 /// of the collateral for a leveraged loan drops significantly, making it insufficient

@@ -3,7 +3,10 @@
 use lending::LCError;
 use soroban_sdk::testutils::Ledger;
 
-use crate::{DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation};
+use crate::{
+    DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation, get_obligation_borrowed,
+    get_obligation_total_debt, get_obligation_unpaid_interest,
+};
 
 #[test]
 fn test_repay_zero() {
@@ -108,13 +111,11 @@ fn test_repay_with_interest_accrual() {
     // Borrow 50% of the deposited value
     contract_client.borrow(user, &usdc_pool_address, &(5 * DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    let obligation_borrowed = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .total_debt()
-        .unwrap();
+    let obligation_total_debt =
+        get_obligation_total_debt(&e, &contract_client, user, &usdc_pool_address).unwrap();
     let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
 
-    assert_eq!(obligation_borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
+    assert_eq!(obligation_total_debt, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
     assert_eq!(pool_borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
 
     // Wait for 5 hours to pass by
@@ -123,18 +124,19 @@ fn test_repay_with_interest_accrual() {
     let borrow_obligation =
         get_borrow_obligation(&contract_client, user, &usdc_pool_address).unwrap();
 
-    assert_eq!(borrow_obligation.borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
-    assert!(borrow_obligation.unpaid_interest > 0);
+    let unpaid_interest =
+        get_obligation_unpaid_interest(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
-    let left = borrow_obligation.total_debt().unwrap();
+    assert_eq!(borrow_obligation.borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
+    assert!(unpaid_interest > 0);
+
+    let left =
+        get_obligation_unpaid_interest(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     contract_client.repay(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let obligation_borrowed_new_debt =
-        get_borrow_obligation(&contract_client, user, &usdc_pool_address)
-            .unwrap()
-            .total_debt()
-            .unwrap();
+        get_obligation_total_debt(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     // Notice interest rate accrual
     assert_eq!(
@@ -146,10 +148,7 @@ fn test_repay_with_interest_accrual() {
     e.ledger().with_mut(|li| li.timestamp += 60 * 60 * 15);
 
     let obligation_borrowed_new_debt =
-        get_borrow_obligation(&contract_client, user, &usdc_pool_address)
-            .unwrap()
-            .total_debt()
-            .unwrap();
+        get_obligation_total_debt(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     // Notice interest rate accrual
     assert!(obligation_borrowed_new_debt > left - (DEFAULT_DEPOSIT_AMOUNT / 10));
@@ -182,25 +181,21 @@ fn test_repay_unpaid_interest_only() {
     // Borrow 50% of the deposited value
     contract_client.borrow(user, &usdc_pool_address, &(5 * DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    let unpaid_interest = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .unpaid_interest;
+    let unpaid_interest =
+        get_obligation_unpaid_interest(&e, &contract_client, user, &usdc_pool_address).unwrap();
     assert_eq!(unpaid_interest, 0);
 
     e.ledger().with_mut(|li| li.timestamp += 5 * 60 * 60); // 5 hours
 
-    let unpaid_interest = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .unpaid_interest;
+    let unpaid_interest =
+        get_obligation_unpaid_interest(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     assert!(unpaid_interest > 0);
 
     contract_client.repay(user, &usdc_pool_address, &unpaid_interest);
 
     assert_eq!(
-        get_borrow_obligation(&contract_client, user, &usdc_pool_address)
-            .unwrap()
-            .unpaid_interest,
+        get_obligation_unpaid_interest(&e, &contract_client, user, &usdc_pool_address).unwrap(),
         0
     );
 }

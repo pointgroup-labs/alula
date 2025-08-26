@@ -16,20 +16,20 @@ use crate::{
 };
 
 #[contracttype]
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct KinkedIRConfig {
     /// Base APR that is accrued regardless of the utilization ratio of a pool
-    base_apr_bps: u64,
+    pub base_apr_bps: u64,
     /// Kink 1 utilization ratio
-    kink1_ur_bps: u64,
+    pub kink1_ur_bps: u64,
     /// APR that is accrued when the utilization ratio is at the kink 1 value
-    kink1_apr_bps: u64,
+    pub kink1_apr_bps: u64,
     /// Kink 2 utilization ratio
-    kink2_ur_bps: u64,
+    pub kink2_ur_bps: u64,
     /// APR that is accrued when the utilization ratio is at the kink 2 value
-    kink2_apr_bps: u64,
+    pub kink2_apr_bps: u64,
     /// APR that is accrued when the utilization ratio is at 100%
-    max_apr_bps: u64,
+    pub max_apr_bps: u64,
 }
 
 impl Default for KinkedIRConfig {

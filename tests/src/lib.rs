@@ -282,7 +282,8 @@ impl TestFixture<'_> {
         for pool in &pools {
             assert!(pool.total_borrowed >= 0);
             assert!(pool.total_collateral >= 0);
-            assert!(pool.total_shares >= 0);
+            assert!(pool.total_j_tokens_amount >= 0);
+            assert!(pool.total_d_tokens_amount >= 0);
         }
 
         // Contract's token balances shouldn't be smaller than the corresponding `available` values
@@ -743,14 +744,24 @@ impl RunCommand for WithdrawFromLeveraged {
 // ---- Helpers that encapsulate access to inner structures ----
 
 // -- Obligation --
-pub fn get_obligation_deposit_shares(
+pub fn get_obligation_j_tokens(
     contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
-    Ok(deposit_obligation.shares)
+    Ok(deposit_obligation.j_tokens)
+}
+
+pub fn get_obligation_d_tokens(
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let deposit_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.d_tokens)
 }
 
 pub fn get_obligation_borrowed(
@@ -773,18 +784,49 @@ pub fn get_obligation_collateral(
     Ok(deposit_obligation.collateral)
 }
 
-pub fn get_obligation_computed_tokens_from_shares(
+pub fn get_obligation_total_debt(
     e: &Env,
     contract_client: &LendingContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
     let pool = contract_client.get_pool(pool_address);
-    let user_shares = get_obligation_deposit_shares(contract_client, user, pool_address)?;
+    let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
 
-    let tokens_from_shares = pool.compute_tokens_from_shares(e, user_shares)?;
+    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, d_tokens)?;
 
-    Ok(tokens_from_shares)
+    Ok(deposited_tokens)
+}
+
+pub fn get_obligation_unpaid_interest(
+    e: &Env,
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let total_debt = get_obligation_total_debt(e, contract_client, user, pool_address)?;
+    let borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
+
+    if total_debt < borrowed {
+        return Err(LCError::InternalError);
+    }
+    let unpaid_interest = total_debt - borrowed;
+
+    Ok(unpaid_interest)
+}
+
+pub fn get_obligation_deposited(
+    e: &Env,
+    contract_client: &LendingContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, LCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let j_tokens = get_obligation_j_tokens(contract_client, user, pool_address)?;
+
+    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+
+    Ok(deposited_tokens)
 }
 
 pub fn get_deposit_obligation(
@@ -822,13 +864,13 @@ pub fn get_borrow_obligation(
 }
 
 // -- Pool --
-pub fn get_pool_total_shares(
+pub fn get_pool_total_j_tokens(
     contract_client: &LendingContractClient,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_shares)
+    Ok(pool.total_j_tokens_amount)
 }
 
 pub fn get_pool_total_supply(

@@ -157,7 +157,7 @@ fn test_borrow_health_factor_add_collateral() {
 
     let deposit_obligation2 =
         get_deposit_obligation(&contract_client, user2, &usdc_pool_address).unwrap();
-    assert_eq!(deposit_obligation2.shares, 2 * DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(deposit_obligation2.j_tokens, 2 * DEFAULT_DEPOSIT_AMOUNT);
 
     // Borrow 50% of the deposited value
     contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));

@@ -13,6 +13,7 @@ pub trait Accrual {
     fn calculate_multiplier(&self, apr: i128, seconds_passed: u32) -> Result<i128, LCError>;
 }
 
+#[derive(Debug, Eq, PartialEq)]
 #[contracttype]
 pub enum AccrualModel {
     Compounded,

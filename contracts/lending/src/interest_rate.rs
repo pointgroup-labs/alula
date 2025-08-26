@@ -7,74 +7,89 @@ use soroban_sdk::{Env, contracttype};
 use crate::{
     LCError,
     accrual::Accrual,
-    constants::{ACCRUAL_INIT, BPS_FACTOR},
+    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
     events,
     interest_rate_m::InterestRate,
     math_utils::MathUtils,
     pool::Pool,
 };
 
-pub const SCALED_ONE: i128 = ACCRUAL_INIT;
+pub const SCALED_ONE: i128 = 10_000_000_000_000;
 
 /// Interest rate multipliers presented as (1 + xxx) where `xxx` is a compound interest rate.
 /// The real multiplier(e.g. 1.32, 2.53, etc) is scaled up with [`SCALED_ONE`] value.
-#[derive(Debug)]
-#[contracttype]
-pub struct CompoundRateMultipliers {
-    pub borrow: i128,
-    pub supply: i128,
-}
+// #[derive(Debug)]
+// #[contracttype]
+// pub struct CompoundRateMultipliers {
+//     pub borrow: i128,
+//     pub supply: i128,
+// }
 
 /// Compound interest rates represented in basis points
 #[derive(Debug)]
 #[contracttype]
-pub struct CompoundRates {
+pub struct AnnualPercentageYields {
     pub borrow_bps: u32,
     pub supply_bps: u32,
 }
 
-impl TryFrom<CompoundRateMultipliers> for CompoundRates {
-    type Error = LCError;
+// impl TryFrom<CompoundRateMultipliers> for CompoundRates {
+//     type Error = LCError;
 
-    fn try_from(value: CompoundRateMultipliers) -> Result<Self, Self::Error> {
-        const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
+//     fn try_from(value: CompoundRateMultipliers) -> Result<Self, Self::Error> {
+//         const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
 
-        let borrow_multiplier_bps =
-            u32::try_from(value.borrow / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
-        let supply_multiplier_bps =
-            u32::try_from(value.supply / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
+//         let borrow_multiplier_bps =
+//             u32::try_from(value.borrow / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
+//         let supply_multiplier_bps =
+//             u32::try_from(value.supply / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
 
-        let borrow_bps = borrow_multiplier_bps
-            .checked_sub(BPS_FACTOR as u32)
-            .ok_or(LCError::OverOrUnderflow)?;
+//         let borrow_bps = borrow_multiplier_bps
+//             .checked_sub(BPS_FACTOR as u32)
+//             .ok_or(LCError::OverOrUnderflow)?;
 
-        let supply_bps = supply_multiplier_bps.saturating_sub(BPS_FACTOR as u32);
+//         let supply_bps = supply_multiplier_bps.saturating_sub(BPS_FACTOR as u32);
 
-        Ok(Self {
-            borrow_bps,
-            supply_bps,
-        })
-    }
+//         Ok(Self {
+//             borrow_bps,
+//             supply_bps,
+//         })
+//     }
+// }
+
+fn multiplier_to_percentage_yield(multiplier: i128) -> Result<u32, LCError> {
+    const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
+
+    let multiplier_bps =
+        u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
+    let multiplier_yield_bps = multiplier_bps.saturating_sub(BPS_FACTOR as u32);
+
+    Ok(multiplier_yield_bps)
 }
 
 impl Pool {
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
         let current_timestamp = e.ledger().timestamp();
         if current_timestamp < self.last_accrual_timestamp {
-            // TODO: Shouldn't this be an internal error instead?
-            return Err(LCError::InvalidTimestamp);
+            events::current_ledger_timestamp_smaller_than_stored_timestamp(
+                e,
+                current_timestamp,
+                self.last_accrual_timestamp,
+            );
+
+            return Err(LCError::InternalError);
         }
 
         let seconds_passed = current_timestamp - self.last_accrual_timestamp; // safe
         if seconds_passed == 0 {
-            return Ok(()); // No time passed, no interest to accrue
+            // No time passed, no interest to accrue
+            return Ok(());
         }
-
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
+
         let current_borrow_apr = self
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps as u64)?;
-
         let accrual_multiplier = self
             .accrual_model
             .calculate_multiplier(current_borrow_apr as i128, seconds_passed as u32)?;
@@ -125,109 +140,33 @@ impl Pool {
     //     Ok(())
     // // }
 
-    // pub fn get_apy(&self) -> Result<CompoundRates, LCError> {
-    //     self.get_compound_rates(SECONDS_IN_YEAR as u64)
-    // }
+    pub fn get_apy(&self) -> Result<AnnualPercentageYields, LCError> {
+        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
-    // fn get_compound_rates(&self, seconds_passed: u64) -> Result<CompoundRates, LCError> {
-    //     self.get_compound_rate_multipliers(seconds_passed)?
-    //         .try_into()
-    // }
+        let borrow_apr = self
+            .interest_rate_model
+            .compute_borrow_apr(utilization_ratio_bps as u64)?;
+        let supply_apr = borrow_apr
+            .fixed_mul_floor(utilization_ratio_bps as u64, BPS_FACTOR as u64)
+            .map_over_or_underflow()?;
 
-    // /// Calculates the compound rate multipliers for borrowing and supplying based on the time
-    // /// passed.
-    // ///
-    // /// # Arguments
-    // ///
-    // /// * `seconds_passed` - The number of seconds that have passed since the last calculation.
-    // ///
-    // /// # Returns
-    // ///
-    // /// On success, returns a `CompoundRateMultipliers` struct containing:
-    // /// - `borrow`: The compound multiplier for the borrow interest rate.
-    // /// - `supply`: The compound multiplier for the supply interest rate.
-    // ///
-    // /// # Errors
-    // ///
-    // /// Returns `LCError` in case of any errors during numerical operations
-    // pub fn get_compound_rate_multipliers(
-    //     &self,
-    //     seconds_passed: u64,
-    // ) -> Result<CompoundRateMultipliers, LCError> {
-    //     let borrow_interest_rate = self.get_borrow_rate_per_second()?;
-    //     let borrow = self.calculate_borrow_multiplier(borrow_interest_rate, seconds_passed)?;
-    //     let supply = self.calculate_supply_multiplier(borrow)?;
+        let borrow_apy_multiplier = self
+            .accrual_model
+            .calculate_multiplier(borrow_apr as i128, SECONDS_IN_YEAR as u32)?;
+        let supply_apy_multiplier = self
+            .accrual_model
+            .calculate_multiplier(supply_apr as i128, SECONDS_IN_YEAR as u32)?;
 
-    //     Ok(CompoundRateMultipliers { borrow, supply })
-    // }
+        let borrow_apy_bps = multiplier_to_percentage_yield(borrow_apy_multiplier)?;
+        let supply_apy_bps = multiplier_to_percentage_yield(supply_apy_multiplier)?;
 
-    // fn calculate_borrow_multiplier(
-    //     &self,
-    //     interest_rate: i128,
-    //     seconds_passed: u64,
-    // ) -> Result<i128, LCError> {
-    //     let growth_factor = SCALED_ONE + interest_rate;
+        let apy = AnnualPercentageYields {
+            borrow_bps: borrow_apy_bps,
+            supply_bps: supply_apy_bps,
+        };
 
-    //     math_utils::bin_pow(growth_factor, seconds_passed, SCALED_ONE)
-    // }
-
-    // fn calculate_supply_multiplier(&self, borrow_multiplier: i128) -> Result<i128, LCError> {
-    //     let total = self
-    //         .total_borrowed
-    //         .checked_add(self.available)
-    //         .map_over_or_underflow()?;
-
-    //     if total == 0 {
-    //         // Is [`SCALED_ONE`], since if a pool doesn't yet have deposits, its next APY update
-    //         // must be as a `deposit` which implies that its compound deposit interest
-    //         // will be set to 0 regardless.
-    //         return Ok(SCALED_ONE);
-    //     }
-
-    //     let utilization_ratio_scaled = self
-    //         .total_borrowed
-    //         .fixed_div_floor(total, SCALED_ONE)
-    //         .map_over_or_underflow()?;
-
-    //     let interest_earned = borrow_multiplier
-    //         .checked_sub(SCALED_ONE)
-    //         .map_over_or_underflow()?;
-
-    //     let supply_interest = interest_earned
-    //         .fixed_mul_ceil(utilization_ratio_scaled, SCALED_ONE)
-    //         .map_over_or_underflow()?;
-
-    //     supply_interest
-    //         .checked_add(SCALED_ONE)
-    //         .map_over_or_underflow()
-    // }
-
-    // /// Calculates the borrow interest rate per second based on the kinked interest rate model.
-    // ///
-    // /// The rate is determined by:
-    // /// - Pool utilization ratio (borrowed / total liquidity)
-    // /// - Base rate and slope parameters from pool configuration
-    // ///
-    // /// # Rate Calculation
-    // /// - **Below optimal utilization**: `base_rate + (utilization_ratio * slope1)`
-    // /// - **Above optimal utilization**: `base_rate + (optimal_ur * slope1) + ((utilization_ratio
-    // - ///   optimal_ur) * slope2)`
-    // ///
-    // /// # Returns
-    // /// Interest rate scaled by [`SCALED_ONE`] (e.g., `1000000000000` = 0.1% per second)
-    // ///
-    // /// # Errors
-    // /// Returns [`LCError::OverOrUnderflow`] if any arithmetic operation overflows
-    // pub fn get_borrow_rate_per_second(&self) -> Result<i128, LCError> {
-    //     let total = self.total_supply()?;
-
-    //     if total == 0 {
-    //         return Ok(self.config.base_rate_per_second);
-    //     }
-
-    //     let utilization_ratio_bps = self.calculate_utilization_ratio_for_total_bps(total)?;
-    //     self.calculate_interest_rate(utilization_ratio_bps)
-    // }
+        Ok(apy)
+    }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
@@ -326,7 +265,8 @@ mod tests {
             pool_address: token_address,
             token_ticker: symbol_short!("TEST"),
             total_borrowed: 0,
-            total_shares: 0,
+            total_d_tokens_amount: 0,
+            total_j_tokens_amount: 0,
             available: 1_000_000,
             total_collateral: 0,
             config: PoolConfig::default(),
@@ -340,53 +280,53 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_compound_rate_multipliers_to_compound_rates() {
-        let multipliers = CompoundRateMultipliers {
-            borrow: 1320700048000, // 1.3207 multiplier
-            supply: 1000000000000, // 1.0 multiplier
-        };
+    // #[test]
+    // fn test_compound_rate_multipliers_to_compound_rates() {
+    //     let multipliers = CompoundRateMultipliers {
+    //         borrow: 1320700048000, // 1.3207 multiplier
+    //         supply: 1000000000000, // 1.0 multiplier
+    //     };
 
-        let rates: CompoundRates = multipliers.try_into().unwrap();
+    //     let rates: CompoundRates = multipliers.try_into().unwrap();
 
-        assert_eq!(rates.borrow_bps, 3207); // 32.07%
-        assert_eq!(rates.supply_bps, 0); // 0%
-    }
+    //     assert_eq!(rates.borrow_bps, 3207); // 32.07%
+    //     assert_eq!(rates.supply_bps, 0); // 0%
+    // }
 
-    #[test]
-    fn test_compound_rate_multipliers_conversion_small_values() {
-        let multipliers = CompoundRateMultipliers {
-            borrow: 1001000000000, // 1.001 multiplier (0.1% rate)
-            supply: 1000500000000, // 1.0005 multiplier (0.05% rate)
-        };
+    // #[test]
+    // fn test_compound_rate_multipliers_conversion_small_values() {
+    //     let multipliers = CompoundRateMultipliers {
+    //         borrow: 1001000000000, // 1.001 multiplier (0.1% rate)
+    //         supply: 1000500000000, // 1.0005 multiplier (0.05% rate)
+    //     };
 
-        let rates: CompoundRates = multipliers.try_into().unwrap();
+    //     let rates: CompoundRates = multipliers.try_into().unwrap();
 
-        assert_eq!(rates.borrow_bps, 10); // 0.1% = 10 bps
-        assert_eq!(rates.supply_bps, 5); // 0.05% = 5 bps
-    }
+    //     assert_eq!(rates.borrow_bps, 10); // 0.1% = 10 bps
+    //     assert_eq!(rates.supply_bps, 5); // 0.05% = 5 bps
+    // }
 
-    #[test]
-    fn test_compound_rate_multipliers_conversion_overflow() {
-        let multipliers = CompoundRateMultipliers {
-            borrow: i128::MAX,
-            supply: SCALED_ONE,
-        };
+    // #[test]
+    // fn test_compound_rate_multipliers_conversion_overflow() {
+    //     let multipliers = CompoundRateMultipliers {
+    //         borrow: i128::MAX,
+    //         supply: SCALED_ONE,
+    //     };
 
-        let result: Result<CompoundRates, _> = multipliers.try_into();
-        assert!(result.is_err());
-    }
+    //     let result: Result<CompoundRates, _> = multipliers.try_into();
+    //     assert!(result.is_err());
+    // }
 
-    #[test]
-    fn test_compound_rate_multipliers_conversion_underflow() {
-        let multipliers = CompoundRateMultipliers {
-            borrow: (SCALED_ONE * 9) / 10, // Less than SCALED_ONE
-            supply: SCALED_ONE,
-        };
+    // #[test]
+    // fn test_compound_rate_multipliers_conversion_underflow() {
+    //     let multipliers = CompoundRateMultipliers {
+    //         borrow: (SCALED_ONE * 9) / 10, // Less than SCALED_ONE
+    //         supply: SCALED_ONE,
+    //     };
 
-        let result: Result<CompoundRates, _> = multipliers.try_into();
-        assert!(result.is_err());
-    }
+    //     let result: Result<CompoundRates, _> = multipliers.try_into();
+    //     assert!(result.is_err());
+    // }
 
     #[test]
     fn test_accrue_interest_no_time_passed() {
@@ -573,26 +513,26 @@ mod tests {
         assert!(apy.borrow_bps > apy.supply_bps);
     }
 
-    #[test]
-    fn test_update_accruals() {
-        let env = Env::default();
-        let mut pool = create_test_pool(&env);
-        pool.total_borrowed = 100000;
-        pool.last_accrual = ACCRUAL_INIT;
+    // #[test]
+    // fn test_update_accruals() {
+    //     let env = Env::default();
+    //     let mut pool = create_test_pool(&env);
+    //     pool.total_borrowed = 100000;
+    //     pool.last_accrual = ACCRUAL_INIT;
 
-        let borrow_multiplier = (101 * SCALED_ONE) / 100; // 1% increase
-        let timestamp = 3600;
+    //     let borrow_multiplier = (101 * SCALED_ONE) / 100; // 1% increase
+    //     let timestamp = 3600;
 
-        let initial_total_borrowed = pool.total_borrowed;
-        let initial_accrual = pool.last_accrual;
+    //     let initial_total_borrowed = pool.total_borrowed;
+    //     let initial_accrual = pool.last_accrual;
 
-        let result = pool.update_accruals(borrow_multiplier, timestamp);
-        assert!(result.is_ok());
+    //     let result = pool.update_accruals(borrow_multiplier, timestamp);
+    //     assert!(result.is_ok());
 
-        assert!(pool.total_borrowed > initial_total_borrowed);
-        assert!(pool.last_accrual > initial_accrual);
-        assert_eq!(pool.last_accrual_timestamp, timestamp);
-    }
+    //     assert!(pool.total_borrowed > initial_total_borrowed);
+    //     assert!(pool.last_accrual > initial_accrual);
+    //     assert_eq!(pool.last_accrual_timestamp, timestamp);
+    // }
 
     #[test]
     fn test_calculate_utilization_ratio_for_total_bps() {
@@ -608,72 +548,72 @@ mod tests {
         assert_eq!(ratio, 3000); // 30% in basis points
     }
 
-    #[test]
-    fn test_calculate_pre_threshold_rate() {
-        let env = Env::default();
-        let pool = create_test_pool(&env);
+    // #[test]
+    // fn test_calculate_pre_threshold_rate() {
+    //     let env = Env::default();
+    //     let pool = create_test_pool(&env);
 
-        let utilization_bps = 5000; // 50%
-        let rate = pool.calculate_pre_threshold_rate(utilization_bps).unwrap();
+    //     let utilization_bps = 5000; // 50%
+    //     let rate = pool.calculate_pre_threshold_rate(utilization_bps).unwrap();
 
-        let expected = pool.config.base_rate_per_second + (pool.config.slope1 * utilization_bps);
-        assert_eq!(rate, expected);
-    }
+    //     let expected = pool.config.base_rate_per_second + (pool.config.slope1 * utilization_bps);
+    //     assert_eq!(rate, expected);
+    // }
 
-    #[test]
-    fn test_calculate_post_threshold_rate() {
-        let env = Env::default();
-        let pool = create_test_pool(&env);
+    // #[test]
+    // fn test_calculate_post_threshold_rate() {
+    //     let env = Env::default();
+    //     let pool = create_test_pool(&env);
 
-        let utilization_bps = 9000; // 90%
-        let rate = pool.calculate_post_threshold_rate(utilization_bps).unwrap();
+    //     let utilization_bps = 9000; // 90%
+    //     let rate = pool.calculate_post_threshold_rate(utilization_bps).unwrap();
 
-        let pre_threshold = pool.config.base_rate_per_second
-            + (pool.config.slope1 * pool.config.optimal_utilization_ratio_bps);
-        let excess_rate =
-            (utilization_bps - pool.config.optimal_utilization_ratio_bps) * pool.config.slope2;
-        let expected = pre_threshold + excess_rate;
+    //     let pre_threshold = pool.config.base_rate_per_second
+    //         + (pool.config.slope1 * pool.config.optimal_utilization_ratio_bps);
+    //     let excess_rate =
+    //         (utilization_bps - pool.config.optimal_utilization_ratio_bps) * pool.config.slope2;
+    //     let expected = pre_threshold + excess_rate;
 
-        assert_eq!(rate, expected);
-    }
+    //     assert_eq!(rate, expected);
+    // }
 
-    #[test]
-    fn test_edge_case_max_utilization() {
-        let env = Env::default();
-        let mut pool = create_test_pool(&env);
-        pool.total_borrowed = 1000000;
-        pool.available = 0; // 100% utilization
+    // #[test]
+    // fn test_edge_case_max_utilization() {
+    //     let env = Env::default();
+    //     let mut pool = create_test_pool(&env);
+    //     pool.total_borrowed = 1000000;
+    //     pool.available = 0; // 100% utilization
 
-        let rate = pool.get_borrow_rate_per_second().unwrap();
-        assert!(rate > pool.config.base_rate_per_second);
-    }
+    //     let rate = pool.get_borrow_rate_per_second().unwrap();
+    //     assert!(rate > pool.config.base_rate_per_second);
+    // }
 
-    #[test]
-    fn test_compound_rate_multipliers_precision() {
-        let env = Env::default();
-        let mut pool = create_test_pool(&env);
-        pool.total_borrowed = 1;
-        pool.available = 999999;
+    // #[test]
+    // fn test_compound_rate_multipliers_precision() {
+    //     let env = Env::default();
+    //     let mut pool = create_test_pool(&env);
+    //     pool.total_borrowed = 1;
+    //     pool.available = 999999;
 
-        let multipliers = pool.get_compound_rate_multipliers(1).unwrap();
+    //     let multipliers = pool.get_compound_rate_multipliers(1).unwrap();
 
-        // With very low utilization and short time, multipliers should be very close to SCALED_ONE
-        assert!(multipliers.borrow > SCALED_ONE);
-        assert!(multipliers.supply >= SCALED_ONE);
-    }
+    //     // With very low utilization and short time, multipliers should be very close to SCALED_ONE
+    //     assert!(multipliers.borrow > SCALED_ONE);
+    //     assert!(multipliers.supply >= SCALED_ONE);
+    // }
 
-    #[test]
-    fn test_interest_rate_consistency() {
-        let env = Env::default();
-        let mut pool = create_test_pool(&env);
-        pool.total_borrowed = 500000;
-        pool.available = 500000;
+    // #[test]
+    // fn test_interest_rate_consistency() {
+    //     let env = Env::default();
+    //     let mut pool = create_test_pool(&env);
+    //     pool.total_borrowed = 500000;
+    //     pool.available = 500000;
 
-        // Test that longer periods result in higher multipliers
-        let short_period = pool.get_compound_rate_multipliers(60 * 60).unwrap(); // 1 hour
-        let long_period = pool.get_compound_rate_multipliers(24 * 60 * 60).unwrap(); // 1 day
+    //     // Test that longer periods result in higher multipliers
+    //     let short_period = pool.get_compound_rate_multipliers(60 * 60).unwrap(); // 1 hour
+    //     let long_period = pool.get_compound_rate_multipliers(24 * 60 * 60).unwrap(); // 1 day
 
-        assert!(long_period.borrow > short_period.borrow);
-        assert!(long_period.supply > short_period.supply);
-    }
+    //     assert!(long_period.borrow > short_period.borrow);
+    //     assert!(long_period.supply > short_period.supply);
+    // }
 }

@@ -6,7 +6,7 @@ use soroban_sdk::testutils::Ledger;
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, LCError, TestFixture, get_borrow_obligation,
     get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral,
-    get_obligation_computed_tokens_from_shares,
+    get_obligation_deposited, get_obligation_unpaid_interest,
 };
 
 #[test]
@@ -23,8 +23,10 @@ fn test_withdraw_zero() {
 
     let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()
-        .shares;
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
+        .j_tokens;
+    let pool_shares = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_j_tokens_amount;
 
     assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
@@ -57,8 +59,10 @@ fn test_withdraw() {
 
     let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()
-        .shares;
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
+        .j_tokens;
+    let pool_shares = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_j_tokens_amount;
 
     assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
@@ -68,8 +72,10 @@ fn test_withdraw() {
 
     let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()
-        .shares;
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
+        .j_tokens;
+    let pool_shares = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_j_tokens_amount;
 
     assert_eq!(obligation_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
     assert_eq!(pool_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
@@ -82,7 +88,9 @@ fn test_withdraw() {
         contract_client.try_get_user_obligation(user)
     );
 
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
+    let pool_shares = contract_client
+        .get_pool(&usdc_pool_address)
+        .total_j_tokens_amount;
 
     assert_eq!(pool_shares, 0);
 }
@@ -270,8 +278,7 @@ fn test_withdraw_more_than_open_ltv_allows() {
 
     // Check that there's a deposit left and it is backing the borrowed funds
     let deposit_amount =
-        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &gold_pool_address)
-            .unwrap();
+        get_obligation_deposited(&e, &contract_client, user, &gold_pool_address).unwrap();
 
     // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(
@@ -333,8 +340,7 @@ fn withdraw_up_to_open_ltv() {
 
     // Check that there's a deposit left and it is backing the borrowed funds
     let deposit_amount =
-        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &gold_pool_address)
-            .unwrap();
+        get_obligation_deposited(&e, &contract_client, user, &gold_pool_address).unwrap();
 
     // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(
@@ -468,7 +474,9 @@ fn test_withdraw_small_with_interest_accrual() {
         get_borrow_obligation(&contract_client, user3, &usdc_pool_address).unwrap();
 
     // Check that interest has accrued
-    assert!(borrow_obligation.unpaid_interest > 0);
+    let unpaid_interest =
+        get_obligation_unpaid_interest(&e, &contract_client, user, &usdc_pool_address).unwrap();
+    assert!(unpaid_interest > 0);
 
     // Try withdraw 1 token
     let user_deposit_obligation_before =
@@ -479,5 +487,5 @@ fn test_withdraw_small_with_interest_accrual() {
     let user_deposit_obligation_after =
         get_deposit_obligation(&contract_client, user, &usdc_pool_address).unwrap();
 
-    assert!(user_deposit_obligation_before.shares > user_deposit_obligation_after.shares);
+    assert!(user_deposit_obligation_before.j_tokens > user_deposit_obligation_after.j_tokens);
 }

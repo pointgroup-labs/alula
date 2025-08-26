@@ -19,6 +19,7 @@ pub type PoolAddress = Address;
 pub type UserAddress = Address;
 
 #[contracttype]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
@@ -162,7 +163,7 @@ impl Pool {
             e,
             tokens_amount,
             self.total_j_tokens_amount,
-            self.total_supply(),
+            self.total_supply()?,
         )?;
 
         Ok(j_tokens)

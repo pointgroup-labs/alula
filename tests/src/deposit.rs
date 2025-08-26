@@ -5,8 +5,8 @@ use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT, TestFixture,
-    get_deposit_obligation, get_obligation_computed_tokens_from_shares,
-    get_obligation_deposit_shares, get_pool_available, get_pool_total_shares,
+    get_deposit_obligation, get_obligation_deposited, get_obligation_j_tokens, get_pool_available,
+    get_pool_total_j_tokens,
 };
 
 #[test]
@@ -22,12 +22,10 @@ fn test_deposit() {
     let user = &users[0];
     contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let total_shares_after = get_pool_total_shares(&contract_client, &usdc_pool_address).unwrap();
+    let total_shares_after = get_pool_total_j_tokens(&contract_client, &usdc_pool_address).unwrap();
     let tokens_from_shares_after =
-        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &usdc_pool_address)
-            .unwrap();
-    let shares_after =
-        get_obligation_deposit_shares(&contract_client, user, &usdc_pool_address).unwrap();
+        get_obligation_deposited(&e, &contract_client, user, &usdc_pool_address).unwrap();
+    let shares_after = get_obligation_j_tokens(&contract_client, user, &usdc_pool_address).unwrap();
     let available_after = get_pool_available(&contract_client, &usdc_pool_address).unwrap();
 
     assert_eq!(total_shares_after, DEFAULT_DEPOSIT_AMOUNT);

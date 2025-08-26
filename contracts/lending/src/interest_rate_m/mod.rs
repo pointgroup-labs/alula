@@ -16,6 +16,7 @@ pub trait InterestRate {
     fn compute_borrow_apr(&self, utilization_ratio_bps: u64) -> Result<u64, LCError>;
 }
 
+#[derive(Debug, Eq, PartialEq)]
 #[enum_dispatch(InterestRate)]
 #[contracttype]
 pub enum InterestRateModel {
