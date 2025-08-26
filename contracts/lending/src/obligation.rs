@@ -8,7 +8,7 @@ use crate::{
     events,
     math_utils::MathUtils,
     pool::{Pool, PoolConfig},
-    storage::{self, get_global_state},
+    storage,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,37 +60,36 @@ impl Obligation {
         Ok(())
     }
 
-    // pub fn is_healthy(&self, e: &Env) -> Result<bool, LCError> {
-    //     Ok(self.compute_health_factor_bps(e)? >= HEALTH_FACTOR_THRESHOLD_BPS)
-    // }
-
     pub fn is_empty(&self) -> bool {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
 
-    /// Computes the current borrowed assets summed value per obligation
-    fn compute_borrowed_value(&self, e: &Env) -> Result<i128, LCError> {
+    /// Computes the current borrowed assets summed value per obligation (each asset value is scaled
+    /// with the corresponding `liability factor` value)
+    fn compute_borrowed_value_scaled_w_liability_factors(&self, e: &Env) -> Result<i128, LCError> {
         let mut borrowed_value_sum = 0_i128;
 
         for (borrow_pool_address, borrow_obligation) in self.borrows.iter() {
-            let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
+            let BorrowObligation { d_tokens, .. } = borrow_obligation;
+
+            let borrow_pool = storage::get_pool(e, &borrow_pool_address).ok_or_else(|| {
                 events::pool_is_missing_in_storage(e, &borrow_pool_address);
 
-                return Err(LCError::InternalError);
-            };
+                LCError::InternalError
+            })?;
 
-            let d_tokens_amount = borrow_obligation.d_tokens;
-            // Must add compute_tokens_from_d_tokens on a pool
-            // borrow_pool.com
-
+            let borrowed_tokens = borrow_pool.compute_tokens_from_d_tokens(e, d_tokens)?;
             let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_ticker)?;
 
+            let new_value_term = borrowed_asset_price
+                .checked_mul(borrowed_tokens)
+                .map_over_or_underflow()?;
+            let new_value_term_scaled_w_liability_factor = new_value_term
+                .fixed_mul_ceil(borrow_pool.config.liability_factor_bps, BPS_FACTOR)
+                .map_over_or_underflow()?;
+
             borrowed_value_sum = borrowed_value_sum
-                .checked_add(
-                    borrowed_asset_price
-                        .checked_mul(total_debt)
-                        .map_over_or_underflow()?,
-                )
+                .checked_add(new_value_term_scaled_w_liability_factor)
                 .map_over_or_underflow()?;
         }
 
@@ -99,6 +98,10 @@ impl Obligation {
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
     /// obligation
+    ///
+    /// # Important
+    /// This function is agnostic regardless of a borrow pool, hence, the resulting value isn't
+    /// scaled with any `open LTV` percent
     fn compute_collateral_value(&self, e: &Env) -> Result<i128, LCError> {
         let mut collateral_value_sum = 0_i128;
 
@@ -109,41 +112,32 @@ impl Obligation {
                 ..
             } = deposit_obligation;
 
-            let Some(collateral_pool) = storage::get_pool(e, &collateral_pool_address) else {
-                events::pool_is_missing_in_storage(e, &collateral_pool_address);
+            let collateral_pool =
+                storage::get_pool(e, &collateral_pool_address).ok_or_else(|| {
+                    events::pool_is_missing_in_storage(e, &collateral_pool_address);
 
-                return Err(LCError::InternalError);
-            };
+                    LCError::InternalError
+                })?;
 
-            // TODO: Don't we have a function for this on a pool?
-            let j_tokens_to_tokens = if collateral_pool.total_j_tokens_amount != 0 {
-                j_tokens
-                    .checked_mul(collateral_pool.available + collateral_pool.total_borrowed)
-                    .map_over_or_underflow()?
-                    .checked_div(collateral_pool.total_j_tokens_amount)
-                    .map_over_or_underflow()?
-            } else {
-                0
-            };
-
-            let total_tokens = j_tokens_to_tokens
+            let deposited_tokens = collateral_pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+            let total_collateral_tokens = deposited_tokens
                 .checked_add(collateral)
                 .map_over_or_underflow()?;
-            let asset_price = get_asset_price(e, &collateral_pool.token_ticker)?;
+            let collateral_asset_price = get_asset_price(e, &collateral_pool.token_ticker)?;
+
+            let new_value_term = collateral_asset_price
+                .checked_mul(total_collateral_tokens)
+                .map_over_or_underflow()?;
 
             collateral_value_sum = collateral_value_sum
-                .checked_add(
-                    asset_price
-                        .checked_mul(total_tokens)
-                        .map_over_or_underflow()?,
-                )
+                .checked_add(new_value_term)
                 .map_over_or_underflow()?;
         }
 
         Ok(collateral_value_sum)
     }
 
-    /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a
+    /// Computes the max healthy amount of the collateral token (that is used as a deposit or as a
     /// collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
     /// parameter on the pool
     pub fn compute_max_healthy_collateral_removed_amount(
@@ -151,32 +145,34 @@ impl Obligation {
         e: &Env,
         pool_address: &Address,
     ) -> Result<i128, LCError> {
-        let Some(pool) = storage::get_pool(e, pool_address) else {
+        let pool = storage::get_pool(e, pool_address).ok_or_else(|| {
             events::pool_is_missing_in_storage(e, pool_address);
 
-            return Err(LCError::PoolDoesNotExist);
-        };
+            LCError::PoolDoesNotExist
+        })?;
 
-        let borrowed_value = self.compute_borrowed_value(e)?;
         let collateral_value = self.compute_collateral_value(e)?;
-
-        // 'open_ltv_collateral_value' == (borrowed_value * 10_000) / pool.config.open_ltv_bps
-        let open_ltv_collateral_value = borrowed_value
-            .fixed_div_floor(pool.config.open_ltv_bps, BPS_FACTOR)
+        let collateral_value_scaled = collateral_value
+            .fixed_mul_floor(pool.config.open_ltv_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
+        let borrowed_value_scaled = self.compute_borrowed_value_scaled_w_liability_factors(e)?;
 
-        let token_amount_left = if collateral_value <= open_ltv_collateral_value {
-            // Since current collateral value is already less than required
-            // open_ltv_collateral_value, the collateral removal is prohibited
+        let max_healthy_removed_amount = if collateral_value <= borrowed_value_scaled {
+            // Since the scaled borrowed assets value exceeds the scaled collateral assets value,
+            // the collateral removal is prohibited
             0
         } else {
-            let value_left = collateral_value - open_ltv_collateral_value; // safe
-            let price = get_asset_price(e, &pool.token_ticker)?;
+            let collateral_asset_price = get_asset_price(e, &pool.token_ticker)?;
+            let value_left = collateral_value_scaled - borrowed_value_scaled; // safe
 
-            value_left.checked_div(price).map_over_or_underflow()?
+            // Contrary to [`compute_max_healthy_collateral_removed_amount`], there's no need
+            // to scale down the value left
+            value_left
+                .checked_div(collateral_asset_price)
+                .map_over_or_underflow()?
         };
 
-        Ok(token_amount_left)
+        Ok(max_healthy_removed_amount)
     }
 
     /// Computes the max healthy amount of the token that can be borrowed and that
@@ -186,73 +182,82 @@ impl Obligation {
         e: &Env,
         pool_address: &Address,
     ) -> Result<i128, LCError> {
-        let Some(pool) = storage::get_pool(e, pool_address) else {
-            return Err(LCError::PoolDoesNotExist);
-        };
+        let pool = storage::get_pool(e, pool_address).ok_or_else(|| {
+            events::pool_is_missing_in_storage(e, pool_address);
 
-        let borrowed_value = self.compute_borrowed_value(e)?;
+            LCError::PoolDoesNotExist
+        })?;
+
         let collateral_value = self.compute_collateral_value(e)?;
-
-        // TODO: Must be rewritten when markets are implemented
-        // 'open_ltv_borrowed_value' == (collateral_value * pool.config.open_ltv_bps) / 10_000
-        let open_ltv_borrowed_value = collateral_value
+        let collateral_value_scaled = collateral_value
             .fixed_mul_floor(pool.config.open_ltv_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
+        let borrowed_value_scaled = self.compute_borrowed_value_scaled_w_liability_factors(e)?;
 
-        let max_healthy_borrow_amount = if borrowed_value >= open_ltv_borrowed_value {
-            // Since overall borrowed assets value exceeds the collateral value scaled down with
-            // Open LTV, the borrow is prohibited
+        let max_healthy_added_amount = if borrowed_value_scaled >= collateral_value_scaled {
+            // Since the scaled borrowed assets value exceeds the scaled collateral assets value,
+            // the borrow is prohibited
             0
         } else {
-            let value_left = open_ltv_borrowed_value - borrowed_value; // safe
-            let price = get_asset_price(e, &pool.token_ticker)?;
+            let borrow_asset_price = get_asset_price(e, &pool.token_ticker)?;
+            let value_left = collateral_value_scaled - borrowed_value_scaled; // safe
 
-            value_left.checked_div(price).map_over_or_underflow()?
+            let tokens_per_value_left = value_left
+                .checked_div(borrow_asset_price)
+                .map_over_or_underflow()?;
+
+            // Since the liability factor can exceed 100%, the real amount of a token
+            // that can be borrowed is divided by it
+            tokens_per_value_left
+                .fixed_div_floor(pool.config.liability_factor_bps, BPS_FACTOR)
+                .map_over_or_underflow()?
         };
 
-        Ok(max_healthy_borrow_amount)
+        Ok(max_healthy_added_amount)
     }
 
     pub fn get_all(e: &Env) -> Vec<Address> {
         storage::get_all_obligations(e)
     }
 
-    fn compute_health_factor_bps(&self, e: &Env) -> Result<i128, LCError> {
-        let liquidation_threshold_bps = get_global_state(e).liquidation_threshold_bps;
-
-        let collateral_value = self.compute_collateral_value(e)?;
-        let borrowed_value = self.compute_borrowed_value(e)?;
-
-        if borrowed_value == 0 {
-            // If nothing is borrowed - it's the healthiest obligation it can be
-            return Ok(i64::MAX as i128);
-        }
-
-        // TODO: Instead of `liquidation_threshold_bps`, the minimal `close_ltv` value per borrowed
-        // assets in the market must be used when switching to markets
-        let numerator = collateral_value
-            .checked_mul(liquidation_threshold_bps)
-            .map_over_or_underflow()?;
-        let health_factor_bps = numerator
-            .checked_div(borrowed_value)
-            .map_over_or_underflow()?;
-
-        Ok(health_factor_bps)
-    }
+    // TODO: What is the reasonable approach to calculate health factor
+    // in the newer approach with `open LTV` and `liability factor`?
+    // fn compute_health_factor() ?
 
     /// Deposits assets on an obligation per pool
     pub fn deposit(
         &mut self,
         e: &Env,
         pool_address: &Address,
-        amount: i128,
+        j_tokens_issued: i128,
+        deposited_tokens: i128,
     ) -> Result<(), LCError> {
-        self.adjust_shares(e, pool_address, amount)
+        let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
+
+        deposit_obligation.adjust_j_tokens(e, j_tokens_issued)?;
+        deposit_obligation.adjust_deposited(e, deposited_tokens)?;
+
+        self.deposits.set(pool_address.clone(), deposit_obligation);
+
+        Ok(())
     }
 
     /// Borrows assets on an obligation per pool
-    pub fn borrow(&mut self, e: &Env, pool_address: &Address, amount: i128) -> Result<(), LCError> {
-        self.adjust_borrowed(e, pool_address, amount)
+    pub fn borrow(
+        &mut self,
+        e: &Env,
+        pool_address: &Address,
+        d_tokens_issued: i128,
+        borrowed_tokens: i128,
+    ) -> Result<(), LCError> {
+        let mut borrow_obligation = self.borrows.get(pool_address.clone()).unwrap_or_default();
+
+        borrow_obligation.adjust_d_tokens(e, d_tokens_issued)?;
+        borrow_obligation.adjust_borrowed(e, borrowed_tokens)?;
+
+        self.borrows.set(pool_address.clone(), borrow_obligation);
+
+        Ok(())
     }
 
     /// Adds collateral assets on an obligation per pool
@@ -260,9 +265,15 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool_address: &Address,
-        amount: i128,
+        collateral_tokens: i128,
     ) -> Result<(), LCError> {
-        self.adjust_collateral(e, pool_address, amount)
+        let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
+
+        deposit_obligation.adjust_collateral(e, collateral_tokens)?;
+
+        self.deposits.set(pool_address.clone(), deposit_obligation);
+
+        Ok(())
     }
 
     /// Withdraws assets from an obligation per pool
@@ -270,18 +281,20 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool_address: &Address,
-        shares_amount: i128,
+        j_tokens_removed: i128,
+        withdrawn_tokens: i128,
     ) -> Result<(), LCError> {
         let mut deposit_obligation = self
             .deposits
             .get(pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        if deposit_obligation.shares < shares_amount {
+        if deposit_obligation.j_tokens < j_tokens_removed {
             return Err(LCError::WithdrawOverBalance);
         }
 
-        deposit_obligation.adjust_shares(e, -shares_amount)?;
+        // The question is: what should happen with initially deposited tokens?
+        deposit_obligation.adjust_j_tokens(e, -j_tokens_removed)?;
 
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());
@@ -297,15 +310,15 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool_address: &Address,
-        amount: i128,
+        collateral: i128,
     ) -> Result<(), LCError> {
         let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
 
-        if deposit_obligation.collateral < amount {
+        if deposit_obligation.collateral < collateral {
             return Err(LCError::CollateralRemovalOverbalance);
         }
 
-        deposit_obligation.adjust_collateral(e, -amount)?;
+        deposit_obligation.adjust_collateral(e, -collateral)?;
 
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());
@@ -570,50 +583,55 @@ impl Obligation {
         storage::remove_obligation(e, &self.user);
     }
 
-    fn adjust_shares(
-        &mut self,
-        e: &Env,
-        pool_address: &Address,
-        adjusting_amount: i128,
-    ) -> Result<(), LCError> {
-        let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
-        deposit_obligation.adjust_shares(e, adjusting_amount)?;
-        self.deposits.set(pool_address.clone(), deposit_obligation);
+    // fn adjust_j_tokens(
+    //     &mut self,
+    //     e: &Env,
+    //     pool_address: &Address,
+    //     adjusting_amount: i128,
+    // ) -> Result<(), LCError> {
+    //     let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
+    //     deposit_obligation.adjust_j_tokens(e, adjusting_amount)?;
 
-        Ok(())
-    }
+    //     self.deposits.set(pool_address.clone(), deposit_obligation);
 
-    fn adjust_borrowed(
-        &mut self,
-        e: &Env,
-        pool_address: &Address,
-        adjusting_amount: i128,
-    ) -> Result<(), LCError> {
-        let mut borrow_obligation = self
-            .borrows
-            .get(pool_address.clone())
-            .unwrap_or(BorrowObligation::new());
-        borrow_obligation.adjust_borrowed(e, adjusting_amount)?;
-        self.borrows.set(pool_address.clone(), borrow_obligation);
+    //     Ok(())
+    // }
 
-        Ok(())
-    }
+    // fn adjust_d_tokens(&mut self,)
 
-    fn adjust_collateral(
-        &mut self,
-        e: &Env,
-        pool_address: &Address,
-        adjusting_amount: i128,
-    ) -> Result<(), LCError> {
-        let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
-        deposit_obligation.adjust_collateral(e, adjusting_amount)?;
-        self.deposits.set(pool_address.clone(), deposit_obligation);
+    // fn adjust_borrowed(
+    //     &mut self,
+    //     e: &Env,
+    //     pool_address: &Address,
+    //     adjusting_amount: i128,
+    // ) -> Result<(), LCError> {
+    //     let mut borrow_obligation = self
+    //         .borrows
+    //         .get(pool_address.clone())
+    //         .unwrap_or(BorrowObligation::new());
+    //     borrow_obligation.adjust_borrowed(e, adjusting_amount)?;
+    //     self.borrows.set(pool_address.clone(), borrow_obligation);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
+
+    // Adjusts collateral on a deposit obligation per a specific pool
+    // fn adjust_collateral(
+    //     &mut self,
+    //     e: &Env,
+    //     pool_address: &Address,
+    //     adjusting_amount: i128,
+    // ) -> Result<(), LCError> {
+    //     let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
+    //     deposit_obligation.adjust_collateral(e, adjusting_amount)?;
+
+    //     self.deposits.set(pool_address.clone(), deposit_obligation);
+
+    //     Ok(())
+    // }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct BorrowObligation {
     /// TODO: add a comment ....
@@ -663,12 +681,20 @@ impl DepositObligation {
         Self {
             collateral: 0,
             j_tokens: 0,
+            deposited: 0,
         }
     }
 
     pub fn adjust_j_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
         let new_amount = adjust_obligation_field(e, self.j_tokens, adjusting_amount)?;
         self.j_tokens = new_amount;
+
+        Ok(())
+    }
+
+    pub fn adjust_deposited(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        let new_amount = adjust_obligation_field(e, self.deposited, adjusting_amount)?;
+        self.deposited = new_amount;
 
         Ok(())
     }

@@ -33,6 +33,7 @@ pub enum LendingContractError {
     NegativeFlashLoan = 35,
     NegativeCollateralAddition = 36,
     NegativeCollateralRemoval = 37,
+    NegativeAmount = 38,
 
     // Balance and limit errors (40-49)
     WithdrawOverBalance = 40,

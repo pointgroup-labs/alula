@@ -603,26 +603,25 @@ pub fn process_deposit(
     // NB: Here and in all other `process_` functions, we allow 0 amounts, since
     // in this way, we can always simulate method execution even when the contract's method
     // demands transferring tokens from the user's account(whose might not have this token at all)
-    if amount < 0 {
-        return Err(LCError::NegativeDeposit);
-    }
+    require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.accrue_interest(e)?;
+    pool.accrue_interest(e)?; // should this be done here?
 
     let supply_limit = pool.config.supply_limit;
 
-    if supply_limit != 0
-        && pool
+    if supply_limit != 0 {
+        let new_supply = pool
             .total_supply()?
             .checked_add(amount)
-            .map_over_or_underflow()?
-            > supply_limit
-    {
-        return Err(LCError::SupplyLimitExceeded);
+            .map_over_or_underflow()?;
+
+        if new_supply > supply_limit {
+            return Err(LCError::SupplyLimitExceeded);
+        }
     }
 
-    let issued_shares = pool.compute_shares_from_tokens(e, amount)?;
+    let issued_j_tokens = pool.compute_j_tokens_from_tokens(e, amount)?;
 
     let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
     obligation.deposit(e, pool_address, issued_shares)?;
@@ -1416,4 +1415,12 @@ pub fn get_oracle_price_decimals(e: &Env) -> u32 {
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
     oracle_contract.decimals()
+}
+
+fn require_nonnegative(amount: i128) -> Result<(), LCError> {
+    if amount < 0 {
+        Err(LCError::NegativeAmount)
+    } else {
+        Ok(())
+    }
 }

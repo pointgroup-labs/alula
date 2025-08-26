@@ -38,7 +38,8 @@ pub struct Pool {
     pub total_collateral: i128,
     /// Interest rate model(+configuration) used for interest rate calculation
     pub interest_rate_model: InterestRateModel,
-    /// Accrual model used for accruing the `total_borrowed` amount on the pool based on the interest rate
+    /// Accrual model used for accruing the `total_borrowed` amount on the pool based on the
+    /// interest rate
     pub accrual_model: AccrualModel,
     /// Configuration settings for the pool
     pub config: PoolConfig,
@@ -342,8 +343,9 @@ pub struct PoolConfig {
     /// basis points with respect to a total obligation's collateral value. LTV greater than
     /// that makes borrow position eligible to liquidation
     pub close_ltv_bps: i128,
-    /// The factor used to calculate the current borrow limit by multiplying the collateral value by it before subtracting this value from the obligation's max borrow
-    /// limit. Volatile assets' pools are expected to have this value set way above 100%
+    /// The factor used to calculate the current borrow limit by multiplying the collateral value
+    /// by it before subtracting this value from the obligation's max borrow limit. Volatile
+    /// assets' pools are expected to have this value set way above 100%
     pub liability_factor_bps: i128,
 }
 
