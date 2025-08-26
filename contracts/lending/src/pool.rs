@@ -1,14 +1,13 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype, symbol_short};
+use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 
 use crate::{
     LCError,
     accrual::AccrualModel,
     constants::{
-        BPS_IN_PERCENT, DEFAULT_BASE_RATE_PER_SECOND, DEFAULT_CLOSE_FACTOR,
-        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_LIQUIDATION_THRESHOLD,
-        DEFAULT_OPTIMAL_UTILIZATION_RATIO, DEFAULT_RESERVE_RATIO, DEFAULT_SLOPE1, DEFAULT_SLOPE2,
-        DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
+        BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR, DEFAULT_LIABILITY_FACTOR, DEFAULT_LIQUIDATION_SPREAD,
+        DEFAULT_LIQUIDATION_THRESHOLD, DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT,
+        DEFAULT_UTILIZATION_RATIO_LIMIT, MAX_LIABILITY_FACTOR,
     },
     events,
     interest_rate_m::InterestRateModel,
@@ -29,15 +28,17 @@ pub struct Pool {
     pub token_ticker: Symbol,
     /// The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
-    /// The total amount of deposited assets that accrue interest
-    pub total_shares: i128,
-    /// The currently available for borrowing tokens
+    /// The total `dTokens` amount
+    pub total_d_tokens_amount: i128,
+    /// The total `jTokens` amount
+    pub total_j_tokens_amount: i128,
+    /// The currently available tokens for borrowing
     pub available: i128,
     /// The total amount of deposited collateral assets that don't accrue interest
     pub total_collateral: i128,
     /// Interest rate model(+configuration) used for interest rate calculation
     pub interest_rate_model: InterestRateModel,
-    /// Accrual model used for accruing `total_borrowed` amount on the pool
+    /// Accrual model used for accruing the `total_borrowed` amount on the pool based on the interest rate
     pub accrual_model: AccrualModel,
     /// Configuration settings for the pool
     pub config: PoolConfig,
@@ -49,37 +50,6 @@ pub struct Pool {
     pub name: String,
 }
 
-// #[contracttype]
-// #[derive(Debug, Eq, PartialEq)]
-// pub struct Pool {
-//     /// The address of the loan pool
-//     pub pool_address: Address,
-//     /// The address of the token associated with the pool
-//     pub token_address: Address,
-//     /// The ticker symbol of the associated token, which is used to identify the token in the
-// pool     pub token_ticker: Symbol,
-//     /// The total amount of borrowed assets. This value increases with interest rate accrual
-//     pub total_borrowed: i128,
-//     /// The total amount of deposited assets that accrue interest
-//     pub total_shares: i128,
-//     /// The currently available for borrowing tokens
-//     pub available: i128,
-//     /// The total amount of deposited collateral assets that don't accrue interest
-//     pub total_collateral: i128,
-//     /// Configuration settings for the pool
-//     pub config: PoolConfig,
-//     /// The numerical value that is used to determine the scaling factor required for updating
-// the     /// borrowed amount with interest, i.e. new_borrowed = (current_accrual \ last_accrual) *
-//     /// borrowed
-//     pub last_accrual: i128,
-//     /// The timestamp of the last accrual re-calculation
-//     pub last_accrual_timestamp: u64,
-//     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
-//     /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
-//     /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
-//     pub name: String,
-// }
-
 impl Pool {
     fn adjust_field(e: &Env, current_value: i128, adjusting_amount: i128) -> Result<i128, LCError> {
         let new_amount = current_value
@@ -87,34 +57,40 @@ impl Pool {
             .map_over_or_underflow()?;
 
         if new_amount < 0 {
-            // TODO: Just an ad-hoc fix. When switching to bTokens this issue should likely be gone
             events::pool_amount_becomes_negative(e, current_value, new_amount);
 
-            return Ok(0);
+            return Err(LCError::InternalError);
         }
 
         Ok(new_amount)
     }
 
-    pub fn adjust_total_shares(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
-        events::dbg(e, symbol_short!("shares"));
-        self.total_shares = Self::adjust_field(e, self.total_shares, adjusting_amount)?;
-        Ok(())
-    }
-
-    pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
-        events::dbg(e, symbol_short!("avail"));
-        self.available = Self::adjust_field(e, self.available, adjusting_amount)?;
-        Ok(())
-    }
-
-    pub fn adjust_total_borrowed(
+    pub fn adjust_total_j_tokens(
         &mut self,
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), LCError> {
-        events::dbg(e, symbol_short!("borrowed"));
-        self.total_borrowed = Self::adjust_field(e, self.total_borrowed, adjusting_amount)?;
+        let new_amount = Self::adjust_field(e, self.total_j_tokens_amount, adjusting_amount)?;
+        self.total_j_tokens_amount = new_amount;
+
+        Ok(())
+    }
+
+    pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        let new_amount = Self::adjust_field(e, self.available, adjusting_amount)?;
+        self.available = new_amount;
+
+        Ok(())
+    }
+
+    pub fn adjust_total_d_tokens(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), LCError> {
+        let new_amount = Self::adjust_field(e, self.total_d_tokens_amount, adjusting_amount)?;
+        self.total_d_tokens_amount = new_amount;
+
         Ok(())
     }
 
@@ -123,77 +99,146 @@ impl Pool {
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), LCError> {
-        events::dbg(e, symbol_short!("collat"));
-        self.total_collateral = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
+        let new_amount = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
+        self.total_collateral = new_amount;
+
         Ok(())
     }
 
-    /// Computes tokens amount proportional to the share of the of `shares` in the pool, based on
-    /// the supplied tokens amount
-    pub fn compute_tokens_from_shares(
+    pub fn compute_tokens_from_d_tokens(
         &self,
         e: &Env,
+        d_tokens_amount: i128,
+    ) -> Result<i128, LCError> {
+        // TODO: Check if there are some useful properties between jTokens and dTokens that
+        // might cause some code re-usage
+        let tokens = Self::compute_tokens_from_shares(
+            e,
+            d_tokens_amount,
+            self.total_d_tokens_amount,
+            self.total_borrowed,
+        )?;
+
+        Ok(tokens)
+    }
+
+    pub fn compute_d_tokens_from_tokens(
+        &self,
+        e: &Env,
+        tokens_amount: i128,
+    ) -> Result<i128, LCError> {
+        let d_tokens = Self::compute_shares_from_tokens(
+            e,
+            tokens_amount,
+            self.total_d_tokens_amount,
+            self.total_borrowed,
+        )?;
+
+        Ok(d_tokens)
+    }
+
+    pub fn compute_tokens_from_j_tokens(
+        &self,
+        e: &Env,
+        j_tokens_amount: i128,
+    ) -> Result<i128, LCError> {
+        let tokens = Self::compute_tokens_from_shares(
+            e,
+            j_tokens_amount,
+            self.total_j_tokens_amount,
+            self.total_supply()?,
+        )?;
+
+        Ok(tokens)
+    }
+
+    pub fn compute_j_tokens_from_tokens(
+        &self,
+        e: &Env,
+        tokens_amount: i128,
+    ) -> Result<i128, LCError> {
+        let j_tokens = Self::compute_shares_from_tokens(
+            e,
+            tokens_amount,
+            self.total_j_tokens_amount,
+            self.total_supply(),
+        )?;
+
+        Ok(j_tokens)
+    }
+
+    /// Computes the number of tokens proportional to the given share of the tokens in the pool.
+    /// Intended to be used for both `jTokens` and `dTokens` related calculations
+    fn compute_tokens_from_shares(
+        e: &Env,
         shares_amount: i128,
+        total_shares_amount: i128,
+        total_tokens_amount: i128,
     ) -> Result<i128, LCError> {
         if shares_amount == 0 {
             return Ok(0);
         }
 
-        if self.total_shares < shares_amount {
+        if total_shares_amount < shares_amount {
             events::pool_total_shares_smaller_than_individual_user_shares(
                 e,
-                self.total_shares,
+                total_shares_amount,
                 shares_amount,
             );
 
             return Err(LCError::InternalError);
         }
 
-        let total_supply = self.total_supply()?;
-        let tokens_amount = total_supply
-            .fixed_div_floor(self.total_shares, shares_amount)
+        let tokens_amount = total_tokens_amount
+            .fixed_div_floor(total_shares_amount, shares_amount)
             .map_over_or_underflow()?;
 
         Ok(tokens_amount)
     }
 
-    /// Computes shares amount which must be issued for\burnt from a depositor based on the
-    /// deposited\withdrawn amount
-    pub fn compute_shares_from_tokens(
-        &self,
+    /// Computes the shares amount which must be issued or burnt from a specific obligation based on
+    /// the provided tokens amount. Intended to be  used for both `jTokens` and `dTokens` related
+    /// calculations
+    fn compute_shares_from_tokens(
         e: &Env,
         tokens_amount: i128,
+        total_shares_amount: i128,
+        total_tokens_amount: i128,
     ) -> Result<i128, LCError> {
+        // TODO: Is it always consistent with situations like:
+        // I have the last shares and I remove them - total supply becomes zero. Check this
         if tokens_amount == 0 {
             return Ok(0);
         }
 
-        let shares_amount = if self.total_shares == 0 {
+        let shares_amount = if total_shares_amount == 0 {
             // NB: Is it reasonable to make the initial amount smaller?
             tokens_amount
         } else {
-            let total = self.total_supply()?;
-
-            if self.total_shares > total {
-                events::pool_total_shares_smaller_than_total_supply(e, self.total_shares, total);
+            if total_shares_amount > total_tokens_amount {
+                events::pool_total_shares_smaller_than_total_tokens(
+                    e,
+                    total_shares_amount,
+                    total_tokens_amount,
+                );
 
                 return Err(LCError::InternalError);
             }
 
             /*
             This must hold when issuing new shares:
-                shares_to_issue / (shares_to_issue + prev_total_shares) = deposited_amount / (deposited_amount + prev_total_borrowed + prev_available)
+                shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount / (tokens_added_amount + prev_total_tokens_amount)
             Which implies:
-                shares_to_issue = prev_total_shares * (deposited_amount / (prev_total_borrowed + prev_available))
+                shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
 
             This must hold when burning issued shares:
-                shares_to_burn = prev_total_shares * (withdrawn_amount / (prev_total_borrowed + prev_available))
+                shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
             */
-            self.total_shares
+            total_shares_amount
                 /* Using 'ceil' here has advantages when withdrawing\repaying small amounts of tokens.
                 Namely, if the token amount is really small, with `floor`, the respective amount of
                 shares to burn is 0, and doesn't make a difference  */
-                .fixed_div_ceil(total, tokens_amount)
+                .fixed_div_ceil(total_tokens_amount, tokens_amount)
                 .map_over_or_underflow()?
         };
 
@@ -209,7 +254,20 @@ impl Pool {
 
     /// Checks if the pool is empty
     pub fn is_empty(&self) -> bool {
-        self.total_shares == 0
+        if self.total_j_tokens_amount == 0 {
+            if self.available != 0 {
+                // TODO: What to do in these cases?
+            }
+        }
+
+        if self.total_d_tokens_amount == 0 {
+            if self.total_borrowed != 0 {
+                // TODO: What to do in these cases?
+            }
+        }
+
+        self.total_j_tokens_amount == 0
+            && self.total_d_tokens_amount == 0
             && self.total_borrowed == 0
             && self.available == 0
             && self.total_collateral == 0
@@ -239,13 +297,12 @@ impl Pool {
 
             return Err(LCError::InternalError);
         };
-
         *self = refreshed_pool;
 
         Ok(())
     }
 
-    /// Saves\updates pool in the contract's storage
+    /// Saves/updates pool in the contract's storage
     ///
     /// # WARNING
     /// Modifies the contract's storage
@@ -264,21 +321,7 @@ impl Pool {
 
 #[contracttype]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct PoolConfig2 {
-    pub reserve_ratio_bps: i128,
-    pub liquidation_close_factor_bps: i128,
-    pub liquidation_incentive_bps: i128,
-    pub supply_limit: i128,
-    pub utilization_ratio_limit_bps: i128,
-    pub open_ltv_bps: i128,
-    pub close_ltv_bps: i128,
-    // TODO: in which units this must be?
-    pub liability_factor: i128,
-}
-
-#[contracttype]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-// TODO: Soon, this config will become obsolete and will be
+// NB: Soon, this config will likely become obsolete and will be
 // replaced by a few adjacent configs
 pub struct PoolConfig {
     /// Percentage of interest payments allocated to protocol reserves
@@ -299,22 +342,22 @@ pub struct PoolConfig {
     /// basis points with respect to a total obligation's collateral value. LTV greater than
     /// that makes borrow position eligible to liquidation
     pub close_ltv_bps: i128,
+    /// The factor used to calculate the current borrow limit by multiplying the collateral value by it before subtracting this value from the obligation's max borrow
+    /// limit. Volatile assets' pools are expected to have this value set way above 100%
+    pub liability_factor_bps: i128,
 }
 
 impl Default for PoolConfig {
     fn default() -> Self {
         Self {
-            slope1: DEFAULT_SLOPE1,
-            slope2: DEFAULT_SLOPE2,
-            base_rate_per_second: DEFAULT_BASE_RATE_PER_SECOND,
             reserve_ratio_bps: DEFAULT_RESERVE_RATIO * BPS_IN_PERCENT,
-            optimal_utilization_ratio_bps: DEFAULT_OPTIMAL_UTILIZATION_RATIO * BPS_IN_PERCENT,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
             liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
             supply_limit: DEFAULT_SUPPLY_LIMIT,
             utilization_ratio_limit_bps: DEFAULT_UTILIZATION_RATIO_LIMIT * BPS_IN_PERCENT,
             open_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
             close_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
+            liability_factor_bps: DEFAULT_LIABILITY_FACTOR * BPS_IN_PERCENT,
         }
     }
 }
@@ -322,10 +365,6 @@ impl Default for PoolConfig {
 impl PoolConfig {
     pub fn validate(&self) -> Result<(), &str> {
         let &PoolConfig {
-            base_rate_per_second,
-            optimal_utilization_ratio_bps,
-            slope1,
-            slope2,
             reserve_ratio_bps,
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
@@ -333,17 +372,8 @@ impl PoolConfig {
             utilization_ratio_limit_bps,
             open_ltv_bps,
             close_ltv_bps,
+            liability_factor_bps,
         } = self;
-
-        if base_rate_per_second < 0 {
-            return Err("Base rate per second must be non-negative");
-        }
-
-        if optimal_utilization_ratio_bps <= 0
-            || optimal_utilization_ratio_bps > 100 * BPS_IN_PERCENT
-        {
-            return Err("Optimal utilization ratio must be between 0% and 100%");
-        }
 
         if supply_limit < 0 {
             return Err("Supply limit must be non-negative");
@@ -351,10 +381,6 @@ impl PoolConfig {
 
         if !is_valid_percent(utilization_ratio_limit_bps) {
             return Err("Utilization ratio limit must be between 0% and 100%");
-        }
-
-        if utilization_ratio_limit_bps <= optimal_utilization_ratio_bps {
-            return Err("Utilization ratio limit must exceed optimal utilization ratio");
         }
 
         if !is_valid_percent(reserve_ratio_bps) {
@@ -369,14 +395,6 @@ impl PoolConfig {
             return Err("Liquidation incentive must be between 0% and 100%");
         }
 
-        if slope1 < 0 || slope2 < 0 {
-            return Err("Interest rate slopes must be non-negative");
-        }
-
-        if slope1 >= slope2 {
-            return Err("slope1 must be less than slope2 for kinked model to work");
-        }
-
         if !(0..(100 * BPS_IN_PERCENT)).contains(&open_ltv_bps) {
             return Err("Open LTV must be between 0% and 100%");
         }
@@ -389,18 +407,36 @@ impl PoolConfig {
             return Err("Open LTV mustn't be bigger than close LTV");
         }
 
+        if !(0..(MAX_LIABILITY_FACTOR * BPS_IN_PERCENT)).contains(&liability_factor_bps) {
+            return Err("Invalid liability factor");
+        }
+
+        // if base_rate_per_second < 0 {
+        //     return Err("Base rate per second must be non-negative");
+        // }
+
+        // if optimal_utilization_ratio_bps <= 0
+        //     || optimal_utilization_ratio_bps > 100 * BPS_IN_PERCENT
+        // {
+        //     return Err("Optimal utilization ratio must be between 0% and 100%");
+        // }
+
+        // if utilization_ratio_limit_bps <= optimal_utilization_ratio_bps {
+        //     return Err("Utilization ratio limit must exceed optimal utilization ratio");
+        // }
+
+        // if slope1 < 0 || slope2 < 0 {
+        //     return Err("Interest rate slopes must be non-negative");
+        // }
+
+        // if slope1 >= slope2 {
+        //     return Err("slope1 must be less than slope2 for kinked model to work");
+        // }
+
         Ok(())
     }
 }
 
 fn is_valid_percent(value: i128) -> bool {
     (0..=100 * BPS_IN_PERCENT).contains(&value)
-}
-
-#[contracttype]
-#[derive(Debug)]
-pub struct Accrual {
-    pub timestamp: u64,
-    pub borrow_accrual: i128,
-    pub deposit_accrual: i128,
 }

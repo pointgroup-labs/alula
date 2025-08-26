@@ -336,21 +336,21 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     e.events().publish(topics, data);
 }
 
-/// Emitted when the total shares in a pool are found to be less than the total supply.
+/// Emitted when the total shares in a pool are found to be less than the total tokens amount.
 /// This must never happen with the shares model and, hence, indicates an invariant breakage
 ///
-/// - topics - `["pool_total_shares_smaller_than_total_supply"]`
-/// - data - `[total_shares: i128, individual_shares: i128]`
-pub fn pool_total_shares_smaller_than_total_supply(
+/// - topics - `["pool_total_shares_smaller_than_total_tokens"]`
+/// - data - `[total_shares: i128, total_tokens: i128]`
+pub fn pool_total_shares_smaller_than_total_tokens(
     e: &Env,
     total_shares: i128,
-    individual_shares: i128,
+    total_tokens: i128,
 ) {
     let topics = (Symbol::new(
         e,
-        "pool_total_shares_smaller_than_total_supply",
+        "pool_total_shares_smaller_than_total_tokens",
     ),);
-    let data = (total_shares, individual_shares);
+    let data = (total_shares, total_tokens);
 
     e.events().publish(topics, data);
 }

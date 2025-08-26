@@ -291,6 +291,8 @@ pub fn obligation_exists(e: &Env, user_address: &Address) -> bool {
     res
 }
 
+// TODO: Is this a good way of doing this?
+// Doesn't seem to be scaling well
 pub fn register_obligation(e: &Env, user_address: &Address) -> u32 {
     let mut all_obligations = get_all_obligations(e);
     all_obligations.push_back(user_address.clone());

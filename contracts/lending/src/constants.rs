@@ -63,15 +63,15 @@ pub const DEFAULT_SLOPE1: i128 = 1;
 /// Slope 2 (post-optimal utilization) in bps per utilization unit
 pub const DEFAULT_SLOPE2: i128 = 10;
 
-/// Initial accrual scaler (fixed-point anchor)
-pub const ACCRUAL_INIT: i128 = 1_000_000_000_000;
+// /// Initial accrual scaler (fixed-point anchor)
+// pub const ACCRUAL_INIT: i128 = 1_000_000_000_000;
 
 // ---- Interest Rate and Accrual 2 ----
 pub const DEFAULT_BASE_APR_BPS: u64 = 1; // 0.01%
-pub const DEFAULT_TARGET_KINK_UTILIZATION_RATIO_BPS: u64 = 7_000; // 70%
+pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: u64 = 7_000; // 70%
 pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: u64 = 8_000; // 80%
 
-pub const DEFAULT_TARGET_KINK_APR_BPS: u64 = 3_000; // 30%
+pub const DEFAULT_KINK1_APR_BPS: u64 = 3_000; // 30%
 pub const DEFAULT_KINK2_APR_BPS: u64 = 6_000; // 60%
 pub const DEFAULT_MAX_APR_BPS: u64 = 40_000; // 400%
 
@@ -98,6 +98,12 @@ pub const DEFAULT_LIQUIDATION_SPREAD: i128 = 10;
 
 /// Health factor threshold expressed in bps (100% = 10_000 bps)
 pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = 100 * BPS_IN_PERCENT;
+
+// TODO: Comment
+pub const DEFAULT_LIABILITY_FACTOR: i128 = 100; // 100% is equivalent to a liability factor to not make any difference
+
+// TODO: Comment
+pub const MAX_LIABILITY_FACTOR: i128 = 200;
 
 // ---- Swap ----
 

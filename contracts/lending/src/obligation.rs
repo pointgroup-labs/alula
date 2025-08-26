@@ -3,7 +3,7 @@ use soroban_sdk::{Address, Env, Map, Vec, contracttype};
 
 use crate::{
     LCError,
-    constants::{ACCRUAL_INIT, BPS_FACTOR, HEALTH_FACTOR_THRESHOLD_BPS},
+    constants::BPS_FACTOR,
     contract::get_asset_price,
     events,
     math_utils::MathUtils,
@@ -35,7 +35,7 @@ impl Obligation {
     /// Modifies the obligation's pools storage data by appending the user's address to the
     /// obligation's list
     pub fn new(e: &Env, user: Address) -> Self {
-        storage::register_obligation(e, &user);
+        storage::register_obligation(e, &user); // TODO: Move this out of this function
 
         Self {
             user,
@@ -44,25 +44,25 @@ impl Obligation {
         }
     }
 
-    /// Accrues interest on all borrows for the obligation
+    /// Accrues interest on all obligation-related pools
     ///
     /// # WARNING
-    /// Modifies the obligation's pools storage data, but **DOESN'T** modify the obligation's
-    /// storage data
-    pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
-        for (pool_address, mut borrow_obligation) in self.borrows.iter() {
-            borrow_obligation.accrue_interest(e, &pool_address)?;
-            // TODO: Check if you can modify and iterate through [`soroban_sdk::Map`] at the same
-            // time
-            self.borrows.set(pool_address, borrow_obligation);
+    /// Modifies the obligation's pools storage data
+    pub fn accrue_interest(&self, e: &Env) -> Result<(), LCError> {
+        for borrow_pool_address in self.borrows.keys() {
+            accrue_interest_on_pool(e, &borrow_pool_address)?;
+        }
+
+        for deposit_pool_address in self.deposits.keys() {
+            accrue_interest_on_pool(e, &deposit_pool_address)?;
         }
 
         Ok(())
     }
 
-    pub fn is_healthy(&self, e: &Env) -> Result<bool, LCError> {
-        Ok(self.compute_health_factor_bps(e)? >= HEALTH_FACTOR_THRESHOLD_BPS)
-    }
+    // pub fn is_healthy(&self, e: &Env) -> Result<bool, LCError> {
+    //     Ok(self.compute_health_factor_bps(e)? >= HEALTH_FACTOR_THRESHOLD_BPS)
+    // }
 
     pub fn is_empty(&self) -> bool {
         self.deposits.is_empty() && self.borrows.is_empty()
@@ -73,13 +73,15 @@ impl Obligation {
         let mut borrowed_value_sum = 0_i128;
 
         for (borrow_pool_address, borrow_obligation) in self.borrows.iter() {
-            let total_debt = borrow_obligation.total_debt()?;
-
             let Some(borrow_pool) = storage::get_pool(e, &borrow_pool_address) else {
                 events::pool_is_missing_in_storage(e, &borrow_pool_address);
 
                 return Err(LCError::InternalError);
             };
+
+            let d_tokens_amount = borrow_obligation.d_tokens;
+            // Must add compute_tokens_from_d_tokens on a pool
+            // borrow_pool.com
 
             let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_ticker)?;
 
@@ -102,7 +104,9 @@ impl Obligation {
 
         for (collateral_pool_address, deposit_obligation) in self.deposits.iter() {
             let DepositObligation {
-                shares, collateral, ..
+                j_tokens,
+                collateral,
+                ..
             } = deposit_obligation;
 
             let Some(collateral_pool) = storage::get_pool(e, &collateral_pool_address) else {
@@ -111,18 +115,20 @@ impl Obligation {
                 return Err(LCError::InternalError);
             };
 
-            let shares_to_tokens = if collateral_pool.total_shares != 0 {
-                shares
+            // TODO: Don't we have a function for this on a pool?
+            let j_tokens_to_tokens = if collateral_pool.total_j_tokens_amount != 0 {
+                j_tokens
                     .checked_mul(collateral_pool.available + collateral_pool.total_borrowed)
                     .map_over_or_underflow()?
-                    .checked_div(collateral_pool.total_shares)
+                    .checked_div(collateral_pool.total_j_tokens_amount)
                     .map_over_or_underflow()?
             } else {
                 0
             };
 
-            let total_tokens = shares_to_tokens + collateral;
-
+            let total_tokens = j_tokens_to_tokens
+                .checked_add(collateral)
+                .map_over_or_underflow()?;
             let asset_price = get_asset_price(e, &collateral_pool.token_ticker)?;
 
             collateral_value_sum = collateral_value_sum
@@ -610,104 +616,30 @@ impl Obligation {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct BorrowObligation {
-    /// The initial amount of the borrowed token
+    /// TODO: add a comment ....
+    pub d_tokens: i128,
+    /// Accumulated value of initially borrowed tokens
     pub borrowed: i128,
-    /// The amount of unpaid interest
-    pub unpaid_interest: i128,
-    /// The numerical value that is used to determine the scaling factor required for updating the
-    /// position amount with interest, i.e. new_borrowed = (current_accrual \ last_accrual) *
-    /// borrowed
-    pub last_accrual: i128,
 }
 
 impl BorrowObligation {
     fn new() -> Self {
         Self {
+            d_tokens: 0,
             borrowed: 0,
-            unpaid_interest: 0,
-            last_accrual: ACCRUAL_INIT,
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.borrowed == 0
-    }
+    pub fn adjust_d_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        let new_amount = adjust_obligation_field(e, self.d_tokens, adjusting_amount)?;
+        self.d_tokens = new_amount;
 
-    pub fn total_debt(&self) -> Result<i128, LCError> {
-        self.borrowed
-            .checked_add(self.unpaid_interest)
-            .map_over_or_underflow()
+        Ok(())
     }
 
     pub fn adjust_borrowed(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
-        let old_amount = self.borrowed;
-        let new_amount = old_amount
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            events::obligation_amount_becomes_negative(e, old_amount, new_amount);
-
-            return Err(LCError::InternalError);
-        }
-
+        let new_amount = adjust_obligation_field(e, self.borrowed, adjusting_amount)?;
         self.borrowed = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_unpaid_interest(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), LCError> {
-        let old_amount = self.unpaid_interest;
-        let new_amount = old_amount
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            events::obligation_amount_becomes_negative(e, old_amount, new_amount);
-
-            return Err(LCError::InternalError);
-        }
-
-        self.unpaid_interest = new_amount;
-
-        Ok(())
-    }
-
-    /// Accrues interest on a borrow obligation
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
-    pub fn accrue_interest(&mut self, e: &Env, pool_address: &Address) -> Result<(), LCError> {
-        let mut pool = storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
-        pool.accrue_interest(e)?;
-
-        let prev_debt = self.borrowed + self.unpaid_interest;
-
-        // WARN: For now we take the `ceil` on the obligation and `floor` on the pool
-        // to prevent inconsistencies. This won't be the issue if to switch to bTokens
-        let new_debt = prev_debt
-            .fixed_div_ceil(self.last_accrual, pool.last_accrual)
-            .map_over_or_underflow()?;
-
-        let old_unpaid_interest = self.unpaid_interest;
-        let new_unpaid_interest = new_debt
-            .checked_sub(self.borrowed)
-            .map_over_or_underflow()?;
-
-        if new_unpaid_interest < 0 {
-            events::obligation_amount_becomes_negative(e, old_unpaid_interest, new_unpaid_interest);
-
-            return Err(LCError::InternalError);
-        }
-
-        self.unpaid_interest = new_unpaid_interest;
-        self.last_accrual = pool.last_accrual;
-
-        storage::set_pool(e, pool_address, &pool);
 
         Ok(())
     }
@@ -716,51 +648,80 @@ impl BorrowObligation {
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 #[contracttype]
 pub struct DepositObligation {
+    /// TODO: Comment
+    pub j_tokens: i128,
+    /// Accumulated value of collateral that doesn't accrue interest
     pub collateral: i128,
-    pub shares: i128,
+    /// Accumulated value of initially deposited tokens. E.g., if a user initially deposited 100
+    /// tokens, the time passed, which caused 2 tokens to be accrued, and the user deposited 20
+    /// more tokens - this value will be equal to 120
+    pub deposited: i128,
 }
 
 impl DepositObligation {
-    // TODO: Refactor this as we do with [`Pool::adjust_field`]
-    pub fn adjust_shares(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
-        let old_amount = self.shares;
-        let new_amount = old_amount
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            events::obligation_amount_becomes_negative(e, old_amount, new_amount);
-
-            return Err(LCError::InternalError);
+    pub fn new() -> Self {
+        Self {
+            collateral: 0,
+            j_tokens: 0,
         }
+    }
 
-        self.shares = new_amount;
+    pub fn adjust_j_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+        let new_amount = adjust_obligation_field(e, self.j_tokens, adjusting_amount)?;
+        self.j_tokens = new_amount;
 
         Ok(())
     }
 
     pub fn adjust_collateral(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
-        let old_amount = self.collateral;
-        let new_amount = old_amount
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            events::obligation_amount_becomes_negative(e, old_amount, new_amount);
-
-            return Err(LCError::InternalError);
-        }
-
+        let new_amount = adjust_obligation_field(e, self.collateral, adjusting_amount)?;
         self.collateral = new_amount;
 
         Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
-        self.shares == 0 && self.collateral == 0
+        self.j_tokens == 0 && self.collateral == 0
     }
 }
 
+/// Adjusts a field on the obligation's structs
+///
+/// # Returns
+/// `Ok(new_amount)` if adjusting doesn't lead to a new amount being negative.
+/// `Err(LCError::InternalError otherwise
+fn adjust_obligation_field(
+    e: &Env,
+    current_value: i128,
+    adjusting_amount: i128,
+) -> Result<i128, LCError> {
+    let new_amount = current_value
+        .checked_add(adjusting_amount)
+        .map_over_or_underflow()?;
+
+    if new_amount < 0 {
+        events::obligation_amount_becomes_negative(e, current_value, new_amount);
+
+        return Err(LCError::InternalError);
+    }
+
+    Ok(new_amount)
+}
+
+/// Accrues interest on a pool
+///
+/// # WARNING
+/// Modifies the contract's storage
+fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), LCError> {
+    let mut pool = storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)?;
+
+    pool.accrue_interest(e)?;
+    pool.set(e);
+
+    Ok(())
+}
+
+// TODO: Move this somewhere else when working on liquidation
 pub struct LiquidationValues {
     /// The amount of tokens repaid by the liquidator
     pub liquidated_amount: i128,
