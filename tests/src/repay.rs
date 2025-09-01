@@ -4,8 +4,8 @@ use lending::LCError;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation,
-    get_obligation_total_debt, get_obligation_unpaid_interest,
+    DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation, get_obligation_total_debt,
+    get_obligation_unpaid_interest,
 };
 
 #[test]

@@ -1,15 +1,9 @@
-
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, Map, Vec, contracttype};
 
 use crate::{
-    LCError,
-    constants::BPS_FACTOR,
-    contract::get_asset_price,
-    events,
-    math_utils::MathUtils,
-    pool::Pool,
-    storage,
+    LCError, constants::BPS_FACTOR, contract::get_asset_price, events, math_utils::MathUtils,
+    pool::Pool, storage,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -330,7 +324,8 @@ impl Obligation {
     /// - the real repaid amount is calculated as `min(debt, repaid_amount)`
     ///
     /// # Returns
-    /// [`Result::Ok((d_tokens_burnt, real_repaid_amount))`] in success and [`Err(LCError)`] in failure
+    /// [`Result::Ok((d_tokens_burnt, real_repaid_amount))`] in success and [`Err(LCError)`] in
+    /// failure
     pub fn repay(&mut self, e: &Env, pool: &Pool, amount: i128) -> Result<(i128, i128), LCError> {
         let mut borrow_obligation = self
             .borrows
@@ -403,8 +398,7 @@ impl Obligation {
             .ok_or(LCError::DepositDoesNotExist)?;
         let borrow_pool = Pool::try_get(e, pool_address)?;
 
-        let total_debt =
-            borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+        let total_debt = borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
         let borrowed = borrow_obligation.borrowed;
 
         if total_debt < borrowed {
@@ -551,10 +545,9 @@ impl DepositObligation {
     }
 
     pub fn is_empty(&self) -> bool {
-        if self.j_tokens == 0
-            && self.deposited != 0 {
-                // TODO: Invariant breakage
-            }
+        if self.j_tokens == 0 && self.deposited != 0 {
+            // TODO: Invariant breakage
+        }
 
         self.j_tokens == 0 && self.collateral == 0
     }

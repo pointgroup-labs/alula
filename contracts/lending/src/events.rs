@@ -237,7 +237,8 @@ pub fn accrue_interest(e: &Env, user: &Address) {
 
 // ----- Internal Error Events -----
 
-/// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the storage timestamp
+/// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
+/// storage timestamp
 ///
 /// - topics - `["current_ledger_timestamp_smaller_than_stored_timestamp"]`
 /// - data - `[current_timestamp: i128, stored_timestamp: i128]`

@@ -326,8 +326,8 @@
 //     );
 
 //     // Borrow maximum possible amount
-//     let max_borrow = (minimal_collateral * DEFAULT_LIQUIDATION_THRESHOLD) / 100; // 80% of collateral value
-//     fixture
+//     let max_borrow = (minimal_collateral * DEFAULT_LIQUIDATION_THRESHOLD) / 100; // 80% of
+// collateral value     fixture
 //         .contract_client
 //         .borrow(borrower, &fixture.usdc_pool_address, &max_borrow);
 

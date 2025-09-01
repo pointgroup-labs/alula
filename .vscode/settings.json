@@ -4,6 +4,7 @@
     "apys",
     "beasties",
     "cdylib",
+    "contractclient",
     "contracterror",
     "contractimpl",
     "contractimport",

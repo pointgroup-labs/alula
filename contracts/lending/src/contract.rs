@@ -823,12 +823,13 @@ fn process_flash_loan(
     require_nonnegative(amount)?;
 
     let pool = Pool::try_get(e, pool_address)?;
+    // pool.require_available(amount)?; // TODO: Something like this?
     if pool.available < amount {
         return Err(LCError::NotEnoughPoolFunds);
     }
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), contract, &amount);
+    token_client.transfer(&e.current_contract_address(), contract, &amount); // plain transfer, not allowance transfer?
 
     let flash_loan_taker_client = FlashLoanClient::new(e, contract);
     flash_loan_taker_client.exec_op(
@@ -844,6 +845,9 @@ fn process_flash_loan(
         .map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
+    // Yep, this is very poor implementation.
+    // Now, here you must issue `transfer_allowance`, since it's more safe for a flash loan taker to
+    // to implement his flash loan logic...
     token_client.transfer(contract, &e.current_contract_address(), &amount_to_repay);
 
     events::flash_loan(e, contract, pool_address, amount, fees);

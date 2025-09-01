@@ -516,8 +516,8 @@ mod tests {
 
     //     let multipliers = pool.get_compound_rate_multipliers(1).unwrap();
 
-    //     // With very low utilization and short time, multipliers should be very close to SCALED_ONE
-    //     assert!(multipliers.borrow > SCALED_ONE);
+    //     // With very low utilization and short time, multipliers should be very close to
+    // SCALED_ONE     assert!(multipliers.borrow > SCALED_ONE);
     //     assert!(multipliers.supply >= SCALED_ONE);
     // }
 
