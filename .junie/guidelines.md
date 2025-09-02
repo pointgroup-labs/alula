@@ -119,7 +119,7 @@ To add a new test:
    ```rust
    // tests/my_new_test.rs
    use {
-    lending::contract::{LendingContract, LendingContractClient},
+    market::contract::{MarketContract, MarketContractClient},
     soroban_sdk::{testutils::Address as _, Address, Env},
    };
 
@@ -133,12 +133,12 @@ To add a new test:
 
    // Register the contract with the environment
    let contract_id = env.register(
-     LendingContract,
+     MarketContract,
      (contract_admin.clone(), Option::<i128>::None),
    );
 
    // Create a client to interact with the contract
-   let contract_client = LendingContractClient::new(&env, &contract_id);
+   let contract_client = MarketContractClient::new(&env, &contract_id);
 
    // Test code here
 
@@ -201,7 +201,7 @@ cargo doc --workspace --no-deps
 
 When developing contracts:
 
-1. Follow the existing pattern for error handling using the `LendingContractError` enum in `error.rs`
+1. Follow the existing pattern for error handling using the `MarketContractError` enum in `error.rs`
 2. Use the storage patterns defined in `storage.rs` for consistent data management
 3. Implement tests for all new functionality
 4. Consider gas optimization for frequently called functions

@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use lending::LCError;
+use market::LCError;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{

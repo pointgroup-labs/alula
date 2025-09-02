@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use lending::constants::DEFAULT_LIQUIDATION_THRESHOLD;
+use market::constants::DEFAULT_LIQUIDATION_THRESHOLD;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{

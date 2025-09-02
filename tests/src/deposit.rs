@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use lending::{LCError, pool::PoolConfig};
+use market::{LCError, pool::PoolConfig};
 use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{

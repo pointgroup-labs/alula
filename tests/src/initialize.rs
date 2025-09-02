@@ -1,8 +1,8 @@
 #![cfg(test)]
 
-use lending::{
+use market::{
     LCError,
-    contract::{LendingContract, LendingContractClient},
+    contract::{MarketContract, MarketContractClient},
     storage,
 };
 use soroban_sdk::{Address, BytesN, symbol_short, testutils::Address as _};
@@ -15,10 +15,10 @@ fn test_pool_initialize() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     let token_admin = Address::generate(&e);
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
@@ -41,10 +41,10 @@ fn test_pool_initialize_with_different_salt() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     let token_admin = Address::generate(&e);
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
@@ -63,10 +63,10 @@ fn test_pool_initialize_non_conflicting() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     let token_admin = Address::generate(&e);
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
@@ -92,10 +92,10 @@ fn test_pool_reinitialize_no_salt() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     let token_admin = Address::generate(&e);
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
@@ -112,10 +112,10 @@ fn test_pool_reinitialize_with_salt() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     let token_admin = Address::generate(&e);
     let token_address = e.register_stellar_asset_contract_v2(token_admin).address();
@@ -133,10 +133,10 @@ fn test_multiply_pair_initialize() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     // Initialize pools first
     let deposit_token_admin = Address::generate(&e);
@@ -173,10 +173,10 @@ fn test_multiply_pair_already_initialized() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     // Initialize pools first
     let deposit_token_admin = Address::generate(&e);
@@ -209,10 +209,10 @@ fn test_multiply_pair_with_inexistent_pool() {
 
     let contract_admin = Address::generate(&e);
     let contract_id = e.register(
-        LendingContract,
+        MarketContract,
         (contract_admin.clone(), Option::<i128>::None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let contract_client = MarketContractClient::new(&e, &contract_id);
 
     let borrow_pool_address = Address::generate(&e);
     let deposit_pool_address = Address::generate(&e);

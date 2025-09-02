@@ -9,7 +9,7 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-lending = { path = "../lending" }
+market = { path = "../market" }
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]

@@ -1,8 +1,8 @@
 #![no_main]
 
-use lending::pool::PoolConfig;
 use libfuzzer_sys::fuzz_target;
-use soroban_sdk::{testutils::arbitrary::Arbitrary, Env};
+use market::pool::PoolConfig;
+use soroban_sdk::{Env, testutils::arbitrary::Arbitrary};
 
 #[derive(Arbitrary, Debug)]
 struct ProtocolInvariantInput {

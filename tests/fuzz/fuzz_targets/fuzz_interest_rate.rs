@@ -1,6 +1,6 @@
 #![no_main]
 
-use lending::{
+use market::{
     accrual::AccrualModel,
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     pool::{Pool, PoolConfig},

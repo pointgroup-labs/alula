@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use lending::swap;
+use market::swap;
 use soroban_sdk::vec as svec;
 
 use crate::{TestFixture, assert_approx_eq_rel, make_oracle_prices_different};

@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use lending::{
+use market::{
     LCError,
     constants::{BPS_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
     pool::PoolConfig,

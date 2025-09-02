@@ -1,4 +1,4 @@
-use lending::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
+use market::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
 use soroban_sdk::{contracttype, panic_with_error, Address, BytesN, Env, Vec};
 
 use crate::MMError;

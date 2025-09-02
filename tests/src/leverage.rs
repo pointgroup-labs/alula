@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use lending::{
+use market::{
     constants::{
         DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SLIPPAGE_BPS, LEVERAGE_SCALE,
         MIN_LEVERAGE_MULTIPLIER,

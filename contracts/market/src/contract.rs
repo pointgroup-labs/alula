@@ -27,12 +27,12 @@ use crate::{
 // TODO: Add a trait that defines contract's API
 
 #[contract]
-/// Lending Smart Contract. Allows users to lend and borrow other users' assets
-pub struct LendingContract;
+/// Isolated Lending Market Smart Contract. Allows users to lend and borrow other users' assets
+pub struct MarketContract;
 
 #[contractimpl]
-impl LendingContract {
-    /// Constructs the lending contract
+impl MarketContract {
+    /// Constructs the market contract
     ///
     /// ### Arguments
     /// * `admin` - contract's administrator
@@ -65,7 +65,7 @@ impl LendingContract {
         Ok(())
     }
 
-    /// Upgrades the lending contract
+    /// Upgrades the market contract
     ///
     /// ### Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a

@@ -33,7 +33,7 @@ if (typeof window !== 'undefined') {
 
 
 
-export const LendingContractError = {
+export const MarketContractError = {
   0: {message:"InternalError"},
   1: {message:"OverOrUnderflow"},
   2: {message:"InvalidTimestamp"},

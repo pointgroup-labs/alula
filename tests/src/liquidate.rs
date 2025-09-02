@@ -1,6 +1,6 @@
 // #![cfg(test)]
 
-// use lending::{
+// use market::{
 //     LCError,
 //     constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
 // };

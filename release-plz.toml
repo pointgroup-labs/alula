@@ -30,7 +30,7 @@ allow_dirty = false
 publish_allow_dirty = false
 
 [[package]]
-name = "lending"
+name = "market"
 # Customize the git tag name.
 # Setting for single git tag, see https://release-plz.dev/docs/extra/single-tag
 git_tag_name = "v{{ version }}"

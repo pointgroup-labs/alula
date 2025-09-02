@@ -1,6 +1,6 @@
 [package]
-name = "lending"
-version = "0.0.1"
+name = "market"
+version = "0.0.2"
 edition = "2024"
 publish = false
 

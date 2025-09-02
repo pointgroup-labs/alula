@@ -9,14 +9,14 @@ use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
 use crate::get_default_env;
 
 mod market {
-    use lending::{
+    use market::{
         LCError,
         pool::{PoolAddress, UserAddress},
         storage::{BorrowPoolAddress, DepositPoolAddress},
     };
     use soroban_sdk::contractimport;
 
-    contractimport!(file = "/home/sonny_m00re/src/jpool/jlending/wasms/lending.wasm");
+    contractimport!(file = "/home/sonny_m00re/src/jpool/jlending/wasms/market.wasm");
 }
 
 struct ManagerSetup<'a> {

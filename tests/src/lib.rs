@@ -15,10 +15,10 @@ mod withdraw;
 use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
-use lending::{
+use market::{
     LCError,
     constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ORACLE_ADDRESS, ROUTER_ADDRESS},
-    contract::{LendingContract, LendingContractClient},
+    contract::{MarketContract, MarketContractClient},
     obligation::{BorrowObligation, DepositObligation},
     pool::PoolConfig,
     soroswap_router as router,
@@ -46,7 +46,7 @@ pub enum Token {
 
 pub struct TestFixture<'a> {
     pub e: Env,
-    pub contract_client: LendingContractClient<'a>,
+    pub contract_client: MarketContractClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
     pub users: Vec<Address>,
@@ -104,14 +104,14 @@ impl TestFixture<'_> {
 
         let contract_admin = Address::generate(&e);
         let contract_id = e.register(
-            LendingContract,
+            MarketContract,
             (
                 contract_admin.clone(),
                 Option::<i128>::Some(DEFAULT_HEALTH_FACTOR_THRESHOLD),
             ),
         );
 
-        let contract_client = LendingContractClient::new(&e, &contract_id);
+        let contract_client = MarketContractClient::new(&e, &contract_id);
 
         let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
@@ -746,7 +746,7 @@ impl RunCommand for WithdrawFromLeveraged {
 
 // -- Obligation --
 pub fn get_obligation_j_tokens(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
@@ -756,7 +756,7 @@ pub fn get_obligation_j_tokens(
 }
 
 pub fn get_obligation_d_tokens(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
@@ -766,7 +766,7 @@ pub fn get_obligation_d_tokens(
 }
 
 pub fn get_obligation_borrowed(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
@@ -776,7 +776,7 @@ pub fn get_obligation_borrowed(
 }
 
 pub fn get_obligation_collateral(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
@@ -787,7 +787,7 @@ pub fn get_obligation_collateral(
 
 pub fn get_obligation_total_debt(
     e: &Env,
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
@@ -801,7 +801,7 @@ pub fn get_obligation_total_debt(
 
 pub fn get_obligation_unpaid_interest(
     e: &Env,
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
@@ -818,7 +818,7 @@ pub fn get_obligation_unpaid_interest(
 
 pub fn get_obligation_deposited(
     e: &Env,
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
@@ -831,7 +831,7 @@ pub fn get_obligation_deposited(
 }
 
 pub fn get_deposit_obligation(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositObligation, LCError> {
@@ -848,7 +848,7 @@ pub fn get_deposit_obligation(
 }
 
 pub fn get_borrow_obligation(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<BorrowObligation, LCError> {
@@ -866,7 +866,7 @@ pub fn get_borrow_obligation(
 
 // -- Pool --
 pub fn get_pool_total_j_tokens(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
     let pool = contract_client.get_pool(pool_address);
@@ -875,7 +875,7 @@ pub fn get_pool_total_j_tokens(
 }
 
 pub fn get_pool_total_supply(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
     let pool = contract_client.get_pool(pool_address);
@@ -885,7 +885,7 @@ pub fn get_pool_total_supply(
 }
 
 pub fn get_pool_available(
-    contract_client: &LendingContractClient,
+    contract_client: &MarketContractClient,
     pool_address: &Address,
 ) -> Result<i128, LCError> {
     let pool = contract_client.get_pool(pool_address);
@@ -927,7 +927,7 @@ pub fn assert_approx_eq_rel(a: i128, b: i128, delta_bps: i128) {
 
 #[cfg(test)]
 mod tests {
-    use lending::{
+    use market::{
         constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
         storage::DataKey,
     };

@@ -3,7 +3,7 @@ use soroban_sdk::contracterror;
 #[contracterror]
 #[derive(Debug, Eq, PartialEq)]
 #[repr(u32)]
-pub enum LendingContractError {
+pub enum MarketContractError {
     // Core errors (0-9)
     InternalError = 0,
     OverOrUnderflow = 1,

@@ -13,8 +13,8 @@ sep-40-oracle = { workspace = true, features = ["testutils"] }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 
-[dependencies.lending]
-path = "../contracts/lending"
+[dependencies.market]
+path = "../contracts/market"
 features = ["testutils"]
 
 [dependencies.market-manager]

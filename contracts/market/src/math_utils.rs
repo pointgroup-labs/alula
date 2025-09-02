@@ -114,7 +114,7 @@ mod tests {
     use soroban_sdk::testutils::arbitrary::std::println;
 
     use super::*;
-    use crate::error::LendingContractError;
+    use crate::error::MarketContractError;
 
     #[test]
     fn test_fixed_mul_ceil_vs_floor() {
@@ -466,7 +466,7 @@ mod tests {
         let denominator = 1_000_000;
         let result = bin_pow(base, 2, denominator);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), LendingContractError::OverOrUnderflow);
+        assert_eq!(result.unwrap_err(), MarketContractError::OverOrUnderflow);
 
         // Overflow with moderate base but large exponent
         let base = i128::MAX / (1 << 10);

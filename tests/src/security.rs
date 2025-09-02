@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use lending::{LCError, contract::LendingContractClient};
+use market::{LCError, contract::MarketContractClient};
 use soroban_sdk::{Address, Bytes, BytesN, symbol_short, testutils::Address as _};
 
 use crate::TestFixture;
@@ -26,7 +26,7 @@ fn test_initialize_pool_requires_admin() {
     let fixture = TestFixture::new();
 
     // Create client with unauthorized user context
-    let unauthorized_client = LendingContractClient::new(&fixture.e, &fixture.contract_id);
+    let unauthorized_client = MarketContractClient::new(&fixture.e, &fixture.contract_id);
 
     // Try to initialize pool with unauthorized user
     let usdc_ticker = symbol_short!("USDC");
@@ -50,7 +50,7 @@ fn test_initialize_multiply_pair_requires_admin() {
     // let unauthorized_user = Address::generate(&fixture.e);
 
     // Create client with unauthorized user context
-    let unauthorized_client = LendingContractClient::new(&fixture.e, &fixture.contract_id);
+    let unauthorized_client = MarketContractClient::new(&fixture.e, &fixture.contract_id);
 
     // Try to initialize multiply pair with unauthorized user
     let result = unauthorized_client

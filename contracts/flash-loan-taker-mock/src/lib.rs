@@ -48,7 +48,7 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 
 #[cfg(test)]
 mod test {
-    use lending::LCError;
+    use market::LCError;
     use soroban_sdk::Address;
     use tests::{DEFAULT_DEPOSIT_AMOUNT, TestFixture};
 
