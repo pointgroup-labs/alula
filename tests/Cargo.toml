@@ -16,3 +16,6 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 [dependencies.lending]
 path = "../contracts/lending"
 features = ["testutils"]
+
+[dependencies.market-manager]
+path = "../contracts/market-manager"

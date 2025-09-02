@@ -5,6 +5,7 @@ mod initialize;
 mod interest_rates;
 mod leverage;
 mod liquidate;
+mod market_manager;
 mod misc;
 mod repay;
 mod security;

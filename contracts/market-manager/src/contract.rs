@@ -1,8 +1,9 @@
+use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
+
 use crate::{
     storage::{self, Config},
     MMError,
 };
-use soroban_sdk::{contract, contractclient, contractimpl, Address, BytesN, Env, String, Vec};
 
 #[contractclient(name = "MarketManagerClient")]
 pub trait MarketManager {
@@ -12,8 +13,8 @@ pub trait MarketManager {
         admin: Address,
         name: String,
         oracle: Address,
-        /* max_positions, */
-        /* min_collateral, */
+        // max_positions, */
+        // min_collateral,
     ) -> Result<Address, MMError>;
 
     fn get_market_list(e: Env) -> Option<Vec<Address>>;
@@ -22,6 +23,7 @@ pub trait MarketManager {
 #[contract]
 pub struct MarketManagerContract;
 
+#[contractimpl]
 impl MarketManager for MarketManagerContract {
     fn deploy(
         e: Env,
