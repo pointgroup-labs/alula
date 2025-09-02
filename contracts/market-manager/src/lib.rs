@@ -1,7 +1,8 @@
 #![no_std]
 
-mod contract;
+pub mod contract;
 pub mod error;
+pub mod events;
 pub mod storage;
 
 // Aliases
