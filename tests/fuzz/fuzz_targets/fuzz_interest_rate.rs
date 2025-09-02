@@ -1,11 +1,11 @@
 #![no_main]
 
+use libfuzzer_sys::fuzz_target;
 use market::{
     accrual::AccrualModel,
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     pool::{Pool, PoolConfig},
 };
-use libfuzzer_sys::fuzz_target;
 use soroban_sdk::{
     Env, symbol_short,
     testutils::{Address as _, arbitrary::Arbitrary},

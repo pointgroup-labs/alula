@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market_manager::{
-    contract::{MarketManagerClient, MarketManagerContract, MarketManagerContractClient},
+    contract::{MarketManagerClient, MarketManagerContract},
     storage::Config,
 };
 use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
@@ -19,6 +19,7 @@ mod market {
     contractimport!(file = "/home/sonny_m00re/src/jpool/jlending/wasms/market.wasm");
 }
 
+#[allow(unused)]
 struct ManagerSetup<'a> {
     e: Env,
     manager_client: MarketManagerClient<'a>,
@@ -68,8 +69,9 @@ fn test_manager_deploy_pool() {
     let salt = BytesN::from_array(&e, &[0; 32]);
     let pool_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
+    let max_positions = 10;
 
     let name = String::from_str(&e, "pool_1");
 
-    manager_client.deploy(&salt, &pool_admin, &name, &oracle);
+    manager_client.deploy(&salt, &pool_admin, &name, &oracle, &max_positions);
 }

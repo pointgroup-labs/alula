@@ -1,5 +1,5 @@
 use market::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
-use soroban_sdk::{contracttype, panic_with_error, Address, BytesN, Env, Vec};
+use soroban_sdk::{Address, BytesN, Env, Vec, contracttype, panic_with_error};
 
 use crate::MMError;
 
@@ -27,13 +27,23 @@ pub fn get_config(e: &Env) -> Config {
     extend_instance_storage(e);
 
     let key = DataKey::Config;
-    let config = e
-        .storage()
+
+    e.storage()
         .instance()
         .get(&key)
-        .unwrap_or_else(|| panic_with_error!(e, MMError::InternalError));
+        .unwrap_or_else(|| panic_with_error!(e, MMError::InternalError))
+}
 
-    config
+pub fn market_exists(e: &Env, market_address: &Address) -> bool {
+    let key = DataKey::MarketList;
+
+    if let Some(markets) = e.storage().instance().get(&key) {
+        let markets: Vec<Address> = markets;
+
+        markets.contains(market_address)
+    } else {
+        false
+    }
 }
 
 pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMError> {
@@ -46,7 +56,7 @@ pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMError>
     if markets.contains(market_address) {
         // TODO: Add an event
 
-        return Err(MMError::InternalError);
+        return Err(MMError::MarketAlreadyExists);
     } else {
         markets.push_back(market_address.clone());
     }
