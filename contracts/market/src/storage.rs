@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, Vec, contracttype};
+use soroban_sdk::{Address, BytesN, Env, Vec, contracttype};
 
 use crate::{
     constants::{
@@ -27,7 +27,9 @@ pub struct GlobalState {
 pub enum DataKey {
     GlobalState,
     Pool(PoolAddress),
-    Obligation(UserAddress),
+    // TODO: Use only seed for indexing obligation?
+    Obligation((UserAddress, Option<BytesN<32>>)), // NB: What's better Bytes or BytesN here?
+    MultiplyPairObligation((DepositPoolAddress, BorrowPoolAddress, UserAddress)),
     MultiplyPair((DepositPoolAddress, BorrowPoolAddress)),
     Accrual,
     AllPools,
@@ -259,16 +261,20 @@ pub fn remove_all_multiply_pairs(e: &Env) {
 }
 
 // --- Obligation ---
-pub fn set_obligation(e: &Env, user: &Address, obligation: &Obligation) {
-    let key = DataKey::Obligation(user.clone());
+pub fn set_obligation(e: &Env, user: &Address, seed: &Option<BytesN<32>>, obligation: &Obligation) {
+    let key = DataKey::Obligation((user.clone(), seed.clone()));
 
     e.storage().persistent().set(&key, obligation);
 
     extend_individual_storage(e, &key);
 }
 
-pub fn get_obligation(e: &Env, user_address: &Address) -> Option<Obligation> {
-    let key = DataKey::Obligation(user_address.clone());
+pub fn get_obligation(
+    e: &Env,
+    user_address: &Address,
+    seed: &Option<BytesN<32>>,
+) -> Option<Obligation> {
+    let key = DataKey::Obligation((user_address.clone(), seed.clone()));
 
     let res = e.storage().persistent().get(&key);
 
@@ -279,8 +285,8 @@ pub fn get_obligation(e: &Env, user_address: &Address) -> Option<Obligation> {
     res
 }
 
-pub fn obligation_exists(e: &Env, user_address: &Address) -> bool {
-    let key = DataKey::Obligation(user_address.clone());
+pub fn obligation_exists(e: &Env, user_address: &Address, seed: &Option<BytesN<32>>) -> bool {
+    let key = DataKey::Obligation((user_address.clone(), seed.clone()));
 
     let res = e.storage().persistent().has(&key);
 
@@ -293,9 +299,9 @@ pub fn obligation_exists(e: &Env, user_address: &Address) -> bool {
 
 // TODO: Is this a good way of doing this?
 // Doesn't seem to be scaling well
-pub fn register_obligation(e: &Env, user_address: &Address) -> u32 {
+pub fn register_obligation(e: &Env, user_address: &Address, seed: &Option<BytesN<32>>) -> u32 {
     let mut all_obligations = get_all_obligations(e);
-    all_obligations.push_back(user_address.clone());
+    all_obligations.push_back((user_address.clone(), seed.clone()));
     let new_index = all_obligations.len() - 1;
 
     e.storage()
@@ -306,8 +312,8 @@ pub fn register_obligation(e: &Env, user_address: &Address) -> u32 {
     new_index
 }
 
-pub fn remove_obligation(e: &Env, user_address: &Address) {
-    let key = DataKey::Obligation(user_address.clone());
+pub fn remove_obligation(e: &Env, user_address: &Address, seed: &Option<BytesN<32>>) {
+    let key = DataKey::Obligation((user_address.clone(), seed.clone()));
 
     e.storage().persistent().remove(&key);
 
@@ -315,9 +321,9 @@ pub fn remove_obligation(e: &Env, user_address: &Address) {
     let mut new_obligations = Vec::new(e);
 
     // WARN: This doesn't scale well, so it better be rewritten with 'Map'
-    for obligation in obligations.iter() {
-        if obligation != *user_address {
-            new_obligations.push_back(obligation);
+    for (user_addr, s) in &obligations {
+        if user_addr != *user_address && s != *seed {
+            new_obligations.push_back((user_addr, s));
         }
     }
 
@@ -327,14 +333,14 @@ pub fn remove_obligation(e: &Env, user_address: &Address) {
 }
 
 pub fn remove_all_obligations(e: &Env) {
-    let all_obligations: Vec<Address> = get_all_obligations(e);
+    let all_obligations: Vec<(Address, Option<BytesN<32>>)> = get_all_obligations(e);
 
-    for obligation in all_obligations.iter() {
-        remove_obligation(e, &obligation);
+    for (user_address, seed) in all_obligations.iter() {
+        remove_obligation(e, &user_address, &seed);
     }
 }
 
-pub fn get_all_obligations(e: &Env) -> Vec<UserAddress> {
+pub fn get_all_obligations(e: &Env) -> Vec<(UserAddress, Option<BytesN<32>>)> {
     let res = e.storage().persistent().get(&DataKey::AllObligations);
     if let Some(obligations) = res {
         extend_shared_storage(e, &DataKey::AllObligations);

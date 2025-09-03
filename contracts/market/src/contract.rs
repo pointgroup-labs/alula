@@ -11,7 +11,7 @@ use crate::{
     accrual::AccrualModel,
     constants::{
         BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_LIQUIDATION_THRESHOLD,
-        LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS, MIN_LEVERAGE_MULTIPLIER, ORACLE_ADDRESS,
+        LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS, ORACLE_ADDRESS,
     },
     events,
     interest_rate::AnnualPercentageYields,
@@ -133,7 +133,7 @@ impl MarketContract {
     ) -> Result<(), LCError> {
         user.require_auth();
 
-        process_deposit(&e, &user, &pool_address, amount)
+        process_deposit(&e, &user, &None, &pool_address, amount)
     }
 
     /// Swap tokens via a swap provider contract. This guarantees a swap
@@ -170,7 +170,7 @@ impl MarketContract {
     ) -> Result<(), LCError> {
         user.require_auth();
 
-        process_borrow(&e, &user, &pool_address, amount)
+        process_borrow(&e, &user, &None, &pool_address, amount)
     }
 
     /// Adds tokens into the loan pool as collateral only.
@@ -405,7 +405,7 @@ impl MarketContract {
     /// ### Arguments
     /// * `user` - user which obligation is returned
     pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, LCError> {
-        let obligation = Obligation::try_get(&e, &user)?;
+        let obligation = Obligation::try_get(&e, &user, &None)?;
 
         obligation.accrue_interest(&e)?;
         obligation.set(&e);
@@ -413,18 +413,24 @@ impl MarketContract {
         Ok(obligation)
     }
 
+    // TODO:
+    // pub fn get_user_multiply_pair_obligation() {}
+
     /// Accrues interest on a specific user's obligation and on its pools
     ///
     /// ### Arguments
     /// * `user` - user whose obligation interest is accrued
     pub fn accrue_interest(e: Env, user: Address) -> Result<(), LCError> {
-        let obligation = Obligation::try_get(&e, &user)?;
+        let obligation = Obligation::try_get(&e, &user, &None)?;
 
         obligation.accrue_interest(&e)?;
         obligation.set(&e);
 
         Ok(())
     }
+
+    // TODO:
+    // pub fn accrue_interest_on_multiply_pair_obligation() {}
 
     /// Returns the specific loan pool
     ///
@@ -440,7 +446,7 @@ impl MarketContract {
     }
 
     /// Returns a list of all user obligations in the protocol
-    pub fn get_all_obligations(e: Env) -> Vec<Address> {
+    pub fn get_all_obligations(e: Env) -> Vec<(Address, Option<BytesN<32>>)> {
         Obligation::get_all(&e)
     }
 
@@ -595,6 +601,7 @@ pub fn process_initialize_multiply_pair(
 pub fn process_deposit(
     e: &Env,
     user: &Address,
+    seed: &Option<BytesN<32>>,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
@@ -619,7 +626,11 @@ pub fn process_deposit(
 
     let j_tokens_issued = pool.compute_j_tokens_from_tokens(e, amount)?;
 
-    let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
+    let mut obligation = Obligation::try_get(e, user, seed).unwrap_or(Obligation::new(
+        e,
+        user.clone(),
+        seed.clone(),
+    ));
     obligation.deposit(e, pool_address, j_tokens_issued, amount)?;
 
     pool.adjust_total_j_tokens(e, j_tokens_issued)?;
@@ -639,12 +650,13 @@ pub fn process_deposit(
 fn process_borrow(
     e: &Env,
     user: &Address,
+    seed: &Option<BytesN<32>>,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, user)?;
+    let mut obligation = Obligation::try_get(e, user, seed)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -682,13 +694,17 @@ fn process_borrow(
 fn process_add_collateral(
     e: &Env,
     user: &Address,
+    // TODO: seed: &Option<BytesN<32>>?,
+    // Maybe this makes sense during some price fluctuations?
+    // It better to check Kamino once more for this...
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
     require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    let mut obligation = Obligation::try_get(e, user).unwrap_or(Obligation::new(e, user.clone()));
+    let mut obligation =
+        Obligation::try_get(e, user, &None).unwrap_or(Obligation::new(e, user.clone(), None));
 
     obligation.accrue_interest(e)?;
 
@@ -709,12 +725,13 @@ fn process_add_collateral(
 fn process_repay(
     e: &Env,
     user: &Address,
+    // TODO: seed: ...
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, user)?;
+    let mut obligation = Obligation::try_get(e, user, &None)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -749,6 +766,9 @@ fn process_liquidate(
     e: &Env,
     liquidator: &Address,
     borrower: &Address,
+    // NB: How does liquidator know the seed?
+    // Somehow expose this as contract's endpoint?
+    // TODO: borrower_obligation_seed:
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
     amount: i128,
@@ -764,12 +784,13 @@ fn process_liquidate(
 fn process_remove_collateral(
     e: &Env,
     user: &Address,
+    // TODO: seed?
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, user)?;
+    let mut obligation = Obligation::try_get(e, user, &None)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -867,9 +888,8 @@ fn process_deposit_with_leverage(
     require_nonnegative(amount)?;
 
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
-    if !(MIN_LEVERAGE_MULTIPLIER..=pair.max_leverage_multiplier).contains(&leverage_multiplier) {
-        return Err(LCError::InvalidLeverageMultiplier);
-    }
+    pair.require_valid_leverage_multiplier(leverage_multiplier)?;
+    let pair_obligation_seed = Some(pair.compute_obligation_seed(e, user));
 
     let (deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, deposit_pool_address).map_err(|_| {
@@ -887,10 +907,12 @@ fn process_deposit_with_leverage(
     //  -- Calculate parameters --
     let leverage_multiplier_minus_1 = leverage_multiplier - LEVERAGE_SCALE; // safe
     let (flash_borrow_amount, amount_in, amount_out) = if deposit_as_margin {
+        // ------
         // 'flash_borrow_amount' = 'amount_in' you need to get the base_leverage as 'amount_out'
         // after swap
         // 'amount_in' = flash_borrow_amount
         // 'amount_out' = base_leverage
+        // ------
         let scaled_base_leverage_amount = amount
             .checked_mul(leverage_multiplier_minus_1 as i128)
             .map_over_or_underflow()?;
@@ -908,9 +930,11 @@ fn process_deposit_with_leverage(
 
         (flash_borrow_amount, amount_in, amount_out)
     } else {
+        // ------
         // 'flash_borrow_amount' = amount * (leverage_multiplier - 1)
         // 'amount_in' = amount + flash_borrow_amount
         // 'amount_out' = 'amount_out' you get after swapping 'amount_in'
+        // ------
         let scaled_flash_borrow_amount = amount
             .checked_mul(leverage_multiplier_minus_1 as i128)
             .map_over_or_underflow()?;
@@ -990,7 +1014,13 @@ fn process_deposit_with_leverage(
         received_amount
     };
 
-    process_deposit(e, user, deposit_pool_address, deposit_amount)?;
+    process_deposit(
+        e,
+        user,
+        &pair_obligation_seed,
+        deposit_pool_address,
+        deposit_amount,
+    )?;
 
     // -- Borrow to repay the flash loan --
     let flash_loan_fee = flash_borrow_amount
@@ -1000,7 +1030,7 @@ fn process_deposit_with_leverage(
         .checked_add(flash_loan_fee)
         .map_over_or_underflow()?;
 
-    let Ok(obligation) = Obligation::try_get(e, user) else {
+    let Ok(obligation) = Obligation::try_get(e, user, &pair_obligation_seed) else {
         events::obligation_is_missing_in_storage(e, user);
 
         return Err(LCError::InternalError);
@@ -1022,7 +1052,13 @@ fn process_deposit_with_leverage(
     // This approach, though, has as the advantage that we utilize `process_borrow`,
     // so, maybe, it's better to leave it as it is now
 
-    process_borrow(e, user, borrow_pool_address, flash_repay_amount)?;
+    process_borrow(
+        e,
+        user,
+        &pair_obligation_seed,
+        borrow_pool_address,
+        flash_repay_amount,
+    )?;
     borrow_pool.refresh(e)?;
 
     // Repay the flash loan
@@ -1034,6 +1070,7 @@ fn process_deposit_with_leverage(
     events::deposit_with_leverage(
         e,
         user,
+        // TODO: seed: ...
         deposit_pool_address,
         borrow_pool_address,
         amount,
@@ -1044,6 +1081,8 @@ fn process_deposit_with_leverage(
 
     Ok(())
 }
+
+// TODO: adjust_leverage() {}
 
 pub fn process_withdraw_from_leveraged(
     e: &Env,
@@ -1061,7 +1100,10 @@ pub fn process_withdraw_from_leveraged(
         Pool::try_get(e, deposit_pool_address).map_err(|_| LCError::DepositPoolDoesNotExist)?,
     );
 
-    let obligation = Obligation::try_get(e, user)?;
+    let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
+    let pair_obligation_seed = Some(pair.compute_obligation_seed(e, user));
+
+    let obligation = Obligation::try_get(e, user, &pair_obligation_seed)?;
     let total_debt = obligation.get_total_debt(e, borrow_pool_address)?;
 
     if total_debt == 0 {

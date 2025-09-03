@@ -12,6 +12,7 @@
     "doctest",
     "jlending",
     "jpool",
+    "keccak",
     "kyryl",
     "lastprice",
     "libfuzzer",

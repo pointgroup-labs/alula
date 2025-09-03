@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env, Map, Vec, contracttype};
+use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
     LCError, constants::BPS_FACTOR, contract::get_asset_price, events, math_utils::MathUtils,
@@ -10,7 +10,9 @@ use crate::{
 #[contracttype]
 pub struct Obligation {
     /// The obligation's user
-    pub user: Address,
+    pub user: Address, // TODO: Don't store `user` and `seed` at all?
+    /// A seed data used to distinguish users' obligations(i.e., multiply pair obligation or plain market obligation, etc.)
+    pub seed: Option<BytesN<32>>, // TODO: Why not Bytes or Hash?
     /// Deposited collateral for the obligation, unique by deposit pool address
     pub deposits: Map<Address, DepositObligation>,
     /// Borrowed liquidity for the obligation, unique by borrow pool address
@@ -29,11 +31,12 @@ impl Obligation {
     /// # WARNING
     /// Modifies the obligation's pools storage data by appending the user's address to the
     /// obligation's list
-    pub fn new(e: &Env, user: Address) -> Self {
-        storage::register_obligation(e, &user);
+    pub fn new(e: &Env, user: Address, seed: Option<BytesN<32>>) -> Self {
+        storage::register_obligation(e, &user, &seed);
 
         Self {
             user,
+            seed,
             deposits: Map::new(e),
             borrows: Map::new(e),
         }
@@ -211,7 +214,7 @@ impl Obligation {
         Ok(max_healthy_added_amount)
     }
 
-    pub fn get_all(e: &Env) -> Vec<Address> {
+    pub fn get_all(e: &Env) -> Vec<(Address, Option<BytesN<32>>)> {
         storage::get_all_obligations(e)
     }
 
@@ -447,8 +450,9 @@ impl Obligation {
     ///
     /// # WARNING
     /// Modifies the contract's storage
+    // TODO: pub fn set(&self, e: &Env, user: &Address, seed: &Option<BytesN<32>>) {
     pub fn set(&self, e: &Env) {
-        storage::set_obligation(e, &self.user, self);
+        storage::set_obligation(e, &self.user, &self.seed, self);
     }
 
     /// Tries to get the user's obligation from the contract's storage
@@ -456,8 +460,8 @@ impl Obligation {
     /// # Returns
     /// - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
     /// - [`Err(LCError::ObligationDoesNotExist)`] otherwise
-    pub fn try_get(e: &Env, user: &Address) -> Result<Self, LCError> {
-        storage::get_obligation(e, user).ok_or(LCError::ObligationDoesNotExist)
+    pub fn try_get(e: &Env, user: &Address, seed: &Option<BytesN<32>>) -> Result<Self, LCError> {
+        storage::get_obligation(e, user, seed).ok_or(LCError::ObligationDoesNotExist)
     }
 
     /// Removes obligation from the contract's storage
@@ -465,7 +469,7 @@ impl Obligation {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn remove(self, e: &Env) {
-        storage::remove_obligation(e, &self.user);
+        storage::remove_obligation(e, &self.user, &self.seed);
     }
 }
 
@@ -616,11 +620,13 @@ mod tests {
     fn create_test_obligation(env: &Env, user: Address) -> Obligation {
         let deposits = Map::new(env);
         let borrows = Map::new(env);
+        let seed = None;
 
         Obligation {
             user,
             deposits,
             borrows,
+            seed,
         }
     }
 

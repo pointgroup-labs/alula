@@ -1,9 +1,12 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env, Vec, contracttype};
+use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype};
 
 use crate::{
     LCError,
-    constants::{BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE},
+    constants::{
+        BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE,
+        MIN_LEVERAGE_MULTIPLIER,
+    },
     math_utils::MathUtils,
     storage,
 };
@@ -121,6 +124,48 @@ impl MultiplyPair {
 
         // Scale the result for the final output
         (max_multiplier_bps / SCALE) as u32 // safe
+    }
+
+    /// # Returns
+    /// - [`Ok(())`] if the provided multiplier is within the valid range
+    /// - [`Err(LCError::InvalidLeverageMultiplier)`] otherwise
+    pub fn require_valid_leverage_multiplier(
+        &self,
+        leverage_multiplier: u32,
+    ) -> Result<(), LCError> {
+        if !(MIN_LEVERAGE_MULTIPLIER..=self.max_leverage_multiplier).contains(&leverage_multiplier)
+        {
+            return Err(LCError::InvalidLeverageMultiplier);
+        }
+
+        Ok(())
+    }
+
+    /// # Returns
+    /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
+    ///
+    /// TODO: Precompute this when initializing MultiplyPair?
+    pub fn compute_obligation_seed(&self, e: &Env) -> BytesN<32> {
+        const MULTIPLY_PAIR_PREFIX: &str = "MP_";
+
+        let mut prefix_bytes: [u8; 2] = [0; 2];
+        prefix_bytes.copy_from_slice(MULTIPLY_PAIR_PREFIX.as_bytes());
+
+        let mut borrow_pool_address_bytes: [u8; 56] = [0; 56];
+        self.borrow_pool
+            .to_string()
+            .copy_into_slice(&mut borrow_pool_address_bytes);
+
+        let mut deposit_pool_address_bytes: [u8; 56] = [0; 56];
+        self.deposit_pool
+            .to_string()
+            .copy_into_slice(&mut deposit_pool_address_bytes);
+
+        let mut bytes_concatenated: Bytes = Bytes::from_array(e, &prefix_bytes);
+        bytes_concatenated.extend_from_array(&deposit_pool_address_bytes);
+        bytes_concatenated.extend_from_array(&borrow_pool_address_bytes);
+
+        e.crypto().keccak256(&bytes_concatenated).into()
     }
 }
 
