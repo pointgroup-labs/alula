@@ -142,7 +142,7 @@ function checkIsHaveMultiply(poolAddress: string) {
             alt="asset icon"
           >
           <img
-            :src="getTokenIcon('XLM')"
+            :src="data.item.borrowAsset.icon"
             alt="XLM icon"
             class="xlm-icon"
           >

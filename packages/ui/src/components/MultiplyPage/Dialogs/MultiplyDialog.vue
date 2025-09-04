@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, getTokenIcon, shortenAddress, truncatePercent } from '~/utils'
+import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, shortenAddress, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -36,14 +36,9 @@ const publicKey = computed(() => wallet.publicKey)
 const isDepositMultiply = ref(true)
 
 const multiplyAssets = computed(() => {
-  const depositAsset = data?.depositPool.token_ticker
-  const borrowAsset = data?.borrowPool.token_ticker
-  return [depositAsset, borrowAsset].map((ticker) => {
-    return {
-      name: ticker,
-      icon: getTokenIcon(String(ticker)),
-    }
-  })
+  const depositAsset = data?.asset
+  const borrowAsset = data?.borrowAsset
+  return [depositAsset, borrowAsset]
 })
 
 const depositAsset = computed(() => multiplyAssets.value[isDepositMultiply.value ? 0 : 1])
@@ -264,10 +259,6 @@ watch(dialog, async (v) => {
           </template>
         </input-widget>
 
-        <div class="multiply-dialog__notice">
-          Notice: In this version, multiply via the {{ data?.borrowAsset.symbol }} token is available.
-        </div>
-
         <div
           v-if="infoTableData.length > 0"
           class="dialog-info-table"
@@ -310,7 +301,10 @@ watch(dialog, async (v) => {
         </div>
       </div>
 
-      <multiply-apy-chart />
+      <multiply-apy-chart
+        :data="data"
+        :is-deposit-multiply="isDepositMultiply"
+      />
     </div>
   </j-dialog>
 </template>
@@ -387,14 +381,6 @@ watch(dialog, async (v) => {
       flex-direction: column-reverse;
       gap: $spacing-16;
     }
-  }
-
-  &__notice {
-    font-size: 11px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 12px;
-    color: $neutral-12;
   }
 
   &__data {
