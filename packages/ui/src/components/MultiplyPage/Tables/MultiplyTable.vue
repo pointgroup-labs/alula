@@ -61,9 +61,9 @@ const items = computed<MultiplyTableItem[]>(() => {
       const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol)) || ''
       const ltv = Number(depositPool?.config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
-      const maxAPY
-       = ((Number(depositPool?.pool_apy.supply_bps || 0) - Number(depositPool?.pool_apy.borrow_bps || 0))
-         * multiplier + Number(depositPool?.pool_apy.borrow_bps || 0)) / 100
+      const supplyBPS = Number(depositPool?.pool_apy.supply_bps || 0) / 10_000
+      const borrowBPS = Number(borrowPool?.pool_apy.borrow_bps || 0) / 10_000
+      const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
       const supplied = depositPool && depositPool.available ? Number(bigintToNumber(depositPool.available, assetDecimals.value)) : 0
       const liquidity
       = borrowPool && borrowPool.available
