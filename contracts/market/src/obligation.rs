@@ -11,7 +11,8 @@ use crate::{
 pub struct Obligation {
     /// The obligation's user
     pub user: Address, // TODO: Don't store `user` and `seed` at all?
-    /// A seed data used to distinguish users' obligations(i.e., multiply pair obligation or plain market obligation, etc.)
+    /// A seed data used to distinguish users' obligations(i.e., multiply pair obligation or plain
+    /// market obligation, etc.)
     pub seed: Option<BytesN<32>>, // TODO: Why not Bytes or Hash?
     /// Deposited collateral for the obligation, unique by deposit pool address
     pub deposits: Map<Address, DepositObligation>,

@@ -413,8 +413,22 @@ impl MarketContract {
         Ok(obligation)
     }
 
-    // TODO:
-    // pub fn get_user_multiply_pair_obligation() {}
+    /// Returns the user's obligation for a specific multiply pair
+    ///
+    /// ### Arguments
+    /// * `user` - user whose obligation is returned
+    pub fn get_multiply_pair_obligation(
+        e: Env,
+        user: Address,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<Obligation, LCError> {
+        let pair_seed =
+            MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
+        let obligation = Obligation::try_get(&e, &user, &Some(pair_seed))?;
+
+        Ok(obligation)
+    }
 
     /// Accrues interest on a specific user's obligation and on its pools
     ///
@@ -586,6 +600,7 @@ pub fn process_initialize_multiply_pair(
     );
 
     let pair = MultiplyPair::new(
+        e,
         deposit_pool_address,
         borrow_pool_address,
         borrow_pool_open_ltv_bps,
@@ -844,10 +859,7 @@ fn process_flash_loan(
     require_nonnegative(amount)?;
 
     let pool = Pool::try_get(e, pool_address)?;
-    // pool.require_available(amount)?; // TODO: Something like this?
-    if pool.available < amount {
-        return Err(LCError::NotEnoughPoolFunds);
-    }
+    pool.require_available(amount)?;
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), contract, &amount); // plain transfer, not allowance transfer?
@@ -889,7 +901,7 @@ fn process_deposit_with_leverage(
 
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
-    let pair_obligation_seed = Some(pair.compute_obligation_seed(e, user));
+    let pair_seed = Some(pair.seed.clone());
 
     let (deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, deposit_pool_address).map_err(|_| {
@@ -907,12 +919,12 @@ fn process_deposit_with_leverage(
     //  -- Calculate parameters --
     let leverage_multiplier_minus_1 = leverage_multiplier - LEVERAGE_SCALE; // safe
     let (flash_borrow_amount, amount_in, amount_out) = if deposit_as_margin {
-        // ------
+        // ----
         // 'flash_borrow_amount' = 'amount_in' you need to get the base_leverage as 'amount_out'
         // after swap
         // 'amount_in' = flash_borrow_amount
         // 'amount_out' = base_leverage
-        // ------
+        // ----
         let scaled_base_leverage_amount = amount
             .checked_mul(leverage_multiplier_minus_1 as i128)
             .map_over_or_underflow()?;
@@ -930,11 +942,11 @@ fn process_deposit_with_leverage(
 
         (flash_borrow_amount, amount_in, amount_out)
     } else {
-        // ------
+        // ----
         // 'flash_borrow_amount' = amount * (leverage_multiplier - 1)
         // 'amount_in' = amount + flash_borrow_amount
         // 'amount_out' = 'amount_out' you get after swapping 'amount_in'
-        // ------
+        // ----
         let scaled_flash_borrow_amount = amount
             .checked_mul(leverage_multiplier_minus_1 as i128)
             .map_over_or_underflow()?;
@@ -1014,13 +1026,7 @@ fn process_deposit_with_leverage(
         received_amount
     };
 
-    process_deposit(
-        e,
-        user,
-        &pair_obligation_seed,
-        deposit_pool_address,
-        deposit_amount,
-    )?;
+    process_deposit(e, user, &pair_seed, deposit_pool_address, deposit_amount)?;
 
     // -- Borrow to repay the flash loan --
     let flash_loan_fee = flash_borrow_amount
@@ -1030,7 +1036,7 @@ fn process_deposit_with_leverage(
         .checked_add(flash_loan_fee)
         .map_over_or_underflow()?;
 
-    let Ok(obligation) = Obligation::try_get(e, user, &pair_obligation_seed) else {
+    let Ok(obligation) = Obligation::try_get(e, user, &Some(pair.seed)) else {
         events::obligation_is_missing_in_storage(e, user);
 
         return Err(LCError::InternalError);
@@ -1052,13 +1058,7 @@ fn process_deposit_with_leverage(
     // This approach, though, has as the advantage that we utilize `process_borrow`,
     // so, maybe, it's better to leave it as it is now
 
-    process_borrow(
-        e,
-        user,
-        &pair_obligation_seed,
-        borrow_pool_address,
-        flash_repay_amount,
-    )?;
+    process_borrow(e, user, &pair_seed, borrow_pool_address, flash_repay_amount)?;
     borrow_pool.refresh(e)?;
 
     // Repay the flash loan
@@ -1091,9 +1091,7 @@ pub fn process_withdraw_from_leveraged(
     borrow_pool_address: &Address,
     amount: i128,
 ) -> Result<(), LCError> {
-    if amount < 0 {
-        return Err(LCError::NegativeWithdraw);
-    }
+    require_nonnegative(amount)?;
 
     let (mut borrow_pool, mut deposit_pool) = (
         Pool::try_get(e, borrow_pool_address).map_err(|_| LCError::BorrowPoolDoesNotExist)?,
@@ -1101,9 +1099,9 @@ pub fn process_withdraw_from_leveraged(
     );
 
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
-    let pair_obligation_seed = Some(pair.compute_obligation_seed(e, user));
+    let pair_seed = Some(pair.seed.clone());
 
-    let obligation = Obligation::try_get(e, user, &pair_obligation_seed)?;
+    let obligation = Obligation::try_get(e, user, &pair_seed)?;
     let total_debt = obligation.get_total_debt(e, borrow_pool_address)?;
 
     if total_debt == 0 {

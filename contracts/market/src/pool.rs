@@ -169,6 +169,14 @@ impl Pool {
         Ok(j_tokens)
     }
 
+    pub fn require_available(&self, required: i128) -> Result<(), LCError> {
+        if required > self.available {
+            return Err(LCError::NotEnoughPoolFunds);
+        }
+
+        Ok(())
+    }
+
     /// Computes the number of tokens proportional to the given share of the tokens in the pool.
     /// Intended to be used for both `jTokens` and `dTokens` related calculations
     fn compute_tokens_from_shares(

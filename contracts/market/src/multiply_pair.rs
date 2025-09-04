@@ -21,10 +21,14 @@ pub struct MultiplyPair {
     /// Maximum leverage multiplier based on borrow pool openLTV value. Scaled with
     /// [`LEVERAGE_SCALE`]
     pub max_leverage_multiplier: u32,
+    /// Deterministically computed unique seed per this pair, used to distinguish a user's multiply
+    /// pair obligation from other
+    pub seed: BytesN<32>,
 }
 
 impl MultiplyPair {
     pub fn new(
+        e: &Env,
         deposit_pool_address: &Address,
         borrow_pool_address: &Address,
         borrow_pool_open_ltv_bps: i128,
@@ -36,11 +40,13 @@ impl MultiplyPair {
             borrow_pool_open_ltv_bps,
             collateral_pool_liability_factor_bps,
         );
+        let seed = Self::compute_obligation_seed(e, deposit_pool_address, borrow_pool_address);
 
         Self {
             deposit_pool: deposit_pool_address.clone(),
             borrow_pool: borrow_pool_address.clone(),
             max_leverage_multiplier,
+            seed,
         }
     }
 
@@ -143,23 +149,25 @@ impl MultiplyPair {
 
     /// # Returns
     /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
-    ///
-    /// TODO: Precompute this when initializing MultiplyPair?
-    pub fn compute_obligation_seed(&self, e: &Env) -> BytesN<32> {
+    fn compute_obligation_seed(
+        e: &Env,
+        deposit_pool_address: &Address,
+        borrow_pool_address: &Address,
+    ) -> BytesN<32> {
         const MULTIPLY_PAIR_PREFIX: &str = "MP_";
 
         let mut prefix_bytes: [u8; 2] = [0; 2];
         prefix_bytes.copy_from_slice(MULTIPLY_PAIR_PREFIX.as_bytes());
 
-        let mut borrow_pool_address_bytes: [u8; 56] = [0; 56];
-        self.borrow_pool
-            .to_string()
-            .copy_into_slice(&mut borrow_pool_address_bytes);
-
         let mut deposit_pool_address_bytes: [u8; 56] = [0; 56];
-        self.deposit_pool
+        deposit_pool_address
             .to_string()
             .copy_into_slice(&mut deposit_pool_address_bytes);
+
+        let mut borrow_pool_address_bytes: [u8; 56] = [0; 56];
+        borrow_pool_address
+            .to_string()
+            .copy_into_slice(&mut borrow_pool_address_bytes);
 
         let mut bytes_concatenated: Bytes = Bytes::from_array(e, &prefix_bytes);
         bytes_concatenated.extend_from_array(&deposit_pool_address_bytes);
