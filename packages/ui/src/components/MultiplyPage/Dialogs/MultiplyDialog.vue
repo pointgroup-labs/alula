@@ -150,13 +150,14 @@ async function leverage() {
   if (!publicKey.value || !data?.depositPool.pool_address) {
     return
   }
-  if (!amount.value || amount.value <= 0) {
+  if (!amount.value || amount.value <= 0 || amount.value > balance.value) {
     focusInput('.multiply-dialog')
     return
   }
+
   const deposit_pool_address = data?.depositPool.pool_address
-  const borrow_pool_address = marketsStore.state.pools.find(p => p.token_ticker === 'XLM')?.pool_address || ''
-  const asset_code = data?.depositPool.token_ticker
+  const borrow_pool_address = data?.borrowPool.pool_address
+  const asset_code = isDepositMultiply.value ? data?.asset.symbol : data?.borrowAsset.symbol
   if (!deposit_pool_address || !borrow_pool_address) {
     return
   }
