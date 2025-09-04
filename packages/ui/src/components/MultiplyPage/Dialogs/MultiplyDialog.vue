@@ -35,11 +35,7 @@ const publicKey = computed(() => wallet.publicKey)
 
 const isDepositMultiply = ref(true)
 
-const multiplyAssets = computed(() => {
-  const depositAsset = data?.asset
-  const borrowAsset = data?.borrowAsset
-  return [depositAsset, borrowAsset]
-})
+const multiplyAssets = computed(() => [data?.asset, data?.borrowAsset])
 
 const depositAsset = computed(() => multiplyAssets.value[isDepositMultiply.value ? 0 : 1])
 const borrowAsset = computed(() => multiplyAssets.value[isDepositMultiply.value ? 1 : 0])
