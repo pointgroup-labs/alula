@@ -46,7 +46,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
 <template>
   <div class="market-details">
     <div class="market-details__title">
-      Borrow Info
+      Borrow Details
     </div>
 
     <div class="market-stats">
@@ -78,7 +78,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
       >
         <div class="market-progress__info">
           <div class="market-progress__info__title">
-            Total Borrowed
+            Total Borrow
           </div>
           <div class="market-progress__info__data">
             {{ shortenNumber(totalBorrowed) }} / {{ shortenNumber(totalSupplied) }}

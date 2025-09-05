@@ -115,7 +115,7 @@ const infoTableData = computed(() => {
     },
     {
       name: 'maxMultiply',
-      label: 'Max Multiply',
+      label: 'Max Multiplied Amount',
       value: `${formatPrice(Number(supplyLimit.value || 0).toFixed(2), 2)} ${maxMultiplyTicker}`,
     },
     {
@@ -125,7 +125,7 @@ const infoTableData = computed(() => {
     },
     {
       name: 'supplied',
-      label: 'Total Supplied',
+      label: 'Total Supply',
       value: `${formatPrice(data.supplied || 0, 2, 2)} ${data.asset.symbol}`,
     },
     {
@@ -298,10 +298,7 @@ watch(dialog, async (v) => {
         </div>
       </div>
 
-      <multiply-apy-chart
-        :data="data"
-        :is-deposit-multiply="isDepositMultiply"
-      />
+      <multiply-apy-chart />
     </div>
   </j-dialog>
 </template>

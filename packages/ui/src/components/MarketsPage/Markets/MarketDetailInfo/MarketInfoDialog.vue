@@ -19,7 +19,7 @@ const dialog = defineModel({
           :src="selectedMarketDetails?.asset.icon"
           :alt="selectedMarketDetails?.asset.symbol"
         >
-        {{ selectedMarketDetails?.asset.symbol }} Info
+        {{ selectedMarketDetails?.asset.symbol }} Market
         <!-- <j-pill-label
           variant="secondary"
           size="md"

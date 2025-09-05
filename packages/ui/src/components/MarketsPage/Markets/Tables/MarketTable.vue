@@ -23,10 +23,10 @@ const loading = computed(() => marketsStore.state.loading)
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'total_supply', label: 'Total Supply', align: 'right' },
-  { key: 'total_borrowed', label: 'Total Borrowed', align: 'right' },
+  { key: 'total_borrowed', label: 'Total Borrow', align: 'right' },
   { key: 'deposit_apy', label: 'Deposit APY', align: 'center' },
   { key: 'borrow_apy', label: 'Borrow APY', align: 'center' },
-  { key: 'utilization_rate', label: 'Utilization Rate', align: 'right' },
+  { key: 'utilization_rate', label: 'Utilization', align: 'right' },
   { key: 'max_ltv', label: 'Max LTV', align: 'center' },
   { key: 'action', label: '' },
 ]

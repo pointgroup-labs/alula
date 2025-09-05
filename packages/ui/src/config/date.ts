@@ -37,6 +37,6 @@ export const CHART_FILTERS = [{
     value: 31,
 },
 {
-    label: '6 Month',
+    label: '6 Months',
     value: 180,
 }]

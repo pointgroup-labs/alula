@@ -2,7 +2,6 @@
 import type {
   ChartOptions,
 } from 'chart.js'
-import type { MultiplyTableItem } from '~/types/table'
 import { labelWithDateOrMonth } from '~/utils/chart'
 
 type ChartDataset = {
@@ -13,14 +12,6 @@ type ChartDataset = {
 type MockedHistoryDataItem = {
   [key: string]: ChartDataset[]
 }
-
-const {
-  data,
-  isDepositMultiply = true,
-} = defineProps<{
-  data?: MultiplyTableItem
-  isDepositMultiply?: boolean
-}>()
 
 const TOKEN_METRICS_OFFSET = [2, 3, 4, 5]
 
@@ -37,9 +28,6 @@ const MOCK_HISTORY_DATA: MockedHistoryDataItem[] = TOKEN_METRICS_OFFSET.map((el:
     [el]: data,
   }
 })
-
-const depositAssetSymbol = computed(() => isDepositMultiply ? data?.asset.symbol : data?.borrowAsset.symbol)
-const borrowAssetSymbol = computed(() => isDepositMultiply ? data?.borrowAsset.symbol : data?.asset.symbol)
 
 const colors = [
   '#00C4FF',
@@ -232,10 +220,9 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
       </div>
 
       <div class="loop-multiply__vault-info">
-        {{ depositAssetSymbol }} Multiply is a simple leveraged staking product that gives you increased exposure to {{ depositAssetSymbol }} staking yield,
-        while retaining 100% {{ borrowAssetSymbol }} price exposure. This can enable users to earn higher {{ borrowAssetSymbol }} yields than they would by
-        simply
-        holding {{ depositAssetSymbol }}.
+        Multiply uses one-click looping with a flash loan to boost your yield. Choose a multiplier to set leverage —
+        higher multiplier means higher APY and higher liquidation risk. You can reduce or close the position at any
+        time.
       </div>
     </div>
   </div>

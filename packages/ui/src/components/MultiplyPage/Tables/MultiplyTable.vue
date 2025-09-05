@@ -43,8 +43,8 @@ const fields = [
   { key: 'maxAPY', label: 'Max APY', align: 'center' },
   { key: 'multiplier', label: 'Multiplier', align: 'center' },
   { key: 'liquidity', label: 'Liquidity', align: 'right' },
-  { key: 'supplied', label: 'Supplied', align: 'right' },
-  { key: 'borrowing', label: 'Borrowing', align: 'right' },
+  { key: 'supplied', label: 'Supply', align: 'right' },
+  { key: 'borrowing', label: 'Borrow', align: 'right' },
   { key: 'action', label: '' },
 ]
 

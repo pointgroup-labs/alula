@@ -41,7 +41,7 @@ function normalizeAmount(price: number) {
         :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
       />
       <total-card
-        title="Total Borrowing"
+        title="Total Borrow"
         :body="`$${normalizeAmount(poolsInfo.total_borrowed)}`"
         color="#111"
         bg-color="#FFD101"
@@ -52,7 +52,7 @@ function normalizeAmount(price: number) {
     <div class="total-card market-size">
       <div class="total-card__info">
         <div class="total-card__title">
-          Total market size
+          Total Market Size
         </div>
         <div class="total-card__body">
           <j-skeleton

@@ -42,7 +42,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
 <template>
   <div class="market-details">
     <div class="market-details__title">
-      Supply Info
+      Supply Details
     </div>
 
     <div class="market-stats">
@@ -76,7 +76,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
       >
         <div class="market-progress__info">
           <div class="market-progress__info__title">
-            Total Supplied
+            Total Supply
           </div>
           <div class="market-progress__info__data">
             {{ shortenNumber(totalSupplied) }} / {{ isSupplyLimit ? shortenNumber(supplyLimit) : '-' }}

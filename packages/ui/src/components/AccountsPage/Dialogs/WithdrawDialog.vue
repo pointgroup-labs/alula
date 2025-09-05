@@ -89,23 +89,23 @@ const infoTableData = computed(() => {
     value: truncatePercent(healthFactor.value || 0, 2),
   },
   {
-    label: 'Total supply',
+    label: 'Total Supply',
     value: `${shortenNumber(totalSuppliedBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
-    label: 'Deposited balance',
+    label: 'Deposited Balance',
     value: `${shortenNumber(supplyBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
-    label: 'Collateral balance',
+    label: 'Collateral Balance',
     value: `${shortenNumber(collateralBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
-    label: 'Remaining supply',
+    label: 'Remaining Supply',
     value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0))} ${data?.asset.symbol}`,
   },
   {
-    label: 'Available to withdraw',
+    label: 'Available to Withdraw',
     value: `${shortenNumber(availableToWithdraw.value || 0)} ${data?.asset.symbol}`,
   },
   {
