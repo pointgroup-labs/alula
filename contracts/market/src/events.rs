@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, Symbol};
+use soroban_sdk::{Address, BytesN, Env, Symbol};
 
 // ---- Contract's Methods Events ----
 
@@ -145,9 +145,16 @@ pub fn remove_collateral(e: &Env, pool_address: &Address, user: &Address, amount
 ///
 /// - topics - `["withdraw", pool_address: Address, user: Address]`
 /// - data - `[amount: i128]`
-pub fn withdraw(e: &Env, pool_address: &Address, user: &Address, amount: i128) {
-    let topics = (Symbol::new(e, "withdraw"), pool_address, user);
-    let data = (amount,);
+pub fn withdraw(
+    e: &Env,
+    pool_address: &Address,
+    user: &Address,
+    seed: &Option<BytesN<32>>,
+    burnt_j_tokens: i128,
+    withdrawn_tokens: i128,
+) {
+    let topics = (Symbol::new(e, "withdraw"), pool_address, user, seed);
+    let data = (burnt_j_tokens, withdrawn_tokens);
 
     e.events().publish(topics, data);
 }

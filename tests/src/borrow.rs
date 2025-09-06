@@ -232,6 +232,7 @@ fn borrow_more_than_open_ltv_allows() {
         contract_client,
         contract_id,
         usdc_pool_address,
+        // usdc_pool,
         gold_pool_address,
         users,
         ..
@@ -246,9 +247,11 @@ fn borrow_more_than_open_ltv_allows() {
     contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation = contract_client.get_user_obligation(user);
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
+
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
+            .compute_max_healthy_debt_added_amount(&e, &usdc_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
@@ -265,9 +268,11 @@ fn borrow_more_than_open_ltv_allows() {
     assert_eq!(pool_borrowed, MAX_BORROWING_AMOUNT);
 
     let obligation = contract_client.get_user_obligation(user);
+    let gold_pool = contract_client.get_pool(&gold_pool_address);
+
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
+            .compute_max_healthy_debt_added_amount(&e, &gold_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, 0);

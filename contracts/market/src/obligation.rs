@@ -7,13 +7,15 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObligationKey {
+    // TODO: Try to index `Obligation`s with it...
+    pub user: Address,
+    pub seed: Option<BytesN<32>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[contracttype]
 pub struct Obligation {
-    /// The obligation's user
-    pub user: Address, // TODO: Don't store `user` and `seed` at all?
-    /// A seed data used to distinguish users' obligations(i.e., multiply pair obligation or plain
-    /// market obligation, etc.)
-    pub seed: Option<BytesN<32>>, // TODO: Why not Bytes or Hash?
     /// Deposited collateral for the obligation, unique by deposit pool address
     pub deposits: Map<Address, DepositObligation>,
     /// Borrowed liquidity for the obligation, unique by borrow pool address
@@ -36,8 +38,6 @@ impl Obligation {
         storage::register_obligation(e, &user, &seed);
 
         Self {
-            user,
-            seed,
             deposits: Map::new(e),
             borrows: Map::new(e),
         }
@@ -59,162 +59,215 @@ impl Obligation {
         Ok(())
     }
 
+    /// # Returns
+    ///
+    /// [`Result::Ok(false)`] if obligation *can* be liquidated,
+    /// [`Result::Ok(true)`] if obligation *cannot* be liquidated,
+    /// [`Result::Err(MMError)`] if any error occurred during calculation
+    pub fn is_healthy(&self, e: &Env) -> Result<bool, LCError> {
+        // TODO: Maybe, somehow cache these values?
+        let is_healthy = self.compute_collateral_value_scaled_w_close_ltv(e)?
+            >= self.compute_debt_value_scaled_w_liability_factors(e)?;
+
+        Ok(is_healthy)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
 
-    /// Computes the current borrowed assets summed value per obligation (each asset value is scaled
-    /// with the corresponding `liability factor` value)
-    fn compute_borrowed_value_scaled_w_liability_factors(&self, e: &Env) -> Result<i128, LCError> {
-        let mut borrowed_value_sum = 0_i128;
-
-        for (borrow_pool_address, borrow_obligation) in self.borrows.iter() {
-            let BorrowObligation { d_tokens, .. } = borrow_obligation;
-
-            let borrow_pool = storage::get_pool(e, &borrow_pool_address).ok_or_else(|| {
-                events::pool_is_missing_in_storage(e, &borrow_pool_address);
-
-                LCError::InternalError
-            })?;
-
-            let borrowed_tokens = borrow_pool.compute_tokens_from_d_tokens(e, d_tokens)?;
-            let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_ticker)?;
-
-            let new_value_term = borrowed_asset_price
-                .checked_mul(borrowed_tokens)
-                .map_over_or_underflow()?;
-            let new_value_term_scaled_w_liability_factor = new_value_term
-                .fixed_mul_ceil(borrow_pool.config.liability_factor_bps, BPS_FACTOR)
-                .map_over_or_underflow()?;
-
-            borrowed_value_sum = borrowed_value_sum
-                .checked_add(new_value_term_scaled_w_liability_factor)
-                .map_over_or_underflow()?;
-        }
-
-        Ok(borrowed_value_sum)
-    }
-
-    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    /// obligation
-    ///
-    /// # Important
-    /// This function is agnostic regardless of a borrow pool, hence, the resulting value isn't
-    /// scaled with any `open LTV` percent
-    fn compute_collateral_value(&self, e: &Env) -> Result<i128, LCError> {
-        let mut collateral_value_sum = 0_i128;
-
-        for (collateral_pool_address, deposit_obligation) in self.deposits.iter() {
-            let DepositObligation {
-                j_tokens,
-                collateral,
-                ..
-            } = deposit_obligation;
-
-            let collateral_pool =
-                storage::get_pool(e, &collateral_pool_address).ok_or_else(|| {
-                    events::pool_is_missing_in_storage(e, &collateral_pool_address);
-
-                    LCError::InternalError
-                })?;
-
-            let deposited_tokens = collateral_pool.compute_tokens_from_j_tokens(e, j_tokens)?;
-            let total_collateral_tokens = deposited_tokens
-                .checked_add(collateral)
-                .map_over_or_underflow()?;
-            let collateral_asset_price = get_asset_price(e, &collateral_pool.token_ticker)?;
-
-            let new_value_term = collateral_asset_price
-                .checked_mul(total_collateral_tokens)
-                .map_over_or_underflow()?;
-
-            collateral_value_sum = collateral_value_sum
-                .checked_add(new_value_term)
-                .map_over_or_underflow()?;
-        }
-
-        Ok(collateral_value_sum)
-    }
-
-    /// Computes the max healthy amount of the collateral token (that is used as a deposit or as a
+    /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a
     /// collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
     /// parameter on the pool
     pub fn compute_max_healthy_collateral_removed_amount(
         &self,
         e: &Env,
-        pool_address: &Address,
+        pool: &Pool,
     ) -> Result<i128, LCError> {
-        let pool = storage::get_pool(e, pool_address).ok_or_else(|| {
-            events::pool_is_missing_in_storage(e, pool_address);
-
-            LCError::PoolDoesNotExist
-        })?;
-
-        let collateral_value = self.compute_collateral_value(e)?;
-        let collateral_value_scaled = collateral_value
-            .fixed_mul_floor(pool.config.open_ltv_bps, BPS_FACTOR)
-            .map_over_or_underflow()?;
-        let borrowed_value_scaled = self.compute_borrowed_value_scaled_w_liability_factors(e)?;
-
-        let max_healthy_removed_amount = if collateral_value <= borrowed_value_scaled {
-            // Since the scaled borrowed assets value exceeds the scaled collateral assets value,
-            // the collateral removal is prohibited
-            0
-        } else {
-            let collateral_asset_price = get_asset_price(e, &pool.token_ticker)?;
-            let value_left = collateral_value_scaled - borrowed_value_scaled; // safe
-
-            // Contrary to [`compute_max_healthy_collateral_removed_amount`], there's no need
-            // to scale down the value left
-            value_left
-                .checked_div(collateral_asset_price)
-                .map_over_or_underflow()?
-        };
-
-        Ok(max_healthy_removed_amount)
+        self.compute_max_health_factor_decreasing_amount(e, &pool, pool.config.open_ltv_bps)
     }
 
     /// Computes the max healthy amount of the token that can be borrowed and that
     /// doesn't exceed the `open LTV` parameter on the pool
-    pub fn compute_max_healthy_borrow_added_amount(
+    pub fn compute_max_healthy_debt_added_amount(
         &self,
         e: &Env,
-        pool_address: &Address,
+        pool: &Pool,
     ) -> Result<i128, LCError> {
-        let pool = storage::get_pool(e, pool_address).ok_or_else(|| {
-            events::pool_is_missing_in_storage(e, pool_address);
-
-            LCError::PoolDoesNotExist
-        })?;
-
-        let collateral_value = self.compute_collateral_value(e)?;
-        let collateral_value_scaled = collateral_value
-            .fixed_mul_floor(pool.config.open_ltv_bps, BPS_FACTOR)
-            .map_over_or_underflow()?;
-        let borrowed_value_scaled = self.compute_borrowed_value_scaled_w_liability_factors(e)?;
-
-        let max_healthy_added_amount = if borrowed_value_scaled >= collateral_value_scaled {
-            // Since the scaled borrowed assets value exceeds the scaled collateral assets value,
-            // the borrow is prohibited
-            0
-        } else {
-            let borrow_asset_price = get_asset_price(e, &pool.token_ticker)?;
-            let value_left = collateral_value_scaled - borrowed_value_scaled; // safe
-
-            let tokens_per_value_left = value_left
-                .checked_div(borrow_asset_price)
-                .map_over_or_underflow()?;
-
-            // Since the liability factor can exceed 100%, the real amount of a token
-            // that can be borrowed is divided by it
-            tokens_per_value_left
-                .fixed_div_floor(pool.config.liability_factor_bps, BPS_FACTOR)
-                .map_over_or_underflow()?
-        };
-
-        Ok(max_healthy_added_amount)
+        self.compute_max_health_factor_decreasing_amount(e, &pool, pool.config.liability_factor_bps)
     }
 
+    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
+    /// obligation, scaling each value with the appropriate `open_ltv_bps` value
+    fn compute_collateral_value_scaled_w_open_ltv(&self, e: &Env) -> Result<i128, LCError> {
+        let mut value_sum = 0_i128;
+
+        for (pool_address, deposit_obligation) in self.deposits.iter() {
+            let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+                events::pool_is_missing_in_storage(e, &pool_address);
+
+                LCError::InternalError
+            })?;
+
+            let new_value_term = Self::compute_pool_collateral_value_scaled(
+                e,
+                &pool,
+                &deposit_obligation,
+                pool.config.open_ltv_bps,
+            )?;
+
+            value_sum = value_sum
+                .checked_add(new_value_term)
+                .map_over_or_underflow()?;
+        }
+
+        Ok(value_sum)
+    }
+
+    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
+    /// obligation, scaling each value with the appropriate `close_ltv_bps` value
+    fn compute_collateral_value_scaled_w_close_ltv(&self, e: &Env) -> Result<i128, LCError> {
+        let mut value_sum = 0_i128;
+
+        for (pool_address, deposit_obligation) in self.deposits.iter() {
+            let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+                events::pool_is_missing_in_storage(e, &pool_address);
+
+                LCError::InternalError
+            })?;
+
+            let new_value_term = Self::compute_pool_collateral_value_scaled(
+                e,
+                &pool,
+                &deposit_obligation,
+                pool.config.close_ltv_bps,
+            )?;
+
+            value_sum = value_sum
+                .checked_add(new_value_term)
+                .map_over_or_underflow()?;
+        }
+
+        Ok(value_sum)
+    }
+
+    /// Computes the current debt assets summed value per
+    /// obligation, scaling each value with the appropriate `liability_factor_bps` value
+    fn compute_debt_value_scaled_w_liability_factors(&self, e: &Env) -> Result<i128, LCError> {
+        let mut value_sum = 0_i128;
+
+        for (pool_address, deposit_obligation) in self.borrows.iter() {
+            let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+                events::pool_is_missing_in_storage(e, &pool_address);
+
+                LCError::InternalError
+            })?;
+
+            let new_value_term = Self::compute_pool_debt_value_scaled(
+                e,
+                &pool,
+                &deposit_obligation,
+                pool.config.liability_factor_bps,
+            )?;
+
+            value_sum = value_sum
+                .checked_add(new_value_term)
+                .map_over_or_underflow()?;
+        }
+
+        Ok(value_sum)
+    }
+
+    /// Computes the maximum healthy amount of the token that can be additionally added to the debt
+    /// or removed from the collateral, scaled with the corresponding coefficient(`open_ltv_bps`
+    /// or `liability_factor_bps`, etc)
+    fn compute_max_health_factor_decreasing_amount(
+        &self,
+        e: &Env,
+        pool: &Pool,
+        scalar_bps: i128,
+    ) -> Result<i128, LCError> {
+        let collateral_value_scaled = self.compute_collateral_value_scaled_w_open_ltv(e)?;
+        let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
+
+        let max_amount = if collateral_value_scaled <= debt_value_scaled {
+            // Since the scaled borrowed assets value exceeds the scaled collateral assets value,
+            // any health factor decreasing operation is prohibited
+            0
+        } else {
+            let asset_price = get_asset_price(e, &pool.token_ticker)?;
+            let value_left = collateral_value_scaled - debt_value_scaled;
+
+            // ----
+            // 'value_left' = amount * scalar_bps(i.e. liability_factor_bps or open_ltv_bps) *
+            // asset_price , implies:
+            // 'amount' = value_left / (scalar_bps * asset_price)
+            // ----
+
+            let numerator = value_left;
+            let denominator = asset_price
+                .fixed_mul_floor(scalar_bps, BPS_FACTOR)
+                .map_over_or_underflow()?;
+
+            numerator.checked_div(denominator).map_over_or_underflow()?
+        };
+
+        Ok(max_amount)
+    }
+
+    /// Computes obligation's collateral pool's asset total(collateral + deposit) value scaled
+    /// with provided `scalar_bps` value
+    fn compute_pool_collateral_value_scaled(
+        e: &Env,
+        pool: &Pool,
+        deposit_obligation: &DepositObligation,
+        scalar_bps: i128,
+    ) -> Result<i128, LCError> {
+        let &DepositObligation {
+            j_tokens,
+            collateral,
+            ..
+        } = deposit_obligation;
+
+        let supply = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+        let total_collateral_tokens = supply.checked_add(collateral).map_over_or_underflow()?;
+
+        Self::compute_asset_value_scaled(e, total_collateral_tokens, &pool, scalar_bps)
+    }
+
+    /// Computes obligation's debt pool's asset value scaled
+    /// with provided `scalar_bps` value
+    fn compute_pool_debt_value_scaled(
+        e: &Env,
+        pool: &Pool,
+        borrow_obligation: &BorrowObligation,
+        scalar_bps: i128,
+    ) -> Result<i128, LCError> {
+        let &BorrowObligation { d_tokens, .. } = borrow_obligation;
+        let debt = pool.compute_tokens_from_j_tokens(e, d_tokens)?;
+
+        Self::compute_asset_value_scaled(e, debt, &pool, scalar_bps)
+    }
+
+    fn compute_asset_value_scaled(
+        e: &Env,
+        amount: i128,
+        pool: &Pool,
+        scalar_bps: i128,
+    ) -> Result<i128, LCError> {
+        let price = get_asset_price(e, &pool.token_ticker)?;
+        let value = amount.checked_mul(price).map_over_or_underflow()?;
+        let value_scaled = value
+            .fixed_mul_floor(scalar_bps, BPS_FACTOR)
+            .map_over_or_underflow()?;
+
+        Ok(value_scaled)
+    }
+
+    /// # Returns
+    ///
+    /// [`Vec<(Address, Option<BytesN<32>)>`] containing all obligations in the market with their
+    /// seeds
     pub fn get_all(e: &Env) -> Vec<(Address, Option<BytesN<32>>)> {
         storage::get_all_obligations(e)
     }
@@ -276,20 +329,18 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool_address: &Address,
-        j_tokens_removed: i128,
-        deposited_tokens_removed: i128,
+        burnt_j_tokens: i128,
+        withdrawn_tokens: i128,
     ) -> Result<(), LCError> {
         let mut deposit_obligation = self
             .deposits
             .get(pool_address.clone())
             .ok_or(LCError::ObligationDoesNotExist)?;
 
-        if deposit_obligation.j_tokens < j_tokens_removed {
-            return Err(LCError::WithdrawOverBalance);
-        }
-
-        deposit_obligation.adjust_j_tokens(e, -j_tokens_removed)?;
-        deposit_obligation.adjust_deposited(e, -deposited_tokens_removed)?;
+        deposit_obligation
+            .adjust_j_tokens(e, burnt_j_tokens.checked_neg().map_over_or_underflow()?)?;
+        deposit_obligation
+            .adjust_deposited(e, withdrawn_tokens.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());
@@ -372,16 +423,30 @@ impl Obligation {
 
     /// Liquidates unhealthy borrow
     #[allow(unused)]
-    pub fn liquidate(
-        &mut self,
-        e: &Env,
-        borrow_pool_address: &Address,
-        collateral_pool_address: &Address,
-        borrow_pool: &Pool,
-        collateral_pool: &Pool,
-        d_tokens_burnt: i128,
+    pub fn liquidate(// &mut self,
+        // e: &Env,
+        // borrow_pool_address: &Address,
+        // collateral_pool_address: &Address,
+        // borrow_pool: &Pool,
+        // collateral_pool: &Pool,
+        // d_tokens_burnt: i128,
+        // repaid_amount: i128,
     ) -> Result<LiquidationValues, LCError> {
-        // TODO: Refactor when markets are a thing
+        // let (mut collateral_obligation, mut borrow_obligation) = (
+        //     self.deposits
+        //         .get(collateral_pool_address.clone())
+        //         .ok_or(LCError::DepositDoesNotExist)?,
+        //     self.borrows
+        //         .get(borrow_pool_address.clone())
+        //         .ok_or(LCError::BorrowDoesNotExist)?,
+        // );
+
+        // let d_tokens = borrow_obligation.d_tokens;
+        // let borrowed = borrow_pool.compute_tokens_from_d_tokens(e, d_tokens)?;
+
+        // let liquidatable_bps =
+
+        // // TODO: Refactor when markets are a thing
 
         todo!()
     }
@@ -447,13 +512,16 @@ impl Obligation {
         Ok(deposit_obligation.collateral)
     }
 
-    /// Saves\updates obligation in the contract's storage
+    /// Saves/updates obligation in the contract's storage
+    ///
+    /// ### Arguments
+    /// * `user` - obligation's user address. **MUST** equal the original user address
+    /// * `seed` - obligation's user seed. **MUST** equal the original obligation seed
     ///
     /// # WARNING
     /// Modifies the contract's storage
-    // TODO: pub fn set(&self, e: &Env, user: &Address, seed: &Option<BytesN<32>>) {
-    pub fn set(&self, e: &Env) {
-        storage::set_obligation(e, &self.user, &self.seed, self);
+    pub fn set(&self, e: &Env, user: &Address, seed: &Option<BytesN<32>>) {
+        storage::set_obligation(e, user, seed, self);
     }
 
     /// Tries to get the user's obligation from the contract's storage
@@ -467,10 +535,14 @@ impl Obligation {
 
     /// Removes obligation from the contract's storage
     ///
+    /// ### Arguments
+    /// * `user` - obligation's user address. **MUST** equal the original user address
+    /// * `seed` - obligation's user seed. **MUST** equal the original obligation seed
+    ///
     /// # WARNING
     /// Modifies the contract's storage
-    pub fn remove(self, e: &Env) {
-        storage::remove_obligation(e, &self.user, &self.seed);
+    pub fn remove(self, e: &Env, user: &Address, seed: &Option<BytesN<32>>) {
+        storage::remove_obligation(e, user, seed);
     }
 }
 
@@ -621,14 +693,8 @@ mod tests {
     fn create_test_obligation(env: &Env, user: Address) -> Obligation {
         let deposits = Map::new(env);
         let borrows = Map::new(env);
-        let seed = None;
 
-        Obligation {
-            user,
-            deposits,
-            borrows,
-            seed,
-        }
+        Obligation { deposits, borrows }
     }
 
     #[test]

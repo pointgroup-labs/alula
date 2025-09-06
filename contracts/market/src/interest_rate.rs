@@ -16,17 +16,29 @@ use crate::{
 
 pub const SCALED_ONE: i128 = 10_000_000_000_000;
 
-/// Interest rate multipliers presented as (1 + xxx) where `xxx` is a compound interest rate.
-/// The real multiplier(e.g. 1.32, 2.53, etc) is scaled up with [`SCALED_ONE`] value.
-// #[derive(Debug)]
-// #[contracttype]
-// pub struct CompoundRateMultipliers {
-//     pub borrow: i128,
-//     pub supply: i128,
-// }
+/// Linear annual interest rates represented in basis points
+#[derive(Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct AnnualPercentageRates {
+    pub borrow_bps: u32,
+    pub supply_bps: u32,
+}
+
+impl AnnualPercentageRates {
+    pub fn try_new(borrow_bps: u32, utilization_ratio_bps: u32) -> Result<Self, LCError> {
+        let supply_bps = (borrow_bps as u64)
+            .fixed_mul_floor(utilization_ratio_bps as u64, BPS_FACTOR as u64)
+            .map_over_or_underflow()? as u32;
+
+        Ok(Self {
+            borrow_bps,
+            supply_bps,
+        })
+    }
+}
 
 /// Compound interest rates represented in basis points
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 #[contracttype]
 pub struct AnnualPercentageYields {
     pub borrow_bps: u32,

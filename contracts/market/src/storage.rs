@@ -29,7 +29,6 @@ pub enum DataKey {
     Pool(PoolAddress),
     // TODO: Use only seed for indexing obligation?
     Obligation((UserAddress, Option<BytesN<32>>)), // NB: What's better Bytes or BytesN here?
-    MultiplyPairObligation((DepositPoolAddress, BorrowPoolAddress, UserAddress)),
     MultiplyPair((DepositPoolAddress, BorrowPoolAddress)),
     Accrual,
     AllPools,
