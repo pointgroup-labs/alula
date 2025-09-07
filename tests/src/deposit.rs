@@ -1,23 +1,23 @@
 #![cfg(test)]
 
-use market::{error::MarketContractError, pool::PoolConfig};
+use market::{error::MCError, pool::PoolConfig};
 use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT, TestFixture,
-    get_deposit_obligation, get_obligation_deposited, get_obligation_j_tokens, get_pool_available,
-    get_pool_total_j_tokens,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT,
+    TestMarketFixture, get_deposit_obligation, get_obligation_deposited, get_obligation_j_tokens,
+    get_pool_available, get_pool_total_j_tokens,
 };
 
 #[test]
 fn test_deposit() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -36,13 +36,13 @@ fn test_deposit() {
 
 #[test]
 fn test_deposit_zero() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_token_address,
         usdc_pool_address,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
 
@@ -63,30 +63,30 @@ fn test_exceed_supply_limit() {
         ..Default::default()
     };
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_token_address,
         users,
         ..
-    } = TestFixture::new_with_pool_config(pool_config);
+    } = TestMarketFixture::new_with_pool_config(pool_config);
 
     let user = &users[0];
     contract_client.deposit(user, &usdc_token_address, &(SUPPLY_LIMIT));
 
     assert_eq!(
         contract_client.try_deposit(user, &usdc_token_address, &1),
-        Err(Ok(MarketContractError::SupplyLimitExceeded)),
+        Err(Ok(MCError::SupplyLimitExceeded)),
     );
 }
 
 #[test]
 fn test_add_collateral() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
@@ -104,12 +104,12 @@ fn test_add_collateral() {
 
 #[test]
 fn test_add_collateral_zero() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
@@ -124,18 +124,18 @@ fn test_add_collateral_zero() {
 
 #[test]
 fn test_add_collateral_negative() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
     assert_eq!(
         contract_client.try_add_collateral(user, &usdc_pool_address, &-1),
-        Err(Ok(MarketContractError::NegativeCollateralAddition))
+        Err(Ok(MCError::NegativeAmount))
     );
 }
 
@@ -144,12 +144,12 @@ fn test_add_collateral_negative() {
 fn test_deposit_non_existing_tokens() {
     const DEPOSIT_AMOUNT: i128 = DEFAULT_USER_ASSET_MINT_AMOUNT + 1;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         users,
         usdc_pool_address,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.deposit(user, &usdc_pool_address, &DEPOSIT_AMOUNT);
@@ -158,12 +158,12 @@ fn test_deposit_non_existing_tokens() {
 #[test]
 #[should_panic(expected = "Error(Contract, #30)")]
 fn test_deposit_negative() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_token_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.deposit(user, &usdc_token_address, &-1);
@@ -172,12 +172,12 @@ fn test_deposit_negative() {
 #[test]
 #[should_panic(expected = "Error(Contract, #11)")]
 fn test_deposit_pool_does_not_exist() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let missing_pool_address = Address::generate(&e);
 

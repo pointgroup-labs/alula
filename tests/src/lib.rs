@@ -18,7 +18,7 @@ use arbitrary::Unstructured;
 use market::{
     constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ROUTER_ADDRESS},
     contract::{MarketContract, MarketContractClient},
-    error::MarketContractError,
+    error::MCError,
     obligation::{BorrowObligation, DepositObligation},
     pool::PoolConfig,
     soroswap_router as router,
@@ -44,7 +44,7 @@ pub enum Token {
     GOLD,
 }
 
-pub struct TestFixture<'a> {
+pub struct TestMarketFixture<'a> {
     pub e: Env,
     pub contract_client: MarketContractClient<'a>,
     pub contract_id: Address,
@@ -77,7 +77,7 @@ pub struct TestFixture<'a> {
 }
 
 #[allow(clippy::new_without_default)]
-impl TestFixture<'_> {
+impl TestMarketFixture<'_> {
     pub fn new() -> Self {
         let pool_config = Default::default();
 
@@ -102,20 +102,23 @@ impl TestFixture<'_> {
             max_entry_ttl: INDIVIDUAL_BUMP + 1,
         });
 
+        let oracle_address = Address::generate(&e);
+        e.register_at(&oracle_address, MockPriceOracleWASM, ());
+        let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
+
         let contract_admin = Address::generate(&e);
+        let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
+
         let contract_id = e.register(
             MarketContract,
             (
                 contract_admin.clone(),
-                Option::<i128>::Some(DEFAULT_HEALTH_FACTOR_THRESHOLD),
+                contract_name,
+                oracle_address.clone(),
             ),
         );
 
         let contract_client = MarketContractClient::new(&e, &contract_id);
-
-        let oracle_address = Address::generate(&e);
-        e.register_at(&oracle_address, MockPriceOracleWASM, ());
-        let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
         let router_address = Address::from_str(&e, ROUTER_ADDRESS);
         e.register_at(&router_address, router::WASM, ());
@@ -178,7 +181,7 @@ impl TestFixture<'_> {
         router_client.map_address_to_ticker(&gold_token_address, &gold_ticker);
         router_client.map_address_to_ticker(&btc_token_address, &btc_ticker);
         // Initialize USDC/GOLD multiply pair
-        contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
+        // contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
 
         oracle_client.set_data(
             &contract_admin,
@@ -255,7 +258,7 @@ impl TestFixture<'_> {
     }
 
     pub fn assert_invariants(&self) {
-        let TestFixture {
+        let TestMarketFixture {
             e,
             contract_client,
             contract_id,
@@ -283,8 +286,8 @@ impl TestFixture<'_> {
         for pool in &pools {
             assert!(pool.total_borrowed >= 0);
             assert!(pool.total_collateral >= 0);
-            assert!(pool.total_j_tokens_amount >= 0);
-            assert!(pool.total_d_tokens_amount >= 0);
+            assert!(pool.total_j_tokens >= 0);
+            assert!(pool.total_d_tokens >= 0);
         }
 
         // Contract's token balances shouldn't be smaller than the corresponding `available` values
@@ -296,7 +299,7 @@ impl TestFixture<'_> {
 
         let contract_balances = pools
             .iter()
-            .map(|pool| pool.total_collateral + pool.available);
+            .map(|pool| pool.total_collateral + pool.total_available);
 
         for (&token_balance, contract_balance) in token_balances.iter().zip(contract_balances) {
             assert!(token_balance >= contract_balance);
@@ -307,9 +310,9 @@ impl TestFixture<'_> {
 
         let collateral_amount = pools
             .iter()
-            .max_by(|x, y| x.available.cmp(&y.available))
+            .max_by(|x, y| x.total_available.cmp(&y.total_available))
             .unwrap()
-            .available;
+            .total_available;
 
         usdc_sac.mint(&new_borrower, &collateral_amount);
         btc_sac.mint(&new_borrower, &collateral_amount);
@@ -318,8 +321,8 @@ impl TestFixture<'_> {
         for pool in &pools {
             let available_borrow = pool.compute_available_borrow(e).unwrap();
 
-            if pool.available == 0 {
-                assert_eq!(available_borrow, pool.available);
+            if pool.total_available == 0 {
+                assert_eq!(available_borrow, pool.total_available);
             } else {
                 // TODO: Think about how to count this correctly
                 // assert!(
@@ -401,7 +404,7 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
 
 // ---- Fuzzing suite ----
 pub trait RunCommand {
-    fn run(&self, test_fixture: &TestFixture, who: usize);
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize);
 }
 // TODO: This screams `add macro`, though, it's unlikely that many more actors/commands will be
 // added so, maybe, it's an overkill
@@ -455,7 +458,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn run(&self, test_fixture: &TestFixture) {
+    pub fn run(&self, test_fixture: &TestMarketFixture) {
         use Command::*;
 
         match self {
@@ -583,15 +586,15 @@ pub struct WithdrawFromLeveraged {
 }
 
 impl RunCommand for PassTime {
-    fn run(&self, test_fixture: &TestFixture, _who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, _who: usize) {
         test_fixture.pass_time(self.amount);
     }
 }
 
 impl RunCommand for Borrow {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
+        let TestMarketFixture {
             contract_client,
             users,
             ..
@@ -601,9 +604,9 @@ impl RunCommand for Borrow {
 }
 
 impl RunCommand for Deposit {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
+        let TestMarketFixture {
             contract_client,
             users,
             ..
@@ -614,9 +617,9 @@ impl RunCommand for Deposit {
 }
 
 impl RunCommand for DepositCollateral {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
+        let TestMarketFixture {
             contract_client,
             users,
             ..
@@ -627,9 +630,9 @@ impl RunCommand for DepositCollateral {
 }
 
 impl RunCommand for WithdrawCollateral {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
+        let TestMarketFixture {
             contract_client,
             users,
             ..
@@ -640,9 +643,9 @@ impl RunCommand for WithdrawCollateral {
 }
 
 impl RunCommand for Withdraw {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
+        let TestMarketFixture {
             contract_client,
             users,
             ..
@@ -653,9 +656,9 @@ impl RunCommand for Withdraw {
 }
 
 impl RunCommand for Repay {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
+        let TestMarketFixture {
             contract_client,
             users,
             ..
@@ -666,12 +669,12 @@ impl RunCommand for Repay {
 }
 
 impl RunCommand for Liquidate {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
 
         if pool_address != collateral_pool_address {
-            let TestFixture {
+            let TestMarketFixture {
                 contract_client,
                 users,
                 ..
@@ -691,12 +694,12 @@ impl RunCommand for Liquidate {
 }
 
 impl RunCommand for DepositWithLeverage {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
         let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
 
         if deposit_pool_address != borrow_pool_address {
-            let TestFixture {
+            let TestMarketFixture {
                 contract_client,
                 users,
                 ..
@@ -723,11 +726,11 @@ impl RunCommand for DepositWithLeverage {
 }
 
 impl RunCommand for WithdrawFromLeveraged {
-    fn run(&self, test_fixture: &TestFixture, who: usize) {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
         let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
 
-        let TestFixture {
+        let TestMarketFixture {
             contract_client,
             users,
             ..
@@ -749,7 +752,7 @@ pub fn get_obligation_j_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.j_tokens)
@@ -759,7 +762,7 @@ pub fn get_obligation_d_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let deposit_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.d_tokens)
@@ -769,7 +772,7 @@ pub fn get_obligation_borrowed(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let borrow_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
 
     Ok(borrow_obligation.borrowed)
@@ -779,7 +782,7 @@ pub fn get_obligation_collateral(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.collateral)
@@ -790,7 +793,7 @@ pub fn get_obligation_total_debt(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
     let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
 
@@ -804,12 +807,12 @@ pub fn get_obligation_unpaid_interest(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let total_debt = get_obligation_total_debt(e, contract_client, user, pool_address)?;
     let borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
 
     if total_debt < borrowed {
-        return Err(MarketContractError::InternalError);
+        return Err(MCError::InternalError);
     }
     let unpaid_interest = total_debt - borrowed;
 
@@ -821,7 +824,7 @@ pub fn get_obligation_deposited(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
     let j_tokens = get_obligation_j_tokens(contract_client, user, pool_address)?;
 
@@ -834,15 +837,15 @@ pub fn get_deposit_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<DepositObligation, MarketContractError> {
+) -> Result<DepositObligation, MCError> {
     let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
-        return Err(MarketContractError::ObligationDoesNotExist);
+        return Err(MCError::ObligationDoesNotExist);
     };
 
     let deposit = obligation
         .deposits
         .get(pool_address.clone())
-        .ok_or(MarketContractError::DepositDoesNotExist)?;
+        .ok_or(MCError::DepositDoesNotExist)?;
 
     Ok(deposit)
 }
@@ -851,15 +854,15 @@ pub fn get_borrow_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<BorrowObligation, MarketContractError> {
+) -> Result<BorrowObligation, MCError> {
     let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
-        return Err(MarketContractError::ObligationDoesNotExist);
+        return Err(MCError::ObligationDoesNotExist);
     };
 
     let borrow = obligation
         .borrows
         .get(pool_address.clone())
-        .ok_or(MarketContractError::BorrowDoesNotExist)?;
+        .ok_or(MCError::BorrowDoesNotExist)?;
 
     Ok(borrow)
 }
@@ -868,16 +871,16 @@ pub fn get_borrow_obligation(
 pub fn get_pool_total_j_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_j_tokens_amount)
+    Ok(pool.total_j_tokens)
 }
 
 pub fn get_pool_total_supply(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
     let total_supply = pool.total_supply()?;
 
@@ -887,10 +890,10 @@ pub fn get_pool_total_supply(
 pub fn get_pool_available(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.available)
+    Ok(pool.total_available)
 }
 
 // ---- Misc ----
@@ -941,19 +944,19 @@ mod tests {
 
     #[test]
     fn test_storage_ttl_extension() {
-        let TestFixture {
+        let TestMarketFixture {
             e,
             contract_client,
             contract_id,
             usdc_pool_address,
             users,
             ..
-        } = TestFixture::new();
+        } = TestMarketFixture::new();
 
         let user = &users[0];
 
         e.as_contract(&contract_id, || {
-            // `TestFixture::new()` extends both instance and a specific's pool shared storage
+            // `TestMarketFixture::new()` extends both instance and a specific's pool shared storage
             assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
             assert_eq!(
                 e.storage()

@@ -1,19 +1,19 @@
 #![cfg(test)]
 
-use crate::{DEFAULT_DEPOSIT_AMOUNT, TestFixture};
+use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
 // #[test]
 // #[allow(clippy::mistyped_literal_suffixes)]
 // #[allow(clippy::zero_prefixed_literal)]
 // #[allow(clippy::inconsistent_digit_grouping)]
 // fn test_interest_rates() {
-//     let TestFixture {
+//     let TestMarketFixture {
 //         contract_client,
 //         usdc_pool_address,
 //         gold_pool_address,
 //         users,
 //         ..
-//     } = TestFixture::new();
+//     } = TestMarketFixture::new();
 
 //     let user = &users[0];
 //     let user2 = &users[1];

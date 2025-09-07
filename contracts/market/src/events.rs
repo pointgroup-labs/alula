@@ -32,16 +32,21 @@ pub fn deposit(
 
 /// Emitted when a loan pool is initialized
 ///
-/// - topics - `["initialize_pool", token_address: Address]`
-/// - data - `[pool_address: Address, token_ticker: Symbol]`
+/// - topics - `["initialize_pool", token_address: Address, pool_address: Address, token_ticker: Symbol]`
+/// - data - `[]`
 pub fn initialize_pool(
     e: &Env,
     token_address: &Address,
     pool_address: &Address,
     token_ticker: &Symbol,
 ) {
-    let topics = (Symbol::new(e, "initialize_pool"), token_address);
-    let data = (pool_address, token_ticker);
+    let topics = (
+        Symbol::new(e, "initialize_pool"),
+        token_address,
+        pool_address,
+        token_ticker,
+    );
+    let data = ();
 
     e.events().publish(topics, data);
 }

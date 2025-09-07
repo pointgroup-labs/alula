@@ -2,24 +2,24 @@
 
 use market::{
     constants::{BPS_FACTOR, DEFAULT_OPEN_LTV},
-    error::MarketContractError,
+    error::MCError,
     pool::PoolConfig,
 };
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation, get_deposit_obligation,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_borrow_obligation, get_deposit_obligation,
     get_obligation_borrowed,
 };
 
 #[test]
 fn test_borrow() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -48,13 +48,13 @@ fn test_exceed_borrow_limit() {
         ..Default::default()
     };
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         gold_pool_address,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new_with_pool_config(pool_config);
+    } = TestMarketFixture::new_with_pool_config(pool_config);
 
     let user = &users[0];
     let user2 = &users[1];
@@ -73,19 +73,19 @@ fn test_exceed_borrow_limit() {
 
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(MarketContractError::BorrowLimitExceeded))
+        Err(Ok(MCError::BorrowLimitExceeded))
     );
 }
 
 #[test]
 fn test_borrow_zero() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -109,13 +109,13 @@ fn test_borrow_zero() {
 
 #[test]
 fn test_borrow_negative() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -128,20 +128,20 @@ fn test_borrow_negative() {
 
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &-1),
-        Err(Ok(MarketContractError::NegativeBorrow))
+        Err(Ok(MCError::NegativeAmount))
     );
 }
 
 #[test]
 #[ignore]
 fn test_borrow_health_factor_add_collateral() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -171,9 +171,7 @@ fn test_borrow_health_factor_add_collateral() {
     // Borrow which leads to the health factor threshold constraint violation
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(
-            MarketContractError::HealthFactorIsLowerThanRequiredThreshold
-        ))
+        Err(Ok(MCError::HealthFactorIsLowerThanRequiredThreshold))
     );
 
     // Improve health factor
@@ -186,13 +184,13 @@ fn test_borrow_health_factor_add_collateral() {
 #[test]
 #[ignore]
 fn test_borrow_health_factor_deposit() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -214,9 +212,7 @@ fn test_borrow_health_factor_deposit() {
     // Borrow which leads to the health factor threshold constraint violation
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(
-            MarketContractError::HealthFactorIsLowerThanRequiredThreshold
-        ))
+        Err(Ok(MCError::HealthFactorIsLowerThanRequiredThreshold))
     );
 
     // Improve health factor
@@ -230,7 +226,7 @@ fn test_borrow_health_factor_deposit() {
 fn borrow_more_than_open_ltv_allows() {
     const MAX_BORROWING_AMOUNT: i128 = (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_OPEN_LTV) / 100;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         contract_id,
@@ -239,7 +235,7 @@ fn borrow_more_than_open_ltv_allows() {
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];

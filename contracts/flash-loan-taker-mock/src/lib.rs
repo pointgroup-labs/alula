@@ -48,20 +48,20 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 
 #[cfg(test)]
 mod test {
-    use market::error::MarketContractError;
+    use market::error::MCError;
     use soroban_sdk::Address;
-    use tests::{DEFAULT_DEPOSIT_AMOUNT, TestFixture};
+    use tests::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
     use super::{FAILING_CALL_AMOUNT, FlashLoanLiquidatorContract};
 
     struct FlashLoanTest<'a> {
-        test_fixture: TestFixture<'a>,
+        test_fixture: TestMarketFixture<'a>,
         flash_loan_taker_contract_id: Address,
     }
 
     impl FlashLoanTest<'_> {
         fn new() -> Self {
-            let test_fixture = TestFixture::new();
+            let test_fixture = TestMarketFixture::new();
             let lender = &test_fixture.users[0];
             let flash_loan_taker_contract_id =
                 test_fixture.e.register(FlashLoanLiquidatorContract, ());
@@ -155,7 +155,7 @@ mod test {
                 &test_fixture.usdc_pool_address,
                 &(DEFAULT_DEPOSIT_AMOUNT + 1)
             ),
-            Err(Ok(MarketContractError::NotEnoughPoolFunds))
+            Err(Ok(MCError::NotEnoughPoolFunds))
         );
     }
 }

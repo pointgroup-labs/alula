@@ -8,7 +8,7 @@ use crate::{
         DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV, DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT,
         DEFAULT_UTILIZATION_RATIO_LIMIT, MAX_LIABILITY_FACTOR,
     },
-    error::MarketContractError,
+    error::MCError,
     events,
     interest_rate_model::InterestRateModel,
     math_utils::MathUtils,
@@ -20,18 +20,19 @@ use crate::{
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
-    /// The address of the token associated with the pool
+    /// The address of the token contract associated with the pool
     pub token_address: Address,
-    /// The ticker symbol of the associated token, which is used to identify the token in the pool
+    /// The ticker symbol of the associated token
     pub token_ticker: Symbol,
     /// The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
-    /// The total `dTokens` amount
-    pub total_d_tokens_amount: i128,
-    /// The total `jTokens` amount
-    pub total_j_tokens_amount: i128,
-    /// The currently available tokens for borrowing
-    pub available: i128,
+    /// The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
+    pub total_d_tokens: i128,
+    /// The total `jTokens` amount. Represents the sum of all yielding interest collateral shares
+    /// distributed among creditors
+    pub total_j_tokens: i128,
+    /// The total amount of currently available tokens for borrowing
+    pub total_available: i128,
     /// The total amount of deposited collateral assets that don't accrue interest
     pub total_collateral: i128,
     /// Interest rate model(+configuration) used for interest rate calculation
@@ -50,11 +51,7 @@ pub struct Pool {
 }
 
 impl Pool {
-    fn adjust_field(
-        e: &Env,
-        current_value: i128,
-        adjusting_amount: i128,
-    ) -> Result<i128, MarketContractError> {
+    fn adjust_field(e: &Env, current_value: i128, adjusting_amount: i128) -> Result<i128, MCError> {
         let new_amount = current_value
             .checked_add(adjusting_amount)
             .map_over_or_underflow()?;
@@ -62,7 +59,7 @@ impl Pool {
         if new_amount < 0 {
             events::pool_amount_becomes_negative(e, current_value, new_amount);
 
-            return Err(MarketContractError::InternalError);
+            return Err(MCError::InternalError);
         }
 
         Ok(new_amount)
@@ -72,20 +69,16 @@ impl Pool {
         &mut self,
         e: &Env,
         adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
-        let new_amount = Self::adjust_field(e, self.total_j_tokens_amount, adjusting_amount)?;
-        self.total_j_tokens_amount = new_amount;
+    ) -> Result<(), MCError> {
+        let new_amount = Self::adjust_field(e, self.total_j_tokens, adjusting_amount)?;
+        self.total_j_tokens = new_amount;
 
         Ok(())
     }
 
-    pub fn adjust_available(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
-        let new_amount = Self::adjust_field(e, self.available, adjusting_amount)?;
-        self.available = new_amount;
+    pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
+        let new_amount = Self::adjust_field(e, self.total_available, adjusting_amount)?;
+        self.total_available = new_amount;
 
         Ok(())
     }
@@ -94,9 +87,9 @@ impl Pool {
         &mut self,
         e: &Env,
         adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
-        let new_amount = Self::adjust_field(e, self.total_d_tokens_amount, adjusting_amount)?;
-        self.total_d_tokens_amount = new_amount;
+    ) -> Result<(), MCError> {
+        let new_amount = Self::adjust_field(e, self.total_d_tokens, adjusting_amount)?;
+        self.total_d_tokens = new_amount;
 
         Ok(())
     }
@@ -105,7 +98,7 @@ impl Pool {
         &mut self,
         e: &Env,
         adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
+    ) -> Result<(), MCError> {
         let new_amount = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
         self.total_collateral = new_amount;
 
@@ -116,13 +109,13 @@ impl Pool {
         &self,
         e: &Env,
         d_tokens_amount: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         // TODO: Check if there are some useful properties between jTokens and dTokens that
         // might cause some code re-usage
         let tokens = Self::compute_tokens_from_shares(
             e,
             d_tokens_amount,
-            self.total_d_tokens_amount,
+            self.total_d_tokens,
             self.total_borrowed,
         )?;
 
@@ -133,11 +126,11 @@ impl Pool {
         &self,
         e: &Env,
         tokens_amount: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         let d_tokens = Self::compute_shares_from_tokens(
             e,
             tokens_amount,
-            self.total_d_tokens_amount,
+            self.total_d_tokens,
             self.total_borrowed,
         )?;
 
@@ -148,11 +141,11 @@ impl Pool {
         &self,
         e: &Env,
         j_tokens_amount: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         let tokens = Self::compute_tokens_from_shares(
             e,
             j_tokens_amount,
-            self.total_j_tokens_amount,
+            self.total_j_tokens,
             self.total_supply()?,
         )?;
 
@@ -163,20 +156,28 @@ impl Pool {
         &self,
         e: &Env,
         tokens_amount: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         let j_tokens = Self::compute_shares_from_tokens(
             e,
             tokens_amount,
-            self.total_j_tokens_amount,
+            self.total_j_tokens,
             self.total_supply()?,
         )?;
 
         Ok(j_tokens)
     }
 
-    pub fn require_available(&self, required: i128) -> Result<(), MarketContractError> {
-        if required > self.available {
-            return Err(MarketContractError::NotEnoughPoolFunds);
+    pub fn require_available(&self, required: i128) -> Result<(), MCError> {
+        if required > self.total_available {
+            return Err(MCError::NotEnoughPoolFunds);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_does_not_exist(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+        if Self::exists(e, pool_address) {
+            return Err(MCError::PoolAlreadyExists);
         }
 
         Ok(())
@@ -189,7 +190,7 @@ impl Pool {
         shares_amount: i128,
         total_shares_amount: i128,
         total_tokens_amount: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         if shares_amount == 0 {
             return Ok(0);
         }
@@ -201,7 +202,7 @@ impl Pool {
                 shares_amount,
             );
 
-            return Err(MarketContractError::InternalError);
+            return Err(MCError::InternalError);
         }
 
         let tokens_amount = total_tokens_amount
@@ -219,7 +220,7 @@ impl Pool {
         tokens_amount: i128,
         total_shares_amount: i128,
         total_tokens_amount: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         // TODO: Is it always consistent with situations like:
         // I have the last shares and I remove them - total supply becomes zero. Check this
         if tokens_amount == 0 {
@@ -237,7 +238,7 @@ impl Pool {
                     total_tokens_amount,
                 );
 
-                return Err(MarketContractError::InternalError);
+                return Err(MCError::InternalError);
             }
 
             /*
@@ -261,26 +262,26 @@ impl Pool {
     }
 
     /// Calculates total supply (available + total_borrowed)
-    pub fn total_supply(&self) -> Result<i128, MarketContractError> {
-        self.available
+    pub fn total_supply(&self) -> Result<i128, MCError> {
+        self.total_available
             .checked_add(self.total_borrowed)
             .map_over_or_underflow()
     }
 
     /// Checks if the pool is empty
     pub fn is_empty(&self) -> bool {
-        if self.total_j_tokens_amount == 0 && self.available != 0 {
+        if self.total_j_tokens == 0 && self.total_available != 0 {
             // TODO: What to do in these cases?
         }
 
-        if self.total_d_tokens_amount == 0 && self.total_borrowed != 0 {
+        if self.total_d_tokens == 0 && self.total_borrowed != 0 {
             // TODO: What to do in these cases?
         }
 
-        self.total_j_tokens_amount == 0
-            && self.total_d_tokens_amount == 0
+        self.total_j_tokens == 0
+            && self.total_d_tokens == 0
             && self.total_borrowed == 0
-            && self.available == 0
+            && self.total_available == 0
             && self.total_collateral == 0
     }
 
@@ -288,25 +289,25 @@ impl Pool {
     ///
     /// # Returns
     /// - [`Ok(Pool)`] if a pool with the given address exists in the contract's storage
-    /// - [`Err(MarketContractError::PoolDoesNotExist)`] otherwise
-    pub fn try_get(e: &Env, pool_address: &Address) -> Result<Self, MarketContractError> {
-        storage::get_pool(e, pool_address).ok_or(MarketContractError::PoolDoesNotExist)
+    /// - [`Err(MCError::PoolDoesNotExist)`] otherwise
+    pub fn try_get(e: &Env, pool_address: &Address) -> Result<Self, MCError> {
+        storage::get_pool(e, pool_address).ok_or(MCError::PoolDoesNotExist)
     }
 
     pub fn get_all(e: &Env) -> Vec<Address> {
         storage::get_all_pools(e)
     }
 
-    pub fn exists(e: &Env, address: &Address) -> bool {
+    fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
     }
 
     /// Refreshes the pool with the contract's storage data
-    pub fn refresh(&mut self, e: &Env) -> Result<(), MarketContractError> {
+    pub fn refresh(&mut self, e: &Env) -> Result<(), MCError> {
         let Some(refreshed_pool) = storage::get_pool(e, &self.pool_address) else {
             events::pool_is_missing_in_storage(e, &self.pool_address);
 
-            return Err(MarketContractError::InternalError);
+            return Err(MCError::InternalError);
         };
         *self = refreshed_pool;
 
@@ -321,7 +322,7 @@ impl Pool {
         storage::set_pool(e, &self.pool_address, self);
     }
 
-    /// Registers pool in the pool's list
+    /// Registers pool in the pools list
     ///
     /// # WARNING
     /// Modifies the contract's storage

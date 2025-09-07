@@ -16,5 +16,5 @@ pub mod storage;
 pub mod swap;
 
 // Aliases
-// pub type MarketContractError = error::MarketContractError;
-// pub type LCResult<T> = Result<T, MarketContractError>;
+// pub type MCError = error::MCError;
+// pub type LCResult<T> = Result<T, MCError>;

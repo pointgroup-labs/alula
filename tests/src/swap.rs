@@ -3,13 +3,13 @@
 use market::swap;
 use soroban_sdk::vec as svec;
 
-use crate::{TestFixture, assert_approx_eq_rel, make_oracle_prices_different};
+use crate::{TestMarketFixture, assert_approx_eq_rel, make_oracle_prices_different};
 
 #[test]
 fn test_swap_equal_prices() {
     const AMOUNT_IN: i128 = 100_000;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         users,
@@ -20,7 +20,7 @@ fn test_swap_equal_prices() {
         btc_token_client,
         btc_token_address,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
@@ -56,7 +56,7 @@ fn test_swap_equal_prices() {
 fn test_swap_different_prices() {
     const AMOUNT_IN: i128 = 100_000;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         users,
@@ -68,7 +68,7 @@ fn test_swap_different_prices() {
         gold_token_address,
         oracle_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     make_oracle_prices_different(&e, &oracle_client);
 
@@ -104,14 +104,14 @@ fn test_get_amount_out() {
     const AMOUNT_IN: i128 = 5_000;
     const DELTA_BPS: i128 = 5; // 0.05 %
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         gold_token_address,
         usdc_token_address,
         oracle_client,
         router_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     make_oracle_prices_different(&e, &oracle_client);
 
@@ -150,13 +150,13 @@ fn test_get_amount_in() {
     const AMOUNT_OUT: i128 = 5_000;
     const DELTA_BPS: i128 = 5; // 0.05 %
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         gold_token_address,
         usdc_token_address,
         oracle_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     make_oracle_prices_different(&e, &oracle_client);
 

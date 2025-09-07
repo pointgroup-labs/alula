@@ -6,7 +6,7 @@ use crate::{
         BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE,
         MIN_LEVERAGE_MULTIPLIER,
     },
-    error::MarketContractError,
+    error::MCError,
     math_utils::MathUtils,
     storage,
 };
@@ -55,14 +55,14 @@ impl MultiplyPair {
     /// # Returns
     /// - [`Ok(MultiplyPair)`] if a multiply pair for the given deposit and pools addresses exists
     ///   in the contract's storage
-    /// - [`Err(MarketContractError::MultiplyPairDoesNotExist)`] otherwise
+    /// - [`Err(MCError::MultiplyPairDoesNotExist)`] otherwise
     pub fn try_get(
         e: &Env,
         deposit_pool_address: &Address,
         borrow_pool_address: &Address,
-    ) -> Result<Self, MarketContractError> {
+    ) -> Result<Self, MCError> {
         storage::get_multiply_pair(e, deposit_pool_address, borrow_pool_address)
-            .ok_or(MarketContractError::MultiplyPairDoesNotExist)
+            .ok_or(MCError::MultiplyPairDoesNotExist)
     }
 
     /// Registers a multiply pair in the pairs list
@@ -71,6 +71,18 @@ impl MultiplyPair {
     /// Modifies the contract's storage
     pub fn register(&self, e: &Env) -> u32 {
         storage::register_multiply_pair(e, self.clone())
+    }
+
+    pub fn require_does_not_exists(
+        e: &Env,
+        deposit_pool_address: &Address,
+        borrow_pool_address: &Address,
+    ) -> Result<(), MCError> {
+        if Self::exists(e, deposit_pool_address, borrow_pool_address) {
+            return Err(MCError::MultiplyPairAlreadyExists);
+        }
+
+        Ok(())
     }
 
     pub fn exists(e: &Env, deposit_pool_address: &Address, borrow_pool_address: &Address) -> bool {
@@ -134,14 +146,14 @@ impl MultiplyPair {
 
     /// # Returns
     /// - [`Ok(())`] if the provided multiplier is within the valid range
-    /// - [`Err(MarketContractError::InvalidLeverageMultiplier)`] otherwise
+    /// - [`Err(MCError::InvalidLeverageMultiplier)`] otherwise
     pub fn require_valid_leverage_multiplier(
         &self,
         leverage_multiplier: u32,
-    ) -> Result<(), MarketContractError> {
+    ) -> Result<(), MCError> {
         if !(MIN_LEVERAGE_MULTIPLIER..=self.max_leverage_multiplier).contains(&leverage_multiplier)
         {
-            return Err(MarketContractError::InvalidLeverageMultiplier);
+            return Err(MCError::InvalidLeverageMultiplier);
         }
 
         Ok(())
@@ -149,6 +161,8 @@ impl MultiplyPair {
 
     /// # Returns
     /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
+    ///
+    /// TODO: Add unit tests for this...
     fn compute_obligation_seed(
         e: &Env,
         deposit_pool_address: &Address,
@@ -156,7 +170,7 @@ impl MultiplyPair {
     ) -> BytesN<32> {
         const MULTIPLY_PAIR_PREFIX: &str = "MP_";
 
-        let mut prefix_bytes: [u8; 2] = [0; 2];
+        let mut prefix_bytes: [u8; 3] = [0; 3];
         prefix_bytes.copy_from_slice(MULTIPLY_PAIR_PREFIX.as_bytes());
 
         let mut deposit_pool_address_bytes: [u8; 56] = [0; 56];

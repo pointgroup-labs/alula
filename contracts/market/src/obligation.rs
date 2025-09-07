@@ -2,7 +2,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
-    constants::BPS_FACTOR, contract::get_asset_price, error::MarketContractError, events,
+    constants::BPS_FACTOR, contract::get_asset_price, error::MCError, events,
     math_utils::MathUtils, pool::Pool, storage,
 };
 
@@ -47,7 +47,7 @@ impl Obligation {
     ///
     /// # WARNING
     /// Modifies the obligation's pools storage data
-    pub fn accrue_interest(&self, e: &Env) -> Result<(), MarketContractError> {
+    pub fn accrue_interest(&self, e: &Env) -> Result<(), MCError> {
         for borrow_pool_address in self.borrows.keys() {
             accrue_interest_on_pool(e, &borrow_pool_address)?;
         }
@@ -64,7 +64,7 @@ impl Obligation {
     /// [`Result::Ok(false)`] if obligation *can* be liquidated,
     /// [`Result::Ok(true)`] if obligation *cannot* be liquidated,
     /// [`Result::Err(MMError)`] if any error occurred during calculation
-    pub fn is_healthy(&self, e: &Env) -> Result<bool, MarketContractError> {
+    pub fn is_healthy(&self, e: &Env) -> Result<bool, MCError> {
         // TODO: Maybe, somehow cache these values?
         let is_healthy = self.compute_collateral_value_scaled_w_close_ltv(e)?
             >= self.compute_debt_value_scaled_w_liability_factors(e)?;
@@ -83,7 +83,7 @@ impl Obligation {
         &self,
         e: &Env,
         pool: &Pool,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         self.compute_max_health_factor_decreasing_amount(e, &pool, pool.config.open_ltv_bps)
     }
 
@@ -93,23 +93,20 @@ impl Obligation {
         &self,
         e: &Env,
         pool: &Pool,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         self.compute_max_health_factor_decreasing_amount(e, &pool, pool.config.liability_factor_bps)
     }
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
     /// obligation, scaling each value with the appropriate `open_ltv_bps` value
-    fn compute_collateral_value_scaled_w_open_ltv(
-        &self,
-        e: &Env,
-    ) -> Result<i128, MarketContractError> {
+    fn compute_collateral_value_scaled_w_open_ltv(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
         for (pool_address, deposit_obligation) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
                 events::pool_is_missing_in_storage(e, &pool_address);
 
-                MarketContractError::InternalError
+                MCError::InternalError
             })?;
 
             let new_value_term = Self::compute_pool_collateral_value_scaled(
@@ -129,17 +126,14 @@ impl Obligation {
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
     /// obligation, scaling each value with the appropriate `close_ltv_bps` value
-    fn compute_collateral_value_scaled_w_close_ltv(
-        &self,
-        e: &Env,
-    ) -> Result<i128, MarketContractError> {
+    fn compute_collateral_value_scaled_w_close_ltv(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
         for (pool_address, deposit_obligation) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
                 events::pool_is_missing_in_storage(e, &pool_address);
 
-                MarketContractError::InternalError
+                MCError::InternalError
             })?;
 
             let new_value_term = Self::compute_pool_collateral_value_scaled(
@@ -159,17 +153,14 @@ impl Obligation {
 
     /// Computes the current debt assets summed value per
     /// obligation, scaling each value with the appropriate `liability_factor_bps` value
-    fn compute_debt_value_scaled_w_liability_factors(
-        &self,
-        e: &Env,
-    ) -> Result<i128, MarketContractError> {
+    fn compute_debt_value_scaled_w_liability_factors(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
         for (pool_address, deposit_obligation) in self.borrows.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
                 events::pool_is_missing_in_storage(e, &pool_address);
 
-                MarketContractError::InternalError
+                MCError::InternalError
             })?;
 
             let new_value_term = Self::compute_pool_debt_value_scaled(
@@ -195,7 +186,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         scalar_bps: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         let collateral_value_scaled = self.compute_collateral_value_scaled_w_open_ltv(e)?;
         let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
 
@@ -231,7 +222,7 @@ impl Obligation {
         pool: &Pool,
         deposit_obligation: &DepositObligation,
         scalar_bps: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         let &DepositObligation {
             j_tokens,
             collateral,
@@ -251,7 +242,7 @@ impl Obligation {
         pool: &Pool,
         borrow_obligation: &BorrowObligation,
         scalar_bps: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         let &BorrowObligation { d_tokens, .. } = borrow_obligation;
         let debt = pool.compute_tokens_from_j_tokens(e, d_tokens)?;
 
@@ -263,7 +254,7 @@ impl Obligation {
         amount: i128,
         pool: &Pool,
         scalar_bps: i128,
-    ) -> Result<i128, MarketContractError> {
+    ) -> Result<i128, MCError> {
         let price = get_asset_price(e, &pool.token_ticker)?;
         let value = amount.checked_mul(price).map_over_or_underflow()?;
         let value_scaled = value
@@ -288,7 +279,7 @@ impl Obligation {
         pool_address: &Address,
         j_tokens_issued: i128,
         deposited_tokens: i128,
-    ) -> Result<(), MarketContractError> {
+    ) -> Result<(), MCError> {
         let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
 
         deposit_obligation.adjust_j_tokens(e, j_tokens_issued)?;
@@ -306,7 +297,7 @@ impl Obligation {
         pool_address: &Address,
         d_tokens_issued: i128,
         borrowed_tokens: i128,
-    ) -> Result<(), MarketContractError> {
+    ) -> Result<(), MCError> {
         let mut borrow_obligation = self.borrows.get(pool_address.clone()).unwrap_or_default();
 
         borrow_obligation.adjust_d_tokens(e, d_tokens_issued)?;
@@ -323,7 +314,7 @@ impl Obligation {
         e: &Env,
         pool_address: &Address,
         collateral_tokens: i128,
-    ) -> Result<(), MarketContractError> {
+    ) -> Result<(), MCError> {
         let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
 
         deposit_obligation.adjust_collateral(e, collateral_tokens)?;
@@ -340,11 +331,11 @@ impl Obligation {
         pool_address: &Address,
         burnt_j_tokens: i128,
         withdrawn_tokens: i128,
-    ) -> Result<(), MarketContractError> {
+    ) -> Result<(), MCError> {
         let mut deposit_obligation = self
             .deposits
             .get(pool_address.clone())
-            .ok_or(MarketContractError::ObligationDoesNotExist)?;
+            .ok_or(MCError::ObligationDoesNotExist)?;
 
         deposit_obligation
             .adjust_j_tokens(e, burnt_j_tokens.checked_neg().map_over_or_underflow()?)?;
@@ -366,11 +357,11 @@ impl Obligation {
         e: &Env,
         pool_address: &Address,
         collateral: i128,
-    ) -> Result<(), MarketContractError> {
+    ) -> Result<(), MCError> {
         let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
 
         if deposit_obligation.collateral < collateral {
-            return Err(MarketContractError::CollateralRemovalOverbalance);
+            return Err(MCError::CollateralRemovalOverbalance);
         }
 
         deposit_obligation.adjust_collateral(e, -collateral)?;
@@ -389,17 +380,12 @@ impl Obligation {
     ///
     /// # Returns
     /// [`Result::Ok((d_tokens_burnt, real_repaid_amount))`] in success and
-    /// [`Err(MarketContractError)`] in failure
-    pub fn repay(
-        &mut self,
-        e: &Env,
-        pool: &Pool,
-        amount: i128,
-    ) -> Result<(i128, i128), MarketContractError> {
+    /// [`Err(MCError)`] in failure
+    pub fn repay(&mut self, e: &Env, pool: &Pool, amount: i128) -> Result<(i128, i128), MCError> {
         let mut borrow_obligation = self
             .borrows
             .get(pool.pool_address.clone())
-            .ok_or(MarketContractError::ObligationDoesNotExist)?;
+            .ok_or(MCError::ObligationDoesNotExist)?;
 
         let total_debt_tokens = pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
         let initially_borrowed = borrow_obligation.borrowed;
@@ -407,7 +393,7 @@ impl Obligation {
         if total_debt_tokens < initially_borrowed {
             // TODO: Add an event
 
-            return Err(MarketContractError::InternalError);
+            return Err(MCError::InternalError);
         }
 
         let real_repaid_amount = i128::min(total_debt_tokens, amount);
@@ -445,14 +431,14 @@ impl Obligation {
         // collateral_pool: &Pool,
         // d_tokens_burnt: i128,
         // repaid_amount: i128,
-    ) -> Result<LiquidationValues, MarketContractError> {
+    ) -> Result<LiquidationValues, MCError> {
         // let (mut collateral_obligation, mut borrow_obligation) = (
         //     self.deposits
         //         .get(collateral_pool_address.clone())
-        //         .ok_or(MarketContractError::DepositDoesNotExist)?,
+        //         .ok_or(MCError::DepositDoesNotExist)?,
         //     self.borrows
         //         .get(borrow_pool_address.clone())
-        //         .ok_or(MarketContractError::BorrowDoesNotExist)?,
+        //         .ok_or(MCError::BorrowDoesNotExist)?,
         // );
 
         // let d_tokens = borrow_obligation.d_tokens;
@@ -465,24 +451,20 @@ impl Obligation {
         todo!()
     }
 
-    pub fn get_j_tokens(&self, pool_address: &Address) -> Result<i128, MarketContractError> {
+    pub fn get_j_tokens(&self, pool_address: &Address) -> Result<i128, MCError> {
         let deposit_obligation = self
             .deposits
             .get(pool_address.clone())
-            .ok_or(MarketContractError::DepositDoesNotExist)?;
+            .ok_or(MCError::DepositDoesNotExist)?;
 
         Ok(deposit_obligation.j_tokens)
     }
 
-    pub fn get_unpaid_interest(
-        &self,
-        e: &Env,
-        pool_address: &Address,
-    ) -> Result<i128, MarketContractError> {
+    pub fn get_unpaid_interest(&self, e: &Env, pool_address: &Address) -> Result<i128, MCError> {
         let borrow_obligation = self
             .borrows
             .get(pool_address.clone())
-            .ok_or(MarketContractError::DepositDoesNotExist)?;
+            .ok_or(MCError::DepositDoesNotExist)?;
         let borrow_pool = Pool::try_get(e, pool_address)?;
 
         let total_debt = borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
@@ -491,34 +473,30 @@ impl Obligation {
         if total_debt < borrowed {
             // TODO: Add an event?
 
-            return Err(MarketContractError::InternalError);
+            return Err(MCError::InternalError);
         }
         let unpaid_interest = total_debt - borrowed; // safe
 
         Ok(unpaid_interest)
     }
 
-    pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, MarketContractError> {
+    pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, MCError> {
         let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
-            return Err(MarketContractError::BorrowDoesNotExist);
+            return Err(MCError::BorrowDoesNotExist);
         };
 
         Ok(borrow_obligation.borrowed)
     }
 
-    pub fn get_total_debt(
-        &self,
-        e: &Env,
-        pool_address: &Address,
-    ) -> Result<i128, MarketContractError> {
+    pub fn get_total_debt(&self, e: &Env, pool_address: &Address) -> Result<i128, MCError> {
         let borrow_obligation = self
             .borrows
             .get(pool_address.clone())
-            .ok_or(MarketContractError::BorrowDoesNotExist)?;
+            .ok_or(MCError::BorrowDoesNotExist)?;
         let borrow_pool = Pool::try_get(e, pool_address).map_err(|_| {
             // TODO: Add an event?
 
-            MarketContractError::InternalError
+            MCError::InternalError
         })?;
 
         let total_debt = borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
@@ -526,9 +504,9 @@ impl Obligation {
         Ok(total_debt)
     }
 
-    pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, MarketContractError> {
+    pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, MCError> {
         let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
-            return Err(MarketContractError::DepositDoesNotExist);
+            return Err(MCError::DepositDoesNotExist);
         };
 
         Ok(deposit_obligation.collateral)
@@ -550,13 +528,9 @@ impl Obligation {
     ///
     /// # Returns
     /// - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
-    /// - [`Err(MarketContractError::ObligationDoesNotExist)`] otherwise
-    pub fn try_get(
-        e: &Env,
-        user: &Address,
-        seed: &Option<BytesN<32>>,
-    ) -> Result<Self, MarketContractError> {
-        storage::get_obligation(e, user, seed).ok_or(MarketContractError::ObligationDoesNotExist)
+    /// - [`Err(MCError::ObligationDoesNotExist)`] otherwise
+    pub fn try_get(e: &Env, user: &Address, seed: &Option<BytesN<32>>) -> Result<Self, MCError> {
+        storage::get_obligation(e, user, seed).ok_or(MCError::ObligationDoesNotExist)
     }
 
     /// Removes obligation from the contract's storage
@@ -589,22 +563,14 @@ impl BorrowObligation {
         }
     }
 
-    pub fn adjust_d_tokens(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
+    pub fn adjust_d_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.d_tokens, adjusting_amount)?;
         self.d_tokens = new_amount;
 
         Ok(())
     }
 
-    pub fn adjust_borrowed(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
+    pub fn adjust_borrowed(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.borrowed, adjusting_amount)?;
         self.borrowed = new_amount;
 
@@ -634,33 +600,21 @@ impl DepositObligation {
         }
     }
 
-    pub fn adjust_j_tokens(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
+    pub fn adjust_j_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.j_tokens, adjusting_amount)?;
         self.j_tokens = new_amount;
 
         Ok(())
     }
 
-    pub fn adjust_deposited(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
+    pub fn adjust_deposited(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.deposited, adjusting_amount)?;
         self.deposited = new_amount;
 
         Ok(())
     }
 
-    pub fn adjust_collateral(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MarketContractError> {
+    pub fn adjust_collateral(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.collateral, adjusting_amount)?;
         self.collateral = new_amount;
 
@@ -680,12 +634,12 @@ impl DepositObligation {
 ///
 /// # Returns
 /// `Ok(new_amount)` if adjusting doesn't lead to a new amount being negative.
-/// `Err(MarketContractError::InternalError otherwise
+/// `Err(MCError::InternalError otherwise
 fn adjust_obligation_field(
     e: &Env,
     current_value: i128,
     adjusting_amount: i128,
-) -> Result<i128, MarketContractError> {
+) -> Result<i128, MCError> {
     let new_amount = current_value
         .checked_add(adjusting_amount)
         .map_over_or_underflow()?;
@@ -693,7 +647,7 @@ fn adjust_obligation_field(
     if new_amount < 0 {
         events::obligation_amount_becomes_negative(e, current_value, new_amount);
 
-        return Err(MarketContractError::InternalError);
+        return Err(MCError::InternalError);
     }
 
     Ok(new_amount)
@@ -703,9 +657,8 @@ fn adjust_obligation_field(
 ///
 /// # WARNING
 /// Modifies the contract's storage
-fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MarketContractError> {
-    let mut pool =
-        storage::get_pool(e, pool_address).ok_or(MarketContractError::PoolDoesNotExist)?;
+fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+    let mut pool = storage::get_pool(e, pool_address).ok_or(MCError::PoolDoesNotExist)?;
 
     pool.accrue_interest(e)?;
     pool.set(e);

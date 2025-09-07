@@ -56,7 +56,7 @@ fuzz_target!(|input: InterestRateInput| {
 
     // Ensure borrowed doesn't exceed supply
     let total_borrowed = input.total_borrowed.min(input.total_supply);
-    let available = input.total_supply.saturating_sub(total_borrowed);
+    let total_available = input.total_supply.saturating_sub(total_borrowed);
 
     // Ensure slope1 < slope2
     let slope1 = input.slope1;
@@ -81,9 +81,9 @@ fuzz_target!(|input: InterestRateInput| {
         token_address,
         token_ticker: symbol_short!("TEST"),
         total_borrowed,
-        total_j_tokens_amount: input.total_supply,
-        total_d_tokens_amount: input.total_borrowed,
-        available,
+        total_j_tokens: input.total_supply,
+        total_d_tokens: input.total_borrowed,
+        total_available,
         interest_rate_model: InterestRateModel::Kinked(KinkedIRConfig::default()),
         accrual_model: AccrualModel::Compounded,
         total_collateral: 0,
@@ -96,10 +96,10 @@ fuzz_target!(|input: InterestRateInput| {
     if let Ok(total_supply) = pool.total_supply() {
         assert_eq!(
             total_supply,
-            pool.available + pool.total_borrowed,
+            pool.total_available + pool.total_borrowed,
             "Total supply mismatch: {} != {} + {}",
             total_supply,
-            pool.available,
+            pool.total_available,
             pool.total_borrowed
         );
 
@@ -112,8 +112,8 @@ fuzz_target!(|input: InterestRateInput| {
     }
 
     // Test shares/tokens conversion consistency (if pool has shares and supply)
-    if pool.total_j_tokens_amount > 0 && pool.total_supply().unwrap_or(0) > 0 {
-        let test_shares = input.test_shares.min(pool.total_j_tokens_amount); // Don't exceed total shares
+    if pool.total_j_tokens > 0 && pool.total_supply().unwrap_or(0) > 0 {
+        let test_shares = input.test_shares.min(pool.total_j_tokens); // Don't exceed total shares
         if test_shares > 0
             && let Ok(tokens) = pool.compute_tokens_from_j_tokens(&env, test_shares)
         {
@@ -142,7 +142,7 @@ fuzz_target!(|input: InterestRateInput| {
     }
 
     // Test tokens to shares conversion
-    if pool.total_j_tokens_amount > 0 && pool.total_supply().unwrap_or(0) > 0 {
+    if pool.total_j_tokens > 0 && pool.total_supply().unwrap_or(0) > 0 {
         let test_tokens = input.test_tokens.min(pool.total_supply().unwrap_or(0));
         if test_tokens > 0
             && let Ok(shares) = pool.compute_j_tokens_from_tokens(&env, test_tokens)
@@ -155,14 +155,14 @@ fuzz_target!(|input: InterestRateInput| {
 
             // Test that we don't exceed total shares unreasonably
             // (some slight excess might be due to rounding with fixed point math)
-            if shares > pool.total_j_tokens_amount {
-                let excess_ratio = (shares - pool.total_j_tokens_amount) * 1000
-                    / pool.total_j_tokens_amount.max(1);
+            if shares > pool.total_j_tokens {
+                let excess_ratio =
+                    (shares - pool.total_j_tokens) * 1000 / pool.total_j_tokens.max(1);
                 assert!(
                     excess_ratio <= 10, // Allow up to 1% excess due to rounding
                     "Computed shares {} significantly exceed total shares {} (excess ratio: {}‰)",
                     shares,
-                    pool.total_j_tokens_amount,
+                    pool.total_j_tokens,
                     excess_ratio
                 );
             }
@@ -171,14 +171,14 @@ fuzz_target!(|input: InterestRateInput| {
 
     // Test that pool is not in an invalid state
     assert!(
-        pool.total_j_tokens_amount >= 0,
+        pool.total_j_tokens >= 0,
         "Pool total shares cannot be negative: {}",
-        pool.total_j_tokens_amount
+        pool.total_j_tokens
     );
     assert!(
-        pool.available >= 0,
+        pool.total_available >= 0,
         "Pool available cannot be negative: {}",
-        pool.available
+        pool.total_available
     );
     assert!(
         pool.total_borrowed >= 0,
@@ -193,9 +193,9 @@ fuzz_target!(|input: InterestRateInput| {
 
     // Test pool emptiness check
     let is_empty = pool.is_empty();
-    let should_be_empty = pool.total_j_tokens_amount == 0
+    let should_be_empty = pool.total_j_tokens == 0
         && pool.total_borrowed == 0
-        && pool.available == 0
+        && pool.total_available == 0
         && pool.total_collateral == 0;
     assert_eq!(
         is_empty, should_be_empty,
@@ -238,17 +238,17 @@ fuzz_target!(|input: InterestRateInput| {
     );
 
     // Test mathematical invariants
-    if pool.total_j_tokens_amount > 0 && pool.total_supply().unwrap_or(0) > 0 {
+    if pool.total_j_tokens > 0 && pool.total_supply().unwrap_or(0) > 0 {
         // The ratio of shares to supply should be reasonable
         let supply = pool.total_supply().unwrap();
-        let shares_to_supply_ratio = (pool.total_j_tokens_amount * 1000) / supply.max(1);
+        let shares_to_supply_ratio = (pool.total_j_tokens * 1000) / supply.max(1);
 
         // This ratio should not be extremely high (shares shouldn't be orders of magnitude larger
         // than supply)
         assert!(
             shares_to_supply_ratio <= 1_000_000, // Allow up to 1000x ratio
             "Shares to supply ratio too high: {} shares for {} supply (ratio: {}‰)",
-            pool.total_j_tokens_amount,
+            pool.total_j_tokens,
             supply,
             shares_to_supply_ratio
         );

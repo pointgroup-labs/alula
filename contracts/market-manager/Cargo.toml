@@ -1,6 +1,6 @@
 [package]
 name = "market-manager"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 publish = false
 
@@ -9,7 +9,6 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-market = { path = "../market" }
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]

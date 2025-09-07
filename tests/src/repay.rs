@@ -1,22 +1,22 @@
 #![cfg(test)]
 
-use market::error::MarketContractError;
+use market::error::MCError;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestFixture, get_borrow_obligation, get_obligation_total_debt,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_borrow_obligation, get_obligation_total_debt,
     get_obligation_unpaid_interest,
 };
 
 #[test]
 fn test_repay_zero() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -44,13 +44,13 @@ fn test_repay_zero() {
 
 #[test]
 fn test_repay() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -93,14 +93,14 @@ fn test_repay() {
 
 #[test]
 fn test_repay_with_interest_accrual() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[2];
@@ -162,14 +162,14 @@ fn test_repay_with_interest_accrual() {
 
 #[test]
 fn test_repay_unpaid_interest_only() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[2];
@@ -204,13 +204,13 @@ fn test_repay_unpaid_interest_only() {
 fn test_repay_more_than_borrowed() {
     const BORROW_AMOUNT: i128 = 5 * DEFAULT_DEPOSIT_AMOUNT / 10;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[2];
@@ -232,7 +232,7 @@ fn test_repay_more_than_borrowed() {
     assert_eq!(pool_borrowed_after + BORROW_AMOUNT, pool_borrowed_before);
     assert_eq!(
         get_borrow_obligation(&contract_client, user, &usdc_pool_address),
-        Err(MarketContractError::BorrowDoesNotExist)
+        Err(MCError::BorrowDoesNotExist)
     );
 }
 
@@ -240,13 +240,13 @@ fn test_repay_more_than_borrowed() {
 fn test_repay_all_with_i128_max() {
     const BORROW_AMOUNT: i128 = 5 * DEFAULT_DEPOSIT_AMOUNT / 10;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[2];
@@ -268,6 +268,6 @@ fn test_repay_all_with_i128_max() {
     assert_eq!(pool_borrowed_after + BORROW_AMOUNT, pool_borrowed_before);
     assert_eq!(
         get_borrow_obligation(&contract_client, user, &usdc_pool_address),
-        Err(MarketContractError::BorrowDoesNotExist)
+        Err(MCError::BorrowDoesNotExist)
     );
 }

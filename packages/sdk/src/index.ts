@@ -31,7 +31,7 @@ if (typeof window !== 'undefined') {
   window.Buffer = window.Buffer || Buffer
 }
 
-export const MarketContractError = {
+export const MCError = {
   0: { message: 'InternalError' },
   1: { message: 'OverOrUnderflow' },
   2: { message: 'InvalidTimestamp' },

@@ -1,6 +1,6 @@
 use soroban_sdk::{Address, BytesN, Env, Vec, contracttype, panic_with_error};
 
-use crate::MMError;
+use crate::error::MMCError;
 
 #[derive(Debug)]
 #[contracttype]
@@ -30,10 +30,10 @@ pub fn get_config(e: &Env) -> Config {
     e.storage()
         .instance()
         .get(&key)
-        .unwrap_or_else(|| panic_with_error!(e, MMError::InternalError))
+        .unwrap_or_else(|| panic_with_error!(e, MMCError::InternalError))
 }
 
-pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMError> {
+pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMCError> {
     extend_instance_storage(e);
 
     let key = DataKey::MarketList;
@@ -41,7 +41,7 @@ pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMError>
 
     // TODO: Consider using set instead of vec?
     if markets.contains(market_address) {
-        return Err(MMError::MarketAlreadyExists);
+        return Err(MMCError::MarketAlreadyExists);
     } else {
         markets.push_back(market_address.clone());
     }

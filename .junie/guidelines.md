@@ -201,7 +201,7 @@ cargo doc --workspace --no-deps
 
 When developing contracts:
 
-1. Follow the existing pattern for error handling using the `MarketContractError` enum in `error.rs`
+1. Follow the existing pattern for error handling using the `MCError` enum in `error.rs`
 2. Use the storage patterns defined in `storage.rs` for consistent data management
 3. Implement tests for all new functionality
 4. Consider gas optimization for frequently called functions

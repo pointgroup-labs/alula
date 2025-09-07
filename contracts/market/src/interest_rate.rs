@@ -7,7 +7,7 @@ use soroban_sdk::{Env, contracttype};
 use crate::{
     accrual::Accrual,
     constants::{BPS_FACTOR, SECONDS_IN_YEAR},
-    error::MarketContractError,
+    error::MCError,
     events,
     interest_rate_model::InterestRate,
     math_utils::MathUtils,
@@ -25,10 +25,7 @@ pub struct AnnualPercentageRates {
 }
 
 impl AnnualPercentageRates {
-    pub fn try_new(
-        borrow_bps: u32,
-        utilization_ratio_bps: u32,
-    ) -> Result<Self, MarketContractError> {
+    pub fn try_new(borrow_bps: u32, utilization_ratio_bps: u32) -> Result<Self, MCError> {
         let supply_bps = (borrow_bps as u64)
             .fixed_mul_floor(utilization_ratio_bps as u64, BPS_FACTOR as u64)
             .map_over_or_underflow()? as u32;
@@ -48,18 +45,18 @@ pub struct AnnualPercentageYields {
     pub supply_bps: u32,
 }
 
-fn multiplier_to_percentage_yield(multiplier: i128) -> Result<u32, MarketContractError> {
+fn multiplier_to_percentage_yield(multiplier: i128) -> Result<u32, MCError> {
     const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
 
-    let multiplier_bps = u32::try_from(multiplier / SCALE_DIVISOR)
-        .map_err(|_| MarketContractError::OverOrUnderflow)?;
+    let multiplier_bps =
+        u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| MCError::OverOrUnderflow)?;
     let multiplier_yield_bps = multiplier_bps.saturating_sub(BPS_FACTOR as u32);
 
     Ok(multiplier_yield_bps)
 }
 
 impl Pool {
-    pub fn accrue_interest(&mut self, e: &Env) -> Result<(), MarketContractError> {
+    pub fn accrue_interest(&mut self, e: &Env) -> Result<(), MCError> {
         let current_timestamp = e.ledger().timestamp();
         if current_timestamp < self.last_accrual_timestamp {
             events::current_ledger_timestamp_smaller_than_stored_timestamp(
@@ -68,7 +65,7 @@ impl Pool {
                 self.last_accrual_timestamp,
             );
 
-            return Err(MarketContractError::InternalError);
+            return Err(MCError::InternalError);
         }
 
         let seconds_passed = current_timestamp - self.last_accrual_timestamp; // safe
@@ -96,7 +93,7 @@ impl Pool {
         Ok(())
     }
 
-    pub fn compute_utilization_ratio_bps(&self) -> Result<u32, MarketContractError> {
+    pub fn compute_utilization_ratio_bps(&self) -> Result<u32, MCError> {
         let total_supply = self.total_supply()?;
 
         let res = if total_supply == 0 {
@@ -111,7 +108,7 @@ impl Pool {
         Ok(res)
     }
 
-    pub fn get_apy(&self) -> Result<AnnualPercentageYields, MarketContractError> {
+    pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let borrow_apr = self
@@ -142,7 +139,7 @@ impl Pool {
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     // TODO: We better pre-compute the max available amount during Pool initialization
-    pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, MarketContractError> {
+    pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, MCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
@@ -155,7 +152,7 @@ impl Pool {
                 utilization_ratio,
                 self.config.utilization_ratio_limit_bps,
             );
-            // return Err(MarketContractError::InternalError);
+            // return Err(MCError::InternalError);
         }
         let available_percentage_to_borrow_bps =
             self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
@@ -165,10 +162,7 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    fn calculate_utilization_ratio_for_total_bps(
-        &self,
-        total: i128,
-    ) -> Result<i128, MarketContractError> {
+    fn calculate_utilization_ratio_for_total_bps(&self, total: i128) -> Result<i128, MCError> {
         if total == 0 {
             Ok(0)
         } else {
@@ -202,9 +196,9 @@ mod tests {
             pool_address: token_address,
             token_ticker: symbol_short!("TEST"),
             total_borrowed: 0,
-            total_d_tokens_amount: 0,
-            total_j_tokens_amount: 0,
-            available: 1_000_000,
+            total_d_tokens: 0,
+            total_j_tokens: 0,
+            total_available: 1_000_000,
             total_collateral: 0,
             config: PoolConfig::default(),
             last_accrual_timestamp: 0,
@@ -441,7 +435,7 @@ mod tests {
         let env = Env::default();
         let mut pool = create_test_pool(&env);
         pool.total_borrowed = 500000;
-        pool.available = 500000;
+        pool.total_available = 500000;
 
         let apy = pool.get_apy().unwrap();
 

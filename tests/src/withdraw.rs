@@ -4,7 +4,7 @@ use market::constants::DEFAULT_OPEN_LTV;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MarketContractError, TestFixture,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
     get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed,
     get_obligation_collateral, get_obligation_deposited, get_obligation_unpaid_interest,
 };
@@ -13,12 +13,12 @@ const DEFAULT_LIQUIDATION_THRESHOLD: i128 = DEFAULT_OPEN_LTV;
 
 #[test]
 fn test_withdraw_zero() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -26,9 +26,7 @@ fn test_withdraw_zero() {
     let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()
         .j_tokens;
-    let pool_shares = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_j_tokens_amount;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_j_tokens;
 
     assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
@@ -49,12 +47,12 @@ fn test_withdraw_zero() {
 
 #[test]
 fn test_withdraw() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -62,9 +60,7 @@ fn test_withdraw() {
     let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()
         .j_tokens;
-    let pool_shares = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_j_tokens_amount;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_j_tokens;
 
     assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
@@ -75,9 +71,7 @@ fn test_withdraw() {
     let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
         .unwrap()
         .j_tokens;
-    let pool_shares = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_j_tokens_amount;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_j_tokens;
 
     assert_eq!(obligation_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
     assert_eq!(pool_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
@@ -86,25 +80,23 @@ fn test_withdraw() {
     contract_client.withdraw(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     assert_eq!(
-        Err(Ok(MarketContractError::ObligationDoesNotExist)),
+        Err(Ok(MCError::ObligationDoesNotExist)),
         contract_client.try_get_user_obligation(user)
     );
 
-    let pool_shares = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_j_tokens_amount;
+    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_j_tokens;
 
     assert_eq!(pool_shares, 0);
 }
 
 #[test]
 fn test_remove_collateral_zero() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
@@ -124,30 +116,30 @@ fn test_remove_collateral_zero() {
 
 #[test]
 fn test_remove_collateral_negative() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     assert_eq!(
         contract_client.try_remove_collateral(user, &usdc_pool_address, &-1),
-        Err(Ok(MarketContractError::NegativeCollateralRemoval))
+        Err(Ok(MCError::NegativeAmount))
     );
 }
 
 #[test]
 fn test_remove_collateral() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
@@ -179,7 +171,7 @@ fn test_remove_collateral() {
     contract_client.remove_collateral(user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
 
     assert_eq!(
-        Err(Ok(MarketContractError::ObligationDoesNotExist)),
+        Err(Ok(MCError::ObligationDoesNotExist)),
         contract_client.try_get_user_obligation(user)
     );
 
@@ -192,12 +184,12 @@ fn test_remove_collateral() {
 
 #[test]
 fn test_withdraw_all_with_i128_max() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -223,7 +215,7 @@ fn test_withdraw_all_with_i128_max() {
     );
     assert_eq!(
         get_deposit_obligation(&contract_client, user, &usdc_pool_address),
-        Err(MarketContractError::ObligationDoesNotExist)
+        Err(MCError::ObligationDoesNotExist)
     );
 }
 
@@ -232,7 +224,7 @@ fn test_withdraw_more_than_open_ltv_allows() {
     const MAX_BORROWING_AMOUNT: i128 =
         (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         contract_id,
@@ -240,7 +232,7 @@ fn test_withdraw_more_than_open_ltv_allows() {
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -297,7 +289,7 @@ fn withdraw_up_to_open_ltv() {
     const MAX_BORROWING_AMOUNT: i128 =
         (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         contract_id,
@@ -305,7 +297,7 @@ fn withdraw_up_to_open_ltv() {
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -360,12 +352,12 @@ fn withdraw_up_to_open_ltv() {
 
 #[test]
 fn test_remove_all_with_i128_max() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
@@ -387,7 +379,7 @@ fn test_remove_all_with_i128_max() {
     );
     assert_eq!(
         get_deposit_obligation(&contract_client, user, &usdc_pool_address),
-        Err(MarketContractError::ObligationDoesNotExist)
+        Err(MCError::ObligationDoesNotExist)
     );
 }
 
@@ -396,7 +388,7 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
     const MAX_BORROWING_AMOUNT: i128 =
         (DEFAULT_COLLATERAL_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         contract_id,
@@ -404,7 +396,7 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -459,14 +451,14 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
 
 #[test]
 fn test_withdraw_small_with_interest_accrual() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];

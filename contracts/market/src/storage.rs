@@ -104,13 +104,14 @@ pub fn get_all_pools(e: &Env) -> Vec<Address> {
 }
 
 pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
+    let key = DataKey::AllPools;
+
     let mut all_pools = get_all_pools(e);
     all_pools.push_back(pool_address.clone());
-
     let new_index = all_pools.len() - 1;
 
-    e.storage().persistent().set(&DataKey::AllPools, &all_pools);
-    extend_shared_storage(e, &DataKey::AllPools);
+    e.storage().persistent().set(&key, &all_pools);
+    extend_shared_storage(e, &key);
 
     new_index
 }
@@ -120,7 +121,7 @@ pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
 
     e.storage().persistent().set(&key, pool);
 
-    extend_shared_storage(e, &key);
+    extend_shared_storage(e, &key); // TODO: Should we do this, though?
 }
 
 pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {

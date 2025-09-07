@@ -1,7 +1,7 @@
 use soroban_sdk::{Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl};
 
 use crate::{
-    MMError,
+    error::MMCError,
     storage::{self, Config},
 };
 
@@ -29,7 +29,7 @@ pub trait MarketManager {
         // TODO: max_positions,
         // TODO: min_collateral,
         // what would be the reasons for these parameters?
-    ) -> Result<Address, MMError>;
+    ) -> Result<Address, MMCError>;
 
     /// Returns a list of all lending markets deployed by the manager
     fn get_market_list(e: Env) -> Option<Vec<Address>>;
@@ -47,7 +47,7 @@ impl MarketManager for MarketManagerContract {
         market_admin: Address,
         name: String,
         oracle: Address,
-    ) -> Result<Address, MMError> {
+    ) -> Result<Address, MMCError> {
         let Config {
             admin,
             market_contract_wasm_hash,
@@ -75,8 +75,8 @@ impl MarketManagerContract {
     ///
     /// ### Arguments
     /// * `admin` - manager's admin
-    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network, used as a
-    ///  version of deployed market contract instances
+    /// * `market_contract_wasm_hash` - hash of the WASM binary uploaded to the network, used as a
+    ///  version of the deployed market contract instances
     pub fn __constructor(e: Env, admin: Address, market_contract_wasm_hash: BytesN<32>) {
         let config = Config {
             admin,
@@ -101,20 +101,20 @@ impl MarketManagerContract {
     /// Upgrades all deployed market contracts
     ///
     /// ### Arguments
-    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
-    ///   new version of the contract for every deployed market
-    pub fn upgrade_deployed_markets(e: Env, new_wasm_hash: BytesN<32>) {
+    /// * `new_market_contract_wasm_hash` - hash of the WASM binary uploaded to the network that
+    ///   will be used as a new version of the contract for every deployed market
+    pub fn upgrade_deployed_markets(e: Env, new_market_contract_wasm_hash: BytesN<32>) {
         let mut config = storage::get_config(&e);
         config.admin.require_auth();
 
         if let Some(deployed_markets) = storage::get_markets(&e) {
             for market_address in deployed_markets {
                 let market_client = market::Client::new(&e, &market_address);
-                market_client.upgrade(&new_wasm_hash);
+                market_client.upgrade(&new_market_contract_wasm_hash);
             }
         }
 
-        config.market_contract_wasm_hash = new_wasm_hash;
+        config.market_contract_wasm_hash = new_market_contract_wasm_hash;
         storage::set_config(&e, config);
     }
 }

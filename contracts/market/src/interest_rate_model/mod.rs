@@ -1,7 +1,7 @@
 use enum_dispatch::enum_dispatch;
 use soroban_sdk::contracttype;
 
-use crate::{error::MarketContractError, interest_rate_model::kinked::KinkedIRConfig};
+use crate::{error::MCError, interest_rate_model::kinked::KinkedIRConfig};
 
 #[enum_dispatch]
 pub trait InterestRate {
@@ -12,9 +12,9 @@ pub trait InterestRate {
     /// ### Arguments
     /// * `utilization_ratio_bps` - utilization ratio of a pool
     /// # Returns
-    /// `Ok(borrow_apr)` if no overflow occurs. `Err(MarketContractError::OverOrUnderflow)`
+    /// `Ok(borrow_apr)` if no overflow occurs. `Err(MCError::OverOrUnderflow)`
     /// otherwise
-    fn compute_borrow_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MarketContractError>;
+    fn compute_borrow_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MCError>;
 }
 
 #[derive(Debug, Eq, PartialEq)]

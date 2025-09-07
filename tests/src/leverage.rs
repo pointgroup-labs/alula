@@ -9,7 +9,7 @@ use market::{
 };
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, MarketContractError, TestFixture, get_borrow_obligation,
+    DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, get_borrow_obligation,
     get_obligation_borrowed, get_obligation_deposited,
     tests::{get_amount_scaled_down, get_amount_scaled_up},
 };
@@ -21,13 +21,13 @@ fn test_deposit_zero() {
     const LEVERAGE: u32 = 4; // x4 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -56,18 +56,18 @@ fn test_deposit_zero() {
 
 #[test]
 fn test_deposit_with_invalid_leverage_multiplier() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
     assert_eq!(
-        Err(Ok(MarketContractError::InvalidLeverageMultiplier)),
+        Err(Ok(MCError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
             user,
             &usdc_pool_address,
@@ -83,7 +83,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
         .max_leverage_multiplier;
 
     assert_eq!(
-        Err(Ok(MarketContractError::InvalidLeverageMultiplier)),
+        Err(Ok(MCError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
             user,
             &usdc_pool_address,
@@ -100,14 +100,14 @@ fn test_deposit_with_invalid_leverage_multiplier() {
 #[test]
 #[ignore]
 fn test_deposit_with_no_leverage() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
@@ -143,13 +143,13 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
     const LEVERAGE: u32 = 4; // x4 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
@@ -162,7 +162,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
             &(10 * DEFAULT_DEPOSIT_AMOUNT),
             &LEVERAGE_MULTIPLIER,
         ),
-        Err(Ok(MarketContractError::NotEnoughPoolFunds))
+        Err(Ok(MCError::NotEnoughPoolFunds))
     );
 }
 
@@ -171,13 +171,13 @@ fn test_deposit_with_unhealthy_leverage() {
     const LEVERAGE: u32 = 5;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -194,7 +194,7 @@ fn test_deposit_with_unhealthy_leverage() {
             &DEFAULT_DEPOSIT_AMOUNT,
             &LEVERAGE_MULTIPLIER,
         ),
-        Err(Ok(MarketContractError::InvalidLeverageMultiplier))
+        Err(Ok(MCError::InvalidLeverageMultiplier))
     );
 }
 
@@ -203,14 +203,14 @@ fn test_deposit_borrow_as_margin() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -262,14 +262,14 @@ fn test_deposit_deposit_as_margin() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -322,13 +322,13 @@ fn test_withdraw_zero() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -365,13 +365,13 @@ fn test_withdraw_negative() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -389,7 +389,7 @@ fn test_withdraw_negative() {
     );
 
     assert_eq!(
-        Err(Ok(MarketContractError::NegativeWithdraw)),
+        Err(Ok(MCError::NegativeAmount)),
         contract_client.try_withdraw_from_leveraged(
             user,
             &usdc_pool_address,
@@ -402,14 +402,14 @@ fn test_withdraw_negative() {
 #[test]
 #[ignore]
 fn test_withdraw_from_position_with_no_leverage() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
@@ -448,14 +448,14 @@ fn test_withdraw() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -541,14 +541,14 @@ fn test_withdraw_over_balance() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];
@@ -607,13 +607,13 @@ fn test_withdraw_all_available_with_i128_max() {
     const LEVERAGE: u32 = 4;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
     let user2 = &users[1];

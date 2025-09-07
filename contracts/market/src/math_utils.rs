@@ -1,14 +1,14 @@
 use soroban_fixed_point_math::FixedPoint;
 
-use crate::error::MarketContractError;
+use crate::error::MCError;
 
 pub trait MathUtils<T> {
-    fn map_over_or_underflow(self) -> Result<T, MarketContractError>;
+    fn map_over_or_underflow(self) -> Result<T, MCError>;
 }
 
 impl<T> MathUtils<T> for Option<T> {
-    fn map_over_or_underflow(self) -> Result<T, MarketContractError> {
-        self.ok_or(MarketContractError::OverOrUnderflow)
+    fn map_over_or_underflow(self) -> Result<T, MCError> {
+        self.ok_or(MCError::OverOrUnderflow)
     }
 }
 
@@ -20,13 +20,9 @@ impl<T> MathUtils<T> for Option<T> {
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, MarketContractError>` - The result of base^exp in fixed-point representation, or
-///   an error if overflow occurs
-pub fn bin_pow(
-    mut base: i128,
-    mut exp: u64,
-    denominator: i128,
-) -> Result<i128, MarketContractError> {
+/// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
+///   overflow occurs
+pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, MCError> {
     if exp == 0 {
         return Ok(denominator);
     }
@@ -55,13 +51,9 @@ pub fn bin_pow(
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, MarketContractError>` - The result of base^exp in fixed-point representation, or
-///   an error if overflow occurs
-pub fn bin_pow_ceil(
-    mut base: i128,
-    mut exp: u64,
-    denominator: i128,
-) -> Result<i128, MarketContractError> {
+/// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
+///   overflow occurs
+pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, MCError> {
     if exp == 0 {
         return Ok(denominator);
     }
@@ -90,10 +82,9 @@ pub fn bin_pow_ceil(
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, MarketContractError>` - The product x*y/denominator, or an error if overflow
-///   occurs
+/// * `Result<i128, MCError>` - The product x*y/denominator, or an error if overflow occurs
 #[inline]
-fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, MarketContractError> {
+fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, MCError> {
     x.fixed_mul_floor(y, denominator).map_over_or_underflow()
 }
 
@@ -105,10 +96,10 @@ fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, MarketContract
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, MarketContractError>` - The product x*y/denominator (rounded up), or an error if
-///   overflow occurs
+/// * `Result<i128, MCError>` - The product x*y/denominator (rounded up), or an error if overflow
+///   occurs
 #[inline]
-pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, MarketContractError> {
+pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, MCError> {
     x.fixed_mul_ceil(y, denominator).map_over_or_underflow()
 }
 
@@ -120,7 +111,7 @@ mod tests {
     use soroban_sdk::testutils::arbitrary::std::println;
 
     use super::*;
-    use crate::error::MarketContractError;
+    use crate::error::MCError;
 
     #[test]
     fn test_fixed_mul_ceil_vs_floor() {
@@ -476,7 +467,7 @@ mod tests {
         let denominator = 1_000_000;
         let result = bin_pow(base, 2, denominator);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), MarketContractError::OverOrUnderflow);
+        assert_eq!(result.unwrap_err(), MCError::OverOrUnderflow);
 
         // Overflow with moderate base but large exponent
         let base = i128::MAX / (1 << 10);

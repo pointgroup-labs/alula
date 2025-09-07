@@ -10,7 +10,7 @@ use crate::{
         DEFAULT_KINK1_UTILIZATION_RATIO_BPS, DEFAULT_KINK2_APR_BPS,
         DEFAULT_KINK2_UTILIZATION_RATIO_BPS, DEFAULT_MAX_APR_BPS,
     },
-    error::MarketContractError,
+    error::MCError,
     interest_rate_model::InterestRate,
     math_utils::MathUtils,
 };
@@ -46,7 +46,7 @@ impl Default for KinkedIRConfig {
 }
 
 impl InterestRate for KinkedIRConfig {
-    fn compute_borrow_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MarketContractError> {
+    fn compute_borrow_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MCError> {
         if utilization_ratio_bps < self.kink1_ur_bps {
             self.calculate_pre_kink1_apr(utilization_ratio_bps)
         } else if utilization_ratio_bps < self.kink2_ur_bps {
@@ -77,7 +77,7 @@ impl KinkedIRConfig {
         };
 
         if config.validate().is_err() {
-            panic_with_error!(e, MarketContractError::InvalidLoanPoolConfig);
+            panic_with_error!(e, MCError::InvalidLoanPoolConfig);
         }
 
         config
@@ -91,10 +91,7 @@ impl KinkedIRConfig {
     }
 
     /// Computes borrow `APR` if the utilization ratio precedes the first kink utilization ratio
-    fn calculate_pre_kink1_apr(
-        &self,
-        utilization_ratio_bps: u64,
-    ) -> Result<u64, MarketContractError> {
+    fn calculate_pre_kink1_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MCError> {
         // 'borrow_APR' = base_apr + (utilization_ratio_bps/kink1_ur_bps) * (kink1_apr_bps
         // - base_apr_bps)
         let kink1_base_diff_apr_bps = self.kink1_apr_bps - self.base_apr_bps; // safe
@@ -111,10 +108,7 @@ impl KinkedIRConfig {
     }
 
     /// Computes borrow `APR` if the utilization ratio precedes the second kink utilization ratio
-    fn calculate_pre_kink2_apr(
-        &self,
-        utilization_ratio_bps: u64,
-    ) -> Result<u64, MarketContractError> {
+    fn calculate_pre_kink2_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MCError> {
         // 'borrow_APR' = target_kink_apr + [(utilization_ratio_bps -
         // kink1_ur_bps)/(kink2_ur_bps - kink1_ur_bps)]*(kink2_apr - target_kink_apr)
 
@@ -133,10 +127,7 @@ impl KinkedIRConfig {
         Ok(res)
     }
 
-    fn calculate_post_kink2_apr(
-        &self,
-        utilization_ratio_bps: u64,
-    ) -> Result<u64, MarketContractError> {
+    fn calculate_post_kink2_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MCError> {
         // `borrow_APR` = kink2_apr + [(utilization_ratio_bps - kink2_ur_bps)/(10_000 -
         // kink2_ur_bps)]*(max_apr - kink2_apr)
 
