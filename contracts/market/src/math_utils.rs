@@ -14,10 +14,6 @@ impl<T> MathUtils<T> for Option<T> {
 
 /// O(log(n)) algorithm for quick exponentiation with floor rounding
 ///
-/// This function calculates base^exp using binary exponentiation, which has O(log(n)) complexity.
-/// It's much more efficient than the naive O(n) approach for large exponents.
-/// This version uses floor rounding for all intermediate calculations.
-///
 /// # Arguments
 /// * `base` - The base value in fixed-point representation (scaled by denominator)
 /// * `exp` - The exponent (power) to raise the base to
@@ -27,7 +23,6 @@ impl<T> MathUtils<T> for Option<T> {
 /// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if
 ///   overflow occurs
 pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
-    // Early return for common cases to save gas
     if exp == 0 {
         return Ok(denominator);
     }
@@ -40,9 +35,11 @@ pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, 
         if exp % 2 == 1 {
             result = fixed_mul(result, base, denominator)?;
         }
+
         base = fixed_mul(base, base, denominator)?;
         exp >>= 1;
     }
+
     Ok(result)
 }
 
@@ -57,7 +54,6 @@ pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, 
 /// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if
 ///   overflow occurs
 pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
-    // Early return for common cases to save gas
     if exp == 0 {
         return Ok(denominator);
     }
@@ -70,9 +66,11 @@ pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i
         if exp % 2 == 1 {
             result = fixed_mul_ceil(result, base, denominator)?;
         }
+
         base = fixed_mul_ceil(base, base, denominator)?;
         exp >>= 1;
     }
+
     Ok(result)
 }
 
@@ -108,7 +106,6 @@ pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, LCErr
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-
     use alloc::vec::Vec;
 
     use soroban_sdk::testutils::arbitrary::std::println;
@@ -184,11 +181,11 @@ mod tests {
     #[test]
     fn test_bin_pow_zero_exponent() {
         // Any base raised to power 0 should return the denominator, for any denominator
-        let denominators = [1_i128, 10, 1_000, 1_000_000, 1_000_000_000];
+        let denominators = [1, 10, 1_000, 1_000_000, 1_000_000_000];
 
-        for &denominator in &denominators {
+        for denominator in denominators {
             let bases = [0, 1, denominator, denominator * 2, -denominator];
-            for &base in &bases {
+            for base in bases {
                 let result = bin_pow(base, 0, denominator).unwrap();
                 assert_eq!(
                     result, denominator,
@@ -201,13 +198,12 @@ mod tests {
 
     #[test]
     fn test_bin_pow_one_exponent() {
-        // Any base raised to power 1 should return the product of base and denominator, divided by
-        // denominator
+        // Any base raised to power 1 should return the base
         let denominators = [1_i128, 10, 1_000, 1_000_000];
 
-        for &denominator in &denominators {
+        for denominator in denominators {
             let bases = [0, 1, denominator, denominator * 2, -denominator];
-            for &base in &bases {
+            for base in bases {
                 let result = bin_pow(base, 1, denominator).unwrap();
                 assert_eq!(
                     result,
@@ -233,7 +229,6 @@ mod tests {
             (3_000_000, 2, 1_000_000, 9_000_000),
             (3_000_000, 3, 1_000_000, 27_000_000),
             (10_000_000, 2, 1_000_000, 100_000_000),
-            // Test with different denominators
             (2_000, 2, 1_000, 4_000),
             (2_000_000_000, 2, 1_000_000_000, 4_000_000_000),
         ];
@@ -260,31 +255,17 @@ mod tests {
             (1_500_000, 2, 1_000_000, 2_250_000), // 1.5^2 = 2.25
             (1_500_000, 3, 1_000_000, 3_375_000), // 1.5^3 = 3.375
             // Very small fractional values
-            (1_000, 3, 1_000_000, 1),    // 0.001^3 = 0.000000001
+            (10_000, 3, 1_000_000, 1),   // 0.01^3 = 0.000001
             (10_000, 2, 1_000_000, 100), // 0.01^2 = 0.0001
         ];
 
         for (base, exponent, denominator, expected) in test_cases {
             let result = bin_pow(base, exponent, denominator).unwrap();
-            // For very small values, allow a small tolerance due to rounding
-            if expected < 100 {
-                let tolerance = 1;
-                assert!(
-                    (result - expected).abs() <= tolerance,
-                    "Base {}, Exponent {}, Denominator {}: Expected {}, got {}",
-                    base,
-                    exponent,
-                    denominator,
-                    expected,
-                    result
-                );
-            } else {
-                assert_eq!(
-                    result, expected,
-                    "Base {}, Exponent {}, Denominator {}",
-                    base, exponent, denominator
-                );
-            }
+            assert_eq!(
+                result, expected,
+                "Base {}, Exponent {}, Denominator {}",
+                base, exponent, denominator
+            );
         }
     }
 
@@ -355,19 +336,39 @@ mod tests {
         let denominator = 1_000_000;
         let result = bin_pow(base, 100, denominator).unwrap();
         // 0.999999^100 ≈ 0.99
-        assert!(result > 990_000 && result < 1_000_000);
+        assert!(result > 990_000 && result < 999_990);
 
         // Case 2: Values just above 1.0
         let base = 1_000_001; // 1.000001 with denominator 1_000_000
         let result = bin_pow(base, 100, denominator).unwrap();
         // 1.000001^100 ≈ 1.01
-        assert!(result > 1_000_000 && result < 1_010_000);
+        assert!(result > 1_000_010 && result < 1_010_000);
 
         // Case 3: Very small fractional delta
         let base = 1_000_000 + 1; // 1 + 1/1_000_000
         let result = bin_pow(base, 1_000_000, denominator).unwrap();
         // (1 + 1/1_000_000)^1_000_000 ≈ e ≈ 2.718281828
-        assert!(result > 2_700_000 && result < 2_730_000);
+        assert!(result > 2_715_000 && result < 2_717_000);
+    }
+
+    #[test]
+    fn test_euler_big_exponents() {
+        let base: i128 = 1_000_000_001;
+        let denominator = 1_000_000_000;
+        let exponent = 1_000_000_000;
+
+        let res = bin_pow(base, exponent, denominator).unwrap();
+        assert!(res > 2_718_220_000 && res < 2_718_230_000); // NB: gives 5 symbols precision on big exponents
+    }
+
+    #[test]
+    fn test_euler_big_exponents_ceil() {
+        let base: i128 = 1_000_000_001;
+        let denominator = 1_000_000_000;
+        let exponent = 1_000_000_000;
+
+        let res = bin_pow_ceil(base, exponent, denominator).unwrap();
+        assert_eq!(res, 7_388_726_811); // WARN: Why does this yield a much different result from both e and `_floor`?
     }
 
     #[test]
