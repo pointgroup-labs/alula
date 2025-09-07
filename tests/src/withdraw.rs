@@ -1,13 +1,15 @@
 #![cfg(test)]
 
-use market::constants::DEFAULT_LIQUIDATION_THRESHOLD;
+use market::constants::DEFAULT_OPEN_LTV;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, LCError, TestFixture, get_borrow_obligation,
-    get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral,
-    get_obligation_deposited, get_obligation_unpaid_interest,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MarketContractError, TestFixture,
+    get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed,
+    get_obligation_collateral, get_obligation_deposited, get_obligation_unpaid_interest,
 };
+
+const DEFAULT_LIQUIDATION_THRESHOLD: i128 = DEFAULT_OPEN_LTV;
 
 #[test]
 fn test_withdraw_zero() {
@@ -84,7 +86,7 @@ fn test_withdraw() {
     contract_client.withdraw(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     assert_eq!(
-        Err(Ok(LCError::ObligationDoesNotExist)),
+        Err(Ok(MarketContractError::ObligationDoesNotExist)),
         contract_client.try_get_user_obligation(user)
     );
 
@@ -134,7 +136,7 @@ fn test_remove_collateral_negative() {
 
     assert_eq!(
         contract_client.try_remove_collateral(user, &usdc_pool_address, &-1),
-        Err(Ok(LCError::NegativeCollateralRemoval))
+        Err(Ok(MarketContractError::NegativeCollateralRemoval))
     );
 }
 
@@ -177,7 +179,7 @@ fn test_remove_collateral() {
     contract_client.remove_collateral(user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
 
     assert_eq!(
-        Err(Ok(LCError::ObligationDoesNotExist)),
+        Err(Ok(MarketContractError::ObligationDoesNotExist)),
         contract_client.try_get_user_obligation(user)
     );
 
@@ -221,7 +223,7 @@ fn test_withdraw_all_with_i128_max() {
     );
     assert_eq!(
         get_deposit_obligation(&contract_client, user, &usdc_pool_address),
-        Err(LCError::ObligationDoesNotExist)
+        Err(MarketContractError::ObligationDoesNotExist)
     );
 }
 
@@ -249,9 +251,10 @@ fn test_withdraw_more_than_open_ltv_allows() {
     contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation = contract_client.get_user_obligation(user);
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
+            .compute_max_healthy_debt_added_amount(&e, &usdc_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
@@ -265,9 +268,11 @@ fn test_withdraw_more_than_open_ltv_allows() {
     assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT / 2);
 
     let obligation = contract_client.get_user_obligation(user);
+    let gold_pool = contract_client.get_pool(&gold_pool_address);
+
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
+            .compute_max_healthy_debt_added_amount(&e, &gold_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT / 2);
@@ -311,9 +316,11 @@ fn withdraw_up_to_open_ltv() {
     contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation = contract_client.get_user_obligation(user);
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
+
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
+            .compute_max_healthy_debt_added_amount(&e, &usdc_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
@@ -327,9 +334,11 @@ fn withdraw_up_to_open_ltv() {
     assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT);
 
     let obligation = contract_client.get_user_obligation(user);
+    let gold_pool = contract_client.get_pool(&gold_pool_address);
+
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_collateral_removed_amount(&e, &gold_pool_address)
+            .compute_max_healthy_collateral_removed_amount(&e, &gold_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, 0);
@@ -378,7 +387,7 @@ fn test_remove_all_with_i128_max() {
     );
     assert_eq!(
         get_deposit_obligation(&contract_client, user, &usdc_pool_address),
-        Err(LCError::ObligationDoesNotExist)
+        Err(MarketContractError::ObligationDoesNotExist)
     );
 }
 
@@ -406,9 +415,11 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
     contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let obligation = contract_client.get_user_obligation(user);
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
+
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
+            .compute_max_healthy_debt_added_amount(&e, &usdc_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
@@ -422,9 +433,11 @@ fn test_remove_collateral_more_than_open_ltv_allows() {
     assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT / 2);
 
     let obligation = contract_client.get_user_obligation(user);
+    let gold_pool = contract_client.get_pool(&gold_pool_address);
+
     e.as_contract(&contract_id, || {
         let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
+            .compute_max_healthy_debt_added_amount(&e, &gold_pool)
             .unwrap();
 
         assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT / 2);

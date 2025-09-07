@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use market::{
-    LCError,
     contract::{MarketContract, MarketContractClient},
+    error::MarketContractError,
     storage,
 };
 use soroban_sdk::{Address, BytesN, symbol_short, testutils::Address as _};
@@ -199,7 +199,7 @@ fn test_multiply_pair_already_initialized() {
 
     assert_eq!(
         contract_client.try_initialize_multiply_pair(&deposit_token_address, &borrow_token_address),
-        Err(Ok(LCError::MultiplyPairAlreadyExists))
+        Err(Ok(MarketContractError::MultiplyPairAlreadyExists))
     );
 }
 
@@ -220,6 +220,6 @@ fn test_multiply_pair_with_inexistent_pool() {
     // Try to initialize a multiply pair
     assert_eq!(
         contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
-        Err(Ok(LCError::DepositPoolDoesNotExist))
+        Err(Ok(MarketContractError::DepositPoolDoesNotExist))
     );
 }

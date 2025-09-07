@@ -2,21 +2,18 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 
 use crate::{
-    LCError,
     accrual::AccrualModel,
     constants::{
-        BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR, DEFAULT_LIABILITY_FACTOR, DEFAULT_LIQUIDATION_SPREAD,
-        DEFAULT_LIQUIDATION_THRESHOLD, DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT,
+        BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV, DEFAULT_LIABILITY_FACTOR,
+        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV, DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT,
         DEFAULT_UTILIZATION_RATIO_LIMIT, MAX_LIABILITY_FACTOR,
     },
+    error::MarketContractError,
     events,
     interest_rate_model::InterestRateModel,
     math_utils::MathUtils,
     storage,
 };
-
-pub type PoolAddress = Address;
-pub type UserAddress = Address;
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
@@ -53,7 +50,11 @@ pub struct Pool {
 }
 
 impl Pool {
-    fn adjust_field(e: &Env, current_value: i128, adjusting_amount: i128) -> Result<i128, LCError> {
+    fn adjust_field(
+        e: &Env,
+        current_value: i128,
+        adjusting_amount: i128,
+    ) -> Result<i128, MarketContractError> {
         let new_amount = current_value
             .checked_add(adjusting_amount)
             .map_over_or_underflow()?;
@@ -61,7 +62,7 @@ impl Pool {
         if new_amount < 0 {
             events::pool_amount_becomes_negative(e, current_value, new_amount);
 
-            return Err(LCError::InternalError);
+            return Err(MarketContractError::InternalError);
         }
 
         Ok(new_amount)
@@ -71,14 +72,18 @@ impl Pool {
         &mut self,
         e: &Env,
         adjusting_amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         let new_amount = Self::adjust_field(e, self.total_j_tokens_amount, adjusting_amount)?;
         self.total_j_tokens_amount = new_amount;
 
         Ok(())
     }
 
-    pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), LCError> {
+    pub fn adjust_available(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MarketContractError> {
         let new_amount = Self::adjust_field(e, self.available, adjusting_amount)?;
         self.available = new_amount;
 
@@ -89,7 +94,7 @@ impl Pool {
         &mut self,
         e: &Env,
         adjusting_amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         let new_amount = Self::adjust_field(e, self.total_d_tokens_amount, adjusting_amount)?;
         self.total_d_tokens_amount = new_amount;
 
@@ -100,7 +105,7 @@ impl Pool {
         &mut self,
         e: &Env,
         adjusting_amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         let new_amount = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
         self.total_collateral = new_amount;
 
@@ -111,7 +116,7 @@ impl Pool {
         &self,
         e: &Env,
         d_tokens_amount: i128,
-    ) -> Result<i128, LCError> {
+    ) -> Result<i128, MarketContractError> {
         // TODO: Check if there are some useful properties between jTokens and dTokens that
         // might cause some code re-usage
         let tokens = Self::compute_tokens_from_shares(
@@ -128,7 +133,7 @@ impl Pool {
         &self,
         e: &Env,
         tokens_amount: i128,
-    ) -> Result<i128, LCError> {
+    ) -> Result<i128, MarketContractError> {
         let d_tokens = Self::compute_shares_from_tokens(
             e,
             tokens_amount,
@@ -143,7 +148,7 @@ impl Pool {
         &self,
         e: &Env,
         j_tokens_amount: i128,
-    ) -> Result<i128, LCError> {
+    ) -> Result<i128, MarketContractError> {
         let tokens = Self::compute_tokens_from_shares(
             e,
             j_tokens_amount,
@@ -158,7 +163,7 @@ impl Pool {
         &self,
         e: &Env,
         tokens_amount: i128,
-    ) -> Result<i128, LCError> {
+    ) -> Result<i128, MarketContractError> {
         let j_tokens = Self::compute_shares_from_tokens(
             e,
             tokens_amount,
@@ -169,9 +174,9 @@ impl Pool {
         Ok(j_tokens)
     }
 
-    pub fn require_available(&self, required: i128) -> Result<(), LCError> {
+    pub fn require_available(&self, required: i128) -> Result<(), MarketContractError> {
         if required > self.available {
-            return Err(LCError::NotEnoughPoolFunds);
+            return Err(MarketContractError::NotEnoughPoolFunds);
         }
 
         Ok(())
@@ -184,7 +189,7 @@ impl Pool {
         shares_amount: i128,
         total_shares_amount: i128,
         total_tokens_amount: i128,
-    ) -> Result<i128, LCError> {
+    ) -> Result<i128, MarketContractError> {
         if shares_amount == 0 {
             return Ok(0);
         }
@@ -196,7 +201,7 @@ impl Pool {
                 shares_amount,
             );
 
-            return Err(LCError::InternalError);
+            return Err(MarketContractError::InternalError);
         }
 
         let tokens_amount = total_tokens_amount
@@ -214,7 +219,7 @@ impl Pool {
         tokens_amount: i128,
         total_shares_amount: i128,
         total_tokens_amount: i128,
-    ) -> Result<i128, LCError> {
+    ) -> Result<i128, MarketContractError> {
         // TODO: Is it always consistent with situations like:
         // I have the last shares and I remove them - total supply becomes zero. Check this
         if tokens_amount == 0 {
@@ -232,7 +237,7 @@ impl Pool {
                     total_tokens_amount,
                 );
 
-                return Err(LCError::InternalError);
+                return Err(MarketContractError::InternalError);
             }
 
             /*
@@ -256,7 +261,7 @@ impl Pool {
     }
 
     /// Calculates total supply (available + total_borrowed)
-    pub fn total_supply(&self) -> Result<i128, LCError> {
+    pub fn total_supply(&self) -> Result<i128, MarketContractError> {
         self.available
             .checked_add(self.total_borrowed)
             .map_over_or_underflow()
@@ -283,25 +288,25 @@ impl Pool {
     ///
     /// # Returns
     /// - [`Ok(Pool)`] if a pool with the given address exists in the contract's storage
-    /// - [`Err(LCError::PoolDoesNotExist)`] otherwise
-    pub fn try_get(e: &Env, pool_address: &Address) -> Result<Self, LCError> {
-        storage::get_pool(e, pool_address).ok_or(LCError::PoolDoesNotExist)
+    /// - [`Err(MarketContractError::PoolDoesNotExist)`] otherwise
+    pub fn try_get(e: &Env, pool_address: &Address) -> Result<Self, MarketContractError> {
+        storage::get_pool(e, pool_address).ok_or(MarketContractError::PoolDoesNotExist)
     }
 
-    pub fn get_all(e: &Env) -> Vec<PoolAddress> {
+    pub fn get_all(e: &Env) -> Vec<Address> {
         storage::get_all_pools(e)
     }
 
-    pub fn exists(e: &Env, address: &PoolAddress) -> bool {
+    pub fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
     }
 
     /// Refreshes the pool with the contract's storage data
-    pub fn refresh(&mut self, e: &Env) -> Result<(), LCError> {
+    pub fn refresh(&mut self, e: &Env) -> Result<(), MarketContractError> {
         let Some(refreshed_pool) = storage::get_pool(e, &self.pool_address) else {
             events::pool_is_missing_in_storage(e, &self.pool_address);
 
-            return Err(LCError::InternalError);
+            return Err(MarketContractError::InternalError);
         };
         *self = refreshed_pool;
 
@@ -362,8 +367,8 @@ impl Default for PoolConfig {
             liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
             supply_limit: DEFAULT_SUPPLY_LIMIT,
             utilization_ratio_limit_bps: DEFAULT_UTILIZATION_RATIO_LIMIT * BPS_IN_PERCENT,
-            open_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
-            close_ltv_bps: DEFAULT_LIQUIDATION_THRESHOLD * BPS_IN_PERCENT,
+            open_ltv_bps: DEFAULT_OPEN_LTV * BPS_IN_PERCENT,
+            close_ltv_bps: DEFAULT_CLOSE_LTV * BPS_IN_PERCENT,
             liability_factor_bps: DEFAULT_LIABILITY_FACTOR * BPS_IN_PERCENT,
         }
     }

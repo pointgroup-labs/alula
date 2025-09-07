@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::{LCError, pool::PoolConfig};
+use market::{error::MarketContractError, pool::PoolConfig};
 use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
@@ -75,7 +75,7 @@ fn test_exceed_supply_limit() {
 
     assert_eq!(
         contract_client.try_deposit(user, &usdc_token_address, &1),
-        Err(Ok(LCError::SupplyLimitExceeded)),
+        Err(Ok(MarketContractError::SupplyLimitExceeded)),
     );
 }
 
@@ -135,7 +135,7 @@ fn test_add_collateral_negative() {
 
     assert_eq!(
         contract_client.try_add_collateral(user, &usdc_pool_address, &-1),
-        Err(Ok(LCError::NegativeCollateralAddition))
+        Err(Ok(MarketContractError::NegativeCollateralAddition))
     );
 }
 

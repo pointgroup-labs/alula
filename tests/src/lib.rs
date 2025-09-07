@@ -16,9 +16,9 @@ use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
 use market::{
-    LCError,
-    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ORACLE_ADDRESS, ROUTER_ADDRESS},
+    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ROUTER_ADDRESS},
     contract::{MarketContract, MarketContractClient},
+    error::MarketContractError,
     obligation::{BorrowObligation, DepositObligation},
     pool::PoolConfig,
     soroswap_router as router,
@@ -113,7 +113,7 @@ impl TestFixture<'_> {
 
         let contract_client = MarketContractClient::new(&e, &contract_id);
 
-        let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
+        let oracle_address = Address::generate(&e);
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
@@ -749,7 +749,7 @@ pub fn get_obligation_j_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.j_tokens)
@@ -759,7 +759,7 @@ pub fn get_obligation_d_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let deposit_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.d_tokens)
@@ -769,7 +769,7 @@ pub fn get_obligation_borrowed(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let borrow_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
 
     Ok(borrow_obligation.borrowed)
@@ -779,7 +779,7 @@ pub fn get_obligation_collateral(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.collateral)
@@ -790,7 +790,7 @@ pub fn get_obligation_total_debt(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let pool = contract_client.get_pool(pool_address);
     let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
 
@@ -804,12 +804,12 @@ pub fn get_obligation_unpaid_interest(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let total_debt = get_obligation_total_debt(e, contract_client, user, pool_address)?;
     let borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
 
     if total_debt < borrowed {
-        return Err(LCError::InternalError);
+        return Err(MarketContractError::InternalError);
     }
     let unpaid_interest = total_debt - borrowed;
 
@@ -821,7 +821,7 @@ pub fn get_obligation_deposited(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let pool = contract_client.get_pool(pool_address);
     let j_tokens = get_obligation_j_tokens(contract_client, user, pool_address)?;
 
@@ -834,15 +834,15 @@ pub fn get_deposit_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<DepositObligation, LCError> {
+) -> Result<DepositObligation, MarketContractError> {
     let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
-        return Err(LCError::ObligationDoesNotExist);
+        return Err(MarketContractError::ObligationDoesNotExist);
     };
 
     let deposit = obligation
         .deposits
         .get(pool_address.clone())
-        .ok_or(LCError::DepositDoesNotExist)?;
+        .ok_or(MarketContractError::DepositDoesNotExist)?;
 
     Ok(deposit)
 }
@@ -851,15 +851,15 @@ pub fn get_borrow_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<BorrowObligation, LCError> {
+) -> Result<BorrowObligation, MarketContractError> {
     let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
-        return Err(LCError::ObligationDoesNotExist);
+        return Err(MarketContractError::ObligationDoesNotExist);
     };
 
     let borrow = obligation
         .borrows
         .get(pool_address.clone())
-        .ok_or(LCError::BorrowDoesNotExist)?;
+        .ok_or(MarketContractError::BorrowDoesNotExist)?;
 
     Ok(borrow)
 }
@@ -868,7 +868,7 @@ pub fn get_borrow_obligation(
 pub fn get_pool_total_j_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let pool = contract_client.get_pool(pool_address);
 
     Ok(pool.total_j_tokens_amount)
@@ -877,7 +877,7 @@ pub fn get_pool_total_j_tokens(
 pub fn get_pool_total_supply(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let pool = contract_client.get_pool(pool_address);
     let total_supply = pool.total_supply()?;
 
@@ -887,7 +887,7 @@ pub fn get_pool_total_supply(
 pub fn get_pool_available(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let pool = contract_client.get_pool(pool_address);
 
     Ok(pool.available)
@@ -970,7 +970,7 @@ mod tests {
             assert_eq!(
                 e.storage()
                     .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
+                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
                 INDIVIDUAL_BUMP
             );
         });
@@ -996,7 +996,7 @@ mod tests {
             assert_eq!(
                 e.storage()
                     .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
+                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
                 INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
             );
         });
@@ -1019,7 +1019,7 @@ mod tests {
             assert_eq!(
                 e.storage()
                     .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
+                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
                 INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
             );
         });
@@ -1039,7 +1039,7 @@ mod tests {
             assert_eq!(
                 e.storage()
                     .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
+                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
                 INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
             );
         });

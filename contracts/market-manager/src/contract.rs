@@ -1,10 +1,15 @@
-use market::contract::MarketContractClient;
 use soroban_sdk::{Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl};
 
 use crate::{
     MMError,
     storage::{self, Config},
 };
+
+mod market {
+    use soroban_sdk::contractimport;
+
+    contractimport!(file = "../../wasms/market.wasm");
+}
 
 #[contractclient(name = "MarketManagerClient")]
 pub trait MarketManager {
@@ -15,15 +20,15 @@ pub trait MarketManager {
     /// * `admin` - admin of the deployed market
     /// * `name` - name of the deployed market
     /// * `oracle_address` - address of SEP-40—compliant oracle contract
-    /// * `max_positions` - maximum amount of open positions per market's user
     fn deploy(
         e: Env,
         salt: BytesN<32>,
         admin: Address,
         name: String,
         oracle_address: Address,
-        max_positions: u32,
-        // TODO: min_collateral, what would be the reasons for this parameter?
+        // TODO: max_positions,
+        // TODO: min_collateral,
+        // what would be the reasons for these parameters?
     ) -> Result<Address, MMError>;
 
     /// Returns a list of all lending markets deployed by the manager
@@ -36,14 +41,12 @@ pub struct MarketManagerContract;
 
 #[contractimpl]
 impl MarketManager for MarketManagerContract {
-    #[allow(unused)]
     fn deploy(
         e: Env,
         salt: BytesN<32>,
-        admin: Address,
+        market_admin: Address,
         name: String,
         oracle: Address,
-        max_positions: u32,
     ) -> Result<Address, MMError> {
         let Config {
             admin,
@@ -53,8 +56,8 @@ impl MarketManager for MarketManagerContract {
 
         let market_address = e
             .deployer()
-            .with_current_contract(salt) // NB: what's going to happen if we do this twice?
-            .deploy_v2(market_contract_wasm_hash, ());
+            .with_current_contract(salt)
+            .deploy_v2(market_contract_wasm_hash, (market_admin, name, oracle));
 
         storage::register_market(&e, &market_address)?;
 
@@ -69,8 +72,18 @@ impl MarketManager for MarketManagerContract {
 #[contractimpl]
 impl MarketManagerContract {
     /// Constructs the manager contract
-    pub fn __constructor(e: Env, manager_config: Config) {
-        storage::set_config(&e, manager_config);
+    ///
+    /// ### Arguments
+    /// * `admin` - manager's admin
+    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network, used as a
+    ///  version of deployed market contract instances
+    pub fn __constructor(e: Env, admin: Address, market_contract_wasm_hash: BytesN<32>) {
+        let config = Config {
+            admin,
+            market_contract_wasm_hash,
+        };
+
+        storage::set_config(&e, config);
     }
 
     /// Upgrades the market manager contract
@@ -96,7 +109,7 @@ impl MarketManagerContract {
 
         if let Some(deployed_markets) = storage::get_markets(&e) {
             for market_address in deployed_markets {
-                let market_client = MarketContractClient::new(&e, &market_address);
+                let market_client = market::Client::new(&e, &market_address);
                 market_client.upgrade(&new_wasm_hash);
             }
         }

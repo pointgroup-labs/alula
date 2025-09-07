@@ -2,11 +2,11 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype};
 
 use crate::{
-    LCError,
     constants::{
         BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE,
         MIN_LEVERAGE_MULTIPLIER,
     },
+    error::MarketContractError,
     math_utils::MathUtils,
     storage,
 };
@@ -55,14 +55,14 @@ impl MultiplyPair {
     /// # Returns
     /// - [`Ok(MultiplyPair)`] if a multiply pair for the given deposit and pools addresses exists
     ///   in the contract's storage
-    /// - [`Err(LCError::MultiplyPairDoesNotExist)`] otherwise
+    /// - [`Err(MarketContractError::MultiplyPairDoesNotExist)`] otherwise
     pub fn try_get(
         e: &Env,
         deposit_pool_address: &Address,
         borrow_pool_address: &Address,
-    ) -> Result<Self, LCError> {
+    ) -> Result<Self, MarketContractError> {
         storage::get_multiply_pair(e, deposit_pool_address, borrow_pool_address)
-            .ok_or(LCError::MultiplyPairDoesNotExist)
+            .ok_or(MarketContractError::MultiplyPairDoesNotExist)
     }
 
     /// Registers a multiply pair in the pairs list
@@ -134,14 +134,14 @@ impl MultiplyPair {
 
     /// # Returns
     /// - [`Ok(())`] if the provided multiplier is within the valid range
-    /// - [`Err(LCError::InvalidLeverageMultiplier)`] otherwise
+    /// - [`Err(MarketContractError::InvalidLeverageMultiplier)`] otherwise
     pub fn require_valid_leverage_multiplier(
         &self,
         leverage_multiplier: u32,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         if !(MIN_LEVERAGE_MULTIPLIER..=self.max_leverage_multiplier).contains(&leverage_multiplier)
         {
-            return Err(LCError::InvalidLeverageMultiplier);
+            return Err(MarketContractError::InvalidLeverageMultiplier);
         }
 
         Ok(())

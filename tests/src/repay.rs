@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::LCError;
+use market::error::MarketContractError;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
@@ -232,7 +232,7 @@ fn test_repay_more_than_borrowed() {
     assert_eq!(pool_borrowed_after + BORROW_AMOUNT, pool_borrowed_before);
     assert_eq!(
         get_borrow_obligation(&contract_client, user, &usdc_pool_address),
-        Err(LCError::BorrowDoesNotExist)
+        Err(MarketContractError::BorrowDoesNotExist)
     );
 }
 
@@ -268,6 +268,6 @@ fn test_repay_all_with_i128_max() {
     assert_eq!(pool_borrowed_after + BORROW_AMOUNT, pool_borrowed_before);
     assert_eq!(
         get_borrow_obligation(&contract_client, user, &usdc_pool_address),
-        Err(LCError::BorrowDoesNotExist)
+        Err(MarketContractError::BorrowDoesNotExist)
     );
 }

@@ -5,9 +5,9 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Env, contracttype};
 
 use crate::{
-    LCError,
     accrual::Accrual,
     constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    error::MarketContractError,
     events,
     interest_rate_model::InterestRate,
     math_utils::MathUtils,
@@ -25,7 +25,10 @@ pub struct AnnualPercentageRates {
 }
 
 impl AnnualPercentageRates {
-    pub fn try_new(borrow_bps: u32, utilization_ratio_bps: u32) -> Result<Self, LCError> {
+    pub fn try_new(
+        borrow_bps: u32,
+        utilization_ratio_bps: u32,
+    ) -> Result<Self, MarketContractError> {
         let supply_bps = (borrow_bps as u64)
             .fixed_mul_floor(utilization_ratio_bps as u64, BPS_FACTOR as u64)
             .map_over_or_underflow()? as u32;
@@ -45,18 +48,18 @@ pub struct AnnualPercentageYields {
     pub supply_bps: u32,
 }
 
-fn multiplier_to_percentage_yield(multiplier: i128) -> Result<u32, LCError> {
+fn multiplier_to_percentage_yield(multiplier: i128) -> Result<u32, MarketContractError> {
     const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
 
-    let multiplier_bps =
-        u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| LCError::OverOrUnderflow)?;
+    let multiplier_bps = u32::try_from(multiplier / SCALE_DIVISOR)
+        .map_err(|_| MarketContractError::OverOrUnderflow)?;
     let multiplier_yield_bps = multiplier_bps.saturating_sub(BPS_FACTOR as u32);
 
     Ok(multiplier_yield_bps)
 }
 
 impl Pool {
-    pub fn accrue_interest(&mut self, e: &Env) -> Result<(), LCError> {
+    pub fn accrue_interest(&mut self, e: &Env) -> Result<(), MarketContractError> {
         let current_timestamp = e.ledger().timestamp();
         if current_timestamp < self.last_accrual_timestamp {
             events::current_ledger_timestamp_smaller_than_stored_timestamp(
@@ -65,7 +68,7 @@ impl Pool {
                 self.last_accrual_timestamp,
             );
 
-            return Err(LCError::InternalError);
+            return Err(MarketContractError::InternalError);
         }
 
         let seconds_passed = current_timestamp - self.last_accrual_timestamp; // safe
@@ -93,7 +96,7 @@ impl Pool {
         Ok(())
     }
 
-    pub fn compute_utilization_ratio_bps(&self) -> Result<u32, LCError> {
+    pub fn compute_utilization_ratio_bps(&self) -> Result<u32, MarketContractError> {
         let total_supply = self.total_supply()?;
 
         let res = if total_supply == 0 {
@@ -108,7 +111,7 @@ impl Pool {
         Ok(res)
     }
 
-    pub fn get_apy(&self) -> Result<AnnualPercentageYields, LCError> {
+    pub fn get_apy(&self) -> Result<AnnualPercentageYields, MarketContractError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let borrow_apr = self
@@ -139,7 +142,7 @@ impl Pool {
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     // TODO: We better pre-compute the max available amount during Pool initialization
-    pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, LCError> {
+    pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, MarketContractError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
 
@@ -152,7 +155,7 @@ impl Pool {
                 utilization_ratio,
                 self.config.utilization_ratio_limit_bps,
             );
-            // return Err(LCError::InternalError);
+            // return Err(MarketContractError::InternalError);
         }
         let available_percentage_to_borrow_bps =
             self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
@@ -162,7 +165,10 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    fn calculate_utilization_ratio_for_total_bps(&self, total: i128) -> Result<i128, LCError> {
+    fn calculate_utilization_ratio_for_total_bps(
+        &self,
+        total: i128,
+    ) -> Result<i128, MarketContractError> {
         if total == 0 {
             Ok(0)
         } else {

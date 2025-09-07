@@ -87,5 +87,6 @@
   },
   "material-icon-theme.rootFolders.associations": {
     "validators": null
-  }
+  },
+  "makefile.configureOnOpen": false
 }

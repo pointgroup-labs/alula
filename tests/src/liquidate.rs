@@ -1,7 +1,7 @@
 // #![cfg(test)]
 
 // use market::{
-//     LCError,
+//     MarketContractError,
 //     constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
 // };
 // use soroban_sdk::{
@@ -207,7 +207,7 @@
 //         &1,
 //     );
 
-//     assert_eq!(result, Err(Ok(LCError::LiquidatedPositionIsHealthy)));
+//     assert_eq!(result, Err(Ok(MarketContractError::LiquidatedPositionIsHealthy)));
 // }
 
 // #[test]
@@ -265,7 +265,7 @@
 //         &-1,
 //     );
 
-//     assert_eq!(result, Err(Ok(LCError::NegativeLiquidation)));
+//     assert_eq!(result, Err(Ok(MarketContractError::NegativeLiquidation)));
 // }
 
 // #[test]
@@ -281,7 +281,7 @@
 //         &test.liquidation_amount(10),
 //     );
 
-//     assert_eq!(result, Err(Ok(LCError::SelfLiquidation)));
+//     assert_eq!(result, Err(Ok(MarketContractError::SelfLiquidation)));
 // }
 
 // #[test]
@@ -297,7 +297,7 @@
 //         &1,
 //     );
 
-//     assert_eq!(result, Err(Ok(LCError::ObligationDoesNotExist)));
+//     assert_eq!(result, Err(Ok(MarketContractError::ObligationDoesNotExist)));
 // }
 
 // // === Close Factor Tests ===
@@ -360,7 +360,7 @@
 //         &over_limit,
 //     );
 
-//     assert_eq!(result, Err(Ok(LCError::LiquidationExceedsCloseFactor)));
+//     assert_eq!(result, Err(Ok(MarketContractError::LiquidationExceedsCloseFactor)));
 // }
 
 // #[test]
@@ -503,7 +503,7 @@
 //                     // Second liquidation also succeeded - this is fine
 //                     println!("Position was still unhealthy after first liquidation");
 //                 }
-//                 Err(Ok(LCError::LiquidatedPositionIsHealthy)) => {
+//                 Err(Ok(MarketContractError::LiquidatedPositionIsHealthy)) => {
 //                     // Position became healthy after first liquidation - this is the expected
 //                     // behavior
 //                     println!("Position became healthy after liquidation");
@@ -516,7 +516,7 @@
 //                 }
 //             }
 //         }
-//         Err(Ok(LCError::LiquidatedPositionIsHealthy)) => {
+//         Err(Ok(MarketContractError::LiquidatedPositionIsHealthy)) => {
 //             // Position was never unhealthy to begin with
 //             println!("Position remained healthy - liquidation protection working correctly");
 //         }
@@ -546,7 +546,7 @@
 
 //     assert_eq!(
 //         result,
-//         Err(Ok(LCError::LiquidationWithEqualCollateralAndDepositPools))
+//         Err(Ok(MarketContractError::LiquidationWithEqualCollateralAndDepositPools))
 //     );
 // }
 
@@ -574,7 +574,7 @@
 //                 let expected = initial_debt - (small_amount * i);
 //                 assert_eq!(current_debt, expected, "Liquidation {} failed", i);
 //             }
-//             Err(Ok(LCError::LiquidatedPositionIsHealthy)) => {
+//             Err(Ok(MarketContractError::LiquidatedPositionIsHealthy)) => {
 //                 // Position became healthy, this is expected
 //                 break;
 //             }
@@ -616,7 +616,7 @@
 //             let new_debt = test.total_debt();
 //             assert!(new_debt < debt, "Debt should be reduced");
 //         }
-//         Err(Ok(LCError::LiquidatedPositionIsHealthy)) => {
+//         Err(Ok(MarketContractError::LiquidatedPositionIsHealthy)) => {
 //             // Position is still healthy even after massive interest - this shows robustness
 //             println!("Position remained healthy even after 100 years of interest");
 //         }

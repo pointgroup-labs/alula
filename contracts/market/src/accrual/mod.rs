@@ -1,14 +1,18 @@
 use soroban_sdk::contracttype;
 
 use crate::{
-    LCError,
     constants::SECONDS_IN_YEAR,
+    error::MarketContractError,
     interest_rate::SCALED_ONE,
     math_utils::{self, MathUtils},
 };
 
 pub trait Accrual {
-    fn calculate_multiplier(&self, apr: i128, seconds_passed: u32) -> Result<i128, LCError>;
+    fn calculate_multiplier(
+        &self,
+        apr: i128,
+        seconds_passed: u32,
+    ) -> Result<i128, MarketContractError>;
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -18,7 +22,11 @@ pub enum AccrualModel {
 }
 
 impl Accrual for AccrualModel {
-    fn calculate_multiplier(&self, apr: i128, seconds_passed: u32) -> Result<i128, LCError> {
+    fn calculate_multiplier(
+        &self,
+        apr: i128,
+        seconds_passed: u32,
+    ) -> Result<i128, MarketContractError> {
         match self {
             AccrualModel::Compounded => {
                 const NEW_SCALED_ONE: i128 = 10 * SCALED_ONE;

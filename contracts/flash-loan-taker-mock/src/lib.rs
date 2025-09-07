@@ -48,7 +48,7 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 
 #[cfg(test)]
 mod test {
-    use market::LCError;
+    use market::error::MarketContractError;
     use soroban_sdk::Address;
     use tests::{DEFAULT_DEPOSIT_AMOUNT, TestFixture};
 
@@ -155,7 +155,7 @@ mod test {
                 &test_fixture.usdc_pool_address,
                 &(DEFAULT_DEPOSIT_AMOUNT + 1)
             ),
-            Err(Ok(LCError::NotEnoughPoolFunds))
+            Err(Ok(MarketContractError::NotEnoughPoolFunds))
         );
     }
 }

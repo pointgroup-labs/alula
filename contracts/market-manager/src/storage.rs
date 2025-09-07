@@ -1,4 +1,3 @@
-use market::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
 use soroban_sdk::{Address, BytesN, Env, Vec, contracttype, panic_with_error};
 
 use crate::MMError;
@@ -34,43 +33,36 @@ pub fn get_config(e: &Env) -> Config {
         .unwrap_or_else(|| panic_with_error!(e, MMError::InternalError))
 }
 
-pub fn market_exists(e: &Env, market_address: &Address) -> bool {
-    let key = DataKey::MarketList;
-
-    if let Some(markets) = e.storage().instance().get(&key) {
-        let markets: Vec<Address> = markets;
-
-        markets.contains(market_address)
-    } else {
-        false
-    }
-}
-
 pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMError> {
     extend_instance_storage(e);
 
     let key = DataKey::MarketList;
     let mut markets: Vec<Address> = e.storage().instance().get(&key).unwrap_or(Vec::new(e));
 
-    // TODO: Should this be a set?
+    // TODO: Consider using set instead of vec?
     if markets.contains(market_address) {
-        // TODO: Add an event
-
         return Err(MMError::MarketAlreadyExists);
     } else {
         markets.push_back(market_address.clone());
     }
+    e.storage().instance().set(&key, &markets);
 
     Ok(())
 }
 
 pub fn get_markets(e: &Env) -> Option<Vec<Address>> {
-    extend_instance_storage(e); // will the storage ever be extended here?
+    extend_instance_storage(e);
 
     let key = DataKey::MarketList;
 
     e.storage().instance().get(&key)
 }
+
+const SECONDS_PER_DAY: u32 = 24 * 60 * 60;
+const SECONDS_PER_LEDGER: u32 = 6;
+const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;
+const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
+const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 
 /// Instance storage bumper
 pub fn extend_instance_storage(e: &Env) {

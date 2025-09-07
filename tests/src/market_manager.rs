@@ -9,14 +9,9 @@ use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
 use crate::get_default_env;
 
 mod market {
-    use market::{
-        LCError,
-        pool::{PoolAddress, UserAddress},
-        storage::{BorrowPoolAddress, DepositPoolAddress},
-    };
     use soroban_sdk::contractimport;
 
-    contractimport!(file = "/home/sonny_m00re/src/jpool/jlending/wasms/market.wasm");
+    contractimport!(file = "../wasms/market.wasm");
 }
 
 #[allow(unused)]
@@ -30,7 +25,6 @@ struct ManagerSetup<'a> {
 impl<'a> ManagerSetup<'a> {
     fn new() -> Self {
         let e = get_default_env();
-
         let manager_admin = Address::generate(&e);
         let market_contract_wasm_hash = e.deployer().upload_contract_wasm(market::WASM);
 
@@ -38,7 +32,6 @@ impl<'a> ManagerSetup<'a> {
             admin: manager_admin.clone(),
             market_contract_wasm_hash,
         };
-
         let manager_address = e.register(MarketManagerContract, (config,));
         let manager_client = MarketManagerClient::new(&e, &manager_address);
 
@@ -52,26 +45,64 @@ impl<'a> ManagerSetup<'a> {
 }
 
 #[test]
-fn test_manager_no_pools_after_deployment() {
+fn test_manager_has_no_markets_after_deployment() {
     let ManagerSetup { manager_client, .. } = ManagerSetup::new();
 
-    let pool_addresses = manager_client.get_market_list();
+    let market_addresses = manager_client.get_market_list();
 
-    assert!(pool_addresses.is_none());
+    assert!(market_addresses.is_none());
 }
 
 #[test]
-fn test_manager_deploy_pool() {
+fn test_manager_deploy_markets() {
     let ManagerSetup {
         e, manager_client, ..
     } = ManagerSetup::new();
 
-    let salt = BytesN::from_array(&e, &[0; 32]);
-    let pool_admin = Address::generate(&e);
+    let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
-    let max_positions = 10;
 
-    let name = String::from_str(&e, "pool_1");
+    let salt_1 = BytesN::from_array(&e, &[0; 32]);
+    let name_1 = String::from_str(&e, "market_1");
+    let market_address_1 = manager_client.deploy(&salt_1, &market_admin, &name_1, &oracle);
 
-    manager_client.deploy(&salt, &pool_admin, &name, &oracle, &max_positions);
+    let market_list = manager_client
+        .get_market_list()
+        .expect("Market must've been deployed");
+    assert_eq!(market_list.len(), 1);
+    assert_eq!(market_address_1, market_list.last().unwrap());
+
+    let salt_2 = BytesN::from_array(&e, &[1; 32]);
+    let name_2 = String::from_str(&e, "market_2");
+    let market_address_2 = manager_client.deploy(&salt_2, &market_admin, &name_2, &oracle);
+
+    let market_list = manager_client
+        .get_market_list()
+        .expect("Markets must've been deployed");
+    assert_eq!(market_list.len(), 2);
+    assert_eq!(market_address_2, market_list.last().unwrap());
+}
+
+#[test]
+fn test_manager_cannot_redeploy_market() {
+    let ManagerSetup {
+        e, manager_client, ..
+    } = ManagerSetup::new();
+
+    let market_admin = Address::generate(&e);
+    let oracle = Address::generate(&e);
+
+    let salt = BytesN::from_array(&e, &[0; 32]);
+    let name_1 = String::from_str(&e, "market_1");
+    manager_client.deploy(&salt, &market_admin, &name_1, &oracle);
+
+    let name_2 = String::from_str(&e, "market_2");
+
+    // NB: Markets' addresses are deterministically derived from salt and
+    // market manager's contract address, hence no redeployment like this is possible
+    assert!(
+        manager_client
+            .try_deploy(&salt, &market_admin, &name_2, &oracle)
+            .is_err()
+    );
 }

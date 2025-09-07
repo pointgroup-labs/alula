@@ -6,6 +6,7 @@ DEPLOY_DIR := $(WASM_DIR)/deploy
 OPTIMIZED_DIR := $(WASM_DIR)/optimized
 DOWNLOADS_DIR := $(WASM_DIR)/downloads
 
+MARKET_MANAGER_CONTRACT := market-manager
 MARKET_CONTRACT := market
 
 REFLECTOR_ORACLE_URL := https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
@@ -94,17 +95,23 @@ build: build/prepare ## Build contracts
 	$(call build_contract,$(REFLECTOR_ORACLE_MOCK),$(MOCKS_DIR))
 	$(call build_contract,$(SOROSWAP_ROUTER_MOCK),$(MOCKS_DIR))
 	$(call build_contract,$(MARKET_CONTRACT),$(WASM_DIR))
+	$(call build_contract,$(MARKET_MANAGER_CONTRACT),$(WASM_DIR))
 	$(call build_contract,$(FLASH_LOAN_TAKER_MOCK),$(MOCKS_DIR))
 
 build/deploy: build/prepare ## Build contracts for deployment
 	$(call build_contract,$(MARKET_CONTRACT),$(DEPLOY_DIR),--features deploy)
+	$(call build_contract,$(MARKET_MANAGER_CONTRACT),$(DEPLOY_DIR))
 
 build/optimize: build/deploy ## Optimize contracts
 	@echo "$(BLUE)Optimizing contracts...$(NC)"
 	@stellar contract optimize \
 		--wasm "$(DEPLOY_DIR)/$(MARKET_CONTRACT).wasm" \
 		--wasm-out "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm"
+	@stellar contract optimize \
+		--wasm "$(DEPLOY_DIR)/$(MARKET_MANAGER_CONTRACT).wasm" \
+		--wasm-out "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm"	
 	@ls -lh "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" 2>/dev/null || true
+	@ls -lh "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" 2>/dev/null || true
 
 build/prepare: ## Download dependency WASMs
 	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
@@ -153,12 +160,19 @@ sdk: build/optimize ## Generate TypeScript SDK
 		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
 		--output-dir ./packages/sdk/ \
 		--network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
+		--output-dir ./packages/sdk/ \
+		--network "$(NETWORK)"
 
 sdk/json: build/optimize ## Generate JSON ABI for JS
 	@echo "$(BLUE)Generating JSON ABI...$(NC)"
 	@stellar contract bindings json --overwrite \
 		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
 		--output ./packages/sdk/$(MARKET_CONTRACT).json
+	@stellar contract bindings json --overwrite \
+		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
+		--output ./packages/sdk/$(MARKET_MANAGER_CONTRACT).json
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Deployment
@@ -168,12 +182,18 @@ deploy/testnet: build/optimize ## Deploy to testnet
 	stellar contract deploy \
 		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
 		--network testnet
+	stellar contract deploy \
+		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
+		--network testnet
 
 deploy/mainnet: build/optimize ## Deploy to mainnet (asks for confirmation)
 	echo "$(YELLOW)WARNING: Deploying to MAINNET$(NC)"
 	read -r -p "$(YELLOW)Are you sure? [y/N]$(NC) " c && [ "$$c" = "y" ]
 	stellar contract deploy \
 		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
+		--network mainnet
+	stellar contract deploy \
+		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
 		--network mainnet
 
 deploy/verify: ## Verify deployment

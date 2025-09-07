@@ -3,8 +3,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env};
 
 use crate::{
-    LCError,
     constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, ROUTER_ADDRESS},
+    error::MarketContractError,
     math_utils::MathUtils,
     soroswap_router as router,
 };
@@ -23,13 +23,13 @@ pub fn get_amount_in(
     token_in: &Address,
     token_out: &Address,
     amount_out: i128,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amounts_in = router_client.router_get_amounts_in(&amount_out, &path);
     let Some(amount_in) = amounts_in.first() else {
-        return Err(LCError::DependencyContractError);
+        return Err(MarketContractError::DependencyContractError);
     };
 
     Ok(amount_in)
@@ -46,13 +46,13 @@ pub fn get_amount_out(
     token_in: &Address,
     token_out: &Address,
     amount_in: i128,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
     let Some(amount_out) = amounts_out.last() else {
-        return Err(LCError::DependencyContractError);
+        return Err(MarketContractError::DependencyContractError);
     };
 
     Ok(amount_out)
@@ -78,10 +78,10 @@ pub fn swap_tokens_for_exact_tokens(
     amount_in: i128,
     amount_out: i128,
     max_slippage_bps: Option<i128>,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
         if !(0..=BPS_FACTOR).contains(&slippage) {
-            return Err(LCError::InvalidSwapSlippage);
+            return Err(MarketContractError::InvalidSwapSlippage);
         }
 
         slippage
@@ -113,7 +113,7 @@ pub fn swap_tokens_for_exact_tokens(
     // TODO: What warning\error\event exactly must happen here?
     let received_amount = swap_amounts
         .last()
-        .ok_or(LCError::DependencyContractError)?;
+        .ok_or(MarketContractError::DependencyContractError)?;
 
     Ok(received_amount)
 }
@@ -138,10 +138,10 @@ pub fn swap_exact_tokens_for_tokens(
     amount_in: i128,
     amount_out: i128,
     max_slippage_bps: Option<i128>,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
         if !(0..=BPS_FACTOR).contains(&slippage) {
-            return Err(LCError::InvalidSwapSlippage);
+            return Err(MarketContractError::InvalidSwapSlippage);
         }
 
         slippage
@@ -173,7 +173,7 @@ pub fn swap_exact_tokens_for_tokens(
     // TODO: What warning\error\event exactly must happen here?
     let received_amount = swap_amounts
         .last()
-        .ok_or(LCError::DependencyContractError)?;
+        .ok_or(MarketContractError::DependencyContractError)?;
 
     Ok(received_amount)
 }

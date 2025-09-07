@@ -2,23 +2,22 @@ use moderc3156::FlashLoanClient;
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Symbol, Vec, contract, contractimpl,
+    Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl,
     token::{self, TokenClient},
 };
 
 use crate::{
-    LCError,
     accrual::AccrualModel,
     constants::{
-        BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_LIQUIDATION_THRESHOLD,
-        LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS, ORACLE_ADDRESS,
+        BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, LEVERAGE_SCALE, MAX_ORACLE_PRICE_AGE_SECONDS,
     },
+    error::MarketContractError,
     events,
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::Obligation,
-    pool::{Pool, PoolAddress, PoolConfig},
+    pool::{Pool, PoolConfig},
     storage::{self, GlobalState},
     swap,
 };
@@ -39,27 +38,19 @@ impl MarketContract {
     pub fn __constructor(
         e: Env,
         admin: Address,
-        liquidation_threshold_percent: Option<i128>,
-    ) -> Result<(), LCError> {
-        let liquidation_threshold_percent = if let Some(lt) = liquidation_threshold_percent {
-            if lt <= 0 || lt > 100 {
-                return Err(LCError::InvalidLiquidationThreshold);
-            }
-
-            lt
-        } else {
-            DEFAULT_LIQUIDATION_THRESHOLD
-        };
-
+        name: String,
+        oracle: Address,
+    ) -> Result<(), MarketContractError> {
         let global_state = GlobalState {
             status: true,
             admin: admin.clone(),
-            liquidation_threshold_bps: liquidation_threshold_percent * BPS_IN_PERCENT,
+            name: name.clone(),
         };
 
         storage::set_global_state(&e, &global_state);
+        storage::set_oracle_address(&e, &oracle);
 
-        events::constructor(&e, &admin, liquidation_threshold_percent);
+        events::constructor(&e, &admin, &name, &oracle);
 
         Ok(())
     }
@@ -97,7 +88,7 @@ impl MarketContract {
                                * be used for retrieving a token's ticker */
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
-    ) -> Result<Address, LCError> {
+    ) -> Result<Address, MarketContractError> {
         require_admin(&e);
 
         process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
@@ -112,7 +103,7 @@ impl MarketContract {
         e: Env,
         deposit_pool: Address,
         borrow_pool: Address,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         require_admin(&e);
 
         process_initialize_multiply_pair(&e, &deposit_pool, &borrow_pool)
@@ -129,7 +120,7 @@ impl MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_deposit(&e, &user, &None, &pool_address, amount)
@@ -149,7 +140,7 @@ impl MarketContract {
         token_in: Address,
         token_out: Address,
         amount_in: i128,
-    ) -> Result<i128, LCError> {
+    ) -> Result<i128, MarketContractError> {
         user.require_auth();
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
@@ -166,7 +157,7 @@ impl MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_borrow(&e, &user, &None, &pool_address, amount)
@@ -185,7 +176,7 @@ impl MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_add_collateral(&e, &user, &pool_address, amount)
@@ -205,7 +196,7 @@ impl MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_remove_collateral(&e, &user, &pool_address, amount)
@@ -224,7 +215,7 @@ impl MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_repay(&e, &user, &None, &pool_address, amount)
@@ -246,7 +237,7 @@ impl MarketContract {
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         liquidator.require_auth();
 
         process_liquidate(
@@ -274,7 +265,7 @@ impl MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_withdraw(&e, &user, &None, &pool_address, amount)
@@ -292,7 +283,7 @@ impl MarketContract {
         contract: Address,
         pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         contract.require_auth();
 
         process_flash_loan(&e, &contract, &pool_address, amount)
@@ -336,7 +327,7 @@ impl MarketContract {
         deposit_as_margin: bool,
         amount: i128,
         leverage_multiplier: u32,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_deposit_with_leverage(
@@ -367,7 +358,7 @@ impl MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
         amount: i128,
-    ) -> Result<(), LCError> {
+    ) -> Result<(), MarketContractError> {
         user.require_auth();
 
         process_withdraw_from_leveraged(
@@ -394,7 +385,10 @@ impl MarketContract {
     ///
     /// ### Arguments
     /// * `pool_address` - address of asset which price is returned
-    pub fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, LCError> {
+    pub fn get_pool_asset_oracle_price(
+        e: Env,
+        pool_address: Address,
+    ) -> Result<i128, MarketContractError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
         get_asset_price(&e, &pool.token_ticker)
@@ -404,7 +398,7 @@ impl MarketContract {
     ///
     /// ### Arguments
     /// * `user` - user which obligation is returned
-    pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, LCError> {
+    pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MarketContractError> {
         let obligation = Obligation::try_get(&e, &user, &None)?;
 
         obligation.accrue_interest(&e)?;
@@ -422,7 +416,7 @@ impl MarketContract {
         user: Address,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
-    ) -> Result<Obligation, LCError> {
+    ) -> Result<Obligation, MarketContractError> {
         let pair_seed =
             MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation = Obligation::try_get(&e, &user, &Some(pair_seed))?;
@@ -434,7 +428,7 @@ impl MarketContract {
     ///
     /// ### Arguments
     /// * `user` - user whose obligation interest is accrued
-    pub fn accrue_interest(e: Env, user: Address) -> Result<(), LCError> {
+    pub fn accrue_interest(e: Env, user: Address) -> Result<(), MarketContractError> {
         let obligation = Obligation::try_get(&e, &user, &None)?;
 
         obligation.accrue_interest(&e)?;
@@ -450,7 +444,7 @@ impl MarketContract {
     ///
     /// ### Arguments
     /// * `pool_address` - pool which data is returned
-    pub fn get_pool(e: Env, pool_address: Address) -> Result<Pool, LCError> {
+    pub fn get_pool(e: Env, pool_address: Address) -> Result<Pool, MarketContractError> {
         Pool::try_get(&e, &pool_address)
     }
 
@@ -473,7 +467,7 @@ impl MarketContract {
         e: Env,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
-    ) -> Result<MultiplyPair, LCError> {
+    ) -> Result<MultiplyPair, MarketContractError> {
         MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)
     }
 
@@ -487,8 +481,8 @@ impl MarketContract {
     // ///
     // /// ### Arguments
     // /// * `pool_address` - address of a pool for which APR is returned
-    // pub fn get_apr(e: Env, pool_address: Address) -> Result<AnnualPercentageRates, LCError> {
-    //     let pool = Pool::try_get(&e, &pool_address)?;
+    // pub fn get_apr(e: Env, pool_address: Address) -> Result<AnnualPercentageRates,
+    // MarketContractError> {     let pool = Pool::try_get(&e, &pool_address)?;
     //     let utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
     //     let borrow_apr = pool
     //         .interest_rate_model
@@ -504,8 +498,8 @@ impl MarketContract {
     // ///
     // /// ### Arguments
     // /// * `pool_address` - address of a pool for which APY is returned
-    // pub fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields, LCError> {
-    //     let pool = Pool::try_get(&e, &pool_address)?;
+    // pub fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields,
+    // MarketContractError> {     let pool = Pool::try_get(&e, &pool_address)?;
     //     let utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
 
     //     // TODO: Maybe cache borrow APR calculation
@@ -524,7 +518,7 @@ impl MarketContract {
     // pub fn get_optimal_apy( // just a
     //     _e: Env,
     //     _pool_address: Address,
-    // ) -> Result<AnnualPercentageYields, LCError> {
+    // ) -> Result<AnnualPercentageYields, MarketContractError> {
     //     // TODO: Start calculating this dynamically
 
     //     todo!()
@@ -547,8 +541,8 @@ fn process_initialize_pool(
     token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
-) -> Result<PoolAddress, LCError> {
-    let pool_address: PoolAddress = if let Some(salt) = salt {
+) -> Result<Address, MarketContractError> {
+    let pool_address: Address = if let Some(salt) = salt {
         // TODO: Check some other ways of deriving an address
         e.deployer()
             .with_address(token_address.clone(), salt.clone())
@@ -558,13 +552,13 @@ fn process_initialize_pool(
     };
 
     if Pool::exists(e, &pool_address) {
-        return Err(LCError::PoolAlreadyExists);
+        return Err(MarketContractError::PoolAlreadyExists);
     }
 
     let pool_config: PoolConfig = match pool_config {
         Some(cfg) => {
             if cfg.validate().is_err() {
-                return Err(LCError::InvalidLoanPoolConfig);
+                return Err(MarketContractError::InvalidLoanPoolConfig);
             }
 
             *cfg
@@ -606,18 +600,18 @@ pub fn process_initialize_multiply_pair(
     e: &Env,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     if MultiplyPair::exists(e, deposit_pool_address, borrow_pool_address) {
-        return Err(LCError::MultiplyPairAlreadyExists);
+        return Err(MarketContractError::MultiplyPairAlreadyExists);
     }
 
     let (borrow_pool_open_ltv_bps, collateral_pool_liability_factor_bps) = (
         Pool::try_get(e, borrow_pool_address)
-            .map_err(|_| LCError::BorrowPoolDoesNotExist)?
+            .map_err(|_| MarketContractError::BorrowPoolDoesNotExist)?
             .config
             .open_ltv_bps,
         Pool::try_get(e, deposit_pool_address)
-            .map_err(|_| LCError::DepositDoesNotExist)?
+            .map_err(|_| MarketContractError::DepositDoesNotExist)?
             .config
             .liability_factor_bps,
     );
@@ -642,7 +636,7 @@ pub fn process_deposit(
     seed: &Option<BytesN<32>>,
     pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -658,7 +652,7 @@ pub fn process_deposit(
             .map_over_or_underflow()?;
 
         if new_supply > supply_limit {
-            return Err(LCError::SupplyLimitExceeded);
+            return Err(MarketContractError::SupplyLimitExceeded);
         }
     }
 
@@ -691,7 +685,7 @@ fn process_borrow(
     seed: &Option<BytesN<32>>,
     pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, user, seed)?;
@@ -709,7 +703,7 @@ fn process_borrow(
         i128::min(available_borrow, amount),
     );
     if real_borrowed_amount > pool.available {
-        return Err(LCError::NotEnoughPoolFunds);
+        return Err(MarketContractError::NotEnoughPoolFunds);
     }
 
     let d_tokens_issued = pool.compute_d_tokens_from_tokens(e, real_borrowed_amount)?;
@@ -735,7 +729,7 @@ fn process_add_collateral(
     // TODO: seed: &Option<BytesN<32>>?
     pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -764,7 +758,7 @@ fn process_repay(
     seed: &Option<BytesN<32>>,
     pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, user, seed)?;
@@ -783,7 +777,7 @@ fn process_repay(
         // required to repay the debt
         events::obligation_is_unexpectedly_empty(e, user, pool_address);
 
-        return Err(LCError::InternalError);
+        return Err(MarketContractError::InternalError);
     }
 
     obligation.set(e, user, seed);
@@ -806,18 +800,18 @@ fn process_liquidate(
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     if liquidator == borrower {
         // NB: Is there any need for you to liquidate oneself?
         // WARN: Should I really make this an error?
-        return Err(LCError::SelfLiquidation);
+        return Err(MarketContractError::SelfLiquidation);
     }
 
     if borrow_pool_address == collateral_pool_address {
         // NB: Is this really a problem?
-        return Err(LCError::LiquidationWithEqualCollateralAndDepositPools);
+        return Err(MarketContractError::LiquidationWithEqualCollateralAndDepositPools);
     }
 
     let mut obligation = Obligation::try_get(e, borrower, borrower_seed)?;
@@ -829,9 +823,10 @@ fn process_liquidate(
     // if obligation.compute_max_healthy_debt_added_amount(e, pool_address) > 0
 
     let (mut borrow_pool, mut collateral_pool) = (
-        Pool::try_get(e, borrow_pool_address).map_err(|_| LCError::BorrowPoolDoesNotExist)?,
+        Pool::try_get(e, borrow_pool_address)
+            .map_err(|_| MarketContractError::BorrowPoolDoesNotExist)?,
         Pool::try_get(e, collateral_pool_address)
-            .map_err(|_| LCError::CollateralPoolDoesNotExist)?,
+            .map_err(|_| MarketContractError::CollateralPoolDoesNotExist)?,
     );
 
     // let LiquidationValues {
@@ -852,31 +847,31 @@ fn process_liquidate(
 //     borrow_pool_address: &Address,
 //     collateral_pool_address: &Address,
 //     amount: i128,
-// ) -> Result<(), LCError> {
+// ) -> Result<(), MarketContractError> {
 //     if amount < 0 {
-//         return Err(LCError::NegativeLiquidation);
+//         return Err(MarketContractError::NegativeLiquidation);
 //     }
 
 //     if liquidator == borrower {
-//         return Err(LCError::SelfLiquidation);
+//         return Err(MarketContractError::SelfLiquidation);
 //     }
 
 //     if borrow_pool_address == collateral_pool_address {
-//         return Err(LCError::LiquidationWithEqualCollateralAndDepositPools);
+//         return Err(MarketContractError::LiquidationWithEqualCollateralAndDepositPools);
 //     }
 
 //     let mut obligation = Obligation::try_get(e, borrower)?;
 
 //     obligation.accrue_interest(e)?;
 //     if obligation.is_healthy(e)? {
-//         return Err(LCError::LiquidatedPositionIsHealthy);
+//         return Err(MarketContractError::LiquidatedPositionIsHealthy);
 //     }
 
 //     let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
-//         return Err(LCError::BorrowPoolDoesNotExist);
+//         return Err(MarketContractError::BorrowPoolDoesNotExist);
 //     };
 //     let Ok(mut collateral_pool) = Pool::try_get(e, collateral_pool_address) else {
-//         return Err(LCError::CollateralPoolDoesNotExist);
+//         return Err(MarketContractError::CollateralPoolDoesNotExist);
 //     };
 
 //     let LiquidationValues {
@@ -941,7 +936,7 @@ fn process_remove_collateral(
     user: &Address,
     pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let seed = &None;
@@ -982,7 +977,7 @@ fn process_withdraw(
     seed: &Option<BytesN<32>>,
     pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -1032,7 +1027,7 @@ fn process_flash_loan(
     contract: &Address,
     pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let pool = Pool::try_get(e, pool_address)?;
@@ -1073,7 +1068,7 @@ fn process_deposit_with_leverage(
     deposit_as_margin: bool,
     amount: i128,
     leverage_multiplier: u32,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
@@ -1084,12 +1079,12 @@ fn process_deposit_with_leverage(
         Pool::try_get(e, deposit_pool_address).map_err(|_| {
             events::pool_is_missing_in_storage(e, deposit_pool_address);
 
-            LCError::InternalError
+            MarketContractError::InternalError
         })?,
         Pool::try_get(e, borrow_pool_address).map_err(|_| {
             events::pool_is_missing_in_storage(e, borrow_pool_address);
 
-            LCError::InternalError
+            MarketContractError::InternalError
         })?,
     );
 
@@ -1146,7 +1141,7 @@ fn process_deposit_with_leverage(
     // TODO: Think of why it can be beneficial to account for flash borrow limits as in other
     //  lending protocols
     if borrow_pool.available < flash_borrow_amount {
-        return Err(LCError::NotEnoughPoolFunds);
+        return Err(MarketContractError::NotEnoughPoolFunds);
     }
 
     // TODO: Check, why on blend_v2 they use 'token_client.transfer_allowance' instead
@@ -1191,7 +1186,7 @@ fn process_deposit_with_leverage(
             amount_out,
         );
 
-        return Err(LCError::DependencyContractError);
+        return Err(MarketContractError::DependencyContractError);
     }
 
     // -- Deposit swapped tokens --
@@ -1216,7 +1211,7 @@ fn process_deposit_with_leverage(
     let Ok(obligation) = Obligation::try_get(e, user, &Some(pair.seed)) else {
         events::obligation_is_missing_in_storage(e, user);
 
-        return Err(LCError::InternalError);
+        return Err(MarketContractError::InternalError);
     };
 
     let max_healthy_borrow_amount =
@@ -1225,7 +1220,7 @@ fn process_deposit_with_leverage(
     if flash_repay_amount > max_healthy_borrow_amount {
         // TODO: Add an event
 
-        return Err(LCError::InternalError);
+        return Err(MarketContractError::InternalError);
     }
 
     // NB: Notice that we 'flash borrow' and 'borrow' to repay the flash loan from the
@@ -1267,12 +1262,14 @@ pub fn process_withdraw_from_leveraged(
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
     amount: i128,
-) -> Result<(), LCError> {
+) -> Result<(), MarketContractError> {
     require_nonnegative(amount)?;
 
     let (mut borrow_pool, mut deposit_pool) = (
-        Pool::try_get(e, borrow_pool_address).map_err(|_| LCError::BorrowPoolDoesNotExist)?,
-        Pool::try_get(e, deposit_pool_address).map_err(|_| LCError::DepositPoolDoesNotExist)?,
+        Pool::try_get(e, borrow_pool_address)
+            .map_err(|_| MarketContractError::BorrowPoolDoesNotExist)?,
+        Pool::try_get(e, deposit_pool_address)
+            .map_err(|_| MarketContractError::DepositPoolDoesNotExist)?,
     );
 
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
@@ -1318,7 +1315,7 @@ pub fn process_withdraw_from_leveraged(
         .map_over_or_underflow()?;
 
     if borrow_pool.available < flash_borrow_amount {
-        return Err(LCError::NotEnoughPoolFunds);
+        return Err(MarketContractError::NotEnoughPoolFunds);
     }
 
     // Flash Borrow
@@ -1389,7 +1386,7 @@ fn process_swap_for_exact_tokens(
     token_in: &Address,
     token_out: &Address,
     amount_out: i128,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let amount_in = swap::get_amount_in(e, token_in, token_out, amount_out)?;
 
     let received_amount = swap::swap_tokens_for_exact_tokens(
@@ -1415,7 +1412,7 @@ fn process_swap_exact_tokens(
     token_in: &Address,
     token_out: &Address,
     amount_in: i128,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     // Since `amount_out` is calculated within the call, there's no price slippage
     let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;
 
@@ -1446,7 +1443,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
     borrowed_token: &Address,
     deposited_amount: i128,
     borrowed_amount: i128,
-) -> Result<i128, LCError> {
+) -> Result<i128, MarketContractError> {
     let flash_loan_fee = borrowed_amount
         .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
@@ -1470,43 +1467,43 @@ fn compute_leveraged_position_max_withdrawable_amount(
         );
 
         // TODO: This has to be thought of when implementing security mechanisms
-        return Err(LCError::InternalError);
+        return Err(MarketContractError::InternalError);
     }
 
     Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe
 }
 
-pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
-    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, MarketContractError> {
+    let oracle_address = storage::get_oracle_address(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
     let asset = Asset::Other(ticker.clone());
 
     let price_data = oracle_contract
         .lastprice(&asset)
-        .ok_or(LCError::OracleDoesNotKnowAssetPrice)?;
+        .ok_or(MarketContractError::OracleDoesNotKnowAssetPrice)?;
 
     // Validate price is not too old and not from the future
     let now = e.ledger().timestamp();
     let age = now.saturating_sub(price_data.timestamp);
     if age > MAX_ORACLE_PRICE_AGE_SECONDS || price_data.timestamp > now {
-        return Err(LCError::OracleStalePrice);
+        return Err(MarketContractError::OracleStalePrice);
     }
 
     Ok(price_data.price)
 }
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
-    let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
+    let oracle_address = storage::get_oracle_address(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
     oracle_contract.decimals()
 }
 
 #[inline(always)]
-fn require_nonnegative(amount: i128) -> Result<(), LCError> {
+fn require_nonnegative(amount: i128) -> Result<(), MarketContractError> {
     if amount < 0 {
-        return Err(LCError::NegativeAmount);
+        return Err(MarketContractError::NegativeAmount);
     }
 
     Ok(())

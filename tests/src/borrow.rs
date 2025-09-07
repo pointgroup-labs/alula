@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use market::{
-    LCError,
-    constants::{BPS_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
+    constants::{BPS_FACTOR, DEFAULT_OPEN_LTV},
+    error::MarketContractError,
     pool::PoolConfig,
 };
 
@@ -73,7 +73,7 @@ fn test_exceed_borrow_limit() {
 
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(LCError::BorrowLimitExceeded))
+        Err(Ok(MarketContractError::BorrowLimitExceeded))
     );
 }
 
@@ -128,7 +128,7 @@ fn test_borrow_negative() {
 
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &-1),
-        Err(Ok(LCError::NegativeBorrow))
+        Err(Ok(MarketContractError::NegativeBorrow))
     );
 }
 
@@ -171,7 +171,9 @@ fn test_borrow_health_factor_add_collateral() {
     // Borrow which leads to the health factor threshold constraint violation
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
+        Err(Ok(
+            MarketContractError::HealthFactorIsLowerThanRequiredThreshold
+        ))
     );
 
     // Improve health factor
@@ -212,7 +214,9 @@ fn test_borrow_health_factor_deposit() {
     // Borrow which leads to the health factor threshold constraint violation
     assert_eq!(
         contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
+        Err(Ok(
+            MarketContractError::HealthFactorIsLowerThanRequiredThreshold
+        ))
     );
 
     // Improve health factor
@@ -224,8 +228,7 @@ fn test_borrow_health_factor_deposit() {
 
 #[test]
 fn borrow_more_than_open_ltv_allows() {
-    const MAX_BORROWING_AMOUNT: i128 =
-        (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
+    const MAX_BORROWING_AMOUNT: i128 = (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_OPEN_LTV) / 100;
 
     let TestFixture {
         e,

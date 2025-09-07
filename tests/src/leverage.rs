@@ -9,8 +9,8 @@ use market::{
 };
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, LCError, TestFixture, get_borrow_obligation, get_obligation_borrowed,
-    get_obligation_deposited,
+    DEFAULT_DEPOSIT_AMOUNT, MarketContractError, TestFixture, get_borrow_obligation,
+    get_obligation_borrowed, get_obligation_deposited,
     tests::{get_amount_scaled_down, get_amount_scaled_up},
 };
 
@@ -67,7 +67,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
     let user = &users[0];
 
     assert_eq!(
-        Err(Ok(LCError::InvalidLeverageMultiplier)),
+        Err(Ok(MarketContractError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
             user,
             &usdc_pool_address,
@@ -83,7 +83,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
         .max_leverage_multiplier;
 
     assert_eq!(
-        Err(Ok(LCError::InvalidLeverageMultiplier)),
+        Err(Ok(MarketContractError::InvalidLeverageMultiplier)),
         contract_client.try_deposit_with_leverage(
             user,
             &usdc_pool_address,
@@ -162,7 +162,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
             &(10 * DEFAULT_DEPOSIT_AMOUNT),
             &LEVERAGE_MULTIPLIER,
         ),
-        Err(Ok(LCError::NotEnoughPoolFunds))
+        Err(Ok(MarketContractError::NotEnoughPoolFunds))
     );
 }
 
@@ -194,7 +194,7 @@ fn test_deposit_with_unhealthy_leverage() {
             &DEFAULT_DEPOSIT_AMOUNT,
             &LEVERAGE_MULTIPLIER,
         ),
-        Err(Ok(LCError::InvalidLeverageMultiplier))
+        Err(Ok(MarketContractError::InvalidLeverageMultiplier))
     );
 }
 
@@ -389,7 +389,7 @@ fn test_withdraw_negative() {
     );
 
     assert_eq!(
-        Err(Ok(LCError::NegativeWithdraw)),
+        Err(Ok(MarketContractError::NegativeWithdraw)),
         contract_client.try_withdraw_from_leveraged(
             user,
             &usdc_pool_address,

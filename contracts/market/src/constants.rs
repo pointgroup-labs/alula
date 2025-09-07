@@ -87,8 +87,11 @@ pub const DEFAULT_UTILIZATION_RATIO_LIMIT: i128 = 100;
 /// Max portion of a position that can be liquidated in one go (percent)
 pub const DEFAULT_CLOSE_FACTOR: i128 = 50;
 
-/// Health threshold at which positions become eligible for liquidation (percent)
-pub const DEFAULT_LIQUIDATION_THRESHOLD: i128 = 80;
+// TODO: Comments?
+pub const DEFAULT_OPEN_LTV: i128 = 70;
+
+// TODO: Comments?
+pub const DEFAULT_CLOSE_LTV: i128 = 80;
 
 /// Additional spread taken during liquidation (percent)
 pub const DEFAULT_LIQUIDATION_SPREAD: i128 = 10;
@@ -132,6 +135,6 @@ pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = (15 * SECONDS_PER_MINUTE) as u64;
 // ---- Contract Addresses ----
 
 /// SEP-40 aggregated oracle contract address
-pub const ORACLE_ADDRESS: &str = "CCMRMA3P4AJ4T4CBHUBYXBFX7TNZLPVWNUVCR2775OH7KLDJJZXLI32P";
+// pub const ORACLE_ADDRESS: &str = "CCMRMA3P4AJ4T4CBHUBYXBFX7TNZLPVWNUVCR2775OH7KLDJJZXLI32P";
 
 pub const ROUTER_ADDRESS: &str = "CCMAPXWVZD4USEKDWRYS7DA4Y3D7E2SDMGBFJUCEXTC7VN6CUBGWPFUS";

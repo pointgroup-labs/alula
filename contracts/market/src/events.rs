@@ -1,14 +1,14 @@
-use soroban_sdk::{Address, BytesN, Env, Symbol};
+use soroban_sdk::{Address, BytesN, Env, String, Symbol};
 
 // ---- Contract's Methods Events ----
 
 /// Emitted when the contract is constructed
 ///
-/// - topics - `["constructor", admin: Address]`
+/// - topics - `["constructor", admin: Address, name: String, oracle: Address]`
 /// - data - `[liquidation_threshold_percent: i128]`
-pub fn constructor(e: &Env, admin: &Address, liquidation_threshold_percent: i128) {
-    let topics = (Symbol::new(e, "constructor"), admin);
-    let data = (liquidation_threshold_percent,);
+pub fn constructor(e: &Env, admin: &Address, name: &String, oracle: &Address) {
+    let topics = (Symbol::new(e, "constructor"), admin, name.clone(), oracle);
+    let data = ();
 
     e.events().publish(topics, data);
 }

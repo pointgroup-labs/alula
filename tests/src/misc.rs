@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::LCError;
+use market::error::MarketContractError;
 use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::TestFixture;
@@ -16,7 +16,10 @@ fn test_obligation_does_not_exist_prior_anything() {
     let user = &users[0];
 
     let obligation = contract_client.try_get_user_obligation(user);
-    assert_eq!(obligation, Err(Ok(LCError::ObligationDoesNotExist)));
+    assert_eq!(
+        obligation,
+        Err(Ok(MarketContractError::ObligationDoesNotExist))
+    );
 }
 
 #[test]
@@ -28,7 +31,7 @@ fn test_pool_with_random_address_does_not_exist() {
     let rand_addr = Address::generate(&e);
     let res = contract_client.try_get_pool(&rand_addr);
 
-    assert_eq!(res, Err(Ok(LCError::PoolDoesNotExist)));
+    assert_eq!(res, Err(Ok(MarketContractError::PoolDoesNotExist)));
 }
 
 #[test]

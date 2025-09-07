@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::{LCError, contract::MarketContractClient};
+use market::{contract::MarketContractClient, error::MarketContractError};
 use soroban_sdk::{Address, Bytes, BytesN, symbol_short, testutils::Address as _};
 
 use crate::TestFixture;
@@ -127,7 +127,7 @@ fn test_non_admin_functions_work_for_any_user() {
         Ok(_) => {
             // User has an obligation - that's fine
         }
-        Err(Ok(LCError::ObligationDoesNotExist)) => {
+        Err(Ok(MarketContractError::ObligationDoesNotExist)) => {
             // User doesn't have an obligation - that's also fine
         }
         Err(Ok(error)) => {

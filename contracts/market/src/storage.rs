@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, Vec, contracttype};
+use soroban_sdk::{Address, BytesN, Env, String, Vec, contracttype};
 
 use crate::{
     constants::{
@@ -10,30 +10,25 @@ use crate::{
     pool::Pool,
 };
 
-pub type PoolAddress = Address;
-pub type UserAddress = Address;
-pub type DepositPoolAddress = Address;
-pub type BorrowPoolAddress = Address;
-
 #[contracttype]
 pub struct GlobalState {
-    pub admin: Address,
     pub status: bool,
-    pub liquidation_threshold_bps: i128,
+    pub admin: Address,
+    pub name: String,
     // TODO: Oracle addresses?
 }
 
 #[contracttype]
 pub enum DataKey {
     GlobalState,
-    Pool(PoolAddress),
-    // TODO: Use only seed for indexing obligation?
-    Obligation((UserAddress, Option<BytesN<32>>)), // NB: What's better Bytes or BytesN here?
-    MultiplyPair((DepositPoolAddress, BorrowPoolAddress)),
+    Pool(Address),
+    Obligation((Address, Option<BytesN<32>>)), // NB: What's better Bytes or BytesN here?
+    MultiplyPair((Address, Address)),          // (deposit, borrow)
     Accrual,
     AllPools,
     AllObligations,
     AllMultiplyPairs,
+    OracleAddress,
 }
 
 /// Instance bumper
@@ -57,25 +52,46 @@ pub fn extend_shared_storage(e: &Env, key: &DataKey) {
         .extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
 
-pub fn get_global_state(e: &Env) -> GlobalState {
+pub fn get_oracle_address(e: &Env) -> Address {
     extend_instance_storage(e);
+
+    let key = DataKey::OracleAddress;
 
     e.storage()
         .instance()
-        .get(&DataKey::GlobalState)
+        .get(&key)
+        .expect("Oracle address must be instantiated at this point")
+}
+
+pub fn set_oracle_address(e: &Env, address: &Address) {
+    let key = DataKey::OracleAddress;
+
+    e.storage().instance().set(&key, address);
+
+    extend_instance_storage(e);
+}
+
+pub fn get_global_state(e: &Env) -> GlobalState {
+    extend_instance_storage(e);
+
+    let key = DataKey::GlobalState;
+
+    e.storage()
+        .instance()
+        .get(&key)
         .expect("Global State must be instantiated at this point")
 }
 
 pub fn set_global_state(e: &Env, global_state: &GlobalState) {
-    e.storage()
-        .instance()
-        .set(&DataKey::GlobalState, global_state);
+    let key = DataKey::GlobalState;
+
+    e.storage().instance().set(&key, global_state);
 
     extend_instance_storage(e);
 }
 
 // --- Pool ---
-pub fn get_all_pools(e: &Env) -> Vec<PoolAddress> {
+pub fn get_all_pools(e: &Env) -> Vec<Address> {
     let res = e.storage().persistent().get(&DataKey::AllPools);
 
     if let Some(pools) = res {
@@ -150,7 +166,7 @@ pub fn remove_pool(e: &Env, pool_address: &Address) {
 }
 
 pub fn remove_all_pools(e: &Env) {
-    let all_pools: Vec<PoolAddress> = get_all_pools(e);
+    let all_pools: Vec<Address> = get_all_pools(e);
 
     for pool in all_pools.iter() {
         remove_pool(e, &pool);
@@ -339,7 +355,7 @@ pub fn remove_all_obligations(e: &Env) {
     }
 }
 
-pub fn get_all_obligations(e: &Env) -> Vec<(UserAddress, Option<BytesN<32>>)> {
+pub fn get_all_obligations(e: &Env) -> Vec<(Address, Option<BytesN<32>>)> {
     let res = e.storage().persistent().get(&DataKey::AllObligations);
     if let Some(obligations) = res {
         extend_shared_storage(e, &DataKey::AllObligations);
