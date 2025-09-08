@@ -1,12 +1,13 @@
 #![cfg(test)]
 
-use crate::get_default_env;
 use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     pool::PoolConfig,
 };
 use soroban_sdk::{Address, BytesN, Env, symbol_short, testutils::Address as _};
+
+use crate::get_default_env;
 
 #[test]
 fn test_pool_initialize() {

@@ -32,7 +32,8 @@ pub fn deposit(
 
 /// Emitted when a loan pool is initialized
 ///
-/// - topics - `["initialize_pool", token_address: Address, pool_address: Address, token_ticker: Symbol]`
+/// - topics - `["initialize_pool", token_address: Address, pool_address: Address, token_ticker:
+///   Symbol]`
 /// - data - `[]`
 pub fn initialize_pool(
     e: &Env,

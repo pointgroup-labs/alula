@@ -9,6 +9,7 @@ mod market_manager;
 mod misc;
 mod repay;
 mod security;
+mod storage_extension;
 mod swap;
 mod withdraw;
 
@@ -32,10 +33,9 @@ use soroban_sdk::{
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
-pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
+pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
-pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
@@ -90,7 +90,7 @@ impl TestMarketFixture<'_> {
         // when this is opted out
         e.mock_all_auths_allowing_non_root_auth();
 
-        // NB: Taken from blend
+        // NB: Taken from `blend`
         e.ledger().set(LedgerInfo {
             timestamp: 1514764800, // January 1, 2018
             protocol_version: 22,
@@ -108,16 +108,14 @@ impl TestMarketFixture<'_> {
 
         let contract_admin = Address::generate(&e);
         let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
-
         let contract_id = e.register(
             MarketContract,
             (
-                contract_admin.clone(),
                 contract_name,
+                contract_admin.clone(),
                 oracle_address.clone(),
             ),
         );
-
         let contract_client = MarketContractClient::new(&e, &contract_id);
 
         let router_address = Address::from_str(&e, ROUTER_ADDRESS);
@@ -131,11 +129,8 @@ impl TestMarketFixture<'_> {
             Address::generate(&e),
         ];
 
-        let usdc_admin = Address::generate(&e);
-        let gold_admin = Address::generate(&e);
-        let btc_admin = Address::generate(&e);
-
         // GOLD
+        let gold_admin = Address::generate(&e);
         let gold_ticker = symbol_short!("GOLD");
         let TestAssetSetup {
             sac_client: gold_sac,
@@ -150,6 +145,7 @@ impl TestMarketFixture<'_> {
         );
 
         // BTC
+        let btc_admin = Address::generate(&e);
         let btc_ticker = symbol_short!("BTC");
         let TestAssetSetup {
             sac_client: btc_sac,
@@ -164,6 +160,7 @@ impl TestMarketFixture<'_> {
         );
 
         // USDC
+        let usdc_admin = Address::generate(&e);
         let usdc_ticker = symbol_short!("USDC");
         let TestAssetSetup {
             sac_client: usdc_sac,
@@ -180,8 +177,8 @@ impl TestMarketFixture<'_> {
         router_client.map_address_to_ticker(&usdc_token_address, &usdc_ticker);
         router_client.map_address_to_ticker(&gold_token_address, &gold_ticker);
         router_client.map_address_to_ticker(&btc_token_address, &btc_ticker);
-        // Initialize USDC/GOLD multiply pair
-        // contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
+
+        contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
 
         oracle_client.set_data(
             &contract_admin,
@@ -193,9 +190,8 @@ impl TestMarketFixture<'_> {
                 Asset::Other(usdc_ticker),
             ],
             &14,
-            &123, // resolution is irrelevant because of stable prices
+            &123, // NB: Resolution is irrelevant because of using the stable prices
         );
-
         make_oracle_prices_equal(&e, &oracle_client);
 
         Self {
@@ -252,7 +248,7 @@ impl TestMarketFixture<'_> {
     pub fn pass_time(&self, seconds: u64) {
         self.e.ledger().with_mut(|li| {
             li.timestamp = li.timestamp.saturating_add(seconds);
-            // adjusting sequence_number leads to state archival
+            // NB: Adjusting sequence_number leads to state archival
             // li.sequence_number = li.sequence_number.saturating_add(amount / SECONDS_PER_LEDGER);
         });
     }
@@ -358,11 +354,10 @@ impl TestMarketFixture<'_> {
 }
 
 pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClient) {
-    #[allow(clippy::zero_prefixed_literal)]
     oracle_client.set_price_stable(&soroban_sdk::vec![
         e,
-        3_00000000000000,  // GOLD
         50_00000000000000, // BTC
+        3_00000000000000,  // GOLD
         1_00000000000000,  // USDC
     ]);
 }
@@ -928,137 +923,14 @@ pub fn assert_approx_eq_rel(a: i128, b: i128, delta_bps: i128) {
     assert_approx_eq_abs(a, b, abs_delta);
 }
 
-#[cfg(test)]
-mod tests {
-    use market::{
-        constants::{BPS_FACTOR, INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
-        storage::DataKey,
-    };
-    use soroban_fixed_point_math::FixedPoint;
-    use soroban_sdk::testutils::{
-        Ledger,
-        storage::{Instance, Persistent},
-    };
+pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
+    amount
+        .checked_sub(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap())
+        .unwrap()
+}
 
-    use super::*;
-
-    #[test]
-    fn test_storage_ttl_extension() {
-        let TestMarketFixture {
-            e,
-            contract_client,
-            contract_id,
-            usdc_pool_address,
-            users,
-            ..
-        } = TestMarketFixture::new();
-
-        let user = &users[0];
-
-        e.as_contract(&contract_id, || {
-            // `TestMarketFixture::new()` extends both instance and a specific's pool shared storage
-            assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP
-            );
-        });
-
-        // Extend individual user's storage
-        contract_client.deposit(user, &usdc_pool_address, &1);
-
-        e.as_contract(&contract_id, || {
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
-                INDIVIDUAL_BUMP
-            );
-        });
-
-        e.ledger().with_mut(|li| {
-            // TODO: Make all shifts depend on the threshold
-            // and not on the constant amount of ledgers
-            li.sequence_number = 2 * LEDGERS_PER_DAY;
-        });
-
-        e.as_contract(&contract_id, || {
-            assert_eq!(
-                e.storage().instance().get_ttl(),
-                INSTANCE_BUMP - 2 * LEDGERS_PER_DAY
-            );
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP - 2 * LEDGERS_PER_DAY
-            );
-
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
-                INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
-            );
-        });
-
-        // Extend instance storage
-        contract_client.get_global_state();
-
-        e.as_contract(&contract_id, || {
-            // Instance's ttl is bumped
-            assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
-
-            // Others aren't bumped
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP - 2 * LEDGERS_PER_DAY
-            );
-
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
-                INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
-            );
-        });
-
-        // Deposit once more to bump shared persistent token storage
-        contract_client.deposit(user, &usdc_pool_address, &1);
-
-        e.as_contract(&contract_id, || {
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP
-            );
-
-            // Individual persistent storage ttl is still the same
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation((user.clone(), None))),
-                INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
-            );
-        });
-
-        // TODO: Add individual storage extension test case
-    }
-
-    pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
-        amount
-            .checked_sub(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap())
-            .unwrap()
-    }
-
-    pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
-        amount
-            .checked_add(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap())
-            .unwrap()
-    }
+pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
+    amount
+        .checked_add(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap())
+        .unwrap()
 }

@@ -9,9 +9,8 @@ use market::{
 };
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, get_borrow_obligation,
-    get_obligation_borrowed, get_obligation_deposited,
-    tests::{get_amount_scaled_down, get_amount_scaled_up},
+    DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, get_amount_scaled_down,
+    get_amount_scaled_up, get_borrow_obligation, get_obligation_borrowed, get_obligation_deposited,
 };
 
 // ---- Deposit with leverage ----

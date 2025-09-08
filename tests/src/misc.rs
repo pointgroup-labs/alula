@@ -41,34 +41,15 @@ fn test_pool_is_empty_prior_anything() {
 
     let pool = contract_client.get_pool(&usdc_pool_address);
 
-    assert_eq!(pool.total_borrowed, 0);
-    assert_eq!(pool.total_collateral, 0);
-    assert_eq!(pool.total_j_tokens, 0);
     assert_eq!(pool.total_available, 0);
+    assert_eq!(pool.total_borrowed, 0);
+    assert_eq!(pool.total_j_tokens, 0);
+    assert_eq!(pool.total_d_tokens, 0);
+    assert_eq!(pool.total_collateral, 0);
 }
 
 #[test]
-fn test_reset_storage_removes_obligation() {
-    let TestMarketFixture {
-        contract_client,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
-
-    let user = &users[0];
-
-    assert!(contract_client.try_get_user_obligation(user).is_err());
-
-    contract_client.deposit(user, &usdc_pool_address, &1000);
-    assert!(contract_client.try_get_user_obligation(user).is_ok());
-
-    contract_client.reset_storage();
-    assert!(contract_client.try_get_user_obligation(user).is_err());
-}
-
-#[test]
-fn test_reset_storage_removes_many_obligations() {
+fn test_reset_storage_removes_obligations() {
     let TestMarketFixture {
         contract_client,
         usdc_pool_address,
@@ -96,12 +77,12 @@ fn test_reset_storage_removes_many_obligations() {
 }
 
 #[test]
-fn test_remove_pool() {
+fn test_reset_storage_removes_pool() {
     let TestMarketFixture {
         contract_client, ..
     } = TestMarketFixture::new();
 
-    assert_eq!(contract_client.get_all_pools().len(), 3);
+    assert_eq!(contract_client.get_all_pools().len(), 3); // NB: 3 pools are set initially
 
     contract_client.reset_storage();
 
@@ -109,7 +90,7 @@ fn test_remove_pool() {
 }
 
 #[test]
-fn test_remove_multiply_pairs() {
+fn test_reset_storage_removes_multiply_pairs() {
     let TestMarketFixture {
         contract_client,
         usdc_pool_address,
@@ -117,7 +98,7 @@ fn test_remove_multiply_pairs() {
         ..
     } = TestMarketFixture::new();
 
-    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // 1 pair is set initially
+    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // NB: 1 pair is set initially
 
     contract_client.initialize_multiply_pair(&usdc_pool_address, &btc_pool_address);
 

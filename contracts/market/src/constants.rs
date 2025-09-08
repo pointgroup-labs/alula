@@ -31,18 +31,18 @@ pub const SECONDS_PER_LEDGER: u32 = 6;
 /// Number of ledgers in a day
 pub const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;
 
-/// Instance storage extension is spread among all users, so it must be cheap and paid regularly.
+/// Instance storage extension is spread among all users, so it must be cheap and paid regularly
 pub const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
 pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 
 /// Shared persistent storage extension is spread among all shared resource users, so it must be
-/// cheap and paid regularly.
+/// cheap and paid regularly
 pub const SHARED_THRESHOLD: u32 = 50 * LEDGERS_PER_DAY;
 pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + LEDGERS_PER_DAY;
 
 /// Individual persistent storage extension is usually paid by the data owners. It should neither be
 /// paid very often (to reduce extension operation costs) nor very rarely (to minimize archival
-/// risk).
+/// risk)(TODO: Though, is it really a sound argument?)
 pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
