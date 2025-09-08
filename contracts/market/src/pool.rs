@@ -76,6 +76,17 @@ impl Pool {
         Ok(())
     }
 
+    pub fn adjust_total_borrowed(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MCError> {
+        let new_amount = Self::adjust_field(e, self.total_borrowed, adjusting_amount)?;
+        self.total_borrowed = new_amount;
+
+        Ok(())
+    }
+
     pub fn adjust_total_available(
         &mut self,
         e: &Env,

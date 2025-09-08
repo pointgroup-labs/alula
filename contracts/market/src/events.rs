@@ -1,5 +1,7 @@
 use soroban_sdk::{Address, BytesN, Env, String, Symbol};
 
+use crate::obligation::ObligationKey;
+
 // ---- Contract's Methods Events ----
 
 /// Emitted when the contract is constructed
@@ -101,10 +103,14 @@ pub fn add_collateral(e: &Env, pool_address: &Address, user: &Address, amount: i
 
 /// Emitted when borrowed tokens are repaid
 ///
-/// - topics - `["repay", pool_address: Address, user: Address]`
+/// - topics - `["repay", pool_address: Address, obligation_key: ObligationKey]`
 /// - data - `[amount: i128]`
-pub fn repay(e: &Env, pool_address: &Address, user: &Address, amount: i128) {
-    let topics = (Symbol::new(e, "repay"), pool_address, user);
+pub fn repay(e: &Env, pool_address: &Address, obligation_key: &ObligationKey, amount: i128) {
+    let topics = (
+        Symbol::new(e, "repay"),
+        pool_address,
+        obligation_key.clone(),
+    );
     let data = (amount,);
 
     e.events().publish(topics, data);
@@ -154,12 +160,15 @@ pub fn remove_collateral(e: &Env, pool_address: &Address, user: &Address, amount
 pub fn withdraw(
     e: &Env,
     pool_address: &Address,
-    user: &Address,
-    seed: &Option<BytesN<32>>,
+    obligation_key: &ObligationKey,
     burnt_j_tokens: i128,
     withdrawn_tokens: i128,
 ) {
-    let topics = (Symbol::new(e, "withdraw"), pool_address, user, seed);
+    let topics = (
+        Symbol::new(e, "withdraw"),
+        pool_address,
+        obligation_key.clone(),
+    );
     let data = (burnt_j_tokens, withdrawn_tokens);
 
     e.events().publish(topics, data);
@@ -401,12 +410,17 @@ pub fn pool_total_shares_smaller_than_total_tokens(
 
 /// Emitted when obligation unexpectedly becomes empty. This is a severe invariant breakage
 ///
-/// - topics - `["obligation_unexpectedly_empty"], user: Address, pool_address: Address]`
+/// - topics - `["obligation_unexpectedly_empty"], obligation_key: ObligationKey, pool_address:
+///   Address]`
 /// - data - `[]`
-pub fn obligation_is_unexpectedly_empty(e: &Env, user: &Address, pool_address: &Address) {
+pub fn obligation_is_unexpectedly_empty(
+    e: &Env,
+    obligation_key: &ObligationKey,
+    pool_address: &Address,
+) {
     let topics = (
         Symbol::new(e, "obligation_unexpectedly_empty"),
-        user,
+        obligation_key.clone(),
         pool_address,
     );
     let data = ();

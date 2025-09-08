@@ -24,7 +24,7 @@ fn test_storage_ttl_extension() {
     } = TestMarketFixture::new();
 
     let user = &users[0];
-    let obligation_key = ObligationKey::new(user);
+    let obligation_key = ObligationKey::new(user.clone());
 
     e.as_contract(&contract_id, || {
         assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);

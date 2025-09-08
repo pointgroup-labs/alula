@@ -14,18 +14,12 @@ pub struct ObligationKey {
 }
 
 impl ObligationKey {
-    pub fn new(user: &Address) -> Self {
-        Self {
-            user: user.clone(),
-            seed: None,
-        }
+    pub fn new(user: Address) -> Self {
+        Self { user, seed: None }
     }
 
-    pub fn new_with_seed(user: &Address, seed: &Option<BytesN<32>>) -> Self {
-        Self {
-            user: user.clone(),
-            seed: seed.clone(),
-        }
+    pub fn new_with_seed(user: Address, seed: Option<BytesN<32>>) -> Self {
+        Self { user, seed }
     }
 }
 

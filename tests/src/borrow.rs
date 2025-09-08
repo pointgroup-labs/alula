@@ -21,15 +21,15 @@ fn test_borrow() {
         ..
     } = TestMarketFixture::new();
 
-    let user = &users[0];
-    let user2 = &users[1];
+    let user_1 = &users[0];
+    let user_2 = &users[1];
     // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(user_1, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.borrow(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(user_2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(user_1, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation_borrowed = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
+    let obligation_borrowed = get_borrow_obligation(&contract_client, user_1, &usdc_pool_address)
         .unwrap()
         .borrowed;
     let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;

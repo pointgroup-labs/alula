@@ -138,10 +138,9 @@ impl Pool {
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
-    // TODO: We better pre-compute the max available amount during Pool initialization
-    pub fn compute_available_borrow(&self, e: &Env) -> Result<i128, MCError> {
+    pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
         let total_supply = self.total_supply()?;
-        let utilization_ratio = self.calculate_utilization_ratio_for_total_bps(total_supply)?;
+        let utilization_ratio = self.calculate_utilization_ratio_bps()?;
 
         if utilization_ratio > self.config.utilization_ratio_limit_bps {
             // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time
@@ -152,7 +151,8 @@ impl Pool {
                 utilization_ratio,
                 self.config.utilization_ratio_limit_bps,
             );
-            // return Err(MCError::InternalError);
+
+            return Ok(0);
         }
         let available_percentage_to_borrow_bps =
             self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
@@ -162,7 +162,9 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    fn calculate_utilization_ratio_for_total_bps(&self, total: i128) -> Result<i128, MCError> {
+    fn calculate_utilization_ratio_bps(&self) -> Result<i128, MCError> {
+        let total = self.total_supply()?;
+
         if total == 0 {
             Ok(0)
         } else {
@@ -464,20 +466,6 @@ mod tests {
     //     assert!(pool.last_accrual > initial_accrual);
     //     assert_eq!(pool.last_accrual_timestamp, timestamp);
     // }
-
-    #[test]
-    fn test_calculate_utilization_ratio_for_total_bps() {
-        let env = Env::default();
-        let mut pool = create_test_pool(&env);
-        pool.total_borrowed = 300000;
-
-        let total = 1000000;
-        let ratio = pool
-            .calculate_utilization_ratio_for_total_bps(total)
-            .unwrap();
-
-        assert_eq!(ratio, 3000); // 30% in basis points
-    }
 
     // #[test]
     // fn test_calculate_pre_threshold_rate() {

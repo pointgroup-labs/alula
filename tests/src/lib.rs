@@ -314,7 +314,9 @@ impl TestMarketFixture<'_> {
         gold_sac.mint(&new_borrower, &collateral_amount);
 
         for pool in &pools {
-            let available_borrow = pool.compute_available_borrow(e).unwrap();
+            let available_borrow = pool
+                .compute_available_utilization_ratio_cap_borrow(e)
+                .unwrap();
 
             if pool.total_available == 0 {
                 assert_eq!(available_borrow, pool.total_available);
