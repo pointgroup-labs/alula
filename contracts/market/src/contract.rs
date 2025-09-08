@@ -660,7 +660,7 @@ pub fn process_deposit(
             .map_over_or_underflow()?;
 
         if new_supply > supply_limit {
-            return Err(MCError::SupplyLimitExceeded);
+            return Err(MCError::PoolSupplyLimitExceeded);
         }
     }
 
@@ -794,8 +794,8 @@ fn process_repay(
     pool.adjust_total_available(e, real_repaid_amount)?;
 
     if obligation.is_empty() {
-        // NB: Obligation shouldn't be empty at this point due to some amount of collateral or deposit
-        // required to repay the debt
+        // NB: Obligation shouldn't be empty at this point due to some amount of collateral or
+        // deposit required to repay the debt
         events::obligation_is_unexpectedly_empty(e, user, pool_address);
 
         return Err(MCError::InternalError);

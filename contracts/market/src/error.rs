@@ -29,7 +29,7 @@ pub enum MCError {
 
     // Balance and limit errors (40-49)
     WithdrawOverBalance = 40,
-    SupplyLimitExceeded = 41,
+    PoolSupplyLimitExceeded = 41,
     BorrowLimitExceeded = 42,
     CollateralRemovalOverbalance = 43,
 

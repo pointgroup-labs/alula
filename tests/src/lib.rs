@@ -742,6 +742,8 @@ impl RunCommand for WithdrawFromLeveraged {
 // ---- Helpers that encapsulate access to inner structures ----
 
 // -- Obligation --
+
+// - Direct accessors -
 pub fn get_obligation_j_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -782,7 +784,9 @@ pub fn get_obligation_collateral(
     Ok(deposit_obligation.collateral)
 }
 
-pub fn get_obligation_total_debt(
+// - Indirect accessors -
+
+pub fn get_obligation_debt(
     e: &Env,
     contract_client: &MarketContractClient,
     user: &Address,
@@ -802,7 +806,7 @@ pub fn get_obligation_unpaid_interest(
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
-    let total_debt = get_obligation_total_debt(e, contract_client, user, pool_address)?;
+    let total_debt = get_obligation_debt(e, contract_client, user, pool_address)?;
     let borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
 
     if total_debt < borrowed {
@@ -813,7 +817,7 @@ pub fn get_obligation_unpaid_interest(
     Ok(unpaid_interest)
 }
 
-pub fn get_obligation_deposited(
+pub fn get_obligation_j_tokens_as_tokens(
     e: &Env,
     contract_client: &MarketContractClient,
     user: &Address,
@@ -826,6 +830,8 @@ pub fn get_obligation_deposited(
 
     Ok(deposited_tokens)
 }
+
+// - Inner struct accessors -
 
 pub fn get_deposit_obligation(
     contract_client: &MarketContractClient,
@@ -862,6 +868,8 @@ pub fn get_borrow_obligation(
 }
 
 // -- Pool --
+
+// - Direct accessors -
 pub fn get_pool_total_j_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
@@ -881,7 +889,7 @@ pub fn get_pool_total_supply(
     Ok(total_supply)
 }
 
-pub fn get_pool_available(
+pub fn get_pool_total_available(
     contract_client: &MarketContractClient,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -890,7 +898,16 @@ pub fn get_pool_available(
     Ok(pool.total_available)
 }
 
-// ---- Misc ----
+pub fn get_pool_total_collateral(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    Ok(pool.total_collateral)
+}
+
+// ---- MISC ----
 
 pub fn get_default_env() -> Env {
     let e = Env::default();
