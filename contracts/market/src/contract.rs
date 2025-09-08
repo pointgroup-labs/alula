@@ -16,7 +16,7 @@ use crate::{
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
-    obligation::Obligation,
+    obligation::{Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
     storage::{self, GlobalState},
     swap,
@@ -128,7 +128,9 @@ impl MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
 
-        process_deposit(&e, &user, &None, &pool_address, amount)
+        let obligation_key = ObligationKey::new(&user);
+
+        process_deposit(&e, &obligation_key, &pool_address, amount)
     }
 
     /// Swap tokens via a swap provider contract. This guarantees a swap
@@ -165,7 +167,9 @@ impl MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
 
-        process_borrow(&e, &user, &None, &pool_address, amount)
+        let obligation_key = ObligationKey::new(&user);
+
+        process_borrow(&e, &obligation_key, &pool_address, amount)
     }
 
     /// Adds tokens into the loan pool as collateral only.
@@ -184,7 +188,9 @@ impl MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
 
-        process_add_collateral(&e, &user, &pool_address, amount)
+        let obligation_key = ObligationKey::new(&user);
+
+        process_add_collateral(&e, &obligation_key, &pool_address, amount)
     }
 
     /// Removes collateral tokens from the loan pool to the user
@@ -204,7 +210,9 @@ impl MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
 
-        process_remove_collateral(&e, &user, &pool_address, amount)
+        let obligation_key = ObligationKey::new(&user);
+
+        process_remove_collateral(&e, &obligation_key, &pool_address, amount)
     }
 
     /// Repays borrowed tokens
@@ -401,10 +409,11 @@ impl MarketContract {
     /// ### Arguments
     /// * `user` - user which obligation is returned
     pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
-        let obligation = Obligation::try_get(&e, &user, &None)?;
+        let obligation_key = ObligationKey::new(&user);
+        let obligation = Obligation::try_get(&e, &obligation_key)?;
 
         obligation.accrue_interest(&e)?;
-        obligation.set(&e, &user, &None);
+        obligation.set(&e, &obligation_key);
 
         Ok(obligation)
     }
@@ -419,9 +428,10 @@ impl MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<Obligation, MCError> {
-        let pair_seed =
-            MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
-        let obligation = Obligation::try_get(&e, &user, &Some(pair_seed))?;
+        let seed =
+            Some(MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed);
+        let obligation_key = ObligationKey::new_with_seed(&user, &seed);
+        let obligation = Obligation::try_get(&e, &obligation_key)?;
 
         Ok(obligation)
     }
@@ -431,10 +441,11 @@ impl MarketContract {
     /// ### Arguments
     /// * `user` - user whose obligation interest is accrued
     pub fn accrue_interest(e: Env, user: Address) -> Result<(), MCError> {
-        let obligation = Obligation::try_get(&e, &user, &None)?;
+        let obligation_key = ObligationKey::new(&user);
+        let obligation = Obligation::try_get(&e, &obligation_key)?;
 
         obligation.accrue_interest(&e)?;
-        obligation.set(&e, &user, &None);
+        obligation.set(&e, &obligation_key);
 
         Ok(())
     }
@@ -456,7 +467,7 @@ impl MarketContract {
     }
 
     /// Returns a list of all user obligations in the protocol
-    pub fn get_all_obligations(e: Env) -> Vec<(Address, Option<BytesN<32>>)> {
+    pub fn get_all_obligations(e: Env) -> Vec<ObligationKey> {
         Obligation::get_all(&e)
     }
 
@@ -630,8 +641,7 @@ pub fn process_initialize_multiply_pair(
 
 pub fn process_deposit(
     e: &Env,
-    user: &Address,
-    seed: &Option<BytesN<32>>,
+    obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
@@ -642,7 +652,7 @@ pub fn process_deposit(
 
     let supply_limit = pool.config.supply_limit;
 
-    // supply_limit == 0 indicates no supply limit at all
+    // NB: 0 indicates unlimited supply
     if supply_limit != 0 {
         let new_supply = pool
             .total_supply()?
@@ -654,39 +664,42 @@ pub fn process_deposit(
         }
     }
 
-    let j_tokens_issued = pool.compute_j_tokens_from_tokens(e, amount)?;
+    let mut obligation =
+        Obligation::try_get(&e, &obligation_key).unwrap_or(Obligation::new(&e, &obligation_key));
 
-    let mut obligation = Obligation::try_get(e, user, seed).unwrap_or(Obligation::new(
-        e,
-        user.clone(),
-        seed.clone(),
-    ));
-    obligation.deposit(e, pool_address, j_tokens_issued, amount)?;
+    let j_tokens_to_issue = pool.compute_j_tokens_from_tokens(e, amount)?;
+    obligation.deposit(e, pool_address, j_tokens_to_issue, amount)?;
 
-    pool.adjust_total_j_tokens(e, j_tokens_issued)?;
-    pool.adjust_available(e, amount)?;
+    pool.adjust_total_j_tokens(e, j_tokens_to_issue)?;
+    pool.adjust_total_available(e, amount)?;
 
-    obligation.set(e, user, seed); // TODO: seems more reasonable to index with a specific type
+    obligation.set(e, &obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(user, &e.current_contract_address(), &amount);
+    token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
 
-    events::deposit(e, pool_address, user, amount, j_tokens_issued);
+    events::deposit(
+        e,
+        pool_address,
+        &obligation_key.user,
+        amount,
+        j_tokens_to_issue,
+    );
 
     Ok(())
 }
 
 fn process_borrow(
     e: &Env,
-    user: &Address,
-    seed: &Option<BytesN<32>>,
+    obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, user, seed)?;
+    let mut obligation = Obligation::try_get(&e, &obligation_key)?;
+
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -708,44 +721,53 @@ fn process_borrow(
     obligation.borrow(e, pool_address, d_tokens_issued, real_borrowed_amount)?;
 
     pool.adjust_total_d_tokens(e, d_tokens_issued)?;
-    pool.adjust_available(e, -real_borrowed_amount)?;
+    pool.adjust_total_available(e, -real_borrowed_amount)?;
 
-    obligation.set(e, user, seed);
+    obligation.set(e, &obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &real_borrowed_amount);
+    token_client.transfer(
+        &e.current_contract_address(),
+        &obligation_key.user,
+        &real_borrowed_amount,
+    );
 
-    events::borrow(e, pool_address, user, real_borrowed_amount, d_tokens_issued);
+    events::borrow(
+        e,
+        pool_address,
+        &obligation_key.user,
+        real_borrowed_amount,
+        d_tokens_issued,
+    );
 
     Ok(())
 }
 
 fn process_add_collateral(
     e: &Env,
-    user: &Address,
-    // TODO: seed: &Option<BytesN<32>>?
+    obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut pool = Pool::try_get(e, pool_address)?;
     let mut obligation =
-        Obligation::try_get(e, user, &None).unwrap_or(Obligation::new(e, user.clone(), None));
+        Obligation::try_get(e, &obligation_key).unwrap_or(Obligation::new(e, &obligation_key));
 
     obligation.accrue_interest(e)?;
 
+    let mut pool = Pool::try_get(e, pool_address)?;
     obligation.add_collateral(e, pool_address, amount)?;
     pool.adjust_total_collateral(e, amount)?;
 
-    obligation.set(e, user, &None);
+    obligation.set(e, &obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(user, &e.current_contract_address(), &amount);
+    token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
 
-    events::add_collateral(e, pool_address, user, amount);
+    events::add_collateral(e, pool_address, &obligation_key.user, amount);
 
     Ok(())
 }
@@ -759,7 +781,8 @@ fn process_repay(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, user, seed)?;
+    let obligation_key = ObligationKey::new_with_seed(user, seed);
+    let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -768,17 +791,17 @@ fn process_repay(
     let (d_tokens_burnt, real_repaid_amount) = obligation.repay(e, &pool, amount)?;
 
     pool.adjust_total_d_tokens(e, -d_tokens_burnt)?;
-    pool.adjust_available(e, real_repaid_amount)?;
+    pool.adjust_total_available(e, real_repaid_amount)?;
 
     if obligation.is_empty() {
-        // Obligation shouldn't be empty at this point due to some amount of collateral or deposit
+        // NB: Obligation shouldn't be empty at this point due to some amount of collateral or deposit
         // required to repay the debt
         events::obligation_is_unexpectedly_empty(e, user, pool_address);
 
         return Err(MCError::InternalError);
     }
 
-    obligation.set(e, user, seed);
+    obligation.set(e, &obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -812,7 +835,8 @@ fn process_liquidate(
         return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
     }
 
-    let mut obligation = Obligation::try_get(e, borrower, borrower_seed)?;
+    let key = ObligationKey::new_with_seed(borrower, borrower_seed);
+    let mut obligation = Obligation::try_get(e, &key)?;
     obligation.accrue_interest(e)?;
 
     // Something like this indeed has to be added
@@ -890,10 +914,10 @@ fn process_liquidate(
 //         .map_over_or_underflow()?;
 
 //     borrow_pool.adjust_total_borrowed(e, -liquidated_amount)?;
-//     borrow_pool.adjust_available(e, liquidated_amount)?;
+//     borrow_pool.adjust_total_available(e, liquidated_amount)?;
 
 //     collateral_pool.adjust_total_shares(e, -shares_amount_sold)?;
-//     collateral_pool.adjust_available(e, -tokens_from_sold_shares)?;
+//     collateral_pool.adjust_total_available(e, -tokens_from_sold_shares)?;
 //     collateral_pool.adjust_total_collateral(e, -collateral_amount_sold)?;
 
 //     obligation.set(e);
@@ -930,14 +954,13 @@ fn process_liquidate(
 
 fn process_remove_collateral(
     e: &Env,
-    user: &Address,
+    obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let seed = &None;
-    let mut obligation = Obligation::try_get(e, user, seed)?;
+    let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -954,16 +977,20 @@ fn process_remove_collateral(
     pool.adjust_total_collateral(e, -removed_tokens_amount)?;
 
     if obligation.is_empty() {
-        obligation.remove(e, user, seed);
+        obligation.remove(e, &obligation_key);
     } else {
-        obligation.set(e, user, seed);
+        obligation.set(e, &obligation_key);
     }
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &removed_tokens_amount);
+    token_client.transfer(
+        &e.current_contract_address(),
+        &obligation_key.user,
+        &removed_tokens_amount,
+    );
 
-    events::remove_collateral(e, pool_address, user, removed_tokens_amount);
+    events::remove_collateral(e, pool_address, &obligation_key.user, removed_tokens_amount);
 
     Ok(())
 }
@@ -978,7 +1005,9 @@ fn process_withdraw(
     require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    let mut obligation = Obligation::try_get(e, user, seed)?;
+
+    let obligation_key = ObligationKey::new_with_seed(user, seed);
+    let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let max_healthy_withdrawn_amount =
@@ -994,13 +1023,13 @@ fn process_withdraw(
 
     obligation.withdraw(e, pool_address, burnt_j_tokens, withdrawn_tokens)?;
 
-    pool.adjust_available(e, withdrawn_tokens.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_available(e, withdrawn_tokens.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_j_tokens(e, burnt_j_tokens.checked_neg().map_over_or_underflow()?)?;
 
     if obligation.is_empty() {
-        obligation.remove(e, user, seed);
+        obligation.remove(e, &obligation_key);
     } else {
-        obligation.set(e, user, seed); // TODO: I don't like this approach since no error is produced if you specify a non_existent (user, seed) pair
+        obligation.set(e, &obligation_key);
     }
     pool.set(e);
 
@@ -1070,7 +1099,6 @@ fn process_deposit_with_leverage(
 
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
-    let pair_seed = Some(pair.seed.clone());
 
     let (deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, deposit_pool_address).map_err(|_| {
@@ -1146,7 +1174,7 @@ fn process_deposit_with_leverage(
     let flash_loan_token_client = token::Client::new(e, &borrow_pool.token_address);
     flash_loan_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
 
-    borrow_pool.adjust_available(e, -flash_borrow_amount)?;
+    borrow_pool.adjust_total_available(e, -flash_borrow_amount)?;
     // NB: This `set` is required, since 'available' amount is later accounted when calling
     // `process_borrow`
     borrow_pool.set(e);
@@ -1195,7 +1223,10 @@ fn process_deposit_with_leverage(
         received_amount
     };
 
-    process_deposit(e, user, &pair_seed, deposit_pool_address, deposit_amount)?;
+    let seed = Some(pair.seed.clone());
+    let obligation_key = ObligationKey::new_with_seed(user, &seed);
+
+    process_deposit(e, &obligation_key, deposit_pool_address, deposit_amount)?;
 
     // -- Borrow to repay the flash loan --
     let flash_loan_fee = flash_borrow_amount
@@ -1205,7 +1236,7 @@ fn process_deposit_with_leverage(
         .checked_add(flash_loan_fee)
         .map_over_or_underflow()?;
 
-    let Ok(obligation) = Obligation::try_get(e, user, &Some(pair.seed)) else {
+    let Ok(obligation) = Obligation::try_get(e, &obligation_key) else {
         events::obligation_is_missing_in_storage(e, user);
 
         return Err(MCError::InternalError);
@@ -1227,13 +1258,13 @@ fn process_deposit_with_leverage(
     // This approach, though, has as the advantage that we utilize `process_borrow`,
     // so, maybe, it's better to leave it as it is now
 
-    process_borrow(e, user, &pair_seed, borrow_pool_address, flash_repay_amount)?;
+    process_borrow(e, &obligation_key, borrow_pool_address, flash_repay_amount)?;
     borrow_pool.refresh(e)?;
 
     // Repay the flash loan
     flash_loan_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
 
-    borrow_pool.adjust_available(e, flash_repay_amount)?;
+    borrow_pool.adjust_total_available(e, flash_repay_amount)?;
     borrow_pool.set(e);
 
     events::deposit_with_leverage(
@@ -1270,7 +1301,9 @@ pub fn process_withdraw_from_leveraged(
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
     let seed = &Some(pair.seed.clone());
 
-    let obligation = Obligation::try_get(e, user, seed)?;
+    let obligation_key = ObligationKey::new_with_seed(user, seed);
+
+    let obligation = Obligation::try_get(e, &obligation_key)?;
     let total_debt = obligation.get_total_debt(e, borrow_pool_address)?;
 
     if total_debt == 0 {
@@ -1316,7 +1349,7 @@ pub fn process_withdraw_from_leveraged(
     // Flash Borrow
     let flash_borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
     flash_borrowed_token_client.transfer(&e.current_contract_address(), user, &flash_borrow_amount);
-    borrow_pool.adjust_available(e, -flash_borrow_amount)?;
+    borrow_pool.adjust_total_available(e, -flash_borrow_amount)?;
     borrow_pool.set(e);
 
     // Repay Debt
@@ -1359,7 +1392,7 @@ pub fn process_withdraw_from_leveraged(
     // Flash Repay
     flash_borrowed_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
 
-    borrow_pool.adjust_available(e, flash_repay_amount)?;
+    borrow_pool.adjust_total_available(e, flash_repay_amount)?;
     borrow_pool.set(e);
 
     events::withdraw_from_leveraged(

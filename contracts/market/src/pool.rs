@@ -76,7 +76,11 @@ impl Pool {
         Ok(())
     }
 
-    pub fn adjust_available(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
+    pub fn adjust_total_available(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MCError> {
         let new_amount = Self::adjust_field(e, self.total_available, adjusting_amount)?;
         self.total_available = new_amount;
 

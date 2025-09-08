@@ -2,6 +2,7 @@
 
 use market::{
     constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
+    obligation::ObligationKey,
     storage::DataKey,
 };
 use soroban_sdk::testutils::{
@@ -23,6 +24,7 @@ fn test_storage_ttl_extension() {
     } = TestMarketFixture::new();
 
     let user = &users[0];
+    let obligation_key = ObligationKey::new(user);
 
     e.as_contract(&contract_id, || {
         assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
@@ -41,7 +43,7 @@ fn test_storage_ttl_extension() {
         assert_eq!(
             e.storage()
                 .persistent()
-                .get_ttl(&DataKey::Obligation((user.clone(), None))),
+                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP
         );
     });
@@ -61,10 +63,11 @@ fn test_storage_ttl_extension() {
                 .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
             SHARED_BUMP - 2 * LEDGERS_PER_DAY
         );
+
         assert_eq!(
             e.storage()
                 .persistent()
-                .get_ttl(&DataKey::Obligation((user.clone(), None))),
+                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -83,10 +86,11 @@ fn test_storage_ttl_extension() {
                 .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
             SHARED_BUMP - 2 * LEDGERS_PER_DAY
         );
+
         assert_eq!(
             e.storage()
                 .persistent()
-                .get_ttl(&DataKey::Obligation((user.clone(), None))),
+                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -107,7 +111,7 @@ fn test_storage_ttl_extension() {
         assert_eq!(
             e.storage()
                 .persistent()
-                .get_ttl(&DataKey::Obligation((user.clone(), None))),
+                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -120,7 +124,7 @@ fn test_storage_ttl_extension() {
         assert_eq!(
             e.storage()
                 .persistent()
-                .get_ttl(&DataKey::Obligation((user.clone(), None))),
+                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 22 * LEDGERS_PER_DAY
         );
     });
@@ -132,7 +136,7 @@ fn test_storage_ttl_extension() {
         assert_eq!(
             e.storage()
                 .persistent()
-                .get_ttl(&DataKey::Obligation((user.clone(), None))),
+                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP
         );
     });

@@ -7,10 +7,26 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[contracttype]
 pub struct ObligationKey {
-    // TODO: Try to index `Obligation`s with it...
     pub user: Address,
     pub seed: Option<BytesN<32>>,
+}
+
+impl ObligationKey {
+    pub fn new(user: &Address) -> Self {
+        Self {
+            user: user.clone(),
+            seed: None,
+        }
+    }
+
+    pub fn new_with_seed(user: &Address, seed: &Option<BytesN<32>>) -> Self {
+        Self {
+            user: user.clone(),
+            seed: seed.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,13 +45,13 @@ pub struct Obligation {
 }
 
 impl Obligation {
-    /// Creates a new obligation for the user
+    /// Creates a new obligation for the specified obligation key
     ///
     /// # WARNING
     /// Modifies the obligation's pools storage data by appending the user's address to the
     /// obligation's list
-    pub fn new(e: &Env, user: Address, seed: Option<BytesN<32>>) -> Self {
-        storage::register_obligation(e, &user, &seed);
+    pub fn new(e: &Env, obligation_key: &ObligationKey) -> Self {
+        storage::register_obligation(e, &obligation_key);
 
         Self {
             deposits: Map::new(e),
@@ -266,9 +282,8 @@ impl Obligation {
 
     /// # Returns
     ///
-    /// [`Vec<(Address, Option<BytesN<32>)>`] containing all obligations in the market with their
-    /// seeds
-    pub fn get_all(e: &Env) -> Vec<(Address, Option<BytesN<32>>)> {
+    /// [`Vec<ObligationKey>`] containing all obligation keys in the market with their
+    pub fn get_all(e: &Env) -> Vec<ObligationKey> {
         storage::get_all_obligations(e)
     }
 
@@ -520,8 +535,8 @@ impl Obligation {
     ///
     /// # WARNING
     /// Modifies the contract's storage
-    pub fn set(&self, e: &Env, user: &Address, seed: &Option<BytesN<32>>) {
-        storage::set_obligation(e, user, seed, self);
+    pub fn set(&self, e: &Env, obligation_key: &ObligationKey) {
+        storage::set_obligation(e, obligation_key, self);
     }
 
     /// Tries to get the user's obligation from the contract's storage
@@ -529,20 +544,16 @@ impl Obligation {
     /// # Returns
     /// - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
     /// - [`Err(MCError::ObligationDoesNotExist)`] otherwise
-    pub fn try_get(e: &Env, user: &Address, seed: &Option<BytesN<32>>) -> Result<Self, MCError> {
-        storage::get_obligation(e, user, seed).ok_or(MCError::ObligationDoesNotExist)
+    pub fn try_get(e: &Env, obligation_key: &ObligationKey) -> Result<Self, MCError> {
+        storage::get_obligation(e, obligation_key).ok_or(MCError::ObligationDoesNotExist)
     }
 
     /// Removes obligation from the contract's storage
     ///
-    /// ### Arguments
-    /// * `user` - obligation's user address. **MUST** equal the original user address
-    /// * `seed` - obligation's user seed. **MUST** equal the original obligation seed
-    ///
     /// # WARNING
     /// Modifies the contract's storage
-    pub fn remove(self, e: &Env, user: &Address, seed: &Option<BytesN<32>>) {
-        storage::remove_obligation(e, user, seed);
+    pub fn remove(self, e: &Env, obligation_key: &ObligationKey) {
+        storage::remove_obligation(e, obligation_key);
     }
 }
 
