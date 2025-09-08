@@ -5,9 +5,10 @@ use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT,
-    TestMarketFixture, get_obligation_collateral, get_obligation_j_tokens,
-    get_obligation_j_tokens_as_tokens, get_pool_total_available, get_pool_total_collateral,
-    get_pool_total_j_tokens,
+    TestMarketFixture, get_obligation_collateral, get_obligation_d_tokens,
+    get_obligation_deposited, get_obligation_j_tokens, get_obligation_j_tokens_as_tokens,
+    get_pool_total_available, get_pool_total_collateral, get_pool_total_d_tokens,
+    get_pool_total_j_tokens, get_pool_total_supply,
 };
 
 #[test]
@@ -23,19 +24,34 @@ fn test_deposit() {
 
     contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let pool_j_tokens = get_pool_total_j_tokens(&contract_client, &usdc_pool_address).unwrap();
-    let pool_available = get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_j_tokens =
+        get_pool_total_j_tokens(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_supply = get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_d_tokens =
+        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
 
-    assert_eq!(pool_j_tokens, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_available, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_total_j_tokens, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_total_supply, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_total_d_tokens, 0);
 
     let obligation_j_tokens =
         get_obligation_j_tokens(&contract_client, user, &usdc_pool_address).unwrap();
     let obligation_j_tokens_as_tokens =
         get_obligation_j_tokens_as_tokens(&e, &contract_client, user, &usdc_pool_address).unwrap();
+    let obligation_deposited =
+        get_obligation_deposited(&contract_client, user, &usdc_pool_address).unwrap();
 
     assert_eq!(obligation_j_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_deposited, DEFAULT_DEPOSIT_AMOUNT);
+
+    assert_eq!(
+        get_obligation_d_tokens(&contract_client, user, &usdc_pool_address),
+        Err(MCError::BorrowDoesNotExist)
+    );
 }
 
 #[test]
@@ -228,4 +244,6 @@ fn test_deposit_multiple_shareholders() {
 
     assert_eq!(obligation_2_j_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(obligation_2_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
+
+    // TODO: Add time passing
 }

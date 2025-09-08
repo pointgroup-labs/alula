@@ -299,7 +299,7 @@ impl Obligation {
         Ok(())
     }
 
-    /// Borrows assets on an obligation per pool
+    /// Borrows assets on an obligation
     pub fn borrow(
         &mut self,
         e: &Env,
@@ -307,6 +307,7 @@ impl Obligation {
         d_tokens_issued: i128,
         borrowed_tokens: i128,
     ) -> Result<(), MCError> {
+        // WARN: This can potentially create a borrow obligation with 0 fields
         let mut borrow_obligation = self.borrows.get(pool_address.clone()).unwrap_or_default();
 
         borrow_obligation.adjust_d_tokens(e, d_tokens_issued)?;

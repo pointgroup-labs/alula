@@ -4,8 +4,8 @@ use market::error::MCError;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_borrow_obligation, get_obligation_debt,
-    get_obligation_unpaid_interest,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_borrow_obligation,
+    get_obligation_d_tokens_as_tokens, get_obligation_unpaid_interest,
 };
 
 #[test]
@@ -112,7 +112,7 @@ fn test_repay_with_interest_accrual() {
     contract_client.borrow(user, &usdc_pool_address, &(5 * DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let obligation_total_debt =
-        get_obligation_debt(&e, &contract_client, user, &usdc_pool_address).unwrap();
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, user, &usdc_pool_address).unwrap();
     let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
 
     assert_eq!(obligation_total_debt, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
@@ -136,7 +136,7 @@ fn test_repay_with_interest_accrual() {
     contract_client.repay(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let obligation_borrowed_new_debt =
-        get_obligation_debt(&e, &contract_client, user, &usdc_pool_address).unwrap();
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     // Notice interest rate accrual
     assert_eq!(
@@ -148,7 +148,7 @@ fn test_repay_with_interest_accrual() {
     e.ledger().with_mut(|li| li.timestamp += 60 * 60 * 15);
 
     let obligation_borrowed_new_debt =
-        get_obligation_debt(&e, &contract_client, user, &usdc_pool_address).unwrap();
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, user, &usdc_pool_address).unwrap();
 
     // Notice interest rate accrual
     assert!(obligation_borrowed_new_debt > left - (DEFAULT_DEPOSIT_AMOUNT / 10));

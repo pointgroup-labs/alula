@@ -776,6 +776,16 @@ pub fn get_obligation_borrowed(
     Ok(borrow_obligation.borrowed)
 }
 
+pub fn get_obligation_deposited(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.deposited)
+}
+
 pub fn get_obligation_collateral(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -788,7 +798,7 @@ pub fn get_obligation_collateral(
 
 // - Indirect accessors -
 
-pub fn get_obligation_debt(
+pub fn get_obligation_d_tokens_as_tokens(
     e: &Env,
     contract_client: &MarketContractClient,
     user: &Address,
@@ -808,7 +818,7 @@ pub fn get_obligation_unpaid_interest(
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
-    let total_debt = get_obligation_debt(e, contract_client, user, pool_address)?;
+    let total_debt = get_obligation_d_tokens_as_tokens(e, contract_client, user, pool_address)?;
     let borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
 
     if total_debt < borrowed {
@@ -870,8 +880,6 @@ pub fn get_borrow_obligation(
 }
 
 // -- Pool --
-
-// - Direct accessors -
 pub fn get_pool_total_j_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
@@ -879,6 +887,24 @@ pub fn get_pool_total_j_tokens(
     let pool = contract_client.get_pool(pool_address);
 
     Ok(pool.total_j_tokens)
+}
+
+pub fn get_pool_total_d_tokens(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    Ok(pool.total_d_tokens)
+}
+
+pub fn get_pool_total_borrowed(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    Ok(pool.total_borrowed)
 }
 
 pub fn get_pool_total_supply(

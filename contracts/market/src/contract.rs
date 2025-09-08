@@ -709,16 +709,11 @@ fn process_borrow(
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.accrue_interest(e)?;
 
-    // WARN: Is this a good idea to let somebody borrow less then they want?
     let max_healthy_borrow_added_amount =
         obligation.compute_max_healthy_debt_added_amount(e, &pool)?;
-    let available_utilization_ratio_cap_borrow =
-        pool.compute_available_utilization_ratio_cap_borrow(e)?;
+    let real_borrowed_amount = i128::min(max_healthy_borrow_added_amount, amount);
 
-    let real_borrowed_amount = i128::min(
-        max_healthy_borrow_added_amount,
-        i128::min(available_utilization_ratio_cap_borrow, amount),
-    );
+    pool.require_preserves_utilization_ratio_cap(e, real_borrowed_amount)?;
 
     let d_tokens_issued = pool.compute_d_tokens_from_tokens(e, real_borrowed_amount)?;
     obligation.borrow(e, pool_address, d_tokens_issued, real_borrowed_amount)?;

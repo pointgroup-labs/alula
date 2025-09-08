@@ -30,7 +30,7 @@ pub enum MCError {
     // Balance and limit errors (40-49)
     WithdrawOverBalance = 40,
     PoolSupplyLimitExceeded = 41,
-    BorrowLimitExceeded = 42,
+    PoolUtilizationRatioCapExceeded = 42,
     CollateralRemovalOverbalance = 43,
 
     // Oracle-related errors (50-59)

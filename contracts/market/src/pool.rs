@@ -198,6 +198,21 @@ impl Pool {
         Ok(())
     }
 
+    pub fn require_preserves_utilization_ratio_cap(
+        &self,
+        e: &Env,
+        removed_available_amount: i128,
+    ) -> Result<(), MCError> {
+        let max_available_amount_to_remove =
+            Self::compute_available_utilization_ratio_cap_borrow(&self, e)?;
+
+        if removed_available_amount > max_available_amount_to_remove {
+            return Err(MCError::PoolUtilizationRatioCapExceeded);
+        }
+
+        Ok(())
+    }
+
     /// Computes the number of tokens proportional to the given share of the tokens in the pool.
     /// Intended to be used for both `jTokens` and `dTokens` related calculations
     fn compute_tokens_from_shares(
