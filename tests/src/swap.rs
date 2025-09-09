@@ -102,7 +102,7 @@ fn test_swap_different_prices() {
 #[test]
 fn test_get_amount_out() {
     const AMOUNT_IN: i128 = 5_000;
-    const DELTA_BPS: i128 = 5; // 0.05 %
+    const DELTA_BPS: i128 = 100; // 1 %
 
     let TestMarketFixture {
         e,

@@ -36,6 +36,8 @@ pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
 pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 
+const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
+
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
     BTC,
@@ -101,7 +103,7 @@ impl TestMarketFixture<'_> {
             max_entry_ttl: INDIVIDUAL_BUMP + 1,
         });
 
-        let oracle_address = Address::generate(&e);
+        let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
