@@ -14,7 +14,7 @@ use crate::{
     pool::Pool,
 };
 
-pub const SCALED_ONE: i128 = 10_000_000_000_000;
+pub const SCALED_ONE: i128 = 100_000_000_000_000;
 
 /// Linear annual interest rates represented in basis points
 #[derive(Debug, Eq, PartialEq)]
@@ -81,11 +81,11 @@ impl Pool {
             .compute_borrow_apr(utilization_ratio_bps)?;
         let accrual_multiplier = self
             .accrual_model
-            .calculate_multiplier(current_borrow_apr, seconds_passed as u32)?;
+            .calculate_multiplier(current_borrow_apr, seconds_passed)?;
 
         let new_total_borrowed = self
             .total_borrowed
-            .fixed_mul_ceil(accrual_multiplier, 10 * SCALED_ONE)
+            .fixed_mul_ceil(accrual_multiplier, SCALED_ONE)
             .map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
@@ -121,10 +121,10 @@ impl Pool {
 
         let borrow_apy_multiplier = self
             .accrual_model
-            .calculate_multiplier(borrow_apr as i128, SECONDS_IN_YEAR as u32)?;
+            .calculate_multiplier(borrow_apr as i128, SECONDS_IN_YEAR)?;
         let supply_apy_multiplier = self
             .accrual_model
-            .calculate_multiplier(supply_apr as i128, SECONDS_IN_YEAR as u32)?;
+            .calculate_multiplier(supply_apr as i128, SECONDS_IN_YEAR)?;
 
         let borrow_apy_bps = multiplier_to_percentage_yield(borrow_apy_multiplier)?;
         let supply_apy_bps = multiplier_to_percentage_yield(supply_apy_multiplier)?;
@@ -291,148 +291,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // #[test]
-    // fn test_accrue_interest_with_time_passed() {
-    //     let env = Env::default();
-
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 1_000_000; // Larger borrowed amount for noticeable interest
-    //     pool.available = 9_000_000;
-    //     pool.last_accrual_timestamp = 0;
-    //     // pool.last_accrual = ACCRUAL_INIT;
-
-    //     let time_passed = 24 * 60 * 60; // 1 day (24 hours) for meaningful interest accrual
-    //     env.ledger().with_mut(|li| li.timestamp += time_passed);
-
-    //     let initial_total_borrowed = pool.total_borrowed;
-    //     // let initial_accrual = pool.last_accrual;
-
-    //     // Capture the expected multiplier BEFORE calling accrue_interest
-    //     // since accrue_interest will change the pool state
-    //     let expected_multipliers = pool.get_compound_rate_multipliers(time_passed).unwrap();
-    //     let expected_new_accrual = initial_accrual
-    //         .fixed_mul_ceil(expected_multipliers.borrow, SCALED_ONE)
-    //         .unwrap();
-    //     let expected_new_total_borrowed = initial_total_borrowed
-    //         .fixed_div_floor(initial_accrual, expected_new_accrual)
-    //         .map_over_or_underflow()
-    //         .unwrap();
-
-    //     let result = pool.accrue_interest(&env);
-    //     assert!(result.is_ok());
-
-    //     // Verify that interest was accrued
-    //     assert!(
-    //         pool.total_borrowed > initial_total_borrowed,
-    //         "Expected total_borrowed {} to be greater than initial {}",
-    //         pool.total_borrowed,
-    //         initial_total_borrowed
-    //     );
-    //     assert!(
-    //         pool.last_accrual > initial_accrual,
-    //         "Expected last_accrual {} to be greater than initial {}",
-    //         pool.last_accrual,
-    //         initial_accrual
-    //     );
-    //     assert_eq!(pool.last_accrual_timestamp, time_passed);
-
-    //     // Verify the calculations match our expectations
-    //     assert_eq!(pool.last_accrual, expected_new_accrual);
-    //     assert_eq!(pool.total_borrowed, expected_new_total_borrowed);
-
-    //     // Verify that the interest accrued is reasonable (should be a small percentage)
-    //     let interest_accrued = pool.total_borrowed - initial_total_borrowed;
-    //     assert!(interest_accrued > 0, "Interest accrued should be positive");
-    //     assert!(
-    //         interest_accrued < initial_total_borrowed / 10,
-    //         "Interest accrued shouldn't be more than 10% for one day"
-    //     );
-    // }
-
-    // #[test]
-    // fn test_get_borrow_rate_per_second_zero_total() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 0;
-    //     pool.available = 0;
-
-    //     let rate = pool.get_borrow_rate_per_second().unwrap();
-    //     assert_eq!(rate, pool.config.base_rate_per_second);
-    // }
-
-    // #[test]
-    // fn test_get_borrow_rate_per_second_below_optimal() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 300_000; // 30% utilization
-    //     pool.available = 700_000;
-
-    //     let rate = pool.get_borrow_rate_per_second().unwrap();
-
-    //     // Should be base rate + slope1 * utilization
-    //     let expected = pool.config.base_rate_per_second + (pool.config.slope1 * 3000); // 30% in
-    // bps     assert_eq!(rate, expected);
-    // }
-
-    // #[test]
-    // fn test_get_borrow_rate_per_second_above_optimal() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 900_000; // 90% utilization (above 80% optimal)
-    //     pool.available = 100_000;
-
-    //     let rate = pool.get_borrow_rate_per_second().unwrap();
-
-    //     // Should use both slopes
-    //     let pre_threshold = pool.config.base_rate_per_second
-    //         + (pool.config.slope1 * pool.config.optimal_utilization_ratio_bps);
-    //     let excess_rate = (9000 - pool.config.optimal_utilization_ratio_bps) *
-    // pool.config.slope2;     let expected = pre_threshold + excess_rate;
-
-    //     assert_eq!(rate, expected);
-    // }
-
-    // #[test]
-    // fn test_get_compound_rate_multipliers() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 500_000;
-    //     pool.available = 500_000;
-
-    //     let multipliers = pool.get_compound_rate_multipliers(24 * 60 * 60).unwrap();
-
-    //     assert!(multipliers.borrow > SCALED_ONE);
-    //     assert!(multipliers.supply > SCALED_ONE);
-    //     assert!(multipliers.borrow > multipliers.supply);
-    // }
-
-    // #[test]
-    // fn test_calculate_supply_multiplier_zero_total() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 0;
-    //     pool.available = 0;
-
-    //     let supply_multiplier = pool
-    //         .calculate_supply_multiplier(SCALED_ONE + 100000)
-    //         .unwrap();
-    //     assert_eq!(supply_multiplier, SCALED_ONE);
-    // }
-
-    // #[test]
-    // fn test_calculate_supply_multiplier_with_utilization() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 800000;
-    //     pool.available = 200000;
-
-    //     let borrow_multiplier = (SCALED_ONE * 105) / 100; // 5% increase
-    //     let supply_multiplier = pool.calculate_supply_multiplier(borrow_multiplier).unwrap();
-
-    //     assert!(supply_multiplier > SCALED_ONE);
-    //     assert!(supply_multiplier < borrow_multiplier); // Supply rate should be lower
-    // }
-
     #[test]
     fn test_get_apy() {
         let env = Env::default();
@@ -446,94 +304,4 @@ mod tests {
         assert!(apy.supply_bps > 0);
         assert!(apy.borrow_bps > apy.supply_bps);
     }
-
-    // #[test]
-    // fn test_update_accruals() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 100000;
-    //     pool.last_accrual = ACCRUAL_INIT;
-
-    //     let borrow_multiplier = (101 * SCALED_ONE) / 100; // 1% increase
-    //     let timestamp = 3600;
-
-    //     let initial_total_borrowed = pool.total_borrowed;
-    //     let initial_accrual = pool.last_accrual;
-
-    //     let result = pool.update_accruals(borrow_multiplier, timestamp);
-    //     assert!(result.is_ok());
-
-    //     assert!(pool.total_borrowed > initial_total_borrowed);
-    //     assert!(pool.last_accrual > initial_accrual);
-    //     assert_eq!(pool.last_accrual_timestamp, timestamp);
-    // }
-
-    // #[test]
-    // fn test_calculate_pre_threshold_rate() {
-    //     let env = Env::default();
-    //     let pool = create_test_pool(&env);
-
-    //     let utilization_bps = 5000; // 50%
-    //     let rate = pool.calculate_pre_threshold_rate(utilization_bps).unwrap();
-
-    //     let expected = pool.config.base_rate_per_second + (pool.config.slope1 * utilization_bps);
-    //     assert_eq!(rate, expected);
-    // }
-
-    // #[test]
-    // fn test_calculate_post_threshold_rate() {
-    //     let env = Env::default();
-    //     let pool = create_test_pool(&env);
-
-    //     let utilization_bps = 9000; // 90%
-    //     let rate = pool.calculate_post_threshold_rate(utilization_bps).unwrap();
-
-    //     let pre_threshold = pool.config.base_rate_per_second
-    //         + (pool.config.slope1 * pool.config.optimal_utilization_ratio_bps);
-    //     let excess_rate =
-    //         (utilization_bps - pool.config.optimal_utilization_ratio_bps) * pool.config.slope2;
-    //     let expected = pre_threshold + excess_rate;
-
-    //     assert_eq!(rate, expected);
-    // }
-
-    // #[test]
-    // fn test_edge_case_max_utilization() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 1000000;
-    //     pool.available = 0; // 100% utilization
-
-    //     let rate = pool.get_borrow_rate_per_second().unwrap();
-    //     assert!(rate > pool.config.base_rate_per_second);
-    // }
-
-    // #[test]
-    // fn test_compound_rate_multipliers_precision() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 1;
-    //     pool.available = 999999;
-
-    //     let multipliers = pool.get_compound_rate_multipliers(1).unwrap();
-
-    //     // With very low utilization and short time, multipliers should be very close to
-    // SCALED_ONE     assert!(multipliers.borrow > SCALED_ONE);
-    //     assert!(multipliers.supply >= SCALED_ONE);
-    // }
-
-    // #[test]
-    // fn test_interest_rate_consistency() {
-    //     let env = Env::default();
-    //     let mut pool = create_test_pool(&env);
-    //     pool.total_borrowed = 500000;
-    //     pool.available = 500000;
-
-    //     // Test that longer periods result in higher multipliers
-    //     let short_period = pool.get_compound_rate_multipliers(60 * 60).unwrap(); // 1 hour
-    //     let long_period = pool.get_compound_rate_multipliers(24 * 60 * 60).unwrap(); // 1 day
-
-    //     assert!(long_period.borrow > short_period.borrow);
-    //     assert!(long_period.supply > short_period.supply);
-    // }
 }

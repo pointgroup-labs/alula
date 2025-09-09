@@ -11,13 +11,13 @@ pub const BPS_FACTOR: i128 = 10_000;
 // ---- Time Units ----
 
 /// Seconds in a minute
-pub const SECONDS_PER_MINUTE: u32 = 60;
+pub const SECONDS_PER_MINUTE: u64 = 60;
 
 /// Seconds in an hour
-pub const SECONDS_PER_HOUR: u32 = SECONDS_PER_MINUTE * 60;
+pub const SECONDS_PER_HOUR: u64 = SECONDS_PER_MINUTE * 60;
 
 /// Seconds in a day
-pub const SECONDS_PER_DAY: u32 = SECONDS_PER_HOUR * 24;
+pub const SECONDS_PER_DAY: u64 = SECONDS_PER_HOUR * 24;
 
 /// Average number of seconds in a year (365.2422 days).
 /// Used for interest accrual scaling.
@@ -26,25 +26,25 @@ pub const SECONDS_IN_YEAR: u64 = 31_556_926;
 // ---- Storage TTL ----
 
 /// Average ledger close time on Stellar
-pub const SECONDS_PER_LEDGER: u32 = 6;
+pub const SECONDS_PER_LEDGER: u64 = 6;
 
 /// Number of ledgers in a day
-pub const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;
+pub const LEDGERS_PER_DAY: u32 = (SECONDS_PER_DAY / SECONDS_PER_LEDGER) as u32;
 
 /// Instance storage extension is spread among all users, so it must be cheap and paid regularly
-pub const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
-pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
+pub const INSTANCE_THRESHOLD: u32 = 40 * (LEDGERS_PER_DAY as u32);
+pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + (LEDGERS_PER_DAY as u32);
 
 /// Shared persistent storage extension is spread among all shared resource users, so it must be
 /// cheap and paid regularly
-pub const SHARED_THRESHOLD: u32 = 50 * LEDGERS_PER_DAY;
-pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + LEDGERS_PER_DAY;
+pub const SHARED_THRESHOLD: u32 = 50 * (LEDGERS_PER_DAY as u32);
+pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + (LEDGERS_PER_DAY as u32);
 
 /// Individual persistent storage extension is usually paid by the data owners. It should neither be
 /// paid very often (to reduce extension operation costs) nor very rarely (to minimize archival
 /// risk)(TODO: Though, is it really a sound argument?)
-pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
-pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
+pub const INDIVIDUAL_THRESHOLD: u32 = 160 * (LEDGERS_PER_DAY as u32);
+pub const INDIVIDUAL_BUMP: u32 = 180 * (LEDGERS_PER_DAY as u32);
 
 // ---- Interest Rate and Accrual ----
 
