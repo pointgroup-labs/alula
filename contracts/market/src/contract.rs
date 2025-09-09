@@ -464,7 +464,10 @@ impl MarketContract {
     /// ### Arguments
     /// * `pool_address` - pool which data is returned
     pub fn get_pool(e: Env, pool_address: Address) -> Result<Pool, MCError> {
-        Pool::try_get(&e, &pool_address)
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+        pool.accrue_interest(&e)?;
+
+        Ok(pool)
     }
 
     /// Returns a list of all pool addresses in the protocol

@@ -1,10 +1,11 @@
 #![cfg(test)]
 
 use market::{
-    constants::{BPS_FACTOR, DEFAULT_OPEN_LTV},
+    constants::{BPS_FACTOR, DEFAULT_OPEN_LTV, SECONDS_IN_YEAR},
     error::MCError,
     pool::PoolConfig,
 };
+use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_borrowed, get_obligation_d_tokens,
@@ -133,7 +134,52 @@ fn test_borrow_multiple_shareholders() {
         (3 * DEFAULT_DEPOSIT_AMOUNT) - BORROWED
     );
 
-    // TODO: Add time passing
+    // -- Accrue debt on the pool --
+
+    // - Wait 1 month -
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+
+    // - Assert that the total debt has increased -
+
+    let obligation_borrowed_1 =
+        get_obligation_borrowed(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_1 =
+        get_obligation_d_tokens(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens_1 =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
+            .unwrap();
+
+    assert_eq!(obligation_borrowed_1, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_d_tokens_1, DEFAULT_DEPOSIT_AMOUNT);
+    assert!(obligation_d_tokens_as_tokens_1 > DEFAULT_DEPOSIT_AMOUNT);
+
+    let obligation_borrowed_2 =
+        get_obligation_borrowed(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_2 =
+        get_obligation_d_tokens(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens_2 =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
+            .unwrap();
+
+    assert_eq!(obligation_borrowed_2, BORROWER_2_BORROW_AMOUNT);
+    assert_eq!(obligation_d_tokens_2, BORROWER_2_BORROW_AMOUNT);
+    assert!(obligation_d_tokens_as_tokens_2 > BORROWER_2_BORROW_AMOUNT);
+
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_borrowed =
+        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_d_tokens =
+        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+
+    assert_eq!(pool_total_d_tokens, BORROWED);
+    assert!(pool_total_borrowed > BORROWED);
+    assert_eq!(
+        pool_total_available,
+        (3 * DEFAULT_DEPOSIT_AMOUNT) - BORROWED
+    );
 }
 #[test]
 fn test_borrow_exceeds_utilization_cap() {
@@ -259,5 +305,3 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
         DEFAULT_DEPOSIT_AMOUNT - MAX_HEALTHY_BORROW_AMOUNT
     );
 }
-
-// TODO: Add more time passing tests
