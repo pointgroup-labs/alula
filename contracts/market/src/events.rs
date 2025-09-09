@@ -428,6 +428,33 @@ pub fn obligation_is_unexpectedly_empty(
     e.events().publish(topics, data);
 }
 
+/// Emitted when calculated interest(either for borrow or supply position) is negative. This is a severe invariant breakage
+///
+/// - topics - `["obligation_unexpectedly_empty"], pool_address: Address]`
+///   Address]`
+/// - data - `[shares: i128, tokens_from_shares: i128, calculated_interest: i128, tokens_from_all_shares: i128]`
+pub fn calculated_interest_is_negative(
+    e: &Env,
+    pool_address: &Address,
+    shares: i128,
+    tokens_from_shares: i128,
+    calculated_interest: i128,
+    tokens_from_all_shares: i128,
+) {
+    let topics = (
+        Symbol::new(e, "calculated_interest_is_negative"),
+        pool_address,
+    );
+    let data = (
+        shares,
+        tokens_from_shares,
+        calculated_interest,
+        tokens_from_all_shares,
+    );
+
+    e.events().publish(topics, data);
+}
+
 #[allow(clippy::too_many_arguments)]
 /// Emitted when an unexpected amount has been received after a deterministic swap operation via a
 /// swap provider

@@ -307,7 +307,7 @@ impl Obligation {
         d_tokens_issued: i128,
         borrowed_tokens: i128,
     ) -> Result<(), MCError> {
-        // WARN: This can potentially create a borrow obligation with 0 fields
+        // WARN: This can potentially create a borrow obligation with 0ed fields
         let mut borrow_obligation = self.borrows.get(pool_address.clone()).unwrap_or_default();
 
         borrow_obligation.adjust_d_tokens(e, d_tokens_issued)?;
@@ -338,8 +338,9 @@ impl Obligation {
     pub fn withdraw(
         &mut self,
         e: &Env,
+        pool: &Pool,
         pool_address: &Address,
-        burnt_j_tokens: i128,
+        j_tokens_burnt: i128,
         withdrawn_tokens: i128,
     ) -> Result<(), MCError> {
         let mut deposit_obligation = self
@@ -347,10 +348,31 @@ impl Obligation {
             .get(pool_address.clone())
             .ok_or(MCError::ObligationDoesNotExist)?;
 
+        let all_j_tokens_as_tokens =
+            pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
+        let received_interest = all_j_tokens_as_tokens
+            .checked_sub(deposit_obligation.deposited)
+            .map_over_or_underflow()?;
+
+        if received_interest < 0 {
+            events::calculated_interest_is_negative(
+                e,
+                pool_address,
+                j_tokens_burnt,
+                withdrawn_tokens,
+                received_interest,
+                all_j_tokens_as_tokens,
+            );
+
+            return Err(MCError::InternalError);
+        } else if withdrawn_tokens >= received_interest {
+            let deposited_diff = withdrawn_tokens - received_interest; // safe
+            deposit_obligation
+                .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
+        }
+
         deposit_obligation
-            .adjust_j_tokens(e, burnt_j_tokens.checked_neg().map_over_or_underflow()?)?;
-        deposit_obligation
-            .adjust_deposited(e, withdrawn_tokens.checked_neg().map_over_or_underflow()?)?;
+            .adjust_j_tokens(e, j_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_obligation.is_empty() {
             self.deposits.remove(pool_address.clone());

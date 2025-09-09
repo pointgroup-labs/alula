@@ -137,7 +137,7 @@ fn test_borrow_multiple_shareholders() {
     // TODO: Add time passing
 }
 #[test]
-fn tests_borrow_exceeds_utilization_cap() {
+fn test_borrow_exceeds_utilization_cap() {
     const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
     let pool_config = PoolConfig {

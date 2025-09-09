@@ -1005,26 +1005,35 @@ fn process_withdraw(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut pool = Pool::try_get(e, pool_address)?;
-
     let mut obligation = Obligation::try_get(e, &obligation_key)?;
+    // NB: Accruing interest on an obligation must precede pool retrieval
     obligation.accrue_interest(e)?;
+    let mut pool = Pool::try_get(e, pool_address)?;
 
     let max_healthy_withdrawn_amount =
         obligation.compute_max_healthy_collateral_removed_amount(e, &pool)?;
-    let cap_withdrawn_tokens_amount = i128::min(amount, max_healthy_withdrawn_amount);
+    let real_withdrawn_amount = i128::min(amount, max_healthy_withdrawn_amount);
 
-    let obligation_j_tokens = obligation.get_j_tokens(pool_address)?;
-    let cap_j_tokens = pool.compute_j_tokens_from_tokens(e, cap_withdrawn_tokens_amount)?;
-    let burnt_j_tokens = i128::min(cap_j_tokens, obligation_j_tokens);
-    let withdrawn_tokens = pool.compute_tokens_from_j_tokens(e, burnt_j_tokens)?;
+    pool.require_preserves_utilization_ratio_cap(e, real_withdrawn_amount)?;
+    // pool.require_available(real_withdrawn_amount)?; // TODO: Should we keep this check?
 
-    pool.require_available(withdrawn_tokens)?;
+    let j_tokens_burnt = pool.compute_j_tokens_from_tokens(e, real_withdrawn_amount)?;
 
-    obligation.withdraw(e, pool_address, burnt_j_tokens, withdrawn_tokens)?;
+    obligation.withdraw(
+        e,
+        &pool,
+        pool_address,
+        j_tokens_burnt,
+        real_withdrawn_amount,
+    )?;
 
-    pool.adjust_total_available(e, withdrawn_tokens.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_j_tokens(e, burnt_j_tokens.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_available(
+        e,
+        real_withdrawn_amount
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+    pool.adjust_total_j_tokens(e, j_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
 
     if obligation.is_empty() {
         obligation.remove(e, &obligation_key);
@@ -1037,15 +1046,15 @@ fn process_withdraw(
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
-        &withdrawn_tokens,
+        &real_withdrawn_amount,
     );
 
     events::withdraw(
         e,
         pool_address,
         obligation_key,
-        burnt_j_tokens,
-        withdrawn_tokens,
+        j_tokens_burnt,
+        real_withdrawn_amount,
     );
 
     Ok(())
