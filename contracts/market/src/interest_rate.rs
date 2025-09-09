@@ -70,17 +70,18 @@ impl Pool {
 
         let seconds_passed = current_timestamp - self.last_accrual_timestamp; // safe
         if seconds_passed == 0 {
-            // No time passed, no interest to accrue
+            // NB: No time passed, no interest to accrue
             return Ok(());
         }
+
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let current_borrow_apr = self
             .interest_rate_model
-            .compute_borrow_apr(utilization_ratio_bps as u64)?;
+            .compute_borrow_apr(utilization_ratio_bps)?;
         let accrual_multiplier = self
             .accrual_model
-            .calculate_multiplier(current_borrow_apr as i128, seconds_passed as u32)?;
+            .calculate_multiplier(current_borrow_apr, seconds_passed as u32)?;
 
         let new_total_borrowed = self
             .total_borrowed
@@ -93,7 +94,7 @@ impl Pool {
         Ok(())
     }
 
-    pub fn compute_utilization_ratio_bps(&self) -> Result<u32, MCError> {
+    pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
         let total_supply = self.total_supply()?;
 
         let res = if total_supply == 0 {
@@ -103,7 +104,7 @@ impl Pool {
             self.total_borrowed
                 .fixed_div_ceil(total_supply, BPS_FACTOR)
                 .map_over_or_underflow()?
-        } as u32; // safe
+        };
 
         Ok(res)
     }
@@ -113,9 +114,9 @@ impl Pool {
 
         let borrow_apr = self
             .interest_rate_model
-            .compute_borrow_apr(utilization_ratio_bps as u64)?;
+            .compute_borrow_apr(utilization_ratio_bps)?;
         let supply_apr = borrow_apr
-            .fixed_mul_floor(utilization_ratio_bps as u64, BPS_FACTOR as u64)
+            .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let borrow_apy_multiplier = self

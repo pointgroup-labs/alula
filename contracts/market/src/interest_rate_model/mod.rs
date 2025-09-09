@@ -14,7 +14,7 @@ pub trait InterestRate {
     /// # Returns
     /// `Ok(borrow_apr)` if no overflow occurs. `Err(MCError::OverOrUnderflow)`
     /// otherwise
-    fn compute_borrow_apr(&self, utilization_ratio_bps: u64) -> Result<u64, MCError>;
+    fn compute_borrow_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError>;
 }
 
 #[derive(Debug, Eq, PartialEq)]
