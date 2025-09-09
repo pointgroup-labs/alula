@@ -179,7 +179,7 @@ impl TestMarketFixture<'_> {
         router_client.map_address_to_ticker(&gold_token_address, &gold_ticker);
         router_client.map_address_to_ticker(&btc_token_address, &btc_ticker);
 
-        contract_client.initialize_multiply_pair(&usdc_pool_address, &gold_pool_address);
+        contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
 
         oracle_client.set_data(
             &contract_admin,
@@ -758,6 +758,22 @@ pub fn get_obligation_j_tokens(
     Ok(deposit_obligation.j_tokens)
 }
 
+pub fn get_multiply_pair_obligation_j_tokens(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation = get_multiply_pair_deposit_obligation(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(deposit_obligation.j_tokens)
+}
+
 pub fn get_obligation_d_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -768,12 +784,44 @@ pub fn get_obligation_d_tokens(
     Ok(deposit_obligation.d_tokens)
 }
 
+pub fn get_multiply_pair_obligation_d_tokens(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let borrow_obligation = get_multiply_pair_borrow_obligation(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(borrow_obligation.d_tokens)
+}
+
 pub fn get_obligation_borrowed(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let borrow_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
+
+    Ok(borrow_obligation.borrowed)
+}
+
+pub fn get_multiply_pair_obligation_borrowed(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let borrow_obligation = get_multiply_pair_borrow_obligation(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
 
     Ok(borrow_obligation.borrowed)
 }
@@ -788,12 +836,44 @@ pub fn get_obligation_deposited(
     Ok(deposit_obligation.deposited)
 }
 
+pub fn get_multiply_pair_obligation_deposited(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation = get_multiply_pair_deposit_obligation(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(deposit_obligation.deposited)
+}
+
 pub fn get_obligation_collateral(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.collateral)
+}
+
+pub fn get_multiply_pair_obligation_collateral(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation = get_multiply_pair_deposit_obligation(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
 
     Ok(deposit_obligation.collateral)
 }
@@ -845,6 +925,26 @@ pub fn get_obligation_j_tokens_as_tokens(
     Ok(deposited_tokens)
 }
 
+pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(deposit_pool_address);
+    let j_tokens = get_multiply_pair_obligation_j_tokens(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+
+    Ok(deposited_tokens)
+}
+
 // - Inner struct accessors -
 
 pub fn get_deposit_obligation(
@@ -864,6 +964,28 @@ pub fn get_deposit_obligation(
     Ok(deposit)
 }
 
+pub fn get_multiply_pair_deposit_obligation(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<DepositObligation, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    ) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    let deposit = obligation
+        .deposits
+        .get(deposit_pool_address.clone())
+        .ok_or(MCError::DepositDoesNotExist)?;
+
+    Ok(deposit)
+}
+
 pub fn get_borrow_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -877,6 +999,28 @@ pub fn get_borrow_obligation(
         .borrows
         .get(pool_address.clone())
         .ok_or(MCError::BorrowDoesNotExist)?;
+
+    Ok(borrow)
+}
+
+pub fn get_multiply_pair_borrow_obligation(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<BorrowObligation, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    ) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    let borrow = obligation
+        .borrows
+        .get(borrow_pool_address.clone())
+        .ok_or(MCError::DepositDoesNotExist)?;
 
     Ok(borrow)
 }
