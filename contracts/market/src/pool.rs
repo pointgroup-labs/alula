@@ -4,9 +4,10 @@ use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 use crate::{
     accrual::AccrualModel,
     constants::{
-        BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV, DEFAULT_LIABILITY_FACTOR,
-        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV, DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT,
-        DEFAULT_UTILIZATION_RATIO_LIMIT, MAX_LIABILITY_FACTOR,
+        BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV,
+        DEFAULT_LIABILITY_FACTOR, DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV,
+        DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
+        MAX_LIABILITY_FACTOR,
     },
     error::MCError,
     events,
@@ -211,6 +212,32 @@ impl Pool {
         }
 
         Ok(())
+    }
+
+    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
+    /// ratio limit on a pool
+    pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
+        let total_supply = self.total_supply()?;
+        let utilization_ratio = self.calculate_utilization_ratio_bps()?;
+
+        if utilization_ratio > self.config.utilization_ratio_limit_bps {
+            // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time
+            // by itself, so for now, we simply emit an event. We can agree to stop
+            // accruing interest on a pool if this happens
+            events::utilization_ratio_exceeds_limit(
+                e,
+                utilization_ratio,
+                self.config.utilization_ratio_limit_bps,
+            );
+
+            return Ok(0);
+        }
+        let available_percentage_to_borrow_bps =
+            self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
+
+        total_supply
+            .fixed_mul_ceil(available_percentage_to_borrow_bps, BPS_FACTOR)
+            .map_over_or_underflow()
     }
 
     /// Computes the number of tokens proportional to the given share of the tokens in the pool.

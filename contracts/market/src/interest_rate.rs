@@ -20,19 +20,19 @@ pub const SCALED_ONE: i128 = 100_000_000_000_000;
 #[derive(Debug, Eq, PartialEq)]
 #[contracttype]
 pub struct AnnualPercentageRates {
-    pub borrow_bps: u32,
-    pub supply_bps: u32,
+    pub borrow_bps: u64,
+    pub supply_bps: u64,
 }
 
 impl AnnualPercentageRates {
-    pub fn try_new(borrow_bps: u32, utilization_ratio_bps: u32) -> Result<Self, MCError> {
-        let supply_bps = (borrow_bps as u64)
-            .fixed_mul_floor(utilization_ratio_bps as u64, BPS_FACTOR as u64)
-            .map_over_or_underflow()? as u32;
+    pub fn try_new(borrow_bps: i128, utilization_ratio_bps: i128) -> Result<Self, MCError> {
+        let supply_bps = borrow_bps
+            .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
+            .map_over_or_underflow()?;
 
         Ok(Self {
-            borrow_bps,
-            supply_bps,
+            borrow_bps: borrow_bps as u64,
+            supply_bps: supply_bps as u64,
         })
     }
 }
@@ -43,16 +43,6 @@ impl AnnualPercentageRates {
 pub struct AnnualPercentageYields {
     pub borrow_bps: u32,
     pub supply_bps: u32,
-}
-
-fn multiplier_to_percentage_yield(multiplier: i128) -> Result<u32, MCError> {
-    const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
-
-    let multiplier_bps =
-        u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| MCError::OverOrUnderflow)?;
-    let multiplier_yield_bps = multiplier_bps.saturating_sub(BPS_FACTOR as u32);
-
-    Ok(multiplier_yield_bps)
 }
 
 impl Pool {
@@ -109,6 +99,17 @@ impl Pool {
         Ok(res)
     }
 
+    pub fn get_apr(&self) -> Result<AnnualPercentageRates, MCError> {
+        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
+
+        let borrow_apr_bps = self
+            .interest_rate_model
+            .compute_borrow_apr(utilization_ratio_bps)?;
+        let res = AnnualPercentageRates::try_new(borrow_apr_bps, utilization_ratio_bps)?;
+
+        Ok(res)
+    }
+
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
@@ -121,13 +122,13 @@ impl Pool {
 
         let borrow_apy_multiplier = self
             .accrual_model
-            .calculate_multiplier(borrow_apr as i128, SECONDS_IN_YEAR)?;
+            .calculate_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
         let supply_apy_multiplier = self
             .accrual_model
-            .calculate_multiplier(supply_apr as i128, SECONDS_IN_YEAR)?;
+            .calculate_multiplier(supply_apr, SECONDS_IN_YEAR)?;
 
-        let borrow_apy_bps = multiplier_to_percentage_yield(borrow_apy_multiplier)?;
-        let supply_apy_bps = multiplier_to_percentage_yield(supply_apy_multiplier)?;
+        let borrow_apy_bps = multiplier_to_percentage_increase(borrow_apy_multiplier)?;
+        let supply_apy_bps = multiplier_to_percentage_increase(supply_apy_multiplier)?;
 
         let apy = AnnualPercentageYields {
             borrow_bps: borrow_apy_bps,
@@ -137,33 +138,7 @@ impl Pool {
         Ok(apy)
     }
 
-    /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
-    /// ratio limit on a pool
-    pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?;
-        let utilization_ratio = self.calculate_utilization_ratio_bps()?;
-
-        if utilization_ratio > self.config.utilization_ratio_limit_bps {
-            // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time
-            // by itself, so for now, we simply emit an event. We can agree to stop
-            // accruing interest on a pool if this happens
-            events::utilization_ratio_exceeds_limit(
-                e,
-                utilization_ratio,
-                self.config.utilization_ratio_limit_bps,
-            );
-
-            return Ok(0);
-        }
-        let available_percentage_to_borrow_bps =
-            self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
-
-        total_supply
-            .fixed_mul_ceil(available_percentage_to_borrow_bps, BPS_FACTOR)
-            .map_over_or_underflow()
-    }
-
-    fn calculate_utilization_ratio_bps(&self) -> Result<i128, MCError> {
+    pub fn calculate_utilization_ratio_bps(&self) -> Result<i128, MCError> {
         let total = self.total_supply()?;
 
         if total == 0 {
@@ -175,6 +150,18 @@ impl Pool {
                 .map_over_or_underflow()
         }
     }
+}
+
+// -- Helpers --
+
+fn multiplier_to_percentage_increase(multiplier: i128) -> Result<u32, MCError> {
+    const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
+
+    let multiplier_bps =
+        u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| MCError::OverOrUnderflow)?;
+    let percentage_increase_bps = multiplier_bps.saturating_sub(BPS_FACTOR as u32);
+
+    Ok(percentage_increase_bps)
 }
 
 #[cfg(test)]
