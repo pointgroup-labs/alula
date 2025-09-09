@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, String, Symbol};
+use soroban_sdk::{Address, Env, String, Symbol};
 
 use crate::obligation::ObligationKey;
 

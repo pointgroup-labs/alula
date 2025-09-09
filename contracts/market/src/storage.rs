@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, String, Vec, contracttype};
+use soroban_sdk::{Address, Env, String, Vec, contracttype};
 
 use crate::{
     constants::{

@@ -1,9 +1,6 @@
 #![cfg(test)]
 
-use market_manager::{
-    contract::{MarketManagerClient, MarketManagerContract},
-    storage::Config,
-};
+use market_manager::contract::{MarketManagerClient, MarketManagerContract};
 use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
 
 use crate::get_default_env;
@@ -28,11 +25,10 @@ impl<'a> ManagerSetup<'a> {
         let manager_admin = Address::generate(&e);
         let market_contract_wasm_hash = e.deployer().upload_contract_wasm(market::WASM);
 
-        let config = Config {
-            admin: manager_admin.clone(),
-            market_contract_wasm_hash,
-        };
-        let manager_address = e.register(MarketManagerContract, (config,));
+        let manager_address = e.register(
+            MarketManagerContract,
+            (&manager_admin, market_contract_wasm_hash),
+        );
         let manager_client = MarketManagerClient::new(&e, &manager_address);
 
         Self {
@@ -79,6 +75,7 @@ fn test_manager_deploy_markets() {
     let market_list = manager_client
         .get_market_list()
         .expect("Markets must've been deployed");
+
     assert_eq!(market_list.len(), 2);
     assert_eq!(market_address_2, market_list.last().unwrap());
 }

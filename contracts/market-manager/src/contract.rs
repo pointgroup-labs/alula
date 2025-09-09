@@ -57,7 +57,7 @@ impl MarketManager for MarketManagerContract {
         let market_address = e
             .deployer()
             .with_current_contract(salt)
-            .deploy_v2(market_contract_wasm_hash, (market_admin, name, oracle));
+            .deploy_v2(market_contract_wasm_hash, (name, market_admin, oracle));
 
         storage::register_market(&e, &market_address)?;
 

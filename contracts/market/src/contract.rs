@@ -13,6 +13,7 @@ use crate::{
     },
     error::MCError,
     events,
+    interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
@@ -494,53 +495,27 @@ impl MarketContract {
         MultiplyPair::get_all(&e)
     }
 
-    // /// Returns APR calculated for the current utilization ratio of a pool in basis points (e.g.,
-    // /// 2912 = 29.12%, etc)
-    // ///
-    // /// ### Arguments
-    // /// * `pool_address` - address of a pool for which APR is returned
-    // pub fn get_apr(e: Env, pool_address: Address) -> Result<AnnualPercentageRates,
-    // MCError> {     let pool = Pool::try_get(&e, &pool_address)?;
-    //     let utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
-    //     let borrow_apr = pool
-    //         .interest_rate_model
-    //         .compute_borrow_apr(utilization_ratio_bps as u64)?;
+    /// Returns APR calculated for the current utilization ratio of a pool in basis points (e.g.,
+    /// 2912 = 29.12%, etc)
+    ///
+    /// ### Arguments
+    /// * `pool_address` - address of a pool for which APR is returned
+    pub fn get_apr(e: Env, pool_address: Address) -> Result<AnnualPercentageRates, MCError> {
+        let pool = Pool::try_get(&e, &pool_address)?;
 
-    //     let rates = AnnualPercentageRates::try_new(borrow_apr as u32, utilization_ratio_bps)?;
+        pool.get_apr()
+    }
 
-    //     Ok(rates)
-    // }
+    /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g.,
+    /// 2912 = 29.12%, etc)
+    ///
+    /// ### Arguments
+    /// * `pool_address` - address of a pool for which APY is returned
+    pub fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields, MCError> {
+        let pool = Pool::try_get(&e, &pool_address)?;
 
-    // /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g.,
-    // /// 2912 = 29.12%, etc)
-    // ///
-    // /// ### Arguments
-    // /// * `pool_address` - address of a pool for which APY is returned
-    // pub fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields,
-    // MCError> {     let pool = Pool::try_get(&e, &pool_address)?;
-    //     let utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
-
-    //     // TODO: Maybe cache borrow APR calculation
-    //     let borrow_apr = pool
-    //         .interest_rate_model
-    //         .compute_borrow_apr(utilization_ratio_bps as u64)?;
-
-    //     let borrow_apy = pool.accrual_model.calculate_multiplier(borrow_apr, seconds_passed)
-    // }
-
-    // /// Returns APY calculated for the optimal utilization ratio of a pool in basis points (e.g.,
-    // /// 4000 = 40.00%, etc)
-    // ///
-    // /// ### Arguments
-    // /// * `pool_address` - address of a pool for which optimal APY is returned
-    // pub fn get_optimal_apy( // just a
-    //     _e: Env,
-    //     _pool_address: Address,
-    // ) -> Result<AnnualPercentageYields, MCError> {
-    //     // TODO: Start calculating this dynamically
-
-    //     todo!()
-    // }
+        pool.get_apy()
+    }
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
     /// resetting on the testnet without re-deploying the contract
@@ -1088,9 +1063,8 @@ fn process_flash_loan(
         .map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
-    // Yep, this is very poor implementation.
-    // Now, here you must issue `transfer_allowance`, since it's more safe for a flash loan taker to
-    // to implement his flash loan logic...
+    // NB: Here you must issue `transfer_allowance`, since it's safer for a flash loan taker to
+    // to implement their flash loan logic flow
     token_client.transfer(contract, &e.current_contract_address(), &amount_to_repay);
 
     events::flash_loan(e, contract, pool_address, amount, fees);
