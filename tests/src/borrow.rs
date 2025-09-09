@@ -53,7 +53,6 @@ fn test_borrow() {
 
     assert_eq!(pool_total_d_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_total_available, 0);
 }
 

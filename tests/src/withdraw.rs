@@ -136,7 +136,8 @@ fn test_remove_collateral() {
         &(DEFAULT_DEPOSIT_AMOUNT / 2),
     );
     // TODO: Investigate what happens if you withdraw here instead of removing collateral
-    // contract_client.withdraw(collateral_provider, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    // contract_client.withdraw(collateral_provider, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT /
+    // 2));
 
     assert_eq!(
         get_obligation_collateral(&contract_client, collateral_provider, &gold_pool_address),

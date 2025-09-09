@@ -411,46 +411,60 @@ impl Obligation {
     /// - the real repaid amount is calculated as `min(debt, repaid_amount)`
     ///
     /// # Returns
-    /// [`Result::Ok((d_tokens_burnt, real_repaid_amount))`] in success and
+    /// [`Result::Ok((real_repaid_amount, d_tokens_burnt))`] in success and
     /// [`Err(MCError)`] in failure
-    pub fn repay(&mut self, e: &Env, pool: &Pool, amount: i128) -> Result<(i128, i128), MCError> {
+    pub fn repay(
+        &mut self,
+        e: &Env,
+        pool_address: &Address,
+        pool: &Pool,
+        amount: i128,
+    ) -> Result<(i128, i128), MCError> {
         let mut borrow_obligation = self
             .borrows
             .get(pool.pool_address.clone())
             .ok_or(MCError::ObligationDoesNotExist)?;
 
-        let total_debt_tokens = pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
-        let initially_borrowed = borrow_obligation.borrowed;
+        let all_d_tokens_as_tokens =
+            pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
 
-        if total_debt_tokens < initially_borrowed {
-            // TODO: Add an event
-
-            return Err(MCError::InternalError);
-        }
-
-        let real_repaid_amount = i128::min(total_debt_tokens, amount);
-
-        let d_tokens_burnt = if real_repaid_amount == total_debt_tokens {
-            self.borrows.remove(pool.pool_address.clone());
-
-            borrow_obligation.d_tokens
+        let (real_repaid_amount, d_tokens_burnt) = if amount >= all_d_tokens_as_tokens {
+            (all_d_tokens_as_tokens, borrow_obligation.d_tokens)
         } else {
-            let d_tokens_burnt = pool.compute_d_tokens_from_tokens(e, real_repaid_amount)?;
-            borrow_obligation.adjust_d_tokens(e, -d_tokens_burnt);
-
-            let unpaid_interest = total_debt_tokens - initially_borrowed; // safe
-            if unpaid_interest >= real_repaid_amount {
-                let diff = unpaid_interest - real_repaid_amount; // safe
-                borrow_obligation.adjust_borrowed(e, -diff);
-            }
-
-            self.borrows
-                .set(pool.pool_address.clone(), borrow_obligation);
-
-            d_tokens_burnt
+            (amount, pool.compute_d_tokens_from_tokens(e, amount)?)
         };
 
-        Ok((d_tokens_burnt, real_repaid_amount))
+        let unpaid_interest = all_d_tokens_as_tokens
+            .checked_sub(borrow_obligation.borrowed)
+            .map_over_or_underflow()?;
+
+        if unpaid_interest < 0 {
+            events::calculated_interest_is_negative(
+                e,
+                pool_address,
+                d_tokens_burnt,
+                real_repaid_amount,
+                unpaid_interest,
+                all_d_tokens_as_tokens,
+            );
+
+            return Err(MCError::InternalError);
+        } else if real_repaid_amount >= unpaid_interest {
+            let borrowed_diff = real_repaid_amount - unpaid_interest; // safe
+            borrow_obligation
+                .adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;
+        }
+
+        borrow_obligation
+            .adjust_d_tokens(e, d_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
+
+        if borrow_obligation.is_empty() {
+            self.borrows.remove(pool_address.clone());
+        } else {
+            self.borrows.set(pool_address.clone(), borrow_obligation);
+        }
+
+        Ok((real_repaid_amount, d_tokens_burnt))
     }
 
     /// Liquidates unhealthy borrow
@@ -603,6 +617,10 @@ impl BorrowObligation {
         self.borrowed = new_amount;
 
         Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.d_tokens == 0 && self.borrowed == 0
     }
 }
 
