@@ -85,6 +85,20 @@ mod test {
     }
 
     #[test]
+    fn test_high_apr_one_year() {
+        let model = AccrualModel::Compounded;
+        let apr = 9000; // 90%
+        let seconds_passed = SECONDS_IN_YEAR;
+
+        let expected_multiplier = 245960228433805; // ~2.4 (240%)
+
+        assert_eq!(
+            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            expected_multiplier
+        );
+    }
+
+    #[test]
     fn test_half_year_passed() {
         let model = AccrualModel::Compounded;
         let apr = 1000; // 10%
@@ -147,6 +161,20 @@ mod test {
         let seconds_passed = 1;
 
         let expected_multiplier = 100000000316887; // ~1.000000003 (0.0000003%)
+
+        assert_eq!(
+            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            expected_multiplier
+        );
+    }
+
+    #[test]
+    fn test_high_apr_ten_years() {
+        let model = AccrualModel::Compounded;
+        let apr = 9000; // 90%
+        let seconds_passed = 10 * SECONDS_IN_YEAR;
+
+        let expected_multiplier = 810305668833306508; // ~8103 (810200%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
