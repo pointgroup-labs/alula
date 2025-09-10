@@ -30,7 +30,7 @@ impl Accrual for AccrualModel {
                 let growth_factor = SCALED_ONE
                     .checked_add(per_second_rate)
                     .map_over_or_underflow()?;
-                let seconds_passed = seconds_passed as u64;
+                let seconds_passed = seconds_passed;
 
                 math_utils::bin_pow(growth_factor, seconds_passed, SCALED_ONE)
             }

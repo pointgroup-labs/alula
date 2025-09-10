@@ -222,17 +222,17 @@ fn test_multiply_pair_with_inexistent_pool() {
 // ---- Helpers ----
 
 fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
-    let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
-    let contract_admin = Address::generate(&e);
-    let oracle = Address::generate(&e);
+    let contract_name = soroban_sdk::String::from_str(e, "market_contract");
+    let contract_admin = Address::generate(e);
+    let oracle = Address::generate(e);
 
     let contract_id = e.register(MarketContract, (contract_name, contract_admin, oracle));
 
-    MarketContractClient::new(&e, &contract_id)
+    MarketContractClient::new(e, &contract_id)
 }
 
 fn register_random_sac<'a>(e: &Env) -> Address {
-    let token_admin = Address::generate(&e);
+    let token_admin = Address::generate(e);
 
     e.register_stellar_asset_contract_v2(token_admin).address()
 }

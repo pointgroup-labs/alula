@@ -648,7 +648,7 @@ pub fn process_deposit(
     }
 
     let mut obligation =
-        Obligation::try_get(&e, &obligation_key).unwrap_or(Obligation::new(&e, &obligation_key));
+        Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
 
     let j_tokens_to_issue = pool.compute_j_tokens_from_tokens(e, amount)?;
     obligation.deposit(e, pool_address, j_tokens_to_issue, amount)?;
@@ -656,7 +656,7 @@ pub fn process_deposit(
     pool.adjust_total_j_tokens(e, j_tokens_to_issue)?;
     pool.adjust_total_available(e, amount)?;
 
-    obligation.set(e, &obligation_key);
+    obligation.set(e, obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -681,7 +681,7 @@ fn process_borrow(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(&e, &obligation_key)?;
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -703,7 +703,7 @@ fn process_borrow(
         real_borrowed_amount.checked_neg().map_over_or_underflow()?,
     )?;
 
-    obligation.set(e, &obligation_key);
+    obligation.set(e, obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -733,7 +733,7 @@ fn process_add_collateral(
     require_nonnegative(amount)?;
 
     let mut obligation =
-        Obligation::try_get(e, &obligation_key).unwrap_or(Obligation::new(e, &obligation_key));
+        Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
 
     obligation.accrue_interest(e)?;
 
@@ -741,7 +741,7 @@ fn process_add_collateral(
     obligation.add_collateral(e, pool_address, amount)?;
     pool.adjust_total_collateral(e, amount)?;
 
-    obligation.set(e, &obligation_key);
+    obligation.set(e, obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -760,12 +760,12 @@ fn process_repay(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, &obligation_key)?;
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
     // NB: Accruing interest on an obligation must precede pool retrieval
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let (real_repaid_amount, d_tokens_burnt) = obligation.repay(e, &pool_address, &pool, amount)?;
+    let (real_repaid_amount, d_tokens_burnt) = obligation.repay(e, pool_address, &pool, amount)?;
 
     pool.adjust_total_d_tokens(e, d_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_borrowed(e, real_repaid_amount.checked_neg().map_over_or_underflow()?)?;
@@ -779,7 +779,7 @@ fn process_repay(
         return Err(MCError::InternalError);
     }
 
-    obligation.set(e, &obligation_key);
+    obligation.set(e, obligation_key);
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -815,7 +815,7 @@ fn process_liquidate(
         return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
     }
 
-    let mut obligation = Obligation::try_get(e, &borrower_obligation_key)?;
+    let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
     obligation.accrue_interest(e)?;
 
     obligation.require_non_healthy(e)?;
@@ -906,7 +906,7 @@ fn process_remove_collateral(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, &obligation_key)?;
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -923,9 +923,9 @@ fn process_remove_collateral(
     pool.adjust_total_collateral(e, -removed_tokens_amount)?;
 
     if obligation.is_empty() {
-        obligation.remove(e, &obligation_key);
+        obligation.remove(e, obligation_key);
     } else {
-        obligation.set(e, &obligation_key);
+        obligation.set(e, obligation_key);
     }
     pool.set(e);
 
@@ -949,7 +949,7 @@ fn process_withdraw(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation = Obligation::try_get(e, &obligation_key)?;
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
     // NB: Accruing interest on an obligation must precede pool retrieval
     obligation.accrue_interest(e)?;
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -980,9 +980,9 @@ fn process_withdraw(
     pool.adjust_total_j_tokens(e, j_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
 
     if obligation.is_empty() {
-        obligation.remove(e, &obligation_key);
+        obligation.remove(e, obligation_key);
     } else {
-        obligation.set(e, &obligation_key);
+        obligation.set(e, obligation_key);
     }
     pool.set(e);
 

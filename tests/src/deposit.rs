@@ -69,7 +69,7 @@ fn test_deposit_zero() {
     let user = &users[0];
 
     let pool_before = contract_client.get_pool(&gold_pool_address);
-    contract_client.deposit(&user, &usdc_token_address, &0);
+    contract_client.deposit(user, &usdc_token_address, &0);
     let pool_after = contract_client.get_pool(&gold_pool_address);
 
     assert_eq!(pool_after, pool_before);
@@ -221,9 +221,9 @@ fn test_deposit_multiple_shareholders() {
     let creditor_2 = &users[1];
     let borrower = &users[2];
 
-    contract_client.deposit(&creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.deposit(
-        &creditor_2,
+        creditor_2,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT / 2),
     );

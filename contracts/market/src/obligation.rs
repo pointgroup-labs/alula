@@ -50,7 +50,7 @@ impl Obligation {
     /// Modifies the obligation's pools storage data by appending the user's address to the
     /// obligation's list
     pub fn new(e: &Env, obligation_key: &ObligationKey) -> Self {
-        storage::register_obligation(e, &obligation_key);
+        storage::register_obligation(e, obligation_key);
 
         Self {
             deposits: Map::new(e),
@@ -107,7 +107,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
     ) -> Result<i128, MCError> {
-        self.compute_max_health_factor_decreasing_amount(e, &pool, pool.config.open_ltv_bps)
+        self.compute_max_health_factor_decreasing_amount(e, pool, pool.config.open_ltv_bps)
     }
 
     /// Computes the max healthy amount of the token that can be borrowed and that
@@ -117,7 +117,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
     ) -> Result<i128, MCError> {
-        self.compute_max_health_factor_decreasing_amount(e, &pool, pool.config.liability_factor_bps)
+        self.compute_max_health_factor_decreasing_amount(e, pool, pool.config.liability_factor_bps)
     }
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
@@ -255,7 +255,7 @@ impl Obligation {
         let supply = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
         let total_collateral_tokens = supply.checked_add(collateral).map_over_or_underflow()?;
 
-        Self::compute_asset_value_scaled(e, total_collateral_tokens, &pool, scalar_bps)
+        Self::compute_asset_value_scaled(e, total_collateral_tokens, pool, scalar_bps)
     }
 
     /// Computes obligation's debt pool's asset value scaled
@@ -269,7 +269,7 @@ impl Obligation {
         let &BorrowObligation { d_tokens, .. } = borrow_obligation;
         let debt = pool.compute_tokens_from_j_tokens(e, d_tokens)?;
 
-        Self::compute_asset_value_scaled(e, debt, &pool, scalar_bps)
+        Self::compute_asset_value_scaled(e, debt, pool, scalar_bps)
     }
 
     fn compute_asset_value_scaled(

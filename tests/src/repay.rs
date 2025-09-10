@@ -60,7 +60,7 @@ fn test_repay() {
     contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
 
     assert_eq!(
-        get_obligation_borrowed(&contract_client, &borrower, &usdc_pool_address),
+        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address),
         Err(MCError::BorrowDoesNotExist)
     );
 
@@ -94,14 +94,14 @@ fn test_repay_zero() {
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     let obligation_before =
-        get_borrow_obligation(&contract_client, &borrower, &usdc_pool_address).unwrap();
+        get_borrow_obligation(&contract_client, borrower, &usdc_pool_address).unwrap();
     let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
     let gold_pool_before = contract_client.get_pool(&gold_pool_address);
 
     contract_client.repay(borrower, &usdc_pool_address, &0);
 
     let obligation_after =
-        get_borrow_obligation(&contract_client, &borrower, &usdc_pool_address).unwrap();
+        get_borrow_obligation(&contract_client, borrower, &usdc_pool_address).unwrap();
     let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
     let gold_pool_after = contract_client.get_pool(&gold_pool_address);
 

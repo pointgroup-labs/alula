@@ -205,7 +205,7 @@ impl Pool {
         removed_available_amount: i128,
     ) -> Result<(), MCError> {
         let max_available_amount_to_remove =
-            Self::compute_available_utilization_ratio_cap_borrow(&self, e)?;
+            Self::compute_available_utilization_ratio_cap_borrow(self, e)?;
 
         if removed_available_amount > max_available_amount_to_remove {
             return Err(MCError::PoolUtilizationRatioCapExceeded);
