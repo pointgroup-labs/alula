@@ -231,7 +231,7 @@ fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
     MarketContractClient::new(e, &contract_id)
 }
 
-fn register_random_sac<'a>(e: &Env) -> Address {
+fn register_random_sac(e: &Env) -> Address {
     let token_admin = Address::generate(e);
 
     e.register_stellar_asset_contract_v2(token_admin).address()
