@@ -17,7 +17,7 @@ use crate::{
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
-    obligation::{Obligation, ObligationKey},
+    obligation::{LiquidationValues, Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
     storage::{self, GlobalState},
     swap,
@@ -806,8 +806,7 @@ fn process_liquidate(
     require_nonnegative(amount)?;
 
     if *liquidator == borrower_obligation_key.user {
-        // NB: Is there any need for you to liquidate oneself?
-        // WARN: Should I really make this an error?
+        // TODO: Can there any need for you to liquidate oneself?
         return Err(MCError::SelfLiquidation);
     }
 
@@ -819,10 +818,7 @@ fn process_liquidate(
     let mut obligation = Obligation::try_get(e, &borrower_obligation_key)?;
     obligation.accrue_interest(e)?;
 
-    // Something like this indeed has to be added
-    // since it accounts for liquidation threshold
-    // if obligation.is_healthy() {}
-    // if obligation.compute_max_healthy_debt_added_amount(e, pool_address) > 0
+    obligation.require_non_healthy(e)?;
 
     let (mut borrow_pool, mut collateral_pool) = (
         Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
@@ -830,107 +826,77 @@ fn process_liquidate(
             .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
     );
 
-    // let LiquidationValues {
-    //     liquidated_amount,
-    //     collateral_amount_sold,
-    //     shares_amount_sold,
-    //     tokens_from_sold_shares,
-    // } = obligation.liquidate(todo!())?;
-    todo!();
+    let LiquidationValues {
+        liquidated_amount,
+        d_tokens_repaid,
+        collateral_amount_sold,
+        j_tokens_amount_sold,
+        tokens_from_sold_j_tokens,
+    } = obligation.liquidate(
+        e,
+        borrow_pool_address,
+        collateral_pool_address,
+        &borrow_pool,
+        &collateral_pool,
+        amount,
+    )?;
+
+    collateral_pool.adjust_total_available(
+        e,
+        tokens_from_sold_j_tokens
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+    collateral_pool.adjust_total_j_tokens(
+        e,
+        j_tokens_amount_sold.checked_neg().map_over_or_underflow()?,
+    )?;
+    borrow_pool
+        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
+    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
+
+    collateral_pool.adjust_total_collateral(
+        e,
+        collateral_amount_sold
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+
+    obligation.set(e, borrower_obligation_key);
+
+    collateral_pool.set(e);
+    borrow_pool.set(e);
+
+    let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
+    borrowed_token_client.transfer(
+        liquidator,
+        &e.current_contract_address(),
+        &liquidated_amount,
+    );
+
+    let collateral_seized_amount = tokens_from_sold_j_tokens
+        .checked_add(collateral_amount_sold)
+        .map_over_or_underflow()?;
+
+    let collateral_token_client = token::Client::new(e, &collateral_pool.token_address);
+    collateral_token_client.transfer(
+        &e.current_contract_address(),
+        liquidator,
+        &collateral_seized_amount,
+    );
+
+    events::liquidate(
+        e,
+        liquidator,
+        borrower_obligation_key,
+        borrow_pool_address,
+        collateral_pool_address,
+        liquidated_amount,
+        collateral_seized_amount,
+    );
 
     Ok(())
 }
-
-// fn process_liquidate(
-//     e: &Env,
-//     liquidator: &Address,
-//     borrower: &Address,
-//     borrow_pool_address: &Address,
-//     collateral_pool_address: &Address,
-//     amount: i128,
-// ) -> Result<(), MCError> {
-//     if amount < 0 {
-//         return Err(MCError::NegativeLiquidation);
-//     }
-
-//     if liquidator == borrower {
-//         return Err(MCError::SelfLiquidation);
-//     }
-
-//     if borrow_pool_address == collateral_pool_address {
-//         return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
-//     }
-
-//     let mut obligation = Obligation::try_get(e, borrower)?;
-
-//     obligation.accrue_interest(e)?;
-//     if obligation.is_healthy(e)? {
-//         return Err(MCError::LiquidatedPositionIsHealthy);
-//     }
-
-//     let Ok(mut borrow_pool) = Pool::try_get(e, borrow_pool_address) else {
-//         return Err(MCError::BorrowPoolDoesNotExist);
-//     };
-//     let Ok(mut collateral_pool) = Pool::try_get(e, collateral_pool_address) else {
-//         return Err(MCError::CollateralPoolDoesNotExist);
-//     };
-
-//     let LiquidationValues {
-//         liquidated_amount,
-//         collateral_amount_sold,
-//         shares_amount_sold,
-//         tokens_from_sold_shares,
-//     } = obligation.liquidate(
-//         e,
-//         borrow_pool_address,
-//         collateral_pool_address,
-//         &borrow_pool,
-//         &collateral_pool,
-//         amount,
-//     )?;
-
-//     let collateral_seized_amount = tokens_from_sold_shares
-//         .checked_add(collateral_amount_sold)
-//         .map_over_or_underflow()?;
-
-//     borrow_pool.adjust_total_borrowed(e, -liquidated_amount)?;
-//     borrow_pool.adjust_total_available(e, liquidated_amount)?;
-
-//     collateral_pool.adjust_total_shares(e, -shares_amount_sold)?;
-//     collateral_pool.adjust_total_available(e, -tokens_from_sold_shares)?;
-//     collateral_pool.adjust_total_collateral(e, -collateral_amount_sold)?;
-
-//     obligation.set(e);
-
-//     borrow_pool.set(e);
-//     collateral_pool.set(e);
-
-//     let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
-//     borrowed_token_client.transfer(
-//         liquidator,
-//         &e.current_contract_address(),
-//         &liquidated_amount,
-//     );
-
-//     let collateral_token_client = token::Client::new(e, &collateral_pool.token_address);
-//     collateral_token_client.transfer(
-//         &e.current_contract_address(),
-//         liquidator,
-//         &collateral_seized_amount,
-//     );
-
-//     events::liquidate(
-//         e,
-//         liquidator,
-//         borrower,
-//         borrow_pool_address,
-//         collateral_pool_address,
-//         liquidated_amount,
-//         collateral_seized_amount,
-//     );
-
-//     Ok(())
-// }
 
 fn process_remove_collateral(
     e: &Env,
