@@ -8,6 +8,7 @@ mod liquidate;
 mod market_manager;
 mod misc;
 mod repay;
+mod security;
 mod storage_extension;
 mod swap;
 mod withdraw;
