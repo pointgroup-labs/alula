@@ -162,7 +162,7 @@ impl MultiplyPair {
     /// # Returns
     /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
     ///
-    /// TODO: Add unit tests for this...
+    /// TODO: Add unit tests for this
     fn compute_obligation_seed(
         e: &Env,
         deposit_pool_address: &Address,

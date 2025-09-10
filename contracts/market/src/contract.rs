@@ -765,7 +765,7 @@ fn process_repay(
     // NB: Accruing interest on an obligation must precede pool retrieval
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let (d_tokens_burnt, real_repaid_amount) = obligation.repay(e, &pool_address, &pool, amount)?;
+    let (real_repaid_amount, d_tokens_burnt) = obligation.repay(e, &pool_address, &pool, amount)?;
 
     pool.adjust_total_d_tokens(e, d_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_borrowed(e, real_repaid_amount.checked_neg().map_over_or_underflow()?)?;

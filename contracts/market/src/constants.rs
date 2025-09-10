@@ -87,10 +87,7 @@ pub const DEFAULT_UTILIZATION_RATIO_LIMIT: i128 = 100;
 /// Max portion of a position that can be liquidated in one go (percent)
 pub const DEFAULT_CLOSE_FACTOR: i128 = 50;
 
-// TODO: Comments?
 pub const DEFAULT_OPEN_LTV: i128 = 70;
-
-// TODO: Comments?
 pub const DEFAULT_CLOSE_LTV: i128 = 80;
 
 /// Additional spread taken during liquidation (percent)
@@ -99,10 +96,7 @@ pub const DEFAULT_LIQUIDATION_SPREAD: i128 = 10;
 /// Health factor threshold expressed in bps (100% = 10_000 bps)
 pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = 100 * BPS_IN_PERCENT;
 
-// TODO: Comment
 pub const DEFAULT_LIABILITY_FACTOR: i128 = 100; // 100% is equivalent to a liability factor to not make any difference
-
-// TODO: Comment
 pub const MAX_LIABILITY_FACTOR: i128 = 200;
 
 // ---- Swap ----

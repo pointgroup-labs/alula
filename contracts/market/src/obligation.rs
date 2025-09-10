@@ -672,6 +672,27 @@ impl Obligation {
         Ok(deposit_obligation.j_tokens)
     }
 
+    pub fn get_received_interest(&self, e: &Env, pool_address: &Address) -> Result<i128, MCError> {
+        let deposit_obligation = self
+            .deposits
+            .get(pool_address.clone())
+            .ok_or(MCError::DepositDoesNotExist)?;
+        let deposit_pool = Pool::try_get(e, pool_address)?;
+
+        let total_supply =
+            deposit_pool.compute_j_tokens_from_tokens(e, deposit_obligation.j_tokens)?;
+        let deposited = deposit_obligation.deposited;
+
+        if total_supply < deposited {
+            // TODO: Add an event?
+
+            return Err(MCError::InternalError);
+        }
+        let unpaid_interest = total_supply - deposited; // safe
+
+        Ok(unpaid_interest)
+    }
+
     pub fn get_unpaid_interest(&self, e: &Env, pool_address: &Address) -> Result<i128, MCError> {
         let borrow_obligation = self
             .borrows
@@ -706,7 +727,7 @@ impl Obligation {
             .get(pool_address.clone())
             .ok_or(MCError::BorrowDoesNotExist)?;
         let borrow_pool = Pool::try_get(e, pool_address).map_err(|_| {
-            // TODO: Add an event?
+            events::pool_is_missing_in_storage(e, pool_address);
 
             MCError::InternalError
         })?;
@@ -786,7 +807,7 @@ impl BorrowObligation {
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 #[contracttype]
 pub struct DepositObligation {
-    /// TODO: Comment
+    /// A share of total supplied tokens in the pool that obligation contains
     pub j_tokens: i128,
     /// Accumulated value of collateral that doesn't accrue interest
     pub collateral: i128,
