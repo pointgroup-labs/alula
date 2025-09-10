@@ -22,7 +22,7 @@ pub enum DataKey {
     GlobalState,
     Pool(Address),
     Obligation(ObligationKey), // NB: What's better Bytes or BytesN here?
-    MultiplyPair((Address, Address)), // (deposit, borrow)
+    MultiplyPair((Address, Address)), // (deposit_pool_address, borrow_pool_address)
     Accrual,
     AllPools,
     AllObligations,

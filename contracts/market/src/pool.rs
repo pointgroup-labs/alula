@@ -481,28 +481,6 @@ impl PoolConfig {
             return Err("Invalid liability factor");
         }
 
-        // if base_rate_per_second < 0 {
-        //     return Err("Base rate per second must be non-negative");
-        // }
-
-        // if optimal_utilization_ratio_bps <= 0
-        //     || optimal_utilization_ratio_bps > 100 * BPS_IN_PERCENT
-        // {
-        //     return Err("Optimal utilization ratio must be between 0% and 100%");
-        // }
-
-        // if utilization_ratio_limit_bps <= optimal_utilization_ratio_bps {
-        //     return Err("Utilization ratio limit must exceed optimal utilization ratio");
-        // }
-
-        // if slope1 < 0 || slope2 < 0 {
-        //     return Err("Interest rate slopes must be non-negative");
-        // }
-
-        // if slope1 >= slope2 {
-        //     return Err("slope1 must be less than slope2 for kinked model to work");
-        // }
-
         Ok(())
     }
 }

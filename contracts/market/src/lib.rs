@@ -14,7 +14,3 @@ pub mod pool;
 pub mod soroswap_router;
 pub mod storage;
 pub mod swap;
-
-// Aliases
-// pub type MCError = error::MCError;
-// pub type LCResult<T> = Result<T, MCError>;

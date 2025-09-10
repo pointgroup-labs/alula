@@ -345,15 +345,15 @@ impl TestMarketFixture<'_> {
         }
 
         // Interest rate invariants
-        // let apys = pools
-        //     .iter()
-        //     .map(|pool| contract_client.get_apy(&pool.token_address))
-        //     .collect::<Vec<_>>();
+        let apys = pools
+            .iter()
+            .map(|pool| contract_client.get_apy(&pool.token_address))
+            .collect::<Vec<_>>();
 
-        // for apy in apys {
-        //     assert!(apy.borrow_bps > 0);
-        //     assert!(apy.borrow_bps >= apy.supply_bps);
-        // }
+        for apy in apys {
+            assert!(apy.borrow_bps > 0);
+            assert!(apy.borrow_bps >= apy.supply_bps);
+        }
     }
 }
 

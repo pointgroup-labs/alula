@@ -118,8 +118,8 @@ pub fn repay(e: &Env, pool_address: &Address, obligation_key: &ObligationKey, am
 
 /// Emitted when a borrower's position is liquidated
 ///
-/// - topics - `["liquidate", liquidator: Address, borrower_obligation_key: ObligationKey, borrow_pool: Address,
-///   collateral_pool: Address]`
+/// - topics - `["liquidate", liquidator: Address, borrower_obligation_key: ObligationKey,
+///   borrow_pool: Address, collateral_pool: Address]`
 /// - data - `[liquidated_amount: i128, collateral_seized_amount: i128]`
 pub fn liquidate(
     e: &Env,
