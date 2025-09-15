@@ -399,7 +399,7 @@ mod tests {
         // compound when raising to power via fixed point number multiplication.
         // This is not an issue because of using a very big denominator on
         // practice([`SCALED_FIXED_POINT_DENOMINATOR`]) compared to the applicable powers
-        assert_eq!(res, 7377939);
+        assert_eq!(res, 7377939); // ~7.3 instead of expected ~2.71
     }
 
     #[test]
@@ -415,8 +415,8 @@ mod tests {
     #[test]
     fn test_euler_very_small_exponents_floor() {
         let base: i128 = 1_1;
-        let denominator = 1_0;
-        let exponent = 1_0;
+        let denominator = 10;
+        let exponent = 10;
 
         let res = bin_pow(base, exponent, denominator).unwrap();
         assert_eq!(res, 22);
@@ -429,7 +429,7 @@ mod tests {
         let exponent = 10;
 
         let res = bin_pow_ceil(base, exponent, denominator).unwrap();
-        assert_eq!(res, 38); // NB: Instead of expected 25
+        assert_eq!(res, 38); // NB: 38 instead of the expected 25 due to the small denominator
     }
 
     #[test]
@@ -439,7 +439,7 @@ mod tests {
         let exponent = 10;
 
         let res = bin_pow_ceil(base, exponent, denominator).unwrap();
-        assert_eq!(res, 259375); // NB: Increasing the order of denominator improves the precision
+        assert_eq!(res, 259375); // NB: Increasing the denominator improves the precision
     }
 
     #[test]
@@ -604,9 +604,9 @@ mod tests {
         let base_099 = denominator * 99 / 100; // 0.99
         let result = bin_pow(base_099, 100, denominator).unwrap();
         // 0.99^100 ≈ 0.366032
-        // let expected = 366_032_000; // 0.366032 * 10^9
+        let expected = 366_032_000; // 0.366032 * 10^9
         assert!(
-            result > 0,
+            (result - expected).abs() < 1000,
             "0.99^100 should be positive, got {}",
             result as f64 / denominator as f64
         );
@@ -616,9 +616,9 @@ mod tests {
         let base_03 = denominator * 3 / 10; // 0.3
         let result = bin_pow(base_03, 5, denominator).unwrap();
         // 0.3^5 = 0.00243
-        // let expected = 2_430_000; // 0.00243 * 10^9
+        let expected = 2_430_000; // 0.00243 * 10^9
         assert!(
-            result > 0,
+            (result - expected).abs() < 1000,
             "0.3^5 should be positive, got {}",
             result as f64 / denominator as f64
         );
@@ -657,9 +657,9 @@ mod tests {
         // Test how changing the denominator affects precision
 
         // Compute the same value with different denominators
-        let base_values = [(1.5, 3), (0.8, 5), (1.1, 10)];
+        let data = [(1.5, 3), (0.8, 5), (1.1, 10)];
 
-        for (base_value, exponent) in base_values {
+        for (base_value, exponent) in data {
             let mut results = Vec::new();
 
             // Test with increasing denominator precision
