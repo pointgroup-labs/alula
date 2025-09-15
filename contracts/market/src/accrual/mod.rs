@@ -43,7 +43,7 @@ impl Accrual for AccrualModel {
 
 #[cfg(test)]
 mod test {
-    #[allow(clippy::inconsistent_digit_grouping)]
+    #![allow(clippy::inconsistent_digit_grouping)]
     use soroban_fixed_point_math::FixedPoint;
 
     use super::{Accrual, AccrualModel};
