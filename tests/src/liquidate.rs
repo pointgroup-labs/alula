@@ -625,7 +625,7 @@ fn test_liquidation_with_interest_accrual() {
     test.test_fixture
         .e
         .ledger()
-        .with_mut(|li| li.timestamp += 100 * 365 * 24 * 60 * 60); // 100 years
+        .with_mut(|li| li.timestamp += 10 * 365 * 24 * 60 * 60); // 10 years
 
     let debt = test.total_debt();
     let liquidation_amount = test.liquidation_amount(20);

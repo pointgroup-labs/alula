@@ -136,7 +136,7 @@ fn test_get_amount_out() {
         .first()
         .unwrap();
 
-    // NB: Approximate check takes place because of the rounding that occurs in the whole numbers'
+    // NB: Approximate check takes place because of the truncation that occurs in the whole numbers'
     // arithmetic
     assert_approx_eq_rel(gold_usdc_amount_in, AMOUNT_IN, DELTA_BPS);
     assert_approx_eq_rel(usdc_gold_amount_in, AMOUNT_IN, DELTA_BPS);

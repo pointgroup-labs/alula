@@ -2,9 +2,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::contracttype;
 
 use crate::{
-    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    constants::{BPS_FACTOR, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR},
     error::MCError,
-    interest_rate::SCALED_ONE,
     math_utils::{self, MathUtils},
 };
 
@@ -23,15 +22,18 @@ impl Accrual for AccrualModel {
         match self {
             AccrualModel::Compounded => {
                 let scaled_apr = apr_bps
-                    .fixed_mul_ceil(SCALED_ONE, BPS_FACTOR)
+                    .fixed_mul_ceil(SCALED_FIXED_POINT_DENOMINATOR, BPS_FACTOR)
                     .map_over_or_underflow()?;
-
                 let per_second_rate = scaled_apr / SECONDS_IN_YEAR as i128;
-                let growth_factor = SCALED_ONE
+                let growth_factor = SCALED_FIXED_POINT_DENOMINATOR
                     .checked_add(per_second_rate)
                     .map_over_or_underflow()?;
 
-                math_utils::bin_pow(growth_factor, seconds_passed, SCALED_ONE)
+                math_utils::bin_pow(
+                    growth_factor,
+                    seconds_passed,
+                    SCALED_FIXED_POINT_DENOMINATOR,
+                )
             }
         }
     }
@@ -39,15 +41,17 @@ impl Accrual for AccrualModel {
 
 #[cfg(test)]
 mod test {
-    use super::{Accrual, AccrualModel, SCALED_ONE, SECONDS_IN_YEAR};
-    use crate::constants::SECONDS_PER_DAY;
+    use soroban_fixed_point_math::FixedPoint;
+
+    use super::{Accrual, AccrualModel, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR};
+    use crate::{constants::SECONDS_PER_DAY, error::MCError};
 
     #[test]
     fn test_zero_seconds_passed() {
         let model = AccrualModel::Compounded;
         let apr = 1000; // 10%
         let seconds_passed = 0;
-        let expected_multiplier = SCALED_ONE;
+        let expected_multiplier = SCALED_FIXED_POINT_DENOMINATOR;
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -61,7 +65,7 @@ mod test {
         let apr = 0;
         let seconds_passed = SECONDS_IN_YEAR;
 
-        let expected_multiplier = SCALED_ONE; // 1(0%)
+        let expected_multiplier = SCALED_FIXED_POINT_DENOMINATOR; // =1 (0%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -75,7 +79,7 @@ mod test {
         let apr = 1000; // 10%
         let seconds_passed = SECONDS_IN_YEAR;
 
-        let expected_multiplier: i128 = 110517068512967; // ~1.11 (11%)
+        let expected_multiplier: i128 = 1_105_170_917_873_740_281; // ~1.105 (11.05%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -89,7 +93,7 @@ mod test {
         let apr = 9000; // 90%
         let seconds_passed = SECONDS_IN_YEAR;
 
-        let expected_multiplier = 245960228433805; // ~2.4 (240%)
+        let expected_multiplier = 2_459_603_079_490_413_216; // ~2.4 (240%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -103,7 +107,7 @@ mod test {
         let apr = 1000; // 10%
         let seconds_passed = SECONDS_IN_YEAR / 2;
 
-        let expected_multiplier = 105127098558347; // ~1.051 (5.1%)
+        let expected_multiplier = 1_051_271_096_279_993_934; // ~1.051 (5.1%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -117,7 +121,7 @@ mod test {
         let apr = 1000; // 10%
         let seconds_passed = SECONDS_PER_DAY;
 
-        let expected_multiplier = 100027382783319; // ~1.00027 (0.027%)
+        let expected_multiplier = 1_000_273_828_409_933_351; // ~1.00027 (0.027%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -131,7 +135,7 @@ mod test {
         let apr = 2000; // 20%
         let seconds_passed = SECONDS_IN_YEAR;
 
-        let expected_multiplier = 122140262868925; // ~1.22 (22%)
+        let expected_multiplier = 1_221_402_757_366_989_775; // ~1.22 (22%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -145,7 +149,7 @@ mod test {
         let apr = 100; // 1%
         let seconds_passed = SECONDS_IN_YEAR * 2;
 
-        let expected_multiplier = 102020084536821; // ~1.02 (2%)
+        let expected_multiplier = 1_020_201_339_994_595_008; // ~1.02 (2%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -159,7 +163,7 @@ mod test {
         let apr = 1000; // 10%
         let seconds_passed = 1;
 
-        let expected_multiplier = 100000000316887; // ~1.000000003 (0.0000003%)
+        let expected_multiplier = 1_000_000_003_168_876_461; // ~1.000000003 (0.0000003%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -168,16 +172,70 @@ mod test {
     }
 
     #[test]
-    fn test_high_apr_ten_years() {
+    fn test_high_apr_two_years() {
         let model = AccrualModel::Compounded;
-        let apr = 9000; // 90%
-        let seconds_passed = 10 * SECONDS_IN_YEAR;
+        let apr = 15_000; // 150%
+        let seconds_passed = 2 * SECONDS_IN_YEAR;
 
-        let expected_multiplier = 810305668833306508; // ~8103 (810200%)
+        let expected_multiplier = 20_085_535_490_337_347_880; // ~20.085 (1900.85%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
+    }
+
+    #[test]
+    fn test_moderate_apr_ten_years() {
+        let model = AccrualModel::Compounded;
+        let apr = 2_000; // 20%
+        let seconds_passed = 10 * SECONDS_IN_YEAR;
+
+        let expected_multiplier = 7_389_056_050_946_052_968; // ~7.389 (638.9%)
+
+        assert_eq!(
+            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            expected_multiplier
+        );
+    }
+
+    #[test]
+    fn test_3_years_of_high_apr_break_the_i128_type() {
+        let model = AccrualModel::Compounded;
+        let apr = 15_000; // 150%
+        let seconds_passed = 3 * SECONDS_IN_YEAR;
+
+        // NB: Switching to [`I256`] extends the computational constraints
+        assert_eq!(
+            model.calculate_multiplier(apr, seconds_passed),
+            Err(MCError::OverOrUnderflow)
+        );
+    }
+
+    #[test]
+    fn test_extreme_multiplicator_extreme_old_value_works_with_i128() {
+        let old_value: i128 = 10_000_000_000_0000000;
+        let big_multiplier = 200 * SCALED_FIXED_POINT_DENOMINATOR;
+
+        let new_value = old_value
+            .fixed_mul_floor(big_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
+            .unwrap();
+
+        assert_eq!(new_value, 2_000_000_000_000_0000000);
+    }
+
+    #[test]
+    fn test_extreme_multiplicator_very_extreme_old_value_does_not_work_with_i128() {
+        // NB: This test shows the boundaries of using [`i128`] for intermediate calculations.
+        // The boundaries can be extended when switching [`i128`] => [`I256`](See: https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.I256.html).
+        // WARN: Consider increased gas cost if switching to [`I256`] as a future-proofing measure
+        // and not as a necessity
+        let old_value: i128 = 100_000_000_000_0000000;
+        let big_multiplier = 200 * SCALED_FIXED_POINT_DENOMINATOR;
+
+        let new_value =
+            old_value.fixed_mul_floor(big_multiplier, SCALED_FIXED_POINT_DENOMINATOR * 10);
+
+        assert_eq!(new_value, None);
     }
 }

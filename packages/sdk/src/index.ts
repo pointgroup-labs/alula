@@ -74,7 +74,7 @@ export const MCError = {
 
 /**
  * Interest rate multipliers presented as (1 + xxx) where `xxx` is a compound interest rate.
- * The real multiplier(e.g. 1.32, 2.53, etc) is scaled up with [`SCALED_ONE`] value.
+ * The real multiplier(e.g. 1.32, 2.53, etc) is scaled up with [`SCALED_FIXED_POINT_DENOMINATOR`] value.
  */
 export interface CompoundRateMultipliers {
   borrow: i128
@@ -195,7 +195,7 @@ export interface Pool {
 export interface PoolConfig {
   /**
    * Base interest rate applied regardless of utilization, expressed per second
-   * in 1/`SCALED_ONE` units. Must be positive
+   * in 1/`SCALED_FIXED_POINT_DENOMINATOR` units. Must be positive
    */
   base_rate_per_second: i128
   /**

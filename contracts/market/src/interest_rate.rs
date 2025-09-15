@@ -6,15 +6,13 @@ use soroban_sdk::{Env, contracttype};
 
 use crate::{
     accrual::Accrual,
-    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    constants::{BPS_FACTOR, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR},
     error::MCError,
     events,
     interest_rate_model::InterestRate,
     math_utils::MathUtils,
     pool::Pool,
 };
-
-pub const SCALED_ONE: i128 = 100_000_000_000_000;
 
 /// Linear annual interest rates represented in basis points
 #[derive(Debug, Eq, PartialEq)]
@@ -75,7 +73,7 @@ impl Pool {
 
         let new_total_borrowed = self
             .total_borrowed
-            .fixed_mul_ceil(accrual_multiplier, SCALED_ONE)
+            .fixed_mul_ceil(accrual_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
             .map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
@@ -155,7 +153,7 @@ impl Pool {
 // -- Helpers --
 
 fn multiplier_to_percentage_increase(multiplier: i128) -> Result<u32, MCError> {
-    const SCALE_DIVISOR: i128 = SCALED_ONE / BPS_FACTOR;
+    const SCALE_DIVISOR: i128 = SCALED_FIXED_POINT_DENOMINATOR / BPS_FACTOR;
 
     let multiplier_bps =
         u32::try_from(multiplier / SCALE_DIVISOR).map_err(|_| MCError::OverOrUnderflow)?;

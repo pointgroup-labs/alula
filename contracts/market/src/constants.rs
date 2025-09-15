@@ -47,23 +47,11 @@ pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
 // ---- Interest Rate and Accrual ----
-
-/// Default base rate per second in bps (scaled by BPS_FACTOR semantics)
-pub const DEFAULT_BASE_RATE_PER_SECOND: i128 = 100;
-
-/// Default optimal utilization ratio in percent (0..=100)
-pub const DEFAULT_OPTIMAL_UTILIZATION_RATIO: i128 = 80;
-
-/// Default reserve ratio in percent (0..=100)
+/// A denominator that is primarily used for compounded accrual calculation when numbers in fixed
+/// point representation are raised to the natural number power. The bigger the denominator, the
+/// better the multiplication precision, the better the binary exponentiation precision
+pub const SCALED_FIXED_POINT_DENOMINATOR: i128 = 1_000_000_000_000_000_000;
 pub const DEFAULT_RESERVE_RATIO: i128 = 10;
-
-/// Slope 1 (pre-optimal utilization) in bps per utilization unit
-pub const DEFAULT_SLOPE1: i128 = 1;
-
-/// Slope 2 (post-optimal utilization) in bps per utilization unit
-pub const DEFAULT_SLOPE2: i128 = 10;
-
-// ---- Interest Rate and Accrual 2 ----
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
 pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: i128 = 7_000; // 70%
 pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: i128 = 8_000; // 80%
