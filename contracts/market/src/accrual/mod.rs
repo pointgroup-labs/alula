@@ -24,7 +24,9 @@ impl Accrual for AccrualModel {
                 let scaled_apr = apr_bps
                     .fixed_mul_ceil(SCALED_FIXED_POINT_DENOMINATOR, BPS_FACTOR)
                     .map_over_or_underflow()?;
-                let per_second_rate = scaled_apr / SECONDS_IN_YEAR as i128;
+                let per_second_rate = scaled_apr
+                    .checked_div(SECONDS_IN_YEAR as i128)
+                    .map_over_or_underflow()?;
                 let growth_factor = SCALED_FIXED_POINT_DENOMINATOR
                     .checked_add(per_second_rate)
                     .map_over_or_underflow()?;
@@ -41,10 +43,14 @@ impl Accrual for AccrualModel {
 
 #[cfg(test)]
 mod test {
+    #[allow(clippy::inconsistent_digit_grouping)]
     use soroban_fixed_point_math::FixedPoint;
 
-    use super::{Accrual, AccrualModel, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR};
-    use crate::{constants::SECONDS_PER_DAY, error::MCError};
+    use super::{Accrual, AccrualModel};
+    use crate::{
+        constants::{SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR, SECONDS_PER_DAY},
+        error::MCError,
+    };
 
     #[test]
     fn test_zero_seconds_passed() {
@@ -79,7 +85,7 @@ mod test {
         let apr = 1000; // 10%
         let seconds_passed = SECONDS_IN_YEAR;
 
-        let expected_multiplier: i128 = 1_105_170_917_873_740_281; // ~1.105 (11.05%)
+        let expected_multiplier: i128 = 1_105_170_917_873_740_281; // ~1.105 (10.5%)
 
         assert_eq!(
             model.calculate_multiplier(apr, seconds_passed).unwrap(),
@@ -200,7 +206,7 @@ mod test {
     }
 
     #[test]
-    fn test_3_years_of_high_apr_break_the_i128_type() {
+    fn test_3_years_of_high_apr_breaks_i128() {
         let model = AccrualModel::Compounded;
         let apr = 15_000; // 150%
         let seconds_passed = 3 * SECONDS_IN_YEAR;
@@ -225,7 +231,7 @@ mod test {
     }
 
     #[test]
-    fn test_extreme_multiplicator_very_extreme_old_value_does_not_work_with_i128() {
+    fn test_extreme_multiplicator_very_extreme_old_value_breaks_i128() {
         // NB: This test shows the boundaries of using [`i128`] for intermediate calculations.
         // The boundaries can be extended when switching [`i128`] => [`I256`](See: https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.I256.html).
         // WARN: Consider increased gas cost if switching to [`I256`] as a future-proofing measure
