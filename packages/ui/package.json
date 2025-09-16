@@ -2,7 +2,7 @@
   "name": "@jlend/webapp",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@10.15.1",
   "scripts": {
     "dev": "nuxt dev",
     "build": "cross-env NUXT_ENV=production nuxt generate",

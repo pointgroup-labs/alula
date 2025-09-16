@@ -99,7 +99,7 @@ export default defineNuxtConfig({
       preprocessorOptions: {
         scss: {
           additionalData: `@import "~/assets/styles/variables.scss";`, // global variables
-          silenceDeprecations: ['mixed-decls', 'color-functions', 'global-builtin', 'import', 'legacy-js-api'],
+          silenceDeprecations: ['color-functions', 'global-builtin', 'import', 'legacy-js-api'],
           // api: 'modern-compiler',
           // Optimize for production
           // outputStyle: isProd ? 'compressed' : 'expanded',
