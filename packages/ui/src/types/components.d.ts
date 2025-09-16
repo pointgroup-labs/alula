@@ -50,6 +50,7 @@ declare module 'vue' {
     JSkeleton: typeof import('./../components/Common/JSkeleton.vue')['default']
     JToggle: typeof import('./../components/Common/JToggle.vue')['default']
     JTooltip: typeof import('./../components/Common/JTooltip.vue')['default']
+    LogoWithText: typeof import('./../components/Widget/LogoWithText.vue')['default']
     MarketDetailsBorrow: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Details/MarketDetailsBorrow.vue')['default']
     MarketDetailsBottom: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Interest/MarketDetailsBottom.vue')['default']
     MarketDetailsSupply: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Details/MarketDetailsSupply.vue')['default']

@@ -1,7 +1,4 @@
 <script lang="ts" setup>
-import logoDark from '~/assets/img/logo-with-text-dark.svg'
-import logoLight from '~/assets/img/logo-with-text-light.svg'
-
 const { isSidebar } = defineProps<{
   isSidebar: boolean
 }>()
@@ -11,8 +8,6 @@ const emit = defineEmits(['close'])
 const { width } = useWindowSize()
 
 const isShowMobileElements = computed(() => width.value < 1024)
-
-const logoWithText = computed(() => isDark.value ? logoDark : logoLight)
 
 function close() {
   emit('close')
@@ -38,14 +33,7 @@ function close() {
 
     <faucet-menu />
 
-    <client-only>
-      <img
-        :src="logoWithText"
-        alt="JLend logo"
-        class="sidebar-logo"
-      >
-    </client-only>
-
+    <logo-with-text />
   </sidebar>
 </template>
 
@@ -66,10 +54,7 @@ function close() {
     line-height: 20px;
   }
 
-  .sidebar-logo {
-    width: 152px;
-    height: 52px;
-    object-fit: contain;
+  .logo-with-text {
     margin: auto 0 0 auto;
   }
 

@@ -18,7 +18,7 @@
     "test:unit": "vitest",
     "typecheck": "vue-tsc --noEmit",
     "postinstall": "npx simple-git-hooks",
-    "sizecheck": "ross-env  npx vite-bundle-visualizer"
+    "sizecheck": "cross-env  npx vite-bundle-visualizer"
   },
   "dependencies": {
     "@bootstrap-vue-next/nuxt": "^0.30.4",

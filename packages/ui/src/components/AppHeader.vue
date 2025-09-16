@@ -4,14 +4,13 @@ import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
 import logoDark from '~/assets/img/logo-dark.svg'
 import logoLight from '~/assets/img/logo-light.svg'
-import logoMobileDark from '~/assets/img/logo-mobile-dark.svg'
-import logoMobileLight from '~/assets/img/logo-mobile-light.svg'
+import logoMobile from '~/assets/img/logo-mobile.svg'
 import { isDark } from '~/hooks/theme'
 
 const { width } = useWindowSize()
 
 const route = useRoute()
-const logo = computed(() => width.value >= 1024 ? (isDark.value ? logoDark : logoLight) : (isDark.value ? logoMobileDark : logoMobileLight))
+const logo = computed(() => width.value >= 1024 ? (isDark.value ? logoDark : logoLight) : logoMobile)
 
 const tabs = [{
   label: 'Markets',
