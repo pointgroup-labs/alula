@@ -1,5 +1,5 @@
 [package]
-name = "aggregated_oracle"
+name = "soroswap_sep_40_adapter"
 version = "0.0.1"
 edition = "2024"
 publish = false
@@ -11,3 +11,6 @@ doctest = false
 [dependencies]
 sep-40-oracle.workspace = true
 soroban-sdk = { workspace = true }
+
+[features]
+mainnet = []

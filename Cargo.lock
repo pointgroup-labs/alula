@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aggregated_oracle"
-version = "0.0.1"
+version = "0.0.0"
 dependencies = [
  "sep-40-oracle",
  "soroban-sdk",
@@ -1437,6 +1437,14 @@ version = "0.0.0"
 dependencies = [
  "sep-40-oracle",
  "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "soroswap_sep_40_adapter"
+version = "0.0.1"
+dependencies = [
+ "sep-40-oracle",
  "soroban-sdk",
 ]
 

@@ -1,20 +1,17 @@
 #![allow(clippy::too_many_arguments)] // Omitting Soroswap's clippy warnings
 
-use sep_40_oracle::Asset;
 use soroban_sdk::{Address, Env, panic_with_error};
 
 use crate::{
     constants::{PRICE_SCALING_FACTOR, ROUTER_ADDRESS, USDC_SAC_ADDRESS},
-    error::AOCError,
-    storage,
+    error::SS40ACError,
 };
 
-pub fn get_price(e: &Env, asset: &Asset) -> Option<i128> {
-    let token_address = get_token_address(e, asset)?;
+pub fn get_price(e: &Env, token_address: Address) -> Option<i128> {
     let usdc_sac_address = Address::from_str(e, USDC_SAC_ADDRESS);
 
     let price = if token_address == usdc_sac_address {
-        PRICE_SCALING_FACTOR
+        PRICE_SCALING_FACTOR // '1' scaled
     } else {
         let (reserve_0, reserve_1) =
             get_reserves(e, &Address::from_str(e, USDC_SAC_ADDRESS), &token_address);
@@ -28,12 +25,12 @@ pub fn get_price(e: &Env, asset: &Asset) -> Option<i128> {
 
         let usdc_reserve_scaled = usdc_reserve
             .checked_mul(PRICE_SCALING_FACTOR)
-            .unwrap_or_else(|| panic_with_error!(e, AOCError::OverOrUnderflow));
+            .unwrap_or_else(|| panic_with_error!(e, SS40ACError::OverOrUnderflow));
 
-        // 'price' = reserve_x / reserve_y
+        // 'price_y' = (reserve_x / reserve_y)
         usdc_reserve_scaled
             .checked_div(token_reserve)
-            .unwrap_or_else(|| panic_with_error!(e, AOCError::OverOrUnderflow))
+            .unwrap_or_else(|| panic_with_error!(e, SS40ACError::OverOrUnderflow))
     };
 
     Some(price)
@@ -60,8 +57,4 @@ fn get_reserves(e: &Env, token_a: &Address, token_b: &Address) -> (i128, i128) {
     let pair_client = pair::Client::new(e, &pair_contract_address);
 
     pair_client.get_reserves()
-}
-
-fn get_token_address(e: &Env, asset: &Asset) -> Option<Address> {
-    storage::get_token_address(e, asset)
 }
