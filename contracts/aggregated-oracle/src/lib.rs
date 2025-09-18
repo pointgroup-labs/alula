@@ -1,5 +1,5 @@
 #![no_std]
 pub mod computations;
-pub(crate) mod contract;
-pub(crate) mod error;
-pub(crate) mod storage;
+pub mod contract;
+pub mod error;
+pub mod storage;

@@ -105,7 +105,8 @@ pub fn get_assets(e: &Env) -> Vec<Asset> {
     let mut assets_vec = svec![e];
 
     for address in assets_map.keys() {
-        assets_vec.push_back(address);
+        let asset = Asset::Stellar(address);
+        assets_vec.push_back(asset);
     }
 
     assets_vec
