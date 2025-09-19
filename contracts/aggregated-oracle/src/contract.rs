@@ -1,5 +1,7 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Map, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractclient, contractimpl, panic_with_error, Address, Env, Map, Symbol, Vec,
+};
 
 use crate::{
     computations::compute_median,
@@ -9,6 +11,7 @@ use crate::{
 
 /// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price
 /// aggregation
+#[contractclient(name = "AggregatedPriceFeedClient")]
 pub trait AggregatedPriceFeedTrait {
     /// Returns the base asset the price is reported in
     fn base(e: Env) -> Asset;

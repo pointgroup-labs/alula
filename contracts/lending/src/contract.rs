@@ -1,5 +1,6 @@
+use aggregated_oracle::AggregatedPriceFeedClient;
 use moderc3156::FlashLoanClient;
-use sep_40_oracle::{Asset, PriceFeedClient};
+use sep_40_oracle::Asset;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, Symbol, Vec, contract, contractimpl,
@@ -1386,7 +1387,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
 
 pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
     let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
-    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
+    let oracle_contract = AggregatedPriceFeedClient::new(e, &oracle_address);
 
     let asset = Asset::Other(ticker.clone());
 
@@ -1406,7 +1407,7 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, LCError> {
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
     let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
-    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
+    let oracle_contract = AggregatedPriceFeedClient::new(e, &oracle_address);
 
     oracle_contract.decimals()
 }
