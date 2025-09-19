@@ -163,6 +163,19 @@ pub fn get_oracles(e: &Env) -> Vec<OracleConfig> {
 
 // ---- Storage Types ----
 
+/// `SEP-40` compliant oracle contract's registration input configuration
+#[derive(Clone)]
+#[contracttype]
+pub struct OracleConfigInput {
+    /// Oracle contract's address on the ledger
+    pub address: Address,
+    /// Indicator of whether the oracle gets the data from or out of the `Stellar` ledger.
+    /// Oracles that have this set to `true` will receive a request with [`Asset::Stellar`] asset
+    /// parameter first, and only if it returns [`None`] will receive [`Asset::Other`] afterwards.
+    /// The opposite behavior takes place otherwise
+    pub is_stellar_data_based: bool,
+}
+
 /// `SEP-40` compliant oracle contract's configuration
 #[derive(Clone)]
 #[contracttype]
@@ -173,8 +186,8 @@ pub struct OracleConfig {
     pub decimals: u32,
     /// Default tick period timeframe
     pub resolution: u32,
-    /// [`PriceData`] of the last time-weighted average price computation
-    pub last_twap_price_data: PriceData,
+    /// [`PriceData`] of the last price retrievals
+    pub lastprices_cached: Map<Address, PriceData>,
     /// Indicator of whether the oracle gets the data from or out of the `Stellar` ledger.
     /// Oracles that have this set to `true` will receive a request with [`Asset::Stellar`] asset
     /// parameter first, and only if it returns [`None`] will receive [`Asset::Other`] afterwards.

@@ -1,23 +1,25 @@
-use sep_40_oracle::{Asset, PriceData};
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Symbol, Vec};
+use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
+use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Map, Symbol, Vec};
 
 use crate::{
     computations::compute_median,
     error::AOCError,
-    storage::{self, OracleConfig},
+    storage::{self, OracleConfig, OracleConfigInput},
 };
 
+/// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price
+/// aggregation
 pub trait AggregatedPriceFeedTrait {
-    /// Return the base asset the price is reported in
+    /// Returns the base asset the price is reported in
     fn base(e: Env) -> Asset;
 
-    /// Return all assets quoted by the price feed
+    /// Returns all assets quoted by the price feed
     fn assets(e: Env) -> Vec<Asset>;
 
-    /// Return the number of decimals for all assets quoted by the oracle
+    /// Returns the number of decimals for all assets quoted by the oracle
     fn decimals(e: Env) -> u32;
 
-    /// Get the most recent price for an asset
+    /// Gets the most recent price for an asset
     fn lastprice(e: Env, asset: Asset) -> Option<PriceData>;
 }
 
@@ -26,13 +28,21 @@ pub struct AggregatedOracleContract;
 
 #[contractimpl]
 impl AggregatedOracleContract {
+    /// Constructs the oracle contract
+    ///
+    /// ### Arguments
+    /// * `admin` - contract's administrator
+    /// * `base_asset` - asset that will be the result of the `base()` endpoint call
+    /// * `decimals` - number of decimals in the aggregated price
+    /// * `max_age` - max allowed age(in seconds) of oracle's price that's being aggregated
+    /// * `oracles` - list of information about oracles that are being aggregated
     pub fn __constructor(
         e: Env,
+        admin: Address,
         base_asset: Asset,
         decimals: u32,
-        admin: Address,
         max_age: u64,
-        oracles: Vec<OracleConfig>,
+        oracles: Vec<OracleConfigInput>,
     ) {
         const MIN_MAX_AGE: u64 = 360;
         const MAX_MAX_AGE: u64 = 3_600;
@@ -41,19 +51,28 @@ impl AggregatedOracleContract {
             panic_with_error!(e, AOCError::InvalidMaxAge);
         }
 
-        if oracles.is_empty() {
-            panic_with_error!(e, AOCError::NoOraclesToRegister);
+        const MIN_ORACLES_LEN: u32 = 1;
+        const MAX_ORACLES_LEN: u32 = 10;
+
+        if !(MIN_ORACLES_LEN..=MAX_ORACLES_LEN).contains(&oracles.len()) {
+            panic_with_error!(e, AOCError::InvalidOraclesAmount);
         }
 
         storage::set_admin(&e, admin);
         storage::set_decimals(&e, decimals);
         storage::set_max_age(&e, max_age);
         storage::set_base_asset(&e, base_asset);
-        storage::set_oracles(&e, oracles);
+        register_oracles(&e, oracles, max_age);
 
         storage::extend_instance_storage(&e);
     }
 
+    /// Adds an asset to the aggregation list
+    ///
+    /// ### Arguments
+    /// * `ticker` - symbol of the asset that is added
+    /// * `token_address` - token contract's address on the Stellar ledger of the asset that is
+    ///   added
     pub fn add_asset(e: Env, ticker: Symbol, token_address: Address) -> Result<(), AOCError> {
         storage::extend_instance_storage(&e);
         require_admin(&e);
@@ -61,6 +80,7 @@ impl AggregatedOracleContract {
         storage::add_asset(&e, ticker, token_address)
     }
 
+    /// Returns the list of all aggregated oracles configurations
     pub fn get_oracles(e: Env) -> Vec<OracleConfig> {
         storage::extend_instance_storage(&e);
 
@@ -102,7 +122,6 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
 
         let price = compute_median(&e, &token_address)?;
         let timestamp = e.ledger().timestamp();
-
         let price_data = PriceData { price, timestamp };
 
         Some(price_data)
@@ -110,6 +129,40 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
 }
 
 // ---- Helpers ----
+
+/// Retrieves oracles' info and registers it in the contract's instance storage
+fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_age: u64) {
+    let mut oracles_to_register = Vec::<OracleConfig>::new(e);
+
+    for input_config in input_oracles_configs {
+        let OracleConfigInput {
+            address,
+            is_stellar_data_based,
+        } = input_config;
+
+        let oracle_client = PriceFeedClient::new(e, &address);
+
+        let lastprices_cached = Map::new(e);
+        let decimals = oracle_client.decimals();
+        let resolution = oracle_client.resolution();
+
+        if (resolution as u64) > max_age {
+            panic_with_error!(e, AOCError::InvalidOracleConfig);
+        }
+
+        let oracle_config = OracleConfig {
+            address,
+            decimals,
+            resolution,
+            lastprices_cached,
+            is_stellar_data_based,
+        };
+
+        oracles_to_register.push_back(oracle_config);
+    }
+
+    storage::set_oracles(e, oracles_to_register);
+}
 
 fn require_admin(e: &Env) {
     let admin = storage::get_admin(e);

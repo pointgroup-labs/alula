@@ -7,8 +7,9 @@ pub enum AOCError {
     InternalError = 0,
     InvalidMaxAge = 1,
     OverOrUnderflow = 2,
-    NoOraclesToRegister = 3,
+    InvalidOraclesAmount = 3,
     AssetAlreadyRegistered = 4,
     OracleAlreadyRegistered = 5,
     NonUniqueOraclesRegistered = 6,
+    InvalidOracleConfig = 7,
 }

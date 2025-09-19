@@ -3,10 +3,10 @@ use soroban_sdk::{Address, Env, Map, Vec};
 
 use crate::storage::{self, OracleConfig};
 
-/// Computes the median of `lastprices` received from the oracles. In the case of a specific oracle
-/// is not aware of the price, it doesn't get included in the computation
+/// Computes the median of `lastprice().price` received from the oracles. In the case of a specific
+/// oracle is not aware of the price, it doesn't get included in the computation
 pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
-    let prices = get_lastprices(e, token_address);
+    let prices = get_last_prices(e, token_address);
 
     if prices.is_empty() {
         let topics = ("None of the oracles is aware of the recent price",);
@@ -55,11 +55,11 @@ fn tree_sort(e: &Env, vec: Vec<i128>) -> Vec<(i128, u32)> {
 /// Gets `lastprice().price` data from the protocol's oracles. If a `lastprice().price` call for a
 /// specific oracle doesn't return the price, or the price's timestamp is incorrect/outdated, it
 /// doesn't get included in the resulting list
-pub fn get_lastprices(e: &Env, token_address: &Address) -> Vec<i128> {
+pub fn get_last_prices(e: &Env, token_address: &Address) -> Vec<i128> {
     let mut prices = Vec::new(e);
 
     for oracle_config in storage::get_oracles(e) {
-        if let Some(price) = get_lastprice(e, token_address, &oracle_config) {
+        if let Some(price) = get_last_price(e, token_address, &oracle_config) {
             prices.push_back(price);
         }
     }
@@ -67,19 +67,21 @@ pub fn get_lastprices(e: &Env, token_address: &Address) -> Vec<i128> {
     prices
 }
 
-fn get_lastprice(e: &Env, token_address: &Address, oracle_config: &OracleConfig) -> Option<i128> {
+fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig) -> Option<i128> {
     let current_timestamp = e.ledger().timestamp();
     let OracleConfig {
         address: oracle_address,
         decimals: oracle_decimals,
         resolution,
-        last_twap_price_data,
+        lastprices_cached,
         is_stellar_data_based,
     } = oracle_config;
 
-    if last_twap_price_data.timestamp + (*resolution as u64) > current_timestamp {
-        // No need to fetch the price if it hasn't been updated
-        return None;
+    if let Some(lastprice) = lastprices_cached.get(token_address.clone()) {
+        if lastprice.timestamp + (*resolution as u64) > current_timestamp {
+            // No need to fetch the price if it hasn't been updated
+            return Some(lastprice.price);
+        }
     }
 
     let asset = if *is_stellar_data_based {
