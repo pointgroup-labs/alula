@@ -4,12 +4,12 @@ use soroban_sdk::{Address, Env, Map, Vec};
 use crate::storage::{self, OracleConfig};
 
 /// Computes the median of `lastprices` received from the oracles. In the case of a specific oracle
-/// not aware of the price it doesn't get included in computation
+/// is not aware of the price, it doesn't get included in the computation
 pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
     let prices = get_lastprices(e, token_address);
 
     if prices.is_empty() {
-        let topics = ("None of the oracles are aware of the recent price",);
+        let topics = ("None of the oracles is aware of the recent price",);
         let data = (token_address,);
 
         e.events().publish(topics, data);
@@ -17,33 +17,44 @@ pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
         return None;
     }
 
-    // Sorting prices via the Tree sort algorithm.
-    // See: <https://en.wikipedia.org/wiki/Tree_sort>
-    // See: <https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.Map.html>
-    let mut prices_map: Map<i128, ()> = Map::new(e);
-    for price in prices {
-        prices_map.set(price, ());
-    }
-    let sorted_prices = prices_map.keys();
+    let sorted_prices = tree_sort(e, prices);
 
     let n = sorted_prices.len();
     let median = if n % 2 == 0 {
-        let left = sorted_prices.get(n / 2).unwrap(); // safe
-        let right = sorted_prices.get((n / 2) + 1).unwrap(); // safe
+        let left = sorted_prices.get(n / 2).unwrap().0; // safe
+        let right = sorted_prices.get((n / 2) - 1).unwrap().0; // safe
 
         let mean = left.checked_add(right)?.checked_div(2)?;
 
         mean
     } else {
-        sorted_prices.get(n / 2).unwrap() // safe
+        sorted_prices.get(n / 2).unwrap().0 // safe
     };
 
     Some(median)
 }
 
-/// Gets `lastprice()` data from the protocol's oracles. If a `lastprice()` call for a specific
-/// oracle doesn't return the price, or the price's timestamp is incorrect/outdated, it doesn't get
-/// included in the resulting list
+/// Sorts prices via the Tree sort algorithm, handling duplicates by using a counter in the key
+fn tree_sort(e: &Env, vec: Vec<i128>) -> Vec<(i128, u32)> {
+    // See: <https://en.wikipedia.org/wiki/Tree_sort>
+    // See: <https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.Map.html>
+    let mut vec_map: Map<(i128, u32), ()> = Map::new(e);
+    for v in vec {
+        let mut cnt: u32 = 0;
+
+        while vec_map.contains_key((v, cnt)) {
+            cnt += 1;
+        }
+
+        vec_map.set((v, cnt), ());
+    }
+
+    vec_map.keys()
+}
+
+/// Gets `lastprice().price` data from the protocol's oracles. If a `lastprice().price` call for a
+/// specific oracle doesn't return the price, or the price's timestamp is incorrect/outdated, it
+/// doesn't get included in the resulting list
 pub fn get_lastprices(e: &Env, token_address: &Address) -> Vec<i128> {
     let mut prices = Vec::new(e);
 
@@ -86,15 +97,16 @@ fn get_lastprice(e: &Env, token_address: &Address, oracle_config: &OracleConfig)
         price_data
     } else {
         {
-            // NB: Not obtaining a price from a protocol's oracle is unexpected
+            // NB: It's rather unexpected not to obtain a price from one of the protocol's oracles
+            // in the first try, as well as the second try
             let topics = ("Oracle isn't aware of the asset variant",);
             let data = (asset.clone(), token_address.clone(), oracle_address.clone());
 
             e.events().publish(topics, data);
         }
 
-        // NB: It might be possible that oracle contains information about the asset's price as
-        // another `[Asset]` variant
+        // NB: It might be possible that an oracle contains information about the asset's price as
+        // another [`Asset`] variant
         let another_variant_asset = match &asset {
             Asset::Other(_symbol) => Asset::Stellar(token_address.clone()),
             Asset::Stellar(token_address) => {
@@ -106,8 +118,8 @@ fn get_lastprice(e: &Env, token_address: &Address, oracle_config: &OracleConfig)
 
         let Some(price_data) = oracle_client.lastprice(&another_variant_asset) else {
             {
-                let topics = ("Oracle is fully unaware of the asset's price",);
-                let data = ();
+                let topics = ("Oracle is completely unaware of the asset's price",);
+                let data = (); // No need to publish context data, since it's already published in the prior event
 
                 e.events().publish(topics, data);
             }
@@ -156,5 +168,78 @@ fn normalize_price(price: i128, oracle_decimals: u32, protocol_decimals: u32) ->
         let magnitude = i128::checked_pow(10, diff)?;
 
         price.checked_mul(magnitude)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use soroban_sdk::{vec as svec, Env, Vec};
+
+    use super::tree_sort;
+
+    #[test]
+    fn test_tree_sort_odd_no_duplicates() {
+        let e = Env::default();
+        let prices = svec![&e, 100, 300, 200];
+
+        let sorted = tree_sort(&e, prices);
+        let expected = svec![&e, (100, 0), (200, 0), (300, 0)];
+
+        assert_eq!(sorted, expected.into());
+    }
+
+    #[test]
+    fn test_tree_sort_even_no_duplicates() {
+        let e = Env::default();
+        let prices = svec![&e, 100, 400, 200, 300];
+
+        let sorted = tree_sort(&e, prices);
+        let expected = svec![&e, (100, 0), (200, 0), (300, 0), (400, 0)];
+
+        assert_eq!(sorted, expected.into());
+    }
+
+    #[test]
+    fn test_tree_sort_odd_with_duplicates() {
+        let e = Env::default();
+        let prices = svec![&e, 100, 200, 100];
+
+        let sorted = tree_sort(&e, prices);
+        let expected = svec![&e, (100, 0), (100, 1), (200, 0)];
+
+        assert_eq!(sorted, expected.into());
+    }
+
+    #[test]
+    fn test_tree_sort_even_with_duplicates() {
+        let e = Env::default();
+        let prices = svec![&e, 100, 300, 100, 200];
+
+        let sorted = tree_sort(&e, prices);
+        let expected = svec![&e, (100, 0), (100, 1), (200, 0), (300, 0)];
+
+        assert_eq!(sorted, expected.into());
+    }
+
+    #[test]
+    fn test_tree_sort_single_price() {
+        let e = Env::default();
+        let prices = svec![&e, 500];
+
+        let sorted = tree_sort(&e, prices);
+        let expected = svec![&e, (500, 0)];
+
+        assert_eq!(sorted, expected.into());
+    }
+
+    #[test]
+    fn test_tree_sort_empty_prices() {
+        let e = Env::default();
+        let prices = svec![&e];
+
+        let sorted = tree_sort(&e, prices);
+        let expected = Vec::new(&e);
+
+        assert_eq!(sorted, expected);
     }
 }
