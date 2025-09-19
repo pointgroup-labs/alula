@@ -152,7 +152,6 @@ pub fn set_oracles(e: &Env, oracles: Vec<OracleConfig>) {
 }
 
 pub fn get_oracles(e: &Env) -> Vec<OracleConfig> {
-    extend_instance_storage(e);
     let key = DataKey::Oracles;
 
     e.storage()

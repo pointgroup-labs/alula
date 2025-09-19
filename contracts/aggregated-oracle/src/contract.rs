@@ -4,7 +4,7 @@ use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Map, S
 use crate::{
     computations::compute_median,
     error::AOCError,
-    storage::{self, OracleConfig, OracleConfigInput},
+    storage::{self, is_asset_registered, OracleConfig, OracleConfigInput},
 };
 
 /// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price
@@ -77,7 +77,9 @@ impl AggregatedOracleContract {
         storage::extend_instance_storage(&e);
         require_admin(&e);
 
-        storage::add_asset(&e, ticker, token_address)
+        storage::add_asset(&e, ticker, token_address)?;
+
+        Ok(())
     }
 
     /// Returns the list of all aggregated oracles configurations
