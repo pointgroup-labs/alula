@@ -2,7 +2,7 @@ use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
 use soroban_sdk::{Address, BytesN, Env, Vec, contract, contractimpl, panic_with_error};
 
 use crate::{
-    constants::{DECIMALS, USD_SYMBOL},
+    constants::{DECIMALS, RESOLUTION, USD_SYMBOL},
     error::SS40ACError,
     storage, swap,
 };
@@ -47,8 +47,8 @@ impl PriceFeedTrait for SoroswapSep40AdapterContract {
         DECIMALS
     }
 
-    fn resolution(e: Env) -> u32 {
-        panic_with_error!(&e, SS40ACError::Unimplemented)
+    fn resolution(_e: Env) -> u32 {
+        RESOLUTION
     }
 
     fn price(e: Env, _asset: Asset, _timestamp: u64) -> Option<PriceData> {
