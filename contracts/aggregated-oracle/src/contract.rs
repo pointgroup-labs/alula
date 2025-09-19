@@ -4,7 +4,7 @@ use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Map, S
 use crate::{
     computations::compute_median,
     error::AOCError,
-    storage::{self, is_asset_registered, OracleConfig, OracleConfigInput},
+    storage::{self, OracleConfig, OracleConfigInput},
 };
 
 /// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price
