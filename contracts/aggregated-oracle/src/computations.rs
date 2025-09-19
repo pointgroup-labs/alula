@@ -24,9 +24,7 @@ pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
         let left = sorted_prices.get(n / 2).unwrap().0; // safe
         let right = sorted_prices.get((n / 2) - 1).unwrap().0; // safe
 
-        let mean = left.checked_add(right)?.checked_div(2)?;
-
-        mean
+        left.checked_add(right)?.checked_div(2)?
     } else {
         sorted_prices.get(n / 2).unwrap().0 // safe
     };
@@ -92,7 +90,7 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         Asset::Other(token_ticker)
     };
 
-    let oracle_client = PriceFeedClient::new(e, &oracle_address);
+    let oracle_client = PriceFeedClient::new(e, oracle_address);
     let price_data = oracle_client.lastprice(&asset);
 
     let price_data = if let Some(price_data) = price_data {
@@ -112,7 +110,7 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         let another_variant_asset = match &asset {
             Asset::Other(_symbol) => Asset::Stellar(token_address.clone()),
             Asset::Stellar(token_address) => {
-                let token_ticker = storage::get_token_ticker(e, &token_address);
+                let token_ticker = storage::get_token_ticker(e, token_address);
 
                 Asset::Other(token_ticker)
             }
@@ -187,7 +185,7 @@ mod tests {
         let sorted = tree_sort(&e, prices);
         let expected = svec![&e, (100, 0), (200, 0), (300, 0)];
 
-        assert_eq!(sorted, expected.into());
+        assert_eq!(sorted, expected);
     }
 
     #[test]
@@ -198,7 +196,7 @@ mod tests {
         let sorted = tree_sort(&e, prices);
         let expected = svec![&e, (100, 0), (200, 0), (300, 0), (400, 0)];
 
-        assert_eq!(sorted, expected.into());
+        assert_eq!(sorted, expected);
     }
 
     #[test]
@@ -209,7 +207,7 @@ mod tests {
         let sorted = tree_sort(&e, prices);
         let expected = svec![&e, (100, 0), (100, 1), (200, 0)];
 
-        assert_eq!(sorted, expected.into());
+        assert_eq!(sorted, expected);
     }
 
     #[test]
@@ -220,7 +218,7 @@ mod tests {
         let sorted = tree_sort(&e, prices);
         let expected = svec![&e, (100, 0), (100, 1), (200, 0), (300, 0)];
 
-        assert_eq!(sorted, expected.into());
+        assert_eq!(sorted, expected);
     }
 
     #[test]
@@ -231,7 +229,7 @@ mod tests {
         let sorted = tree_sort(&e, prices);
         let expected = svec![&e, (500, 0)];
 
-        assert_eq!(sorted, expected.into());
+        assert_eq!(sorted, expected);
     }
 
     #[test]
