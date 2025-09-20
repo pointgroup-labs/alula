@@ -50,6 +50,11 @@ impl MultiplyPair {
         }
     }
 
+    /// Returns a tuple that can be used as a unique key
+    pub fn key(&self) -> (Address, Address) {
+        (self.deposit_pool.clone(), self.borrow_pool.clone())
+    }
+
     /// Tries to get the multiply pair from the contract's storage
     ///
     /// # Returns
