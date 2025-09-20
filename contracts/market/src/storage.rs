@@ -51,155 +51,145 @@ pub fn extend_shared_storage(e: &Env, key: &DataKey) {
         .extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
 
+/// Gets the oracle address of the contract
+/// Panics if the oracle address is not set
 pub fn get_oracle_address(e: &Env) -> Address {
     extend_instance_storage(e);
-
-    let key = DataKey::OracleAddress;
-
     e.storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::OracleAddress)
         .expect("Oracle address must be instantiated at this point")
 }
 
+/// Sets the oracle address of the contract
+/// NB: Overwrites existing oracle address
 pub fn set_oracle_address(e: &Env, address: &Address) {
-    let key = DataKey::OracleAddress;
-
-    e.storage().instance().set(&key, address);
-
+    e.storage().instance().set(&DataKey::OracleAddress, address);
     extend_instance_storage(e);
 }
 
+/// Gets the global state of the contract
+/// Panics if the global state is not set
 pub fn get_global_state(e: &Env) -> GlobalState {
     extend_instance_storage(e);
-
-    let key = DataKey::GlobalState;
-
     e.storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::GlobalState)
         .expect("Global State must be instantiated at this point")
 }
 
+/// Sets the global state of the contract
+/// NB: Overwrites existing global state
 pub fn set_global_state(e: &Env, global_state: &GlobalState) {
-    let key = DataKey::GlobalState;
-
-    e.storage().instance().set(&key, global_state);
-
+    e.storage()
+        .instance()
+        .set(&DataKey::GlobalState, global_state);
     extend_instance_storage(e);
 }
 
 // --- Pool ---
+
+/// Gets all pools stored in the contract
 pub fn get_all_pools(e: &Env) -> Vec<Address> {
     let res = e.storage().persistent().get(&DataKey::AllPools);
-
     if let Some(pools) = res {
         extend_shared_storage(e, &DataKey::AllPools);
-
         pools
     } else {
         Vec::new(e)
     }
 }
 
+/// Registers a new pool in the contract storage and returns its index
+/// NB: Does not check for existing pools, use `pool_exists` before calling this
+/// if you want to avoid duplicates
 pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
-    let key = DataKey::AllPools;
-
-    let mut all_pools = get_all_pools(e);
-    all_pools.push_back(pool_address.clone());
-    let new_index = all_pools.len() - 1;
-
-    e.storage().persistent().set(&key, &all_pools);
-    extend_shared_storage(e, &key);
-
-    new_index
+    let mut pools = get_all_pools(e);
+    pools.push_back(pool_address.clone());
+    e.storage().persistent().set(&DataKey::AllPools, &pools);
+    extend_shared_storage(e, &DataKey::AllPools);
+    pools.len() + 1
 }
 
+/// Sets a pool by its address
+/// NB: Overwrites existing pool if it exists
 pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     let key = DataKey::Pool(pool_address.clone());
-
     e.storage().persistent().set(&key, pool);
-
     extend_shared_storage(e, &key); // TODO: Should we do this, though?
 }
 
+/// Checks whether a pool with the given address exists
 pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     let key = DataKey::Pool(pool_address.clone());
-
     let res = e.storage().persistent().has(&key);
-
     if res {
         extend_shared_storage(e, &key);
     }
-
     res
 }
 
+/// Gets a pool by its address
+/// Returns None if the pool does not exist
 pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     let key = DataKey::Pool(pool_address.clone());
-
     let res = e.storage().persistent().get(&key);
-
     if res.is_some() {
         extend_shared_storage(e, &key);
     }
-
     res
 }
 
+/// Removes a pool from the contract storage by its address
+/// Also removes the pool from the list of all pools
 pub fn remove_pool(e: &Env, pool_address: &Address) {
-    let key = DataKey::Pool(pool_address.clone());
-
-    e.storage().persistent().remove(&key);
-
-    let pools = get_all_pools(e);
-    let mut new_pools = Vec::new(e);
-
-    // TODO: This doesn't scale well. Start using [`soroban_sdk::Map`]
-    for pool_addr in pools.iter() {
-        if pool_addr != *pool_address {
-            new_pools.push_back(pool_addr);
-        }
+    let storage = e.storage().persistent();
+    storage.remove(&DataKey::Pool(pool_address.clone()));
+    let mut pools = get_all_pools(e);
+    if let Some(idx) = pools.last_index_of(pool_address) {
+        pools.remove(idx);
+        storage.set(&DataKey::AllPools, &pools);
     }
-
-    e.storage().persistent().set(&DataKey::AllPools, &new_pools);
 }
 
+/// Removes all pools from the contract storage
+/// Also clears the list of all pools
 pub fn remove_all_pools(e: &Env) {
-    let all_pools: Vec<Address> = get_all_pools(e);
-
-    for pool in all_pools.iter() {
-        remove_pool(e, &pool);
+    let storage = e.storage().persistent();
+    for pool in get_all_pools(e) {
+        storage.remove(&DataKey::Pool(pool));
     }
+    storage.remove(&DataKey::AllPools);
 }
 
 // --- Multiply Pair ---
+
+/// Gets all multiply pairs stored in the contract
 pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
-    let res = e.storage().persistent().get(&DataKey::AllMultiplyPairs);
-
-    if let Some(pairs) = res {
+    let storage = e.storage().persistent();
+    if let Some(pairs) = storage.get(&DataKey::AllMultiplyPairs) {
         extend_shared_storage(e, &DataKey::AllMultiplyPairs);
-
         pairs
     } else {
         Vec::new(e)
     }
 }
 
+/// Registers a new multiply pair in the contract storage and returns its index
+/// NB: Does not check for existing pairs, use `multiply_pair_exists` before calling this
+/// if you want to avoid duplicates
 pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
-    let mut all_pairs = get_all_multiply_pairs(e);
-    all_pairs.push_back(pair);
-
-    let new_index = all_pairs.len() - 1;
-
+    let mut pairs = get_all_multiply_pairs(e);
+    pairs.push_back(pair);
     e.storage()
         .persistent()
-        .set(&DataKey::AllMultiplyPairs, &all_pairs);
+        .set(&DataKey::AllMultiplyPairs, &pairs);
     extend_shared_storage(e, &DataKey::AllMultiplyPairs);
-
-    new_index
+    pairs.len() + 1
 }
 
+/// Sets a multiply pair by its key (deposit and borrow pool addresses)
+/// NB: Overwrites existing multiply pair if it exists
 pub fn set_multiply_pair(
     e: &Env,
     deposit_pool_address: &Address,
@@ -207,154 +197,130 @@ pub fn set_multiply_pair(
     pair: &MultiplyPair,
 ) {
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-
     e.storage()
         .persistent()
         // NB: Should we allow multiple pairs with the same pools?
         .set(&key, pair);
-
     extend_shared_storage(e, &key);
 }
 
+/// Checks whether a multiply pair with the given deposit and borrow pool addresses exists
 pub fn multiply_pair_exists(
     e: &Env,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
 ) -> bool {
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-
-    let res: bool = e.storage().persistent().has(&key);
-
+    let res = e.storage().persistent().has(&key);
     if res {
         extend_shared_storage(e, &key);
     }
-
     res
 }
 
+/// Gets a multiply pair by its key (deposit and borrow pool addresses)
+/// Returns None if the multiply pair does not exist
 pub fn get_multiply_pair(
     e: &Env,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
 ) -> Option<MultiplyPair> {
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-
     let res = e.storage().persistent().get(&key);
-
     if res.is_some() {
         extend_shared_storage(e, &key);
     }
-
     res
 }
 
+/// Removes a multiply pair from the contract storage by its key
+/// Also removes the multiply pair from the list of all multiply pairs
 pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
-    let key = DataKey::MultiplyPair((pair.deposit_pool.clone(), pair.borrow_pool.clone()));
-
-    e.storage().persistent().remove(&key);
-
-    let pairs = get_all_multiply_pairs(e);
-    let mut new_pairs = Vec::new(e);
-
-    for p in pairs.iter() {
-        if p != *pair {
-            new_pairs.push_back(p);
-        }
+    let storage = e.storage().persistent();
+    storage.remove(&DataKey::MultiplyPair(pair.key()));
+    let mut pairs = get_all_multiply_pairs(e);
+    if let Some(idx) = pairs.last_index_of(pair) {
+        pairs.remove(idx);
+        storage.set(&DataKey::AllMultiplyPairs, &pairs);
     }
-
-    e.storage()
-        .persistent()
-        .set(&DataKey::AllMultiplyPairs, &new_pairs);
 }
 
+/// Removes all multiply pairs from the contract storage
 pub fn remove_all_multiply_pairs(e: &Env) {
-    let all_pairs: Vec<MultiplyPair> = get_all_multiply_pairs(e);
-
-    for pair in all_pairs.iter() {
-        remove_multiply_pair(e, &pair);
+    let storage = e.storage().persistent();
+    for pair in get_all_multiply_pairs(e) {
+        storage.remove(&DataKey::MultiplyPair(pair.key()));
     }
+    storage.remove(&DataKey::AllMultiplyPairs);
 }
 
 // --- Obligation ---
 
+/// Sets an obligation by its key
 pub fn set_obligation(e: &Env, obligation_key: &ObligationKey, obligation: &Obligation) {
     let key = DataKey::Obligation(obligation_key.clone());
-
     e.storage().persistent().set(&key, obligation);
-
     extend_individual_storage(e, &key);
 }
 
+/// Gets an obligation by its key
 pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligation> {
     let key = DataKey::Obligation(obligation_key.clone());
-
     let res = e.storage().persistent().get(&key);
-
     if res.is_some() {
         extend_individual_storage(e, &key);
     }
-
     res
 }
 
+/// Checks whether an obligation with the given key exists
 pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     let key = DataKey::Obligation(obligation_key.clone());
-
     let res = e.storage().persistent().has(&key);
-
-    if res {
+    if e.storage().persistent().has(&key) {
         extend_shared_storage(e, &key);
     }
-
     res
 }
 
-// TODO: Is this a good way of doing this?
-// Doesn't seem to be scaling well
+/// Registers a new obligation key in the contract storage and returns its index
+/// TODO: Is this a good way of doing this?
+///  Doesn't seem to be scaling well
 pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) -> u32 {
-    let mut all_obligations = get_all_obligations(e);
-    all_obligations.push_back(obligation_key.clone());
-    let new_index = all_obligations.len() - 1;
-
-    e.storage()
-        .persistent()
-        .set(&DataKey::AllObligations, &all_obligations);
+    let storage = e.storage().persistent();
+    let mut obligations = get_all_obligations(e);
+    obligations.push_back(obligation_key.clone());
+    storage.set(&DataKey::AllObligations, &obligations);
     extend_shared_storage(e, &DataKey::AllObligations);
-
-    new_index
+    obligations.len() + 1
 }
 
+/// Removes an obligation from the contract storage by its key
+/// Also removes the obligation key from the list of all obligations
 pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
-    let key = DataKey::Obligation(obligation_key.clone());
-
-    e.storage().persistent().remove(&key);
-
-    let obligations = get_all_obligations(e);
-    let mut new_obligations = Vec::new(e);
-
-    // WARN: This doesn't scale well, so it better be rewritten with 'Map'
-    for obl_key in &obligations {
-        if obl_key.user != obligation_key.user && obl_key.seed != obligation_key.seed {
-            new_obligations.push_back(obl_key);
-        }
+    let storage = e.storage().persistent();
+    storage.remove(&DataKey::Obligation(obligation_key.clone()));
+    let mut obligations = get_all_obligations(e);
+    if let Some(idx) = obligations.last_index_of(obligation_key) {
+        obligations.remove(idx);
+        storage.set(&DataKey::AllObligations, &obligations);
     }
-
-    e.storage()
-        .persistent()
-        .set(&DataKey::AllObligations, &new_obligations);
 }
 
+/// Removes all obligations from the contract storage
+/// Also clears the list of all obligations
 pub fn remove_all_obligations(e: &Env) {
-    let all_obligations: Vec<ObligationKey> = get_all_obligations(e);
-
-    for obligation_key in all_obligations.iter() {
-        remove_obligation(e, &obligation_key);
+    let storage = e.storage().persistent();
+    for key in get_all_obligations(e) {
+        storage.remove(&DataKey::Obligation(key));
     }
+    storage.remove(&DataKey::AllObligations);
 }
 
+/// Gets all obligation keys stored in the contract
 pub fn get_all_obligations(e: &Env) -> Vec<ObligationKey> {
-    let res = e.storage().persistent().get(&DataKey::AllObligations);
-    if let Some(obligations) = res {
+    let storage = e.storage().persistent();
+    if let Some(obligations) = storage.get(&DataKey::AllObligations) {
         extend_shared_storage(e, &DataKey::AllObligations);
         obligations
     } else {
