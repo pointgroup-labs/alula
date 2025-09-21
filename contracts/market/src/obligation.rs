@@ -663,6 +663,7 @@ impl Obligation {
         Ok(liquidation_values)
     }
 
+    /// Returns the amount of `jTokens` that the obligation has in the specified pool
     pub fn get_j_tokens(&self, pool_address: &Address) -> Result<i128, MCError> {
         let deposit_obligation = self
             .deposits
@@ -672,6 +673,7 @@ impl Obligation {
         Ok(deposit_obligation.j_tokens)
     }
 
+    /// Calculates the interest that the obligation received from the deposit pool
     pub fn get_received_interest(&self, e: &Env, pool_address: &Address) -> Result<i128, MCError> {
         let deposit_obligation = self
             .deposits
@@ -685,14 +687,15 @@ impl Obligation {
 
         if total_supply < deposited {
             // TODO: Add an event?
-
             return Err(MCError::InternalError);
         }
+
         let unpaid_interest = total_supply - deposited; // safe
 
         Ok(unpaid_interest)
     }
 
+    /// Calculates the interest that the obligation owes to the borrow pool
     pub fn get_unpaid_interest(&self, e: &Env, pool_address: &Address) -> Result<i128, MCError> {
         let borrow_obligation = self
             .borrows
@@ -705,7 +708,6 @@ impl Obligation {
 
         if total_debt < borrowed {
             // TODO: Add an event?
-
             return Err(MCError::InternalError);
         }
         let unpaid_interest = total_debt - borrowed; // safe
@@ -713,6 +715,7 @@ impl Obligation {
         Ok(unpaid_interest)
     }
 
+    /// Returns the amount of `dTokens` that the obligation has in the specified pool
     pub fn get_borrowed(&self, pool_address: &Address) -> Result<i128, MCError> {
         let Some(borrow_obligation) = self.borrows.get(pool_address.clone()) else {
             return Err(MCError::BorrowDoesNotExist);
@@ -721,14 +724,16 @@ impl Obligation {
         Ok(borrow_obligation.borrowed)
     }
 
+    /// Returns the total debt (including interest) that the obligation has in the specified pool
+    /// (in tokens, not in dTokens)
     pub fn get_total_debt(&self, e: &Env, pool_address: &Address) -> Result<i128, MCError> {
         let borrow_obligation = self
             .borrows
             .get(pool_address.clone())
             .ok_or(MCError::BorrowDoesNotExist)?;
+
         let borrow_pool = Pool::try_get(e, pool_address).map_err(|_| {
             events::pool_is_missing_in_storage(e, pool_address);
-
             MCError::InternalError
         })?;
 
@@ -737,6 +742,7 @@ impl Obligation {
         Ok(total_debt)
     }
 
+    /// Returns the amount of collateral that the obligation has in the specified pool
     pub fn get_collateral(&self, pool_address: &Address) -> Result<i128, MCError> {
         let Some(deposit_obligation) = self.deposits.get(pool_address.clone()) else {
             return Err(MCError::DepositDoesNotExist);
@@ -860,7 +866,7 @@ impl DepositObligation {
 ///
 /// # Returns
 /// `Ok(new_amount)` if adjusting doesn't lead to a new amount being negative.
-/// `Err(MCError::InternalError otherwise
+/// `Err(MCError::InternalError)` otherwise
 fn adjust_obligation_field(
     e: &Env,
     current_value: i128,

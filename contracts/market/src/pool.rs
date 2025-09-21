@@ -270,7 +270,7 @@ impl Pool {
     }
 
     /// Computes the shares amount which must be issued or burnt from a specific obligation based on
-    /// the provided tokens amount. Intended to be  used for both `jTokens` and `dTokens` related
+    /// the provided tokens amount. Intended to be used for both `jTokens` and `dTokens` related
     /// calculations
     fn compute_shares_from_tokens(
         e: &Env,
