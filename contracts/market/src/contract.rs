@@ -241,6 +241,7 @@ impl MarketContract {
     ///
     /// ### Arguments
     /// * `liquidator` - agent which liquidates the borrower's position
+    /// * `borrower` - the borrower whose position is being liquidated
     /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
     ///   liquidator
     /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
@@ -622,7 +623,7 @@ pub fn process_initialize_multiply_pair(
     Ok(())
 }
 
-pub fn process_deposit(
+fn process_deposit(
     e: &Env,
     obligation_key: &ObligationKey,
     pool_address: &Address,
@@ -826,6 +827,10 @@ fn process_liquidate(
             .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
     );
 
+    // // TODO: Accrue interest on pools for consistency?
+    // borrow_pool.accrue_interest(e)?;
+    // collateral_pool.accrue_interest(e)?;
+
     let LiquidationValues {
         liquidated_amount,
         d_tokens_repaid,
@@ -840,6 +845,10 @@ fn process_liquidate(
         &collateral_pool,
         amount,
     )?;
+
+    // Validate liquidation amounts to prevent zero or negative
+    require_nonnegative(liquidated_amount)?;
+    require_nonnegative(collateral_amount_sold)?;
 
     collateral_pool.adjust_total_available(
         e,
@@ -1120,9 +1129,7 @@ fn process_deposit_with_leverage(
     // -- Flash Borrow --
     // TODO: Think of why it can be beneficial to account for flash borrow limits as in other
     //  lending protocols
-    if borrow_pool.total_available < flash_borrow_amount {
-        return Err(MCError::NotEnoughPoolFunds);
-    }
+    borrow_pool.require_available(flash_borrow_amount)?;
 
     // TODO: Check, why on blend_v2 they use 'token_client.transfer_allowance' instead
     //  of 'token_client.transfer' for flash loans
@@ -1191,18 +1198,18 @@ fn process_deposit_with_leverage(
         .checked_add(flash_loan_fee)
         .map_over_or_underflow()?;
 
-    let Ok(obligation) = Obligation::try_get(e, &obligation_key) else {
+    let obligation = Obligation::try_get(e, &obligation_key).map_err(|_| {
         events::obligation_is_missing_in_storage(e, user);
-
-        return Err(MCError::InternalError);
-    };
+        MCError::InternalError
+    })?;
 
     let max_healthy_borrow_amount =
         obligation.compute_max_healthy_debt_added_amount(e, &borrow_pool)?;
 
     if flash_repay_amount > max_healthy_borrow_amount {
         // TODO: Add an event
-
+        // events::leverage_borrow_exceeds_healthy_limit(e, user, flash_repay_amount,max_healthy_borrow_amount);
+        // return Err(MCError::BorrowLimitExceeded);
         return Err(MCError::InternalError);
     }
 
@@ -1253,6 +1260,10 @@ pub fn process_withdraw_from_leveraged(
         Pool::try_get(e, deposit_pool_address).map_err(|_| MCError::DepositPoolDoesNotExist)?,
     );
 
+    // // TODO: Accrue interest upfront?
+    // borrow_pool.accrue_interest(e)?;
+    // deposit_pool.accrue_interest(e)?;
+
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
     let seed = Some(pair.seed.clone());
 
@@ -1286,7 +1297,7 @@ pub fn process_withdraw_from_leveraged(
         .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    let plain_leverage_amount = deposited_tokens - max_withdrawable_amount; // safe
+    let plain_leverage_amount = deposited_tokens.saturating_sub(max_withdrawable_amount);
     let plain_leverage_to_be_withdrawn = plain_leverage_amount
         .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
         .map_over_or_underflow()?;
@@ -1297,9 +1308,7 @@ pub fn process_withdraw_from_leveraged(
         .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    if borrow_pool.total_available < flash_borrow_amount {
-        return Err(MCError::NotEnoughPoolFunds);
-    }
+    borrow_pool.require_available(flash_borrow_amount)?;
 
     // Flash Borrow
     let flash_borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
@@ -1396,6 +1405,8 @@ fn process_swap_exact_tokens(
     token_out: &Address,
     amount_in: i128,
 ) -> Result<i128, MCError> {
+    require_nonnegative(amount_in)?;
+
     // Since `amount_out` is calculated within the call, there's no price slippage
     let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;
 
@@ -1427,6 +1438,9 @@ fn compute_leveraged_position_max_withdrawable_amount(
     deposited_amount: i128,
     borrowed_amount: i128,
 ) -> Result<i128, MCError> {
+    require_nonnegative(deposited_amount)?;
+    require_nonnegative(borrowed_amount)?;
+
     let flash_loan_fee = borrowed_amount
         .fixed_mul_ceil(DEFAULT_FLASH_LOAN_FEE_BPS, BPS_FACTOR)
         .map_over_or_underflow()?;
@@ -1465,6 +1479,8 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, MCError> {
     let price_data = oracle_contract
         .lastprice(&asset)
         .ok_or(MCError::OracleDoesNotKnowAssetPrice)?;
+
+    require_nonnegative(price_data.price)?;
 
     // Validate price is not too old and not from the future
     let now = e.ledger().timestamp();
