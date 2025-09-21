@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype};
+use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype, xdr::ToXdr};
 
 use crate::{
     constants::{
@@ -10,6 +10,10 @@ use crate::{
     math_utils::MathUtils,
     storage,
 };
+
+/// Used to generate a unique seed for a multiply pair obligation
+/// See [`MultiplyPair::compute_obligation_seed`]
+const MULTIPLY_PAIR_PREFIX: &str = "MP_";
 
 #[contracttype]
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -166,32 +170,91 @@ impl MultiplyPair {
 
     /// # Returns
     /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
-    ///
-    /// TODO: Add unit tests for this
     fn compute_obligation_seed(
         e: &Env,
         deposit_pool_address: &Address,
         borrow_pool_address: &Address,
     ) -> BytesN<32> {
-        const MULTIPLY_PAIR_PREFIX: &str = "MP_";
+        let mut seed = Bytes::new(e);
+        seed.extend_from_slice(MULTIPLY_PAIR_PREFIX.as_bytes());
+        seed.extend_from_slice(deposit_pool_address.to_xdr(e).to_buffer::<40>().as_slice());
+        seed.extend_from_slice(borrow_pool_address.to_xdr(e).to_buffer::<40>().as_slice());
+        e.crypto().keccak256(&seed).into()
+    }
+}
 
-        let mut prefix_bytes: [u8; 3] = [0; 3];
-        prefix_bytes.copy_from_slice(MULTIPLY_PAIR_PREFIX.as_bytes());
+#[cfg(test)]
+mod tests {
+    use soroban_sdk::{Address, BytesN, Env, testutils::Address as _};
 
-        let mut deposit_pool_address_bytes: [u8; 56] = [0; 56];
-        deposit_pool_address
-            .to_string()
-            .copy_into_slice(&mut deposit_pool_address_bytes);
+    use super::*;
 
-        let mut borrow_pool_address_bytes: [u8; 56] = [0; 56];
-        borrow_pool_address
-            .to_string()
-            .copy_into_slice(&mut borrow_pool_address_bytes);
+    #[test]
+    fn computes_obligation_seed_with_valid_addresses() {
+        let env = Env::default();
+        let deposit_pool = Address::generate(&env);
+        let borrow_pool = Address::generate(&env);
+        let seed = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
+        assert_ne!(seed, BytesN::from_array(&env, &[0; 32]));
+    }
 
-        let mut bytes_concatenated: Bytes = Bytes::from_array(e, &prefix_bytes);
-        bytes_concatenated.extend_from_array(&deposit_pool_address_bytes);
-        bytes_concatenated.extend_from_array(&borrow_pool_address_bytes);
+    #[test]
+    fn computes_obligation_seed_with_identical_addresses() {
+        let env = Env::default();
+        let address = Address::generate(&env);
+        let seed = MultiplyPair::compute_obligation_seed(&env, &address, &address);
 
-        e.crypto().keccak256(&bytes_concatenated).into()
+        // TODO: consider changing the logic to prevent identical addresses?
+        assert_ne!(seed, BytesN::from_array(&env, &[0; 32]));
+    }
+
+    #[test]
+    fn computes_different_seeds_for_different_addresses() {
+        let env = Env::default();
+        let deposit_pool = Address::generate(&env);
+        let borrow_pool = Address::generate(&env);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
+        let seed2 = MultiplyPair::compute_obligation_seed(&env, &borrow_pool, &deposit_pool);
+
+        assert_ne!(seed1, seed2);
+    }
+
+    #[test]
+    fn computes_deterministic_seed_for_same_inputs() {
+        let env = Env::default();
+        let deposit_pool = Address::generate(&env);
+        let borrow_pool = Address::generate(&env);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
+        let seed2 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
+
+        assert_eq!(seed1, seed2);
+    }
+
+    #[test]
+    fn computes_different_seeds_when_changing_deposit_address() {
+        let env = Env::default();
+        let borrow_pool = Address::generate(&env);
+        let deposit_pool1 = Address::generate(&env);
+        let deposit_pool2 = Address::generate(&env);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool1, &borrow_pool);
+        let seed2 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool2, &borrow_pool);
+
+        assert_ne!(seed1, seed2);
+    }
+
+    #[test]
+    fn computes_different_seeds_when_changing_borrow_address() {
+        let env = Env::default();
+        let deposit_pool = Address::generate(&env);
+        let borrow_pool1 = Address::generate(&env);
+        let borrow_pool2 = Address::generate(&env);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool1);
+        let seed2 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool2);
+
+        assert_ne!(seed1, seed2);
     }
 }
