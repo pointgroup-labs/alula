@@ -109,7 +109,7 @@ build/optimize: build/deploy ## Optimize contracts
 		--wasm-out "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm"
 	@stellar contract optimize \
 		--wasm "$(DEPLOY_DIR)/$(MARKET_MANAGER_CONTRACT).wasm" \
-		--wasm-out "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm"	
+		--wasm-out "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm"
 	@ls -lh "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" 2>/dev/null || true
 	@ls -lh "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" 2>/dev/null || true
 
