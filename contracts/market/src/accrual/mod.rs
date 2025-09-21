@@ -19,8 +19,13 @@ pub enum AccrualModel {
 
 impl Accrual for AccrualModel {
     fn calculate_multiplier(&self, apr_bps: i128, seconds_passed: u64) -> Result<i128, MCError> {
+        if apr_bps < 0 {
+            // TODO: Revisit if negative APRs should be supported
+            return Err(MCError::InternalError);
+        }
+
         match self {
-            AccrualModel::Compounded => {
+            Self::Compounded => {
                 let scaled_apr = apr_bps
                     .fixed_mul_ceil(SCALED_FIXED_POINT_DENOMINATOR, BPS_FACTOR)
                     .map_over_or_underflow()?;
@@ -243,5 +248,17 @@ mod test {
             old_value.fixed_mul_floor(big_multiplier, SCALED_FIXED_POINT_DENOMINATOR * 10);
 
         assert_eq!(new_value, None);
+    }
+
+    #[test]
+    fn test_negative_apr_rejected() {
+        let model = AccrualModel::Compounded;
+        let apr = -1000; // -10%
+        let seconds_passed = SECONDS_IN_YEAR;
+
+        assert_eq!(
+            model.calculate_multiplier(apr, seconds_passed),
+            Err(MCError::InternalError)
+        );
     }
 }
