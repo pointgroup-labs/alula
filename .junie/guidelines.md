@@ -126,7 +126,7 @@ To add a new test:
    #[test]
    fn test_my_feature() {
    // Set up the environment
-   let env = Env::default();
+   let e = Env::default();
 
    // Generate a random address for the contract admin
    let contract_admin = Address::generate(&env);

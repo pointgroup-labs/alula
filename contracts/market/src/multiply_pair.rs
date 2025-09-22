@@ -191,69 +191,67 @@ mod tests {
 
     #[test]
     fn computes_obligation_seed_with_valid_addresses() {
-        let env = Env::default();
-        let deposit_pool = Address::generate(&env);
-        let borrow_pool = Address::generate(&env);
-        let seed = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
-        assert_ne!(seed, BytesN::from_array(&env, &[0; 32]));
-    }
+        let e = Env::default();
 
-    #[test]
-    fn computes_obligation_seed_with_identical_addresses() {
-        let env = Env::default();
-        let address = Address::generate(&env);
-        let seed = MultiplyPair::compute_obligation_seed(&env, &address, &address);
+        let deposit_pool = Address::generate(&e);
+        let borrow_pool = Address::generate(&e);
+        let seed = MultiplyPair::compute_obligation_seed(&e, &deposit_pool, &borrow_pool);
 
-        // TODO: consider changing the logic to prevent identical addresses?
-        assert_ne!(seed, BytesN::from_array(&env, &[0; 32]));
+        assert_ne!(seed, BytesN::from_array(&e, &[0; 32]));
     }
 
     #[test]
     fn computes_different_seeds_for_different_addresses() {
-        let env = Env::default();
-        let deposit_pool = Address::generate(&env);
-        let borrow_pool = Address::generate(&env);
+        let e = Env::default();
 
-        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
-        let seed2 = MultiplyPair::compute_obligation_seed(&env, &borrow_pool, &deposit_pool);
+        let deposit_pool = Address::generate(&e);
+        let borrow_pool = Address::generate(&e);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool, &borrow_pool);
+        let seed2 = MultiplyPair::compute_obligation_seed(&e, &borrow_pool, &deposit_pool);
 
         assert_ne!(seed1, seed2);
     }
 
     #[test]
     fn computes_deterministic_seed_for_same_inputs() {
-        let env = Env::default();
-        let deposit_pool = Address::generate(&env);
-        let borrow_pool = Address::generate(&env);
+        let e = Env::default();
 
-        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
-        let seed2 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool);
+        let deposit_pool = Address::generate(&e);
+        let borrow_pool = Address::generate(&e);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool, &borrow_pool);
+        let seed2 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool, &borrow_pool);
 
         assert_eq!(seed1, seed2);
     }
 
     #[test]
     fn computes_different_seeds_when_changing_deposit_address() {
-        let env = Env::default();
-        let borrow_pool = Address::generate(&env);
-        let deposit_pool1 = Address::generate(&env);
-        let deposit_pool2 = Address::generate(&env);
+        let e = Env::default();
 
-        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool1, &borrow_pool);
-        let seed2 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool2, &borrow_pool);
+        let borrow_pool = Address::generate(&e);
+
+        let deposit_pool1 = Address::generate(&e);
+        let deposit_pool2 = Address::generate(&e);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool1, &borrow_pool);
+        let seed2 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool2, &borrow_pool);
 
         assert_ne!(seed1, seed2);
     }
 
     #[test]
     fn computes_different_seeds_when_changing_borrow_address() {
-        let env = Env::default();
-        let deposit_pool = Address::generate(&env);
-        let borrow_pool1 = Address::generate(&env);
-        let borrow_pool2 = Address::generate(&env);
+        let e = Env::default();
 
-        let seed1 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool1);
-        let seed2 = MultiplyPair::compute_obligation_seed(&env, &deposit_pool, &borrow_pool2);
+        let deposit_pool = Address::generate(&e);
+
+        let borrow_pool1 = Address::generate(&e);
+        let borrow_pool2 = Address::generate(&e);
+
+        let seed1 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool, &borrow_pool1);
+        let seed2 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool, &borrow_pool2);
 
         assert_ne!(seed1, seed2);
     }

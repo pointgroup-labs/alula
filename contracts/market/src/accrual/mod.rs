@@ -21,7 +21,7 @@ impl Accrual for AccrualModel {
     fn calculate_multiplier(&self, apr_bps: i128, seconds_passed: u64) -> Result<i128, MCError> {
         if apr_bps < 0 {
             // TODO: Revisit if negative APRs should be supported
-            //  Consider better naming for this error variant
+            // Consider better naming for this error variant
             return Err(MCError::InternalError);
         }
 

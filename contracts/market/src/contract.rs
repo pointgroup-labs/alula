@@ -795,7 +795,6 @@ fn process_repay(
     Ok(())
 }
 
-#[allow(unused)]
 fn process_liquidate(
     e: &Env,
     liquidator: &Address,
@@ -1200,6 +1199,7 @@ fn process_deposit_with_leverage(
 
     let obligation = Obligation::try_get(e, &obligation_key).map_err(|_| {
         events::obligation_is_missing_in_storage(e, user);
+
         MCError::InternalError
     })?;
 
@@ -1208,7 +1208,8 @@ fn process_deposit_with_leverage(
 
     if flash_repay_amount > max_healthy_borrow_amount {
         // TODO: Add an event
-        // events::leverage_borrow_exceeds_healthy_limit(e, user, flash_repay_amount,max_healthy_borrow_amount);
+        // events::leverage_borrow_exceeds_healthy_limit(e, user,
+        // flash_repay_amount,max_healthy_borrow_amount);
         // return Err(MCError::BorrowLimitExceeded);
         return Err(MCError::InternalError);
     }
@@ -1260,9 +1261,8 @@ pub fn process_withdraw_from_leveraged(
         Pool::try_get(e, deposit_pool_address).map_err(|_| MCError::DepositPoolDoesNotExist)?,
     );
 
-    // // TODO: Accrue interest upfront?
-    // borrow_pool.accrue_interest(e)?;
-    // deposit_pool.accrue_interest(e)?;
+    borrow_pool.accrue_interest(e)?;
+    deposit_pool.accrue_interest(e)?;
 
     let pair = MultiplyPair::try_get(e, deposit_pool_address, borrow_pool_address)?;
     let seed = Some(pair.seed.clone());
@@ -1297,7 +1297,9 @@ pub fn process_withdraw_from_leveraged(
         .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    let plain_leverage_amount = deposited_tokens.saturating_sub(max_withdrawable_amount);
+    let plain_leverage_amount = deposited_tokens
+        .checked_sub(max_withdrawable_amount)
+        .map_over_or_underflow()?;
     let plain_leverage_to_be_withdrawn = plain_leverage_amount
         .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
         .map_over_or_underflow()?;
@@ -1480,6 +1482,7 @@ pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, MCError> {
         .lastprice(&asset)
         .ok_or(MCError::OracleDoesNotKnowAssetPrice)?;
 
+    // TODO: Add sanity checks? I.e., a price range for the asset to be considered adequate
     require_nonnegative(price_data.price)?;
 
     // Validate price is not too old and not from the future
