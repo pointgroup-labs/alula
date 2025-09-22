@@ -20,72 +20,54 @@ pub enum DataKey {
 // ---- Storage Setters & Getters ----
 
 pub fn set_admin(e: &Env, admin: Address) {
-    let key = DataKey::Admin;
-
-    e.storage().instance().set(&key, &admin);
+    e.storage().instance().set(&DataKey::Admin, &admin);
 }
 
 pub fn get_admin(e: &Env) -> Address {
-    let key = DataKey::Admin;
-
     e.storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::Admin)
         .expect("Admin must've been set")
 }
 
 pub fn set_max_age(e: &Env, max_age: u64) {
-    let key = DataKey::MaxAge;
-
-    e.storage().instance().set(&key, &max_age);
+    e.storage().instance().set(&DataKey::MaxAge, &max_age);
 }
 
 pub fn get_max_age(e: &Env) -> u64 {
-    let key = DataKey::MaxAge;
-
     e.storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::MaxAge)
         .expect("Max age must've been set")
 }
 
 pub fn set_decimals(e: &Env, decimals: u32) {
-    let key = DataKey::Decimals;
-
-    e.storage().instance().set(&key, &decimals);
+    e.storage().instance().set(&DataKey::Decimals, &decimals);
 }
 
 pub fn get_decimals(e: &Env) -> u32 {
-    let key = DataKey::Decimals;
-
     e.storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::Decimals)
         .expect("Decimals must've been set")
 }
 
 pub fn set_base_asset(e: &Env, base_asset: Asset) {
-    let key = DataKey::BaseAsset;
-
-    e.storage().instance().set(&key, &base_asset);
+    e.storage().instance().set(&DataKey::BaseAsset, &base_asset);
 }
 
 pub fn get_base_asset(e: &Env) -> Asset {
-    let key = DataKey::BaseAsset;
-
     e.storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::BaseAsset)
         .expect("Base asset must've been set")
 }
 
 pub fn add_asset(e: &Env, symbol: Symbol, address: Address) -> Result<(), AOCError> {
-    let key = DataKey::Assets;
-
     let mut assets: Map<Address, Symbol> = e
         .storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::Assets)
         .unwrap_or_else(|| Map::new(e));
 
     if assets.contains_key(address.clone()) {
@@ -93,15 +75,17 @@ pub fn add_asset(e: &Env, symbol: Symbol, address: Address) -> Result<(), AOCErr
     }
 
     assets.set(address, symbol);
-    e.storage().instance().set(&key, &assets);
+    e.storage().instance().set(&DataKey::Assets, &assets);
 
     Ok(())
 }
 
 pub fn get_assets(e: &Env) -> Vec<Asset> {
-    let key = DataKey::Assets;
-
-    let assets_map: Map<Address, Symbol> = e.storage().instance().get(&key).unwrap_or(Map::new(e));
+    let assets_map: Map<Address, Symbol> = e
+        .storage()
+        .instance()
+        .get(&DataKey::Assets)
+        .unwrap_or(Map::new(e));
     let mut assets_vec = svec![e];
 
     for address in assets_map.keys() {
@@ -113,9 +97,11 @@ pub fn get_assets(e: &Env) -> Vec<Asset> {
 }
 
 pub fn is_asset_registered(e: &Env, token_address: &Address) -> bool {
-    let key = DataKey::Assets;
-
-    let Some(assets_map) = e.storage().instance().get::<_, Map<Address, Symbol>>(&key) else {
+    let Some(assets_map) = e
+        .storage()
+        .instance()
+        .get::<_, Map<Address, Symbol>>(&DataKey::Assets)
+    else {
         return false;
     };
 
@@ -123,12 +109,10 @@ pub fn is_asset_registered(e: &Env, token_address: &Address) -> bool {
 }
 
 pub fn get_token_ticker(e: &Env, token_address: &Address) -> Symbol {
-    let key = DataKey::Assets;
-
     let assets: Map<Address, Symbol> = e
         .storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::Assets)
         .expect("Assets must've been set");
 
     assets
@@ -137,8 +121,6 @@ pub fn get_token_ticker(e: &Env, token_address: &Address) -> Symbol {
 }
 
 pub fn set_oracles(e: &Env, oracles: Vec<OracleConfig>) {
-    let key = DataKey::Oracles;
-
     let mut known_addresses = Map::<Address, ()>::new(e);
     for oracle in oracles.iter() {
         if known_addresses.contains_key(oracle.address.clone()) {
@@ -148,15 +130,13 @@ pub fn set_oracles(e: &Env, oracles: Vec<OracleConfig>) {
         known_addresses.set(oracle.address.clone(), ());
     }
 
-    e.storage().instance().set(&key, &oracles)
+    e.storage().instance().set(&DataKey::Oracles, &oracles)
 }
 
 pub fn get_oracles(e: &Env) -> Vec<OracleConfig> {
-    let key = DataKey::Oracles;
-
     e.storage()
         .instance()
-        .get(&key)
+        .get(&DataKey::Oracles)
         .expect("Oracles must've been set")
 }
 
