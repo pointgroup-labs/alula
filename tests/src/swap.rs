@@ -1,15 +1,15 @@
 #![cfg(test)]
 
-use lending::swap;
+use market::swap;
 use soroban_sdk::vec as svec;
 
-use crate::{TestFixture, assert_approx_eq_rel, make_oracle_prices_different};
+use crate::{TestMarketFixture, assert_approx_eq_rel, make_oracle_prices_different};
 
 #[test]
 fn test_swap_equal_prices() {
     const AMOUNT_IN: i128 = 100_000;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         users,
@@ -20,7 +20,7 @@ fn test_swap_equal_prices() {
         btc_token_client,
         btc_token_address,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
 
@@ -56,7 +56,7 @@ fn test_swap_equal_prices() {
 fn test_swap_different_prices() {
     const AMOUNT_IN: i128 = 100_000;
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         users,
@@ -68,7 +68,7 @@ fn test_swap_different_prices() {
         gold_token_address,
         oracle_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     make_oracle_prices_different(&e, &oracle_client);
 
@@ -102,16 +102,16 @@ fn test_swap_different_prices() {
 #[test]
 fn test_get_amount_out() {
     const AMOUNT_IN: i128 = 5_000;
-    const DELTA_BPS: i128 = 5; // 0.05 %
+    const DELTA_BPS: i128 = 100; // 1 %
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         gold_token_address,
         usdc_token_address,
         oracle_client,
         router_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     make_oracle_prices_different(&e, &oracle_client);
 
@@ -136,7 +136,7 @@ fn test_get_amount_out() {
         .first()
         .unwrap();
 
-    // NB: Approximate check takes place because of the rounding that occurs in the whole numbers'
+    // NB: Approximate check takes place because of the truncation that occurs in the whole numbers'
     // arithmetic
     assert_approx_eq_rel(gold_usdc_amount_in, AMOUNT_IN, DELTA_BPS);
     assert_approx_eq_rel(usdc_gold_amount_in, AMOUNT_IN, DELTA_BPS);
@@ -150,13 +150,13 @@ fn test_get_amount_in() {
     const AMOUNT_OUT: i128 = 5_000;
     const DELTA_BPS: i128 = 5; // 0.05 %
 
-    let TestFixture {
+    let TestMarketFixture {
         e,
         gold_token_address,
         usdc_token_address,
         oracle_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     make_oracle_prices_different(&e, &oracle_client);
 

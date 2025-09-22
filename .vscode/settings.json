@@ -4,22 +4,27 @@
     "apys",
     "beasties",
     "cdylib",
+    "contractclient",
     "contracterror",
     "contractimpl",
     "contractimport",
     "contracttype",
     "doctest",
+    "jlending",
     "jpool",
+    "keccak",
     "kyryl",
     "lastprice",
     "libfuzzer",
     "Liquidatable",
     "moderc",
     "MSVC",
+    "multiplicator",
     "nextest",
     "oxlint",
     "pinia",
     "repr",
+    "rlib",
     "rustc",
     "sizecheck",
     "soroban",
@@ -83,5 +88,6 @@
   },
   "material-icon-theme.rootFolders.associations": {
     "validators": null
-  }
+  },
+  "makefile.configureOnOpen": false
 }

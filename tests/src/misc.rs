@@ -1,80 +1,61 @@
 #![cfg(test)]
 
-use lending::LCError;
+use market::error::MCError;
 use soroban_sdk::{Address, testutils::Address as _};
 
-use crate::TestFixture;
+use crate::TestMarketFixture;
 
 #[test]
 fn test_obligation_does_not_exist_prior_anything() {
-    let TestFixture {
+    let TestMarketFixture {
         users,
         contract_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user = &users[0];
-
     let obligation = contract_client.try_get_user_obligation(user);
-    assert_eq!(obligation, Err(Ok(LCError::ObligationDoesNotExist)));
+
+    assert_eq!(obligation, Err(Ok(MCError::ObligationDoesNotExist)));
 }
 
 #[test]
 fn test_pool_with_random_address_does_not_exist() {
-    let TestFixture {
+    let TestMarketFixture {
         e, contract_client, ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let rand_addr = Address::generate(&e);
     let res = contract_client.try_get_pool(&rand_addr);
 
-    assert_eq!(res, Err(Ok(LCError::PoolDoesNotExist)));
+    assert_eq!(res, Err(Ok(MCError::PoolDoesNotExist)));
 }
 
 #[test]
 fn test_pool_is_empty_prior_anything() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let pool = contract_client.get_pool(&usdc_pool_address);
 
+    assert_eq!(pool.total_available, 0);
     assert_eq!(pool.total_borrowed, 0);
+    assert_eq!(pool.total_j_tokens, 0);
+    assert_eq!(pool.total_d_tokens, 0);
     assert_eq!(pool.total_collateral, 0);
-    assert_eq!(pool.total_shares, 0);
-    assert_eq!(pool.available, 0);
 }
 
 #[test]
-fn test_remove_obligation() {
-    let TestFixture {
+fn test_reset_storage_removes_obligations() {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-
-    assert!(contract_client.try_get_user_obligation(user).is_err());
-
-    contract_client.deposit(user, &usdc_pool_address, &1000);
-    assert!(contract_client.try_get_user_obligation(user).is_ok());
-
-    contract_client.reset_storage();
-    assert!(contract_client.try_get_user_obligation(user).is_err());
-}
-
-#[test]
-fn test_remove_many_obligations() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
     let user1 = &users[0];
     let user2 = &users[2];
@@ -96,12 +77,12 @@ fn test_remove_many_obligations() {
 }
 
 #[test]
-fn test_remove_pool() {
-    let TestFixture {
+fn test_reset_storage_removes_pool() {
+    let TestMarketFixture {
         contract_client, ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
-    assert_eq!(contract_client.get_all_pools().len(), 3);
+    assert_eq!(contract_client.get_all_pools().len(), 3); // NB: 3 pools are set initially
 
     contract_client.reset_storage();
 
@@ -109,15 +90,15 @@ fn test_remove_pool() {
 }
 
 #[test]
-fn test_remove_multiply_pairs() {
-    let TestFixture {
+fn test_reset_storage_removes_multiply_pairs() {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         btc_pool_address,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
 
-    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // 1 pair is set initially
+    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // NB: 1 pair is set initially
 
     contract_client.initialize_multiply_pair(&usdc_pool_address, &btc_pool_address);
 

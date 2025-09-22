@@ -1,63 +1,62 @@
 #![cfg(test)]
 
-use crate::{DEFAULT_DEPOSIT_AMOUNT, TestFixture};
+use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
 #[test]
 #[allow(clippy::mistyped_literal_suffixes)]
 #[allow(clippy::zero_prefixed_literal)]
 #[allow(clippy::inconsistent_digit_grouping)]
 fn test_interest_rates() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let debtor = &users[0];
+    let loan_provider = &users[1];
 
-    let user = &users[0];
-    let user2 = &users[1];
-    // Deposit gold as a collateral to satisfy the health factor threshold
-    contract_client.add_collateral(user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // 0% UR
-    let rates = contract_client.get_apy(&usdc_pool_address);
-    assert_eq!(rates.borrow_bps, 00_31); // 0.31%
-    assert_eq!(rates.supply_bps, 00_00); // 0%
+    let rates = contract_client.get_apr(&usdc_pool_address);
+    assert_eq!(rates.borrow_bps, 00_01); // WARN: calculations for APY yield 0% due to a precision loss
+    assert_eq!(rates.supply_bps, 00_00);
 
     // Borrow 50% of the deposited value
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
-    assert_eq!(rates.borrow_bps, 17_46); // 17.46%
-    assert_eq!(rates.supply_bps, 08_73); // 8.73%
+    assert_eq!(rates.borrow_bps, 23_89);
+    assert_eq!(rates.supply_bps, 11_30);
 
     // Borrow 75% of the deposited value
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
-    assert_eq!(rates.borrow_bps, 27_10); // 27.10%
-    assert_eq!(rates.supply_bps, 20_32); // 20.32%
+    assert_eq!(rates.borrow_bps, 56_83);
+    assert_eq!(rates.supply_bps, 40_14);
 
     // Borrow 80% of the deposited value
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
-    assert_eq!(rates.borrow_bps, 29_12); // 29.12%
-    assert_eq!(rates.supply_bps, 23_30); // 23.30%
+    assert_eq!(rates.borrow_bps, 82_21);
+    assert_eq!(rates.supply_bps, 61_60);
 
     // Borrow 90% of the deposited value
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
-    assert_eq!(rates.borrow_bps, 77_03); // 77.03%
-    assert_eq!(rates.supply_bps, 69_33); // 69.33%
+    assert_eq!(rates.borrow_bps, 897_41);
+    assert_eq!(rates.supply_bps, 692_48);
 
     // Borrow 100% of the deposited value
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+
     let rates = contract_client.get_apy(&usdc_pool_address);
-    assert_eq!(rates.borrow_bps, 142_72); // 142.72%
-    assert_eq!(rates.supply_bps, 142_72); // 142.72% (same, since UR is 1)
+    assert_eq!(rates.borrow_bps, 535_981);
+    assert_eq!(rates.supply_bps, 535_981);
 }

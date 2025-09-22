@@ -1,15 +1,17 @@
 //! Encapsulates operations related to the swapping of two
+
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env};
+use soroban_sdk::{Address, Env, vec};
 
 use crate::{
-    LCError,
     constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, ROUTER_ADDRESS},
+    error::MCError,
     math_utils::MathUtils,
     soroswap_router as router,
 };
+
 // TODO: Maybe, create some internal trait for common swap operations and
-// implement it for different swap providers?
+//  implement it for different swap providers?
 
 /// Gets the amount that the user must provide to receive a specific amount if a swap is performed
 /// at the current moment
@@ -23,13 +25,13 @@ pub fn get_amount_in(
     token_in: &Address,
     token_out: &Address,
     amount_out: i128,
-) -> Result<i128, LCError> {
-    let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
+) -> Result<i128, MCError> {
+    let path = vec![&e, token_in.clone(), token_out.clone()];
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amounts_in = router_client.router_get_amounts_in(&amount_out, &path);
     let Some(amount_in) = amounts_in.first() else {
-        return Err(LCError::DependencyContractError);
+        return Err(MCError::DependencyContractError);
     };
 
     Ok(amount_in)
@@ -46,13 +48,13 @@ pub fn get_amount_out(
     token_in: &Address,
     token_out: &Address,
     amount_in: i128,
-) -> Result<i128, LCError> {
-    let path = soroban_sdk::vec![&e, token_in.clone(), token_out.clone()];
+) -> Result<i128, MCError> {
+    let path = vec![&e, token_in.clone(), token_out.clone()];
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
     let Some(amount_out) = amounts_out.last() else {
-        return Err(LCError::DependencyContractError);
+        return Err(MCError::DependencyContractError);
     };
 
     Ok(amount_out)
@@ -78,17 +80,8 @@ pub fn swap_tokens_for_exact_tokens(
     amount_in: i128,
     amount_out: i128,
     max_slippage_bps: Option<i128>,
-) -> Result<i128, LCError> {
-    let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
-        if !(0..=BPS_FACTOR).contains(&slippage) {
-            return Err(LCError::InvalidSwapSlippage);
-        }
-
-        slippage
-    } else {
-        DEFAULT_MAX_SLIPPAGE_BPS
-    };
-
+) -> Result<i128, MCError> {
+    let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amount_in_max = amount_in
@@ -99,7 +92,7 @@ pub fn swap_tokens_for_exact_tokens(
         )
         .map_over_or_underflow()?;
 
-    let path = soroban_sdk::vec![e, token_in.clone(), token_out.clone()];
+    let path = vec![e, token_in.clone(), token_out.clone()];
 
     // TODO: For now we can only swap tokens with a direct path
     let swap_amounts = router_client.swap_tokens_for_exact_tokens(
@@ -113,7 +106,7 @@ pub fn swap_tokens_for_exact_tokens(
     // TODO: What warning\error\event exactly must happen here?
     let received_amount = swap_amounts
         .last()
-        .ok_or(LCError::DependencyContractError)?;
+        .ok_or(MCError::DependencyContractError)?;
 
     Ok(received_amount)
 }
@@ -138,17 +131,8 @@ pub fn swap_exact_tokens_for_tokens(
     amount_in: i128,
     amount_out: i128,
     max_slippage_bps: Option<i128>,
-) -> Result<i128, LCError> {
-    let max_slippage_bps = if let Some(slippage) = max_slippage_bps {
-        if !(0..=BPS_FACTOR).contains(&slippage) {
-            return Err(LCError::InvalidSwapSlippage);
-        }
-
-        slippage
-    } else {
-        DEFAULT_MAX_SLIPPAGE_BPS
-    };
-
+) -> Result<i128, MCError> {
+    let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amount_out_min = amount_out
@@ -159,7 +143,7 @@ pub fn swap_exact_tokens_for_tokens(
         )
         .map_over_or_underflow()?;
 
-    let path = soroban_sdk::vec![e, token_in.clone(), token_out.clone()];
+    let path = vec![e, token_in.clone(), token_out.clone()];
 
     // TODO: For now we can only swap tokens with a direct path
     let swap_amounts = router_client.swap_exact_tokens_for_tokens(
@@ -173,7 +157,23 @@ pub fn swap_exact_tokens_for_tokens(
     // TODO: What warning\error\event exactly must happen here?
     let received_amount = swap_amounts
         .last()
-        .ok_or(LCError::DependencyContractError)?;
+        .ok_or(MCError::DependencyContractError)?;
 
     Ok(received_amount)
+}
+
+/// Resolves the max slippage basis points percentage
+/// # Arguments
+/// * `max_slippage_bps` - optional basis points percentage of the maximum allowed slippage
+/// # Returns
+/// Resolved basis points percentage of the maximum allowed slippage
+fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError> {
+    if let Some(slippage) = max_slippage_bps {
+        if !(0..=BPS_FACTOR).contains(&slippage) {
+            return Err(MCError::InvalidSwapSlippage);
+        }
+        Ok(slippage)
+    } else {
+        Ok(DEFAULT_MAX_SLIPPAGE_BPS)
+    }
 }

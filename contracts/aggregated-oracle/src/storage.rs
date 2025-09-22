@@ -1,5 +1,5 @@
 use sep_40_oracle::Asset;
-use soroban_sdk::{Address, Env, Map, Vec, contracttype, vec as svec};
+use soroban_sdk::{Address, Env, Map, Vec, contracttype};
 
 use crate::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
 
@@ -55,7 +55,7 @@ pub fn get_assets(e: &Env) -> Vec<Asset> {
 
         assets.keys()
     } else {
-        svec![e]
+        Vec::new(e)
     }
 }
 

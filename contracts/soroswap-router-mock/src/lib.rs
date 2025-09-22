@@ -18,9 +18,6 @@ const FEE_DENOMINATOR: i128 = 1000;
 
 const USDC_SYMBOL: Symbol = symbol_short!("USDC");
 
-// TODO: In order to avoid circular dependency(between `lending` and `soroswap_router_mock`),
-// for now, we define the oracle address in 2 places. Maybe it's possible to define it in one place
-// only
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
 #[contracterror]
