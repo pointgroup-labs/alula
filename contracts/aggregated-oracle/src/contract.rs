@@ -2,7 +2,12 @@ use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_sdk::{
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     Address, Env, Map, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
+=======
+    Address, BytesN, Env, Map, Symbol, Vec, contract, contractclient, contractimpl,
+    panic_with_error,
+>>>>>>> Stashed changes
 =======
     Address, BytesN, Env, Map, Symbol, Vec, contract, contractclient, contractimpl,
     panic_with_error,
@@ -54,7 +59,11 @@ impl AggregatedOracleContract {
         admin: Address,
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         base_asset: Asset,
+=======
+        base_asset_symbol: Symbol,
+>>>>>>> Stashed changes
 =======
         base_asset_symbol: Symbol,
 >>>>>>> Stashed changes
@@ -67,6 +76,11 @@ impl AggregatedOracleContract {
     ) {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+        let base_asset = Asset::Other(base_asset_symbol);
+
+>>>>>>> Stashed changes
 =======
         let base_asset = Asset::Other(base_asset_symbol);
 
@@ -100,7 +114,10 @@ impl AggregatedOracleContract {
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     // NB: The ability to update the contract must be removed before the mainnet deployment
@@ -117,6 +134,9 @@ impl AggregatedOracleContract {
     }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -143,7 +163,10 @@ impl AggregatedOracleContract {
     }
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 
@@ -153,6 +176,9 @@ impl AggregatedOracleContract {
         process_lastprice(&e, &stellar_asset)
     }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -168,6 +194,11 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+    /// # Important:
+    /// Returns a list of registered assets as [`Asset::Stellar`] variants
+>>>>>>> Stashed changes
 =======
     /// # Important:
     /// Returns a list of registered assets as [`Asset::Stellar`] variants
@@ -191,6 +222,7 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
     fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         storage::extend_instance_storage(&e);
 
         let Asset::Stellar(token_address) = asset else {
@@ -207,6 +239,9 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
         let price_data = PriceData { price, timestamp };
 
         Some(price_data)
+=======
+        process_lastprice(&e, &asset)
+>>>>>>> Stashed changes
 =======
         process_lastprice(&e, &asset)
 >>>>>>> Stashed changes
@@ -258,7 +293,10 @@ fn require_admin(e: &Env) {
 }
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 
@@ -288,6 +326,9 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
     Some(price_data)
 }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
