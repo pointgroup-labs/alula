@@ -4,9 +4,12 @@ version = 4
 
 [[package]]
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 name = "aggregated-oracle"
 =======
 <<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
 name = "aggregated_oracle"
 >>>>>>> Stashed changes
 version = "0.0.1"

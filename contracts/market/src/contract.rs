@@ -1,5 +1,9 @@
 <<<<<<< Updated upstream:contracts/market/src/contract.rs
+<<<<<<< Updated upstream:contracts/market/src/contract.rs
 // use aggregated_oracle::AggregatedPriceFeedClient;
+=======
+// use aggregated_oracle::PriceFeedClient;
+>>>>>>> Stashed changes:contracts/lending/src/contract.rs
 =======
 // use aggregated_oracle::PriceFeedClient;
 >>>>>>> Stashed changes:contracts/lending/src/contract.rs
@@ -63,8 +67,11 @@ impl MarketContract {
     }
 
 <<<<<<< Updated upstream:contracts/market/src/contract.rs
+<<<<<<< Updated upstream:contracts/market/src/contract.rs
     /// Upgrades the market contract
 =======
+=======
+>>>>>>> Stashed changes:contracts/lending/src/contract.rs
     pub fn check_oracles(e: Env, asset_address: Address) -> Option<PriceData> {
         const AGGREGATED_ORACLE_ADDRESS: &str =
             "CCPVLUQYLVHMSYUJBRQGIGFND6BMFG37ZZLP7GV3EWHLF3KPQASKGZBD";
