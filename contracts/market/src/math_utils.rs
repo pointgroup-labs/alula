@@ -1,22 +1,19 @@
 use soroban_fixed_point_math::FixedPoint;
 
-use crate::LCError;
+use crate::error::MCError;
 
-pub trait MathUtils {
-    fn map_over_or_underflow(self) -> Result<i128, LCError>;
+pub trait MathUtils<T> {
+    fn map_over_or_underflow(self) -> Result<T, MCError>;
 }
 
-impl MathUtils for Option<i128> {
-    fn map_over_or_underflow(self) -> Result<i128, LCError> {
-        self.ok_or(LCError::OverOrUnderflow)
+impl<T> MathUtils<T> for Option<T> {
+    fn map_over_or_underflow(self) -> Result<T, MCError> {
+        self.ok_or(MCError::OverOrUnderflow)
     }
 }
 
-/// O(log(n)) algorithm for quick exponentiation with floor rounding
-///
-/// This function calculates base^exp using binary exponentiation, which has O(log(n)) complexity.
-/// It's much more efficient than the naive O(n) approach for large exponents.
-/// This version uses floor rounding for all intermediate calculations.
+/// `O(log(n))` algorithm for quick exponentiation of fixed-point decimal number representations
+/// with multiplication flooring
 ///
 /// # Arguments
 /// * `base` - The base value in fixed-point representation (scaled by denominator)
@@ -24,10 +21,9 @@ impl MathUtils for Option<i128> {
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if
+/// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
 ///   overflow occurs
-pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
-    // Early return for common cases to save gas
+pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, MCError> {
     if exp == 0 {
         return Ok(denominator);
     }
@@ -40,13 +36,16 @@ pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, 
         if exp % 2 == 1 {
             result = fixed_mul(result, base, denominator)?;
         }
+
         base = fixed_mul(base, base, denominator)?;
         exp >>= 1;
     }
+
     Ok(result)
 }
 
-/// O(log(n)) algorithm for quick exponentiation with ceiling rounding
+/// `O(log(n))` algorithm for quick exponentiation of fixed-point decimal number representations
+/// with multiplication ceiling
 ///
 /// # Arguments
 /// * `base` - The base value in fixed-point representation (scaled by denominator)
@@ -54,10 +53,9 @@ pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, 
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, LCError>` - The result of base^exp in fixed-point representation, or an error if
+/// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
 ///   overflow occurs
-pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, LCError> {
-    // Early return for common cases to save gas
+pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, MCError> {
     if exp == 0 {
         return Ok(denominator);
     }
@@ -70,13 +68,15 @@ pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i
         if exp % 2 == 1 {
             result = fixed_mul_ceil(result, base, denominator)?;
         }
+
         base = fixed_mul_ceil(base, base, denominator)?;
         exp >>= 1;
     }
+
     Ok(result)
 }
 
-/// Helper function for fixed-point multiplication with floor rounding
+/// Helper function for fixed-point floor multiplication
 ///
 /// # Arguments
 /// * `x` - First operand in fixed-point representation
@@ -84,13 +84,13 @@ pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, LCError>` - The product x*y/denominator, or an error if overflow occurs
+/// * `Result<i128, MCError>` - The product x*y/denominator, or an error if overflow occurs
 #[inline]
-fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
+fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, MCError> {
     x.fixed_mul_floor(y, denominator).map_over_or_underflow()
 }
 
-/// Helper function for fixed-point multiplication with ceiling rounding
+/// Helper function for fixed-point ceiling multiplication
 ///
 /// # Arguments
 /// * `x` - First operand in fixed-point representation
@@ -98,52 +98,50 @@ fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
 /// * `denominator` - The scaling factor for fixed-point arithmetic
 ///
 /// # Returns
-/// * `Result<i128, LCError>` - The product x*y/denominator (rounded up), or an error if overflow
-///   occurs
+/// * `Result<i128, MCError>` - The product x*y/denominator(ceiled), or an error if overflow occurs
 #[inline]
-pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, LCError> {
+pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, MCError> {
     x.fixed_mul_ceil(y, denominator).map_over_or_underflow()
 }
 
 #[cfg(test)]
 mod tests {
     extern crate alloc;
-
     use alloc::vec::Vec;
 
     use soroban_sdk::testutils::arbitrary::std::println;
 
     use super::*;
-    use crate::error::LendingContractError;
+    use crate::error::MCError;
 
     #[test]
     fn test_fixed_mul_ceil_vs_floor() {
-        // Test cases where ceiling and floor rounding should differ
+        // Test cases where ceiling and flooring should differ
         let test_cases = [
             // (x, y, denominator)
             (1, 1, 2),                 // 1/2 * 1/2 = 1/4 (floor=0, ceil=1 in denominator=2)
             (1, 3, 2),                 // 1/2 * 3/2 = 3/4 (floor=1, ceil=2 in denominator=2)
-            (1_000_000, 1, 1_000_001), // Just under 1.0 (should round differently)
-            (1_000_000, 1_000_000, 1_000_001), // ~1.0 * ~1.0 (should round differently)
+            (1_000_000, 1, 1_000_001), // Just under 1.0 (should truncate differently)
+            (1_000_000, 1_000_000, 1_000_001), // ~1.0 * ~1.0 (should truncate differently)
         ];
 
         for (x, y, denominator) in test_cases {
             let floor_result = fixed_mul(x, y, denominator).unwrap();
             let ceil_result = fixed_mul_ceil(x, y, denominator).unwrap();
 
-            // Ceiling result should be >= floor result
-            assert!(
-                ceil_result >= floor_result,
-                "Ceiling result should be >= floor result: {} vs {}",
-                ceil_result,
-                floor_result
-            );
-
-            // For non-exact divisions, ceiling should be strictly greater
             if (x * y) % denominator != 0 {
+                // For non-exact divisions, ceil should be strictly greater
                 assert!(
                     ceil_result > floor_result,
                     "For non-exact division, ceiling should be > floor: {} vs {}",
+                    ceil_result,
+                    floor_result
+                );
+            } else {
+                // For exact divisions, the ceil should be equal to floor
+                assert!(
+                    ceil_result == floor_result,
+                    "Ceiling result should be == floor result: {} vs {}",
                     ceil_result,
                     floor_result
                 );
@@ -153,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_bin_pow_ceil_vs_floor() {
-        // Test cases where ceiling and floor rounding should differ
+        // Test cases where ceiling and flooring should differ
         let test_cases = [
             // (base, exponent, denominator)
             (1, 2, 2),                 // (1/2)^2 = 1/4 (floor=0, ceil=1 in denominator=2)
@@ -183,12 +181,12 @@ mod tests {
 
     #[test]
     fn test_bin_pow_zero_exponent() {
-        // Any base raised to power 0 should return the denominator, for any denominator
-        let denominators = [1_i128, 10, 1_000, 1_000_000, 1_000_000_000];
+        // Any base raised to power 0 should return the denominator
+        let denominators = [1, 10, 1_000, 1_000_000, 1_000_000_000];
 
-        for &denominator in &denominators {
+        for denominator in denominators {
             let bases = [0, 1, denominator, denominator * 2, -denominator];
-            for &base in &bases {
+            for base in bases {
                 let result = bin_pow(base, 0, denominator).unwrap();
                 assert_eq!(
                     result, denominator,
@@ -201,13 +199,12 @@ mod tests {
 
     #[test]
     fn test_bin_pow_one_exponent() {
-        // Any base raised to power 1 should return the product of base and denominator, divided by
-        // denominator
+        // Any base raised to power 1 should return the base
         let denominators = [1_i128, 10, 1_000, 1_000_000];
 
-        for &denominator in &denominators {
+        for denominator in denominators {
             let bases = [0, 1, denominator, denominator * 2, -denominator];
-            for &base in &bases {
+            for base in bases {
                 let result = bin_pow(base, 1, denominator).unwrap();
                 assert_eq!(
                     result,
@@ -233,15 +230,22 @@ mod tests {
             (3_000_000, 2, 1_000_000, 9_000_000),
             (3_000_000, 3, 1_000_000, 27_000_000),
             (10_000_000, 2, 1_000_000, 100_000_000),
-            // Test with different denominators
             (2_000, 2, 1_000, 4_000),
             (2_000_000_000, 2, 1_000_000_000, 4_000_000_000),
         ];
 
         for (base, exponent, denominator, expected) in test_cases {
-            let result = bin_pow(base, exponent, denominator).unwrap();
+            let result_floor = bin_pow(base, exponent, denominator).unwrap();
+            let result_ceil = bin_pow_ceil(base, exponent, denominator).unwrap();
+
             assert_eq!(
-                result, expected,
+                result_floor, result_ceil,
+                "Base {}, Exponent {}, Denominator {}",
+                base, exponent, denominator
+            );
+
+            assert_eq!(
+                result_floor, expected,
                 "Base {}, Exponent {}, Denominator {}",
                 base, exponent, denominator
             );
@@ -260,31 +264,25 @@ mod tests {
             (1_500_000, 2, 1_000_000, 2_250_000), // 1.5^2 = 2.25
             (1_500_000, 3, 1_000_000, 3_375_000), // 1.5^3 = 3.375
             // Very small fractional values
-            (1_000, 3, 1_000_000, 1),    // 0.001^3 = 0.000000001
             (10_000, 2, 1_000_000, 100), // 0.01^2 = 0.0001
+            (10_000, 3, 1_000_000, 1),   // 0.01^3 = 0.000001
         ];
 
         for (base, exponent, denominator, expected) in test_cases {
-            let result = bin_pow(base, exponent, denominator).unwrap();
-            // For very small values, allow a small tolerance due to rounding
-            if expected < 100 {
-                let tolerance = 1;
-                assert!(
-                    (result - expected).abs() <= tolerance,
-                    "Base {}, Exponent {}, Denominator {}: Expected {}, got {}",
-                    base,
-                    exponent,
-                    denominator,
-                    expected,
-                    result
-                );
-            } else {
-                assert_eq!(
-                    result, expected,
-                    "Base {}, Exponent {}, Denominator {}",
-                    base, exponent, denominator
-                );
-            }
+            let result_floor = bin_pow(base, exponent, denominator).unwrap();
+            let result_ceil = bin_pow_ceil(base, exponent, denominator).unwrap();
+
+            assert_eq!(
+                result_floor, result_ceil,
+                "Base {}, Exponent {}, Denominator {}",
+                base, exponent, denominator
+            );
+
+            assert_eq!(
+                result_floor, expected,
+                "Base {}, Exponent {}, Denominator {}",
+                base, exponent, denominator
+            );
         }
     }
 
@@ -355,19 +353,93 @@ mod tests {
         let denominator = 1_000_000;
         let result = bin_pow(base, 100, denominator).unwrap();
         // 0.999999^100 ≈ 0.99
-        assert!(result > 990_000 && result < 1_000_000);
+        assert!(result > 990_000 && result < 999_990);
 
         // Case 2: Values just above 1.0
         let base = 1_000_001; // 1.000001 with denominator 1_000_000
         let result = bin_pow(base, 100, denominator).unwrap();
         // 1.000001^100 ≈ 1.01
-        assert!(result > 1_000_000 && result < 1_010_000);
+        assert!(result > 1_000_010 && result < 1_010_000);
 
         // Case 3: Very small fractional delta
         let base = 1_000_000 + 1; // 1 + 1/1_000_000
         let result = bin_pow(base, 1_000_000, denominator).unwrap();
         // (1 + 1/1_000_000)^1_000_000 ≈ e ≈ 2.718281828
-        assert!(result > 2_700_000 && result < 2_730_000);
+        assert!(result > 2_715_000 && result < 2_717_000);
+    }
+
+    #[test]
+    fn test_euler_big_exponents() {
+        let base: i128 = 1_000_000_001;
+        let denominator = 1_000_000_000;
+        let exponent = 1_000_000_000;
+
+        let res = bin_pow(base, exponent, denominator).unwrap();
+        assert!(res > 2_718_220_000 && res < 2_718_230_000); // NB: gives 5 symbols precision on big exponents
+    }
+
+    #[test]
+    fn test_euler_big_exponents_ceil() {
+        let base: i128 = 1_000_001_000_000;
+        let denominator = 1_000_000_000_000;
+        let exponent = 1_000_000;
+
+        let res = bin_pow_ceil(base, exponent, denominator).unwrap();
+        assert_eq!(res, 2_718_281_814_221);
+    }
+
+    #[test]
+    fn test_euler_big_error_ceil() {
+        let base: i128 = 1_000_001;
+        let denominator = 1_000_000;
+        let exponent = 1_000_000;
+
+        let res = bin_pow_ceil(base, exponent, denominator).unwrap();
+        // NB: The point of this test is to show how big of an error can
+        // compound when raising to power via fixed point number multiplication.
+        // This is not an issue because of using a very big denominator on
+        // practice([`SCALED_FIXED_POINT_DENOMINATOR`]) compared to the applicable powers
+        assert_eq!(res, 7377939); // ~7.3 instead of expected ~2.71
+    }
+
+    #[test]
+    fn test_euler_small_exponents_floor() {
+        let base: i128 = 1_000_001;
+        let denominator = 1_000_000;
+        let exponent = 1_000_000;
+
+        let res = bin_pow(base, exponent, denominator).unwrap();
+        assert_eq!(res, 2_716_240);
+    }
+
+    #[test]
+    fn test_euler_very_small_exponents_floor() {
+        let base: i128 = 1_1;
+        let denominator = 10;
+        let exponent = 10;
+
+        let res = bin_pow(base, exponent, denominator).unwrap();
+        assert_eq!(res, 22);
+    }
+
+    #[test]
+    fn test_euler_very_small_exponents_ceil() {
+        let base: i128 = 1_1;
+        let denominator = 10;
+        let exponent = 10;
+
+        let res = bin_pow_ceil(base, exponent, denominator).unwrap();
+        assert_eq!(res, 38); // NB: 38 instead of the expected 25 due to the small denominator
+    }
+
+    #[test]
+    fn test_euler_small_exponents_ceil() {
+        let base: i128 = 1_10000;
+        let denominator = 1_00000;
+        let exponent = 10;
+
+        let res = bin_pow_ceil(base, exponent, denominator).unwrap();
+        assert_eq!(res, 259375); // NB: Increasing the denominator improves the precision
     }
 
     #[test]
@@ -396,7 +468,7 @@ mod tests {
             let expected = base.pow(2) / denominator;
             let actual = result;
             assert!(
-                (actual - expected).abs() <= 1, // Allow for small rounding differences
+                (actual - expected).abs() <= 1, // Allow for small differences
                 "For base {}, expected approximately {}, got {}",
                 base,
                 expected,
@@ -466,7 +538,7 @@ mod tests {
         let denominator = 1_000_000;
         let result = bin_pow(base, 2, denominator);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), LendingContractError::OverOrUnderflow);
+        assert_eq!(result.unwrap_err(), MCError::OverOrUnderflow);
 
         // Overflow with moderate base but large exponent
         let base = i128::MAX / (1 << 10);
@@ -495,7 +567,7 @@ mod tests {
         let squared_cubed = bin_pow(squared, 3, denominator).unwrap();
         let sixth = bin_pow(base, 6, denominator).unwrap();
 
-        // Allow for small rounding differences
+        // Allow for small differences
         let tolerance = denominator / 1_000_000; // 0.0001% tolerance
         assert!(
             (squared_cubed - sixth).abs() < tolerance,
@@ -512,7 +584,7 @@ mod tests {
         // 0.5^6 = 2^-6 = 0.015625
         let expected = 15_625_000; // 0.015625 * 10^9
         assert!(
-            (result - expected).abs() < 1000, // Allow for small rounding differences
+            (result - expected).abs() < 1000, // Allow for small differences
             "0.5^6 ≈ 0.015625, got {}",
             result as f64 / denominator as f64
         );
@@ -523,7 +595,7 @@ mod tests {
         // 0.9^10 ≈ 0.3486784401
         let expected = 348_678_440; // 0.3486784401 * 10^9
         assert!(
-            (result - expected).abs() < 1000, // Allow for small rounding differences
+            (result - expected).abs() < 1000, // Allow for small differences
             "0.9^10 ≈ 0.3486784401, got {}",
             result as f64 / denominator as f64
         );
@@ -532,9 +604,9 @@ mod tests {
         let base_099 = denominator * 99 / 100; // 0.99
         let result = bin_pow(base_099, 100, denominator).unwrap();
         // 0.99^100 ≈ 0.366032
-        // let expected = 366_032_000; // 0.366032 * 10^9
+        let expected = 366_032_000; // 0.366032 * 10^9
         assert!(
-            result > 0,
+            (result - expected).abs() < 1000,
             "0.99^100 should be positive, got {}",
             result as f64 / denominator as f64
         );
@@ -544,9 +616,9 @@ mod tests {
         let base_03 = denominator * 3 / 10; // 0.3
         let result = bin_pow(base_03, 5, denominator).unwrap();
         // 0.3^5 = 0.00243
-        // let expected = 2_430_000; // 0.00243 * 10^9
+        let expected = 2_430_000; // 0.00243 * 10^9
         assert!(
-            result > 0,
+            (result - expected).abs() < 1000,
             "0.3^5 should be positive, got {}",
             result as f64 / denominator as f64
         );
@@ -585,9 +657,9 @@ mod tests {
         // Test how changing the denominator affects precision
 
         // Compute the same value with different denominators
-        let base_values = [(1.5, 3), (0.8, 5), (1.1, 10)];
+        let data = [(1.5, 3), (0.8, 5), (1.1, 10)];
 
-        for (base_value, exponent) in base_values {
+        for (base_value, exponent) in data {
             let mut results = Vec::new();
 
             // Test with increasing denominator precision
@@ -601,7 +673,7 @@ mod tests {
 
             // For the specific case of 0.8^5, the expected result is close to 0.32768
             // Don't directly compare consecutive values, as lower precision denominators
-            // might have more significant rounding errors
+            // might have more significant errors
 
             // Instead, verify that the highest precision result is close to the expected value
             let expected_value = base_value.powi(exponent as i32);

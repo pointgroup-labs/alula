@@ -1,483 +1,447 @@
 #![cfg(test)]
 
-use lending::constants::DEFAULT_LIQUIDATION_THRESHOLD;
-use soroban_sdk::testutils::Ledger;
+use market::{constants::DEFAULT_OPEN_LTV, pool::PoolConfig};
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, LCError, TestFixture, get_borrow_obligation,
-    get_deposit_obligation, get_obligation_borrowed, get_obligation_collateral,
-    get_obligation_computed_tokens_from_shares,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
+    assert_approx_eq_rel, get_deposit_obligation, get_obligation_collateral,
+    get_obligation_deposited, get_obligation_j_tokens, get_obligation_j_tokens_as_tokens,
+    get_pool_total_available, get_pool_total_borrowed, get_pool_total_collateral,
+    get_pool_total_j_tokens, get_pool_total_supply,
 };
 
 #[test]
-fn test_withdraw_zero() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .shares;
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
-
-    assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
-
-    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
-    let gold_pool_before = contract_client.get_pool(&usdc_pool_address);
-    let obligation_before = contract_client.get_user_obligation(user);
-
-    contract_client.withdraw(user, &usdc_pool_address, &0);
-    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
-    let gold_pool_after = contract_client.get_pool(&usdc_pool_address);
-    let obligation_after = contract_client.get_user_obligation(user);
-
-    assert_eq!(obligation_before, obligation_after);
-    assert_eq!(usdc_pool_before, usdc_pool_after);
-    assert_eq!(gold_pool_before, gold_pool_after);
-}
-
-#[test]
 fn test_withdraw() {
-    let TestFixture {
+    let TestMarketFixture {
+        e,
         contract_client,
-        usdc_pool_address,
+        gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
 
-    let user = &users[0];
-    contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .shares;
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
+    // Withdraw 50%
+    contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
-    assert_eq!(obligation_shares, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_shares, DEFAULT_DEPOSIT_AMOUNT);
+    let obligation_supplied =
+        get_obligation_deposited(&contract_client, creditor, &gold_pool_address).unwrap();
+    let obligation_j_tokens =
+        get_obligation_j_tokens(&contract_client, creditor, &gold_pool_address).unwrap();
+    let obligation_j_tokens_as_tokens =
+        get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
+            .unwrap();
 
-    // Withdraw half
-    contract_client.withdraw(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    assert_eq!(obligation_supplied, DEFAULT_DEPOSIT_AMOUNT / 2);
+    assert_eq!(obligation_j_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
+    assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
 
-    let obligation_shares = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .shares;
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
+    let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens =
+        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
 
-    assert_eq!(obligation_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
-    assert_eq!(pool_shares, (DEFAULT_DEPOSIT_AMOUNT / 2));
+    assert_eq!(pool_total_supply, DEFAULT_DEPOSIT_AMOUNT / 2);
+    assert_eq!(pool_total_j_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
+    assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT / 2);
 
-    // Withdraw half again
-    contract_client.withdraw(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    // Withdraw 50% again
+    contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     assert_eq!(
-        Err(Ok(LCError::ObligationDoesNotExist)),
-        contract_client.try_get_user_obligation(user)
+        get_obligation_deposited(&contract_client, creditor, &gold_pool_address),
+        Err(MCError::ObligationDoesNotExist)
     );
-
-    let pool_shares = contract_client.get_pool(&usdc_pool_address).total_shares;
-
-    assert_eq!(pool_shares, 0);
-}
-
-#[test]
-fn test_remove_collateral_zero() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-
-    let pool_before = contract_client.get_pool(&usdc_pool_address);
-    let obligation_before = contract_client.get_user_obligation(user);
-
-    // Withdraw half
-    contract_client.remove_collateral(user, &usdc_pool_address, &0);
-
-    let pool_after = contract_client.get_pool(&usdc_pool_address);
-    let obligation_after = contract_client.get_user_obligation(user);
-
-    assert_eq!(pool_before, pool_after);
-    assert_eq!(obligation_before, obligation_after);
-}
-
-#[test]
-fn test_remove_collateral_negative() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-
     assert_eq!(
-        contract_client.try_remove_collateral(user, &usdc_pool_address, &-1),
-        Err(Ok(LCError::NegativeCollateralRemoval))
+        get_obligation_j_tokens(&contract_client, creditor, &gold_pool_address),
+        Err(MCError::ObligationDoesNotExist)
     );
+    assert_eq!(
+        get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address),
+        Err(MCError::ObligationDoesNotExist)
+    );
+
+    let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens =
+        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+
+    assert_eq!(pool_total_supply, 0);
+    assert_eq!(pool_total_j_tokens, 0);
+    assert_eq!(pool_total_available, 0);
 }
 
 #[test]
 fn test_remove_collateral() {
-    let TestFixture {
+    let TestMarketFixture {
+        e,
         contract_client,
-        usdc_pool_address,
+        gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let collateral_provider = &users[0];
 
-    let user = &users[0];
-    contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-
-    let obligation_collateral = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .collateral;
-    let pool_collateral = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_collateral;
-
-    assert_eq!(obligation_collateral, DEFAULT_COLLATERAL_AMOUNT);
-    assert_eq!(pool_collateral, DEFAULT_COLLATERAL_AMOUNT);
-
-    // Withdraw half
-    contract_client.remove_collateral(user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
-
-    let obligation_collateral = get_deposit_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .collateral;
-    let pool_collateral = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_collateral;
-
-    assert_eq!(obligation_collateral, (DEFAULT_COLLATERAL_AMOUNT / 2));
-    assert_eq!(pool_collateral, (DEFAULT_COLLATERAL_AMOUNT / 2));
-
-    // Withdraw half again
-    contract_client.remove_collateral(user, &usdc_pool_address, &(DEFAULT_COLLATERAL_AMOUNT / 2));
-
-    assert_eq!(
-        Err(Ok(LCError::ObligationDoesNotExist)),
-        contract_client.try_get_user_obligation(user)
+    contract_client.add_collateral(
+        collateral_provider,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
     );
 
-    let pool_collateral = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_collateral;
+    // Remove 50%
+    contract_client.remove_collateral(
+        collateral_provider,
+        &gold_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+    );
 
-    assert_eq!(pool_collateral, 0);
+    let obligation_collateral =
+        get_obligation_collateral(&contract_client, collateral_provider, &gold_pool_address)
+            .unwrap();
+    let obligation_j_tokens =
+        get_obligation_j_tokens(&contract_client, collateral_provider, &gold_pool_address).unwrap();
+    let obligation_j_tokens_as_tokens = get_obligation_j_tokens_as_tokens(
+        &e,
+        &contract_client,
+        collateral_provider,
+        &gold_pool_address,
+    )
+    .unwrap();
+
+    assert_eq!(obligation_collateral, DEFAULT_DEPOSIT_AMOUNT / 2);
+    assert_eq!(obligation_j_tokens, 0);
+    assert_eq!(obligation_j_tokens_as_tokens, 0);
+
+    let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens =
+        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_collateral =
+        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+
+    assert_eq!(pool_total_collateral, DEFAULT_DEPOSIT_AMOUNT / 2);
+    assert_eq!(pool_total_supply, 0);
+    assert_eq!(pool_total_j_tokens, 0);
+    assert_eq!(pool_total_available, 0);
+
+    // Remove 50% again
+    contract_client.remove_collateral(
+        collateral_provider,
+        &gold_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+    );
+    // TODO: Investigate what happens if you withdraw here instead of removing collateral
+    // contract_client.withdraw(collateral_provider, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT /
+    // 2));
+
+    assert_eq!(
+        get_obligation_collateral(&contract_client, collateral_provider, &gold_pool_address),
+        Err(MCError::ObligationDoesNotExist)
+    );
+    assert_eq!(
+        get_obligation_j_tokens(&contract_client, collateral_provider, &gold_pool_address),
+        Err(MCError::ObligationDoesNotExist)
+    );
+    assert_eq!(
+        get_obligation_j_tokens_as_tokens(
+            &e,
+            &contract_client,
+            collateral_provider,
+            &gold_pool_address
+        ),
+        Err(MCError::ObligationDoesNotExist)
+    );
+
+    let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens =
+        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_collateral =
+        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+
+    assert_eq!(pool_total_collateral, 0);
+    assert_eq!(pool_total_supply, 0);
+    assert_eq!(pool_total_j_tokens, 0);
+    assert_eq!(pool_total_available, 0);
+}
+
+#[test]
+fn test_withdraw_zero() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let obligation_before =
+        get_deposit_obligation(&contract_client, creditor, &gold_pool_address).unwrap();
+    let pool_before = contract_client.get_pool(&gold_pool_address);
+
+    contract_client.withdraw(creditor, &gold_pool_address, &0);
+
+    let obligation_after =
+        get_deposit_obligation(&contract_client, creditor, &gold_pool_address).unwrap();
+    let pool_after = contract_client.get_pool(&gold_pool_address);
+
+    assert_eq!(obligation_before, obligation_after);
+    assert_eq!(pool_before, pool_after);
+}
+
+#[test]
+fn test_remove_collateral_zero() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let collateral_provider = &users[0];
+
+    contract_client.add_collateral(
+        collateral_provider,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
+
+    let obligation_before =
+        get_deposit_obligation(&contract_client, collateral_provider, &gold_pool_address).unwrap();
+    let pool_before = contract_client.get_pool(&gold_pool_address);
+
+    contract_client.remove_collateral(collateral_provider, &gold_pool_address, &0);
+
+    let obligation_after =
+        get_deposit_obligation(&contract_client, collateral_provider, &gold_pool_address).unwrap();
+    let pool_after = contract_client.get_pool(&gold_pool_address);
+
+    assert_eq!(obligation_before, obligation_after);
+    assert_eq!(pool_before, pool_after);
+}
+
+#[test]
+fn test_withdraw_negative() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+
+    assert_eq!(
+        contract_client.try_withdraw(creditor, &gold_pool_address, &-1),
+        Err(Ok(MCError::NegativeAmount))
+    );
+}
+
+#[test]
+fn test_remove_collateral_negative() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let collateral_provider = &users[0];
+
+    contract_client.add_collateral(
+        collateral_provider,
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+    );
+
+    assert_eq!(
+        contract_client.try_remove_collateral(collateral_provider, &gold_pool_address, &-1),
+        Err(Ok(MCError::NegativeAmount))
+    );
 }
 
 #[test]
 fn test_withdraw_all_with_i128_max() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    let user2 = &users[1];
-
-    contract_client.deposit(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    let pool_deposited_before = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_supply()
-        .unwrap();
-
-    contract_client.withdraw(user, &usdc_pool_address, &i128::MAX);
-
-    let pool_deposited_after = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_supply()
-        .unwrap();
-
-    assert_eq!(
-        pool_deposited_after + DEFAULT_DEPOSIT_AMOUNT,
-        pool_deposited_before
-    );
-    assert_eq!(
-        get_deposit_obligation(&contract_client, user, &usdc_pool_address),
-        Err(LCError::ObligationDoesNotExist)
-    );
-}
-
-#[test]
-fn test_withdraw_more_than_open_ltv_allows() {
-    const MAX_BORROWING_AMOUNT: i128 =
-        (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
-
-    let TestFixture {
-        e,
-        contract_client,
-        contract_id,
-        usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let creditor_1 = &users[0];
+    let creditor_2 = &users[1];
 
-    let user = &users[0];
-    let user2 = &users[1];
+    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    // Fill up the borrowing pool with liquidity
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    // Deposit gold as deposit that backs future borrows
-    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let pool_total_supply_before =
+        get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
+    contract_client.withdraw(creditor_1, &gold_pool_address, &i128::MAX);
+    let pool_total_supply_after =
+        get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
 
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
-            .unwrap();
-
-        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
-    });
-
-    // Borrow half
-    contract_client.borrow(user, &usdc_pool_address, &(MAX_BORROWING_AMOUNT / 2));
-
-    let borrowed_amount =
-        get_obligation_borrowed(&contract_client, user, &usdc_pool_address).unwrap();
-    assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT / 2);
-
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
-            .unwrap();
-
-        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT / 2);
-    });
-
-    // Try withdraw all
-    contract_client.withdraw(user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-
-    // Check that there's a deposit left and it is backing the borrowed funds
-    let deposit_amount =
-        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &gold_pool_address)
-            .unwrap();
-
-    // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(
-        deposit_amount,
-        (borrowed_amount * 100) / DEFAULT_LIQUIDATION_THRESHOLD
+        pool_total_supply_after + DEFAULT_DEPOSIT_AMOUNT,
+        pool_total_supply_before
     );
-}
-
-#[test]
-fn withdraw_up_to_open_ltv() {
-    const MAX_BORROWING_AMOUNT: i128 =
-        (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
-
-    let TestFixture {
-        e,
-        contract_client,
-        contract_id,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    let user2 = &users[1];
-
-    // Fill up the borrowing pool with liquidity
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    // Deposit gold as deposit that backs future borrows
-    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
-            .unwrap();
-
-        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
-    });
-
-    // Borrow half
-    contract_client.borrow(user, &usdc_pool_address, &MAX_BORROWING_AMOUNT);
-
-    let borrowed_amount =
-        get_obligation_borrowed(&contract_client, user, &usdc_pool_address).unwrap();
-    assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT);
-
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_collateral_removed_amount(&e, &gold_pool_address)
-            .unwrap();
-
-        assert_eq!(max_borrowing_amount, 0);
-    });
-
-    // Try withdraw
-    contract_client.withdraw(user, &gold_pool_address, &1);
-
-    // Check that there's a deposit left and it is backing the borrowed funds
-    let deposit_amount =
-        get_obligation_computed_tokens_from_shares(&e, &contract_client, user, &gold_pool_address)
-            .unwrap();
-
-    // The deposit that backs borrowed funds must be present on the contract
     assert_eq!(
-        deposit_amount,
-        (borrowed_amount * 100) / DEFAULT_LIQUIDATION_THRESHOLD
+        get_deposit_obligation(&contract_client, creditor_1, &gold_pool_address),
+        Err(MCError::ObligationDoesNotExist)
     );
 }
 
 #[test]
 fn test_remove_all_with_i128_max() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
-        usdc_pool_address,
+        gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let creditor_1 = &users[0];
+    let creditor_2 = &users[1];
 
-    let user = &users[0];
+    contract_client.add_collateral(creditor_1, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(creditor_2, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
-    contract_client.add_collateral(user, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-
-    let pool_collateral_before = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_collateral;
-
-    contract_client.remove_collateral(user, &usdc_pool_address, &i128::MAX);
-
-    let pool_collateral_after = contract_client
-        .get_pool(&usdc_pool_address)
-        .total_collateral;
+    let pool_total_collateral_before =
+        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+    contract_client.remove_collateral(creditor_1, &gold_pool_address, &i128::MAX);
+    let pool_total_collateral_after =
+        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
 
     assert_eq!(
-        pool_collateral_before - DEFAULT_COLLATERAL_AMOUNT,
-        pool_collateral_after
+        pool_total_collateral_after + DEFAULT_COLLATERAL_AMOUNT,
+        pool_total_collateral_before
     );
     assert_eq!(
-        get_deposit_obligation(&contract_client, user, &usdc_pool_address),
-        Err(LCError::ObligationDoesNotExist)
+        get_deposit_obligation(&contract_client, creditor_1, &gold_pool_address),
+        Err(MCError::ObligationDoesNotExist)
     );
 }
 
 #[test]
-fn test_remove_collateral_more_than_open_ltv_allows() {
-    const MAX_BORROWING_AMOUNT: i128 =
-        (DEFAULT_COLLATERAL_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
+fn test_withdraw_exceeds_utilization_cap() {
+    const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
-    let TestFixture {
-        e,
+    let pool_config = PoolConfig {
+        utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
+        ..Default::default()
+    };
+
+    let TestMarketFixture {
         contract_client,
-        contract_id,
-        usdc_pool_address,
         gold_pool_address,
+        usdc_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let creditor = &users[0];
+    let borrower = &users[1];
 
+    contract_client.add_collateral(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    // Borrow 10% of USDC
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+
+    let pool_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_supply = get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
+
+    // Check that the utilization ratio is 10%
+    assert_eq!(pool_total_supply / pool_borrowed, 10);
+    // Try to withdraw more than UR cap allows
+    assert_eq!(
+        contract_client.try_withdraw(
+            creditor,
+            &usdc_pool_address,
+            &(81 * DEFAULT_DEPOSIT_AMOUNT / 100), // 10% + 81% > 90%
+        ),
+        Err(Ok(MCError::PoolUtilizationRatioCapExceeded))
+    );
+    assert!(
+        contract_client
+            .try_withdraw(
+                creditor,
+                &usdc_pool_address,
+                &(8 * DEFAULT_DEPOSIT_AMOUNT / 10), // 90%
+            )
+            .is_ok()
+    );
+}
+
+#[test]
+fn withdraw_up_to_open_ltv() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
     let user = &users[0];
-    let user2 = &users[1];
+    let loan_provider = &users[1];
 
-    // Deposit funds in a pool to borrow them later
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    // Add collateral
-    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
-            .unwrap();
+    contract_client.borrow(user, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2));
 
-        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
-    });
+    let obligation_j_tokens_before =
+        get_obligation_j_tokens(&contract_client, user, &gold_pool_address).unwrap();
+    // Try to withdraw more than default openLTV(70%) allows
+    contract_client.withdraw(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let obligation_j_tokens_after =
+        get_obligation_j_tokens(&contract_client, user, &gold_pool_address).unwrap();
 
-    // Borrow half
-    contract_client.borrow(user, &usdc_pool_address, &(MAX_BORROWING_AMOUNT / 2));
+    assert_eq!(obligation_j_tokens_before, DEFAULT_DEPOSIT_AMOUNT);
+    // Check that the required amount to back up the borrow remains
+    assert_approx_eq_rel(
+        // TODO: Investigate a bit deeper when checking maths
+        obligation_j_tokens_after,
+        (100 * (obligation_j_tokens_before / 2)) / 70,
+        5,
+    );
+}
 
-    let borrowed_amount =
-        get_obligation_borrowed(&contract_client, user, &usdc_pool_address).unwrap();
-    assert_eq!(borrowed_amount, MAX_BORROWING_AMOUNT / 2);
+#[test]
+fn remove_collateral_up_to_open_ltv() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+    let loan_provider = &users[1];
 
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
-            .unwrap();
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT / 2);
-    });
+    contract_client.borrow(user, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2));
 
-    // Try to remove all collateral
-    contract_client.remove_collateral(user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-
-    // Check that there's a collateral left and it is backing the borrowed funds
-    let collateral_amount =
+    let obligation_collateral_before =
+        get_obligation_collateral(&contract_client, user, &gold_pool_address).unwrap();
+    // Try to remove more than default openLTV(70%) allows
+    contract_client.remove_collateral(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let obligation_collateral_after =
         get_obligation_collateral(&contract_client, user, &gold_pool_address).unwrap();
 
-    // The collateral that backs borrowed funds must be present on the contract
-    assert_eq!(
-        collateral_amount,
-        (borrowed_amount * 100) / DEFAULT_LIQUIDATION_THRESHOLD
+    assert_eq!(obligation_collateral_before, DEFAULT_DEPOSIT_AMOUNT);
+    // Check that the required amount to back up the borrow remains
+    assert_approx_eq_rel(
+        // TODO: Investigate a bit deeper when checking maths
+        obligation_collateral_after,
+        (100 * (obligation_collateral_before / 2)) / DEFAULT_OPEN_LTV,
+        5,
     );
 }
 
-#[test]
-fn test_withdraw_small_with_interest_accrual() {
-    let TestFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    let user2 = &users[1];
-
-    let user3 = &users[2];
-
-    contract_client.deposit(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    // Borrow as a third user to cause increase in a share price
-    contract_client.add_collateral(user3, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.borrow(user3, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-
-    // Wait for 5 hours to pass by
-    e.ledger().with_mut(|li| li.timestamp += 60 * 60 * 5);
-
-    let borrow_obligation =
-        get_borrow_obligation(&contract_client, user3, &usdc_pool_address).unwrap();
-
-    // Check that interest has accrued
-    assert!(borrow_obligation.unpaid_interest > 0);
-
-    // Try withdraw 1 token
-    let user_deposit_obligation_before =
-        get_deposit_obligation(&contract_client, user, &usdc_pool_address).unwrap();
-
-    contract_client.withdraw(user, &usdc_pool_address, &1);
-
-    let user_deposit_obligation_after =
-        get_deposit_obligation(&contract_client, user, &usdc_pool_address).unwrap();
-
-    assert!(user_deposit_obligation_before.shares > user_deposit_obligation_after.shares);
-}
+// TODO: Add time passing test

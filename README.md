@@ -56,6 +56,7 @@ The protocol uses a pool-based model where each supported asset has its own lend
 The protocol consists of several key components:
 
 ```
+// TODO: UPDATE
 ├── contracts/
 │ ├── lending/ # Main lending contract
 │ ├── pool/ # Lending pools
@@ -218,6 +219,7 @@ soroban contract invoke \
 JLend uses a kinked (jump-rate) interest rate model to determine borrowing and supply rates dynamically based on pool utilization.
 
 #### Model Parameters
+
 - **Base rate**: Floor rate applied when utilization is zero.
 - **Optimal utilization**`: The utilization point ("kink") at which the slope changes (default: 80%).
 - **Slope 1**: Incremental rate added for each basis point of utilization below the optimal ratio.

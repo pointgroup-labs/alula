@@ -1,7 +1,8 @@
 [package]
 name = "soroswap_sep_40_adapter"
 version = "0.0.1"
-edition = "2024"
+edition = { workspace = true }
+description = "A Soroban smart contract that aggregates data from multiple SEP-40 oracles."
 publish = false
 
 [lib]
@@ -9,7 +10,7 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-sep-40-oracle.workspace = true
+sep-40-oracle = { workspace = true }
 soroban-sdk = { workspace = true }
 
 [features]

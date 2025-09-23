@@ -3,7 +3,7 @@ use soroban_sdk::contracterror;
 #[contracterror]
 #[derive(Debug, Eq, PartialEq)]
 #[repr(u32)]
-pub enum LendingContractError {
+pub enum MCError {
     // Core errors (0-9)
     InternalError = 0,
     OverOrUnderflow = 1,
@@ -25,19 +25,12 @@ pub enum LendingContractError {
     BorrowDoesNotExist = 22,
 
     // Amount validation errors (30-39)
-    NegativeDeposit = 30,
-    NegativeWithdraw = 31,
-    NegativeRepay = 32,
-    NegativeLiquidation = 33,
-    NegativeBorrow = 34,
-    NegativeFlashLoan = 35,
-    NegativeCollateralAddition = 36,
-    NegativeCollateralRemoval = 37,
+    NegativeAmount = 30,
 
     // Balance and limit errors (40-49)
     WithdrawOverBalance = 40,
-    SupplyLimitExceeded = 41,
-    BorrowLimitExceeded = 42,
+    PoolSupplyLimitExceeded = 41,
+    PoolUtilizationRatioCapExceeded = 42,
     CollateralRemovalOverbalance = 43,
 
     // Oracle-related errors (50-59)
