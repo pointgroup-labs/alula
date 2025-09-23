@@ -1,6 +1,10 @@
+<<<<<<< Updated upstream:contracts/market/src/contract.rs
 // use aggregated_oracle::AggregatedPriceFeedClient;
+=======
+// use aggregated_oracle::PriceFeedClient;
+>>>>>>> Stashed changes:contracts/lending/src/contract.rs
 use moderc3156::FlashLoanClient;
-use sep_40_oracle::{Asset, PriceFeedClient};
+use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl,
@@ -58,7 +62,23 @@ impl MarketContract {
         Ok(())
     }
 
+<<<<<<< Updated upstream:contracts/market/src/contract.rs
     /// Upgrades the market contract
+=======
+    pub fn check_oracles(e: Env, asset_address: Address) -> Option<PriceData> {
+        const AGGREGATED_ORACLE_ADDRESS: &str =
+            "CCPVLUQYLVHMSYUJBRQGIGFND6BMFG37ZZLP7GV3EWHLF3KPQASKGZBD";
+
+        let address = Address::from_str(&e, AGGREGATED_ORACLE_ADDRESS);
+        let oracle_client = PriceFeedClient::new(&e, &address);
+
+        let asset = Asset::Stellar(asset_address);
+
+        oracle_client.lastprice(&asset)
+    }
+
+    /// Upgrades the lending contract
+>>>>>>> Stashed changes:contracts/lending/src/contract.rs
     ///
     /// ### Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new

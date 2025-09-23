@@ -1,0 +1,15 @@
+[package]
+
+name = "aggregated-oracle"
+version = "0.0.5"
+
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+sep-40-oracle.workspace = true
+soroban-sdk = { workspace = true }

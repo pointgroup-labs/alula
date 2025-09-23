@@ -3,8 +3,17 @@
 version = 4
 
 [[package]]
+<<<<<<< Updated upstream
 name = "aggregated-oracle"
+=======
+<<<<<<< Updated upstream
+name = "aggregated_oracle"
+>>>>>>> Stashed changes
 version = "0.0.1"
+=======
+name = "aggregated-oracle"
+version = "0.0.5"
+>>>>>>> Stashed changes
 dependencies = [
  "sep-40-oracle",
  "soroban-sdk",
