@@ -20,7 +20,7 @@ pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
     let sorted_prices = tree_sort(e, prices);
 
     let n = sorted_prices.len();
-    let median = if n % 2 == 0 {
+    let median = if n.is_multiple_of(2) {
         let left = sorted_prices.get(n / 2).unwrap().0; // safe
         let right = sorted_prices.get((n / 2) - 1).unwrap().0; // safe
 
@@ -75,12 +75,11 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         is_stellar_data_based,
     } = oracle_config;
 
-    if let Some(lastprice) = lastprices_cached.get(token_address.clone()) {
-        if lastprice.timestamp + (*resolution as u64) > current_timestamp {
+    if let Some(lastprice) = lastprices_cached.get(token_address.clone())
+        && lastprice.timestamp + (*resolution as u64) > current_timestamp {
             // No need to fetch the price if it hasn't been updated
             return Some(lastprice.price);
         }
-    }
 
     let asset = if *is_stellar_data_based {
         Asset::Stellar(token_address.clone())
