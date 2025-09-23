@@ -182,14 +182,14 @@ fn require_admin(e: &Env) {
 }
 
 fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
-    storage::extend_instance_storage(&e);
+    storage::extend_instance_storage(e);
 
     let Asset::Stellar(token_address) = asset else {
         // Oracle supports only assets existing as tokens on the Stellar ledger
         return None;
     };
 
-    if !storage::is_asset_registered(&e, &token_address) {
+    if !storage::is_asset_registered(e, token_address) {
         {
             let topics = ("Asset hasn't been registered",);
             let data = ();
@@ -200,7 +200,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
         return None;
     }
 
-    let price = compute_median(&e, &token_address)?;
+    let price = compute_median(e, token_address)?;
     let timestamp = e.ledger().timestamp();
     let price_data = PriceData { price, timestamp };
 

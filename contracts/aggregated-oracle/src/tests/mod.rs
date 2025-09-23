@@ -57,7 +57,7 @@ fn test_median_price_with_multiple_oracles() {
 
     assert_eq!(
         lastprice.price,
-        200 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS) as i128
+        200 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS)
     );
     assert_eq!(lastprice.timestamp, e.ledger().timestamp());
 }
