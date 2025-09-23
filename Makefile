@@ -1,17 +1,26 @@
 #!/usr/bin/make
 
+# ---- Definitions ----
+
+# -- WASM Directories --
+
 WASM_DIR := wasms
 MOCKS_DIR := $(WASM_DIR)/mocks
 DEPLOY_DIR := $(WASM_DIR)/deploy
-OPTIMIZED_DIR := $(WASM_DIR)/optimized
+DEPLOY_OPTIMIZED_DIR := $(WASM_DIR)/optimized # TODO: rename to deploy_optimized
 DOWNLOADS_DIR := $(WASM_DIR)/downloads
+
+# -- Repository Contracts --
 
 MARKET_MANAGER_CONTRACT := market-manager
 MARKET_CONTRACT := market
 
-REFLECTOR_ORACLE_URL := https://github.com/reflector-network/reflector-contract/releases/download/v4.1.0_reflector-oracle_v4.1.0.wasm/reflector-oracle_v4.1.0.wasm
-REFLECTOR_ORACLE_WASM := $(DOWNLOADS_DIR)/reflector-oracle.wasm
-REFLECTOR_ORACLE_MOCK := reflector-oracle-mock
+AGGREGATED_ORACLE_CONTRACT := aggregated-oracle
+SOROSWAP_SEP_40_ADAPTER_CONTRACT := soroswap-sep-40-adapter
+
+FLASH_LOAN_TAKER_MOCK_CONTRACT := flash-loan-taker-mock
+
+# -- Dependency Contracts --
 
 SOROSWAP_ROUTER_URL := https://github.com/soroswap/core/releases/download/workflow%2FsorobanBuildForStellarExpert__contracts_router_soroswap-router_pkg0.0.1_cli21.0.0/soroswap-router_v0.0.1.wasm
 SOROSWAP_ROUTER_WASM := $(DOWNLOADS_DIR)/soroswap-router.wasm
@@ -20,11 +29,10 @@ SOROSWAP_ROUTER_MOCK := soroswap-router-mock
 SOROSWAP_PAIR_URL := https://github.com/soroswap/core/releases/download/workflow%2FsorobanBuildForStellarExpert__contracts_pair_soroswap-pair_pkg0.0.1_cli21.0.0/soroswap-pair_v0.0.1.wasm
 SOROSWAP_PAIR_WASM := $(DOWNLOADS_DIR)/soroswap-pair.wasm
 
-FLASH_LOAN_TAKER_MOCK := flash-loan-taker-mock
 
-# Configuration
-NETWORK ?= testnet
-RPC_URL ?= https://soroban-testnet.stellar.org:443
+# -- Network Configuration --
+NETWORK := testnet
+RPC_URL := https://soroban-testnet.stellar.org:443
 
 # Tools we may use optionally (installed in setup)
 OPTIONAL_TOOLS := cargo-audit cargo-outdated cargo-nextest cargo-watch cargo-sort cargo-llvm-cov
@@ -41,8 +49,6 @@ CYAN    := \033[0;36m
 NC      := \033[0m
 
 .DEFAULT_GOAL := help
-
-# ----------------------------------------------------------------------------------------------------------------------
 
 # Require tool to exist
 define require_tool
@@ -68,7 +74,7 @@ define build_contract
 	stellar contract build --package "$(1)" --out-dir "$(2)" $(3)
 endef
 
-# ----------------------------------------------------------------------------------------------------------------------
+# ---- Targets ----
 
 help: ## Show this help
 	@printf "$(YELLOW)%s:$(NC)\n" 'Available commands'
@@ -81,6 +87,7 @@ help: ## Show this help
 # Development Environment
 # ----------------------------------------------------------------------------------------------------------------------
 
+#: Remove this?
 init: ## Initialize project
 	@echo "$(BLUE)Setting up project...$(NC)"
 	cargo install $(OPTIONAL_TOOLS)
@@ -90,13 +97,26 @@ init: ## Initialize project
 # Build Targets
 # ----------------------------------------------------------------------------------------------------------------------
 
+
+build/prepare: ## Download dependency WASMs
+	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DEPLOY_OPTIMIZED_DIR) $(DOWNLOADS_DIR)
+	$(call download_wasm_contract,$(REFLECTOR_ORACLE_WASM),$(REFLECTOR_ORACLE_URL))
+	$(call download_wasm_contract,$(SOROSWAP_ROUTER_WASM),$(SOROSWAP_ROUTER_URL))
+	$(call download_wasm_contract,$(SOROSWAP_PAIR_WASM),$(SOROSWAP_PAIR_URL))
+
+
 # Maintain topological order if needed
 build: build/prepare ## Build contracts
 	$(call build_contract,$(REFLECTOR_ORACLE_MOCK),$(MOCKS_DIR))
 	$(call build_contract,$(SOROSWAP_ROUTER_MOCK),$(MOCKS_DIR))
+
+	$(call build_contract,$(SOROSWAP_SEP_40_ADAPTER_CONTRACT),$(WASM_DIR))
+	$(call build_contract,$(AGGREGATED_ORACLE_CONTRACT),$(WASM_DIR))
+
 	$(call build_contract,$(MARKET_CONTRACT),$(WASM_DIR))
 	$(call build_contract,$(MARKET_MANAGER_CONTRACT),$(WASM_DIR))
-	$(call build_contract,$(FLASH_LOAN_TAKER_MOCK),$(MOCKS_DIR))
+
+	$(call build_contract,$(FLASH_LOAN_TAKER_MOCK_CONTRACT),$(MOCKS_DIR))
 
 build/deploy: build/prepare ## Build contracts for deployment
 	$(call build_contract,$(MARKET_CONTRACT),$(DEPLOY_DIR),--features deploy)
@@ -106,18 +126,12 @@ build/optimize: build/deploy ## Optimize contracts
 	@echo "$(BLUE)Optimizing contracts...$(NC)"
 	@stellar contract optimize \
 		--wasm "$(DEPLOY_DIR)/$(MARKET_CONTRACT).wasm" \
-		--wasm-out "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm"
+		--wasm-out "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm"
 	@stellar contract optimize \
 		--wasm "$(DEPLOY_DIR)/$(MARKET_MANAGER_CONTRACT).wasm" \
-		--wasm-out "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm"
-	@ls -lh "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" 2>/dev/null || true
-	@ls -lh "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" 2>/dev/null || true
-
-build/prepare: ## Download dependency WASMs
-	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DOWNLOADS_DIR)
-	$(call download_wasm_contract,$(REFLECTOR_ORACLE_WASM),$(REFLECTOR_ORACLE_URL))
-	$(call download_wasm_contract,$(SOROSWAP_ROUTER_WASM),$(SOROSWAP_ROUTER_URL))
-	$(call download_wasm_contract,$(SOROSWAP_PAIR_WASM),$(SOROSWAP_PAIR_URL))
+		--wasm-out "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm"
+	@ls -lh "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" 2>/dev/null || true
+	@ls -lh "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" 2>/dev/null || true
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Testing
@@ -157,21 +171,21 @@ benchmark: ## Run benchmarks
 sdk: build/optimize ## Generate TypeScript SDK
 	@echo "$(BLUE)Generating TypeScript SDK...$(NC)"
 	@stellar contract bindings typescript --overwrite \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
 		--output-dir ./packages/sdk/ \
 		--network "$(NETWORK)"
 	@stellar contract bindings typescript --overwrite \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
 		--output-dir ./packages/sdk/ \
 		--network "$(NETWORK)"
 
 sdk/json: build/optimize ## Generate JSON ABI for JS
 	@echo "$(BLUE)Generating JSON ABI...$(NC)"
 	@stellar contract bindings json --overwrite \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
 		--output ./packages/sdk/$(MARKET_CONTRACT).json
 	@stellar contract bindings json --overwrite \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
 		--output ./packages/sdk/$(MARKET_MANAGER_CONTRACT).json
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -180,20 +194,20 @@ sdk/json: build/optimize ## Generate JSON ABI for JS
 
 deploy/testnet: build/optimize ## Deploy to testnet
 	stellar contract deploy \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
 		--network testnet
 	stellar contract deploy \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
 		--network testnet
 
 deploy/mainnet: build/optimize ## Deploy to mainnet (asks for confirmation)
 	echo "$(YELLOW)WARNING: Deploying to MAINNET$(NC)"
 	read -r -p "$(YELLOW)Are you sure? [y/N]$(NC) " c && [ "$$c" = "y" ]
 	stellar contract deploy \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
 		--network mainnet
 	stellar contract deploy \
-		--wasm "$(OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
 		--network mainnet
 
 deploy/verify: ## Verify deployment
