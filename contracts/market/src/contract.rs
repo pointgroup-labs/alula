@@ -1,6 +1,6 @@
-use aggregated_oracle::AggregatedPriceFeedClient;
+// use aggregated_oracle::AggregatedPriceFeedClient;
 use moderc3156::FlashLoanClient;
-use sep_40_oracle::Asset;
+use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl,

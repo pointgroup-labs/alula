@@ -1,6 +1,6 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_sdk::{
-    contract, contractclient, contractimpl, panic_with_error, Address, Env, Map, Symbol, Vec,
+    Address, Env, Map, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
 };
 
 use crate::{
@@ -94,7 +94,6 @@ impl AggregatedOracleContract {
 }
 
 #[contractimpl]
-<<<<<<< HEAD
 impl AggregatedPriceFeedTrait for AggregatedOracleContract {
     fn base(e: Env) -> Asset {
         storage::extend_instance_storage(&e);
@@ -129,44 +128,6 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
         let price = compute_median(&e, &token_address)?;
         let timestamp = e.ledger().timestamp();
         let price_data = PriceData { price, timestamp };
-=======
-impl PriceFeedTrait for SoroswapSep40AdapterContract {
-    fn base(_e: Env) -> Asset {
-        Asset::Other(USD_SYMBOL)
-    }
-
-    fn assets(e: Env) -> Vec<Asset> {
-        panic_with_error!(&e, SS40ACError::Unimplemented)
-    }
-
-    fn decimals(_e: Env) -> u32 {
-        DECIMALS
-    }
-
-    fn resolution(_e: Env) -> u32 {
-        RESOLUTION
-    }
-
-    fn price(e: Env, _asset: Asset, _timestamp: u64) -> Option<PriceData> {
-        panic_with_error!(&e, SS40ACError::Unimplemented)
-    }
-
-    fn prices(e: Env, _asset: Asset, _records: u32) -> Option<Vec<PriceData>> {
-        panic_with_error!(&e, SS40ACError::Unimplemented)
-    }
-
-    fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
-        let Asset::Stellar(address) = asset else {
-            // Adapter abstracts only `Asset::Stellar` assets
-            return None;
-        };
-
-        let price = swap::get_price(&e, address)?;
-        let price_data = PriceData {
-            price,
-            timestamp: e.ledger().timestamp(),
-        };
->>>>>>> dev
 
         Some(price_data)
     }
@@ -174,7 +135,6 @@ impl PriceFeedTrait for SoroswapSep40AdapterContract {
 
 // ---- Helpers ----
 
-<<<<<<< HEAD
 /// Retrieves oracles' info and registers it in the contract's instance storage
 fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_age: u64) {
     let mut oracles_to_register = Vec::<OracleConfig>::new(e);
@@ -211,10 +171,5 @@ fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_
 
 fn require_admin(e: &Env) {
     let admin = storage::get_admin(e);
-=======
-fn require_admin(e: &Env) {
-    let admin =
-        storage::get_admin(e).unwrap_or_else(|| panic_with_error!(e, SS40ACError::InternalError));
->>>>>>> dev
     admin.require_auth();
 }
