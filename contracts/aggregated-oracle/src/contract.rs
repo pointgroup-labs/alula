@@ -1,21 +1,7 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_sdk::{
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    Address, Env, Map, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
-=======
     Address, BytesN, Env, Map, Symbol, Vec, contract, contractclient, contractimpl,
     panic_with_error,
->>>>>>> Stashed changes
-=======
-    Address, BytesN, Env, Map, Symbol, Vec, contract, contractclient, contractimpl,
-    panic_with_error,
->>>>>>> Stashed changes
-=======
-    Address, BytesN, Env, Map, Symbol, Vec, contract, contractclient, contractimpl,
-    panic_with_error,
->>>>>>> Stashed changes
 };
 
 use crate::{
@@ -57,38 +43,11 @@ impl AggregatedOracleContract {
     pub fn __constructor(
         e: Env,
         admin: Address,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
         base_asset: Asset,
-=======
-        base_asset_symbol: Symbol,
->>>>>>> Stashed changes
-=======
-        base_asset_symbol: Symbol,
->>>>>>> Stashed changes
-=======
-        base_asset_symbol: Symbol,
->>>>>>> Stashed changes
         decimals: u32,
         max_age: u64,
         oracles: Vec<OracleConfigInput>,
     ) {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-        let base_asset = Asset::Other(base_asset_symbol);
-
->>>>>>> Stashed changes
-=======
-        let base_asset = Asset::Other(base_asset_symbol);
-
->>>>>>> Stashed changes
-=======
-        let base_asset = Asset::Other(base_asset_symbol);
-
->>>>>>> Stashed changes
         const MIN_MAX_AGE: u64 = 360;
         const MAX_MAX_AGE: u64 = 3_600;
 
@@ -112,14 +71,6 @@ impl AggregatedOracleContract {
         storage::extend_instance_storage(&e);
     }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     // NB: The ability to update the contract must be removed before the mainnet deployment
     /// Upgrades the aggregated oracle contract
     ///
@@ -133,13 +84,6 @@ impl AggregatedOracleContract {
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     /// Adds an asset to the aggregation list
     ///
     /// ### Arguments
@@ -161,27 +105,12 @@ impl AggregatedOracleContract {
 
         storage::get_oracles(&e)
     }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
     pub fn address_lastprice(e: Env, asset_address: Address) -> Option<PriceData> {
         let stellar_asset = Asset::Stellar(asset_address);
 
         process_lastprice(&e, &stellar_asset)
     }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 }
 
 #[contractimpl]
@@ -192,21 +121,8 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
         storage::get_base_asset(&e)
     }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
     /// # Important:
     /// Returns a list of registered assets as [`Asset::Stellar`] variants
->>>>>>> Stashed changes
-=======
-    /// # Important:
-    /// Returns a list of registered assets as [`Asset::Stellar`] variants
->>>>>>> Stashed changes
-=======
-    /// # Important:
-    /// Returns a list of registered assets as [`Asset::Stellar`] variants
->>>>>>> Stashed changes
     fn assets(e: Env) -> Vec<Asset> {
         storage::extend_instance_storage(&e);
 
@@ -220,34 +136,7 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
     }
 
     fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        storage::extend_instance_storage(&e);
-
-        let Asset::Stellar(token_address) = asset else {
-            // Oracle supports only assets existing as tokens on the Stellar ledger
-            return None;
-        };
-
-        if !storage::is_asset_registered(&e, &token_address) {
-            return None;
-        }
-
-        let price = compute_median(&e, &token_address)?;
-        let timestamp = e.ledger().timestamp();
-        let price_data = PriceData { price, timestamp };
-
-        Some(price_data)
-=======
         process_lastprice(&e, &asset)
->>>>>>> Stashed changes
-=======
-        process_lastprice(&e, &asset)
->>>>>>> Stashed changes
-=======
-        process_lastprice(&e, &asset)
->>>>>>> Stashed changes
     }
 }
 
@@ -291,14 +180,6 @@ fn require_admin(e: &Env) {
     let admin = storage::get_admin(e);
     admin.require_auth();
 }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
 fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
     storage::extend_instance_storage(&e);
@@ -325,10 +206,3 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
     Some(price_data)
 }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes

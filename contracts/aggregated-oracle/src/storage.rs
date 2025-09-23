@@ -1,5 +1,5 @@
 use sep_40_oracle::{Asset, PriceData};
-use soroban_sdk::{contracttype, panic_with_error, vec as svec, Address, Env, Map, Symbol, Vec};
+use soroban_sdk::{Address, Env, Map, Symbol, Vec, contracttype, panic_with_error, vec as svec};
 
 use crate::error::AOCError;
 

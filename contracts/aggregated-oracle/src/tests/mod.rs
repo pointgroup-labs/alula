@@ -1,20 +1,20 @@
-use sep_40_oracle::{Asset, PriceData};
+#![allow(unused)]
+
+use sep_40_oracle::Asset;
 use soroban_sdk::{
-    symbol_short,
+    Address, Env, Symbol, Vec as SVec,
     testutils::{Address as _, Ledger},
-    vec as svec, Address, Env, Symbol, Vec as SVec,
+    vec as svec,
 };
 
 use crate::{
-    contract::{
-        AggregatedOracleContract, AggregatedOracleContractClient, AggregatedPriceFeedTrait,
-    },
+    contract::{AggregatedOracleContract, AggregatedOracleContractClient},
     storage::OracleConfigInput,
     tests::mock_oracle::{MockOracleContract, MockOracleContractClient},
 };
 
 extern crate std;
-use std::{vec, vec::Vec};
+use std::vec::Vec;
 
 #[test]
 fn test_median_price_with_multiple_oracles() {
@@ -122,76 +122,6 @@ impl<'a> TestFixture<'a> {
         }
     }
 }
-
-// impl<'a> TestFixture<'a> {
-//     fn new(oracles_amount: usize) -> TestFixture<'a> {
-//         let e = get_default_env();
-//         let base_asset = Asset::Other(Symbol::new(&e, "USD"));
-
-//         // ---- Deploy mock oracles ----
-
-//         let mut oracles = std::vec![];
-
-//         for idx in 0..oracles_amount {
-//             let address = Address::generate(&e);
-//             let is_stellar_data_based = idx % 2 == 0;
-
-//             let oracle_config_input = OracleConfigInput {
-//                 address,
-//                 is_stellar_data_based,
-//             };
-
-//             oracles.push(oracle_config_input);
-//         }
-
-//         let mut oracle_addresses = std::vec![];
-//         let mut oracle_contract_clients = std::vec![];
-
-//         for (idx, oracle_config_input) in oracles.clone().iter().enumerate() {
-//             let idx = idx as u32;
-
-//             let decimals = 10;
-//             let resolution = 360;
-
-//             let (oracle_address, oracle_contract_client) =
-//                 deploy_mock_oracle(&e, decimals, resolution, &base_asset);
-
-//             oracle_addresses.push(oracle_address);
-//             oracle_contract_clients.push(oracle_contract_client);
-//         }
-
-//         // Deploy the aggregated oracle contract
-//         let admin = Address::generate(&e);
-//         let max_age = 360;
-//         let decimals = 14;
-
-//         let (aggregated_oracle_address, aggregated_oracle_client) =
-//             deploy_aggregated_oracle(&e, &admin, &base_asset, decimals, max_age, oracles);
-
-//         TestFixture {
-//             e,
-//             oracle_addresses,
-//             oracle_clients: todo!(),
-//             aggregated_oracle_address,
-//             aggregated_oracle_client,
-//         }
-//     }
-
-//     fn add_asset(&self, symbol: &Symbol, token_address: &Address) {
-//         let asset = Asset::Stellar(token_address.clone());
-
-//         for oracle_client in self.oracle_clients {
-//             oracle_client.set_price(&asset, price, timestamp);
-//         }
-
-//         self.aggregated_oracle_client
-//             .add_asset(symbol, token_address);
-//     }
-
-//     fn add_asset_per_oracle(&self, asset: &Asset, oracle_idx: usize) {}
-
-//     fn change_oracle_price(&self, asset: &Asset) {}
-// }
 
 /// Deploys aggregated oracle contract
 fn deploy_aggregated_oracle<'a>(

@@ -1,5 +1,5 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
-use soroban_sdk::{contract, contractimpl, contracttype, Env, Map, Symbol, Vec};
+use soroban_sdk::{Env, Map, Symbol, Vec, contract, contractimpl, contracttype};
 
 #[contracttype]
 pub enum DataKey {

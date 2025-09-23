@@ -76,10 +76,11 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
     } = oracle_config;
 
     if let Some(lastprice) = lastprices_cached.get(token_address.clone())
-        && lastprice.timestamp + (*resolution as u64) > current_timestamp {
-            // No need to fetch the price if it hasn't been updated
-            return Some(lastprice.price);
-        }
+        && lastprice.timestamp + (*resolution as u64) > current_timestamp
+    {
+        // No need to fetch the price if it hasn't been updated
+        return Some(lastprice.price);
+    }
 
     let asset = if *is_stellar_data_based {
         Asset::Stellar(token_address.clone())
@@ -172,7 +173,7 @@ fn normalize_price(price: i128, oracle_decimals: u32, protocol_decimals: u32) ->
 
 #[cfg(test)]
 mod tests {
-    use soroban_sdk::{vec as svec, Env, Vec};
+    use soroban_sdk::{Env, Vec, vec as svec};
 
     use super::tree_sort;
 
