@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 
 export const useWallet = defineStore('wallet', () => {
   const clientStore = useClientStore()
-  const jLendClient = computed(() => clientStore.jLendClient)
+  const alulaClient = computed(() => clientStore.alulaClient)
 
   const publicKey = ref()
   const balances = ref()
@@ -15,7 +15,7 @@ export const useWallet = defineStore('wallet', () => {
   }
 
   async function loadBalances() {
-    balances.value = await jLendClient.value?.getBalances()
+    balances.value = await alulaClient.value?.getBalances()
     console.log('%c[Wallet Balances]', 'color: #FFB726', balances.value)
   }
 

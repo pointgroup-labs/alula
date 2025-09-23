@@ -21,11 +21,11 @@
     "sizecheck": "cross-env  npx vite-bundle-visualizer"
   },
   "dependencies": {
+    "@alula/client-sdk": "workspace:^",
     "@bootstrap-vue-next/nuxt": "^0.30.4",
     "@creit.tech/stellar-wallets-kit": "^1.7.7",
     "@floating-ui/vue": "^1.1.8",
     "@gtm-support/vue-gtm": "^3.1.0",
-    "@jlend/client-sdk": "workspace:^",
     "@jlend/sdk": "workspace:^",
     "@pinia/nuxt": "^0.11.2",
     "@stellar/stellar-sdk": "^13.3.0",

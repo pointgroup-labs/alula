@@ -28,7 +28,7 @@ const market = useMarket()
 const amount = toRef(market, 'depositAmount')
 
 const clientStore = useClientStore()
-const jLendClient = computed(() => clientStore.jLendClient)
+const alulaClient = computed(() => clientStore.alulaClient)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -72,7 +72,7 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await jLendClient.value?.sdk.leverageTx(
+  const tx = await alulaClient.value?.sdk.leverageTx(
     publicKey.value,
     d?.depositPool.pool_address || '',
     d?.borrowPool.pool_address || '',
@@ -80,7 +80,7 @@ watchDebounced([
     1,
     2,
   )
-  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
 const supplyLimit = ref(0)

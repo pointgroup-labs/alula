@@ -12,7 +12,7 @@ const {
 }>()
 
 const clientStore = useClientStore()
-const jLendClient = computed(() => clientStore.jLendClient)
+const alulaClient = computed(() => clientStore.alulaClient)
 
 const assetDecimals = computed(() => clientStore.assetDecimals)
 
@@ -38,12 +38,12 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await jLendClient.value?.sdk.borrowTx(
+  const tx = await alulaClient.value?.sdk.borrowTx(
     publicKey.value,
     d?.raw.pool_address || '',
     0,
   )
-  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
 const balance = computed(() => {

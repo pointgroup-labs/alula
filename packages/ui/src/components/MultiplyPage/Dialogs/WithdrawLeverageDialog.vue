@@ -18,7 +18,7 @@ const obligation = computed(() => userStore.userObligation)
 const amount = toRef(market, 'withdrawAmount')
 
 const clientStore = useClientStore()
-const jLendClient = computed(() => clientStore.jLendClient)
+const alulaClient = computed(() => clientStore.alulaClient)
 
 const decimals = computed(() => clientStore.assetDecimals)
 
@@ -56,13 +56,13 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await jLendClient.value?.sdk.withdrawLeverageTx(
+  const tx = await alulaClient.value?.sdk.withdrawLeverageTx(
     publicKey.value,
     d?.depositPool.pool_address || '',
     d?.borrowPool.pool_address || '',
     1,
   )
-  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {

@@ -1,5 +1,5 @@
-import type { RPCcluster } from '@jlend/client-sdk'
-import { StellarClient } from '@jlend/client-sdk'
+import type { RPCcluster } from '@alula/client-sdk'
+import { StellarClient } from '@alula/client-sdk'
 // import { useRuntimeConfig } from 'nuxt/app'
 import { defineStore } from 'pinia'
 
@@ -14,13 +14,13 @@ export const useClientStore = defineStore('client', () => {
 
   const publicKey = computed(() => walletStore.publicKey)
 
-  const jLendClient = computed(() => import.meta.client && network.value
+  const alulaClient = computed(() => import.meta.client && network.value
     ? StellarClient.fromAddress(publicKey.value, network.value as RPCcluster)
     : {} as StellarClient)
 
-  const assetDecimals = computed(() => jLendClient.value?.sdk?.assetDecimals || 7)
+  const assetDecimals = computed(() => alulaClient.value?.sdk?.assetDecimals || 7)
   return {
-    jLendClient,
+    alulaClient,
     assetDecimals,
   }
 })

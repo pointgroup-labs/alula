@@ -18,7 +18,7 @@ const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
 const clientStore = useClientStore()
-const jLendClient = computed(() => clientStore.jLendClient)
+const alulaClient = computed(() => clientStore.alulaClient)
 
 const userStore = useUserStore()
 const userTotalDepositInUsd = computed(() => userStore.userTotalDepositInUsd)
@@ -59,12 +59,12 @@ watchDebounced([
     return
   }
 
-  const tx = await jLendClient.value?.sdk.repayTx(
+  const tx = await alulaClient.value?.sdk.repayTx(
     publicKey.value,
     d?.pool_address || '',
     0,
   )
-  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {

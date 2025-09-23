@@ -7,7 +7,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const network = computed(() => rpcStore.network)
 
-  const jLendClient = computed(() => clientStore.jLendClient)
+  const alulaClient = computed(() => clientStore.alulaClient)
 
   const selectedWalletId = useLocalStorage('selectedWalletId', '', { initOnMounted: true })
 
@@ -51,7 +51,7 @@ export const useConnectionStore = defineStore('connection', () => {
           projectId: '3c5d0cb78534db1da6c199e29b775365',
           method: WalletConnectAllowedMethods.SIGN,
           description: ``,
-          name: 'Jlend',
+          name: 'Alula',
           icons: [],
           network: rpcNetwork,
         }),
@@ -117,7 +117,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
   function disconnect() {
     kit.value.disconnect()
-    jLendClient.value?.reset()
+    alulaClient.value?.reset()
     publicKey.value = undefined
     balances.value = undefined
     selectedWalletId.value = ''

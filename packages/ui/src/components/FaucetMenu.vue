@@ -11,13 +11,13 @@ const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
 const clientStore = useClientStore()
-const jlendClient = computed(() => clientStore.jLendClient)
+const alulaClient = computed(() => clientStore.alulaClient)
 
 const loading = ref(false)
 
 async function faucet() {
   try {
-    if (jlendClient.value?.sdk?.rpc !== 'testnet') {
+    if (alulaClient.value?.sdk?.rpc !== 'testnet') {
       return
     }
     loading.value = true

@@ -1,11 +1,15 @@
 <script lang="ts" setup>
+import { ALULA_URL } from '~/config'
 </script>
 
 <template>
   <footer>
     <div class="container">
       <div class="copyright">
-        © Copyright 2025. JLEND.one. All rights reserved.
+        © Copyright 2025 <a
+          :href="ALULA_URL"
+          target="_blank"
+        >alula.finance</a>. All rights reserved.
       </div>
 
       <nav>

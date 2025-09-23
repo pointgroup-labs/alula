@@ -17,7 +17,7 @@ export const useRpcStore = defineStore('rpc', () => {
       return
     }
 
-    const env = config.public.JLEND_CLIENT_NETWORK as Network | undefined
+    const env = config.public.ALULA_CLIENT_NETWORK as Network | undefined
     network.value
       = env === Network.Public || env === Network.Testnet
         ? env

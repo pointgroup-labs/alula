@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { RPC_URLS, SOROBAN_RPC_URLS } from '@jlend/client-sdk'
+import { RPC_URLS, SOROBAN_RPC_URLS } from '@alula/client-sdk'
 
 const rpcStore = useRpcStore()
 

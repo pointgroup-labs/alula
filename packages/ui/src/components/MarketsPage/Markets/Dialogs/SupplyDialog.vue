@@ -23,7 +23,7 @@ const amount = toRef(market, 'depositAmount')
 const collateralOnly = toRef(market, 'collateralOnly')
 
 const clientStore = useClientStore()
-const jLendClient = computed(() => clientStore.jLendClient)
+const alulaClient = computed(() => clientStore.alulaClient)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -53,12 +53,12 @@ watchDebounced([
     return
   }
 
-  const tx = await jLendClient.value?.sdk.depositTx(
+  const tx = await alulaClient.value?.sdk.depositTx(
     publicKey.value,
     d?.raw.pool_address || '',
     0,
   )
-  txFee.value = jLendClient.value.sdk.getTransactionFee(tx)
+  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
 const supplyLimit = ref(0)

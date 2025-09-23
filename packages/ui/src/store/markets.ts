@@ -17,7 +17,7 @@ export const useMarketsStore = defineStore('markets', () => {
   const router = useRouter()
 
   const clientStore = useClientStore()
-  const jLendClient = computed(() => clientStore.jLendClient)
+  const alulaClient = computed(() => clientStore.alulaClient)
 
   const rpcStore = useRpcStore()
   const network = computed(() => rpcStore.network)
@@ -47,7 +47,7 @@ export const useMarketsStore = defineStore('markets', () => {
     }
     try {
       state.loading = true
-      const allPools = await jLendClient.value?.sdk.getAllPools()
+      const allPools = await alulaClient.value?.sdk.getAllPools()
       state.poolAddresses = allPools
       state.pools = await Promise.all(
         allPools.map(async (pool_address: string) => await preparePool(pool_address)),
@@ -64,7 +64,7 @@ export const useMarketsStore = defineStore('markets', () => {
     }
     try {
       state.loadingLeveragePools = true
-      const allPools = await jLendClient.value?.sdk.getAllLeveragePools()
+      const allPools = await alulaClient.value?.sdk.getAllLeveragePools()
       state.leveragePools = allPools || []
       console.log('%c[Leverage Pools]', 'color: #FFB726', allPools)
     } finally {
@@ -74,9 +74,9 @@ export const useMarketsStore = defineStore('markets', () => {
 
   async function preparePool(pool_address: string) {
     const [poolInfo, pool_price, pool_apy] = await Promise.all([
-      jLendClient.value?.sdk.getPoolInfo(pool_address),
-      jLendClient.value?.sdk.getPoolAssetOraclePrice(pool_address),
-      jLendClient.value?.sdk.getPoolApy(pool_address),
+      alulaClient.value?.sdk.getPoolInfo(pool_address),
+      alulaClient.value?.sdk.getPoolAssetOraclePrice(pool_address),
+      alulaClient.value?.sdk.getPoolApy(pool_address),
     ])
     return {
       ...poolInfo,

@@ -2,6 +2,8 @@ import { getRuntimeConfig } from '~/utils/config'
 
 const config = getRuntimeConfig()
 
+export const ALULA_URL = 'https://alula.finance'
+
 export const RPC_NETWORK = config.NUXT_PUBLIC_RPC || 'testnet'
 
 // intervals

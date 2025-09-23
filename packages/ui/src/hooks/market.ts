@@ -16,7 +16,7 @@ export function useMarket() {
   const marketsStore = useMarketsStore()
   const connectionStore = useConnectionStore()
   const clientStore = useClientStore()
-  const jLendClient = computed(() => clientStore.jLendClient)
+  const alulaClient = computed(() => clientStore.alulaClient)
 
   const { generateExplorerLink } = useExplorerLink()
 
@@ -38,7 +38,7 @@ export function useMarket() {
       if (!wallet.publicKey) {
         return
       }
-      const res = await jLendClient.value.addTrustlineTx(wallet.publicKey, asset, issuer, connectionStore.kit)
+      const res = await alulaClient.value.addTrustlineTx(wallet.publicKey, asset, issuer, connectionStore.kit)
       await wallet.loadBalances()
       return res
     } catch (error) {
@@ -119,7 +119,7 @@ export function useMarket() {
       type: 'deposit',
       title: 'Deposit',
       body: `Sending transaction to deposit ${amount} ${symbol}`,
-      exec: () => jLendClient.value.sdk.deposit(pk, pool_address, amount, kit.value),
+      exec: () => alulaClient.value.sdk.deposit(pk, pool_address, amount, kit.value),
     })
 
     depositAmount.value = undefined
@@ -149,7 +149,7 @@ export function useMarket() {
       type: 'borrow',
       title: 'Borrow',
       body: `Sending transaction to borrow ${amount} ${symbol}`,
-      exec: () => jLendClient.value.sdk.borrow(pk, pool_address, amount, kit.value),
+      exec: () => alulaClient.value.sdk.borrow(pk, pool_address, amount, kit.value),
     })
 
     borrowAmount.value = undefined
@@ -178,7 +178,7 @@ export function useMarket() {
       type: 'withdraw',
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amount} ${symbol}`,
-      exec: () => jLendClient.value.sdk.withdraw(pk, pool_address, amount, kit.value),
+      exec: () => alulaClient.value.sdk.withdraw(pk, pool_address, amount, kit.value),
     })
 
     withdrawAmount.value = undefined
@@ -210,7 +210,7 @@ export function useMarket() {
       type: 'repay',
       title: 'Repay',
       body: `Sending transaction to repay ${amount} ${symbol}`,
-      exec: () => jLendClient.value.sdk.repay(pk, pool_address, increasedAmount, kit.value),
+      exec: () => alulaClient.value.sdk.repay(pk, pool_address, increasedAmount, kit.value),
     })
 
     repayAmount.value = undefined
@@ -240,7 +240,7 @@ export function useMarket() {
       type: 'deposit',
       title: 'Add Collateral',
       body: `Sending transaction to add collateral ${amount} ${symbol}`,
-      exec: () => jLendClient.value.sdk.addCollateral(pk, pool_address, amount, kit.value),
+      exec: () => alulaClient.value.sdk.addCollateral(pk, pool_address, amount, kit.value),
     })
 
     depositAmount.value = undefined
@@ -269,7 +269,7 @@ export function useMarket() {
       type: 'withdraw',
       title: 'Withdraw Collateral',
       body: `Sending transaction to withdraw collateral ${amount} ${symbol}`,
-      exec: () => jLendClient.value.sdk.removeCollateral(pk, pool_address, amount, kit.value),
+      exec: () => alulaClient.value.sdk.removeCollateral(pk, pool_address, amount, kit.value),
     })
 
     withdrawAmount.value = undefined
@@ -295,7 +295,7 @@ export function useMarket() {
       type: 'leverage',
       title: 'Leverage',
       body: `Sending transaction to leverage ${amount} ${asset_code}`,
-      exec: () => jLendClient.value.sdk.leverage(
+      exec: () => alulaClient.value.sdk.leverage(
         pk,
         deposit_pool_address,
         borrow_pool_address,
@@ -326,7 +326,7 @@ export function useMarket() {
       type: 'withdrawLeverage',
       title: 'Leverage',
       body: `Sending transaction to Withdraw leverage ${amount} ${asset_code}`,
-      exec: () => jLendClient.value.sdk.withdrawLeverage(
+      exec: () => alulaClient.value.sdk.withdrawLeverage(
         pk,
         deposit_pool_address,
         borrow_pool_address,

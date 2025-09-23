@@ -39,7 +39,7 @@ export const useUserStore = defineStore('user', () => {
   const marketsStore = useMarketsStore()
 
   const clientStore = useClientStore()
-  const jLendClient = computed(() => clientStore.jLendClient)
+  const alulaClient = computed(() => clientStore.alulaClient)
 
   const userObligation = ref()
   const loading = ref(false)
@@ -47,7 +47,7 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserObligation() {
     try {
       loading.value = true
-      userObligation.value = await jLendClient.value.sdk.getUserObligation(wallet.publicKey)
+      userObligation.value = await alulaClient.value.sdk.getUserObligation(wallet.publicKey)
       console.log('%c[User Obligation]', 'color: #FFB726', userObligation.value)
     } finally {
       loading.value = false
@@ -60,7 +60,7 @@ export const useUserStore = defineStore('user', () => {
       return 0
     }
 
-    const assetDecimals = jLendClient.value.sdk.assetDecimals
+    const assetDecimals = alulaClient.value.sdk.assetDecimals
 
     let userDepositsInUsd = 0
 
@@ -88,7 +88,7 @@ export const useUserStore = defineStore('user', () => {
       return 0
     }
 
-    const assetDecimals = jLendClient.value.sdk.assetDecimals
+    const assetDecimals = alulaClient.value.sdk.assetDecimals
 
     let userBorrowedInUsd = 0
 

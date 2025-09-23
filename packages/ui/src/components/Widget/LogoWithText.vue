@@ -10,7 +10,7 @@ const logo = computed(() => isDark.value ? logoDark : logoLight)
     <div class="logo-with-text">
       <img
         :src="logo"
-        alt="JLend logo"
+        alt="Alula logo"
       >
       <span>Stellar Lending</span>
     </div>
