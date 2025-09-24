@@ -8,7 +8,11 @@ use crate::{
 mod market {
     use soroban_sdk::contractimport;
 
+    #[cfg(not(feature = "deploy"))]
     contractimport!(file = "../../wasms/market.wasm");
+
+    #[cfg(feature = "deploy")]
+    contractimport!(file = "../../wasms/deploy/market.wasm");
 }
 
 #[contractclient(name = "MarketManagerClient")]

@@ -1,5 +1,5 @@
 [package]
-name = "market-manager"
+name = "market_manager"
 version = "0.1.0"
 edition = { workspace = true }
 publish = false
@@ -13,3 +13,7 @@ soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+
+[features]
+deploy = []
+testutils = ["soroban-sdk/testutils"]
