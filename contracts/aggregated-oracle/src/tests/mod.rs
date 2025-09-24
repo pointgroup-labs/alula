@@ -91,7 +91,7 @@ fn test_median_price_with_even_number_of_reported_prices() {
                 xlm_asset_other.clone()
             },
             &(100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS)), // Oracles reports: 100, 200 and 300
-            &&(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE),       // Allowed timestamps
+            (&(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE)),       // Allowed timestamps
         );
     }
 
@@ -145,7 +145,7 @@ fn test_median_price_with_all_expired_prices() {
                 xlm_asset_other.clone()
             },
             &(100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS)), // Oracles reports: 100, 200 and 300
-            &&(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE - 1),   // Expired timestamps
+            (&(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE - 1)),   // Expired timestamps
         );
     }
     aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
