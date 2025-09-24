@@ -42,11 +42,13 @@ impl AggregatedOracleContract {
     pub fn __constructor(
         e: Env,
         admin: Address,
-        base_asset: Asset,
+        base_asset_symbol: Symbol, // TODO: Use `Asset` before deployment
         decimals: u32,
         max_age: u64,
         oracles: Vec<OracleConfigInput>,
     ) {
+        let base_asset = Asset::Other(base_asset_symbol);
+
         const MIN_MAX_AGE: u64 = 360;
         const MAX_MAX_AGE: u64 = 3_600;
 
