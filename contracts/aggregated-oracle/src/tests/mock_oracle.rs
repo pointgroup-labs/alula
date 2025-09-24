@@ -46,7 +46,7 @@ impl PriceFeedTrait for MockOracleContract {
         let prices_map: Map<Asset, PriceData> = e
             .storage()
             .instance()
-            .get(&Symbol::new(&e, "prices"))
+            .get(&DataKey::Prices)
             .unwrap_or_else(|| Map::new(&e));
 
         prices_map.keys()
