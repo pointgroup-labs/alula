@@ -15,6 +15,7 @@ pub enum DataKey {
     BaseAsset,
     Assets,
     Oracles,
+    OraclePriceDataCached(Address), // TODO: (Address, Address) for oracle and asset?
 }
 
 // ---- Storage Setters & Getters ----
@@ -120,6 +121,26 @@ pub fn get_token_ticker(e: &Env, token_address: &Address) -> Symbol {
         .expect("Asset must've been set")
 }
 
+pub fn get_oracle_price_data_cache(
+    e: &Env,
+    oracle_address: &Address,
+) -> Option<Map<Address, PriceData>> {
+    e.storage()
+        .instance()
+        .get(&DataKey::OraclePriceDataCached(oracle_address.clone()))
+}
+
+pub fn set_oracle_price_data_cache(
+    e: &Env,
+    oracle_address: &Address,
+    oracle_cache: &Map<Address, PriceData>,
+) {
+    e.storage().instance().set(
+        &DataKey::OraclePriceDataCached(oracle_address.clone()),
+        oracle_cache,
+    );
+}
+
 pub fn set_oracles(e: &Env, oracles: Vec<OracleConfig>) {
     let mut known_addresses = Map::<Address, ()>::new(e);
     for oracle in oracles.iter() {
@@ -165,8 +186,6 @@ pub struct OracleConfig {
     pub decimals: u32,
     /// Default tick period timeframe
     pub resolution: u32,
-    /// [`PriceData`] of the last price retrievals
-    pub lastprices_cached: Map<Address, PriceData>,
     /// Indicator of whether the oracle gets the data from or out of the `Stellar` ledger.
     /// Oracles that have this set to `true` will receive a request with [`Asset::Stellar`] asset
     /// parameter first, and only if it returns [`None`] will receive [`Asset::Other`] afterwards.

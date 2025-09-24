@@ -65,24 +65,23 @@ pub fn get_last_prices(e: &Env, token_address: &Address) -> Vec<i128> {
     prices
 }
 
+/// # Returns
+/// Oracle's `lastprice.price` from the cache.
+/// If cache is expired or not present, takes the data from `lastprice()` oracle's endpoint
+/// and updates the cache with it
 fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig) -> Option<i128> {
     let current_timestamp = e.ledger().timestamp();
-    let OracleConfig {
-        address: oracle_address,
-        decimals: oracle_decimals,
-        resolution,
-        lastprices_cached,
-        is_stellar_data_based,
-    } = oracle_config;
+    let mut oracle_cache =
+        storage::get_oracle_price_data_cache(e, &oracle_config.address).unwrap_or(Map::new(e));
 
-    if let Some(lastprice) = lastprices_cached.get(token_address.clone())
-        && lastprice.timestamp + (*resolution as u64) > current_timestamp
+    if let Some(lastprice) = oracle_cache.get(token_address.clone())
+        && lastprice.timestamp + (oracle_config.resolution as u64) > current_timestamp
     {
         // No need to fetch the price if it hasn't been updated
         return Some(lastprice.price);
     }
 
-    let asset = if *is_stellar_data_based {
+    let asset = if oracle_config.is_stellar_data_based {
         Asset::Stellar(token_address.clone())
     } else {
         let token_ticker = storage::get_token_ticker(e, token_address);
@@ -90,17 +89,17 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         Asset::Other(token_ticker)
     };
 
-    let oracle_client = PriceFeedClient::new(e, oracle_address);
+    let oracle_client = PriceFeedClient::new(e, &oracle_config.address);
     let price_data = oracle_client.lastprice(&asset);
 
-    let price_data = if let Some(price_data) = price_data {
+    let mut price_data = if let Some(price_data) = price_data {
         price_data
     } else {
         {
             // NB: It's rather unexpected not to obtain a price from one of the protocol's oracles
             // in the first try, as well as the second try
             let topics = ("Oracle isn't aware of the asset variant",);
-            let data = (asset.clone(), token_address.clone(), oracle_address.clone());
+            let data = (asset.clone(), token_address.clone(), &oracle_config.address);
 
             e.events().publish(topics, data);
         }
@@ -138,7 +137,7 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         let topics = ("Oracle price's timestamp is invalid",);
         let data = (
             asset,
-            oracle_address.clone(),
+            oracle_config.address.clone(),
             token_address.clone(),
             price_data,
             max_age,
@@ -149,8 +148,16 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         None
     } else {
         let protocol_decimals = storage::get_decimals(e);
+        let normalized_price =
+            normalize_price(price_data.price, oracle_config.decimals, protocol_decimals)?;
+        price_data.price = normalized_price;
 
-        normalize_price(price_data.price, *oracle_decimals, protocol_decimals)
+        // Update the cache
+        // TODO: Maybe create a cache for (oracle_address, asset_address) pair?
+        oracle_cache.set(token_address.clone(), price_data);
+        storage::set_oracle_price_data_cache(e, &oracle_config.address, &oracle_cache);
+
+        Some(normalized_price)
     }
 }
 

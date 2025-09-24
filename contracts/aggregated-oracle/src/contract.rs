@@ -1,7 +1,6 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_sdk::{
-    Address, BytesN, Env, Map, Symbol, Vec, contract, contractclient, contractimpl,
-    panic_with_error,
+    Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
 };
 
 use crate::{
@@ -154,7 +153,6 @@ fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_
 
         let oracle_client = PriceFeedClient::new(e, &address);
 
-        let lastprices_cached = Map::new(e);
         let decimals = oracle_client.decimals();
         let resolution = oracle_client.resolution();
 
@@ -166,7 +164,6 @@ fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_
             address,
             decimals,
             resolution,
-            lastprices_cached,
             is_stellar_data_based,
         };
 
