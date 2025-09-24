@@ -218,7 +218,7 @@ impl Obligation {
             // any health factor decreasing operation is prohibited
             0
         } else {
-            let asset_price = get_asset_price(e, &pool.token_ticker)?;
+            let asset_price = get_asset_price(e, &pool.token_address)?;
             let value_left = collateral_value_scaled - debt_value_scaled;
 
             // ----
@@ -278,7 +278,7 @@ impl Obligation {
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        let price = get_asset_price(e, &pool.token_ticker)?;
+        let price = get_asset_price(e, &pool.token_address)?;
         let value = amount.checked_mul(price).map_over_or_underflow()?;
         let value_scaled = value
             .fixed_mul_floor(scalar_bps, BPS_FACTOR)
@@ -289,7 +289,7 @@ impl Obligation {
 
     /// # Returns
     ///
-    /// [`Vec<ObligationKey>`] containing all obligation keys in the market with their
+    /// [`Vec<ObligationKey>`] containing all obligation keys in the market
     pub fn get_all(e: &Env) -> Vec<ObligationKey> {
         storage::get_all_obligations(e)
     }
@@ -522,7 +522,7 @@ impl Obligation {
             return Err(MCError::LiquidationExceedsCloseFactor);
         }
 
-        let borrow_price = get_asset_price(e, &borrow_pool.token_ticker)?;
+        let borrow_price = get_asset_price(e, &borrow_pool.token_address)?;
         let liquidation_value = amount.checked_mul(borrow_price).map_over_or_underflow()?;
 
         // Value, which liquidator would like to receive if a full liquidation takes place
@@ -532,7 +532,7 @@ impl Obligation {
             .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
-        let collateral_price = get_asset_price(e, &collateral_pool.token_ticker)?;
+        let collateral_price = get_asset_price(e, &collateral_pool.token_address)?;
         let full_collateral_amount = collateral_obligation.collateral;
         let full_collateral_value = full_collateral_amount
             .checked_mul(collateral_price)

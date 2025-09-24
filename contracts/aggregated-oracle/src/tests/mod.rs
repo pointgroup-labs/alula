@@ -203,7 +203,7 @@ impl<'a> TestFixture<'a> {
         let (aggregated_oracle_address, aggregated_oracle_client) = deploy_aggregated_oracle(
             &e,
             &admin,
-            &base_asset,
+            &Symbol::new(&e, "USD"),
             AGGREGATED_ORACLE_DECIMALS,
             AGGREGATED_ORACLE_MAX_AGE,
             oracle_config_inputs.clone(),
@@ -225,14 +225,14 @@ impl<'a> TestFixture<'a> {
 fn deploy_aggregated_oracle<'a>(
     e: &Env,
     admin: &Address,
-    base_asset: &Asset,
+    base_asset_symbol: &Symbol,
     decimals: u32,
     max_age: u64,
     oracles: SVec<OracleConfigInput>,
 ) -> (Address, AggregatedOracleContractClient<'a>) {
     let address = e.register(
         AggregatedOracleContract,
-        (admin, base_asset.clone(), decimals, max_age, oracles),
+        (admin, base_asset_symbol.clone(), decimals, max_age, oracles),
     );
     let client = AggregatedOracleContractClient::new(e, &address);
 

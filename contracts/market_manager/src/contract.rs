@@ -33,6 +33,7 @@ pub trait MarketManager {
         // TODO: max_positions,
         // TODO: min_collateral,
         // what would be the reasons for these parameters?
+        // Maybe, it's reasonable to have them to avoid liquidation fragmentation
     ) -> Result<Address, MMCError>;
 
     /// Returns a list of all lending markets deployed by the manager

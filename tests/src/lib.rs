@@ -104,6 +104,22 @@ impl TestMarketFixture<'_> {
             max_entry_ttl: INDIVIDUAL_BUMP + 1,
         });
 
+        let users = vec![
+            Address::generate(&e),
+            Address::generate(&e),
+            Address::generate(&e),
+            Address::generate(&e),
+        ];
+
+        // Configuring USDC SAC first, since it's used in the oracle as a base asset
+        let usdc_admin = Address::generate(&e);
+        let usdc_ticker = symbol_short!("USDC");
+        let TestAssetSetup {
+            sac_client: usdc_sac,
+            token_client: usdc_token_client,
+            token_address: usdc_token_address,
+        } = setup_test_asset(&e, &usdc_admin, &users);
+
         let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
@@ -121,15 +137,12 @@ impl TestMarketFixture<'_> {
         let contract_client = MarketContractClient::new(&e, &contract_id);
 
         let router_address = Address::from_str(&e, ROUTER_ADDRESS);
-        e.register_at(&router_address, router::WASM, ());
+        e.register_at(
+            &router_address,
+            router::WASM,
+            (symbol_short!("USDC"), usdc_token_address.clone()),
+        );
         let router_client = router::Client::new(&e, &router_address);
-
-        let users = vec![
-            Address::generate(&e),
-            Address::generate(&e),
-            Address::generate(&e),
-            Address::generate(&e),
-        ];
 
         // GOLD
         let gold_admin = Address::generate(&e);
@@ -162,13 +175,6 @@ impl TestMarketFixture<'_> {
         );
 
         // USDC
-        let usdc_admin = Address::generate(&e);
-        let usdc_ticker = symbol_short!("USDC");
-        let TestAssetSetup {
-            sac_client: usdc_sac,
-            token_client: usdc_token_client,
-            token_address: usdc_token_address,
-        } = setup_test_asset(&e, &usdc_admin, &users);
         let usdc_pool_address = contract_client.initialize_pool(
             &usdc_token_address,
             &usdc_ticker,
@@ -187,9 +193,9 @@ impl TestMarketFixture<'_> {
             &Asset::Other(Symbol::new(&e, "USD")),
             &soroban_sdk::vec![
                 &e,
-                Asset::Other(gold_ticker),
-                Asset::Other(btc_ticker),
-                Asset::Other(usdc_ticker),
+                Asset::Stellar(gold_pool_address.clone()),
+                Asset::Stellar(btc_pool_address.clone()),
+                Asset::Stellar(usdc_pool_address.clone()),
             ],
             &14,
             &123, // NB: Resolution is irrelevant because of using the stable prices
