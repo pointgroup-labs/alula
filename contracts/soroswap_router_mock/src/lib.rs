@@ -4,7 +4,7 @@
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::*;
 use soroban_sdk::{
-    Address, Env, Symbol, Vec, contract, contracterror, contractimpl, contracttype, symbol_short,
+    Address, Env, Symbol, Vec, contract, contracterror, contractimpl, contracttype,
     token::{StellarAssetClient, TokenClient},
 };
 
@@ -291,12 +291,14 @@ fn get_amounts_out(
     Ok(soroban_sdk::vec![&e, amount_in, amount_out])
 }
 
+#[allow(unused)]
 fn get_ticker_by_address(e: &Env, address: &Address) -> Option<Symbol> {
     e.storage()
         .instance()
         .get(&DataKey::TickerByAddress(address.clone()))
 }
 
+#[allow(unused)]
 fn get_end_tickers_from_path(e: &Env, path: &Vec<Address>) -> (Symbol, Symbol) {
     let first_ticker = get_ticker_by_address(e, &path.first().unwrap()).unwrap();
     let last_ticker = get_ticker_by_address(e, &path.last().unwrap()).unwrap();
