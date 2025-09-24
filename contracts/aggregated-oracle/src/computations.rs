@@ -21,8 +21,8 @@ pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
 
     let n = sorted_prices.len();
     let median = if n.is_multiple_of(2) {
-        let left = sorted_prices.get(n / 2).unwrap().0; // safe
-        let right = sorted_prices.get((n / 2) - 1).unwrap().0; // safe
+        let left = sorted_prices.get((n / 2) - 1).unwrap().0; // safe
+        let right = sorted_prices.get(n / 2).unwrap().0; // safe
 
         left.checked_add(right)?.checked_div(2)?
     } else {
