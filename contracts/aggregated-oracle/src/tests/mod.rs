@@ -17,7 +17,7 @@ extern crate std;
 use std::vec::Vec;
 
 #[test]
-fn test_median_price_with_multiple_oracles() {
+fn test_median_price_with_odd_number_of_reported_prices() {
     let TestFixture {
         e,
         oracle_clients,
@@ -26,7 +26,7 @@ fn test_median_price_with_multiple_oracles() {
         ..
     } = TestFixture::new();
 
-    // Set XLM prices on the mock oracles: [100, 300, 200]
+    // Set XLM prices on the mock oracles: [100, 200, 300]
     let xlm_address = Address::generate(&e);
     let xlm_ticker = Symbol::new(&e, "XLM");
 
@@ -44,16 +44,16 @@ fn test_median_price_with_multiple_oracles() {
             } else {
                 xlm_asset_other.clone()
             },
-            &(100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS)),
+            &(100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS)), // Oracles reports: 100, 200 and 300
             &1_000_000_600,
         );
     }
 
     aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
 
-    let xlm_asset = Asset::Stellar(xlm_address.clone());
-
-    let lastprice = aggregated_oracle_client.lastprice(&xlm_asset).unwrap();
+    let lastprice = aggregated_oracle_client
+        .lastprice(&xlm_asset_stellar)
+        .unwrap();
 
     assert_eq!(
         lastprice.price,
@@ -61,6 +61,101 @@ fn test_median_price_with_multiple_oracles() {
     );
     assert_eq!(lastprice.timestamp, e.ledger().timestamp());
 }
+
+#[test]
+fn test_median_price_with_even_number_of_reported_prices() {
+    let TestFixture {
+        e,
+        oracle_clients,
+        oracle_config_inputs,
+        aggregated_oracle_client,
+        ..
+    } = TestFixture::new();
+
+    let xlm_address = Address::generate(&e);
+    let xlm_ticker = Symbol::new(&e, "XLM");
+
+    let xlm_asset_other = Asset::Other(xlm_ticker.clone());
+    let xlm_asset_stellar = Asset::Stellar(xlm_address.clone());
+
+    for (idx, (oracle_client, oracle_config_input)) in oracle_clients
+        .iter()
+        .skip(1)
+        .zip(oracle_config_inputs.iter().skip(1))
+        .enumerate()
+    {
+        oracle_client.set_price(
+            &if oracle_config_input.is_stellar_data_based {
+                xlm_asset_stellar.clone()
+            } else {
+                xlm_asset_other.clone()
+            },
+            &(100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS)), // Oracles reports: 100, 200 and 300
+            &&(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE),       // Allowed timestamps
+        );
+    }
+
+    oracle_clients[0].set_price(
+        &if oracle_config_inputs.get(0).unwrap().is_stellar_data_based {
+            xlm_asset_stellar.clone()
+        } else {
+            xlm_asset_other.clone()
+        },
+        &(200 * i128::pow(10, ORACLES_DECIMALS)),
+        &(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE - 1), // Expired timestamp
+    );
+
+    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
+
+    let lastprice = aggregated_oracle_client
+        .lastprice(&xlm_asset_stellar)
+        .unwrap();
+
+    assert_eq!(
+        lastprice.price,
+        150 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS) // (100 + 200) / 2
+    );
+    assert_eq!(lastprice.timestamp, e.ledger().timestamp());
+}
+
+#[test]
+fn test_median_price_with_all_expired_prices() {
+    let TestFixture {
+        e,
+        oracle_clients,
+        aggregated_oracle_client,
+        oracle_config_inputs,
+        ..
+    } = TestFixture::new();
+
+    let xlm_address = Address::generate(&e);
+    let xlm_ticker = Symbol::new(&e, "XLM");
+
+    let xlm_asset_other = Asset::Other(xlm_ticker.clone());
+    let xlm_asset_stellar = Asset::Stellar(xlm_address.clone());
+
+    // Set prices for all oracles to be expired
+    for (idx, (oracle_client, oracle_config_input)) in
+        oracle_clients.iter().zip(oracle_config_inputs).enumerate()
+    {
+        oracle_client.set_price(
+            &if oracle_config_input.is_stellar_data_based {
+                xlm_asset_stellar.clone()
+            } else {
+                xlm_asset_other.clone()
+            },
+            &(100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS)), // Oracles reports: 100, 200 and 300
+            &&(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE - 1),   // Expired timestamps
+        );
+    }
+    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
+
+    let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar);
+
+    assert!(lastprice.is_none());
+}
+
+// TODO: Add more tests
 
 // ---- Helpers -----
 
