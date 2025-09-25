@@ -3,14 +3,37 @@
     "antfu",
     "apys",
     "beasties",
+    "cdylib",
+    "contractclient",
+    "contracterror",
+    "contractimpl",
+    "contractimport",
+    "contracttype",
+    "doctest",
+    "jlending",
     "jpool",
+    "keccak",
+    "kyryl",
+    "lastprice",
+    "lastprices",
+    "libfuzzer",
+    "Liquidatable",
+    "moderc",
+    "MSVC",
+    "multiplicator",
+    "nextest",
     "oxlint",
     "pinia",
+    "repr",
+    "rlib",
+    "rustc",
     "sizecheck",
     "soroban",
     "soroswap",
     "svec",
     "testutils",
+    "twap",
+    "twaps",
     "typecheck",
     "unhead",
     "unplugin",
@@ -93,12 +116,5 @@
   "material-icon-theme.rootFolders.associations": {
     "validators": null
   },
-  "spellright.language": [
-    "en"
-  ],
-  "spellright.documentTypes": [
-    "markdown",
-    "latex",
-    "plaintext"
-  ]
+  "makefile.configureOnOpen": false
 }

@@ -2,7 +2,7 @@
 name = "lending-fuzz"
 version = "0.0.0"
 publish = false
-edition = "2021"
+edition = { workspace = true }
 
 [package.metadata]
 cargo-fuzz = true
@@ -15,13 +15,14 @@ doc = false
 bench = false
 
 [dependencies]
+arbitrary = { version = "1", features = ["derive"] }
 extension-trait = "1"
 libfuzzer-sys = "0.4"
-soroban-fixed-point-math = "1.3.0"
-soroban-sdk = { version = "22.0.8", features = ["testutils"] }
+soroban-fixed-point-math = { workspace = true }
+soroban-sdk = { workspace = true, features = ["testutils"] }
 
-[dependencies.lending]
-path = "../../contracts/lending"
+[dependencies.market]
+path = "../../contracts/market"
 features = ["testutils"]
 
 [dependencies.tests]

@@ -1,107 +1,237 @@
 #![cfg(test)]
 
-use lending::{
-    constants::{BPS_FACTOR, DEFAULT_LIQUIDATION_THRESHOLD},
+use market::{
+    constants::{BPS_FACTOR, DEFAULT_OPEN_LTV, SECONDS_IN_YEAR},
+    error::MCError,
     pool::PoolConfig,
-    LCError,
 };
+use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    get_borrow_obligation, get_deposit_obligation, get_obligation_borrowed, TestFixture,
-    DEFAULT_DEPOSIT_AMOUNT,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_borrowed, get_obligation_d_tokens,
+    get_obligation_d_tokens_as_tokens, get_pool_total_available, get_pool_total_borrowed,
+    get_pool_total_d_tokens,
 };
 
 #[test]
 fn test_borrow() {
-    let TestFixture {
+    let TestMarketFixture {
+        e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let loan_provider = &users[1];
 
-    let user = &users[0];
-    let user2 = &users[1];
-    // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.borrow(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    // NB: GOLD is used as the main collateral in integration tests
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    // NB: USDC is used as the main borrowed token in integration tests
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation_borrowed = get_borrow_obligation(&contract_client, user, &usdc_pool_address)
-        .unwrap()
-        .borrowed;
-    let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let obligation_borrowed =
+        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
+    let obligation_d_tokens =
+        get_obligation_d_tokens(&contract_client, borrower, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
+            .unwrap();
 
     assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_d_tokens, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_d_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT);
+
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_borrowed =
+        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_d_tokens =
+        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+
+    assert_eq!(pool_total_d_tokens, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_total_available, 0);
 }
 
 #[test]
-#[ignore]
-fn test_exceed_borrow_limit() {
-    const UTILIZATION_RATION_LIMIT_BPS: i128 = 9000; // 90%
+fn test_borrow_multiple_shareholders() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let borrower_1 = &users[0];
+    let borrower_2 = &users[1];
+    let loan_provider = &users[2];
+
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT),
+    );
+
+    contract_client.deposit(
+        borrower_1,
+        &gold_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT),
+    );
+    contract_client.deposit(
+        borrower_2,
+        &gold_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT),
+    );
+
+    contract_client.borrow(borrower_1, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    const BORROWER_2_BORROW_AMOUNT: i128 = (3 * DEFAULT_DEPOSIT_AMOUNT) / 2;
+    contract_client.borrow(borrower_2, &usdc_pool_address, &BORROWER_2_BORROW_AMOUNT);
+
+    let obligation_borrowed_1 =
+        get_obligation_borrowed(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_1 =
+        get_obligation_d_tokens(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens_1 =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
+            .unwrap();
+
+    assert_eq!(obligation_borrowed_1, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_d_tokens_1, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_d_tokens_as_tokens_1, DEFAULT_DEPOSIT_AMOUNT);
+
+    let obligation_borrowed_2 =
+        get_obligation_borrowed(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_2 =
+        get_obligation_d_tokens(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens_2 =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
+            .unwrap();
+
+    assert_eq!(obligation_borrowed_2, BORROWER_2_BORROW_AMOUNT);
+    assert_eq!(obligation_d_tokens_2, BORROWER_2_BORROW_AMOUNT);
+    assert_eq!(obligation_d_tokens_as_tokens_2, BORROWER_2_BORROW_AMOUNT);
+
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_borrowed =
+        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_d_tokens =
+        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+
+    const BORROWED: i128 = DEFAULT_DEPOSIT_AMOUNT + BORROWER_2_BORROW_AMOUNT;
+
+    assert_eq!(pool_total_d_tokens, BORROWED);
+    assert_eq!(pool_total_borrowed, BORROWED);
+    assert_eq!(pool_total_borrowed, BORROWED);
+    assert_eq!(
+        pool_total_available,
+        (3 * DEFAULT_DEPOSIT_AMOUNT) - BORROWED
+    );
+
+    // -- Accrue debt on the pool --
+
+    // - Wait 1 month -
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+
+    // - Assert that the total debt has increased -
+
+    let obligation_borrowed_1 =
+        get_obligation_borrowed(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_1 =
+        get_obligation_d_tokens(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens_1 =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
+            .unwrap();
+
+    assert_eq!(obligation_borrowed_1, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(obligation_d_tokens_1, DEFAULT_DEPOSIT_AMOUNT);
+    assert!(obligation_d_tokens_as_tokens_1 > DEFAULT_DEPOSIT_AMOUNT);
+
+    let obligation_borrowed_2 =
+        get_obligation_borrowed(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_2 =
+        get_obligation_d_tokens(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens_2 =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
+            .unwrap();
+
+    assert_eq!(obligation_borrowed_2, BORROWER_2_BORROW_AMOUNT);
+    assert_eq!(obligation_d_tokens_2, BORROWER_2_BORROW_AMOUNT);
+    assert!(obligation_d_tokens_as_tokens_2 > BORROWER_2_BORROW_AMOUNT);
+
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_borrowed =
+        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_d_tokens =
+        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+
+    assert_eq!(pool_total_d_tokens, BORROWED);
+    assert!(pool_total_borrowed > BORROWED);
+    assert_eq!(
+        pool_total_available,
+        (3 * DEFAULT_DEPOSIT_AMOUNT) - BORROWED
+    );
+}
+#[test]
+fn test_borrow_exceeds_utilization_cap() {
+    const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
     let pool_config = PoolConfig {
-        utilization_ratio_limit_bps: UTILIZATION_RATION_LIMIT_BPS,
+        utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
         ..Default::default()
     };
 
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         gold_pool_address,
         usdc_pool_address,
         users,
         ..
-    } = TestFixture::new_with_pool_config(pool_config);
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let borrower = &users[0];
+    let loan_provider = &users[1];
 
-    let user = &users[0];
-    let user2 = &users[1];
-
-    // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT));
-
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     contract_client.borrow(
-        user,
+        borrower,
         &usdc_pool_address,
-        &((DEFAULT_DEPOSIT_AMOUNT * UTILIZATION_RATION_LIMIT_BPS) / BPS_FACTOR),
+        &((DEFAULT_DEPOSIT_AMOUNT * UTILIZATION_RATIO_LIMIT_BPS) / BPS_FACTOR),
     );
 
     assert_eq!(
-        contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(LCError::BorrowLimitExceeded))
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1),
+        Err(Ok(MCError::PoolUtilizationRatioCapExceeded))
     );
 }
 
 #[test]
 fn test_borrow_zero() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let loan_provider = &users[1];
 
-    let user = &users[0];
-    let user2 = &users[1];
-
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
-
-    // NB: This borrow will create a `BorrowObligation` with `borrowed` == 0. Should we care about
-    // that?
-    contract_client.borrow(user, &usdc_pool_address, &0);
-
+    contract_client.borrow(borrower, &usdc_pool_address, &0);
     let pool_after = contract_client.get_pool(&usdc_pool_address);
 
     assert_eq!(pool_before, pool_after);
@@ -109,167 +239,69 @@ fn test_borrow_zero() {
 
 #[test]
 fn test_borrow_negative() {
-    let TestFixture {
+    let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let loan_provider = &users[1];
 
-    let user = &users[0];
-    let user2 = &users[1];
-
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     assert_eq!(
-        contract_client.try_borrow(user, &usdc_pool_address, &-1),
-        Err(Ok(LCError::NegativeBorrow))
+        contract_client.try_borrow(borrower, &usdc_pool_address, &-1),
+        Err(Ok(MCError::NegativeAmount))
     );
 }
 
 #[test]
-#[ignore]
-fn test_borrow_health_factor_add_collateral() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    let user2 = &users[1];
-    // Deposit gold to satisfy the health factor threshold
-    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    let deposit_obligation =
-        get_deposit_obligation(&contract_client, user, &gold_pool_address).unwrap();
-    assert_eq!(deposit_obligation.collateral, DEFAULT_DEPOSIT_AMOUNT);
-
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-
-    let deposit_obligation2 =
-        get_deposit_obligation(&contract_client, user2, &usdc_pool_address).unwrap();
-    assert_eq!(deposit_obligation2.shares, 2 * DEFAULT_DEPOSIT_AMOUNT);
-
-    // Borrow 50% of the deposited value
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-
-    // Borrow 75%
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
-
-    // Borrow 80% - equals test's fixture liquidation threshold
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20));
-
-    // Borrow which leads to the health factor threshold constraint violation
-    assert_eq!(
-        contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
-    );
-
-    // Improve health factor
-    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    // Borrow without health factor violation
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-}
-
-#[test]
-#[ignore]
-fn test_borrow_health_factor_deposit() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user = &users[0];
-    let user2 = &users[1];
-    // Deposit gold to satisfy the health factor threshold
-    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-
-    // Borrow 50% of the deposited value
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-
-    // Borrow 75%
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
-
-    // Borrow 80% - equals test's fixture liquidation threshold
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20));
-
-    // Borrow which leads to the health factor threshold constraint violation
-    assert_eq!(
-        contract_client.try_borrow(user, &usdc_pool_address, &1),
-        Err(Ok(LCError::HealthFactorIsLowerThanRequiredThreshold))
-    );
-
-    // Improve health factor
-    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
-    // Borrow without health factor violation
-    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-}
-
-#[test]
-fn borrow_more_than_open_ltv_allows() {
-    const MAX_BORROWING_AMOUNT: i128 =
-        (DEFAULT_DEPOSIT_AMOUNT * DEFAULT_LIQUIDATION_THRESHOLD) / 100;
-
-    let TestFixture {
+fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
+    let TestMarketFixture {
         e,
         contract_client,
-        contract_id,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let loan_provider = &users[1];
 
-    let user = &users[0];
-    let user2 = &users[1];
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    // Fill up the borrowing pool with liquidity
-    contract_client.deposit(user2, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    // Deposit gold as deposit that backs future borrows
-    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &usdc_pool_address)
-            .unwrap();
-
-        assert_eq!(max_borrowing_amount, MAX_BORROWING_AMOUNT);
-    });
-
-    // Borrow twice as possible
-    contract_client.borrow(user, &usdc_pool_address, &(MAX_BORROWING_AMOUNT * 2));
-
-    let pool_borrowed = contract_client.get_pool(&usdc_pool_address).total_borrowed;
     let obligation_borrowed =
-        get_obligation_borrowed(&contract_client, user, &usdc_pool_address).unwrap();
-
-    assert_eq!(obligation_borrowed, MAX_BORROWING_AMOUNT);
-    assert_eq!(pool_borrowed, MAX_BORROWING_AMOUNT);
-
-    let obligation = contract_client.get_user_obligation(user);
-    e.as_contract(&contract_id, || {
-        let max_borrowing_amount = obligation
-            .compute_max_healthy_borrow_added_amount(&e, &gold_pool_address)
+        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
+    let obligation_d_tokens =
+        get_obligation_d_tokens(&contract_client, borrower, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
-        assert_eq!(max_borrowing_amount, 0);
-    });
+    const MAX_HEALTHY_BORROW_AMOUNT: i128 = (DEFAULT_OPEN_LTV * DEFAULT_DEPOSIT_AMOUNT) / 100;
+
+    assert_eq!(obligation_borrowed, MAX_HEALTHY_BORROW_AMOUNT);
+    assert_eq!(obligation_d_tokens, MAX_HEALTHY_BORROW_AMOUNT);
+    assert_eq!(obligation_d_tokens_as_tokens, MAX_HEALTHY_BORROW_AMOUNT);
+
+    let pool_total_available =
+        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_borrowed =
+        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_d_tokens =
+        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+
+    assert_eq!(pool_total_d_tokens, MAX_HEALTHY_BORROW_AMOUNT);
+    assert_eq!(pool_total_borrowed, MAX_HEALTHY_BORROW_AMOUNT);
+    assert_eq!(pool_total_borrowed, MAX_HEALTHY_BORROW_AMOUNT);
+    assert_eq!(
+        pool_total_available,
+        DEFAULT_DEPOSIT_AMOUNT - MAX_HEALTHY_BORROW_AMOUNT
+    );
 }
