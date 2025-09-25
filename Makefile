@@ -187,11 +187,11 @@ sdk: build/optimize ## Generate TypeScript SDK
 	@echo "$(BLUE)Generating TypeScript SDK...$(NC)"
 	@stellar contract bindings typescript --overwrite \
 		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_CONTRACT).optimized.wasm" \
-		--output-dir ./packages/sdk/ \
+		--output-dir ./packages/sdk/$(MARKET_CONTRACT) \
 		--network "$(NETWORK)"
 	@stellar contract bindings typescript --overwrite \
 		--wasm "$(DEPLOY_OPTIMIZED_DIR)/$(MARKET_MANAGER_CONTRACT).optimized.wasm" \
-		--output-dir ./packages/sdk/ \
+		--output-dir ./packages/sdk/$(MARKET_MANAGER_CONTRACT) \
 		--network "$(NETWORK)"
 
 # ----------------------------------------------------------------------------------------------------------------------
