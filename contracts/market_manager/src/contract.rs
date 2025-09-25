@@ -37,7 +37,7 @@ pub trait MarketManager {
     ) -> Result<Address, MMCError>;
 
     /// Returns a list of all lending markets deployed by the manager
-    fn get_market_list(e: Env) -> Option<Vec<Address>>;
+    fn get_market_list(e: Env) -> Vec<Address>;
 }
 
 /// Market Manager Contract. Responsible for deploying and updating existing market contracts
@@ -69,8 +69,8 @@ impl MarketManager for MarketManagerContract {
         Ok(market_address)
     }
 
-    fn get_market_list(e: Env) -> Option<Vec<Address>> {
-        storage::get_markets(&e)
+    fn get_market_list(e: Env) -> Vec<Address> {
+        storage::get_markets(&e).unwrap_or(Vec::new(&e))
     }
 }
 
