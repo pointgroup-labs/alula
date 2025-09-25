@@ -41,6 +41,7 @@ pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMCError
 
     // TODO: Consider using set instead of vec?
     if markets.contains(market_address) {
+        // TODO: Should this be Internal Error?
         return Err(MMCError::MarketAlreadyExists);
     } else {
         markets.push_back(market_address.clone());

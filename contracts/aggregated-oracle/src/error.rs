@@ -1,13 +1,15 @@
 use soroban_sdk::contracterror;
 
+#[derive(Debug)]
 #[contracterror]
-#[derive(Debug, Eq, PartialEq)]
-#[repr(u32)]
-pub enum AggregatedOracleContractError {
+pub enum AOCError {
     // Core errors (0-9)
     InternalError = 0,
-    OverOrUnderflow = 1,
-    Unimplemented = 2,
+    InvalidMaxAge = 1,
+    OverOrUnderflow = 2,
+    InvalidOraclesAmount = 3,
+    AssetAlreadyRegistered = 4,
+    OracleAlreadyRegistered = 5,
+    NonUniqueOraclesRegistered = 6,
+    InvalidOracleConfig = 7,
 }
-
-pub type AOCError = AggregatedOracleContractError;

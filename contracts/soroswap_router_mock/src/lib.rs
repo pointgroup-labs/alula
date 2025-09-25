@@ -4,19 +4,19 @@
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::*;
 use soroban_sdk::{
-    Address, Env, Symbol, Vec, contract, contracterror, contractimpl, contracttype, symbol_short,
+    Address, Env, Symbol, Vec, contract, contracterror, contractimpl, contracttype,
     token::{StellarAssetClient, TokenClient},
 };
 
 #[contracttype]
 enum DataKey {
+    BaseAssetSymbol,
+    BaseAssetTokenAddress,
     TickerByAddress(Address),
 }
 
 const FEE_NUMERATOR: i128 = 997;
 const FEE_DENOMINATOR: i128 = 1000;
-
-const USDC_SYMBOL: Symbol = symbol_short!("USDC");
 
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
@@ -48,6 +48,15 @@ pub struct MockSoroswapRouterContract;
 
 #[contractimpl]
 impl MockSoroswapRouterContract {
+    pub fn __constructor(e: Env, base_asset_symbol: Symbol, base_asset_token_address: Address) {
+        e.storage()
+            .instance()
+            .set(&DataKey::BaseAssetSymbol, &base_asset_symbol);
+        e.storage()
+            .instance()
+            .set(&DataKey::BaseAssetTokenAddress, &base_asset_token_address);
+    }
+
     pub fn router_get_amounts_in(
         e: Env,
         amount_out: i128,
@@ -177,19 +186,26 @@ fn get_amounts_in(
         return Err(CombinedRouterError::LibraryInvalidPath);
     }
 
-    let (first_ticker, last_ticker) = get_end_tickers_from_path(e, path);
+    let (first_address, last_address) = get_end_addresses_from_path(path);
 
     let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
     let decimals = oracle_contract.decimals();
 
     let price_scaling_factor = i128::pow(10, decimals);
-    let usdc_as_token_in = first_ticker == USDC_SYMBOL;
-    let usdc_as_token_out = last_ticker == USDC_SYMBOL;
+
+    let usdc_sac_address = e
+        .storage()
+        .instance()
+        .get(&DataKey::BaseAssetTokenAddress)
+        .unwrap();
+
+    let usdc_as_token_in = first_address == usdc_sac_address;
+    let usdc_as_token_out = last_address == usdc_sac_address;
 
     let amount_in = if usdc_as_token_in {
         let price = oracle_contract
-            .lastprice(&Asset::Other(last_ticker.clone()))
+            .lastprice(&Asset::Stellar(last_address.clone()))
             .unwrap()
             .price;
 
@@ -198,7 +214,7 @@ fn get_amounts_in(
         value.checked_div(price_scaling_factor).unwrap()
     } else if usdc_as_token_out {
         let price = oracle_contract
-            .lastprice(&Asset::Other(first_ticker.clone()))
+            .lastprice(&Asset::Stellar(first_address.clone()))
             .unwrap()
             .price;
 
@@ -227,7 +243,7 @@ fn get_amounts_out(
         return Err(CombinedRouterError::LibraryInvalidPath);
     }
 
-    let (first_ticker, last_ticker) = get_end_tickers_from_path(e, path);
+    let (first_address, last_address) = get_end_addresses_from_path(path);
 
     let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
@@ -239,12 +255,17 @@ fn get_amounts_out(
         .unwrap();
 
     let price_scaling_factor = i128::pow(10, decimals);
-    let usdc_as_token_in = first_ticker == USDC_SYMBOL;
-    let usdc_as_token_out = last_ticker == USDC_SYMBOL;
+    let usdc_sac_address = e
+        .storage()
+        .instance()
+        .get(&DataKey::BaseAssetTokenAddress)
+        .unwrap();
+    let usdc_as_token_in = first_address == usdc_sac_address;
+    let usdc_as_token_out = last_address == usdc_sac_address;
 
     let amount_out = if usdc_as_token_in {
         let price = oracle_contract
-            .lastprice(&Asset::Other(last_ticker.clone()))
+            .lastprice(&Asset::Stellar(last_address.clone()))
             .unwrap()
             .price;
 
@@ -255,7 +276,7 @@ fn get_amounts_out(
         amount_in_scaled.checked_div(price).unwrap()
     } else if usdc_as_token_out {
         let price = oracle_contract
-            .lastprice(&Asset::Other(first_ticker.clone()))
+            .lastprice(&Asset::Stellar(first_address.clone()))
             .unwrap()
             .price;
 
@@ -270,15 +291,24 @@ fn get_amounts_out(
     Ok(soroban_sdk::vec![&e, amount_in, amount_out])
 }
 
+#[allow(unused)]
 fn get_ticker_by_address(e: &Env, address: &Address) -> Option<Symbol> {
     e.storage()
         .instance()
         .get(&DataKey::TickerByAddress(address.clone()))
 }
 
+#[allow(unused)]
 fn get_end_tickers_from_path(e: &Env, path: &Vec<Address>) -> (Symbol, Symbol) {
     let first_ticker = get_ticker_by_address(e, &path.first().unwrap()).unwrap();
     let last_ticker = get_ticker_by_address(e, &path.last().unwrap()).unwrap();
 
     (first_ticker, last_ticker)
+}
+
+fn get_end_addresses_from_path(path: &Vec<Address>) -> (Address, Address) {
+    let last_address = path.last().unwrap();
+    let first_address = path.first().unwrap();
+
+    (first_address, last_address)
 }

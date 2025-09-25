@@ -1,3 +1,4 @@
+// use aggregated_oracle::PriceFeedClient;
 use moderc3156::FlashLoanClient;
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
@@ -44,6 +45,7 @@ impl MarketContract {
         oracle: Address,
     ) -> Result<(), MCError> {
         let global_state = GlobalState {
+            // TODO: Introduce different market statuses
             status: true,
             admin: admin.clone(),
             name: name.clone(),
@@ -57,13 +59,14 @@ impl MarketContract {
         Ok(())
     }
 
-    /// Upgrades the market contract
+    /// Upgrades the lending contract
     ///
     /// ### Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     ///   version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         // TODO: Implement decentralized governance of the contract
+        // or remove this at some point after mainnet deployment
         require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -408,7 +411,7 @@ impl MarketContract {
     pub fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        get_asset_price(&e, &pool.token_ticker)
+        get_asset_price(&e, &pool.token_address)
     }
 
     /// Returns the user's obligation which includes data about all of their deposits and borrows
@@ -478,6 +481,7 @@ impl MarketContract {
 
     /// Returns a list of all user obligations in the protocol
     pub fn get_all_obligations(e: Env) -> Vec<ObligationKey> {
+        // NB: There's no need to store obligation list
         Obligation::get_all(&e)
     }
 
@@ -491,6 +495,7 @@ impl MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<MultiplyPair, MCError> {
+        // TODO: This method is
         MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)
     }
 
@@ -540,6 +545,7 @@ fn process_initialize_pool(
     token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
+    // TODO: Option<InterestRateModel>,
 ) -> Result<Address, MCError> {
     let pool_address: Address = if let Some(salt) = salt {
         e.deployer()
@@ -859,16 +865,16 @@ fn process_liquidate(
         e,
         j_tokens_amount_sold.checked_neg().map_over_or_underflow()?,
     )?;
-    borrow_pool
-        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
-    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
-
     collateral_pool.adjust_total_collateral(
         e,
         collateral_amount_sold
             .checked_neg()
             .map_over_or_underflow()?,
     )?;
+
+    borrow_pool
+        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
+    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
 
     obligation.set(e, borrower_obligation_key);
 
@@ -1472,11 +1478,11 @@ fn compute_leveraged_position_max_withdrawable_amount(
     Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe
 }
 
-pub fn get_asset_price(e: &Env, ticker: &Symbol) -> Result<i128, MCError> {
+pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError> {
     let oracle_address = storage::get_oracle_address(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
-    let asset = Asset::Other(ticker.clone());
+    let asset = Asset::Stellar(token_address.clone());
 
     let price_data = oracle_contract
         .lastprice(&asset)

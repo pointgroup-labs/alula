@@ -11,13 +11,11 @@
     "lint": "eslint --cache .",
     "lint:fix": "pnpm lint --fix"
   },
-  "dependencies": {
-  },
   "devDependencies": {
-    "@antfu/eslint-config": "^5.2.1",
-    "@types/node": "^24.1.0",
-    "eslint": "^9.32.0",
-    "eslint-plugin-format": "^1.0.1",
+    "@antfu/eslint-config": "^5.4.1",
+    "@types/node": "^24.5.2",
+    "eslint": "^9.36.0",
+    "eslint-plugin-format": "^1.0.2",
     "typescript": "^5.9.2"
   }
 }

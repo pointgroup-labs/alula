@@ -1,7 +1,9 @@
 #![no_std]
-
-pub mod constants;
+pub mod computations;
 pub mod contract;
-mod error;
-mod storage;
-mod swap;
+pub mod error;
+pub mod storage;
+#[cfg(test)]
+mod tests;
+
+pub use contract::AggregatedPriceFeedClient;

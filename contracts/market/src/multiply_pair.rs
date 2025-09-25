@@ -25,7 +25,7 @@ pub struct MultiplyPair {
     /// Maximum leverage multiplier based on borrow pool openLTV value. Scaled with
     /// [`LEVERAGE_SCALE`]
     pub max_leverage_multiplier: u32,
-    /// Deterministically computed unique seed per this pair, used to distinguish a user's multiply
+    /// Deterministically computed unique seed per a pair, used to distinguish a user's multiply
     /// pair obligation from other
     pub seed: BytesN<32>,
 }
@@ -190,7 +190,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn computes_obligation_seed_with_valid_addresses() {
+    fn test_computes_obligation_seed_with_valid_addresses() {
         let e = Env::default();
 
         let deposit_pool = Address::generate(&e);
@@ -201,7 +201,7 @@ mod tests {
     }
 
     #[test]
-    fn computes_different_seeds_for_different_addresses() {
+    fn test_computes_different_seeds_for_different_addresses() {
         let e = Env::default();
 
         let deposit_pool = Address::generate(&e);
@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn computes_deterministic_seed_for_same_inputs() {
+    fn test_computes_deterministic_seed_for_same_inputs() {
         let e = Env::default();
 
         let deposit_pool = Address::generate(&e);
@@ -227,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn computes_different_seeds_when_changing_deposit_address() {
+    fn test_computes_different_seeds_when_changing_deposit_address() {
         let e = Env::default();
 
         let borrow_pool = Address::generate(&e);
@@ -242,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn computes_different_seeds_when_changing_borrow_address() {
+    fn test_computes_different_seeds_when_changing_borrow_address() {
         let e = Env::default();
 
         let deposit_pool = Address::generate(&e);
