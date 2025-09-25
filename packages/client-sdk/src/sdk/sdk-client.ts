@@ -1,6 +1,6 @@
-import type { CompoundRates, Obligation, Pool } from '@jlend/sdk'
+// import type { CompoundRates, Obligation, Pool } from '@jlend/sdk'
 import type { RPCcluster } from '../types'
-import { Client } from '@jlend/sdk'
+import { Client } from '@alula/market-manager-sdk'
 import { rpc as SorobanRpc } from '@stellar/stellar-sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
 import { amountToBigInt, getNetworkPassphrase, getRPC, normalizeAssetAmount, sendSorobanTx } from '../utils'
@@ -8,6 +8,7 @@ import { amountToBigInt, getNetworkPassphrase, getRPC, normalizeAssetAmount, sen
 export class SorobanClient {
   rpc: RPCcluster
   sdk: Client
+  marketSdk: Client
   sorobanServer: any
   assetDecimals: number = 7
   oracleDecimals: number = 14
@@ -20,8 +21,17 @@ export class SorobanClient {
       networkPassphrase: getNetworkPassphrase(rpc),
     })
 
+    this.marketSdk = new Client({
+      publicKey,
+      rpcUrl: getRPC(rpc, 'soroban'),
+      contractId: CONTRACT_ID[rpc] ?? SOROBAN_CONTRACT_ID,
+      networkPassphrase: getNetworkPassphrase(rpc),
+    })
+
+    console.log('[SorobanClient]', this.marketSdk)
+
     this.sorobanServer = new SorobanRpc.Server(getRPC(rpc, 'soroban'))
-    this.getDecimals()
+    // this.getDecimals()
     this.rpc = rpc
   }
 
@@ -57,6 +67,16 @@ export class SorobanClient {
     const poolPriceResult: bigint = this.unwrapOk2(poolPrice.result)
     const normalizedPrice = normalizeAssetAmount(poolPriceResult, this.oracleDecimals)
     return normalizedPrice || 0
+  }
+
+  /**
+   *  Get all markets
+   */
+  async getMarketList() {
+    // return (await this.sdk.get_market_list()).result
+    const markets = await this.marketSdk.get_market_list()
+    console.log(markets)
+    return []
   }
 
   /**

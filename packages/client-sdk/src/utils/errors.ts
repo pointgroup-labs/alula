@@ -1,4 +1,4 @@
-import { LendingContractError } from '@jlend/sdk'
+import { MCError } from '@alula/market-sdk'
 
 const errorMap: Record<string, string> = {
   InternalError: 'An unexpected internal error occurred.',
@@ -43,8 +43,8 @@ function extractContractErrorIndex(input: string): string | null {
     return null
   }
   const index = Number(contractErrorIndex)
-  if (Object.prototype.hasOwnProperty.call(LendingContractError, index)) {
-    const contractError = (LendingContractError as Record<number, { message: string }>)[index]
+  if (Object.prototype.hasOwnProperty.call(MCError, index)) {
+    const contractError = (MCError as Record<number, { message: string }>)[index]
     return contractError?.message ?? ''
   }
   return `Contract unknown error - ${index}`
