@@ -1,4 +1,4 @@
-import type { CompoundRates, Pool } from '@jlend/sdk'
+// import type { CompoundRates, Pool } from '@jlend/sdk'
 import { defineStore } from 'pinia'
 
 const MAIN_MARKET_NAME = 'Main market'
@@ -102,8 +102,14 @@ export const useMarketsStore = defineStore('markets', () => {
     ])
   }
 
+  async function getMarketsList() {
+    const markets = await alulaClient.value?.sdk.getMarketList()
+    console.log('%c[Markets]', 'color: #FFB726', markets)
+  }
+
   watch(network, async () => {
-    await loadPoolsData()
+    await getMarketsList()
+    // await loadPoolsData()
   })
 
   watch([
@@ -222,9 +228,9 @@ export type MarketsState = {
 
 export type PoolWithPrice = {
   pool_price: number | string
-  pool_apy: CompoundRates
+  pool_apy: any
   market?: string
-} & Pool
+} & any
 
 export type LeveragePool = {
   borrow_pool: string

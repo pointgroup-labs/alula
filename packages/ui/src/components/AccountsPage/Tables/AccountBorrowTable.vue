@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { BorrowObligation } from '@jlend/sdk'
+// import type { BorrowObligation } from '@jlend/sdk'
 import type { BorrowCardTableItem } from '~/types/table'
 import {
   bigintToNumber,
@@ -35,7 +35,7 @@ const fields = [
 
 const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
   const borrows = obligation.value?.borrows || []
-  return borrows.map((item: [string, BorrowObligation]) => {
+  return borrows.map((item: [string, any]) => {
     const [pool_address, borrow] = item
     const pool = pools.value.find(p => p.pool_address === pool_address)
     if (!pool) {

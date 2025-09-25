@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DepositObligation } from '@jlend/sdk'
+// import type { DepositObligation } from '@jlend/sdk'
 import type { SuppliedCardTableItem } from '~/types/table'
 import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
@@ -27,7 +27,7 @@ const fields = [
 
 const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
   const deposits = obligation.value?.deposits || []
-  return deposits.map((item: [string, DepositObligation]) => {
+  return deposits.map((item: [string, any]) => {
     const [pool_address, deposit] = item
     const pool = pools.value.find(p => p.pool_address === pool_address)
     if (!pool) {

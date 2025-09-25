@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { Pool } from '@jlend/sdk'
+// import type { Pool } from '@jlend/sdk'
 import type { BButtonProps } from 'bootstrap-vue-next'
 import { clickElement, destructurePoolAsset, shortenAddress } from '~/utils'
 
@@ -9,7 +9,7 @@ const {
   pool,
   ...props
 } = defineProps<{
-  pool?: Pool
+  pool?: any
   isTrust?: boolean
   loading?: boolean
   variant?: 'primary' | 'accent'
