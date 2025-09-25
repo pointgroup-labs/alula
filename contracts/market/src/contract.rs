@@ -865,16 +865,16 @@ fn process_liquidate(
         e,
         j_tokens_amount_sold.checked_neg().map_over_or_underflow()?,
     )?;
-    borrow_pool
-        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
-    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
-
     collateral_pool.adjust_total_collateral(
         e,
         collateral_amount_sold
             .checked_neg()
             .map_over_or_underflow()?,
     )?;
+
+    borrow_pool
+        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
+    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
 
     obligation.set(e, borrower_obligation_key);
 
