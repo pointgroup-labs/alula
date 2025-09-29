@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market::{
-    constants::{DEFAULT_FLASH_LOAN_FEE_BPS, LEVERAGE_SCALE, MIN_LEVERAGE_MULTIPLIER},
+    constants::{LEVERAGE_SCALE, MIN_LEVERAGE_MULTIPLIER},
     swap,
 };
 

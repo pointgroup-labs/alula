@@ -1,4 +1,3 @@
-use core::borrow;
 
 // use aggregated_oracle::PriceFeedClient;
 use moderc3156::FlashLoanClient;
@@ -10,7 +9,7 @@ use soroban_sdk::{
 
 use crate::{
     accrual::AccrualModel,
-    constants::{BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, LEVERAGE_SCALE},
+    constants::{BPS_FACTOR, LEVERAGE_SCALE},
     error::MCError,
     events,
     helpers::require_nonnegative,

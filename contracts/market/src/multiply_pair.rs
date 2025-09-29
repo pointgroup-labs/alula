@@ -2,10 +2,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype, xdr::ToXdr};
 
 use crate::{
-    constants::{
-        BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE,
-        MIN_LEVERAGE_MULTIPLIER,
-    },
+    constants::{BPS_FACTOR, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE, MIN_LEVERAGE_MULTIPLIER},
     error::MCError,
     math_utils::MathUtils,
     storage,

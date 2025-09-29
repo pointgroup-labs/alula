@@ -81,7 +81,7 @@ impl Pool {
             .map_over_or_underflow()?;
 
         let accrued_to_reserve = accrued
-            .fixed_mul_ceil(self.fee_config.take_rate_bps as i128, BPS_FACTOR as i128)
+            .fixed_mul_ceil(self.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
         self.accumulated_reserve_fee = self
             .accumulated_reserve_fee
