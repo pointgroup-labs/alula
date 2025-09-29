@@ -95,11 +95,6 @@ pub const DEFAULT_MAX_SLIPPAGE_BPS: i128 = 1;
 /// Default max swap fee in bps
 pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1;
 
-// ---- Flash Loan ----
-
-/// Default flash loan fee in bps
-pub const DEFAULT_FLASH_LOAN_FEE_BPS: i128 = 1;
-
 // ---- Deposit with leverage ----
 
 /// Scale to represent leverage multipliers (e.g., 100 = 1.0x)
@@ -108,6 +103,18 @@ pub const LEVERAGE_SCALE: u32 = 100;
 /// Minimum leverage multiplier (scaled by LEVERAGE_SCALE)
 pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE;
 
+// ---- Fees ----
+pub const DEFAULT_BORROW_FEE_BPS: u32 = 5;
+pub const DEFAULT_FLASH_LOAN_FEE_BPS: u32 = 1;
+
+pub const DEFAULT_DEPOSIT_FEE_BPS: u32 = 0;
+pub const DEFAULT_WITHDRAW_FEE_BPS: u32 = 0;
+pub const DEFAULT_ADD_COLLATERAL_FEE_BPS: u32 = 0;
+pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
+pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
+
+pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
+pub const DEFAULT_HOST_ORIGINATION_FEE_BPS: u32 = 2000; // 20%
 // ---- Oracle ----
 
 /// Maximum acceptable oracle price age in seconds

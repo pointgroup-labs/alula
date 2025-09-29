@@ -62,7 +62,7 @@ impl Pool {
             return Ok(());
         }
 
-        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
+        let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
 
         let current_borrow_apr = self
             .interest_rate_model
@@ -76,29 +76,26 @@ impl Pool {
             .fixed_mul_ceil(accrual_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
             .map_over_or_underflow()?;
 
+        let accrued = new_total_borrowed
+            .checked_sub(self.total_borrowed)
+            .map_over_or_underflow()?;
+
+        let accrued_to_reserve = accrued
+            .fixed_mul_ceil(self.fee_config.take_rate_bps as i128, BPS_FACTOR as i128)
+            .map_over_or_underflow()?;
+        self.accumulated_reserve_fee = self
+            .accumulated_reserve_fee
+            .checked_add(accrued_to_reserve)
+            .map_over_or_underflow()?;
+
         self.total_borrowed = new_total_borrowed;
         self.last_accrual_timestamp = current_timestamp;
 
         Ok(())
     }
 
-    pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?;
-
-        let res = if total_supply == 0 {
-            0
-        } else {
-            // 'utilization_ratio_bps' = (total_borrowed * 10_000)/total_supply
-            self.total_borrowed
-                .fixed_div_ceil(total_supply, BPS_FACTOR)
-                .map_over_or_underflow()?
-        };
-
-        Ok(res)
-    }
-
     pub fn get_apr(&self) -> Result<AnnualPercentageRates, MCError> {
-        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
+        let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
 
         let borrow_apr_bps = self
             .interest_rate_model
@@ -109,7 +106,7 @@ impl Pool {
     }
 
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
-        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
+        let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
 
         let borrow_apr = self
             .interest_rate_model

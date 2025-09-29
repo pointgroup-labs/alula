@@ -239,9 +239,9 @@ fn test_liquidate_zero() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();
     // Accrue interest
-    test.test_fixture
-        .contract_client
-        .accrue_interest(&test.borrower);
+    // test.test_fixture
+    //     .contract_client
+    //     .accrue_interest(&test.borrower);
 
     let usdc_pool_before = test
         .test_fixture

@@ -5,7 +5,7 @@ use crate::{error::MCError, interest_rate_model::kinked::KinkedIRConfig};
 
 #[enum_dispatch]
 pub trait InterestRate {
-    /// Computes annual percentage rates in basis points
+    /// Computes annual percentage rate in basis points
     ///
     /// ### Arguments
     /// * `utilization_ratio_bps` - utilization ratio of a pool

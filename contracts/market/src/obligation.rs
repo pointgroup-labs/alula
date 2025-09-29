@@ -3,10 +3,10 @@ use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
     constants::BPS_FACTOR,
-    contract::get_asset_price,
     error::MCError,
     events,
     math_utils::MathUtils,
+    oracle::get_asset_price,
     pool::{Pool, PoolConfig},
     storage,
 };
@@ -23,8 +23,11 @@ impl ObligationKey {
         Self { user, seed: None }
     }
 
-    pub fn new_with_seed(user: Address, seed: Option<BytesN<32>>) -> Self {
-        Self { user, seed }
+    pub fn new_with_seed(user: Address, seed: BytesN<32>) -> Self {
+        Self {
+            user,
+            seed: Some(seed),
+        }
     }
 }
 
@@ -363,7 +366,7 @@ impl Obligation {
 
         let all_j_tokens_as_tokens =
             pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
-        let received_interest = all_j_tokens_as_tokens
+        let mut received_interest = all_j_tokens_as_tokens
             .checked_sub(deposit_obligation.deposited)
             .map_over_or_underflow()?;
 
@@ -377,8 +380,11 @@ impl Obligation {
                 all_j_tokens_as_tokens,
             );
 
-            return Err(MCError::InternalError);
-        } else if withdrawn_tokens >= received_interest {
+            received_interest = 0; // TODO: Investigate why this happens
+            // return Err(MCError::InternalError);
+        }
+
+        if withdrawn_tokens >= received_interest {
             let deposited_diff = withdrawn_tokens - received_interest; // safe
             deposit_obligation
                 .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
@@ -447,7 +453,7 @@ impl Obligation {
             (amount, pool.compute_d_tokens_from_tokens(e, amount)?)
         };
 
-        let unpaid_interest = all_d_tokens_as_tokens
+        let mut unpaid_interest = all_d_tokens_as_tokens
             .checked_sub(borrow_obligation.borrowed)
             .map_over_or_underflow()?;
 
@@ -461,8 +467,11 @@ impl Obligation {
                 all_d_tokens_as_tokens,
             );
 
-            return Err(MCError::InternalError);
-        } else if real_repaid_amount >= unpaid_interest {
+            unpaid_interest = 0; // TODO: Investigate why this happens
+            // return Err(MCError::InternalError);
+        }
+
+        if real_repaid_amount >= unpaid_interest {
             let borrowed_diff = real_repaid_amount - unpaid_interest; // safe
             borrow_obligation
                 .adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;

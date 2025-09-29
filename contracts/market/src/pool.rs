@@ -4,10 +4,12 @@ use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 use crate::{
     accrual::AccrualModel,
     constants::{
-        BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV,
-        DEFAULT_LIABILITY_FACTOR, DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV,
-        DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
-        MAX_LIABILITY_FACTOR,
+        BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_ADD_COLLATERAL_FEE_BPS, DEFAULT_BORROW_FEE_BPS,
+        DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV, DEFAULT_DEPOSIT_FEE_BPS,
+        DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_HOST_ORIGINATION_FEE_BPS, DEFAULT_LIABILITY_FACTOR,
+        DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV, DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
+        DEFAULT_REPAY_FEE_BPS, DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT, DEFAULT_TAKE_RATE_BPS,
+        DEFAULT_UTILIZATION_RATIO_LIMIT, DEFAULT_WITHDRAW_FEE_BPS, MAX_LIABILITY_FACTOR,
     },
     error::MCError,
     events,
@@ -43,6 +45,12 @@ pub struct Pool {
     pub accrual_model: AccrualModel,
     /// Configuration settings for the pool
     pub config: PoolConfig,
+    /// Fee configuration for the pool
+    pub fee_config: PoolFeeConfig,
+    /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
+    pub accumulated_reserve_fee: i128,
+    /// Amounts of tokens that can be withdrawn by the market's admin
+    pub accumulated_protocol_fee: i128,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
@@ -120,6 +128,8 @@ impl Pool {
 
         Ok(())
     }
+
+    // TODO: Add dTokenRate?
 
     pub fn compute_tokens_from_d_tokens(
         &self,
@@ -318,11 +328,20 @@ impl Pool {
         Ok(shares_amount)
     }
 
-    /// Calculates total supply (available + total_borrowed)
+    // pub fn available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {
+    //     // Can we just populate it at each repay?
+
+    //     self.total_available
+    //         .checked_sub(self.accumulated_reserve_fee)
+    // }
+
+    /// Calculates total supply (available + total_borrowed - accumulated fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
         self.total_available
             .checked_add(self.total_borrowed)
             .map_over_or_underflow()
+        // .checked_sub(self.accumulated_reserve_fee)
+        // .map_over_or_underflow()
     }
 
     /// Checks if the pool is empty
@@ -385,6 +404,60 @@ impl Pool {
     /// Modifies the contract's storage
     pub fn register(&self, e: &Env) -> u32 {
         storage::register_pool(e, &self.pool_address.clone())
+    }
+}
+
+#[contracttype]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct PoolFeeConfig {
+    pub borrow_fee_bps: u32,
+    pub flash_loan_fee_bps: u32,
+
+    pub deposit_fee_bps: u32,
+    pub withdraw_fee_bps: u32,
+    pub add_collateral_fee_bps: u32,
+    pub remove_collateral_fee_bps: u32,
+    pub repay_fee_bps: u32,
+
+    // pub deposit_with_leverage_fee_bps: ?
+    // pub withdraw_from_leveraged_fe_bps: ?
+    pub take_rate_bps: u32,
+    pub host_origination_fee_bps: u32,
+}
+
+impl Default for PoolFeeConfig {
+    fn default() -> Self {
+        Self {
+            borrow_fee_bps: DEFAULT_BORROW_FEE_BPS,
+            flash_loan_fee_bps: DEFAULT_FLASH_LOAN_FEE_BPS,
+
+            deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
+            withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
+            add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
+            remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
+            repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
+
+            host_origination_fee_bps: DEFAULT_HOST_ORIGINATION_FEE_BPS,
+            take_rate_bps: DEFAULT_TAKE_RATE_BPS,
+        }
+    }
+}
+
+impl PoolFeeConfig {
+    pub fn validate(&self) -> Result<(), &str> {
+        let &Self {
+            deposit_fee_bps,
+            borrow_fee_bps,
+            add_collateral_fee_bps,
+            withdraw_fee_bps,
+            remove_collateral_fee_bps,
+            flash_loan_fee_bps,
+            take_rate_bps,
+            repay_fee_bps,
+            host_origination_fee_bps,
+        } = self;
+
+        todo!()
     }
 }
 

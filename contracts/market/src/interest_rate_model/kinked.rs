@@ -132,7 +132,6 @@ impl KinkedIRConfig {
     fn calculate_pre_kink2_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
         // 'borrow_APR' = target_kink_apr + [(utilization_ratio_bps -
         // kink1_ur_bps)/(kink2_ur_bps - kink1_ur_bps)]*(kink2_apr - target_kink_apr)
-
         let ur_diff = utilization_ratio_bps - self.kink1_ur_bps; // safe
         let max_ur_diff = self.kink2_ur_bps - self.kink1_ur_bps; // safe
         let kink2_target_diff_apr = self.kink2_apr_bps - self.kink1_apr_bps; // safe
@@ -151,7 +150,6 @@ impl KinkedIRConfig {
     fn calculate_post_kink2_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
         // `borrow_APR` = kink2_apr + [(utilization_ratio_bps - kink2_ur_bps)/(10_000 -
         // kink2_ur_bps)]*(max_apr - kink2_apr)
-
         let ur_diff = utilization_ratio_bps - self.kink2_ur_bps; // safe
         let max_ur_diff = BPS_FACTOR - self.kink2_ur_bps; // safe
         let max_kink2_diff_apr = self.max_apr_bps - self.kink2_apr_bps; // safe
