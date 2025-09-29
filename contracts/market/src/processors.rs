@@ -17,7 +17,7 @@ use crate::{
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
-    obligation::{LiquidationValues, Obligation, ObligationKey},
+    obligation::{DepositResult, LiquidationValues, Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
     swap,
 };
@@ -61,8 +61,10 @@ pub fn process_initialize_pool(
         total_borrowed: 0,
         total_available: 0,
         total_collateral: 0,
+
+        accumulated_host_fee: 0,
+        accumulated_market_fee: 0,
         accumulated_reserve_fee: 0,
-        accumulated_protocol_fee: 0,
 
         name,
         accrual_model,
@@ -138,11 +140,18 @@ pub fn process_deposit(
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
 
-    let j_tokens_to_issue = pool.compute_j_tokens_from_tokens(e, amount)?;
-    obligation.deposit(e, pool_address, j_tokens_to_issue, amount)?;
+    let DepositResult {
+        j_tokens_to_issue,
+        deposited,
+        market_fee,
+        host_fee,
+    } = obligation.deposit(e, &pool, amount)?;
 
     pool.adjust_total_j_tokens(e, j_tokens_to_issue)?;
-    pool.adjust_total_available(e, amount)?;
+    pool.adjust_total_available(e, deposited)?;
+
+    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_market_fee(e, market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -253,7 +262,7 @@ pub fn process_repay(
     // NB: Accruing interest on an obligation must precede pool retrieval
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let (real_repaid_amount, d_tokens_burnt) = obligation.repay(e, pool_address, &pool, amount)?;
+    let (real_repaid_amount, d_tokens_burnt) = obligation.repay(e, &pool, amount)?;
 
     pool.adjust_total_d_tokens(e, d_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_borrowed(e, real_repaid_amount.checked_neg().map_over_or_underflow()?)?;

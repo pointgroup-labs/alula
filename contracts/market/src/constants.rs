@@ -114,7 +114,7 @@ pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
 
 pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
-pub const DEFAULT_HOST_ORIGINATION_FEE_BPS: u32 = 2000; // 20%
+pub const DEFAULT_HOST_FEE_BPS: u32 = 2000; // 20%
 // ---- Oracle ----
 
 /// Maximum acceptable oracle price age in seconds

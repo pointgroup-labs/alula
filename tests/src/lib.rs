@@ -302,9 +302,7 @@ impl TestMarketFixture<'_> {
             .map(|client| client.balance(contract_id))
             .collect::<Vec<_>>();
 
-        let contract_balances = pools
-            .iter()
-            .map(|pool| pool.total_collateral + pool.total_available);
+        let contract_balances = pools.iter().map(|pool| pool.total_supply().unwrap());
 
         for (&token_balance, contract_balance) in token_balances.iter().zip(contract_balances) {
             assert!(token_balance >= contract_balance);

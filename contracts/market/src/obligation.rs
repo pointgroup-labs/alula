@@ -301,18 +301,39 @@ impl Obligation {
     pub fn deposit(
         &mut self,
         e: &Env,
-        pool_address: &Address,
-        j_tokens_issued: i128,
-        deposited_tokens: i128,
-    ) -> Result<(), MCError> {
-        let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
+        pool: &Pool,
+        originally_deposited_tokens: i128,
+    ) -> Result<DepositResult, MCError> {
+        let mut deposit_obligation = self
+            .deposits
+            .get(pool.pool_address.clone())
+            .unwrap_or_default();
 
-        deposit_obligation.adjust_j_tokens(e, j_tokens_issued)?;
-        deposit_obligation.adjust_deposited(e, deposited_tokens)?;
+        let fee = originally_deposited_tokens
+            .fixed_mul_floor(pool.fee_config.deposit_fee_bps as i128, BPS_FACTOR)
+            .map_over_or_underflow()?;
+        let host_fee = fee
+            .fixed_mul_floor(pool.fee_config.host_fee_bps as i128, BPS_FACTOR)
+            .map_over_or_underflow()?;
+        let market_fee = fee.checked_sub(host_fee).map_over_or_underflow()?;
 
-        self.deposits.set(pool_address.clone(), deposit_obligation);
+        let deposited_tokens_minus_fee = originally_deposited_tokens
+            .checked_sub(fee)
+            .map_over_or_underflow()?;
+        let j_tokens_to_issue = pool.compute_j_tokens_from_tokens(e, deposited_tokens_minus_fee)?;
 
-        Ok(())
+        deposit_obligation.adjust_deposited(e, deposited_tokens_minus_fee)?;
+        deposit_obligation.adjust_j_tokens(e, j_tokens_to_issue)?;
+
+        self.deposits
+            .set(pool.pool_address.clone(), deposit_obligation);
+
+        Ok(DepositResult {
+            j_tokens_to_issue,
+            deposited: deposited_tokens_minus_fee,
+            market_fee,
+            host_fee,
+        })
     }
 
     /// Borrows assets on an obligation
@@ -432,13 +453,7 @@ impl Obligation {
     /// # Returns
     /// [`Result::Ok((real_repaid_amount, d_tokens_burnt))`] in success and
     /// [`Err(MCError)`] in failure
-    pub fn repay(
-        &mut self,
-        e: &Env,
-        pool_address: &Address,
-        pool: &Pool,
-        amount: i128,
-    ) -> Result<(i128, i128), MCError> {
+    pub fn repay(&mut self, e: &Env, pool: &Pool, amount: i128) -> Result<(i128, i128), MCError> {
         let mut borrow_obligation = self
             .borrows
             .get(pool.pool_address.clone())
@@ -460,7 +475,7 @@ impl Obligation {
         if unpaid_interest < 0 {
             events::calculated_interest_is_negative(
                 e,
-                pool_address,
+                &pool.pool_address,
                 d_tokens_burnt,
                 real_repaid_amount,
                 unpaid_interest,
@@ -481,9 +496,10 @@ impl Obligation {
             .adjust_d_tokens(e, d_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
 
         if borrow_obligation.is_empty() {
-            self.borrows.remove(pool_address.clone());
+            self.borrows.remove(pool.pool_address.clone());
         } else {
-            self.borrows.set(pool_address.clone(), borrow_obligation);
+            self.borrows
+                .set(pool.pool_address.clone(), borrow_obligation);
         }
 
         Ok((real_repaid_amount, d_tokens_burnt))
@@ -905,6 +921,18 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     pool.set(e);
 
     Ok(())
+}
+
+/// [`Obligation::deposit`] resulting data
+pub struct DepositResult {
+    /// Amount of `jTokens` to issue that represent the `originally_deposited` amount in the pool
+    pub j_tokens_to_issue: i128,
+    /// Amount of originally deposited tokens(minus all fees)
+    pub deposited: i128,
+    /// Fee(in tokens) segregated for the market admin
+    pub market_fee: i128,
+    /// Fee(in tokens) segregated for the host platform
+    pub host_fee: i128,
 }
 
 // TODO: Move this somewhere else when working on liquidation

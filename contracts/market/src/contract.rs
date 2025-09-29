@@ -427,6 +427,8 @@ impl MarketContract {
     ///
     /// ### Arguments
     /// * `user` - user whose obligation is returned
+    /// * `deposit_pool_address` - address of a deposit pool from the pair
+    /// * `borrow_pool_address` - address of a borrow pool from the pair
     pub fn get_multiply_pair_obligation(
         e: Env,
         user: Address,

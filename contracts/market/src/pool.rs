@@ -6,7 +6,7 @@ use crate::{
     constants::{
         BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_ADD_COLLATERAL_FEE_BPS, DEFAULT_BORROW_FEE_BPS,
         DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV, DEFAULT_DEPOSIT_FEE_BPS,
-        DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_HOST_ORIGINATION_FEE_BPS, DEFAULT_LIABILITY_FACTOR,
+        DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_HOST_FEE_BPS, DEFAULT_LIABILITY_FACTOR,
         DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV, DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
         DEFAULT_REPAY_FEE_BPS, DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT, DEFAULT_TAKE_RATE_BPS,
         DEFAULT_UTILIZATION_RATIO_LIMIT, DEFAULT_WITHDRAW_FEE_BPS, MAX_LIABILITY_FACTOR,
@@ -20,6 +20,7 @@ use crate::{
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
+// TODO: Refactor?
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
@@ -49,8 +50,10 @@ pub struct Pool {
     pub fee_config: PoolFeeConfig,
     /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
     pub accumulated_reserve_fee: i128,
-    /// Amounts of tokens that can be withdrawn by the market's admin
-    pub accumulated_protocol_fee: i128,
+    /// Amount of tokens that can be withdrawn by the market's admin as a fee
+    pub accumulated_market_fee: i128,
+    /// Amount of tokens that can be withdraw by the host platform admin as a fee
+    pub accumulated_host_fee: i128,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
@@ -129,6 +132,28 @@ impl Pool {
         Ok(())
     }
 
+    pub fn adjust_accumulated_market_fee(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MCError> {
+        let new_amount = Self::adjust_field(e, self.accumulated_market_fee, adjusting_amount)?;
+        self.accumulated_market_fee = new_amount;
+
+        Ok(())
+    }
+
+    pub fn adjust_accumulated_host_fee(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MCError> {
+        let new_amount = Self::adjust_field(e, self.accumulated_host_fee, adjusting_amount)?;
+        self.accumulated_host_fee = new_amount;
+
+        Ok(())
+    }
+
     // TODO: Add dTokenRate?
 
     pub fn compute_tokens_from_d_tokens(
@@ -194,7 +219,7 @@ impl Pool {
     }
 
     pub fn require_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available {
+        if required > self.total_available_minus_accumulated_reserve_fees()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -227,7 +252,7 @@ impl Pool {
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?;
+        let total_supply = self.total_supply()?; // likely a problem...
         let utilization_ratio = self.calculate_utilization_ratio_bps()?;
 
         if utilization_ratio > self.config.utilization_ratio_limit_bps {
@@ -328,20 +353,22 @@ impl Pool {
         Ok(shares_amount)
     }
 
-    // pub fn available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {
-    //     // Can we just populate it at each repay?
+    pub fn total_available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {
+        // TODO: Can we use `saturating_sub` here instead of `checked_sub`?
+        let res = self
+            .total_available
+            .saturating_sub(self.accumulated_reserve_fee);
 
-    //     self.total_available
-    //         .checked_sub(self.accumulated_reserve_fee)
-    // }
+        Ok(res)
+    }
 
     /// Calculates total supply (available + total_borrowed - accumulated fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
         self.total_available
             .checked_add(self.total_borrowed)
+            .map_over_or_underflow()?
+            .checked_sub(self.accumulated_reserve_fee)
             .map_over_or_underflow()
-        // .checked_sub(self.accumulated_reserve_fee)
-        // .map_over_or_underflow()
     }
 
     /// Checks if the pool is empty
@@ -359,6 +386,7 @@ impl Pool {
             && self.total_borrowed == 0
             && self.total_available == 0
             && self.total_collateral == 0
+        // TODO: && self.accumulated_reserve_fees == 0?
     }
 
     /// Tries to get the pool from the contract's storage
@@ -422,7 +450,7 @@ pub struct PoolFeeConfig {
     // pub deposit_with_leverage_fee_bps: ?
     // pub withdraw_from_leveraged_fe_bps: ?
     pub take_rate_bps: u32,
-    pub host_origination_fee_bps: u32,
+    pub host_fee_bps: u32,
 }
 
 impl Default for PoolFeeConfig {
@@ -437,7 +465,7 @@ impl Default for PoolFeeConfig {
             remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
             repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
 
-            host_origination_fee_bps: DEFAULT_HOST_ORIGINATION_FEE_BPS,
+            host_fee_bps: DEFAULT_HOST_FEE_BPS,
             take_rate_bps: DEFAULT_TAKE_RATE_BPS,
         }
     }
@@ -454,10 +482,10 @@ impl PoolFeeConfig {
             flash_loan_fee_bps,
             take_rate_bps,
             repay_fee_bps,
-            host_origination_fee_bps,
+            host_fee_bps,
         } = self;
 
-        todo!()
+        Ok(())
     }
 }
 
