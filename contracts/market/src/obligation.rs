@@ -346,7 +346,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<BorrowResult, MCError> {
         let max_healthy_borrow_added_amount =
-            self.compute_max_healthy_debt_added_amount(e, &pool)?;
+            self.compute_max_healthy_debt_added_amount(e, pool)?;
         let real_borrowed_amount = i128::min(max_healthy_borrow_added_amount, original_amount);
         pool.require_preserves_utilization_ratio_cap(e, real_borrowed_amount)?;
 
