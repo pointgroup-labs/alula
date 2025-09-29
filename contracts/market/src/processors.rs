@@ -1,4 +1,3 @@
-
 // use aggregated_oracle::PriceFeedClient;
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
@@ -16,7 +15,10 @@ use crate::{
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
-    obligation::{DepositResult, LiquidationValues, Obligation, ObligationKey},
+    obligation::{
+        AddCollateralResult, BorrowResult, DepositResult, LiquidationValues, Obligation,
+        ObligationKey,
+    },
     pool::{Pool, PoolConfig},
     swap,
 };
@@ -183,21 +185,20 @@ pub fn process_borrow(
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.accrue_interest(e)?;
 
-    let max_healthy_borrow_added_amount =
-        obligation.compute_max_healthy_debt_added_amount(e, &pool)?;
-    let real_borrowed_amount = i128::min(max_healthy_borrow_added_amount, amount);
+    let BorrowResult {
+        d_tokens_to_issue,
+        borrower_new_debt,
+        borrower_to_receive,
+        market_fee,
+        host_fee,
+    } = obligation.borrow(e, &pool, amount)?;
 
-    pool.require_preserves_utilization_ratio_cap(e, real_borrowed_amount)?;
+    pool.adjust_total_d_tokens(e, d_tokens_to_issue)?;
+    pool.adjust_total_borrowed(e, borrower_new_debt)?;
+    pool.adjust_total_available(e, borrower_new_debt.checked_neg().map_over_or_underflow()?)?;
 
-    let d_tokens_issued = pool.compute_d_tokens_from_tokens(e, real_borrowed_amount)?;
-    obligation.borrow(e, pool_address, d_tokens_issued, real_borrowed_amount)?;
-
-    pool.adjust_total_d_tokens(e, d_tokens_issued)?;
-    pool.adjust_total_borrowed(e, real_borrowed_amount)?;
-    pool.adjust_total_available(
-        e,
-        real_borrowed_amount.checked_neg().map_over_or_underflow()?,
-    )?;
+    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_market_fee(e, market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -206,16 +207,20 @@ pub fn process_borrow(
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
-        &real_borrowed_amount,
+        &borrower_to_receive,
     );
 
-    events::borrow(
-        e,
-        pool_address,
-        &obligation_key.user,
-        real_borrowed_amount,
-        d_tokens_issued,
-    );
+    // TODO: Fix event
+    // events::borrow(
+    //     e,
+    //     pool_address,
+    //     &obligation_key.user,
+    //     d_tokens_to_issue,
+    //     borrower_new_debt,
+    //     borrower_to_receive,
+    //     market_fee,
+    //     host_fee,
+    // );
 
     Ok(())
 }
@@ -230,12 +235,20 @@ pub fn process_add_collateral(
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
-
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    obligation.add_collateral(e, pool_address, amount)?;
-    pool.adjust_total_collateral(e, amount)?;
+
+    let AddCollateralResult {
+        added_collateral,
+        market_fee,
+        host_fee,
+    } = obligation.add_collateral(e, &pool, amount)?;
+
+    pool.adjust_total_collateral(e, added_collateral)?;
+
+    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_market_fee(e, market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -243,7 +256,8 @@ pub fn process_add_collateral(
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
 
-    events::add_collateral(e, pool_address, &obligation_key.user, amount);
+    // TODO: fix event
+    // events::add_collateral(e, pool_address, &obligation_key.user, amount);
 
     Ok(())
 }

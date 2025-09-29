@@ -132,6 +132,25 @@ impl MarketContract {
         process_deposit(&e, &obligation_key, &pool_address, amount)
     }
 
+    /// Borrows tokens from the loan pool
+    ///
+    /// ### Arguments
+    /// * `user` - user which borrows a token
+    /// * `pool_address` - address of a pool from which the borrow happens
+    /// * `amount` - amount of tokens which are going to be borrowed
+    pub fn borrow(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        user.require_auth();
+
+        let obligation_key = ObligationKey::new(user);
+
+        process_borrow(&e, &obligation_key, &pool_address, amount)
+    }
+
     /// Swap tokens via a swap provider contract. This guarantees a swap
     /// and is agnostic to the possible price slippage
     ///
@@ -150,25 +169,6 @@ impl MarketContract {
         user.require_auth();
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
-    }
-
-    /// Borrows tokens from the loan pool
-    ///
-    /// ### Arguments
-    /// * `user` - user which borrows a token
-    /// * `pool_address` - address of a pool from which the borrow happens
-    /// * `amount` - amount of tokens which are going to be borrowed
-    pub fn borrow(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-    ) -> Result<(), MCError> {
-        user.require_auth();
-
-        let obligation_key = ObligationKey::new(user);
-
-        process_borrow(&e, &obligation_key, &pool_address, amount)
     }
 
     /// Adds tokens into the loan pool as collateral only.

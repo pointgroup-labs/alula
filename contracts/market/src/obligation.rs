@@ -302,23 +302,25 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool: &Pool,
-        originally_deposited_tokens: i128,
+        original_amount: i128,
     ) -> Result<DepositResult, MCError> {
         let mut deposit_obligation = self
             .deposits
             .get(pool.pool_address.clone())
             .unwrap_or_default();
 
-        let fee = originally_deposited_tokens
-            .fixed_mul_floor(pool.fee_config.deposit_fee_bps as i128, BPS_FACTOR)
-            .map_over_or_underflow()?;
-        let host_fee = fee
-            .fixed_mul_floor(pool.fee_config.host_fee_bps as i128, BPS_FACTOR)
-            .map_over_or_underflow()?;
-        let market_fee = fee.checked_sub(host_fee).map_over_or_underflow()?;
+        let ComputedFees {
+            fee_sum,
+            market_fee,
+            host_fee,
+        } = compute_fees(
+            original_amount,
+            pool.fee_config.deposit_fee_bps,
+            pool.fee_config.host_fee_bps,
+        )?;
 
-        let deposited_tokens_minus_fee = originally_deposited_tokens
-            .checked_sub(fee)
+        let deposited_tokens_minus_fee = original_amount
+            .checked_sub(fee_sum)
             .map_over_or_underflow()?;
         let j_tokens_to_issue = pool.compute_j_tokens_from_tokens(e, deposited_tokens_minus_fee)?;
 
@@ -340,35 +342,88 @@ impl Obligation {
     pub fn borrow(
         &mut self,
         e: &Env,
-        pool_address: &Address,
-        d_tokens_issued: i128,
-        borrowed_tokens: i128,
-    ) -> Result<(), MCError> {
+        pool: &Pool,
+        original_amount: i128,
+    ) -> Result<BorrowResult, MCError> {
+        let max_healthy_borrow_added_amount =
+            self.compute_max_healthy_debt_added_amount(e, &pool)?;
+        let real_borrowed_amount = i128::min(max_healthy_borrow_added_amount, original_amount);
+        pool.require_preserves_utilization_ratio_cap(e, real_borrowed_amount)?;
+
         // WARN: This can potentially create a borrow obligation with 0ed fields
-        let mut borrow_obligation = self.borrows.get(pool_address.clone()).unwrap_or_default();
+        let mut borrow_obligation = self
+            .borrows
+            .get(pool.pool_address.clone())
+            .unwrap_or_default();
 
-        borrow_obligation.adjust_d_tokens(e, d_tokens_issued)?;
-        borrow_obligation.adjust_borrowed(e, borrowed_tokens)?;
+        let ComputedFees {
+            fee_sum,
+            market_fee,
+            host_fee,
+        } = compute_fees(
+            real_borrowed_amount,
+            pool.fee_config.borrow_fee_bps,
+            pool.fee_config.host_fee_bps,
+        )?;
 
-        self.borrows.set(pool_address.clone(), borrow_obligation);
+        // 'what borrower receives' = 'borrower debt' - 'fees'
+        let borrower_to_receive = real_borrowed_amount
+            .checked_sub(fee_sum)
+            .map_over_or_underflow()?;
 
-        Ok(())
+        let d_tokens_to_issue = pool.compute_d_tokens_from_tokens(e, real_borrowed_amount)?;
+
+        borrow_obligation.adjust_d_tokens(e, d_tokens_to_issue)?;
+        borrow_obligation.adjust_borrowed(e, real_borrowed_amount)?;
+
+        self.borrows
+            .set(pool.pool_address.clone(), borrow_obligation);
+
+        Ok(BorrowResult {
+            host_fee,
+            market_fee,
+            d_tokens_to_issue,
+            borrower_to_receive,
+            borrower_new_debt: real_borrowed_amount,
+        })
     }
 
     /// Adds collateral assets on an obligation per pool
     pub fn add_collateral(
         &mut self,
         e: &Env,
-        pool_address: &Address,
-        collateral_tokens: i128,
-    ) -> Result<(), MCError> {
-        let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
+        pool: &Pool,
+        original_amount: i128,
+    ) -> Result<AddCollateralResult, MCError> {
+        let mut deposit_obligation = self
+            .deposits
+            .get(pool.pool_address.clone())
+            .unwrap_or_default();
 
-        deposit_obligation.adjust_collateral(e, collateral_tokens)?;
+        let ComputedFees {
+            fee_sum,
+            market_fee,
+            host_fee,
+        } = compute_fees(
+            original_amount,
+            pool.fee_config.add_collateral_fee_bps,
+            pool.fee_config.host_fee_bps,
+        )?;
 
-        self.deposits.set(pool_address.clone(), deposit_obligation);
+        let added_collateral = original_amount
+            .checked_sub(fee_sum)
+            .map_over_or_underflow()?;
 
-        Ok(())
+        deposit_obligation.adjust_collateral(e, added_collateral)?;
+
+        self.deposits
+            .set(pool.pool_address.clone(), deposit_obligation);
+
+        Ok(AddCollateralResult {
+            added_collateral,
+            market_fee,
+            host_fee,
+        })
     }
 
     /// Withdraws assets from an obligation per pool
@@ -923,12 +978,73 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     Ok(())
 }
 
+fn compute_fees(
+    original_amount: i128,
+    market_fee_bps: u32,
+    host_fee_bps: u32,
+) -> Result<ComputedFees, MCError> {
+    let fee_sum = original_amount
+        .fixed_mul_floor(market_fee_bps as i128, BPS_FACTOR)
+        .map_over_or_underflow()?;
+    let host_fee = fee_sum
+        .fixed_mul_floor(host_fee_bps as i128, BPS_FACTOR)
+        .map_over_or_underflow()?;
+    let market_fee = fee_sum.checked_sub(host_fee).map_over_or_underflow()?;
+
+    Ok(ComputedFees {
+        fee_sum,
+        market_fee,
+        host_fee,
+    })
+}
+
+struct ComputedFees {
+    /// Sum of `market_fee` and `host_fee`
+    fee_sum: i128,
+    market_fee: i128,
+    host_fee: i128,
+}
+
 /// [`Obligation::deposit`] resulting data
 pub struct DepositResult {
     /// Amount of `jTokens` to issue that represent the `originally_deposited` amount in the pool
     pub j_tokens_to_issue: i128,
     /// Amount of originally deposited tokens(minus all fees)
     pub deposited: i128,
+    /// Fee(in tokens) segregated for the market admin
+    pub market_fee: i128,
+    /// Fee(in tokens) segregated for the host platform
+    pub host_fee: i128,
+}
+
+/// [`Obligation::borrow`] resulting data
+pub struct BorrowResult {
+    /// Amount of `dTokens` to issue that represent the `originally_deposited` amount in the pool
+    pub d_tokens_to_issue: i128,
+    /// Amount of debt(in tokens) that is added to the borrower's obligation
+    pub borrower_new_debt: i128,
+    /// Amount of tokens to receive by the borrower(minus all fees)
+    pub borrower_to_receive: i128,
+    /// Fee(in tokens) segregated for the market admin
+    pub market_fee: i128,
+    /// Fee(in tokens) segregated for the host platform
+    pub host_fee: i128,
+}
+
+/// [`Obligation::add_collateral`] resulting data
+pub struct AddCollateralResult {
+    /// Amount of tokens added as collateral(minus all fees)
+    pub added_collateral: i128,
+    /// Fee(in tokens) segregated for the market admin
+    pub market_fee: i128,
+    /// Fee(in tokens) segregated for the host platform
+    pub host_fee: i128,
+}
+
+/// [`Obligation::add_collateral`] resulting data
+pub struct RepayResult {
+    /// Amount of tokens added as collateral(minus all fees)
+    pub added_collateral: i128,
     /// Fee(in tokens) segregated for the market admin
     pub market_fee: i128,
     /// Fee(in tokens) segregated for the host platform
