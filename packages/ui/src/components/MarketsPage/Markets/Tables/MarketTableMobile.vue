@@ -9,7 +9,7 @@ const {
 
 const emits = defineEmits(['dialogHandler', 'onRowClicked'])
 
-const market = useMarket()
+const market = useMarketActions()
 
 function onRowClicked(item: MarketTableItem) {
   emits('onRowClicked', item)

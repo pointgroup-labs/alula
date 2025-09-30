@@ -10,8 +10,12 @@ const {
   data?: MultiplyTableItem
 }>()
 
+const dialog = defineModel({
+  default: false,
+})
+
 const marketsStore = useMarketsStore()
-const market = useMarket()
+const market = useMarketActions()
 
 const userStore = useUserStore()
 
@@ -51,7 +55,7 @@ watchDebounced([
   reloadFee,
   publicKey,
 ], async ([d, _r]) => {
-  if (!d || !publicKey.value) {
+  if (!d || !publicKey.value || !dialog.value) {
     return
   }
   const tx = await activeMarket.value!.client.marketSdk.withdrawLeverageTx(
@@ -101,8 +105,6 @@ const infoTableData = computed(() => {
     // },
   ]
 })
-
-const dialog = ref(true)
 
 async function withdrawLeverage() {
   if (!publicKey.value || !data?.depositPool.pool_address) {

@@ -41,7 +41,7 @@ const userTotalBorrowedByMarket = computed(() => {
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
-const market = useMarket()
+const market = useMarketActions()
 
 const amount = toRef(market, 'withdrawAmount')
 const collateralOnly = toRef(market, 'collateralOnly')

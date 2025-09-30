@@ -6,7 +6,7 @@ export function useChartFilter(filters = CHART_FILTERS) {
   function filterData(data: any) {
     const now = new Date()
     return [...data]
-      ?.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      ?.toSorted((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .filter((item) => {
         const itemDate = new Date(item.timestamp)
 

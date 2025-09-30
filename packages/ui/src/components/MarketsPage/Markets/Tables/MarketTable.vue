@@ -6,7 +6,7 @@ const { width } = useWindowSize()
 
 const marketsStore = useMarketsStore()
 
-const market = useMarket()
+const market = useMarketActions()
 
 const dialogSupply = toRef(marketsStore, 'dialogSupply')
 const dialogBorrow = toRef(marketsStore, 'dialogBorrow')

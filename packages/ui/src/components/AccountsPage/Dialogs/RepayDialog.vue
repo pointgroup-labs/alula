@@ -13,7 +13,7 @@ const {
 }>()
 
 const marketsStore = useMarketsStore()
-const market = useMarket()
+const market = useMarketActions()
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)

@@ -22,9 +22,13 @@ function calcRemainingMultiplyUSD(
   return borrowAvailableInUsd / poolPrice / selectedMultiplier
 }
 
+const dialog = defineModel<boolean>({ default: false })
+
+const isDepositMultiply = ref(true)
+
 const userStore = useUserStore()
 const marketsStore = useMarketsStore()
-const market = useMarket()
+const market = useMarketActions()
 
 const amount = toRef(market, 'depositAmount')
 
@@ -32,8 +36,6 @@ const activeMarket = computed(() => marketsStore.state.markets[String(data?.mark
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
-
-const isDepositMultiply = ref(true)
 
 const multiplyAssets = computed(() => [data?.asset, data?.borrowAsset])
 
@@ -135,8 +137,6 @@ const infoTableData = computed(() => {
     },
   ]
 })
-
-const dialog = defineModel<boolean>({ default: false })
 
 function swapAsset() {
   isDepositMultiply.value = !isDepositMultiply.value

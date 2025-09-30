@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
-import Decimal from 'decimal.js'
 import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
@@ -12,7 +11,7 @@ const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
 const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
 const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
 
-const market = useMarket()
+const market = useMarketActions()
 
 const userStore = useUserStore()
 
@@ -20,20 +19,6 @@ const assetDecimals = computed(() => marketsStore.assetDecimals)
 
 const pools = computed(() => Object.values(marketsStore.state.markets)?.flatMap(m => m.pools) ?? [])
 const loading = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
-
-/**
- * @param ltvByBps — LTV в basis points (0…10000)
- * @returns number ≥1, max multiplyer
- */
-function calculateMaxMultiplierFromBps(ltvByBps: number): number {
-  if (!Number.isInteger(ltvByBps) || ltvByBps < 0 || ltvByBps >= 10_000) {
-    throw new Error(`ltvByBps must be integer in [0,10000), got ${ltvByBps}`)
-  }
-  const openLtv = new Decimal(ltvByBps).div(10_000)
-  return openLtv.eq(1)
-    ? Infinity
-    : new Decimal(1).div(new Decimal(1).minus(openLtv)).toNumber()
-}
 
 const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
@@ -93,28 +78,24 @@ const items = computed<MultiplyTableItem[]>(() => {
   return res?.filter(Boolean)
 })
 
-const selectedPool = ref()
+const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
+const selectedPool = computed(() =>
+  items.value.find(item => item.pool_address === selectedMarketAddress.value
+    && activeLeverageMarket.value === item.market))
 
 async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' | 'withdraw') {
   selectedMarketAddress.value = item?.pool_address
-  selectedPool.value = item
+  activeLeverageMarket.value = String(item.market)
   action === 'supply' ? dialogLeverage.value = true : dialogLeverageWithdraw.value = true
 }
 
-function checkIsHaveMultiply(poolAddress: string, market: string) {
-  const obligations = userStore.state.multiplyObligations
-  const deposits: any = obligations[market]?.deposits ?? []
-  const borrows: any = obligations[market]?.borrows ?? []
-  const pool = items.value.find(item => item.pool_address === poolAddress && item.market === market)
-  if (deposits.length === 0 || borrows.length === 0 || !pool) {
-    return false
-  }
-  const depositPoolAddress = pool.depositPool.pool_address
-  const borrowPoolAddress = pool.borrowPool.pool_address
-
-  const isDeposits = deposits.some((deposit: any) => deposit.includes(depositPoolAddress))
-  const isBorrows = borrows.some((deposit: any) => deposit.includes(borrowPoolAddress))
-  return isDeposits && isBorrows
+function isUserHaveMultiply(poolAddress: string, market: string) {
+  return checkIsHaveMultiply(
+    userStore.state.multiplyObligations,
+    items.value,
+    poolAddress,
+    market,
+  )
 }
 </script>
 
@@ -230,7 +211,7 @@ function checkIsHaveMultiply(poolAddress: string, market: string) {
             Multiply
           </j-btn>
           <j-btn
-            v-if="checkIsHaveMultiply(data.item.pool_address, String(data.item.market))"
+            v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
             size="lg"
             variant="accent"
             pill

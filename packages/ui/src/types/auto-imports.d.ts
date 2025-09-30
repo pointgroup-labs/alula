@@ -208,6 +208,7 @@ declare global {
   const useMagicKeys: typeof import('@vueuse/core')['useMagicKeys']
   const useManualRefHistory: typeof import('@vueuse/core')['useManualRefHistory']
   const useMarket: typeof import('../hooks/market')['useMarket']
+  const useMarketActions: typeof import('../hooks/market-actions')['useMarketActions']
   const useMarketsStore: typeof import('../store/markets')['useMarketsStore']
   const useMediaControls: typeof import('@vueuse/core')['useMediaControls']
   const useMediaQuery: typeof import('@vueuse/core')['useMediaQuery']
@@ -534,6 +535,7 @@ declare module 'vue' {
     readonly useMagicKeys: UnwrapRef<typeof import('@vueuse/core')['useMagicKeys']>
     readonly useManualRefHistory: UnwrapRef<typeof import('@vueuse/core')['useManualRefHistory']>
     readonly useMarket: UnwrapRef<typeof import('../hooks/market')['useMarket']>
+    readonly useMarketActions: UnwrapRef<typeof import('../hooks/market-actions')['useMarketActions']>
     readonly useMarketsStore: UnwrapRef<typeof import('../store/markets')['useMarketsStore']>
     readonly useMediaControls: UnwrapRef<typeof import('@vueuse/core')['useMediaControls']>
     readonly useMediaQuery: UnwrapRef<typeof import('@vueuse/core')['useMediaQuery']>

@@ -9,23 +9,17 @@ const {
 
 const emits = defineEmits(['dialogHandler'])
 
-const market = useMarket()
+const market = useMarketActions()
 
 const userStore = useUserStore()
-const obligation = computed(() => userStore.userObligation)
 
-function checkIsHaveMultiply(pool: MultiplyTableItem) {
-  const deposits = obligation.value?.deposits || []
-  const borrows = obligation.value?.borrows || []
-  if (deposits.length === 0 || borrows.length === 0) {
-    return false
-  }
-  const depositPoolAddress = pool.depositPool.pool_address
-  const borrowPoolAddress = pool.borrowPool.pool_address
-
-  const isDeposits = deposits.some((deposit: any) => deposit.includes(depositPoolAddress))
-  const isBorrows = borrows.some((deposit: any) => deposit.includes(borrowPoolAddress))
-  return isDeposits && isBorrows
+function isUserHaveMultiply(poolAddress: string, market: string) {
+  return checkIsHaveMultiply(
+    userStore.state.multiplyObligations,
+    items,
+    poolAddress,
+    market,
+  )
 }
 </script>
 
@@ -120,7 +114,7 @@ function checkIsHaveMultiply(pool: MultiplyTableItem) {
         Multiply
       </j-btn>
       <j-btn
-        v-if="checkIsHaveMultiply(item)"
+        v-if="isUserHaveMultiply(item.pool_address, String(item.market))"
         size="sm"
         variant="accent"
         pill

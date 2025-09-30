@@ -26,7 +26,7 @@ const isLoading = computed(() => txLoading.value || loading)
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
-const market = useMarket()
+const market = useMarketActions()
 
 const assetData = computed(() => destructurePoolAsset(String(pool?.name)) || [])
 

@@ -19,7 +19,7 @@ const loadingFee = ref(false)
 const { generateExplorerLink } = useExplorerLink()
 
 const marketsStore = useMarketsStore()
-const market = useMarket()
+const market = useMarketActions()
 
 const amount = toRef(market, 'depositAmount')
 const collateralOnly = toRef(market, 'collateralOnly')

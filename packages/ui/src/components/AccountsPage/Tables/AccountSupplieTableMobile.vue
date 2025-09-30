@@ -9,7 +9,7 @@ const {
 
 const emits = defineEmits(['dialogHandler'])
 
-const market = useMarket()
+const market = useMarketActions()
 </script>
 
 <template>

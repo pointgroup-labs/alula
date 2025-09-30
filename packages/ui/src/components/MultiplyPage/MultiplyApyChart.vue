@@ -78,7 +78,7 @@ watch([
     const multiplier = Object.keys(item)[0]
     const values = chartFilter.filterData(Object.values(item).flat())
 
-    const sortedPoints = values?.sort((a: ChartDataset, b: ChartDataset) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) || []
+    const sortedPoints = values?.toSorted((a: ChartDataset, b: ChartDataset) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) || []
 
     if (labels.length === 0) {
       for (let j = 0; j < sortedPoints?.length; j++) {

@@ -19,29 +19,24 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserObligation(market: string, client: StellarClient) {
     try {
       loading.value = true
-      const obligation = await client.marketSdk.getUserObligation(wallet.publicKey)
-      if (obligation) {
-        state.obligations[market] = obligation
-        console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', obligation)
-      }
+      state.obligations[market] = await client.marketSdk.getUserObligation(wallet.publicKey)
+      console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
       loading.value = false
     }
   }
 
   async function loadUserMultilpyObligation(props: {
+    client: StellarClient
     market: string
     depositPoolAddress: string
     borrowPoolAddress: string
-    client: StellarClient
   }) {
     try {
       loading.value = true
-      const obligation = await props.client.marketSdk.getUserMultiplyObligation(wallet.publicKey, props.depositPoolAddress, props.borrowPoolAddress)
-      if (obligation) {
-        state.multiplyObligations[props.market] = obligation
-        console.log(`%c[${props.market} market Multiply Obligation]`, 'color: #FFB726', obligation)
-      }
+      const { client, market, depositPoolAddress, borrowPoolAddress } = props
+      state.multiplyObligations[market] = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      console.log(`%c[${market} market Multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
     } finally {
       loading.value = false
     }
@@ -53,11 +48,8 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      const obligation = await client.marketSdk.getUserObligation(wallet.publicKey)
-      if (obligation) {
-        state.obligations[market] = obligation
-        console.log(`%c[Update ${market} market User Obligation]`, 'color: #FFB726', obligation)
-      }
+      state.obligations[market] = await client.marketSdk.getUserObligation(wallet.publicKey)
+      console.log(`%c[Update ${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
       loading.value = false
     }
@@ -74,11 +66,8 @@ export const useUserStore = defineStore('user', () => {
       if (!props.client) {
         return
       }
-      const obligation = await props.client.marketSdk.getUserMultiplyObligation(wallet.publicKey, props.depositPoolAddress, props.borrowPoolAddress)
-      if (obligation) {
-        state.multiplyObligations[props.market] = obligation
-        console.log(`%c[Update ${props.market} market multiply Obligation]`, 'color: #FFB726', obligation)
-      }
+      state.multiplyObligations[props.market] = await props.client.marketSdk.getUserMultiplyObligation(wallet.publicKey, props.depositPoolAddress, props.borrowPoolAddress)
+      console.log(`%c[Update ${props.market} market multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[props.market])
     } finally {
       loading.value = false
     }
@@ -111,19 +100,26 @@ export const useUserStore = defineStore('user', () => {
       return
     }
     const marketClients = Object.values(markets).map(m => m)
-    await Promise.all(
-      marketClients.map(async (market) => {
-        await loadUserObligation(market.marketState.name, market.client)
-        market.leveragePools.map(async p =>
-          await loadUserMultilpyObligation({
+    const promises: Promise<any>[] = []
+
+    for (const market of marketClients) {
+      promises.push(
+        loadUserObligation(market.marketState.name, market.client),
+      )
+
+      for (const p of market.leveragePools) {
+        promises.push(
+          loadUserMultilpyObligation({
             market: market.marketState.name,
             depositPoolAddress: p.deposit_pool,
             borrowPoolAddress: p.borrow_pool,
             client: market.client,
           }),
         )
-      }),
-    )
+      }
+    }
+
+    await Promise.all(promises)
   })
 
   return {

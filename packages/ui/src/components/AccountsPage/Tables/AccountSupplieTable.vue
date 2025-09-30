@@ -11,7 +11,7 @@ const userStore = useUserStore()
 const marketsStore = useMarketsStore()
 const decimals = computed(() => marketsStore.assetDecimals)
 
-const market = useMarket()
+const market = useMarketActions()
 
 const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
 

@@ -3,7 +3,7 @@ import borrowingIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import { bigintToNumber, formatPrice, shortenNumber } from '~/utils'
 
 const marketsStore = useMarketsStore()
-const { assetDecimals } = useMarket()
+const { assetDecimals } = useMarketActions()
 
 const loading = computed(() => marketsStore.state.loading)
 const pools = computed(() => Object.values(marketsStore.state.markets)?.flatMap(m => m.pools))
