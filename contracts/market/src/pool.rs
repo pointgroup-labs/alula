@@ -33,7 +33,7 @@ pub struct Pool {
     // /// interest rate
     // pub accrual_model: AccrualModel,
     /// Configuration settings for the pool
-    pub config: PoolConfig2,
+    pub config: PoolConfig,
     // /// Fee configuration for the pool
     // pub fee_config: PoolFeeConfig,
     /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
@@ -479,7 +479,7 @@ impl PoolFeeConfig {
 
 #[contracttype]
 #[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
-pub struct PoolConfig2 {
+pub struct PoolConfig {
     pub fee_config: PoolFeeConfig,
     pub health_config: PoolHealthConfig,
     pub accrual_model: AccrualModel,
@@ -487,7 +487,7 @@ pub struct PoolConfig2 {
     pub interest_rate_model: InterestRateModel,
 }
 
-impl PoolConfig2 {
+impl PoolConfig {
     pub fn validate(&self) -> Result<(), MCError> {
         // todo!()
         Ok(())

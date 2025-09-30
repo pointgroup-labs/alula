@@ -22,7 +22,7 @@ use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     obligation::{BorrowObligation, DepositObligation},
-    pool::{PoolConfig2, PoolFeeConfig},
+    pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
@@ -87,7 +87,7 @@ impl TestMarketFixture<'_> {
         Self::new_with_pool_config(pool_config)
     }
 
-    fn new_with_pool_config(pool_config: PoolConfig2) -> Self {
+    fn new_with_pool_config(pool_config: PoolConfig) -> Self {
         let e = get_default_env();
         // TODO: Think more about what sometimes happens in tests
         // when this is opted out

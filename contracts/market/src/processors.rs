@@ -19,7 +19,7 @@ use crate::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationValues, Obligation,
         ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    pool::{Pool, PoolConfig2},
+    pool::{Pool, PoolConfig},
     swap,
 };
 
@@ -28,7 +28,7 @@ pub fn process_initialize_pool(
     token_address: &Address,
     token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
-    pool_config: &Option<PoolConfig2>,
+    pool_config: &Option<PoolConfig>,
     // TODO: Option<InterestRateModel>,
 ) -> Result<Address, MCError> {
     let pool_address: Address = if let Some(salt) = salt {
@@ -41,7 +41,7 @@ pub fn process_initialize_pool(
 
     Pool::require_does_not_exist(e, &pool_address)?;
 
-    let pool_config: PoolConfig2 = match pool_config {
+    let pool_config: PoolConfig = match pool_config {
         Some(cfg) => {
             if cfg.validate().is_err() {
                 return Err(MCError::InvalidLoanPoolConfig);

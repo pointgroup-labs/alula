@@ -3,7 +3,7 @@
 use market::{
     constants::*,
     error::MCError,
-    pool::{PoolConfig2, PoolHealthConfig},
+    pool::{PoolConfig, PoolHealthConfig},
 };
 use soroban_sdk::testutils::Ledger;
 
@@ -185,7 +185,7 @@ fn test_borrow_multiple_shareholders() {
 fn test_borrow_exceeds_utilization_cap() {
     const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
-    let pool_config = PoolConfig2 {
+    let pool_config = PoolConfig {
         health_config: PoolHealthConfig {
             utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
             ..Default::default()

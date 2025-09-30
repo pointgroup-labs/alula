@@ -2,7 +2,7 @@
 
 use market::{
     constants::*,
-    pool::{PoolConfig2, PoolHealthConfig},
+    pool::{PoolConfig, PoolHealthConfig},
 };
 
 use crate::{
@@ -334,7 +334,7 @@ fn test_remove_all_with_i128_max() {
 fn test_withdraw_exceeds_utilization_cap() {
     const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
-    let pool_config = PoolConfig2 {
+    let pool_config = PoolConfig {
         health_config: PoolHealthConfig {
             utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
             ..Default::default()

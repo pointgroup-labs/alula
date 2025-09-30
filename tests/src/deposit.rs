@@ -3,7 +3,7 @@
 use market::{
     constants::*,
     error::MCError,
-    pool::{PoolConfig2, PoolHealthConfig},
+    pool::{PoolConfig, PoolHealthConfig},
 };
 use soroban_sdk::{
     Address,
@@ -84,7 +84,7 @@ fn test_exceed_supply_limit() {
     #[allow(clippy::inconsistent_digit_grouping)]
     const SUPPLY_LIMIT: i128 = 1_000_000_0000000;
 
-    let pool_config = PoolConfig2 {
+    let pool_config = PoolConfig {
         health_config: PoolHealthConfig {
             supply_limit: SUPPLY_LIMIT,
             ..Default::default()

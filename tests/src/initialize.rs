@@ -3,7 +3,7 @@
 use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
-    pool::PoolConfig2,
+    pool::PoolConfig,
 };
 use soroban_sdk::{Address, BytesN, Env, symbol_short, testutils::Address as _};
 
@@ -45,7 +45,7 @@ fn test_pool_initialize_with_custom_config() {
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
 
-    let pool_config = PoolConfig2 {
+    let pool_config = PoolConfig {
         ..Default::default() // fee_config: todo!(),
                              // health_config: todo!(),
                              // accrual_model: market::accrual::AccrualModel::Compounded,
