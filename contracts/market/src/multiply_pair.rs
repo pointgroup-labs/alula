@@ -1,12 +1,7 @@
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype, xdr::ToXdr};
 
-use crate::{
-    constants::{BPS_FACTOR, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE, MIN_LEVERAGE_MULTIPLIER},
-    error::MCError,
-    math_utils::MathUtils,
-    storage,
-};
+use crate::{constants::*, error::MCError, math_utils::MathUtils, storage};
 
 /// Used to generate a unique seed for a multiply pair obligation
 /// See [`MultiplyPair::compute_obligation_seed`]

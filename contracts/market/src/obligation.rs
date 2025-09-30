@@ -2,12 +2,12 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
-    constants::BPS_FACTOR,
+    constants::*,
     error::MCError,
     events,
     math_utils::MathUtils,
     oracle::get_asset_price,
-    pool::{Pool, PoolConfig},
+    pool::{LiquidationConfig, Pool, PoolConfig2},
     storage,
 };
 
@@ -111,7 +111,11 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
     ) -> Result<i128, MCError> {
-        self.compute_max_health_factor_decreasing_amount(e, pool, pool.config.open_ltv_bps)
+        self.compute_max_health_factor_decreasing_amount(
+            e,
+            pool,
+            pool.config.health_config.open_ltv_bps,
+        )
     }
 
     /// Computes the max healthy amount of the token that can be borrowed and that
@@ -121,7 +125,11 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
     ) -> Result<i128, MCError> {
-        self.compute_max_health_factor_decreasing_amount(e, pool, pool.config.liability_factor_bps)
+        self.compute_max_health_factor_decreasing_amount(
+            e,
+            pool,
+            pool.config.health_config.liability_factor_bps,
+        )
     }
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
@@ -140,7 +148,7 @@ impl Obligation {
                 e,
                 &pool,
                 &deposit_obligation,
-                pool.config.open_ltv_bps,
+                pool.config.health_config.open_ltv_bps,
             )?;
 
             value_sum = value_sum
@@ -167,7 +175,7 @@ impl Obligation {
                 e,
                 &pool,
                 &deposit_obligation,
-                pool.config.close_ltv_bps,
+                pool.config.health_config.close_ltv_bps,
             )?;
 
             value_sum = value_sum
@@ -194,7 +202,7 @@ impl Obligation {
                 e,
                 &pool,
                 &deposit_obligation,
-                pool.config.liability_factor_bps,
+                pool.config.health_config.liability_factor_bps,
             )?;
 
             value_sum = value_sum
@@ -316,8 +324,8 @@ impl Obligation {
             host_fee,
         } = compute_fees(
             original_amount,
-            pool.fee_config.deposit_fee_bps,
-            pool.fee_config.host_fee_bps,
+            pool.config.fee_config.deposit_fee_bps,
+            pool.config.fee_config.host_fee_bps,
         )?;
 
         let deposited_tokens_minus_fee = original_amount
@@ -363,8 +371,8 @@ impl Obligation {
             host_fee,
         } = compute_fees(
             real_borrowed_amount,
-            pool.fee_config.borrow_fee_bps,
-            pool.fee_config.host_fee_bps,
+            pool.config.fee_config.borrow_fee_bps,
+            pool.config.fee_config.host_fee_bps,
         )?;
 
         // 'what borrower receives' = 'borrower debt' - 'fees'
@@ -407,8 +415,8 @@ impl Obligation {
             host_fee,
         } = compute_fees(
             original_amount,
-            pool.fee_config.add_collateral_fee_bps,
-            pool.fee_config.host_fee_bps,
+            pool.config.fee_config.add_collateral_fee_bps,
+            pool.config.fee_config.host_fee_bps,
         )?;
 
         let added_collateral = original_amount
@@ -451,8 +459,8 @@ impl Obligation {
             host_fee,
         } = compute_fees(
             deposit_decrease,
-            pool.fee_config.withdraw_fee_bps,
-            pool.fee_config.host_fee_bps,
+            pool.config.fee_config.withdraw_fee_bps,
+            pool.config.fee_config.host_fee_bps,
         )?;
 
         let withdrawer_to_receive = deposit_decrease
@@ -531,8 +539,8 @@ impl Obligation {
             host_fee,
         } = compute_fees(
             collateral_decrease,
-            pool.fee_config.remove_collateral_fee_bps,
-            pool.fee_config.host_fee_bps,
+            pool.config.fee_config.remove_collateral_fee_bps,
+            pool.config.fee_config.host_fee_bps,
         )?;
 
         deposit_obligation.adjust_collateral(
@@ -579,8 +587,8 @@ impl Obligation {
         let all_debt = pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
         let all_debt_fees = compute_fees(
             all_debt,
-            pool.fee_config.repay_fee_bps,
-            pool.fee_config.host_fee_bps,
+            pool.config.fee_config.repay_fee_bps,
+            pool.config.fee_config.host_fee_bps,
         )?
         .fee_sum;
 
@@ -595,8 +603,8 @@ impl Obligation {
             host_fee,
         } = compute_fees(
             amount_to_take_from_borrower,
-            pool.fee_config.repay_fee_bps,
-            pool.fee_config.host_fee_bps,
+            pool.config.fee_config.repay_fee_bps,
+            pool.config.fee_config.host_fee_bps,
         )?;
 
         let debt_decrease = amount_to_take_from_borrower
@@ -666,11 +674,11 @@ impl Obligation {
                 .ok_or(MCError::BorrowDoesNotExist)?,
         );
 
-        let PoolConfig {
+        let LiquidationConfig {
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
             ..
-        } = borrow_pool.config;
+        } = borrow_pool.config.liquidation_config;
 
         let borrow_obligation_d_tokens = borrow_obligation.d_tokens;
         let borrow_obligation_d_tokens_as_tokens =

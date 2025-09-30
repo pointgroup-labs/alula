@@ -5,18 +5,11 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Env, contracttype, panic_with_error};
 
 use crate::{
-    constants::{
-        BPS_FACTOR, DEFAULT_BASE_APR_BPS, DEFAULT_KINK1_APR_BPS,
-        DEFAULT_KINK1_UTILIZATION_RATIO_BPS, DEFAULT_KINK2_APR_BPS,
-        DEFAULT_KINK2_UTILIZATION_RATIO_BPS, DEFAULT_MAX_APR_BPS,
-    },
-    error::MCError,
-    interest_rate_model::InterestRate,
-    math_utils::MathUtils,
+    constants::*, error::MCError, interest_rate_model::InterestRate, math_utils::MathUtils,
 };
 
 #[contracttype]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct KinkedIRConfig {
     /// Base APR that is accrued regardless of the utilization ratio of a pool
     pub base_apr_bps: i128,

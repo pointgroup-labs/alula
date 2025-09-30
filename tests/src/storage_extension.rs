@@ -1,10 +1,6 @@
 #![cfg(test)]
 
-use market::{
-    constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
-    obligation::ObligationKey,
-    storage::DataKey,
-};
+use market::{constants::*, obligation::ObligationKey, storage::DataKey};
 use soroban_sdk::testutils::{
     Ledger,
     storage::{Instance, Persistent},

@@ -1,10 +1,7 @@
 use soroban_sdk::{Address, Env, String, Vec, contracttype};
 
 use crate::{
-    constants::{
-        INDIVIDUAL_BUMP, INDIVIDUAL_THRESHOLD, INSTANCE_BUMP, INSTANCE_THRESHOLD, SHARED_BUMP,
-        SHARED_THRESHOLD,
-    },
+    constants::*,
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     pool::Pool,

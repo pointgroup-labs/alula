@@ -2,7 +2,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::contracttype;
 
 use crate::{
-    constants::{BPS_FACTOR, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR},
+    constants::*,
     error::MCError,
     math_utils::{self, MathUtils},
 };
@@ -11,9 +11,10 @@ pub trait Accrual {
     fn calculate_multiplier(&self, apr: i128, seconds_passed: u64) -> Result<i128, MCError>;
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
 #[contracttype]
 pub enum AccrualModel {
+    #[default]
     Compounded,
 }
 
@@ -53,10 +54,7 @@ mod test {
     use soroban_fixed_point_math::FixedPoint;
 
     use super::{Accrual, AccrualModel};
-    use crate::{
-        constants::{SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR, SECONDS_PER_DAY},
-        error::MCError,
-    };
+    use crate::{constants::*, error::MCError};
 
     #[test]
     fn test_zero_seconds_passed() {

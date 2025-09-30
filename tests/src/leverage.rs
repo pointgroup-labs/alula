@@ -255,7 +255,7 @@ fn test_deposit_borrow_as_margin() {
     let flash_borrowed_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128 - 1);
     let expected_borrowed_amount = get_amount_scaled_up(
         flash_borrowed_amount,
-        usdc_pool.fee_config.flash_loan_fee_bps as i128,
+        usdc_pool.config.fee_config.flash_loan_fee_bps as i128,
     ); // TODO: This better be checked once more
     // 'supply' position is expected to have 'amount_out(initial_amount * leverage)'
     let amount_in = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128);
@@ -329,8 +329,10 @@ fn test_deposit_deposit_as_margin() {
     let amount_out = DEFAULT_DEPOSIT_AMOUNT * ((LEVERAGE - 1) as i128);
     let amount_in =
         swap::get_amount_in(&e, &usdc_pool_address, &gold_pool_address, amount_out).unwrap();
-    let expected_borrowed_amount =
-        get_amount_scaled_up(amount_in, usdc_pool.fee_config.flash_loan_fee_bps as i128);
+    let expected_borrowed_amount = get_amount_scaled_up(
+        amount_in,
+        usdc_pool.config.fee_config.flash_loan_fee_bps as i128,
+    );
     let obligation_j_tokens_as_tokens = get_multiply_pair_obligation_j_tokens_as_tokens(
         &e,
         &contract_client,

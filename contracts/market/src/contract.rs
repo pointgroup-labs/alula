@@ -9,7 +9,7 @@ use crate::{
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     oracle::{get_asset_price, get_oracle_price_decimals},
-    pool::{Pool, PoolConfig},
+    pool::{Pool, PoolConfig2},
     processors::{
         process_add_collateral, process_borrow, process_deposit, process_deposit_with_leverage,
         process_flash_loan, process_initialize_multiply_pair, process_initialize_pool,
@@ -91,7 +91,7 @@ impl MarketContract {
         token_ticker: Symbol, /* NB: Token Interface contains a `.symbol()` endpoint, which can
                                * be used for retrieving a token's ticker */
         salt: Option<BytesN<32>>,
-        pool_config: Option<PoolConfig>,
+        pool_config: Option<PoolConfig2>,
     ) -> Result<Address, MCError> {
         require_admin(&e);
 

@@ -1,6 +1,9 @@
 #![cfg(test)]
 
-use market::{constants::DEFAULT_OPEN_LTV, pool::PoolConfig};
+use market::{
+    constants::*,
+    pool::{PoolConfig2, PoolHealthConfig},
+};
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
@@ -331,8 +334,11 @@ fn test_remove_all_with_i128_max() {
 fn test_withdraw_exceeds_utilization_cap() {
     const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
-    let pool_config = PoolConfig {
-        utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
+    let pool_config = PoolConfig2 {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -439,7 +445,7 @@ fn remove_collateral_up_to_open_ltv() {
     assert_approx_eq_rel(
         // TODO: Investigate a bit deeper when checking maths
         obligation_collateral_after,
-        (100 * (obligation_collateral_before / 2)) / DEFAULT_OPEN_LTV,
+        (BPS_FACTOR * (obligation_collateral_before / 2)) / DEFAULT_OPEN_LTV_BPS,
         5,
     );
 }

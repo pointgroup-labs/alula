@@ -5,13 +5,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Env, contracttype};
 
 use crate::{
-    accrual::Accrual,
-    constants::{BPS_FACTOR, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR},
-    error::MCError,
-    events,
-    interest_rate_model::InterestRate,
-    math_utils::MathUtils,
-    pool::Pool,
+    accrual::Accrual, constants::*, error::MCError, events, interest_rate_model::InterestRate,
+    math_utils::MathUtils, pool::Pool,
 };
 
 /// Linear annual interest rates represented in basis points
@@ -65,9 +60,11 @@ impl Pool {
         let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
 
         let current_borrow_apr = self
+            .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?;
         let accrual_multiplier = self
+            .config
             .accrual_model
             .calculate_multiplier(current_borrow_apr, seconds_passed)?;
 
@@ -81,7 +78,7 @@ impl Pool {
             .map_over_or_underflow()?;
 
         let accrued_to_reserve = accrued
-            .fixed_mul_ceil(self.fee_config.take_rate_bps as i128, BPS_FACTOR)
+            .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         self.accumulated_reserve_fee = self
@@ -99,6 +96,7 @@ impl Pool {
         let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
 
         let borrow_apr_bps = self
+            .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?;
         let res = AnnualPercentageRates::try_new(borrow_apr_bps, utilization_ratio_bps)?;
@@ -110,6 +108,7 @@ impl Pool {
         let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
 
         let borrow_apr = self
+            .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?;
         let supply_apr = borrow_apr
@@ -117,9 +116,11 @@ impl Pool {
             .map_over_or_underflow()?;
 
         let borrow_apy_multiplier = self
+            .config
             .accrual_model
             .calculate_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
         let supply_apy_multiplier = self
+            .config
             .accrual_model
             .calculate_multiplier(supply_apr, SECONDS_IN_YEAR)?;
 

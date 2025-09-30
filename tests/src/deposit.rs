@@ -1,6 +1,10 @@
 #![cfg(test)]
 
-use market::{constants::SECONDS_IN_YEAR, error::MCError, pool::PoolConfig};
+use market::{
+    constants::*,
+    error::MCError,
+    pool::{PoolConfig2, PoolHealthConfig},
+};
 use soroban_sdk::{
     Address,
     testutils::{Address as _, Ledger},
@@ -80,8 +84,11 @@ fn test_exceed_supply_limit() {
     #[allow(clippy::inconsistent_digit_grouping)]
     const SUPPLY_LIMIT: i128 = 1_000_000_0000000;
 
-    let pool_config = PoolConfig {
-        supply_limit: SUPPLY_LIMIT,
+    let pool_config = PoolConfig2 {
+        health_config: PoolHealthConfig {
+            supply_limit: SUPPLY_LIMIT,
+            ..Default::default()
+        },
         ..Default::default()
     };
 

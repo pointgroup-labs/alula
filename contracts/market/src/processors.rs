@@ -8,7 +8,7 @@ use soroban_sdk::{
 
 use crate::{
     accrual::AccrualModel,
-    constants::{BPS_FACTOR, LEVERAGE_SCALE},
+    constants::*,
     error::MCError,
     events,
     helpers::require_nonnegative,
@@ -19,7 +19,7 @@ use crate::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationValues, Obligation,
         ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    pool::{Pool, PoolConfig},
+    pool::{Pool, PoolConfig2},
     swap,
 };
 
@@ -28,7 +28,7 @@ pub fn process_initialize_pool(
     token_address: &Address,
     token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
-    pool_config: &Option<PoolConfig>,
+    pool_config: &Option<PoolConfig2>,
     // TODO: Option<InterestRateModel>,
 ) -> Result<Address, MCError> {
     let pool_address: Address = if let Some(salt) = salt {
@@ -41,13 +41,13 @@ pub fn process_initialize_pool(
 
     Pool::require_does_not_exist(e, &pool_address)?;
 
-    let pool_config: PoolConfig = match pool_config {
+    let pool_config: PoolConfig2 = match pool_config {
         Some(cfg) => {
             if cfg.validate().is_err() {
                 return Err(MCError::InvalidLoanPoolConfig);
             }
 
-            *cfg
+            cfg.clone()
         }
         None => Default::default(),
     };
@@ -68,14 +68,14 @@ pub fn process_initialize_pool(
         accumulated_reserve_fee: 0,
 
         name,
-        accrual_model,
-        interest_rate_model,
+        // accrual_model,
+        // interest_rate_model,
         config: pool_config,
         pool_address: pool_address.clone(),
         token_ticker: token_ticker.clone(),
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
-        fee_config: Default::default(),
+        // fee_config: Default::default(),
     };
 
     pool.set(e);
@@ -102,9 +102,9 @@ pub fn process_initialize_multiply_pair(
         e,
         deposit_pool_address,
         borrow_pool_address,
-        borrow_pool.config.open_ltv_bps,
-        borrow_pool.fee_config.flash_loan_fee_bps as i128,
-        collateral_pool.config.liability_factor_bps,
+        borrow_pool.config.health_config.open_ltv_bps,
+        borrow_pool.config.fee_config.flash_loan_fee_bps as i128,
+        collateral_pool.config.health_config.liability_factor_bps,
     );
 
     pair.set(e);
@@ -124,7 +124,7 @@ pub fn process_deposit(
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.accrue_interest(e)?;
 
-    let supply_limit = pool.config.supply_limit;
+    let supply_limit = pool.config.health_config.supply_limit;
 
     // NB: 0 indicates unlimited supply
     if supply_limit != 0 {
@@ -541,7 +541,7 @@ pub fn process_flash_loan(
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), contract, &amount); // plain transfer, not allowance transfer?
 
-    let flash_loan_fee_bps = pool.fee_config.flash_loan_fee_bps as i128;
+    let flash_loan_fee_bps = pool.config.fee_config.flash_loan_fee_bps as i128;
 
     let flash_loan_taker_client = FlashLoanClient::new(e, contract);
     flash_loan_taker_client.exec_op(
@@ -709,7 +709,7 @@ pub fn process_deposit_with_leverage(
     // -- Borrow to repay the flash loan --
     let flash_loan_fee = flash_borrow_amount
         .fixed_mul_ceil(
-            borrow_pool.fee_config.flash_loan_fee_bps as i128,
+            borrow_pool.config.fee_config.flash_loan_fee_bps as i128,
             BPS_FACTOR,
         )
         .map_over_or_underflow()?;
@@ -808,7 +808,7 @@ pub fn process_withdraw_from_leveraged(
         &borrow_pool.token_address,
         deposited_tokens,
         total_debt,
-        borrow_pool.fee_config.flash_loan_fee_bps,
+        borrow_pool.config.fee_config.flash_loan_fee_bps,
     )?;
 
     let expected_withdrawn_amount = i128::min(amount, max_withdrawable_amount);
@@ -854,7 +854,7 @@ pub fn process_withdraw_from_leveraged(
     // Swap to get the flash repay amount
     let flash_loan_fee = flash_borrow_amount
         .fixed_mul_ceil(
-            borrow_pool.fee_config.flash_loan_fee_bps as i128,
+            borrow_pool.config.fee_config.flash_loan_fee_bps as i128,
             BPS_FACTOR,
         )
         .map_over_or_underflow()?;

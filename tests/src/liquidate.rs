@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market::{
-    constants::{DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV},
+    constants::{BPS_FACTOR, DEFAULT_CLOSE_FACTOR_BPS, DEFAULT_CLOSE_LTV_BPS},
     error::MCError,
     math_utils::MathUtils,
 };
@@ -212,7 +212,7 @@ impl LiquidationTest {
     }
 
     fn max_liquidation_amount(&self) -> i128 {
-        (self.total_debt() * DEFAULT_CLOSE_FACTOR) / 100
+        (self.total_debt() * DEFAULT_CLOSE_FACTOR_BPS) / BPS_FACTOR
     }
 }
 
@@ -351,7 +351,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     );
 
     // Borrow maximum possible amount
-    let max_borrow = (minimal_collateral * DEFAULT_CLOSE_LTV) / 100; // 80% of collateral value
+    let max_borrow = (minimal_collateral * DEFAULT_CLOSE_LTV_BPS) / BPS_FACTOR; // 80% of collateral value
     fixture
         .contract_client
         .borrow(borrower, &fixture.usdc_pool_address, &max_borrow);
@@ -372,7 +372,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     .unwrap();
 
     // Calculate over-limit amount
-    let max_liquidation = (total_debt * DEFAULT_CLOSE_FACTOR) / 100;
+    let max_liquidation = (total_debt * DEFAULT_CLOSE_FACTOR_BPS) / BPS_FACTOR;
     let over_limit = max_liquidation + 1;
 
     // This should fail with close factor exceeded

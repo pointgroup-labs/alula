@@ -3,12 +3,7 @@
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, vec};
 
-use crate::{
-    constants::{BPS_FACTOR, DEFAULT_MAX_SLIPPAGE_BPS, ROUTER_ADDRESS},
-    error::MCError,
-    math_utils::MathUtils,
-    soroswap_router as router,
-};
+use crate::{constants::*, error::MCError, math_utils::MathUtils, soroswap_router as router};
 
 // TODO: Maybe, create some internal trait for common swap operations and
 //  implement it for different swap providers?

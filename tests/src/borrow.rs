@@ -1,9 +1,9 @@
 #![cfg(test)]
 
 use market::{
-    constants::{BPS_FACTOR, DEFAULT_OPEN_LTV, SECONDS_IN_YEAR},
+    constants::*,
     error::MCError,
-    pool::PoolConfig,
+    pool::{PoolConfig2, PoolHealthConfig},
 };
 use soroban_sdk::testutils::Ledger;
 
@@ -185,8 +185,11 @@ fn test_borrow_multiple_shareholders() {
 fn test_borrow_exceeds_utilization_cap() {
     const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
-    let pool_config = PoolConfig {
-        utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
+    let pool_config = PoolConfig2 {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -284,7 +287,8 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
-    const MAX_HEALTHY_BORROW_AMOUNT: i128 = (DEFAULT_OPEN_LTV * DEFAULT_DEPOSIT_AMOUNT) / 100;
+    const MAX_HEALTHY_BORROW_AMOUNT: i128 =
+        (DEFAULT_OPEN_LTV_BPS * DEFAULT_DEPOSIT_AMOUNT) / BPS_FACTOR;
 
     assert_eq!(obligation_borrowed, MAX_HEALTHY_BORROW_AMOUNT);
     assert_eq!(obligation_d_tokens, MAX_HEALTHY_BORROW_AMOUNT);

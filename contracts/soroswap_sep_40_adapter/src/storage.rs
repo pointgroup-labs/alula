@@ -1,6 +1,6 @@
 use soroban_sdk::{Address, Env, contracttype};
 
-use crate::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
+use crate::constants::*;
 
 #[contracttype]
 pub enum DataKey {
