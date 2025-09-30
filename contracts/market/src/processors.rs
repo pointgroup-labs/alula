@@ -17,7 +17,7 @@ use crate::{
     multiply_pair::MultiplyPair,
     obligation::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationValues, Obligation,
-        ObligationKey,
+        ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     pool::{Pool, PoolConfig},
     swap,
@@ -272,14 +272,23 @@ pub fn process_repay(
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
-    // NB: Accruing interest on an obligation must precede pool retrieval
+
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let (real_repaid_amount, d_tokens_burnt) = obligation.repay(e, &pool, amount)?;
+    let RepayResult {
+        host_fee,
+        market_fee,
+        debt_repaid,
+        d_tokens_to_burn,
+        amount_to_take_from_borrower,
+    } = obligation.repay(e, &pool, amount)?;
 
-    pool.adjust_total_d_tokens(e, d_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_borrowed(e, real_repaid_amount.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_available(e, real_repaid_amount)?;
+    pool.adjust_total_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_borrowed(e, debt_repaid.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_available(e, debt_repaid)?;
+
+    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_market_fee(e, market_fee)?;
 
     if obligation.is_empty() {
         // NB: Obligation shouldn't be empty at this point due to some amount of collateral or
@@ -296,10 +305,11 @@ pub fn process_repay(
     token_client.transfer(
         &obligation_key.user,
         &e.current_contract_address(),
-        &real_repaid_amount,
+        &amount_to_take_from_borrower,
     );
 
-    events::repay(e, pool_address, obligation_key, real_repaid_amount);
+    // TODO: Fix event
+    // events::repay(e, pool_address, obligation_key, real_repaid_amount);
 
     Ok(())
 }
@@ -428,32 +438,38 @@ pub fn process_remove_collateral(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let max_possible_collateral_removed_amount =
-        obligation.compute_max_healthy_collateral_removed_amount(e, &pool)?;
+    let RemoveCollateralResult {
+        collateral_decrease,
+        collateral_remover_to_receive,
+        market_fee,
+        host_fee,
+    } = obligation.remove_collateral(e, &pool, amount)?;
 
-    let removed_tokens_amount = i128::min(
-        i128::min(amount, max_possible_collateral_removed_amount),
-        obligation.get_collateral(pool_address)?,
-    );
+    pool.adjust_total_collateral(
+        e,
+        collateral_decrease.checked_neg().map_over_or_underflow()?,
+    )?;
 
-    obligation.remove_collateral(e, pool_address, removed_tokens_amount)?;
-    pool.adjust_total_collateral(e, -removed_tokens_amount)?;
+    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_market_fee(e, market_fee)?;
+
+    pool.set(e);
 
     if obligation.is_empty() {
         obligation.remove(e, obligation_key);
     } else {
         obligation.set(e, obligation_key);
     }
-    pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
-        &removed_tokens_amount,
+        &collateral_remover_to_receive,
     );
 
-    events::remove_collateral(e, pool_address, &obligation_key.user, removed_tokens_amount);
+    // TODO: Fix event
+    // events::remove_collateral(e, pool_address, &obligation_key.user, removed_tokens_amount);
 
     Ok(())
 }
@@ -471,30 +487,19 @@ pub fn process_withdraw(
     obligation.accrue_interest(e)?;
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let max_healthy_withdrawn_amount =
-        obligation.compute_max_healthy_collateral_removed_amount(e, &pool)?;
-    let real_withdrawn_amount = i128::min(amount, max_healthy_withdrawn_amount);
+    let WithdrawResult {
+        j_tokens_to_burn,
+        deposit_decrease,
+        withdrawer_to_receive,
+        market_fee,
+        host_fee,
+    } = obligation.withdraw(e, &pool, amount)?;
 
-    pool.require_preserves_utilization_ratio_cap(e, real_withdrawn_amount)?;
-    // pool.require_available(real_withdrawn_amount)?; // TODO: Should we keep this check?
+    pool.adjust_total_available(e, deposit_decrease.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
-    let j_tokens_burnt = pool.compute_j_tokens_from_tokens(e, real_withdrawn_amount)?;
-
-    obligation.withdraw(
-        e,
-        &pool,
-        pool_address,
-        j_tokens_burnt,
-        real_withdrawn_amount,
-    )?;
-
-    pool.adjust_total_available(
-        e,
-        real_withdrawn_amount
-            .checked_neg()
-            .map_over_or_underflow()?,
-    )?;
-    pool.adjust_total_j_tokens(e, j_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_market_fee(e, market_fee)?;
 
     if obligation.is_empty() {
         obligation.remove(e, obligation_key);
@@ -507,16 +512,17 @@ pub fn process_withdraw(
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
-        &real_withdrawn_amount,
+        &withdrawer_to_receive,
     );
 
-    events::withdraw(
-        e,
-        pool_address,
-        obligation_key,
-        j_tokens_burnt,
-        real_withdrawn_amount,
-    );
+    // TODO: Fix events
+    // events::withdraw(
+    //     e,
+    //     pool_address,
+    //     obligation_key,
+    //     j_tokens_burnt,
+    //     real_withdrawn_amount,
+    // );
 
     Ok(())
 }

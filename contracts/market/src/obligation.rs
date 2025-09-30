@@ -64,7 +64,8 @@ impl Obligation {
     /// Accrues interest on all obligation-related pools
     ///
     /// # WARNING
-    /// Modifies the obligation's pools storage data
+    /// Modifies the obligation's pools storage data,
+    /// also, accruing interest on an obligation should precede pool retrieval
     pub fn accrue_interest(&self, e: &Env) -> Result<(), MCError> {
         for borrow_pool_address in self.borrows.keys() {
             accrue_interest_on_pool(e, &borrow_pool_address)?;
@@ -431,75 +432,131 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool: &Pool,
-        pool_address: &Address,
-        j_tokens_burnt: i128,
-        withdrawn_tokens: i128,
-    ) -> Result<(), MCError> {
+        original_amount: i128,
+    ) -> Result<WithdrawResult, MCError> {
         let mut deposit_obligation = self
             .deposits
-            .get(pool_address.clone())
+            .get(pool.pool_address.clone())
             .ok_or(MCError::ObligationDoesNotExist)?;
 
-        let all_j_tokens_as_tokens =
-            pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
-        let mut received_interest = all_j_tokens_as_tokens
+        let max_healthy_withdrawn_amount =
+            self.compute_max_healthy_collateral_removed_amount(e, &pool)?;
+        let deposit_decrease = i128::min(original_amount, max_healthy_withdrawn_amount);
+
+        pool.require_preserves_utilization_ratio_cap(e, deposit_decrease)?;
+
+        let ComputedFees {
+            fee_sum,
+            market_fee,
+            host_fee,
+        } = compute_fees(
+            deposit_decrease,
+            pool.fee_config.withdraw_fee_bps,
+            pool.fee_config.host_fee_bps,
+        )?;
+
+        let withdrawer_to_receive = deposit_decrease
+            .checked_sub(fee_sum)
+            .map_over_or_underflow()?;
+
+        let j_tokens_to_burn = pool.compute_j_tokens_from_tokens(e, deposit_decrease)?;
+        let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
+
+        let mut received_interest = all_deposit
             .checked_sub(deposit_obligation.deposited)
             .map_over_or_underflow()?;
 
         if received_interest < 0 {
-            events::calculated_interest_is_negative(
-                e,
-                pool_address,
-                j_tokens_burnt,
-                withdrawn_tokens,
-                received_interest,
-                all_j_tokens_as_tokens,
-            );
+            // TODO: Fix event
+            // events::calculated_interest_is_negative(
+            //     e,
+            //     pool_address,
+            //     j_tokens_burnt,
+            //     withdrawn_tokens,
+            //     received_interest,
+            //     all_j_tokens_as_tokens,
+            // );
 
             received_interest = 0; // TODO: Investigate why this happens
             // return Err(MCError::InternalError);
         }
 
-        if withdrawn_tokens >= received_interest {
-            let deposited_diff = withdrawn_tokens - received_interest; // safe
+        if deposit_decrease >= received_interest {
+            let deposited_diff = deposit_decrease - received_interest; // safe
             deposit_obligation
                 .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
         }
 
         deposit_obligation
-            .adjust_j_tokens(e, j_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
+            .adjust_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_obligation.is_empty() {
-            self.deposits.remove(pool_address.clone());
+            self.deposits.remove(pool.pool_address.clone());
         } else {
-            self.deposits.set(pool_address.clone(), deposit_obligation);
+            self.deposits
+                .set(pool.pool_address.clone(), deposit_obligation);
         }
 
-        Ok(())
+        Ok(WithdrawResult {
+            j_tokens_to_burn,
+            deposit_decrease,
+            withdrawer_to_receive,
+            market_fee,
+            host_fee,
+        })
     }
 
     /// Removes collateral assets from an obligation per pool
     pub fn remove_collateral(
         &mut self,
         e: &Env,
-        pool_address: &Address,
-        collateral: i128,
-    ) -> Result<(), MCError> {
-        let mut deposit_obligation = self.deposits.get(pool_address.clone()).unwrap_or_default();
+        pool: &Pool,
+        original_amount: i128,
+    ) -> Result<RemoveCollateralResult, MCError> {
+        let mut deposit_obligation = self
+            .deposits
+            .get(pool.pool_address.clone())
+            .unwrap_or_default();
 
-        if deposit_obligation.collateral < collateral {
-            return Err(MCError::CollateralRemovalOverbalance);
-        }
+        let max_possible_collateral_removed_amount =
+            self.compute_max_healthy_collateral_removed_amount(e, &pool)?;
+        let collateral_decrease = i128::min(
+            i128::min(original_amount, max_possible_collateral_removed_amount),
+            deposit_obligation.collateral,
+        );
 
-        deposit_obligation.adjust_collateral(e, -collateral)?;
+        let ComputedFees {
+            fee_sum,
+            market_fee,
+            host_fee,
+        } = compute_fees(
+            collateral_decrease,
+            pool.fee_config.remove_collateral_fee_bps,
+            pool.fee_config.host_fee_bps,
+        )?;
+
+        deposit_obligation.adjust_collateral(
+            e,
+            collateral_decrease.checked_neg().map_over_or_underflow()?,
+        )?;
 
         if deposit_obligation.is_empty() {
-            self.deposits.remove(pool_address.clone());
+            self.deposits.remove(pool.pool_address.clone());
         } else {
-            self.deposits.set(pool_address.clone(), deposit_obligation);
+            self.deposits
+                .set(pool.pool_address.clone(), deposit_obligation);
         }
 
-        Ok(())
+        let collateral_remover_to_receive = collateral_decrease
+            .checked_sub(fee_sum)
+            .map_over_or_underflow()?;
+
+        Ok(RemoveCollateralResult {
+            collateral_decrease,
+            collateral_remover_to_receive,
+            market_fee,
+            host_fee,
+        })
     }
 
     /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt
@@ -508,47 +565,71 @@ impl Obligation {
     /// # Returns
     /// [`Result::Ok((real_repaid_amount, d_tokens_burnt))`] in success and
     /// [`Err(MCError)`] in failure
-    pub fn repay(&mut self, e: &Env, pool: &Pool, amount: i128) -> Result<(i128, i128), MCError> {
+    pub fn repay(
+        &mut self,
+        e: &Env,
+        pool: &Pool,
+        original_amount: i128,
+    ) -> Result<RepayResult, MCError> {
         let mut borrow_obligation = self
             .borrows
             .get(pool.pool_address.clone())
             .ok_or(MCError::ObligationDoesNotExist)?;
 
-        let all_d_tokens_as_tokens =
-            pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+        let all_debt = pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+        let all_debt_fees = compute_fees(
+            all_debt,
+            pool.fee_config.repay_fee_bps,
+            pool.fee_config.host_fee_bps,
+        )?
+        .fee_sum;
 
-        let (real_repaid_amount, d_tokens_burnt) = if amount >= all_d_tokens_as_tokens {
-            (all_d_tokens_as_tokens, borrow_obligation.d_tokens)
-        } else {
-            (amount, pool.compute_d_tokens_from_tokens(e, amount)?)
-        };
+        let amount_to_repay_all_debt = all_debt
+            .checked_add(all_debt_fees)
+            .map_over_or_underflow()?;
+        let amount_to_take_from_borrower = i128::min(original_amount, amount_to_repay_all_debt);
 
-        let mut unpaid_interest = all_d_tokens_as_tokens
+        let ComputedFees {
+            fee_sum,
+            market_fee,
+            host_fee,
+        } = compute_fees(
+            amount_to_take_from_borrower,
+            pool.fee_config.repay_fee_bps,
+            pool.fee_config.host_fee_bps,
+        )?;
+
+        let debt_decrease = amount_to_take_from_borrower
+            .checked_sub(fee_sum)
+            .map_over_or_underflow()?;
+        let d_tokens_to_burn = pool.compute_d_tokens_from_tokens(e, debt_decrease)?;
+
+        let mut unpaid_interest = all_debt
             .checked_sub(borrow_obligation.borrowed)
             .map_over_or_underflow()?;
-
         if unpaid_interest < 0 {
-            events::calculated_interest_is_negative(
-                e,
-                &pool.pool_address,
-                d_tokens_burnt,
-                real_repaid_amount,
-                unpaid_interest,
-                all_d_tokens_as_tokens,
-            );
+            // TODO: fix event
+            // events::calculated_interest_is_negative(
+            //     e,
+            //     &pool.pool_address,
+            //     d_tokens_burnt,
+            //     real_repaid_amount,
+            //     unpaid_interest,
+            //     all_debt,
+            // );
 
             unpaid_interest = 0; // TODO: Investigate why this happens
             // return Err(MCError::InternalError);
         }
 
-        if real_repaid_amount >= unpaid_interest {
-            let borrowed_diff = real_repaid_amount - unpaid_interest; // safe
+        if debt_decrease >= unpaid_interest {
+            let borrowed_diff = debt_decrease - unpaid_interest; // safe
             borrow_obligation
                 .adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;
         }
 
         borrow_obligation
-            .adjust_d_tokens(e, d_tokens_burnt.checked_neg().map_over_or_underflow()?)?;
+            .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
         if borrow_obligation.is_empty() {
             self.borrows.remove(pool.pool_address.clone());
@@ -557,7 +638,13 @@ impl Obligation {
                 .set(pool.pool_address.clone(), borrow_obligation);
         }
 
-        Ok((real_repaid_amount, d_tokens_burnt))
+        Ok(RepayResult {
+            d_tokens_to_burn,
+            debt_repaid: debt_decrease,
+            amount_to_take_from_borrower,
+            market_fee,
+            host_fee,
+        })
     }
 
     /// Liquidates unhealthy borrow
@@ -1019,11 +1106,11 @@ pub struct DepositResult {
 
 /// [`Obligation::borrow`] resulting data
 pub struct BorrowResult {
-    /// Amount of `dTokens` to issue that represent the `originally_deposited` amount in the pool
+    /// Amount of `dTokens` to issue that represent the `borrower_new_debt` amount in the pool
     pub d_tokens_to_issue: i128,
     /// Amount of debt(in tokens) that is added to the borrower's obligation
     pub borrower_new_debt: i128,
-    /// Amount of tokens to receive by the borrower(minus all fees)
+    /// Amount of tokens to receive by the borrower(`borrower_new_debt` minus fees)
     pub borrower_to_receive: i128,
     /// Fee(in tokens) segregated for the market admin
     pub market_fee: i128,
@@ -1033,7 +1120,7 @@ pub struct BorrowResult {
 
 /// [`Obligation::add_collateral`] resulting data
 pub struct AddCollateralResult {
-    /// Amount of tokens added as collateral(minus all fees)
+    /// Amount of tokens added as collateral(with subtracted fees)
     pub added_collateral: i128,
     /// Fee(in tokens) segregated for the market admin
     pub market_fee: i128,
@@ -1041,10 +1128,41 @@ pub struct AddCollateralResult {
     pub host_fee: i128,
 }
 
-/// [`Obligation::add_collateral`] resulting data
+/// [`Obligation::withdraw`] resulting data
+pub struct WithdrawResult {
+    /// Amount of `jTokens` to burn that represent the `deposit_decreased_amount` amount in the
+    /// pool
+    pub j_tokens_to_burn: i128,
+    /// Amount of the original deposit(in tokens) that is removed from the `DepositObligation`
+    pub deposit_decrease: i128,
+    /// Amount of tokens to receive by the withdrawer(`deposit_decreased_amount` minus fees)
+    pub withdrawer_to_receive: i128,
+    /// Fee(in tokens) segregated for the market admin
+    pub market_fee: i128,
+    /// Fee(in tokens) segregated for the host platform
+    pub host_fee: i128,
+}
+
+/// [`Obligation::repay`] resulting data
 pub struct RepayResult {
-    /// Amount of tokens added as collateral(minus all fees)
-    pub added_collateral: i128,
+    /// Amount of `dTokens` to issue that represent the `real_repaid` amount in the pool
+    pub d_tokens_to_burn: i128,
+    /// Amount of the debt that is repaid
+    pub debt_repaid: i128,
+    /// Amount that is taken from the borrower
+    pub amount_to_take_from_borrower: i128,
+    /// Fee(in tokens) segregated for the market admin
+    pub market_fee: i128,
+    /// Fee(in tokens) segregated for the host platform
+    pub host_fee: i128,
+}
+
+/// [`Obligation::remove_collateral`] resulting data
+pub struct RemoveCollateralResult {
+    /// Amount of collateral tokens removed
+    pub collateral_decrease: i128,
+    /// Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
+    pub collateral_remover_to_receive: i128,
     /// Fee(in tokens) segregated for the market admin
     pub market_fee: i128,
     /// Fee(in tokens) segregated for the host platform
