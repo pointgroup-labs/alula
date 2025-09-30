@@ -45,12 +45,9 @@ fn test_borrow() {
     assert_eq!(obligation_d_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(obligation_d_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT);
 
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT);
@@ -117,12 +114,9 @@ fn test_borrow_multiple_shareholders() {
     assert_eq!(obligation_d_tokens_2, BORROWER_2_BORROW_AMOUNT);
     assert_eq!(obligation_d_tokens_as_tokens_2, BORROWER_2_BORROW_AMOUNT);
 
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     const BORROWED: i128 = DEFAULT_DEPOSIT_AMOUNT + BORROWER_2_BORROW_AMOUNT;
 
@@ -167,12 +161,9 @@ fn test_borrow_multiple_shareholders() {
     assert_eq!(obligation_d_tokens_2, BORROWER_2_BORROW_AMOUNT);
     assert!(obligation_d_tokens_as_tokens_2 > BORROWER_2_BORROW_AMOUNT);
 
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, BORROWED);
     assert!(pool_total_borrowed > BORROWED);
@@ -294,12 +285,9 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     assert_eq!(obligation_d_tokens, MAX_HEALTHY_BORROW_AMOUNT);
     assert_eq!(obligation_d_tokens_as_tokens, MAX_HEALTHY_BORROW_AMOUNT);
 
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_d_tokens(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, MAX_HEALTHY_BORROW_AMOUNT);
     assert_eq!(pool_total_borrowed, MAX_HEALTHY_BORROW_AMOUNT);

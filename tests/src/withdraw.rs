@@ -42,10 +42,8 @@ fn test_withdraw() {
     assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_supply, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(pool_total_j_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
@@ -68,10 +66,8 @@ fn test_withdraw() {
     );
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_supply, 0);
     assert_eq!(pool_total_j_tokens, 0);
@@ -120,12 +116,9 @@ fn test_remove_collateral() {
     assert_eq!(obligation_j_tokens_as_tokens, 0);
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_collateral =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
+    let pool_total_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_collateral, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(pool_total_supply, 0);
@@ -161,12 +154,9 @@ fn test_remove_collateral() {
     );
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_collateral =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
+    let pool_total_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_collateral, 0);
     assert_eq!(pool_total_supply, 0);
@@ -315,10 +305,10 @@ fn test_remove_all_with_i128_max() {
     contract_client.add_collateral(creditor_2, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let pool_total_collateral_before =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+        get_pool_total_collateral(&contract_client, &gold_pool_address);
     contract_client.remove_collateral(creditor_1, &gold_pool_address, &i128::MAX);
     let pool_total_collateral_after =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+        get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(
         pool_total_collateral_after + DEFAULT_COLLATERAL_AMOUNT,
@@ -357,7 +347,7 @@ fn test_withdraw_exceeds_utilization_cap() {
     // Borrow 10% of USDC
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    let pool_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
     let pool_total_supply = get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
 
     // Check that the utilization ratio is 10%

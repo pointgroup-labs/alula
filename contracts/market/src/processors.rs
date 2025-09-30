@@ -63,9 +63,9 @@ pub fn process_initialize_pool(
         total_available: 0,
         total_collateral: 0,
 
-        accumulated_host_fee: 0,
-        accumulated_market_fee: 0,
-        accumulated_reserve_fee: 0,
+        accumulated_host_fees: 0,
+        accumulated_market_fees: 0,
+        accumulated_reserve_fees: 0,
 
         name,
         // accrual_model,
@@ -152,7 +152,7 @@ pub fn process_deposit(
     pool.adjust_total_available(e, deposited)?;
 
     pool.adjust_accumulated_host_fee(e, host_fee)?;
-    pool.adjust_accumulated_market_fee(e, market_fee)?;
+    pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -198,7 +198,7 @@ pub fn process_borrow(
     pool.adjust_total_available(e, borrower_new_debt.checked_neg().map_over_or_underflow()?)?;
 
     pool.adjust_accumulated_host_fee(e, host_fee)?;
-    pool.adjust_accumulated_market_fee(e, market_fee)?;
+    pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -248,7 +248,7 @@ pub fn process_add_collateral(
     pool.adjust_total_collateral(e, added_collateral)?;
 
     pool.adjust_accumulated_host_fee(e, host_fee)?;
-    pool.adjust_accumulated_market_fee(e, market_fee)?;
+    pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -288,7 +288,7 @@ pub fn process_repay(
     pool.adjust_total_available(e, debt_repaid)?;
 
     pool.adjust_accumulated_host_fee(e, host_fee)?;
-    pool.adjust_accumulated_market_fee(e, market_fee)?;
+    pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     if obligation.is_empty() {
         // NB: Obligation shouldn't be empty at this point due to some amount of collateral or
@@ -451,7 +451,7 @@ pub fn process_remove_collateral(
     )?;
 
     pool.adjust_accumulated_host_fee(e, host_fee)?;
-    pool.adjust_accumulated_market_fee(e, market_fee)?;
+    pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     pool.set(e);
 
@@ -499,7 +499,7 @@ pub fn process_withdraw(
     pool.adjust_total_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
     pool.adjust_accumulated_host_fee(e, host_fee)?;
-    pool.adjust_accumulated_market_fee(e, market_fee)?;
+    pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     if obligation.is_empty() {
         obligation.remove(e, obligation_key);

@@ -284,8 +284,7 @@ fn test_deposit_borrow_as_margin() {
 
     let gold_pool_total_supply =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let usdc_pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
     assert_eq!(expected_deposited_amount, gold_pool_total_supply);
     assert_eq!(expected_borrowed_amount, usdc_pool_total_borrowed);
@@ -354,8 +353,7 @@ fn test_deposit_deposit_as_margin() {
 
     let gold_pool_total_supply =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let usdc_pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
     assert_eq!(expected_deposited_amount, gold_pool_total_supply);
     assert_approx_eq_abs(expected_borrowed_amount, usdc_pool_total_borrowed, 1);
@@ -498,8 +496,7 @@ fn test_withdraw() {
     // Check pools
     let gold_pool_total_supply =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let usdc_pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
     assert_eq!(gold_pool_total_supply, obligation_j_tokens_as_tokens);
     assert_eq!(usdc_pool_total_borrowed, obligation_borrowed);

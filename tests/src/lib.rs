@@ -12,6 +12,7 @@ mod repay;
 mod security;
 mod storage_extension;
 mod swap;
+mod take_rate;
 mod withdraw;
 
 use std::ops::{Add, Sub};
@@ -22,7 +23,7 @@ use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     obligation::{BorrowObligation, DepositObligation},
-    pool::PoolConfig,
+    pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
@@ -1036,28 +1037,28 @@ pub fn get_multiply_pair_borrow_obligation(
 pub fn get_pool_total_j_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_j_tokens)
+    pool.total_j_tokens
 }
 
 pub fn get_pool_total_d_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_d_tokens)
+    pool.total_d_tokens
 }
 
 pub fn get_pool_total_borrowed(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_borrowed)
+    pool.total_borrowed
 }
 
 pub fn get_pool_total_supply(
@@ -1073,19 +1074,56 @@ pub fn get_pool_total_supply(
 pub fn get_pool_total_available(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_available)
+    pool.total_available
 }
 
 pub fn get_pool_total_collateral(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_collateral)
+    pool.total_collateral
+}
+
+pub fn get_pool_accumulated_host_fees(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.accumulated_host_fees
+}
+
+pub fn get_pool_accumulated_market_fees(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.accumulated_market_fees
+}
+
+pub fn get_pool_accumulated_reserve_fee(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.accumulated_reserve_fees
+}
+
+// - PoolConfig -
+pub fn get_pool_fee_config(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> PoolFeeConfig {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.config.fee_config
 }
 
 // ---- MISC ----

@@ -8,7 +8,6 @@ use crate::{
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
-// TODO: Refactor?
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
@@ -16,6 +15,7 @@ pub struct Pool {
     pub token_address: Address,
     /// The ticker symbol of the associated token
     pub token_ticker: Symbol,
+
     /// The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
     /// The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
@@ -27,27 +27,30 @@ pub struct Pool {
     pub total_available: i128,
     /// The total amount of deposited collateral assets that don't accrue interest
     pub total_collateral: i128,
+    /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
+    pub accumulated_reserve_fees: i128,
+    /// Amount of tokens that can be withdrawn by the market's admin as a fee
+    pub accumulated_market_fees: i128,
+    /// Amount of tokens that can be withdraw by the host platform admin as a fee
+    pub accumulated_host_fees: i128,
+    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
+    /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
+    /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
+    pub name: String,
+
+    /// Configuration settings for the pool
+    pub config: PoolConfig,
+    /// The timestamp of the last accrual re-calculation
+    pub last_accrual_timestamp: u64,
+    // TODO: APY & APR?
+
     // /// Interest rate model(+configuration) used for interest rate calculation
     // pub interest_rate_model: InterestRateModel,
     // /// Accrual model used for accruing the `total_borrowed` amount on the pool based on the
     // /// interest rate
     // pub accrual_model: AccrualModel,
-    /// Configuration settings for the pool
-    pub config: PoolConfig,
     // /// Fee configuration for the pool
     // pub fee_config: PoolFeeConfig,
-    /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
-    pub accumulated_reserve_fee: i128,
-    /// Amount of tokens that can be withdrawn by the market's admin as a fee
-    pub accumulated_market_fee: i128,
-    /// Amount of tokens that can be withdraw by the host platform admin as a fee
-    pub accumulated_host_fee: i128,
-    /// The timestamp of the last accrual re-calculation
-    pub last_accrual_timestamp: u64,
-    /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
-    /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
-    /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
-    pub name: String,
 }
 
 impl Pool {
@@ -120,13 +123,13 @@ impl Pool {
         Ok(())
     }
 
-    pub fn adjust_accumulated_market_fee(
+    pub fn adjust_accumulated_market_fees(
         &mut self,
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.accumulated_market_fee, adjusting_amount)?;
-        self.accumulated_market_fee = new_amount;
+        let new_amount = Self::adjust_field(e, self.accumulated_market_fees, adjusting_amount)?;
+        self.accumulated_market_fees = new_amount;
 
         Ok(())
     }
@@ -136,8 +139,8 @@ impl Pool {
         e: &Env,
         adjusting_amount: i128,
     ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.accumulated_host_fee, adjusting_amount)?;
-        self.accumulated_host_fee = new_amount;
+        let new_amount = Self::adjust_field(e, self.accumulated_host_fees, adjusting_amount)?;
+        self.accumulated_host_fees = new_amount;
 
         Ok(())
     }
@@ -240,7 +243,7 @@ impl Pool {
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?; // likely a problem...
+        let total_supply = self.total_supply()?; // WARN: is likely a problem... or is it?
         let utilization_ratio = self.calculate_utilization_ratio_bps()?;
 
         if utilization_ratio > self.config.health_config.utilization_ratio_limit_bps {
@@ -345,7 +348,7 @@ impl Pool {
         // TODO: Can we use `saturating_sub` here instead of `checked_sub`?
         let res = self
             .total_available
-            .saturating_sub(self.accumulated_reserve_fee);
+            .saturating_sub(self.accumulated_reserve_fees);
 
         Ok(res)
     }
@@ -355,7 +358,7 @@ impl Pool {
         self.total_available
             .checked_add(self.total_borrowed)
             .map_over_or_underflow()?
-            .checked_sub(self.accumulated_reserve_fee)
+            .checked_sub(self.accumulated_reserve_fees)
             .map_over_or_underflow()
     }
 
@@ -557,11 +560,10 @@ impl Default for LiquidationConfig {
 //     /// Additional discount given to liquidators when purchasing collateral
 //     pub liquidation_incentive_bps: i128,
 //     /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available`
-// +     /// `total_borrowed`) 0 denotes unlimited supply
-//     pub supply_limit: i128,
-//     /// The maximum utilization ratio that is allowed to be reached via borrowing
-//     pub utilization_ratio_limit_bps: i128,
-//     /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000
+// + /// `total_borrowed`) 0 denotes unlimited supply pub supply_limit: i128, /// The maximum
+//   utilization ratio that is allowed to be reached via borrowing pub utilization_ratio_limit_bps:
+//   i128, /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g,
+//   7000
 // =     /// 70%, etc) with respect to a total obligation's collateral value
 //     pub open_ltv_bps: i128,
 //     /// The maximum percentage of an asset's value that can be held in an individual obligation

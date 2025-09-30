@@ -31,13 +31,10 @@ fn test_deposit() {
 
     contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_d_tokens(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_j_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT);
@@ -124,7 +121,7 @@ fn test_add_collateral() {
         get_obligation_collateral(&contract_client, user, &gold_pool_address).unwrap();
     assert_eq!(obligation_collateral, DEFAULT_COLLATERAL_AMOUNT);
 
-    let pool_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+    let pool_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address);
     assert_eq!(pool_collateral, DEFAULT_COLLATERAL_AMOUNT);
 }
 
@@ -236,8 +233,8 @@ fn test_deposit_multiple_shareholders() {
     );
 
     // Assert that jTokens shares are preserved(without interest accrual)
-    let pool_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_available = get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_available = get_pool_total_available(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_j_tokens, (3 * DEFAULT_DEPOSIT_AMOUNT) / 2);
     assert_eq!(pool_available, (3 * DEFAULT_DEPOSIT_AMOUNT) / 2);
@@ -276,10 +273,8 @@ fn test_deposit_multiple_shareholders() {
 
     // - Assert that the total debt has increased -
 
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
 
     assert_eq!(pool_total_j_tokens, (3 * DEFAULT_DEPOSIT_AMOUNT) / 2);

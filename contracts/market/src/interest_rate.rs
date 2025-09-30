@@ -81,8 +81,8 @@ impl Pool {
             .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
 
-        self.accumulated_reserve_fee = self
-            .accumulated_reserve_fee
+        self.accumulated_reserve_fees = self
+            .accumulated_reserve_fees
             .checked_add(accrued_to_reserve)
             .map_over_or_underflow()?;
 

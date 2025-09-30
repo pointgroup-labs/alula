@@ -46,11 +46,11 @@ fn test_pool_initialize_with_custom_config() {
     let token_ticker = symbol_short!("TCK1");
 
     let pool_config = PoolConfig {
-        ..Default::default() // fee_config: todo!(),
-                             // health_config: todo!(),
-                             // accrual_model: market::accrual::AccrualModel::Compounded,
-                             // liquidation_config: todo!(),
-                             // interest_rate_model: todo!(),
+        ..Default::default() /* fee_config: todo!(),
+                              * health_config: todo!(),
+                              * accrual_model: market::accrual::AccrualModel::Compounded,
+                              * liquidation_config: todo!(),
+                              * interest_rate_model: todo!(), */
     };
 
     // let pool_config = PoolConfig {

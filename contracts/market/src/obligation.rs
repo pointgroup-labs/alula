@@ -1073,13 +1073,20 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     Ok(())
 }
 
-fn compute_fees(
+/// Computes fees for any operations
+///
+/// ### Arguments
+/// * `original_amount` - original operation amount
+/// * `operation_fee_bps` - percentage of the original amount that is segregated for fees
+/// * `host_fee_bps` - percentage of the operation fee that is segregated for the host lending
+///   platform
+pub fn compute_fees(
     original_amount: i128,
-    market_fee_bps: u32,
+    operation_fee_bps: u32,
     host_fee_bps: u32,
 ) -> Result<ComputedFees, MCError> {
     let fee_sum = original_amount
-        .fixed_mul_floor(market_fee_bps as i128, BPS_FACTOR)
+        .fixed_mul_floor(operation_fee_bps as i128, BPS_FACTOR)
         .map_over_or_underflow()?;
     let host_fee = fee_sum
         .fixed_mul_floor(host_fee_bps as i128, BPS_FACTOR)
@@ -1093,11 +1100,14 @@ fn compute_fees(
     })
 }
 
-struct ComputedFees {
+/// Generally represents computed fees issued by any possible operation on a market
+pub struct ComputedFees {
     /// Sum of `market_fee` and `host_fee`
-    fee_sum: i128,
-    market_fee: i128,
-    host_fee: i128,
+    pub fee_sum: i128,
+    /// Fee segregated to the market admin
+    pub market_fee: i128,
+    /// Fee segregated to the protocol host
+    pub host_fee: i128,
 }
 
 /// [`Obligation::deposit`] resulting data
