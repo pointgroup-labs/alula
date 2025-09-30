@@ -440,7 +440,7 @@ impl Obligation {
             .ok_or(MCError::ObligationDoesNotExist)?;
 
         let max_healthy_withdrawn_amount =
-            self.compute_max_healthy_collateral_removed_amount(e, &pool)?;
+            self.compute_max_healthy_collateral_removed_amount(e, pool)?;
         let deposit_decrease = i128::min(original_amount, max_healthy_withdrawn_amount);
 
         pool.require_preserves_utilization_ratio_cap(e, deposit_decrease)?;
@@ -519,7 +519,7 @@ impl Obligation {
             .unwrap_or_default();
 
         let max_possible_collateral_removed_amount =
-            self.compute_max_healthy_collateral_removed_amount(e, &pool)?;
+            self.compute_max_healthy_collateral_removed_amount(e, pool)?;
         let collateral_decrease = i128::min(
             i128::min(original_amount, max_possible_collateral_removed_amount),
             deposit_obligation.collateral,
