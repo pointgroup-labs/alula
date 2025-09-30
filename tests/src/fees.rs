@@ -1,11 +1,9 @@
 #![cfg(test)]
 
 use market::{
-    constants::BPS_FACTOR,
     obligation::{ComputedFees, compute_fees},
-    pool::{PoolConfig, PoolFeeConfig},
+    pool::PoolFeeConfig,
 };
-use soroban_fixed_point_math::FixedPoint;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_d_tokens_as_tokens,
