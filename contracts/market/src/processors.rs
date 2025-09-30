@@ -47,7 +47,7 @@ pub fn process_initialize_pool(
                 return Err(MCError::InvalidLoanPoolConfig);
             }
 
-            cfg.clone()
+            *cfg
         }
         None => Default::default(),
     };

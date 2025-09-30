@@ -7,7 +7,7 @@ use crate::{
     events,
     math_utils::MathUtils,
     oracle::get_asset_price,
-    pool::{LiquidationConfig, Pool, PoolConfig},
+    pool::{LiquidationConfig, Pool},
     storage,
 };
 

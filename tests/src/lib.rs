@@ -22,7 +22,7 @@ use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     obligation::{BorrowObligation, DepositObligation},
-    pool::{PoolConfig, PoolFeeConfig},
+    pool::PoolConfig,
     soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
