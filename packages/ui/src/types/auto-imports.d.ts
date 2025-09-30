@@ -13,6 +13,7 @@ declare global {
   const NetworkPassphrase: typeof import('../store/rpc')['NetworkPassphrase']
   const asyncComputed: typeof import('@vueuse/core')['asyncComputed']
   const autoResetRef: typeof import('@vueuse/core')['autoResetRef']
+  const calcUserTotalShares: typeof import('../store/user')['calcUserTotalShares']
   const computed: typeof import('vue')['computed']
   const computedAsync: typeof import('@vueuse/core')['computedAsync']
   const computedEager: typeof import('@vueuse/core')['computedEager']
@@ -321,7 +322,7 @@ declare global {
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
-  export type { MarketsState, PoolWithPrice, LeveragePool, TableActionType } from '../store/markets'
+  export type { MarketsState, PoolWithPrice, TableActionType } from '../store/markets'
   import('../store/markets')
   // @ts-ignore
   export type { Network } from '../store/rpc'

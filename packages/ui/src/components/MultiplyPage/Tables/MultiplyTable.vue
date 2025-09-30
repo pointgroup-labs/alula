@@ -5,23 +5,20 @@ import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTok
 
 const { width } = useWindowSize()
 
-const client = useClientStore()
 const marketsStore = useMarketsStore()
 
 const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
 
 const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
-const dialogWithdrawLeverage = toRef(marketsStore, 'dialogWithdrawLeverage')
+const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
 
 const market = useMarket()
 
 const userStore = useUserStore()
-const obligation = computed(() => userStore.userObligation)
 
-const assetDecimals = computed(() => client.assetDecimals)
+const assetDecimals = computed(() => marketsStore.assetDecimals)
 
-const pools = computed(() => marketsStore.state.pools)
-const leveragePools = computed(() => marketsStore.state.leveragePools)
+const pools = computed(() => Object.values(marketsStore.state.markets)?.flatMap(m => m.pools) ?? [])
 const loading = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
 
 /**
@@ -49,10 +46,14 @@ const fields = [
 ]
 
 const items = computed<MultiplyTableItem[]>(() => {
-  return leveragePools.value
-    ?.map(({ borrow_pool, deposit_pool }) => {
-      const depositPool = pools.value.find(pool => pool.pool_address === deposit_pool)!
-      const borrowPool = pools.value.find(pool => pool.pool_address === borrow_pool)!
+  const res = []
+  for (const market in marketsStore.state.markets) {
+    const pools = marketsStore.state.markets[market]?.pools ?? []
+    const leveragePools = marketsStore.state.markets[market]?.leveragePools ?? []
+
+    for (const { borrow_pool, deposit_pool } of leveragePools) {
+      const depositPool = pools.find(p => p.pool_address === deposit_pool)!
+      const borrowPool = pools.find(p => p.pool_address === borrow_pool)!
       const depositTokenSymbol = depositPool?.token_ticker
       const borrowTokenSymbol = borrowPool?.token_ticker
       const depositTokenName = getTokenName(String(depositTokenSymbol))
@@ -64,12 +65,14 @@ const items = computed<MultiplyTableItem[]>(() => {
       const supplyBPS = Number(depositPool?.pool_apy.supply_bps || 0) / 10_000
       const borrowBPS = Number(borrowPool?.pool_apy.borrow_bps || 0) / 10_000
       const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
-      const supplied = depositPool && depositPool.available ? Number(bigintToNumber(depositPool.available, assetDecimals.value)) : 0
+      const supplied = depositPool && depositPool.total_available ? Number(bigintToNumber(depositPool.total_available, assetDecimals.value)) : 0
       const liquidity
-      = borrowPool && borrowPool.available
-        ? Number(bigintToNumber(borrowPool.available/*  + borrowPool.total_borrowed + borrowPool.total_collateral */, assetDecimals.value))
-        : 0
-      return {
+        = borrowPool && borrowPool.total_available
+          ? Number(bigintToNumber(borrowPool.total_available/*  + borrowPool.total_borrowed + borrowPool.total_collateral */, assetDecimals.value))
+          : 0
+
+      const data = {
+        market,
         depositPool,
         borrowPool,
         asset: { name: depositTokenName, symbol: depositTokenSymbol, icon: depositTokenIcon },
@@ -82,22 +85,28 @@ const items = computed<MultiplyTableItem[]>(() => {
         pool_address: depositPool?.pool_address || '',
         supplied,
       }
-    })
+
+      res.push(data)
+    }
+  }
+
+  return res?.filter(Boolean)
 })
 
-const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedMarketAddress.value))
+const selectedPool = ref()
 
 async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' | 'withdraw') {
   selectedMarketAddress.value = item?.pool_address
-  action === 'supply' ? dialogLeverage.value = true : dialogWithdrawLeverage.value = true
+  selectedPool.value = item
+  action === 'supply' ? dialogLeverage.value = true : dialogLeverageWithdraw.value = true
 }
 
-function checkIsHaveMultiply(poolAddress: string) {
-  const deposits = obligation.value?.deposits || []
-  const borrows = obligation.value?.borrows || []
-  const pool = items.value.find(item => item.pool_address === poolAddress)
+function checkIsHaveMultiply(poolAddress: string, market: string) {
+  const obligations = userStore.state.multiplyObligations
+  const deposits: any = obligations[market]?.deposits ?? []
+  const borrows: any = obligations[market]?.borrows ?? []
+  const pool = items.value.find(item => item.pool_address === poolAddress && item.market === market)
   if (deposits.length === 0 || borrows.length === 0 || !pool) {
-    dialogWithdrawLeverage.value = false
     return false
   }
   const depositPoolAddress = pool.depositPool.pool_address
@@ -215,14 +224,13 @@ function checkIsHaveMultiply(poolAddress: string) {
             size="lg"
             pill
             icon-right
-            :disabled="market.isDisabled(data.item.pool_address, 'leverage')"
             :loading="market.isLoading(data.item.pool_address, 'leverage')"
             @click="multiplyDialogHandler(data.item, 'supply')"
           >
             Multiply
           </j-btn>
           <j-btn
-            v-if="checkIsHaveMultiply(data.item.pool_address)"
+            v-if="checkIsHaveMultiply(data.item.pool_address, String(data.item.market))"
             size="lg"
             variant="accent"
             pill
@@ -265,8 +273,7 @@ function checkIsHaveMultiply(poolAddress: string) {
   />
 
   <withdraw-leverage-dialog
-    v-if="checkIsHaveMultiply(selectedMarketAddress)"
-    v-model="dialogWithdrawLeverage"
+    v-model="dialogLeverageWithdraw"
     :data="selectedPool"
   />
 </template>

@@ -3,17 +3,16 @@ import borrowingIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import { bigintToNumber, formatPrice, shortenNumber } from '~/utils'
 
 const marketsStore = useMarketsStore()
-const clientStore = useClientStore()
-const decimals = toRef(clientStore, 'assetDecimals')
+const { assetDecimals } = useMarket()
 
 const loading = computed(() => marketsStore.state.loading)
-const pools = computed(() => marketsStore.state.pools)
+const pools = computed(() => Object.values(marketsStore.state.markets)?.flatMap(m => m.pools))
 
 const poolsInfo = computed(() => {
   return pools.value?.reduce((acc, pool) => {
-    const borrowed = Number(bigintToNumber(pool.total_borrowed, decimals.value))
-    const totalSupplied = pool.available + pool.total_borrowed + pool.total_collateral
-    const supplied = Number(bigintToNumber(totalSupplied, decimals.value)) * Number(pool.pool_price)
+    const borrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals.value))
+    const totalSupplied = pool.total_available + pool.total_borrowed + pool.total_collateral
+    const supplied = Number(bigintToNumber(totalSupplied, assetDecimals.value)) * Number(pool.pool_price)
     acc.total_borrowed += borrowed * Number(pool.pool_price)
     acc.total_collateral += supplied
     return acc

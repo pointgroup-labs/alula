@@ -5,18 +5,15 @@ import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 const { width } = useWindowSize()
 
 const { generateExplorerLink } = useExplorerLink()
-
-const clientStore = useClientStore()
+const marketsStore = useMarketsStore()
 
 const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
 
 const pool = computed(() => selectedMarketDetails.value?.raw)
 
-const decimals = computed(() => clientStore.assetDecimals)
-
-const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, decimals.value)) || 0)
+const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, marketsStore.assetDecimals)) || 0)
 const totalSupplied = computed(() => {
-  const supplied = Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.available, decimals.value)) || 0
+  const supplied = Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.total_available, marketsStore.assetDecimals)) || 0
   const openLTV = Number(pool.value?.config.open_ltv_bps) / 10_000
   return (supplied * openLTV) || 0
 })

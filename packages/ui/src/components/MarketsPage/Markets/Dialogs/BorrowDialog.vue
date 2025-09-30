@@ -11,11 +11,6 @@ const {
   modelValue: boolean
 }>()
 
-const clientStore = useClientStore()
-const alulaClient = computed(() => clientStore.alulaClient)
-
-const assetDecimals = computed(() => clientStore.assetDecimals)
-
 const marketsStore = useMarketsStore()
 const market = useMarket()
 
@@ -23,6 +18,8 @@ const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
 const userStore = useUserStore()
+
+const marketClient = computed(() => marketsStore.marketClient)
 
 const amount = toRef(market, 'borrowAmount')
 const agree = ref(false)
@@ -35,15 +32,15 @@ watchDebounced([
   reloadFee,
   publicKey,
 ], async ([d, _r]) => {
-  if (!d || !publicKey.value) {
+  if (!d || !publicKey.value || !marketClient.value) {
     return
   }
-  const tx = await alulaClient.value?.sdk.borrowTx(
+  const tx = await marketClient.value?.marketSdk.borrowTx(
     publicKey.value,
     d?.raw.pool_address || '',
     0,
   )
-  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
+  txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
 const balance = computed(() => {
@@ -64,7 +61,7 @@ const poolBorrowLimit = computed(() => {
 
   // market available
   const utilRatioLimit = Number(data?.raw.config.utilization_ratio_limit_bps || 0) / 10_000
-  const marketAvailable = Number(bigintToNumber(data.raw.available, assetDecimals.value)) * utilRatioLimit
+  const marketAvailable = Number(bigintToNumber(data.raw.total_available, marketsStore.assetDecimals)) * utilRatioLimit
   return marketAvailable
 })
 
@@ -79,6 +76,7 @@ const availableToBorrow = computed(() => {
   const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
   const maxAvailableUsd = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
   const maxAvailableAssets = maxAvailableUsd / Number(data.price)
+
   return Math.max(maxAvailableAssets, 0)
 })
 
@@ -150,7 +148,16 @@ async function borrow() {
     return
   }
 
-  await market.borrow(data?.raw.pool_address, amount.value, data?.raw.name, poolBorrowLimit.value)
+  const marketProps = {
+    market: marketsStore.activeMarketFilter,
+    client: marketClient.value!,
+    pool_address: data?.raw.pool_address,
+    amount: amount.value,
+    asset_data: data?.raw.name,
+    poolBorrowLimit: poolBorrowLimit.value,
+  }
+
+  await market.borrow(marketProps)
 }
 
 let interval: string | number | NodeJS.Timeout | undefined

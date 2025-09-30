@@ -4,7 +4,7 @@ import type { SuppliedCardTableItem } from '~/types/table'
 const {
   items,
 } = defineProps<{
-  items: SuppliedCardTableItem[]
+  items?: SuppliedCardTableItem[]
 }>()
 
 const emits = defineEmits(['dialogHandler'])

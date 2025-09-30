@@ -1,19 +1,34 @@
 <script lang="ts" setup>
+import { capitalize } from 'lodash-es'
+
 const marketsStore = useMarketsStore()
-const activeMarket = toRef(marketsStore, 'activeMarket')
+const activeMarketFilter = toRef(marketsStore, 'activeMarketFilter')
+
+const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
+
+watch([
+  activeMarketFilter,
+  markets,
+], ([active, markets]) => {
+  if ((!active || active?.length === 0) && markets.length > 0) {
+    activeMarketFilter.value = String(markets[0])
+  }
+}, { immediate: true })
 </script>
 
 <template>
-  <div class="market-filters">
+  <div
+    class="market-filters"
+  >
     <j-btn
-      v-for="market in marketsStore.state.markets"
+      v-for="market in markets"
       :key="market"
       pill
-      :variant="market.toLowerCase() === activeMarket.toLowerCase() ? 'secondary' : 'light'"
+      :variant="market?.toLowerCase() === activeMarketFilter.toLowerCase() ? 'secondary' : 'light'"
       size="sm"
-      @click="activeMarket = market"
+      @click="activeMarketFilter = market"
     >
-      {{ market }}
+      {{ capitalize(market) }}
     </j-btn>
   </div>
 </template>

@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
+import { calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { bigintToNumber, focusInput, formatPrice } from '~/utils'
+import { focusInput, formatPrice } from '~/utils'
 
 const {
   data,
@@ -13,14 +14,10 @@ const marketsStore = useMarketsStore()
 const market = useMarket()
 
 const userStore = useUserStore()
-const obligation = computed(() => userStore.userObligation)
 
 const amount = toRef(market, 'withdrawAmount')
 
-const clientStore = useClientStore()
-const alulaClient = computed(() => clientStore.alulaClient)
-
-const decimals = computed(() => clientStore.assetDecimals)
+const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -29,18 +26,19 @@ const balance = computed(() => {
   if (!data) {
     return 0
   }
+  const deposits: any = userStore.state.multiplyObligations[String(data?.market)]?.deposits || []
   const depositPool = data.depositPool
-  const depositAsset = obligation.value?.deposits.find((deposit: any) => deposit.includes(depositPool?.pool_address))
+  const depositAsset = deposits.find(([deposit]: any) => deposit.includes(depositPool?.pool_address))
   if (!depositAsset) {
     return 0
   }
-  const userShares = depositAsset[1].shares || 0
-  const userPoolSharesInPercentage = Number(userShares) / Number(depositPool.total_shares || 0)
-  const available = Number(bigintToNumber(depositPool.available, decimals.value))
-  const totalBorrowed = Number(bigintToNumber(depositPool.total_borrowed, decimals.value))
-  const totalSupplied = available + totalBorrowed
-  const userSupplied = totalSupplied * userPoolSharesInPercentage
-  return userSupplied || 0
+  const userShares = depositAsset[1].j_tokens || 0
+  const deposited = calculateTotalStake(userShares, {
+    total_j_tokens: depositPool.total_j_tokens,
+    total_borrowed: depositPool.total_borrowed,
+    total_available: depositPool.total_available,
+  }).toString()
+  return Number(deposited) || 0
 })
 
 const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
@@ -56,13 +54,13 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await alulaClient.value?.sdk.withdrawLeverageTx(
+  const tx = await activeMarket.value!.client.marketSdk.withdrawLeverageTx(
     publicKey.value,
     d?.depositPool.pool_address || '',
     d?.borrowPool.pool_address || '',
     1,
   )
-  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
+  txFee.value = activeMarket.value!.client.marketSdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {
@@ -104,9 +102,7 @@ const infoTableData = computed(() => {
   ]
 })
 
-const dialog = defineModel<boolean>({
-  default: false,
-})
+const dialog = ref(true)
 
 async function withdrawLeverage() {
   if (!publicKey.value || !data?.depositPool.pool_address) {
@@ -122,12 +118,34 @@ async function withdrawLeverage() {
   if (!deposit_pool_address || !borrow_pool_address) {
     return
   }
-  await market.withdrawLeverage(
+
+  const marketProps = {
+    client: activeMarket.value!.client,
+    market: activeMarket.value!.marketState.name,
     deposit_pool_address,
     borrow_pool_address,
-    amount.value,
+    amount: amount.value,
     asset_code,
-  )
+  }
+
+  await market.withdrawLeverage({
+    ...marketProps,
+    action: async () => {
+      await userStore.updateUserMultiplyObligation({
+        market: activeMarket.value!.marketState.name,
+        client: activeMarket.value!.client,
+        depositPoolAddress: deposit_pool_address,
+        borrowPoolAddress: borrow_pool_address,
+      })
+      await marketsStore.updateLeveragePools({
+        deposit_pool_address,
+        borrow_pool_address,
+        market: activeMarket.value!.marketState.name,
+        client: activeMarket.value!.client,
+      })
+      await marketsStore.updatePools(borrow_pool_address, activeMarket.value!.marketState.name, activeMarket.value!.client)
+    },
+  })
 }
 
 let interval: string | number | NodeJS.Timeout | undefined

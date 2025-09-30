@@ -22,13 +22,13 @@ function calcRemainingMultiplyUSD(
   return borrowAvailableInUsd / poolPrice / selectedMultiplier
 }
 
+const userStore = useUserStore()
 const marketsStore = useMarketsStore()
 const market = useMarket()
 
 const amount = toRef(market, 'depositAmount')
 
-const clientStore = useClientStore()
-const alulaClient = computed(() => clientStore.alulaClient)
+const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -72,7 +72,7 @@ watchDebounced([
   if (!d || !publicKey.value) {
     return
   }
-  const tx = await alulaClient.value?.sdk.leverageTx(
+  const tx = await activeMarket.value?.client.marketSdk.leverageTx(
     publicKey.value,
     d?.depositPool.pool_address || '',
     d?.borrowPool.pool_address || '',
@@ -80,7 +80,7 @@ watchDebounced([
     1,
     2,
   )
-  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
+  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) || 0
 }, { immediate: true, debounce: 300 })
 
 const supplyLimit = ref(0)
@@ -93,14 +93,14 @@ const infoTableData = computed(() => {
   const depositPoolData = isDepositMultiply.value ? data.depositPool : data.borrowPool
 
   const borrowPoolData = data.borrowPool
-  const borrowAvailable = bigintToNumber(borrowPoolData.available, clientStore.assetDecimals)
+  const borrowAvailable = bigintToNumber(borrowPoolData.total_available, marketsStore.assetDecimals)
   const borrowAvailableInUsd = Number(borrowAvailable) * Number(borrowPoolData.pool_price)
 
   const maxMultiplyTicker = isDepositMultiply.value ? data.depositPool.token_ticker : data.borrowPool.token_ticker
 
   // eslint-disable-next-line vue/no-side-effects-in-computed-properties
   supplyLimit.value
-   = calcRemainingMultiplyUSD(borrowAvailableInUsd, Number(depositPoolData?.pool_price || 0), Number(selectedMultiplier.value) || 0)
+    = calcRemainingMultiplyUSD(borrowAvailableInUsd, Number(depositPoolData?.pool_price || 0), Number(selectedMultiplier.value) || 0)
 
   return [
     {
@@ -158,14 +158,35 @@ async function leverage() {
     return
   }
 
-  await market.leverage(
+  const marketProps = {
+    client: activeMarket.value!.client,
+    market: activeMarket.value!.marketState.name,
     deposit_pool_address,
     borrow_pool_address,
-    isDepositMultiply.value,
-    amount.value,
-    Number(selectedMultiplier.value),
+    deposit_as_margin: isDepositMultiply.value,
+    amount: amount.value,
+    leverage_multiplier: Number(selectedMultiplier.value),
     asset_code,
-  )
+  }
+
+  await market.leverage({
+    ...marketProps,
+    action: async () => {
+      await userStore.updateUserMultiplyObligation({
+        market: activeMarket.value!.marketState.name,
+        client: activeMarket.value!.client,
+        depositPoolAddress: deposit_pool_address,
+        borrowPoolAddress: borrow_pool_address,
+      })
+      await marketsStore.updateLeveragePools({
+        deposit_pool_address,
+        borrow_pool_address,
+        market: activeMarket.value!.marketState.name,
+        client: activeMarket.value!.client,
+      })
+      await marketsStore.updatePools(borrow_pool_address, activeMarket.value!.marketState.name, activeMarket.value!.client)
+    },
+  })
 }
 
 let interval: string | number | NodeJS.Timeout | undefined
@@ -308,7 +329,7 @@ watch(dialog, async (v) => {
   .modal-dialog {
     width: min-content;
 
-    @media (max-width: $breakpoint-xs) {
+    @media (max-width: $breakpoint-sm) {
       width: 100%;
     }
   }
@@ -401,6 +422,18 @@ watch(dialog, async (v) => {
         @media (max-width: $breakpoint-xs) {
           display: none;
         }
+      }
+    }
+  }
+
+  .dialog-info-table__item {
+    span:nth-child(2) {
+      width: 150px;
+      font-family: sans-serif;
+      font-variant-numeric: tabular-nums;
+
+      @media (max-width: $breakpoint-sm) {
+        width: initial;
       }
     }
   }

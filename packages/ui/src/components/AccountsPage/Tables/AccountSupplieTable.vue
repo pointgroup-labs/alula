@@ -1,18 +1,15 @@
 <script lang="ts" setup>
-// import type { DepositObligation } from '@jlend/sdk'
 import type { SuppliedCardTableItem } from '~/types/table'
-import { bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
+import { calculateTotalStake } from '@alula/client-sdk/src/utils'
+// import type { DepositObligation } from '@jlend/sdk'
+import { formatPrice, shortenNumber } from '~/utils'
 
 const { width } = useWindowSize()
 
-const clientStore = useClientStore()
-const decimals = computed(() => clientStore.assetDecimals)
-
 const userStore = useUserStore()
-const obligation = computed(() => userStore.userObligation)
 
 const marketsStore = useMarketsStore()
-const pools = computed(() => marketsStore.state.pools)
+const decimals = computed(() => marketsStore.assetDecimals)
 
 const market = useMarket()
 
@@ -25,52 +22,60 @@ const fields = [
   { key: 'action', label: '' },
 ]
 
-const items: ComputedRef<SuppliedCardTableItem[]> = computed(() => {
-  const deposits = obligation.value?.deposits || []
-  return deposits.map((item: [string, any]) => {
-    const [pool_address, deposit] = item
-    const pool = pools.value.find(p => p.pool_address === pool_address)
-    if (!pool) {
-      return null
+const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
+  const res = []
+  for (const market in userStore.state.obligations) {
+    const deposits = userStore.state.obligations[market]?.deposits ?? []
+    const pools = marketsStore.state.markets[market]?.pools
+    for (const deposit of deposits) {
+      const [pool_address, dep] = deposit
+      const pool = pools?.find(p => p.pool_address === pool_address)
+      if (!pool) {
+        continue
+      }
+
+      const tokenSymbol = pool.token_ticker
+      const tokenName = getTokenName(tokenSymbol)
+      const icon = getTokenIcon(tokenSymbol)
+      const available = Number(bigintToNumber(pool.total_available, decimals.value))
+
+      const deposited = calculateTotalStake(dep.j_tokens, {
+        total_j_tokens: pool.total_j_tokens,
+        total_borrowed: pool.total_borrowed,
+        total_available: pool.total_available,
+      })
+      const userCollateral = bigintToNumber(dep.collateral, decimals.value)
+      const balance = Number(deposited) + Number(userCollateral)
+
+      const poolApy = pool.pool_apy.supply_bps / 100
+
+      const data = {
+        raw: pool,
+        asset: { name: tokenName, symbol: tokenSymbol, icon },
+        balance,
+        balanceUsd: formatPrice(balance * Number(pool.pool_price), 2, 2),
+        price: Number(pool.pool_price),
+        available,
+        supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
+        action: 'Withdraw',
+        pool_address,
+        collateral: userCollateral,
+        market,
+      }
+
+      res.push(data)
     }
-    const tokenSymbol = pool.token_ticker
-    const tokenName = getTokenName(tokenSymbol)
-    const icon = getTokenIcon(tokenSymbol)
-    const userShares = bigintToNumber(deposit.shares, decimals.value)
-    const totalShares = bigintToNumber(pool.total_shares, decimals.value)
-    const userBorrowInPoolPercentage = Number(userShares) / Number(totalShares)
-
-    const available = Number(bigintToNumber(pool.available, decimals.value))
-    const totalBorrowed = Number(bigintToNumber(pool.total_borrowed, decimals.value))
-    const totalSupplied = available + totalBorrowed
-
-    const userSupplied = totalSupplied * userBorrowInPoolPercentage
-    const userCollateral = bigintToNumber(deposit.collateral, decimals.value)
-    const balance = Number(userSupplied) + Number(userCollateral)
-
-    const poolApy = pool.pool_apy.supply_bps / 100
-
-    return {
-      raw: pool,
-      asset: { name: tokenName, symbol: tokenSymbol, icon },
-      balance,
-      balanceUsd: formatPrice(balance * Number(pool.pool_price), 2, 2),
-      price: Number(pool.pool_price),
-      available,
-      supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
-      action: 'Withdraw',
-      pool_address,
-      collateral: userCollateral,
-    }
-  })?.filter((item: SuppliedCardTableItem) => item)
+  }
+  return res.filter(Boolean) as SuppliedCardTableItem[]
 })
 
 const dialog = ref(false)
 const selectedMarketAddress = ref()
-const selectedPool = computed(() => items.value.find(item => item.pool_address === selectedMarketAddress.value))
+const selectedPool = ref()
 
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
   selectedMarketAddress.value = item?.pool_address
+  selectedPool.value = item
   dialog.value = true
 }
 

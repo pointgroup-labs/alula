@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-// import type { BorrowObligation } from '@jlend/sdk'
 import type { BorrowCardTableItem } from '~/types/table'
+// import type { BorrowObligation } from '@jlend/sdk'
+import { calculateBorrow } from '@alula/client-sdk/src/utils'
 import {
-  bigintToNumber,
   destructurePoolAsset,
   formatPrice,
   getTokenIcon,
@@ -13,14 +13,10 @@ import {
 
 const { width } = useWindowSize()
 
-const clientStore = useClientStore()
-const decimals = computed(() => clientStore.assetDecimals)
-
 const userStore = useUserStore()
-const obligation = computed(() => userStore.userObligation)
 
 const marketsStore = useMarketsStore()
-const pools = computed(() => marketsStore.state.pools)
+const assetDecimals = computed(() => marketsStore.assetDecimals)
 
 const market = useMarket()
 
@@ -34,41 +30,55 @@ const fields = [
 ]
 
 const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
-  const borrows = obligation.value?.borrows || []
-  return borrows.map((item: [string, any]) => {
-    const [pool_address, borrow] = item
-    const pool = pools.value.find(p => p.pool_address === pool_address)
-    if (!pool) {
-      return null
-    }
-    const tokenSymbol = pool.token_ticker
-    const tokenName = getTokenName(tokenSymbol)
-    const icon = getTokenIcon(tokenSymbol)
-    const userBorrowed = bigintToNumber(borrow.borrowed + borrow.unpaid_interest, decimals.value)
-    const userBorrowedUsd = formatPrice(Number(userBorrowed) * Number(pool.pool_price), 2, 2)
+  const res = []
+  for (const market in userStore.state.obligations) {
+    const deposits = userStore.state.obligations[market]?.borrows ?? []
+    const pools = marketsStore.state.markets[market]?.pools
+    for (const deposit of deposits) {
+      const [pool_address, borrow] = deposit
+      const pool = pools?.find(p => p.pool_address === pool_address)
+      if (!pool) {
+        continue
+      }
 
-    const [, asset_issuer] = destructurePoolAsset(pool.name)
-    const borrowApy = pool.pool_apy.borrow_bps / 100
+      const tokenSymbol = pool.token_ticker
+      const tokenName = getTokenName(tokenSymbol)
+      const icon = getTokenIcon(tokenSymbol)
+      const rawDept = calculateBorrow(borrow.d_tokens, {
+        total_borrowed: pool.total_borrowed,
+        total_d_tokens: pool.total_d_tokens,
+      }, assetDecimals.value)
+      const debt = Number(rawDept)
+      const debtUsd = formatPrice(Number(debt) * Number(pool.pool_price), 2, 2)
 
-    return {
-      raw: pool,
-      asset: { name: tokenName, symbol: tokenSymbol, icon },
-      debt: userBorrowed,
-      debtUsd: userBorrowedUsd,
-      borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
-      action: 'Repay',
-      pool_address,
-      asset_issuer,
+      const [, asset_issuer] = destructurePoolAsset(pool.name)
+      const borrowApy = pool.pool_apy.borrow_bps / 100
+
+      const data = {
+        market,
+        raw: pool,
+        asset: { name: tokenName, symbol: tokenSymbol, icon },
+        debt,
+        debtUsd,
+        borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
+        action: 'Repay',
+        pool_address,
+        asset_issuer,
+      }
+
+      res.push(data)
     }
-  })?.filter((item: BorrowCardTableItem) => item)
+  }
+  return res?.filter(Boolean) as BorrowCardTableItem[]
 })
 
 const dialog = ref(false)
 const selectedMarketAddress = ref()
-const selectedMarket = computed(() => items.value.find(item => item.pool_address === selectedMarketAddress.value))
+const selectedMarket = ref()
 
 function withdrawDialogHandler(item: BorrowCardTableItem) {
   selectedMarketAddress.value = item?.pool_address
+  selectedMarket.value = item
   dialog.value = true
 }
 

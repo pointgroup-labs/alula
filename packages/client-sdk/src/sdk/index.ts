@@ -1,2 +1,2 @@
 export * from './client'
-export * from './sdk-client'
+export * from './market-client'

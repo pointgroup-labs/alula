@@ -1,127 +1,145 @@
-import Decimal from 'decimal.js'
+import type { StellarClient } from '@alula/client-sdk'
+import type { Obligation } from '@alula/market-sdk'
+import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { defineStore } from 'pinia'
-import { bigintToNumber } from '~/utils'
-
-function toDec(value: bigint): Decimal {
-  return new Decimal(value.toString())
-}
-
-type Op = 'add' | 'sub' | 'mul' | 'div'
-function operate(a: bigint, b: bigint, op: Op): Decimal {
-  const da = toDec(a)
-  const db = toDec(b)
-  switch (op) {
-    case 'add': return da.plus(db)
-    case 'sub': return da.minus(db)
-    case 'mul': return da.times(db)
-    case 'div': return da.dividedBy(db)
-  }
-}
-
-function calcUserTotalShares(
-  shares: bigint,
-  totalShares: bigint,
-  available: bigint,
-  totalBorrowed: bigint,
-  precision = 7,
-): string {
-  const fraction = operate(shares, totalShares, 'div')
-  const totalLiq = operate(available, totalBorrowed, 'add')
-  const raw = fraction.times(totalLiq)
-  const scaled = raw.dividedBy(
-    new Decimal(10).pow(precision),
-  )
-  return scaled.toFixed(precision)
-}
 
 export const useUserStore = defineStore('user', () => {
+  const state = reactive<UserState>({
+    obligations: {},
+    multiplyObligations: {},
+  })
+
   const wallet = useWallet()
   const marketsStore = useMarketsStore()
 
-  const clientStore = useClientStore()
-  const alulaClient = computed(() => clientStore.alulaClient)
+  const activeMarket = computed(() => marketsStore.activeMarket)
 
-  const userObligation = ref()
   const loading = ref(false)
 
-  async function loadUserObligation() {
+  async function loadUserObligation(market: string, client: StellarClient) {
     try {
       loading.value = true
-      userObligation.value = await alulaClient.value.sdk.getUserObligation(wallet.publicKey)
-      console.log('%c[User Obligation]', 'color: #FFB726', userObligation.value)
+      const obligation = await client.marketSdk.getUserObligation(wallet.publicKey)
+      if (obligation) {
+        state.obligations[market] = obligation
+        console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', obligation)
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function loadUserMultilpyObligation(props: {
+    market: string
+    depositPoolAddress: string
+    borrowPoolAddress: string
+    client: StellarClient
+  }) {
+    try {
+      loading.value = true
+      const obligation = await props.client.marketSdk.getUserMultiplyObligation(wallet.publicKey, props.depositPoolAddress, props.borrowPoolAddress)
+      if (obligation) {
+        state.multiplyObligations[props.market] = obligation
+        console.log(`%c[${props.market} market Multiply Obligation]`, 'color: #FFB726', obligation)
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateUserObligation(market: string, client: StellarClient) {
+    try {
+      loading.value = true
+      if (!client) {
+        return
+      }
+      const obligation = await client.marketSdk.getUserObligation(wallet.publicKey)
+      if (obligation) {
+        state.obligations[market] = obligation
+        console.log(`%c[Update ${market} market User Obligation]`, 'color: #FFB726', obligation)
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateUserMultiplyObligation(props: {
+    market: string
+    client: StellarClient
+    depositPoolAddress: string
+    borrowPoolAddress: string
+  }) {
+    try {
+      loading.value = true
+      if (!props.client) {
+        return
+      }
+      const obligation = await props.client.marketSdk.getUserMultiplyObligation(wallet.publicKey, props.depositPoolAddress, props.borrowPoolAddress)
+      if (obligation) {
+        state.multiplyObligations[props.market] = obligation
+        console.log(`%c[Update ${props.market} market multiply Obligation]`, 'color: #FFB726', obligation)
+      }
     } finally {
       loading.value = false
     }
   }
 
   const userTotalDepositInUsd = computed(() => {
-    const deposits = userObligation.value?.deposits
-    if (!deposits) {
+    const obligation = state.obligations[marketsStore.activeMarketFilter]
+    const pools = activeMarket.value?.pools
+    if (!obligation || !pools) {
       return 0
     }
-
-    const assetDecimals = alulaClient.value.sdk.assetDecimals
-
-    let userDepositsInUsd = 0
-
-    for (const deposit of deposits) {
-      const [depositedPoolAddress, data] = deposit
-      const depositedPool = marketsStore.state.pools?.find(p => p.pool_address === depositedPoolAddress)
-
-      const collateral = data?.collateral || 0
-      userDepositsInUsd += Number(bigintToNumber(collateral, assetDecimals)) * Number(depositedPool?.pool_price)
-      const userShares = data?.shares
-      if (!depositedPool || !userShares) {
-        userDepositsInUsd += 0
-        continue
-      }
-      const userAvailable = calcUserTotalShares(userShares, depositedPool.total_shares, depositedPool?.available, depositedPool?.total_borrowed, assetDecimals)
-      const availableInUsd = Number(userAvailable) * Number(depositedPool.pool_price)
-      userDepositsInUsd += availableInUsd || 0
-    }
-    return userDepositsInUsd
+    return calcUserTotalStakeInUsd(obligation, pools, marketsStore.assetDecimals) ?? 0
   })
 
   const userTotalBorrowedInUsd = computed(() => {
-    const borrows = userObligation.value?.borrows
-    if (!borrows) {
+    const obligation = state.obligations[marketsStore.activeMarketFilter]
+    const pools = activeMarket.value?.pools
+    if (!obligation || !pools) {
       return 0
     }
-
-    const assetDecimals = alulaClient.value.sdk.assetDecimals
-
-    let userBorrowedInUsd = 0
-
-    for (const borrow of borrows) {
-      const [borrowedPoolAddress, data] = borrow
-      const borrowedPool = marketsStore.state.pools?.find(p => p.pool_address === borrowedPoolAddress)
-
-      const userBorrow = bigintToNumber(data?.borrowed, assetDecimals)
-      if (!borrowedPool || !userBorrow) {
-        userBorrowedInUsd += 0
-        continue
-      }
-      const borrowedInUsd = Number(userBorrow) * Number(borrowedPool.pool_price)
-      userBorrowedInUsd += borrowedInUsd || 0
-    }
-    return userBorrowedInUsd
+    return calcUserTotalBorrowedInUsd(obligation, pools, marketsStore.assetDecimals) ?? 0
   })
 
-  watch(() => wallet.publicKey, async (p) => {
-    if (!p) {
-      userObligation.value = undefined
+  watch([
+    () => wallet.publicKey,
+    () => marketsStore.state.markets,
+  ], async ([pubkey, markets]) => {
+    if (!pubkey || Object.keys(markets).length === 0) {
+      state.obligations = {}
       return
     }
-    await loadUserObligation()
+    const marketClients = Object.values(markets).map(m => m)
+    await Promise.all(
+      marketClients.map(async (market) => {
+        await loadUserObligation(market.marketState.name, market.client)
+        market.leveragePools.map(async p =>
+          await loadUserMultilpyObligation({
+            market: market.marketState.name,
+            depositPoolAddress: p.deposit_pool,
+            borrowPoolAddress: p.borrow_pool,
+            client: market.client,
+          }),
+        )
+      }),
+    )
   })
 
   return {
+    state,
+
     loading,
-    userObligation,
     userTotalDepositInUsd,
     userTotalBorrowedInUsd,
 
     loadUserObligation,
-
+    updateUserObligation,
+    updateUserMultiplyObligation,
   }
 })
+
+type UserState = {
+  obligations: Record<string, Obligation>
+  multiplyObligations: Record<string, Obligation>
+}

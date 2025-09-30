@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
+import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
@@ -11,12 +12,31 @@ const {
   modelValue: boolean
 }>()
 
-const clientStore = useClientStore()
-const alulaClient = computed(() => clientStore.alulaClient)
+const marketsStore = useMarketsStore()
+
+const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
 
 const userStore = useUserStore()
-const userTotalDepositInUsd = computed(() => userStore.userTotalDepositInUsd)
-const userTotalBorrowedInUsd = computed(() => userStore.userTotalBorrowedInUsd)
+
+const userTotalDepositByMarket = computed(() => {
+  const obligation = userStore.state.obligations[String(activeMarket.value?.marketState.name)]
+  const pools = activeMarket.value?.pools
+  const assetDecimals = marketsStore.assetDecimals
+  if (!obligation || !pools) {
+    return 0
+  }
+  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals) ?? 0
+})
+
+const userTotalBorrowedByMarket = computed(() => {
+  const obligation = userStore.state.obligations[String(activeMarket.value?.marketState.name)]
+  const pools = activeMarket.value?.pools
+  const assetDecimals = marketsStore.assetDecimals
+  if (!obligation || !pools) {
+    return 0
+  }
+  return calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals) ?? 0
+})
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -37,12 +57,13 @@ const totalSuppliedBalance = computed(() => Number(data?.balance) || 0)
 const remainingBalance = computed(() => Number(collateralOnly.value ? collateralBalance.value : supplyBalance.value) - amount.value)
 
 const closeLTV = computed(() => data?.raw.config.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
+const openLtv = computed(() => data?.raw.config.open_ltv_bps ? Number(data.raw.config.open_ltv_bps) / 10_000 : 0)
 
 const healthFactor = computed(() => {
   const price = Number(data?.price || 0)
   const withdrawUsd = Number(amount.value || 0) * price
-  const depositedAfterWithdraw = Math.max(userTotalDepositInUsd.value - withdrawUsd, 0)
-  const borrowed = userTotalBorrowedInUsd.value
+  const depositedAfterWithdraw = Math.max(userTotalDepositByMarket.value - withdrawUsd, 0)
+  const borrowed = userTotalBorrowedByMarket.value
 
   const result = borrowed === 0 ? 10 : Math.max((depositedAfterWithdraw * closeLTV.value) / borrowed, 0)
   return Math.min(result, 10)
@@ -50,10 +71,10 @@ const healthFactor = computed(() => {
 
 const availableToWithdraw = computed(() => {
   const price = Number(data?.price || 1)
-  const deposited = userTotalDepositInUsd.value
-  const borrowed = userTotalBorrowedInUsd.value
+  const deposited = userTotalDepositByMarket.value
+  const borrowed = userTotalBorrowedByMarket.value
 
-  const targetDeposit = borrowed / closeLTV.value
+  const targetDeposit = borrowed / openLtv.value
   const maxWithdrawUsd = Math.max(deposited - targetDeposit, 0)
   let maxWithdrawAmount = maxWithdrawUsd / price
 
@@ -71,12 +92,13 @@ watchDebounced([
   if (!d?.pool_address || !publicKey.value) {
     return
   }
-  const tx = await alulaClient.value?.sdk.withdrawTx(
+
+  const tx = await activeMarket.value?.client.marketSdk.withdrawTx(
     publicKey.value,
     d?.pool_address || '',
     0,
   )
-  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
+  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
 }, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {
@@ -126,9 +148,19 @@ async function withdraw() {
   }
   try {
     loading.value = true
+
+    const marketProps = {
+      market: activeMarket.value!.marketState.name,
+      client: activeMarket.value!.client,
+      pool_address: data?.pool_address,
+      amount: amount.value,
+      asset_data: data?.raw?.name,
+      limit: collateralBalance.value,
+    }
+
     collateralOnly.value
-      ? await market.removeCollateral(data?.pool_address, amount.value, collateralBalance.value, data?.raw?.name)
-      : await market.withdraw(data?.pool_address, amount.value, supplyBalance.value, data?.raw?.name)
+      ? await market.removeCollateral(marketProps)
+      : await market.withdraw({ ...marketProps, limit: supplyBalance.value })
   } finally {
     loading.value = false
   }

@@ -4,15 +4,13 @@ import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
 
-const clientStore = useClientStore()
+const marketsStore = useMarketsStore()
 
 const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
 
 const pool = computed(() => selectedMarketDetails.value?.raw)
 
-const decimals = computed(() => clientStore.assetDecimals)
-
-const totalSupplied = computed(() => Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.available, decimals.value)) || 0)
+const totalSupplied = computed(() => Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.total_available, marketsStore.assetDecimals)) || 0)
 
 const closeLTV = computed(() => {
   if (!pool.value) {
@@ -33,7 +31,7 @@ const openLTV = computed(() => {
 const liquidationPenalty = computed(() => (Number(pool.value?.config.liquidation_close_factor_bps) / 100).toFixed(0))
 
 const isSupplyLimit = computed(() => Number(pool.value?.config.supply_limit) > 0)
-const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.supply_limit, decimals.value)) : 0)
+const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.supply_limit, marketsStore.assetDecimals)) : 0)
 const totalSuppliedInUsd = computed(() => totalSupplied.value * selectedMarketDetails.value?.price || 0)
 const supplyLimitInUsd = computed(() => supplyLimit.value * selectedMarketDetails.value?.price || 0)
 const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value / supplyLimit.value * 100).toFixed(2) : 100)

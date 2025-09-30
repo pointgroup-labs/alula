@@ -1,3 +1,4 @@
+import type { StellarClient } from '@alula/client-sdk'
 import type { TableActionType } from '~/store/markets'
 import { destructurePoolAsset } from '~/utils'
 
@@ -15,8 +16,7 @@ export function useMarket() {
   const userStore = useUserStore()
   const marketsStore = useMarketsStore()
   const connectionStore = useConnectionStore()
-  const clientStore = useClientStore()
-  const alulaClient = computed(() => clientStore.alulaClient)
+  const marketclient = computed(() => marketsStore.marketClient)
 
   const { generateExplorerLink } = useExplorerLink()
 
@@ -31,6 +31,8 @@ export function useMarket() {
 
   const wallet = useWallet()
 
+  const assetDecimals = computed(() => marketsStore.assetDecimals)
+
   const kit = computed(() => connectionStore.kit)
 
   async function addTrustLine(asset: string, issuer: string) {
@@ -38,7 +40,7 @@ export function useMarket() {
       if (!wallet.publicKey) {
         return
       }
-      const res = await alulaClient.value.addTrustlineTx(wallet.publicKey, asset, issuer, connectionStore.kit)
+      const res = await marketclient.value!.addTrustlineTx(wallet.publicKey, asset, issuer, connectionStore.kit)
       await wallet.loadBalances()
       return res
     } catch (error) {
@@ -55,11 +57,14 @@ export function useMarket() {
   }
 
   async function runAction(opts: {
+    client: StellarClient
+    market: string
     pool: string
     type: TableActionType
     title: string
     body: string
     exec: () => Promise<{ txHash?: string }>
+    action?: () => void | Promise<void>
   }) {
     marketsStore.poolActiveAddress = opts.pool
     marketsStore.poolActionType = opts.type
@@ -72,7 +77,7 @@ export function useMarket() {
     })
     try {
       const res = await opts.exec()
-      await reloadData(opts.pool)
+      await reloadData(opts.pool, opts.market, opts.client, opts?.action)
       Toast.create({
         title: `${opts.title} Success`,
         body: 'Transaction sent successfully',
@@ -99,27 +104,33 @@ export function useMarket() {
 
   // Deposit
   async function deposit(
-    pool_address: string,
-    amount: number,
-    asset_data: string,
+    props: {
+      market: string
+      client: StellarClient
+      pool_address: string
+      amount: number
+      asset_data: string
+    },
   ) {
     const pk = requireWallet()
-    const { asset_code, asset_issuer, symbol } = parseAsset(asset_data)
+    const { asset_code, asset_issuer, symbol } = parseAsset(props.asset_data)
     const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
 
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
-    if (balance < amount) {
+    if (balance < props.amount) {
       throw new Error('Insufficient balance')
     }
 
     await runAction({
-      pool: pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.pool_address,
       type: 'deposit',
       title: 'Deposit',
-      body: `Sending transaction to deposit ${amount} ${symbol}`,
-      exec: () => alulaClient.value.sdk.deposit(pk, pool_address, amount, kit.value),
+      body: `Sending transaction to deposit ${props.amount} ${symbol}`,
+      exec: () => props.client!.marketSdk.depositToLending(pk, props.pool_address, props.amount, kit.value),
     })
 
     depositAmount.value = undefined
@@ -127,29 +138,34 @@ export function useMarket() {
 
   // Borrow
   async function borrow(
-    pool_address:
-    string,
-    amount: number,
-    asset_data: string,
-    limit: number,
+    props: {
+      client: StellarClient
+      market: string
+      pool_address: string
+      amount: number
+      asset_data: string
+      poolBorrowLimit: number
+    },
   ) {
     const pk = requireWallet()
 
-    if (limit < amount) {
+    if (props.poolBorrowLimit < props.amount) {
       throw new Error('Borrow limit exceeded')
     }
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
 
-    const { symbol } = parseAsset(asset_data)
+    const { symbol } = parseAsset(props.asset_data)
 
     await runAction({
-      pool: pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.pool_address,
       type: 'borrow',
       title: 'Borrow',
-      body: `Sending transaction to borrow ${amount} ${symbol}`,
-      exec: () => alulaClient.value.sdk.borrow(pk, pool_address, amount, kit.value),
+      body: `Sending transaction to borrow ${props.amount} ${symbol}`,
+      exec: () => props.client!.marketSdk.borrowLendingAsset(pk, props.pool_address, props.amount, kit.value),
     })
 
     borrowAmount.value = undefined
@@ -157,28 +173,34 @@ export function useMarket() {
 
   // Withdraw
   async function withdraw(
-    pool_address: string,
-    amount: number,
-    limit: number,
-    asset_data: string) {
+    props: {
+      client: StellarClient
+      market: string
+      pool_address: string
+      amount: number
+      limit: number
+      asset_data: string
+    }) {
     const pk = requireWallet()
 
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
 
-    if (amount > limit) {
+    if (props.amount > props.limit) {
       throw new Error('Withdraw limit exceeded')
     }
 
-    const { symbol } = parseAsset(asset_data)
+    const { symbol } = parseAsset(props.asset_data)
 
     await runAction({
-      pool: pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.pool_address,
       type: 'withdraw',
       title: 'Withdraw',
-      body: `Sending transaction to withdraw ${amount} ${symbol}`,
-      exec: () => alulaClient.value.sdk.withdraw(pk, pool_address, amount, kit.value),
+      body: `Sending transaction to withdraw ${props.amount} ${symbol}`,
+      exec: () => props.client!.marketSdk.wathdrawDeposit(pk, props.pool_address, props.amount, kit.value),
     })
 
     withdrawAmount.value = undefined
@@ -186,31 +208,37 @@ export function useMarket() {
 
   // Repay
   async function repay(
-    pool_address: string,
-    amount: number,
-    limit: number,
-    asset_data: string,
+    props: {
+      client: StellarClient
+      market: string
+      pool_address: string
+      amount: number
+      limit: number
+      asset_data: string
+    },
   ) {
     const pk = requireWallet()
 
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
 
-    if (amount > limit) {
+    if (props.amount > props.limit) {
       throw new Error('Withdraw limit exceeded')
     }
 
-    const { symbol } = parseAsset(asset_data)
+    const { symbol } = parseAsset(props.asset_data)
 
-    const increasedAmount = amount * 1.01
+    const increasedAmount = props.amount * 1.01
 
     await runAction({
-      pool: pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.pool_address,
       type: 'repay',
       title: 'Repay',
-      body: `Sending transaction to repay ${amount} ${symbol}`,
-      exec: () => alulaClient.value.sdk.repay(pk, pool_address, increasedAmount, kit.value),
+      body: `Sending transaction to repay ${props.amount} ${symbol}`,
+      exec: () => props.client!.marketSdk.repayBorrow(pk, props.pool_address, increasedAmount, kit.value),
     })
 
     repayAmount.value = undefined
@@ -218,29 +246,34 @@ export function useMarket() {
 
   // Add collateral
   async function addCollateral(
-    pool_address: string,
-    amount: number,
-    asset_data: string,
+    props: {
+      market: string
+      client: StellarClient
+      pool_address: string
+      amount: number
+      asset_data: string
+    },
   ) {
     const pk = requireWallet()
-    const { asset_code, asset_issuer, symbol } = parseAsset(asset_data)
-    console.log(asset_data)
+    const { asset_code, asset_issuer, symbol } = parseAsset(props.asset_data)
     const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
 
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
 
-    if (balance < amount) {
+    if (balance < props.amount) {
       throw new Error('Insufficient balance')
     }
 
     await runAction({
-      pool: pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.pool_address,
       type: 'deposit',
       title: 'Add Collateral',
-      body: `Sending transaction to add collateral ${amount} ${symbol}`,
-      exec: () => alulaClient.value.sdk.addCollateral(pk, pool_address, amount, kit.value),
+      body: `Sending transaction to add collateral ${props.amount} ${symbol}`,
+      exec: () => props.client!.marketSdk.addCollateral(pk, props.pool_address, props.amount, kit.value),
     })
 
     depositAmount.value = undefined
@@ -248,28 +281,34 @@ export function useMarket() {
 
   // Remove collateral
   async function removeCollateral(
-    pool_address: string,
-    amount: number,
-    limit: number,
-    asset_data: string) {
+    props: {
+      client: StellarClient
+      market: string
+      pool_address: string
+      amount: number
+      limit: number
+      asset_data: string
+    }) {
     const pk = requireWallet()
 
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
 
-    if (amount > limit) {
+    if (props.amount > props.limit) {
       throw new Error('Withdraw limit exceeded')
     }
 
-    const { symbol } = parseAsset(asset_data)
+    const { symbol } = parseAsset(props.asset_data)
 
     await runAction({
-      pool: pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.pool_address,
       type: 'withdraw',
       title: 'Withdraw Collateral',
-      body: `Sending transaction to withdraw collateral ${amount} ${symbol}`,
-      exec: () => alulaClient.value.sdk.removeCollateral(pk, pool_address, amount, kit.value),
+      body: `Sending transaction to withdraw collateral ${props.amount} ${symbol}`,
+      exec: () => props.client!.marketSdk.removeCollateral(pk, props.pool_address, props.amount, kit.value),
     })
 
     withdrawAmount.value = undefined
@@ -277,31 +316,39 @@ export function useMarket() {
 
   // Leverage
   async function leverage(
-    deposit_pool_address: string,
-    borrow_pool_address: string,
-    deposit_as_margin: boolean,
-    amount: number,
-    leverage_multiplier: number,
-    asset_code: string,
+    props: {
+      client: StellarClient
+      market: string
+      deposit_pool_address: string
+      borrow_pool_address: string
+      deposit_as_margin: boolean
+      amount: number
+      leverage_multiplier: number
+      asset_code: string
+      action?: () => void | Promise<void>
+    },
   ) {
     const pk = requireWallet()
 
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
 
     await runAction({
-      pool: deposit_pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.deposit_pool_address,
       type: 'leverage',
       title: 'Leverage',
-      body: `Sending transaction to leverage ${amount} ${asset_code}`,
-      exec: () => alulaClient.value.sdk.leverage(
+      body: `Sending transaction to leverage ${props.amount} ${props.asset_code}`,
+      action: props.action,
+      exec: () => props.client!.marketSdk.leverage(
         pk,
-        deposit_pool_address,
-        borrow_pool_address,
-        deposit_as_margin,
-        amount,
-        leverage_multiplier,
+        props.deposit_pool_address,
+        props.borrow_pool_address,
+        props.deposit_as_margin,
+        props.amount,
+        props.leverage_multiplier,
         kit.value),
     })
 
@@ -310,38 +357,47 @@ export function useMarket() {
 
   // Withdraw Leverage
   async function withdrawLeverage(
-    deposit_pool_address: string,
-    borrow_pool_address: string,
-    amount: number,
-    asset_code: string,
+    props: {
+      client: StellarClient
+      market: string
+      deposit_pool_address: string
+      borrow_pool_address: string
+      amount: number
+      asset_code: string
+      action?: () => void | Promise<void>
+    },
   ) {
     const pk = requireWallet()
 
-    if (!amount || amount <= 0) {
+    if (!props.amount || props.amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
 
     await runAction({
-      pool: deposit_pool_address,
+      client: props.client,
+      market: props.market,
+      pool: props.deposit_pool_address,
       type: 'withdrawLeverage',
       title: 'Leverage',
-      body: `Sending transaction to Withdraw leverage ${amount} ${asset_code}`,
-      exec: () => alulaClient.value.sdk.withdrawLeverage(
+      body: `Sending transaction to Withdraw leverage ${props.amount} ${props.asset_code}`,
+      action: props.action,
+      exec: () => props.client!.marketSdk.withdrawLeverage(
         pk,
-        deposit_pool_address,
-        borrow_pool_address,
-        amount,
+        props.deposit_pool_address,
+        props.borrow_pool_address,
+        props.amount,
         connectionStore.kit),
     })
 
     withdrawAmount.value = undefined
   }
 
-  async function reloadData(pool_address: string) {
+  async function reloadData(pool_address: string, market: string, client: StellarClient, action?: () => void | Promise<void>) {
     await Promise.all([
-      marketsStore.updatePools(pool_address),
-      userStore.loadUserObligation(),
+      marketsStore.updatePools(pool_address, market, client),
       wallet.loadBalances(),
+      userStore.updateUserObligation(market, client),
+      action?.(),
     ])
   }
 
@@ -352,12 +408,19 @@ export function useMarket() {
   }
 
   function isLoading(pool_address: string, actionType: TableActionType) {
+    if (actionType === 'leverage') {
+      console.log('poolActiveAddress', marketsStore.poolActiveAddress)
+      console.log('POOL_ADDRESS', pool_address)
+      console.log('actionType', actionType)
+    }
     return marketsStore.poolActiveAddress
       ? pool_address === marketsStore.poolActiveAddress && marketsStore.poolActionType === actionType
       : false
   }
 
   return {
+    assetDecimals,
+
     borrowAmount,
     depositAmount,
     withdrawAmount,

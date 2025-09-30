@@ -13,8 +13,8 @@ const minMultiplyPercent = computed(() => maxMultiply && Math.round((1.1 / Numbe
 
 const marks = computed(() => {
   return {
-    [minMultiplyPercent.value]: 'x1.1',
-    100: `x${maxMultiply}`,
+    [minMultiplyPercent.value]: '1.1',
+    100: `${maxMultiply}`,
   }
 })
 
@@ -84,7 +84,7 @@ function opacityHandler(val: any) {
             class="vue-slider-mark__label"
             :style="{ opacity: opacityHandler(value) }"
           >
-            {{ value?.label }}
+            x{{ truncatePercent(Number(value?.label) || 0) }}
           </div>
         </div>
       </template>
@@ -134,6 +134,8 @@ $multiplier-color: #c7c7c7;
         padding: $spacing-4 $spacing-8;
         border-radius: $spacing-4;
         background: #d9f7eb;
+        font-family: sans-serif;
+        font-variant-numeric: tabular-nums;
       }
     }
   }

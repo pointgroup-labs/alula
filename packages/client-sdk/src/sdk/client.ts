@@ -1,21 +1,24 @@
 import type { RPCcluster } from '../types'
 import { Account, Asset, BASE_FEE, Horizon, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import { getNetworkPassphrase, getRPC } from '../utils'
-import { SorobanClient } from './sdk-client'
+import { MarketClient } from './market-client'
+import { MarketManagerClient } from './market-manager-client'
 
 export class StellarClient {
   server: Horizon.Server
   publicKey?: string
-  sdk: SorobanClient
+  marketManagerSdk: MarketManagerClient
+  marketSdk: MarketClient
 
-  constructor(address: string, rpc: RPCcluster) {
-    this.publicKey = address
+  constructor(publicKey: string, rpc: RPCcluster, market?: string) {
+    this.publicKey = publicKey
     this.server = new Horizon.Server(getRPC(rpc, 'horizon')!)
-    this.sdk = new SorobanClient(rpc, address)
+    this.marketManagerSdk = new MarketManagerClient(rpc, publicKey)
+    this.marketSdk = new MarketClient(rpc, publicKey, market)
   }
 
-  static fromAddress(address: string, rpc: RPCcluster) {
-    return new this(address, rpc)
+  static fromAddress(address: string, rpc: RPCcluster, market?: string) {
+    return new this(address, rpc, market)
   }
 
   /**
@@ -37,7 +40,7 @@ export class StellarClient {
     assetCode: string,
     assetIssuer: string,
     kit: any) {
-    const networkPassphrase = getNetworkPassphrase(this.sdk.rpc)
+    const networkPassphrase = getNetworkPassphrase(this.marketSdk.rpc)
     const accountResponse = await this.server.loadAccount(publicKey)
     const account = new Account(accountResponse.accountId(), accountResponse.sequence.toString())
 

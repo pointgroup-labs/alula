@@ -3,8 +3,7 @@ import Decimal from 'decimal.js'
 // export function normalizeAssetAmount(amount: number, decimals: number) {
 //     return amount / 10 ** decimals
 // }
-
-export function normalizeAssetAmount(
+export function bigintToNumber(
   rawValue: bigint,
   assetDecimals: number,
   outputDecimals: number = assetDecimals,

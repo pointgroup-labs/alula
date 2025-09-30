@@ -47,6 +47,7 @@ export type MultiplyTableItem = {
   borrowPoolPrice: number
   supplied: number
   pool_address: string
+  market?: string
 } & TableAsset
 
 export type BorrowCardTableItem = {
@@ -57,16 +58,18 @@ export type BorrowCardTableItem = {
   action: string | number
   pool_address: string
   asset_issuer: string
+  market?: string
 } & TableAsset
 
 export type SuppliedCardTableItem = {
   raw: PoolWithPrice
   available: string | number
   balance: string | number
-  balanceUsd: number
+  balanceUsd: string | number
   supply_apy: string | number
   action: string
   price: number
   pool_address: string
   collateral: string | number
+  market?: string
 } & TableAsset

@@ -14,6 +14,8 @@ const {
 const router = useRouter()
 const route = useRoute()
 
+const loadingFee = ref(false)
+
 const { generateExplorerLink } = useExplorerLink()
 
 const marketsStore = useMarketsStore()
@@ -22,8 +24,7 @@ const market = useMarket()
 const amount = toRef(market, 'depositAmount')
 const collateralOnly = toRef(market, 'collateralOnly')
 
-const clientStore = useClientStore()
-const alulaClient = computed(() => clientStore.alulaClient)
+const marketClient = computed(() => marketsStore.marketClient)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -49,16 +50,22 @@ watchDebounced([
   reloadFee,
   publicKey,
 ], async ([d, _r]) => {
-  if (!d || !publicKey.value) {
-    return
-  }
+  try {
+    loadingFee.value = true
 
-  const tx = await alulaClient.value?.sdk.depositTx(
-    publicKey.value,
-    d?.raw.pool_address || '',
-    0,
-  )
-  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
+    if (!d || !publicKey.value || !marketClient.value) {
+      return
+    }
+
+    const tx = await marketClient.value.marketSdk.depositTx(
+      publicKey.value,
+      d?.raw.pool_address || '',
+      0,
+    )
+    txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
+  } finally {
+    loadingFee.value = false
+  }
 }, { immediate: true, debounce: 300 })
 
 const supplyLimit = ref(0)
@@ -105,9 +112,16 @@ async function supply() {
     focusInput('.supply-dialog__input')
     return
   }
+  const marketProps = {
+    market: marketsStore.activeMarketFilter,
+    client: marketClient.value!,
+    pool_address: data?.raw.pool_address,
+    amount: amount.value,
+    asset_data: data?.raw.name,
+  }
   collateralOnly.value
-    ? await market.addCollateral(data?.raw.pool_address, amount.value, data?.raw.name)
-    : await market.deposit(data?.raw.pool_address, amount.value, data?.raw.name)
+    ? await market.addCollateral(marketProps)
+    : await market.deposit(marketProps)
 }
 
 let interval: string | number | NodeJS.Timeout | undefined
@@ -200,6 +214,14 @@ watch(() => route.query, (q) => {
             >{{ shortenAddress(item?.value, 5) }}
               <i-app-export-icon />
             </a>
+          </template>
+          <template v-else-if="item?.name === 'fee'">
+            <j-loading-spinner
+              v-if="loadingFee"
+              width="14px"
+              style="margin:0 20px 0 auto;"
+            />
+            <span v-else>{{ item?.value }}</span>
           </template>
           <span v-else>{{ item?.value }}</span>
         </div>

@@ -4,7 +4,6 @@ import { amountToUsdWithShort, formatPrice, shortenNumber } from '~/utils'
 
 const { width } = useWindowSize()
 
-const client = useClientStore()
 const marketsStore = useMarketsStore()
 
 const market = useMarket()
@@ -15,9 +14,9 @@ const infoDialog = toRef(marketsStore, 'marketInfoDialog')
 
 const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
 
-const assetDecimals = computed(() => client.assetDecimals)
+const assetDecimals = computed(() => marketsStore.assetDecimals)
 
-const pools = computed(() => marketsStore.selectedMarketPools)
+const selectedMarketPools = computed(() => marketsStore.selectedMarketPools ?? [])
 const loading = computed(() => marketsStore.state.loading)
 
 const fields = [
@@ -32,15 +31,15 @@ const fields = [
 ]
 
 const items = computed<MarketTableItem[]>(() => {
-  return pools.value?.map((p) => {
+  return selectedMarketPools.value?.map((p) => {
     const tokenSymbol = p.token_ticker
     const tokenName = getTokenName(tokenSymbol)
     const icon = getTokenIcon(tokenSymbol) || ''
-    const total_supply = Number(bigintToNumber(p.available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
+    const total_supply = Number(bigintToNumber(p.total_available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
     const total_borrowed = Number(bigintToNumber(p.total_borrowed, assetDecimals.value)) || 0
     const depositApy = p.pool_apy.supply_bps / 100
     const borrowApy = p.pool_apy.borrow_bps / 100
-    const utilRate = Number(p.total_borrowed) / Number((p.available + p.total_borrowed)) * 100
+    const utilRate = Number(p.total_borrowed) / Number((p.total_available + p.total_borrowed)) * 100
     const maxLTV = Number(p.config.open_ltv_bps) / 100
     const supply_limit = Number(bigintToNumber(p.config.supply_limit, assetDecimals.value)) || 0
     return {
@@ -55,7 +54,7 @@ const items = computed<MarketTableItem[]>(() => {
       action: 'Supply',
       price: Number(p.pool_price),
       supply_limit,
-      available: Number(p.available) / (10 ** assetDecimals.value),
+      available: Number(p.total_available) / (10 ** assetDecimals.value),
       pool_address: p.pool_address,
     }
   })
@@ -79,7 +78,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
 </script>
 
 <template>
-  <div v-if="pools.length === 0 && loading">
+  <div v-if="selectedMarketPools.length === 0 && loading">
     <table-skeleton v-if="width > 650" />
     <table-skeleton-mobile v-else />
   </div>

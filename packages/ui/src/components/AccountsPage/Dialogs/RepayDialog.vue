@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { BorrowCardTableItem } from '~/types/table'
+import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
@@ -11,18 +12,35 @@ const {
   modelValue: boolean
 }>()
 
-const marketStore = useMarketsStore()
+const marketsStore = useMarketsStore()
 const market = useMarket()
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
-const clientStore = useClientStore()
-const alulaClient = computed(() => clientStore.alulaClient)
+const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
 
 const userStore = useUserStore()
-const userTotalDepositInUsd = computed(() => userStore.userTotalDepositInUsd)
-const userTotalBorrowedInUsd = computed(() => userStore.userTotalBorrowedInUsd)
+
+const userTotalDepositByMarket = computed(() => {
+  const obligation = userStore.state.obligations[String(activeMarket.value?.marketState.name)]
+  const pools = activeMarket.value?.pools
+  const assetDecimals = marketsStore.assetDecimals
+  if (!obligation || !pools) {
+    return 0
+  }
+  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals) ?? 0
+})
+
+const userTotalBorrowedByMarket = computed(() => {
+  const obligation = userStore.state.obligations[String(activeMarket.value?.marketState.name)]
+  const pools = activeMarket.value?.pools
+  const assetDecimals = marketsStore.assetDecimals
+  if (!obligation || !pools) {
+    return 0
+  }
+  return calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals) ?? 0
+})
 
 const loading = ref(false)
 const reloadFee = ref(false)
@@ -44,8 +62,8 @@ const closeLTV = computed(() => data?.raw?.config?.close_ltv_bps ? Number(data.r
 
 const healthFactor = computed(() => {
   const amountInUsd = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)
-  const deposited = (userTotalDepositInUsd.value * closeLTV.value)
-  const borrowed = Math.max(userTotalBorrowedInUsd.value - amountInUsd, 0)
+  const deposited = (userTotalDepositByMarket.value * closeLTV.value)
+  const borrowed = Math.max(userTotalBorrowedByMarket.value - amountInUsd, 0)
   const result = Math.max(deposited / borrowed, 0)
   return Math.min(result, 10)
 })
@@ -59,12 +77,12 @@ watchDebounced([
     return
   }
 
-  const tx = await alulaClient.value?.sdk.repayTx(
+  const tx = await activeMarket.value?.client.marketSdk.repayTx(
     publicKey.value,
     d?.pool_address || '',
     0,
   )
-  txFee.value = alulaClient.value.sdk.getTransactionFee(tx)
+  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
 }, { immediate: true, debounce: 300 })
 
 const infoTableData = computed(() => {
@@ -99,9 +117,19 @@ async function repay() {
   }
   try {
     loading.value = true
-    marketStore.poolActiveAddress = data?.pool_address
+    marketsStore.poolActiveAddress = data?.pool_address
+    marketsStore.activeMarketFilter = String(activeMarket.value?.marketState.name)
 
-    await market.repay(data?.pool_address, amount.value, balance.value, data?.raw?.name)
+    const marketProps = {
+      market: activeMarket.value!.marketState.name,
+      client: activeMarket.value!.client,
+      pool_address: data?.pool_address,
+      amount: amount.value,
+      asset_data: data?.raw.name,
+      limit: balance.value,
+    }
+
+    await market.repay(marketProps)
   } finally {
     loading.value = false
   }

@@ -4,20 +4,21 @@ import { bigintToNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
 
+const marketsStore = useMarketsStore()
+
 const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
-  
+
 const pool = computed(() => selectedMarketDetails.value?.raw)
 
-const clientStore = useClientStore()
-const decimals = computed(() => clientStore.assetDecimals)
+const assetDecimals = computed(() => marketsStore.assetDecimals)
 
 const utilizationRate = computed(() => {
   if (!pool.value) {
     return '0%'
   }
 
-  const totalBorrowed = Number(bigintToNumber(pool.value.total_borrowed, decimals.value))
-  const available = Number(bigintToNumber(pool.value.available, decimals.value))
+  const totalBorrowed = Number(bigintToNumber(pool.value.total_borrowed, assetDecimals.value))
+  const available = Number(bigintToNumber(pool.value.total_available, assetDecimals.value))
   const totalSupplied = totalBorrowed + available
 
   const utilization = (totalBorrowed / totalSupplied) * 100
