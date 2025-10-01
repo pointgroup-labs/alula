@@ -50,4 +50,8 @@ pub enum MCError {
     InvalidSwapSlippage = 71,
     MultiplyPairAlreadyExists = 72,
     MultiplyPairDoesNotExist = 73,
+
+    // Fee errors
+    NotEnoughAccumulatedMarketFees = 80,
+    NotEnoughAccumulatedHostFees = 81,
 }

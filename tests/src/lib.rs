@@ -127,6 +127,7 @@ impl TestMarketFixture<'_> {
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
         let contract_admin = Address::generate(&e);
+        let market_manager_address = Address::generate(&e);
         let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
         let contract_id = e.register(
             MarketContract,
@@ -134,6 +135,7 @@ impl TestMarketFixture<'_> {
                 contract_name,
                 contract_admin.clone(),
                 oracle_address.clone(),
+                market_manager_address,
             ),
         );
         let contract_client = MarketContractClient::new(&e, &contract_id);

@@ -1,11 +1,12 @@
 // use aggregated_oracle::PriceFeedClient;
-use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl};
+use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl, token};
 
 use crate::{
     error::MCError,
     events,
     helpers::require_admin,
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
+    math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     oracle::{get_asset_price, get_oracle_price_decimals},
@@ -16,7 +17,7 @@ use crate::{
         process_liquidate, process_remove_collateral, process_repay, process_swap_exact_tokens,
         process_withdraw, process_withdraw_from_leveraged,
     },
-    storage::{self, GlobalState},
+    storage::{self, GlobalState, get_global_state},
 };
 
 // TODO: Consider adding a trait that defines contract's API
@@ -38,12 +39,14 @@ impl MarketContract {
         name: String,
         admin: Address,
         oracle: Address,
+        deployer: Address,
     ) -> Result<(), MCError> {
         let global_state = GlobalState {
             // TODO: Introduce different market statuses
             status: true,
             admin: admin.clone(),
             name: name.clone(),
+            deployer: deployer.clone(),
         };
 
         storage::set_global_state(&e, &global_state);
@@ -386,6 +389,85 @@ impl MarketContract {
             &borrow_pool_address,
             amount,
         )
+    }
+
+    /// Redeems accumulated market fees
+    ///
+    /// ### Arguments
+    /// * `user` - user that tries to redeem market fees
+    /// * `pool_address` - address of a pool whose fees are redeemed
+    /// * `amount` - desired amount of fees to redeem as tokens
+    pub fn redeem_accumulated_market_fees(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        let admin = get_global_state(&e).admin;
+        admin.require_auth();
+
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+        pool.require_available_market_fees(amount)?;
+
+        pool.adjust_accumulated_market_fees(&e, amount.checked_neg().map_over_or_underflow()?)?;
+        pool.set(&e);
+
+        let token_client = token::Client::new(&e, &pool.token_address);
+        token_client.transfer(&e.current_contract_address(), &user, &amount);
+
+        Ok(())
+    }
+
+    /// Redeems accumulated host fees
+    ///
+    /// ### Arguments
+    /// * `user` - user that tries to redeem host fees
+    /// * `pool_address` - address of a pool whose fees are redeemed
+    /// * `amount` - desired amount of fees to redeem as tokens
+    pub fn redeem_accumulated_host_fees(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        let host = get_global_state(&e).deployer;
+        host.require_auth();
+
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+        pool.require_available_host_fees(amount)?;
+
+        pool.adjust_accumulated_host_fees(&e, amount.checked_neg().map_over_or_underflow()?)?;
+        pool.set(&e);
+
+        let token_client = token::Client::new(&e, &pool.token_address);
+        token_client.transfer(&e.current_contract_address(), &user, &amount);
+
+        Ok(())
+    }
+
+    /// Covers fully or partially bad debt if it exists on a user obligation. Socializes all remaining bad debt
+    /// in case the reserve doesn't contain enough funds to cover it completely
+    ///
+    /// ### Arguments
+    /// * `bad_debt_obligation_user` - user that has a bad debt
+    /// * `pool_address` - address of a pool containing bad debt
+    pub fn cover_obligation_bad_debt(
+        e: Env,
+        bad_debt_obligation_user: Address,
+        pool_address: Address,
+    ) -> Result<(), MCError> {
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+
+        let obligation_key = ObligationKey::new(bad_debt_obligation_user);
+        let mut obligation = Obligation::try_get(&e, &obligation_key)?;
+
+        // obligation.require_containing_bad_debt();
+
+        todo!()
+    }
+
+    pub fn cover_multiply_pair_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
+        todo!()
     }
 
     /// Returns asset's decimals

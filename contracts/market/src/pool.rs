@@ -134,7 +134,7 @@ impl Pool {
         Ok(())
     }
 
-    pub fn adjust_accumulated_host_fee(
+    pub fn adjust_accumulated_host_fees(
         &mut self,
         e: &Env,
         adjusting_amount: i128,
@@ -235,6 +235,22 @@ impl Pool {
 
         if removed_available_amount > max_available_amount_to_remove {
             return Err(MCError::PoolUtilizationRatioCapExceeded);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_available_market_fees(&self, required: i128) -> Result<(), MCError> {
+        if required > self.accumulated_market_fees {
+            return Err(MCError::NotEnoughAccumulatedMarketFees);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_available_host_fees(&self, required: i128) -> Result<(), MCError> {
+        if required > self.accumulated_host_fees {
+            return Err(MCError::NotEnoughAccumulatedHostFees);
         }
 
         Ok(())

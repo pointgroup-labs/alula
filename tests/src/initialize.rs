@@ -236,7 +236,15 @@ fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
 
-    let contract_id = e.register(MarketContract, (contract_name, contract_admin, oracle));
+    let contract_id = e.register(
+        MarketContract,
+        (
+            contract_name,
+            contract_admin.clone(),
+            oracle,
+            contract_admin,
+        ),
+    );
 
     MarketContractClient::new(e, &contract_id)
 }

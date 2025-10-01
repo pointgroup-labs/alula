@@ -59,10 +59,10 @@ impl MarketManager for MarketManagerContract {
         } = storage::get_config(&e);
         admin.require_auth();
 
-        let market_address = e
-            .deployer()
-            .with_current_contract(salt)
-            .deploy_v2(market_contract_wasm_hash, (name, market_admin, oracle));
+        let market_address = e.deployer().with_current_contract(salt).deploy_v2(
+            market_contract_wasm_hash,
+            (name, market_admin, oracle, e.current_contract_address()),
+        );
 
         storage::register_market(&e, &market_address)?;
 

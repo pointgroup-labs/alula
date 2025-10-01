@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use market::{
+    error::MCError,
     obligation::{ComputedFees, compute_fees},
     pool::{PoolConfig, PoolFeeConfig},
 };
@@ -527,4 +528,119 @@ fn test_repay_fee() {
     assert_eq!(pool_host_fees_diff, expected_host_fees_diff);
 
     assert_eq!(borrower_debt_diff, expected_borrower_debt_diff);
+}
+
+#[test]
+fn redeem_market_fees() {
+    let TestMarketFixture {
+        contract_id,
+        contract_client,
+        contract_admin,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let loan_provider = &users[1];
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let pool_market_fees = get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
+    dbg!(pool_market_fees);
+
+    let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
+    let pool_balance_before = usdc_token_client.balance(&contract_id);
+
+    assert_eq!(
+        contract_client.try_redeem_accumulated_market_fees(
+            &contract_admin,
+            &usdc_pool_address,
+            &(pool_market_fees + 1),
+        ),
+        Err(Ok(MCError::NotEnoughAccumulatedMarketFees))
+    );
+
+    contract_client.redeem_accumulated_market_fees(
+        &contract_admin,
+        &usdc_pool_address,
+        &pool_market_fees,
+    );
+
+    let contract_admin_balance_after = usdc_token_client.balance(&contract_admin);
+    let contract_admin_balance_diff = contract_admin_balance_after
+        .checked_sub(contract_admin_balance_before)
+        .unwrap();
+
+    let pool_balance_after = usdc_token_client.balance(&contract_id);
+    let pool_balance_diff = pool_balance_before.checked_sub(pool_balance_after).unwrap();
+
+    let pool_market_fees_new =
+        get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
+
+    assert_eq!(contract_admin_balance_diff, pool_market_fees);
+    assert_eq!(pool_balance_diff, pool_market_fees);
+
+    assert_eq!(pool_market_fees_new, 0);
+}
+
+#[test]
+fn redeem_host_fees() {
+    let TestMarketFixture {
+        contract_id,
+        contract_client,
+        contract_admin,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let loan_provider = &users[1];
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let pool_host_fees = get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
+    dbg!(pool_host_fees);
+
+    let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
+    let pool_balance_before = usdc_token_client.balance(&contract_id);
+
+    assert_eq!(
+        contract_client.try_redeem_accumulated_host_fees(
+            &contract_admin,
+            &usdc_pool_address,
+            &(pool_host_fees + 1),
+        ),
+        Err(Ok(MCError::NotEnoughAccumulatedHostFees))
+    );
+
+    contract_client.redeem_accumulated_host_fees(
+        &contract_admin,
+        &usdc_pool_address,
+        &pool_host_fees,
+    );
+
+    let contract_admin_balance_after = usdc_token_client.balance(&contract_admin);
+    let contract_admin_balance_diff = contract_admin_balance_after
+        .checked_sub(contract_admin_balance_before)
+        .unwrap();
+
+    let pool_balance_after = usdc_token_client.balance(&contract_id);
+    let pool_balance_diff = pool_balance_before.checked_sub(pool_balance_after).unwrap();
+
+    let pool_host_fees_new = get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
+
+    assert_eq!(contract_admin_balance_diff, pool_host_fees);
+    assert_eq!(pool_balance_diff, pool_host_fees);
+
+    assert_eq!(pool_host_fees_new, 0);
 }

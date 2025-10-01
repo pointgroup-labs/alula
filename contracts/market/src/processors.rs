@@ -151,7 +151,7 @@ pub fn process_deposit(
     pool.adjust_total_j_tokens(e, j_tokens_to_issue)?;
     pool.adjust_total_available(e, deposited)?;
 
-    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_host_fees(e, host_fee)?;
     pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     obligation.set(e, obligation_key);
@@ -197,7 +197,7 @@ pub fn process_borrow(
     pool.adjust_total_borrowed(e, borrower_new_debt)?;
     pool.adjust_total_available(e, borrower_new_debt.checked_neg().map_over_or_underflow()?)?;
 
-    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_host_fees(e, host_fee)?;
     pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     obligation.set(e, obligation_key);
@@ -247,7 +247,7 @@ pub fn process_add_collateral(
 
     pool.adjust_total_collateral(e, added_collateral)?;
 
-    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_host_fees(e, host_fee)?;
     pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     obligation.set(e, obligation_key);
@@ -287,7 +287,7 @@ pub fn process_repay(
     pool.adjust_total_borrowed(e, debt_repaid.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_available(e, debt_repaid)?;
 
-    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_host_fees(e, host_fee)?;
     pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     if obligation.is_empty() {
@@ -450,7 +450,7 @@ pub fn process_remove_collateral(
         collateral_decrease.checked_neg().map_over_or_underflow()?,
     )?;
 
-    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_host_fees(e, host_fee)?;
     pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     pool.set(e);
@@ -498,7 +498,7 @@ pub fn process_withdraw(
     pool.adjust_total_available(e, deposit_decrease.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
-    pool.adjust_accumulated_host_fee(e, host_fee)?;
+    pool.adjust_accumulated_host_fees(e, host_fee)?;
     pool.adjust_accumulated_market_fees(e, market_fee)?;
 
     if obligation.is_empty() {

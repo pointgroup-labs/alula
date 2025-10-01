@@ -103,6 +103,8 @@ impl Obligation {
         Ok(())
     }
 
+    // pub fn require_
+
     /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a
     /// collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
     /// parameter on the pool
