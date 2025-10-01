@@ -231,7 +231,7 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const increasedAmount = amount * 1.01
+    const increasedAmount = amount
 
     await runAction({
       client,
