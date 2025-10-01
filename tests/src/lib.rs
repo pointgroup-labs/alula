@@ -1,3 +1,4 @@
+mod bad_debt;
 mod borrow;
 mod deposit;
 mod fees;
@@ -12,7 +13,6 @@ mod repay;
 mod security;
 mod storage_extension;
 mod swap;
-mod take_rate;
 mod withdraw;
 
 use std::ops::{Add, Sub};
@@ -955,6 +955,70 @@ pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
     Ok(deposited_tokens)
 }
 
+pub fn compute_user_obligation_debt_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+) -> i128 {
+    let obligation = contract_client.get_user_obligation(user);
+    let value = e.as_contract(&contract_client.address, || {
+        obligation.compute_debt_value(e).unwrap()
+    });
+
+    value
+}
+
+pub fn compute_user_obligation_collateral_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+) -> i128 {
+    let obligation = contract_client.get_user_obligation(user);
+    let value = e.as_contract(&contract_client.address, || {
+        obligation.compute_collateral_value(e).unwrap()
+    });
+
+    value
+}
+
+pub fn compute_multiply_pair_obligation_debt_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> i128 {
+    let obligation = contract_client.get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    );
+    let value = e.as_contract(&contract_client.address, || {
+        obligation.compute_debt_value(e).unwrap()
+    });
+
+    value
+}
+
+pub fn compute_multiply_pair_obligation_collateral_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> i128 {
+    let obligation = contract_client.get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    );
+    let value = e.as_contract(&contract_client.address, || {
+        obligation.compute_collateral_value(e).unwrap()
+    });
+
+    value
+}
+
 // - Inner struct accessors -
 
 pub fn get_deposit_obligation(
@@ -1109,13 +1173,22 @@ pub fn get_pool_accumulated_market_fees(
     pool.accumulated_market_fees
 }
 
-pub fn get_pool_accumulated_reserve_fee(
+pub fn get_pool_accumulated_reserve_fees(
     contract_client: &MarketContractClient,
     pool_address: &Address,
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
     pool.accumulated_reserve_fees
+}
+
+pub fn get_available_reserve_fees(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    i128::min(pool.total_available, pool.accumulated_reserve_fees)
 }
 
 // - PoolConfig -

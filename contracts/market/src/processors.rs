@@ -921,8 +921,11 @@ pub fn process_cover_obligation_bad_debt(
         let d_tokens_can_be_covered = pool.compute_d_tokens_from_tokens(e, debt_can_be_covered)?;
 
         pool.adjust_total_available(e, debt_can_be_covered)?;
-        pool.adjust_total_borrowed(e, debt_can_be_covered)?;
-        pool.adjust_accumulated_host_fees(
+        pool.adjust_total_borrowed(
+            e,
+            debt_can_be_covered.checked_neg().map_over_or_underflow()?,
+        )?;
+        pool.adjust_accumulated_reserve_fees(
             e,
             debt_can_be_covered.checked_neg().map_over_or_underflow()?,
         )?;
@@ -943,10 +946,10 @@ pub fn process_cover_obligation_bad_debt(
             )?;
         }
 
-        pool.set(&e);
+        pool.set(e);
     }
 
-    obligation.remove(&e, &obligation_key);
+    obligation.remove(e, &obligation_key);
 
     Ok(())
 }

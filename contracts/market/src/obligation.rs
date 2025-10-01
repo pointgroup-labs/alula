@@ -146,7 +146,7 @@ impl Obligation {
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
     /// obligation
-    fn compute_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
+    pub fn compute_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
         for (pool_address, deposit_obligation) in self.deposits.iter() {
@@ -225,7 +225,7 @@ impl Obligation {
         Ok(value_sum)
     }
 
-    fn compute_debt_value(&self, e: &Env) -> Result<i128, MCError> {
+    pub fn compute_debt_value(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
         for (pool_address, deposit_obligation) in self.borrows.iter() {

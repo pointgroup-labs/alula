@@ -8,7 +8,7 @@ use crate::{
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
-    obligation::{CoverBadDebtResult, Obligation, ObligationKey},
+    obligation::{Obligation, ObligationKey},
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::{
