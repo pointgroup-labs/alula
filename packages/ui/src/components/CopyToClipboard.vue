@@ -13,13 +13,13 @@ const {
   entity?: string
 }>()
 
-const Toast = useToast()
+const toast = useToast()
 
 const iconColor = computed(() => isDark.value ? '#8a8b8d' : color)
 
 function copy() {
   navigator.clipboard.writeText(text)
-  Toast.create({
+  toast.create({
     body: entity ? `Copied ${entity}` : 'Copied to clipboard',
     variant: 'info',
   })

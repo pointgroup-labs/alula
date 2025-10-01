@@ -73,12 +73,13 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
 })
 
 const dialog = ref(false)
-const selectedMarketAddress = ref()
-const selectedMarket = ref()
+const selectedMarket = ref({ market: '', pool_address: '' })
+const selectedPool = computed(() =>
+  items.value?.find(item => item.pool_address === selectedMarket.value.pool_address
+    && item.market === selectedMarket.value.market))
 
 function withdrawDialogHandler(item: BorrowCardTableItem) {
-  selectedMarketAddress.value = item?.pool_address
-  selectedMarket.value = item
+  selectedMarket.value = { market: String(item.market), pool_address: item?.pool_address }
   dialog.value = true
 }
 
@@ -203,7 +204,7 @@ watch(selectedMarket, (p) => {
 
   <repay-dialog
     v-model="dialog"
-    :data="selectedMarket"
+    :data="selectedPool"
   />
 </template>
 

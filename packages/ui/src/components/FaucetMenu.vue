@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { getTokenIcon } from '~/utils'
 
-const Toast = useToast()
+const toast = useToast()
 
 const rpcStore = useRpcStore()
 
@@ -21,7 +21,7 @@ async function faucet() {
       return
     }
     loading.value = true
-    const faucetToast = await Toast.create({
+    const faucetToast = await toast.create({
       title: 'Requesting Faucet',
       variant: 'info',
       noProgress: false,
@@ -33,7 +33,7 @@ async function faucet() {
 
     faucetToast?.dismiss()
 
-    Toast.create({
+    toast.create({
       title: data?.title || 'Faucet',
       body: data?.detail || 'Funds have been successfully added to your balance.',
       variant: 'info',

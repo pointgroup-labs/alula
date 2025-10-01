@@ -12,7 +12,7 @@ const wallet = useWallet()
 const loading = computed(() => connection.loading)
 const publicKey = computed(() => wallet.publicKey)
 
-const Toast = useToast()
+const toast = useToast()
 
 const connectWallet = async () => {
   await connection.connectWallet()
@@ -24,7 +24,7 @@ function disconnect() {
 
 function copy() {
   navigator.clipboard.writeText(String(publicKey.value))
-  Toast.create({
+  toast.create({
     body: `Copied Address`,
     variant: 'info',
   })

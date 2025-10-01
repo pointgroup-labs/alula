@@ -84,23 +84,6 @@ const availableToWithdraw = computed(() => {
   return Math.max(maxWithdrawAmount, 0)
 })
 
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  if (!d?.pool_address || !publicKey.value) {
-    return
-  }
-
-  const tx = await activeMarket.value?.client.marketSdk.withdrawTx(
-    publicKey.value,
-    d?.pool_address || '',
-    0,
-  )
-  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
-}, { immediate: true, debounce: 300 })
-
 const infoTableData = computed(() => {
   if (!data) {
     return []
@@ -185,6 +168,29 @@ watch(() => modelValue, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
+
+watch(() => data, (d) => {
+  if (!d) {
+    dialog.value = false
+  }
+})
+
+watchDebounced([
+  () => data,
+  reloadFee,
+  publicKey,
+], async ([d, _r]) => {
+  if (!d?.pool_address || !publicKey.value) {
+    return
+  }
+
+  const tx = await activeMarket.value?.client.marketSdk.withdrawTx(
+    publicKey.value,
+    d?.pool_address || '',
+    0,
+  )
+  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
+}, { immediate: true, debounce: 300 })
 
 watch(collateralBalance, (b) => {
   if (b <= 0) {

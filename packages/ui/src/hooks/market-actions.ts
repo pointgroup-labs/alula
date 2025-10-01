@@ -27,7 +27,7 @@ export function useMarketActions() {
   const withdrawAmount = ref()
   const repayAmount = ref()
 
-  const Toast = useToast()
+  const toast = useToast()
 
   const wallet = useWallet()
 
@@ -69,7 +69,7 @@ export function useMarketActions() {
     const { pool, type, title, body, exec, market, client } = opts
     marketsStore.poolActiveAddress = pool
     marketsStore.poolActionType = type
-    const info = await Toast.create({
+    const info = await toast.create({
       title,
       body,
       modelValue: 30_000,
@@ -79,7 +79,7 @@ export function useMarketActions() {
     try {
       const res = await exec()
       await reloadData(pool, market, client, opts?.action)
-      Toast.create({
+      toast.create({
         title: `${title} Success`,
         body: 'Transaction sent successfully',
         modelValue: 30_000,
@@ -89,7 +89,7 @@ export function useMarketActions() {
           : [],
       })
     } catch (error: any) {
-      Toast.create({
+      toast.create({
         title: `${title} Error`,
         body: String(error?.message || error),
         variant: 'danger',

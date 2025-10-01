@@ -19,7 +19,7 @@ const dialog = defineModel({
           :src="selectedMarketDetails?.asset.icon"
           :alt="selectedMarketDetails?.asset.symbol"
         >
-        {{ selectedMarketDetails?.asset.symbol }} Market
+        {{ selectedMarketDetails?.asset.symbol }} Pool
         <!-- <j-pill-label
           variant="secondary"
           size="md"

@@ -70,12 +70,13 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
 })
 
 const dialog = ref(false)
-const selectedMarketAddress = ref()
-const selectedPool = ref()
+const selectedMarket = ref({ market: '', pool_address: '' })
+const selectedPool = computed(() =>
+  items.value?.find(item => item.pool_address === selectedMarket.value.pool_address
+    && item.market === selectedMarket.value.market))
 
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
-  selectedMarketAddress.value = item?.pool_address
-  selectedPool.value = item
+  selectedMarket.value = { market: String(item.market), pool_address: item?.pool_address }
   dialog.value = true
 }
 

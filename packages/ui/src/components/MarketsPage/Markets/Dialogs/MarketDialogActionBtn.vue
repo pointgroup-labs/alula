@@ -17,7 +17,7 @@ const {
 
 const emit = defineEmits(['clickHandler', 'closeModal'])
 
-const Toast = useToast()
+const toast = useToast()
 const { generateExplorerLink } = useExplorerLink()
 
 const txLoading = ref(false)
@@ -41,7 +41,7 @@ async function addTrust() {
     txLoading.value = true
     const [asset, issuer] = assetData.value
     const res = await market.addTrustLine(String(asset), String(issuer))
-    Toast.create({
+    toast.create({
       title: 'Add Trust Success',
       body: `You added trustline for ${asset} ${shortenAddress(String(issuer), 6)}`,
       modelValue: 30_000,
@@ -60,7 +60,7 @@ async function addTrust() {
     })
   } catch (error: any) {
     const message = error?.message || String(error)
-    Toast.create({
+    toast.create({
       title: 'Add Trust Error',
       body: String(message),
       modelValue: 0,

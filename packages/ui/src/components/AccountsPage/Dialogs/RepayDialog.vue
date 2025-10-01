@@ -12,6 +12,8 @@ const {
   modelValue: boolean
 }>()
 
+const dialog = defineModel({ default: false })
+
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
@@ -68,23 +70,6 @@ const healthFactor = computed(() => {
   return Math.min(result, 10)
 })
 
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  if (!d?.pool_address || !publicKey.value) {
-    return
-  }
-
-  const tx = await activeMarket.value?.client.marketSdk.repayTx(
-    publicKey.value,
-    d?.pool_address || '',
-    0,
-  )
-  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
-}, { immediate: true, debounce: 300 })
-
 const infoTableData = computed(() => {
   if (!data) {
     return []
@@ -104,8 +89,6 @@ const infoTableData = computed(() => {
     value: `${txFee.value} XLM`,
   }]
 })
-
-const dialog = defineModel({ default: false })
 
 async function repay() {
   if (!data) {
@@ -136,6 +119,29 @@ async function repay() {
 }
 
 let interval: string | number | NodeJS.Timeout | undefined
+
+watch(() => data, (d) => {
+  if (!d) {
+    dialog.value = false
+  }
+})
+
+watchDebounced([
+  () => data,
+  reloadFee,
+  publicKey,
+], async ([d, _r]) => {
+  if (!d?.pool_address || !publicKey.value) {
+    return
+  }
+
+  const tx = await activeMarket.value?.client.marketSdk.repayTx(
+    publicKey.value,
+    d?.pool_address || '',
+    0,
+  )
+  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
+}, { immediate: true, debounce: 300 })
 
 watch(() => modelValue, async (v) => {
   clearInterval(interval)
