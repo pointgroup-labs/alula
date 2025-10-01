@@ -91,6 +91,18 @@ impl Obligation {
         Ok(is_healthy)
     }
 
+    /// # Returns
+    ///
+    /// [`Result::Ok(false)`] if obligation contains bad deb,
+    /// [`Result::Ok(true)`] if obligation *doesn't contain* bad debt,
+    /// [`Result::Err(MMError)`] if any error occurred during calculation
+    pub fn has_bed_debt(&self, e: &Env) -> Result<bool, MCError> {
+        // TODO: Maybe, somehow cache these values?
+        let has_bad_debt = self.compute_debt_value(e)? > self.compute_collateral_value(e)?;
+
+        Ok(has_bad_debt)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
@@ -102,8 +114,6 @@ impl Obligation {
 
         Ok(())
     }
-
-    // pub fn require_
 
     /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a
     /// collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
@@ -132,6 +142,33 @@ impl Obligation {
             pool,
             pool.config.health_config.liability_factor_bps,
         )
+    }
+
+    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
+    /// obligation
+    fn compute_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
+        let mut value_sum = 0_i128;
+
+        for (pool_address, deposit_obligation) in self.deposits.iter() {
+            let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+                events::pool_is_missing_in_storage(e, &pool_address);
+
+                MCError::InternalError
+            })?;
+
+            let new_value_term = Self::compute_pool_collateral_value_scaled(
+                e,
+                &pool,
+                &deposit_obligation,
+                BPS_FACTOR, // TODO: omit multiplication?
+            )?;
+
+            value_sum = value_sum
+                .checked_add(new_value_term)
+                .map_over_or_underflow()?;
+        }
+
+        Ok(value_sum)
     }
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
@@ -179,6 +216,27 @@ impl Obligation {
                 &deposit_obligation,
                 pool.config.health_config.close_ltv_bps,
             )?;
+
+            value_sum = value_sum
+                .checked_add(new_value_term)
+                .map_over_or_underflow()?;
+        }
+
+        Ok(value_sum)
+    }
+
+    fn compute_debt_value(&self, e: &Env) -> Result<i128, MCError> {
+        let mut value_sum = 0_i128;
+
+        for (pool_address, deposit_obligation) in self.borrows.iter() {
+            let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+                events::pool_is_missing_in_storage(e, &pool_address);
+
+                MCError::InternalError
+            })?;
+
+            let new_value_term =
+                Self::compute_pool_debt_value_scaled(e, &pool, &deposit_obligation, BPS_FACTOR)?;
 
             value_sum = value_sum
                 .checked_add(new_value_term)
@@ -840,6 +898,25 @@ impl Obligation {
         Ok(liquidation_values)
     }
 
+    pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResult, MCError> {
+        let collateral_value = self.compute_collateral_value(e)?;
+        let debt_value = self.compute_debt_value(e)?;
+
+        if collateral_value >= debt_value {
+            return Err(MCError::PositionDoesNotHaveBadDebt);
+        }
+
+        let mut borrows_to_be_repaid_from_reserves: Vec<(Address, i128)> = Vec::new(e);
+        for (pool_address, borrow_obligation) in self.borrows.iter() {
+            borrows_to_be_repaid_from_reserves
+                .push_back((pool_address, borrow_obligation.d_tokens));
+        }
+
+        Ok(CoverBadDebtResult {
+            borrows_to_be_repaid_from_reserves,
+        })
+    }
+
     /// Returns the amount of `jTokens` that the obligation has in the specified pool
     pub fn get_j_tokens(&self, pool_address: &Address) -> Result<i128, MCError> {
         let deposit_obligation = self
@@ -1187,6 +1264,11 @@ pub struct RemoveCollateralResult {
     pub market_fee: i128,
     /// Fee(in tokens) segregated for the host platform
     pub host_fee: i128,
+}
+
+/// [`Obligation::cover_bad_debt`] resulting data
+pub struct CoverBadDebtResult {
+    pub borrows_to_be_repaid_from_reserves: Vec<(Address, i128)>,
 }
 
 // TODO: Move this somewhere else when working on liquidation

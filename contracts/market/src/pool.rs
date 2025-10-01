@@ -145,6 +145,17 @@ impl Pool {
         Ok(())
     }
 
+    pub fn adjust_accumulated_reserve_fees(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MCError> {
+        let new_amount = Self::adjust_field(e, self.accumulated_reserve_fees, adjusting_amount)?;
+        self.accumulated_reserve_fees = new_amount;
+
+        Ok(())
+    }
+
     // TODO: Add dTokenRate?
 
     pub fn compute_tokens_from_d_tokens(
@@ -248,6 +259,7 @@ impl Pool {
         Ok(())
     }
 
+    // TODO: Cap fees?
     pub fn require_available_host_fees(&self, required: i128) -> Result<(), MCError> {
         if required > self.accumulated_host_fees {
             return Err(MCError::NotEnoughAccumulatedHostFees);
@@ -358,6 +370,13 @@ impl Pool {
         };
 
         Ok(shares_amount)
+    }
+
+    pub fn available_accumulated_reserve_fees(&self) -> i128 {
+        let total_available = self.total_available;
+        let accumulated_reserve_fess = self.accumulated_reserve_fees;
+
+        i128::min(total_available, accumulated_reserve_fess)
     }
 
     pub fn total_available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {

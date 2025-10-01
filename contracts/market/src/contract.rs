@@ -8,14 +8,14 @@ use crate::{
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
-    obligation::{Obligation, ObligationKey},
+    obligation::{CoverBadDebtResult, Obligation, ObligationKey},
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::{
-        process_add_collateral, process_borrow, process_deposit, process_deposit_with_leverage,
-        process_flash_loan, process_initialize_multiply_pair, process_initialize_pool,
-        process_liquidate, process_remove_collateral, process_repay, process_swap_exact_tokens,
-        process_withdraw, process_withdraw_from_leveraged,
+        process_add_collateral, process_borrow, process_cover_obligation_bad_debt, process_deposit,
+        process_deposit_with_leverage, process_flash_loan, process_initialize_multiply_pair,
+        process_initialize_pool, process_liquidate, process_remove_collateral, process_repay,
+        process_swap_exact_tokens, process_withdraw, process_withdraw_from_leveraged,
     },
     storage::{self, GlobalState, get_global_state},
 };
@@ -445,30 +445,26 @@ impl MarketContract {
         Ok(())
     }
 
-    /// Covers fully or partially bad debt if it exists on a user obligation. Socializes all remaining bad debt
-    /// in case the reserve doesn't contain enough funds to cover it completely
+    /// Covers fully or partially bad debt if it exists under a user obligation. Socializes all
+    /// remaining bad debt in case the reserve doesn't contain enough funds to cover it
+    /// completely
     ///
     /// ### Arguments
     /// * `bad_debt_obligation_user` - user that has a bad debt
-    /// * `pool_address` - address of a pool containing bad debt
     pub fn cover_obligation_bad_debt(
         e: Env,
         bad_debt_obligation_user: Address,
-        pool_address: Address,
     ) -> Result<(), MCError> {
-        let mut pool = Pool::try_get(&e, &pool_address)?;
-
         let obligation_key = ObligationKey::new(bad_debt_obligation_user);
-        let mut obligation = Obligation::try_get(&e, &obligation_key)?;
 
-        // obligation.require_containing_bad_debt();
+        process_cover_obligation_bad_debt(&e, obligation_key)?;
 
-        todo!()
+        Ok(())
     }
 
-    pub fn cover_multiply_pair_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
-        todo!()
-    }
+    // pub fn cover_multiply_pair_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
+    //     todo!()
+    // }
 
     /// Returns asset's decimals
     pub fn get_asset_decimals() -> u32 {

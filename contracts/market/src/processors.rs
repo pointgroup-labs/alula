@@ -16,8 +16,8 @@ use crate::{
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{
-        AddCollateralResult, BorrowResult, DepositResult, LiquidationValues, Obligation,
-        ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
+        AddCollateralResult, BorrowResult, CoverBadDebtResult, DepositResult, LiquidationValues,
+        Obligation, ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     pool::{Pool, PoolConfig},
     swap,
@@ -310,117 +310,6 @@ pub fn process_repay(
 
     // TODO: Fix event
     // events::repay(e, pool_address, obligation_key, real_repaid_amount);
-
-    Ok(())
-}
-
-pub fn process_liquidate(
-    e: &Env,
-    liquidator: &Address,
-    borrower_obligation_key: &ObligationKey,
-    borrow_pool_address: &Address,
-    collateral_pool_address: &Address,
-    amount: i128,
-) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
-
-    if *liquidator == borrower_obligation_key.user {
-        // TODO: Can there any need for you to liquidate oneself?
-        return Err(MCError::SelfLiquidation);
-    }
-
-    if borrow_pool_address == collateral_pool_address {
-        // NB: Is this really a problem?
-        return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
-    }
-
-    let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
-    obligation.accrue_interest(e)?;
-
-    obligation.require_non_healthy(e)?;
-
-    let (mut borrow_pool, mut collateral_pool) = (
-        Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
-        Pool::try_get(e, collateral_pool_address)
-            .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
-    );
-
-    // // TODO: Accrue interest on pools for consistency?
-    // borrow_pool.accrue_interest(e)?;
-    // collateral_pool.accrue_interest(e)?;
-
-    let LiquidationValues {
-        liquidated_amount,
-        d_tokens_repaid,
-        collateral_amount_sold,
-        j_tokens_amount_sold,
-        tokens_from_sold_j_tokens,
-    } = obligation.liquidate(
-        e,
-        borrow_pool_address,
-        collateral_pool_address,
-        &borrow_pool,
-        &collateral_pool,
-        amount,
-    )?;
-
-    // Validate liquidation amounts to prevent zero or negative
-    require_nonnegative(liquidated_amount)?;
-    require_nonnegative(collateral_amount_sold)?;
-
-    collateral_pool.adjust_total_available(
-        e,
-        tokens_from_sold_j_tokens
-            .checked_neg()
-            .map_over_or_underflow()?,
-    )?;
-    collateral_pool.adjust_total_j_tokens(
-        e,
-        j_tokens_amount_sold.checked_neg().map_over_or_underflow()?,
-    )?;
-    collateral_pool.adjust_total_collateral(
-        e,
-        collateral_amount_sold
-            .checked_neg()
-            .map_over_or_underflow()?,
-    )?;
-
-    borrow_pool
-        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
-    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
-
-    obligation.set(e, borrower_obligation_key);
-
-    collateral_pool.set(e);
-    borrow_pool.set(e);
-
-    let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
-    borrowed_token_client.transfer(
-        liquidator,
-        &e.current_contract_address(),
-        &liquidated_amount,
-    );
-
-    let collateral_seized_amount = tokens_from_sold_j_tokens
-        .checked_add(collateral_amount_sold)
-        .map_over_or_underflow()?;
-
-    let collateral_token_client = token::Client::new(e, &collateral_pool.token_address);
-    collateral_token_client.transfer(
-        &e.current_contract_address(),
-        liquidator,
-        &collateral_seized_amount,
-    );
-
-    events::liquidate(
-        e,
-        liquidator,
-        borrower_obligation_key,
-        borrow_pool_address,
-        collateral_pool_address,
-        liquidated_amount,
-        collateral_seized_amount,
-    );
 
     Ok(())
 }
@@ -893,6 +782,171 @@ pub fn process_withdraw_from_leveraged(
         amount,
         withdrawn_amount,
     );
+
+    Ok(())
+}
+
+pub fn process_liquidate(
+    e: &Env,
+    liquidator: &Address,
+    borrower_obligation_key: &ObligationKey,
+    borrow_pool_address: &Address,
+    collateral_pool_address: &Address,
+    amount: i128,
+) -> Result<(), MCError> {
+    require_nonnegative(amount)?;
+
+    if *liquidator == borrower_obligation_key.user {
+        // TODO: Can there any need for you to liquidate oneself?
+        return Err(MCError::SelfLiquidation);
+    }
+
+    if borrow_pool_address == collateral_pool_address {
+        // NB: Is this really a problem?
+        return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
+    }
+
+    let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
+    obligation.accrue_interest(e)?;
+
+    obligation.require_non_healthy(e)?;
+
+    let (mut borrow_pool, mut collateral_pool) = (
+        Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
+        Pool::try_get(e, collateral_pool_address)
+            .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
+    );
+
+    // // TODO: Accrue interest on pools for consistency?
+    // borrow_pool.accrue_interest(e)?;
+    // collateral_pool.accrue_interest(e)?;
+
+    let LiquidationValues {
+        liquidated_amount,
+        d_tokens_repaid,
+        collateral_amount_sold,
+        j_tokens_amount_sold,
+        tokens_from_sold_j_tokens,
+    } = obligation.liquidate(
+        e,
+        borrow_pool_address,
+        collateral_pool_address,
+        &borrow_pool,
+        &collateral_pool,
+        amount,
+    )?;
+
+    // Validate liquidation amounts to prevent zero or negative
+    require_nonnegative(liquidated_amount)?;
+    require_nonnegative(collateral_amount_sold)?;
+
+    collateral_pool.adjust_total_available(
+        e,
+        tokens_from_sold_j_tokens
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+    collateral_pool.adjust_total_j_tokens(
+        e,
+        j_tokens_amount_sold.checked_neg().map_over_or_underflow()?,
+    )?;
+    collateral_pool.adjust_total_collateral(
+        e,
+        collateral_amount_sold
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+
+    borrow_pool
+        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
+    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
+
+    obligation.set(e, borrower_obligation_key);
+
+    collateral_pool.set(e);
+    borrow_pool.set(e);
+
+    let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
+    borrowed_token_client.transfer(
+        liquidator,
+        &e.current_contract_address(),
+        &liquidated_amount,
+    );
+
+    let collateral_seized_amount = tokens_from_sold_j_tokens
+        .checked_add(collateral_amount_sold)
+        .map_over_or_underflow()?;
+
+    let collateral_token_client = token::Client::new(e, &collateral_pool.token_address);
+    collateral_token_client.transfer(
+        &e.current_contract_address(),
+        liquidator,
+        &collateral_seized_amount,
+    );
+
+    events::liquidate(
+        e,
+        liquidator,
+        borrower_obligation_key,
+        borrow_pool_address,
+        collateral_pool_address,
+        liquidated_amount,
+        collateral_seized_amount,
+    );
+
+    Ok(())
+}
+
+pub fn process_cover_obligation_bad_debt(
+    e: &Env,
+    obligation_key: ObligationKey,
+) -> Result<(), MCError> {
+    let obligation = Obligation::try_get(e, &obligation_key)?;
+
+    let CoverBadDebtResult {
+        borrows_to_be_repaid_from_reserves,
+    } = obligation.cover_bad_debt(e)?;
+
+    for (pool_address, d_tokens) in borrows_to_be_repaid_from_reserves {
+        let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
+            events::pool_is_missing_in_storage(e, &pool_address);
+
+            MCError::InternalError
+        })?;
+
+        let obligation_debt = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
+        let available_reserve_fees = pool.available_accumulated_reserve_fees();
+
+        let debt_can_be_covered = i128::min(obligation_debt, available_reserve_fees);
+        let d_tokens_can_be_covered = pool.compute_d_tokens_from_tokens(e, debt_can_be_covered)?;
+
+        pool.adjust_total_available(e, debt_can_be_covered)?;
+        pool.adjust_total_borrowed(e, debt_can_be_covered)?;
+        pool.adjust_accumulated_host_fees(
+            e,
+            debt_can_be_covered.checked_neg().map_over_or_underflow()?,
+        )?;
+        pool.adjust_total_d_tokens(
+            e,
+            d_tokens_can_be_covered
+                .checked_neg()
+                .map_over_or_underflow()?,
+        )?;
+
+        // Socialize all remaining bad debt
+        if obligation_debt > debt_can_be_covered {
+            let left_to_socialize = obligation_debt - debt_can_be_covered; // safe
+
+            pool.adjust_total_borrowed(
+                e,
+                left_to_socialize.checked_neg().map_over_or_underflow()?,
+            )?;
+        }
+
+        pool.set(&e);
+    }
+
+    obligation.remove(&e, &obligation_key);
 
     Ok(())
 }
