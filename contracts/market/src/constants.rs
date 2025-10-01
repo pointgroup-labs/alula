@@ -68,7 +68,7 @@ pub const DEFAULT_SUPPLY_LIMIT: i128 = 0;
 // ---- Borrow ----
 
 /// Default utilization ratio limit in percent (0..=100)
-pub const DEFAULT_UTILIZATION_RATIO_LIMIT: i128 = 100;
+pub const DEFAULT_UTILIZATION_RATIO_LIMIT: i128 = 90;
 
 // ---- Liquidation ----
 
