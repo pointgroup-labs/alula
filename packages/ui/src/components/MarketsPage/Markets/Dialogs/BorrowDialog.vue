@@ -58,11 +58,11 @@ const poolBorrowLimit = computed(() => {
   if (!data) {
     return 0
   }
-
-  // market available
   const utilRatioLimit = Number(data?.raw.config.utilization_ratio_limit_bps || 0) / 10_000
-  const marketAvailable = Number(bigintToNumber(data.raw.total_available, marketsStore.assetDecimals)) * utilRatioLimit
-  return marketAvailable
+  const totalSupply = Number(bigintToNumber(data.raw.total_available + data.raw.total_borrowed, marketsStore.assetDecimals))
+  const maxBorrow = totalSupply * utilRatioLimit
+  const totalBorrow = Number(bigintToNumber(data.raw.total_borrowed, marketsStore.assetDecimals))
+  return Math.max(maxBorrow - totalBorrow, 0)
 })
 
 const availableToBorrow = computed(() => {
