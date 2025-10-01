@@ -426,14 +426,18 @@ watch(dialog, async (v) => {
     }
   }
 
-  .dialog-info-table__item {
-    span:nth-child(2) {
-      width: 150px;
-      font-family: sans-serif;
-      font-variant-numeric: tabular-nums;
+  .dialog-info-table {
+    &__item {
+      span {
+        white-space: nowrap;
+        &:nth-child(2) {
+          font-family: sans-serif;
+          font-variant-numeric: tabular-nums;
 
-      @media (max-width: $breakpoint-sm) {
-        width: initial;
+          @media (max-width: $breakpoint-sm) {
+            width: initial;
+          }
+        }
       }
     }
   }
