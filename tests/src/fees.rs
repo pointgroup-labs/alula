@@ -31,7 +31,11 @@ fn test_borrow_fee() {
     let loan_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
 
     let market_fees_before = get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
     let host_fees_before = get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
@@ -461,7 +465,7 @@ fn test_repay_fee() {
     contract_client.deposit(
         loan_provider,
         &usdc_pool_address,
-        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &(3 * DEFAULT_DEPOSIT_AMOUNT),
     );
 
     contract_client.borrow(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
@@ -546,7 +550,11 @@ fn redeem_market_fees() {
     let loan_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
 
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
@@ -604,7 +612,11 @@ fn redeem_host_fees() {
     let loan_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
 
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 

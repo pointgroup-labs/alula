@@ -32,7 +32,11 @@ fn test_accumulate_reserve_fees_are_empty_prior_accrual() {
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let accumulated_reserve_fees_after_borrow =
@@ -59,7 +63,11 @@ fn test_accumulate_reserve_fees() {
     let loan_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);

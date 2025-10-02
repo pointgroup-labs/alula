@@ -29,7 +29,11 @@ fn test_borrow() {
     // NB: GOLD is used as the main collateral in integration tests
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     // NB: USDC is used as the main borrowed token in integration tests
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
 
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
@@ -51,7 +55,7 @@ fn test_borrow() {
 
     assert_eq!(pool_total_d_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(pool_total_available, 0);
+    assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT);
 }
 
 #[test]

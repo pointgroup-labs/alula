@@ -61,7 +61,7 @@ pub const DEFAULT_SUPPLY_LIMIT: i128 = 0;
 // ---- Borrow ----
 
 /// Default utilization ratio limit
-pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
+pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 100%
 
 // ---- Liquidation ----
 
