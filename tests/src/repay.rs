@@ -7,6 +7,7 @@ use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_borrow_obligation,
     get_obligation_borrowed, get_obligation_d_tokens, get_obligation_d_tokens_as_tokens,
     get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
+    get_pool_total_d_tokens,
 };
 
 #[test]
@@ -45,7 +46,7 @@ fn test_repay() {
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
     let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-    let pool_total_d_tokens = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
     assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
@@ -61,7 +62,7 @@ fn test_repay() {
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
     let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-    let pool_total_d_tokens = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, 0);
     assert_eq!(pool_total_borrowed, 0);
@@ -210,7 +211,7 @@ fn test_repay_all_with_i128_max() {
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
     let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-    let pool_total_d_tokens = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, 0);
     assert_eq!(pool_total_borrowed, 0);

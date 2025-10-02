@@ -454,6 +454,7 @@ fn test_completely_cover_bad_debt() {
     contract_client.cover_obligation_bad_debt(borrower_2);
 
     // - Verify 2nd obligation no longer exists -
+
     assert_eq!(
         contract_client.try_get_user_obligation(borrower_2),
         Err(Ok(MCError::ObligationDoesNotExist))

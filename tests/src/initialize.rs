@@ -3,7 +3,7 @@
 use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
-    pool::PoolConfig,
+    pool::{PoolConfig, PoolHealthConfig},
 };
 use soroban_sdk::{Address, BytesN, Env, symbol_short, testutils::Address as _};
 
@@ -37,7 +37,6 @@ fn test_pool_initialize() {
 }
 
 #[test]
-// TODO: What exactly does this test do?
 fn test_pool_initialize_with_custom_config() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e);
@@ -46,23 +45,12 @@ fn test_pool_initialize_with_custom_config() {
     let token_ticker = symbol_short!("TCK1");
 
     let pool_config = PoolConfig {
-        ..Default::default() /* fee_config: todo!(),
-                              * health_config: todo!(),
-                              * accrual_model: market::accrual::AccrualModel::Compounded,
-                              * liquidation_config: todo!(),
-                              * interest_rate_model: todo!(), */
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: 8000,
+            ..Default::default()
+        },
+        ..Default::default()
     };
-
-    // let pool_config = PoolConfig {
-    //     reserve_ratio_bps: 7_500,
-    //     liquidation_close_factor_bps: 5_000,
-    //     liquidation_incentive_bps: 500,
-    //     supply_limit: 0,
-    //     utilization_ratio_limit_bps: 10_000,
-    //     open_ltv_bps: 7_000,
-    //     close_ltv_bps: 8_000,
-    //     liability_factor_bps: 10_000,
-    // };
 
     let pool_address =
         contract_client.initialize_pool(&token_address, &token_ticker, &None, &Some(pool_config));

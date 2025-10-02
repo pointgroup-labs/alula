@@ -1096,6 +1096,7 @@ pub fn get_multiply_pair_borrow_obligation(
 }
 
 // -- Pool --
+
 pub fn get_pool_total_j_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
@@ -1212,6 +1213,7 @@ pub fn compute_pool_debt_value(
 }
 
 // - PoolConfig -
+
 pub fn get_pool_fee_config(
     contract_client: &MarketContractClient,
     pool_address: &Address,
