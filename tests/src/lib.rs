@@ -961,11 +961,11 @@ pub fn compute_user_obligation_debt_value(
     user: &Address,
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(user);
-    let value = e.as_contract(&contract_client.address, || {
-        obligation.compute_debt_value(e).unwrap()
-    });
+    
 
-    value
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_debt_value(e).unwrap()
+    })
 }
 
 pub fn compute_user_obligation_collateral_value(
@@ -974,11 +974,11 @@ pub fn compute_user_obligation_collateral_value(
     user: &Address,
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(user);
-    let value = e.as_contract(&contract_client.address, || {
-        obligation.compute_collateral_value(e).unwrap()
-    });
+    
 
-    value
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_collateral_value(e).unwrap()
+    })
 }
 
 pub fn compute_multiply_pair_obligation_debt_value(
@@ -993,11 +993,11 @@ pub fn compute_multiply_pair_obligation_debt_value(
         deposit_pool_address,
         borrow_pool_address,
     );
-    let value = e.as_contract(&contract_client.address, || {
-        obligation.compute_debt_value(e).unwrap()
-    });
+    
 
-    value
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_debt_value(e).unwrap()
+    })
 }
 
 pub fn compute_multiply_pair_obligation_collateral_value(
@@ -1012,11 +1012,11 @@ pub fn compute_multiply_pair_obligation_collateral_value(
         deposit_pool_address,
         borrow_pool_address,
     );
-    let value = e.as_contract(&contract_client.address, || {
-        obligation.compute_collateral_value(e).unwrap()
-    });
+    
 
-    value
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_collateral_value(e).unwrap()
+    })
 }
 
 // - Inner struct accessors -
@@ -1197,11 +1197,11 @@ pub fn compute_pool_collateral_value(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
-    let val = e.as_contract(&contract_client.address, || {
-        pool.compute_total_collateral_value(e)
-    });
+    
 
-    val
+    e.as_contract(&contract_client.address, || {
+        pool.compute_total_collateral_value(e)
+    })
 }
 
 pub fn compute_pool_debt_value(
@@ -1210,11 +1210,11 @@ pub fn compute_pool_debt_value(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
-    let val = e.as_contract(&contract_client.address, || {
-        pool.compute_total_debt_value(e)
-    });
+    
 
-    val
+    e.as_contract(&contract_client.address, || {
+        pool.compute_total_debt_value(e)
+    })
 }
 
 // - PoolConfig -

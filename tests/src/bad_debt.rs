@@ -9,7 +9,7 @@ use soroban_sdk::testutils::Ledger;
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_pool_collateral_value,
     compute_pool_debt_value, compute_user_obligation_collateral_value,
-    compute_user_obligation_debt_value, get_available_reserve_fees, get_obligation_borrowed,
+    compute_user_obligation_debt_value, get_available_reserve_fees,
     get_pool_accumulated_host_fees, get_pool_accumulated_market_fees,
     get_pool_accumulated_reserve_fees, get_pool_fee_config, get_pool_total_available,
     get_pool_total_borrowed, get_pool_total_d_tokens, get_pool_total_j_tokens,
