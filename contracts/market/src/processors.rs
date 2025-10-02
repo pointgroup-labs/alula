@@ -7,12 +7,10 @@ use soroban_sdk::{
 };
 
 use crate::{
-    accrual::AccrualModel,
     constants::*,
     error::MCError,
     events,
     helpers::require_nonnegative,
-    interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{CoverBadDebtResult, LiquidationValues, Obligation, ObligationKey},
