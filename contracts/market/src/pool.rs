@@ -2,13 +2,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 
 use crate::{
-    accrual::AccrualModel,
-    constants::*,
-    error::MCError,
-    events,
-    interest_rate_model::{InterestRate, InterestRateModel},
-    math_utils::MathUtils,
-    oracle::get_asset_price,
+    accrual::AccrualModel, constants::*, error::MCError, events,
+    interest_rate_model::InterestRateModel, math_utils::MathUtils, oracle::get_asset_price,
     storage,
 };
 
@@ -540,7 +535,6 @@ impl PoolConfig {
         let PoolConfig {
             health_config,
             liquidation_config,
-            interest_rate_model,
             ..
         } = self;
 
@@ -548,7 +542,6 @@ impl PoolConfig {
 
         health_config.validate()?;
         liquidation_config.validate()?;
-        interest_rate_model.validate()?;
 
         Ok(())
     }

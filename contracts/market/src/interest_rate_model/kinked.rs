@@ -48,6 +48,33 @@ impl InterestRate for KinkedIRConfig {
             self.compute_post_kink2_apr(utilization_ratio_bps)
         }
     }
+}
+
+impl KinkedIRConfig {
+    pub fn new(
+        e: &Env,
+        base_apr_bps: i128,
+        kink1_ur_bps: i128,
+        kink1_apr_bps: i128,
+        kink2_ur_bps: i128,
+        kink2_apr_bps: i128,
+        max_apr_bps: i128,
+    ) -> Self {
+        let config = Self {
+            base_apr_bps,
+            kink1_ur_bps,
+            kink1_apr_bps,
+            kink2_ur_bps,
+            kink2_apr_bps,
+            max_apr_bps,
+        };
+
+        if config.validate().is_err() {
+            panic_with_error!(e, MCError::InvalidLoanPoolConfig);
+        }
+
+        config
+    }
 
     fn validate(&self) -> Result<(), &str> {
         let &Self {
@@ -75,33 +102,6 @@ impl InterestRate for KinkedIRConfig {
         }
 
         Ok(())
-    }
-}
-
-impl KinkedIRConfig {
-    pub fn new(
-        e: &Env,
-        base_apr_bps: i128,
-        kink1_ur_bps: i128,
-        kink1_apr_bps: i128,
-        kink2_ur_bps: i128,
-        kink2_apr_bps: i128,
-        max_apr_bps: i128,
-    ) -> Self {
-        let config = Self {
-            base_apr_bps,
-            kink1_ur_bps,
-            kink1_apr_bps,
-            kink2_ur_bps,
-            kink2_apr_bps,
-            max_apr_bps,
-        };
-
-        if config.validate().is_err() {
-            panic_with_error!(e, MCError::InvalidLoanPoolConfig);
-        }
-
-        config
     }
 
     /// Computes borrow `APR` if the utilization ratio precedes the first kink utilization ratio
