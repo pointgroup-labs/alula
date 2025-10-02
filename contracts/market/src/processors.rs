@@ -915,6 +915,8 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
             MCError::InternalError
         })?;
 
+        // 35k dTokens..
+
         let obligation_pool_debt = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
         let available_reserve_fees = pool.available_accumulated_reserve_fees();
 
@@ -943,11 +945,15 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
 
         if obligation_pool_debt > debt_can_be_covered {
             let left_to_socialize = obligation_pool_debt - debt_can_be_covered; // safe
+            let d_tokens_left = d_tokens
+                .checked_sub(d_tokens_can_be_covered)
+                .map_over_or_underflow()?;
 
             pool.adjust_total_borrowed(
                 e,
                 left_to_socialize.checked_neg().map_over_or_underflow()?,
             )?;
+            pool.adjust_total_d_tokens(e, d_tokens_left.checked_neg().map_over_or_underflow()?)?;
         }
 
         pool.set(e);

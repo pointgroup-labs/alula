@@ -899,7 +899,7 @@ pub fn get_obligation_d_tokens_as_tokens(
     let pool = contract_client.get_pool(pool_address);
     let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
 
-    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, d_tokens)?;
+    let deposited_tokens = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
 
     Ok(deposited_tokens)
 }
@@ -961,7 +961,6 @@ pub fn compute_user_obligation_debt_value(
     user: &Address,
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(user);
-    
 
     e.as_contract(&contract_client.address, || {
         obligation.compute_debt_value(e).unwrap()
@@ -974,7 +973,6 @@ pub fn compute_user_obligation_collateral_value(
     user: &Address,
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(user);
-    
 
     e.as_contract(&contract_client.address, || {
         obligation.compute_collateral_value(e).unwrap()
@@ -993,7 +991,6 @@ pub fn compute_multiply_pair_obligation_debt_value(
         deposit_pool_address,
         borrow_pool_address,
     );
-    
 
     e.as_contract(&contract_client.address, || {
         obligation.compute_debt_value(e).unwrap()
@@ -1012,7 +1009,6 @@ pub fn compute_multiply_pair_obligation_collateral_value(
         deposit_pool_address,
         borrow_pool_address,
     );
-    
 
     e.as_contract(&contract_client.address, || {
         obligation.compute_collateral_value(e).unwrap()
@@ -1182,7 +1178,7 @@ pub fn get_pool_accumulated_reserve_fees(
     pool.accumulated_reserve_fees
 }
 
-pub fn get_available_reserve_fees(
+pub fn get_pool_available_reserve_fees(
     contract_client: &MarketContractClient,
     pool_address: &Address,
 ) -> i128 {
@@ -1197,7 +1193,6 @@ pub fn compute_pool_collateral_value(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
-    
 
     e.as_contract(&contract_client.address, || {
         pool.compute_total_collateral_value(e)
@@ -1210,7 +1205,6 @@ pub fn compute_pool_debt_value(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
-    
 
     e.as_contract(&contract_client.address, || {
         pool.compute_total_debt_value(e)
