@@ -898,6 +898,7 @@ impl Obligation {
         Ok(liquidation_values)
     }
 
+    /// Covers the obligation's bad debt by returning the list of the obligation's positions
     pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResult, MCError> {
         let collateral_value = self.compute_collateral_value(e)?;
         let debt_value = self.compute_debt_value(e)?;
@@ -912,8 +913,18 @@ impl Obligation {
                 .push_back((pool_address, borrow_obligation.d_tokens));
         }
 
+        let mut collaterals_to_remove: Vec<(Address, i128, i128)> = Vec::new(e);
+        for (pool_address, deposit_obligation) in self.deposits.iter() {
+            collaterals_to_remove.push_back((
+                pool_address,
+                deposit_obligation.j_tokens,
+                deposit_obligation.collateral,
+            ));
+        }
+
         Ok(CoverBadDebtResult {
             borrows_to_be_repaid_from_reserves,
+            collaterals_to_remove,
         })
     }
 
@@ -1268,7 +1279,11 @@ pub struct RemoveCollateralResult {
 
 /// [`Obligation::cover_bad_debt`] resulting data
 pub struct CoverBadDebtResult {
+    /// `(pool address, borrower dTokens)` pairs for each bad debt obligation borrows
     pub borrows_to_be_repaid_from_reserves: Vec<(Address, i128)>,
+    /// `(pool address, borrower jTokens, borrower collateral)` tuples for each bad debt obligation
+    /// collateral
+    pub collaterals_to_remove: Vec<(Address, i128, i128)>,
 }
 
 // TODO: Move this somewhere else when working on liquidation

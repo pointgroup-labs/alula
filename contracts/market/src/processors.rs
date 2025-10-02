@@ -897,7 +897,7 @@ pub fn process_liquidate(
     Ok(())
 }
 
-pub fn process_cover_obligation_bad_debt(
+pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
     e: &Env,
     obligation_key: ObligationKey,
 ) -> Result<(), MCError> {
@@ -905,6 +905,7 @@ pub fn process_cover_obligation_bad_debt(
 
     let CoverBadDebtResult {
         borrows_to_be_repaid_from_reserves,
+        collaterals_to_remove,
     } = obligation.cover_bad_debt(e)?;
 
     for (pool_address, d_tokens) in borrows_to_be_repaid_from_reserves {
@@ -914,11 +915,13 @@ pub fn process_cover_obligation_bad_debt(
             MCError::InternalError
         })?;
 
-        let obligation_debt = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
+        let obligation_pool_debt = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
         let available_reserve_fees = pool.available_accumulated_reserve_fees();
 
-        let debt_can_be_covered = i128::min(obligation_debt, available_reserve_fees);
+        let debt_can_be_covered = i128::min(obligation_pool_debt, available_reserve_fees);
         let d_tokens_can_be_covered = pool.compute_d_tokens_from_tokens(e, debt_can_be_covered)?;
+
+        // - Cover what can be covered from the reserves -
 
         pool.adjust_total_available(e, debt_can_be_covered)?;
         pool.adjust_total_borrowed(
@@ -936,15 +939,33 @@ pub fn process_cover_obligation_bad_debt(
                 .map_over_or_underflow()?,
         )?;
 
-        // Socialize all remaining bad debt
-        if obligation_debt > debt_can_be_covered {
-            let left_to_socialize = obligation_debt - debt_can_be_covered; // safe
+        // - Socialize all remaining bad debt -
+
+        if obligation_pool_debt > debt_can_be_covered {
+            let left_to_socialize = obligation_pool_debt - debt_can_be_covered; // safe
 
             pool.adjust_total_borrowed(
                 e,
                 left_to_socialize.checked_neg().map_over_or_underflow()?,
             )?;
         }
+
+        pool.set(e);
+    }
+
+    for (pool_address, j_tokens, collateral) in collaterals_to_remove {
+        let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
+            events::pool_is_missing_in_storage(e, &pool_address);
+
+            MCError::InternalError
+        })?;
+
+        // - Remove any collateral(both deposit and collateral-only cases) from the obligation to
+        //   benefit the pool -
+
+        pool.adjust_total_j_tokens(e, j_tokens.checked_neg().map_over_or_underflow()?)?;
+        pool.adjust_total_collateral(e, collateral.checked_neg().map_over_or_underflow()?)?;
+        pool.adjust_total_available(e, collateral)?;
 
         pool.set(e);
     }

@@ -1191,6 +1191,32 @@ pub fn get_available_reserve_fees(
     i128::min(pool.total_available, pool.accumulated_reserve_fees)
 }
 
+pub fn compute_pool_collateral_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let val = e.as_contract(&contract_client.address, || {
+        pool.compute_total_collateral_value(e)
+    });
+
+    val
+}
+
+pub fn compute_pool_debt_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let val = e.as_contract(&contract_client.address, || {
+        pool.compute_total_debt_value(e)
+    });
+
+    val
+}
+
 // - PoolConfig -
 pub fn get_pool_fee_config(
     contract_client: &MarketContractClient,

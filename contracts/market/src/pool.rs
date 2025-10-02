@@ -3,7 +3,8 @@ use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 
 use crate::{
     accrual::AccrualModel, constants::*, error::MCError, events,
-    interest_rate_model::InterestRateModel, math_utils::MathUtils, storage,
+    interest_rate_model::InterestRateModel, math_utils::MathUtils, oracle::get_asset_price,
+    storage,
 };
 
 #[contracttype]
@@ -388,7 +389,14 @@ impl Pool {
         Ok(res)
     }
 
-    /// Calculates total supply (available + total_borrowed - accumulated fees)
+    /// Calculates total debt (total_borrowed - accumulated reserve fees)
+    pub fn total_debt(&self) -> Result<i128, MCError> {
+        self.total_borrowed
+            .checked_sub(self.accumulated_reserve_fees)
+            .map_over_or_underflow()
+    }
+
+    /// Calculates total supply (available + total_borrowed - accumulated reserve fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
         self.total_available
             .checked_add(self.total_borrowed)
@@ -430,6 +438,27 @@ impl Pool {
 
     fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
+    }
+
+    pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
+        let deposited_tokens = self.compute_tokens_from_d_tokens(e, self.total_d_tokens)?;
+        let collateral_sum = deposited_tokens
+            .checked_add(self.total_collateral)
+            .map_over_or_underflow()?;
+
+        self.get_assets_value(e, collateral_sum)
+    }
+
+    pub fn compute_total_debt_value(&self, e: &Env) -> Result<i128, MCError> {
+        let debt = self.total_debt()?;
+
+        self.get_assets_value(e, debt)
+    }
+
+    fn get_assets_value(&self, e: &Env, amount: i128) -> Result<i128, MCError> {
+        let price = get_asset_price(e, &self.token_address)?;
+
+        price.checked_mul(amount).map_over_or_underflow()
     }
 
     /// Refreshes the pool with the contract's storage data

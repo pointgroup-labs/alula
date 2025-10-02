@@ -12,7 +12,8 @@ use crate::{
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::{
-        process_add_collateral, process_borrow, process_cover_obligation_bad_debt, process_deposit,
+        process_add_collateral, process_borrow,
+        process_cover_obligation_bad_debt_and_socialize_any_remaining_loss, process_deposit,
         process_deposit_with_leverage, process_flash_loan, process_initialize_multiply_pair,
         process_initialize_pool, process_liquidate, process_remove_collateral, process_repay,
         process_swap_exact_tokens, process_withdraw, process_withdraw_from_leveraged,
@@ -446,7 +447,7 @@ impl MarketContract {
     }
 
     /// Covers fully or partially bad debt if it exists under a user obligation. Socializes all
-    /// remaining bad debt in case the reserve doesn't contain enough funds to cover it
+    /// remaining bad debt in case the market reserves doesn't contain enough funds to cover it
     /// completely
     ///
     /// ### Arguments
@@ -457,14 +458,32 @@ impl MarketContract {
     ) -> Result<(), MCError> {
         let obligation_key = ObligationKey::new(bad_debt_obligation_user);
 
-        process_cover_obligation_bad_debt(&e, obligation_key)?;
+        process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(&e, obligation_key)?;
 
         Ok(())
     }
 
-    // pub fn cover_multiply_pair_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
-    //     todo!()
-    // }
+    /// Covers fully or partially bad debt if it exists under a multiply pair user obligation.
+    /// Socializes all remaining bad debt in case the reserve doesn't contain enough funds to
+    /// cover it completely
+    ///
+    /// ### Arguments
+    /// * `bad_debt_obligation_user` - user that has a bad debt
+    /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
+    /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
+    pub fn cover_multiply_pair_bad_debt(
+        e: Env,
+        bad_debt_obligation_user: Address,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<(), MCError> {
+        let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
+        let obligation_key = ObligationKey::new_with_seed(bad_debt_obligation_user, mp_seed);
+
+        process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(&e, obligation_key)?;
+
+        Ok(())
+    }
 
     /// Returns asset's decimals
     pub fn get_asset_decimals() -> u32 {
