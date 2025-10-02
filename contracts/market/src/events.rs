@@ -223,14 +223,14 @@ pub fn flash_loan(
 
 /// Emitted when tokens are deposited with leverage
 ///
-/// - topics - `["deposit_with_leverage", user: Address, deposit_pool: Address, borrow_pool:
+/// - topics - `["deposit_with_leverage", obligation_key: ObligationKey, deposit_pool: Address, borrow_pool:
 ///   Address]`
 /// - data - `[original_amount: i128, leverage_multiplier: u32, total_deposited_amount: i128,
 ///   total_borrowed_amount: i128]`
 #[allow(clippy::too_many_arguments)]
 pub fn deposit_with_leverage(
     e: &Env,
-    user: &Address,
+    obligation_key: &ObligationKey,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
     original_amount: i128,
@@ -240,7 +240,7 @@ pub fn deposit_with_leverage(
 ) {
     let topics = (
         Symbol::new(e, "deposit_with_leverage"),
-        user,
+        obligation_key.clone(),
         deposit_pool_address,
         borrow_pool_address,
     );

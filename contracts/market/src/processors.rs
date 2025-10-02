@@ -26,7 +26,6 @@ pub fn process_initialize_pool(
     token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
-    // TODO: Option<InterestRateModel>,
 ) -> Result<Address, MCError> {
     let pool_address: Address = if let Some(salt) = salt {
         e.deployer()
@@ -49,8 +48,6 @@ pub fn process_initialize_pool(
         None => Default::default(),
     };
 
-    let accrual_model = AccrualModel::Compounded;
-    let interest_rate_model = InterestRateModel::Kinked(KinkedIRConfig::default());
     let name = TokenClient::new(e, token_address).name();
 
     let pool = Pool {
@@ -65,14 +62,11 @@ pub fn process_initialize_pool(
         accumulated_reserve_fees: 0,
 
         name,
-        // accrual_model,
-        // interest_rate_model,
         config: pool_config,
         pool_address: pool_address.clone(),
         token_ticker: token_ticker.clone(),
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
-        // fee_config: Default::default(),
     };
 
     pool.set(e);
@@ -613,8 +607,7 @@ pub fn process_deposit_with_leverage(
 
     events::deposit_with_leverage(
         e,
-        user,
-        // TODO: seed: ...
+        &obligation_key,
         deposit_pool_address,
         borrow_pool_address,
         amount,
