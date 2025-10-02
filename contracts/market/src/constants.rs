@@ -6,11 +6,10 @@ pub const BPS_IN_PERCENT: i128 = 100;
 /// Basis points denominator for fractional calculations
 /// 100% = 10_000 bps
 pub const BPS_FACTOR: i128 = 10_000;
-/// A denominator that is primarily used for compounded accrual calculation when numbers in fixed
-/// point representation are raised to the natural number power. The bigger the denominator, the
-/// better the multiplication precision, the better the binary exponentiation precision
-// pub const SCALED_FIXED_POINT_DENOMINATOR: i128 = i128::pow(10, 18); // TODO: uncomment
-pub const SCALED_FIXED_POINT_DENOMINATOR: i128 = 1_000_000_000_000_000_000;
+/// A denominator that is primarily used for compounded accrual calculation when numbers are in
+/// fixed point representations are raised to the natural number power. The bigger the denominator,
+/// the better the multiplication precision, the better the binary exponentiation precision
+pub const SCALED_FIXED_POINT_DENOMINATOR: i128 = i128::pow(10, 18);
 
 // ---- Time Units ----
 
@@ -61,21 +60,19 @@ pub const DEFAULT_SUPPLY_LIMIT: i128 = 0;
 // ---- Borrow ----
 
 /// Default utilization ratio limit
-pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 100%
+pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 
 // ---- Liquidation ----
 
-/// Max portion of a position that can be liquidated in one go (percent)
+/// Max portion of a position that can be liquidated in one go
+pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
+/// Additional spread taken during liquidation
+pub const DEFAULT_LIQUIDATION_SPREAD_BPS: i128 = 1_000;
 pub const DEFAULT_OPEN_LTV_BPS: i128 = 7_000;
 pub const DEFAULT_CLOSE_LTV_BPS: i128 = 8_000;
-pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
-
-/// Additional spread taken during liquidation (percent)
-pub const DEFAULT_LIQUIDATION_SPREAD_BPS: i128 = 1_000;
-
 /// Health factor threshold expressed in bps (100% = 10_000 bps)
 pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = BPS_FACTOR; // 100%
-pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100%(equivalent to a liability factor to not make any difference)
+pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100% (equivalent to a liability factor to make no difference)
 pub const MAX_LIABILITY_FACTOR_BPS: i128 = 2 * BPS_FACTOR; // 200%
 
 // ---- Swap ----
@@ -87,7 +84,7 @@ pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1; // 0.01%
 
 // ---- Deposit with leverage ----
 
-/// Scale to represent leverage multipliers (e.g., 100 = 1.0x)
+/// Scale to represent leverage multipliers (e.g., with current scale 100 = 1.0x, 224 = 2.24x)
 pub const LEVERAGE_SCALE: u32 = 100;
 /// Minimum leverage multiplier (scaled by LEVERAGE_SCALE)
 pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE; // 1
@@ -101,13 +98,13 @@ pub const DEFAULT_FLASH_LOAN_FEE_BPS: u32 = 1; // 0.01%
 pub const DEFAULT_ADD_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
 
-pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
-
 pub const DEFAULT_HOST_FEE_BPS: u32 = 2000; // 20%
+
+pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
 // ---- Oracle ----
 
 /// Maximum acceptable oracle price age in seconds
-pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // TODO: How to properly pick this value?
+pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Relies on 'Reflector' resolution being 5 minutes
 
 // ---- Dependency Contract Addresses ----
 

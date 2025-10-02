@@ -23,7 +23,7 @@ pub enum InterestRateModel {
 }
 
 impl Default for InterestRateModel {
-    // NB: Rust doesn't support `#[default]` for `#[derive(Default)]` on non-unit variants
+    // NB: Rust doesn't support `#[default]` for `#[derive(Default)]` on non-unit variants for now
     fn default() -> Self {
         Self::Kinked(Default::default())
     }
