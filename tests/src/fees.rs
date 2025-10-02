@@ -1,7 +1,6 @@
 #![cfg(test)]
 
 use market::{
-    error::MCError,
     obligation::{ComputedFees, compute_fees},
     pool::{PoolConfig, PoolFeeConfig},
 };

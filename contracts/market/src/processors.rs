@@ -903,18 +903,18 @@ pub fn process_redeem_accumulated_host_fees(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(&e, &pool_address)?;
+    let mut pool = Pool::try_get(e, pool_address)?;
 
     let fees_to_be_redeemed = i128::min(amount, pool.accumulated_host_fees);
 
     pool.adjust_accumulated_host_fees(
-        &e,
+        e,
         fees_to_be_redeemed.checked_neg().map_over_or_underflow()?,
     )?;
-    pool.set(&e);
+    pool.set(e);
 
-    let token_client = token::Client::new(&e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), &user, &fees_to_be_redeemed);
+    let token_client = token::Client::new(e, &pool.token_address);
+    token_client.transfer(&e.current_contract_address(), user, &fees_to_be_redeemed);
 
     Ok(())
 }
@@ -925,18 +925,18 @@ pub fn process_redeem_accumulated_market_fees(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(&e, &pool_address)?;
+    let mut pool = Pool::try_get(e, pool_address)?;
 
     let fees_to_be_redeemed = i128::min(amount, pool.accumulated_market_fees);
 
     pool.adjust_accumulated_market_fees(
-        &e,
+        e,
         fees_to_be_redeemed.checked_neg().map_over_or_underflow()?,
     )?;
-    pool.set(&e);
+    pool.set(e);
 
-    let token_client = token::Client::new(&e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), &user, &fees_to_be_redeemed);
+    let token_client = token::Client::new(e, &pool.token_address);
+    token_client.transfer(&e.current_contract_address(), user, &fees_to_be_redeemed);
 
     Ok(())
 }
