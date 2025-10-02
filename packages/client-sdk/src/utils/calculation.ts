@@ -79,15 +79,20 @@ export function calculateTotalStake(
 
 export function calculateBorrow(
   d_tokens: bigint,
-  pool: {
-    total_d_tokens: bigint
-    total_borrowed: bigint
-  },
+  pool: { total_d_tokens: bigint, total_borrowed: bigint },
   decimals = 7,
-) {
+): number {
   const d = new Decimal(d_tokens.toString())
   const totalD = new Decimal(pool.total_d_tokens.toString())
   const borrowed = new Decimal(pool.total_borrowed.toString())
-  const raw = d.div(totalD).mul(borrowed)
-  return raw.div(new Decimal(10).pow(decimals))
+
+  if (d.isZero() || borrowed.isZero() || totalD.isZero()) {
+    return 0
+  }
+
+  const SCALE = new Decimal(10).pow(decimals)
+
+  const amount = d.mul(borrowed).div(totalD).div(SCALE)
+
+  return amount.isFinite() ? Number(amount.toFixed(decimals)) : 0
 }

@@ -41,7 +41,9 @@ const userTotalBorrowedByMarket = computed(() => {
   if (!obligation || !pools) {
     return 0
   }
-  return calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals) ?? 0
+  const val = calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals) ?? 0
+  const decimals = String(val).includes('e') ? getZeroCountAfterDecimal(val) : null
+  return decimals ? val.toFixed(decimals) : String(val)
 })
 
 const loading = ref(false)
@@ -65,7 +67,7 @@ const closeLTV = computed(() => data?.raw?.config?.close_ltv_bps ? Number(data.r
 const healthFactor = computed(() => {
   const amountInUsd = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)
   const deposited = (userTotalDepositByMarket.value * closeLTV.value)
-  const borrowed = Math.max(userTotalBorrowedByMarket.value - amountInUsd, 0)
+  const borrowed = Math.max(Number(userTotalBorrowedByMarket.value) - amountInUsd, 0)
   const result = Math.max(deposited / borrowed, 0)
   return Math.min(result, 10)
 })
