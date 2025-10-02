@@ -9,7 +9,6 @@ use crate::{
     storage::{self},
 };
 
-// TODO: move to oracle module?
 pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError> {
     let oracle_address = storage::get_oracle_address(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);

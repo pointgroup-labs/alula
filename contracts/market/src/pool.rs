@@ -38,20 +38,11 @@ pub struct Pool {
     /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
     /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
     pub name: String,
-
     /// Configuration settings for the pool
     pub config: PoolConfig,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
     // TODO: APY & APR?
-
-    // /// Interest rate model(+configuration) used for interest rate calculation
-    // pub interest_rate_model: InterestRateModel,
-    // /// Accrual model used for accruing the `total_borrowed` amount on the pool based on the
-    // /// interest rate
-    // pub accrual_model: AccrualModel,
-    // /// Fee configuration for the pool
-    // pub fee_config: PoolFeeConfig,
 }
 
 impl Pool {
@@ -255,7 +246,7 @@ impl Pool {
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?; // WARN: is likely a problem... or is it?
+        let total_supply = self.total_supply()?; // WARN: Investigate how reserves affect UR
         let utilization_ratio = self.compute_utilization_ratio_bps()?;
 
         if utilization_ratio > self.config.health_config.utilization_ratio_limit_bps {
@@ -390,20 +381,40 @@ impl Pool {
 
     /// Checks if the pool is empty
     pub fn is_empty(&self) -> bool {
-        if self.total_j_tokens == 0 && self.total_available != 0 {
+        let &Self {
+            pool_address: _,
+            token_address: _,
+            token_ticker: _,
+            last_accrual_timestamp: _,
+            name: _,
+            config: _,
+            total_borrowed,
+            total_d_tokens,
+            total_j_tokens,
+            total_available,
+            total_collateral,
+            accumulated_reserve_fees,
+            accumulated_market_fees,
+            accumulated_host_fees,
+        } = self;
+
+        if total_j_tokens == 0 && total_available != 0 {
             // TODO: What to do in these cases?
         }
 
-        if self.total_d_tokens == 0 && self.total_borrowed != 0 {
+        if total_d_tokens == 0 && total_borrowed != 0 {
             // TODO: What to do in these cases?
         }
 
-        self.total_j_tokens == 0
-            && self.total_d_tokens == 0
-            && self.total_borrowed == 0
-            && self.total_available == 0
-            && self.total_collateral == 0
-        // TODO: && self.accumulated_reserve_fees == 0?
+        total_j_tokens == 0
+            && total_d_tokens == 0
+            && total_borrowed == 0
+            && total_available == 0
+            && total_collateral == 0
+            && accumulated_host_fees == 0
+            && accumulated_reserve_fees == 0
+            && accumulated_market_fees == 0
+        // && self.
     }
 
     /// Tries to get the pool from the contract's storage

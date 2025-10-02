@@ -15,10 +15,7 @@ use crate::{
     interest_rate_model::{InterestRateModel, kinked::KinkedIRConfig},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
-    obligation::{
-        CoverBadDebtResult, LiquidationValues,
-        Obligation, ObligationKey,
-    },
+    obligation::{CoverBadDebtResult, LiquidationValues, Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
     swap,
 };

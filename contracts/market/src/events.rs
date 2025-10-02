@@ -1,8 +1,8 @@
 use soroban_sdk::{Address, Env, String, Symbol};
 
 use crate::obligation::{
-    AddCollateralResult, BorrowResult, DepositResult, ObligationKey,
-    RemoveCollateralResult, RepayResult, WithdrawResult,
+    AddCollateralResult, BorrowResult, DepositResult, ObligationKey, RemoveCollateralResult,
+    RepayResult, WithdrawResult,
 };
 
 // ---- Contract's Methods Events ----
