@@ -223,8 +223,8 @@ pub fn flash_loan(
 
 /// Emitted when tokens are deposited with leverage
 ///
-/// - topics - `["deposit_with_leverage", obligation_key: ObligationKey, deposit_pool: Address, borrow_pool:
-///   Address]`
+/// - topics - `["deposit_with_leverage", obligation_key: ObligationKey, deposit_pool: Address,
+///   borrow_pool: Address]`
 /// - data - `[original_amount: i128, leverage_multiplier: u32, total_deposited_amount: i128,
 ///   total_borrowed_amount: i128]`
 #[allow(clippy::too_many_arguments)]
