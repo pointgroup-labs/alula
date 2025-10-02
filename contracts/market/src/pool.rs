@@ -435,7 +435,7 @@ impl Pool {
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
-        let deposited_tokens = self.compute_tokens_from_d_tokens(e, self.total_d_tokens)?;
+        let deposited_tokens = self.compute_tokens_from_j_tokens(e, self.total_j_tokens)?;
         let collateral_sum = deposited_tokens
             .checked_add(self.total_collateral)
             .map_over_or_underflow()?;

@@ -347,6 +347,8 @@ fn test_remove_collateral_fee() {
 }
 
 // TODO: Add cap checks
+// TODO: Add a test that verifies the constant `market` and `host` fees availability regardless of
+// `total_available` on pool(contrary to `reserve` fees)
 
 #[test]
 fn test_withdraw_fee() {
