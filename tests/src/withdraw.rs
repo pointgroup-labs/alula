@@ -25,7 +25,7 @@ fn test_withdraw() {
     let TestMarketFixture {
         e,
         contract_client,
-        usdc_pool_address,
+        
         gold_pool_address,
         users,
         ..
