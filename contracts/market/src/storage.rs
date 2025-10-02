@@ -10,8 +10,8 @@ use crate::{
 #[contracttype]
 pub struct GlobalState {
     pub status: bool,
-    pub name: String,
     pub admin: Address,
+    pub name: String,
     pub deployer: Address,
 }
 
