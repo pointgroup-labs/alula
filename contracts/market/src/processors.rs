@@ -141,18 +141,13 @@ pub fn process_deposit(
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
 
-    let DepositResult {
-        j_tokens_to_issue,
-        deposited,
-        market_fee,
-        host_fee,
-    } = obligation.deposit(e, &pool, amount)?;
+    let deposit_result = obligation.deposit(e, &pool, amount)?;
 
-    pool.adjust_total_j_tokens(e, j_tokens_to_issue)?;
-    pool.adjust_total_available(e, deposited)?;
+    pool.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
+    pool.adjust_total_available(e, deposit_result.deposited)?;
 
-    pool.adjust_accumulated_host_fees(e, host_fee)?;
-    pool.adjust_accumulated_market_fees(e, market_fee)?;
+    pool.adjust_accumulated_host_fees(e, deposit_result.computed_fees.host_fee)?;
+    pool.adjust_accumulated_market_fees(e, deposit_result.computed_fees.market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -160,13 +155,7 @@ pub fn process_deposit(
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
 
-    events::deposit(
-        e,
-        pool_address,
-        &obligation_key.user,
-        amount,
-        j_tokens_to_issue,
-    );
+    events::deposit(e, pool_address, &obligation_key, deposit_result);
 
     Ok(())
 }
@@ -185,20 +174,20 @@ pub fn process_borrow(
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.accrue_interest(e)?;
 
-    let BorrowResult {
-        d_tokens_to_issue,
-        borrower_new_debt,
-        borrower_to_receive,
-        market_fee,
-        host_fee,
-    } = obligation.borrow(e, &pool, amount)?;
+    let borrow_result = obligation.borrow(e, &pool, amount)?;
 
-    pool.adjust_total_d_tokens(e, d_tokens_to_issue)?;
-    pool.adjust_total_borrowed(e, borrower_new_debt)?;
-    pool.adjust_total_available(e, borrower_new_debt.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_d_tokens(e, borrow_result.d_tokens_to_issue)?;
+    pool.adjust_total_borrowed(e, borrow_result.borrower_new_debt)?;
+    pool.adjust_total_available(
+        e,
+        borrow_result
+            .borrower_new_debt
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
 
-    pool.adjust_accumulated_host_fees(e, host_fee)?;
-    pool.adjust_accumulated_market_fees(e, market_fee)?;
+    pool.adjust_accumulated_host_fees(e, borrow_result.computed_fees.host_fee)?;
+    pool.adjust_accumulated_market_fees(e, borrow_result.computed_fees.market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -207,20 +196,10 @@ pub fn process_borrow(
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
-        &borrower_to_receive,
+        &borrow_result.borrower_to_receive,
     );
 
-    // TODO: Fix event
-    // events::borrow(
-    //     e,
-    //     pool_address,
-    //     &obligation_key.user,
-    //     d_tokens_to_issue,
-    //     borrower_new_debt,
-    //     borrower_to_receive,
-    //     market_fee,
-    //     host_fee,
-    // );
+    events::borrow(e, pool_address, obligation_key, borrow_result);
 
     Ok(())
 }
@@ -239,16 +218,12 @@ pub fn process_add_collateral(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let AddCollateralResult {
-        added_collateral,
-        market_fee,
-        host_fee,
-    } = obligation.add_collateral(e, &pool, amount)?;
+    let add_collateral_result = obligation.add_collateral(e, &pool, amount)?;
 
-    pool.adjust_total_collateral(e, added_collateral)?;
+    pool.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
 
-    pool.adjust_accumulated_host_fees(e, host_fee)?;
-    pool.adjust_accumulated_market_fees(e, market_fee)?;
+    pool.adjust_accumulated_host_fees(e, add_collateral_result.computed_fees.host_fee)?;
+    pool.adjust_accumulated_market_fees(e, add_collateral_result.computed_fees.market_fee)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -256,8 +231,7 @@ pub fn process_add_collateral(
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
 
-    // TODO: fix event
-    // events::add_collateral(e, pool_address, &obligation_key.user, amount);
+    events::add_collateral(e, pool_address, &obligation_key, add_collateral_result);
 
     Ok(())
 }
@@ -275,20 +249,26 @@ pub fn process_repay(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let RepayResult {
-        host_fee,
-        market_fee,
-        debt_repaid,
-        d_tokens_to_burn,
-        amount_to_take_from_borrower,
-    } = obligation.repay(e, &pool, amount)?;
+    let repay_result = obligation.repay(e, &pool, amount)?;
 
-    pool.adjust_total_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_borrowed(e, debt_repaid.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_available(e, debt_repaid)?;
+    pool.adjust_total_d_tokens(
+        e,
+        repay_result
+            .d_tokens_to_burn
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+    pool.adjust_total_borrowed(
+        e,
+        repay_result
+            .debt_repaid
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+    pool.adjust_total_available(e, repay_result.debt_repaid)?;
 
-    pool.adjust_accumulated_host_fees(e, host_fee)?;
-    pool.adjust_accumulated_market_fees(e, market_fee)?;
+    pool.adjust_accumulated_host_fees(e, repay_result.computed_fees.host_fee)?;
+    pool.adjust_accumulated_market_fees(e, repay_result.computed_fees.market_fee)?;
 
     if obligation.is_empty() {
         // NB: Obligation shouldn't be empty at this point due to some amount of collateral or
@@ -305,11 +285,10 @@ pub fn process_repay(
     token_client.transfer(
         &obligation_key.user,
         &e.current_contract_address(),
-        &amount_to_take_from_borrower,
+        &repay_result.amount_to_take_from_borrower,
     );
 
-    // TODO: Fix event
-    // events::repay(e, pool_address, obligation_key, real_repaid_amount);
+    events::repay(e, pool_address, obligation_key, repay_result);
 
     Ok(())
 }
@@ -327,20 +306,18 @@ pub fn process_remove_collateral(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let RemoveCollateralResult {
-        collateral_decrease,
-        collateral_remover_to_receive,
-        market_fee,
-        host_fee,
-    } = obligation.remove_collateral(e, &pool, amount)?;
+    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount)?;
 
     pool.adjust_total_collateral(
         e,
-        collateral_decrease.checked_neg().map_over_or_underflow()?,
+        remove_collateral_result
+            .collateral_decrease
+            .checked_neg()
+            .map_over_or_underflow()?,
     )?;
 
-    pool.adjust_accumulated_host_fees(e, host_fee)?;
-    pool.adjust_accumulated_market_fees(e, market_fee)?;
+    pool.adjust_accumulated_host_fees(e, remove_collateral_result.computed_fees.host_fee)?;
+    pool.adjust_accumulated_market_fees(e, remove_collateral_result.computed_fees.market_fee)?;
 
     pool.set(e);
 
@@ -354,11 +331,10 @@ pub fn process_remove_collateral(
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
-        &collateral_remover_to_receive,
+        &remove_collateral_result.collateral_remover_to_receive,
     );
 
-    // TODO: Fix event
-    // events::remove_collateral(e, pool_address, &obligation_key.user, removed_tokens_amount);
+    events::remove_collateral(e, pool_address, &obligation_key, remove_collateral_result);
 
     Ok(())
 }
@@ -376,19 +352,25 @@ pub fn process_withdraw(
     obligation.accrue_interest(e)?;
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let WithdrawResult {
-        j_tokens_to_burn,
-        deposit_decrease,
-        withdrawer_to_receive,
-        market_fee,
-        host_fee,
-    } = obligation.withdraw(e, &pool, amount)?;
+    let withdraw_result = obligation.withdraw(e, &pool, amount)?;
 
-    pool.adjust_total_available(e, deposit_decrease.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_available(
+        e,
+        withdraw_result
+            .deposit_decrease
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
+    pool.adjust_total_j_tokens(
+        e,
+        withdraw_result
+            .j_tokens_to_burn
+            .checked_neg()
+            .map_over_or_underflow()?,
+    )?;
 
-    pool.adjust_accumulated_host_fees(e, host_fee)?;
-    pool.adjust_accumulated_market_fees(e, market_fee)?;
+    pool.adjust_accumulated_host_fees(e, withdraw_result.computed_fees.host_fee)?;
+    pool.adjust_accumulated_market_fees(e, withdraw_result.computed_fees.market_fee)?;
 
     if obligation.is_empty() {
         obligation.remove(e, obligation_key);
@@ -401,17 +383,10 @@ pub fn process_withdraw(
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
-        &withdrawer_to_receive,
+        &withdraw_result.withdrawer_to_receive,
     );
 
-    // TODO: Fix events
-    // events::withdraw(
-    //     e,
-    //     pool_address,
-    //     obligation_key,
-    //     j_tokens_burnt,
-    //     real_withdrawn_amount,
-    // );
+    events::withdraw(e, pool_address, obligation_key, withdraw_result);
 
     Ok(())
 }
@@ -948,11 +923,11 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
     let obligation = Obligation::try_get(e, &obligation_key)?;
 
     let CoverBadDebtResult {
-        borrows_to_be_repaid_from_reserves,
+        borrows_to_be_compensated,
         collaterals_to_remove,
     } = obligation.cover_bad_debt(e)?;
 
-    for (pool_address, d_tokens) in borrows_to_be_repaid_from_reserves {
+    for (pool_address, d_tokens) in borrows_to_be_compensated {
         let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
             events::pool_is_missing_in_storage(e, &pool_address);
 

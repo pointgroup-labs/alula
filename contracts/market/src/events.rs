@@ -1,6 +1,9 @@
 use soroban_sdk::{Address, Env, String, Symbol};
 
-use crate::obligation::ObligationKey;
+use crate::obligation::{
+    AddCollateralResult, BorrowResult, ComputedFees, DepositResult, ObligationKey,
+    RemoveCollateralResult, RepayResult, WithdrawResult,
+};
 
 // ---- Contract's Methods Events ----
 
@@ -17,17 +20,20 @@ pub fn constructor(e: &Env, admin: &Address, name: &String, oracle: &Address) {
 
 /// Emitted when depositing tokens
 ///
-/// - topics - `["deposit", pool_address: Address, user: Address]`
-/// - data - `[amount: i128, j_tokens_issued: i128]`
+/// - topics - `["deposit", pool_address: Address, obligation_key: ObligationKey]`
+/// - data - `[deposit_result: `[DepositResult]`]`
 pub fn deposit(
     e: &Env,
     pool_address: &Address,
-    user: &Address,
-    amount: i128,
-    j_tokens_issued: i128,
+    obligation_key: &ObligationKey,
+    deposit_result: DepositResult,
 ) {
-    let topics = (Symbol::new(e, "deposit"), pool_address, user);
-    let data = (amount, j_tokens_issued);
+    let topics = (
+        Symbol::new(e, "deposit"),
+        pool_address,
+        obligation_key.clone(),
+    );
+    let data = (deposit_result,);
 
     e.events().publish(topics, data);
 }
@@ -72,31 +78,42 @@ pub fn swap(
 
     e.events().publish(topics, data);
 }
-
 /// Emitted when tokens are borrowed from a pool
 ///
-/// - topics - `["borrow", pool_address: Address, user: Address]`
-/// - data - `[real_borrowed_amount: i128, d_tokens_issued: i128]`
+/// - topics - `["borrow", pool_address: Address, obligation_key: ObligationKey]`
+/// - data - `[`[BorrowResult]`]`
 pub fn borrow(
     e: &Env,
     pool_address: &Address,
-    user: &Address,
-    real_borrowed_amount: i128,
-    d_tokens_issued: i128,
+    obligation_key: &ObligationKey,
+    borrow_result: BorrowResult,
 ) {
-    let topics = (Symbol::new(e, "borrow"), pool_address, user);
-    let data = (real_borrowed_amount, d_tokens_issued);
+    let topics = (
+        Symbol::new(e, "borrow"),
+        pool_address,
+        obligation_key.clone(),
+    );
+    let data = (borrow_result,);
 
     e.events().publish(topics, data);
 }
 
 /// Emitted when collateral is added to a pool
 ///
-/// - topics - `["add_collateral", pool_address: Address, user: Address]`
-/// - data - `[amount: i128]`
-pub fn add_collateral(e: &Env, pool_address: &Address, user: &Address, amount: i128) {
-    let topics = (Symbol::new(e, "add_collateral"), pool_address, user);
-    let data = (amount,);
+/// - topics - `["add_collateral", pool_address: Address, obligation_key: ObligationKey]`
+/// - data - `[add_collateral_result: `[AddCollateralResult]`]`
+pub fn add_collateral(
+    e: &Env,
+    pool_address: &Address,
+    obligation_key: &ObligationKey,
+    add_collateral_result: AddCollateralResult,
+) {
+    let topics = (
+        Symbol::new(e, "add_collateral"),
+        pool_address,
+        obligation_key.clone(),
+    );
+    let data = (add_collateral_result,);
 
     e.events().publish(topics, data);
 }
@@ -104,14 +121,19 @@ pub fn add_collateral(e: &Env, pool_address: &Address, user: &Address, amount: i
 /// Emitted when borrowed tokens are repaid
 ///
 /// - topics - `["repay", pool_address: Address, obligation_key: ObligationKey]`
-/// - data - `[amount: i128]`
-pub fn repay(e: &Env, pool_address: &Address, obligation_key: &ObligationKey, amount: i128) {
+/// - data - `[repay_result: `[RepayResult]`]`
+pub fn repay(
+    e: &Env,
+    pool_address: &Address,
+    obligation_key: &ObligationKey,
+    repay_result: RepayResult,
+) {
     let topics = (
         Symbol::new(e, "repay"),
         pool_address,
         obligation_key.clone(),
     );
-    let data = (amount,);
+    let data = (repay_result,);
 
     e.events().publish(topics, data);
 }
@@ -145,31 +167,39 @@ pub fn liquidate(
 /// Emitted when collateral tokens are removed from a pool
 ///
 /// - topics - `["remove_collateral", pool_address: Address, user: Address]`
-/// - data - `[amount: i128]`
-pub fn remove_collateral(e: &Env, pool_address: &Address, user: &Address, amount: i128) {
-    let topics = (Symbol::new(e, "remove_collateral"), pool_address, user);
-    let data = (amount,);
+/// - data - `[remove_collateral_result: `[RemoveCollateralResult]`]`
+pub fn remove_collateral(
+    e: &Env,
+    pool_address: &Address,
+    obligation_key: &ObligationKey,
+    remove_collateral_result: RemoveCollateralResult,
+) {
+    let topics = (
+        Symbol::new(e, "remove_collateral"),
+        pool_address,
+        obligation_key.clone(),
+    );
+    let data = (remove_collateral_result,);
 
     e.events().publish(topics, data);
 }
 
 /// Emitted when deposited tokens are withdrawn from a pool
 ///
-/// - topics - `["withdraw", pool_address: Address, user: Address]`
-/// - data - `[amount: i128]`
+/// - topics - `["withdraw", pool_address: Address, obligation_key: ObligationKey]`
+/// - data - `[withdraw_result: `[WithdrawResult]`]`
 pub fn withdraw(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
-    burnt_j_tokens: i128,
-    withdrawn_tokens: i128,
+    withdraw_result: WithdrawResult,
 ) {
     let topics = (
         Symbol::new(e, "withdraw"),
         pool_address,
         obligation_key.clone(),
     );
-    let data = (burnt_j_tokens, withdrawn_tokens);
+    let data = (withdraw_result,);
 
     e.events().publish(topics, data);
 }
