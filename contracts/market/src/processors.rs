@@ -16,8 +16,8 @@ use crate::{
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{
-        AddCollateralResult, BorrowResult, CoverBadDebtResult, DepositResult, LiquidationValues,
-        Obligation, ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
+        CoverBadDebtResult, LiquidationValues,
+        Obligation, ObligationKey,
     },
     pool::{Pool, PoolConfig},
     swap,
@@ -155,7 +155,7 @@ pub fn process_deposit(
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
 
-    events::deposit(e, pool_address, &obligation_key, deposit_result);
+    events::deposit(e, pool_address, obligation_key, deposit_result);
 
     Ok(())
 }
@@ -231,7 +231,7 @@ pub fn process_add_collateral(
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
 
-    events::add_collateral(e, pool_address, &obligation_key, add_collateral_result);
+    events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
 
     Ok(())
 }
@@ -334,7 +334,7 @@ pub fn process_remove_collateral(
         &remove_collateral_result.collateral_remover_to_receive,
     );
 
-    events::remove_collateral(e, pool_address, &obligation_key, remove_collateral_result);
+    events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
 
     Ok(())
 }
