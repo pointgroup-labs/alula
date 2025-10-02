@@ -52,17 +52,16 @@ export const useMarketsStore = defineStore('markets', () => {
     }
   }
 
-  async function updatePools(pool_address: string, market: string, client: StellarClient) {
+  async function updatePool(pool_address: string, market: string, client: StellarClient) {
     const preparedPool = await preparePool(pool_address, client)
     const updatedMarketPool = state.markets[market]?.pools.map(p => (p.pool_address === pool_address ? preparedPool : p)) as PoolWithPrice[]
     state.markets[market] = {
       ...state.markets[market]!,
       pools: updatedMarketPool,
     }
-    console.log('%c[Updated pool]', 'color: #FFB726', preparedPool)
   }
 
-  async function updateLeveragePools(props: {
+  async function updateLeveragePool(props: {
     deposit_pool_address: string
     borrow_pool_address: string
     market: string
@@ -77,7 +76,6 @@ export const useMarketsStore = defineStore('markets', () => {
       ...state.markets[market]!,
       leveragePools: updatedMarketPools,
     }
-    console.log('%c[Updated leverage pool]', 'color: #FFB726', newPoolData)
   }
 
   async function getMarketsList() {
@@ -149,8 +147,8 @@ export const useMarketsStore = defineStore('markets', () => {
     poolActionType,
     poolActiveAddress,
 
-    updatePools,
-    updateLeveragePools,
+    updatePool,
+    updateLeveragePool,
 
   }
 })

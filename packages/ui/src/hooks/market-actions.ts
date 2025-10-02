@@ -397,7 +397,7 @@ export function useMarketActions() {
 
   async function reloadData(pool_address: string, market: string, client: StellarClient, action?: () => void | Promise<void>) {
     await Promise.all([
-      marketsStore.updatePools(pool_address, market, client),
+      marketsStore.updatePool(pool_address, market, client),
       wallet.loadBalances(),
       userStore.updateUserObligation(market, client),
       action?.(),

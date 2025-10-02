@@ -8,6 +8,8 @@ onMounted(() => {
         body.style.opacity = '1'
       }
     })
+    const { start } = useSmartReloader()
+    start()
   }
 })
 </script>

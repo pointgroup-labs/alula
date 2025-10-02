@@ -49,7 +49,6 @@ export const useUserStore = defineStore('user', () => {
         return
       }
       state.obligations[market] = await client.marketSdk.getUserObligation(wallet.publicKey)
-      console.log(`%c[Update ${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
       loading.value = false
     }
@@ -67,7 +66,6 @@ export const useUserStore = defineStore('user', () => {
         return
       }
       state.multiplyObligations[props.market] = await props.client.marketSdk.getUserMultiplyObligation(wallet.publicKey, props.depositPoolAddress, props.borrowPoolAddress)
-      console.log(`%c[Update ${props.market} market multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[props.market])
     } finally {
       loading.value = false
     }
