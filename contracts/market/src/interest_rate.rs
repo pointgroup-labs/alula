@@ -1,6 +1,3 @@
-//! `JLend` for now uses kinked interest rates.
-//! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
-
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Env, contracttype};
 
@@ -57,7 +54,7 @@ impl Pool {
             return Ok(());
         }
 
-        let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
+        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let current_borrow_apr = self
             .config
@@ -66,7 +63,7 @@ impl Pool {
         let accrual_multiplier = self
             .config
             .accrual_model
-            .calculate_multiplier(current_borrow_apr, seconds_passed)?;
+            .compute_multiplier(current_borrow_apr, seconds_passed)?;
 
         let new_total_borrowed = self
             .total_borrowed
@@ -81,11 +78,12 @@ impl Pool {
             .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
 
-        self.accumulated_reserve_fees = self
+        let new_accumulated_reserve_fees = self
             .accumulated_reserve_fees
             .checked_add(accrued_to_reserve)
             .map_over_or_underflow()?;
 
+        self.accumulated_reserve_fees = new_accumulated_reserve_fees;
         self.total_borrowed = new_total_borrowed;
         self.last_accrual_timestamp = current_timestamp;
 
@@ -93,7 +91,7 @@ impl Pool {
     }
 
     pub fn get_apr(&self) -> Result<AnnualPercentageRates, MCError> {
-        let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
+        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let borrow_apr_bps = self
             .config
@@ -105,7 +103,7 @@ impl Pool {
     }
 
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
-        let utilization_ratio_bps = self.calculate_utilization_ratio_bps()?;
+        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let borrow_apr = self
             .config
@@ -118,11 +116,11 @@ impl Pool {
         let borrow_apy_multiplier = self
             .config
             .accrual_model
-            .calculate_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
+            .compute_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
         let supply_apy_multiplier = self
             .config
             .accrual_model
-            .calculate_multiplier(supply_apr, SECONDS_IN_YEAR)?;
+            .compute_multiplier(supply_apr, SECONDS_IN_YEAR)?;
 
         let borrow_apy_bps = multiplier_to_percentage_increase(borrow_apy_multiplier)?;
         let supply_apy_bps = multiplier_to_percentage_increase(supply_apy_multiplier)?;
@@ -135,7 +133,8 @@ impl Pool {
         Ok(apy)
     }
 
-    pub fn calculate_utilization_ratio_bps(&self) -> Result<i128, MCError> {
+    pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
+        // WARN: Is this a correct way to count UR now, when we have reserves?
         let total = self.total_supply()?;
 
         if total == 0 {

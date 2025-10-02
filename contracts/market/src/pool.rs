@@ -256,7 +256,7 @@ impl Pool {
     /// ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
         let total_supply = self.total_supply()?; // WARN: is likely a problem... or is it?
-        let utilization_ratio = self.calculate_utilization_ratio_bps()?;
+        let utilization_ratio = self.compute_utilization_ratio_bps()?;
 
         if utilization_ratio > self.config.health_config.utilization_ratio_limit_bps {
             // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time

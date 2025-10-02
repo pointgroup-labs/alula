@@ -41,11 +41,11 @@ impl Default for KinkedIRConfig {
 impl InterestRate for KinkedIRConfig {
     fn compute_borrow_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
         if utilization_ratio_bps < self.kink1_ur_bps {
-            self.calculate_pre_kink1_apr(utilization_ratio_bps)
+            self.compute_pre_kink1_apr(utilization_ratio_bps)
         } else if utilization_ratio_bps < self.kink2_ur_bps {
-            self.calculate_pre_kink2_apr(utilization_ratio_bps)
+            self.compute_pre_kink2_apr(utilization_ratio_bps)
         } else {
-            self.calculate_post_kink2_apr(utilization_ratio_bps)
+            self.compute_post_kink2_apr(utilization_ratio_bps)
         }
     }
 }
@@ -105,7 +105,7 @@ impl KinkedIRConfig {
     }
 
     /// Computes borrow `APR` if the utilization ratio precedes the first kink utilization ratio
-    fn calculate_pre_kink1_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
+    fn compute_pre_kink1_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
         // 'borrow_APR' = base_apr + (utilization_ratio_bps/kink1_ur_bps) * (kink1_apr_bps
         // - base_apr_bps)
         let kink1_base_diff_apr_bps = self.kink1_apr_bps - self.base_apr_bps; // safe
@@ -122,7 +122,7 @@ impl KinkedIRConfig {
     }
 
     /// Computes borrow `APR` if the utilization ratio precedes the second kink utilization ratio
-    fn calculate_pre_kink2_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
+    fn compute_pre_kink2_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
         // 'borrow_APR' = target_kink_apr + [(utilization_ratio_bps -
         // kink1_ur_bps)/(kink2_ur_bps - kink1_ur_bps)]*(kink2_apr - target_kink_apr)
         let ur_diff = utilization_ratio_bps - self.kink1_ur_bps; // safe
@@ -140,7 +140,7 @@ impl KinkedIRConfig {
         Ok(res)
     }
 
-    fn calculate_post_kink2_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
+    fn compute_post_kink2_apr(&self, utilization_ratio_bps: i128) -> Result<i128, MCError> {
         // `borrow_APR` = kink2_apr + [(utilization_ratio_bps - kink2_ur_bps)/(10_000 -
         // kink2_ur_bps)]*(max_apr - kink2_apr)
         let ur_diff = utilization_ratio_bps - self.kink2_ur_bps; // safe
