@@ -2,8 +2,13 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 
 use crate::{
-    accrual::AccrualModel, constants::*, error::MCError, events,
-    interest_rate_model::InterestRateModel, math_utils::MathUtils, oracle::get_asset_price,
+    accrual::AccrualModel,
+    constants::*,
+    error::MCError,
+    events,
+    interest_rate_model::{InterestRate, InterestRateModel},
+    math_utils::MathUtils,
+    oracle::get_asset_price,
     storage,
 };
 
@@ -520,24 +525,6 @@ impl Default for PoolFeeConfig {
     }
 }
 
-impl PoolFeeConfig {
-    pub fn validate(&self) -> Result<(), &str> {
-        let &Self {
-            deposit_fee_bps,
-            borrow_fee_bps,
-            add_collateral_fee_bps,
-            withdraw_fee_bps,
-            remove_collateral_fee_bps,
-            flash_loan_fee_bps,
-            take_rate_bps,
-            repay_fee_bps,
-            host_fee_bps,
-        } = self;
-
-        Ok(())
-    }
-}
-
 #[contracttype]
 #[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoolConfig {
@@ -549,8 +536,20 @@ pub struct PoolConfig {
 }
 
 impl PoolConfig {
-    pub fn validate(&self) -> Result<(), MCError> {
-        // todo!()
+    pub fn validate(&self) -> Result<(), &str> {
+        let PoolConfig {
+            health_config,
+            liquidation_config,
+            interest_rate_model,
+            ..
+        } = self;
+
+        // NB: Is there a reason to validate the fee config?
+
+        health_config.validate()?;
+        liquidation_config.validate()?;
+        interest_rate_model.validate()?;
+
         Ok(())
     }
 }
@@ -588,6 +587,44 @@ impl Default for PoolHealthConfig {
     }
 }
 
+impl PoolHealthConfig {
+    fn validate(&self) -> Result<(), &str> {
+        let &Self {
+            supply_limit,
+            utilization_ratio_limit_bps,
+            open_ltv_bps,
+            close_ltv_bps,
+            liability_factor_bps,
+        } = self;
+
+        if supply_limit < 0 {
+            return Err("Supply limit must be non-negative");
+        }
+
+        if !is_valid_percent(utilization_ratio_limit_bps) {
+            return Err("Utilization ratio limit must be between 0% and 100%");
+        }
+
+        if !(0..(100 * BPS_IN_PERCENT)).contains(&open_ltv_bps) {
+            return Err("Open LTV must be between 0% and 100%");
+        }
+
+        if !is_valid_percent(close_ltv_bps) {
+            return Err("Close LTV must be between 0% and 100%");
+        }
+
+        if close_ltv_bps < open_ltv_bps {
+            return Err("Open LTV mustn't be bigger than close LTV");
+        }
+
+        if !(0..(MAX_LIABILITY_FACTOR_BPS)).contains(&liability_factor_bps) {
+            return Err("Invalid liability factor");
+        }
+
+        Ok(())
+    }
+}
+
 #[contracttype]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct LiquidationConfig {
@@ -606,86 +643,24 @@ impl Default for LiquidationConfig {
     }
 }
 
-// #[contracttype]
-// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-// // NB: Soon, this config will likely become obsolete and will be
-// // replaced by a few adjacent configs
-// pub struct PoolConfig {
-//     /// Percentage of interest payments allocated to protocol reserves
-//     pub reserve_ratio_bps: i128,
-//     /// Maximum percentage of a borrower's debt that can be liquidated
-//     pub liquidation_close_factor_bps: i128,
-//     /// Additional discount given to liquidators when purchasing collateral
-//     pub liquidation_incentive_bps: i128,
-//     /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available`
-// + /// `total_borrowed`) 0 denotes unlimited supply pub supply_limit: i128, /// The maximum
-//   utilization ratio that is allowed to be reached via borrowing pub utilization_ratio_limit_bps:
-//   i128, /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g,
-//   7000
-// =     /// 70%, etc) with respect to a total obligation's collateral value
-//     pub open_ltv_bps: i128,
-//     /// The maximum percentage of an asset's value that can be held in an individual obligation
-// in     /// basis points with respect to a total obligation's collateral value. LTV greater than
-//     /// that makes borrow position eligible to liquidation
-//     pub close_ltv_bps: i128,
-//     /// The factor used to calculate the current borrow limit by multiplying the collateral value
-//     /// by it before subtracting this value from the obligation's max borrow limit. Volatile
-//     /// assets' pools are expected to have this value set way above 100%
-//     pub liability_factor_bps: i128,
-// }
+impl LiquidationConfig {
+    fn validate(&self) -> Result<(), &str> {
+        let &Self {
+            liquidation_close_factor_bps,
+            liquidation_incentive_bps,
+        } = self;
 
-// impl PoolConfig {
-//     pub fn validate(&self) -> Result<(), &str> {
-//         let &PoolConfig {
-//             reserve_ratio_bps,
-//             liquidation_close_factor_bps,
-//             liquidation_incentive_bps,
-//             supply_limit,
-//             utilization_ratio_limit_bps,
-//             open_ltv_bps,
-//             close_ltv_bps,
-//             liability_factor_bps,
-//         } = self;
+        if !is_valid_percent(liquidation_close_factor_bps) {
+            return Err("Liquidation close factor must be between 0% and 100%");
+        }
 
-//         if supply_limit < 0 {
-//             return Err("Supply limit must be non-negative");
-//         }
+        if !is_valid_percent(liquidation_incentive_bps) {
+            return Err("Liquidation incentive must be between 0% and 100%");
+        }
 
-//         if !is_valid_percent(utilization_ratio_limit_bps) {
-//             return Err("Utilization ratio limit must be between 0% and 100%");
-//         }
-
-//         if !is_valid_percent(reserve_ratio_bps) {
-//             return Err("Reserve ratio must be between 0% and 100%");
-//         }
-
-//         if !is_valid_percent(liquidation_close_factor_bps) {
-//             return Err("Liquidation close factor must be between 0% and 100%");
-//         }
-
-//         if !is_valid_percent(liquidation_incentive_bps) {
-//             return Err("Liquidation incentive must be between 0% and 100%");
-//         }
-
-//         if !(0..(100 * BPS_IN_PERCENT)).contains(&open_ltv_bps) {
-//             return Err("Open LTV must be between 0% and 100%");
-//         }
-
-//         if !is_valid_percent(close_ltv_bps) {
-//             return Err("Close LTV must be between 0% and 100%");
-//         }
-
-//         if close_ltv_bps < open_ltv_bps {
-//             return Err("Open LTV mustn't be bigger than close LTV");
-//         }
-
-//         if !(0..(MAX_LIABILITY_FACTOR * BPS_IN_PERCENT)).contains(&liability_factor_bps) {
-//             return Err("Invalid liability factor");
-//         }
-
-//         Ok(())
-//     }
-// }
+        Ok(())
+    }
+}
 
 fn is_valid_percent(value: i128) -> bool {
     (0..=100 * BPS_IN_PERCENT).contains(&value)
