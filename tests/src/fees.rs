@@ -564,15 +564,6 @@ fn redeem_market_fees() {
     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
     let pool_balance_before = usdc_token_client.balance(&contract_id);
 
-    assert_eq!(
-        contract_client.try_redeem_accumulated_market_fees(
-            &contract_admin,
-            &usdc_pool_address,
-            &(pool_market_fees + 1),
-        ),
-        Err(Ok(MCError::NotEnoughAccumulatedMarketFees))
-    );
-
     contract_client.redeem_accumulated_market_fees(
         &contract_admin,
         &usdc_pool_address,
@@ -625,15 +616,6 @@ fn redeem_host_fees() {
 
     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
     let pool_balance_before = usdc_token_client.balance(&contract_id);
-
-    assert_eq!(
-        contract_client.try_redeem_accumulated_host_fees(
-            &contract_admin,
-            &usdc_pool_address,
-            &(pool_host_fees + 1),
-        ),
-        Err(Ok(MCError::NotEnoughAccumulatedHostFees))
-    );
 
     contract_client.redeem_accumulated_host_fees(
         &contract_admin,

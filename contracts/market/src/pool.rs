@@ -252,23 +252,6 @@ impl Pool {
         Ok(())
     }
 
-    pub fn require_available_market_fees(&self, required: i128) -> Result<(), MCError> {
-        if required > self.accumulated_market_fees {
-            return Err(MCError::NotEnoughAccumulatedMarketFees);
-        }
-
-        Ok(())
-    }
-
-    // TODO: Cap fees?
-    pub fn require_available_host_fees(&self, required: i128) -> Result<(), MCError> {
-        if required > self.accumulated_host_fees {
-            return Err(MCError::NotEnoughAccumulatedHostFees);
-        }
-
-        Ok(())
-    }
-
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {

@@ -897,6 +897,50 @@ pub fn process_liquidate(
     Ok(())
 }
 
+pub fn process_redeem_accumulated_host_fees(
+    e: &Env,
+    user: &Address,
+    pool_address: &Address,
+    amount: i128,
+) -> Result<(), MCError> {
+    let mut pool = Pool::try_get(&e, &pool_address)?;
+
+    let fees_to_be_redeemed = i128::min(amount, pool.accumulated_host_fees);
+
+    pool.adjust_accumulated_host_fees(
+        &e,
+        fees_to_be_redeemed.checked_neg().map_over_or_underflow()?,
+    )?;
+    pool.set(&e);
+
+    let token_client = token::Client::new(&e, &pool.token_address);
+    token_client.transfer(&e.current_contract_address(), &user, &fees_to_be_redeemed);
+
+    Ok(())
+}
+
+pub fn process_redeem_accumulated_market_fees(
+    e: &Env,
+    user: &Address,
+    pool_address: &Address,
+    amount: i128,
+) -> Result<(), MCError> {
+    let mut pool = Pool::try_get(&e, &pool_address)?;
+
+    let fees_to_be_redeemed = i128::min(amount, pool.accumulated_market_fees);
+
+    pool.adjust_accumulated_market_fees(
+        &e,
+        fees_to_be_redeemed.checked_neg().map_over_or_underflow()?,
+    )?;
+    pool.set(&e);
+
+    let token_client = token::Client::new(&e, &pool.token_address);
+    token_client.transfer(&e.current_contract_address(), &user, &fees_to_be_redeemed);
+
+    Ok(())
+}
+
 pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
     e: &Env,
     obligation_key: ObligationKey,
@@ -914,8 +958,6 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
 
             MCError::InternalError
         })?;
-
-        // 35k dTokens..
 
         let obligation_pool_debt = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
         let available_reserve_fees = pool.available_accumulated_reserve_fees();
@@ -976,6 +1018,7 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
         pool.set(e);
     }
 
+    // TODO: Check if removing the obligation is the only way to move on after bad debt
     obligation.remove(e, &obligation_key);
 
     Ok(())

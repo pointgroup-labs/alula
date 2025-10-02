@@ -1,23 +1,16 @@
-// use aggregated_oracle::PriceFeedClient;
-use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl, token};
+// use aggregated_oracle::PriceFeedClient; // TODO: Check why this breaks WASM build
+use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl};
 
 use crate::{
     error::MCError,
     events,
     helpers::require_admin,
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
-    math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
-    processors::{
-        process_add_collateral, process_borrow,
-        process_cover_obligation_bad_debt_and_socialize_any_remaining_loss, process_deposit,
-        process_deposit_with_leverage, process_flash_loan, process_initialize_multiply_pair,
-        process_initialize_pool, process_liquidate, process_remove_collateral, process_repay,
-        process_swap_exact_tokens, process_withdraw, process_withdraw_from_leveraged,
-    },
+    processors::*,
     storage::{self, GlobalState, get_global_state},
 };
 
@@ -407,16 +400,7 @@ impl MarketContract {
         let admin = get_global_state(&e).admin;
         admin.require_auth();
 
-        let mut pool = Pool::try_get(&e, &pool_address)?;
-        pool.require_available_market_fees(amount)?;
-
-        pool.adjust_accumulated_market_fees(&e, amount.checked_neg().map_over_or_underflow()?)?;
-        pool.set(&e);
-
-        let token_client = token::Client::new(&e, &pool.token_address);
-        token_client.transfer(&e.current_contract_address(), &user, &amount);
-
-        Ok(())
+        process_redeem_accumulated_market_fees(&e, &user, &pool_address, amount)
     }
 
     /// Redeems accumulated host fees
@@ -434,16 +418,7 @@ impl MarketContract {
         let host = get_global_state(&e).deployer;
         host.require_auth();
 
-        let mut pool = Pool::try_get(&e, &pool_address)?;
-        pool.require_available_host_fees(amount)?;
-
-        pool.adjust_accumulated_host_fees(&e, amount.checked_neg().map_over_or_underflow()?)?;
-        pool.set(&e);
-
-        let token_client = token::Client::new(&e, &pool.token_address);
-        token_client.transfer(&e.current_contract_address(), &user, &amount);
-
-        Ok(())
+        process_redeem_accumulated_host_fees(&e, &user, &pool_address, amount)
     }
 
     /// Covers fully or partially bad debt if it exists under a user obligation. Socializes all
@@ -532,8 +507,8 @@ impl MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<Obligation, MCError> {
-        let seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
-        let obligation_key = ObligationKey::new_with_seed(user, seed);
+        let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
+        let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
         obligation.accrue_interest(&e)?;
