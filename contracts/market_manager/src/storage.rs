@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype, panic_with_error};
+use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
 
 use crate::error::MMCError;
 

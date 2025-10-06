@@ -274,7 +274,7 @@ fn test_liquidate_self_fails() {
         &test.borrower,
         &test.test_fixture.usdc_pool_address,
         &test.test_fixture.gold_pool_address,
-        &&test.liquidation_amount_from_percentage(10),
+        &test.liquidation_amount_from_percentage(10),
     );
 
     assert_eq!(result, Err(Ok(MCError::SelfLiquidation)));
@@ -331,7 +331,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
         .with_mut(|li| li.timestamp += 2 * 360 * 24 * 60 * 60); // 2 years
 
     let total_debt =
-        get_obligation_d_tokens_as_tokens(&e, &contract_client, &borrower, &usdc_pool_address)
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
     let max_liquidation = (total_debt * DEFAULT_CLOSE_FACTOR_BPS) / BPS_FACTOR;
@@ -495,7 +495,7 @@ fn test_liquidate_same_pool_fails() {
         &test.borrower,
         &test.test_fixture.usdc_pool_address,
         &test.test_fixture.usdc_pool_address,
-        &&test.liquidation_amount_from_percentage(10),
+        &test.liquidation_amount_from_percentage(10),
     );
 
     assert_eq!(

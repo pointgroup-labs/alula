@@ -1,6 +1,5 @@
 use soroban_sdk::{
-    Address, Bytes, BytesN, Env, IntoVal as _, String, Vec, contract, contractclient, contractimpl,
-    xdr::ToXdr,
+    Address, Bytes, BytesN, Env, String, Vec, contract, contractclient, contractimpl, xdr::ToXdr,
 };
 
 use crate::{

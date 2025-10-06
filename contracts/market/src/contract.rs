@@ -1,5 +1,5 @@
 // use aggregated_oracle::PriceFeedClient; // TODO: Check why this breaks WASM build
-use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, Vec, contract, contractimpl};
+use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl};
 
 use crate::{
     error::MCError,
