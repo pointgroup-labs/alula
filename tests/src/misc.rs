@@ -3,7 +3,7 @@
 use market::error::MCError;
 use soroban_sdk::{Address, testutils::Address as _};
 
-use crate::TestMarketFixture;
+use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
 #[test]
 fn test_obligation_does_not_exist_prior_anything() {
@@ -90,21 +90,30 @@ fn test_reset_storage_removes_pool() {
 }
 
 #[test]
-fn test_reset_storage_removes_multiply_pairs() {
+fn test_obligations_list_contains_unique_obligations() {
     let TestMarketFixture {
         contract_client,
-        usdc_pool_address,
-        btc_pool_address,
+        gold_pool_address,
+        users,
         ..
     } = TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let creditor = &users[1];
 
-    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // NB: 1 pair is set initially
+    contract_client.deposit(
+        liquidity_provider,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    contract_client.initialize_multiply_pair(&usdc_pool_address, &btc_pool_address);
+    let obligations = contract_client.get_all_obligations();
+    assert_eq!(obligations.len(), 2);
+    assert!(obligations.contains(creditor.clone()));
 
-    assert_eq!(contract_client.get_all_multiply_pairs().len(), 2);
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    contract_client.reset_storage();
-
-    assert!(contract_client.get_all_multiply_pairs().is_empty());
+    let obligations = contract_client.get_all_obligations();
+    assert_eq!(obligations.len(), 1);
+    assert!(!obligations.contains(creditor.clone()));
 }

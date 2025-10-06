@@ -911,12 +911,12 @@ pub fn get_obligation_unpaid_interest(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let total_debt = get_obligation_d_tokens_as_tokens(e, contract_client, user, pool_address)?;
-    let borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
+    let initially_borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
 
-    if total_debt < borrowed {
+    if total_debt < initially_borrowed {
         return Err(MCError::InternalError);
     }
-    let unpaid_interest = total_debt - borrowed;
+    let unpaid_interest = total_debt - initially_borrowed;
 
     Ok(unpaid_interest)
 }

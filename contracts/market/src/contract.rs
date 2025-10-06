@@ -1,5 +1,5 @@
 // use aggregated_oracle::PriceFeedClient; // TODO: Check why this breaks WASM build
-use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl};
+use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, Vec, contract, contractimpl};
 
 use crate::{
     error::MCError,
@@ -537,9 +537,15 @@ impl MarketContract {
     }
 
     /// Returns a list of all user obligations in the protocol
-    pub fn get_all_obligations(e: Env) -> Vec<ObligationKey> {
-        // NB: There's no need to store obligation list
-        Obligation::get_all(&e)
+    pub fn get_all_obligations(e: Env) -> Vec<Address> {
+        let obligations_map = Obligation::get_all(&e);
+
+        let mut obligations_vec = Vec::new(&e);
+        for (obligation_addr, _) in obligations_map {
+            obligations_vec.push_back(obligation_addr.user)
+        }
+
+        obligations_vec
     }
 
     /// Returns the specific multiply pair

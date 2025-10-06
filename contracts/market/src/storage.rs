@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, String, Vec, contracttype};
+use soroban_sdk::{Address, Env, Map, String, Vec, contracttype};
 
 use crate::{
     constants::*,
@@ -235,23 +235,22 @@ pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
 }
 
 /// Registers a new obligation key in the contract storage and returns its index
-pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) -> u32 {
+pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) {
     let storage = e.storage().persistent();
     let mut obligations = get_all_obligations(e);
-    obligations.push_back(obligation_key.clone());
+    obligations.set(obligation_key.clone(), ());
     storage.set(&DataKey::AllObligations, &obligations);
     extend_shared_storage(e, &DataKey::AllObligations);
-    obligations.len() + 1
 }
 
 /// Gets all obligation keys stored in the contract
-pub fn get_all_obligations(e: &Env) -> Vec<ObligationKey> {
+pub fn get_all_obligations(e: &Env) -> Map<ObligationKey, ()> {
     let storage = e.storage().persistent();
     if let Some(obligations) = storage.get(&DataKey::AllObligations) {
         extend_shared_storage(e, &DataKey::AllObligations);
         obligations
     } else {
-        Vec::new(e)
+        Map::new(e)
     }
 }
 
@@ -306,8 +305,9 @@ pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
     let storage = e.storage().persistent();
     storage.remove(&DataKey::Obligation(obligation_key.clone()));
     let mut obligations = get_all_obligations(e);
-    if let Some(idx) = obligations.last_index_of(obligation_key) {
-        obligations.remove(idx);
+
+    if obligations.contains_key(obligation_key.clone()) {
+        obligations.remove(obligation_key.clone());
         storage.set(&DataKey::AllObligations, &obligations);
     }
 }
@@ -316,7 +316,7 @@ pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
 /// Also clears the list of all obligations
 pub fn remove_all_obligations(e: &Env) {
     let storage = e.storage().persistent();
-    for key in get_all_obligations(e) {
+    for (key, _) in get_all_obligations(e) {
         storage.remove(&DataKey::Obligation(key));
     }
     storage.remove(&DataKey::AllObligations);

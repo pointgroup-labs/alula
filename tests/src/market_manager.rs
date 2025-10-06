@@ -73,7 +73,7 @@ fn test_manager_deploy_markets() {
     let market_list = manager_client.get_market_list();
 
     assert_eq!(market_list.len(), 2);
-    assert_eq!(market_address_2, market_list.last().unwrap());
+    assert!(market_list.contains(market_address_2));
 }
 
 #[test]

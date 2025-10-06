@@ -464,7 +464,7 @@ pub fn obligation_is_unexpectedly_empty(
 /// - topics - `["obligation_unexpectedly_empty"], pool_address: Address]` Address]`
 /// - data - `[shares: i128, tokens_from_shares: i128, calculated_interest: i128,
 ///   tokens_from_all_shares: i128]`
-pub fn calculated_interest_is_negative(
+pub fn computed_interest_is_negative(
     e: &Env,
     pool_address: &Address,
     shares: i128,
