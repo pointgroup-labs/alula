@@ -261,8 +261,6 @@ impl TestMarketFixture<'_> {
     pub fn pass_time(&self, seconds: u64) {
         self.e.ledger().with_mut(|li| {
             li.timestamp = li.timestamp.saturating_add(seconds);
-            // NB: Adjusting sequence_number leads to state archival
-            // li.sequence_number = li.sequence_number.saturating_add(amount / SECONDS_PER_LEDGER);
         });
     }
 
@@ -306,7 +304,7 @@ impl TestMarketFixture<'_> {
             .map(|client| client.balance(contract_id))
             .collect::<Vec<_>>();
 
-        let contract_balances = pools.iter().map(|pool| pool.total_supply().unwrap());
+        let contract_balances = pools.iter().map(|pool| pool.total_available);
 
         for (&token_balance, contract_balance) in token_balances.iter().zip(contract_balances) {
             assert!(token_balance >= contract_balance);
@@ -319,11 +317,12 @@ impl TestMarketFixture<'_> {
             .iter()
             .max_by(|x, y| x.total_available.cmp(&y.total_available))
             .unwrap()
-            .total_available;
+            .total_available_minus_accumulated_reserve_fees()
+            .unwrap();
 
-        usdc_sac.mint(&new_borrower, &collateral_amount);
-        btc_sac.mint(&new_borrower, &collateral_amount);
-        gold_sac.mint(&new_borrower, &collateral_amount);
+        usdc_sac.mint(&new_borrower, &(2 * collateral_amount));
+        btc_sac.mint(&new_borrower, &(2 * collateral_amount));
+        gold_sac.mint(&new_borrower, &(2 * collateral_amount));
 
         for pool in &pools {
             let available_borrow = pool
@@ -346,6 +345,7 @@ impl TestMarketFixture<'_> {
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
 
             contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
+
             contract_client.remove_collateral(
                 &new_borrower,
                 &pool.token_address,
@@ -462,7 +462,8 @@ pub enum Command {
     JerryWithdrawFromLeveraged(WithdrawFromLeveraged),
     ButchWithdrawFromLeveraged(WithdrawFromLeveraged),
     NibblesWithdrawFromLeveraged(WithdrawFromLeveraged),
-    PassTime(PassTime),
+
+    AllPassTime(PassTime),
 }
 
 impl Command {
@@ -510,15 +511,15 @@ impl Command {
             NibblesWithdrawCollateral(command) => command.run(test_fixture, 3),
             NibblesDepositWithLeverage(command) => command.run(test_fixture, 3),
             NibblesWithdrawFromLeveraged(command) => command.run(test_fixture, 3),
-            // PassTime
-            PassTime(command) => command.run(test_fixture, 0),
+            // All
+            AllPassTime(command) => command.run(test_fixture, 0),
         }
     }
 }
 
 #[derive(Arbitrary, Debug)]
 pub struct Amount(
-    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u64::MAX as i128)))] pub i128,
+    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u32::MAX as i128)))] pub i128,
 );
 
 #[derive(Arbitrary, Debug)]

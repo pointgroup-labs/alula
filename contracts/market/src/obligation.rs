@@ -506,14 +506,14 @@ impl Obligation {
 
         if received_interest < 0 {
             // TODO: Fix event
-            // events::calculated_interest_is_negative(
-            //     e,
-            //     pool_address,
-            //     j_tokens_burnt,
-            //     withdrawn_tokens,
-            //     received_interest,
-            //     all_j_tokens_as_tokens,
-            // );
+            events::computed_interest_is_negative(
+                e,
+                &pool.pool_address,
+                j_tokens_to_burn,
+                100,
+                received_interest,
+                all_deposit,
+            );
 
             // received_interest = 0; // TODO: Investigate why this happens
             return Err(MCError::InternalError);
@@ -635,14 +635,14 @@ impl Obligation {
             .map_over_or_underflow()?;
         if unpaid_interest < 0 {
             // TODO: fix event
-            // events::calculated_interest_is_negative(
-            //     e,
-            //     &pool.pool_address,
-            //     d_tokens_to_burn,
-            //     100,
-            //     unpaid_interest,
-            //     all_debt,
-            // );
+            events::computed_interest_is_negative(
+                e,
+                &pool.pool_address,
+                d_tokens_to_burn,
+                100,
+                unpaid_interest,
+                all_debt,
+            );
 
             // unpaid_interest = 0; // TODO: Investigate why this happens
             return Err(MCError::InternalError);
