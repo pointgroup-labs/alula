@@ -1,8 +1,11 @@
 use soroban_sdk::{Address, Env, String, Symbol};
 
-use crate::obligation::{
-    AddCollateralResult, BorrowResult, DepositResult, ObligationKey, RemoveCollateralResult,
-    RepayResult, WithdrawResult,
+use crate::{
+    obligation::{
+        AddCollateralResult, BorrowResult, DepositResult, ObligationKey, RemoveCollateralResult,
+        RepayResult, WithdrawResult,
+    },
+    pool::Pool,
 };
 
 // ---- Contract's Methods Events ----
@@ -437,6 +440,17 @@ pub fn pool_total_shares_smaller_than_total_tokens(
         "pool_total_shares_smaller_than_total_tokens",
     ),);
     let data = (total_shares, total_tokens);
+
+    e.events().publish(topics, data);
+}
+
+/// Emitted when pool state becomes generally inconsistent
+///
+/// - topics - `["pool_contains_inconsistent_state"]`
+/// - data - `[pool: Pool]`
+pub fn pool_contains_inconsistent_state(e: &Env, pool: &Pool) {
+    let topics = (Symbol::new(e, "pool_contains_inconsistent_state"),);
+    let data = (pool.clone(),);
 
     e.events().publish(topics, data);
 }

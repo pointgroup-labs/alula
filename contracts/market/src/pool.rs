@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[contracttype]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Pool {
     /// The address of the loan pool
     pub pool_address: Address,
@@ -234,7 +234,7 @@ impl Pool {
         removed_available_amount: i128,
     ) -> Result<(), MCError> {
         let max_available_amount_to_remove =
-            Self::compute_available_utilization_ratio_cap_borrow(self, e)?;
+            Self::compute_available_utilization_ratio_cap_remove_collateral(self, e)?;
 
         if self.compute_utilization_ratio_bps()? != 0
             && removed_available_amount > max_available_amount_to_remove
@@ -280,17 +280,21 @@ impl Pool {
             return Ok(0);
         }
 
-        if utilization_ratio == 0 {
-            Ok(total_supply)
-        } else {
-            // NB: These are likely the same
-            let available_percentage_to_withdraw_bps =
-                self.config.health_config.utilization_ratio_limit_bps - utilization_ratio; // safe
+        let available_percentage_to_withdraw_bps =
+            self.config.health_config.utilization_ratio_limit_bps; // safe
 
-            total_borrowed
-                .fixed_div_ceil(available_percentage_to_withdraw_bps, BPS_FACTOR)
-                .map_over_or_underflow()
+        let diff = total_borrowed
+            .fixed_div_ceil(available_percentage_to_withdraw_bps, BPS_FACTOR)
+            .map_over_or_underflow()?;
+
+        if total_supply < diff {
+            // TODO: Make it more specific?
+            events::pool_contains_inconsistent_state(e, &self);
+
+            return Err(MCError::InternalError);
         }
+
+        Ok(total_supply - diff)
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization

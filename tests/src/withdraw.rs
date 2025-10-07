@@ -330,23 +330,13 @@ fn test_remove_all_with_i128_max() {
 
 #[test]
 fn test_withdraw_exceeds_utilization_cap() {
-    const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
-
-    let pool_config = PoolConfig {
-        health_config: PoolHealthConfig {
-            utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-
     let TestMarketFixture {
         contract_client,
         gold_pool_address,
         usdc_pool_address,
         users,
         ..
-    } = TestMarketFixture::new_with_pool_config(pool_config);
+    } = TestMarketFixture::new();
     let creditor = &users[0];
     let borrower = &users[1];
 
@@ -365,7 +355,7 @@ fn test_withdraw_exceeds_utilization_cap() {
         contract_client.try_withdraw(
             creditor,
             &usdc_pool_address,
-            &(81 * DEFAULT_DEPOSIT_AMOUNT / 100), // 10% + 81% > 90%
+            &(89 * DEFAULT_DEPOSIT_AMOUNT / 100),
         ),
         Err(Ok(MCError::PoolUtilizationRatioCapExceeded))
     );
@@ -374,7 +364,7 @@ fn test_withdraw_exceeds_utilization_cap() {
             .try_withdraw(
                 creditor,
                 &usdc_pool_address,
-                &(8 * DEFAULT_DEPOSIT_AMOUNT / 10), // 90%
+                &(88 * DEFAULT_DEPOSIT_AMOUNT / 100),
             )
             .is_ok()
     );
@@ -449,4 +439,3 @@ fn remove_collateral_up_to_open_ltv() {
 }
 
 // TODO: Add time passing test
-// TODO: Add withdraw UR cap test

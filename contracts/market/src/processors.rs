@@ -340,7 +340,6 @@ pub fn process_withdraw(
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
-    // NB: Accruing interest on an obligation must precede pool retrieval
     obligation.accrue_interest(e)?;
     let mut pool = Pool::try_get(e, pool_address)?;
 
