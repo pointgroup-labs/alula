@@ -289,7 +289,7 @@ impl Pool {
 
         if total_supply < diff {
             // TODO: Make it more specific?
-            events::pool_contains_inconsistent_state(e, &self);
+            events::pool_contains_inconsistent_state(e, self);
 
             return Err(MCError::InternalError);
         }
