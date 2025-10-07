@@ -14,7 +14,7 @@ impl Contract {
 
         e.events().publish(topics, data);
 
-        let requires_sent_back = timestamp % 2 != 0;
+        let requires_sent_back = !timestamp.is_multiple_of(2);
 
         user.require_auth();
 
