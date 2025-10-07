@@ -198,7 +198,7 @@ fn test_repay_unpaid_interest_only() {
 }
 
 #[test]
-fn test_repay_all_with_i128_max() {
+fn test_repay_all_with_bigger_than_debt_value() {
     let TestMarketFixture {
         contract_client,
         usdc_pool_address,
@@ -210,10 +210,18 @@ fn test_repay_all_with_i128_max() {
     let loan_provider = &users[1];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        loan_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+    );
 
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-    contract_client.repay(borrower, &usdc_pool_address, &i128::MAX);
+    contract_client.repay(
+        borrower,
+        &usdc_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT / 2), // x3 or borrowed amount
+    );
 
     assert_eq!(
         get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address),
@@ -226,5 +234,5 @@ fn test_repay_all_with_i128_max() {
 
     assert_eq!(pool_total_d_tokens, 0);
     assert_eq!(pool_total_borrowed, 0);
-    assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(pool_total_available, (2 * DEFAULT_DEPOSIT_AMOUNT));
 }

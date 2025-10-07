@@ -228,7 +228,24 @@ impl Pool {
         Ok(())
     }
 
-    pub fn require_preserves_utilization_ratio_cap(
+    pub fn require_remove_collateral_preserves_ur_cap(
+        &self,
+        e: &Env,
+        removed_available_amount: i128,
+    ) -> Result<(), MCError> {
+        let max_available_amount_to_remove =
+            Self::compute_available_utilization_ratio_cap_borrow(self, e)?;
+
+        if self.compute_utilization_ratio_bps()? != 0
+            && removed_available_amount > max_available_amount_to_remove
+        {
+            return Err(MCError::PoolUtilizationRatioCapExceeded);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_borrow_preserves_ur_cap(
         &self,
         e: &Env,
         removed_available_amount: i128,
@@ -241,6 +258,39 @@ impl Pool {
         }
 
         Ok(())
+    }
+
+    /// Computes the maximum available amount for collateral removal that doesn't exceed the utilization
+    /// ratio limit on a pool
+    pub fn compute_available_utilization_ratio_cap_remove_collateral(
+        &self,
+        e: &Env,
+    ) -> Result<i128, MCError> {
+        let total_borrowed = self.total_borrowed;
+        let total_supply = self.total_supply()?; // WARN: Investigate how reserves affect UR
+        let utilization_ratio = self.compute_utilization_ratio_bps()?;
+
+        if utilization_ratio > self.config.health_config.utilization_ratio_limit_bps {
+            events::utilization_ratio_exceeds_limit(
+                e,
+                utilization_ratio,
+                self.config.health_config.utilization_ratio_limit_bps,
+            );
+
+            return Ok(0);
+        }
+
+        if utilization_ratio == 0 {
+            Ok(total_supply)
+        } else {
+            // NB: These are likely the same
+            let available_percentage_to_withdraw_bps =
+                self.config.health_config.utilization_ratio_limit_bps - utilization_ratio; // safe
+
+            total_borrowed
+                .fixed_div_ceil(available_percentage_to_withdraw_bps, BPS_FACTOR)
+                .map_over_or_underflow()
+        }
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization

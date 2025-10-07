@@ -291,7 +291,7 @@ impl Obligation {
 
             let numerator = value_left;
             let denominator = asset_price
-                .fixed_mul_floor(scalar_bps, BPS_FACTOR)
+                .fixed_mul_ceil(scalar_bps, BPS_FACTOR)
                 .map_over_or_underflow()?;
 
             numerator.checked_div(denominator).map_over_or_underflow()?
@@ -403,7 +403,7 @@ impl Obligation {
             self.compute_max_healthy_debt_added_amount(e, pool)?;
         let real_borrowed_amount = i128::min(max_healthy_borrow_added_amount, original_amount);
 
-        pool.require_preserves_utilization_ratio_cap(e, real_borrowed_amount)?;
+        pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
         // WARN: This can potentially create a borrow obligation with 0ed fields
         let mut borrow_obligation = self
@@ -485,7 +485,7 @@ impl Obligation {
             self.compute_max_healthy_collateral_removed_amount(e, pool)?;
         let deposit_decrease = i128::min(original_amount, max_healthy_withdrawn_amount);
 
-        pool.require_preserves_utilization_ratio_cap(e, deposit_decrease)?;
+        pool.require_remove_collateral_preserves_ur_cap(e, deposit_decrease)?;
 
         let computed_fees = compute_fees(
             deposit_decrease,
@@ -617,6 +617,7 @@ impl Obligation {
         let amount_to_repay_all_debt = all_debt
             .checked_add(all_debt_fees)
             .map_over_or_underflow()?;
+
         let amount_to_take_from_borrower = i128::min(original_amount, amount_to_repay_all_debt);
 
         let computed_fees = compute_fees(
@@ -630,7 +631,7 @@ impl Obligation {
             .map_over_or_underflow()?;
         let d_tokens_to_burn = pool.compute_d_tokens_from_tokens(e, debt_decrease)?;
 
-        let unpaid_interest = all_debt
+        let unpaid_interest: i128 = all_debt
             .checked_sub(borrow_obligation.borrowed)
             .map_over_or_underflow()?;
         if unpaid_interest < 0 {
@@ -662,10 +663,16 @@ impl Obligation {
                 .set(pool.pool_address.clone(), borrow_obligation);
         }
 
+        let amount_to_send_back = if amount_to_take_from_borrower < original_amount {
+            original_amount - amount_to_take_from_borrower
+        } else {
+            0
+        };
+
         Ok(RepayResult {
             d_tokens_to_burn,
             debt_repaid: debt_decrease,
-            amount_to_take_from_borrower,
+            amount_to_send_back,
             computed_fees,
         })
     }
@@ -1145,6 +1152,7 @@ pub fn compute_fees(
 }
 
 #[contracttype]
+#[derive(Clone)]
 /// Generally represents computed fees issued by any possible operation on a market
 pub struct ComputedFees {
     /// Sum of `market_fee` and `host_fee`
@@ -1199,14 +1207,15 @@ pub struct WithdrawResult {
 }
 
 #[contracttype]
+#[derive(Clone)]
 /// [`Obligation::repay`] resulting data
 pub struct RepayResult {
     /// Amount of `dTokens` to issue that represent the `real_repaid` amount in the pool
     pub d_tokens_to_burn: i128,
     /// Amount of the debt that is repaid
     pub debt_repaid: i128,
-    /// Amount that is taken from the borrower
-    pub amount_to_take_from_borrower: i128,
+    /// Excess amount given by the borrower that is sent back
+    pub amount_to_send_back: i128,
     pub computed_fees: ComputedFees,
 }
 
