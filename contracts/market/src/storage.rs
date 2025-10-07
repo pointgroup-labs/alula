@@ -234,7 +234,7 @@ pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     res
 }
 
-/// Registers a new obligation key in the contract storage and returns its index
+/// Registers a new obligation key in the contract storage
 pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) {
     let storage = e.storage().persistent();
     let mut obligations = get_all_obligations(e);
@@ -306,10 +306,8 @@ pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
     storage.remove(&DataKey::Obligation(obligation_key.clone()));
     let mut obligations = get_all_obligations(e);
 
-    if obligations.contains_key(obligation_key.clone()) {
-        obligations.remove(obligation_key.clone());
-        storage.set(&DataKey::AllObligations, &obligations);
-    }
+    obligations.remove(obligation_key.clone());
+    storage.set(&DataKey::AllObligations, &obligations);
 }
 
 /// Removes all obligations from the contract storage

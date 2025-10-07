@@ -260,8 +260,8 @@ impl Pool {
         Ok(())
     }
 
-    /// Computes the maximum available amount for collateral removal that doesn't exceed the utilization
-    /// ratio limit on a pool
+    /// Computes the maximum available amount for collateral removal that doesn't exceed the
+    /// utilization ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_remove_collateral(
         &self,
         e: &Env,

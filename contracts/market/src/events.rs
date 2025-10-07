@@ -365,10 +365,13 @@ pub fn pool_is_missing_in_storage(e: &Env, pool_address: &Address) {
 /// Emitted when an attempt is made to interact with an obligation that does not exist in storage.
 /// This indicates a potential issue with the user address or a data inconsistency
 ///
-/// - topics - `["obligation_is_missing_in_storage", user: Address]`
+/// - topics - `["obligation_is_missing_in_storage", obligation_key: ObligationKey]`
 /// - data - `[]`
-pub fn obligation_is_missing_in_storage(e: &Env, user: &Address) {
-    let topics = (Symbol::new(e, "obligation_is_missing_in_storage"), user);
+pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
+    let topics = (
+        Symbol::new(e, "obligation_is_missing_in_storage"),
+        obligation_key.clone(),
+    );
     let data = ();
 
     e.events().publish(topics, data);
@@ -461,7 +464,7 @@ pub fn obligation_is_unexpectedly_empty(
 /// Emitted when calculated interest(either for borrow or supply position) is negative. This is a
 /// severe invariant breakage
 ///
-/// - topics - `["obligation_unexpectedly_empty"], pool_address: Address]` Address]`
+/// - topics - `["computed_interest_is_negative"], pool_address: Address]` Address]`
 /// - data - `[shares: i128, tokens_from_shares: i128, calculated_interest: i128,
 ///   tokens_from_all_shares: i128]`
 pub fn computed_interest_is_negative(
@@ -469,17 +472,17 @@ pub fn computed_interest_is_negative(
     pool_address: &Address,
     shares: i128,
     tokens_from_shares: i128,
-    calculated_interest: i128,
+    computed_interest: i128,
     tokens_from_all_shares: i128,
 ) {
     let topics = (
-        Symbol::new(e, "calculated_interest_is_negative"),
+        Symbol::new(e, "computed_interest_is_negative"),
         pool_address,
     );
     let data = (
         shares,
         tokens_from_shares,
-        calculated_interest,
+        computed_interest,
         tokens_from_all_shares,
     );
 

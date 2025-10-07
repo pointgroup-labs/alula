@@ -90,6 +90,26 @@ fn test_reset_storage_removes_pool() {
 }
 
 #[test]
+fn test_reset_storage_removes_multiply_pairs() {
+    let TestMarketFixture {
+        contract_client,
+        usdc_pool_address,
+        btc_pool_address,
+        ..
+    } = TestMarketFixture::new();
+
+    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // NB: 1 pair is set initially
+
+    contract_client.initialize_multiply_pair(&usdc_pool_address, &btc_pool_address);
+
+    assert_eq!(contract_client.get_all_multiply_pairs().len(), 2);
+
+    contract_client.reset_storage();
+
+    assert!(contract_client.get_all_multiply_pairs().is_empty());
+}
+
+#[test]
 fn test_obligations_list_contains_unique_obligations() {
     let TestMarketFixture {
         contract_client,

@@ -75,7 +75,7 @@ impl MarketManager for MarketManagerContract {
 
         // TODO: Should we do it like this or like Blend does it?
         let mut seed = Bytes::new(&e);
-        seed.extend_from_slice(admin.to_xdr(&e).to_buffer::<56>().as_slice());
+        seed.extend_from_slice(admin.to_xdr(&e).to_buffer::<40>().as_slice());
         seed.extend_from_array(&salt.to_array());
         let new_salt = e.crypto().keccak256(&seed);
 

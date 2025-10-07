@@ -1,10 +1,6 @@
 #![cfg(test)]
 
-use market::{
-    constants::*,
-    error::MCError,
-    pool::{PoolConfig, PoolHealthConfig},
-};
+use market::{constants::*, error::MCError};
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
@@ -109,14 +105,6 @@ fn test_repay_zero() {
 
 #[test]
 fn test_repay_with_interest_accrual() {
-    let pool_config = PoolConfig {
-        health_config: PoolHealthConfig {
-            utilization_ratio_limit_bps: BPS_FACTOR,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-
     let TestMarketFixture {
         e,
         contract_client,
@@ -124,7 +112,7 @@ fn test_repay_with_interest_accrual() {
         gold_pool_address,
         users,
         ..
-    } = TestMarketFixture::new_with_pool_config(pool_config);
+    } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -220,7 +208,7 @@ fn test_repay_all_with_bigger_than_debt_value() {
     contract_client.repay(
         borrower,
         &usdc_pool_address,
-        &(3 * DEFAULT_DEPOSIT_AMOUNT / 2), // x3 or borrowed amount
+        &(3 * DEFAULT_DEPOSIT_AMOUNT / 2), // x3 of borrowed amount
     );
 
     assert_eq!(

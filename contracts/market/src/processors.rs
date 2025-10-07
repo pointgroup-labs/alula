@@ -271,15 +271,16 @@ pub fn process_repay(
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
-    // Since interest accrual happens each second, to sign a deterministic transfer from the borrower's account -
-    // 2 transfers take place: borrower => contract(original amount), contract => borrower(excess amount).
-    // See - <https://discord.com/channels/897514728459468821/1424779244189520145>
+    // Since interest accrual happens each second, to sign and to simulate a deterministic transfer
+    // from the borrower's account - 2 transfers take place: borrower => contract(original
+    // amount), contract => borrower(excess amount). See - <https://discord.com/channels/897514728459468821/1424779244189520145>
     token_client.transfer(
         &e.current_contract_address(),
         &obligation_key.user,
         &repay_result.amount_to_send_back,
     );
-    events::repay(e, pool_address, obligation_key, repay_result.clone());
+
+    events::repay(e, pool_address, obligation_key, repay_result);
 
     Ok(())
 }
@@ -573,7 +574,7 @@ pub fn process_deposit_with_leverage(
         .map_over_or_underflow()?;
 
     let obligation = Obligation::try_get(e, &obligation_key).map_err(|_| {
-        events::obligation_is_missing_in_storage(e, user);
+        events::obligation_is_missing_in_storage(e, &obligation_key);
 
         MCError::InternalError
     })?;

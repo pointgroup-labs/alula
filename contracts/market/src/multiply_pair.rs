@@ -170,8 +170,8 @@ impl MultiplyPair {
     ) -> BytesN<32> {
         let mut seed = Bytes::new(e);
         seed.extend_from_slice(MULTIPLY_PAIR_PREFIX.as_bytes());
-        seed.extend_from_slice(deposit_pool_address.to_xdr(e).to_buffer::<56>().as_slice());
-        seed.extend_from_slice(borrow_pool_address.to_xdr(e).to_buffer::<56>().as_slice());
+        seed.extend_from_slice(deposit_pool_address.to_xdr(e).to_buffer::<40>().as_slice());
+        seed.extend_from_slice(borrow_pool_address.to_xdr(e).to_buffer::<40>().as_slice());
         e.crypto().keccak256(&seed).into()
     }
 }

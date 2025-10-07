@@ -41,7 +41,7 @@ impl<'a> ManagerSetup<'a> {
 }
 
 #[test]
-fn test_manager_has_no_markets_after_deployment() {
+fn test_manager_has_no_markets_initially() {
     let ManagerSetup { manager_client, .. } = ManagerSetup::new();
 
     let market_addresses = manager_client.get_market_list();

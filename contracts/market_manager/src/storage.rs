@@ -37,7 +37,7 @@ pub fn get_market_contract_wasm_hash(e: &Env) -> BytesN<32> {
     e.storage()
         .instance()
         .get(&DataKey::MarketContractWasmHash)
-        .expect("Contract WASM hash must exist")
+        .expect("Market contract WASM hash must exist")
 }
 
 pub fn get_config(e: &Env) -> Config {

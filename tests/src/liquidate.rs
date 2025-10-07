@@ -29,14 +29,11 @@ impl LiquidationTest {
         let lender = test_fixture.users[1].clone();
         let liquidator = test_fixture.users[2].clone();
 
-        // Lender provides liquidity
         test_fixture.contract_client.deposit(
             &lender,
             &test_fixture.usdc_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT * 2),
         );
-
-        // Borrower deposits collateral and borrows (healthy position)
         test_fixture.contract_client.add_collateral(
             &borrower,
             &test_fixture.gold_pool_address,
@@ -63,7 +60,6 @@ impl LiquidationTest {
         let lender = test_fixture.users[1].clone();
         let liquidator = test_fixture.users[2].clone();
 
-        // Lender provides liquidity
         test_fixture.contract_client.deposit(
             &lender,
             &test_fixture.usdc_pool_address,
@@ -97,7 +93,6 @@ impl LiquidationTest {
         let lender = test_fixture.users[1].clone();
         let liquidator = test_fixture.users[2].clone();
 
-        // Lender provides liquidity
         test_fixture.contract_client.deposit(
             &lender,
             &test_fixture.usdc_pool_address,
@@ -189,7 +184,7 @@ impl LiquidationTest {
     }
 }
 
-// === Basic Liquidation Tests ===
+// -- Basic Liquidation Tests --
 
 #[test]
 fn test_liquidate_healthy_position_fails() {

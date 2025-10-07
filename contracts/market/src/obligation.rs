@@ -291,7 +291,7 @@ impl Obligation {
 
             let numerator = value_left;
             let denominator = asset_price
-                .fixed_mul_ceil(scalar_bps, BPS_FACTOR)
+                .fixed_mul_floor(scalar_bps, BPS_FACTOR)
                 .map_over_or_underflow()?;
 
             numerator.checked_div(denominator).map_over_or_underflow()?
@@ -505,17 +505,15 @@ impl Obligation {
             .map_over_or_underflow()?;
 
         if received_interest < 0 {
-            // TODO: Fix event
             events::computed_interest_is_negative(
                 e,
                 &pool.pool_address,
                 j_tokens_to_burn,
-                100,
+                deposit_decrease,
                 received_interest,
                 all_deposit,
             );
 
-            // received_interest = 0; // TODO: Investigate why this happens
             return Err(MCError::InternalError);
         } else if deposit_decrease >= received_interest {
             let deposited_diff = deposit_decrease - received_interest; // safe
@@ -631,21 +629,19 @@ impl Obligation {
             .map_over_or_underflow()?;
         let d_tokens_to_burn = pool.compute_d_tokens_from_tokens(e, debt_decrease)?;
 
-        let unpaid_interest: i128 = all_debt
+        let unpaid_interest = all_debt
             .checked_sub(borrow_obligation.borrowed)
             .map_over_or_underflow()?;
         if unpaid_interest < 0 {
-            // TODO: fix event
             events::computed_interest_is_negative(
                 e,
                 &pool.pool_address,
                 d_tokens_to_burn,
-                100,
+                debt_decrease,
                 unpaid_interest,
                 all_debt,
             );
 
-            // unpaid_interest = 0; // TODO: Investigate why this happens
             return Err(MCError::InternalError);
         } else if debt_decrease >= unpaid_interest {
             let borrowed_diff = debt_decrease - unpaid_interest; // safe
