@@ -580,22 +580,16 @@ pub struct PoolConfig {
     pub fee_config: PoolFeeConfig,
     pub health_config: PoolHealthConfig,
     pub accrual_model: AccrualModel,
-    pub liquidation_config: LiquidationConfig,
     pub interest_rate_model: InterestRateModel,
 }
 
 impl PoolConfig {
     pub fn validate(&self) -> Result<(), &str> {
-        let PoolConfig {
-            health_config,
-            liquidation_config,
-            ..
-        } = self;
+        let PoolConfig { health_config, .. } = self;
 
         // NB: Is there a reason to validate the fee config?
 
         health_config.validate()?;
-        liquidation_config.validate()?;
 
         Ok(())
     }
@@ -620,6 +614,10 @@ pub struct PoolHealthConfig {
     /// by it before subtracting this value from the obligation's max borrow limit. Volatile
     /// assets' pools are expected to have this value set way above 100%
     pub liability_factor_bps: i128,
+    /// Maximum percentage of a borrower's debt that can be liquidated
+    pub liquidation_close_factor_bps: i128,
+    /// Additional discount given to liquidators when purchasing collateral
+    pub liquidation_incentive_bps: i128,
 }
 
 impl Default for PoolHealthConfig {
@@ -630,6 +628,8 @@ impl Default for PoolHealthConfig {
             open_ltv_bps: DEFAULT_OPEN_LTV_BPS,
             close_ltv_bps: DEFAULT_CLOSE_LTV_BPS,
             liability_factor_bps: DEFAULT_LIABILITY_FACTOR_BPS,
+            liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR_BPS,
+            liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD_BPS, // TODO: Rename?
         }
     }
 }
@@ -642,6 +642,8 @@ impl PoolHealthConfig {
             open_ltv_bps,
             close_ltv_bps,
             liability_factor_bps,
+            liquidation_close_factor_bps,
+            liquidation_incentive_bps,
         } = self;
 
         if supply_limit < 0 {
@@ -667,35 +669,6 @@ impl PoolHealthConfig {
         if !(0..(MAX_LIABILITY_FACTOR_BPS)).contains(&liability_factor_bps) {
             return Err("Invalid liability factor");
         }
-
-        Ok(())
-    }
-}
-
-#[contracttype]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct LiquidationConfig {
-    /// Maximum percentage of a borrower's debt that can be liquidated
-    pub liquidation_close_factor_bps: i128,
-    /// Additional discount given to liquidators when purchasing collateral
-    pub liquidation_incentive_bps: i128,
-}
-
-impl Default for LiquidationConfig {
-    fn default() -> Self {
-        Self {
-            liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR_BPS,
-            liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD_BPS, // TODO: Rename?
-        }
-    }
-}
-
-impl LiquidationConfig {
-    fn validate(&self) -> Result<(), &str> {
-        let &Self {
-            liquidation_close_factor_bps,
-            liquidation_incentive_bps,
-        } = self;
 
         if !is_valid_percent(liquidation_close_factor_bps) {
             return Err("Liquidation close factor must be between 0% and 100%");

@@ -7,7 +7,7 @@ use crate::{
     events,
     math_utils::MathUtils,
     oracle::get_asset_price,
-    pool::{LiquidationConfig, Pool},
+    pool::{Pool, PoolHealthConfig},
     storage,
 };
 
@@ -692,11 +692,11 @@ impl Obligation {
                 .ok_or(MCError::BorrowDoesNotExist)?,
         );
 
-        let LiquidationConfig {
+        let PoolHealthConfig {
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
             ..
-        } = borrow_pool.config.liquidation_config;
+        } = borrow_pool.config.health_config;
 
         let borrow_obligation_d_tokens = borrow_obligation.d_tokens;
         let borrow_obligation_d_tokens_as_tokens =
