@@ -27,13 +27,21 @@
     }
   }
 
+  .market-cell {
+    span {
+      max-width: 72px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
   .table-cell {
     width: 100%;
     height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 600;
     line-height: 20px;
@@ -71,7 +79,7 @@
       font-style: normal;
 
       &__name {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 500;
         line-height: 20px;
         text-align: left;

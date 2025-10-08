@@ -25,6 +25,7 @@ const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools ||
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'debt', label: 'Debt', align: 'right' },
+  { key: 'market', label: 'Market', align: 'center' },
   { key: 'borrow_apy', label: 'Borrow APY', align: 'center' },
   { key: 'action', label: '' },
 ]
@@ -147,6 +148,15 @@ watch(selectedMarket, (p) => {
               <span>${{ data.item.debtUsd }}</span>
               <template #content>
                 {{ formatPrice(data.item.debt) }}
+              </template>
+            </j-tooltip>
+          </template>
+
+          <template #cell(market)="data">
+            <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
+              <span>{{ data.item.market }}</span>
+              <template #content>
+                {{ data.item.market }}
               </template>
             </j-tooltip>
           </template>

@@ -154,7 +154,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
           <j-pill-label
             color="#111"
             variant="success"
-            size="md"
+            size="sm"
           >
             {{ data.item.deposit_apy }}
           </j-pill-label>
@@ -166,7 +166,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
           <j-pill-label
             color="#111"
             variant="warning"
-            size="md"
+            size="sm"
           >
             {{ data.item.borrow_apy }}
           </j-pill-label>
@@ -188,7 +188,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
       <template #cell(action)="data">
         <div class="table-cell justify-content-end market-table__action">
           <j-btn
-            size="lg"
+            size="md"
             pill
             icon-right
             :disabled="market.isDisabled(data.item.pool_address, 'deposit')"
@@ -198,7 +198,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
             Supply
           </j-btn>
           <j-btn
-            size="lg"
+            size="md"
             pill
             icon-right
             variant="accent"

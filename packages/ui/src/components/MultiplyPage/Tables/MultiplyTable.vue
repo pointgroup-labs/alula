@@ -24,6 +24,7 @@ const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
   { key: 'maxAPY', label: 'Max APY', align: 'center' },
   { key: 'multiplier', label: 'Multiplier', align: 'center' },
+  { key: 'market', label: 'Market', align: 'center' },
   { key: 'liquidity', label: 'Liquidity', align: 'right' },
   { key: 'supplied', label: 'Supply', align: 'right' },
   { key: 'borrowing', label: 'Borrow', align: 'right' },
@@ -157,12 +158,21 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         <div class="table-cell justify-content-center">
           <j-pill-label
             color="#111"
-            size="md"
+            size="sm"
             variant="success"
           >
             {{ truncatePercent(data.item.multiplier || 0, 2) }}x
           </j-pill-label>
         </div>
+      </template>
+
+      <template #cell(market)="data">
+        <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
+          <span>{{ data.item.market }}</span>
+          <template #content>
+            {{ data.item.market }}
+          </template>
+        </j-tooltip>
       </template>
 
       <template #cell(liquidity)="data">
@@ -202,7 +212,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       <template #cell(action)="data">
         <div class="table-cell justify-content-end market-table__action">
           <j-btn
-            size="lg"
+            size="md"
             pill
             icon-right
             :loading="market.isLoading(data.item.pool_address, 'leverage')"
@@ -212,7 +222,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
           </j-btn>
           <j-btn
             v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
-            size="lg"
+            size="md"
             variant="accent"
             pill
             icon-right
@@ -267,10 +277,9 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 
   .cell-apy {
     color: $success;
-    font-size: 16px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 700;
-    line-height: 20px;
   }
 }
 </style>

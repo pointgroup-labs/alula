@@ -18,6 +18,7 @@ const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools ||
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'balance', label: 'Balance', align: 'right' },
+  { key: 'market', label: 'Market', align: 'center' },
   { key: 'supply_apy', label: 'Supply APY', align: 'center' },
   { key: 'action', label: '' },
 ]
@@ -148,12 +149,21 @@ watch(selectedPool, (p) => {
             </j-tooltip>
           </template>
 
+          <template #cell(market)="data">
+            <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
+              <span>{{ data.item.market }}</span>
+              <template #content>
+                {{ data.item.market }}
+              </template>
+            </j-tooltip>
+          </template>
+
           <template #cell(supply_apy)="data">
             <div class="table-cell justify-content-center">
               <j-pill-label
                 color="#111"
                 variant="success"
-                size="md"
+                size="sm"
               >
                 {{ data.item.supply_apy }}
               </j-pill-label>
@@ -165,7 +175,7 @@ watch(selectedPool, (p) => {
               <j-btn
                 pill
                 variant="dark"
-                size="lg"
+                size="md"
                 :disabled="market.isDisabled(data.item.pool_address, 'withdraw')"
                 :loading="market.isLoading(data.item.pool_address, 'withdraw')"
                 @click="withdrawDialogHandler(data.item)"
