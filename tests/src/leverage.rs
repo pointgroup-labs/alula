@@ -1,7 +1,8 @@
 #![cfg(test)]
 
 use market::{
-    constants::{DEFAULT_FLASH_LOAN_FEE_BPS, LEVERAGE_SCALE, MIN_LEVERAGE_MULTIPLIER},
+    constants::{BPS_FACTOR, LEVERAGE_SCALE, MIN_LEVERAGE_MULTIPLIER},
+    pool::{PoolConfig, PoolHealthConfig},
     swap,
 };
 
@@ -235,6 +236,7 @@ fn test_deposit_borrow_as_margin() {
     } = TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
 
     contract_client.deposit(
         loan_provider,
@@ -252,8 +254,10 @@ fn test_deposit_borrow_as_margin() {
 
     // 'borrow' position is expected to have 'initial_amount * (leverage - 1) + flash_borrow_fees'
     let flash_borrowed_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128 - 1);
-    let expected_borrowed_amount =
-        get_amount_scaled_up(flash_borrowed_amount, DEFAULT_FLASH_LOAN_FEE_BPS); // TODO: This better be checked once more
+    let expected_borrowed_amount = get_amount_scaled_up(
+        flash_borrowed_amount,
+        usdc_pool.config.fee_config.flash_loan_fee_bps as i128,
+    ); // TODO: This better be checked once more
     // 'supply' position is expected to have 'amount_out(initial_amount * leverage)'
     let amount_in = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128);
     let amount_out =
@@ -281,8 +285,7 @@ fn test_deposit_borrow_as_margin() {
 
     let gold_pool_total_supply =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let usdc_pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
     assert_eq!(expected_deposited_amount, gold_pool_total_supply);
     assert_eq!(expected_borrowed_amount, usdc_pool_total_borrowed);
@@ -303,6 +306,7 @@ fn test_deposit_deposit_as_margin() {
     } = TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
 
     contract_client.deposit(
         loan_provider,
@@ -325,7 +329,10 @@ fn test_deposit_deposit_as_margin() {
     let amount_out = DEFAULT_DEPOSIT_AMOUNT * ((LEVERAGE - 1) as i128);
     let amount_in =
         swap::get_amount_in(&e, &usdc_pool_address, &gold_pool_address, amount_out).unwrap();
-    let expected_borrowed_amount = get_amount_scaled_up(amount_in, DEFAULT_FLASH_LOAN_FEE_BPS);
+    let expected_borrowed_amount = get_amount_scaled_up(
+        amount_in,
+        usdc_pool.config.fee_config.flash_loan_fee_bps as i128,
+    );
     let obligation_j_tokens_as_tokens = get_multiply_pair_obligation_j_tokens_as_tokens(
         &e,
         &contract_client,
@@ -347,8 +354,7 @@ fn test_deposit_deposit_as_margin() {
 
     let gold_pool_total_supply =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let usdc_pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
     assert_eq!(expected_deposited_amount, gold_pool_total_supply);
     assert_approx_eq_abs(expected_borrowed_amount, usdc_pool_total_borrowed, 1);
@@ -400,14 +406,21 @@ fn test_withdraw() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: BPS_FACTOR,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let TestMarketFixture {
         e,
         contract_client,
-        gold_pool_address,
         usdc_pool_address,
+        gold_pool_address,
         users,
         ..
-    } = TestMarketFixture::new();
+    } = TestMarketFixture::new_with_pool_config(pool_config);
     let looper = &users[0];
     let loan_provider = &users[1];
 
@@ -491,8 +504,7 @@ fn test_withdraw() {
     // Check pools
     let gold_pool_total_supply =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let usdc_pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
     assert_eq!(gold_pool_total_supply, obligation_j_tokens_as_tokens);
     assert_eq!(usdc_pool_total_borrowed, obligation_borrowed);
@@ -503,14 +515,21 @@ fn test_withdraw_over_balance() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: BPS_FACTOR,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let TestMarketFixture {
         e,
         contract_client,
-        gold_pool_address,
         usdc_pool_address,
+        gold_pool_address,
         users,
         ..
-    } = TestMarketFixture::new();
+    } = TestMarketFixture::new_with_pool_config(pool_config);
     let looper = &users[0];
     let loan_provider = &users[1];
 
@@ -543,6 +562,7 @@ fn test_withdraw_over_balance() {
     let withdrawable_amount = get_amount_scaled_down(amount_out, 2_00);
 
     // Withdrawing more than max available amount must succeed because of the inner cap
+    // TODO: With 90% utilization cap this behaves weird
     contract_client.withdraw_from_leveraged(
         looper,
         &gold_pool_address,
@@ -568,13 +588,20 @@ fn test_withdraw_all_available_with_i128_max() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: BPS_FACTOR,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let TestMarketFixture {
         contract_client,
-        gold_pool_address,
         usdc_pool_address,
+        gold_pool_address,
         users,
         ..
-    } = TestMarketFixture::new();
+    } = TestMarketFixture::new_with_pool_config(pool_config);
     let looper = &users[0];
     let loan_provider = &users[1];
 
@@ -595,6 +622,7 @@ fn test_withdraw_all_available_with_i128_max() {
     let borrowed_token_supply_before =
         get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
 
+    // TODO: With 90 % utilization cap this behaves weird. Check
     contract_client.withdraw_from_leveraged(
         looper,
         &gold_pool_address,

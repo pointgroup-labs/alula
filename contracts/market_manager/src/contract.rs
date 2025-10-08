@@ -1,8 +1,10 @@
-use soroban_sdk::{Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl};
+use soroban_sdk::{
+    Address, Bytes, BytesN, Env, String, Vec, contract, contractclient, contractimpl, xdr::ToXdr,
+};
 
 use crate::{
     error::MMCError,
-    storage::{self, Config},
+    storage::{self, Config, extend_instance_storage},
 };
 
 mod market {
@@ -38,6 +40,9 @@ pub trait MarketManager {
 
     /// Returns a list of all lending markets deployed by the manager
     fn get_market_list(e: Env) -> Vec<Address>;
+
+    /// Returns contract's [`Config`]
+    fn get_config(e: Env) -> Config;
 }
 
 /// Market Manager Contract. Responsible for deploying and updating existing market contracts
@@ -53,16 +58,31 @@ impl MarketManager for MarketManagerContract {
         name: String,
         oracle: Address,
     ) -> Result<Address, MMCError> {
+        extend_instance_storage(&e);
+
         let Config {
             admin,
             market_contract_wasm_hash,
         } = storage::get_config(&e);
         admin.require_auth();
 
-        let market_address = e
-            .deployer()
-            .with_current_contract(salt)
-            .deploy_v2(market_contract_wasm_hash, (name, market_admin, oracle));
+        // NB: `soroban_sdk 22` doesn't have an obvious and easy-to-implement way
+        // calculating new salt based on `String` or `Symbol`. Newer `soroban_sdk 23` has a way
+        // of doing this, see - <https://github.com/stellar/stellar-protocol/blob/master/core/cap-0069.md>,
+        // yet, most of our dependencies can rely only on `soroban sdk 22`, so, instead, we
+        // calculate new salt based on admin address and provided salt, as is done on other
+        // Soroban platforms, deployed with `soroban sdk 22`
+
+        // TODO: Should we do it like this or like Blend does it?
+        // let mut seed = Bytes::new(&e);
+        // seed.extend_from_slice(admin.to_xdr(&e).to_buffer::<40>().as_slice());
+        // seed.extend_from_array(&salt.to_array());
+        // let new_salt = e.crypto().keccak256(&seed);
+
+        let market_address = e.deployer().with_current_contract(salt).deploy_v2(
+            market_contract_wasm_hash,
+            (name, market_admin, oracle, e.current_contract_address()),
+        );
 
         storage::register_market(&e, &market_address)?;
 
@@ -70,7 +90,15 @@ impl MarketManager for MarketManagerContract {
     }
 
     fn get_market_list(e: Env) -> Vec<Address> {
+        extend_instance_storage(&e);
+
         storage::get_markets(&e).unwrap_or(Vec::new(&e))
+    }
+
+    fn get_config(e: Env) -> Config {
+        extend_instance_storage(&e);
+
+        storage::get_config(&e)
     }
 }
 
@@ -83,12 +111,8 @@ impl MarketManagerContract {
     /// * `market_contract_wasm_hash` - hash of the WASM binary uploaded to the network, used as a
     ///  version of the deployed market contract instances
     pub fn __constructor(e: Env, admin: Address, market_contract_wasm_hash: BytesN<32>) {
-        let config = Config {
-            admin,
-            market_contract_wasm_hash,
-        };
-
-        storage::set_config(&e, config);
+        storage::set_admin(&e, &admin);
+        storage::set_market_contract_wasm_hash(&e, &market_contract_wasm_hash);
     }
 
     /// Upgrades the market manager contract
@@ -109,8 +133,7 @@ impl MarketManagerContract {
     /// * `new_market_contract_wasm_hash` - hash of the WASM binary uploaded to the network that
     ///   will be used as a new version of the contract for every deployed market
     pub fn upgrade_deployed_markets(e: Env, new_market_contract_wasm_hash: BytesN<32>) {
-        let mut config = storage::get_config(&e);
-        config.admin.require_auth();
+        require_admin(&e);
 
         if let Some(deployed_markets) = storage::get_markets(&e) {
             for market_address in deployed_markets {
@@ -119,7 +142,12 @@ impl MarketManagerContract {
             }
         }
 
-        config.market_contract_wasm_hash = new_market_contract_wasm_hash;
-        storage::set_config(&e, config);
+        storage::set_market_contract_wasm_hash(&e, &new_market_contract_wasm_hash);
     }
+}
+
+// -- Helpers --
+
+fn require_admin(e: &Env) {
+    storage::get_admin(e).require_auth();
 }

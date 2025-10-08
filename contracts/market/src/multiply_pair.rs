@@ -1,15 +1,7 @@
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype, xdr::ToXdr};
 
-use crate::{
-    constants::{
-        BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE,
-        MIN_LEVERAGE_MULTIPLIER,
-    },
-    error::MCError,
-    math_utils::MathUtils,
-    storage,
-};
+use crate::{constants::*, error::MCError, math_utils::MathUtils, storage};
 
 /// Used to generate a unique seed for a multiply pair obligation
 /// See [`MultiplyPair::compute_obligation_seed`]
@@ -26,7 +18,7 @@ pub struct MultiplyPair {
     /// [`LEVERAGE_SCALE`]
     pub max_leverage_multiplier: u32,
     /// Deterministically computed unique seed per a pair, used to distinguish a user's multiply
-    /// pair obligation from other
+    /// pair obligation from others
     pub seed: BytesN<32>,
 }
 
@@ -36,10 +28,11 @@ impl MultiplyPair {
         deposit_pool_address: &Address,
         borrow_pool_address: &Address,
         borrow_pool_open_ltv_bps: i128,
+        flash_loan_fee_bps: i128,
         collateral_pool_liability_factor_bps: i128,
     ) -> Self {
         let max_leverage_multiplier = Self::compute_max_leverage_multiplier(
-            DEFAULT_FLASH_LOAN_FEE_BPS,
+            flash_loan_fee_bps,
             DEFAULT_MAX_SWAP_FEE_BPS,
             borrow_pool_open_ltv_bps,
             collateral_pool_liability_factor_bps,

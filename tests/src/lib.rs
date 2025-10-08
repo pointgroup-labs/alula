@@ -1,5 +1,7 @@
+mod bad_debt;
 mod borrow;
 mod deposit;
+mod fees;
 mod fuzz;
 mod initialize;
 mod interest_rates;
@@ -21,7 +23,7 @@ use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     obligation::{BorrowObligation, DepositObligation},
-    pool::PoolConfig,
+    pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
@@ -125,6 +127,7 @@ impl TestMarketFixture<'_> {
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
         let contract_admin = Address::generate(&e);
+        let market_manager_address = Address::generate(&e);
         let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
         let contract_id = e.register(
             MarketContract,
@@ -132,6 +135,7 @@ impl TestMarketFixture<'_> {
                 contract_name,
                 contract_admin.clone(),
                 oracle_address.clone(),
+                market_manager_address,
             ),
         );
         let contract_client = MarketContractClient::new(&e, &contract_id);
@@ -257,8 +261,6 @@ impl TestMarketFixture<'_> {
     pub fn pass_time(&self, seconds: u64) {
         self.e.ledger().with_mut(|li| {
             li.timestamp = li.timestamp.saturating_add(seconds);
-            // NB: Adjusting sequence_number leads to state archival
-            // li.sequence_number = li.sequence_number.saturating_add(amount / SECONDS_PER_LEDGER);
         });
     }
 
@@ -302,9 +304,7 @@ impl TestMarketFixture<'_> {
             .map(|client| client.balance(contract_id))
             .collect::<Vec<_>>();
 
-        let contract_balances = pools
-            .iter()
-            .map(|pool| pool.total_collateral + pool.total_available);
+        let contract_balances = pools.iter().map(|pool| pool.total_available);
 
         for (&token_balance, contract_balance) in token_balances.iter().zip(contract_balances) {
             assert!(token_balance >= contract_balance);
@@ -317,11 +317,12 @@ impl TestMarketFixture<'_> {
             .iter()
             .max_by(|x, y| x.total_available.cmp(&y.total_available))
             .unwrap()
-            .total_available;
+            .total_available_minus_accumulated_reserve_fees()
+            .unwrap();
 
-        usdc_sac.mint(&new_borrower, &collateral_amount);
-        btc_sac.mint(&new_borrower, &collateral_amount);
-        gold_sac.mint(&new_borrower, &collateral_amount);
+        usdc_sac.mint(&new_borrower, &(2 * collateral_amount));
+        btc_sac.mint(&new_borrower, &(2 * collateral_amount));
+        gold_sac.mint(&new_borrower, &(2 * collateral_amount));
 
         for pool in &pools {
             let available_borrow = pool
@@ -344,6 +345,7 @@ impl TestMarketFixture<'_> {
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
 
             contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
+
             contract_client.remove_collateral(
                 &new_borrower,
                 &pool.token_address,
@@ -460,7 +462,8 @@ pub enum Command {
     JerryWithdrawFromLeveraged(WithdrawFromLeveraged),
     ButchWithdrawFromLeveraged(WithdrawFromLeveraged),
     NibblesWithdrawFromLeveraged(WithdrawFromLeveraged),
-    PassTime(PassTime),
+
+    AllPassTime(PassTime),
 }
 
 impl Command {
@@ -508,15 +511,15 @@ impl Command {
             NibblesWithdrawCollateral(command) => command.run(test_fixture, 3),
             NibblesDepositWithLeverage(command) => command.run(test_fixture, 3),
             NibblesWithdrawFromLeveraged(command) => command.run(test_fixture, 3),
-            // PassTime
-            PassTime(command) => command.run(test_fixture, 0),
+            // All
+            AllPassTime(command) => command.run(test_fixture, 0),
         }
     }
 }
 
 #[derive(Arbitrary, Debug)]
 pub struct Amount(
-    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u64::MAX as i128)))] pub i128,
+    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u32::MAX as i128)))] pub i128,
 );
 
 #[derive(Arbitrary, Debug)]
@@ -897,7 +900,7 @@ pub fn get_obligation_d_tokens_as_tokens(
     let pool = contract_client.get_pool(pool_address);
     let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
 
-    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, d_tokens)?;
+    let deposited_tokens = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
 
     Ok(deposited_tokens)
 }
@@ -909,12 +912,12 @@ pub fn get_obligation_unpaid_interest(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let total_debt = get_obligation_d_tokens_as_tokens(e, contract_client, user, pool_address)?;
-    let borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
+    let initially_borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
 
-    if total_debt < borrowed {
+    if total_debt < initially_borrowed {
         return Err(MCError::InternalError);
     }
-    let unpaid_interest = total_debt - borrowed;
+    let unpaid_interest = total_debt - initially_borrowed;
 
     Ok(unpaid_interest)
 }
@@ -951,6 +954,66 @@ pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
     let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
 
     Ok(deposited_tokens)
+}
+
+pub fn compute_user_obligation_debt_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+) -> i128 {
+    let obligation = contract_client.get_user_obligation(user);
+
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_debt_value(e).unwrap()
+    })
+}
+
+pub fn compute_user_obligation_collateral_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+) -> i128 {
+    let obligation = contract_client.get_user_obligation(user);
+
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_collateral_value(e).unwrap()
+    })
+}
+
+pub fn compute_multiply_pair_obligation_debt_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> i128 {
+    let obligation = contract_client.get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    );
+
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_debt_value(e).unwrap()
+    })
+}
+
+pub fn compute_multiply_pair_obligation_collateral_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> i128 {
+    let obligation = contract_client.get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    );
+
+    e.as_contract(&contract_client.address, || {
+        obligation.compute_collateral_value(e).unwrap()
+    })
 }
 
 // - Inner struct accessors -
@@ -1034,31 +1097,32 @@ pub fn get_multiply_pair_borrow_obligation(
 }
 
 // -- Pool --
+
 pub fn get_pool_total_j_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_j_tokens)
+    pool.total_j_tokens
 }
 
 pub fn get_pool_total_d_tokens(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_d_tokens)
+    pool.total_d_tokens
 }
 
 pub fn get_pool_total_borrowed(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_borrowed)
+    pool.total_borrowed
 }
 
 pub fn get_pool_total_supply(
@@ -1074,19 +1138,90 @@ pub fn get_pool_total_supply(
 pub fn get_pool_total_available(
     contract_client: &MarketContractClient,
     pool_address: &Address,
-) -> Result<i128, MCError> {
+) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_available)
+    pool.total_available
 }
 
 pub fn get_pool_total_collateral(
     contract_client: &MarketContractClient,
     pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.total_collateral
+}
+
+pub fn get_pool_accumulated_host_fees(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.accumulated_host_fees
+}
+
+pub fn get_pool_accumulated_market_fees(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.accumulated_market_fees
+}
+
+pub fn get_pool_accumulated_reserve_fees(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.accumulated_reserve_fees
+}
+
+pub fn get_pool_available_reserve_fees(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    i128::min(pool.total_available, pool.accumulated_reserve_fees)
+}
+
+pub fn compute_pool_collateral_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
 
-    Ok(pool.total_collateral)
+    e.as_contract(&contract_client.address, || {
+        pool.compute_total_collateral_value(e)
+    })
+}
+
+pub fn compute_pool_debt_value(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    e.as_contract(&contract_client.address, || {
+        pool.compute_total_debt_value(e)
+    })
+}
+
+// - PoolConfig -
+
+pub fn get_pool_fee_config(
+    contract_client: &MarketContractClient,
+    pool_address: &Address,
+) -> PoolFeeConfig {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.config.fee_config
 }
 
 // ---- MISC ----

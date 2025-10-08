@@ -44,6 +44,7 @@ pub enum MCError {
     LiquidationExceedsCloseFactor = 63,
     SelfLiquidation = 64,
     LiquidationWithEqualCollateralAndDepositPools = 65,
+    PositionDoesNotHaveBadDebt = 66,
 
     // Leverage and swap errors (70-79)
     InvalidLeverageMultiplier = 70,

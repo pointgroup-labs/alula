@@ -1,11 +1,12 @@
-use soroban_sdk::{Address, BytesN, Env, Vec, contracttype, panic_with_error};
+use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
 
 use crate::error::MMCError;
 
 #[derive(Debug)]
 #[contracttype]
 pub enum DataKey {
-    Config,
+    Admin,
+    MarketContractWasmHash,
     MarketList,
 }
 
@@ -15,48 +16,66 @@ pub struct Config {
     pub market_contract_wasm_hash: BytesN<32>,
 }
 
-pub fn set_config(e: &Env, config: Config) {
-    extend_instance_storage(e);
+pub fn set_admin(e: &Env, admin: &Address) {
+    e.storage().instance().set(&DataKey::Admin, admin);
+}
 
-    let key = DataKey::Config;
-    e.storage().instance().set(&key, &config);
+pub fn get_admin(e: &Env) -> Address {
+    e.storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .expect("Admin must exist")
+}
+
+pub fn set_market_contract_wasm_hash(e: &Env, hash: &BytesN<32>) {
+    e.storage()
+        .instance()
+        .set(&DataKey::MarketContractWasmHash, hash);
+}
+
+pub fn get_market_contract_wasm_hash(e: &Env) -> BytesN<32> {
+    e.storage()
+        .instance()
+        .get(&DataKey::MarketContractWasmHash)
+        .expect("Market contract WASM hash must exist")
 }
 
 pub fn get_config(e: &Env) -> Config {
-    extend_instance_storage(e);
+    let admin = get_admin(e);
+    let market_contract_wasm_hash = get_market_contract_wasm_hash(e);
 
-    let key = DataKey::Config;
-
-    e.storage()
-        .instance()
-        .get(&key)
-        .unwrap_or_else(|| panic_with_error!(e, MMCError::InternalError))
+    Config {
+        admin,
+        market_contract_wasm_hash,
+    }
 }
 
 pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMCError> {
-    extend_instance_storage(e);
+    let mut markets: Map<Address, ()> = e
+        .storage()
+        .instance()
+        .get(&DataKey::MarketList)
+        .unwrap_or(Map::new(e));
 
-    let key = DataKey::MarketList;
-    let mut markets: Vec<Address> = e.storage().instance().get(&key).unwrap_or(Vec::new(e));
-
-    // TODO: Consider using set instead of vec?
-    if markets.contains(market_address) {
-        // TODO: Should this be Internal Error?
+    if markets.contains_key(market_address.clone()) {
         return Err(MMCError::MarketAlreadyExists);
     } else {
-        markets.push_back(market_address.clone());
+        markets.set(market_address.clone(), ());
     }
-    e.storage().instance().set(&key, &markets);
+    e.storage().instance().set(&DataKey::MarketList, &markets);
 
     Ok(())
 }
 
 pub fn get_markets(e: &Env) -> Option<Vec<Address>> {
-    extend_instance_storage(e);
+    let markets_map: Map<Address, ()> = e.storage().instance().get(&DataKey::MarketList)?;
 
-    let key = DataKey::MarketList;
+    let mut markets_vec = Vec::new(e);
+    for (market_addr, _) in markets_map {
+        markets_vec.push_back(market_addr);
+    }
 
-    e.storage().instance().get(&key)
+    Some(markets_vec)
 }
 
 const SECONDS_PER_DAY: u32 = 24 * 60 * 60;

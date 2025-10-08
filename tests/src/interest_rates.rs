@@ -1,5 +1,10 @@
 #![cfg(test)]
 
+use market::{
+    constants::*,
+    pool::{PoolConfig, PoolHealthConfig},
+};
+
 use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
 #[test]
@@ -7,13 +12,20 @@ use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 #[allow(clippy::zero_prefixed_literal)]
 #[allow(clippy::inconsistent_digit_grouping)]
 fn test_interest_rates() {
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: BPS_FACTOR,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let TestMarketFixture {
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
         ..
-    } = TestMarketFixture::new();
+    } = TestMarketFixture::new_with_pool_config(pool_config);
     let debtor = &users[0];
     let loan_provider = &users[1];
 

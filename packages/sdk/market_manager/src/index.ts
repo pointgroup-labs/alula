@@ -31,7 +31,7 @@ export const MMCError = {
   1: {message:"MarketAlreadyExists"}
 }
 
-export type DataKey = {tag: "Config", values: void} | {tag: "MarketList", values: void};
+export type DataKey = {tag: "Admin", values: void} | {tag: "MarketContractWasmHash", values: void} | {tag: "MarketList", values: void};
 
 
 export interface Config {
@@ -79,6 +79,26 @@ export interface Client {
      */
     simulate?: boolean;
   }) => Promise<AssembledTransaction<Array<string>>>
+
+  /**
+   * Construct and simulate a get_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_config: (options?: {
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
+
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
+
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }) => Promise<AssembledTransaction<Config>>
 
   /**
    * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -153,11 +173,12 @@ export class Client extends ContractClient {
     super(
       new ContractSpec([ "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAEAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAABAAAD6QAAABMAAAfQAAAACE1NQ0Vycm9y",
         "AAAAAAAAAAAAAAAPZ2V0X21hcmtldF9saXN0AAAAAAAAAAABAAAD6gAAABM=",
+        "AAAAAAAAAAAAAAAKZ2V0X2NvbmZpZwAAAAAAAAAAAAEAAAfQAAAABkNvbmZpZwAA",
         "AAAAAAAAANdDb25zdHJ1Y3RzIHRoZSBtYW5hZ2VyIGNvbnRyYWN0CgojIyMgQXJndW1lbnRzCiogYGFkbWluYCAtIG1hbmFnZXIncyBhZG1pbgoqIGBtYXJrZXRfY29udHJhY3Rfd2FzbV9oYXNoYCAtIGhhc2ggb2YgdGhlIFdBU00gYmluYXJ5IHVwbG9hZGVkIHRvIHRoZSBuZXR3b3JrLCB1c2VkIGFzIGEKdmVyc2lvbiBvZiB0aGUgZGVwbG95ZWQgbWFya2V0IGNvbnRyYWN0IGluc3RhbmNlcwAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAZbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",
         "AAAAAAAAAKpVcGdyYWRlcyB0aGUgbWFya2V0IG1hbmFnZXIgY29udHJhY3QKCiMjIyBBcmd1bWVudHMKKiBgbmV3X3dhc21faGFzaGAgLSBoYXNoIG9mIHRoZSBXQVNNIGJpbmFyeSB1cGxvYWRlZCB0byB0aGUgbmV0d29yayB0aGF0IHdpbGwgYmUgdXNlZCBhcyBhCm5ldyB2ZXJzaW9uIG9mIHRoZSBjb250cmFjdAAAAAAAB3VwZ3JhZGUAAAAAAQAAAAAAAAANbmV3X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",
         "AAAAAAAAANZVcGdyYWRlcyBhbGwgZGVwbG95ZWQgbWFya2V0IGNvbnRyYWN0cwoKIyMjIEFyZ3VtZW50cwoqIGBuZXdfbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaGAgLSBoYXNoIG9mIHRoZSBXQVNNIGJpbmFyeSB1cGxvYWRlZCB0byB0aGUgbmV0d29yayB0aGF0CndpbGwgYmUgdXNlZCBhcyBhIG5ldyB2ZXJzaW9uIG9mIHRoZSBjb250cmFjdCBmb3IgZXZlcnkgZGVwbG95ZWQgbWFya2V0AAAAAAAYdXBncmFkZV9kZXBsb3llZF9tYXJrZXRzAAAAAQAAAAAAAAAdbmV3X21hcmtldF9jb250cmFjdF93YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAA=",
         "AAAABAAAAB1NYXJrZXQgTWFuYWdlciBDb250cmFjdCBFcnJvcgAAAAAAAAAAAAAITU1DRXJyb3IAAAACAAAAAAAAAA1JbnRlcm5hbEVycm9yAAAAAAAAAAAAAAAAAAATTWFya2V0QWxyZWFkeUV4aXN0cwAAAAAB",
-        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAAgAAAAAAAAAAAAAABkNvbmZpZwAAAAAAAAAAAAAAAAAKTWFya2V0TGlzdAAA",
+        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAAwAAAAAAAAAAAAAABUFkbWluAAAAAAAAAAAAAAAAAAAWTWFya2V0Q29udHJhY3RXYXNtSGFzaAAAAAAAAAAAAAAAAAAKTWFya2V0TGlzdAAA",
         "AAAAAQAAAAAAAAAAAAAABkNvbmZpZwAAAAAAAgAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAABltYXJrZXRfY29udHJhY3Rfd2FzbV9oYXNoAAAAAAAD7gAAACA=" ]),
       options
     )
@@ -166,6 +187,7 @@ export class Client extends ContractClient {
   public readonly fromJSON = {
     deploy: this.txFromJSON<Result<string>>,
         get_market_list: this.txFromJSON<Array<string>>,
+        get_config: this.txFromJSON<Config>,
         upgrade: this.txFromJSON<null>,
         upgrade_deployed_markets: this.txFromJSON<null>
   }

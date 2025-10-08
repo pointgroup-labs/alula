@@ -1,11 +1,7 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
 use soroban_sdk::{Address, BytesN, Env, Vec, contract, contractimpl, panic_with_error};
 
-use crate::{
-    constants::{DECIMALS, RESOLUTION, USD_SYMBOL},
-    error::SS40ACError,
-    storage, swap,
-};
+use crate::{constants::*, error::SS40ACError, storage, swap};
 
 #[contract]
 pub struct SoroswapSep40AdapterContract;

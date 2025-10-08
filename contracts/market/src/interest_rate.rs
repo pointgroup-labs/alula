@@ -1,17 +1,9 @@
-//! `JLend` for now uses kinked interest rates.
-//! See: [`https://berkeley-defi.github.io/assets/material/DeFi%20Protocols%20for%20Loanable%20Funds.pdf`]
-
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Env, contracttype};
 
 use crate::{
-    accrual::Accrual,
-    constants::{BPS_FACTOR, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR},
-    error::MCError,
-    events,
-    interest_rate_model::InterestRate,
-    math_utils::MathUtils,
-    pool::Pool,
+    accrual::Accrual, constants::*, error::MCError, events, interest_rate_model::InterestRate,
+    math_utils::MathUtils, pool::Pool,
 };
 
 /// Linear annual interest rates represented in basis points
@@ -65,42 +57,44 @@ impl Pool {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let current_borrow_apr = self
+            .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?;
         let accrual_multiplier = self
+            .config
             .accrual_model
-            .calculate_multiplier(current_borrow_apr, seconds_passed)?;
+            .compute_multiplier(current_borrow_apr, seconds_passed)?;
 
         let new_total_borrowed = self
             .total_borrowed
             .fixed_mul_ceil(accrual_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
             .map_over_or_underflow()?;
 
+        let accrued = new_total_borrowed
+            .checked_sub(self.total_borrowed)
+            .map_over_or_underflow()?;
+
+        let accrued_to_reserve = accrued
+            .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
+            .map_over_or_underflow()?;
+
+        let new_accumulated_reserve_fees = self
+            .accumulated_reserve_fees
+            .checked_add(accrued_to_reserve)
+            .map_over_or_underflow()?;
+
+        self.accumulated_reserve_fees = new_accumulated_reserve_fees;
         self.total_borrowed = new_total_borrowed;
         self.last_accrual_timestamp = current_timestamp;
 
         Ok(())
     }
 
-    pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?;
-
-        let res = if total_supply == 0 {
-            0
-        } else {
-            // 'utilization_ratio_bps' = (total_borrowed * 10_000)/total_supply
-            self.total_borrowed
-                .fixed_div_ceil(total_supply, BPS_FACTOR)
-                .map_over_or_underflow()?
-        };
-
-        Ok(res)
-    }
-
     pub fn get_apr(&self) -> Result<AnnualPercentageRates, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let borrow_apr_bps = self
+            .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?;
         let res = AnnualPercentageRates::try_new(borrow_apr_bps, utilization_ratio_bps)?;
@@ -112,6 +106,7 @@ impl Pool {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
         let borrow_apr = self
+            .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?;
         let supply_apr = borrow_apr
@@ -119,11 +114,13 @@ impl Pool {
             .map_over_or_underflow()?;
 
         let borrow_apy_multiplier = self
+            .config
             .accrual_model
-            .calculate_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
+            .compute_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
         let supply_apy_multiplier = self
+            .config
             .accrual_model
-            .calculate_multiplier(supply_apr, SECONDS_IN_YEAR)?;
+            .compute_multiplier(supply_apr, SECONDS_IN_YEAR)?;
 
         let borrow_apy_bps = multiplier_to_percentage_increase(borrow_apy_multiplier)?;
         let supply_apy_bps = multiplier_to_percentage_increase(supply_apy_multiplier)?;
@@ -136,7 +133,8 @@ impl Pool {
         Ok(apy)
     }
 
-    pub fn calculate_utilization_ratio_bps(&self) -> Result<i128, MCError> {
+    pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
+        // WARN: Is this a correct way to count UR now, when we have reserves?
         let total = self.total_supply()?;
 
         if total == 0 {

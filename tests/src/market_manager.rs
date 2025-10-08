@@ -41,7 +41,7 @@ impl<'a> ManagerSetup<'a> {
 }
 
 #[test]
-fn test_manager_has_no_markets_after_deployment() {
+fn test_manager_has_no_markets_initially() {
     let ManagerSetup { manager_client, .. } = ManagerSetup::new();
 
     let market_addresses = manager_client.get_market_list();
@@ -73,7 +73,7 @@ fn test_manager_deploy_markets() {
     let market_list = manager_client.get_market_list();
 
     assert_eq!(market_list.len(), 2);
-    assert_eq!(market_address_2, market_list.last().unwrap());
+    assert!(market_list.contains(market_address_2));
 }
 
 #[test]

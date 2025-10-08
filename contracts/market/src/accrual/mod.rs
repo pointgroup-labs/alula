@@ -2,23 +2,24 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::contracttype;
 
 use crate::{
-    constants::{BPS_FACTOR, SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR},
+    constants::*,
     error::MCError,
     math_utils::{self, MathUtils},
 };
 
 pub trait Accrual {
-    fn calculate_multiplier(&self, apr: i128, seconds_passed: u64) -> Result<i128, MCError>;
+    fn compute_multiplier(&self, apr: i128, seconds_passed: u64) -> Result<i128, MCError>;
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
 #[contracttype]
 pub enum AccrualModel {
+    #[default]
     Compounded,
 }
 
 impl Accrual for AccrualModel {
-    fn calculate_multiplier(&self, apr_bps: i128, seconds_passed: u64) -> Result<i128, MCError> {
+    fn compute_multiplier(&self, apr_bps: i128, seconds_passed: u64) -> Result<i128, MCError> {
         if apr_bps < 0 {
             // TODO: Revisit if negative APRs should be supported
             // Consider better naming for this error variant
@@ -53,10 +54,7 @@ mod test {
     use soroban_fixed_point_math::FixedPoint;
 
     use super::{Accrual, AccrualModel};
-    use crate::{
-        constants::{SCALED_FIXED_POINT_DENOMINATOR, SECONDS_IN_YEAR, SECONDS_PER_DAY},
-        error::MCError,
-    };
+    use crate::{constants::*, error::MCError};
 
     #[test]
     fn test_zero_seconds_passed() {
@@ -66,7 +64,7 @@ mod test {
         let expected_multiplier = SCALED_FIXED_POINT_DENOMINATOR;
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -80,7 +78,7 @@ mod test {
         let expected_multiplier = SCALED_FIXED_POINT_DENOMINATOR; // =1 (0%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -94,7 +92,7 @@ mod test {
         let expected_multiplier: i128 = 1_105_170_917_873_740_281; // ~1.105 (10.5%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -108,7 +106,7 @@ mod test {
         let expected_multiplier = 2_459_603_079_490_413_216; // ~2.4 (240%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -122,7 +120,7 @@ mod test {
         let expected_multiplier = 1_051_271_096_279_993_934; // ~1.051 (5.1%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -136,7 +134,7 @@ mod test {
         let expected_multiplier = 1_000_273_828_409_933_351; // ~1.00027 (0.027%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -150,7 +148,7 @@ mod test {
         let expected_multiplier = 1_221_402_757_366_989_775; // ~1.22 (22%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -164,7 +162,7 @@ mod test {
         let expected_multiplier = 1_020_201_339_994_595_008; // ~1.02 (2%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -178,7 +176,7 @@ mod test {
         let expected_multiplier = 1_000_000_003_168_876_461; // ~1.000000003 (0.0000003%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -192,7 +190,7 @@ mod test {
         let expected_multiplier = 20_085_535_490_337_347_880; // ~20.085 (1900.85%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -206,7 +204,7 @@ mod test {
         let expected_multiplier = 7_389_056_050_946_052_968; // ~7.389 (638.9%)
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed).unwrap(),
+            model.compute_multiplier(apr, seconds_passed).unwrap(),
             expected_multiplier
         );
     }
@@ -219,7 +217,7 @@ mod test {
 
         // NB: Switching to [`I256`] extends the computational constraints
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed),
+            model.compute_multiplier(apr, seconds_passed),
             Err(MCError::OverOrUnderflow)
         );
     }
@@ -258,7 +256,7 @@ mod test {
         let seconds_passed = SECONDS_IN_YEAR;
 
         assert_eq!(
-            model.calculate_multiplier(apr, seconds_passed),
+            model.compute_multiplier(apr, seconds_passed),
             Err(MCError::InternalError)
         );
     }

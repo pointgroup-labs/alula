@@ -1,6 +1,9 @@
 #![cfg(test)]
 
-use market::{constants::DEFAULT_OPEN_LTV, pool::PoolConfig};
+use market::{
+    constants::*,
+    pool::{PoolConfig, PoolHealthConfig},
+};
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
@@ -12,13 +15,21 @@ use crate::{
 
 #[test]
 fn test_withdraw() {
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: BPS_FACTOR,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let TestMarketFixture {
         e,
         contract_client,
+
         gold_pool_address,
         users,
         ..
-    } = TestMarketFixture::new();
+    } = TestMarketFixture::new_with_pool_config(pool_config);
     let creditor = &users[0];
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -39,10 +50,8 @@ fn test_withdraw() {
     assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_supply, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(pool_total_j_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
@@ -65,10 +74,8 @@ fn test_withdraw() {
     );
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_supply, 0);
     assert_eq!(pool_total_j_tokens, 0);
@@ -117,12 +124,9 @@ fn test_remove_collateral() {
     assert_eq!(obligation_j_tokens_as_tokens, 0);
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_collateral =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
+    let pool_total_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_collateral, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(pool_total_supply, 0);
@@ -158,12 +162,9 @@ fn test_remove_collateral() {
     );
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens =
-        get_pool_total_j_tokens(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_collateral =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
+    let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
+    let pool_total_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_collateral, 0);
     assert_eq!(pool_total_supply, 0);
@@ -312,10 +313,10 @@ fn test_remove_all_with_i128_max() {
     contract_client.add_collateral(creditor_2, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
     let pool_total_collateral_before =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+        get_pool_total_collateral(&contract_client, &gold_pool_address);
     contract_client.remove_collateral(creditor_1, &gold_pool_address, &i128::MAX);
     let pool_total_collateral_after =
-        get_pool_total_collateral(&contract_client, &gold_pool_address).unwrap();
+        get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(
         pool_total_collateral_after + DEFAULT_COLLATERAL_AMOUNT,
@@ -329,20 +330,13 @@ fn test_remove_all_with_i128_max() {
 
 #[test]
 fn test_withdraw_exceeds_utilization_cap() {
-    const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
-
-    let pool_config = PoolConfig {
-        utilization_ratio_limit_bps: UTILIZATION_RATIO_LIMIT_BPS,
-        ..Default::default()
-    };
-
     let TestMarketFixture {
         contract_client,
         gold_pool_address,
         usdc_pool_address,
         users,
         ..
-    } = TestMarketFixture::new_with_pool_config(pool_config);
+    } = TestMarketFixture::new();
     let creditor = &users[0];
     let borrower = &users[1];
 
@@ -351,7 +345,7 @@ fn test_withdraw_exceeds_utilization_cap() {
     // Borrow 10% of USDC
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    let pool_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
     let pool_total_supply = get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
 
     // Check that the utilization ratio is 10%
@@ -361,7 +355,7 @@ fn test_withdraw_exceeds_utilization_cap() {
         contract_client.try_withdraw(
             creditor,
             &usdc_pool_address,
-            &(81 * DEFAULT_DEPOSIT_AMOUNT / 100), // 10% + 81% > 90%
+            &(89 * DEFAULT_DEPOSIT_AMOUNT / 100),
         ),
         Err(Ok(MCError::PoolUtilizationRatioCapExceeded))
     );
@@ -370,7 +364,7 @@ fn test_withdraw_exceeds_utilization_cap() {
             .try_withdraw(
                 creditor,
                 &usdc_pool_address,
-                &(8 * DEFAULT_DEPOSIT_AMOUNT / 10), // 90%
+                &(88 * DEFAULT_DEPOSIT_AMOUNT / 100),
             )
             .is_ok()
     );
@@ -439,7 +433,7 @@ fn remove_collateral_up_to_open_ltv() {
     assert_approx_eq_rel(
         // TODO: Investigate a bit deeper when checking maths
         obligation_collateral_after,
-        (100 * (obligation_collateral_before / 2)) / DEFAULT_OPEN_LTV,
+        (BPS_FACTOR * (obligation_collateral_before / 2)) / DEFAULT_OPEN_LTV_BPS,
         5,
     );
 }
