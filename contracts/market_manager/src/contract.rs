@@ -74,12 +74,12 @@ impl MarketManager for MarketManagerContract {
         // Soroban platforms, deployed with `soroban sdk 22`
 
         // TODO: Should we do it like this or like Blend does it?
-        let mut seed = Bytes::new(&e);
-        seed.extend_from_slice(admin.to_xdr(&e).to_buffer::<40>().as_slice());
-        seed.extend_from_array(&salt.to_array());
-        let new_salt = e.crypto().keccak256(&seed);
+        // let mut seed = Bytes::new(&e);
+        // seed.extend_from_slice(admin.to_xdr(&e).to_buffer::<40>().as_slice());
+        // seed.extend_from_array(&salt.to_array());
+        // let new_salt = e.crypto().keccak256(&seed);
 
-        let market_address = e.deployer().with_current_contract(new_salt).deploy_v2(
+        let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_contract_wasm_hash,
             (name, market_admin, oracle, e.current_contract_address()),
         );
