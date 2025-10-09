@@ -109,10 +109,7 @@ impl LiquidationTest {
     }
 
     fn make_unhealthy(&self) {
-        self.test_fixture
-            .e
-            .ledger()
-            .with_mut(|li| li.timestamp += 3 * 365 * 24 * 60 * 60);
+        self.test_fixture.e.ledger().with_mut(|li| li.timestamp += 3 * 365 * 24 * 60 * 60);
     }
 
     fn collateral_amount(&self) -> i128 {
@@ -194,15 +191,11 @@ fn test_liquidate_zero() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();
 
-    let usdc_pool_before = test
-        .test_fixture
-        .contract_client
-        .get_pool(&test.test_fixture.usdc_pool_address);
+    let usdc_pool_before =
+        test.test_fixture.contract_client.get_pool(&test.test_fixture.usdc_pool_address);
 
-    let gold_pool_before = test
-        .test_fixture
-        .contract_client
-        .get_pool(&test.test_fixture.gold_pool_address);
+    let gold_pool_before =
+        test.test_fixture.contract_client.get_pool(&test.test_fixture.gold_pool_address);
 
     let debt_before = test.debt();
 
@@ -214,15 +207,11 @@ fn test_liquidate_zero() {
         &0,
     );
 
-    let usdc_pool_after = test
-        .test_fixture
-        .contract_client
-        .get_pool(&test.test_fixture.usdc_pool_address);
+    let usdc_pool_after =
+        test.test_fixture.contract_client.get_pool(&test.test_fixture.usdc_pool_address);
 
-    let gold_pool_after = test
-        .test_fixture
-        .contract_client
-        .get_pool(&test.test_fixture.gold_pool_address);
+    let gold_pool_after =
+        test.test_fixture.contract_client.get_pool(&test.test_fixture.gold_pool_address);
 
     let debt_after = test.debt();
 
@@ -284,23 +273,14 @@ fn test_liquidate_nonexistent_user_fails() {
 #[test]
 fn test_liquidate_exceeds_close_factor_fails() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        users,
-        usdc_pool_address,
-        gold_pool_address,
-        ..
+        e, contract_client, users, usdc_pool_address, gold_pool_address, ..
     } = TestMarketFixture::new();
 
     let borrower = &users[0];
     let loan_provider = &users[1];
     let liquidator = &users[2];
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &((3 * DEFAULT_DEPOSIT_AMOUNT) / 2),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &((3 * DEFAULT_DEPOSIT_AMOUNT) / 2));
 
     let minimal_collateral = DEFAULT_DEPOSIT_AMOUNT;
     contract_client.add_collateral(borrower, &gold_pool_address, &minimal_collateral);
@@ -310,8 +290,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
 
     // - Accrue interest -
 
-    e.ledger()
-        .with_mut(|li| li.timestamp += 2 * 360 * 24 * 60 * 60); // 2 years
+    e.ledger().with_mut(|li| li.timestamp += 2 * 360 * 24 * 60 * 60); // 2 years
 
     let total_debt =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
@@ -481,10 +460,7 @@ fn test_liquidate_same_pool_fails() {
         &test.liquidation_amount_from_percentage(10),
     );
 
-    assert_eq!(
-        result,
-        Err(Ok(MCError::LiquidationWithEqualCollateralAndDepositPools))
-    );
+    assert_eq!(result, Err(Ok(MCError::LiquidationWithEqualCollateralAndDepositPools)));
 }
 
 #[test]
@@ -530,10 +506,7 @@ fn test_liquidate_with_interest_accrual() {
     let test = LiquidationTest::new();
 
     // Start with healthy position, accrue interest to make it risky
-    test.test_fixture
-        .e
-        .ledger()
-        .with_mut(|li| li.timestamp += 10 * 365 * 24 * 60 * 60); // 10 years
+    test.test_fixture.e.ledger().with_mut(|li| li.timestamp += 40 * 365 * 24 * 60 * 60); // 40 years
 
     let debt = test.debt();
     let liquidation_amount = test.liquidation_amount_from_percentage(20);

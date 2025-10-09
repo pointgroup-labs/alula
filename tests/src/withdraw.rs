@@ -292,13 +292,8 @@ fn test_remove_all_with_i128_max() {
 
 #[test]
 fn test_withdraw_exceeds_utilization_cap() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let creditor = &users[0];
     let borrower = &users[1];
 
@@ -323,11 +318,7 @@ fn test_withdraw_exceeds_utilization_cap() {
     );
     assert!(
         contract_client
-            .try_withdraw(
-                creditor,
-                &usdc_pool_address,
-                &(88 * DEFAULT_DEPOSIT_AMOUNT / 100),
-            )
+            .try_withdraw(creditor, &usdc_pool_address, &(88 * DEFAULT_DEPOSIT_AMOUNT / 100),)
             .is_ok()
     );
 }

@@ -91,20 +91,12 @@ fn test_reset_storage_removes_multiply_pairs() {
 
 #[test]
 fn test_obligations_list_contains_unique_obligations() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let liquidity_provider = &users[0];
     let creditor = &users[1];
 
-    contract_client.deposit(
-        liquidity_provider,
-        &gold_pool_address,
-        &(2 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(liquidity_provider, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligations = contract_client.get_all_obligations();

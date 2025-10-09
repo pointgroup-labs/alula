@@ -458,9 +458,8 @@ impl Obligation {
         let j_tokens_to_burn = pool.compute_j_tokens_from_tokens(e, deposit_decrease)?;
         let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
 
-        let received_interest = all_deposit
-            .checked_sub(deposit_obligation.deposited)
-            .map_over_or_underflow()?;
+        let received_interest =
+            all_deposit.checked_sub(deposit_obligation.deposited).map_over_or_underflow()?;
 
         if received_interest < 0 {
             events::computed_interest_is_negative(
@@ -561,9 +560,8 @@ impl Obligation {
         )?
         .fee_sum;
 
-        let amount_to_repay_all_debt = all_debt
-            .checked_add(all_debt_fees)
-            .map_over_or_underflow()?;
+        let amount_to_repay_all_debt =
+            all_debt.checked_add(all_debt_fees).map_over_or_underflow()?;
 
         let amount_to_take_from_borrower = i128::min(original_amount, amount_to_repay_all_debt);
 
@@ -578,9 +576,8 @@ impl Obligation {
             .map_over_or_underflow()?;
         let d_tokens_to_burn = pool.compute_d_tokens_from_tokens(e, debt_decrease)?;
 
-        let unpaid_interest = all_debt
-            .checked_sub(borrow_obligation.borrowed)
-            .map_over_or_underflow()?;
+        let unpaid_interest =
+            all_debt.checked_sub(borrow_obligation.borrowed).map_over_or_underflow()?;
         if unpaid_interest < 0 {
             events::computed_interest_is_negative(
                 e,
@@ -638,11 +635,8 @@ impl Obligation {
             self.borrows.get(borrow_pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?,
         );
 
-        let PoolHealthConfig {
-            liquidation_close_factor_bps,
-            liquidation_incentive_bps,
-            ..
-        } = borrow_pool.config.health_config;
+        let PoolHealthConfig { liquidation_close_factor_bps, liquidation_incentive_bps, .. } =
+            borrow_pool.config.health_config;
 
         let borrow_obligation_d_tokens = borrow_obligation.d_tokens;
         let borrow_obligation_d_tokens_as_tokens =
