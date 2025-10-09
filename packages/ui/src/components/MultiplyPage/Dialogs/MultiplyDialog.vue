@@ -327,7 +327,8 @@ watch(dialog, async (v) => {
 <style lang="scss">
 .multiply-dialog {
   .modal-dialog {
-    width: min-content;
+    width: max-content;
+    max-width: 874px;
 
     @media (max-width: $breakpoint-sm) {
       width: 100%;

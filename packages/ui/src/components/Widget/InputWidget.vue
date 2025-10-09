@@ -50,7 +50,7 @@ function max() {
   const b = new Decimal(balance)
   const f = new Decimal(fee)
   const result = b.minus(f).toNumber()
-  const maxVal = Math.max(Math.min(result, limit ?? balance), 0) || 0
+  const maxVal = Math.max(Math.min(result, limit || balance), 0) || 0
   const decimals = String(maxVal).includes('e') ? getZeroCountAfterDecimal(maxVal) : null
   val.value = decimals ? maxVal.toFixed(decimals) : String(maxVal)
   resetValidation.value = true

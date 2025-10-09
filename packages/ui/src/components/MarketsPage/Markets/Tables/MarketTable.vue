@@ -40,8 +40,8 @@ const items = computed<MarketTableItem[]>(() => {
     const depositApy = p.pool_apy.supply_bps / 100
     const borrowApy = p.pool_apy.borrow_bps / 100
     const utilRate = Number(p.total_borrowed) / Number((p.total_available + p.total_borrowed)) * 100
-    const maxLTV = Number(p.config.open_ltv_bps) / 100
-    const supply_limit = Number(bigintToNumber(p.config.supply_limit, assetDecimals.value)) || 0
+    const maxLTV = Number(p.config.health_config.open_ltv_bps) / 100
+    const supply_limit = Number(bigintToNumber(p.config.health_config.supply_limit, assetDecimals.value)) || 0
     return {
       raw: p,
       asset: { name: tokenName, symbol: tokenSymbol, icon },
@@ -218,7 +218,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
           v-show="!loading"
           class="no-data"
         >
-          No Markets
+          No Pools
         </div>
       </template>
     </BTable>

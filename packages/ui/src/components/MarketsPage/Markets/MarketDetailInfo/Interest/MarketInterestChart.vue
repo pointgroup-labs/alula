@@ -58,7 +58,7 @@ const currentUtilizationPct = computed(() => {
 })
 
 const kinkModel = computed<KinkedModel | null>(() => {
-  const v = pool.value?.interest_rate_model?.values?.[0]
+  const v = pool.value?.config.interest_rate_model?.values?.[0]
   if (!v) {
     return null
   }

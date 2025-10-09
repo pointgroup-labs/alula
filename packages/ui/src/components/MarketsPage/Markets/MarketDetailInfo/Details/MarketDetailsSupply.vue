@@ -16,7 +16,7 @@ const closeLTV = computed(() => {
   if (!pool.value) {
     return 0
   }
-  const closeLtv = Number(pool.value?.config.close_ltv_bps) / 100
+  const closeLtv = Number(pool.value?.config.health_config.close_ltv_bps) / 100
   return truncatePercent(closeLtv || 0, 2)
 })
 
@@ -24,14 +24,15 @@ const openLTV = computed(() => {
   if (!pool.value) {
     return 0
   }
-  const closeLtv = Number(pool.value?.config.open_ltv_bps) / 100
+  const closeLtv = Number(pool.value?.config.health_config.open_ltv_bps) / 100
   return truncatePercent(closeLtv || 0, 2)
 })
 
-const liquidationPenalty = computed(() => (Number(pool.value?.config.liquidation_close_factor_bps) / 100).toFixed(0))
+const liquidationPenalty = computed(() => (Number(pool.value?.config.health_config.liquidation_close_factor_bps) / 100).toFixed(0))
 
-const isSupplyLimit = computed(() => Number(pool.value?.config.supply_limit) > 0)
-const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.supply_limit, marketsStore.assetDecimals)) : 0)
+const isSupplyLimit = computed(() => Number(pool.value?.config.health_config.supply_limit) > 0)
+const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.health_config.supply_limit, marketsStore.assetDecimals)) : 0)
+
 const totalSuppliedInUsd = computed(() => totalSupplied.value * selectedMarketDetails.value?.price || 0)
 const supplyLimitInUsd = computed(() => supplyLimit.value * selectedMarketDetails.value?.price || 0)
 const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value / supplyLimit.value * 100).toFixed(2) : 100)

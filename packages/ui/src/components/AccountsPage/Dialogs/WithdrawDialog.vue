@@ -56,8 +56,8 @@ const supplyBalance = computed(() => Number(data?.balance || 0) - collateralBala
 const totalSuppliedBalance = computed(() => Number(data?.balance) || 0)
 const remainingBalance = computed(() => Number(collateralOnly.value ? collateralBalance.value : supplyBalance.value) - amount.value)
 
-const closeLTV = computed(() => data?.raw.config.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
-const openLtv = computed(() => data?.raw.config.open_ltv_bps ? Number(data.raw.config.open_ltv_bps) / 10_000 : 0)
+const closeLTV = computed(() => data?.raw.config.health_config.close_ltv_bps ? Number(data.raw.config.health_config.close_ltv_bps) / 10_000 : 0)
+const openLtv = computed(() => data?.raw.config.health_config.open_ltv_bps ? Number(data.raw.config.health_config.open_ltv_bps) / 10_000 : 0)
 
 const healthFactor = computed(() => {
   const price = Number(data?.price || 0)

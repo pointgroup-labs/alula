@@ -14,7 +14,7 @@ const pool = computed(() => selectedMarketDetails.value?.raw)
 const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, marketsStore.assetDecimals)) || 0)
 const totalSupplied = computed(() => {
   const supplied = Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.total_available, marketsStore.assetDecimals)) || 0
-  const openLTV = Number(pool.value?.config.open_ltv_bps) / 10_000
+  const openLTV = Number(pool.value?.config.health_config.open_ltv_bps) / 10_000
   return (supplied * openLTV) || 0
 })
 
@@ -33,7 +33,7 @@ const reserve = computed(() => {
   if (!pool.value) {
     return 0
   }
-  const reserve = Number(pool.value?.config.reserve_ratio_bps) / 100
+  const reserve = Number(pool.value?.config.fee_config.take_rate_bps) / 100
   return Number(reserve || 0).toFixed(0)
 })
 

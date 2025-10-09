@@ -62,7 +62,7 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(data.asset_issuer))
 })
 
-const closeLTV = computed(() => data?.raw?.config?.close_ltv_bps ? Number(data.raw.config.close_ltv_bps) / 10_000 : 0)
+const closeLTV = computed(() => data?.raw?.config?.health_config.close_ltv_bps ? Number(data.raw.config.health_config.close_ltv_bps) / 10_000 : 0)
 
 const healthFactor = computed(() => {
   const amountInUsd = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)

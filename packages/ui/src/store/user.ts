@@ -95,6 +95,7 @@ export const useUserStore = defineStore('user', () => {
   ], async ([pubkey, markets]) => {
     if (!pubkey || Object.keys(markets).length === 0) {
       state.obligations = {}
+      state.multiplyObligations = {}
       return
     }
     const marketClients = Object.values(markets).map(m => m)

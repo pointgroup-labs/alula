@@ -46,7 +46,7 @@ const items = computed<MultiplyTableItem[]>(() => {
       const depositTokenIcon = getTokenIcon(String(depositTokenSymbol)) || ''
       const borrowTokenName = getTokenName(String(borrowTokenSymbol))
       const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol)) || ''
-      const ltv = Number(depositPool?.config.open_ltv_bps) || 0
+      const ltv = Number(depositPool?.config.health_config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
       const supplyBPS = Number(depositPool?.pool_apy.supply_bps || 0) / 10_000
       const borrowBPS = Number(borrowPool?.pool_apy.borrow_bps || 0) / 10_000
@@ -91,6 +91,7 @@ async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' |
 }
 
 function isUserHaveMultiply(poolAddress: string, market: string) {
+  console.log(userStore.state.multiplyObligations)
   return checkIsHaveMultiply(
     userStore.state.multiplyObligations,
     items.value,
@@ -242,7 +243,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
           v-show="!loading"
           class="no-data"
         >
-          No Markets
+          No Pools
         </div>
       </template>
     </BTable>

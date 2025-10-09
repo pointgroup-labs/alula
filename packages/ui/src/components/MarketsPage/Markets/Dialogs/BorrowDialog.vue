@@ -58,8 +58,8 @@ const poolBorrowLimit = computed(() => {
   if (!data) {
     return 0
   }
-  const utilRatioLimit = Number(data?.raw.config.utilization_ratio_limit_bps || 0) / 10_000
-  const totalSupply = Number(bigintToNumber(data.raw.total_available + data.raw.total_borrowed, marketsStore.assetDecimals))
+  const utilRatioLimit = Number(data?.raw.config.health_config.utilization_ratio_limit_bps || 0) / 10_000
+  const totalSupply = Number(bigintToNumber(data.raw.total_available + data.raw.total_borrowed - data.raw.accumulated_reserve_fees, marketsStore.assetDecimals))
   const maxBorrow = totalSupply * utilRatioLimit
   const totalBorrow = Number(bigintToNumber(data.raw.total_borrowed, marketsStore.assetDecimals))
   return Math.max(maxBorrow - totalBorrow, 0)
@@ -71,7 +71,7 @@ const availableToBorrow = computed(() => {
   }
   const userTotalDepositInUsd = userStore.userTotalDepositInUsd
   const userTotalBorrowedInUsd = Number(userStore.userTotalBorrowedInUsd) || 0
-  const openLTV = Number(data?.raw.config.open_ltv_bps || 0) / 10_000
+  const openLTV = Number(data?.raw.config.health_config.open_ltv_bps || 0) / 10_000
   const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
   const maxAvailableUsd = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
@@ -84,7 +84,7 @@ const healthFactor = computed(() => {
   const depositUsd = userStore.userTotalDepositInUsd
   const borrowedUsd = userStore.userTotalBorrowedInUsd
   const price = data?.price || 0
-  const closeLTV = Number(data?.raw.config.close_ltv_bps || 0) / 10_000
+  const closeLTV = Number(data?.raw.config.health_config.close_ltv_bps || 0) / 10_000
 
   const extraBorrowUsd = (amount.value || 0) * price
   const totalBorrowUsd = borrowedUsd + extraBorrowUsd
@@ -102,8 +102,8 @@ const infoTableData = computed(() => {
   if (!data) {
     return []
   }
-  const liquidation = Number(data.raw.config.liquidation_close_factor_bps) / 100
-  const closeLTV = Number(data.raw.config.close_ltv_bps) / 100
+  const liquidation = Number(data.raw.config.health_config.liquidation_close_factor_bps) / 100
+  const closeLTV = Number(data.raw.config.health_config.close_ltv_bps) / 100
   return [{
     name: 'healthFactor',
     label: 'Health Factor',

@@ -64,6 +64,8 @@ watchDebounced([
     d?.borrowPool.pool_address || '',
     1,
   )
+
+  console.log(tx)
   txFee.value = activeMarket.value!.client.marketSdk.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 
