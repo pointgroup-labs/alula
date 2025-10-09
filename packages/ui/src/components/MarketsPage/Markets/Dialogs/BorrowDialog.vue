@@ -1,14 +1,13 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
 import { bigintToNumber, destructurePoolAsset, focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
-  modelValue,
 } = defineProps<{
   data?: MarketTableItem
-  modelValue: boolean
 }>()
 
 const marketsStore = useMarketsStore()
@@ -24,24 +23,13 @@ const marketClient = computed(() => marketsStore.marketClient)
 const amount = toRef(market, 'borrowAmount')
 const agree = ref(false)
 
-const reloadFee = ref(false)
-const txFee = ref(0)
+const dialog = defineModel({ default: false })
 
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  if (!d || !publicKey.value || !marketClient.value) {
-    return
-  }
-  const tx = await marketClient.value?.marketSdk.borrowTx(
-    publicKey.value,
-    d?.raw.pool_address || '',
-    0,
-  )
-  txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
-}, { immediate: true, debounce: 300 })
+const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool_address)
+
+const reloadFee = ref(false)
+
+const txFee = ref(0)
 
 const balance = computed(() => {
   if (!data) {
@@ -98,46 +86,15 @@ const healthFactor = computed(() => {
   return Math.min(hf, 10)
 })
 
-const infoTableData = computed(() => {
-  if (!data) {
-    return []
-  }
-  const liquidation = Number(data.raw.config.health_config.liquidation_close_factor_bps) / 100
-  const closeLTV = Number(data.raw.config.health_config.close_ltv_bps) / 100
-  return [{
-    name: 'healthFactor',
-    label: 'Health Factor',
-    value: truncatePercent(healthFactor.value, 2),
-  },
-  {
-    label: 'Pool available amount to borrow',
-    value: shortenNumber(poolBorrowLimit.value),
-  },
-  {
-    label: 'User available amount to borrow',
-    value: shortenNumber(availableToBorrow.value || 0),
-  },
-  {
-    label: 'Max LTV',
-    value: data.max_ltv,
-  },
-  {
-    label: 'Liquidation LTV',
-    value: `${truncatePercent(closeLTV || 0, 2)}%`,
-  },
-  {
-    label: 'Liq. Penalty',
-    value: `${truncatePercent(liquidation || 0, 2)}%`,
-  },
-  {
-    label: 'Transaction Fee',
-    value: `${txFee.value} XLM`,
-  }]
+const maxLtv = computed(() => data?.max_ltv || 0)
+const closeLTV = computed(() => Number(data?.raw.config.health_config.close_ltv_bps || 0) / 100)
+
+const liquidationPenalty = computed(() => Number(data?.raw.config.health_config.liquidation_close_factor_bps || 0) / 100)
+
+const marketFee = computed(() => {
+  const marketFeeBps = data?.raw.config.fee_config.borrow_fee_bps
+  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
-
-const dialog = defineModel({ default: false })
-
-const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool_address)
 
 async function borrow() {
   if (!publicKey.value || !data?.raw.pool_address) {
@@ -162,7 +119,7 @@ async function borrow() {
 
 let interval: string | number | NodeJS.Timeout | undefined
 
-watch(() => modelValue, async (v) => {
+watch(dialog, async (v) => {
   clearInterval(interval)
   if (!v) {
     setTimeout(() => {
@@ -179,6 +136,22 @@ watch(() => modelValue, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
+
+watchDebounced([
+  () => data,
+  reloadFee,
+  publicKey,
+], async ([d, _r]) => {
+  if (!d || !publicKey.value || !marketClient.value) {
+    return
+  }
+  const tx = await marketClient.value?.marketSdk.borrowTx(
+    publicKey.value,
+    d?.raw.pool_address || '',
+    0,
+  )
+  txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
+}, { immediate: true, debounce: 300 })
 </script>
 
 <template>
@@ -212,23 +185,79 @@ watch(() => modelValue, async (v) => {
         </template>
       </input-widget>
 
-      <div class="dialog-info-table">
-        <div
-          v-for="item in infoTableData"
-          :key="item.label"
-          class="dialog-info-table__item"
-        >
-          <span>{{ item?.label }}</span>
+      <div
+        v-if="data"
+        class="dialog-info-table"
+      >
+        <!-- Health Factor -->
+        <div class="dialog-info-table__item">
+          <span>Health Factor</span>
           <span>
-            <template v-if="item?.name === 'healthFactor' && loading">
+            <template v-if="loading">
               <j-loading-spinner
                 width="14px"
                 style="padding: 0; width: 14px; margin-left: auto"
               />
             </template>
             <template v-else>
-              {{ item?.value }}
+              {{ truncatePercent(healthFactor) }}
             </template>
+          </span>
+        </div>
+
+        <!-- Pool available -->
+        <div class="dialog-info-table__item">
+          <span>Pool available amount to borrow</span>
+          <span>
+            {{ shortenNumber(poolBorrowLimit || 0) }}
+          </span>
+        </div>
+
+        <!-- User available -->
+        <div class="dialog-info-table__item">
+          <span>User available amount to borrow</span>
+          <span>
+            {{ shortenNumber(availableToBorrow || 0) }}
+          </span>
+        </div>
+
+        <!-- Max LTV -->
+        <div class="dialog-info-table__item">
+          <span>Max LTV</span>
+          <span>
+            {{ maxLtv }}
+          </span>
+        </div>
+
+        <!-- Liquidation LTV -->
+        <div class="dialog-info-table__item">
+          <span>Liquidation LTV</span>
+          <span>
+            {{ truncatePercent(closeLTV || 0, 2) }}%
+          </span>
+        </div>
+
+        <!-- Liquidation penalty -->
+        <div class="dialog-info-table__item">
+          <span>Liq. Penalty</span>
+          <span>
+            {{ truncatePercent(liquidationPenalty || 0, 2) }}%
+          </span>
+        </div>
+
+        <!-- Market fee -->
+        <div class="dialog-info-table__item">
+          <span>Market Fee</span>
+          <span>
+            {{ formatPrice(marketFee, 0, 5) }} {{ data?.asset.symbol }}
+          </span>
+        </div>
+
+        <!-- Tx fee -->
+        <div class="dialog-info-table__item">
+          <span>Transaction Fee</span>
+          <span>
+            {{ txFee }}
           </span>
         </div>
       </div>

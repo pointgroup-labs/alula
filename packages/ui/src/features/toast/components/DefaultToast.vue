@@ -99,7 +99,9 @@ watch(() => modelValue, (value) => {
           />
         </div>
 
-        {{ body }}
+        <div class="toast-body">
+          {{ body }}
+        </div>
       </div>
     </div>
 

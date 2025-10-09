@@ -6,7 +6,6 @@ const publicKey = computed(() => wallet.publicKey)
 const connection = useConnectionStore()
 
 const walletName = computed(() => {
-  console.log(connection.selectedWalletId)
   return capitalize(connection.selectedWalletId || '-')
 })
 

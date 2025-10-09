@@ -1,18 +1,19 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
-import { destructurePoolAsset, focusInput, formatPrice, shortenAddress } from '~/utils'
+import { destructurePoolAsset, focusInput, formatPrice } from '~/utils'
 
 const {
   data,
-  modelValue,
 } = defineProps<{
   data?: MarketTableItem
-  modelValue: boolean
 }>()
 
 const router = useRouter()
 const route = useRoute()
+
+const dialog = defineModel({ default: false })
 
 const loadingFee = ref(false)
 
@@ -45,6 +46,37 @@ const reloadFee = ref(false)
 
 const txFee = ref(0)
 
+const isSupplyLimited = computed(() => data?.supply_limit && data?.supply_limit > 0)
+const supplyLimit = computed(() => isSupplyLimited.value ? Math.max(Number(data?.supply_limit) || 0 - Number(data?.total_supply), 0) : 0)
+const limitLabel = computed(() => isSupplyLimited.value ? formatPrice(Number(data?.supply_limit) || 0, 2, 2) : '-')
+
+const contractAddress = computed(() => data?.raw.pool_address || '')
+
+const marketFee = computed(() => {
+  const marketFeeBps = collateralOnly.value ? data?.raw.config.fee_config.add_collateral_fee_bps : data?.raw.config.fee_config.deposit_fee_bps
+  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
+})
+
+async function supply() {
+  if (!publicKey.value || !data?.raw.pool_address) {
+    return
+  }
+  if (!amount.value || amount.value <= 0) {
+    focusInput('.supply-dialog__input')
+    return
+  }
+  const marketProps = {
+    market: marketsStore.activeMarketFilter,
+    client: marketClient.value!,
+    pool_address: data?.raw.pool_address,
+    amount: amount.value,
+    asset_data: data?.raw.name,
+  }
+  collateralOnly.value
+    ? await market.addCollateral(marketProps)
+    : await market.deposit(marketProps)
+}
+
 watchDebounced([
   () => data,
   reloadFee,
@@ -68,65 +100,9 @@ watchDebounced([
   }
 }, { immediate: true, debounce: 300 })
 
-const supplyLimit = ref(0)
-
-const infoTableData = computed(() => {
-  if (!data) {
-    return []
-  }
-
-  const isSupplyLimited = data.supply_limit && data.supply_limit > 0
-  // eslint-disable-next-line vue/no-side-effects-in-computed-properties
-  supplyLimit.value = isSupplyLimited ? Math.max(Number(data.supply_limit) || 0 - Number(data.total_supply), 0) : 0
-  return [
-    {
-      name: 'limit',
-      label: 'Supply Limit',
-      value: isSupplyLimited ? formatPrice(supplyLimit.value || 0, 2, 2) : '-',
-    },
-    {
-      name: 'market',
-      label: 'Market',
-      value: 'Main',
-    },
-    {
-      name: 'contract',
-      label: 'Contract',
-      value: data.raw.pool_address || '',
-    },
-    {
-      name: 'fee',
-      label: 'Transaction Fee',
-      value: `${txFee.value} XLM`,
-    },
-  ]
-})
-
-const dialog = defineModel({ default: false })
-
-async function supply() {
-  if (!publicKey.value || !data?.raw.pool_address) {
-    return
-  }
-  if (!amount.value || amount.value <= 0) {
-    focusInput('.supply-dialog__input')
-    return
-  }
-  const marketProps = {
-    market: marketsStore.activeMarketFilter,
-    client: marketClient.value!,
-    pool_address: data?.raw.pool_address,
-    amount: amount.value,
-    asset_data: data?.raw.name,
-  }
-  collateralOnly.value
-    ? await market.addCollateral(marketProps)
-    : await market.deposit(marketProps)
-}
-
 let interval: string | number | NodeJS.Timeout | undefined
 
-watch(() => modelValue, async (v) => {
+watch(dialog, async (v) => {
   clearInterval(interval)
   if (!v) {
     setTimeout(() => {
@@ -180,7 +156,7 @@ watch(() => route.query, (q) => {
       <input-widget
         v-model="amount"
         :balance="balance"
-        :limit="supplyLimit"
+        :limit="Number(supplyLimit) || 0"
         :fee="POOL_REMAINING_BALANCE + txFee"
         class="supply-dialog__input"
         :rules="[
@@ -198,32 +174,50 @@ watch(() => route.query, (q) => {
       </input-widget>
 
       <div
-        v-if="infoTableData.length > 0"
+        v-if="data"
         class="dialog-info-table"
       >
+        <!-- Supply Limit -->
         <div
-          v-for="item in infoTableData"
-          :key="item?.label"
           class="dialog-info-table__item"
         >
-          <span>{{ item?.label }}</span>
-          <template v-if="item?.name === 'contract'">
-            <a
-              :href="generateExplorerLink(String(item?.value), 'contract')"
-              target="_blank"
-            >{{ shortenAddress(item?.value, 5) }}
-              <i-app-export-icon />
-            </a>
-          </template>
-          <template v-else-if="item?.name === 'fee'">
-            <j-loading-spinner
-              v-if="loadingFee"
-              width="14px"
-              style="margin:0 20px 0 auto;"
-            />
-            <span v-else>{{ item?.value }}</span>
-          </template>
-          <span v-else>{{ item?.value }}</span>
+          <span>Supply Limit</span>
+          <span>{{ limitLabel }}</span>
+        </div>
+
+        <!-- Contract Address -->
+        <div
+          class="dialog-info-table__item"
+        >
+          <span>Contract</span>
+          <a
+            :href="generateExplorerLink(String(contractAddress), 'contract')"
+            target="_blank"
+          >{{ shortenAddress(String(contractAddress), 5) }}
+            <i-app-export-icon />
+          </a>
+        </div>
+
+        <!-- Market Fee -->
+        <div
+          class="dialog-info-table__item"
+        >
+          <span>Market Fee</span>
+
+          <span>{{ formatPrice(marketFee) }} {{ data?.asset.symbol }}</span>
+        </div>
+
+        <!-- Transaction Fee -->
+        <div
+          class="dialog-info-table__item"
+        >
+          <span>Transaction Fee</span>
+          <j-loading-spinner
+            v-if="loadingFee"
+            width="14px"
+            style="margin:0 20px 0 auto;"
+          />
+          <span v-else>{{ txFee }} XLM</span>
         </div>
       </div>
 

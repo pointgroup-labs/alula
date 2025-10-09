@@ -1,6 +1,6 @@
 import type { Obligation } from '@alula/market-sdk'
 import Decimal from 'decimal.js'
-import { bigintToNumber } from './format'
+import { bigintToNumber, bpsToNumber } from './format'
 
 export function calcUserTotalStakeInUsd(obligation: Obligation, pools: any[], assetDecimals: number) {
   const deposits = obligation?.deposits
@@ -95,4 +95,12 @@ export function calculateBorrow(
   const amount = d.mul(borrowed).div(totalD).div(SCALE)
 
   return amount.isFinite() ? Number(amount.toFixed(decimals)) : 0
+}
+
+export function calcFee(
+  amount: number,
+  fee: number,
+) {
+  const feeNum = bpsToNumber(fee)
+  return feeNum > 0 ? Number(amount) * feeNum : 0
 }

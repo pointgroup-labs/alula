@@ -91,7 +91,6 @@ async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' |
 }
 
 function isUserHaveMultiply(poolAddress: string, market: string) {
-  console.log(userStore.state.multiplyObligations)
   return checkIsHaveMultiply(
     userStore.state.multiplyObligations,
     items.value,

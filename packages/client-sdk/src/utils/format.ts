@@ -24,3 +24,7 @@ export function amountToBigInt(
   const normalizedFrac = (frac + '0'.repeat(decimals)).slice(0, decimals)
   return BigInt(whole + normalizedFrac)
 }
+
+export function bpsToNumber(bps: number): number {
+  return bps / 10000
+}

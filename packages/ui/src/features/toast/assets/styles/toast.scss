@@ -87,6 +87,11 @@ $toast-variants: (
     justify-content: space-between;
   }
 
+  .toast-body {
+    max-height: 200px;
+    overflow: auto;
+  }
+
   .toast-actions {
     width: 100%;
     display: flex;
