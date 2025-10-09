@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "cross-env NUXT_ENV=production nuxt generate",
-    "build:sdk": "pnpm --filter sdk build",
+    "build:sdk": "pnpm -w -r --filter @alula/market-sdk --filter @alula/market-manager-sdk run build",
     "build:ssg": "pnpm build:sdk && cross-env NUXT_ENV=production nuxt generate",
     "build:ssr": "cross-env NUXT_ENV=production nuxt build",
     "build:staging:ssg": "pnpm build:sdk && cross-env NUXT_ENV=staging nuxt generate",
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@alula/client-sdk": "workspace:^",
+    "@alula/market-manager-sdk": "workspace:^",
     "@alula/market-sdk": "workspace:^",
     "@bootstrap-vue-next/nuxt": "^0.30.4",
     "@creit.tech/stellar-wallets-kit": "^1.7.7",
