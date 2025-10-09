@@ -22,14 +22,8 @@ fn test_withdraw() {
         },
         ..Default::default()
     };
-    let TestMarketFixture {
-        e,
-        contract_client,
-
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let TestMarketFixture { e, contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new_with_pool_config(pool_config);
     let creditor = &users[0];
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -84,13 +78,8 @@ fn test_withdraw() {
 
 #[test]
 fn test_remove_collateral() {
-    let TestMarketFixture {
-        e,
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { e, contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let collateral_provider = &users[0];
 
     contract_client.add_collateral(
@@ -174,12 +163,8 @@ fn test_remove_collateral() {
 
 #[test]
 fn test_withdraw_zero() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let creditor = &users[0];
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -200,12 +185,8 @@ fn test_withdraw_zero() {
 
 #[test]
 fn test_remove_collateral_zero() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let collateral_provider = &users[0];
 
     contract_client.add_collateral(
@@ -230,12 +211,8 @@ fn test_remove_collateral_zero() {
 
 #[test]
 fn test_withdraw_negative() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let creditor = &users[0];
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
@@ -248,12 +225,8 @@ fn test_withdraw_negative() {
 
 #[test]
 fn test_remove_collateral_negative() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let collateral_provider = &users[0];
 
     contract_client.add_collateral(
@@ -270,12 +243,8 @@ fn test_remove_collateral_negative() {
 
 #[test]
 fn test_withdraw_all_with_i128_max() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let creditor_1 = &users[0];
     let creditor_2 = &users[1];
 
@@ -288,10 +257,7 @@ fn test_withdraw_all_with_i128_max() {
     let pool_total_supply_after =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
 
-    assert_eq!(
-        pool_total_supply_after + DEFAULT_DEPOSIT_AMOUNT,
-        pool_total_supply_before
-    );
+    assert_eq!(pool_total_supply_after + DEFAULT_DEPOSIT_AMOUNT, pool_total_supply_before);
     assert_eq!(
         get_deposit_obligation(&contract_client, creditor_1, &gold_pool_address),
         Err(MCError::ObligationDoesNotExist)
@@ -300,12 +266,8 @@ fn test_withdraw_all_with_i128_max() {
 
 #[test]
 fn test_remove_all_with_i128_max() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let creditor_1 = &users[0];
     let creditor_2 = &users[1];
 
@@ -372,13 +334,8 @@ fn test_withdraw_exceeds_utilization_cap() {
 
 #[test]
 fn withdraw_up_to_open_ltv() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let user = &users[0];
     let loan_provider = &users[1];
 
@@ -406,13 +363,8 @@ fn withdraw_up_to_open_ltv() {
 
 #[test]
 fn remove_collateral_up_to_open_ltv() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let user = &users[0];
     let loan_provider = &users[1];
 

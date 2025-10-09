@@ -21,7 +21,7 @@ mod market {
 pub trait MarketManager {
     /// Deploys a lending market
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `salt` - salt bytes that are used to derive a deterministic market address
     /// * `admin` - admin of the deployed market
     /// * `name` - name of the deployed market
@@ -60,10 +60,7 @@ impl MarketManager for MarketManagerContract {
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
-        let Config {
-            admin,
-            market_contract_wasm_hash,
-        } = storage::get_config(&e);
+        let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
         admin.require_auth();
 
         // NB: `soroban_sdk 22` doesn't have an obvious and easy-to-implement way
@@ -106,7 +103,7 @@ impl MarketManager for MarketManagerContract {
 impl MarketManagerContract {
     /// Constructs the manager contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `admin` - manager's admin
     /// * `market_contract_wasm_hash` - hash of the WASM binary uploaded to the network, used as a
     ///  version of the deployed market contract instances
@@ -117,7 +114,7 @@ impl MarketManagerContract {
 
     /// Upgrades the market manager contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
     ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
@@ -129,7 +126,7 @@ impl MarketManagerContract {
 
     /// Upgrades all deployed market contracts
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `new_market_contract_wasm_hash` - hash of the WASM binary uploaded to the network that
     ///   will be used as a new version of the contract for every deployed market
     pub fn upgrade_deployed_markets(e: Env, new_market_contract_wasm_hash: BytesN<32>) {

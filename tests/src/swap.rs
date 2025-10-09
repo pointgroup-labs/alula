@@ -118,19 +118,15 @@ fn test_get_amount_out() {
     let gold_usdc_path = svec![&e, gold_token_address.clone(), usdc_token_address.clone()];
     let usdc_gold_path = svec![&e, usdc_token_address.clone(), gold_token_address.clone()];
 
-    let gold_usdc_amount_out = router_client
-        .router_get_amounts_out(&AMOUNT_IN, &gold_usdc_path)
-        .last()
-        .unwrap();
+    let gold_usdc_amount_out =
+        router_client.router_get_amounts_out(&AMOUNT_IN, &gold_usdc_path).last().unwrap();
     let gold_usdc_amount_in = router_client
         .router_get_amounts_in(&gold_usdc_amount_out, &gold_usdc_path)
         .first()
         .unwrap();
 
-    let usdc_gold_amount_out = router_client
-        .router_get_amounts_out(&AMOUNT_IN, &usdc_gold_path)
-        .last()
-        .unwrap();
+    let usdc_gold_amount_out =
+        router_client.router_get_amounts_out(&AMOUNT_IN, &usdc_gold_path).last().unwrap();
     let usdc_gold_amount_in = router_client
         .router_get_amounts_in(&usdc_gold_amount_out, &usdc_gold_path)
         .first()
@@ -150,35 +146,22 @@ fn test_get_amount_in() {
     const AMOUNT_OUT: i128 = 5_000;
     const DELTA_BPS: i128 = 5; // 0.05 %
 
-    let TestMarketFixture {
-        e,
-        gold_token_address,
-        usdc_token_address,
-        oracle_client,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { e, gold_token_address, usdc_token_address, oracle_client, .. } =
+        TestMarketFixture::new();
 
     make_oracle_prices_different(&e, &oracle_client);
 
     let gold_usdc_amount_in =
         swap::get_amount_in(&e, &gold_token_address, &usdc_token_address, AMOUNT_OUT).unwrap();
-    let gold_usdc_amount_out = swap::get_amount_out(
-        &e,
-        &gold_token_address,
-        &usdc_token_address,
-        gold_usdc_amount_in,
-    )
-    .unwrap();
+    let gold_usdc_amount_out =
+        swap::get_amount_out(&e, &gold_token_address, &usdc_token_address, gold_usdc_amount_in)
+            .unwrap();
 
     let usdc_gold_amount_in =
         swap::get_amount_in(&e, &usdc_token_address, &gold_token_address, AMOUNT_OUT).unwrap();
-    let usdc_gold_amount_out = swap::get_amount_out(
-        &e,
-        &usdc_token_address,
-        &gold_token_address,
-        usdc_gold_amount_in,
-    )
-    .unwrap();
+    let usdc_gold_amount_out =
+        swap::get_amount_out(&e, &usdc_token_address, &gold_token_address, usdc_gold_amount_in)
+            .unwrap();
 
     assert_approx_eq_rel(gold_usdc_amount_out, AMOUNT_OUT, DELTA_BPS);
     assert_approx_eq_rel(usdc_gold_amount_out, AMOUNT_OUT, DELTA_BPS);

@@ -139,11 +139,10 @@ mod tests {
                 );
             } else {
                 // For exact divisions, the ceil should be equal to floor
-                assert!(
-                    ceil_result == floor_result,
+                assert_eq!(
+                    ceil_result, floor_result,
                     "Ceiling result should be == floor result: {} vs {}",
-                    ceil_result,
-                    floor_result
+                    ceil_result, floor_result
                 );
             }
         }
@@ -188,11 +187,7 @@ mod tests {
             let bases = [0, 1, denominator, denominator * 2, -denominator];
             for base in bases {
                 let result = bin_pow(base, 0, denominator).unwrap();
-                assert_eq!(
-                    result, denominator,
-                    "Base {}, Denominator {}",
-                    base, denominator
-                );
+                assert_eq!(result, denominator, "Base {}, Denominator {}", base, denominator);
             }
         }
     }

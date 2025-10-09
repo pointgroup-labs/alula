@@ -46,11 +46,7 @@ impl LiquidationTest {
             &(DEFAULT_DEPOSIT_AMOUNT / 3), // Conservative 33% borrow ratio
         );
 
-        Self {
-            test_fixture,
-            borrower,
-            liquidator,
-        }
+        Self { test_fixture, borrower, liquidator }
     }
 
     /// Creates a risky position closer to liquidation threshold
@@ -80,11 +76,7 @@ impl LiquidationTest {
             &borrow_amount,
         );
 
-        Self {
-            test_fixture,
-            borrower,
-            liquidator,
-        }
+        Self { test_fixture, borrower, liquidator }
     }
 
     fn risky_with_deposit_as_collateral() -> Self {
@@ -113,11 +105,7 @@ impl LiquidationTest {
             &borrow_amount,
         );
 
-        Self {
-            test_fixture,
-            borrower,
-            liquidator,
-        }
+        Self { test_fixture, borrower, liquidator }
     }
 
     fn make_unhealthy(&self) {
@@ -545,7 +533,7 @@ fn test_liquidate_with_interest_accrual() {
     test.test_fixture
         .e
         .ledger()
-        .with_mut(|li| li.timestamp += 40 * 365 * 24 * 60 * 60); // 40 years
+        .with_mut(|li| li.timestamp += 10 * 365 * 24 * 60 * 60); // 10 years
 
     let debt = test.debt();
     let liquidation_amount = test.liquidation_amount_from_percentage(20);

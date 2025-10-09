@@ -7,7 +7,7 @@ use crate::{error::MCError, interest_rate_model::kinked::KinkedIRConfig};
 pub trait InterestRate {
     /// Computes annual percentage rate in basis points
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `utilization_ratio_bps` - utilization ratio of a pool
     /// # Returns
     /// `Ok(borrow_apr)` if no overflow occurs. `Err(MCError::OverOrUnderflow)`

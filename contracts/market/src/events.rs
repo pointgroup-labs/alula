@@ -31,11 +31,7 @@ pub fn deposit(
     obligation_key: &ObligationKey,
     deposit_result: DepositResult,
 ) {
-    let topics = (
-        Symbol::new(e, "deposit"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "deposit"), pool_address, obligation_key.clone());
     let data = (deposit_result,);
 
     e.events().publish(topics, data);
@@ -52,12 +48,7 @@ pub fn initialize_pool(
     pool_address: &Address,
     token_ticker: &Symbol,
 ) {
-    let topics = (
-        Symbol::new(e, "initialize_pool"),
-        token_address,
-        pool_address,
-        token_ticker,
-    );
+    let topics = (Symbol::new(e, "initialize_pool"), token_address, pool_address, token_ticker);
     let data = ();
 
     e.events().publish(topics, data);
@@ -91,11 +82,7 @@ pub fn borrow(
     obligation_key: &ObligationKey,
     borrow_result: BorrowResult,
 ) {
-    let topics = (
-        Symbol::new(e, "borrow"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "borrow"), pool_address, obligation_key.clone());
     let data = (borrow_result,);
 
     e.events().publish(topics, data);

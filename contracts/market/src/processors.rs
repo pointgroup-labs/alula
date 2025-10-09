@@ -26,9 +26,7 @@ pub fn process_initialize_pool(
     pool_config: &Option<PoolConfig>,
 ) -> Result<Address, MCError> {
     let pool_address: Address = if let Some(salt) = salt {
-        e.deployer()
-            .with_address(token_address.clone(), salt.clone())
-            .deployed_address()
+        e.deployer().with_address(token_address.clone(), salt.clone()).deployed_address()
     } else {
         token_address.clone()
     };
@@ -117,10 +115,7 @@ pub fn process_deposit(
 
     // NB: 0 indicates unlimited supply
     if supply_limit != 0 {
-        let new_supply = pool
-            .total_supply()?
-            .checked_add(amount)
-            .map_over_or_underflow()?;
+        let new_supply = pool.total_supply()?.checked_add(amount).map_over_or_underflow()?;
 
         if new_supply > supply_limit {
             return Err(MCError::PoolSupplyLimitExceeded);
@@ -169,10 +164,7 @@ pub fn process_borrow(
     pool.adjust_total_borrowed(e, borrow_result.borrower_new_debt)?;
     pool.adjust_total_available(
         e,
-        borrow_result
-            .borrower_new_debt
-            .checked_neg()
-            .map_over_or_underflow()?,
+        borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
     )?;
 
     pool.adjust_accumulated_host_fees(e, borrow_result.computed_fees.host_fee)?;
@@ -235,24 +227,16 @@ pub fn process_repay(
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
+
     let mut pool = Pool::try_get(e, pool_address)?;
 
     let repay_result = obligation.repay(e, &pool, amount)?;
 
     pool.adjust_total_d_tokens(
         e,
-        repay_result
-            .d_tokens_to_burn
-            .checked_neg()
-            .map_over_or_underflow()?,
+        repay_result.d_tokens_to_burn.checked_neg().map_over_or_underflow()?,
     )?;
-    pool.adjust_total_borrowed(
-        e,
-        repay_result
-            .debt_repaid
-            .checked_neg()
-            .map_over_or_underflow()?,
-    )?;
+    pool.adjust_total_borrowed(e, repay_result.debt_repaid.checked_neg().map_over_or_underflow()?)?;
     pool.adjust_total_available(e, repay_result.debt_repaid)?;
 
     pool.adjust_accumulated_host_fees(e, repay_result.computed_fees.host_fee)?;
@@ -302,10 +286,7 @@ pub fn process_remove_collateral(
 
     pool.adjust_total_collateral(
         e,
-        remove_collateral_result
-            .collateral_decrease
-            .checked_neg()
-            .map_over_or_underflow()?,
+        remove_collateral_result.collateral_decrease.checked_neg().map_over_or_underflow()?,
     )?;
 
     pool.adjust_accumulated_host_fees(e, remove_collateral_result.computed_fees.host_fee)?;
@@ -347,17 +328,11 @@ pub fn process_withdraw(
 
     pool.adjust_total_available(
         e,
-        withdraw_result
-            .deposit_decrease
-            .checked_neg()
-            .map_over_or_underflow()?,
+        withdraw_result.deposit_decrease.checked_neg().map_over_or_underflow()?,
     )?;
     pool.adjust_total_j_tokens(
         e,
-        withdraw_result
-            .j_tokens_to_burn
-            .checked_neg()
-            .map_over_or_underflow()?,
+        withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
     )?;
 
     pool.adjust_accumulated_host_fees(e, withdraw_result.computed_fees.host_fee)?;
@@ -406,10 +381,8 @@ pub fn process_flash_loan(
         &flash_loan_fee_bps,
     );
 
-    // WARN: Does this have enough precision?
-    let fees = amount
-        .fixed_mul_floor(flash_loan_fee_bps, BPS_FACTOR)
-        .map_over_or_underflow()?;
+    // Use ceiling for fee calculation to prevent precision loss exploitation
+    let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
     // NB: Here you must issue `transfer_allowance`, since it's safer for a flash loan taker to
@@ -438,29 +411,27 @@ pub fn process_deposit_with_leverage(
     let (deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, deposit_pool_address).map_err(|_| {
             events::pool_is_missing_in_storage(e, deposit_pool_address);
-
             MCError::InternalError
         })?,
         Pool::try_get(e, borrow_pool_address).map_err(|_| {
             events::pool_is_missing_in_storage(e, borrow_pool_address);
-
             MCError::InternalError
         })?,
     );
 
     //  -- Calculate parameters --
-    let leverage_multiplier_minus_1 = leverage_multiplier - LEVERAGE_SCALE; // safe
+    let leverage_multiplier_minus_1 =
+        leverage_multiplier.checked_sub(LEVERAGE_SCALE).map_over_or_underflow()?;
+
+    // Validate leverage multiplier bounds to prevent excessive risk
+    if leverage_multiplier > 10 * LEVERAGE_SCALE {
+        return Err(MCError::InvalidLeverageMultiplier);
+    }
+
     let (flash_borrow_amount, amount_in, amount_out) = if deposit_as_margin {
-        // ----
-        // 'flash_borrow_amount' = 'amount_in' you need to get the base_leverage as 'amount_out'
-        // after swap
-        // 'amount_in' = flash_borrow_amount
-        // 'amount_out' = base_leverage
-        // ----
-        let scaled_base_leverage_amount = amount
-            .checked_mul(leverage_multiplier_minus_1 as i128)
+        let base_leverage_amount = amount
+            .fixed_mul_floor(leverage_multiplier_minus_1 as i128, LEVERAGE_SCALE as i128)
             .map_over_or_underflow()?;
-        let base_leverage_amount = scaled_base_leverage_amount / (LEVERAGE_SCALE as i128); // safe
 
         // Calculate the flash borrow amount
         let amount_out = base_leverage_amount;
@@ -474,19 +445,11 @@ pub fn process_deposit_with_leverage(
 
         (flash_borrow_amount, amount_in, amount_out)
     } else {
-        // ----
-        // 'flash_borrow_amount' = amount * (leverage_multiplier - 1)
-        // 'amount_in' = amount + flash_borrow_amount
-        // 'amount_out' = 'amount_out' you get after swapping 'amount_in'
-        // ----
-        let scaled_flash_borrow_amount = amount
-            .checked_mul(leverage_multiplier_minus_1 as i128)
+        let flash_borrow_amount = amount
+            .fixed_mul_floor(leverage_multiplier_minus_1 as i128, LEVERAGE_SCALE as i128)
             .map_over_or_underflow()?;
 
-        let flash_borrow_amount = scaled_flash_borrow_amount / (LEVERAGE_SCALE as i128); // safe
-        let amount_in = amount
-            .checked_add(flash_borrow_amount)
-            .map_over_or_underflow()?;
+        let amount_in = amount.checked_add(flash_borrow_amount).map_over_or_underflow()?;
         let amount_out = swap::get_amount_out(
             e,
             &borrow_pool.token_address,
@@ -549,9 +512,7 @@ pub fn process_deposit_with_leverage(
 
     // -- Deposit swapped tokens --
     let deposit_amount = if deposit_as_margin {
-        received_amount
-            .checked_add(amount)
-            .map_over_or_underflow()?
+        received_amount.checked_add(amount).map_over_or_underflow()?
     } else {
         received_amount
     };
@@ -563,14 +524,10 @@ pub fn process_deposit_with_leverage(
 
     // -- Borrow to repay the flash loan --
     let flash_loan_fee = flash_borrow_amount
-        .fixed_mul_ceil(
-            borrow_pool.config.fee_config.flash_loan_fee_bps as i128,
-            BPS_FACTOR,
-        )
+        .fixed_mul_ceil(borrow_pool.config.fee_config.flash_loan_fee_bps as i128, BPS_FACTOR)
         .map_over_or_underflow()?;
-    let flash_repay_amount = flash_borrow_amount
-        .checked_add(flash_loan_fee)
-        .map_over_or_underflow()?;
+    let flash_repay_amount =
+        flash_borrow_amount.checked_add(flash_loan_fee).map_over_or_underflow()?;
 
     let obligation = Obligation::try_get(e, &obligation_key).map_err(|_| {
         events::obligation_is_missing_in_storage(e, &obligation_key);
@@ -672,18 +629,16 @@ pub fn process_withdraw_from_leveraged(
         .fixed_div_floor(max_withdrawable_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    let plain_leverage_amount = deposited_tokens
-        .checked_sub(max_withdrawable_amount)
-        .map_over_or_underflow()?;
+    let plain_leverage_amount =
+        deposited_tokens.checked_sub(max_withdrawable_amount).map_over_or_underflow()?;
     let plain_leverage_to_be_withdrawn = plain_leverage_amount
         .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
         .map_over_or_underflow()?;
 
     // To maintain LTV for the leveraged position, the amount of borrowed tokens to be repaid
     // must be proportional to the withdrawn amount of the deposited tokens
-    let flash_borrow_amount = total_debt
-        .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
-        .map_over_or_underflow()?;
+    let flash_borrow_amount =
+        total_debt.fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR).map_over_or_underflow()?;
 
     borrow_pool.require_available(flash_borrow_amount)?;
 
@@ -707,15 +662,11 @@ pub fn process_withdraw_from_leveraged(
 
     // Swap to get the flash repay amount
     let flash_loan_fee = flash_borrow_amount
-        .fixed_mul_ceil(
-            borrow_pool.config.fee_config.flash_loan_fee_bps as i128,
-            BPS_FACTOR,
-        )
+        .fixed_mul_ceil(borrow_pool.config.fee_config.flash_loan_fee_bps as i128, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    let flash_repay_amount = flash_loan_fee
-        .checked_add(flash_borrow_amount)
-        .map_over_or_underflow()?;
+    let flash_repay_amount =
+        flash_loan_fee.checked_add(flash_borrow_amount).map_over_or_underflow()?;
 
     let amount_in = swap::get_amount_in(
         e,
@@ -807,19 +758,13 @@ pub fn process_liquidate(
 
     collateral_pool.adjust_total_available(
         e,
-        tokens_from_sold_j_tokens
-            .checked_neg()
-            .map_over_or_underflow()?,
+        tokens_from_sold_j_tokens.checked_neg().map_over_or_underflow()?,
     )?;
-    collateral_pool.adjust_total_j_tokens(
-        e,
-        j_tokens_amount_sold.checked_neg().map_over_or_underflow()?,
-    )?;
+    collateral_pool
+        .adjust_total_j_tokens(e, j_tokens_amount_sold.checked_neg().map_over_or_underflow()?)?;
     collateral_pool.adjust_total_collateral(
         e,
-        collateral_amount_sold
-            .checked_neg()
-            .map_over_or_underflow()?,
+        collateral_amount_sold.checked_neg().map_over_or_underflow()?,
     )?;
 
     borrow_pool
@@ -832,15 +777,10 @@ pub fn process_liquidate(
     borrow_pool.set(e);
 
     let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
-    borrowed_token_client.transfer(
-        liquidator,
-        &e.current_contract_address(),
-        &liquidated_amount,
-    );
+    borrowed_token_client.transfer(liquidator, &e.current_contract_address(), &liquidated_amount);
 
-    let collateral_seized_amount = tokens_from_sold_j_tokens
-        .checked_add(collateral_amount_sold)
-        .map_over_or_underflow()?;
+    let collateral_seized_amount =
+        tokens_from_sold_j_tokens.checked_add(collateral_amount_sold).map_over_or_underflow()?;
 
     let collateral_token_client = token::Client::new(e, &collateral_pool.token_address);
     collateral_token_client.transfer(
@@ -912,10 +852,8 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
 ) -> Result<(), MCError> {
     let obligation = Obligation::try_get(e, &obligation_key)?;
 
-    let CoverBadDebtResult {
-        borrows_to_be_compensated,
-        collaterals_to_remove,
-    } = obligation.cover_bad_debt(e)?;
+    let CoverBadDebtResult { borrows_to_be_compensated, collaterals_to_remove } =
+        obligation.cover_bad_debt(e)?;
 
     for (pool_address, d_tokens) in borrows_to_be_compensated {
         let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
@@ -933,28 +871,22 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
         // - Cover what can be covered from the reserves -
 
         pool.adjust_total_available(e, debt_can_be_covered)?;
-        pool.adjust_total_borrowed(
-            e,
-            debt_can_be_covered.checked_neg().map_over_or_underflow()?,
-        )?;
+        pool.adjust_total_borrowed(e, debt_can_be_covered.checked_neg().map_over_or_underflow()?)?;
         pool.adjust_accumulated_reserve_fees(
             e,
             debt_can_be_covered.checked_neg().map_over_or_underflow()?,
         )?;
         pool.adjust_total_d_tokens(
             e,
-            d_tokens_can_be_covered
-                .checked_neg()
-                .map_over_or_underflow()?,
+            d_tokens_can_be_covered.checked_neg().map_over_or_underflow()?,
         )?;
 
         // - Socialize all remaining bad debt -
 
         if obligation_pool_debt > debt_can_be_covered {
             let left_to_socialize = obligation_pool_debt - debt_can_be_covered; // safe
-            let d_tokens_left = d_tokens
-                .checked_sub(d_tokens_can_be_covered)
-                .map_over_or_underflow()?;
+            let d_tokens_left =
+                d_tokens.checked_sub(d_tokens_can_be_covered).map_over_or_underflow()?;
 
             pool.adjust_total_borrowed(
                 e,
@@ -1003,15 +935,7 @@ pub fn process_swap_for_exact_tokens(
         e, user, token_in, token_out, amount_in, amount_out, None,
     )?;
 
-    events::swap(
-        e,
-        user,
-        token_in,
-        token_out,
-        amount_in,
-        amount_out,
-        received_amount,
-    );
+    events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
 
     Ok(received_amount)
 }
@@ -1032,15 +956,7 @@ pub fn process_swap_exact_tokens(
         e, user, token_in, token_out, amount_in, amount_out, None,
     )?;
 
-    events::swap(
-        e,
-        user,
-        token_in,
-        token_out,
-        amount_in,
-        amount_out,
-        received_amount,
-    );
+    events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
 
     Ok(received_amount)
 }
@@ -1063,9 +979,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
     let flash_loan_fee = borrowed_amount
         .fixed_mul_ceil(flash_loan_fee_bps as i128, BPS_FACTOR)
         .map_over_or_underflow()?;
-    let flash_repay_amount = borrowed_amount
-        .checked_add(flash_loan_fee)
-        .map_over_or_underflow()?;
+    let flash_repay_amount = borrowed_amount.checked_add(flash_loan_fee).map_over_or_underflow()?;
 
     let deposit_tokens_to_repay_flash_loan =
         swap::get_amount_in(e, deposited_token, borrowed_token, flash_repay_amount)?;
@@ -1083,7 +997,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
         );
 
         // TODO: This has to be thought of when implementing security mechanisms
-        return Err(MCError::InternalError);
+        return Err(MCError::BadDebtPosition);
     }
 
     Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe
