@@ -1,23 +1,19 @@
 #![cfg(test)]
 
-use market::{constants::SECONDS_IN_YEAR, error::MCError};
+use market::{constants::*, error::MCError};
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_borrow_obligation,
     get_obligation_borrowed, get_obligation_d_tokens, get_obligation_d_tokens_as_tokens,
     get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
+    get_pool_total_d_tokens,
 };
 
 #[test]
 fn test_repay() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
@@ -43,12 +39,9 @@ fn test_repay() {
     assert_eq!(obligation_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
     assert_eq!(obligation_d_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
 
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
     assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
@@ -62,12 +55,9 @@ fn test_repay() {
         Err(MCError::BorrowDoesNotExist)
     );
 
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, 0);
     assert_eq!(pool_total_borrowed, 0);
@@ -76,13 +66,8 @@ fn test_repay() {
 
 #[test]
 fn test_repay_zero() {
-    let TestMarketFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -112,12 +97,7 @@ fn test_repay_zero() {
 #[ignore]
 fn test_repay_with_interest_accrual() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
@@ -148,12 +128,7 @@ fn test_repay_with_interest_accrual() {
 #[test]
 fn test_repay_unpaid_interest_only() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
@@ -176,11 +151,7 @@ fn test_repay_unpaid_interest_only() {
 
     assert_eq!(obligation_borrowed_before, DEFAULT_DEPOSIT_AMOUNT / 2);
 
-    contract_client.repay(
-        borrower,
-        &usdc_pool_address,
-        &obligation_unpaid_interest_before,
-    );
+    contract_client.repay(borrower, &usdc_pool_address, &obligation_unpaid_interest_before);
 
     let obligation_unpaid_interest_after =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
@@ -193,13 +164,8 @@ fn test_repay_unpaid_interest_only() {
 
 #[test]
 fn test_repay_all_with_i128_max() {
-    let TestMarketFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -214,12 +180,9 @@ fn test_repay_all_with_i128_max() {
         Err(MCError::BorrowDoesNotExist)
     );
 
-    let pool_total_available =
-        get_pool_total_available(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_borrowed =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
-    let pool_total_d_tokens =
-        get_pool_total_borrowed(&contract_client, &usdc_pool_address).unwrap();
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
     assert_eq!(pool_total_d_tokens, 0);
     assert_eq!(pool_total_borrowed, 0);

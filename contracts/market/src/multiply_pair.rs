@@ -1,15 +1,7 @@
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype, xdr::ToXdr};
 
-use crate::{
-    constants::{
-        BPS_FACTOR, DEFAULT_FLASH_LOAN_FEE_BPS, DEFAULT_MAX_SWAP_FEE_BPS, LEVERAGE_SCALE,
-        MIN_LEVERAGE_MULTIPLIER,
-    },
-    error::MCError,
-    math_utils::MathUtils,
-    storage,
-};
+use crate::{constants::*, error::MCError, math_utils::MathUtils, storage};
 
 /// Used to generate a unique seed for a multiply pair obligation
 /// See [`MultiplyPair::compute_obligation_seed`]
@@ -36,10 +28,11 @@ impl MultiplyPair {
         deposit_pool_address: &Address,
         borrow_pool_address: &Address,
         borrow_pool_open_ltv_bps: i128,
+        flash_loan_fee_bps: i128,
         collateral_pool_liability_factor_bps: i128,
     ) -> Self {
         let max_leverage_multiplier = Self::compute_max_leverage_multiplier(
-            DEFAULT_FLASH_LOAN_FEE_BPS,
+            flash_loan_fee_bps,
             DEFAULT_MAX_SWAP_FEE_BPS,
             borrow_pool_open_ltv_bps,
             collateral_pool_liability_factor_bps,
@@ -123,10 +116,7 @@ impl MultiplyPair {
         _collateral_pool_liability_factor_bps: i128, // TODO: start accounting in calculations
     ) -> u32 {
         // compile-time assertion, hence, no error is returned
-        const _: () = assert!(
-            (LEVERAGE_SCALE as i128) < BPS_FACTOR,
-            "leverage_scale_is_too_big"
-        );
+        const _: () = assert!((LEVERAGE_SCALE as i128) < BPS_FACTOR, "leverage_scale_is_too_big");
 
         const SCALE: i128 = BPS_FACTOR / (LEVERAGE_SCALE as i128);
 

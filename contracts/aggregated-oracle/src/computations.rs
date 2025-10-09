@@ -135,13 +135,8 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         || (current_timestamp - price_data.timestamp) > max_age
     {
         let topics = ("Oracle price's timestamp is invalid",);
-        let data = (
-            asset,
-            oracle_config.address.clone(),
-            token_address.clone(),
-            price_data,
-            max_age,
-        );
+        let data =
+            (asset, oracle_config.address.clone(), token_address.clone(), price_data, max_age);
 
         e.events().publish(topics, data);
 

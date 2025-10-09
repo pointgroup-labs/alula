@@ -3,7 +3,7 @@
 use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
-    pool::PoolConfig,
+    pool::{PoolConfig, PoolHealthConfig},
 };
 use soroban_sdk::{Address, BytesN, Env, symbol_short, testutils::Address as _};
 
@@ -43,15 +43,10 @@ fn test_pool_initialize_with_custom_config() {
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
+
     let pool_config = PoolConfig {
-        reserve_ratio_bps: 7_500,
-        liquidation_close_factor_bps: 5_000,
-        liquidation_incentive_bps: 500,
-        supply_limit: 0,
-        utilization_ratio_limit_bps: 10_000,
-        open_ltv_bps: 7_000,
-        close_ltv_bps: 8_000,
-        liability_factor_bps: 10_000,
+        health_config: PoolHealthConfig { utilization_ratio_limit_bps: 8000, ..Default::default() },
+        ..Default::default()
     };
 
     let pool_address =
@@ -110,13 +105,7 @@ fn test_pool_initialize_non_conflicting() {
     let all_pools = contract_client.get_all_pools();
     assert_eq!(
         all_pools,
-        soroban_sdk::vec![
-            &e,
-            pool_address_1,
-            pool_address_2,
-            pool_address_3,
-            pool_address_4
-        ]
+        soroban_sdk::vec![&e, pool_address_1, pool_address_2, pool_address_3, pool_address_4]
     );
 }
 
@@ -226,7 +215,8 @@ fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
 
-    let contract_id = e.register(MarketContract, (contract_name, contract_admin, oracle));
+    let contract_id =
+        e.register(MarketContract, (contract_name, contract_admin.clone(), oracle, contract_admin));
 
     MarketContractClient::new(e, &contract_id)
 }

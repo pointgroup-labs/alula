@@ -25,18 +25,11 @@ impl<'a> ManagerSetup<'a> {
         let manager_admin = Address::generate(&e);
         let market_contract_wasm_hash = e.deployer().upload_contract_wasm(market::WASM);
 
-        let manager_address = e.register(
-            MarketManagerContract,
-            (&manager_admin, market_contract_wasm_hash),
-        );
+        let manager_address =
+            e.register(MarketManagerContract, (&manager_admin, market_contract_wasm_hash));
         let manager_client = MarketManagerClient::new(&e, &manager_address);
 
-        Self {
-            e,
-            manager_client,
-            manager_address,
-            manager_admin,
-        }
+        Self { e, manager_client, manager_address, manager_admin }
     }
 }
 
@@ -51,9 +44,7 @@ fn test_manager_has_no_markets_after_deployment() {
 
 #[test]
 fn test_manager_deploy_markets() {
-    let ManagerSetup {
-        e, manager_client, ..
-    } = ManagerSetup::new();
+    let ManagerSetup { e, manager_client, .. } = ManagerSetup::new();
 
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
@@ -78,9 +69,7 @@ fn test_manager_deploy_markets() {
 
 #[test]
 fn test_manager_cannot_redeploy_market() {
-    let ManagerSetup {
-        e, manager_client, ..
-    } = ManagerSetup::new();
+    let ManagerSetup { e, manager_client, .. } = ManagerSetup::new();
 
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
@@ -93,9 +82,5 @@ fn test_manager_cannot_redeploy_market() {
 
     // NB: Markets' addresses are deterministically derived from salt and
     // market manager's contract address, hence no redeployment like this is possible
-    assert!(
-        manager_client
-            .try_deploy(&salt, &market_admin, &name_2, &oracle)
-            .is_err()
-    );
+    assert!(manager_client.try_deploy(&salt, &market_admin, &name_2, &oracle).is_err());
 }

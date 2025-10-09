@@ -1,10 +1,6 @@
 #![cfg(test)]
 
-use market::{
-    constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
-    obligation::ObligationKey,
-    storage::DataKey,
-};
+use market::{constants::*, obligation::ObligationKey, storage::DataKey};
 use soroban_sdk::testutils::{
     Ledger,
     storage::{Instance, Persistent},
@@ -14,14 +10,8 @@ use crate::TestMarketFixture;
 
 #[test]
 fn test_storage_ttl_extension() {
-    let TestMarketFixture {
-        e,
-        contract_client,
-        contract_id,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { e, contract_client, contract_id, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
 
     let user = &users[0];
     let obligation_key = ObligationKey::new(user.clone());
@@ -29,9 +19,7 @@ fn test_storage_ttl_extension() {
     e.as_contract(&contract_id, || {
         assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
             SHARED_BUMP
         );
     });
@@ -41,9 +29,7 @@ fn test_storage_ttl_extension() {
 
     e.as_contract(&contract_id, || {
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP
         );
     });
@@ -53,21 +39,14 @@ fn test_storage_ttl_extension() {
     });
 
     e.as_contract(&contract_id, || {
+        assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP - 2 * LEDGERS_PER_DAY);
         assert_eq!(
-            e.storage().instance().get_ttl(),
-            INSTANCE_BUMP - 2 * LEDGERS_PER_DAY
-        );
-        assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
             SHARED_BUMP - 2 * LEDGERS_PER_DAY
         );
 
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -81,16 +60,12 @@ fn test_storage_ttl_extension() {
 
         // Others aren't
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
             SHARED_BUMP - 2 * LEDGERS_PER_DAY
         );
 
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -100,18 +75,14 @@ fn test_storage_ttl_extension() {
 
     e.as_contract(&contract_id, || {
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
             SHARED_BUMP
         );
 
         // Individual persistent storage TTL is still the same, since it has
         // more ledgers between threshold and bump
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -122,9 +93,7 @@ fn test_storage_ttl_extension() {
 
     e.as_contract(&contract_id, || {
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP - 22 * LEDGERS_PER_DAY
         );
     });
@@ -134,9 +103,7 @@ fn test_storage_ttl_extension() {
 
     e.as_contract(&contract_id, || {
         assert_eq!(
-            e.storage()
-                .persistent()
-                .get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
             INDIVIDUAL_BUMP
         );
     });

@@ -2,17 +2,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 
 use crate::{
-    accrual::AccrualModel,
-    constants::{
-        BPS_FACTOR, BPS_IN_PERCENT, DEFAULT_CLOSE_FACTOR, DEFAULT_CLOSE_LTV,
-        DEFAULT_LIABILITY_FACTOR, DEFAULT_LIQUIDATION_SPREAD, DEFAULT_OPEN_LTV,
-        DEFAULT_RESERVE_RATIO, DEFAULT_SUPPLY_LIMIT, DEFAULT_UTILIZATION_RATIO_LIMIT,
-        MAX_LIABILITY_FACTOR,
-    },
-    error::MCError,
-    events,
-    interest_rate_model::InterestRateModel,
-    math_utils::MathUtils,
+    accrual::AccrualModel, constants::*, error::MCError, events,
+    interest_rate_model::InterestRateModel, math_utils::MathUtils, oracle::get_asset_price,
     storage,
 };
 
@@ -36,90 +27,48 @@ pub struct Pool {
     pub total_available: i128,
     /// The total amount of deposited collateral assets that don't accrue interest
     pub total_collateral: i128,
-    /// Interest rate model(+configuration) used for interest rate calculation
-    pub interest_rate_model: InterestRateModel,
-    /// Accrual model used for accruing the `total_borrowed` amount on the pool based on the
-    /// interest rate
-    pub accrual_model: AccrualModel,
-    /// Configuration settings for the pool
-    pub config: PoolConfig,
-    /// The timestamp of the last accrual re-calculation
-    pub last_accrual_timestamp: u64,
+    /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
+    pub accumulated_reserve_fees: i128,
+    /// Amount of tokens that can be withdrawn by the market's admin as a fee
+    pub accumulated_market_fees: i128,
+    /// Amount of tokens that can be withdrawn by the host platform admin as a fee
+    pub accumulated_host_fees: i128,
     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
     /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
     /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
     pub name: String,
+    /// Configuration settings for the pool
+    pub config: PoolConfig,
+    /// The timestamp of the last accrual re-calculation
+    pub last_accrual_timestamp: u64,
+    // TODO: APY & APR?
+}
+
+macro_rules! generate_adjust_method {
+    ($method_name:ident, $field:ident) => {
+        pub fn $method_name(&mut self, e: &Env, amount: i128) -> Result<(), MCError> {
+            let new_amount = self.$field.checked_add(amount).map_over_or_underflow()?;
+            if new_amount < 0 {
+                events::pool_amount_becomes_negative(e, self.$field, new_amount);
+                return Err(MCError::NegativeAmount);
+            }
+            self.$field = new_amount;
+            Ok(())
+        }
+    };
 }
 
 impl Pool {
-    fn adjust_field(e: &Env, current_value: i128, adjusting_amount: i128) -> Result<i128, MCError> {
-        let new_amount = current_value
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
+    generate_adjust_method!(adjust_total_j_tokens, total_j_tokens);
+    generate_adjust_method!(adjust_total_borrowed, total_borrowed);
+    generate_adjust_method!(adjust_total_available, total_available);
+    generate_adjust_method!(adjust_total_d_tokens, total_d_tokens);
+    generate_adjust_method!(adjust_total_collateral, total_collateral);
+    generate_adjust_method!(adjust_accumulated_market_fees, accumulated_market_fees);
+    generate_adjust_method!(adjust_accumulated_host_fees, accumulated_host_fees);
+    generate_adjust_method!(adjust_accumulated_reserve_fees, accumulated_reserve_fees);
 
-        if new_amount < 0 {
-            events::pool_amount_becomes_negative(e, current_value, new_amount);
-
-            return Err(MCError::InternalError);
-        }
-
-        Ok(new_amount)
-    }
-
-    pub fn adjust_total_j_tokens(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_j_tokens, adjusting_amount)?;
-        self.total_j_tokens = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_borrowed(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_borrowed, adjusting_amount)?;
-        self.total_borrowed = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_available(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_available, adjusting_amount)?;
-        self.total_available = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_d_tokens(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_d_tokens, adjusting_amount)?;
-        self.total_d_tokens = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_collateral(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
-        self.total_collateral = new_amount;
-
-        Ok(())
-    }
+    // TODO: Add dTokenRate?
 
     pub fn compute_tokens_from_d_tokens(
         &self,
@@ -184,7 +133,7 @@ impl Pool {
     }
 
     pub fn require_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available {
+        if required > self.total_available_minus_accumulated_reserve_fees()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -217,23 +166,24 @@ impl Pool {
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?;
-        let utilization_ratio = self.calculate_utilization_ratio_bps()?;
+        let total_supply = self.total_supply()?; // WARN: Investigate how reserves affect UR
+        let utilization_ratio = self.compute_utilization_ratio_bps()?;
 
-        if utilization_ratio > self.config.utilization_ratio_limit_bps {
+        if utilization_ratio > self.config.health_config.utilization_ratio_limit_bps {
             // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time
             // by itself, so for now, we simply emit an event. We can agree to stop
             // accruing interest on a pool if this happens
             events::utilization_ratio_exceeds_limit(
                 e,
                 utilization_ratio,
-                self.config.utilization_ratio_limit_bps,
+                self.config.health_config.utilization_ratio_limit_bps,
             );
 
             return Ok(0);
         }
+
         let available_percentage_to_borrow_bps =
-            self.config.utilization_ratio_limit_bps - utilization_ratio; // safe
+            self.config.health_config.utilization_ratio_limit_bps - utilization_ratio; // safe
 
         total_supply
             .fixed_mul_ceil(available_percentage_to_borrow_bps, BPS_FACTOR)
@@ -262,8 +212,8 @@ impl Pool {
             return Err(MCError::InternalError);
         }
 
-        let tokens_amount = total_tokens_amount
-            .fixed_div_floor(total_shares_amount, shares_amount)
+        let tokens_amount = shares_amount
+            .fixed_mul_floor(total_tokens_amount, total_shares_amount)
             .map_over_or_underflow()?;
 
         Ok(tokens_amount)
@@ -288,58 +238,100 @@ impl Pool {
             // NB: Is it reasonable to make the initial amount smaller?
             tokens_amount
         } else {
-            if total_shares_amount > total_tokens_amount {
-                events::pool_total_shares_smaller_than_total_tokens(
-                    e,
-                    total_shares_amount,
-                    total_tokens_amount,
-                );
+      if total_shares_amount > total_tokens_amount {
+        events::pool_total_shares_smaller_than_total_tokens(
+          e,
+          total_shares_amount,
+          total_tokens_amount,
+        );
 
-                return Err(MCError::InternalError);
-            }
+        return Err(MCError::InternalError);
+      }
 
-            /*
-            This must hold when issuing new shares:
-                shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount / (tokens_added_amount + prev_total_tokens_amount)
-            Which implies:
-                shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
+      /*
+      This must hold when issuing new shares:
+          shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount / (tokens_added_amount + prev_total_tokens_amount)
+      Which implies:
+          shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
 
-            This must hold when burning issued shares:
-                shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
-            */
-            total_shares_amount
-                /* Using 'ceil' here has advantages when withdrawing\repaying small amounts of tokens.
-                Namely, if the token amount is really small, with `floor`, the respective amount of
-                shares to burn is 0, and doesn't make a difference  */
-                .fixed_div_ceil(total_tokens_amount, tokens_amount)
-                .map_over_or_underflow()?
-        };
+      This must hold when burning issued shares:
+          shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
+      */
+      tokens_amount
+        /* Using 'ceil' here has advantages when withdrawing\repaying small amounts of tokens.
+        Namely, if the token amount is really small, with `floor`, the respective amount of
+        shares to burn is 0, and doesn't make a difference  */
+        .fixed_mul_ceil(total_shares_amount, total_tokens_amount)
+        .map_over_or_underflow()?
+    };
 
         Ok(shares_amount)
     }
 
-    /// Calculates total supply (available + total_borrowed)
+    pub fn available_accumulated_reserve_fees(&self) -> i128 {
+        let total_available = self.total_available;
+        let accumulated_reserve_fees = self.accumulated_reserve_fees;
+
+        i128::min(total_available, accumulated_reserve_fees)
+    }
+
+    pub fn total_available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {
+        // TODO: Can we use `saturating_sub` here instead of `checked_sub`?
+        let res = self.total_available.saturating_sub(self.accumulated_reserve_fees);
+
+        Ok(res)
+    }
+
+    /// Calculates total debt (total_borrowed - accumulated reserve fees)
+    pub fn total_debt(&self) -> Result<i128, MCError> {
+        self.total_borrowed.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
+    }
+
+    /// Calculates total supply (available + total_borrowed - accumulated reserve fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
-        self.total_available
-            .checked_add(self.total_borrowed)
-            .map_over_or_underflow()
+        let total_funds =
+            self.total_available.checked_add(self.total_borrowed).map_over_or_underflow()?;
+
+        total_funds.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
     }
 
     /// Checks if the pool is empty
     pub fn is_empty(&self) -> bool {
-        if self.total_j_tokens == 0 && self.total_available != 0 {
-            // TODO: What to do in these cases?
+        let &Self {
+            pool_address: _,
+            token_address: _,
+            token_ticker: _,
+            last_accrual_timestamp: _,
+            name: _,
+            config: _,
+            total_borrowed,
+            total_d_tokens,
+            total_j_tokens,
+            total_available,
+            total_collateral,
+            accumulated_reserve_fees,
+            accumulated_market_fees,
+            accumulated_host_fees,
+        } = self;
+
+        if total_j_tokens == 0 && total_available != 0 {
+            // These represent serious invariant violations that should be logged
+            // it means funds exist but no one owns them (orphaned funds)
         }
 
-        if self.total_d_tokens == 0 && self.total_borrowed != 0 {
-            // TODO: What to do in these cases?
+        if total_d_tokens == 0 && total_borrowed != 0 {
+            // These represent serious invariant violations that should be logged
+            // it means debt exists but no one owes it (ghost debt)
         }
 
-        self.total_j_tokens == 0
-            && self.total_d_tokens == 0
-            && self.total_borrowed == 0
-            && self.total_available == 0
-            && self.total_collateral == 0
+        total_j_tokens == 0
+            && total_d_tokens == 0
+            && total_borrowed == 0
+            && total_available == 0
+            && total_collateral == 0
+            && accumulated_host_fees == 0
+            && accumulated_reserve_fees == 0
+            && accumulated_market_fees == 0
     }
 
     /// Tries to get the pool from the contract's storage
@@ -357,6 +349,26 @@ impl Pool {
 
     fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
+    }
+
+    pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
+        let deposited_tokens = self.compute_tokens_from_j_tokens(e, self.total_j_tokens)?;
+        let collateral_sum =
+            deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
+
+        self.get_assets_value(e, collateral_sum)
+    }
+
+    pub fn compute_total_debt_value(&self, e: &Env) -> Result<i128, MCError> {
+        let debt = self.total_debt()?;
+
+        self.get_assets_value(e, debt)
+    }
+
+    fn get_assets_value(&self, e: &Env, amount: i128) -> Result<i128, MCError> {
+        let price = get_asset_price(e, &self.token_address)?;
+
+        price.checked_mul(amount).map_over_or_underflow()
     }
 
     /// Refreshes the pool with the contract's storage data
@@ -384,21 +396,72 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn register(&self, e: &Env) -> u32 {
-        storage::register_pool(e, &self.pool_address.clone())
+        storage::register_pool(e, &self.pool_address)
     }
 }
 
 #[contracttype]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-// NB: Soon, this config will likely become obsolete and will be
-// replaced by a few adjacent configs
+pub struct PoolFeeConfig {
+    pub borrow_fee_bps: u32,
+    pub flash_loan_fee_bps: u32,
+
+    pub deposit_fee_bps: u32,
+    pub withdraw_fee_bps: u32,
+    pub add_collateral_fee_bps: u32,
+    pub remove_collateral_fee_bps: u32,
+    pub repay_fee_bps: u32,
+
+    // pub deposit_with_leverage_fee_bps: ?
+    // pub withdraw_from_leveraged_fe_bps: ?
+    pub take_rate_bps: u32,
+    pub host_fee_bps: u32,
+}
+
+impl Default for PoolFeeConfig {
+    fn default() -> Self {
+        Self {
+            borrow_fee_bps: DEFAULT_BORROW_FEE_BPS,
+            flash_loan_fee_bps: DEFAULT_FLASH_LOAN_FEE_BPS,
+
+            deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
+            withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
+            add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
+            remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
+            repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
+
+            host_fee_bps: DEFAULT_HOST_FEE_BPS,
+            take_rate_bps: DEFAULT_TAKE_RATE_BPS,
+        }
+    }
+}
+
+#[contracttype]
+#[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoolConfig {
-    /// Percentage of interest payments allocated to protocol reserves
-    pub reserve_ratio_bps: i128,
-    /// Maximum percentage of a borrower's debt that can be liquidated
-    pub liquidation_close_factor_bps: i128,
-    /// Additional discount given to liquidators when purchasing collateral
-    pub liquidation_incentive_bps: i128,
+    pub fee_config: PoolFeeConfig,
+    pub health_config: PoolHealthConfig,
+    pub accrual_model: AccrualModel,
+    pub liquidation_config: LiquidationConfig,
+    pub interest_rate_model: InterestRateModel,
+}
+
+impl PoolConfig {
+    pub fn validate(&self) -> Result<(), &str> {
+        let PoolConfig { health_config, liquidation_config, .. } = self;
+
+        // NB: Is there a reason to validate the fee config?
+
+        health_config.validate()?;
+        liquidation_config.validate()?;
+
+        Ok(())
+    }
+}
+
+#[contracttype]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct PoolHealthConfig {
     /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` +
     /// `total_borrowed`) 0 denotes unlimited supply
     pub supply_limit: i128,
@@ -417,27 +480,21 @@ pub struct PoolConfig {
     pub liability_factor_bps: i128,
 }
 
-impl Default for PoolConfig {
+impl Default for PoolHealthConfig {
     fn default() -> Self {
         Self {
-            reserve_ratio_bps: DEFAULT_RESERVE_RATIO * BPS_IN_PERCENT,
-            liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR * BPS_IN_PERCENT,
-            liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD * BPS_IN_PERCENT,
             supply_limit: DEFAULT_SUPPLY_LIMIT,
-            utilization_ratio_limit_bps: DEFAULT_UTILIZATION_RATIO_LIMIT * BPS_IN_PERCENT,
-            open_ltv_bps: DEFAULT_OPEN_LTV * BPS_IN_PERCENT,
-            close_ltv_bps: DEFAULT_CLOSE_LTV * BPS_IN_PERCENT,
-            liability_factor_bps: DEFAULT_LIABILITY_FACTOR * BPS_IN_PERCENT,
+            utilization_ratio_limit_bps: DEFAULT_UTILIZATION_RATIO_LIMIT_BPS,
+            open_ltv_bps: DEFAULT_OPEN_LTV_BPS,
+            close_ltv_bps: DEFAULT_CLOSE_LTV_BPS,
+            liability_factor_bps: DEFAULT_LIABILITY_FACTOR_BPS,
         }
     }
 }
 
-impl PoolConfig {
-    pub fn validate(&self) -> Result<(), &str> {
-        let &PoolConfig {
-            reserve_ratio_bps,
-            liquidation_close_factor_bps,
-            liquidation_incentive_bps,
+impl PoolHealthConfig {
+    fn validate(&self) -> Result<(), &str> {
+        let &Self {
             supply_limit,
             utilization_ratio_limit_bps,
             open_ltv_bps,
@@ -453,18 +510,6 @@ impl PoolConfig {
             return Err("Utilization ratio limit must be between 0% and 100%");
         }
 
-        if !is_valid_percent(reserve_ratio_bps) {
-            return Err("Reserve ratio must be between 0% and 100%");
-        }
-
-        if !is_valid_percent(liquidation_close_factor_bps) {
-            return Err("Liquidation close factor must be between 0% and 100%");
-        }
-
-        if !is_valid_percent(liquidation_incentive_bps) {
-            return Err("Liquidation incentive must be between 0% and 100%");
-        }
-
         if !(0..(100 * BPS_IN_PERCENT)).contains(&open_ltv_bps) {
             return Err("Open LTV must be between 0% and 100%");
         }
@@ -477,8 +522,42 @@ impl PoolConfig {
             return Err("Open LTV mustn't be bigger than close LTV");
         }
 
-        if !(0..(MAX_LIABILITY_FACTOR * BPS_IN_PERCENT)).contains(&liability_factor_bps) {
+        if !(0..(MAX_LIABILITY_FACTOR_BPS)).contains(&liability_factor_bps) {
             return Err("Invalid liability factor");
+        }
+
+        Ok(())
+    }
+}
+
+#[contracttype]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LiquidationConfig {
+    /// Maximum percentage of a borrower's debt that can be liquidated
+    pub liquidation_close_factor_bps: i128,
+    /// Additional discount given to liquidators when purchasing collateral
+    pub liquidation_incentive_bps: i128,
+}
+
+impl Default for LiquidationConfig {
+    fn default() -> Self {
+        Self {
+            liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR_BPS,
+            liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD_BPS, // TODO: Rename?
+        }
+    }
+}
+
+impl LiquidationConfig {
+    fn validate(&self) -> Result<(), &str> {
+        let &Self { liquidation_close_factor_bps, liquidation_incentive_bps } = self;
+
+        if !is_valid_percent(liquidation_close_factor_bps) {
+            return Err("Liquidation close factor must be between 0% and 100%");
+        }
+
+        if !is_valid_percent(liquidation_incentive_bps) {
+            return Err("Liquidation incentive must be between 0% and 100%");
         }
 
         Ok(())

@@ -21,10 +21,7 @@ impl ModErc3156 for FlashLoanLiquidatorContract {
         let flash_loan_token_client = TokenClient::new(&e, &token);
         let flash_loan_received = flash_loan_token_client.balance(&e.current_contract_address());
 
-        assert_eq!(
-            flash_loan_received, amount,
-            "Flash borrow should've taken place"
-        );
+        assert_eq!(flash_loan_received, amount, "Flash borrow should've taken place");
 
         if amount == FAILING_CALL_AMOUNT {
             simulate_failed_strategy(&e, &token, amount);
@@ -73,24 +70,16 @@ mod test {
                 &DEFAULT_DEPOSIT_AMOUNT,
             );
 
-            Self {
-                test_fixture,
-                flash_loan_taker_contract_id,
-            }
+            Self { test_fixture, flash_loan_taker_contract_id }
         }
     }
 
     #[test]
     fn test_flash_loan_zero() {
-        let FlashLoanTest {
-            test_fixture,
-            flash_loan_taker_contract_id,
-            ..
-        } = FlashLoanTest::new();
+        let FlashLoanTest { test_fixture, flash_loan_taker_contract_id, .. } = FlashLoanTest::new();
 
-        let gold_pool_before = test_fixture
-            .contract_client
-            .get_pool(&test_fixture.gold_pool_address);
+        let gold_pool_before =
+            test_fixture.contract_client.get_pool(&test_fixture.gold_pool_address);
 
         test_fixture.contract_client.flash_loan(
             &flash_loan_taker_contract_id,
@@ -98,9 +87,8 @@ mod test {
             &0,
         );
 
-        let gold_pool_after = test_fixture
-            .contract_client
-            .get_pool(&test_fixture.gold_pool_address);
+        let gold_pool_after =
+            test_fixture.contract_client.get_pool(&test_fixture.gold_pool_address);
 
         // Must be equal, since flash loan fee is calculated as a percentage and `x * 0 = 0`
         assert_eq!(gold_pool_before, gold_pool_after);
@@ -108,11 +96,7 @@ mod test {
 
     #[test]
     fn test_flash_loan_success() {
-        let FlashLoanTest {
-            test_fixture,
-            flash_loan_taker_contract_id,
-            ..
-        } = FlashLoanTest::new();
+        let FlashLoanTest { test_fixture, flash_loan_taker_contract_id, .. } = FlashLoanTest::new();
 
         test_fixture.contract_client.flash_loan(
             &flash_loan_taker_contract_id,
@@ -123,11 +107,7 @@ mod test {
 
     #[test]
     fn test_flash_loan_failure() {
-        let FlashLoanTest {
-            test_fixture,
-            flash_loan_taker_contract_id,
-            ..
-        } = FlashLoanTest::new();
+        let FlashLoanTest { test_fixture, flash_loan_taker_contract_id, .. } = FlashLoanTest::new();
 
         assert!(
             test_fixture
@@ -143,11 +123,7 @@ mod test {
 
     #[test]
     fn test_flash_loan_overbalance() {
-        let FlashLoanTest {
-            test_fixture,
-            flash_loan_taker_contract_id,
-            ..
-        } = FlashLoanTest::new();
+        let FlashLoanTest { test_fixture, flash_loan_taker_contract_id, .. } = FlashLoanTest::new();
 
         assert_eq!(
             test_fixture.contract_client.try_flash_loan(

@@ -18,13 +18,8 @@ use std::vec::Vec;
 
 #[test]
 fn test_median_price_with_odd_number_of_reported_prices() {
-    let TestFixture {
-        e,
-        oracle_clients,
-        oracle_config_inputs,
-        aggregated_oracle_client,
-        ..
-    } = TestFixture::new();
+    let TestFixture { e, oracle_clients, oracle_config_inputs, aggregated_oracle_client, .. } =
+        TestFixture::new();
 
     // Set XLM prices on the mock oracles: [100, 200, 300]
     let xlm_address = Address::generate(&e);
@@ -33,10 +28,8 @@ fn test_median_price_with_odd_number_of_reported_prices() {
     let xlm_asset_other = Asset::Other(xlm_ticker.clone());
     let xlm_asset_stellar = Asset::Stellar(xlm_address.clone());
 
-    for (idx, (oracle_client, oracle_config_input)) in oracle_clients
-        .iter()
-        .zip(oracle_config_inputs.iter())
-        .enumerate()
+    for (idx, (oracle_client, oracle_config_input)) in
+        oracle_clients.iter().zip(oracle_config_inputs.iter()).enumerate()
     {
         oracle_client.set_price(
             &if oracle_config_input.is_stellar_data_based {
@@ -52,26 +45,16 @@ fn test_median_price_with_odd_number_of_reported_prices() {
 
     aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
 
-    let lastprice = aggregated_oracle_client
-        .lastprice(&xlm_asset_stellar)
-        .unwrap();
+    let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
 
-    assert_eq!(
-        lastprice.price,
-        200 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS)
-    );
+    assert_eq!(lastprice.price, 200 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
     assert_eq!(lastprice.timestamp, e.ledger().timestamp());
 }
 
 #[test]
 fn test_median_price_with_even_number_of_reported_prices() {
-    let TestFixture {
-        e,
-        oracle_clients,
-        oracle_config_inputs,
-        aggregated_oracle_client,
-        ..
-    } = TestFixture::new();
+    let TestFixture { e, oracle_clients, oracle_config_inputs, aggregated_oracle_client, .. } =
+        TestFixture::new();
 
     let xlm_address = Address::generate(&e);
     let xlm_ticker = Symbol::new(&e, "XLM");
@@ -79,11 +62,8 @@ fn test_median_price_with_even_number_of_reported_prices() {
     let xlm_asset_other = Asset::Other(xlm_ticker.clone());
     let xlm_asset_stellar = Asset::Stellar(xlm_address.clone());
 
-    for (idx, (oracle_client, oracle_config_input)) in oracle_clients
-        .iter()
-        .skip(1)
-        .zip(oracle_config_inputs.iter().skip(1))
-        .enumerate()
+    for (idx, (oracle_client, oracle_config_input)) in
+        oracle_clients.iter().skip(1).zip(oracle_config_inputs.iter().skip(1)).enumerate()
     {
         oracle_client.set_price(
             &if oracle_config_input.is_stellar_data_based {
@@ -109,9 +89,7 @@ fn test_median_price_with_even_number_of_reported_prices() {
 
     aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
 
-    let lastprice = aggregated_oracle_client
-        .lastprice(&xlm_asset_stellar)
-        .unwrap();
+    let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
 
     assert_eq!(
         lastprice.price,
@@ -122,13 +100,8 @@ fn test_median_price_with_even_number_of_reported_prices() {
 
 #[test]
 fn test_median_price_with_all_expired_prices() {
-    let TestFixture {
-        e,
-        oracle_clients,
-        aggregated_oracle_client,
-        oracle_config_inputs,
-        ..
-    } = TestFixture::new();
+    let TestFixture { e, oracle_clients, aggregated_oracle_client, oracle_config_inputs, .. } =
+        TestFixture::new();
 
     let xlm_address = Address::generate(&e);
     let xlm_ticker = Symbol::new(&e, "XLM");
@@ -193,12 +166,8 @@ impl<'a> TestFixture<'a> {
 
         let admin = Address::generate(&e);
 
-        let oracle_config_inputs = svec![
-            &e,
-            oracle_1_config_input,
-            oracle_2_config_input,
-            oracle_3_config_input
-        ];
+        let oracle_config_inputs =
+            svec![&e, oracle_1_config_input, oracle_2_config_input, oracle_3_config_input];
 
         let (aggregated_oracle_address, aggregated_oracle_client) = deploy_aggregated_oracle(
             &e,
@@ -247,15 +216,9 @@ fn deploy_mock_oracle<'a>(
     base_asset: &Asset,
     is_stellar_data_based: bool,
 ) -> (Address, MockOracleContractClient<'a>, OracleConfigInput) {
-    let address = e.register(
-        MockOracleContract,
-        (decimals, resolution, base_asset.clone()),
-    );
+    let address = e.register(MockOracleContract, (decimals, resolution, base_asset.clone()));
     let client = MockOracleContractClient::new(e, &address);
-    let oracle_config_input = OracleConfigInput {
-        address: address.clone(),
-        is_stellar_data_based,
-    };
+    let oracle_config_input = OracleConfigInput { address: address.clone(), is_stellar_data_based };
 
     (address, client, oracle_config_input)
 }

@@ -1,6 +1,6 @@
 use soroban_sdk::{Address, Env, contracttype};
 
-use crate::constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD};
+use crate::constants::*;
 
 #[contracttype]
 pub enum DataKey {
@@ -23,7 +23,5 @@ pub fn get_admin(e: &Env) -> Option<Address> {
 
 /// Instance storage bumper
 fn extend_instance_storage(e: &Env) {
-    e.storage()
-        .instance()
-        .extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
+    e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }

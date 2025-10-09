@@ -25,10 +25,7 @@ pub fn set_admin(e: &Env, admin: Address) {
 }
 
 pub fn get_admin(e: &Env) -> Address {
-    e.storage()
-        .instance()
-        .get(&DataKey::Admin)
-        .expect("Admin must've been set")
+    e.storage().instance().get(&DataKey::Admin).expect("Admin must've been set")
 }
 
 pub fn set_max_age(e: &Env, max_age: u64) {
@@ -36,10 +33,7 @@ pub fn set_max_age(e: &Env, max_age: u64) {
 }
 
 pub fn get_max_age(e: &Env) -> u64 {
-    e.storage()
-        .instance()
-        .get(&DataKey::MaxAge)
-        .expect("Max age must've been set")
+    e.storage().instance().get(&DataKey::MaxAge).expect("Max age must've been set")
 }
 
 pub fn set_decimals(e: &Env, decimals: u32) {
@@ -47,10 +41,7 @@ pub fn set_decimals(e: &Env, decimals: u32) {
 }
 
 pub fn get_decimals(e: &Env) -> u32 {
-    e.storage()
-        .instance()
-        .get(&DataKey::Decimals)
-        .expect("Decimals must've been set")
+    e.storage().instance().get(&DataKey::Decimals).expect("Decimals must've been set")
 }
 
 pub fn set_base_asset(e: &Env, base_asset: Asset) {
@@ -58,18 +49,12 @@ pub fn set_base_asset(e: &Env, base_asset: Asset) {
 }
 
 pub fn get_base_asset(e: &Env) -> Asset {
-    e.storage()
-        .instance()
-        .get(&DataKey::BaseAsset)
-        .expect("Base asset must've been set")
+    e.storage().instance().get(&DataKey::BaseAsset).expect("Base asset must've been set")
 }
 
 pub fn add_asset(e: &Env, symbol: Symbol, address: Address) -> Result<(), AOCError> {
-    let mut assets: Map<Address, Symbol> = e
-        .storage()
-        .instance()
-        .get(&DataKey::Assets)
-        .unwrap_or_else(|| Map::new(e));
+    let mut assets: Map<Address, Symbol> =
+        e.storage().instance().get(&DataKey::Assets).unwrap_or_else(|| Map::new(e));
 
     if assets.contains_key(address.clone()) {
         return Err(AOCError::AssetAlreadyRegistered);
@@ -82,11 +67,8 @@ pub fn add_asset(e: &Env, symbol: Symbol, address: Address) -> Result<(), AOCErr
 }
 
 pub fn get_assets(e: &Env) -> Vec<Asset> {
-    let assets_map: Map<Address, Symbol> = e
-        .storage()
-        .instance()
-        .get(&DataKey::Assets)
-        .unwrap_or(Map::new(e));
+    let assets_map: Map<Address, Symbol> =
+        e.storage().instance().get(&DataKey::Assets).unwrap_or(Map::new(e));
     let mut assets_vec = svec![e];
 
     for address in assets_map.keys() {
@@ -98,10 +80,7 @@ pub fn get_assets(e: &Env) -> Vec<Asset> {
 }
 
 pub fn is_asset_registered(e: &Env, token_address: &Address) -> bool {
-    let Some(assets_map) = e
-        .storage()
-        .instance()
-        .get::<_, Map<Address, Symbol>>(&DataKey::Assets)
+    let Some(assets_map) = e.storage().instance().get::<_, Map<Address, Symbol>>(&DataKey::Assets)
     else {
         return false;
     };
@@ -110,24 +89,17 @@ pub fn is_asset_registered(e: &Env, token_address: &Address) -> bool {
 }
 
 pub fn get_token_ticker(e: &Env, token_address: &Address) -> Symbol {
-    let assets: Map<Address, Symbol> = e
-        .storage()
-        .instance()
-        .get(&DataKey::Assets)
-        .expect("Assets must've been set");
+    let assets: Map<Address, Symbol> =
+        e.storage().instance().get(&DataKey::Assets).expect("Assets must've been set");
 
-    assets
-        .get(token_address.clone())
-        .expect("Asset must've been set")
+    assets.get(token_address.clone()).expect("Asset must've been set")
 }
 
 pub fn get_oracle_price_data_cache(
     e: &Env,
     oracle_address: &Address,
 ) -> Option<Map<Address, PriceData>> {
-    e.storage()
-        .instance()
-        .get(&DataKey::OraclePriceDataCached(oracle_address.clone()))
+    e.storage().instance().get(&DataKey::OraclePriceDataCached(oracle_address.clone()))
 }
 
 pub fn set_oracle_price_data_cache(
@@ -135,10 +107,9 @@ pub fn set_oracle_price_data_cache(
     oracle_address: &Address,
     oracle_cache: &Map<Address, PriceData>,
 ) {
-    e.storage().instance().set(
-        &DataKey::OraclePriceDataCached(oracle_address.clone()),
-        oracle_cache,
-    );
+    e.storage()
+        .instance()
+        .set(&DataKey::OraclePriceDataCached(oracle_address.clone()), oracle_cache);
 }
 
 pub fn set_oracles(e: &Env, oracles: Vec<OracleConfig>) {
@@ -155,10 +126,7 @@ pub fn set_oracles(e: &Env, oracles: Vec<OracleConfig>) {
 }
 
 pub fn get_oracles(e: &Env) -> Vec<OracleConfig> {
-    e.storage()
-        .instance()
-        .get(&DataKey::Oracles)
-        .expect("Oracles must've been set")
+    e.storage().instance().get(&DataKey::Oracles).expect("Oracles must've been set")
 }
 
 // ---- Storage Types ----
@@ -196,7 +164,5 @@ pub struct OracleConfig {
 // ---- TTL Bumper ----
 
 pub fn extend_instance_storage(e: &Env) {
-    e.storage()
-        .instance()
-        .extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
+    e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }

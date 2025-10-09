@@ -2,10 +2,7 @@
 
 use soroban_sdk::{Address, Env, panic_with_error};
 
-use crate::{
-    constants::{PRICE_SCALING_FACTOR, ROUTER_ADDRESS, USDC_SAC_ADDRESS},
-    error::SS40ACError,
-};
+use crate::{constants::*, error::SS40ACError};
 
 pub fn get_price(e: &Env, token_address: Address) -> Option<i128> {
     let usdc_sac_address = Address::from_str(e, USDC_SAC_ADDRESS);
