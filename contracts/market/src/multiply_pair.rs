@@ -116,10 +116,7 @@ impl MultiplyPair {
         _collateral_pool_liability_factor_bps: i128, // TODO: start accounting in calculations
     ) -> u32 {
         // compile-time assertion, hence, no error is returned
-        const _: () = assert!(
-            (LEVERAGE_SCALE as i128) < BPS_FACTOR,
-            "leverage_scale_is_too_big"
-        );
+        const _: () = assert!((LEVERAGE_SCALE as i128) < BPS_FACTOR, "leverage_scale_is_too_big");
 
         const SCALE: i128 = BPS_FACTOR / (LEVERAGE_SCALE as i128);
 

@@ -10,7 +10,7 @@ pub struct SoroswapSep40AdapterContract;
 impl SoroswapSep40AdapterContract {
     /// Constructs the adapter contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `admin` - contract's administrator
     pub fn __constructor(e: Env, admin: Address) {
         storage::set_admin(&e, &admin);
@@ -18,7 +18,7 @@ impl SoroswapSep40AdapterContract {
 
     /// Upgrades the contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
     ///   new version of the contract
     // WARN: Ability to upgrade contract must be removed before mainnet deployment
@@ -62,10 +62,7 @@ impl PriceFeedTrait for SoroswapSep40AdapterContract {
         };
 
         let price = swap::get_price(&e, address)?;
-        let price_data = PriceData {
-            price,
-            timestamp: e.ledger().timestamp(),
-        };
+        let price_data = PriceData { price, timestamp: e.ledger().timestamp() };
 
         Some(price_data)
     }

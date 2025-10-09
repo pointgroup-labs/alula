@@ -16,13 +16,8 @@ use crate::{
 
 #[test]
 fn test_accumulate_reserve_fees_are_empty_prior_accrual() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -30,42 +25,26 @@ fn test_accumulate_reserve_fees_are_empty_prior_accrual() {
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(2 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let accumulated_reserve_fees_after_borrow =
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
-    assert_eq!(
-        accumulated_reserve_fees_before_borrow,
-        accumulated_reserve_fees_after_borrow
-    );
+    assert_eq!(accumulated_reserve_fees_before_borrow, accumulated_reserve_fees_after_borrow);
     assert_eq!(accumulated_reserve_fees_before_borrow, 0);
 }
 
 #[test]
 fn test_accumulate_reserve_fees() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(2 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
@@ -84,36 +63,25 @@ fn test_accumulate_reserve_fees() {
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
     let pool_total_borrowed_after = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
-    let accumulated_reserve_fees_diff = accumulated_reserve_fees_after
-        .checked_sub(accumulated_reserve_fees_before)
-        .unwrap();
-    let pool_total_borrowed_diff = pool_total_borrowed_after
-        .checked_sub(pool_total_borrowed_before)
-        .unwrap();
+    let accumulated_reserve_fees_diff =
+        accumulated_reserve_fees_after.checked_sub(accumulated_reserve_fees_before).unwrap();
+    let pool_total_borrowed_diff =
+        pool_total_borrowed_after.checked_sub(pool_total_borrowed_before).unwrap();
 
     let take_rate = get_pool_fee_config(&contract_client, &usdc_pool_address).take_rate_bps;
-    let expected_accumulated_reserve_fees_diff = pool_total_borrowed_diff
-        .fixed_mul_ceil(take_rate as i128, BPS_FACTOR)
-        .unwrap();
+    let expected_accumulated_reserve_fees_diff =
+        pool_total_borrowed_diff.fixed_mul_ceil(take_rate as i128, BPS_FACTOR).unwrap();
 
     assert!(pool_total_borrowed_diff > 0);
-    assert_eq!(
-        accumulated_reserve_fees_diff,
-        expected_accumulated_reserve_fees_diff
-    );
+    assert_eq!(accumulated_reserve_fees_diff, expected_accumulated_reserve_fees_diff);
 
     assert!(accumulated_reserve_fees_after > accumulated_reserve_fees_before);
 }
 
 #[test]
 fn test_obligation_does_not_have_bad_debt_by_default() {
-    let TestMarketFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -130,12 +98,7 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 #[test]
 fn test_partially_socialize_full_bad_debt_loss() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
@@ -184,16 +147,12 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let usdc_pool_debt_value =
         compute_pool_debt_value(&e, &contract_client, &usdc_pool_address).unwrap();
 
-    let market_debt_value_sum = gold_pool_debt_value
-        .checked_add(usdc_pool_debt_value)
-        .unwrap();
-    let market_collateral_value_sum = gold_pool_collateral_value
-        .checked_add(usdc_pool_collateral_value)
-        .unwrap();
+    let market_debt_value_sum = gold_pool_debt_value.checked_add(usdc_pool_debt_value).unwrap();
+    let market_collateral_value_sum =
+        gold_pool_collateral_value.checked_add(usdc_pool_collateral_value).unwrap();
 
-    let market_value_diff_before = market_collateral_value_sum
-        .checked_sub(market_debt_value_sum)
-        .unwrap();
+    let market_value_diff_before =
+        market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
 
     // - Cover bad debt -
 
@@ -225,15 +184,12 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let pool_accumulated_reserve_fees_after =
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
-    let pool_available_diff = pool_available_after
-        .checked_sub(pool_available_before)
-        .unwrap();
+    let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
     let pool_accumulated_market_fees_diff = pool_accumulated_market_fees_after
         .checked_sub(pool_accumulated_market_fees_before)
         .unwrap();
-    let pool_accumulated_host_fees_diff = pool_accumulated_host_fees_after
-        .checked_sub(pool_accumulated_host_fees_before)
-        .unwrap();
+    let pool_accumulated_host_fees_diff =
+        pool_accumulated_host_fees_after.checked_sub(pool_accumulated_host_fees_before).unwrap();
     let pool_accumulated_reserve_fees_diff = pool_accumulated_reserve_fees_before
         .checked_sub(pool_accumulated_reserve_fees_after)
         .unwrap();
@@ -244,10 +200,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     assert_eq!(pool_accumulated_market_fees_diff, 0);
     assert_eq!(pool_j_tokens_after, pool_j_tokens_before);
     assert_eq!(pool_available_diff, available_reserve_fees_before); // reserve tokens become available
-    assert_eq!(
-        pool_accumulated_reserve_fees_diff,
-        available_reserve_fees_before
-    ); // all reserve is spent 
+    assert_eq!(pool_accumulated_reserve_fees_diff, available_reserve_fees_before); // all reserve is spent 
     assert_eq!(available_reserve_fees_after, 0); // same
 
     // - Verify obligation no longer exists -
@@ -268,16 +221,12 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let usdc_pool_debt_value =
         compute_pool_debt_value(&e, &contract_client, &usdc_pool_address).unwrap();
 
-    let market_debt_value_sum = gold_pool_debt_value
-        .checked_add(usdc_pool_debt_value)
-        .unwrap();
-    let market_collateral_value_sum = gold_pool_collateral_value
-        .checked_add(usdc_pool_collateral_value)
-        .unwrap();
+    let market_debt_value_sum = gold_pool_debt_value.checked_add(usdc_pool_debt_value).unwrap();
+    let market_collateral_value_sum =
+        gold_pool_collateral_value.checked_add(usdc_pool_collateral_value).unwrap();
 
-    let market_value_diff_after = market_collateral_value_sum
-        .checked_sub(market_debt_value_sum)
-        .unwrap();
+    let market_value_diff_after =
+        market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
 
     assert!(market_value_diff_before > market_value_diff_after);
 }
@@ -285,12 +234,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
 #[test]
 fn test_completely_socialize_loss() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
     let borrower_1 = &users[0];
     let borrower_2 = &users[1];
@@ -298,11 +242,7 @@ fn test_completely_socialize_loss() {
 
     contract_client.add_collateral(borrower_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(2 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 
     // Borrow max possible amounts
     contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX);
@@ -368,9 +308,7 @@ fn test_completely_socialize_loss() {
     let pool_accumulated_reserve_fees_after =
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
-    let pool_available_diff = pool_available_after
-        .checked_sub(pool_available_before)
-        .unwrap();
+    let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
     let pool_accumulated_reserve_fees_diff = pool_accumulated_reserve_fees_before
         .checked_sub(pool_accumulated_reserve_fees_after)
         .unwrap();
@@ -390,28 +328,15 @@ fn test_completely_socialize_loss() {
 #[test]
 fn test_completely_cover_bad_debt() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
     let borrower_1 = &users[0];
     let borrower_2 = &users[1];
     let loan_provider = &users[2];
 
-    contract_client.add_collateral(
-        borrower_1,
-        &gold_pool_address,
-        &(10 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.add_collateral(borrower_1, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(20 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(20 * DEFAULT_DEPOSIT_AMOUNT));
 
     // Borrow max possible amounts
     contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX); // will borrow x10 due to having x10 more collateral
@@ -467,12 +392,8 @@ fn test_completely_cover_bad_debt() {
     let pool_accumulated_reserve_fees_after =
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
-    let pool_available_diff = pool_available_after
-        .checked_sub(pool_available_before)
-        .unwrap();
-    let pool_borrowed_diff = pool_borrowed_before
-        .checked_sub(pool_borrowed_after)
-        .unwrap();
+    let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
+    let pool_borrowed_diff = pool_borrowed_before.checked_sub(pool_borrowed_after).unwrap();
     let pool_accumulated_reserve_fees_diff = pool_accumulated_reserve_fees_before
         .checked_sub(pool_accumulated_reserve_fees_after)
         .unwrap();

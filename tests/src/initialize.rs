@@ -45,10 +45,7 @@ fn test_pool_initialize_with_custom_config() {
     let token_ticker = symbol_short!("TCK1");
 
     let pool_config = PoolConfig {
-        health_config: PoolHealthConfig {
-            utilization_ratio_limit_bps: 8000,
-            ..Default::default()
-        },
+        health_config: PoolHealthConfig { utilization_ratio_limit_bps: 8000, ..Default::default() },
         ..Default::default()
     };
 
@@ -108,13 +105,7 @@ fn test_pool_initialize_non_conflicting() {
     let all_pools = contract_client.get_all_pools();
     assert_eq!(
         all_pools,
-        soroban_sdk::vec![
-            &e,
-            pool_address_1,
-            pool_address_2,
-            pool_address_3,
-            pool_address_4
-        ]
+        soroban_sdk::vec![&e, pool_address_1, pool_address_2, pool_address_3, pool_address_4]
     );
 }
 
@@ -224,15 +215,8 @@ fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
 
-    let contract_id = e.register(
-        MarketContract,
-        (
-            contract_name,
-            contract_admin.clone(),
-            oracle,
-            contract_admin,
-        ),
-    );
+    let contract_id =
+        e.register(MarketContract, (contract_name, contract_admin.clone(), oracle, contract_admin));
 
     MarketContractClient::new(e, &contract_id)
 }

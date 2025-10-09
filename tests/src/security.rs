@@ -42,10 +42,7 @@ fn test_initialize_pool_requires_admin() {
     );
 
     // Should fail because the unauthorized user cannot initialize pools
-    assert!(
-        result.is_err(),
-        "Initialize pool should fail for unauthorized user"
-    );
+    assert!(result.is_err(), "Initialize pool should fail for unauthorized user");
 }
 
 #[test]
@@ -62,10 +59,7 @@ fn test_initialize_multiply_pair_requires_admin() {
         .try_initialize_multiply_pair(&fixture.usdc_pool_address, &fixture.gold_pool_address);
 
     // Should fail because the unauthorized user cannot initialize multiply pairs
-    assert!(
-        result.is_err(),
-        "Initialize multiply pair should fail for unauthorized user"
-    );
+    assert!(result.is_err(), "Initialize multiply pair should fail for unauthorized user");
 }
 
 #[test]
@@ -78,10 +72,7 @@ fn test_clean_multiply_pairs_requires_admin() {
     let result = fixture.contract_client.try_clean_multiply_pairs();
 
     // Should succeed because the fixture uses the admin user and mocks auth
-    assert!(
-        result.is_ok(),
-        "Admin should be able to clean multiply pairs"
-    );
+    assert!(result.is_ok(), "Admin should be able to clean multiply pairs");
 }
 
 #[test]
@@ -106,10 +97,7 @@ fn test_admin_functions_work_for_authorized_admin() {
     let result = fixture.contract_client.try_clean_multiply_pairs();
 
     // Should succeed because the fixture uses the admin user
-    assert!(
-        result.is_ok(),
-        "Admin should be able to call admin functions"
-    );
+    assert!(result.is_ok(), "Admin should be able to call admin functions");
 }
 
 #[test]
@@ -121,15 +109,10 @@ fn test_non_admin_functions_work_for_any_user() {
     // Regular users should be able to call non-admin functions like getting global state
     let result = fixture.contract_client.try_get_global_state();
 
-    assert!(
-        result.is_ok(),
-        "Regular users should be able to call non-admin functions"
-    );
+    assert!(result.is_ok(), "Regular users should be able to call non-admin functions");
 
     // Test that users can get their obligation (even if empty)
-    let obligation_result = fixture
-        .contract_client
-        .try_get_user_obligation(&regular_user);
+    let obligation_result = fixture.contract_client.try_get_user_obligation(&regular_user);
 
     // This might fail with UserObligationDoesNotExist, which is expected and fine
     match obligation_result {

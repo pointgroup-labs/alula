@@ -30,23 +30,17 @@ pub enum DataKey {
 
 /// Instance bumper
 pub fn extend_instance_storage(e: &Env) {
-    e.storage()
-        .instance()
-        .extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
+    e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }
 
 /// Persistent individual resource bumper
 pub fn extend_individual_storage(e: &Env, key: &DataKey) {
-    e.storage()
-        .persistent()
-        .extend_ttl(key, INDIVIDUAL_THRESHOLD, INDIVIDUAL_BUMP);
+    e.storage().persistent().extend_ttl(key, INDIVIDUAL_THRESHOLD, INDIVIDUAL_BUMP);
 }
 
 /// Persistent shared resource bumper
 pub fn extend_shared_storage(e: &Env, key: &DataKey) {
-    e.storage()
-        .persistent()
-        .extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
+    e.storage().persistent().extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
 
 /// Gets the oracle address of the contract
@@ -75,9 +69,7 @@ pub fn get_global_state(e: &Env) -> GlobalState {
 
 /// Sets the global state of the contract
 pub fn set_global_state(e: &Env, global_state: &GlobalState) {
-    e.storage()
-        .instance()
-        .set(&DataKey::GlobalState, global_state);
+    e.storage().instance().set(&DataKey::GlobalState, global_state);
     extend_instance_storage(e);
 }
 
@@ -152,9 +144,7 @@ pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
 pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
     let mut pairs = get_all_multiply_pairs(e);
     pairs.push_back(pair);
-    e.storage()
-        .persistent()
-        .set(&DataKey::AllMultiplyPairs, &pairs);
+    e.storage().persistent().set(&DataKey::AllMultiplyPairs, &pairs);
     extend_shared_storage(e, &DataKey::AllMultiplyPairs);
     pairs.len() + 1
 }

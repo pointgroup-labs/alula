@@ -24,7 +24,7 @@ pub struct MarketContract;
 impl MarketContract {
     /// Constructs the market contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `admin` - market's administrator
     /// * `name` - market's name(not necessarily unique)
     /// * `oracle` - SEP-40 compliant oracle's contract address
@@ -40,12 +40,11 @@ impl MarketContract {
             status: true,
             admin: admin.clone(),
             name: name.clone(),
-            deployer: deployer.clone(),
+            deployer,
         };
 
         storage::set_global_state(&e, &global_state);
         storage::set_oracle_address(&e, &oracle);
-
         events::constructor(&e, &admin, &name, &oracle);
 
         Ok(())
@@ -53,7 +52,7 @@ impl MarketContract {
 
     /// Upgrades the lending contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     ///   version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
@@ -76,7 +75,7 @@ impl MarketContract {
 
     /// Initializes a loan pool for a specific asset
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `token_address` - address of a corresponding Soroban Asset Contract
     /// * `token_ticker` - symbol which represents a pool's token ticker
     /// * `salt` - optional salt data, which, when provided, is used along with `token_address` to
@@ -97,7 +96,7 @@ impl MarketContract {
 
     /// Initializes a multiply pair
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `deposit_pool_address` - address of a pool in a pair for a leveraged deposit
     /// * `borrow_pool_address` - address of a pool in a pair for a leveraged borrow
     pub fn initialize_multiply_pair(
@@ -112,7 +111,7 @@ impl MarketContract {
 
     /// Deposits tokens into the loan pool
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
@@ -131,7 +130,7 @@ impl MarketContract {
 
     /// Borrows tokens from the loan pool
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user which borrows a token
     /// * `pool_address` - address of a pool from which the borrow happens
     /// * `amount` - amount of tokens which are going to be borrowed
@@ -151,7 +150,7 @@ impl MarketContract {
     /// Swap tokens via a swap provider contract. This guarantees a swap
     /// and is agnostic to the possible price slippage
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user which deposits a token
     /// * `token_in` - address of a token that would be taken from the user
     /// * `token_out` - address of a token that would be given to the user
@@ -172,7 +171,7 @@ impl MarketContract {
     /// This implies that they are always available for a healthy withdrawal for the
     /// cost of not accruing an interest rate
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user that adds collateral
     /// * `pool_address` - address of a pool to which the collateral is being added
     /// * `amount` - amount of tokens which are being added as a collateral
@@ -191,7 +190,7 @@ impl MarketContract {
 
     /// Removes collateral tokens from the loan pool to the user
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user which withdraws collateral tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - desired amount of collateral tokens to remove.
@@ -213,7 +212,7 @@ impl MarketContract {
 
     /// Repays borrowed tokens
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user which repays borrowed tokens
     /// * `pool_address` - address of a pool from which the borrow happened
     /// * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only
@@ -234,7 +233,7 @@ impl MarketContract {
 
     /// Liquidates borrower's position if position's health factor criterion isn't met
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `liquidator` - agent which liquidates the borrower's position
     /// * `borrower` - the borrower whose position is being liquidated
     /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
@@ -266,7 +265,7 @@ impl MarketContract {
 
     /// Withdraws deposited tokens from the loan pool to the user
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user which withdraws deposited tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - desired amount of tokens to withdraw.
@@ -288,7 +287,7 @@ impl MarketContract {
 
     /// Creates a flash loan
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `contract` - contract's address which leverages the flash loaned amount and adheres to
     ///   `erc3156` standard
     /// * `pool_address` - address of a pool from which the flash loan happens
@@ -325,7 +324,7 @@ impl MarketContract {
     /// This increases the perceived `supply APR` only
     /// when `(borrowed token borrow APR < supply token supply APR)` holds true
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user that deposits tokens with leverage
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
@@ -359,7 +358,7 @@ impl MarketContract {
     /// Withdraws tokens from the leveraged deposit position without affecting the leverage
     /// multiplier
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user that deleverages and withdraws from the position
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
@@ -387,7 +386,7 @@ impl MarketContract {
 
     /// Redeems accumulated market fees
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user that tries to redeem market fees
     /// * `pool_address` - address of a pool whose fees are redeemed
     /// * `amount` - desired amount of fees to redeem as tokens
@@ -405,7 +404,7 @@ impl MarketContract {
 
     /// Redeems accumulated host fees
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user that tries to redeem host fees
     /// * `pool_address` - address of a pool whose fees are redeemed
     /// * `amount` - desired amount of fees to redeem as tokens
@@ -425,7 +424,7 @@ impl MarketContract {
     /// remaining bad debt in case the market reserves doesn't contain enough funds to cover it
     /// completely
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `bad_debt_obligation_user` - user that has a bad debt
     pub fn cover_obligation_bad_debt(
         e: Env,
@@ -442,7 +441,7 @@ impl MarketContract {
     /// Socializes all remaining bad debt in case the reserve doesn't contain enough funds to
     /// cover it completely
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `bad_debt_obligation_user` - user that has a bad debt
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
@@ -473,7 +472,7 @@ impl MarketContract {
 
     /// Returns pool asset's oracle price
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `pool_address` - address of asset which price is returned
     pub fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
@@ -483,7 +482,7 @@ impl MarketContract {
 
     /// Returns the user's obligation which includes data about all of their deposits and borrows
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user which obligation is returned
     pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
         let obligation_key = ObligationKey::new(user);
@@ -497,7 +496,7 @@ impl MarketContract {
 
     /// Returns the user's obligation for a specific multiply pair
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `user` - user whose obligation is returned
     /// * `deposit_pool_address` - address of a deposit pool from the pair
     /// * `borrow_pool_address` - address of a borrow pool from the pair
@@ -522,7 +521,7 @@ impl MarketContract {
 
     /// Returns the specific loan pool
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `pool_address` - pool which data is returned
     pub fn get_pool(e: Env, pool_address: Address) -> Result<Pool, MCError> {
         let mut pool = Pool::try_get(&e, &pool_address)?;
@@ -544,7 +543,7 @@ impl MarketContract {
 
     /// Returns the specific multiply pair
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `deposit_pool_address` - deposit pool of a pair that is returned
     /// * `borrow_pool_address` - borrow pool of a pair that is returned
     pub fn get_multiply_pair(
@@ -561,10 +560,10 @@ impl MarketContract {
         MultiplyPair::get_all(&e)
     }
 
-    /// Returns APR calculated for the current utilization ratio of a pool in basis points (e.g.,
-    /// 2912 = 29.12%, etc)
+    /// Returns APR calculated for the current utilization ratio of a pool in basis points
+    /// (e.g., 2912 = 29.12%, etc.)
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `pool_address` - address of a pool for which APR is returned
     pub fn get_apr(e: Env, pool_address: Address) -> Result<AnnualPercentageRates, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
@@ -572,10 +571,10 @@ impl MarketContract {
         pool.get_apr()
     }
 
-    /// Returns APY calculated for the current utilization ratio of a pool in basis points (e.g.,
-    /// 2912 = 29.12%, etc)
+    /// Returns APY calculated for the current utilization ratio of a pool in basis points
+    /// (e.g., 2912 = 29.12%, etc.)
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `pool_address` - address of a pool for which APY is returned
     pub fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;

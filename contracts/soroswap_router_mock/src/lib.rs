@@ -49,12 +49,8 @@ pub struct MockSoroswapRouterContract;
 #[contractimpl]
 impl MockSoroswapRouterContract {
     pub fn __constructor(e: Env, base_asset_symbol: Symbol, base_asset_token_address: Address) {
-        e.storage()
-            .instance()
-            .set(&DataKey::BaseAssetSymbol, &base_asset_symbol);
-        e.storage()
-            .instance()
-            .set(&DataKey::BaseAssetTokenAddress, &base_asset_token_address);
+        e.storage().instance().set(&DataKey::BaseAssetSymbol, &base_asset_symbol);
+        e.storage().instance().set(&DataKey::BaseAssetTokenAddress, &base_asset_token_address);
     }
 
     pub fn router_get_amounts_in(
@@ -136,9 +132,7 @@ impl MockSoroswapRouterContract {
     /// Maps a randomly generated token address to a token ticker. This is required to use a
     /// `sep-40` compliant oracle as a price-source in mocked router
     pub fn map_address_to_ticker(e: Env, address: Address, ticker: Symbol) {
-        e.storage()
-            .instance()
-            .set(&DataKey::TickerByAddress(address), &ticker);
+        e.storage().instance().set(&DataKey::TickerByAddress(address), &ticker);
     }
 }
 
@@ -194,29 +188,20 @@ fn get_amounts_in(
 
     let price_scaling_factor = i128::pow(10, decimals);
 
-    let usdc_sac_address = e
-        .storage()
-        .instance()
-        .get(&DataKey::BaseAssetTokenAddress)
-        .unwrap();
+    let usdc_sac_address = e.storage().instance().get(&DataKey::BaseAssetTokenAddress).unwrap();
 
     let usdc_as_token_in = first_address == usdc_sac_address;
     let usdc_as_token_out = last_address == usdc_sac_address;
 
     let amount_in = if usdc_as_token_in {
-        let price = oracle_contract
-            .lastprice(&Asset::Stellar(last_address.clone()))
-            .unwrap()
-            .price;
+        let price = oracle_contract.lastprice(&Asset::Stellar(last_address.clone())).unwrap().price;
 
         let value = amount_out.checked_mul(price).unwrap();
 
         value.checked_div(price_scaling_factor).unwrap()
     } else if usdc_as_token_out {
-        let price = oracle_contract
-            .lastprice(&Asset::Stellar(first_address.clone()))
-            .unwrap()
-            .price;
+        let price =
+            oracle_contract.lastprice(&Asset::Stellar(first_address.clone())).unwrap().price;
 
         let amount_out_scaled = amount_out.checked_mul(price_scaling_factor).unwrap();
 
@@ -227,9 +212,7 @@ fn get_amounts_in(
     };
 
     // 'amount_in_plus_fees' = amount_in * (1000/997)
-    let amount_in_plus_fees = amount_in
-        .fixed_mul_ceil(FEE_DENOMINATOR, FEE_NUMERATOR)
-        .unwrap();
+    let amount_in_plus_fees = amount_in.fixed_mul_ceil(FEE_DENOMINATOR, FEE_NUMERATOR).unwrap();
 
     Ok(soroban_sdk::vec![&e, amount_in_plus_fees, amount_out])
 }
@@ -250,35 +233,22 @@ fn get_amounts_out(
     let decimals = oracle_contract.decimals();
 
     // 'amount_in_minus_fees' = amount_in * (997/1000)
-    let amount_in_minus_fees = amount_in
-        .fixed_mul_floor(FEE_NUMERATOR, FEE_DENOMINATOR)
-        .unwrap();
+    let amount_in_minus_fees = amount_in.fixed_mul_floor(FEE_NUMERATOR, FEE_DENOMINATOR).unwrap();
 
     let price_scaling_factor = i128::pow(10, decimals);
-    let usdc_sac_address = e
-        .storage()
-        .instance()
-        .get(&DataKey::BaseAssetTokenAddress)
-        .unwrap();
+    let usdc_sac_address = e.storage().instance().get(&DataKey::BaseAssetTokenAddress).unwrap();
     let usdc_as_token_in = first_address == usdc_sac_address;
     let usdc_as_token_out = last_address == usdc_sac_address;
 
     let amount_out = if usdc_as_token_in {
-        let price = oracle_contract
-            .lastprice(&Asset::Stellar(last_address.clone()))
-            .unwrap()
-            .price;
+        let price = oracle_contract.lastprice(&Asset::Stellar(last_address.clone())).unwrap().price;
 
-        let amount_in_scaled = amount_in_minus_fees
-            .checked_mul(price_scaling_factor)
-            .unwrap();
+        let amount_in_scaled = amount_in_minus_fees.checked_mul(price_scaling_factor).unwrap();
 
         amount_in_scaled.checked_div(price).unwrap()
     } else if usdc_as_token_out {
-        let price = oracle_contract
-            .lastprice(&Asset::Stellar(first_address.clone()))
-            .unwrap()
-            .price;
+        let price =
+            oracle_contract.lastprice(&Asset::Stellar(first_address.clone())).unwrap().price;
 
         let value = amount_in_minus_fees.checked_mul(price).unwrap();
 
@@ -293,9 +263,7 @@ fn get_amounts_out(
 
 #[allow(unused)]
 fn get_ticker_by_address(e: &Env, address: &Address) -> Option<Symbol> {
-    e.storage()
-        .instance()
-        .get(&DataKey::TickerByAddress(address.clone()))
+    e.storage().instance().get(&DataKey::TickerByAddress(address.clone()))
 }
 
 #[allow(unused)]

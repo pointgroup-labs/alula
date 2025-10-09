@@ -33,7 +33,7 @@ pub struct AggregatedOracleContract;
 impl AggregatedOracleContract {
     /// Constructs the oracle contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `admin` - contract's administrator
     /// * `base_asset` - asset that will be the result of the `base()` endpoint call
     /// * `decimals` - number of decimals in the aggregated price
@@ -75,7 +75,7 @@ impl AggregatedOracleContract {
     // NB: The ability to update the contract must be removed before the mainnet deployment
     /// Upgrades the aggregated oracle contract
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
     ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
@@ -87,7 +87,7 @@ impl AggregatedOracleContract {
 
     /// Adds an asset to the aggregation list
     ///
-    /// ### Arguments
+    /// # Arguments
     /// * `ticker` - symbol of the asset that is added
     /// * `token_address` - token contract's address on the Stellar ledger of the asset that is
     ///   added
@@ -148,10 +148,7 @@ fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_
     let mut oracles_to_register = Vec::<OracleConfig>::new(e);
 
     for input_config in input_oracles_configs {
-        let OracleConfigInput {
-            address,
-            is_stellar_data_based,
-        } = input_config;
+        let OracleConfigInput { address, is_stellar_data_based } = input_config;
 
         let oracle_client = PriceFeedClient::new(e, &address);
 
@@ -162,12 +159,7 @@ fn register_oracles(e: &Env, input_oracles_configs: Vec<OracleConfigInput>, max_
             panic_with_error!(e, AOCError::InvalidOracleConfig);
         }
 
-        let oracle_config = OracleConfig {
-            address,
-            decimals,
-            resolution,
-            is_stellar_data_based,
-        };
+        let oracle_config = OracleConfig { address, decimals, resolution, is_stellar_data_based };
 
         oracles_to_register.push_back(oracle_config);
     }

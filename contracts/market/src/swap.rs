@@ -11,10 +11,13 @@ use crate::{constants::*, error::MCError, math_utils::MathUtils, soroswap_router
 /// Gets the amount that the user must provide to receive a specific amount if a swap is performed
 /// at the current moment
 ///
-/// ### Arguments
+/// # Arguments
 /// * `token_in` - address of a token that would be taken from the user
 /// * `token_out` - address of a token that would be given to the user
 /// * `amount_out` - an exact amount of `token_in` that would be given to the user
+///
+/// # Returns
+/// Amount of `token_in` that must be provided by the user
 pub fn get_amount_in(
     e: &Env,
     token_in: &Address,
@@ -34,10 +37,13 @@ pub fn get_amount_in(
 
 /// Gets the amount that user would receive if performed a swap at the current moment
 ///
-/// ### Arguments
+/// # Arguments
 /// * `token_in` - address of a token that would be taken from the user
 /// * `token_out` - address of a token that would be given to the user
 /// * `amount_in` - an exact amount of `token_in` that would be taken from the user
+///
+/// # Returns
+/// Amount of `token_out` that would be given to the user
 pub fn get_amount_out(
     e: &Env,
     token_in: &Address,
@@ -57,7 +63,7 @@ pub fn get_amount_out(
 
 /// Swaps user's tokens
 ///
-/// ### Arguments
+/// # Arguments
 /// * `user` - user that performs a swap
 /// * `token_in` - address of a token that is taken from the user
 /// * `token_out` - address of a token that is given to the user
@@ -81,9 +87,7 @@ pub fn swap_tokens_for_exact_tokens(
 
     let amount_in_max = amount_in
         .checked_add(
-            amount_in
-                .fixed_mul_floor(max_slippage_bps, BPS_FACTOR)
-                .map_over_or_underflow()?,
+            amount_in.fixed_mul_floor(max_slippage_bps, BPS_FACTOR).map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
 
@@ -99,16 +103,14 @@ pub fn swap_tokens_for_exact_tokens(
     );
 
     // TODO: What warning\error\event exactly must happen here?
-    let received_amount = swap_amounts
-        .last()
-        .ok_or(MCError::DependencyContractError)?;
+    let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
 
     Ok(received_amount)
 }
 
 /// Swaps user's tokens
 ///
-/// ### Arguments
+/// # Arguments
 /// * `user` - user that performs a swap
 /// * `token_in` - address of a token that is taken from the user
 /// * `token_out` - address of a token that is given to the user
@@ -116,6 +118,7 @@ pub fn swap_tokens_for_exact_tokens(
 /// * `amount_out` - desired amount of the `token_out`
 /// * `max_slippage_bps` - basis points percentage of the maximum allowed `amount_out` slippage.
 ///   [`DEFAULT_MAX_SLIPPAGE_BPS`] if [`None`]
+///
 /// # Returns
 /// Given to user `token_out` amount
 pub fn swap_exact_tokens_for_tokens(
@@ -132,9 +135,7 @@ pub fn swap_exact_tokens_for_tokens(
 
     let amount_out_min = amount_out
         .checked_sub(
-            amount_out
-                .fixed_mul_floor(max_slippage_bps, BPS_FACTOR)
-                .map_over_or_underflow()?,
+            amount_out.fixed_mul_floor(max_slippage_bps, BPS_FACTOR).map_over_or_underflow()?,
         )
         .map_over_or_underflow()?;
 
@@ -150,16 +151,16 @@ pub fn swap_exact_tokens_for_tokens(
     );
 
     // TODO: What warning\error\event exactly must happen here?
-    let received_amount = swap_amounts
-        .last()
-        .ok_or(MCError::DependencyContractError)?;
+    let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
 
     Ok(received_amount)
 }
 
 /// Resolves the max slippage basis points percentage
+///
 /// # Arguments
 /// * `max_slippage_bps` - optional basis points percentage of the maximum allowed slippage
+///
 /// # Returns
 /// Resolved basis points percentage of the maximum allowed slippage
 fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError> {

@@ -21,22 +21,13 @@ fn test_deposit_zero() {
     const LEVERAGE: u32 = 3; // x3 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     let gold_pool_before = contract_client.get_pool(&gold_pool_address);
     let usdc_pool_before = contract_client.get_pool(&gold_pool_address);
@@ -59,13 +50,8 @@ fn test_deposit_zero() {
 
 #[test]
 fn test_deposit_with_invalid_leverage_multiplier() {
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
 
     assert_eq!(
@@ -102,12 +88,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
 #[test]
 fn test_deposit_with_no_leverage() {
     let TestMarketFixture {
-        e,
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
+        e, contract_client, gold_pool_address, usdc_pool_address, users, ..
     } = TestMarketFixture::new();
     let looper = &users[0];
 
@@ -130,13 +111,9 @@ fn test_deposit_with_no_leverage() {
     )
     .unwrap();
 
-    let amount_out = swap::get_amount_out(
-        &e,
-        &gold_pool_address,
-        &usdc_pool_address,
-        DEFAULT_DEPOSIT_AMOUNT,
-    )
-    .unwrap();
+    let amount_out =
+        swap::get_amount_out(&e, &gold_pool_address, &usdc_pool_address, DEFAULT_DEPOSIT_AMOUNT)
+            .unwrap();
 
     // TODO: Doesn't this account for fees?
     assert_eq!(amount_out, obligation_j_tokens_as_tokens);
@@ -165,13 +142,8 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
     const LEVERAGE: u32 = 3; // x3 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
 
     assert_eq!(
@@ -192,21 +164,12 @@ fn test_deposit_with_unhealthy_leverage() {
     const LEVERAGE: u32 = 4; // x4 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     assert_eq!(
         contract_client.try_deposit_with_leverage(
@@ -227,22 +190,13 @@ fn test_deposit_borrow_as_margin() {
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
     let TestMarketFixture {
-        e,
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
+        e, contract_client, gold_pool_address, usdc_pool_address, users, ..
     } = TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
     let usdc_pool = contract_client.get_pool(&usdc_pool_address);
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,
@@ -297,22 +251,13 @@ fn test_deposit_deposit_as_margin() {
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
     let TestMarketFixture {
-        e,
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
+        e, contract_client, gold_pool_address, usdc_pool_address, users, ..
     } = TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
     let usdc_pool = contract_client.get_pool(&usdc_pool_address);
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,
@@ -329,10 +274,8 @@ fn test_deposit_deposit_as_margin() {
     let amount_out = DEFAULT_DEPOSIT_AMOUNT * ((LEVERAGE - 1) as i128);
     let amount_in =
         swap::get_amount_in(&e, &usdc_pool_address, &gold_pool_address, amount_out).unwrap();
-    let expected_borrowed_amount = get_amount_scaled_up(
-        amount_in,
-        usdc_pool.config.fee_config.flash_loan_fee_bps as i128,
-    );
+    let expected_borrowed_amount =
+        get_amount_scaled_up(amount_in, usdc_pool.config.fee_config.flash_loan_fee_bps as i128);
     let obligation_j_tokens_as_tokens = get_multiply_pair_obligation_j_tokens_as_tokens(
         &e,
         &contract_client,
@@ -365,21 +308,12 @@ fn test_multiplied_deposits_are_isolated() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,
@@ -414,21 +348,12 @@ fn test_withdraw() {
         ..Default::default()
     };
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new_with_pool_config(pool_config);
     let looper = &users[0];
     let loan_provider = &users[1];
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,
@@ -438,13 +363,9 @@ fn test_withdraw() {
         &LEVERAGE_MULTIPLIER,
     );
 
-    let amount_out = swap::get_amount_out(
-        &e,
-        &usdc_pool_address,
-        &gold_pool_address,
-        DEFAULT_DEPOSIT_AMOUNT,
-    )
-    .unwrap();
+    let amount_out =
+        swap::get_amount_out(&e, &usdc_pool_address, &gold_pool_address, DEFAULT_DEPOSIT_AMOUNT)
+            .unwrap();
     let withdrawable_amount = get_amount_scaled_down(amount_out, 10_00); // 90%
 
     // We must be able to withdraw the initial amount
@@ -523,22 +444,13 @@ fn test_withdraw_over_balance() {
         ..Default::default()
     };
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new_with_pool_config(pool_config);
     let looper = &users[0];
     let loan_provider = &users[1];
 
     // Deposit into a different pool to make flash loans possible
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
 
     let borrowed_token_supply_before =
         get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
@@ -552,13 +464,9 @@ fn test_withdraw_over_balance() {
         &LEVERAGE_MULTIPLIER,
     );
 
-    let amount_out = swap::get_amount_out(
-        &e,
-        &usdc_pool_address,
-        &gold_pool_address,
-        DEFAULT_DEPOSIT_AMOUNT,
-    )
-    .unwrap();
+    let amount_out =
+        swap::get_amount_out(&e, &usdc_pool_address, &gold_pool_address, DEFAULT_DEPOSIT_AMOUNT)
+            .unwrap();
     let withdrawable_amount = get_amount_scaled_down(amount_out, 2_00);
 
     // Withdrawing more than max available amount must succeed because of the inner cap
@@ -570,10 +478,8 @@ fn test_withdraw_over_balance() {
         &(10 * withdrawable_amount / 9),
     );
 
-    let deposited_token_supply_after = contract_client
-        .get_pool(&gold_pool_address)
-        .total_supply()
-        .unwrap();
+    let deposited_token_supply_after =
+        contract_client.get_pool(&gold_pool_address).total_supply().unwrap();
     let borrowed_token_supply_after =
         get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
 
@@ -595,21 +501,12 @@ fn test_withdraw_all_available_with_i128_max() {
         },
         ..Default::default()
     };
-    let TestMarketFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new_with_pool_config(pool_config);
     let looper = &users[0];
     let loan_provider = &users[1];
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,
@@ -647,21 +544,12 @@ fn test_withdraw_zero() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,
@@ -699,21 +587,12 @@ fn test_withdraw_negative() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
-    let TestMarketFixture {
-        contract_client,
-        gold_pool_address,
-        usdc_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
     let loan_provider = &users[1];
 
-    contract_client.deposit(
-        loan_provider,
-        &usdc_pool_address,
-        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
-    );
+    contract_client.deposit(loan_provider, &usdc_pool_address, &(1000 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,

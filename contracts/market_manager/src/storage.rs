@@ -67,7 +67,5 @@ const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 
 /// Instance storage bumper
 pub fn extend_instance_storage(e: &Env) {
-    e.storage()
-        .instance()
-        .extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
+    e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }
