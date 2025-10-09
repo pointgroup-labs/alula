@@ -292,29 +292,27 @@ impl Pool {
             // NB: Is it reasonable to make the initial amount smaller?
             tokens_amount
         } else {
-      if total_shares_amount > total_tokens_amount {
-        events::pool_total_shares_smaller_than_total_tokens(
-          e,
-          total_shares_amount,
-          total_tokens_amount,
-        );
+            if total_shares_amount > total_tokens_amount {
+                events::pool_total_shares_smaller_than_total_tokens(
+                    e,
+                    total_shares_amount,
+                    total_tokens_amount,
+                );
 
-        return Err(MCError::InternalError);
-      }
+                return Err(MCError::InternalError);
+            }
 
-      /*
-      This must hold when issuing new shares:
-          shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount / (tokens_added_amount + prev_total_tokens_amount)
-      Which implies:
-          shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
-
-            This must hold when burning issued shares:
-                shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
-            */
+            // This must hold when issuing new shares: shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount /
+            // (tokens_added_amount + prev_total_tokens_amount)
+            // Which implies:
+            //   shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
+            // This must hold when burning issued shares:
+            //   shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
             total_shares_amount
-                /* Using 'ceil' here has advantages when withdrawing\repaying small amounts of tokens.
-                Namely, if the token amount is really small, with `floor`, the respective amount of
-                shares to burn is 0, and doesn't make a difference  */
+                // Using 'ceil' here has advantages when withdrawing\repaying small amounts of
+                // tokens. Namely, if the token amount is really small, with
+                // `floor`, the respective amount of shares to burn is 0, and
+                // doesn't make a difference
                 .fixed_div_ceil(total_tokens_amount, tokens_amount)
                 .map_over_or_underflow()?
         };
