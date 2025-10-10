@@ -36,8 +36,8 @@ export function useMarket(state: MarketsState) {
     }
   }
 
-  watch([publicKey, () => state.markets], async ([, markets]) => {
-    if (Object.keys(markets).length === 0) {
+  watch(publicKey, async () => {
+    if (Object.keys(state.markets).length === 0) {
       return
     }
     await regenerateMarketClient()

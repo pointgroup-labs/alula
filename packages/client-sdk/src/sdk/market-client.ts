@@ -3,16 +3,18 @@ import type { AnnualPercentageYields, MultiplyPair, Obligation, Pool } from '@al
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
 import { rpc as SorobanRpc } from '@stellar/stellar-sdk'
-import { amountToBigInt, bigintToNumber, getNetworkPassphrase, getRPC, sendSorobanTx } from '../utils'
+import { amountToBigInt, bigintToNumber, bindOwnMethods, cacheManager, getNetworkPassphrase, getRPC, hidePrivate, sendSorobanTx } from '../utils'
 
-export class MarketClient extends Client {
+export class MarketClient {
   rpc: RPCcluster
   sorobanServer: any
   assetDecimals: number = 7
   oracleDecimals: number = 14
+  private base: Client
+  private market?: string
 
   constructor(rpc: RPCcluster, publicKey?: string, market?: string) {
-    super({
+    this.base = new Client({
       publicKey,
       rpcUrl: getRPC(rpc, 'soroban'),
       contractId: market || '',
@@ -20,29 +22,48 @@ export class MarketClient extends Client {
     })
 
     this.sorobanServer = new SorobanRpc.Server(getRPC(rpc, 'soroban'))
-    // this.getDecimals()
     this.rpc = rpc
+    this.market = market
+
+    if (market) {
+      this.getDecimals().catch(() => {})
+    }
+
+    hidePrivate(this, 'base')
+    bindOwnMethods(this)
   }
 
   /**
    * Get market data
    */
   async getMarketData() {
-    return (await this.get_global_state()).result
+    return (await this.base.get_global_state()).result
   }
 
   /**
    * Get asset decimals
    */
   async getAssetDecimals() {
-    this.assetDecimals = (await this.get_asset_decimals()).result
+    if (!this.market) {
+      return
+    }
+    const key = cacheManager.key(this.rpc, this.market, 'decimals:asset')
+    this.assetDecimals = await cacheManager.getOrSet<number>(key, async () => {
+      return (await this.base.get_asset_decimals()).result
+    })
   }
 
   /**
    * Get oracle decimals
    */
   async getOracleDecimals() {
-    this.oracleDecimals = (await this.get_oracle_price_decimals()).result
+    if (!this.market) {
+      return
+    }
+    const key = cacheManager.key(this.rpc, this.market, 'decimals:oracle')
+    this.oracleDecimals = await cacheManager.getOrSet<number>(key, async () => {
+      return (await this.base.get_oracle_price_decimals()).result
+    })
   }
 
   /**
@@ -59,7 +80,7 @@ export class MarketClient extends Client {
    * Get pool asset oracle price
    */
   async getPoolAssetOraclePrice(pool_address: string) {
-    const poolPrice = await this.get_pool_asset_oracle_price({ pool_address })
+    const poolPrice = await this.base.get_pool_asset_oracle_price({ pool_address })
     const poolPriceResult: bigint = this.unwrapOk2(poolPrice.result)
     const normalizedPrice = bigintToNumber(poolPriceResult, this.oracleDecimals)
     return normalizedPrice || 0
@@ -69,21 +90,21 @@ export class MarketClient extends Client {
    * Get all pools
    */
   async getAllPools() {
-    return (await this.get_all_pools()).result
+    return (await this.base.get_all_pools()).result
   }
 
   /**
    * Get all leverage pools
    */
   async getAllLeveragePools() {
-    return (await this.get_all_multiply_pairs()).result
+    return (await this.base.get_all_multiply_pairs()).result
   }
 
   /**
    * Get leverage pool
    */
   async getLeveragePool(deposit_pool_address: string, borrow_pool_address: string): Promise<MultiplyPair> {
-    const result = await this.get_multiply_pair({ deposit_pool_address, borrow_pool_address })
+    const result = await this.base.get_multiply_pair({ deposit_pool_address, borrow_pool_address })
     return this.unwrapOk2(result.result)
   }
 
@@ -91,7 +112,7 @@ export class MarketClient extends Client {
    * Get pool info
    */
   async getPoolInfo(pool_address: string): Promise<Pool> {
-    const poolResult = await this.get_pool({ pool_address })
+    const poolResult = await this.base.get_pool({ pool_address })
     return this.unwrapOk2(poolResult.result)
   }
 
@@ -99,7 +120,7 @@ export class MarketClient extends Client {
    * Get pool APY
    */
   async getPoolApy(pool_address: string): Promise<AnnualPercentageYields> {
-    const poolApy = await this.get_apy({ pool_address })
+    const poolApy = await this.base.get_apy({ pool_address })
     return this.unwrapOk2(poolApy.result)
   }
 
@@ -108,12 +129,12 @@ export class MarketClient extends Client {
    * @param {string} user
    */
   async getUserObligation(user: string): Promise<Obligation> {
-    const obligation = await this.get_user_obligation({ user })
+    const obligation = await this.base.get_user_obligation({ user })
     return this.unwrapOk2(obligation.result)
   }
 
   async getUserMultiplyObligation(user: string, deposit_pool_address: string, borrow_pool_address: string): Promise<Obligation> {
-    const obligation = await this.get_multiply_pair_obligation({ user, deposit_pool_address, borrow_pool_address })
+    const obligation = await this.base.get_multiply_pair_obligation({ user, deposit_pool_address, borrow_pool_address })
     return this.unwrapOk2(obligation.result)
   }
 
@@ -121,42 +142,42 @@ export class MarketClient extends Client {
    * Deposit Tx
    */
   async depositTx(user: string, pool_address: string, amount: string | number): Promise<any> {
-    return await this.deposit({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.deposit({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
   }
 
   /**
    * Borrow Tx
    */
   async borrowTx(user: string, pool_address: string, amount: string | number) {
-    return await this.borrow({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.borrow({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
   }
 
   /**
    * Withdraw Tx
    */
   async withdrawTx(user: string, pool_address: string, amount: string | number) {
-    return await this.withdraw({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.withdraw({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
   }
 
   /**
    * Repay Tx
    */
   async repayTx(user: string, pool_address: string, amount: string | number) {
-    return await this.repay({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.repay({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
   }
 
   /**
    * Collateral Tx
    */
   async collateralTx(user: string, pool_address: string, amount: string | number) {
-    return await this.add_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.add_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
   }
 
   /**
    * Remove collateral Tx
    */
   async removeCollateralTx(user: string, pool_address: string, amount: string | number) {
-    return await this.remove_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.remove_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
   }
 
   /**
@@ -171,7 +192,7 @@ export class MarketClient extends Client {
     leverage_multiplier: number) {
     const multiplier = Number(leverage_multiplier * 100).toFixed(0)
     const amountInBigInt = amountToBigInt(String(amount), this.assetDecimals)
-    return await this.deposit_with_leverage(
+    return await this.base.deposit_with_leverage(
       {
         user,
         deposit_pool_address,
@@ -187,7 +208,7 @@ export class MarketClient extends Client {
    */
 
   async withdrawLeverageTx(user: string, deposit_pool_address: string, borrow_pool_address: string, amount: string | number) {
-    return await this.withdraw_from_leveraged(
+    return await this.base.withdraw_from_leveraged(
       {
         user,
         deposit_pool_address,
