@@ -137,7 +137,7 @@ pub fn process_deposit(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
+    token_client.transfer(&obligation_key.user, e.current_contract_address(), &amount);
 
     events::deposit(e, pool_address, obligation_key, deposit_result);
 
@@ -210,7 +210,7 @@ pub fn process_add_collateral(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
+    token_client.transfer(&obligation_key.user, e.current_contract_address(), &amount);
 
     events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
 
@@ -254,7 +254,7 @@ pub fn process_repay(
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&obligation_key.user, &e.current_contract_address(), &amount);
+    token_client.transfer(&obligation_key.user, e.current_contract_address(), &amount);
     // Since interest accrual happens each second, to sign and to simulate a deterministic transfer
     // from the borrower's account - 2 transfers take place: borrower => contract(original
     // amount), contract => borrower(excess amount). See - <https://discord.com/channels/897514728459468821/1424779244189520145>
@@ -387,7 +387,7 @@ pub fn process_flash_loan(
 
     // NB: Here you must issue `transfer_allowance`, since it's safer for a flash loan taker to
     // to implement their flash loan logic flow
-    token_client.transfer(contract, &e.current_contract_address(), &amount_to_repay);
+    token_client.transfer(contract, e.current_contract_address(), &amount_to_repay);
 
     events::flash_loan(e, contract, pool_address, amount, fees);
 
@@ -552,7 +552,7 @@ pub fn process_deposit_with_leverage(
     borrow_pool.refresh(e)?;
 
     // Repay the flash loan
-    flash_loan_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
+    flash_loan_token_client.transfer(user, e.current_contract_address(), &flash_repay_amount);
 
     borrow_pool.adjust_total_available(e, flash_repay_amount)?;
     borrow_pool.set(e);
@@ -680,7 +680,7 @@ pub fn process_withdraw_from_leveraged(
     )?;
 
     // Flash Repay
-    flash_borrowed_token_client.transfer(user, &e.current_contract_address(), &flash_repay_amount);
+    flash_borrowed_token_client.transfer(user, e.current_contract_address(), &flash_repay_amount);
 
     borrow_pool.adjust_total_available(e, flash_repay_amount)?;
     borrow_pool.set(e);
@@ -772,7 +772,7 @@ pub fn process_liquidate(
     borrow_pool.set(e);
 
     let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
-    borrowed_token_client.transfer(liquidator, &e.current_contract_address(), &liquidated_amount);
+    borrowed_token_client.transfer(liquidator, e.current_contract_address(), &liquidated_amount);
 
     let collateral_seized_amount =
         tokens_from_sold_j_tokens.checked_add(collateral_amount_sold).map_over_or_underflow()?;
