@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
-import { calculateTotalStake } from '@alula/client-sdk/src/utils'
+import { calcFee, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
 
@@ -10,16 +10,17 @@ const {
   data?: MultiplyTableItem
 }>()
 
-const dialog = defineModel({
-  default: false,
-})
-
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
 const userStore = useUserStore()
 
 const amount = toRef(market, 'withdrawAmount')
+
+const dialog = defineModel({ default: false })
+
+const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
+const reloadFee = ref(false)
 
 const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
 
@@ -45,67 +46,11 @@ const balance = computed(() => {
   return Number(deposited) || 0
 })
 
-const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
-const reloadFee = ref(false)
-
 const txFee = ref(0)
 
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  if (!d || !publicKey.value || !dialog.value) {
-    return
-  }
-  const tx = await activeMarket.value!.client.marketSdk.withdrawLeverageTx(
-    publicKey.value,
-    d?.depositPool.pool_address || '',
-    d?.borrowPool.pool_address || '',
-    1,
-  )
-
-  console.log(tx)
-  txFee.value = activeMarket.value!.client.marketSdk.getTransactionFee(tx)
-}, { immediate: true, debounce: 300 })
-
-const infoTableData = computed(() => {
-  if (!data) {
-    return []
-  }
-
-  return [
-    // {
-    //   name: 'liquidity',
-    //   label: 'Liquidity Available',
-    //   value: 0,
-    // },
-    {
-      name: 'txFee',
-      label: 'Transaction Fee',
-      value: `${txFee.value || 0} ${data.asset.symbol}`,
-    },
-    // {
-    //   name: 'maxApy',
-    //   label: 'Max APY',
-    //   value: `${truncatePercent(data.maxAPY || 0, 2)} %`,
-    // },
-    // {
-    //   name: 'maxMultiply',
-    //   label: 'Max Multiply',
-    //   value: `${truncatePercent(supplyLimit.value || 0, 2)} ${data.asset.symbol}`,
-    // },
-    // {
-    //   name: 'multiplier',
-    //   label: 'Avg. Multiplier',
-    //   value: '90.00 %',
-    // },
-    // {
-    //   name: 'supplied',
-    //   label: 'Total Supplied',
-    //   value: `${formatPrice(data.supplied || 0, 2, 2)} ${data.asset.symbol}`,
-    // },
-  ]
+const marketFee = computed(() => {
+  const marketFeeBps = data?.borrowPool.config.fee_config.withdraw_fee_bps
+  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
 
 async function withdrawLeverage() {
@@ -170,6 +115,24 @@ watch(dialog, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
+
+watchDebounced([
+  () => data,
+  reloadFee,
+  publicKey,
+], async ([d, _r]) => {
+  if (!d || !publicKey.value || !dialog.value) {
+    return
+  }
+  const tx = await activeMarket.value!.client.marketSdk.withdrawLeverageTx(
+    publicKey.value,
+    d?.depositPool.pool_address || '',
+    d?.borrowPool.pool_address || '',
+    1,
+  )
+
+  txFee.value = activeMarket.value!.client.marketSdk.getTransactionFee(tx)
+}, { immediate: true, debounce: 300 })
 </script>
 
 <template>
@@ -202,16 +165,19 @@ watch(dialog, async (v) => {
         </input-widget>
 
         <div
-          v-if="infoTableData.length > 0"
+          v-if="data"
           class="dialog-info-table"
         >
-          <div
-            v-for="item in infoTableData"
-            :key="item?.label"
-            class="dialog-info-table__item"
-          >
-            <span>{{ item?.label }}</span>
-            <span>{{ item?.value }}</span>
+          <!-- Market fee -->
+          <div class="dialog-info-table__item">
+            <span>Market Fee</span>
+            <span>{{ marketFee }} XLM</span>
+          </div>
+
+          <!-- Tx fee -->
+          <div class="dialog-info-table__item">
+            <span>Transaction Fee</span>
+            <span>{{ txFee }} XLM</span>
           </div>
         </div>
 

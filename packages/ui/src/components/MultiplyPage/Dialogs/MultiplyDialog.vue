@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
+import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, shortenAddress, truncatePercent } from '~/utils'
+import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -9,26 +10,16 @@ const {
   data?: MultiplyTableItem
 }>()
 
-const { generateExplorerLink } = useExplorerLink()
-
-function calcRemainingMultiplyUSD(
-  borrowAvailableInUsd: number,
-  poolPrice: number,
-  selectedMultiplier: number,
-): number {
-  if (selectedMultiplier <= 1) {
-    return borrowAvailableInUsd
-  }
-  return borrowAvailableInUsd / poolPrice / selectedMultiplier
-}
+const userStore = useUserStore()
+const marketsStore = useMarketsStore()
+const market = useMarketActions()
 
 const dialog = defineModel<boolean>({ default: false })
 
 const isDepositMultiply = ref(true)
 
-const userStore = useUserStore()
-const marketsStore = useMarketsStore()
-const market = useMarketActions()
+const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
+const reloadFee = ref(false)
 
 const amount = toRef(market, 'depositAmount')
 
@@ -61,82 +52,33 @@ const selectedMultiplier = computed(() => {
   return Number((precentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
 })
 
-const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
-const reloadFee = ref(false)
-
 const txFee = ref(0)
 
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  if (!d || !publicKey.value) {
-    return
-  }
-  const tx = await activeMarket.value?.client.marketSdk.leverageTx(
-    publicKey.value,
-    d?.depositPool.pool_address || '',
-    d?.borrowPool.pool_address || '',
-    isDepositMultiply.value,
-    1,
-    2,
-  )
-  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) || 0
-}, { immediate: true, debounce: 300 })
+const borrowPoolData = computed(() => data?.borrowPool)
+const depositPoolData = computed(() => isDepositMultiply.value ? data?.depositPool : data?.borrowPool)
 
-const supplyLimit = ref(0)
+const maxMultiplyTicker = computed(() => isDepositMultiply.value ? data?.depositPool.token_ticker : data?.borrowPool.token_ticker)
 
-const infoTableData = computed(() => {
-  if (!data) {
-    return []
-  }
+const borrowAvailable = computed(() => borrowPoolData.value ? bigintToNumber(borrowPoolData.value?.total_available, marketsStore.assetDecimals) : 0)
+const borrowAvailableInUsd = computed(() => Number(borrowAvailable.value) * Number(borrowPoolData.value?.pool_price || 0))
 
-  const depositPoolData = isDepositMultiply.value ? data.depositPool : data.borrowPool
-
-  const borrowPoolData = data.borrowPool
-  const borrowAvailable = bigintToNumber(borrowPoolData.total_available, marketsStore.assetDecimals)
-  const borrowAvailableInUsd = Number(borrowAvailable) * Number(borrowPoolData.pool_price)
-
-  const maxMultiplyTicker = isDepositMultiply.value ? data.depositPool.token_ticker : data.borrowPool.token_ticker
-
-  // eslint-disable-next-line vue/no-side-effects-in-computed-properties
-  supplyLimit.value
-    = calcRemainingMultiplyUSD(borrowAvailableInUsd, Number(depositPoolData?.pool_price || 0), Number(selectedMultiplier.value) || 0)
-
-  return [
-    {
-      name: 'liquidity',
-      label: 'Liquidity Available',
-      value: `${formatPrice(borrowAvailable || 0, 2, 2)} ${borrowPoolData.token_ticker}`,
-    },
-    {
-      name: 'maxApy',
-      label: 'Max APY',
-      value: `${truncatePercent(data.maxAPY || 0, 2)} %`,
-    },
-    {
-      name: 'maxMultiply',
-      label: 'Max Multiplied Amount',
-      value: `${formatPrice(Number(supplyLimit.value || 0).toFixed(2), 2)} ${maxMultiplyTicker}`,
-    },
-    {
-      name: 'multiplier',
-      label: 'Avg. Multiplier',
-      value: '90.00 %',
-    },
-    {
-      name: 'supplied',
-      label: 'Total Supply',
-      value: `${formatPrice(data.supplied || 0, 2, 2)} ${data.asset.symbol}`,
-    },
-    {
-      name: 'txFee',
-      label: 'Transaction Fee',
-      value: `${txFee.value} XLM`,
-    },
-  ]
+const marketFee = computed(() => {
+  const marketFeeBps = borrowPoolData.value?.config.fee_config.flash_loan_fee_bps
+  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
+
+const liquidityAvailable = computed(() => {
+  if (!borrowPoolData.value) {
+    return 0
+  }
+  return `${formatPrice(borrowAvailable.value || 0, 2, 2)} ${borrowPoolData.value.token_ticker}`
+})
+
+const maxAPY = computed(() => data?.maxAPY || 0)
+
+const supplyLimit = computed(() =>
+  calcRemainingMultiplyUSD(borrowAvailableInUsd.value, Number(depositPoolData.value?.pool_price || 0), Number(selectedMultiplier.value) || 0),
+)
 
 function swapAsset() {
   isDepositMultiply.value = !isDepositMultiply.value
@@ -207,6 +149,25 @@ watch(dialog, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
+
+watchDebounced([
+  () => data,
+  reloadFee,
+  publicKey,
+], async ([d, _r]) => {
+  if (!d || !publicKey.value) {
+    return
+  }
+  const tx = await activeMarket.value?.client.marketSdk.leverageTx(
+    publicKey.value,
+    d?.depositPool.pool_address || '',
+    d?.borrowPool.pool_address || '',
+    isDepositMultiply.value,
+    1,
+    2,
+  )
+  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) || 0
+}, { immediate: true, debounce: 300 })
 </script>
 
 <template>
@@ -278,26 +239,54 @@ watch(dialog, async (v) => {
         </input-widget>
 
         <div
-          v-if="infoTableData.length > 0"
+          v-if="data"
           class="dialog-info-table"
         >
+
+          <!-- Liquidation Available -->
           <div
-            v-for="item in infoTableData"
-            :key="item?.label"
             class="dialog-info-table__item"
           >
-            <span>{{ item?.label }}</span>
-            <template v-if="item?.name === 'contract'">
-              <a
-                :href="generateExplorerLink(String(item?.value), 'contract')"
-                target="_blank"
-              >{{
-                 shortenAddress(item?.value, 5) }}
-                <i-app-export-icon />
-              </a>
-            </template>
-            <span v-else>{{ item?.value }}</span>
+            <span>Liquidity Available</span>
+            <span>{{ liquidityAvailable }}</span>
           </div>
+
+          <!-- Max APY -->
+          <div class="dialog-info-table__item">
+            <span>Max APY</span>
+            <span>{{ truncatePercent(maxAPY, 2) }} %</span>
+          </div>
+
+          <!-- Max Multiplied Amount -->
+          <div class="dialog-info-table__item">
+            <span>Max Multiplied Amount</span>
+            <span>{{ formatPrice(Number(supplyLimit || 0).toFixed(2), 2) }} {{ maxMultiplyTicker }}</span>
+          </div>
+
+          <!-- Max Multiplied Amount -->
+          <div class="dialog-info-table__item">
+            <span>Max Multiplied Amount</span>
+            <span>90.00 %</span>
+          </div>
+
+          <!-- Total Supply -->
+          <div class="dialog-info-table__item">
+            <span>Total Supply</span>
+            <span>{{ formatPrice(Number(data!.supplied || 0), 2, 2) }} {{ data!.asset.symbol }}</span>
+          </div>
+
+          <!-- Market fee -->
+          <div class="dialog-info-table__item">
+            <span>Market Fee</span>
+            <span>{{ formatPrice(marketFee, 0, 5) }} {{ data?.borrowAsset.symbol }}</span>
+          </div>
+
+          <!-- Tx fee -->
+          <div class="dialog-info-table__item">
+            <span>Transaction Fee</span>
+            <span>{{ txFee }} XLM</span>
+          </div>
+
         </div>
 
         <multiply-select

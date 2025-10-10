@@ -35,3 +35,21 @@ export function calculateMaxMultiplierFromBps(ltvByBps: number): number {
     ? Infinity
     : new Decimal(1).div(new Decimal(1).minus(openLtv)).toNumber()
 }
+
+/**
+ * Calculate the remaining amount of asset that can be supplied to a pool based on the provided parameters.
+ * @param borrowAvailableInUsd - The amount of asset that can be borrowed in USD
+ * @param poolPrice - The price of the asset in the pool
+ * @param selectedMultiplier - The multiplier to use for the calculation
+ * @returns The remaining amount of asset that can be supplied in USD
+ */
+export function calcRemainingMultiplyUSD(
+  borrowAvailableInUsd: number,
+  poolPrice: number,
+  selectedMultiplier: number,
+): number {
+  if (selectedMultiplier <= 1) {
+    return borrowAvailableInUsd
+  }
+  return borrowAvailableInUsd / poolPrice / selectedMultiplier
+}
