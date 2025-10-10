@@ -47,7 +47,7 @@ impl Contract {
 
     /// Return the current state.
     pub fn get_state(env: Env) -> State {
-        env.storage().persistent().get(&symbol_short!("STATE")).unwrap_or_else(|| State::default()) // If no value set, assume 0.
+        env.storage().persistent().get(&symbol_short!("STATE")).unwrap_or_default() // If no value set, assume 0.
     }
 }
 

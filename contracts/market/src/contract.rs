@@ -46,7 +46,7 @@ impl MarketContract {
         storage::set_global_state(&e, &global_state);
         storage::set_oracle_address(&e, &oracle);
 
-        events::ConstructorEvent { admin, name, oracle }.publish(&e);
+        events::constructor(&e, &admin, &name, &oracle);
 
         Ok(())
     }

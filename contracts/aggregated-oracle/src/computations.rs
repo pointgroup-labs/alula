@@ -138,6 +138,7 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         let data =
             (asset, oracle_config.address.clone(), token_address.clone(), price_data, max_age);
 
+        // TODO: Introduce `events` module
         e.events().publish(topics, data);
 
         None

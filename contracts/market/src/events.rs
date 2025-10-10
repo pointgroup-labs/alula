@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, IntoVal, String, Symbol, Val, Vec as SorobanVec, contractevent};
+use soroban_sdk::{Address, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -14,7 +14,7 @@ use crate::{
 // --- Contract's Methods Events ---
 
 #[contractevent]
-pub struct ConstructorEvent {
+struct ConstructorEvent {
     #[topic]
     pub admin: Address,
     #[topic]
@@ -23,7 +23,7 @@ pub struct ConstructorEvent {
 }
 
 #[contractevent]
-pub struct DepositEvent {
+struct DepositEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
@@ -34,7 +34,7 @@ pub struct DepositEvent {
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InitializePoolEvent {
+struct InitializePoolEvent {
     #[topic]
     pub token_address: Address,
     #[topic]
@@ -44,10 +44,9 @@ pub struct InitializePoolEvent {
 }
 
 // TODO: Should we still keep a public `swap` endpoint?
-/// Emitted when tokens are swapped
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SwapEvent {
+struct SwapEvent {
     #[topic]
     pub user: Address,
     #[topic]
@@ -60,7 +59,7 @@ pub struct SwapEvent {
 }
 
 #[contractevent]
-pub struct BorrowEvent {
+struct BorrowEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
@@ -69,7 +68,7 @@ pub struct BorrowEvent {
 }
 
 #[contractevent]
-pub struct AddCollateralEvent {
+struct AddCollateralEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
@@ -78,7 +77,7 @@ pub struct AddCollateralEvent {
 }
 
 #[contractevent]
-pub struct RepayEvent {
+struct RepayEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
@@ -87,7 +86,7 @@ pub struct RepayEvent {
 }
 
 #[contractevent]
-pub struct LiquidateEvent {
+struct LiquidateEvent {
     #[topic]
     pub liquidator: Address,
     #[topic]
@@ -102,7 +101,7 @@ pub struct LiquidateEvent {
 }
 
 #[contractevent]
-pub struct RemoveCollateralEvent {
+struct RemoveCollateralEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
@@ -111,7 +110,7 @@ pub struct RemoveCollateralEvent {
 }
 
 #[contractevent]
-pub struct WithdrawEvent {
+struct WithdrawEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
@@ -120,7 +119,7 @@ pub struct WithdrawEvent {
 }
 
 #[contractevent]
-pub struct FlashLoanEvent {
+struct FlashLoanEvent {
     #[topic]
     pub contract: Address,
     #[topic]
@@ -131,7 +130,7 @@ pub struct FlashLoanEvent {
 }
 
 #[contractevent]
-pub struct DepositWithLeverageEvent {
+struct DepositWithLeverageEvent {
     #[topic]
     pub obligation_key: ObligationKey,
     #[topic]
@@ -146,7 +145,7 @@ pub struct DepositWithLeverageEvent {
 }
 
 #[contractevent]
-pub struct WithdrawFromLeveragedEvent {
+struct WithdrawFromLeveragedEvent {
     #[topic]
     pub user: Address,
     #[topic]
@@ -160,24 +159,21 @@ pub struct WithdrawFromLeveragedEvent {
 
 // TODO: Should this event even exist?
 #[contractevent]
-pub struct AccrueInterestEvent {
+struct AccrueInterestEvent {
     #[topic]
     pub user: Address,
 }
 
 // ----- Internal Error Events -----
 
-/// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
-/// storage timestamp
 #[contractevent]
-pub struct LedgerTimestampError {
+struct LedgerTimestampError {
     pub current_timestamp: u64,
     pub stored_timestamp: u64,
 }
 
-/// Emitted when a leveraged position incurs bad debt
 #[contractevent]
-pub struct LeveragedPositionBadDebt {
+struct LeveragedPositionBadDebt {
     #[topic]
     pub user: Address,
     #[topic]
@@ -189,23 +185,20 @@ pub struct LeveragedPositionBadDebt {
     pub deposited_amount_swapped: i128,
 }
 
-/// Emitted when a pool's utilization ratio exceeds a predefined limit
 #[contractevent]
-pub struct UtilizationRatioExceedsLimit {
+struct UtilizationRatioExceedsLimit {
     pub utilization_ratio_bps: i128,
     pub utilization_ratio_limit_bps: i128,
 }
 
-/// Emitted when an attempt is made to interact with a loan pool that does not exist in storage
 #[contractevent]
-pub struct PoolIsMissingInStorage {
+struct PoolIsMissingInStorage {
     #[topic]
     pub pool_address: Address,
 }
 
-/// Emitted when an attempt is made to interact with an obligation that does not exist in storage
 #[contractevent]
-pub struct ObligationIsMissingInStorage {
+struct ObligationIsMissingInStorage {
     #[topic]
     pub obligation_key: ObligationKey,
 }
@@ -214,17 +207,16 @@ pub struct ObligationIsMissingInStorage {
 ///
 /// // TODO: fix;
 // #[contractevent]
-// pub struct ObligationAmountBecomesNegative {
+// struct ObligationAmountBecomesNegative {
 //     #[topic]
 //     pub obligation_key: ObligationKey,
 //     // pub old_amount: i128,
 //     // pub new_amount: i128,
 // }
 
-/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PoolAmountBecomesNegative {
+struct PoolAmountBecomesNegative {
     pub old_amount: i128,
     pub new_amount: i128,
 }
@@ -234,7 +226,7 @@ pub struct PoolAmountBecomesNegative {
 // /// Emitted when the total shares in a pool are found to be less than an individual user's shares
 // #[contractevent]
 // #[derive(Clone, Debug, Eq, PartialEq)]
-// pub struct PoolTotalSharesSmallerThanIndividualUserShares {
+// struct PoolTotalSharesSmallerThanIndividualUserShares {
 //     pub total_shares: i128,
 //     pub individual_shares: i128,
 // }
@@ -242,32 +234,29 @@ pub struct PoolAmountBecomesNegative {
 // /// Emitted when the total shares in a pool are found to be less than the total tokens amount
 // #[contractevent]
 // #[derive(Clone, Debug, Eq, PartialEq)]
-// pub struct PoolTotalSharesSmallerThanTotalTokens {
+// struct PoolTotalSharesSmallerThanTotalTokens {
 //     pub total_shares: i128,
 //     pub total_tokens: i128,
 // }
 
-/// Emitted when pool state becomes generally inconsistent
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PoolContainsInconsistentState {
+struct PoolContainsInconsistentState {
     pub pool: Pool,
 }
 
-/// Emitted when obligation unexpectedly becomes empty
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ObligationIsUnexpectedlyEmpty {
+struct ObligationIsUnexpectedlyEmpty {
     #[topic]
     pub obligation_key: ObligationKey,
     #[topic]
     pub pool_address: Address,
 }
 
-/// Emitted when calculated interest(either for borrow or supply position) is negative
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ComputedInterestIsNegative {
+struct ComputedInterestIsNegative {
     #[topic]
     pub pool_address: Address,
     pub shares: i128,
@@ -276,11 +265,9 @@ pub struct ComputedInterestIsNegative {
     pub tokens_from_all_shares: i128,
 }
 
-/// Emitted when an unexpected amount has been received after a deterministic swap operation via a
-/// swap provider
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReceivedUnexpectedSwapAmount {
+struct ReceivedUnexpectedSwapAmount {
     #[topic]
     pub user: Address,
     #[topic]
@@ -293,12 +280,13 @@ pub struct ReceivedUnexpectedSwapAmount {
     pub expected_amount_out: i128,
 }
 
+// --- Methods that abstract how events are published ---
+
 pub fn constructor(e: &Env, admin: &Address, name: &String, oracle: &Address) {
     ConstructorEvent { admin: admin.clone(), name: name.clone(), oracle: oracle.clone() }
         .publish(e);
 }
 
-/// Helper to publish the DepositEvent.
 pub fn deposit(
     e: &Env,
     pool_address: &Address,
@@ -313,7 +301,6 @@ pub fn deposit(
     .publish(e);
 }
 
-/// Helper to publish the InitializePoolEvent.
 pub fn initialize_pool(
     e: &Env,
     token_address: &Address,
@@ -328,7 +315,7 @@ pub fn initialize_pool(
     .publish(e);
 }
 
-/// Helper to publish the SwapEvent.
+/// Emitted when tokens are swapped
 pub fn swap(
     e: &Env,
     user: &Address,
@@ -349,7 +336,6 @@ pub fn swap(
     .publish(e);
 }
 
-/// Helper to publish the BorrowEvent.
 pub fn borrow(
     e: &Env,
     pool_address: &Address,
@@ -364,7 +350,6 @@ pub fn borrow(
     .publish(e);
 }
 
-/// Helper to publish the AddCollateralEvent.
 pub fn add_collateral(
     e: &Env,
     pool_address: &Address,
@@ -379,7 +364,6 @@ pub fn add_collateral(
     .publish(e);
 }
 
-/// Helper to publish the RepayEvent.
 pub fn repay(
     e: &Env,
     pool_address: &Address,
@@ -394,7 +378,6 @@ pub fn repay(
     .publish(e);
 }
 
-/// Helper to publish the LiquidateEvent.
 #[allow(clippy::too_many_arguments)]
 pub fn liquidate(
     e: &Env,
@@ -416,7 +399,6 @@ pub fn liquidate(
     .publish(e);
 }
 
-/// Helper to publish the RemoveCollateralEvent.
 pub fn remove_collateral(
     e: &Env,
     pool_address: &Address,
@@ -431,7 +413,6 @@ pub fn remove_collateral(
     .publish(e);
 }
 
-/// Helper to publish the WithdrawEvent.
 pub fn withdraw(
     e: &Env,
     pool_address: &Address,
@@ -446,7 +427,6 @@ pub fn withdraw(
     .publish(e);
 }
 
-/// Helper to publish the FlashLoanEvent.
 pub fn flash_loan(
     e: &Env,
     contract: &Address,
@@ -463,7 +443,6 @@ pub fn flash_loan(
     .publish(e);
 }
 
-/// Helper to publish the DepositWithLeverageEvent.
 #[allow(clippy::too_many_arguments)]
 pub fn deposit_with_leverage(
     e: &Env,
@@ -487,7 +466,6 @@ pub fn deposit_with_leverage(
     .publish(e);
 }
 
-/// Helper to publish the WithdrawFromLeveragedEvent.
 pub fn withdraw_from_leveraged(
     e: &Env,
     user: &Address,
@@ -506,12 +484,12 @@ pub fn withdraw_from_leveraged(
     .publish(e);
 }
 
-/// Helper to publish the AccrueInterestEvent.
 pub fn accrue_interest(e: &Env, user: &Address) {
     AccrueInterestEvent { user: user.clone() }.publish(e);
 }
 
-/// Helper to publish the LedgerTimestampError.
+/// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
+/// storage timestamp
 pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     e: &Env,
     current_timestamp: u64,
@@ -520,7 +498,7 @@ pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     LedgerTimestampError { current_timestamp, stored_timestamp }.publish(e);
 }
 
-/// Helper to publish the LeveragedPositionBadDebt.
+/// Emitted when a leveraged position incurs bad debt
 pub fn leveraged_position_bad_debt(
     e: &Env,
     user: &Address,
@@ -541,7 +519,7 @@ pub fn leveraged_position_bad_debt(
     .publish(e);
 }
 
-/// Helper to publish the UtilizationRatioExceedsLimit.
+/// Emitted when a pool's utilization ratio exceeds a predefined limit
 pub fn utilization_ratio_exceeds_limit(
     e: &Env,
     utilization_ratio_bps: i128,
@@ -550,27 +528,25 @@ pub fn utilization_ratio_exceeds_limit(
     UtilizationRatioExceedsLimit { utilization_ratio_bps, utilization_ratio_limit_bps }.publish(e);
 }
 
-/// Helper to publish the PoolIsMissingInStorage.
+/// Emitted when an attempt is made to interact with a loan pool that does not exist in storage
 pub fn pool_is_missing_in_storage(e: &Env, pool_address: &Address) {
     PoolIsMissingInStorage { pool_address: pool_address.clone() }.publish(e);
 }
 
-/// Helper to publish the ObligationIsMissingInStorage.
+/// Emitted when an attempt is made to interact with an obligation that does not exist in storage
 pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
     ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
-/// Helper to publish the ObligationAmountBecomesNegative.
-pub fn obligation_amount_becomes_negative(e: &Env, _old_amount: i128, _new_amount: i128) {
+pub fn obligation_amount_becomes_negative(_e: &Env, _old_amount: i128, _new_amount: i128) {
     // ObligationAmountBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
-/// Helper to publish the PoolAmountBecomesNegative.
 pub fn pool_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
     PoolAmountBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
-/// Helper to publish the PoolTotalSharesSmallerThanIndividualUserShares.
+/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn pool_total_shares_smaller_than_individual_user_shares(
     _e: &Env,
     _total_shares: i128,
@@ -579,7 +555,6 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     // PoolTotalSharesSmallerThanIndividualUserShares { total_shares, individual_shares }.publish(e);
 }
 
-/// Helper to publish the PoolTotalSharesSmallerThanTotalTokens.
 pub fn pool_total_shares_smaller_than_total_tokens(
     _e: &Env,
     _total_shares: i128,
@@ -588,12 +563,12 @@ pub fn pool_total_shares_smaller_than_total_tokens(
     // PoolTotalSharesSmallerThanTotalTokens { total_shares, total_tokens }.publish(e);
 }
 
-/// Helper to publish the PoolContainsInconsistentState.
+/// Emitted when pool state becomes generally inconsistent
 pub fn pool_contains_inconsistent_state(e: &Env, pool: &Pool) {
     PoolContainsInconsistentState { pool: pool.clone() }.publish(e);
 }
 
-/// Helper to publish the ObligationIsUnexpectedlyEmpty.
+/// Emitted when obligation unexpectedly becomes empty
 pub fn obligation_is_unexpectedly_empty(
     e: &Env,
     obligation_key: &ObligationKey,
@@ -606,7 +581,7 @@ pub fn obligation_is_unexpectedly_empty(
     .publish(e);
 }
 
-/// Helper to publish the ComputedInterestIsNegative.
+/// Emitted when calculated interest(either for borrow or supply position) is negative
 pub fn computed_interest_is_negative(
     e: &Env,
     pool_address: &Address,
@@ -625,7 +600,8 @@ pub fn computed_interest_is_negative(
     .publish(e);
 }
 
-/// Helper to publish the ReceivedUnexpectedSwapAmount.
+/// Emitted when an unexpected amount has been received after a deterministic swap operation via a
+/// swap provider
 pub fn received_unexpected_swap_amount(
     e: &Env,
     user: &Address,
@@ -652,12 +628,11 @@ pub fn received_unexpected_swap_amount(
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DbgEvent {
+struct DbgEvent {
     #[topic]
     pub symbol: Symbol,
 }
 
-/// Helper to publish the DbgEvent.
 pub fn dbg(e: &Env, symbol: Symbol) {
     DbgEvent { symbol }.publish(e);
 }
