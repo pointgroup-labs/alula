@@ -95,8 +95,10 @@ export const useMarketsStore = defineStore('markets', () => {
         state.marketsList.map(async (market) => {
           const client = clientStore.initClient(market)
           const marketState = await client?.marketSdk.getMarketData()
-          const pools = await loadMarketPools(client, marketState.name) ?? []
-          const leveragePools = await loadLeveragePools(client) ?? []
+          const [pools = [], leveragePools = []] = await Promise.all([
+            loadMarketPools(client, marketState.name).then(v => v ?? []).catch(() => []),
+            loadLeveragePools(client).then(v => v ?? []).catch(() => []),
+          ])
           return {
             name: marketState.name,
             address: market,

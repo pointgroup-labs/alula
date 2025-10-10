@@ -98,27 +98,24 @@ export const useUserStore = defineStore('user', () => {
       state.multiplyObligations = {}
       return
     }
-    const marketClients = Object.values(markets).map(m => m)
-    const promises: Promise<any>[] = []
 
-    for (const market of marketClients) {
-      promises.push(
-        loadUserObligation(market.marketState.name, market.client),
-      )
-
-      for (const p of market.leveragePools) {
-        promises.push(
+    const tasks = [
+      ...Object.values(markets).map(m =>
+        loadUserObligation(m.marketState.name, m.client),
+      ),
+      ...Object.values(markets).flatMap(m =>
+        m.leveragePools.map(p =>
           loadUserMultilpyObligation({
-            market: market.marketState.name,
+            market: m.marketState.name,
             depositPoolAddress: p.deposit_pool,
             borrowPoolAddress: p.borrow_pool,
-            client: market.client,
+            client: m.client,
           }),
-        )
-      }
-    }
+        ),
+      ),
+    ]
 
-    await Promise.all(promises)
+    await Promise.allSettled(tasks)
   })
 
   return {
