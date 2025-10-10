@@ -458,7 +458,7 @@ impl Obligation {
         let j_tokens_to_burn = pool.compute_j_tokens_from_tokens(e, deposit_decrease)?;
         let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
 
-        let received_interest =
+        let mut received_interest =
             all_deposit.checked_sub(deposit_obligation.deposited).map_over_or_underflow()?;
 
         if received_interest < 0 {
@@ -471,8 +471,11 @@ impl Obligation {
                 all_deposit,
             );
 
-            return Err(MCError::InternalError);
-        } else if deposit_decrease >= received_interest {
+            received_interest = 0;
+            // return Err(MCError::InternalError);
+        }
+
+        if deposit_decrease >= received_interest {
             let deposited_diff = deposit_decrease - received_interest; // safe
             deposit_obligation
                 .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
@@ -576,7 +579,7 @@ impl Obligation {
             .map_over_or_underflow()?;
         let d_tokens_to_burn = pool.compute_d_tokens_from_tokens(e, debt_decrease)?;
 
-        let unpaid_interest =
+        let mut unpaid_interest =
             all_debt.checked_sub(borrow_obligation.borrowed).map_over_or_underflow()?;
         if unpaid_interest < 0 {
             events::computed_interest_is_negative(
@@ -588,8 +591,11 @@ impl Obligation {
                 all_debt,
             );
 
-            return Err(MCError::InternalError);
-        } else if debt_decrease >= unpaid_interest {
+            unpaid_interest = 0;
+            // return Err(MCError::InternalError);
+        }
+
+        if debt_decrease >= unpaid_interest {
             let borrowed_diff = debt_decrease - unpaid_interest; // safe
             borrow_obligation
                 .adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;

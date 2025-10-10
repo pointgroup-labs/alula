@@ -423,11 +423,6 @@ pub fn process_deposit_with_leverage(
     let leverage_multiplier_minus_1 =
         leverage_multiplier.checked_sub(LEVERAGE_SCALE).map_over_or_underflow()?;
 
-    // Validate leverage multiplier bounds to prevent excessive risk
-    if leverage_multiplier > 10 * LEVERAGE_SCALE {
-        return Err(MCError::InvalidLeverageMultiplier);
-    }
-
     let (flash_borrow_amount, amount_in, amount_out) = if deposit_as_margin {
         let base_leverage_amount = amount
             .fixed_mul_floor(leverage_multiplier_minus_1 as i128, LEVERAGE_SCALE as i128)

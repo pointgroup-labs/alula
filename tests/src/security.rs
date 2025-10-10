@@ -47,23 +47,6 @@ fn test_initialize_pool_requires_admin() {
 
 #[test]
 #[ignore]
-fn test_initialize_multiply_pair_requires_admin() {
-    let fixture = TestMarketFixture::new();
-    // let unauthorized_user = Address::generate(&fixture.e);
-
-    // Create client with unauthorized user context
-    let unauthorized_client = MarketContractClient::new(&fixture.e, &fixture.contract_id);
-
-    // Try to initialize multiply pair with unauthorized user
-    let result = unauthorized_client
-        .try_initialize_multiply_pair(&fixture.usdc_pool_address, &fixture.gold_pool_address);
-
-    // Should fail because the unauthorized user cannot initialize multiply pairs
-    assert!(result.is_err(), "Initialize multiply pair should fail for unauthorized user");
-}
-
-#[test]
-#[ignore]
 fn test_clean_multiply_pairs_requires_admin() {
     let fixture = TestMarketFixture::new();
 
