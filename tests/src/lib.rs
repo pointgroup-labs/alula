@@ -97,7 +97,7 @@ impl TestMarketFixture<'_> {
         // NB: Taken from `blend`
         e.ledger().set(LedgerInfo {
             timestamp: 1514764800, // January 1, 2018
-            protocol_version: 22,
+            protocol_version: 23,
             sequence_number: 0, // TODO: Change this to something like 100 and fix failing test
             network_id: Default::default(),
             base_reserve: 10,
