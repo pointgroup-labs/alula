@@ -1,5 +1,4 @@
 // use aggregated_oracle::PriceFeedClient;
-use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, Symbol,
@@ -10,6 +9,7 @@ use crate::{
     constants::*,
     error::MCError,
     events,
+    flash_loan_client_trait::FlashLoanClient,
     helpers::require_nonnegative,
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,

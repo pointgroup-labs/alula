@@ -619,7 +619,10 @@ name = "flash_loan_taker_mock"
 version = "0.0.0"
 dependencies = [
  "market",
+<<<<<<< Updated upstream
  "moderc3156",
+=======
+>>>>>>> Stashed changes
  "soroban-sdk 22.0.8",
  "tests",
 ]
@@ -900,7 +903,6 @@ name = "market"
 version = "0.0.5"
 dependencies = [
  "enum_dispatch",
- "moderc3156",
  "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk 22.0.8",
@@ -920,6 +922,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
+<<<<<<< Updated upstream
 name = "moderc3156"
 version = "0.1.0"
 source = "git+https://github.com/xycloo/xycloans?rev=d9a7ae1#d9a7ae163e6c7120000532bf4b15b6a96b3a82bc"
@@ -928,6 +931,8 @@ dependencies = [
 ]
 
 [[package]]
+=======
+>>>>>>> Stashed changes
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1201,11 +1206,15 @@ checksum = "d767eb0aabc880b29956c35734170f26ed551a859dbd361d140cdbeca61ab1e2"
 
 [[package]]
 name = "sep-40-oracle"
-version = "1.2.2"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c74effc5087a6b91b28ca5d429efed3eccf2d70cb9fd1cde544a7faf0723a63"
+checksum = "188b8bdbfdb1148498e41752266b9a9e7beb2cfcecbc201ce4ea9a7cc228c1be"
 dependencies = [
+<<<<<<< Updated upstream
  "soroban-sdk 22.0.8",
+=======
+ "soroban-sdk 23.0.2",
+>>>>>>> Stashed changes
 ]
 
 [[package]]
@@ -1376,10 +1385,18 @@ version = "23.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00067f52e8bbf1abf0de03fe3e2fbb06910893cfbe9a7d9093d6425658833ff3"
 dependencies = [
+<<<<<<< Updated upstream
+=======
+ "arbitrary",
+>>>>>>> Stashed changes
  "crate-git-revision",
  "ethnum",
  "num-derive",
  "num-traits",
+<<<<<<< Updated upstream
+=======
+ "serde",
+>>>>>>> Stashed changes
  "soroban-env-macros 23.0.1",
  "soroban-wasmi",
  "static_assertions",
@@ -1515,7 +1532,11 @@ version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04818d865ca05c9d384db6ab4903dbd97531cff3d5cf98f32f95c578efbd5ceb"
 dependencies = [
+<<<<<<< Updated upstream
  "soroban-sdk 23.0.2",
+=======
+ "soroban-sdk 22.0.8",
+>>>>>>> Stashed changes
 ]
 
 [[package]]
@@ -1529,6 +1550,23 @@ dependencies = [
  "serde_with",
  "soroban-env-common 22.1.3",
  "soroban-env-host 22.1.3",
+<<<<<<< Updated upstream
+=======
+ "thiserror",
+]
+
+[[package]]
+name = "soroban-ledger-snapshot"
+version = "23.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3823372b72cab2e7ff2ced62bbffa11fce8da0713a224f122141558cab174647"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serde_with",
+ "soroban-env-common 23.0.1",
+ "soroban-env-host 23.0.1",
+>>>>>>> Stashed changes
  "thiserror",
 ]
 
@@ -1549,7 +1587,11 @@ dependencies = [
  "serde_json",
  "soroban-env-guest 22.1.3",
  "soroban-env-host 22.1.3",
+<<<<<<< Updated upstream
  "soroban-ledger-snapshot",
+=======
+ "soroban-ledger-snapshot 22.0.8",
+>>>>>>> Stashed changes
  "soroban-sdk-macros 22.0.8",
  "stellar-strkey 0.0.9",
 ]
@@ -1560,14 +1602,27 @@ version = "23.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af0e5bf6702f5952d78c5b2bcd05b0349f9a570cc62028d90dac3710b40cbe65"
 dependencies = [
+<<<<<<< Updated upstream
  "bytes-lit",
  "crate-git-revision",
+=======
+ "arbitrary",
+ "bytes-lit",
+ "crate-git-revision",
+ "ctor",
+ "derive_arbitrary",
+ "ed25519-dalek",
+>>>>>>> Stashed changes
  "rand",
  "rustc_version",
  "serde",
  "serde_json",
  "soroban-env-guest 23.0.1",
  "soroban-env-host 23.0.1",
+<<<<<<< Updated upstream
+=======
+ "soroban-ledger-snapshot 23.0.2",
+>>>>>>> Stashed changes
  "soroban-sdk-macros 23.0.2",
  "stellar-strkey 0.0.13",
 ]
@@ -1763,6 +1818,10 @@ version = "23.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89d2848e1694b0c8db81fd812bfab5ea71ee28073e09ccc45620ef3cf7a75a9b"
 dependencies = [
+<<<<<<< Updated upstream
+=======
+ "arbitrary",
+>>>>>>> Stashed changes
  "base64 0.22.1",
  "cfg_eval",
  "crate-git-revision",
