@@ -19,13 +19,8 @@ fn test_interest_rates() {
         },
         ..Default::default()
     };
-    let TestMarketFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new_with_pool_config(pool_config);
     let debtor = &users[0];
     let loan_provider = &users[1];
 

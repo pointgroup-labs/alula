@@ -76,6 +76,11 @@ impl KinkedIRConfig {
         config
     }
 
+    /// Validates the kinked interest rate configuration.
+    /// Ensures that:
+    /// - Utilization ratios for kink points are non-negative, in non-descending order, and do not
+    ///   exceed 100%
+    /// - APRs for kink points are non-negative and in non-descending order
     fn validate(&self) -> Result<(), &str> {
         let &Self {
             base_apr_bps,
@@ -87,10 +92,8 @@ impl KinkedIRConfig {
         } = self;
 
         if 0 > kink1_ur_bps || kink1_ur_bps > kink2_ur_bps || kink2_ur_bps > BPS_FACTOR {
-            return Err(
-                "Utilization ratios for kink points must be non-negative and in non-descending
-                 order and not exceeding 100%",
-            );
+            return Err("Utilization ratios for kink points must be non-negative and in \
+                        non-descending order and not exceeding 100%");
         }
 
         if 0 > base_apr_bps
@@ -113,10 +116,7 @@ impl KinkedIRConfig {
         let product_term = kink1_base_diff_apr_bps
             .fixed_mul_floor(utilization_ratio_bps, self.kink1_ur_bps)
             .map_over_or_underflow()?;
-        let res = self
-            .base_apr_bps
-            .checked_add(product_term)
-            .map_over_or_underflow()?;
+        let res = self.base_apr_bps.checked_add(product_term).map_over_or_underflow()?;
 
         Ok(res)
     }
@@ -129,13 +129,9 @@ impl KinkedIRConfig {
         let max_ur_diff = self.kink2_ur_bps - self.kink1_ur_bps; // safe
         let kink2_target_diff_apr = self.kink2_apr_bps - self.kink1_apr_bps; // safe
 
-        let second_term = kink2_target_diff_apr
-            .fixed_mul_floor(ur_diff, max_ur_diff)
-            .map_over_or_underflow()?;
-        let res = self
-            .kink1_apr_bps
-            .checked_add(second_term)
-            .map_over_or_underflow()?;
+        let second_term =
+            kink2_target_diff_apr.fixed_mul_floor(ur_diff, max_ur_diff).map_over_or_underflow()?;
+        let res = self.kink1_apr_bps.checked_add(second_term).map_over_or_underflow()?;
 
         Ok(res)
     }
@@ -147,13 +143,9 @@ impl KinkedIRConfig {
         let max_ur_diff = BPS_FACTOR - self.kink2_ur_bps; // safe
         let max_kink2_diff_apr = self.max_apr_bps - self.kink2_apr_bps; // safe
 
-        let second_term = max_kink2_diff_apr
-            .fixed_mul_floor(ur_diff, max_ur_diff)
-            .map_over_or_underflow()?;
-        let res = self
-            .kink2_apr_bps
-            .checked_add(second_term)
-            .map_over_or_underflow()?;
+        let second_term =
+            max_kink2_diff_apr.fixed_mul_floor(ur_diff, max_ur_diff).map_over_or_underflow()?;
+        let res = self.kink2_apr_bps.checked_add(second_term).map_over_or_underflow()?;
 
         Ok(res)
     }
@@ -171,10 +163,7 @@ mod test {
         let utilization_ratio = 0;
         let expected_apr_bps = config.base_apr_bps;
 
-        assert_eq!(
-            config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 
     #[test]
@@ -184,10 +173,7 @@ mod test {
         // Calculation: 1 + (2500/7000) * (3000 - 1) = 1072
         let expected_apr_bps = 1072;
 
-        assert_eq!(
-            config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 
     #[test]
@@ -196,10 +182,7 @@ mod test {
         let utilization_ratio = config.kink1_ur_bps;
         let expected_apr_bps = config.kink1_apr_bps;
 
-        assert_eq!(
-            config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 
     #[test]
@@ -209,10 +192,7 @@ mod test {
         // Calculation: 3000 + [(7500 - 7000)/(8000 - 7000)] * (6000 - 3000)
         let expected_apr_bps = 4500;
 
-        assert_eq!(
-            config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 
     #[test]
@@ -221,10 +201,7 @@ mod test {
         let utilization_ratio = config.kink2_ur_bps;
         let expected_apr_bps = config.kink2_apr_bps;
 
-        assert_eq!(
-            config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 
     #[test]
@@ -234,10 +211,7 @@ mod test {
         // Calculation: 6000 + [(9000 - 8000)/(10000 - 8000)] * (40000 - 6000)
         let expected_apr_bps = 23000;
 
-        assert_eq!(
-            config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 
     #[test]
@@ -246,10 +220,7 @@ mod test {
         let utilization_ratio = BPS_FACTOR;
         let expected_apr_bps = config.max_apr_bps;
 
-        assert_eq!(
-            config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 
     #[test]
@@ -268,9 +239,6 @@ mod test {
         // Calculation: 400 + [(5000 - 4000)/(9000 - 4000)] * (1500 - 400)
         let expected_apr_bps = 620;
 
-        assert_eq!(
-            custom_config.compute_borrow_apr(utilization_ratio).unwrap(),
-            expected_apr_bps
-        );
+        assert_eq!(custom_config.compute_borrow_apr(utilization_ratio).unwrap(), expected_apr_bps);
     }
 }

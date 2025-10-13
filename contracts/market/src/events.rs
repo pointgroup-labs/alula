@@ -31,11 +31,7 @@ pub fn deposit(
     obligation_key: &ObligationKey,
     deposit_result: DepositResult,
 ) {
-    let topics = (
-        Symbol::new(e, "deposit"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "deposit"), pool_address, obligation_key.clone());
     let data = (deposit_result,);
 
     e.events().publish(topics, data);
@@ -52,12 +48,7 @@ pub fn initialize_pool(
     pool_address: &Address,
     token_ticker: &Symbol,
 ) {
-    let topics = (
-        Symbol::new(e, "initialize_pool"),
-        token_address,
-        pool_address,
-        token_ticker,
-    );
+    let topics = (Symbol::new(e, "initialize_pool"), token_address, pool_address, token_ticker);
     let data = ();
 
     e.events().publish(topics, data);
@@ -91,11 +82,7 @@ pub fn borrow(
     obligation_key: &ObligationKey,
     borrow_result: BorrowResult,
 ) {
-    let topics = (
-        Symbol::new(e, "borrow"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "borrow"), pool_address, obligation_key.clone());
     let data = (borrow_result,);
 
     e.events().publish(topics, data);
@@ -111,11 +98,7 @@ pub fn add_collateral(
     obligation_key: &ObligationKey,
     add_collateral_result: AddCollateralResult,
 ) {
-    let topics = (
-        Symbol::new(e, "add_collateral"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "add_collateral"), pool_address, obligation_key.clone());
     let data = (add_collateral_result,);
 
     e.events().publish(topics, data);
@@ -131,11 +114,7 @@ pub fn repay(
     obligation_key: &ObligationKey,
     repay_result: RepayResult,
 ) {
-    let topics = (
-        Symbol::new(e, "repay"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "repay"), pool_address, obligation_key.clone());
     let data = (repay_result,);
 
     e.events().publish(topics, data);
@@ -177,11 +156,7 @@ pub fn remove_collateral(
     obligation_key: &ObligationKey,
     remove_collateral_result: RemoveCollateralResult,
 ) {
-    let topics = (
-        Symbol::new(e, "remove_collateral"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "remove_collateral"), pool_address, obligation_key.clone());
     let data = (remove_collateral_result,);
 
     e.events().publish(topics, data);
@@ -197,11 +172,7 @@ pub fn withdraw(
     obligation_key: &ObligationKey,
     withdraw_result: WithdrawResult,
 ) {
-    let topics = (
-        Symbol::new(e, "withdraw"),
-        pool_address,
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "withdraw"), pool_address, obligation_key.clone());
     let data = (withdraw_result,);
 
     e.events().publish(topics, data);
@@ -247,12 +218,8 @@ pub fn deposit_with_leverage(
         deposit_pool_address,
         borrow_pool_address,
     );
-    let data = (
-        original_amount,
-        leverage_multiplier,
-        total_deposited_amount,
-        total_borrowed_amount,
-    );
+    let data =
+        (original_amount, leverage_multiplier, total_deposited_amount, total_borrowed_amount);
 
     e.events().publish(topics, data);
 }
@@ -302,10 +269,7 @@ pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     current_timestamp: u64,
     stored_timestamp: u64,
 ) {
-    let topics = (Symbol::new(
-        e,
-        "current_ledger_timestamp_smaller_than_stored_timestamp",
-    ),);
+    let topics = (Symbol::new(e, "current_ledger_timestamp_smaller_than_stored_timestamp"),);
     let data = (current_timestamp, stored_timestamp);
 
     e.events().publish(topics, data);
@@ -371,10 +335,7 @@ pub fn pool_is_missing_in_storage(e: &Env, pool_address: &Address) {
 /// - topics - `["obligation_is_missing_in_storage", obligation_key: ObligationKey]`
 /// - data - `[]`
 pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
-    let topics = (
-        Symbol::new(e, "obligation_is_missing_in_storage"),
-        obligation_key.clone(),
-    );
+    let topics = (Symbol::new(e, "obligation_is_missing_in_storage"), obligation_key.clone());
     let data = ();
 
     e.events().publish(topics, data);
@@ -416,10 +377,7 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     total_shares: i128,
     individual_shares: i128,
 ) {
-    let topics = (Symbol::new(
-        e,
-        "pool_total_shares_smaller_than_individual_user_shares",
-    ),);
+    let topics = (Symbol::new(e, "pool_total_shares_smaller_than_individual_user_shares"),);
     let data = (total_shares, individual_shares);
 
     e.events().publish(topics, data);
@@ -435,10 +393,7 @@ pub fn pool_total_shares_smaller_than_total_tokens(
     total_shares: i128,
     total_tokens: i128,
 ) {
-    let topics = (Symbol::new(
-        e,
-        "pool_total_shares_smaller_than_total_tokens",
-    ),);
+    let topics = (Symbol::new(e, "pool_total_shares_smaller_than_total_tokens"),);
     let data = (total_shares, total_tokens);
 
     e.events().publish(topics, data);
@@ -465,11 +420,8 @@ pub fn obligation_is_unexpectedly_empty(
     obligation_key: &ObligationKey,
     pool_address: &Address,
 ) {
-    let topics = (
-        Symbol::new(e, "obligation_unexpectedly_empty"),
-        obligation_key.clone(),
-        pool_address,
-    );
+    let topics =
+        (Symbol::new(e, "obligation_unexpectedly_empty"), obligation_key.clone(), pool_address);
     let data = ();
 
     e.events().publish(topics, data);
@@ -489,16 +441,8 @@ pub fn computed_interest_is_negative(
     computed_interest: i128,
     tokens_from_all_shares: i128,
 ) {
-    let topics = (
-        Symbol::new(e, "computed_interest_is_negative"),
-        pool_address,
-    );
-    let data = (
-        shares,
-        tokens_from_shares,
-        computed_interest,
-        tokens_from_all_shares,
-    );
+    let topics = (Symbol::new(e, "computed_interest_is_negative"), pool_address);
+    let data = (shares, tokens_from_shares, computed_interest, tokens_from_all_shares);
 
     e.events().publish(topics, data);
 }
@@ -520,18 +464,8 @@ pub fn received_unexpected_swap_amount(
     expected_amount_in: i128,
     expected_amount_out: i128,
 ) {
-    let topics = (
-        Symbol::new(e, "received_unexpected_swap_amount"),
-        user,
-        token_in,
-        token_out,
-    );
-    let data = (
-        amount_in,
-        amount_out,
-        expected_amount_in,
-        expected_amount_out,
-    );
+    let topics = (Symbol::new(e, "received_unexpected_swap_amount"), user, token_in, token_out);
+    let data = (amount_in, amount_out, expected_amount_in, expected_amount_out);
 
     e.events().publish(topics, data);
 }

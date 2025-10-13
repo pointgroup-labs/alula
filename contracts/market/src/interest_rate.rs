@@ -20,10 +20,7 @@ impl AnnualPercentageRates {
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
-        Ok(Self {
-            borrow_bps: borrow_bps as u64,
-            supply_bps: supply_bps as u64,
-        })
+        Ok(Self { borrow_bps: borrow_bps as u64, supply_bps: supply_bps as u64 })
     }
 }
 
@@ -36,6 +33,8 @@ pub struct AnnualPercentageYields {
 }
 
 impl Pool {
+    /// Accrues interest on the pool's total borrowed amount based
+    /// on the time elapsed since the last accrual.
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), MCError> {
         let current_timestamp = e.ledger().timestamp();
         if current_timestamp < self.last_accrual_timestamp {
@@ -56,23 +55,18 @@ impl Pool {
 
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
-        let current_borrow_apr = self
-            .config
-            .interest_rate_model
-            .compute_borrow_apr(utilization_ratio_bps)?;
-        let accrual_multiplier = self
-            .config
-            .accrual_model
-            .compute_multiplier(current_borrow_apr, seconds_passed)?;
+        let current_borrow_apr =
+            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
+        let accrual_multiplier =
+            self.config.accrual_model.compute_multiplier(current_borrow_apr, seconds_passed)?;
 
         let new_total_borrowed = self
             .total_borrowed
             .fixed_mul_ceil(accrual_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
             .map_over_or_underflow()?;
 
-        let accrued = new_total_borrowed
-            .checked_sub(self.total_borrowed)
-            .map_over_or_underflow()?;
+        let accrued =
+            new_total_borrowed.checked_sub(self.total_borrowed).map_over_or_underflow()?;
 
         let accrued_to_reserve = accrued
             .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
@@ -90,49 +84,43 @@ impl Pool {
         Ok(())
     }
 
+    /// Get current annual percentage rates (APR) for borrowing and supplying
+    /// based on the pool's utilization ratio and interest rate model.
     pub fn get_apr(&self) -> Result<AnnualPercentageRates, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
-        let borrow_apr_bps = self
-            .config
-            .interest_rate_model
-            .compute_borrow_apr(utilization_ratio_bps)?;
+        let borrow_apr_bps =
+            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
         let res = AnnualPercentageRates::try_new(borrow_apr_bps, utilization_ratio_bps)?;
 
         Ok(res)
     }
 
+    /// Get current annual percentage yields (APY) for borrowing and supplying
+    /// based on the pool's utilization ratio, interest rate model, and accrual model.
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
-        let borrow_apr = self
-            .config
-            .interest_rate_model
-            .compute_borrow_apr(utilization_ratio_bps)?;
+        let borrow_apr =
+            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
         let supply_apr = borrow_apr
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
-        let borrow_apy_multiplier = self
-            .config
-            .accrual_model
-            .compute_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
-        let supply_apy_multiplier = self
-            .config
-            .accrual_model
-            .compute_multiplier(supply_apr, SECONDS_IN_YEAR)?;
+        let borrow_apy_multiplier =
+            self.config.accrual_model.compute_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
+        let supply_apy_multiplier =
+            self.config.accrual_model.compute_multiplier(supply_apr, SECONDS_IN_YEAR)?;
 
         let borrow_apy_bps = multiplier_to_percentage_increase(borrow_apy_multiplier)?;
         let supply_apy_bps = multiplier_to_percentage_increase(supply_apy_multiplier)?;
 
-        let apy = AnnualPercentageYields {
-            borrow_bps: borrow_apy_bps,
-            supply_bps: supply_apy_bps,
-        };
+        let apy = AnnualPercentageYields { borrow_bps: borrow_apy_bps, supply_bps: supply_apy_bps };
 
         Ok(apy)
     }
 
+    /// Computes the current utilization ratio in basis points (bps).
     pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
         // WARN: Is this a correct way to count UR now, when we have reserves?
         let total = self.total_supply()?;

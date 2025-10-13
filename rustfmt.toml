@@ -1,10 +1,20 @@
+# This file includes unstable features, so you need to run "cargo +nightly fmt" to format your code.
+# It's also ok to use the stable toolchain by simple running "cargo fmt", but using the nightly formatter is preferred.
+
 edition = "2024"
-comment_width = 100
-imports_granularity = "Crate"
+style_edition = "2024"
+use_small_heuristics = "Max"
+use_field_init_shorthand = true
 group_imports = "StdExternalCrate"
-format_code_in_doc_comments = true
+imports_granularity = "Crate"
+merge_derives = true
 format_strings = true
+format_macro_bodies = true
+format_code_in_doc_comments = true
 normalize_comments = true
 normalize_doc_attributes = true
 # reorder_impl_items = true
-wrap_comments = true
+reorder_modules = true
+# wrap_comments = true
+comment_width = 120
+max_width = 100

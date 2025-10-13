@@ -1,0 +1,22 @@
+# https://github.com/crate-ci/typos
+# cargo install typos-cli
+# typos
+
+[files]
+extend-exclude = [
+  "**/*.snap",
+  "**/*/CHANGELOG.md",
+  "pnpm-lock.yaml",
+  "cliff.toml",
+  "Cargo.lock",
+]
+
+[default]
+extend-ignore-re = [
+  "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",
+  "(?s)(#|//)\\s*spellchecker:off.*?\\n\\s*(#|//)\\s*spellchecker:on",
+]
+
+# [default.extend-words]
+
+# [default.extend-identifiers]

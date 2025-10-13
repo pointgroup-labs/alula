@@ -16,7 +16,6 @@ pub struct Pool {
     pub token_address: Address,
     /// The ticker symbol of the associated token
     pub token_ticker: Symbol,
-
     /// The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
     /// The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
@@ -32,7 +31,7 @@ pub struct Pool {
     pub accumulated_reserve_fees: i128,
     /// Amount of tokens that can be withdrawn by the market's admin as a fee
     pub accumulated_market_fees: i128,
-    /// Amount of tokens that can be withdraw by the host platform admin as a fee
+    /// Amount of tokens that can be withdrawn by the host platform admin as a fee
     pub accumulated_host_fees: i128,
     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
     /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
@@ -45,108 +44,29 @@ pub struct Pool {
     // TODO: APY & APR?
 }
 
-impl Pool {
-    fn adjust_field(e: &Env, current_value: i128, adjusting_amount: i128) -> Result<i128, MCError> {
-        let new_amount = current_value
-            .checked_add(adjusting_amount)
-            .map_over_or_underflow()?;
-
-        if new_amount < 0 {
-            events::pool_amount_becomes_negative(e, current_value, new_amount);
-
-            return Err(MCError::InternalError);
+macro_rules! generate_adjust_method {
+    ($method_name:ident, $field:ident) => {
+        pub fn $method_name(&mut self, e: &Env, amount: i128) -> Result<(), MCError> {
+            let new_amount = self.$field.checked_add(amount).map_over_or_underflow()?;
+            if new_amount < 0 {
+                events::pool_amount_becomes_negative(e, self.$field, new_amount);
+                return Err(MCError::NegativeAmount);
+            }
+            self.$field = new_amount;
+            Ok(())
         }
+    };
+}
 
-        Ok(new_amount)
-    }
-
-    pub fn adjust_total_j_tokens(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_j_tokens, adjusting_amount)?;
-        self.total_j_tokens = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_borrowed(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_borrowed, adjusting_amount)?;
-        self.total_borrowed = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_available(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_available, adjusting_amount)?;
-        self.total_available = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_d_tokens(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_d_tokens, adjusting_amount)?;
-        self.total_d_tokens = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_total_collateral(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.total_collateral, adjusting_amount)?;
-        self.total_collateral = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_accumulated_market_fees(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.accumulated_market_fees, adjusting_amount)?;
-        self.accumulated_market_fees = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_accumulated_host_fees(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.accumulated_host_fees, adjusting_amount)?;
-        self.accumulated_host_fees = new_amount;
-
-        Ok(())
-    }
-
-    pub fn adjust_accumulated_reserve_fees(
-        &mut self,
-        e: &Env,
-        adjusting_amount: i128,
-    ) -> Result<(), MCError> {
-        let new_amount = Self::adjust_field(e, self.accumulated_reserve_fees, adjusting_amount)?;
-        self.accumulated_reserve_fees = new_amount;
-
-        Ok(())
-    }
+impl Pool {
+    generate_adjust_method!(adjust_total_j_tokens, total_j_tokens);
+    generate_adjust_method!(adjust_total_borrowed, total_borrowed);
+    generate_adjust_method!(adjust_total_available, total_available);
+    generate_adjust_method!(adjust_total_d_tokens, total_d_tokens);
+    generate_adjust_method!(adjust_total_collateral, total_collateral);
+    generate_adjust_method!(adjust_accumulated_market_fees, accumulated_market_fees);
+    generate_adjust_method!(adjust_accumulated_host_fees, accumulated_host_fees);
+    generate_adjust_method!(adjust_accumulated_reserve_fees, accumulated_reserve_fees);
 
     // TODO: Add dTokenRate?
 
@@ -315,6 +235,7 @@ impl Pool {
 
             return Ok(0);
         }
+
         let available_percentage_to_borrow_bps =
             self.config.health_config.utilization_ratio_limit_bps - utilization_ratio; // safe
 
@@ -345,8 +266,8 @@ impl Pool {
             return Err(MCError::InternalError);
         }
 
-        let tokens_amount = total_tokens_amount
-            .fixed_div_floor(total_shares_amount, shares_amount)
+        let tokens_amount = shares_amount
+            .fixed_mul_floor(total_tokens_amount, total_shares_amount)
             .map_over_or_underflow()?;
 
         Ok(tokens_amount)
@@ -381,19 +302,17 @@ impl Pool {
                 return Err(MCError::InternalError);
             }
 
-            /*
-            This must hold when issuing new shares:
-                shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount / (tokens_added_amount + prev_total_tokens_amount)
-            Which implies:
-                shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
-
-            This must hold when burning issued shares:
-                shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
-            */
+            // This must hold when issuing new shares: shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount /
+            // (tokens_added_amount + prev_total_tokens_amount)
+            // Which implies:
+            //   shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
+            // This must hold when burning issued shares:
+            //   shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
             total_shares_amount
-                /* Using 'ceil' here has advantages when withdrawing\repaying small amounts of tokens.
-                Namely, if the token amount is really small, with `floor`, the respective amount of
-                shares to burn is 0, and doesn't make a difference  */
+                // Using 'ceil' here has advantages when withdrawing\repaying small amounts of
+                // tokens. Namely, if the token amount is really small, with
+                // `floor`, the respective amount of shares to burn is 0, and
+                // doesn't make a difference
                 .fixed_div_ceil(total_tokens_amount, tokens_amount)
                 .map_over_or_underflow()?
         };
@@ -403,34 +322,29 @@ impl Pool {
 
     pub fn available_accumulated_reserve_fees(&self) -> i128 {
         let total_available = self.total_available;
-        let accumulated_reserve_fess = self.accumulated_reserve_fees;
+        let accumulated_reserve_fees = self.accumulated_reserve_fees;
 
-        i128::min(total_available, accumulated_reserve_fess)
+        i128::min(total_available, accumulated_reserve_fees)
     }
 
     pub fn total_available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {
         // TODO: Can we use `saturating_sub` here instead of `checked_sub`?
-        let res = self
-            .total_available
-            .saturating_sub(self.accumulated_reserve_fees);
+        let res = self.total_available.saturating_sub(self.accumulated_reserve_fees);
 
         Ok(res)
     }
 
     /// Calculates total debt (total_borrowed - accumulated reserve fees)
     pub fn total_debt(&self) -> Result<i128, MCError> {
-        self.total_borrowed
-            .checked_sub(self.accumulated_reserve_fees)
-            .map_over_or_underflow()
+        self.total_borrowed.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
     }
 
     /// Calculates total supply (available + total_borrowed - accumulated reserve fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
-        self.total_available
-            .checked_add(self.total_borrowed)
-            .map_over_or_underflow()?
-            .checked_sub(self.accumulated_reserve_fees)
-            .map_over_or_underflow()
+        let total_funds =
+            self.total_available.checked_add(self.total_borrowed).map_over_or_underflow()?;
+
+        total_funds.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
     }
 
     /// Checks if the pool is empty
@@ -453,11 +367,13 @@ impl Pool {
         } = self;
 
         if total_j_tokens == 0 && total_available != 0 {
-            // TODO: What to do in these cases?
+            // These represent serious invariant violations that should be logged
+            // it means funds exist but no one owns them (orphaned funds)
         }
 
         if total_d_tokens == 0 && total_borrowed != 0 {
-            // TODO: What to do in these cases?
+            // These represent serious invariant violations that should be logged
+            // it means debt exists but no one owes it (ghost debt)
         }
 
         total_j_tokens == 0
@@ -468,7 +384,6 @@ impl Pool {
             && accumulated_host_fees == 0
             && accumulated_reserve_fees == 0
             && accumulated_market_fees == 0
-        // && self.
     }
 
     /// Tries to get the pool from the contract's storage
@@ -490,9 +405,8 @@ impl Pool {
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
         let deposited_tokens = self.compute_tokens_from_j_tokens(e, self.total_j_tokens)?;
-        let collateral_sum = deposited_tokens
-            .checked_add(self.total_collateral)
-            .map_over_or_underflow()?;
+        let collateral_sum =
+            deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
 
         self.get_assets_value(e, collateral_sum)
     }
@@ -534,7 +448,7 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn register(&self, e: &Env) -> u32 {
-        storage::register_pool(e, &self.pool_address.clone())
+        storage::register_pool(e, &self.pool_address)
     }
 }
 

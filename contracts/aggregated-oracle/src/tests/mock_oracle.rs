@@ -17,17 +17,12 @@ impl MockOracleContract {
     pub fn __constructor(e: Env, decimals: u32, resolution: u32, base_asset: Asset) {
         e.storage().instance().set(&DataKey::BaseAsset, &base_asset);
         e.storage().instance().set(&DataKey::Decimals, &decimals);
-        e.storage()
-            .instance()
-            .set(&DataKey::Resolution, &resolution);
+        e.storage().instance().set(&DataKey::Resolution, &resolution);
     }
 
     pub fn set_price(e: Env, asset: Asset, price: i128, timestamp: u64) {
-        let mut prices_map: Map<Asset, PriceData> = e
-            .storage()
-            .instance()
-            .get(&DataKey::Prices)
-            .unwrap_or_else(|| Map::new(&e));
+        let mut prices_map: Map<Asset, PriceData> =
+            e.storage().instance().get(&DataKey::Prices).unwrap_or_else(|| Map::new(&e));
 
         let price_data = PriceData { price, timestamp };
         prices_map.set(asset, price_data);
@@ -43,11 +38,8 @@ impl PriceFeedTrait for MockOracleContract {
     }
 
     fn assets(e: Env) -> Vec<Asset> {
-        let prices_map: Map<Asset, PriceData> = e
-            .storage()
-            .instance()
-            .get(&DataKey::Prices)
-            .unwrap_or_else(|| Map::new(&e));
+        let prices_map: Map<Asset, PriceData> =
+            e.storage().instance().get(&DataKey::Prices).unwrap_or_else(|| Map::new(&e));
 
         prices_map.keys()
     }
@@ -57,11 +49,8 @@ impl PriceFeedTrait for MockOracleContract {
     }
 
     fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
-        let prices_map: Map<Asset, PriceData> = e
-            .storage()
-            .instance()
-            .get(&DataKey::Prices)
-            .unwrap_or_else(|| Map::new(&e));
+        let prices_map: Map<Asset, PriceData> =
+            e.storage().instance().get(&DataKey::Prices).unwrap_or_else(|| Map::new(&e));
 
         prices_map.get(asset)
     }
