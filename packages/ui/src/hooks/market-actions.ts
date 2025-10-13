@@ -67,8 +67,11 @@ export function useMarketActions() {
     action?: () => void | Promise<void>
   }) {
     const { pool, type, title, body, exec, market, client } = opts
-    marketsStore.poolActiveAddress = pool
-    marketsStore.poolActionType = type
+    marketsStore.activeActionPool = {
+      market,
+      poolAddress: pool,
+      poolActionType: type,
+    }
     const info = await toast.create({
       title,
       body,
@@ -97,8 +100,11 @@ export function useMarketActions() {
       })
       throw error
     } finally {
-      marketsStore.poolActiveAddress = undefined
-      marketsStore.poolActionType = undefined
+      marketsStore.activeActionPool = {
+        market: undefined,
+        poolAddress: undefined,
+        poolActionType: undefined,
+      }
       info?.dismiss()
     }
   }
@@ -131,7 +137,7 @@ export function useMarketActions() {
       pool: pool_address,
       type: 'deposit',
       title: 'Deposit',
-      body: `Sending transaction to deposit ${amount} ${symbol}`,
+      body: `Sending transaction to deposit ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.depositToLending(pk, pool_address, amount, kit.value),
     })
 
@@ -166,7 +172,7 @@ export function useMarketActions() {
       pool: pool_address,
       type: 'borrow',
       title: 'Borrow',
-      body: `Sending transaction to borrow ${amount} ${symbol}`,
+      body: `Sending transaction to borrow ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.borrowLendingAsset(pk, pool_address, amount, kit.value),
     })
 
@@ -201,7 +207,7 @@ export function useMarketActions() {
       pool: pool_address,
       type: 'withdraw',
       title: 'Withdraw',
-      body: `Sending transaction to withdraw ${amount} ${symbol}`,
+      body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.wathdrawDeposit(pk, pool_address, amount, kit.value),
     })
 
@@ -239,7 +245,7 @@ export function useMarketActions() {
       pool: pool_address,
       type: 'repay',
       title: 'Repay',
-      body: `Sending transaction to repay ${amount} ${symbol}`,
+      body: `Sending transaction to repay ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.repayBorrow(pk, pool_address, increasedAmount, kit.value),
     })
 
@@ -275,7 +281,7 @@ export function useMarketActions() {
       pool: pool_address,
       type: 'deposit',
       title: 'Add Collateral',
-      body: `Sending transaction to add collateral ${amount} ${symbol}`,
+      body: `Sending transaction to add collateral ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.addCollateral(pk, pool_address, amount, kit.value),
     })
 
@@ -310,7 +316,7 @@ export function useMarketActions() {
       pool: pool_address,
       type: 'withdraw',
       title: 'Withdraw Collateral',
-      body: `Sending transaction to withdraw collateral ${amount} ${symbol}`,
+      body: `Sending transaction to withdraw collateral ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.removeCollateral(pk, pool_address, amount, kit.value),
     })
 
@@ -343,7 +349,7 @@ export function useMarketActions() {
       pool: deposit_pool_address,
       type: 'leverage',
       title: 'Leverage',
-      body: `Sending transaction to leverage ${amount} ${asset_code}`,
+      body: `Sending transaction to leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
       action: props.action,
       exec: () => client!.marketSdk.leverage(
         pk,
@@ -382,7 +388,7 @@ export function useMarketActions() {
       pool: deposit_pool_address,
       type: 'withdrawLeverage',
       title: 'Leverage',
-      body: `Sending transaction to Withdraw leverage ${amount} ${asset_code}`,
+      body: `Sending transaction to Withdraw leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
       action: props.action,
       exec: () => client!.marketSdk.withdrawLeverage(
         pk,
@@ -404,16 +410,22 @@ export function useMarketActions() {
     ])
   }
 
-  function isDisabled(pool_address: string, actionType: TableActionType) {
-    return marketsStore.poolActiveAddress
-      ? pool_address !== marketsStore.poolActiveAddress || marketsStore.poolActionType !== actionType
+  function isDisabled(pool_address: string, actionType: TableActionType, activeMarket: string) {
+    const { market, poolAddress, poolActionType } = marketsStore.activeActionPool
+    return poolAddress
+      ? pool_address !== poolAddress || actionType !== poolActionType || market !== activeMarket
       : false
   }
 
-  function isLoading(pool_address: string, actionType: TableActionType) {
-    return marketsStore.poolActiveAddress
-      ? pool_address === marketsStore.poolActiveAddress && marketsStore.poolActionType === actionType
+  function isLoading(pool_address: string, actionType: TableActionType, activeMarket: string) {
+    const { market, poolAddress, poolActionType } = marketsStore.activeActionPool
+    return poolAddress
+      ? pool_address === poolAddress && actionType === poolActionType && activeMarket === market
       : false
+  }
+
+  function amountToAssetDecimals(amount: number) {
+    return formatPrice(amount, 0, assetDecimals.value)
   }
 
   return {

@@ -107,8 +107,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         size="sm"
         pill
         icon-right
-        :disabled="market.isDisabled(item.pool_address, 'leverage')"
-        :loading="market.isLoading(item.pool_address, 'leverage')"
+        :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
+        :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'supply' })"
       >
         Multiply
@@ -119,8 +119,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         variant="accent"
         pill
         icon-right
-        :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage')"
-        :loading="market.isLoading(item.pool_address, 'withdrawLeverage')"
+        :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
+        :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'withdraw' })"
       >
         Withdraw

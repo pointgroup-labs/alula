@@ -18,7 +18,6 @@ const dialog = defineModel<boolean>({ default: false })
 
 const isDepositMultiply = ref(true)
 
-const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
 const reloadFee = ref(false)
 
 const amount = toRef(market, 'depositAmount')
@@ -298,7 +297,7 @@ watchDebounced([
         <div class="multiply-dialog-action">
           <market-dialog-action-btn
             variant="primary"
-            :loading="loading"
+            :loading="market.isLoading(String(data?.pool_address), 'leverage', String(data?.market))"
             :pool="data?.depositPool"
             :disabled="Number(selectedMultiplier) < 1"
             @click-handler="leverage"

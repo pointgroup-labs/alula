@@ -34,6 +34,8 @@ const emit = defineEmits(['update:modelValue', 'maxHandler'])
 
 const slot = defineSlots()
 
+const { assetDecimals } = useMarketActions()
+
 const wallet = useWallet()
 
 const val = computed({
@@ -52,7 +54,12 @@ function max() {
   const result = b.minus(f).toNumber()
   const maxVal = Math.max(Math.min(result, limit || balance), 0) || 0
   const decimals = String(maxVal).includes('e') ? getZeroCountAfterDecimal(maxVal) : null
-  val.value = decimals ? maxVal.toFixed(decimals) : String(maxVal)
+  let maxAmount = decimals ? maxVal.toFixed(decimals) : String(maxVal)
+  const [, dec] = maxAmount.toString().split('.')
+  if (!decimals && dec && dec.length > assetDecimals.value) {
+    maxAmount = truncatePercent(Number(maxAmount), assetDecimals.value)
+  }
+  val.value = maxAmount
   resetValidation.value = true
   nextTick(() => {
     resetValidation.value = false

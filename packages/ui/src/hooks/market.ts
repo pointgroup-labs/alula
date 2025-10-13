@@ -6,8 +6,16 @@ export function useMarket(state: MarketsState) {
 
   const marketInfoDialog = ref(false)
 
-  const poolActiveAddress = ref()
-  const poolActionType = ref<TableActionType>()
+  const activeActionPool = ref<{
+    market?: string
+    poolAddress?: string
+    poolActionType?: TableActionType
+  }>({
+    market: undefined,
+    poolAddress: undefined,
+    poolActionType: undefined
+  })
+
 
   const route = useRoute()
   const router = useRouter()
@@ -139,8 +147,7 @@ export function useMarket(state: MarketsState) {
     dialogLeverageWithdraw,
     marketInfoDialog,
 
-    poolActiveAddress,
-    poolActionType,
+    activeActionPool,
 
     preparePool,
     loadMarketPools,

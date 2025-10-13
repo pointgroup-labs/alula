@@ -22,6 +22,8 @@ const market = useMarketActions()
 
 const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
 
+const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
+
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'debt', label: 'Debt', align: 'right' },
@@ -97,7 +99,7 @@ watch(selectedMarket, (p) => {
       Your Borrows
     </div>
 
-    <div v-if="items.length === 0 && (userStore.loading || loadingMarkets)">
+    <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
       <table-skeleton v-if="width > 650" />
       <table-skeleton-mobile v-else />
     </div>
@@ -181,8 +183,8 @@ watch(selectedMarket, (p) => {
                 icon-right
                 size="lg"
                 class="repay-btn"
-                :disabled="market.isDisabled(data.item.pool_address, 'repay')"
-                :loading="market.isLoading(data.item.pool_address, 'repay')"
+                :disabled="market.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
+                :loading="market.isLoading(data.item.pool_address, 'repay', data.item.market!)"
                 @click="withdrawDialogHandler(data.item)"
               >
                 {{ data.item.action }}

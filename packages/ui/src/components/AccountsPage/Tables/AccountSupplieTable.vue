@@ -15,6 +15,8 @@ const market = useMarketActions()
 
 const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
 
+const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
+
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'balance', label: 'Balance', align: 'right' },
@@ -94,7 +96,7 @@ watch(selectedPool, (p) => {
       Your Supplies
     </div>
 
-    <div v-if="items.length === 0 && (userStore.loading || loadingMarkets)">
+    <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
       <table-skeleton v-if="width > 650" />
       <table-skeleton-mobile v-else />
     </div>
@@ -176,8 +178,8 @@ watch(selectedPool, (p) => {
                 pill
                 variant="dark"
                 size="md"
-                :disabled="market.isDisabled(data.item.pool_address, 'withdraw')"
-                :loading="market.isLoading(data.item.pool_address, 'withdraw')"
+                :disabled="market.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
+                :loading="market.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
                 @click="withdrawDialogHandler(data.item)"
               >
                 {{ data.item.action }}
@@ -247,7 +249,7 @@ watch(selectedPool, (p) => {
     align-items: center;
     justify-content: center;
     gap: $spacing-8;
-    min-height: 100px;
+    min-height: 116px;
     max-height: 200px;
     font-size: 14px;
     font-style: normal;

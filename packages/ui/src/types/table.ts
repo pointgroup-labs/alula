@@ -21,6 +21,7 @@ export type MarketTableItem = {
   available: number
   supply_limit: number
   pool_address: string
+  market?: string
 } & TableAsset
 
 export type BorrowTableItem = {

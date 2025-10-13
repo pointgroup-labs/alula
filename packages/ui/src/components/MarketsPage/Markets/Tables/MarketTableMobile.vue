@@ -126,8 +126,8 @@ function onRowClicked(item: MarketTableItem) {
         size="sm"
         pill
         icon-right
-        :disabled="market.isDisabled(item.pool_address, 'deposit')"
-        :loading="market.isLoading(item.pool_address, 'deposit')"
+        :disabled="market.isDisabled(item.pool_address, 'deposit', item.market!)"
+        :loading="market.isLoading(item.pool_address, 'deposit', item.market!)"
         @click.stop="emits('dialogHandler', { item, action: 'supply' })"
       >
         Supply
@@ -137,8 +137,8 @@ function onRowClicked(item: MarketTableItem) {
         pill
         icon-right
         variant="accent"
-        :disabled="market.isDisabled(item.pool_address, 'borrow')"
-        :loading="market.isLoading(item.pool_address, 'borrow')"
+        :disabled="market.isDisabled(item.pool_address, 'borrow', item.market!)"
+        :loading="market.isLoading(item.pool_address, 'borrow', item.market!)"
         @click.stop="emits('dialogHandler', { item, action: 'borrow' })"
       >
         Borrow

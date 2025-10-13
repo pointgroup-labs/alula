@@ -5,7 +5,7 @@
     style="border-radius: 8px;"
   />
   <j-skeleton
-    height="80"
+    height="72"
     full-width
     style="margin-top: 8px; border-radius: 8px;"
   />

@@ -2,7 +2,7 @@
 import type { BorrowCardTableItem } from '~/types/table'
 import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { focusInput, shortenNumber, truncatePercent } from '~/utils'
+import { focusInput, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -16,6 +16,8 @@ const dialog = defineModel({ default: false })
 
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
+
+const isValidate = ref(true)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -102,6 +104,8 @@ async function repay() {
   }
   try {
     loading.value = true
+    isValidate.value = false
+
     marketsStore.poolActiveAddress = data?.pool_address
     marketsStore.activeMarketFilter = String(activeMarket.value?.marketState.name)
 
@@ -117,6 +121,7 @@ async function repay() {
     await market.repay(marketProps)
   } finally {
     loading.value = false
+    isValidate.value = true
   }
 }
 
@@ -186,12 +191,12 @@ watch(() => modelValue, async (v) => {
         :limit="Number(data?.debt) || 0"
         :rules="[
           (v) => {
-            return v && Number(v) < balance || 'Insufficient balance'
+            return !isValidate || (v && Number(v) < balance) || 'Insufficient balance'
           },
         ]"
       >
         <template #label-right>
-          Repay with Wallet: {{ balance }} {{ data?.asset.symbol }}
+          Repay with Wallet: {{ formatPrice(balance || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 

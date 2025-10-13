@@ -5,6 +5,13 @@
       <div class="separator-vert" />
       <account-borrow-table />
     </div>
+
+    <div class="account-multiply__cards card">
+      <div class="account-card__title">
+        Your Multiplies
+      </div>
+      <multiply-table only-multiplied />
+    </div>
   </main>
 </template>
 
@@ -20,6 +27,12 @@
       flex-direction: column;
       gap: $spacing-16;
     }
+  }
+
+  .account-multiply__cards {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-16;
   }
 }
 </style>

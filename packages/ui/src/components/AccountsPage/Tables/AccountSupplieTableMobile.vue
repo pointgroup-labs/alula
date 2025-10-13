@@ -71,8 +71,8 @@ const market = useMarketActions()
         variant="dark"
         :class="isDark ? 'dark-theme-btn' : ''"
         size="sm"
-        :disabled="market.isDisabled(item.pool_address, 'withdraw')"
-        :loading="market.isLoading(item.pool_address, 'withdraw')"
+        :disabled="market.isDisabled(item.pool_address, 'withdraw', item.market!)"
+        :loading="market.isLoading(item.pool_address, 'withdraw', item.market!)"
         @click="emits('dialogHandler', { item })"
       >
         {{ item.action }}

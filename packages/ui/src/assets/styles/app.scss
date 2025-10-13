@@ -96,16 +96,13 @@ h2 {
 }
 
 .table-wrapper {
+  height: 100%;
   position: relative;
 
   @media (max-width: $breakpoint-sm) {
     display: flex;
     flex-direction: column;
     gap: 10px;
-  }
-
-  &:has(.loading-spinner) {
-    min-height: 160px;
   }
 
   .loading-spinner {

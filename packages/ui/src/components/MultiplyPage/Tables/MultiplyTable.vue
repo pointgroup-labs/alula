@@ -2,6 +2,12 @@
 import type { MultiplyTableItem } from '~/types/table'
 import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
 
+const {
+  onlyMultiplied = false,
+} = defineProps<{
+  onlyMultiplied?: boolean
+}>()
+
 const { width } = useWindowSize()
 
 const marketsStore = useMarketsStore()
@@ -18,7 +24,7 @@ const userStore = useUserStore()
 const assetDecimals = computed(() => marketsStore.assetDecimals)
 
 const pools = computed(() => Object.values(marketsStore.state.markets)?.flatMap(m => m.pools) ?? [])
-const loading = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
+const loading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
 const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
@@ -76,7 +82,12 @@ const items = computed<MultiplyTableItem[]>(() => {
     }
   }
 
-  return res?.filter(Boolean)
+  return res
+})
+
+const filteredData = computed(() => {
+  const data = onlyMultiplied ? items.value?.filter(item => isUserHaveMultiply(item.pool_address, String(item.market))) : items.value
+  return data.filter(Boolean)
 })
 
 const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
@@ -93,7 +104,7 @@ async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' |
 function isUserHaveMultiply(poolAddress: string, market: string) {
   return checkIsHaveMultiply(
     userStore.state.multiplyObligations,
-    items.value,
+    items.value ?? [],
     poolAddress,
     market,
   )
@@ -114,7 +125,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       show-empty
       borderless
       :fields="fields"
-      :items="items"
+      :items="filteredData"
       responsive
       class="market-table multiply-table"
     >
@@ -215,19 +226,20 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
             size="md"
             pill
             icon-right
-            :loading="market.isLoading(data.item.pool_address, 'leverage')"
+            :loading="market.isLoading(data.item.pool_address, 'leverage', data.item.market!)"
+            :disabled="market.isDisabled(data.item.pool_address, 'leverage', data.item.market!)"
             @click="multiplyDialogHandler(data.item, 'supply')"
           >
             Multiply
-          </j-btn>
+          </j-btn> 
           <j-btn
             v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
             size="md"
             variant="accent"
             pill
             icon-right
-            :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage')"
-            :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage')"
+            :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
+            :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             @click="multiplyDialogHandler(data.item, 'withdraw')"
           >
             Withdraw
@@ -249,7 +261,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 
     <multiply-table-mobile
       v-else
-      :items="items"
+      :items="filteredData"
       @dialog-handler="(e: any) => multiplyDialogHandler(e.item, e.action)"
     />
 

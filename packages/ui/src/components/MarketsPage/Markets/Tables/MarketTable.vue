@@ -56,6 +56,7 @@ const items = computed<MarketTableItem[]>(() => {
       supply_limit,
       available: Number(p.total_available) / (10 ** assetDecimals.value),
       pool_address: p.pool_address,
+      market: marketsStore.activeMarketFilter,
     }
   })
 })
@@ -191,8 +192,8 @@ provide('selectedMarketDetails', selectedMarketDetails)
             size="md"
             pill
             icon-right
-            :disabled="market.isDisabled(data.item.pool_address, 'deposit')"
-            :loading="market.isLoading(data.item.pool_address, 'deposit')"
+            :disabled="market.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
+            :loading="market.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
             @click="supplyDialogHandler(data.item, 'supply')"
           >
             Supply
@@ -202,8 +203,8 @@ provide('selectedMarketDetails', selectedMarketDetails)
             pill
             icon-right
             variant="accent"
-            :disabled="market.isDisabled(data.item.pool_address, 'borrow')"
-            :loading="market.isLoading(data.item.pool_address, 'borrow')"
+            :disabled="market.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
+            :loading="market.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
             @click="supplyDialogHandler(data.item, 'borrow')"
           >
             Borrow

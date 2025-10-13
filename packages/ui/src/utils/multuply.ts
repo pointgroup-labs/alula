@@ -10,7 +10,7 @@ export function checkIsHaveMultiply(
 ) {
   const deposits: any = obligations[market]?.deposits ?? []
   const borrows: any = obligations[market]?.borrows ?? []
-  const pool = tableData.find(item => item.pool_address === poolAddress && item.market === market)
+  const pool = tableData?.find(item => item.pool_address === poolAddress && item.market === market)
   if (deposits.length === 0 || borrows.length === 0 || !pool) {
     return false
   }

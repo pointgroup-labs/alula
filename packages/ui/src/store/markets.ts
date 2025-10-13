@@ -26,8 +26,7 @@ export const useMarketsStore = defineStore('markets', () => {
     dialogLeverageWithdraw,
     marketInfoDialog,
 
-    poolActiveAddress,
-    poolActionType,
+    activeActionPool,
 
     preparePool,
     loadMarketPools,
@@ -146,8 +145,7 @@ export const useMarketsStore = defineStore('markets', () => {
 
     selectedMarketAddress,
 
-    poolActionType,
-    poolActiveAddress,
+    activeActionPool,
 
     updatePool,
     updateLeveragePool,

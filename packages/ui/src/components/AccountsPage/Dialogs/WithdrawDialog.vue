@@ -2,7 +2,7 @@
 import type { SuppliedCardTableItem } from '~/types/table'
 import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { focusInput, shortenNumber, truncatePercent } from '~/utils'
+import { focusInput, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -48,6 +48,8 @@ const collateralOnly = toRef(market, 'collateralOnly')
 
 const loading = ref(false)
 const reloadFee = ref(false)
+
+const isValidate = ref(true)
 
 const txFee = ref(0)
 
@@ -131,6 +133,7 @@ async function withdraw() {
   }
   try {
     loading.value = true
+    isValidate.value = false
 
     const marketProps = {
       market: activeMarket.value!.marketState.name,
@@ -146,6 +149,7 @@ async function withdraw() {
       : await market.withdraw({ ...marketProps, limit: supplyBalance.value })
   } finally {
     loading.value = false
+    isValidate.value = true
   }
 }
 
@@ -221,12 +225,12 @@ watch(collateralBalance, (b) => {
         class="withdraw-dialog__input"
         :rules="[
           (v) => {
-            return v && Number(v) <= availableToWithdraw || 'Withdraw limit exceeded'
+            return !isValidate || (v && Number(v) <= availableToWithdraw) || 'Withdraw limit exceeded'
           },
         ]"
       >
         <template #label-right>
-          Amount: {{ availableToWithdraw.toFixed(5) }} {{ data?.asset.symbol }}
+          Amount: {{ formatPrice(availableToWithdraw || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 
@@ -241,7 +245,7 @@ watch(collateralBalance, (b) => {
             <template v-if="item?.name === 'healthFactor' && loading">
               <j-loading-spinner
                 :color="isDark ? '#fff' : '#111'"
-                width="14px"
+                width="10px"
                 style="padding: 0; width: 14px; margin-left: auto"
               />
             </template>

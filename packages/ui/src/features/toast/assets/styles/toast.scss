@@ -90,6 +90,7 @@ $toast-variants: (
   .toast-body {
     max-height: 220px;
     overflow: auto;
+    word-break: break-all;
   }
 
   .toast-actions {

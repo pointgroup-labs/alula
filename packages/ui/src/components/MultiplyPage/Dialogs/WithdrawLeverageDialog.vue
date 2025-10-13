@@ -19,7 +19,8 @@ const amount = toRef(market, 'withdrawAmount')
 
 const dialog = defineModel({ default: false })
 
-const loading = computed(() => marketsStore.poolActiveAddress === data?.depositPool.pool_address)
+const isValidate = ref(true)
+
 const reloadFee = ref(false)
 
 const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
@@ -77,24 +78,29 @@ async function withdrawLeverage() {
     asset_code,
   }
 
-  await market.withdrawLeverage({
-    ...marketProps,
-    action: async () => {
-      await userStore.updateUserMultiplyObligation({
-        market: activeMarket.value!.marketState.name,
-        client: activeMarket.value!.client,
-        depositPoolAddress: deposit_pool_address,
-        borrowPoolAddress: borrow_pool_address,
-      })
-      await marketsStore.updateLeveragePool({
-        deposit_pool_address,
-        borrow_pool_address,
-        market: activeMarket.value!.marketState.name,
-        client: activeMarket.value!.client,
-      })
-      await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.name, activeMarket.value!.client)
-    },
-  })
+  try {
+    isValidate.value = false
+    await market.withdrawLeverage({
+      ...marketProps,
+      action: async () => {
+        await userStore.updateUserMultiplyObligation({
+          market: activeMarket.value!.marketState.name,
+          client: activeMarket.value!.client,
+          depositPoolAddress: deposit_pool_address,
+          borrowPoolAddress: borrow_pool_address,
+        })
+        await marketsStore.updateLeveragePool({
+          deposit_pool_address,
+          borrow_pool_address,
+          market: activeMarket.value!.marketState.name,
+          client: activeMarket.value!.client,
+        })
+        await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.name, activeMarket.value!.client)
+      },
+    })
+  } finally {
+    isValidate.value = true
+  }
 }
 
 let interval: string | number | NodeJS.Timeout | undefined
@@ -156,11 +162,11 @@ watchDebounced([
           :icon="data?.asset.icon"
           label-left="You Deposit"
           :rules="[
-            (v) => v && Number(v) < balance || 'Insufficient balance',
+            (v) => !isValidate || (v && Number(v) < balance) || 'Insufficient balance',
           ]"
         >
           <template #label-right>
-            Multiplied: {{ formatPrice(balance, 0, 7) }} {{ data?.asset.symbol }}
+            Multiplied: {{ formatPrice(balance, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
           </template>
         </input-widget>
 
@@ -184,7 +190,7 @@ watchDebounced([
         <div class="multiply-dialog-action">
           <market-dialog-action-btn
             variant="primary"
-            :loading="loading"
+            :loading="market.isLoading(String(data?.pool_address), 'withdrawLeverage', String(data?.market))"
             :pool="data?.depositPool"
             @click-handler="withdrawLeverage"
           >
