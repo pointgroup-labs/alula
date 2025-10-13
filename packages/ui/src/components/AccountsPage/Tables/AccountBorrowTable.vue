@@ -214,10 +214,12 @@ watch(selectedMarket, (p) => {
     </div>
   </div>
 
-  <repay-dialog
-    v-model="dialog"
-    :data="selectedPool"
-  />
+  <client-only>
+    <repay-dialog
+      v-model="dialog"
+      :data="selectedPool"
+    />
+  </client-only>
 </template>
 
 <style lang="scss">

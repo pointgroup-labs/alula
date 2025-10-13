@@ -209,10 +209,12 @@ watch(selectedPool, (p) => {
     </div>
   </div>
 
-  <withdraw-dialog
-    v-model="dialog"
-    :data="selectedPool"
-  />
+  <client-only>
+    <withdraw-dialog
+      v-model="dialog"
+      :data="selectedPool"
+    />
+  </client-only>
 </template>
 
 <style lang="scss">
