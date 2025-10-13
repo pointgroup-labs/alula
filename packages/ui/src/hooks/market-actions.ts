@@ -201,6 +201,8 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
+    const increasedAmount = amount * 1.05
+
     await runAction({
       client,
       market,
@@ -208,7 +210,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.wathdrawDeposit(pk, pool_address, amount, kit.value),
+      exec: () => client!.marketSdk.wathdrawDeposit(pk, pool_address, increasedAmount, kit.value),
     })
 
     withdrawAmount.value = undefined
@@ -237,7 +239,7 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const increasedAmount = amount
+    const increasedAmount = amount * 1.05
 
     await runAction({
       client,
@@ -382,6 +384,8 @@ export function useMarketActions() {
       throw new Error('Amount should be greater than 0')
     }
 
+    const increasedAmount = amount * 1.05
+
     await runAction({
       client,
       market,
@@ -394,7 +398,7 @@ export function useMarketActions() {
         pk,
         deposit_pool_address,
         borrow_pool_address,
-        amount,
+        increasedAmount,
         connectionStore.kit),
     })
 

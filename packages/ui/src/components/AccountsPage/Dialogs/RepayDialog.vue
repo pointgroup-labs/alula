@@ -106,9 +106,6 @@ async function repay() {
     loading.value = true
     isValidate.value = false
 
-    marketsStore.poolActiveAddress = data?.pool_address
-    marketsStore.activeMarketFilter = String(activeMarket.value?.marketState.name)
-
     const marketProps = {
       market: activeMarket.value!.marketState.name,
       client: activeMarket.value!.client,
