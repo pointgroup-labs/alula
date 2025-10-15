@@ -442,7 +442,9 @@ impl Obligation {
 
         let max_healthy_withdrawn_amount =
             self.compute_max_healthy_collateral_removed_amount(e, pool)?;
-        let deposit_decrease = i128::min(original_amount, max_healthy_withdrawn_amount);
+        let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
+        let deposit_decrease =
+            i128::min(i128::min(original_amount, max_healthy_withdrawn_amount), all_deposit);
 
         pool.require_remove_collateral_preserves_ur_cap(e, deposit_decrease)?;
 
@@ -456,7 +458,6 @@ impl Obligation {
             deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
 
         let j_tokens_to_burn = pool.compute_j_tokens_from_tokens(e, deposit_decrease)?;
-        let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
 
         let mut received_interest =
             all_deposit.checked_sub(deposit_obligation.deposited).map_over_or_underflow()?;
@@ -479,6 +480,7 @@ impl Obligation {
 
         if deposit_decrease >= received_interest {
             let deposited_diff = deposit_decrease - received_interest; // safe
+
             deposit_obligation
                 .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
         }

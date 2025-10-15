@@ -5,18 +5,25 @@ use market::{
     error::MCError,
     pool::{PoolConfig, PoolHealthConfig},
 };
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_borrowed, get_obligation_d_tokens,
-    get_obligation_d_tokens_as_tokens, get_pool_total_available, get_pool_total_borrowed,
-    get_pool_total_d_tokens,
+    get_obligation_d_tokens_as_tokens, get_pool_fee_config, get_pool_total_available,
+    get_pool_total_borrowed, get_pool_total_d_tokens,
 };
 
 #[test]
 fn test_borrow() {
     let TestMarketFixture {
-        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
@@ -26,7 +33,18 @@ fn test_borrow() {
     // NB: USDC is used as the main borrowed token in integration tests
     contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 
+    let borrower_balance_before = usdc_token_client.balance(borrower);
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
+
+    assert_eq!(
+        borrower_balance_after.checked_sub(borrower_balance_before).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT
+            .fixed_mul_ceil(BPS_FACTOR - borrow_fee_bps as i128, BPS_FACTOR)
+            .unwrap()
+    );
 
     let obligation_borrowed =
         get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
@@ -147,6 +165,7 @@ fn test_borrow_multiple_shareholders() {
 #[test]
 fn test_borrow_exceeds_utilization_cap() {
     const UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
+    const BORROW_AMOUNT: i128 = (DEFAULT_DEPOSIT_AMOUNT * UTILIZATION_RATIO_LIMIT_BPS) / BPS_FACTOR;
 
     let pool_config = PoolConfig {
         health_config: PoolHealthConfig {
@@ -156,18 +175,29 @@ fn test_borrow_exceeds_utilization_cap() {
         ..Default::default()
     };
 
-    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
-        TestMarketFixture::new_with_pool_config(pool_config);
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
     let borrower = &users[0];
     let loan_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    contract_client.borrow(
-        borrower,
-        &usdc_pool_address,
-        &((DEFAULT_DEPOSIT_AMOUNT * UTILIZATION_RATIO_LIMIT_BPS) / BPS_FACTOR),
+    let borrower_balance_before = usdc_token_client.balance(borrower);
+    contract_client.borrow(borrower, &usdc_pool_address, &BORROW_AMOUNT);
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
+
+    assert_eq!(
+        borrower_balance_after.checked_sub(borrower_balance_before).unwrap(),
+        BORROW_AMOUNT.fixed_mul_ceil(BPS_FACTOR - borrow_fee_bps as i128, BPS_FACTOR).unwrap()
     );
 
     assert_eq!(
@@ -212,13 +242,32 @@ fn test_borrow_negative() {
 #[test]
 fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     let TestMarketFixture {
-        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
     contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let borrower_balance_before = usdc_token_client.balance(borrower);
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
+
+    assert!(
+        borrower_balance_after.checked_sub(borrower_balance_before).unwrap()
+            < DEFAULT_DEPOSIT_AMOUNT
+                .fixed_mul_ceil(BPS_FACTOR - borrow_fee_bps as i128, BPS_FACTOR)
+                .unwrap()
+    );
 
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 

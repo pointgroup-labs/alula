@@ -20,11 +20,19 @@ use crate::{
 
 #[test]
 fn test_deposit() {
-    let TestMarketFixture { e, contract_client, gold_pool_address, users, .. } =
-        TestMarketFixture::new();
+    let TestMarketFixture {
+        e, contract_client, gold_pool_address, users, gold_token_client, ..
+    } = TestMarketFixture::new();
     let creditor = &users[0];
 
+    let creditor_balance_before = gold_token_client.balance(creditor);
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let creditor_balance_after = gold_token_client.balance(creditor);
+
+    assert_eq!(
+        creditor_balance_before.checked_sub(creditor_balance_after).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT
+    );
 
     let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
     let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
@@ -91,11 +99,18 @@ fn test_exceed_supply_limit() {
 
 #[test]
 fn test_add_collateral() {
-    let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
+    let TestMarketFixture { contract_client, gold_pool_address, users, gold_token_client, .. } =
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    let creditor_balance_before = gold_token_client.balance(creditor);
+    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let creditor_balance_after = gold_token_client.balance(creditor);
+
+    assert_eq!(
+        creditor_balance_before.checked_sub(creditor_balance_after).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT
+    );
 
     let obligation_collateral =
         get_obligation_collateral(&contract_client, creditor, &gold_pool_address).unwrap();

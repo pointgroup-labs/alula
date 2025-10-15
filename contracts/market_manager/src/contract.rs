@@ -1,6 +1,4 @@
-use soroban_sdk::{
-    Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl,
-};
+use soroban_sdk::{Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl};
 
 use crate::{
     error::MMCError,
