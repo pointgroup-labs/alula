@@ -203,16 +203,12 @@ struct ObligationIsMissingInStorage {
     pub obligation_key: ObligationKey,
 }
 
-/// Emitted when an obligation's borrowed amount unexpectedly attempts to become negative
-///
-/// // TODO: fix;
-// #[contractevent]
-// struct ObligationAmountBecomesNegative {
-//     #[topic]
-//     pub obligation_key: ObligationKey,
-//     // pub old_amount: i128,
-//     // pub new_amount: i128,
-// }
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ObligationAmntBecomesNegative {
+    pub old_amount: i128,
+    pub new_amount: i128,
+}
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -538,8 +534,8 @@ pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey)
     ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
-pub fn obligation_amount_becomes_negative(_e: &Env, _old_amount: i128, _new_amount: i128) {
-    // ObligationAmountBecomesNegative { old_amount, new_amount }.publish(e);
+pub fn obligation_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
+    ObligationAmntBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
 pub fn pool_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
@@ -602,6 +598,7 @@ pub fn computed_interest_is_negative(
 
 /// Emitted when an unexpected amount has been received after a deterministic swap operation via a
 /// swap provider
+#[allow(clippy::too_many_arguments)]
 pub fn received_unexpected_swap_amount(
     e: &Env,
     user: &Address,

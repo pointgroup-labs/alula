@@ -475,20 +475,28 @@ impl Obligation {
             // return Err(MCError::InternalError);
         }
 
+        events::dbg(e, soroban_sdk::symbol_short!("1"));
+
         if deposit_decrease >= received_interest {
             let deposited_diff = deposit_decrease - received_interest; // safe
             deposit_obligation
                 .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
         }
 
+        events::dbg(e, soroban_sdk::symbol_short!("2"));
+
         deposit_obligation
             .adjust_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_obligation.is_empty() {
+            events::dbg(e, soroban_sdk::symbol_short!("3"));
             self.deposits.remove(pool.pool_address.clone());
         } else {
+            events::dbg(e, soroban_sdk::symbol_short!("4"));
             self.deposits.set(pool.pool_address.clone(), deposit_obligation);
         }
+
+        events::dbg(e, soroban_sdk::symbol_short!("5"));
 
         Ok(WithdrawResult {
             j_tokens_to_burn,
