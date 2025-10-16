@@ -355,19 +355,15 @@ fn test_withdraw_exceeds_utilization_cap() {
 
     // Check that the utilization ratio is 10%
     assert_eq!(pool_total_supply / pool_borrowed, 10);
-    // Try to withdraw more than UR cap allows
+
+    contract_client.withdraw(creditor, &usdc_pool_address, &(89 * DEFAULT_DEPOSIT_AMOUNT / 100));
     assert_eq!(
         contract_client.try_withdraw(
             creditor,
             &usdc_pool_address,
-            &(89 * DEFAULT_DEPOSIT_AMOUNT / 100),
+            &(88 * DEFAULT_DEPOSIT_AMOUNT / 100)
         ),
-        Err(Ok(MCError::PoolUtilizationRatioCapExceeded))
-    );
-    assert!(
-        contract_client
-            .try_withdraw(creditor, &usdc_pool_address, &(88 * DEFAULT_DEPOSIT_AMOUNT / 100),)
-            .is_ok()
+        Err(Ok(MCError::NotEnoughPoolFunds))
     );
 }
 

@@ -327,8 +327,6 @@ pub fn process_withdraw(
 
     let withdraw_result = obligation.withdraw(e, &pool, amount)?;
 
-    events::dbg(e, soroban_sdk::symbol_short!("7"));
-
     pool.adjust_total_available(
         e,
         withdraw_result.deposit_decrease.checked_neg().map_over_or_underflow()?,
@@ -341,19 +339,11 @@ pub fn process_withdraw(
     pool.adjust_accumulated_host_fees(e, withdraw_result.computed_fees.host_fee)?;
     pool.adjust_accumulated_market_fees(e, withdraw_result.computed_fees.market_fee)?;
 
-    events::dbg(e, soroban_sdk::symbol_short!("8"));
-
     if obligation.is_empty() {
-        events::dbg(e, soroban_sdk::symbol_short!("9"));
-
         obligation.remove(e, obligation_key);
     } else {
-        events::dbg(e, soroban_sdk::symbol_short!("10"));
-
         obligation.set(e, obligation_key);
     }
-
-    events::dbg(e, soroban_sdk::symbol_short!("11"));
 
     pool.set(e);
 
@@ -363,8 +353,6 @@ pub fn process_withdraw(
         &obligation_key.user,
         &withdraw_result.withdrawer_to_receive,
     );
-
-    events::dbg(e, soroban_sdk::symbol_short!("12"));
 
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
 

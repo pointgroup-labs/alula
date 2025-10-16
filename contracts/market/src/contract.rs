@@ -341,6 +341,7 @@ impl MarketContract {
         borrow_pool_address: Address,
         deposit_as_margin: bool,
         amount: i128,
+        // TODO: swap_aggregator_address: Address? But there must be some standard for this, right?
         leverage_multiplier: u32,
     ) -> Result<(), MCError> {
         user.require_auth();

@@ -142,6 +142,7 @@ pub fn swap_exact_tokens_for_tokens(
     let path = vec![e, token_in.clone(), token_out.clone()];
 
     // TODO: For now we can only swap tokens with a direct path
+
     let swap_amounts = router_client.swap_exact_tokens_for_tokens(
         &amount_in,
         &amount_out_min,

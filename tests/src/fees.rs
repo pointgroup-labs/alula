@@ -1,9 +1,11 @@
 #![cfg(test)]
 
 use market::{
+    constants::{BPS_FACTOR, DEFAULT_UTILIZATION_RATIO_LIMIT_BPS},
     obligation::{ComputedFees, compute_fees},
     pool::{PoolConfig, PoolFeeConfig},
 };
+use soroban_fixed_point_math::FixedPoint;
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture,
@@ -345,6 +347,96 @@ fn test_withdraw_fee() {
 
     let PoolFeeConfig { withdraw_fee_bps, host_fee_bps, .. } =
         get_pool_fee_config(&contract_client, &gold_pool_address);
+    let ComputedFees { fee_sum, market_fee, host_fee } =
+        compute_fees(DEFAULT_DEPOSIT_AMOUNT, withdraw_fee_bps, host_fee_bps).unwrap();
+
+    let expected_creditor_balance_diff = DEFAULT_DEPOSIT_AMOUNT.checked_sub(fee_sum).unwrap();
+    let expected_pool_balance_diff = expected_creditor_balance_diff;
+    let expected_market_fees_diff = market_fee;
+    let expected_host_fees_diff = host_fee;
+    let expected_creditor_deposit_diff = DEFAULT_DEPOSIT_AMOUNT;
+
+    assert_eq!(creditor_balance_diff, expected_creditor_balance_diff);
+    assert_eq!(pool_balance_diff, expected_pool_balance_diff);
+
+    assert_eq!(pool_market_fees_diff, expected_market_fees_diff);
+    assert_eq!(pool_host_fees_diff, expected_host_fees_diff);
+
+    assert_eq!(creditor_deposit_diff, expected_creditor_deposit_diff);
+}
+
+#[test]
+#[ignore]
+fn test_withdraw_fee_with_above_ur_utilization_fee() {
+    const WITHDRAW_FEE_BPS: u32 = 500; // 5%
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { withdraw_fee_bps: WITHDRAW_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+    let TestMarketFixture {
+        e,
+        contract_id,
+        contract_client,
+        gold_pool_address,
+        users,
+        gold_token_client,
+        usdc_pool_address,
+        ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let creditor = &users[0];
+    let borrower = &users[1];
+
+    contract_client.deposit(creditor, &gold_pool_address, &(DEFAULT_COLLATERAL_AMOUNT));
+    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(
+        borrower,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT
+            .fixed_mul_ceil(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, BPS_FACTOR)
+            .unwrap(),
+    );
+
+    let pool_balance_before = gold_token_client.balance(&contract_id);
+    let creditor_balance_before = gold_token_client.balance(creditor);
+    let creditor_deposit_before =
+        get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
+            .unwrap();
+
+    let pool_market_fees_before =
+        get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
+    let pool_host_fees_before =
+        get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
+
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let pool_balance_after = gold_token_client.balance(&contract_id);
+    let creditor_balance_after = gold_token_client.balance(creditor);
+    let creditor_deposit_after =
+        get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
+            .unwrap();
+
+    let pool_balance_diff = pool_balance_before.checked_sub(pool_balance_after).unwrap();
+    let creditor_balance_diff =
+        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+    let creditor_deposit_diff =
+        creditor_deposit_before.checked_sub(creditor_deposit_after).unwrap();
+
+    let pool_market_fees_after =
+        get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
+    let pool_host_fees_after = get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
+
+    let pool_market_fees_diff =
+        pool_market_fees_after.checked_sub(pool_market_fees_before).unwrap();
+    let pool_host_fees_diff = pool_host_fees_after.checked_sub(pool_host_fees_before).unwrap();
+
+    let PoolFeeConfig { withdraw_fee_bps, host_fee_bps, .. } =
+        get_pool_fee_config(&contract_client, &gold_pool_address);
+
+    // Continue tomorrow...
+    let above_ur_utilization_fee_bps = 3000;
+    let withdraw_fee_bps = withdraw_fee_bps.checked_add(above_ur_utilization_fee_bps).unwrap();
+
     let ComputedFees { fee_sum, market_fee, host_fee } =
         compute_fees(DEFAULT_DEPOSIT_AMOUNT, withdraw_fee_bps, host_fee_bps).unwrap();
 

@@ -315,6 +315,8 @@ impl TestMarketFixture<'_> {
         btc_sac.mint(&new_borrower, &(2 * collateral_amount));
         gold_sac.mint(&new_borrower, &(2 * collateral_amount));
 
+        // Add jTokens sum invariants
+
         for pool in &pools {
             let available_borrow = pool.compute_available_utilization_ratio_cap_borrow(e).unwrap();
 
@@ -340,6 +342,8 @@ impl TestMarketFixture<'_> {
                 &pool.token_address,
                 &collateral_amount,
             );
+
+            // Sum of jTokens on obligations must equal total_jTokens on a pool
         }
 
         // Interest rate invariants

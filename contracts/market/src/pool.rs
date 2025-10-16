@@ -50,7 +50,7 @@ macro_rules! generate_adjust_method {
             let new_amount = self.$field.checked_add(amount).map_over_or_underflow()?;
             if new_amount < 0 {
                 events::pool_amount_becomes_negative(e, self.$field, new_amount);
-                return Err(MCError::NegativeAmount);
+                return Err(MCError::InternalError);
             }
             self.$field = new_amount;
             Ok(())
@@ -76,7 +76,7 @@ impl Pool {
         d_tokens_amount: i128,
     ) -> Result<i128, MCError> {
         // TODO: Check if there are some useful properties between jTokens and dTokens that
-        // might cause some code re-usage
+        // might cause some code re-usage | UPD: unlikely, for now
         let tokens = Self::compute_tokens_from_shares(
             e,
             d_tokens_amount,

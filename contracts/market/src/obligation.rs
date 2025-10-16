@@ -446,13 +446,32 @@ impl Obligation {
         let deposit_decrease =
             i128::min(i128::min(original_amount, max_healthy_withdrawn_amount), all_deposit);
 
-        pool.require_remove_collateral_preserves_ur_cap(e, deposit_decrease)?;
+        if deposit_decrease > pool.total_available {
+            return Err(MCError::NotEnoughPoolFunds);
+        }
 
-        let computed_fees = compute_fees(
-            deposit_decrease,
-            pool.config.fee_config.withdraw_fee_bps,
-            pool.config.fee_config.host_fee_bps,
-        )?;
+        let above_ur_cap_withdraw_fee = {
+            let ur_bps = pool.compute_utilization_ratio_bps()?;
+            let diff_bps = if ur_bps > pool.config.health_config.utilization_ratio_limit_bps {
+                ur_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
+            } else {
+                0
+            };
+
+            diff_bps as u32 // TODO: 1 to 1 scale for now, but rewrite as configurable
+        };
+
+        let withdraw_fee_bps = pool
+            .config
+            .fee_config
+            .withdraw_fee_bps
+            .checked_add(above_ur_cap_withdraw_fee)
+            .map_over_or_underflow()?;
+
+        // pool.require_remove_collateral_preserves_ur_cap(e, deposit_decrease)?;
+
+        let computed_fees =
+            compute_fees(deposit_decrease, withdraw_fee_bps, pool.config.fee_config.host_fee_bps)?;
 
         let withdrawer_to_receive =
             deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
@@ -476,8 +495,6 @@ impl Obligation {
             // return Err(MCError::InternalError);
         }
 
-        events::dbg(e, soroban_sdk::symbol_short!("1"));
-
         if deposit_decrease >= received_interest {
             let deposited_diff = deposit_decrease - received_interest; // safe
 
@@ -485,20 +502,14 @@ impl Obligation {
                 .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
         }
 
-        events::dbg(e, soroban_sdk::symbol_short!("2"));
-
         deposit_obligation
             .adjust_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_obligation.is_empty() {
-            events::dbg(e, soroban_sdk::symbol_short!("3"));
             self.deposits.remove(pool.pool_address.clone());
         } else {
-            events::dbg(e, soroban_sdk::symbol_short!("4"));
             self.deposits.set(pool.pool_address.clone(), deposit_obligation);
         }
-
-        events::dbg(e, soroban_sdk::symbol_short!("5"));
 
         Ok(WithdrawResult {
             j_tokens_to_burn,
