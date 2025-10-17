@@ -634,6 +634,7 @@ name = "flash_loan_taker_mock"
 version = "0.0.0"
 dependencies = [
  "market",
+ "soroban-fixed-point-math",
  "soroban-sdk",
  "tests",
 ]
