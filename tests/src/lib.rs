@@ -139,6 +139,7 @@ impl TestMarketFixture<'_> {
                 market_manager_address,
                 0,
                 0,
+                false,
             ),
         );
         let contract_client = MarketContractClient::new(&e, &contract_id);

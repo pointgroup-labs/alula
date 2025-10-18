@@ -4,14 +4,14 @@ use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contracti
 use crate::{
     error::MCError,
     events,
-    helpers::require_admin,
+    helpers::{require_admin, require_deployer, require_owned},
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::*,
-    storage::{self, GlobalState, get_global_state},
+    storage::{self, GlobalState, MarketStatus},
 };
 
 // TODO: Consider adding a trait that defines contract's API
@@ -35,24 +35,22 @@ impl MarketContract {
         oracle: Address,
         deployer: Address,
         max_positions: i32,
-        min_collateral: i32,
+        min_collateral_value: i32,
+        is_owned: bool,
     ) -> Result<(), MCError> {
-        // we must also introduce this state...
+        let market_status = if is_owned { MarketStatus::Frozen } else { MarketStatus::Active };
 
-        let global_state = GlobalState {
-            // TODO: Introduce different market statuses
-            status: true,
+        storage::set_name(&e, &name);
+        storage::set_admin(&e, &admin);
+        storage::set_oracle(&e, &oracle);
+        storage::set_is_owned(&e, is_owned);
+        storage::set_deployer(&e, &deployer);
+        storage::set_market_status(&e, &market_status);
+        storage::set_max_positions(&e, max_positions as u32);
+        storage::set_min_collateral_value(&e, min_collateral_value as u32);
 
-            // Why not to store these separately???
-            admin: admin.clone(),
-            name: name.clone(),
-            deployer,
-        };
-
-        storage::set_global_state(&e, &global_state);
-        storage::set_oracle_address(&e, &oracle);
-
-        events::constructor(&e, &admin, &name, &oracle);
+        // TODO: Fix event
+        // events::constructor(&e, &admin, &name, &oracle);
 
         Ok(())
     }
@@ -72,13 +70,60 @@ impl MarketContract {
 
     /// Gets the contract's global state
     pub fn get_global_state(e: Env) -> GlobalState {
-        storage::get_global_state(&e)
+        storage::extend_instance_storage(&e);
+
+        GlobalState {
+            name: storage::get_name(&e),
+            admin: storage::get_admin(&e),
+            oracle: storage::get_oracle(&e),
+            deployer: storage::get_deployer(&e),
+            is_owned: storage::get_is_owned(&e),
+            status: storage::get_market_status(&e),
+            max_positions: storage::get_max_positions(&e),
+            min_collateral_value: storage::get_min_collateral_value(&e),
+        }
     }
 
-    /// Gets the contract's oracle address
-    pub fn get_oracle_address(e: Env) -> Address {
-        storage::get_oracle_address(&e)
+    /// Updates the owned market's state
+    ///
+    /// # Arguments
+    /// * `new_max_positions` - updated maximum number of positions that a single obligation can have
+    /// * `new_min_collateral_value` - updated minimum collateral value allowed
+    pub fn update_market_state(e: Env, new_max_positions: u32, new_min_collateral_value: u32) {
+        require_admin(&e);
+        require_owned(&e);
+
+        // TODO: Add constraints for `max_positions` / `min_collateral`?
+
+        storage::set_max_positions(&e, new_max_positions);
+        storage::set_min_collateral_value(&e, new_min_collateral_value);
     }
+
+    /// Queues in pool's config update
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool to which the update is queued in
+    /// * `new_pool_config` - updated pool config
+    pub fn queue_update_pool_config(
+        e: Env,
+        pool_address: Address,
+        new_pool_config: PoolConfig,
+    ) -> Result<(), MCError> {
+        require_admin(&e);
+        require_owned(&e);
+
+        Pool::try_get(&e, &pool_address)?;
+        new_pool_config.validate()?;
+        // storage::
+
+        // storage::queue_in_pool_config_update()
+
+        Ok(())
+    }
+
+    pub fn cancel_queue_update_pool_config(e: Env, pool_address: Address) {}
+
+    pub fn update_pool_config(e: Env, pool_address: Address) {}
 
     /// Initializes a loan pool for a specific asset
     ///
@@ -404,8 +449,7 @@ impl MarketContract {
         pool_address: Address,
         amount: i128,
     ) -> Result<(), MCError> {
-        let admin = get_global_state(&e).admin;
-        admin.require_auth();
+        require_admin(&e);
 
         process_redeem_accumulated_market_fees(&e, &user, &pool_address, amount)
     }
@@ -422,8 +466,7 @@ impl MarketContract {
         pool_address: Address,
         amount: i128,
     ) -> Result<(), MCError> {
-        let host = get_global_state(&e).deployer;
-        host.require_auth();
+        require_deployer(&e);
 
         process_redeem_accumulated_host_fees(&e, &user, &pool_address, amount)
     }

@@ -8,7 +8,10 @@ pub enum MCError {
     InternalError = 0,
     OverOrUnderflow = 1,
     InvalidTimestamp = 2,
-    DependencyContractError = 3,
+    MarketIsNotOwned = 3,
+    DependencyContractError = 4,
+
+    PoolAlreadyContainsEnqueuedUpdate = 5,
 
     // Pool-related errors (10-19)
     PoolAlreadyExists = 10,

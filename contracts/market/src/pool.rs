@@ -498,12 +498,14 @@ pub struct PoolConfig {
 }
 
 impl PoolConfig {
-    pub fn validate(&self) -> Result<(), &str> {
+    pub fn validate(&self) -> Result<(), MCError> {
         let PoolConfig { health_config, .. } = self;
 
         // NB: Is there a reason to validate the fee config?
 
-        health_config.validate()?;
+        if health_config.validate().is_err() {
+            return Err(MCError::InvalidLoanPoolConfig);
+        }
 
         Ok(())
     }

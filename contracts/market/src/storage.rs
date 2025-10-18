@@ -2,31 +2,70 @@ use soroban_sdk::{Address, Env, Map, String, Vec, contracttype};
 
 use crate::{
     constants::*,
+    error::MCError,
+    math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
-    pool::Pool,
+    pool::{Pool, PoolConfig},
 };
 
 #[contracttype]
 pub struct GlobalState {
-    pub status: bool,
-    pub admin: Address,
     pub name: String,
+    pub admin: Address,
+    pub is_owned: bool,
+    pub oracle: Address,
     pub deployer: Address,
+    pub status: MarketStatus,
+    pub max_positions: u32,
+    pub min_collateral_value: u32,
+}
+
+#[contracttype]
+pub enum MarketStatus {
+    /// All operations are allowed
+    Active,
+    /// Borrow operations are prohibited
+    BorrowFrozen,
+    /// Borrowing and depositing operations on the market are prohibited
+    DepositFrozen,
+    /// All operations on the market are prohibited
+    Frozen,
+}
+
+#[contracttype]
+pub struct PoolUpdate {
+    pub new_config: PoolConfig,
+    pub queued_in_timestamp: u64,
 }
 
 #[contracttype]
 pub enum DataKey {
-    GlobalState,
-    Pool(Address),
-    Obligation(ObligationKey), // NB: What's better Bytes or BytesN here?
-    MultiplyPair((Address, Address)), // (deposit_pool_address, borrow_pool_address)
-    Accrual,
-    AllPools,
-    AllObligations,
-    AllMultiplyPairs,
-    OracleAddress,
+    // --- System / Contract Configuration (One-off values) ---
+    Name,               // Contract's name
+    Admin,              // Contract administrator or owner
+    IsOwned,            // Ownership status flag
+    DeployerHost,       // The host/origin of the deployment
+    Oracle,             // Address of the external price oracle
+    MinCollateralValue, // Minimum required collateralization ratio
+    MaxPositions,       // Maximum number of allowed positions/obligations
+
+    // --- Global State / Statistics (Aggregated/Running totals) ---
+    GlobalState,      // General, non-indexed contract state
+    Accrual,          // Accrual or interest calculation state
+    AllPools,         // List or index of all active liquidity pools
+    AllObligations,   // List or index of all open obligations/loans
+    AllMultiplyPairs, // List or index of all active multiply/leverage pairs
+    MarketStatus,
+    ConfigUpdate(Address),
+
+    // --- Specific Entity Data (Indexed by a key) ---
+    Pool(Address), // Data for a specific liquidity pool (indexed by Address)
+    Obligation(ObligationKey), // Data for a specific loan/obligation (indexed by ObligationKey)
+    MultiplyPair((Address, Address)), /* Data for a specific multiply/leverage pair (indexed by (DepositAddress, BorrowAddress)) */
 }
+
+// -- TTL Bumpers --
 
 /// Instance bumper
 pub fn extend_instance_storage(e: &Env) {
@@ -43,47 +82,75 @@ pub fn extend_shared_storage(e: &Env, key: &DataKey) {
     e.storage().persistent().extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
 
-/// Gets the oracle address of the contract
-pub fn get_oracle_address(e: &Env) -> Address {
+// -- Storage getters & setters --
+
+// - Oracle address -
+pub fn set_oracle(e: &Env, oracle: &Address) {
+    e.storage().instance().set(&DataKey::Oracle, oracle);
     extend_instance_storage(e);
+}
+pub fn get_oracle(e: &Env) -> Address {
+    extend_instance_storage(e);
+    e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
+}
+
+// - IsOwned -
+pub fn set_is_owned(e: &Env, is_owned: bool) {
+    e.storage().instance().set(&DataKey::IsOwned, &is_owned)
+}
+pub fn get_is_owned(e: &Env) -> bool {
+    e.storage().instance().get(&DataKey::IsOwned).expect("IsOwned must be set")
+}
+
+// - MaxPositions -
+pub fn set_max_positions(e: &Env, max_positions: u32) {
+    e.storage().instance().set(&DataKey::MaxPositions, &max_positions);
+}
+pub fn get_max_positions(e: &Env) -> u32 {
+    e.storage().instance().get(&DataKey::MaxPositions).expect("MaxPositions must be set")
+}
+
+// - MinCollateralValue -
+pub fn set_min_collateral_value(e: &Env, min_collateral_value: u32) {
+    e.storage().instance().set(&DataKey::MinCollateralValue, &min_collateral_value);
+}
+pub fn get_min_collateral_value(e: &Env) -> u32 {
     e.storage()
         .instance()
-        .get(&DataKey::OracleAddress)
-        .expect("Oracle address must be instantiated at this point")
+        .get(&DataKey::MinCollateralValue)
+        .expect("MinCollateralValue must be set")
 }
 
-/// Sets the oracle address of the contract
-pub fn set_oracle_address(e: &Env, address: &Address) {
-    e.storage().instance().set(&DataKey::OracleAddress, address);
-    extend_instance_storage(e);
+// - MarketStatus -
+pub fn set_market_status(e: &Env, market_status: &MarketStatus) {
+    e.storage().instance().set(&DataKey::MarketStatus, &market_status)
+}
+pub fn get_market_status(e: &Env) -> MarketStatus {
+    e.storage().instance().get(&DataKey::MarketStatus).expect("MarketStatus must be set")
 }
 
-/// Gets the global state of the contract
-pub fn get_global_state(e: &Env) -> GlobalState {
-    extend_instance_storage(e);
-    e.storage()
-        .instance()
-        .get(&DataKey::GlobalState)
-        .expect("Global State must be instantiated at this point")
+// - Admin -
+pub fn set_admin(e: &Env, admin: &Address) {
+    e.storage().instance().set(&DataKey::Admin, &admin)
+}
+pub fn get_admin(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::Admin).expect("Admin must be set")
 }
 
-// pub fn set_market_status(e: &Env, status: ()) {}
+// - Name -
+pub fn set_name(e: &Env, name: &String) {
+    e.storage().instance().set(&DataKey::Name, &name)
+}
+pub fn get_name(e: &Env) -> String {
+    e.storage().instance().get(&DataKey::Name).expect("Name must be set")
+}
 
-// pub fn set_admin(e: &Env, admin: &Address) {}
-
-// pub fn set_name(e: &Env, name: &Address) {}
-
-// pub fn set_deployer(e: &Env, name: &Address) {}
-
-// pub fn set_liquidation_fragmentation_constraints(e: &Env, min_collateral: u32, max_positions: u32) {
-//     e.storage().instance().set(&DataKey::MinCollateral, &min_collateral);
-//     e.storage().instance().set(&DataKey::MaxPositions, &max_positions);
-// }
-
-/// Sets the global state of the contract
-pub fn set_global_state(e: &Env, global_state: &GlobalState) {
-    e.storage().instance().set(&DataKey::GlobalState, global_state);
-    extend_instance_storage(e); // stupid
+// - Deployer -
+pub fn set_deployer(e: &Env, address: &Address) {
+    e.storage().instance().set(&DataKey::DeployerHost, &address)
+}
+pub fn get_deployer(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::DeployerHost).expect("Deployer must be set")
 }
 
 // ---- Pool ----
@@ -136,6 +203,57 @@ pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
         extend_shared_storage(e, &key);
     }
     res
+}
+
+pub fn queue_config_update(
+    e: &Env,
+    pool_address: &Address,
+    config: &PoolConfig,
+) -> Result<(), MCError> {
+    let key = DataKey::ConfigUpdate(pool_address.clone());
+    if e.storage().persistent().has(&key) {
+        return Err(MCError::PoolAlreadyContainsEnqueuedUpdate);
+    }
+
+    let pool_update =
+        PoolUpdate { new_config: config.clone(), queued_in_timestamp: e.ledger().timestamp() };
+    e.storage().persistent().set(&key, &pool_update);
+
+    Ok(())
+}
+
+pub fn cancel_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+    let key = DataKey::ConfigUpdate(pool_address.clone());
+
+    if !e.storage().persistent().has(&DataKey::ConfigUpdate(pool_address.clone())) {
+        // TODO: Error
+    }
+
+    e.storage().persistent().remove(&key);
+
+    Ok(())
+}
+
+pub fn set_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+    const QUEUE_TIME: u64 = 24 * 60 * 60;
+
+    let Some(update): Option<PoolUpdate> =
+        e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()))
+    else {
+        // TODO: Error
+        return Err(MCError::PoolAlreadyContainsEnqueuedUpdate);
+    };
+
+    let current_timestamp = e.ledger().timestamp();
+    if update.queued_in_timestamp.checked_sub(QUEUE_TIME).map_over_or_underflow()?
+        < current_timestamp
+    {
+        // TODO: Error
+    }
+
+    // Must be on Pool, right?
+
+    Ok(())
 }
 
 // ---- Multiply Pair ----
