@@ -113,7 +113,7 @@ impl TestMarketFixture<'_> {
             Address::generate(&e),
         ];
 
-        // Configuring USDC SAC first, since it's used in the oracle as a base asset
+        // Configure USDC SAC first, since it's used in the oracle as a base asset
         let usdc_admin = Address::generate(&e);
         let usdc_ticker = symbol_short!("USDC");
         let TestAssetSetup {
@@ -126,12 +126,20 @@ impl TestMarketFixture<'_> {
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
+        // Register Market contract
         let contract_admin = Address::generate(&e);
         let market_manager_address = Address::generate(&e);
         let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
         let contract_id = e.register(
             MarketContract,
-            (contract_name, contract_admin.clone(), oracle_address.clone(), market_manager_address),
+            (
+                contract_name,
+                contract_admin.clone(),
+                oracle_address.clone(),
+                market_manager_address,
+                0,
+                0,
+            ),
         );
         let contract_client = MarketContractClient::new(&e, &contract_id);
 

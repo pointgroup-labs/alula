@@ -30,10 +30,8 @@ pub trait MarketManager {
         admin: Address,
         name: String,
         oracle_address: Address,
-        // TODO: max_positions,
-        // TODO: min_collateral,
-        // what would be the reasons for these parameters?
-        // Maybe, it's reasonable to have them to avoid liquidation fragmentation
+        max_positions: i32,
+        min_collateral: i32,
     ) -> Result<Address, MMCError>;
 
     /// Returns a list of all lending markets deployed by the manager
@@ -55,6 +53,8 @@ impl MarketManager for MarketManagerContract {
         market_admin: Address,
         name: String,
         oracle: Address,
+        max_positions: i32,
+        min_collateral: i32,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
@@ -72,14 +72,16 @@ impl MarketManager for MarketManagerContract {
         // std::dbg!(&name_bytes);
         // let new_salt = e.crypto().keccak256(&name_bytes.into());
 
-        // let mut seed = Bytes::new(&e);
-        // seed.extend_from_slice(admin.to_xdr(&e).to_buffer::<40>().as_slice());
-        // seed.extend_from_array(&salt.to_array());
-        // seed.
-
         let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_contract_wasm_hash,
-            (name, market_admin, oracle, e.current_contract_address()),
+            (
+                name,
+                market_admin,
+                oracle,
+                e.current_contract_address(),
+                max_positions,
+                min_collateral,
+            ),
         );
 
         storage::register_market(&e, &market_address)?;

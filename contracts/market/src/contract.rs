@@ -34,10 +34,16 @@ impl MarketContract {
         admin: Address,
         oracle: Address,
         deployer: Address,
+        max_positions: i32,
+        min_collateral: i32,
     ) -> Result<(), MCError> {
+        // we must also introduce this state...
+
         let global_state = GlobalState {
             // TODO: Introduce different market statuses
             status: true,
+
+            // Why not to store these separately???
             admin: admin.clone(),
             name: name.clone(),
             deployer,

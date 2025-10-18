@@ -67,10 +67,23 @@ pub fn get_global_state(e: &Env) -> GlobalState {
         .expect("Global State must be instantiated at this point")
 }
 
+// pub fn set_market_status(e: &Env, status: ()) {}
+
+// pub fn set_admin(e: &Env, admin: &Address) {}
+
+// pub fn set_name(e: &Env, name: &Address) {}
+
+// pub fn set_deployer(e: &Env, name: &Address) {}
+
+// pub fn set_liquidation_fragmentation_constraints(e: &Env, min_collateral: u32, max_positions: u32) {
+//     e.storage().instance().set(&DataKey::MinCollateral, &min_collateral);
+//     e.storage().instance().set(&DataKey::MaxPositions, &max_positions);
+// }
+
 /// Sets the global state of the contract
 pub fn set_global_state(e: &Env, global_state: &GlobalState) {
     e.storage().instance().set(&DataKey::GlobalState, global_state);
-    extend_instance_storage(e);
+    extend_instance_storage(e); // stupid
 }
 
 // ---- Pool ----
