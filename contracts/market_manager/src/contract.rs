@@ -32,6 +32,7 @@ pub trait MarketManager {
         oracle_address: Address,
         max_positions: i32,
         min_collateral: i32,
+        update_in_queue_period: u64,
         is_owned: bool,
     ) -> Result<Address, MMCError>;
 
@@ -56,6 +57,7 @@ impl MarketManager for MarketManagerContract {
         oracle: Address,
         max_positions: i32,
         min_collateral: i32,
+        update_in_queue_period: u64,
         is_owned: bool,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
@@ -83,6 +85,7 @@ impl MarketManager for MarketManagerContract {
                 e.current_contract_address(),
                 max_positions,
                 min_collateral,
+                update_in_queue_period,
                 is_owned,
             ),
         );

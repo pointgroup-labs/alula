@@ -13,7 +13,7 @@ use crate::{
         RepayResult, WithdrawResult,
     },
     oracle::get_asset_price,
-    storage,
+    storage::{self, PoolUpdate},
 };
 
 #[contracttype]
@@ -503,6 +503,53 @@ impl Pool {
 
     fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
+    }
+
+    /// Queues in pool's config update
+    ///
+    /// # WARNING
+    /// Modifies the contract's storage
+    pub fn queue_in_config_update(&self, e: &Env, config: &PoolConfig) -> Result<(), MCError> {
+        storage::queue_in_pool_config_update(e, &self.pool_address, config)
+    }
+
+    /// Cancels pool's config update from the queue
+    ///
+    /// # WARNING
+    /// Modifies the contract's storage
+    pub fn cancel_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
+        storage::cancel_pool_config_update(e, &self.pool_address)
+    }
+
+    /// Applies the pool's config update from the queue if it exists and is seasoned
+    ///
+    /// # WARNING
+    /// Modifies the contract's storage
+    pub fn apply_pool_config_update(&mut self, e: &Env) -> Result<(), MCError> {
+        let update_pool_config_period = storage::get_update_in_queue_period(e);
+
+        let Some(pool_config_update): Option<PoolUpdate> =
+            storage::get_pool_config_update(e, &self.pool_address)
+        else {
+            return Err(MCError::PoolConfigUpdateDoesNotExistInQueue);
+        };
+
+        let current_time = e.ledger().timestamp();
+
+        if pool_config_update
+            .queued_in_timestamp
+            .checked_add(update_pool_config_period)
+            .map_over_or_underflow()?
+            < current_time
+        {
+            return Err(MCError::PoolConfigUpdateIsNotSeasonedYet);
+        }
+
+        self.config = pool_config_update.new_config;
+
+        self.set(e);
+
+        Ok(())
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {

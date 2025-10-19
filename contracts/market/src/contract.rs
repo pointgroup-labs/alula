@@ -27,6 +27,11 @@ impl MarketContract {
     /// * `admin` - market's administrator
     /// * `name` - market's name(not necessarily unique)
     /// * `oracle` - SEP-40 compliant oracle's contract address
+    /// * `deployer` - address of a deployer contract
+    /// * `max_positions` - max allowed number of positions in an obligation
+    /// * `min_collateral_value` - minimum collateral value of a user's obligation
+    /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
+    /// `None` for permissionless markets since they cannot be updated
     pub fn __constructor(
         e: Env,
         name: String,
@@ -35,9 +40,15 @@ impl MarketContract {
         deployer: Address,
         max_positions: i32,
         min_collateral_value: i32,
+        update_in_queue_period: u64,
         is_owned: bool,
     ) -> Result<(), MCError> {
-        let market_status = if is_owned { MarketStatus::Frozen } else { MarketStatus::Active };
+        let market_status = if is_owned {
+            // Owned markets begin in a frozen state
+            MarketStatus::Frozen
+        } else {
+            MarketStatus::Active
+        };
 
         storage::set_name(&e, &name);
         storage::set_admin(&e, &admin);
@@ -46,6 +57,7 @@ impl MarketContract {
         storage::set_deployer(&e, &deployer);
         storage::set_market_status(&e, &market_status);
         storage::set_max_positions(&e, max_positions as u32);
+        storage::set_update_in_queue_period(&e, update_in_queue_period);
         storage::set_min_collateral_value(&e, min_collateral_value as u32);
 
         // TODO: Fix event
@@ -75,11 +87,12 @@ impl MarketContract {
             name: storage::get_name(&e),
             admin: storage::get_admin(&e),
             oracle: storage::get_oracle(&e),
-            deployer: storage::get_deployer(&e),
             is_owned: storage::get_is_owned(&e),
+            deployer: storage::get_deployer(&e),
             status: storage::get_market_status(&e),
             max_positions: storage::get_max_positions(&e),
             min_collateral_value: storage::get_min_collateral_value(&e),
+            update_in_queue_period: storage::get_update_in_queue_period(&e),
         }
     }
 
@@ -97,32 +110,6 @@ impl MarketContract {
         storage::set_max_positions(&e, new_max_positions);
         storage::set_min_collateral_value(&e, new_min_collateral_value);
     }
-
-    /// Queues in pool's config update
-    ///
-    /// # Arguments
-    /// * `pool_address` - address of a pool to which the update is queued in
-    /// * `new_pool_config` - updated pool config
-    pub fn queue_update_pool_config(
-        e: Env,
-        pool_address: Address,
-        new_pool_config: PoolConfig,
-    ) -> Result<(), MCError> {
-        require_admin(&e);
-        require_owned(&e);
-
-        Pool::try_get(&e, &pool_address)?;
-        new_pool_config.validate()?;
-        // storage::
-
-        // storage::queue_in_pool_config_update()
-
-        Ok(())
-    }
-
-    pub fn cancel_queue_update_pool_config(e: Env, pool_address: Address) {}
-
-    pub fn update_pool_config(e: Env, pool_address: Address) {}
 
     /// Initializes a loan pool for a specific asset
     ///
@@ -158,6 +145,55 @@ impl MarketContract {
         require_admin(&e);
 
         process_initialize_multiply_pair(&e, &deposit_pool_address, &borrow_pool_address)
+    }
+
+    /// Queues in pool's config update
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool to which the update is queued in
+    /// * `new_pool_config` - updated pool config
+    pub fn queue_in_pool_config_update(
+        e: Env,
+        pool_address: Address,
+        new_pool_config: PoolConfig,
+    ) -> Result<(), MCError> {
+        require_admin(&e);
+        require_owned(&e);
+
+        new_pool_config.validate()?;
+
+        let pool = Pool::try_get(&e, &pool_address)?;
+        pool.queue_in_config_update(&e, &new_pool_config)?;
+
+        Ok(())
+    }
+
+    /// Cancels pool's config update if it exists in the update queue
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool to which the update is being canceled
+    pub fn cancel_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
+        require_admin(&e);
+        require_owned(&e);
+
+        let pool = Pool::try_get(&e, &pool_address)?;
+        pool.cancel_pool_config_update(&e)?;
+
+        Ok(())
+    }
+
+    /// Applies the pool's config update if it exists in a queue and is seasoned
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool to which the config update is being applied
+    pub fn apply_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
+        require_admin(&e);
+        require_owned(&e);
+
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+        pool.apply_pool_config_update(&e)?;
+
+        Ok(())
     }
 
     /// Deposits tokens into the loan pool

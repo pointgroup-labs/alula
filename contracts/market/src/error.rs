@@ -11,8 +11,6 @@ pub enum MCError {
     MarketIsNotOwned = 3,
     DependencyContractError = 4,
 
-    PoolAlreadyContainsEnqueuedUpdate = 5,
-
     // Pool-related errors (10-19)
     PoolAlreadyExists = 10,
     PoolDoesNotExist = 11,
@@ -21,6 +19,10 @@ pub enum MCError {
     DepositPoolDoesNotExist = 14,
     BorrowPoolDoesNotExist = 15,
     CollateralPoolDoesNotExist = 16,
+    PoolAlreadyContainsEnqueuedConfigUpdate = 17,
+    PoolConfigUpdateDoesNotExistInQueue = 18,
+    PoolDoesNotHaveQueuedInConfigUpdate = 19,
+    PoolConfigUpdateIsNotSeasonedYet = 101,
 
     // Obligation-related errors (20-29)
     ObligationDoesNotExist = 20,

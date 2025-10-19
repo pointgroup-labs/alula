@@ -139,6 +139,7 @@ impl TestMarketFixture<'_> {
                 market_manager_address,
                 0,
                 0,
+                0_u64,
                 false,
             ),
         );

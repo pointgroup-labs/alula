@@ -3,7 +3,6 @@ use soroban_sdk::{Address, Env, Map, String, Vec, contracttype};
 use crate::{
     constants::*,
     error::MCError,
-    math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
@@ -19,6 +18,7 @@ pub struct GlobalState {
     pub status: MarketStatus,
     pub max_positions: u32,
     pub min_collateral_value: u32,
+    pub update_in_queue_period: u64,
 }
 
 #[contracttype]
@@ -42,8 +42,9 @@ pub struct PoolUpdate {
 #[contracttype]
 pub enum DataKey {
     // --- System / Contract Configuration (One-off values) ---
-    Name,               // Contract's name
-    Admin,              // Contract administrator or owner
+    Name,  // Contract's name
+    Admin, // Contract administrator or owner
+    UpdateInQueuePeriod,
     IsOwned,            // Ownership status flag
     DeployerHost,       // The host/origin of the deployment
     Oracle,             // Address of the external price oracle
@@ -92,6 +93,17 @@ pub fn set_oracle(e: &Env, oracle: &Address) {
 pub fn get_oracle(e: &Env) -> Address {
     extend_instance_storage(e);
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
+}
+
+// - UpdateInQueuePeriod -
+pub fn set_update_in_queue_period(e: &Env, update_in_queue_period: u64) {
+    e.storage().instance().set(&DataKey::UpdateInQueuePeriod, &update_in_queue_period)
+}
+pub fn get_update_in_queue_period(e: &Env) -> u64 {
+    e.storage()
+        .instance()
+        .get(&DataKey::UpdateInQueuePeriod)
+        .expect("UpdateInQueuePeriod must be set")
 }
 
 // - IsOwned -
@@ -205,14 +217,15 @@ pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     res
 }
 
-pub fn queue_config_update(
+/// Queues in pool's config update
+pub fn queue_in_pool_config_update(
     e: &Env,
     pool_address: &Address,
     config: &PoolConfig,
 ) -> Result<(), MCError> {
     let key = DataKey::ConfigUpdate(pool_address.clone());
     if e.storage().persistent().has(&key) {
-        return Err(MCError::PoolAlreadyContainsEnqueuedUpdate);
+        return Err(MCError::PoolAlreadyContainsEnqueuedConfigUpdate);
     }
 
     let pool_update =
@@ -222,11 +235,12 @@ pub fn queue_config_update(
     Ok(())
 }
 
-pub fn cancel_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+/// Cancels pool's config update from the queue
+pub fn cancel_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let key = DataKey::ConfigUpdate(pool_address.clone());
 
     if !e.storage().persistent().has(&DataKey::ConfigUpdate(pool_address.clone())) {
-        // TODO: Error
+        return Err(MCError::PoolConfigUpdateDoesNotExistInQueue);
     }
 
     e.storage().persistent().remove(&key);
@@ -234,26 +248,9 @@ pub fn cancel_config_update(e: &Env, pool_address: &Address) -> Result<(), MCErr
     Ok(())
 }
 
-pub fn set_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
-    const QUEUE_TIME: u64 = 24 * 60 * 60;
-
-    let Some(update): Option<PoolUpdate> =
-        e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()))
-    else {
-        // TODO: Error
-        return Err(MCError::PoolAlreadyContainsEnqueuedUpdate);
-    };
-
-    let current_timestamp = e.ledger().timestamp();
-    if update.queued_in_timestamp.checked_sub(QUEUE_TIME).map_over_or_underflow()?
-        < current_timestamp
-    {
-        // TODO: Error
-    }
-
-    // Must be on Pool, right?
-
-    Ok(())
+/// Gets pool's config update from the storage
+pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpdate> {
+    e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()))
 }
 
 // ---- Multiply Pair ----
