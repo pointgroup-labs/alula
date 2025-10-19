@@ -155,7 +155,7 @@ pub fn process_borrow(
     pool.accrue_interest(e)?;
 
     let borrow_result = obligation.borrow(e, &pool, amount)?;
-    pool.borrow(&e, &borrow_result)?;
+    pool.borrow(e, &borrow_result)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);

@@ -3,7 +3,6 @@ use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contracti
 
 use crate::{
     error::MCError,
-    events,
     helpers::{require_admin, require_deployer, require_owned},
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     multiply_pair::MultiplyPair,
