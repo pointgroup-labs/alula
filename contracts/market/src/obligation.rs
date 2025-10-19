@@ -562,7 +562,7 @@ impl Obligation {
     }
 
     /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt
-    /// - the real repaid amount is calculated as `min(debt, repaid_amount)`
+    /// — the real repaid amount is calculated as `min(debt, repaid_amount)`
     ///
     /// # Returns
     /// [`Result::Ok((real_repaid_amount, d_tokens_burnt))`] in success and

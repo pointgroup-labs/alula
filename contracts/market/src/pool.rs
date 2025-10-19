@@ -2,8 +2,17 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
 
 use crate::{
-    accrual::AccrualModel, constants::*, error::MCError, events,
-    interest_rate_model::InterestRateModel, math_utils::MathUtils, oracle::get_asset_price,
+    accrual::AccrualModel,
+    constants::*,
+    error::MCError,
+    events,
+    interest_rate_model::InterestRateModel,
+    math_utils::MathUtils,
+    obligation::{
+        AddCollateralResult, BorrowResult, ComputedFees, DepositResult, RemoveCollateralResult,
+        RepayResult, WithdrawResult,
+    },
+    oracle::get_asset_price,
     storage,
 };
 
@@ -67,6 +76,99 @@ impl Pool {
     generate_adjust_method!(adjust_accumulated_market_fees, accumulated_market_fees);
     generate_adjust_method!(adjust_accumulated_host_fees, accumulated_host_fees);
     generate_adjust_method!(adjust_accumulated_reserve_fees, accumulated_reserve_fees);
+
+    fn adjust_fees(&mut self, e: &Env, fees: &ComputedFees) -> Result<(), MCError> {
+        self.adjust_accumulated_host_fees(e, fees.host_fee)?;
+        self.adjust_accumulated_market_fees(e, fees.market_fee)?;
+
+        Ok(())
+    }
+
+    /// Deposits assets to the pool
+    pub fn deposit(&mut self, e: &Env, deposit_result: &DepositResult) -> Result<(), MCError> {
+        self.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
+        self.adjust_total_available(e, deposit_result.deposited)?;
+
+        self.adjust_fees(e, &deposit_result.computed_fees)?;
+
+        Ok(())
+    }
+
+    /// Withdraws yielding assets from the pool
+    pub fn withdraw(&mut self, e: &Env, withdraw_result: &WithdrawResult) -> Result<(), MCError> {
+        self.adjust_total_available(
+            e,
+            withdraw_result.deposit_decrease.checked_neg().map_over_or_underflow()?,
+        )?;
+        self.adjust_total_j_tokens(
+            e,
+            withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
+        )?;
+
+        self.adjust_fees(e, &withdraw_result.computed_fees)?;
+
+        Ok(())
+    }
+
+    /// Borrows assets from the pool
+    pub fn borrow(&mut self, e: &Env, borrow_result: &BorrowResult) -> Result<(), MCError> {
+        self.adjust_total_d_tokens(e, borrow_result.d_tokens_to_issue)?;
+        self.adjust_total_borrowed(e, borrow_result.borrower_new_debt)?;
+        self.adjust_total_available(
+            e,
+            borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
+        )?;
+
+        self.adjust_fees(e, &borrow_result.computed_fees)?;
+
+        Ok(())
+    }
+
+    /// Adds collateral to the pool
+    pub fn add_collateral(
+        &mut self,
+        e: &Env,
+        add_collateral_result: &AddCollateralResult,
+    ) -> Result<(), MCError> {
+        self.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
+
+        self.adjust_fees(e, &add_collateral_result.computed_fees)?;
+
+        Ok(())
+    }
+
+    /// Repays debt to the pool
+    pub fn repay(&mut self, e: &Env, repay_result: &RepayResult) -> Result<(), MCError> {
+        self.adjust_total_d_tokens(
+            e,
+            repay_result.d_tokens_to_burn.checked_neg().map_over_or_underflow()?,
+        )?;
+        self.adjust_total_borrowed(
+            e,
+            repay_result.debt_repaid.checked_neg().map_over_or_underflow()?,
+        )?;
+        self.adjust_total_available(e, repay_result.debt_repaid)?;
+
+        self.adjust_fees(e, &repay_result.computed_fees)?;
+
+        Ok(())
+    }
+
+    /// Removes collateral from the pool
+    pub fn remove_collateral(
+        &mut self,
+        e: &Env,
+        remove_collateral_result: &RemoveCollateralResult,
+    ) -> Result<(), MCError> {
+        self.adjust_total_collateral(
+            e,
+            remove_collateral_result.collateral_decrease.checked_neg().map_over_or_underflow()?,
+        )?;
+
+        self.adjust_fees(e, &remove_collateral_result.computed_fees)?;
+
+        Ok(())
+    }
 
     // TODO: Add dTokenRate?
 

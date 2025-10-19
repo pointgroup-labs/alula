@@ -127,12 +127,7 @@ pub fn process_deposit(
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
 
     let deposit_result = obligation.deposit(e, &pool, amount)?;
-
-    pool.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
-    pool.adjust_total_available(e, deposit_result.deposited)?;
-
-    pool.adjust_accumulated_host_fees(e, deposit_result.computed_fees.host_fee)?;
-    pool.adjust_accumulated_market_fees(e, deposit_result.computed_fees.market_fee)?;
+    pool.deposit(e, &deposit_result)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -160,16 +155,7 @@ pub fn process_borrow(
     pool.accrue_interest(e)?;
 
     let borrow_result = obligation.borrow(e, &pool, amount)?;
-
-    pool.adjust_total_d_tokens(e, borrow_result.d_tokens_to_issue)?;
-    pool.adjust_total_borrowed(e, borrow_result.borrower_new_debt)?;
-    pool.adjust_total_available(
-        e,
-        borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
-    )?;
-
-    pool.adjust_accumulated_host_fees(e, borrow_result.computed_fees.host_fee)?;
-    pool.adjust_accumulated_market_fees(e, borrow_result.computed_fees.market_fee)?;
+    pool.borrow(&e, &borrow_result)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -201,11 +187,7 @@ pub fn process_add_collateral(
     let mut pool = Pool::try_get(e, pool_address)?;
 
     let add_collateral_result = obligation.add_collateral(e, &pool, amount)?;
-
-    pool.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
-
-    pool.adjust_accumulated_host_fees(e, add_collateral_result.computed_fees.host_fee)?;
-    pool.adjust_accumulated_market_fees(e, add_collateral_result.computed_fees.market_fee)?;
+    pool.add_collateral(e, &add_collateral_result)?;
 
     obligation.set(e, obligation_key);
     pool.set(e);
@@ -232,16 +214,7 @@ pub fn process_repay(
     let mut pool = Pool::try_get(e, pool_address)?;
 
     let repay_result = obligation.repay(e, &pool, amount)?;
-
-    pool.adjust_total_d_tokens(
-        e,
-        repay_result.d_tokens_to_burn.checked_neg().map_over_or_underflow()?,
-    )?;
-    pool.adjust_total_borrowed(e, repay_result.debt_repaid.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_available(e, repay_result.debt_repaid)?;
-
-    pool.adjust_accumulated_host_fees(e, repay_result.computed_fees.host_fee)?;
-    pool.adjust_accumulated_market_fees(e, repay_result.computed_fees.market_fee)?;
+    pool.repay(e, &repay_result)?;
 
     if obligation.is_empty() {
         // NB: Obligation shouldn't be empty at this point due to some amount of collateral or
@@ -284,14 +257,7 @@ pub fn process_remove_collateral(
     let mut pool = Pool::try_get(e, pool_address)?;
 
     let remove_collateral_result = obligation.remove_collateral(e, &pool, amount)?;
-
-    pool.adjust_total_collateral(
-        e,
-        remove_collateral_result.collateral_decrease.checked_neg().map_over_or_underflow()?,
-    )?;
-
-    pool.adjust_accumulated_host_fees(e, remove_collateral_result.computed_fees.host_fee)?;
-    pool.adjust_accumulated_market_fees(e, remove_collateral_result.computed_fees.market_fee)?;
+    pool.remove_collateral(e, &remove_collateral_result)?;
 
     pool.set(e);
 
@@ -323,21 +289,10 @@ pub fn process_withdraw(
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
+
     let mut pool = Pool::try_get(e, pool_address)?;
-
     let withdraw_result = obligation.withdraw(e, &pool, amount)?;
-
-    pool.adjust_total_available(
-        e,
-        withdraw_result.deposit_decrease.checked_neg().map_over_or_underflow()?,
-    )?;
-    pool.adjust_total_j_tokens(
-        e,
-        withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
-    )?;
-
-    pool.adjust_accumulated_host_fees(e, withdraw_result.computed_fees.host_fee)?;
-    pool.adjust_accumulated_market_fees(e, withdraw_result.computed_fees.market_fee)?;
+    pool.withdraw(e, &withdraw_result)?;
 
     if obligation.is_empty() {
         obligation.remove(e, obligation_key);
