@@ -447,18 +447,32 @@ impl Obligation {
             i128::min(i128::min(original_amount, max_healthy_withdrawn_amount), all_deposit);
 
         if deposit_decrease > pool.total_available {
+            // TODO: Add failing test here
             return Err(MCError::NotEnoughPoolFunds);
         }
 
         let above_ur_cap_withdraw_fee = {
-            let ur_bps = pool.compute_utilization_ratio_bps()?;
-            let diff_bps = if ur_bps > pool.config.health_config.utilization_ratio_limit_bps {
-                ur_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
-            } else {
-                0
+            let new_ur_bps = {
+                let new_total = pool.total_supply()? - deposit_decrease; // safe
+
+                if new_total == 0 {
+                    BPS_FACTOR
+                } else {
+                    pool.total_borrowed
+                        .fixed_div_ceil(new_total, BPS_FACTOR)
+                        .map_over_or_underflow()?
+                }
             };
 
-            diff_bps as u32 // TODO: 1 to 1 scale for now, but rewrite as configurable
+            let diff_bps = if new_ur_bps > pool.config.health_config.utilization_ratio_limit_bps {
+                new_ur_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
+            } else {
+                0
+            } as u32;
+
+            diff_bps
+                .checked_mul(pool.config.fee_config.over_ur_withdraw_fee_scalar)
+                .map_over_or_underflow()?
         };
 
         let withdraw_fee_bps = pool
@@ -467,8 +481,6 @@ impl Obligation {
             .withdraw_fee_bps
             .checked_add(above_ur_cap_withdraw_fee)
             .map_over_or_underflow()?;
-
-        // pool.require_remove_collateral_preserves_ur_cap(e, deposit_decrease)?;
 
         let computed_fees =
             compute_fees(deposit_decrease, withdraw_fee_bps, pool.config.fee_config.host_fee_bps)?;

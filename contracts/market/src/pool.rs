@@ -562,6 +562,8 @@ pub struct PoolFeeConfig {
 
     pub deposit_fee_bps: u32,
     pub withdraw_fee_bps: u32,
+    /// Over-utilization ratio cap withdrawal fee scalar
+    pub over_ur_withdraw_fee_scalar: u32,
     pub add_collateral_fee_bps: u32,
     pub remove_collateral_fee_bps: u32,
     pub repay_fee_bps: u32,
@@ -586,6 +588,7 @@ impl Default for PoolFeeConfig {
 
             host_fee_bps: DEFAULT_HOST_FEE_BPS,
             take_rate_bps: DEFAULT_TAKE_RATE_BPS,
+            over_ur_withdraw_fee_scalar: DEFAULT_OVER_UTILIZATION_RATIO_FEE_SCALAR,
         }
     }
 }
