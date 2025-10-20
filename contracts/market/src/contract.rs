@@ -10,7 +10,7 @@ use crate::{
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::*,
-    storage::{self, GlobalState, MarketStatus},
+    storage::{self, GlobalState, MarketStatus, PoolUpdate},
 };
 
 // TODO: Consider adding a trait that defines contract's API
@@ -194,6 +194,16 @@ impl MarketContract {
         pool.apply_pool_config_update(&e)?;
 
         Ok(())
+    }
+
+    /// Gets the pool's config update from the queue if it exists
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool, for which the config update is received
+    pub fn get_pool_config_update(e: Env, pool_address: Address) -> Result<PoolUpdate, MCError> {
+        let pool = Pool::try_get(&e, &pool_address)?;
+
+        pool.get_pool_config_update(&e)
     }
 
     /// Deposits tokens into the loan pool

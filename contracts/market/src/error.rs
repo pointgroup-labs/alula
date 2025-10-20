@@ -20,9 +20,8 @@ pub enum MCError {
     BorrowPoolDoesNotExist = 15,
     CollateralPoolDoesNotExist = 16,
     PoolAlreadyContainsEnqueuedConfigUpdate = 17,
-    PoolConfigUpdateDoesNotExistInQueue = 18,
-    PoolDoesNotHaveQueuedInConfigUpdate = 19,
-    PoolConfigUpdateIsNotSeasonedYet = 101,
+    PoolDoesNotHaveQueuedInConfigUpdate = 18,
+    PoolConfigUpdateIsNotSeasonedYet = 19,
 
     // Obligation-related errors (20-29)
     ObligationDoesNotExist = 20,

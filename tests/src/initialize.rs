@@ -1,13 +1,17 @@
 #![cfg(test)]
 
 use market::{
+    constants::DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS,
     contract::{MarketContract, MarketContractClient},
     error::MCError,
-    pool::{PoolConfig, PoolHealthConfig},
+    pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig},
 };
-use soroban_sdk::{Address, BytesN, Env, symbol_short, testutils::Address as _};
+use soroban_sdk::{
+    Address, BytesN, Env, symbol_short,
+    testutils::{Address as _, Ledger},
+};
 
-use crate::get_default_env;
+use crate::{get_default_env, get_pool_fee_config};
 
 #[test]
 fn test_pool_initialize() {
@@ -208,6 +212,132 @@ fn test_multiply_pair_with_inexistent_pool() {
     );
 }
 
+// TODO: rename test module
+
+#[test]
+fn test_queue_in_pool_config_update() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e);
+
+    let token_address = register_random_sac(&e);
+    let token_ticker = symbol_short!("TCK1");
+
+    let pool_address = contract_client.initialize_pool(
+        &token_address,
+        &token_ticker,
+        &None,
+        &None, // default pool config
+    );
+
+    assert_eq!(
+        contract_client.try_cancel_pool_config_update(&pool_address),
+        Err(Ok(MCError::PoolDoesNotHaveQueuedInConfigUpdate))
+    );
+
+    let before_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
+
+    const NEW_BORROW_FEE_BPS: u32 = 1000;
+    let new_pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { borrow_fee_bps: NEW_BORROW_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+
+    contract_client.queue_in_pool_config_update(&pool_address, &new_pool_config);
+
+    let pool_config_update_queue_in_period =
+        contract_client.get_global_state().update_in_queue_period;
+
+    // - Move time -
+
+    e.ledger().with_mut(|li| li.timestamp += pool_config_update_queue_in_period - 1);
+
+    assert_eq!(
+        contract_client.try_apply_pool_config_update(&pool_address),
+        Err(Ok(MCError::PoolConfigUpdateIsNotSeasonedYet))
+    );
+
+    e.ledger().with_mut(|li| li.timestamp += 1);
+
+    // - Apply config update -
+
+    contract_client.apply_pool_config_update(&pool_address);
+
+    let after_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
+
+    assert_ne!(before_borrow_fee_bps, NEW_BORROW_FEE_BPS);
+    assert_eq!(after_borrow_fee_bps, NEW_BORROW_FEE_BPS);
+}
+
+#[test]
+fn test_queue_in_invalid_pool_config_update() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e);
+
+    let token_address = register_random_sac(&e);
+    let token_ticker = symbol_short!("TCK1");
+
+    let pool_address = contract_client.initialize_pool(
+        &token_address,
+        &token_ticker,
+        &None,
+        &None, // default pool config
+    );
+
+    const NEW_SUPPLY_LIMIT: i128 = -1;
+
+    let new_pool_config = PoolConfig {
+        health_config: PoolHealthConfig { supply_limit: NEW_SUPPLY_LIMIT, ..Default::default() },
+        ..Default::default()
+    };
+
+    assert_eq!(
+        contract_client.try_queue_in_pool_config_update(&pool_address, &new_pool_config),
+        Err(Ok(MCError::InvalidLoanPoolConfig))
+    );
+}
+
+#[test]
+fn test_cancel_pool_config_update() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e);
+
+    let token_address = register_random_sac(&e);
+    let token_ticker = symbol_short!("TCK1");
+
+    let pool_address = contract_client.initialize_pool(
+        &token_address,
+        &token_ticker,
+        &None,
+        &None, // default pool config
+    );
+
+    const NEW_SUPPLY_LIMIT: i128 = 100;
+
+    let new_pool_config = PoolConfig {
+        health_config: PoolHealthConfig { supply_limit: NEW_SUPPLY_LIMIT, ..Default::default() },
+        ..Default::default()
+    };
+
+    assert_eq!(
+        contract_client.try_cancel_pool_config_update(&pool_address),
+        Err(Ok(MCError::PoolDoesNotHaveQueuedInConfigUpdate))
+    );
+
+    contract_client.queue_in_pool_config_update(&pool_address, &new_pool_config);
+
+    assert_eq!(
+        contract_client.get_pool_config_update(&pool_address).new_config.health_config.supply_limit,
+        NEW_SUPPLY_LIMIT
+    );
+
+    contract_client.cancel_pool_config_update(&pool_address);
+
+    assert_eq!(
+        contract_client.try_get_pool_config_update(&pool_address),
+        Err(Ok(MCError::PoolDoesNotHaveQueuedInConfigUpdate))
+    );
+}
+
 // ---- Helpers ----
 
 fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
@@ -217,7 +347,16 @@ fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
 
     let contract_id = e.register(
         MarketContract,
-        (contract_name, contract_admin.clone(), oracle, contract_admin, 0, 0, 0_u64, false),
+        (
+            contract_name,
+            contract_admin.clone(),
+            oracle,
+            contract_admin,
+            0,
+            0,
+            DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS,
+            true,
+        ),
     );
 
     MarketContractClient::new(e, &contract_id)

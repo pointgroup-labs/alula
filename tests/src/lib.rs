@@ -19,7 +19,9 @@ use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
 use market::{
-    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ROUTER_ADDRESS},
+    constants::{
+        BPS_FACTOR, DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
+    },
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     obligation::{BorrowObligation, DepositObligation},
@@ -139,7 +141,7 @@ impl TestMarketFixture<'_> {
                 market_manager_address,
                 0,
                 0,
-                0_u64,
+                DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS,
                 false,
             ),
         );

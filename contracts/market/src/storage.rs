@@ -34,6 +34,7 @@ pub enum MarketStatus {
 }
 
 #[contracttype]
+#[derive(Debug, Eq, PartialEq)]
 pub struct PoolUpdate {
     pub new_config: PoolConfig,
     pub queued_in_timestamp: u64,
@@ -240,7 +241,7 @@ pub fn cancel_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
     let key = DataKey::ConfigUpdate(pool_address.clone());
 
     if !e.storage().persistent().has(&DataKey::ConfigUpdate(pool_address.clone())) {
-        return Err(MCError::PoolConfigUpdateDoesNotExistInQueue);
+        return Err(MCError::PoolDoesNotHaveQueuedInConfigUpdate);
     }
 
     e.storage().persistent().remove(&key);

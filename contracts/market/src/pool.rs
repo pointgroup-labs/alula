@@ -527,29 +527,28 @@ impl Pool {
     /// Modifies the contract's storage
     pub fn apply_pool_config_update(&mut self, e: &Env) -> Result<(), MCError> {
         let update_pool_config_period = storage::get_update_in_queue_period(e);
-
-        let Some(pool_config_update): Option<PoolUpdate> =
-            storage::get_pool_config_update(e, &self.pool_address)
-        else {
-            return Err(MCError::PoolConfigUpdateDoesNotExistInQueue);
-        };
-
+        let pool_config_update = self.get_pool_config_update(e)?;
         let current_time = e.ledger().timestamp();
 
-        if pool_config_update
-            .queued_in_timestamp
-            .checked_add(update_pool_config_period)
-            .map_over_or_underflow()?
-            < current_time
+        if current_time
+            < pool_config_update
+                .queued_in_timestamp
+                .checked_add(update_pool_config_period)
+                .map_over_or_underflow()?
         {
             return Err(MCError::PoolConfigUpdateIsNotSeasonedYet);
         }
-
         self.config = pool_config_update.new_config;
 
         self.set(e);
 
         Ok(())
+    }
+
+    /// Gets the pool's config update from the queue if it exists
+    pub fn get_pool_config_update(&self, e: &Env) -> Result<PoolUpdate, MCError> {
+        storage::get_pool_config_update(e, &self.pool_address)
+            .ok_or(MCError::PoolDoesNotHaveQueuedInConfigUpdate)
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
