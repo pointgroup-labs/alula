@@ -465,6 +465,34 @@ impl Obligation {
             };
 
             let diff_bps = if new_ur_bps > pool.config.health_config.utilization_ratio_limit_bps {
+                let deposit_decrease_to_available_bps = deposit_decrease
+                    .fixed_div_ceil(
+                        pool.total_available_minus_accumulated_reserve_fees()?,
+                        BPS_FACTOR,
+                    )
+                    .map_over_or_underflow()?;
+
+                if deposit_decrease_to_available_bps
+                    > pool.config.health_config.withdraw_scarcity_limit_bps
+                {
+                    return Err(MCError::OverScarcityLimitWithdraw);
+                } else {
+                    let last_scarcity_withdraw_ts = deposit_obligation.last_scarcity_withdraw_ts;
+                    let scarcity_withdraw_cooldown =
+                        pool.config.health_config.withdraw_scarcity_cooldown;
+                    let current_timestamp = e.ledger().timestamp();
+
+                    if current_timestamp
+                        < last_scarcity_withdraw_ts
+                            .checked_add(scarcity_withdraw_cooldown)
+                            .map_over_or_underflow()?
+                    {
+                        return Err(MCError::ScarcityCooldownPeriod);
+                    }
+
+                    deposit_obligation.last_scarcity_withdraw_ts = current_timestamp;
+                }
+
                 new_ur_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
             } else {
                 0
@@ -997,11 +1025,13 @@ pub struct DepositObligation {
     /// tokens, the time passed, which caused 2 tokens to be accrued, and the user deposited 20
     /// more tokens - this value will be equal to 120
     pub deposited: i128,
+    /// Timestamp of when the last scarcity withdraw took place
+    pub last_scarcity_withdraw_ts: u64,
 }
 
 impl DepositObligation {
     pub fn new() -> Self {
-        Self { collateral: 0, j_tokens: 0, deposited: 0 }
+        Self { collateral: 0, j_tokens: 0, deposited: 0, last_scarcity_withdraw_ts: 0 }
     }
 
     pub fn adjust_j_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {

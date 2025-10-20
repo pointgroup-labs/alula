@@ -27,6 +27,8 @@ pub enum MCError {
     ObligationDoesNotExist = 20,
     DepositDoesNotExist = 21,
     BorrowDoesNotExist = 22,
+    OverScarcityLimitWithdraw = 23, // TODO: Pool errors?
+    ScarcityCooldownPeriod = 24,
 
     // Amount validation errors (30-39)
     NegativeAmount = 30,

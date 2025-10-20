@@ -670,6 +670,12 @@ pub struct PoolHealthConfig {
     pub supply_limit: i128,
     /// The maximum utilization ratio that is allowed to be reached via borrowing
     pub utilization_ratio_limit_bps: i128,
+    /// Basis points of the pool that can be withdrawn in a single operation when the pool's utilization ratio exceeds
+    /// [`utilization_ratio_limit_bps`]
+    pub withdraw_scarcity_limit_bps: i128,
+    /// Cooldown period(in seconds) required between a pair of sequential withdrawals when the pool's utilization ratio exceeds
+    /// [`utilization_ratio_limit_bps`]
+    pub withdraw_scarcity_cooldown: u64,
     /// The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 =
     /// 70%, etc) with respect to a total obligation's collateral value
     pub open_ltv_bps: i128,
@@ -697,6 +703,8 @@ impl Default for PoolHealthConfig {
             liability_factor_bps: DEFAULT_LIABILITY_FACTOR_BPS,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR_BPS,
             liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD_BPS, // TODO: Rename?
+            withdraw_scarcity_limit_bps: DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS,
+            withdraw_scarcity_cooldown: DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS,
         }
     }
 }
@@ -711,13 +719,15 @@ impl PoolHealthConfig {
             liability_factor_bps,
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
+            withdraw_scarcity_limit_bps,
+            withdraw_scarcity_cooldown,
         } = self;
 
         if supply_limit < 0 {
             return Err("Supply limit must be non-negative");
         }
 
-        if !is_valid_percent(utilization_ratio_limit_bps) {
+        if !is_valid_bps_percent(utilization_ratio_limit_bps) {
             return Err("Utilization ratio limit must be between 0% and 100%");
         }
 
@@ -725,7 +735,7 @@ impl PoolHealthConfig {
             return Err("Open LTV must be between 0% and 100%");
         }
 
-        if !is_valid_percent(close_ltv_bps) {
+        if !is_valid_bps_percent(close_ltv_bps) {
             return Err("Close LTV must be between 0% and 100%");
         }
 
@@ -737,11 +747,11 @@ impl PoolHealthConfig {
             return Err("Invalid liability factor");
         }
 
-        if !is_valid_percent(liquidation_close_factor_bps) {
+        if !is_valid_bps_percent(liquidation_close_factor_bps) {
             return Err("Liquidation close factor must be between 0% and 100%");
         }
 
-        if !is_valid_percent(liquidation_incentive_bps) {
+        if !is_valid_bps_percent(liquidation_incentive_bps) {
             return Err("Liquidation incentive must be between 0% and 100%");
         }
 
@@ -749,6 +759,6 @@ impl PoolHealthConfig {
     }
 }
 
-fn is_valid_percent(value: i128) -> bool {
+fn is_valid_bps_percent(value: i128) -> bool {
     (0..=100 * BPS_IN_PERCENT).contains(&value)
 }
