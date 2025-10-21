@@ -446,13 +446,16 @@ impl Obligation {
         let deposit_decrease =
             i128::min(i128::min(original_amount, max_healthy_withdrawn_amount), all_deposit);
 
-        if deposit_decrease > pool.total_available {
-            // TODO: Add failing test here
+        // TODO: Add failing test here regarding insurance fund
+        // if deposit_decrease > pool.total_available {
+        if deposit_decrease > pool.total_available_minus_accumulated_reserve_fees()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
-        let above_ur_cap_withdraw_fee = {
-            let new_ur_bps = {
+        let withdraw_scarcity_fee = {
+            let current_utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
+
+            let new_utilization_ratio_bps = {
                 let new_total = pool.total_supply()? - deposit_decrease; // safe
 
                 if new_total == 0 {
@@ -464,50 +467,66 @@ impl Obligation {
                 }
             };
 
-            let diff_bps = if new_ur_bps > pool.config.health_config.utilization_ratio_limit_bps {
-                let deposit_decrease_to_available_bps = deposit_decrease
-                    .fixed_div_ceil(
-                        pool.total_available_minus_accumulated_reserve_fees()?,
-                        BPS_FACTOR,
-                    )
+            let utilization_ratio_diff_bps = if new_utilization_ratio_bps
+                > pool.config.health_config.utilization_ratio_limit_bps
+            {
+                // If withdraw leads to a scarcity state - update the last scarcity withdraw timestamp
+                // per deposit obligation
+                let deposit_decrease_to_total_supply_bps = deposit_decrease
+                    .fixed_div_ceil(pool.total_supply()?, BPS_FACTOR)
                     .map_over_or_underflow()?;
 
-                if deposit_decrease_to_available_bps
-                    > pool.config.health_config.withdraw_scarcity_limit_bps
+                // TODO: By the way, should we keep a percentage of all available or percentage of all supply in the config?
+                // Likely, the percentage of total supply...
+
+                let withdraw_scarcity_limit_bps = if current_utilization_ratio_bps
+                    < pool.config.health_config.utilization_ratio_limit_bps
                 {
-                    return Err(MCError::OverScarcityLimitWithdraw);
+                    let remaining_utilization_ratio =
+                        pool.config.health_config.utilization_ratio_limit_bps
+                            - current_utilization_ratio_bps; // safe
+
+                    remaining_utilization_ratio
+                        .checked_add(pool.config.health_config.withdraw_scarcity_limit_bps)
+                        .map_over_or_underflow()?
                 } else {
-                    let last_scarcity_withdraw_ts = deposit_obligation.last_scarcity_withdraw_ts;
-                    let scarcity_withdraw_cooldown =
-                        pool.config.health_config.withdraw_scarcity_cooldown;
-                    let current_timestamp = e.ledger().timestamp();
+                    pool.config.health_config.withdraw_scarcity_limit_bps
+                };
 
-                    if current_timestamp
-                        < last_scarcity_withdraw_ts
-                            .checked_add(scarcity_withdraw_cooldown)
-                            .map_over_or_underflow()?
-                    {
-                        return Err(MCError::ScarcityCooldownPeriod);
-                    }
-
-                    deposit_obligation.last_scarcity_withdraw_ts = current_timestamp;
+                if deposit_decrease_to_total_supply_bps > withdraw_scarcity_limit_bps {
+                    return Err(MCError::WithdrawScarcityOverLimit);
                 }
 
-                new_ur_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
+                let last_scarcity_withdraw_ts = deposit_obligation.last_scarcity_withdraw_ts;
+                let scarcity_withdraw_cooldown =
+                    pool.config.health_config.withdraw_scarcity_cooldown_s;
+                let current_timestamp = e.ledger().timestamp();
+
+                if current_timestamp
+                    < last_scarcity_withdraw_ts
+                        .checked_add(scarcity_withdraw_cooldown)
+                        .map_over_or_underflow()?
+                {
+                    return Err(MCError::ScarcityCooldownPeriod);
+                }
+
+                deposit_obligation.last_scarcity_withdraw_ts = current_timestamp;
+
+                new_utilization_ratio_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
             } else {
                 0
             } as u32;
 
-            diff_bps
-                .checked_mul(pool.config.fee_config.over_ur_withdraw_fee_scalar)
+            (utilization_ratio_diff_bps as i128)
+                .fixed_mul_ceil(pool.config.fee_config.withdraw_scarcity_fee_scalar_p as i128, 100)
                 .map_over_or_underflow()?
-        };
+        } as u32;
 
         let withdraw_fee_bps = pool
             .config
             .fee_config
             .withdraw_fee_bps
-            .checked_add(above_ur_cap_withdraw_fee)
+            .checked_add(withdraw_scarcity_fee)
             .map_over_or_underflow()?;
 
         let computed_fees =

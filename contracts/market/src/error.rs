@@ -10,6 +10,8 @@ pub enum MCError {
     InvalidTimestamp = 2,
     MarketIsNotOwned = 3,
     DependencyContractError = 4,
+    ForbiddenMarketOperation = 5,
+    InvalidMarketUpdate = 6,
 
     // Pool-related errors (10-19)
     PoolAlreadyExists = 10,
@@ -27,7 +29,7 @@ pub enum MCError {
     ObligationDoesNotExist = 20,
     DepositDoesNotExist = 21,
     BorrowDoesNotExist = 22,
-    OverScarcityLimitWithdraw = 23, // TODO: Pool errors?
+    WithdrawScarcityOverLimit = 23, // TODO: Pool errors?
     ScarcityCooldownPeriod = 24,
 
     // Amount validation errors (30-39)

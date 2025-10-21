@@ -2,8 +2,12 @@
 use soroban_sdk::{Address, BytesN, Env, String, Symbol, Vec, contract, contractimpl};
 
 use crate::{
+    constants::*,
     error::MCError,
-    helpers::{require_admin, require_deployer, require_owned},
+    helpers::{
+        require_admin, require_borrow_allowed, require_deployer, require_deposit_allowed,
+        require_not_frozen, require_owned_and_admin,
+    },
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
@@ -38,12 +42,11 @@ impl MarketContract {
         admin: Address,
         oracle: Address,
         deployer: Address,
-        max_positions: i32,
-        min_collateral_value: i32,
-        update_in_queue_period: u64,
-        is_owned: bool,
+        max_positions: u32,
+        min_collateral_value: i128,
+        update_in_queue_period: Option<u64>,
     ) -> Result<(), MCError> {
-        let market_status = if is_owned {
+        let market_status = if update_in_queue_period.is_some() {
             // Owned markets begin in a frozen state
             MarketStatus::Frozen
         } else {
@@ -53,12 +56,11 @@ impl MarketContract {
         storage::set_name(&e, &name);
         storage::set_admin(&e, &admin);
         storage::set_oracle(&e, &oracle);
-        storage::set_is_owned(&e, is_owned);
         storage::set_deployer(&e, &deployer);
         storage::set_market_status(&e, &market_status);
         storage::set_max_positions(&e, max_positions as u32);
         storage::set_update_in_queue_period(&e, update_in_queue_period);
-        storage::set_min_collateral_value(&e, min_collateral_value as u32);
+        storage::set_min_collateral_value(&e, min_collateral_value);
 
         // TODO: Fix event
         // events::constructor(&e, &admin, &name, &oracle);
@@ -83,13 +85,15 @@ impl MarketContract {
     pub fn get_global_state(e: Env) -> GlobalState {
         storage::extend_instance_storage(&e);
 
+        let update_in_queue_period = storage::get_update_in_queue_period(&e);
+
         GlobalState {
             name: storage::get_name(&e),
             admin: storage::get_admin(&e),
             oracle: storage::get_oracle(&e),
-            is_owned: storage::get_is_owned(&e),
             deployer: storage::get_deployer(&e),
             status: storage::get_market_status(&e),
+            is_owned: update_in_queue_period.is_some(),
             max_positions: storage::get_max_positions(&e),
             min_collateral_value: storage::get_min_collateral_value(&e),
             update_in_queue_period: storage::get_update_in_queue_period(&e),
@@ -101,14 +105,30 @@ impl MarketContract {
     /// # Arguments
     /// * `new_max_positions` - updated maximum number of positions that a single obligation can have
     /// * `new_min_collateral_value` - updated minimum collateral value allowed
-    pub fn update_market_state(e: Env, new_max_positions: u32, new_min_collateral_value: u32) {
-        require_admin(&e);
-        require_owned(&e);
+    pub fn update_market(
+        e: Env,
+        new_max_positions: u32,
+        new_min_collateral_value: i128,
+    ) -> Result<(), MCError> {
+        require_owned_and_admin(&e)?;
 
-        // TODO: Add constraints for `max_positions` / `min_collateral`?
-
+        // TODO: Add `MAX_RESERVES` check
+        if new_max_positions > 2 * MAX_RESERVES || new_min_collateral_value < 0 {
+            return Err(MCError::InvalidMarketUpdate);
+        }
         storage::set_max_positions(&e, new_max_positions);
         storage::set_min_collateral_value(&e, new_min_collateral_value);
+
+        Ok(())
+    }
+
+    /// Updates the market status
+    pub fn update_market_status(e: Env, new_status: MarketStatus) -> Result<(), MCError> {
+        require_owned_and_admin(&e)?;
+
+        storage::set_market_status(&e, &new_status);
+
+        Ok(())
     }
 
     /// Initializes a loan pool for a specific asset
@@ -157,8 +177,7 @@ impl MarketContract {
         pool_address: Address,
         new_pool_config: PoolConfig,
     ) -> Result<(), MCError> {
-        require_admin(&e);
-        require_owned(&e);
+        require_owned_and_admin(&e)?;
 
         new_pool_config.validate()?;
 
@@ -173,8 +192,7 @@ impl MarketContract {
     /// # Arguments
     /// * `pool_address` - address of a pool to which the update is being canceled
     pub fn cancel_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
-        require_admin(&e);
-        require_owned(&e);
+        require_owned_and_admin(&e)?;
 
         let pool = Pool::try_get(&e, &pool_address)?;
         pool.cancel_pool_config_update(&e)?;
@@ -187,8 +205,7 @@ impl MarketContract {
     /// # Arguments
     /// * `pool_address` - address of a pool to which the config update is being applied
     pub fn apply_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
-        require_admin(&e);
-        require_owned(&e);
+        require_owned_and_admin(&e)?;
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.apply_pool_config_update(&e)?;
@@ -219,6 +236,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_deposit_allowed(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -238,6 +256,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_borrow_allowed(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -260,6 +279,7 @@ impl MarketContract {
         amount_in: i128,
     ) -> Result<i128, MCError> {
         user.require_auth();
+        require_not_frozen(&e);
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
     }
@@ -279,6 +299,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_not_frozen(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -301,6 +322,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_not_frozen(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -322,6 +344,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_not_frozen(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -347,6 +370,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         liquidator.require_auth();
+        require_not_frozen(&e);
 
         let borrower_obligation_key = ObligationKey::new(borrower);
 
@@ -376,6 +400,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_not_frozen(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -396,6 +421,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         contract.require_auth();
+        require_not_frozen(&e);
 
         process_flash_loan(&e, &contract, &pool_address, amount)
     }
@@ -441,6 +467,7 @@ impl MarketContract {
         leverage_multiplier: u32,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_not_frozen(&e);
 
         process_deposit_with_leverage(
             &e,
@@ -472,6 +499,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
+        require_not_frozen(&e);
 
         process_withdraw_from_leveraged(
             &e,

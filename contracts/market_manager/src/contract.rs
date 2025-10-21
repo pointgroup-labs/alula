@@ -30,10 +30,9 @@ pub trait MarketManager {
         admin: Address,
         name: String,
         oracle_address: Address,
-        max_positions: i32,
-        min_collateral: i32,
-        update_in_queue_period: u64,
-        is_owned: bool,
+        max_positions: u32,
+        min_collateral: i128,
+        update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError>;
 
     /// Returns a list of all lending markets deployed by the manager
@@ -55,10 +54,9 @@ impl MarketManager for MarketManagerContract {
         market_admin: Address,
         name: String,
         oracle: Address,
-        max_positions: i32,
-        min_collateral: i32,
-        update_in_queue_period: u64,
-        is_owned: bool,
+        max_positions: u32,
+        min_collateral: i128,
+        update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
@@ -86,7 +84,6 @@ impl MarketManager for MarketManagerContract {
                 max_positions,
                 min_collateral,
                 update_in_queue_period,
-                is_owned,
             ),
         );
 

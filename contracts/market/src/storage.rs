@@ -15,10 +15,10 @@ pub struct GlobalState {
     pub is_owned: bool,
     pub oracle: Address,
     pub deployer: Address,
-    pub status: MarketStatus,
     pub max_positions: u32,
-    pub min_collateral_value: u32,
-    pub update_in_queue_period: u64,
+    pub status: MarketStatus,
+    pub min_collateral_value: i128,
+    pub update_in_queue_period: Option<u64>,
 }
 
 #[contracttype]
@@ -97,24 +97,15 @@ pub fn get_oracle(e: &Env) -> Address {
 }
 
 // - UpdateInQueuePeriod -
-pub fn set_update_in_queue_period(e: &Env, update_in_queue_period: u64) {
+pub fn set_update_in_queue_period(e: &Env, update_in_queue_period: Option<u64>) {
     e.storage().instance().set(&DataKey::UpdateInQueuePeriod, &update_in_queue_period)
 }
-pub fn get_update_in_queue_period(e: &Env) -> u64 {
+pub fn get_update_in_queue_period(e: &Env) -> Option<u64> {
     e.storage()
         .instance()
         .get(&DataKey::UpdateInQueuePeriod)
         .expect("UpdateInQueuePeriod must be set")
 }
-
-// - IsOwned -
-pub fn set_is_owned(e: &Env, is_owned: bool) {
-    e.storage().instance().set(&DataKey::IsOwned, &is_owned)
-}
-pub fn get_is_owned(e: &Env) -> bool {
-    e.storage().instance().get(&DataKey::IsOwned).expect("IsOwned must be set")
-}
-
 // - MaxPositions -
 pub fn set_max_positions(e: &Env, max_positions: u32) {
     e.storage().instance().set(&DataKey::MaxPositions, &max_positions);
@@ -124,10 +115,10 @@ pub fn get_max_positions(e: &Env) -> u32 {
 }
 
 // - MinCollateralValue -
-pub fn set_min_collateral_value(e: &Env, min_collateral_value: u32) {
+pub fn set_min_collateral_value(e: &Env, min_collateral_value: i128) {
     e.storage().instance().set(&DataKey::MinCollateralValue, &min_collateral_value);
 }
-pub fn get_min_collateral_value(e: &Env) -> u32 {
+pub fn get_min_collateral_value(e: &Env) -> i128 {
     e.storage()
         .instance()
         .get(&DataKey::MinCollateralValue)

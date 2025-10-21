@@ -5,6 +5,7 @@ use market::{
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig},
+    storage::MarketStatus,
 };
 use soroban_sdk::{
     Address, BytesN, Env, symbol_short,
@@ -16,7 +17,7 @@ use crate::{get_default_env, get_pool_fee_config};
 #[test]
 fn test_pool_initialize() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -43,7 +44,7 @@ fn test_pool_initialize() {
 #[test]
 fn test_pool_initialize_with_custom_config() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -67,7 +68,7 @@ fn test_pool_initialize_with_custom_config() {
 #[test]
 fn test_pool_initialize_with_different_salt() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -82,7 +83,7 @@ fn test_pool_initialize_with_different_salt() {
 #[test]
 fn test_pool_initialize_non_conflicting() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address_1 = register_random_sac(&e);
     let token_ticker_1 = symbol_short!("TCK1");
@@ -116,7 +117,7 @@ fn test_pool_initialize_non_conflicting() {
 #[test]
 fn test_pool_reinitialize_no_salt() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -132,7 +133,7 @@ fn test_pool_reinitialize_no_salt() {
 #[test]
 fn test_pool_reinitialize_with_salt() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -150,7 +151,7 @@ fn test_pool_reinitialize_with_salt() {
 #[test]
 fn test_initialize_multiply_pair() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     // Initialize pools first
     let deposit_token_address = register_random_sac(&e);
@@ -186,7 +187,7 @@ fn test_initialize_multiply_pair() {
 #[test]
 fn test_multiply_pair_with_inexistent_pool() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let deposit_pool_address = Address::generate(&e);
     let borrow_pool_address = Address::generate(&e);
@@ -217,7 +218,7 @@ fn test_multiply_pair_with_inexistent_pool() {
 #[test]
 fn test_queue_in_pool_config_update() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -245,7 +246,7 @@ fn test_queue_in_pool_config_update() {
     contract_client.queue_in_pool_config_update(&pool_address, &new_pool_config);
 
     let pool_config_update_queue_in_period =
-        contract_client.get_global_state().update_in_queue_period;
+        contract_client.get_global_state().update_in_queue_period.unwrap();
 
     // - Move time -
 
@@ -271,7 +272,7 @@ fn test_queue_in_pool_config_update() {
 #[test]
 fn test_queue_in_invalid_pool_config_update() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -299,7 +300,7 @@ fn test_queue_in_invalid_pool_config_update() {
 #[test]
 fn test_cancel_pool_config_update() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -338,9 +339,64 @@ fn test_cancel_pool_config_update() {
     );
 }
 
+#[test]
+fn update_market_status_fails_for_permissionless_market() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, false);
+
+    let token_address = register_random_sac(&e);
+    let token_ticker = symbol_short!("TCK1");
+
+    let pool_address = contract_client.initialize_pool(
+        &token_address,
+        &token_ticker,
+        &None,
+        &None, // default pool config
+    );
+
+    const NEW_SUPPLY_LIMIT: i128 = 100;
+
+    let new_pool_config = PoolConfig {
+        health_config: PoolHealthConfig { supply_limit: NEW_SUPPLY_LIMIT, ..Default::default() },
+        ..Default::default()
+    };
+
+    assert_eq!(
+        contract_client.try_queue_in_pool_config_update(&pool_address, &new_pool_config),
+        Err(Ok(MCError::MarketIsNotOwned))
+    );
+
+    assert_eq!(contract_client.try_update_market(&1, &1), Err(Ok(MCError::MarketIsNotOwned)));
+}
+
+#[test]
+fn update_market_status() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, false);
+
+    let token_address = register_random_sac(&e);
+    let token_ticker = symbol_short!("TCK1");
+
+    let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+
+    const NEW_SUPPLY_LIMIT: i128 = 100;
+
+    let new_pool_config = PoolConfig {
+        health_config: PoolHealthConfig { supply_limit: NEW_SUPPLY_LIMIT, ..Default::default() },
+        ..Default::default()
+    };
+
+    assert_eq!(
+        contract_client.try_queue_in_pool_config_update(&pool_address, &new_pool_config),
+        Err(Ok(MCError::MarketIsNotOwned))
+    );
+
+    assert_eq!(contract_client.try_update_market(&1, &1), Err(Ok(MCError::MarketIsNotOwned)));
+}
+
 // ---- Helpers ----
 
-fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
+fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketContractClient<'a> {
     let contract_name = soroban_sdk::String::from_str(e, "market_contract");
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
@@ -352,14 +408,19 @@ fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
             contract_admin.clone(),
             oracle,
             contract_admin,
-            0,
-            0,
-            DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS,
-            true,
+            0u32,
+            0i128,
+            if is_owned { Some(DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS) } else { None },
         ),
     );
 
-    MarketContractClient::new(e, &contract_id)
+    let client = MarketContractClient::new(e, &contract_id);
+
+    if is_owned {
+        client.update_market_status(&MarketStatus::Active);
+    }
+
+    client
 }
 
 fn register_random_sac(e: &Env) -> Address {

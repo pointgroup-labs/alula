@@ -1,6 +1,9 @@
 use soroban_sdk::{Env, panic_with_error};
 
-use crate::{error::MCError, storage};
+use crate::{
+    error::MCError,
+    storage::{self, MarketStatus},
+};
 
 /// Ensures that the provided amount is non-negative.
 #[inline(always)]
@@ -13,23 +16,44 @@ pub fn require_nonnegative(amount: i128) -> Result<(), MCError> {
 }
 
 #[inline(always)]
-pub fn require_owned(e: &Env) {
-    let is_owned = storage::get_is_owned(e);
+pub fn require_owned_and_admin(e: &Env) -> Result<(), MCError> {
+    require_admin(e);
 
-    if !is_owned {
-        panic_with_error!(e, MCError::MarketIsNotOwned);
+    if storage::get_update_in_queue_period(e).is_none() {
+        return Err(MCError::MarketIsNotOwned);
     }
+
+    Ok(())
 }
 
 /// Ensures that the caller is the admin of the contract
 #[inline(always)]
 pub fn require_admin(e: &Env) {
-    let admin = storage::get_admin(e);
-    admin.require_auth();
+    storage::get_admin(e).require_auth();
 }
 
 #[inline(always)]
 pub fn require_deployer(e: &Env) {
-    let deployer = storage::get_deployer(e);
-    deployer.require_auth();
+    storage::get_deployer(e).require_auth();
+}
+
+#[inline(always)]
+pub fn require_borrow_allowed(e: &Env) {
+    if !matches!(storage::get_market_status(e), MarketStatus::Active) {
+        panic_with_error!(e, MCError::ForbiddenMarketOperation);
+    }
+}
+
+#[inline(always)]
+pub fn require_deposit_allowed(e: &Env) {
+    if !matches!(storage::get_market_status(e), MarketStatus::Active | MarketStatus::BorrowFrozen) {
+        panic_with_error!(e, MCError::ForbiddenMarketOperation);
+    }
+}
+
+#[inline(always)]
+pub fn require_not_frozen(e: &Env) {
+    if matches!(storage::get_market_status(e), MarketStatus::Frozen) {
+        panic_with_error!(e, MCError::ForbiddenMarketOperation);
+    }
 }

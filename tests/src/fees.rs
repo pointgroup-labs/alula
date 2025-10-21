@@ -366,7 +366,7 @@ fn test_withdraw_fee() {
 }
 
 #[test]
-fn test_withdraw_fee_with_above_ur_utilization_fee() {
+fn test_withdraw_scarcity_fee() {
     const WITHDRAW_FEE_BPS: u32 = 500; // 5%
 
     let pool_config = PoolConfig {
@@ -437,15 +437,15 @@ fn test_withdraw_fee_with_above_ur_utilization_fee() {
         pool_market_fees_after.checked_sub(pool_market_fees_before).unwrap();
     let pool_host_fees_diff = pool_host_fees_after.checked_sub(pool_host_fees_before).unwrap();
 
-    let PoolFeeConfig { withdraw_fee_bps, over_ur_withdraw_fee_scalar, host_fee_bps, .. } =
+    let PoolFeeConfig { withdraw_fee_bps, withdraw_scarcity_fee_scalar_p, host_fee_bps, .. } =
         get_pool_fee_config(&contract_client, &gold_pool_address);
 
-    let above_ur_utilization_fee_bps = {
-        let bps_diff = BPS_FACTOR.checked_sub(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS).unwrap() as u32;
+    let withdraw_scarcity_fee_bps = {
+        let bps_diff = BPS_FACTOR.checked_sub(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS).unwrap();
 
-        bps_diff.checked_mul(over_ur_withdraw_fee_scalar).unwrap()
-    };
-    let withdraw_fee_bps = withdraw_fee_bps.checked_add(above_ur_utilization_fee_bps).unwrap();
+        bps_diff.fixed_mul_ceil(withdraw_scarcity_fee_scalar_p as i128, 100).unwrap()
+    } as u32;
+    let withdraw_fee_bps = withdraw_fee_bps.checked_add(withdraw_scarcity_fee_bps).unwrap();
 
     let ComputedFees { fee_sum, market_fee, host_fee } =
         compute_fees(withdraw_amount, withdraw_fee_bps, host_fee_bps).unwrap();

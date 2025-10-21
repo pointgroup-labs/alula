@@ -4,6 +4,8 @@ use market::{
     constants::*,
     pool::{PoolConfig, PoolHealthConfig},
 };
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
@@ -460,4 +462,68 @@ fn remove_collateral_up_to_open_ltv() {
     );
 }
 
-// TODO: Add time passing test
+#[test]
+fn test_withdraw_scarcity_over_limit() {
+    const WITHDRAW_SCARCITY_LIMIT_BPS: i128 = 400; // 4%
+    const WITHDRAW_SCARCITY_COOLDOWN_SECONDS: u64 = 10;
+
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            withdraw_scarcity_limit_bps: WITHDRAW_SCARCITY_LIMIT_BPS,
+            withdraw_scarcity_cooldown_s: WITHDRAW_SCARCITY_COOLDOWN_SECONDS,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let TestMarketFixture {
+        e, contract_client, gold_pool_address, users, usdc_pool_address, ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let creditor = &users[0];
+    let borrower = &users[1];
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+
+    // - Borrow up to utilization ratio cap -
+
+    let borrow_amount: i128 = DEFAULT_DEPOSIT_AMOUNT
+        .fixed_mul_ceil(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, BPS_FACTOR)
+        .unwrap();
+
+    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount);
+
+    // - Try to withdraw remaining liquidity -
+
+    let allowed_withdrawal =
+        DEFAULT_DEPOSIT_AMOUNT.fixed_mul_ceil(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR).unwrap();
+
+    assert_eq!(
+        contract_client.try_withdraw(creditor, &gold_pool_address, &(allowed_withdrawal + 1)),
+        Err(Ok(MCError::WithdrawScarcityOverLimit))
+    );
+
+    contract_client.withdraw(creditor, &gold_pool_address, &allowed_withdrawal);
+
+    assert_eq!(
+        contract_client.try_withdraw(creditor, &gold_pool_address, &1),
+        Err(Ok(MCError::ScarcityCooldownPeriod))
+    );
+
+    // - Move time -
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += WITHDRAW_SCARCITY_COOLDOWN_SECONDS;
+    });
+
+    assert_eq!(
+        contract_client.try_withdraw(creditor, &gold_pool_address, &allowed_withdrawal),
+        Err(Ok(MCError::WithdrawScarcityOverLimit)) // Must fail now, since UR has increased due to a previous withdrawal
+    );
+
+    assert!(
+        contract_client
+            .try_withdraw(creditor, &gold_pool_address, &(allowed_withdrawal / 10))
+            .is_ok()
+    );
+}
