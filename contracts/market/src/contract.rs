@@ -113,7 +113,9 @@ impl MarketContract {
         require_owned_and_admin(&e)?;
 
         // TODO: Add `MAX_RESERVES` check
-        if new_max_positions > 2 * MAX_RESERVES || new_min_collateral_value < 0 {
+        if (new_max_positions < 2 || new_max_positions > 2 * MAX_RESERVES)
+            || new_min_collateral_value < 0
+        {
             return Err(MCError::InvalidMarketUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);

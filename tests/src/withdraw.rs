@@ -518,7 +518,7 @@ fn test_withdraw_scarcity_over_limit() {
 
     assert_eq!(
         contract_client.try_withdraw(creditor, &gold_pool_address, &allowed_withdrawal),
-        Err(Ok(MCError::WithdrawScarcityOverLimit)) // Must fail now, since UR has increased due to a previous withdrawal
+        Err(Ok(MCError::WithdrawScarcityOverLimit)) /* Must fail now, since UR has increased due to a previous withdrawal */
     );
 
     assert!(

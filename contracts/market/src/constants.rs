@@ -119,3 +119,7 @@ pub const DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
+
+pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 100000; // 10^5
+
+pub const DEFAULT_MAX_POSITIONS: u32 = 20;

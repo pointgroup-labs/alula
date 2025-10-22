@@ -24,6 +24,10 @@ pub trait MarketManager {
     /// * `admin` - admin of the deployed market
     /// * `name` - name of the deployed market
     /// * `oracle_address` - address of SEP-40—compliant oracle contract
+    /// * `max_positions` - maximum number of positions for a single obligation to have at a single moment
+    /// * `min_collateral` - minimum allowed value of a collateral position at a single moment
+    /// * `update_in_queue_period` - amount of seconds required to pass before applying an issued pool's config update in an owned pool. Passing here `None` means that the market is permissionless
+    /// and its pools and parameters cannot be modified(except for new pools initialization)
     fn deploy(
         e: Env,
         salt: BytesN<32>,
@@ -63,13 +67,7 @@ impl MarketManager for MarketManagerContract {
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
         admin.require_auth();
 
-        // NB: `soroban_sdk 22` doesn't have an obvious and easy-to-implement way
-        // calculating new salt based on `String` or `Symbol`. Newer `soroban_sdk 23` has a way
-        // of doing this, see - <https://github.com/stellar/stellar-protocol/blob/master/core/cap-0069.md>,
-        // yet, most of our dependencies can rely only on `soroban sdk 22`, so, instead, we
-        // calculate new salt based on admin address and provided salt, as is done on other
-        // Soroban platforms, deployed with `soroban sdk 22`
-
+        // TODO: Fix this...
         // let name_bytes: BytesN<32> = BytesN::<32>::from_val(&e, &name.to_val());
         // std::dbg!(&name_bytes);
         // let new_salt = e.crypto().keccak256(&name_bytes.into());

@@ -13,6 +13,7 @@ mod repay;
 mod security;
 mod storage_extension;
 mod swap;
+mod update_market;
 mod withdraw;
 
 use std::ops::{Add, Sub};
@@ -20,7 +21,8 @@ use std::ops::{Add, Sub};
 use arbitrary::Unstructured;
 use market::{
     constants::{
-        BPS_FACTOR, DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
+        BPS_FACTOR, DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE,
+        DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
     },
     contract::{MarketContract, MarketContractClient},
     error::MCError,
@@ -140,8 +142,8 @@ impl TestMarketFixture<'_> {
                 contract_admin.clone(),
                 oracle_address.clone(),
                 market_manager_address,
-                0u32,
-                0i128,
+                DEFAULT_MAX_POSITIONS,
+                DEFAULT_MIN_COLLATERAL_VALUE,
                 Some(DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS),
             ),
         );
@@ -1171,6 +1173,39 @@ pub fn get_pool_fee_config(
 }
 
 // ---- MISC ----
+
+pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketContractClient<'a> {
+    let contract_name = soroban_sdk::String::from_str(e, "market_contract");
+    let contract_admin = Address::generate(e);
+    let oracle = Address::generate(e);
+
+    let contract_id = e.register(
+        MarketContract,
+        (
+            contract_name,
+            contract_admin.clone(),
+            oracle,
+            contract_admin,
+            DEFAULT_MAX_POSITIONS,
+            DEFAULT_MIN_COLLATERAL_VALUE,
+            if is_owned { Some(DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS) } else { None },
+        ),
+    );
+
+    let client = MarketContractClient::new(e, &contract_id);
+
+    if is_owned {
+        client.update_market_status(&MarketStatus::Active);
+    }
+
+    client
+}
+
+pub fn register_random_sac(e: &Env) -> Address {
+    let token_admin = Address::generate(e);
+
+    e.register_stellar_asset_contract_v2(token_admin).address()
+}
 
 pub fn get_default_env() -> Env {
     let e = Env::default();
