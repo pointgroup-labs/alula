@@ -246,7 +246,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_deposit_allowed(&e);
+        require_deposit_allowed(&e)?;
 
         let obligation_key = ObligationKey::new(user);
 
@@ -266,7 +266,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_deposit_allowed(&e);
+        require_deposit_allowed(&e)?;
 
         let vault_seed = get_earn_vault_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
@@ -287,7 +287,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_borrow_allowed(&e);
+        require_borrow_allowed(&e)?;
 
         let obligation_key = ObligationKey::new(user);
 
@@ -310,7 +310,7 @@ impl MarketContract {
         amount_in: i128,
     ) -> Result<i128, MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
     }
@@ -330,7 +330,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
 
@@ -353,7 +353,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
 
@@ -375,7 +375,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
 
@@ -401,7 +401,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         liquidator.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         let borrower_obligation_key = ObligationKey::new(borrower);
 
@@ -431,7 +431,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
 
@@ -451,7 +451,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         let vault_seed = get_earn_vault_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
@@ -473,7 +473,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         contract.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         process_flash_loan(&e, &contract, &pool_address, amount)
     }
@@ -519,7 +519,7 @@ impl MarketContract {
         leverage_multiplier: u32,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         process_deposit_with_leverage(
             &e,
@@ -551,7 +551,7 @@ impl MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e);
+        require_not_frozen(&e)?;
 
         process_withdraw_from_leveraged(
             &e,

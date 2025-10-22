@@ -1,4 +1,4 @@
-use soroban_sdk::{Env, panic_with_error};
+use soroban_sdk::Env;
 
 use crate::{
     error::MCError,
@@ -38,22 +38,28 @@ pub fn require_deployer(e: &Env) {
 }
 
 #[inline(always)]
-pub fn require_borrow_allowed(e: &Env) {
+pub fn require_borrow_allowed(e: &Env) -> Result<(), MCError> {
     if !matches!(storage::get_market_status(e), MarketStatus::Active) {
-        panic_with_error!(e, MCError::ForbiddenMarketOperation);
+        return Err(MCError::ForbiddenMarketOperation); // TODO: Add missing tests
     }
+
+    Ok(())
 }
 
 #[inline(always)]
-pub fn require_deposit_allowed(e: &Env) {
+pub fn require_deposit_allowed(e: &Env) -> Result<(), MCError> {
     if !matches!(storage::get_market_status(e), MarketStatus::Active | MarketStatus::BorrowFrozen) {
-        panic_with_error!(e, MCError::ForbiddenMarketOperation);
+        return Err(MCError::ForbiddenMarketOperation);
     }
+
+    Ok(())
 }
 
 #[inline(always)]
-pub fn require_not_frozen(e: &Env) {
+pub fn require_not_frozen(e: &Env) -> Result<(), MCError> {
     if matches!(storage::get_market_status(e), MarketStatus::Frozen) {
-        panic_with_error!(e, MCError::ForbiddenMarketOperation);
+        return Err(MCError::ForbiddenMarketOperation);
     }
+
+    Ok(())
 }
