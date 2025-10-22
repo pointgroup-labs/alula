@@ -2,6 +2,7 @@
 pub mod computations;
 pub mod contract;
 pub mod error;
+pub mod events;
 pub mod storage;
 #[cfg(test)]
 mod tests;

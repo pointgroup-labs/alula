@@ -6,6 +6,7 @@ use soroban_sdk::{
 use crate::{
     computations::compute_median,
     error::AOCError,
+    events,
     storage::{self, OracleConfig, OracleConfigInput},
 };
 
@@ -182,10 +183,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
     if !storage::is_asset_registered(e, token_address) {
         {
-            let topics = ("Asset hasn't been registered",);
-            let data = ();
-
-            e.events().publish(topics, data);
+            events::AssetIsNotRegistered { token_address: token_address.clone() }.publish(e);
         }
 
         return None;

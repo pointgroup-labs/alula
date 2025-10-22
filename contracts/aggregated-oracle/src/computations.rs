@@ -1,7 +1,10 @@
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_sdk::{Address, Env, Map, Vec};
 
-use crate::storage::{self, OracleConfig};
+use crate::{
+    events,
+    storage::{self, OracleConfig},
+};
 
 /// Computes the median of `lastprice().price` received from the oracles. In the case of a specific
 /// oracle is not aware of the price, it doesn't get included in the computation
@@ -9,10 +12,7 @@ pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
     let prices = get_last_prices(e, token_address);
 
     if prices.is_empty() {
-        let topics = ("None of the oracles is aware of the recent price",);
-        let data = (token_address,);
-
-        e.events().publish(topics, data);
+        events::AllOraclesUnawareOfPrice { token_address: token_address.clone() }.publish(e);
 
         return None;
     }
@@ -95,14 +95,14 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
     let mut price_data = if let Some(price_data) = price_data {
         price_data
     } else {
-        {
-            // NB: It's rather unexpected not to obtain a price from one of the protocol's oracles
-            // in the first try, as well as the second try
-            let topics = ("Oracle isn't aware of the asset variant",);
-            let data = (asset.clone(), token_address.clone(), &oracle_config.address);
-
-            e.events().publish(topics, data);
+        // NB: It's rather unexpected not to obtain a price from one of the protocol's oracles
+        // in the first try, as well as the second try
+        events::OracleUnawareOfAssetVariant {
+            asset: asset.clone(),
+            oracle_address: oracle_config.address.clone(),
+            token_address: token_address.clone(),
         }
+        .publish(e);
 
         // NB: It might be possible that an oracle contains information about the asset's price as
         // another [`Asset`] variant
@@ -117,10 +117,11 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
 
         let Some(price_data) = oracle_client.lastprice(&another_variant_asset) else {
             {
-                let topics = ("Oracle is completely unaware of the asset's price",);
-                let data = (); // No need to publish context data, since it's already published in the prior event
-
-                e.events().publish(topics, data);
+                events::OracleUnawareOfPrice {
+                    oracle_address: oracle_config.address.clone(),
+                    token_address: token_address.clone(),
+                }
+                .publish(e);
             }
 
             return None;
@@ -134,12 +135,13 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
     if current_timestamp < price_data.timestamp
         || (current_timestamp - price_data.timestamp) > max_age
     {
-        let topics = ("Oracle price's timestamp is invalid",);
-        let data =
-            (asset, oracle_config.address.clone(), token_address.clone(), price_data, max_age);
-
-        // TODO: Introduce `events` module
-        e.events().publish(topics, data);
+        events::OraclePriceTimestampInvalid {
+            oracle_address: oracle_config.address.clone(),
+            token_address: token_address.clone(),
+            price_data,
+            max_age,
+        }
+        .publish(e);
 
         None
     } else {

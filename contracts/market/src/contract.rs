@@ -36,6 +36,7 @@ impl MarketContract {
     /// * `min_collateral_value` - minimum collateral value of a user's obligation
     /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
     /// `None` for permissionless markets since they cannot be updated
+    #[allow(clippy::too_many_arguments)]
     pub fn __constructor(
         e: Env,
         name: String,

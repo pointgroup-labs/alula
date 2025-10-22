@@ -6,6 +6,7 @@ use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
 use crate::get_default_env;
 
 mod market {
+    #![allow(clippy::too_many_arguments)]
     use soroban_sdk::contractimport;
 
     contractimport!(file = "../wasms/market.wasm");

@@ -6,6 +6,7 @@ use crate::{
 };
 
 mod market {
+    #![allow(clippy::too_many_arguments)]
     use soroban_sdk::contractimport;
 
     #[cfg(not(feature = "deploy"))]
@@ -27,7 +28,8 @@ pub trait MarketManager {
     /// * `max_positions` - maximum number of positions for a single obligation to have at a single moment
     /// * `min_collateral` - minimum allowed value of a collateral position at a single moment
     /// * `update_in_queue_period` - amount of seconds required to pass before applying an issued pool's config update in an owned pool. Passing here `None` means that the market is permissionless
-    /// and its pools and parameters cannot be modified(except for new pools initialization)
+    ///   and its pools and parameters cannot be modified(except for new pools initialization)
+    #[allow(clippy::too_many_arguments)]
     fn deploy(
         e: Env,
         salt: BytesN<32>,
@@ -52,6 +54,7 @@ pub struct MarketManagerContract;
 
 #[contractimpl]
 impl MarketManager for MarketManagerContract {
+    #[allow(clippy::too_many_arguments)]
     fn deploy(
         e: Env,
         salt: BytesN<32>,
