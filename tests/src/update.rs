@@ -51,7 +51,7 @@ fn test_queue_in_pool_config_update() {
 
     assert_eq!(
         contract_client.try_apply_pool_config_update(&pool_address),
-        Err(Ok(MCError::PoolConfigUpdateIsNotSeasonedYet))
+        Err(Ok(MCError::PoolConfigUpdateIsNotYetApplicable))
     );
 
     e.ledger().with_mut(|li| li.timestamp += 1);

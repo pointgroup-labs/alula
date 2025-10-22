@@ -1,64 +1,66 @@
 use soroban_sdk::contracterror;
 
+// TODO: Standardize/stabilize error codes(check how others do it)
+
 #[contracterror]
 #[derive(Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum MCError {
-    // Core errors (0-9)
+    // Core errors (0-99)
     InternalError = 0,
     OverOrUnderflow = 1,
     InvalidTimestamp = 2,
-    MarketIsNotOwned = 3,
-    DependencyContractError = 4,
+    DependencyContractError = 3,
+    MarketIsNotOwned = 4,
     ForbiddenMarketOperation = 5,
     InvalidMarketUpdate = 6,
-    ForbiddenPoolOperation = 7,
 
-    // Pool-related errors (10-19)
-    PoolAlreadyExists = 10,
-    PoolDoesNotExist = 11,
-    InvalidLoanPoolConfig = 12,
-    NotEnoughPoolFunds = 13,
-    DepositPoolDoesNotExist = 14,
-    BorrowPoolDoesNotExist = 15,
-    CollateralPoolDoesNotExist = 16,
-    PoolAlreadyContainsEnqueuedConfigUpdate = 17,
-    PoolDoesNotHaveQueuedInConfigUpdate = 18,
-    PoolConfigUpdateIsNotSeasonedYet = 19,
+    // Pool-related errors (100-199)
+    PoolAlreadyExists = 100,
+    PoolDoesNotExist = 101,
+    InvalidLoanPoolConfig = 102,
+    NotEnoughPoolFunds = 103,
+    DepositPoolDoesNotExist = 104,
+    BorrowPoolDoesNotExist = 105,
+    CollateralPoolDoesNotExist = 106,
+    PoolAlreadyContainsQueuedInConfigUpdate = 107,
+    PoolDoesNotHaveQueuedInConfigUpdate = 108,
+    PoolConfigUpdateIsNotYetApplicable = 109,
+    ForbiddenPoolOperation = 110,
 
-    // Obligation-related errors (20-29)
-    ObligationDoesNotExist = 20,
-    DepositDoesNotExist = 21,
-    BorrowDoesNotExist = 22,
-    WithdrawScarcityOverLimit = 23, // TODO: Pool errors?
-    ScarcityCooldownPeriod = 24,
+    // Obligation-related errors (200-299)
+    ObligationDoesNotExist = 200,
+    DepositDoesNotExist = 201,
+    BorrowDoesNotExist = 202,
+    WithdrawScarcityOverLimit = 203,
+    ScarcityCooldownPeriod = 204,
 
-    // Amount validation errors (30-39)
-    NegativeAmount = 30,
+    // Amount validation errors (300-399)
+    NegativeAmount = 300,
 
-    // Balance and limit errors (40-49)
-    WithdrawOverBalance = 40,
-    PoolSupplyLimitExceeded = 41,
-    PoolUtilizationRatioCapExceeded = 42, /* TODO: Must be `Not Enough Available Funds` for Withdraw */
-    CollateralRemovalOverbalance = 43,
+    // Balance and limit errors (400-499)
+    WithdrawOverBalance = 400,
+    PoolSupplyLimitExceeded = 401,
+    PoolUtilizationRatioCapExceeded = 402,
+    CollateralRemovalOverbalance = 403,
 
-    // Oracle-related errors (50-59)
-    OracleDoesNotKnowAssetPrice = 50,
-    OracleStalePrice = 51,
+    // Oracle-related errors (500-599)
+    OracleDoesNotKnowAssetPrice = 500,
+    OracleStalePrice = 501,
 
-    // Health factor and liquidation errors (60-69)
-    HealthFactorIsLowerThanRequiredThreshold = 60,
-    InvalidLiquidationThreshold = 61,
-    LiquidatedPositionIsHealthy = 62,
-    LiquidationExceedsCloseFactor = 63,
-    SelfLiquidation = 64,
-    LiquidationWithEqualCollateralAndDepositPools = 65,
-    PositionDoesNotHaveBadDebt = 66,
-    BadDebtPosition = 67,
+    // Health factor and liquidation errors (600-699)
+    HealthFactorIsLowerThanRequiredThreshold = 600,
+    InvalidLiquidationThreshold = 601,
+    LiquidatedPositionIsHealthy = 602,
+    LiquidationExceedsCloseFactor = 603,
+    SelfLiquidation = 604,
+    LiquidationWithEqualCollateralAndDepositPools = 605,
+    PositionDoesNotHaveBadDebt = 606,
+    BadDebtPosition = 607,
 
-    // Leverage and swap errors (70-79)
-    InvalidLeverageMultiplier = 70,
-    InvalidSwapSlippage = 71,
-    MultiplyPairAlreadyExists = 72,
-    MultiplyPairDoesNotExist = 73,
+    // Leverage and swap errors (700-799)
+    InvalidLeverageMultiplier = 700,
+    InvalidSwapSlippage = 701,
+    MultiplyPairAlreadyExists = 702,
+    MultiplyPairDoesNotExist = 703,
 }

@@ -555,7 +555,7 @@ impl Pool {
                 .checked_add(update_pool_config_period)
                 .map_over_or_underflow()?
         {
-            return Err(MCError::PoolConfigUpdateIsNotSeasonedYet);
+            return Err(MCError::PoolConfigUpdateIsNotYetApplicable);
         }
         self.config = pool_config_update.new_config;
 

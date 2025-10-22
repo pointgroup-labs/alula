@@ -226,7 +226,7 @@ pub fn queue_in_pool_config_update(
 ) -> Result<(), MCError> {
     let key = DataKey::ConfigUpdate(pool_address.clone());
     if e.storage().persistent().has(&key) {
-        return Err(MCError::PoolAlreadyContainsEnqueuedConfigUpdate);
+        return Err(MCError::PoolAlreadyContainsQueuedInConfigUpdate);
     }
 
     let pool_update =
