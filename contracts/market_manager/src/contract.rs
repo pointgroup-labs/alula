@@ -125,8 +125,7 @@ impl MarketManagerContract {
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
     ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        let config = storage::get_config(&e);
-        config.admin.require_auth();
+        require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
