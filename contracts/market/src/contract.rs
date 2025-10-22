@@ -58,7 +58,7 @@ impl MarketContract {
         storage::set_oracle(&e, &oracle);
         storage::set_deployer(&e, &deployer);
         storage::set_market_status(&e, &market_status);
-        storage::set_max_positions(&e, max_positions as u32);
+        storage::set_max_positions(&e, max_positions);
         storage::set_update_in_queue_period(&e, update_in_queue_period);
         storage::set_min_collateral_value(&e, min_collateral_value);
 
@@ -113,7 +113,7 @@ impl MarketContract {
         require_owned_and_admin(&e)?;
 
         // TODO: Add `MAX_RESERVES` check
-        if (new_max_positions < 2 || new_max_positions > 2 * MAX_RESERVES)
+        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions)
             || new_min_collateral_value < 0
         {
             return Err(MCError::InvalidMarketUpdate);
