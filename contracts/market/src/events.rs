@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, String, Symbol, contractevent};
+use soroban_sdk::{Address, Env, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -14,26 +14,15 @@ use crate::{
 // --- Contract's Methods Events ---
 
 #[contractevent]
-struct ConstructorEvent {
-    #[topic]
-    pub admin: Address,
-    #[topic]
-    pub name: String,
-    pub oracle: Address,
-}
-
-#[contractevent]
 struct DepositEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey, /* TODO: If we emit events with an obligation key, we'd better have a public method */
-    // that returns them, right?
+    pub obligation_key: ObligationKey, /* TODO: Start return ObligationKey's from the contract */
     pub deposit_result: DepositResult,
 }
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct InitializePoolEvent {
     #[topic]
     pub token_address: Address,
@@ -43,9 +32,8 @@ struct InitializePoolEvent {
     pub token_ticker: Symbol,
 }
 
-// TODO: Should we still keep a public `swap` endpoint?
+// TODO: Should we still keep a `swap` endpoint public?
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct SwapEvent {
     #[topic]
     pub user: Address,
@@ -95,7 +83,7 @@ struct LiquidateEvent {
     pub borrow_pool_address: Address,
     #[topic]
     pub collateral_pool_address: Address,
-    // TODO: Introduce `LiquidateResult`
+    // TODO: Introduce `LiquidateResult` struct
     pub liquidated_amount: i128,
     pub collateral_seized_amount: i128,
 }
@@ -124,7 +112,7 @@ struct FlashLoanEvent {
     pub contract: Address,
     #[topic]
     pub pool_address: Address,
-    // TODO: Introduce `FlashLoanResult`
+    // TODO: Introduce `FlashLoanResult` struct
     pub amount: i128,
     pub fees_paid: i128,
 }
@@ -137,7 +125,7 @@ struct DepositWithLeverageEvent {
     pub deposit_pool_address: Address,
     #[topic]
     pub borrow_pool_address: Address,
-    // TODO: DepositWithLeverageResult
+    // TODO: `DepositWithLeverageResult` struct
     pub original_amount: i128,
     pub leverage_multiplier: u32,
     pub total_deposited_amount: i128,
@@ -152,12 +140,11 @@ struct WithdrawFromLeveragedEvent {
     pub deposit_pool_address: Address,
     #[topic]
     pub borrow_pool_address: Address,
-    // TODO: WithdrawFromLeveragedResult
+    // TODO: `WithdrawFromLeveragedResult` struct
     pub amount: i128,
     pub actual_amount_withdrawn: i128,
 }
 
-// TODO: Should this event even exist?
 #[contractevent]
 struct AccrueInterestEvent {
     #[topic]
@@ -204,45 +191,35 @@ struct ObligationIsMissingInStorage {
 }
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct ObligationAmntBecomesNegative {
     pub old_amount: i128,
     pub new_amount: i128,
 }
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct PoolAmountBecomesNegative {
     pub old_amount: i128,
     pub new_amount: i128,
 }
 
-// TODO: Fix
-
-// /// Emitted when the total shares in a pool are found to be less than an individual user's shares
-// #[contractevent]
-// #[derive(Clone, Debug, Eq, PartialEq)]
-// struct PoolTotalSharesSmallerThanIndividualUserShares {
-//     pub total_shares: i128,
-//     pub individual_shares: i128,
-// }
-
-// /// Emitted when the total shares in a pool are found to be less than the total tokens amount
-// #[contractevent]
-// #[derive(Clone, Debug, Eq, PartialEq)]
-// struct PoolTotalSharesSmallerThanTotalTokens {
-//     pub total_shares: i128,
-//     pub total_tokens: i128,
-// }
+#[contractevent]
+struct PoolInconsistentTotalShares {
+    pub total_shares: i128,
+    pub individual_shares: i128,
+}
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
+struct PoolInconsistentTotalTokens {
+    pub total_shares: i128,
+    pub total_tokens: i128,
+}
+
+#[contractevent]
 struct PoolContainsInconsistentState {
     pub pool: Pool,
 }
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct ObligationIsUnexpectedlyEmpty {
     #[topic]
     pub obligation_key: ObligationKey,
@@ -251,7 +228,6 @@ struct ObligationIsUnexpectedlyEmpty {
 }
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct ComputedInterestIsNegative {
     #[topic]
     pub pool_address: Address,
@@ -262,7 +238,6 @@ struct ComputedInterestIsNegative {
 }
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct ReceivedUnexpectedSwapAmount {
     #[topic]
     pub user: Address,
@@ -475,10 +450,6 @@ pub fn withdraw_from_leveraged(
     .publish(e);
 }
 
-pub fn accrue_interest(e: &Env, user: &Address) {
-    AccrueInterestEvent { user: user.clone() }.publish(e);
-}
-
 /// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
 /// storage timestamp
 pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
@@ -529,29 +500,32 @@ pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey)
     ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
+/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn obligation_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
     ObligationAmntBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
+/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn pool_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
     PoolAmountBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
-/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
+/// Emitted when the total shares in a pool are found to be less than an individual user's shares
 pub fn pool_total_shares_smaller_than_individual_user_shares(
-    _e: &Env,
-    _total_shares: i128,
-    _individual_shares: i128,
+    e: &Env,
+    total_shares: i128,
+    individual_shares: i128,
 ) {
-    // PoolTotalSharesSmallerThanIndividualUserShares { total_shares, individual_shares }.publish(e);
+    PoolInconsistentTotalShares { total_shares, individual_shares }.publish(e);
 }
 
+/// Emitted when the total shares in a pool are found to be less than the total tokens amount
 pub fn pool_total_shares_smaller_than_total_tokens(
-    _e: &Env,
-    _total_shares: i128,
-    _total_tokens: i128,
+    e: &Env,
+    total_shares: i128,
+    total_tokens: i128,
 ) {
-    // PoolTotalSharesSmallerThanTotalTokens { total_shares, total_tokens }.publish(e);
+    PoolInconsistentTotalTokens { total_shares, total_tokens }.publish(e);
 }
 
 /// Emitted when pool state becomes generally inconsistent
@@ -619,7 +593,6 @@ pub fn received_unexpected_swap_amount(
 // --- Helper Functions  ---
 
 #[contractevent]
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct DbgEvent {
     #[topic]
     pub symbol: Symbol,
