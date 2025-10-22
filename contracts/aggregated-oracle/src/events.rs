@@ -31,6 +31,8 @@ pub struct OraclePriceTimestampInvalid {
     pub oracle_address: Address,
     #[topic]
     pub token_address: Address,
+    #[topic]
+    pub asset: Asset,
     pub price_data: PriceData,
     pub max_age: u64,
 }

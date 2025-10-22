@@ -96,7 +96,7 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         price_data
     } else {
         // NB: It's rather unexpected not to obtain a price from one of the protocol's oracles
-        // in the first try, as well as the second try
+        // in the first try. The same holds for the second try
         events::OracleUnawareOfAssetVariant {
             asset: asset.clone(),
             oracle_address: oracle_config.address.clone(),
@@ -136,10 +136,11 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         || (current_timestamp - price_data.timestamp) > max_age
     {
         events::OraclePriceTimestampInvalid {
-            oracle_address: oracle_config.address.clone(),
-            token_address: token_address.clone(),
-            price_data,
+            asset,
             max_age,
+            price_data,
+            token_address: token_address.clone(),
+            oracle_address: oracle_config.address.clone(),
         }
         .publish(e);
 

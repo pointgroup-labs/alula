@@ -182,9 +182,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
     };
 
     if !storage::is_asset_registered(e, token_address) {
-        {
-            events::AssetIsNotRegistered { token_address: token_address.clone() }.publish(e);
-        }
+        events::AssetIsNotRegistered { token_address: token_address.clone() }.publish(e);
 
         return None;
     }
