@@ -1,5 +1,5 @@
 use sep_40_oracle::{Asset, PriceData};
-use soroban_sdk::{Address, Env, String, Symbol, contractevent};
+use soroban_sdk::{Address, contractevent};
 
 #[contractevent]
 pub struct AllOraclesUnawareOfPrice {
