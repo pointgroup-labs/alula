@@ -526,7 +526,7 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn queue_in_config_update(&self, e: &Env, config: &PoolConfig) -> Result<(), MCError> {
-        // TODO: Add event
+        // TODO: Should we add an event here? Diagnostic Event is published with all info...
         storage::queue_in_pool_config_update(e, &self.pool_address, config)
     }
 
@@ -535,7 +535,7 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn remove_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
-        // TODO: event
+        // TODO: event?
         storage::remove_pool_config_update(e, &self.pool_address)
     }
 
@@ -563,7 +563,7 @@ impl Pool {
 
         storage::remove_pool_config_update(e, &self.pool_address)?;
 
-        // TODO: event
+        // TODO: event?
 
         Ok(())
     }
@@ -706,7 +706,7 @@ pub struct PoolHealthConfig {
     pub supply_limit: i128,
     /// The maximum utilization ratio that is allowed to be reached via borrowing
     pub utilization_ratio_limit_bps: i128,
-    /// Basis points of the pool that can be withdrawn in a single operation when the pool's utilization ratio exceeds
+    /// Basis points of the pool's total supply that can be withdrawn in a single operation when the pool's utilization ratio exceeds
     /// `utilization_ratio_limit_bps`
     pub withdraw_scarcity_limit_bps: i128,
     /// Cooldown period(in seconds) required between a pair of sequential withdrawals when the pool's utilization ratio exceeds

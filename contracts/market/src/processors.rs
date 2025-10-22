@@ -123,7 +123,8 @@ pub fn process_deposit(
         }
     }
 
-    // WARN: Bug. We duplicate obligations if user creates a deposit with leverage
+    // WARN: Bug. We duplicate obligations if the user creates a deposit with leverage.
+    // We must separate `multiply` obligations from others in the obligation list
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
 
