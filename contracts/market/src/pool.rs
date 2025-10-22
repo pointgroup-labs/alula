@@ -250,6 +250,14 @@ impl Pool {
         Ok(())
     }
 
+    pub fn require_deposit_enabled(&self) -> bool {
+        self.config.status.deposit_enabled
+    }
+
+    pub fn require_borrow_enabled(&self) -> bool {
+        self.config.status.borrow_enabled
+    }
+
     pub fn require_remove_collateral_preserves_ur_cap(
         &self,
         e: &Env,
@@ -639,8 +647,22 @@ impl Default for PoolFeeConfig {
 }
 
 #[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct PoolStatus {
+    pub borrow_enabled: bool,
+    pub deposit_enabled: bool,
+}
+
+impl Default for PoolStatus {
+    fn default() -> Self {
+        Self { borrow_enabled: true, deposit_enabled: true }
+    }
+}
+
+#[contracttype]
 #[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoolConfig {
+    pub status: PoolStatus,
     pub fee_config: PoolFeeConfig,
     pub health_config: PoolHealthConfig,
     pub accrual_model: AccrualModel,

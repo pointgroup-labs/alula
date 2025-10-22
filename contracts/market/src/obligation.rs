@@ -1093,6 +1093,7 @@ const EARN_VAULT_SEED_STR: &str = "EV";
 /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
 pub fn get_earn_vault_seed(e: &Env) -> BytesN<32> {
     if let Some(stored_vault_seed) = storage::get_earn_vault_seed(e) {
+        // TODO: Add tests that verify that caching actually takes place
         stored_vault_seed
     } else {
         let computed_vault_seed = compute_earn_vault_seed(e);

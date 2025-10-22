@@ -10,7 +10,7 @@ use crate::{
     error::MCError,
     events,
     flash_loan_client_trait::FlashLoanClient,
-    helpers::require_nonnegative,
+    helpers::{require_deposit_allowed, require_nonnegative},
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{CoverBadDebtResult, LiquidationValues, Obligation, ObligationKey},
@@ -109,6 +109,7 @@ pub fn process_deposit(
     require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
+    pool.require_deposit_enabled();
     pool.accrue_interest(e)?;
 
     let supply_limit = pool.config.health_config.supply_limit;
@@ -152,6 +153,7 @@ pub fn process_borrow(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
+    pool.require_borrow_enabled();
     pool.accrue_interest(e)?;
 
     let borrow_result = obligation.borrow(e, &pool, amount)?;
