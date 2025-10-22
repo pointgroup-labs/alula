@@ -264,14 +264,18 @@ fn test_deposit_multiple_shareholders() {
 }
 
 #[test]
-fn test_deposit_into_earn_vault() {
+fn test_deposit_into_earn_obligation() {
     let TestMarketFixture {
         e, contract_client, gold_pool_address, users, gold_token_client, ..
     } = TestMarketFixture::new();
     let creditor = &users[0];
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.deposit_into_earn_vault(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit_into_earn_obligation(
+        creditor,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     assert_eq!(
@@ -325,7 +329,11 @@ fn test_earn_vault_deposit_is_isolated() {
     let creditor = &users[0];
     let liquidity_provider = &users[0];
 
-    contract_client.deposit_into_earn_vault(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit_into_earn_obligation(
+        creditor,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
 
     assert_eq!(
         contract_client.try_borrow(creditor, &usdc_pool_address, &1),
@@ -333,7 +341,7 @@ fn test_earn_vault_deposit_is_isolated() {
     );
 
     // Deposit as a liquidity provider to ignore withdrawal scarcity fees
-    contract_client.deposit_into_earn_vault(
+    contract_client.deposit_into_earn_obligation(
         liquidity_provider,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -353,7 +361,11 @@ fn test_earn_vault_deposit_is_isolated() {
     // - Withdraw from the earn vault -
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.withdraw_from_earn_vault(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw_from_earn_obligation(
+        creditor,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     let creditor_balance_diff =

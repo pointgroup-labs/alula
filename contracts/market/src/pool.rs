@@ -526,6 +526,7 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn queue_in_config_update(&self, e: &Env, config: &PoolConfig) -> Result<(), MCError> {
+        // TODO: Add event
         storage::queue_in_pool_config_update(e, &self.pool_address, config)
     }
 
@@ -534,6 +535,7 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn remove_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
+        // TODO: event
         storage::remove_pool_config_update(e, &self.pool_address)
     }
 
@@ -560,6 +562,8 @@ impl Pool {
         self.set(e);
 
         storage::remove_pool_config_update(e, &self.pool_address)?;
+
+        // TODO: event
 
         Ok(())
     }

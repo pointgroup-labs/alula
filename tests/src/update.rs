@@ -103,7 +103,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     let loan_provider = &users[0];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.deposit_into_earn_vault(
+    contract_client.deposit_into_earn_obligation(
         loan_provider,
         &usdc_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
@@ -187,14 +187,18 @@ fn test_cancel_pool_config_update() {
     contract_client.queue_in_pool_config_update(&pool_address, &new_pool_config);
 
     assert_eq!(
-        contract_client.get_pool_config_update(&pool_address).new_config.health_config.supply_limit,
+        contract_client
+            .get_pool_config_queued_in_update(&pool_address)
+            .new_config
+            .health_config
+            .supply_limit,
         NEW_SUPPLY_LIMIT
     );
 
     contract_client.cancel_pool_config_update(&pool_address);
 
     assert_eq!(
-        contract_client.try_get_pool_config_update(&pool_address),
+        contract_client.try_get_pool_config_queued_in_update(&pool_address),
         Err(Ok(MCError::PoolDoesNotHaveQueuedInConfigUpdate))
     );
 }

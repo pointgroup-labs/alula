@@ -278,11 +278,6 @@ struct ReceivedUnexpectedSwapAmount {
 
 // --- Methods that abstract how events are published ---
 
-pub fn constructor(e: &Env, admin: &Address, name: &String, oracle: &Address) {
-    ConstructorEvent { admin: admin.clone(), name: name.clone(), oracle: oracle.clone() }
-        .publish(e);
-}
-
 pub fn deposit(
     e: &Env,
     pool_address: &Address,

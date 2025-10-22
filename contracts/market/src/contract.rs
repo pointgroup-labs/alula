@@ -63,9 +63,6 @@ impl MarketContract {
         storage::set_update_in_queue_period(&e, update_in_queue_period);
         storage::set_min_collateral_value(&e, min_collateral_value);
 
-        // TODO: Fix event
-        // events::constructor(&e, &admin, &name, &oracle);
-
         Ok(())
     }
 
@@ -87,21 +84,30 @@ impl MarketContract {
         storage::extend_instance_storage(&e);
 
         let update_in_queue_period = storage::get_update_in_queue_period(&e);
+        let name = storage::get_name(&e);
+        let admin = storage::get_admin(&e);
+        let oracle = storage::get_oracle(&e);
+        let deployer = storage::get_deployer(&e);
+        let status = storage::get_market_status(&e);
+        let is_owned = update_in_queue_period.is_some();
+        let max_positions = storage::get_max_positions(&e);
+        let min_collateral_value = storage::get_min_collateral_value(&e);
+        let update_in_queue_period = storage::get_update_in_queue_period(&e);
 
         GlobalState {
-            name: storage::get_name(&e),
-            admin: storage::get_admin(&e),
-            oracle: storage::get_oracle(&e),
-            deployer: storage::get_deployer(&e),
-            status: storage::get_market_status(&e),
-            is_owned: update_in_queue_period.is_some(),
-            max_positions: storage::get_max_positions(&e),
-            min_collateral_value: storage::get_min_collateral_value(&e),
-            update_in_queue_period: storage::get_update_in_queue_period(&e),
+            name,
+            admin,
+            oracle,
+            status,
+            deployer,
+            is_owned,
+            max_positions,
+            min_collateral_value,
+            update_in_queue_period,
         }
     }
 
-    /// Updates the owned market's state
+    /// Updates the owned market's parameters
     ///
     /// # Arguments
     /// * `new_max_positions` - updated maximum number of positions that a single obligation can have
@@ -113,7 +119,7 @@ impl MarketContract {
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
 
-        // TODO: Add `MAX_RESERVES` check
+        // TODO: Add `MAX_RESERVES` check on obligations' operations
         if !(2..=2 * MAX_RESERVES).contains(&new_max_positions) || new_min_collateral_value < 0 {
             return Err(MCError::InvalidMarketUpdate);
         }
@@ -201,7 +207,7 @@ impl MarketContract {
         Ok(())
     }
 
-    /// Applies the pool's config update if it exists in a queue and is seasoned
+    /// Applies the pool's config update if it exists in a queue and has completed its queue period
     ///
     /// # Arguments
     /// * `pool_address` - address of a pool to which the config update is being applied
@@ -218,7 +224,10 @@ impl MarketContract {
     ///
     /// # Arguments
     /// * `pool_address` - address of a pool, for which the config update is received
-    pub fn get_pool_config_update(e: Env, pool_address: Address) -> Result<PoolUpdate, MCError> {
+    pub fn get_pool_config_queued_in_update(
+        e: Env,
+        pool_address: Address,
+    ) -> Result<PoolUpdate, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
         pool.get_pool_config_update(&e)
@@ -244,13 +253,13 @@ impl MarketContract {
         process_deposit(&e, &obligation_key, &pool_address, amount)
     }
 
-    /// Deposits tokens into the loan pool as a part of the `Earn` vault strategy obligation, meaning that no borrows are allowed for it
+    /// Deposits tokens into the loan pool as a part of the `Earn` isolated obligation that prohibits all types of borrowing
     ///
     /// # Arguments
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
-    pub fn deposit_into_earn_vault(
+    pub fn deposit_into_earn_obligation(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -429,13 +438,13 @@ impl MarketContract {
         process_withdraw(&e, &obligation_key, &pool_address, amount)
     }
 
-    /// Withdraws deposited tokens from the `Earn` vault strategy obligation from the loan pool to the user
+    /// Withdraws deposited tokens from the `Earn` obligation from the loan pool to the user
     ///
     /// # Arguments
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
-    pub fn withdraw_from_earn_vault(
+    pub fn withdraw_from_earn_obligation(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -661,17 +670,17 @@ impl MarketContract {
         Ok(obligation)
     }
 
-    /// Returns the user's obligation, which includes data about all of their `Earn` Vault deposits
+    /// Returns the user's `Earn` obligation
     ///
     /// # Arguments
     /// * `user` - user whose `Earn` vault obligation is returned
-    pub fn get_earn_vault_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
+    pub fn get_earn_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
         let vault_seed = get_earn_vault_seed(&e);
 
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
-        obligation.accrue_interest(&e)?;
+        obligation.accrue_interest(&e)?; // WARN: Stop accruing interest in setters?
         obligation.set(&e, &obligation_key);
 
         Ok(obligation)

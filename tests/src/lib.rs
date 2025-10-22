@@ -1044,7 +1044,7 @@ pub fn get_earn_vault_deposit_obligation(
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositObligation, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_earn_vault_user_obligation(user) else {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
         return Err(MCError::ObligationDoesNotExist);
     };
 
@@ -1095,7 +1095,7 @@ pub fn get_earn_vault_borrow_obligation(
     user: &Address,
     pool_address: &Address,
 ) -> Result<BorrowObligation, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_earn_vault_user_obligation(user) else {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
         return Err(MCError::ObligationDoesNotExist);
     };
 
