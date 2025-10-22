@@ -43,6 +43,7 @@ pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
 // ---- Interest Rate and Accrual ----
+
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
 pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000; // 10%
 pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: i128 = 7_000; // 70%
@@ -90,6 +91,7 @@ pub const LEVERAGE_SCALE: u32 = 100;
 pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE; // 1
 
 // ---- Fees ----
+
 pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
 pub const DEFAULT_BORROW_FEE_BPS: u32 = 5; // 0.05%
 pub const DEFAULT_DEPOSIT_FEE_BPS: u32 = 0;
@@ -102,6 +104,7 @@ pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_HOST_FEE_BPS: u32 = 2000; // 20%
 
 pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
+
 // ---- Oracle ----
 
 /// Maximum acceptable oracle price age in seconds
@@ -111,15 +114,12 @@ pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Rel
 
 pub const ROUTER_ADDRESS: &str = "CCMAPXWVZD4USEKDWRYS7DA4Y3D7E2SDMGBFJUCEXTC7VN6CUBGWPFUS";
 
-// -- TODO LATER --
+// ---- MISC ----
 
-pub const DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS: u64 = 24 * 60 * 60;
-
+pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;
 pub const DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
+pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 10i128.pow(5); // 10^5 = 0.01
+pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
-
-pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 100000; // 10^5
-
-pub const DEFAULT_MAX_POSITIONS: u32 = 20;

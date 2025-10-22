@@ -22,7 +22,7 @@ use arbitrary::Unstructured;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE,
-        DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
+        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
     },
     contract::{MarketContract, MarketContractClient},
     error::MCError,
@@ -144,7 +144,7 @@ impl TestMarketFixture<'_> {
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
                 DEFAULT_MIN_COLLATERAL_VALUE,
-                Some(DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS),
+                Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
             ),
         );
         let contract_client = MarketContractClient::new(&e, &contract_id);
@@ -1265,7 +1265,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketContractClient<
             contract_admin,
             DEFAULT_MAX_POSITIONS,
             DEFAULT_MIN_COLLATERAL_VALUE,
-            if is_owned { Some(DEFAULT_POOL_CONFIG_SEASONING_PERIOD_SECONDS) } else { None },
+            if is_owned { Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS) } else { None },
         ),
     );
 

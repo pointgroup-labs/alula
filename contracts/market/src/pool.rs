@@ -627,7 +627,8 @@ pub struct PoolFeeConfig {
 
     pub deposit_fee_bps: u32,
     pub withdraw_fee_bps: u32,
-    /// Over-utilization ratio cap withdrawal fee scalar percent
+    /// Additional scalar (in percents) used for the additional withdrawal fee when the utilization ratio
+    /// exceeds `utilization_ratio_limit_bps` (i.e. `120` for `x1.20`, etc.)
     pub withdraw_scarcity_fee_scalar_p: u32,
     pub add_collateral_fee_bps: u32,
     pub remove_collateral_fee_bps: u32,
