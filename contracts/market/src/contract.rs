@@ -10,7 +10,7 @@ use crate::{
     },
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     multiply_pair::MultiplyPair,
-    obligation::{Obligation, ObligationKey, get_earn_vault_seed},
+    obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::*,
@@ -268,7 +268,7 @@ impl MarketContract {
         user.require_auth();
         require_deposit_allowed(&e)?;
 
-        let vault_seed = get_earn_vault_seed(&e);
+        let vault_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
 
         process_deposit(&e, &obligation_key, &pool_address, amount)
@@ -453,7 +453,7 @@ impl MarketContract {
         user.require_auth();
         require_not_frozen(&e)?;
 
-        let vault_seed = get_earn_vault_seed(&e);
+        let vault_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
 
         process_withdraw(&e, &obligation_key, &pool_address, amount)
@@ -675,7 +675,7 @@ impl MarketContract {
     /// # Arguments
     /// * `user` - user whose `Earn` vault obligation is returned
     pub fn get_earn_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
-        let vault_seed = get_earn_vault_seed(&e);
+        let vault_seed = get_earn_obligation_seed(&e);
 
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
