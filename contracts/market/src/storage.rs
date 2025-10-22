@@ -42,31 +42,25 @@ pub struct PoolUpdate {
 
 #[contracttype]
 pub enum DataKey {
-    // --- System / Contract Configuration (One-off values) ---
-    Name,  // Contract's name
-    Admin, // Contract administrator or owner
+    Name,
+    Admin,
     UpdateInQueuePeriod,
-    IsOwned,            // Ownership status flag
-    DeployerHost,       // The host/origin of the deployment
-    Oracle,             // Address of the external price oracle
-    MinCollateralValue, // Minimum required collateralization ratio
-    MaxPositions,       // Maximum number of allowed positions/obligations
-
-    // --- Global State / Statistics (Aggregated/Running totals) ---
-    GlobalState,      // General, non-indexed contract state
-    Accrual,          // Accrual or interest calculation state
-    AllPools,         // List or index of all active liquidity pools
-    AllObligations,   // List or index of all open obligations/loans
-    AllMultiplyPairs, // List or index of all active multiply/leverage pairs
+    IsOwned,
+    DeployerHost,
+    Oracle,
+    MinCollateralValue,
+    MaxPositions,
+    GlobalState,
+    Accrual,
+    AllPools,
+    AllObligations,
+    AllMultiplyPairs,
     MarketStatus,
     ConfigUpdate(Address),
-
-    // --- Specific Entity Data (Indexed by a key) ---
-    Pool(Address), // Data for a specific liquidity pool (indexed by Address)
-    Obligation(ObligationKey), // Data for a specific loan/obligation (indexed by ObligationKey)
-    MultiplyPair((Address, Address)), /* Data for a specific multiply/leverage pair (indexed by (DepositAddress, BorrowAddress)) */
-
-    EarnVaultSeed,
+    Pool(Address),
+    Obligation(ObligationKey),
+    MultiplyPair((Address, Address)),
+    EarnObligationSeed,
 }
 
 // -- TTL Bumpers --
@@ -159,12 +153,12 @@ pub fn get_deployer(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::DeployerHost).expect("Deployer must be set")
 }
 
-// - EarnVaultSeed -
-pub fn set_earn_vault_seed(e: &Env, seed: &BytesN<32>) {
-    e.storage().instance().set(&DataKey::EarnVaultSeed, &seed)
+// - EarnObligationSeed -
+pub fn set_earn_obligation_seed(e: &Env, seed: &BytesN<32>) {
+    e.storage().instance().set(&DataKey::EarnObligationSeed, &seed)
 }
-pub fn get_earn_vault_seed(e: &Env) -> Option<BytesN<32>> {
-    e.storage().instance().get(&DataKey::EarnVaultSeed)
+pub fn get_earn_obligation_seed(e: &Env) -> Option<BytesN<32>> {
+    e.storage().instance().get(&DataKey::EarnObligationSeed)
 }
 // ---- Pool ----
 
@@ -240,7 +234,7 @@ pub fn queue_in_pool_config_update(
 pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let key = DataKey::ConfigUpdate(pool_address.clone());
 
-    if !e.storage().persistent().has(&DataKey::ConfigUpdate(pool_address.clone())) {
+    if !e.storage().persistent().has(&key) {
         return Err(MCError::PoolDoesNotHaveQueuedInConfigUpdate);
     }
 

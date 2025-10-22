@@ -1089,12 +1089,12 @@ const EARN_OBLIGATION_SEED_STR: &str = "EV";
 /// # Returns
 /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
 pub fn get_earn_obligation_seed(e: &Env) -> BytesN<32> {
-    if let Some(stored_seed) = storage::get_earn_vault_seed(e) {
+    if let Some(stored_seed) = storage::get_earn_obligation_seed(e) {
         // TODO: Add tests that verify that caching actually takes place
         stored_seed
     } else {
         let computed_seed = compute_earn_obligation_seed(e);
-        storage::set_earn_vault_seed(e, &computed_seed);
+        storage::set_earn_obligation_seed(e, &computed_seed);
 
         computed_seed
     }
