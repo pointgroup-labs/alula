@@ -10,7 +10,7 @@ use crate::{
     error::MCError,
     events,
     flash_loan_client_trait::FlashLoanClient,
-    helpers::{require_deposit_allowed, require_nonnegative},
+    helpers::require_nonnegative,
     math_utils::MathUtils,
     multiply_pair::MultiplyPair,
     obligation::{CoverBadDebtResult, LiquidationValues, Obligation, ObligationKey},
