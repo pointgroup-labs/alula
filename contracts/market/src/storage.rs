@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, Map, String, Vec, contracttype};
+use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
 
 use crate::{
     constants::*,
@@ -65,6 +65,8 @@ pub enum DataKey {
     Pool(Address), // Data for a specific liquidity pool (indexed by Address)
     Obligation(ObligationKey), // Data for a specific loan/obligation (indexed by ObligationKey)
     MultiplyPair((Address, Address)), /* Data for a specific multiply/leverage pair (indexed by (DepositAddress, BorrowAddress)) */
+
+    EarnVaultSeed,
 }
 
 // -- TTL Bumpers --
@@ -157,6 +159,13 @@ pub fn get_deployer(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::DeployerHost).expect("Deployer must be set")
 }
 
+// - EarnVaultSeed -
+pub fn set_earn_vault_seed(e: &Env, seed: &BytesN<32>) {
+    e.storage().instance().set(&DataKey::EarnVaultSeed, &seed)
+}
+pub fn get_earn_vault_seed(e: &Env) -> Option<BytesN<32>> {
+    e.storage().instance().get(&DataKey::EarnVaultSeed)
+}
 // ---- Pool ----
 
 /// Gets all pools stored in the contract

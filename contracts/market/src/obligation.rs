@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
+use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
     constants::*,
@@ -1083,6 +1083,31 @@ impl DepositObligation {
     }
 }
 
+/// Used to generate a unique seed for `Earn` Vault obligation
+/// See [`compute_earn_vault_seed`]
+const EARN_VAULT_SEED_STR: &str = "EV";
+
+/// Computes 'Earn' Vault seed and caches it if it hasn't been computed yet, or gets it from the storage otherwise
+///
+/// # Returns
+/// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
+pub fn get_earn_vault_seed(e: &Env) -> BytesN<32> {
+    if let Some(stored_vault_seed) = storage::get_earn_vault_seed(e) {
+        stored_vault_seed
+    } else {
+        let computed_vault_seed = compute_earn_vault_seed(e);
+        storage::set_earn_vault_seed(e, &computed_vault_seed);
+
+        computed_vault_seed
+    }
+}
+
+fn compute_earn_vault_seed(e: &Env) -> BytesN<32> {
+    let mut seed = Bytes::new(e);
+    seed.extend_from_slice(EARN_VAULT_SEED_STR.as_bytes());
+    e.crypto().keccak256(&seed).into()
+}
+
 /// Adjusts a field on the obligation's structs
 ///
 /// # Returns
@@ -1239,4 +1264,29 @@ pub struct LiquidationValues {
     pub j_tokens_amount_sold: i128,
     /// The number of tokens that correspond to the sold jTokens
     pub tokens_from_sold_j_tokens: i128,
+}
+#[cfg(test)]
+mod tests {
+    use soroban_sdk::{BytesN, Env};
+
+    use super::*;
+
+    #[test]
+    fn test_computes_earn_vault_seed_with_valid_address() {
+        let e = Env::default();
+
+        let seed = compute_earn_vault_seed(&e);
+
+        assert_ne!(seed, BytesN::from_array(&e, &[0; 32]));
+    }
+
+    #[test]
+    fn test_computes_different_seeds_for_different_addresses() {
+        let e = Env::default();
+
+        let seed_1 = compute_earn_vault_seed(&e);
+        let seed_2 = compute_earn_vault_seed(&e);
+
+        assert_eq!(seed_1, seed_2);
+    }
 }

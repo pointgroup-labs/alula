@@ -736,6 +736,17 @@ pub fn get_obligation_j_tokens(
     Ok(deposit_obligation.j_tokens)
 }
 
+pub fn get_earn_vault_obligation_j_tokens(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation =
+        get_earn_vault_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.j_tokens)
+}
+
 pub fn get_multiply_pair_obligation_j_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -760,6 +771,17 @@ pub fn get_obligation_d_tokens(
     let deposit_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.d_tokens)
+}
+
+pub fn get_earn_vault_obligation_d_tokens(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    // NB: This is expected to always return Err(MCError::BorrowDoesNotExist)
+    let borrow_obligation = get_earn_vault_borrow_obligation(contract_client, user, pool_address)?;
+
+    Ok(borrow_obligation.d_tokens)
 }
 
 pub fn get_multiply_pair_obligation_d_tokens(
@@ -810,6 +832,17 @@ pub fn get_obligation_deposited(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.deposited)
+}
+
+pub fn get_earn_vault_obligation_deposited(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation =
+        get_earn_vault_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.deposited)
 }
@@ -897,6 +930,20 @@ pub fn get_obligation_j_tokens_as_tokens(
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
     let j_tokens = get_obligation_j_tokens(contract_client, user, pool_address)?;
+
+    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+
+    Ok(deposited_tokens)
+}
+
+pub fn get_earn_vault_obligation_j_tokens_as_tokens(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let j_tokens = get_earn_vault_obligation_j_tokens(contract_client, user, pool_address)?;
 
     let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
 
@@ -992,6 +1039,21 @@ pub fn get_deposit_obligation(
     Ok(deposit)
 }
 
+pub fn get_earn_vault_deposit_obligation(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<DepositObligation, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_vault_user_obligation(user) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    let deposit =
+        obligation.deposits.get(pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
+
+    Ok(deposit)
+}
+
 pub fn get_multiply_pair_deposit_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -1023,6 +1085,21 @@ pub fn get_borrow_obligation(
         return Err(MCError::ObligationDoesNotExist);
     };
 
+    let borrow = obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
+
+    Ok(borrow)
+}
+
+pub fn get_earn_vault_borrow_obligation(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<BorrowObligation, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_vault_user_obligation(user) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    // NB: Expected that this always returns `Err(MCError::BorrowDoesNotExist)`
     let borrow = obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
 
     Ok(borrow)

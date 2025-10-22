@@ -10,7 +10,7 @@ use crate::{
     },
     interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
     multiply_pair::MultiplyPair,
-    obligation::{Obligation, ObligationKey},
+    obligation::{Obligation, ObligationKey, get_earn_vault_seed},
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::*,
@@ -245,6 +245,27 @@ impl MarketContract {
         process_deposit(&e, &obligation_key, &pool_address, amount)
     }
 
+    /// Deposits tokens into the loan pool as a part of the `Earn` vault strategy obligation, meaning that no borrows are allowed for it
+    ///
+    /// # Arguments
+    /// * `user` - user that deposits a token
+    /// * `pool_address` - address of a pool to which the deposit happens
+    /// * `amount` - amount of tokens which are going to be deposited
+    pub fn deposit_into_earn_vault(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        user.require_auth();
+        require_deposit_allowed(&e);
+
+        let vault_seed = get_earn_vault_seed(&e);
+        let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
+
+        process_deposit(&e, &obligation_key, &pool_address, amount)
+    }
+
     /// Borrows tokens from the loan pool
     ///
     /// # Arguments
@@ -405,6 +426,27 @@ impl MarketContract {
         require_not_frozen(&e);
 
         let obligation_key = ObligationKey::new(user);
+
+        process_withdraw(&e, &obligation_key, &pool_address, amount)
+    }
+
+    /// Withdraws deposited tokens from the `Earn` vault strategy obligation from the loan pool to the user
+    ///
+    /// # Arguments
+    /// * `user` - user that deposits a token
+    /// * `pool_address` - address of a pool to which the deposit happens
+    /// * `amount` - amount of tokens which are going to be deposited
+    pub fn withdraw_from_earn_vault(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        user.require_auth();
+        require_not_frozen(&e);
+
+        let vault_seed = get_earn_vault_seed(&e);
+        let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
 
         process_withdraw(&e, &obligation_key, &pool_address, amount)
     }
@@ -612,6 +654,22 @@ impl MarketContract {
     /// * `user` - user which obligation is returned
     pub fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
         let obligation_key = ObligationKey::new(user);
+        let obligation = Obligation::try_get(&e, &obligation_key)?;
+
+        obligation.accrue_interest(&e)?;
+        obligation.set(&e, &obligation_key);
+
+        Ok(obligation)
+    }
+
+    /// Returns the user's obligation, which includes data about all of their `Earn` Vault deposits
+    ///
+    /// # Arguments
+    /// * `user` - user whose `Earn` vault obligation is returned
+    pub fn get_earn_vault_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
+        let vault_seed = get_earn_vault_seed(&e);
+
+        let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
         obligation.accrue_interest(&e)?;
