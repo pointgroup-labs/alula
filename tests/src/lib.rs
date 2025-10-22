@@ -13,7 +13,7 @@ mod repay;
 mod security;
 mod storage_extension;
 mod swap;
-mod update_market;
+mod update;
 mod withdraw;
 
 use std::ops::{Add, Sub};

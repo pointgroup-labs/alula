@@ -12,6 +12,7 @@ pub enum MCError {
     DependencyContractError = 4,
     ForbiddenMarketOperation = 5,
     InvalidMarketUpdate = 6,
+    ForbiddenPoolOperation = 7,
 
     // Pool-related errors (10-19)
     PoolAlreadyExists = 10,

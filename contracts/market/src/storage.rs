@@ -236,8 +236,8 @@ pub fn queue_in_pool_config_update(
     Ok(())
 }
 
-/// Cancels pool's config update from the queue
-pub fn cancel_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+/// Removes pool's config update from the queue
+pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let key = DataKey::ConfigUpdate(pool_address.clone());
 
     if !e.storage().persistent().has(&DataKey::ConfigUpdate(pool_address.clone())) {

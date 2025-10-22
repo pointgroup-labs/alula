@@ -250,12 +250,20 @@ impl Pool {
         Ok(())
     }
 
-    pub fn require_deposit_enabled(&self) -> bool {
-        self.config.status.deposit_enabled
+    pub fn require_deposit_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.deposit_enabled {
+            return Err(MCError::ForbiddenPoolOperation);
+        }
+
+        Ok(())
     }
 
-    pub fn require_borrow_enabled(&self) -> bool {
-        self.config.status.borrow_enabled
+    pub fn require_borrow_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.borrow_enabled {
+            return Err(MCError::ForbiddenPoolOperation);
+        }
+
+        Ok(())
     }
 
     pub fn require_remove_collateral_preserves_ur_cap(
@@ -521,12 +529,12 @@ impl Pool {
         storage::queue_in_pool_config_update(e, &self.pool_address, config)
     }
 
-    /// Cancels pool's config update from the queue
+    /// Removes pool's config update from the queue
     ///
     /// # WARNING
     /// Modifies the contract's storage
-    pub fn cancel_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
-        storage::cancel_pool_config_update(e, &self.pool_address)
+    pub fn remove_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
+        storage::remove_pool_config_update(e, &self.pool_address)
     }
 
     /// Applies the pool's config update from the queue if it exists and is seasoned
@@ -550,6 +558,8 @@ impl Pool {
         self.config = pool_config_update.new_config;
 
         self.set(e);
+
+        storage::remove_pool_config_update(e, &self.pool_address)?;
 
         Ok(())
     }

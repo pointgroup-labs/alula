@@ -3,11 +3,14 @@
 use market::{
     constants::{DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE, MAX_RESERVES},
     error::MCError,
-    pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig},
+    pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
 };
 use soroban_sdk::{symbol_short, testutils::Ledger};
 
-use crate::{get_default_env, get_pool_fee_config, register_random_sac, setup_market_client};
+use crate::{
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_default_env,
+    get_pool_fee_config, register_random_sac, setup_market_client,
+};
 
 #[test]
 fn test_queue_in_pool_config_update() {
@@ -88,6 +91,69 @@ fn test_queue_in_invalid_pool_config_update() {
     assert_eq!(
         contract_client.try_queue_in_pool_config_update(&pool_address, &new_pool_config),
         Err(Ok(MCError::InvalidLoanPoolConfig))
+    );
+}
+
+#[test]
+fn test_queue_in_disable_borrowing_pool_config_update() {
+    let TestMarketFixture {
+        e, contract_client, gold_pool_address, users, usdc_pool_address, ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let loan_provider = &users[0];
+
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.deposit_into_earn_vault(
+        loan_provider,
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
+
+    assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(loan_provider, &usdc_pool_address, &1).is_ok());
+
+    let pool_config_update_queue_in_period =
+        contract_client.get_global_state().update_in_queue_period.unwrap();
+
+    let new_pool_config = PoolConfig {
+        status: PoolStatus { borrow_enabled: false, deposit_enabled: true },
+        ..Default::default()
+    };
+
+    contract_client.queue_in_pool_config_update(&usdc_pool_address, &new_pool_config);
+
+    // - Move time -
+
+    e.ledger().with_mut(|li| li.timestamp += pool_config_update_queue_in_period);
+
+    contract_client.apply_pool_config_update(&usdc_pool_address);
+
+    assert_eq!(
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1),
+        Err(Ok(MCError::ForbiddenPoolOperation))
+    );
+    assert!(contract_client.try_deposit(loan_provider, &usdc_pool_address, &1).is_ok());
+
+    let new_pool_config = PoolConfig {
+        status: PoolStatus { borrow_enabled: false, deposit_enabled: false },
+        ..Default::default()
+    };
+
+    contract_client.queue_in_pool_config_update(&usdc_pool_address, &new_pool_config);
+
+    // - Move time -
+
+    e.ledger().with_mut(|li| li.timestamp += pool_config_update_queue_in_period);
+
+    contract_client.apply_pool_config_update(&usdc_pool_address);
+
+    assert_eq!(
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1),
+        Err(Ok(MCError::ForbiddenPoolOperation))
+    );
+    assert_eq!(
+        contract_client.try_deposit(loan_provider, &usdc_pool_address, &1),
+        Err(Ok(MCError::ForbiddenPoolOperation))
     );
 }
 

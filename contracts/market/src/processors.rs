@@ -109,7 +109,7 @@ pub fn process_deposit(
     require_nonnegative(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.require_deposit_enabled();
+    pool.require_deposit_enabled()?;
     pool.accrue_interest(e)?;
 
     let supply_limit = pool.config.health_config.supply_limit;
@@ -153,7 +153,7 @@ pub fn process_borrow(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.require_borrow_enabled();
+    pool.require_borrow_enabled()?;
     pool.accrue_interest(e)?;
 
     let borrow_result = obligation.borrow(e, &pool, amount)?;

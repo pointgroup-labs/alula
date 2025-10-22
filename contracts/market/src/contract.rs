@@ -113,9 +113,7 @@ impl MarketContract {
         require_owned_and_admin(&e)?;
 
         // TODO: Add `MAX_RESERVES` check
-        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions)
-            || new_min_collateral_value < 0
-        {
+        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions) || new_min_collateral_value < 0 {
             return Err(MCError::InvalidMarketUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);
@@ -197,7 +195,7 @@ impl MarketContract {
         require_owned_and_admin(&e)?;
 
         let pool = Pool::try_get(&e, &pool_address)?;
-        pool.cancel_pool_config_update(&e)?;
+        pool.remove_pool_config_update(&e)?;
 
         Ok(())
     }
