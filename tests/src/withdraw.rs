@@ -311,7 +311,7 @@ fn test_remove_all_with_i128_max() {
     let creditor_1 = &users[0];
     let creditor_2 = &users[1];
 
-    contract_client.add_collateral(creditor_1, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT); // NB: A more general case when the collateral adder has more than 1 collaterals
+    contract_client.add_collateral(creditor_1, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT); // NB: A more general case when the collateral adder has more than 1 collaterals
     contract_client.add_collateral(creditor_1, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.add_collateral(creditor_2, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
 
@@ -327,7 +327,7 @@ fn test_remove_all_with_i128_max() {
 
     assert_eq!(
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT
+        DEFAULT_COLLATERAL_AMOUNT
     );
 
     assert_eq!(

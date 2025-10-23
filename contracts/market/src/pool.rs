@@ -756,7 +756,7 @@ impl PoolHealthConfig {
             liquidation_close_factor_bps,
             liquidation_incentive_bps,
             withdraw_scarcity_limit_bps,
-            withdraw_scarcity_cooldown_s: _,
+            withdraw_scarcity_cooldown_s,
         } = self;
 
         if supply_limit < 0 {
@@ -794,6 +794,11 @@ impl PoolHealthConfig {
         if !is_valid_bps_percent(withdraw_scarcity_limit_bps) {
             return Err("Withdrawal scarcity limit must be between 0% and 100%");
         }
+
+        if !(0..MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS).contains(&withdraw_scarcity_cooldown_s) {
+            return Err("Withdrawal scarcity cooldown seconds exceed limit");
+        }
+
         Ok(())
     }
 }

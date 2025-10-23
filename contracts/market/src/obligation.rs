@@ -341,7 +341,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<DepositResult, MCError> {
         let mut deposit_obligation =
-            self.deposits.get(pool.pool_address.clone()).unwrap_or_default();
+            self.deposits.get(pool.pool_address.clone()).unwrap_or(DepositObligation::new());
 
         let computed_fees = compute_fees(
             original_amount,
@@ -379,7 +379,8 @@ impl Obligation {
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
         // WARN: This can potentially create a borrow obligation with 0ed fields
-        let mut borrow_obligation = self.borrows.get(pool.pool_address.clone()).unwrap_or_default();
+        let mut borrow_obligation =
+            self.borrows.get(pool.pool_address.clone()).unwrap_or(BorrowObligation::new());
 
         let computed_fees = compute_fees(
             real_borrowed_amount,
@@ -413,7 +414,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<AddCollateralResult, MCError> {
         let mut deposit_obligation =
-            self.deposits.get(pool.pool_address.clone()).unwrap_or_default();
+            self.deposits.get(pool.pool_address.clone()).unwrap_or(DepositObligation::new());
 
         let computed_fees = compute_fees(
             original_amount,
@@ -583,7 +584,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<RemoveCollateralResult, MCError> {
         let mut deposit_obligation =
-            self.deposits.get(pool.pool_address.clone()).unwrap_or_default();
+            self.deposits.get(pool.pool_address.clone()).ok_or(MCError::CollateralDoesNotExist)?;
 
         let max_possible_collateral_removed_amount =
             self.compute_max_healthy_collateral_removed_amount(e, pool)?;
@@ -1001,7 +1002,7 @@ impl Obligation {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct BorrowObligation {
     /// Amount of the total debt shares that the obligation contains
@@ -1011,6 +1012,10 @@ pub struct BorrowObligation {
 }
 
 impl BorrowObligation {
+    pub fn new() -> Self {
+        Self { d_tokens: 0, borrowed: 0 }
+    }
+
     pub fn adjust_d_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.d_tokens, adjusting_amount)?;
         self.d_tokens = new_amount;
@@ -1030,7 +1035,7 @@ impl BorrowObligation {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct DepositObligation {
     /// A share of total supplied tokens in the pool that obligation contains
