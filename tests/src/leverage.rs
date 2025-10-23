@@ -603,7 +603,7 @@ fn test_withdraw_negative() {
     );
 
     assert_eq!(
-        Err(Ok(MCError::NegativeAmount)),
+        Err(Ok(MCError::NegativeInputAmount)),
         contract_client.try_withdraw_from_leveraged(
             looper,
             &gold_pool_address,

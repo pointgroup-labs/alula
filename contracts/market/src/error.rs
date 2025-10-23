@@ -37,7 +37,7 @@ pub enum MCError {
     ScarcityCooldownPeriod = 206,
 
     // Amount validation errors (300-399)
-    NegativeAmount = 300,
+    NegativeInputAmount = 300,
 
     // Balance and limit errors (400-499)
     WithdrawOverBalance = 400,

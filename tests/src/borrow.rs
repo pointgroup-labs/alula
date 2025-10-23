@@ -235,7 +235,7 @@ fn test_borrow_negative() {
 
     assert_eq!(
         contract_client.try_borrow(borrower, &usdc_pool_address, &-1),
-        Err(Ok(MCError::NegativeAmount))
+        Err(Ok(MCError::NegativeInputAmount))
     );
 }
 

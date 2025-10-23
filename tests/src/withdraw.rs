@@ -237,7 +237,7 @@ fn test_withdraw_negative() {
 
     assert_eq!(
         contract_client.try_withdraw(creditor, &gold_pool_address, &-1),
-        Err(Ok(MCError::NegativeAmount))
+        Err(Ok(MCError::NegativeInputAmount))
     );
 }
 
@@ -255,7 +255,7 @@ fn test_remove_collateral_negative() {
 
     assert_eq!(
         contract_client.try_remove_collateral(collateral_provider, &gold_pool_address, &-1),
-        Err(Ok(MCError::NegativeAmount))
+        Err(Ok(MCError::NegativeInputAmount))
     );
 }
 

@@ -143,7 +143,7 @@ fn test_add_collateral_negative() {
 
     assert_eq!(
         contract_client.try_add_collateral(creditor, &gold_pool_address, &-1),
-        Err(Ok(MCError::NegativeAmount))
+        Err(Ok(MCError::NegativeInputAmount))
     );
 }
 
@@ -166,7 +166,7 @@ fn test_deposit_negative() {
 
     assert_eq!(
         contract_client.try_deposit(creditor, &gold_pool_address, &-1),
-        Err(Ok(MCError::NegativeAmount))
+        Err(Ok(MCError::NegativeInputAmount))
     );
 }
 

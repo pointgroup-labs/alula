@@ -9,7 +9,7 @@ use crate::{
 #[inline(always)]
 pub fn require_nonnegative(amount: i128) -> Result<(), MCError> {
     if amount < 0 {
-        return Err(MCError::NegativeAmount);
+        return Err(MCError::NegativeInputAmount);
     }
 
     Ok(())
