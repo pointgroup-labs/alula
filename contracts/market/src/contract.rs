@@ -88,7 +88,7 @@ impl MarketContract {
         let admin = storage::get_admin(&e);
         let oracle = storage::get_oracle(&e);
         let deployer = storage::get_deployer(&e);
-        let status: u32 = storage::get_market_status(&e).into();
+        let status = storage::get_market_status(&e) as u32;
         let is_owned = update_in_queue_period.is_some();
         let max_positions = storage::get_max_positions(&e);
         let min_collateral_value = storage::get_min_collateral_value(&e);

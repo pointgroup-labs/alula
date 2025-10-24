@@ -49,17 +49,6 @@ impl TryFrom<u32> for MarketStatus {
     }
 }
 
-impl From<MarketStatus> for u32 {
-    fn from(value: MarketStatus) -> Self {
-        match value {
-            MarketStatus::Active => 0,
-            MarketStatus::BorrowFrozen => 1,
-            MarketStatus::DepositFrozen => 2,
-            MarketStatus::Frozen => 3,
-        }
-    }
-}
-
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
 pub struct PoolUpdate {

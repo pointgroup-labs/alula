@@ -265,6 +265,9 @@ fn test_update_market_status() {
     let creditor = &users[0];
     let liquidity_provider = &users[1];
 
+    let status = contract_client.get_global_state().status;
+    assert_eq!(status, 0);
+
     contract_client.deposit_into_earn_obligation(
         liquidity_provider,
         &usdc_pool_address,
@@ -277,6 +280,8 @@ fn test_update_market_status() {
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1).is_ok());
 
     contract_client.update_market_status(&1);
+    let status = contract_client.get_global_state().status;
+    assert_eq!(status, 1);
 
     assert!(contract_client.try_deposit(creditor, &gold_pool_address, &1).is_ok());
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
@@ -287,6 +292,8 @@ fn test_update_market_status() {
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1).is_ok());
 
     contract_client.update_market_status(&2);
+    let status = contract_client.get_global_state().status;
+    assert_eq!(status, 2);
 
     assert_eq!(
         contract_client.try_deposit(creditor, &gold_pool_address, &1),
@@ -300,6 +307,8 @@ fn test_update_market_status() {
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1).is_ok());
 
     contract_client.update_market_status(&3);
+    let status = contract_client.get_global_state().status;
+    assert_eq!(status, 3);
 
     assert_eq!(
         contract_client.try_deposit(creditor, &gold_pool_address, &1),
