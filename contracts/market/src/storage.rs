@@ -16,7 +16,7 @@ pub struct GlobalState {
     pub oracle: Address,
     pub deployer: Address,
     pub max_positions: u32,
-    pub status: MarketStatus,
+    pub status: u32,
     pub min_collateral_value: i128,
     pub update_in_queue_period: Option<u64>,
 }
@@ -31,6 +31,33 @@ pub enum MarketStatus {
     DepositFrozen,
     /// All operations on the market are prohibited
     Frozen,
+}
+
+impl TryFrom<u32> for MarketStatus {
+    type Error = MCError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        let market_status = match value {
+            0 => MarketStatus::Active,
+            1 => MarketStatus::BorrowFrozen,
+            2 => MarketStatus::DepositFrozen,
+            3 => MarketStatus::Frozen,
+            _ => return Err(MCError::InvalidMarketStatusUpdate),
+        };
+
+        Ok(market_status)
+    }
+}
+
+impl From<MarketStatus> for u32 {
+    fn from(value: MarketStatus) -> Self {
+        match value {
+            MarketStatus::Active => 0,
+            MarketStatus::BorrowFrozen => 1,
+            MarketStatus::DepositFrozen => 2,
+            MarketStatus::Frozen => 3,
+        }
+    }
 }
 
 #[contracttype]

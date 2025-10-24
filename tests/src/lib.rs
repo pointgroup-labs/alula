@@ -29,7 +29,6 @@ use market::{
     obligation::{BorrowObligation, DepositObligation},
     pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
-    storage::MarketStatus,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
@@ -149,7 +148,7 @@ impl TestMarketFixture<'_> {
         );
         let contract_client = MarketContractClient::new(&e, &contract_id);
 
-        contract_client.update_market_status(&MarketStatus::Active);
+        contract_client.update_market_status(&0);
 
         let router_address = Address::from_str(&e, ROUTER_ADDRESS);
         e.register_at(
@@ -1272,7 +1271,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketContractClient<
     let client = MarketContractClient::new(e, &contract_id);
 
     if is_owned {
-        client.update_market_status(&MarketStatus::Active);
+        client.update_market_status(&0);
     }
 
     client

@@ -252,7 +252,7 @@ impl Pool {
 
     pub fn require_deposit_enabled(&self) -> Result<(), MCError> {
         if !self.config.status.deposit_enabled {
-            return Err(MCError::ForbiddenPoolOperation);
+            return Err(MCError::DepositForbiddenOnPool);
         }
 
         Ok(())
@@ -260,7 +260,7 @@ impl Pool {
 
     pub fn require_borrow_enabled(&self) -> Result<(), MCError> {
         if !self.config.status.borrow_enabled {
-            return Err(MCError::ForbiddenPoolOperation);
+            return Err(MCError::BorrowForbiddenOnPool);
         }
 
         Ok(())

@@ -12,8 +12,11 @@ pub enum MCError {
     InvalidTimestamp = 2,
     DependencyContractError = 3,
     MarketIsNotOwned = 4,
-    ForbiddenMarketOperation = 5,
-    InvalidMarketUpdate = 6,
+    BorrowForbiddenOnMarket = 5,
+    DepositForbiddenOnMarket = 6,
+    MarketIsFrozen = 7,
+    InvalidMarketUpdate = 8,
+    InvalidMarketStatusUpdate = 9,
 
     // Pool-related errors (100-199)
     PoolAlreadyExists = 100,
@@ -26,7 +29,9 @@ pub enum MCError {
     PoolAlreadyContainsQueuedInConfigUpdate = 107,
     PoolDoesNotHaveQueuedInConfigUpdate = 108,
     PoolConfigUpdateIsNotYetApplicable = 109,
-    ForbiddenPoolOperation = 110,
+    BorrowForbiddenOnPool = 110,
+    DepositForbiddenOnPool = 111,
+    PoolIsFrozen = 112,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,

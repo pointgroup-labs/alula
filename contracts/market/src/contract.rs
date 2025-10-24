@@ -88,7 +88,7 @@ impl MarketContract {
         let admin = storage::get_admin(&e);
         let oracle = storage::get_oracle(&e);
         let deployer = storage::get_deployer(&e);
-        let status = storage::get_market_status(&e);
+        let status: u32 = storage::get_market_status(&e).into();
         let is_owned = update_in_queue_period.is_some();
         let max_positions = storage::get_max_positions(&e);
         let min_collateral_value = storage::get_min_collateral_value(&e);
@@ -130,9 +130,13 @@ impl MarketContract {
     }
 
     /// Updates the market status
-    pub fn update_market_status(e: Env, new_status: MarketStatus) -> Result<(), MCError> {
+    ///
+    /// # Arguments
+    /// * `new_status` - numerical representation of the new market status
+    pub fn update_market_status(e: Env, new_status: u32) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
 
+        let new_status = MarketStatus::try_from(new_status)?;
         storage::set_market_status(&e, &new_status);
 
         Ok(())
