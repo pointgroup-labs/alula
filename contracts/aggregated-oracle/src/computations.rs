@@ -136,7 +136,7 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
     if current_timestamp < price_data.timestamp
         || (current_timestamp - price_data.timestamp) > max_age
     {
-        events::OraclePriceTimestampInvalid {
+        events::InvalidOraclePriceTimestamp {
             asset,
             max_age,
             price_data,
@@ -147,6 +147,15 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
 
         None
     } else {
+        if price_data.price <= 0 {
+            events::NonPositiveOraclePrice {
+                token_address: token_address.clone(),
+                oracle_address: oracle_config.address.clone(),
+                price_data: price_data.clone(),
+            }
+            .publish(e);
+        }
+
         let protocol_decimals = storage::get_decimals(e);
         let normalized_price =
             normalize_price(price_data.price, oracle_config.decimals, protocol_decimals)?;

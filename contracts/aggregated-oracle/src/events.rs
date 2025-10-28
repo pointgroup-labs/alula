@@ -28,7 +28,7 @@ pub struct OracleUnawareOfPrice {
 }
 
 #[contractevent]
-pub struct OraclePriceTimestampInvalid {
+pub struct InvalidOraclePriceTimestamp {
     #[topic]
     pub oracle_address: Address,
     #[topic]
@@ -37,6 +37,15 @@ pub struct OraclePriceTimestampInvalid {
     pub asset: Asset,
     pub price_data: PriceData,
     pub max_age: u64,
+}
+
+#[contractevent]
+pub struct NonPositiveOraclePrice {
+    #[topic]
+    pub token_address: Address,
+    #[topic]
+    pub oracle_address: Address,
+    pub price_data: PriceData,
 }
 
 #[contractevent]

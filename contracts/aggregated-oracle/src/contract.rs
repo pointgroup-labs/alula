@@ -205,6 +205,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
     }
 
     let price: i128 = compute_median(e, token_address)?;
+
     let current_timestamp = e.ledger().timestamp();
 
     let res_lastprice = PriceData { price, timestamp: current_timestamp };
@@ -234,10 +235,10 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
                 return None;
             }
-
-            storage::set_cached_median_lastprice(e, token_address, &res_lastprice);
         }
     }
+
+    storage::set_cached_median_lastprice(e, token_address, &res_lastprice);
 
     Some(res_lastprice)
 }
