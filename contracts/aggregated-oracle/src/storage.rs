@@ -1,11 +1,7 @@
 use sep_40_oracle::{Asset, PriceData};
 use soroban_sdk::{Address, Env, Map, Symbol, Vec, contracttype, panic_with_error, vec as svec};
 
-use crate::error::AOCError;
-
-const LEDGERS_PER_DAY: u32 = (24 * 60 * 60) / 6; // NB: Assuming 6 seconds per ledger
-const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
-const INSTANCE_BUMP: u32 = 41 * LEDGERS_PER_DAY;
+use crate::{constants::*, error::AOCError};
 
 #[contracttype]
 pub enum DataKey {
@@ -15,7 +11,20 @@ pub enum DataKey {
     BaseAsset,
     Assets,
     Oracles,
-    OraclePriceDataCached(Address), // TODO: (Address, Address) for oracle and asset?
+    CachedMedianLastprice(Address), // Address - asset's token address
+    OraclePriceDataCached(Address), // Address - oracle's contract address
+}
+
+#[contracttype]
+pub struct AssetData {
+    /// Asset's ticker
+    pub symbol: Symbol,
+    /// Max available deviation between 2 consecutive price retrievals in basis points
+    pub max_div_bps: u32,
+    /// Max time diff in seconds between retrievals when max deviation check is performed.
+    /// Any more extended period between 2 consecutive price retrievals implies that no max deviation check
+    /// is performed
+    pub max_div_consecutive_diff_secs: u64,
 }
 
 // ---- Storage Setters & Getters ----
@@ -23,7 +32,6 @@ pub enum DataKey {
 pub fn set_admin(e: &Env, admin: Address) {
     e.storage().instance().set(&DataKey::Admin, &admin);
 }
-
 pub fn get_admin(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Admin).expect("Admin must've been set")
 }
@@ -31,7 +39,6 @@ pub fn get_admin(e: &Env) -> Address {
 pub fn set_max_age(e: &Env, max_age: u64) {
     e.storage().instance().set(&DataKey::MaxAge, &max_age);
 }
-
 pub fn get_max_age(e: &Env) -> u64 {
     e.storage().instance().get(&DataKey::MaxAge).expect("Max age must've been set")
 }
@@ -39,7 +46,6 @@ pub fn get_max_age(e: &Env) -> u64 {
 pub fn set_decimals(e: &Env, decimals: u32) {
     e.storage().instance().set(&DataKey::Decimals, &decimals);
 }
-
 pub fn get_decimals(e: &Env) -> u32 {
     e.storage().instance().get(&DataKey::Decimals).expect("Decimals must've been set")
 }
@@ -47,23 +53,43 @@ pub fn get_decimals(e: &Env) -> u32 {
 pub fn set_base_asset(e: &Env, base_asset: Asset) {
     e.storage().instance().set(&DataKey::BaseAsset, &base_asset);
 }
-
 pub fn get_base_asset(e: &Env) -> Asset {
     e.storage().instance().get(&DataKey::BaseAsset).expect("Base asset must've been set")
 }
 
-pub fn add_asset(e: &Env, symbol: Symbol, address: Address) -> Result<(), AOCError> {
-    let mut assets: Map<Address, Symbol> =
+pub fn set_cached_median_lastprice(e: &Env, token_address: &Address, median_lastprice: &PriceData) {
+    e.storage()
+        .instance()
+        .set(&DataKey::CachedMedianLastprice(token_address.clone()), median_lastprice)
+}
+pub fn get_cached_median_lastprice(e: &Env, token_address: &Address) -> Option<PriceData> {
+    e.storage().instance().get(&DataKey::CachedMedianLastprice(token_address.clone()))
+}
+
+pub fn add_asset(
+    e: &Env,
+    symbol: Symbol,
+    address: Address,
+    max_div_bps: u32,
+    max_div_consecutive_diff_secs: u64,
+) -> Result<(), AOCError> {
+    let mut assets: Map<Address, AssetData> =
         e.storage().instance().get(&DataKey::Assets).unwrap_or_else(|| Map::new(e));
 
     if assets.contains_key(address.clone()) {
         return Err(AOCError::AssetAlreadyRegistered);
     }
+    let asset_data = AssetData { symbol, max_div_bps, max_div_consecutive_diff_secs };
 
-    assets.set(address, symbol);
+    assets.set(address, asset_data);
     e.storage().instance().set(&DataKey::Assets, &assets);
 
     Ok(())
+}
+pub fn get_asset(e: &Env, token_address: &Address) -> Option<AssetData> {
+    let assets: Map<Address, AssetData> = e.storage().instance().get(&DataKey::Assets)?;
+
+    assets.get(token_address.clone())
 }
 
 pub fn get_assets(e: &Env) -> Vec<Asset> {
@@ -89,10 +115,10 @@ pub fn is_asset_registered(e: &Env, token_address: &Address) -> bool {
 }
 
 pub fn get_token_ticker(e: &Env, token_address: &Address) -> Symbol {
-    let assets: Map<Address, Symbol> =
+    let assets: Map<Address, AssetData> =
         e.storage().instance().get(&DataKey::Assets).expect("Assets must've been set");
 
-    assets.get(token_address.clone()).expect("Asset must've been set")
+    assets.get(token_address.clone()).expect("Asset must've been set").symbol
 }
 
 pub fn get_oracle_price_data_cache(
@@ -116,7 +142,7 @@ pub fn set_oracles(e: &Env, oracles: Vec<OracleConfig>) {
     let mut known_addresses = Map::<Address, ()>::new(e);
     for oracle in oracles.iter() {
         if known_addresses.contains_key(oracle.address.clone()) {
-            panic_with_error!(e, AOCError::NonUniqueOraclesRegistered);
+            panic_with_error!(e, AOCError::NonUniqueOraclesWhileDeploying);
         }
 
         known_addresses.set(oracle.address.clone(), ());

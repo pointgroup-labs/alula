@@ -1,6 +1,8 @@
 use sep_40_oracle::{Asset, PriceData};
 use soroban_sdk::{Address, contractevent};
 
+use crate::storage::AssetData;
+
 #[contractevent]
 pub struct AllOraclesUnawareOfPrice {
     #[topic]
@@ -41,4 +43,12 @@ pub struct OraclePriceTimestampInvalid {
 pub struct AssetIsNotRegistered {
     #[topic]
     pub token_address: Address,
+}
+
+#[contractevent]
+pub struct PriceDeviationExceedsMax {
+    #[topic]
+    pub asset_data: AssetData,
+    pub cached_price_data: PriceData,
+    pub new_price_data: PriceData,
 }

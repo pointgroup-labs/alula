@@ -43,7 +43,7 @@ fn test_median_price_with_odd_number_of_reported_prices() {
         );
     }
 
-    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
+    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
 
     let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
 
@@ -87,7 +87,7 @@ fn test_median_price_with_even_number_of_reported_prices() {
         &(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE - 1), // Expired timestamp
     );
 
-    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
+    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
 
     let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
 
@@ -124,7 +124,7 @@ fn test_median_price_with_all_expired_prices() {
             (&(e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE - 1)), // Expired timestamps
         );
     }
-    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address);
+    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
 
     let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar);
 

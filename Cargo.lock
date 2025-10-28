@@ -7,6 +7,7 @@ name = "aggregated_oracle"
 version = "0.0.1"
 dependencies = [
  "sep-40-oracle",
+ "soroban-fixed-point-math",
  "soroban-sdk",
 ]
 

@@ -1,10 +1,12 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
 };
 
 use crate::{
     computations::compute_median,
+    constants::BPS_FACTOR,
     error::AOCError,
     events,
     storage::{self, OracleConfig, OracleConfigInput},
@@ -12,7 +14,7 @@ use crate::{
 
 /// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price
 /// aggregation
-#[contractclient(name = "AggregatedPriceFeedClient")]
+#[contractclient(name = "AggregatedPriceFeedClient")] // TODO: Move this to #![no_std] crate
 pub trait AggregatedPriceFeedTrait {
     /// Returns the base asset the price is reported in
     fn base(e: Env) -> Asset;
@@ -73,6 +75,13 @@ impl AggregatedOracleContract {
         storage::extend_instance_storage(&e);
     }
 
+    /// Gives away the admin role
+    pub fn give_away_admin(e: Env, new_admin: Address) {
+        require_admin(&e);
+
+        storage::set_admin(&e, new_admin);
+    }
+
     // NB: The ability to update the contract must be removed before the mainnet deployment
     /// Upgrades the aggregated oracle contract
     ///
@@ -80,7 +89,6 @@ impl AggregatedOracleContract {
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
     ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        // TODO: Implement decentralized governance of the contract
         require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -90,13 +98,21 @@ impl AggregatedOracleContract {
     ///
     /// # Arguments
     /// * `ticker` - symbol of the asset that is added
-    /// * `token_address` - token contract's address on the Stellar ledger of the asset that is
+    /// * `token_address` - token contract's address on the Stellar ledger of the asset that is being
     ///   added
-    pub fn add_asset(e: Env, ticker: Symbol, token_address: Address) -> Result<(), AOCError> {
+    /// * `max_div_bps` - max allowed deviation in basis points between 2 consecutive price retrievals
+    /// * `max_div_consecutive_diff_secs` - max time difference in seconds between 2 consecutive price retrievals that will account for deviation
+    pub fn add_asset(
+        e: Env,
+        ticker: Symbol,
+        token_address: Address,
+        max_div_bps: u32,
+        max_div_consecutive_diff_secs: u64,
+    ) -> Result<(), AOCError> {
         storage::extend_instance_storage(&e);
         require_admin(&e);
 
-        storage::add_asset(&e, ticker, token_address)?;
+        storage::add_asset(&e, ticker, token_address, max_div_bps, max_div_consecutive_diff_secs)?;
 
         Ok(())
     }
@@ -108,6 +124,7 @@ impl AggregatedOracleContract {
         storage::get_oracles(&e)
     }
 
+    // TODO: Remove before deployment..
     pub fn address_lastprice(e: Env, asset_address: Address) -> Option<PriceData> {
         let stellar_asset = Asset::Stellar(asset_address);
 
@@ -187,9 +204,40 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
         return None;
     }
 
-    let price = compute_median(e, token_address)?;
-    let timestamp = e.ledger().timestamp();
-    let price_data = PriceData { price, timestamp };
+    let price: i128 = compute_median(e, token_address)?;
+    let current_timestamp = e.ledger().timestamp();
 
-    Some(price_data)
+    let res_lastprice = PriceData { price, timestamp: current_timestamp };
+
+    if let Some(cached_median_lastprice) = storage::get_cached_median_lastprice(e, token_address) {
+        let PriceData { price: cached_price, timestamp: cached_timestamp } =
+            cached_median_lastprice;
+        let asset_data =
+            storage::get_asset(e, token_address).expect("Asset must exist at this point");
+
+        let time_diff = current_timestamp
+            .checked_sub(cached_timestamp)
+            .expect("The current timestamp cannot be smaller than the cached one");
+
+        if time_diff <= asset_data.max_div_consecutive_diff_secs {
+            // Check price deviation
+            let abs_price_diff = price.checked_sub(cached_price)?.abs();
+
+            let div_bps = abs_price_diff.fixed_div_ceil(cached_price, BPS_FACTOR)?;
+            if div_bps > asset_data.max_div_bps as i128 {
+                events::PriceDeviationExceedsMax {
+                    asset_data,
+                    cached_price_data: cached_median_lastprice,
+                    new_price_data: res_lastprice,
+                }
+                .publish(e);
+
+                return None;
+            }
+
+            storage::set_cached_median_lastprice(e, token_address, &res_lastprice);
+        }
+    }
+
+    Some(res_lastprice)
 }

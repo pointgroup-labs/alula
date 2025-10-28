@@ -6,8 +6,8 @@ use crate::{
     storage::{self, OracleConfig},
 };
 
-/// Computes the median of `lastprice().price` received from the oracles. In the case of a specific
-/// oracle is not aware of the price, it doesn't get included in the computation
+/// Computes the median of `lastprice().price` received from the oracles.
+/// In the case of a specific oracle that is not aware of the price, its price doesn't get included in the computation
 pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
     let prices = get_last_prices(e, token_address);
 
@@ -66,8 +66,9 @@ pub fn get_last_prices(e: &Env, token_address: &Address) -> Vec<i128> {
 }
 
 /// # Returns
-/// Oracle's `lastprice.price` from the cache.
-/// If cache is expired or not present, takes the data from `lastprice()` oracle's endpoint
+///
+/// Oracle's `lastprice.price` from the cache, or,
+/// if cache is expired or not present, takes the data from `lastprice()` oracle's endpoint
 /// and updates the cache with it
 fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig) -> Option<i128> {
     let current_timestamp = e.ledger().timestamp();
