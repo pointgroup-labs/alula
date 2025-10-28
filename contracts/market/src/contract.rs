@@ -92,7 +92,6 @@ impl MarketContract {
         let is_owned = update_in_queue_period.is_some();
         let max_positions = storage::get_max_positions(&e);
         let min_collateral_value = storage::get_min_collateral_value(&e);
-        let update_in_queue_period = storage::get_update_in_queue_period(&e);
 
         GlobalState {
             name,
@@ -269,6 +268,8 @@ impl MarketContract {
         pool_address: Address,
         amount: i128,
     ) -> Result<(), MCError> {
+        storage::extend_instance_storage(&e);
+
         user.require_auth();
         require_deposit_allowed(&e)?;
 

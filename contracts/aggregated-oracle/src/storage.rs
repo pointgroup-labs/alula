@@ -97,7 +97,7 @@ pub fn get_asset(e: &Env, token_address: &Address) -> Option<AssetData> {
 }
 
 pub fn get_assets(e: &Env) -> Vec<Asset> {
-    let assets_map: Map<Address, Symbol> =
+    let assets_map: Map<Address, AssetData> =
         e.storage().instance().get(&DataKey::Assets).unwrap_or(Map::new(e));
     let mut assets_vec = svec![e];
 
