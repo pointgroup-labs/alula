@@ -100,19 +100,19 @@ impl AggregatedOracleContract {
     /// * `ticker` - symbol of the asset that is added
     /// * `token_address` - token contract's address on the Stellar ledger of the asset that is being
     ///   added
-    /// * `max_div_bps` - max allowed deviation in basis points between 2 consecutive price retrievals
-    /// * `max_div_consecutive_diff_secs` - max time difference in seconds between 2 consecutive price retrievals that will account for deviation
+    /// * `max_dev_bps` - max allowed deviation in basis points between 2 consecutive price retrievals
+    /// * `max_dev_consecutive_diff_secs` - max time difference in seconds between 2 consecutive price retrievals that will account for deviation
     pub fn add_asset(
         e: Env,
         ticker: Symbol,
         token_address: Address,
-        max_div_bps: u32,
-        max_div_consecutive_diff_secs: u64,
+        max_dev_bps: u32,
+        max_dev_consecutive_diff_secs: u64,
     ) -> Result<(), AOCError> {
         storage::extend_instance_storage(&e);
         require_admin(&e);
 
-        storage::add_asset(&e, ticker, token_address, max_div_bps, max_div_consecutive_diff_secs)?;
+        storage::add_asset(&e, ticker, token_address, max_dev_bps, max_dev_consecutive_diff_secs)?;
 
         Ok(())
     }
@@ -222,12 +222,12 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
             .checked_sub(cached_timestamp)
             .expect("The current timestamp cannot be smaller than the cached one");
 
-        if time_diff <= asset_data.max_div_consecutive_diff_secs {
+        if time_diff <= asset_data.max_dev_consecutive_diff_secs {
             // Check price deviation
             let abs_price_diff = price.checked_sub(cached_price)?.abs();
 
             let div_bps = abs_price_diff.fixed_div_ceil(cached_price, BPS_FACTOR)?;
-            if div_bps > asset_data.max_div_bps as i128 {
+            if div_bps > asset_data.max_dev_bps as i128 {
                 events::PriceDeviationExceedsMax {
                     asset_data,
                     cached_price_data: previous_median_lastprice,

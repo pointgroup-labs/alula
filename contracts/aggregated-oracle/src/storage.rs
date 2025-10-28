@@ -20,11 +20,11 @@ pub struct AssetData {
     /// Asset's ticker
     pub symbol: Symbol,
     /// Max available deviation between 2 consecutive price retrievals in basis points
-    pub max_div_bps: u32,
+    pub max_dev_bps: u32,
     /// Max time diff in seconds between retrievals when max deviation check is performed.
     /// Any more extended period between 2 consecutive price retrievals implies that no max deviation check
     /// is performed
-    pub max_div_consecutive_diff_secs: u64,
+    pub max_dev_consecutive_diff_secs: u64,
 }
 
 // ---- Storage Setters & Getters ----
@@ -74,8 +74,8 @@ pub fn add_asset(
     e: &Env,
     symbol: Symbol,
     address: Address,
-    max_div_bps: u32,
-    max_div_consecutive_diff_secs: u64,
+    max_dev_bps: u32,
+    max_dev_consecutive_diff_secs: u64,
 ) -> Result<(), AOCError> {
     let mut assets: Map<Address, AssetData> =
         e.storage().instance().get(&DataKey::Assets).unwrap_or_else(|| Map::new(e));
@@ -83,7 +83,7 @@ pub fn add_asset(
     if assets.contains_key(address.clone()) {
         return Err(AOCError::AssetAlreadyRegistered);
     }
-    let asset_data = AssetData { symbol, max_div_bps, max_div_consecutive_diff_secs };
+    let asset_data = AssetData { symbol, max_dev_bps, max_dev_consecutive_diff_secs };
 
     assets.set(address, asset_data);
     e.storage().instance().set(&DataKey::Assets, &assets);

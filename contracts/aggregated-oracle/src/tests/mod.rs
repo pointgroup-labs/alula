@@ -133,8 +133,8 @@ fn test_median_price_with_all_expired_prices() {
 
 #[test]
 fn test_max_deviation_check() {
-    const MAX_DIV_BPS: u32 = 100; // 10%
-    const MAX_DIV_CONSECUTIVE_DIFF_SECS: u64 = 10000; // NB: Must exceed the resolution on the oracles to notice the effect
+    const MAX_DEV_BPS: u32 = 100; // 10%
+    const MAX_DEV_CONSECUTIVE_DIFF_SECS: u64 = 10000; // NB: Must exceed the resolution on the oracles to notice the effect
 
     let TestFixture {
         e,
@@ -156,8 +156,8 @@ fn test_max_deviation_check() {
     aggregated_oracle_client.add_asset(
         &xlm_ticker,
         &xlm_address,
-        &MAX_DIV_BPS,
-        &MAX_DIV_CONSECUTIVE_DIFF_SECS,
+        &MAX_DEV_BPS,
+        &MAX_DEV_CONSECUTIVE_DIFF_SECS,
     );
 
     for (idx, (oracle_client, oracle_config_input)) in
@@ -247,7 +247,7 @@ fn test_max_deviation_check() {
 
         let price = 100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS);
         let price_with_deviation =
-            price + price.fixed_mul_ceil(MAX_DIV_BPS as i128, BPS_FACTOR).unwrap() + 1;
+            price + price.fixed_mul_ceil(MAX_DEV_BPS as i128, BPS_FACTOR).unwrap() + 1;
         let timestamp = e.ledger().timestamp();
 
         oracle_client.set_price(&asset, &price_with_deviation, &timestamp);
@@ -280,7 +280,7 @@ fn test_max_deviation_check() {
 
         let price = 100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS);
         let price_with_deviation =
-            price + price.fixed_mul_ceil(MAX_DIV_BPS as i128, BPS_FACTOR).unwrap();
+            price + price.fixed_mul_ceil(MAX_DEV_BPS as i128, BPS_FACTOR).unwrap();
         let timestamp = e.ledger().timestamp();
 
         oracle_client.set_price(&asset, &price_with_deviation, &timestamp);
@@ -290,7 +290,7 @@ fn test_max_deviation_check() {
 
     assert_eq!(
         lastprice_1.price
-            + lastprice_1.price.fixed_mul_ceil(MAX_DIV_BPS as i128, BPS_FACTOR).unwrap(),
+            + lastprice_1.price.fixed_mul_ceil(MAX_DEV_BPS as i128, BPS_FACTOR).unwrap(),
         lastprice_2.price,
     );
     assert_eq!(lastprice_2.timestamp, e.ledger().timestamp());
@@ -327,7 +327,7 @@ fn test_max_deviation_check() {
     // -- Wait for deviation to expire --
 
     e.ledger().with_mut(|li| {
-        li.timestamp += MAX_DIV_CONSECUTIVE_DIFF_SECS - (ORACLES_RESOLUTION as u64) + 1
+        li.timestamp += MAX_DEV_CONSECUTIVE_DIFF_SECS - (ORACLES_RESOLUTION as u64) + 1
     });
 
     // -- Set prices that deviate again --
