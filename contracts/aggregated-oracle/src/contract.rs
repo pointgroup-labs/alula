@@ -210,9 +210,11 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
     let res_lastprice = PriceData { price, timestamp: current_timestamp };
 
-    if let Some(cached_median_lastprice) = storage::get_cached_median_lastprice(e, token_address) {
+    if let Some(previous_median_lastprice) =
+        storage::get_previous_median_lastprice(e, token_address)
+    {
         let PriceData { price: cached_price, timestamp: cached_timestamp } =
-            cached_median_lastprice;
+            previous_median_lastprice;
         let asset_data =
             storage::get_asset(e, token_address).expect("Asset must exist at this point");
 
@@ -228,7 +230,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
             if div_bps > asset_data.max_div_bps as i128 {
                 events::PriceDeviationExceedsMax {
                     asset_data,
-                    cached_price_data: cached_median_lastprice,
+                    cached_price_data: previous_median_lastprice,
                     new_price_data: res_lastprice,
                 }
                 .publish(e);
@@ -238,7 +240,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
         }
     }
 
-    storage::set_cached_median_lastprice(e, token_address, &res_lastprice);
+    storage::set_previous_median_lastprice(e, token_address, &res_lastprice);
 
     Some(res_lastprice)
 }

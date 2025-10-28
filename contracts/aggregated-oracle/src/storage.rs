@@ -11,8 +11,8 @@ pub enum DataKey {
     BaseAsset,
     Assets,
     Oracles,
-    CachedMedianLastprice(Address), // Address - asset's token address
-    OraclePriceDataCached(Address), // Address - oracle's contract address
+    PreviousMedianLastprice(Address), // Address - asset's token address
+    OraclePriceDataCached(Address),   // Address - oracle's contract address
 }
 
 #[contracttype]
@@ -57,13 +57,17 @@ pub fn get_base_asset(e: &Env) -> Asset {
     e.storage().instance().get(&DataKey::BaseAsset).expect("Base asset must've been set")
 }
 
-pub fn set_cached_median_lastprice(e: &Env, token_address: &Address, median_lastprice: &PriceData) {
+pub fn set_previous_median_lastprice(
+    e: &Env,
+    token_address: &Address,
+    median_lastprice: &PriceData,
+) {
     e.storage()
         .instance()
-        .set(&DataKey::CachedMedianLastprice(token_address.clone()), median_lastprice)
+        .set(&DataKey::PreviousMedianLastprice(token_address.clone()), median_lastprice)
 }
-pub fn get_cached_median_lastprice(e: &Env, token_address: &Address) -> Option<PriceData> {
-    e.storage().instance().get(&DataKey::CachedMedianLastprice(token_address.clone()))
+pub fn get_previous_median_lastprice(e: &Env, token_address: &Address) -> Option<PriceData> {
+    e.storage().instance().get(&DataKey::PreviousMedianLastprice(token_address.clone()))
 }
 
 pub fn add_asset(
