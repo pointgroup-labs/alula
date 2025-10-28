@@ -106,7 +106,7 @@ fn test_add_collateral() {
     let creditor = &users[0];
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     assert_eq!(
