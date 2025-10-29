@@ -32,6 +32,8 @@ pub enum MCError {
     BorrowForbiddenOnPool = 110,
     DepositForbiddenOnPool = 111,
     PoolIsFrozen = 112,
+    IncentivePeriodDoesNotStartInTheFuture = 113,
+    IncentivePeriodStartDoesNotPrecedePeriodEnd = 114,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,
@@ -48,21 +50,19 @@ pub enum MCError {
     WithdrawOverBalance = 400,
     PoolSupplyLimitExceeded = 401,
     PoolUtilizationRatioCapExceeded = 402,
-    CollateralRemovalOverbalance = 403,
 
     // Oracle-related errors (500-599)
     OracleDoesNotKnowAssetPrice = 500,
     OracleStalePrice = 501,
 
     // Health factor and liquidation errors (600-699)
-    HealthFactorIsLowerThanRequiredThreshold = 600,
+    BadDebtPosition = 600,
     InvalidLiquidationThreshold = 601,
     LiquidatedPositionIsHealthy = 602,
     LiquidationExceedsCloseFactor = 603,
     SelfLiquidation = 604,
     LiquidationWithEqualCollateralAndDepositPools = 605,
     PositionDoesNotHaveBadDebt = 606,
-    BadDebtPosition = 607,
 
     // Leverage and swap errors (700-799)
     InvalidLeverageMultiplier = 700,

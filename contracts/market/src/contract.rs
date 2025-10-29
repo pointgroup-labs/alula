@@ -236,6 +236,28 @@ impl MarketContract {
         pool.get_pool_config_update(&e)
     }
 
+    /// Incentivizes a pool's supply with a donated asset amount for a defined period of time
+    pub fn incentivize_pool(
+        e: Env,
+        pool_address: Address,
+        sponsor: Address,
+        amount: i128,
+        start_period: u64,
+        end_period: u64,
+    ) -> Result<(), MCError> {
+        require_admin(&e);
+        require_not_frozen(&e)?;
+
+        if start_period < e.ledger().timestamp() {
+            return Err(MCError::IncentivePeriodDoesNotStartInTheFuture);
+        } else if start_period >= end_period {
+            return Err(MCError::IncentivePeriodStartDoesNotPrecedePeriodEnd);
+        }
+        let period = (start_period, end_period);
+
+        process_incentivize_pool(&e, &pool_address, &sponsor, amount, period)
+    }
+
     /// Deposits tokens into the loan pool
     ///
     /// # Arguments
@@ -387,6 +409,8 @@ impl MarketContract {
         process_repay(&e, &obligation_key, &pool_address, amount)
     }
 
+    // MEGA_WARN: Min collateral value enforced if borrows exist - implement this
+
     /// Liquidates borrower's position if position's health factor criterion isn't met
     ///
     /// # Arguments
@@ -502,7 +526,7 @@ impl MarketContract {
     ///
     /// # WARNING
     /// This increases the perceived `supply APR` only
-    /// when `(borrowed token borrow APR < supply token supply APR)` holds true
+    /// when `(borrowed token borrow APR < supply token supply APR * leverage(MEGA_WARN: right?))` holds true
     ///
     /// # Arguments
     /// * `user` - user that deposits tokens with leverage

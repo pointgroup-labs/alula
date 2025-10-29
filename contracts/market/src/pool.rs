@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env, String, Symbol, Vec, contracttype};
+use soroban_sdk::{Address, Env, Map, String, Symbol, Vec, contracttype};
 
 use crate::{
     accrual::AccrualModel,
@@ -50,6 +50,8 @@ pub struct Pool {
     pub config: PoolConfig,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
+    /// Remaining supply incentives that are distributed evenly among their specified periods
+    pub supply_incentives: Map<(u64, u64), i128>,
     // TODO: APY & APR?
 }
 
@@ -80,6 +82,20 @@ impl Pool {
     fn adjust_fees(&mut self, e: &Env, fees: &ComputedFees) -> Result<(), MCError> {
         self.adjust_accumulated_host_fees(e, fees.host_fee)?;
         self.adjust_accumulated_market_fees(e, fees.market_fee)?;
+
+        Ok(())
+    }
+
+    /// Additionally incentivizes the pool's supply APR
+    pub fn incentivize(&mut self, amount: i128, period: (u64, u64)) -> Result<(), MCError> {
+        let incentive_amount = if let Some(existing_incentive) = self.supply_incentives.get(period)
+        {
+            existing_incentive.checked_add(amount).map_over_or_underflow()?
+        } else {
+            amount
+        };
+
+        self.supply_incentives.set(period, incentive_amount);
 
         Ok(())
     }
@@ -465,45 +481,6 @@ impl Pool {
         total_funds.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
     }
 
-    /// Checks if the pool is empty
-    pub fn is_empty(&self) -> bool {
-        let &Self {
-            pool_address: _,
-            token_address: _,
-            token_ticker: _,
-            last_accrual_timestamp: _,
-            name: _,
-            config: _,
-            total_borrowed,
-            total_d_tokens,
-            total_j_tokens,
-            total_available,
-            total_collateral,
-            accumulated_reserve_fees,
-            accumulated_market_fees,
-            accumulated_host_fees,
-        } = self;
-
-        if total_j_tokens == 0 && total_available != 0 {
-            // These represent serious invariant violations that should be logged
-            // it means funds exist but no one owns them (orphaned funds)
-        }
-
-        if total_d_tokens == 0 && total_borrowed != 0 {
-            // These represent serious invariant violations that should be logged
-            // it means debt exists but no one owes it (ghost debt)
-        }
-
-        total_j_tokens == 0
-            && total_d_tokens == 0
-            && total_borrowed == 0
-            && total_available == 0
-            && total_collateral == 0
-            && accumulated_host_fees == 0
-            && accumulated_reserve_fees == 0
-            && accumulated_market_fees == 0
-    }
-
     /// Tries to get the pool from the contract's storage
     ///
     /// # Returns
@@ -802,6 +779,23 @@ impl PoolHealthConfig {
         Ok(())
     }
 }
+
+#[contracttype]
+pub struct PoolIncentive {
+    /// Total provided incentive amount
+    pub total_amount: i128,
+    /// Remaining incentive amount
+    pub remaining_amount: i128,
+    /// Accrued incentive per second
+    pub accrual_rate: i128,
+}
+
+// impl PoolIncentive {
+//     pub fn new() -> Self {
+
+//         Self {}
+//     }
+// }
 
 fn is_valid_bps_percent(value: i128) -> bool {
     (0..=100 * BPS_IN_PERCENT).contains(&value)

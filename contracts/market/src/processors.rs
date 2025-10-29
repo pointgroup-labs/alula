@@ -1,7 +1,7 @@
 // use aggregated_oracle::PriceFeedClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Symbol,
+    Address, BytesN, Env, Map, Symbol,
     token::{self, TokenClient},
 };
 
@@ -63,6 +63,8 @@ pub fn process_initialize_pool(
         token_ticker: token_ticker.clone(),
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
+
+        supply_incentives: Map::new(e),
     };
 
     pool.set(e);
@@ -96,6 +98,35 @@ pub fn process_initialize_multiply_pair(
 
     pair.set(e);
     pair.register(e);
+
+    events::initialize_multiply_pair(e, deposit_pool_address, borrow_pool_address);
+
+    Ok(())
+}
+
+pub fn process_incentivize_pool(
+    e: &Env,
+    pool_address: &Address,
+    sponsor: &Address,
+    amount: i128,
+    period: (u64, u64),
+) -> Result<(), MCError> {
+    require_nonnegative(amount)?;
+
+    let mut pool = Pool::try_get(e, pool_address)?;
+
+    pool.incentivize(amount, period)?;
+    pool.set(e);
+
+    let token_client = token::Client::new(e, &pool.token_address);
+    token_client.transfer_from(
+        &e.current_contract_address(),
+        sponsor,
+        &e.current_contract_address(),
+        &amount,
+    );
+
+    events::incentivize_pool(e, pool_address, sponsor, amount, period);
 
     Ok(())
 }

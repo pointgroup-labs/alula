@@ -67,10 +67,14 @@ impl MarketManager for MarketManagerContract {
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
+        // MEGA_WARN: We don't initially validate `max_positions` and `min_collateral`
+
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
+
+        // MEGA_WARN: require admin authorization only for owned pools:
         admin.require_auth();
 
-        // TODO: Fix this...
+        // MEGA_WARN: Fix this...
         // let name_bytes: BytesN<32> = BytesN::<32>::from_val(&e, &name.to_val());
         // std::dbg!(&name_bytes);
         // let new_salt = e.crypto().keccak256(&name_bytes.into());

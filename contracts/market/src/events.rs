@@ -14,15 +14,6 @@ use crate::{
 // --- Contract's Methods Events ---
 
 #[contractevent]
-struct DepositEvent {
-    #[topic]
-    pub pool_address: Address,
-    #[topic]
-    pub obligation_key: ObligationKey, // TODO: Start return ObligationKey's from the contract
-    pub deposit_result: DepositResult,
-}
-
-#[contractevent]
 struct InitializePoolEvent {
     #[topic]
     pub token_address: Address,
@@ -30,6 +21,33 @@ struct InitializePoolEvent {
     pub pool_address: Address,
     #[topic]
     pub token_ticker: Symbol,
+}
+
+#[contractevent]
+struct InitializeMultiplyPairEvent {
+    #[topic]
+    pub deposit_pool_address: Address,
+    #[topic]
+    pub borrow_pool_address: Address,
+}
+
+#[contractevent]
+struct IncentivizePoolEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub sponsor: Address,
+    pub amount: i128,
+    pub period: (u64, u64),
+}
+
+#[contractevent]
+struct DepositEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey, // TODO: Start return ObligationKey's from the contract
+    pub deposit_result: DepositResult,
 }
 
 // TODO: Should we still keep a `swap` endpoint public?
@@ -281,7 +299,34 @@ pub fn initialize_pool(
     .publish(e);
 }
 
-/// Emitted when tokens are swapped
+pub fn initialize_multiply_pair(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) {
+    InitializeMultiplyPairEvent {
+        deposit_pool_address: deposit_pool_address.clone(),
+        borrow_pool_address: borrow_pool_address.clone(),
+    }
+    .publish(e);
+}
+
+pub fn incentivize_pool(
+    e: &Env,
+    pool_address: &Address,
+    sponsor: &Address,
+    amount: i128,
+    period: (u64, u64),
+) {
+    IncentivizePoolEvent {
+        pool_address: pool_address.clone(),
+        sponsor: sponsor.clone(),
+        amount,
+        period,
+    }
+    .publish(e);
+}
+
 pub fn swap(
     e: &Env,
     user: &Address,
