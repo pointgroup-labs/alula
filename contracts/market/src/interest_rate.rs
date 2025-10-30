@@ -1,9 +1,14 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Env, contracttype};
+use soroban_sdk::{Env, Vec, contracttype, vec as svec};
 
 use crate::{
-    accrual::Accrual, constants::*, error::MCError, events, interest_rate_model::InterestRate,
-    math_utils::MathUtils, pool::Pool,
+    accrual::Accrual,
+    constants::*,
+    error::MCError,
+    events,
+    interest_rate_model::InterestRate,
+    math_utils::MathUtils,
+    pool::{Pool, PoolIncentive},
 };
 
 /// Linear annual interest rates represented in basis points
@@ -34,7 +39,7 @@ pub struct AnnualPercentageYields {
 
 impl Pool {
     /// Accrues interest on the pool's total borrowed amount based
-    /// on the time elapsed since the last accrual.
+    /// on the time elapsed since the last accrual
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), MCError> {
         let current_timestamp = e.ledger().timestamp();
         if current_timestamp < self.last_accrual_timestamp {
@@ -46,6 +51,8 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
+
+        // -- Accrue interest on the pool --
 
         let seconds_passed = current_timestamp - self.last_accrual_timestamp; // safe
         if seconds_passed == 0 {
@@ -81,11 +88,49 @@ impl Pool {
         self.total_borrowed = new_total_borrowed;
         self.last_accrual_timestamp = current_timestamp;
 
+        // -- Accrue supply APR incentives --
+
+        let mut updated_incentives: Vec<((u64, u64), PoolIncentive)> = svec![e];
+        let mut outdated_incentive_periods: Vec<(u64, u64)> = svec![e];
+
+        for ((start_period, end_period), pool_incentive) in self.supply_incentives.iter() {
+            if end_period <= current_timestamp {
+                let new_total_available = self
+                    .total_available
+                    .checked_add(pool_incentive.remaining_amount)
+                    .map_over_or_underflow()?;
+
+                self.total_available = new_total_available;
+                outdated_incentive_periods.push_back((start_period, end_period));
+            } else if current_timestamp > start_period && current_timestamp < end_period {
+                let mut updated_incentive = pool_incentive;
+                let accrual_rate = updated_incentive.accrual_rate;
+
+                let seconds_remained = end_period - current_timestamp;
+                let new_remaining_amount = (seconds_remained as i128) * accrual_rate; // safe
+                let diff = updated_incentive.remaining_amount - new_remaining_amount; // safe
+
+                let new_total_available =
+                    self.total_available.checked_add(diff).map_over_or_underflow()?;
+                self.total_available = new_total_available;
+
+                updated_incentive.remaining_amount = new_remaining_amount;
+                updated_incentives.push_back(((start_period, end_period), updated_incentive));
+            }
+        }
+
+        for outdated_period in outdated_incentive_periods {
+            self.supply_incentives.remove(outdated_period);
+        }
+        for (period, updated_incentive) in updated_incentives {
+            self.supply_incentives.set(period, updated_incentive);
+        }
+
         Ok(())
     }
 
     /// Get current annual percentage rates (APR) for borrowing and supplying
-    /// based on the pool's utilization ratio and interest rate model.
+    /// based on the pool's utilization ratio and interest rate model
     pub fn get_apr(&self) -> Result<AnnualPercentageRates, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
@@ -97,7 +142,7 @@ impl Pool {
     }
 
     /// Get current annual percentage yields (APY) for borrowing and supplying
-    /// based on the pool's utilization ratio, interest rate model, and accrual model.
+    /// based on the pool's utilization ratio, interest rate model, and accrual model
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
@@ -120,7 +165,7 @@ impl Pool {
         Ok(apy)
     }
 
-    /// Computes the current utilization ratio in basis points (bps).
+    /// Computes the current utilization ratio in basis points (bps)
     pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
         // WARN: Is this a correct way to count UR now, when we have reserves?
         let total = self.total_supply()?;

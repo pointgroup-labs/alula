@@ -51,7 +51,7 @@ pub struct Pool {
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
     /// Remaining supply incentives that are distributed evenly among their specified periods
-    pub supply_incentives: Map<(u64, u64), i128>,
+    pub supply_incentives: Map<(u64, u64), PoolIncentive>,
     // TODO: APY & APR?
 }
 
@@ -87,15 +87,21 @@ impl Pool {
     }
 
     /// Additionally incentivizes the pool's supply APR
-    pub fn incentivize(&mut self, amount: i128, period: (u64, u64)) -> Result<(), MCError> {
-        let incentive_amount = if let Some(existing_incentive) = self.supply_incentives.get(period)
-        {
-            existing_incentive.checked_add(amount).map_over_or_underflow()?
+    pub fn incentivize(
+        &mut self,
+        amount: i128,
+        period: (u64, u64),
+        current_timestamp: u64,
+    ) -> Result<(), MCError> {
+        let incentive = if let Some(mut existing_incentive) = self.supply_incentives.get(period) {
+            existing_incentive.add_to_incentive(amount, current_timestamp, period);
+
+            existing_incentive
         } else {
-            amount
+            PoolIncentive::new(amount, period)
         };
 
-        self.supply_incentives.set(period, incentive_amount);
+        self.supply_incentives.set(period, incentive);
 
         Ok(())
     }
@@ -781,6 +787,7 @@ impl PoolHealthConfig {
 }
 
 #[contracttype]
+#[derive(Debug, Clone)]
 pub struct PoolIncentive {
     /// Total provided incentive amount
     pub total_amount: i128,
@@ -790,12 +797,30 @@ pub struct PoolIncentive {
     pub accrual_rate: i128,
 }
 
-// impl PoolIncentive {
-//     pub fn new() -> Self {
+impl PoolIncentive {
+    pub fn new(total_amount: i128, period: (u64, u64)) -> Self {
+        let period_seconds = (period.1 - period.0) as i128; // safe
+        let accrual_rate_ceil = total_amount / period_seconds; // safe
 
-//         Self {}
-//     }
-// }
+        Self { total_amount, remaining_amount: total_amount, accrual_rate: accrual_rate_ceil }
+    }
+
+    pub fn add_to_incentive(
+        &mut self,
+        new_amount: i128,
+        current_timestamp: u64,
+        period: (u64, u64),
+    ) {
+        let seconds_left = (period.1 - current_timestamp) as i128; // safe
+
+        if seconds_left > 0 {
+            let new_additional_accrual_rate = new_amount / seconds_left; // safe
+
+            self.remaining_amount += new_amount;
+            self.accrual_rate += new_additional_accrual_rate;
+        }
+    }
+}
 
 fn is_valid_bps_percent(value: i128) -> bool {
     (0..=100 * BPS_IN_PERCENT).contains(&value)

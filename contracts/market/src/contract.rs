@@ -248,14 +248,7 @@ impl MarketContract {
         require_admin(&e);
         require_not_frozen(&e)?;
 
-        if start_period < e.ledger().timestamp() {
-            return Err(MCError::IncentivePeriodDoesNotStartInTheFuture);
-        } else if start_period >= end_period {
-            return Err(MCError::IncentivePeriodStartDoesNotPrecedePeriodEnd);
-        }
-        let period = (start_period, end_period);
-
-        process_incentivize_pool(&e, &pool_address, &sponsor, amount, period)
+        process_incentivize_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
     }
 
     /// Deposits tokens into the loan pool
