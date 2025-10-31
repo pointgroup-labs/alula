@@ -635,6 +635,7 @@ name = "flash_loan_taker_mock"
 version = "0.0.0"
 dependencies = [
  "market",
+ "moderc3156",
  "soroban-fixed-point-math",
  "soroban-sdk",
  "tests",
@@ -916,6 +917,7 @@ name = "market"
 version = "0.0.5"
 dependencies = [
  "enum_dispatch",
+ "moderc3156",
  "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk",
@@ -933,6 +935,13 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
+
+[[package]]
+name = "moderc3156"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
 
 [[package]]
 name = "num-bigint"

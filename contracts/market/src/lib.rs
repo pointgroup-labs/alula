@@ -5,7 +5,6 @@ pub mod constants;
 pub mod contract;
 pub mod error;
 pub mod events;
-pub mod flash_loan_client_trait;
 pub mod helpers;
 pub mod interest_rate;
 pub mod interest_rate_model;

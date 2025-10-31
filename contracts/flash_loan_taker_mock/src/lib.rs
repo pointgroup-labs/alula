@@ -1,6 +1,7 @@
 #![no_std]
 
 use market::constants::BPS_FACTOR;
+use moderc3156::ModErc3156;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, Env, contract, contractimpl,
@@ -8,12 +9,6 @@ use soroban_sdk::{
 };
 
 const FAILING_CALL_AMOUNT: i128 = 777;
-
-// TODO: Create a #[no_std] sdk crate to be used from within other contracts
-// with `ModErc3156` and other traits(`MarketContract`, `MarketManagerContract`)
-pub trait ModErc3156 {
-    fn exec_op(env: Env, caller: Address, token: Address, amount: i128, fee: i128);
-}
 
 #[contract]
 pub struct FlashLoanLiquidatorContract;
