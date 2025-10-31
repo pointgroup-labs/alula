@@ -31,7 +31,8 @@ pub trait Market {
     /// * `max_positions` - max allowed number of positions in an obligation
     /// * `min_collateral_value` - minimum collateral value of a user's obligation
     /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
-    /// `None` for permissionless markets since they cannot be updated
+    ///   `None` for permissionless markets since they cannot be updated
+    #[allow(clippy::too_many_arguments)]
     fn __constructor(
         e: Env,
         name: String,
@@ -205,9 +206,9 @@ pub trait Market {
     /// * `user` - user which withdraws deposited tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - desired amount of tokens to withdraw.
-    /// The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
-    /// pool. Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens
-    /// available for it
+    ///   The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
+    ///   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens
+    ///   available for it
     fn withdraw(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
 
     /// Withdraws deposited tokens from the `Earn` obligation from the loan pool to the user
@@ -231,9 +232,9 @@ pub trait Market {
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
     /// * `amount` - desired amount of deposited tokens to withdraw.
-    /// The actual amount withdrawn is capped by the value difference between deposited and borrowed
-    /// tokens in the leveraged position (minus operational fees). Passing [`u64::MAX`] (or
-    /// [`i128::MAX`]) can be used to withdraw all available tokens
+    ///   The actual amount withdrawn is capped by the value difference between deposited and borrowed
+    ///   tokens in the leveraged position (minus operational fees). Passing [`u64::MAX`] (or
+    ///   [`i128::MAX`]) can be used to withdraw all available tokens
     fn withdraw_from_leveraged(
         e: Env,
         user: Address,
@@ -271,9 +272,9 @@ pub trait Market {
     /// * `user` - user which withdraws collateral tokens
     /// * `pool_address` - address of a pool from which the withdrawal happens
     /// * `amount` - desired amount of collateral tokens to remove.
-    /// The actual amount removed is capped to maintain the position's LTV at its Open LTV on the
-    /// pool. Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available
-    /// collateral
+    ///   The actual amount removed is capped to maintain the position's LTV at its Open LTV on the
+    ///   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available
+    ///   collateral
     fn remove_collateral(
         e: Env,
         user: Address,
@@ -288,7 +289,7 @@ pub trait Market {
     /// * `pool_address` - address of a pool from which the borrow happened
     /// * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only
     ///   the outstanding debt will be repaid.
-    /// Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
+    ///   Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
     fn repay(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
 
     /// Redeems accumulated market fees
