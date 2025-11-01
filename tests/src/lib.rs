@@ -152,11 +152,7 @@ impl TestMarketFixture<'_> {
         contract_client.update_market_status(&0);
 
         let router_address = Address::from_str(&e, ROUTER_ADDRESS);
-        e.register_at(
-            &router_address,
-            router::WASM,
-            (symbol_short!("USDC"), usdc_token_address.clone()),
-        );
+        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
         let router_client = router::Client::new(&e, &router_address);
 
         // GOLD
@@ -196,10 +192,6 @@ impl TestMarketFixture<'_> {
             &None,
             &Some(pool_config),
         );
-
-        router_client.map_address_to_ticker(&usdc_token_address, &usdc_ticker);
-        router_client.map_address_to_ticker(&gold_token_address, &gold_ticker);
-        router_client.map_address_to_ticker(&btc_token_address, &btc_ticker);
 
         contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
 

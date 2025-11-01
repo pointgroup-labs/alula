@@ -1543,7 +1543,7 @@ dependencies = [
 
 [[package]]
 name = "soroswap_router_mock"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "sep-40-oracle",
  "soroban-fixed-point-math",

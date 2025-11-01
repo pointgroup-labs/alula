@@ -3,7 +3,6 @@ use soroban_sdk::contracterror;
 
 #[contracterror]
 #[derive(Debug, Eq, PartialEq)]
-#[repr(u32)]
 pub enum MCError {
     // Core errors (0-99)
     InternalError = 0,
