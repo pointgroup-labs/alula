@@ -183,7 +183,7 @@ pub fn process_deposit<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
-    let mut user_transfers = Map::new(&e);
+    let mut user_transfers = Map::new(e);
     user_transfers.set(pool.token_address, amount);
 
     let transfers =
@@ -215,7 +215,7 @@ pub fn process_borrow<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
-    let mut market_transfers = Map::new(&e);
+    let mut market_transfers = Map::new(e);
     market_transfers.set(pool.token_address, borrow_result.borrower_to_receive);
 
     let transfers =

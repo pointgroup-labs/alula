@@ -87,7 +87,7 @@ impl<'a> RequestTransfers<'a> {
 
         for (token_address, amount) in self.user_transfers {
             let token_client = TokenClient::new(self.e, &token_address);
-            token_client.transfer(self.user, &self.e.current_contract_address(), &amount);
+            token_client.transfer(self.user, self.e.current_contract_address(), &amount);
         }
     }
 }
