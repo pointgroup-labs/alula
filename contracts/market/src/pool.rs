@@ -665,15 +665,14 @@ pub struct PoolConfig {
     pub health_config: PoolHealthConfig,
     pub accrual_model: AccrualModel,
     pub interest_rate_model: InterestRateModel,
+    pub interest_rate_config: InterestRateConfig,
 }
 
 impl PoolConfig {
     pub fn validate(&self) -> Result<(), MCError> {
-        let PoolConfig { health_config, .. } = self;
+        let PoolConfig { health_config, interest_rate_config, .. } = self;
 
-        // NB: Is there a reason to validate the fee config?
-
-        if health_config.validate().is_err() {
+        if interest_rate_config.validate().is_err() || health_config.validate().is_err() {
             return Err(MCError::InvalidLoanPoolConfig);
         }
 
@@ -780,6 +779,42 @@ impl PoolHealthConfig {
 
         if !(0..MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS).contains(&withdraw_scarcity_cooldown_s) {
             return Err("Withdrawal scarcity cooldown seconds exceed limit");
+        }
+
+        Ok(())
+    }
+}
+
+#[contracttype]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InterestRateConfig {
+    /// Target utilization ratio for a pool
+    pub target_utilization_ratio_bps: i128,
+    /// Constant that represents how strongly the interest rate adjusts to the target interest rate
+    pub reactivity_constant: i128,
+}
+
+impl Default for InterestRateConfig {
+    fn default() -> Self {
+        Self {
+            target_utilization_ratio_bps: DEFAULT_TARGET_UTILIZATION_RATIO_BPS,
+            reactivity_constant: DEFAULT_REACTIVITY_CONSTANT,
+        }
+    }
+}
+
+impl InterestRateConfig {
+    fn validate(&self) -> Result<(), &str> {
+        let &Self { target_utilization_ratio_bps, reactivity_constant } = self;
+
+        if !is_valid_bps_percent(target_utilization_ratio_bps) {
+            return Err("Target utilization ratio must be between 0% and 100%");
+        }
+
+        // Lemme think, they claim that MAX_REACTIVITY_CONSTANT is 10e(-4)
+        // 10(e-4) is 0.0001
+        if !(0..MAX_REACTIVITY_CONSTANT).contains(&reactivity_constant) {
+            return Err("Reactivity constant must be between 0% a 100%");
         }
 
         Ok(())

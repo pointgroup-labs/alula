@@ -44,6 +44,8 @@ pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
 // ---- Interest Rate and Accrual ----
 
+// -- Kinked(wth 2 kink points) interest rate model --
+
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
 pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000; // 10%
 pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: i128 = 7_000; // 70%
@@ -52,6 +54,13 @@ pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: i128 = 8_000; // 80%
 pub const DEFAULT_KINK1_APR_BPS: i128 = 3_000; // 30%
 pub const DEFAULT_KINK2_APR_BPS: i128 = 6_000; // 60%
 pub const DEFAULT_MAX_APR_BPS: i128 = 40_000; // 400%
+
+// -- Interest Reactivity --
+
+pub const DEFAULT_TARGET_UTILIZATION_RATIO_BPS: i128 = 7_000; // 70%
+pub const DEFAULT_REACTIVITY_CONSTANT: i128 = 0;
+
+pub const MAX_REACTIVITY_CONSTANT: i128 = 100; // 100%(represents 0.0001)
 
 // ---- Deposit ----
 
