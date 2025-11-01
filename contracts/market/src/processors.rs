@@ -26,33 +26,33 @@ pub fn process_submit_requests_batch<'a>(
     plain_obligation_key: &'a ObligationKey,
     earn_obligation_key: &'a ObligationKey,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    let mut transfers = RequestTransfers::new(&e, &user, smap![&e], smap![&e]);
+    let mut transfers = RequestTransfers::new(e, user, smap![&e], smap![&e]);
     for request in requests {
         let Request { request_type, pool_address, amount } = request;
         let request_type = RequestType::try_from(request_type)?;
 
         let new_transfers = match request_type {
             RequestType::Deposit => {
-                process_deposit(&e, &plain_obligation_key, &pool_address, amount)?
+                process_deposit(e, plain_obligation_key, &pool_address, amount)?
             }
             RequestType::Borrow => {
-                process_borrow(&e, &plain_obligation_key, &pool_address, amount)?
+                process_borrow(e, plain_obligation_key, &pool_address, amount)?
             }
             RequestType::Withdraw => {
-                process_withdraw(&e, &plain_obligation_key, &pool_address, amount)?
+                process_withdraw(e, plain_obligation_key, &pool_address, amount)?
             }
-            RequestType::Repay => process_repay(&e, &plain_obligation_key, &pool_address, amount)?,
+            RequestType::Repay => process_repay(e, plain_obligation_key, &pool_address, amount)?,
             RequestType::AddCollateral => {
-                process_add_collateral(&e, &plain_obligation_key, &pool_address, amount)?
+                process_add_collateral(e, plain_obligation_key, &pool_address, amount)?
             }
             RequestType::RemoveCollateral => {
-                process_remove_collateral(&e, &plain_obligation_key, &pool_address, amount)?
+                process_remove_collateral(e, plain_obligation_key, &pool_address, amount)?
             }
             RequestType::DepositIntoEarnObligation => {
-                process_deposit(&e, &earn_obligation_key, &pool_address, amount)?
+                process_deposit(e, earn_obligation_key, &pool_address, amount)?
             }
             RequestType::WithdrawFromEarnObligation => {
-                process_deposit(&e, &earn_obligation_key, &pool_address, amount)?
+                process_deposit(e, earn_obligation_key, &pool_address, amount)?
             }
         };
 
