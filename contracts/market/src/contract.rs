@@ -16,6 +16,7 @@ use crate::{
     oracle::{get_asset_price, get_oracle_price_decimals},
     pool::{Pool, PoolConfig},
     processors::*,
+    request::Request,
     storage::{self, GlobalState, MarketStatus, PoolUpdate},
 };
 
@@ -61,6 +62,9 @@ pub trait Market {
 
         Ok(())
     }
+
+    /// Submits a request batch
+    fn submit_requests_batch(e: Env, user: Address, requests: Vec<Request>) -> Result<(), MCError>;
 
     /// Gets the contract's global state
     fn get_global_state(e: Env) -> GlobalState;
@@ -540,6 +544,13 @@ impl Market for MarketContract {
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
+    // TODO: We can design this to include liquidations and leveraged operations
+    fn submit_requests_batch(e: Env, user: Address, requests: Vec<Request>) -> Result<(), MCError> {
+        user.require_auth();
+
+        process_submit_requests_batch(&e, &user, &requests)
+    }
+
     fn get_global_state(e: Env) -> GlobalState {
         storage::extend_instance_storage(&e);
 
@@ -676,8 +687,9 @@ impl Market for MarketContract {
         require_deposit_allowed(&e)?;
 
         let obligation_key = ObligationKey::new(user);
+        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute();
 
-        process_deposit(&e, &obligation_key, &pool_address, amount)
+        Ok(())
     }
 
     fn deposit_into_earn_obligation(
@@ -694,7 +706,9 @@ impl Market for MarketContract {
         let vault_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
 
-        process_deposit(&e, &obligation_key, &pool_address, amount)
+        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute();
+
+        Ok(())
     }
 
     fn borrow(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
@@ -702,8 +716,9 @@ impl Market for MarketContract {
         require_borrow_allowed(&e)?;
 
         let obligation_key = ObligationKey::new(user);
+        process_borrow(&e, &obligation_key, &pool_address, amount)?.execute();
 
-        process_borrow(&e, &obligation_key, &pool_address, amount)
+        Ok(())
     }
 
     fn swap(
@@ -729,8 +744,9 @@ impl Market for MarketContract {
         require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
+        process_add_collateral(&e, &obligation_key, &pool_address, amount)?.execute();
 
-        process_add_collateral(&e, &obligation_key, &pool_address, amount)
+        Ok(())
     }
 
     fn remove_collateral(
@@ -743,8 +759,9 @@ impl Market for MarketContract {
         require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
+        process_remove_collateral(&e, &obligation_key, &pool_address, amount)?.execute();
 
-        process_remove_collateral(&e, &obligation_key, &pool_address, amount)
+        Ok(())
     }
 
     fn repay(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
@@ -752,8 +769,9 @@ impl Market for MarketContract {
         require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
+        process_repay(&e, &obligation_key, &pool_address, amount)?.execute();
 
-        process_repay(&e, &obligation_key, &pool_address, amount)
+        Ok(())
     }
 
     // MEGA_WARN: Min collateral value enforced if borrows exist - implement this
@@ -762,8 +780,8 @@ impl Market for MarketContract {
         e: Env,
         liquidator: Address,
         borrower: Address,
-        borrow_pool_address: Address,
-        collateral_pool_address: Address,
+        borrow_pool_address: Address,     // TODO: Must be Vec, right?
+        collateral_pool_address: Address, // TODO: Must also be Vec, right?
         amount: i128,
     ) -> Result<(), MCError> {
         liquidator.require_auth();
@@ -786,8 +804,9 @@ impl Market for MarketContract {
         require_not_frozen(&e)?;
 
         let obligation_key = ObligationKey::new(user);
+        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute();
 
-        process_withdraw(&e, &obligation_key, &pool_address, amount)
+        Ok(())
     }
 
     fn withdraw_from_earn_obligation(
@@ -802,7 +821,9 @@ impl Market for MarketContract {
         let vault_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
 
-        process_withdraw(&e, &obligation_key, &pool_address, amount)
+        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute();
+
+        Ok(())
     }
 
     fn flash_loan(

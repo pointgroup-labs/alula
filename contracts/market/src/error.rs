@@ -17,6 +17,7 @@ pub enum MCError {
     MarketIsFrozen = 7,
     InvalidMarketUpdate = 8,
     InvalidMarketStatusUpdate = 9,
+    IncorrectRequestType = 10,
 
     // Pool-related errors (100-199)
     PoolAlreadyExists = 100,

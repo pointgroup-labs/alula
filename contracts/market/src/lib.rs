@@ -14,6 +14,7 @@ pub mod obligation;
 pub mod oracle;
 pub mod pool;
 pub mod processors;
+pub mod request;
 pub mod soroswap_router;
 pub mod storage;
 pub mod swap;

@@ -1,0 +1,93 @@
+use soroban_sdk::{Address, Env, Map, contracttype, token::TokenClient};
+
+use crate::error::MCError;
+
+/// A request from the submission batch
+#[derive(Clone)]
+#[contracttype]
+pub struct Request {
+    pub request_type: u32,
+    pub pool_address: Address,
+    pub amount: i128,
+}
+
+#[contracttype]
+pub enum RequestType {
+    Deposit = 0,
+    Borrow = 1,
+    Withdraw = 2,
+    Repay = 3,
+    AddCollateral = 4,
+    RemoveCollateral = 5,
+    DepositIntoEarnObligation = 6,
+    WithdrawFromEarnObligation = 7,
+    // TODO: Liquidate, Leverage, Flash Loan ...
+}
+
+impl TryFrom<u32> for RequestType {
+    type Error = MCError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        use RequestType::*;
+
+        let req_type = match value {
+            0 => Deposit,
+            1 => Borrow,
+            2 => Withdraw,
+            3 => Repay,
+            4 => AddCollateral,
+            5 => RemoveCollateral,
+            6 => DepositIntoEarnObligation,
+            7 => WithdrawFromEarnObligation,
+            _ => return Err(MCError::IncorrectRequestType),
+        };
+
+        Ok(req_type)
+    }
+}
+
+pub struct RequestTransfers<'a> {
+    pub e: &'a Env,
+    pub user: &'a Address,
+    pub market_transfers: Map<Address, i128>,
+    pub user_transfers: Map<Address, i128>,
+}
+
+impl<'a> RequestTransfers<'a> {
+    pub fn new(
+        e: &'a Env,
+        user: &'a Address,
+        market_transfers: Map<Address, i128>,
+        user_transfers: Map<Address, i128>,
+    ) -> Self {
+        Self { e, user, user_transfers, market_transfers }
+    }
+
+    pub fn new_with_user_transfers(
+        e: &'a Env,
+        user: &'a Address,
+        user_transfers: Map<Address, i128>,
+    ) -> Self {
+        Self { e, user, user_transfers, market_transfers: Map::new(e) }
+    }
+
+    pub fn new_with_market_transfers(
+        e: &'a Env,
+        user: &'a Address,
+        market_transfers: Map<Address, i128>,
+    ) -> Self {
+        Self { e, user, market_transfers, user_transfers: Map::new(e) }
+    }
+
+    pub fn execute(self) {
+        for (token_address, amount) in self.market_transfers {
+            let token_client = TokenClient::new(self.e, &token_address);
+            token_client.transfer(&self.e.current_contract_address(), self.user, &amount);
+        }
+
+        for (token_address, amount) in self.user_transfers {
+            let token_client = TokenClient::new(self.e, &token_address);
+            token_client.transfer(self.user, &self.e.current_contract_address(), &amount);
+        }
+    }
+}
