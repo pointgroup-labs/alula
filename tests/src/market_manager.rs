@@ -53,7 +53,7 @@ fn test_manager_deploy_markets() {
     let salt_1 = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
     let market_address_1 =
-        manager_client.deploy(&salt_1, &market_admin, &name_1, &oracle, &0, &0, &None);
+        manager_client.deploy(&salt_1, &market_admin, &name_1, &oracle, &2, &0, &None);
 
     let market_list = manager_client.get_market_list();
     assert_eq!(market_list.len(), 1);
@@ -62,7 +62,7 @@ fn test_manager_deploy_markets() {
     let salt_2 = BytesN::from_array(&e, &[1; 32]);
     let name_2 = String::from_str(&e, "market_2");
     let market_address_2 =
-        manager_client.deploy(&salt_2, &market_admin, &name_2, &oracle, &0, &0, &None);
+        manager_client.deploy(&salt_2, &market_admin, &name_2, &oracle, &2, &0, &None);
 
     let market_list = manager_client.get_market_list();
 
@@ -79,13 +79,13 @@ fn test_manager_cannot_redeploy_market() {
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
-    manager_client.deploy(&salt, &market_admin, &name_1, &oracle, &0, &0, &None);
+    manager_client.deploy(&salt, &market_admin, &name_1, &oracle, &2, &0, &None);
 
     let name_2 = String::from_str(&e, "market_2");
 
     // NB: Markets' addresses are deterministically derived from salt and
     // market manager's contract address, hence no redeployment like this is possible
     assert!(
-        manager_client.try_deploy(&salt, &market_admin, &name_2, &oracle, &0, &0, &None).is_err()
+        manager_client.try_deploy(&salt, &market_admin, &name_2, &oracle, &2, &0, &None).is_err()
     );
 }

@@ -6,7 +6,7 @@ use soroban_sdk::contracterror;
 pub enum MCError {
     // Core errors (0-99)
     InternalError = 0,
-    OverOrUnderflow = 1,
+    NegativeInputAmount = 1,
     DependencyContractError = 2,
     MarketIsNotOwned = 3,
     BorrowForbiddenOnMarket = 4,
@@ -15,6 +15,7 @@ pub enum MCError {
     InvalidMarketUpdate = 7,
     InvalidMarketStatusUpdate = 8,
     IncorrectRequestType = 9,
+    OverOrUnderflow = 10,
 
     // Pool-related errors (100-199)
     PoolAlreadyExists = 100,
@@ -42,9 +43,6 @@ pub enum MCError {
     ScarcityCooldownPeriod = 205,
     BorrowPositionForAssetExists = 206,
     DepositPositionForAssetExists = 207,
-
-    // Amount validation errors (300-399)
-    NegativeInputAmount = 300,
 
     // Balance and limit errors (400-499)
     PoolSupplyLimitExceeded = 400,

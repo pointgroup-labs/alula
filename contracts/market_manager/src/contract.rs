@@ -1,6 +1,7 @@
 use soroban_sdk::{Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl};
 
 use crate::{
+    constants::MAX_RESERVES,
     error::MMCError,
     storage::{self, Config, extend_instance_storage},
 };
@@ -66,12 +67,14 @@ impl MarketManager for MarketManagerContract {
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
+        require_nonnegative(min_collateral)?;
 
-        // MEGA_WARN: We don't initially validate `max_positions` and `min_collateral`
+        if max_positions < 2 || max_positions > MAX_RESERVES {
+            return Err(MMCError::InvalidMaxPositions);
+        }
 
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
 
-        // MEGA_WARN: require admin authorization only for owned pools:
         admin.require_auth();
 
         // MEGA_WARN: Fix this...
@@ -123,6 +126,8 @@ impl MarketManagerContract {
         storage::set_market_contract_wasm_hash(&e, &market_contract_wasm_hash);
     }
 
+    // --- TO BE REMOVED ---
+
     /// Upgrades the market manager contract
     ///
     /// # Arguments
@@ -155,6 +160,16 @@ impl MarketManagerContract {
 
 // -- Helpers --
 
+#[inline(always)]
 fn require_admin(e: &Env) {
     storage::get_admin(e).require_auth();
+}
+
+#[inline(always)]
+pub fn require_nonnegative(amount: i128) -> Result<(), MMCError> {
+    if amount < 0 {
+        return Err(MMCError::NegativeInputAmount);
+    }
+
+    Ok(())
 }
