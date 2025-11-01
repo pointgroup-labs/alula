@@ -69,7 +69,7 @@ impl MarketManager for MarketManagerContract {
         extend_instance_storage(&e);
         require_nonnegative(min_collateral)?;
 
-        if max_positions < 2 || max_positions > MAX_RESERVES {
+        if !(2..=MAX_RESERVES).contains(&max_positions) {
             return Err(MMCError::InvalidMaxPositions);
         }
 
