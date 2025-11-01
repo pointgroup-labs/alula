@@ -1,6 +1,6 @@
 use soroban_sdk::{Address, Env, Map, contracttype, token::TokenClient};
 
-use crate::error::MCError;
+use crate::{error::MCError, math_utils::MathUtils};
 
 /// A request from the submission batch
 #[derive(Clone)]
@@ -77,6 +77,24 @@ impl<'a> RequestTransfers<'a> {
         market_transfers: Map<Address, i128>,
     ) -> Self {
         Self { e, user, market_transfers, user_transfers: Map::new(e) }
+    }
+
+    pub fn merge(&mut self, other: &RequestTransfers<'a>) -> Result<(), MCError> {
+        for (token_address, amount) in other.market_transfers.iter() {
+            let old = self.market_transfers.get(token_address.clone()).unwrap_or_default();
+            let new = old.checked_add(amount).map_over_or_underflow()?;
+
+            self.market_transfers.set(token_address, new);
+        }
+
+        for (token_address, amount) in other.user_transfers.iter() {
+            let old = self.user_transfers.get(token_address.clone()).unwrap_or_default();
+            let new = old.checked_add(amount).map_over_or_underflow()?;
+
+            self.user_transfers.set(token_address, new);
+        }
+
+        Ok(())
     }
 
     pub fn execute(self) {
