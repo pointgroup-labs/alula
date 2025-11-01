@@ -97,6 +97,25 @@ impl Obligation {
         Ok(())
     }
 
+    pub fn require_no_borrow_position_exists(&self, pool_address: &Address) -> Result<(), MCError> {
+        if self.borrows.contains_key(pool_address.clone()) {
+            return Err(MCError::BorrowPositionForAssetExists);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_no_deposit_position_exists(
+        &self,
+        pool_address: &Address,
+    ) -> Result<(), MCError> {
+        if self.borrows.contains_key(pool_address.clone()) {
+            return Err(MCError::DepositPositionForAssetExists);
+        }
+
+        Ok(())
+    }
+
     /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a
     /// collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
     /// parameter on the pool

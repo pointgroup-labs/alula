@@ -101,6 +101,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[0];
+    let creditor = &users[1];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.deposit_into_earn_obligation(
@@ -110,7 +111,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     );
 
     assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1).is_ok());
-    assert!(contract_client.try_deposit(loan_provider, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
 
     let pool_config_update_queue_in_period =
         contract_client.get_global_state().update_in_queue_period.unwrap();
@@ -132,7 +133,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         contract_client.try_borrow(borrower, &usdc_pool_address, &1),
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
-    assert!(contract_client.try_deposit(loan_provider, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
 
     let new_pool_config = PoolConfig {
         status: PoolStatus { borrow_enabled: false, deposit_enabled: false },
@@ -152,7 +153,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
     assert_eq!(
-        contract_client.try_deposit(loan_provider, &usdc_pool_address, &1),
+        contract_client.try_deposit(creditor, &usdc_pool_address, &1),
         Err(Ok(MCError::DepositForbiddenOnPool))
     );
 }

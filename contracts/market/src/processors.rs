@@ -35,9 +35,7 @@ pub fn process_submit_requests_batch<'a>(
             RequestType::Deposit => {
                 process_deposit(e, plain_obligation_key, &pool_address, amount)?
             }
-            RequestType::Borrow => {
-                process_borrow(e, plain_obligation_key, &pool_address, amount)?
-            }
+            RequestType::Borrow => process_borrow(e, plain_obligation_key, &pool_address, amount)?,
             RequestType::Withdraw => {
                 process_withdraw(e, plain_obligation_key, &pool_address, amount)?
             }
@@ -211,6 +209,8 @@ pub fn process_deposit<'a>(
     // We must separate `multiply` obligations from others in the obligation list
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+
+    obligation.require_no_borrow_position_exists(pool_address)?;
 
     let deposit_result = obligation.deposit(e, &pool, amount)?;
     pool.deposit(e, &deposit_result)?;
