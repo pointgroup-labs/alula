@@ -1,6 +1,9 @@
-use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
+use soroban_sdk::{Address, BytesN, Env, Map, contracttype};
 
-use crate::error::MMCError;
+use crate::{
+    constants::{INSTANCE_BUMP, INSTANCE_THRESHOLD},
+    error::MMCError,
+};
 
 #[derive(Debug)]
 #[contracttype]
@@ -19,7 +22,6 @@ pub struct Config {
 pub fn set_admin(e: &Env, admin: &Address) {
     e.storage().instance().set(&DataKey::Admin, admin);
 }
-
 pub fn get_admin(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Admin).expect("Admin must exist")
 }
@@ -27,7 +29,6 @@ pub fn get_admin(e: &Env) -> Address {
 pub fn set_market_contract_wasm_hash(e: &Env, hash: &BytesN<32>) {
     e.storage().instance().set(&DataKey::MarketContractWasmHash, hash);
 }
-
 pub fn get_market_contract_wasm_hash(e: &Env) -> BytesN<32> {
     e.storage()
         .instance()
@@ -56,22 +57,9 @@ pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMCError
     Ok(())
 }
 
-pub fn get_markets(e: &Env) -> Option<Vec<Address>> {
-    let markets_map: Map<Address, ()> = e.storage().instance().get(&DataKey::MarketList)?;
-
-    let mut markets_vec = Vec::new(e);
-    for (market_addr, _) in markets_map {
-        markets_vec.push_back(market_addr);
-    }
-
-    Some(markets_vec)
+pub fn get_markets(e: &Env) -> Option<Map<Address, ()>> {
+    e.storage().instance().get(&DataKey::MarketList)?
 }
-
-const SECONDS_PER_DAY: u32 = 24 * 60 * 60;
-const SECONDS_PER_LEDGER: u32 = 6;
-const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;
-const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
-const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
 
 /// Instance storage bumper
 pub fn extend_instance_storage(e: &Env) {

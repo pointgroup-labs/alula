@@ -5,7 +5,6 @@ use soroban_sdk::contracterror;
 /// Market Manager Contract Error
 pub enum MMCError {
     // Common Core errors (0-99)
-    InternalError = 0,
     NegativeInputAmount = 1,
 
     // Market Manager errors (1000+)

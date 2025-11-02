@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl};
+use soroban_sdk::{Address, BytesN, Env, Map, String, contract, contractclient, contractimpl};
 
 use crate::{
     constants::MAX_RESERVES,
@@ -6,6 +6,7 @@ use crate::{
     storage::{self, Config, extend_instance_storage},
 };
 
+// --- TODO: Remove this module before deployment ---
 mod market {
     #![allow(clippy::too_many_arguments)]
     use soroban_sdk::contractimport;
@@ -42,8 +43,8 @@ pub trait MarketManager {
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError>;
 
-    /// Returns a list of all lending markets deployed by the manager
-    fn get_market_list(e: Env) -> Vec<Address>;
+    /// Returns a set of all lending markets deployed by the manager
+    fn get_markets(e: Env) -> Map<Address, ()>;
 
     /// Returns contract's [`Config`]
     fn get_config(e: Env) -> Config;
@@ -74,13 +75,7 @@ impl MarketManager for MarketManagerContract {
         }
 
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
-
         admin.require_auth();
-
-        // MEGA_WARN: Fix this...
-        // let name_bytes: BytesN<32> = BytesN::<32>::from_val(&e, &name.to_val());
-        // std::dbg!(&name_bytes);
-        // let new_salt = e.crypto().keccak256(&name_bytes.into());
 
         let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_contract_wasm_hash,
@@ -100,10 +95,10 @@ impl MarketManager for MarketManagerContract {
         Ok(market_address)
     }
 
-    fn get_market_list(e: Env) -> Vec<Address> {
+    fn get_markets(e: Env) -> Map<Address, ()> {
         extend_instance_storage(&e);
 
-        storage::get_markets(&e).unwrap_or(Vec::new(&e))
+        storage::get_markets(&e).unwrap_or(Map::new(&e))
     }
 
     fn get_config(e: Env) -> Config {
@@ -126,7 +121,7 @@ impl MarketManagerContract {
         storage::set_market_contract_wasm_hash(&e, &market_contract_wasm_hash);
     }
 
-    // --- TO BE REMOVED ---
+    // --- TODO: TO BE REMOVED ---
 
     /// Upgrades the market manager contract
     ///
@@ -148,7 +143,7 @@ impl MarketManagerContract {
         require_admin(&e);
 
         if let Some(deployed_markets) = storage::get_markets(&e) {
-            for market_address in deployed_markets {
+            for market_address in deployed_markets.keys() {
                 let market_client = market::Client::new(&e, &market_address);
                 market_client.upgrade(&new_market_contract_wasm_hash);
             }
@@ -160,7 +155,7 @@ impl MarketManagerContract {
 
 // -- Helpers --
 
-#[inline(always)]
+#[inline(always)] // TODO: to be removed
 fn require_admin(e: &Env) {
     storage::get_admin(e).require_auth();
 }

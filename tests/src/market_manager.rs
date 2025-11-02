@@ -38,7 +38,7 @@ impl<'a> ManagerSetup<'a> {
 fn test_manager_has_no_markets_initially() {
     let ManagerSetup { manager_client, .. } = ManagerSetup::new();
 
-    let market_addresses = manager_client.get_market_list();
+    let market_addresses = manager_client.get_markets();
 
     assert!(market_addresses.is_empty());
 }
@@ -55,19 +55,19 @@ fn test_manager_deploy_markets() {
     let market_address_1 =
         manager_client.deploy(&salt_1, &market_admin, &name_1, &oracle, &2, &0, &None);
 
-    let market_list = manager_client.get_market_list();
+    let market_list = manager_client.get_markets();
     assert_eq!(market_list.len(), 1);
-    assert_eq!(market_address_1, market_list.last().unwrap());
+    assert!(market_list.contains_key(market_address_1));
 
     let salt_2 = BytesN::from_array(&e, &[1; 32]);
     let name_2 = String::from_str(&e, "market_2");
     let market_address_2 =
         manager_client.deploy(&salt_2, &market_admin, &name_2, &oracle, &2, &0, &None);
 
-    let market_list = manager_client.get_market_list();
+    let market_list = manager_client.get_markets();
 
     assert_eq!(market_list.len(), 2);
-    assert!(market_list.contains(market_address_2));
+    assert!(market_list.contains_key(market_address_2));
 }
 
 #[test]
