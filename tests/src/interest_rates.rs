@@ -34,8 +34,8 @@ fn test_interest_rates() {
     contract_client.poke_pool(&usdc_pool_address);
 
     // 0% UR
-    let borrow_bps = contract_client.get_pool(&&usdc_pool_address).borrow_apr_bps;
-    let supply_bps = contract_client.get_pool(&&usdc_pool_address).supply_apr_bps;
+    let borrow_bps = contract_client.get_pool(&usdc_pool_address).borrow_apr_bps;
+    let supply_bps = contract_client.get_pool(&usdc_pool_address).supply_apr_bps;
     assert_eq!(borrow_bps, 00_01); // WARN: calculations for APY yield 0% due to a precision loss
     assert_eq!(supply_bps, 00_00);
 
@@ -44,35 +44,35 @@ fn test_interest_rates() {
 
     let rates = contract_client.get_apy(&usdc_pool_address);
     assert_eq!(rates.borrow_bps, 23_89);
-    assert_eq!(rates.supply_bps, 1010);
+    assert_eq!(rates.supply_bps, 10_10);
 
     // Borrow 75% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
     assert_eq!(rates.borrow_bps, 56_83);
-    assert_eq!(rates.supply_bps, 3548);
+    assert_eq!(rates.supply_bps, 35_48);
 
     // Borrow 80% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
     assert_eq!(rates.borrow_bps, 82_21);
-    assert_eq!(rates.supply_bps, 5403);
+    assert_eq!(rates.supply_bps, 54_03);
 
     // Borrow 90% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
     assert_eq!(rates.borrow_bps, 897_41);
-    assert_eq!(rates.supply_bps, 54430);
+    assert_eq!(rates.supply_bps, 544_30);
 
     // Borrow 100% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
     let rates = contract_client.get_apy(&usdc_pool_address);
-    assert_eq!(rates.borrow_bps, 355_982);
-    assert_eq!(rates.supply_bps, 535_981);
+    assert_eq!(rates.supply_bps, 355_982);
+    assert_eq!(rates.borrow_bps, 535_981);
 }
 
 #[test]
