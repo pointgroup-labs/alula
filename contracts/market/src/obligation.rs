@@ -499,10 +499,13 @@ impl Obligation {
                     pool.config.health_config.withdraw_scarcity_cooldown_s;
                 let current_timestamp = e.ledger().timestamp();
 
-                if current_timestamp
-                    < last_scarcity_withdraw_ts
-                        .checked_add(scarcity_withdraw_cooldown)
-                        .map_over_or_underflow()?
+                // Check cooldown only if this is not the first scarcity withdrawal
+                // (last_scarcity_withdraw_ts == 0 means no previous scarcity withdrawal)
+                if last_scarcity_withdraw_ts != 0
+                    && current_timestamp
+                        < last_scarcity_withdraw_ts
+                            .checked_add(scarcity_withdraw_cooldown)
+                            .map_over_or_underflow()?
                 {
                     return Err(MCError::ScarcityCooldownPeriod);
                 }
@@ -512,12 +515,14 @@ impl Obligation {
                 new_utilization_ratio_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
             } else {
                 0
-            } as u32;
+            };
 
-            (utilization_ratio_diff_bps as i128)
+            let fee = utilization_ratio_diff_bps
                 .fixed_mul_ceil(pool.config.fee_config.withdraw_scarcity_fee_scalar_p as i128, 100)
-                .map_over_or_underflow()?
-        } as u32;
+                .map_over_or_underflow()?;
+
+            u32::try_from(fee).map_err(|_| MCError::OverOrUnderflow)?
+        };
 
         let withdraw_fee_bps = pool
             .config
@@ -547,8 +552,14 @@ impl Obligation {
                 all_deposit,
             );
 
+            // Only accept small negative values due to rounding errors in fixed-point math.
+            // Large negative values indicate a critical accounting bug.
+            if received_interest < -MAX_ACCEPTABLE_ROUNDING_ERROR {
+                return Err(MCError::InternalError);
+            }
+
+            // Small rounding error - safe to treat as zero interest
             received_interest = 0;
-            // return Err(MCError::InternalError);
         }
 
         if deposit_decrease >= received_interest {
@@ -668,8 +679,14 @@ impl Obligation {
                 all_debt,
             );
 
+            // Only accept small negative values due to rounding errors in fixed-point math.
+            // Large negative values indicate a critical accounting bug.
+            if unpaid_interest < -MAX_ACCEPTABLE_ROUNDING_ERROR {
+                return Err(MCError::InternalError);
+            }
+
+            // Small rounding error - safe to treat as zero interest
             unpaid_interest = 0;
-            // return Err(MCError::InternalError);
         }
 
         if debt_decrease >= unpaid_interest {

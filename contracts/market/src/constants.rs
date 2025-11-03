@@ -124,3 +124,11 @@ pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 10i128.pow(5); // 10^5 = 0.01
 pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
+
+// ---- Rounding Error Tolerance ----
+
+/// Maximum acceptable negative interest due to rounding errors in fixed-point math
+/// Values more negative than this threshold indicate a critical accounting bug
+/// and should cause the transaction to fail rather than silently set interest to 0.
+/// Set to 100 stroops to handle precision loss in token conversions.
+pub const MAX_ACCEPTABLE_ROUNDING_ERROR: i128 = 100;

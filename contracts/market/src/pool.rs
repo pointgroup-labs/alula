@@ -446,10 +446,7 @@ impl Pool {
     }
 
     pub fn total_available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {
-        // TODO: Can we use `saturating_sub` here instead of `checked_sub`?
-        let res = self.total_available.saturating_sub(self.accumulated_reserve_fees);
-
-        Ok(res)
+        self.total_available.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
     }
 
     /// Calculates total debt (total_borrowed - accumulated reserve fees)
