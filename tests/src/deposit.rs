@@ -12,8 +12,8 @@ use soroban_sdk::{
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT,
-    TestMarketFixture, get_earn_vault_obligation_d_tokens, get_earn_vault_obligation_deposited,
-    get_earn_vault_obligation_j_tokens, get_earn_vault_obligation_j_tokens_as_tokens,
+    TestMarketFixture, get_earn_obligation_d_tokens, get_earn_obligation_deposited,
+    get_earn_obligation_j_tokens, get_earn_obligation_j_tokens_as_tokens,
     get_obligation_collateral, get_obligation_d_tokens, get_obligation_deposited,
     get_obligation_j_tokens, get_obligation_j_tokens_as_tokens, get_pool_total_available,
     get_pool_total_collateral, get_pool_total_d_tokens, get_pool_total_j_tokens,
@@ -294,24 +294,19 @@ fn test_deposit_into_earn_obligation() {
     assert_eq!(pool_total_d_tokens, 0);
 
     let obligation_j_tokens =
-        get_earn_vault_obligation_j_tokens(&contract_client, creditor, &gold_pool_address).unwrap();
-    let obligation_j_tokens_as_tokens = get_earn_vault_obligation_j_tokens_as_tokens(
-        &e,
-        &contract_client,
-        creditor,
-        &gold_pool_address,
-    )
-    .unwrap();
-    let obligation_deposited =
-        get_earn_vault_obligation_deposited(&contract_client, creditor, &gold_pool_address)
+        get_earn_obligation_j_tokens(&contract_client, creditor, &gold_pool_address).unwrap();
+    let obligation_j_tokens_as_tokens =
+        get_earn_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
             .unwrap();
+    let obligation_deposited =
+        get_earn_obligation_deposited(&contract_client, creditor, &gold_pool_address).unwrap();
 
     assert_eq!(obligation_j_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(obligation_deposited, DEFAULT_DEPOSIT_AMOUNT);
 
     assert_eq!(
-        get_earn_vault_obligation_d_tokens(&contract_client, creditor, &gold_pool_address),
+        get_earn_obligation_d_tokens(&contract_client, creditor, &gold_pool_address),
         Err(MCError::BorrowDoesNotExist)
     );
 }

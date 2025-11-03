@@ -95,15 +95,12 @@ impl TestMarketFixture<'_> {
 
     fn new_with_pool_config(pool_config: PoolConfig) -> Self {
         let e = get_default_env();
-        // TODO: Think more about what sometimes happens in tests
-        // when this is opted out
-        e.mock_all_auths_allowing_non_root_auth();
+        e.mock_all_auths_allowing_non_root_auth(); // TODO: Test flash loans on testnet
 
-        // NB: Taken from `blend`
         e.ledger().set(LedgerInfo {
-            timestamp: 1514764800, // January 1, 2018
+            timestamp: 1590969600, // June 1, 2020
             protocol_version: 23,
-            sequence_number: 0, // TODO: Change this to something like 100 and fix failing test
+            sequence_number: 1000,
             network_id: Default::default(),
             base_reserve: 10,
             min_temp_entry_ttl: 500000,
@@ -260,7 +257,6 @@ impl TestMarketFixture<'_> {
         }
     }
 
-    // TODO: Unify time passing
     pub fn pass_time(&self, seconds: u64) {
         self.e.ledger().with_mut(|li| {
             li.timestamp = li.timestamp.saturating_add(seconds);
@@ -379,8 +375,8 @@ pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClie
 pub fn make_oracle_prices_equal(e: &Env, oracle_client: &MockPriceOracleClient) {
     oracle_client.set_price_stable(&soroban_sdk::vec![
         e,
-        1_00000000000000, // GOLD
         1_00000000000000, // BTC
+        1_00000000000000, // GOLD
         1_00000000000000, // USDC
     ]);
 }
@@ -409,8 +405,9 @@ pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> T
 pub trait RunCommand {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize);
 }
-// TODO: This screams `add macro`, though, it's unlikely that many more actors/commands will be
-// added so, maybe, it's an overkill
+
+// TODO: This screams `add macro`, though it's unlikely that many more actors/commands will be
+// added so, there's no need for it
 #[derive(Arbitrary, Debug)]
 pub enum Command {
     TomRepay(Repay),
@@ -524,7 +521,7 @@ pub struct Input {
 
 #[derive(Arbitrary, Debug)]
 pub struct PassTime {
-    // 2 years
+    // up to 2 years
     #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(2 * 365 * 24 * 60 * 60)))]
     pub amount: u64,
 }
@@ -728,13 +725,13 @@ pub fn get_obligation_j_tokens(
     Ok(deposit_obligation.j_tokens)
 }
 
-pub fn get_earn_vault_obligation_j_tokens(
+pub fn get_earn_obligation_j_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let deposit_obligation =
-        get_earn_vault_deposit_obligation(contract_client, user, pool_address)?;
+        get_earn_obligation_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.j_tokens)
 }
@@ -765,13 +762,14 @@ pub fn get_obligation_d_tokens(
     Ok(deposit_obligation.d_tokens)
 }
 
-pub fn get_earn_vault_obligation_d_tokens(
+pub fn get_earn_obligation_d_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     // NB: This is expected to always return Err(MCError::BorrowDoesNotExist)
-    let borrow_obligation = get_earn_vault_borrow_obligation(contract_client, user, pool_address)?;
+    let borrow_obligation =
+        get_earn_obligation_borrow_obligation(contract_client, user, pool_address)?;
 
     Ok(borrow_obligation.d_tokens)
 }
@@ -828,13 +826,13 @@ pub fn get_obligation_deposited(
     Ok(deposit_obligation.deposited)
 }
 
-pub fn get_earn_vault_obligation_deposited(
+pub fn get_earn_obligation_deposited(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let deposit_obligation =
-        get_earn_vault_deposit_obligation(contract_client, user, pool_address)?;
+        get_earn_obligation_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.deposited)
 }
@@ -928,14 +926,14 @@ pub fn get_obligation_j_tokens_as_tokens(
     Ok(deposited_tokens)
 }
 
-pub fn get_earn_vault_obligation_j_tokens_as_tokens(
+pub fn get_earn_obligation_j_tokens_as_tokens(
     e: &Env,
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
-    let j_tokens = get_earn_vault_obligation_j_tokens(contract_client, user, pool_address)?;
+    let j_tokens = get_earn_obligation_j_tokens(contract_client, user, pool_address)?;
 
     let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
 
@@ -1031,7 +1029,7 @@ pub fn get_deposit_obligation(
     Ok(deposit)
 }
 
-pub fn get_earn_vault_deposit_obligation(
+pub fn get_earn_obligation_deposit_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
@@ -1082,7 +1080,7 @@ pub fn get_borrow_obligation(
     Ok(borrow)
 }
 
-pub fn get_earn_vault_borrow_obligation(
+pub fn get_earn_obligation_borrow_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
     pool_address: &Address,
@@ -1112,7 +1110,7 @@ pub fn get_multiply_pair_borrow_obligation(
     };
 
     let borrow =
-        obligation.borrows.get(borrow_pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
+        obligation.borrows.get(borrow_pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
 
     Ok(borrow)
 }
@@ -1296,8 +1294,7 @@ where
     );
 }
 
-/// Asserts that `a` is approximately equal to `b` within a relative error of `delta`. Taken from
-/// blend
+/// Asserts that `a` is approximately equal to `b` within a relative error of `delta`
 ///
 /// # Arguments
 /// * `delta_bps` - percentage represented in basis points such that 15% is 15_00
@@ -1311,5 +1308,5 @@ pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
 }
 
 pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
-    amount.checked_add(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap()).unwrap()
+    amount.checked_add(amount.fixed_mul_ceil(scale_bps, BPS_FACTOR).unwrap()).unwrap()
 }
