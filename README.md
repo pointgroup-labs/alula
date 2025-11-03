@@ -2,7 +2,7 @@
 [![GitHub license](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=apache&style=for-the-badge)](./LICENSE)
 [![Tests Status](https://img.shields.io/github/actions/workflow/status/mfactory-lab/alula/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
 
-# Alula DeFi Protocol
+# Alula Lending Protocol
 
 Alula is a decentralized lending protocol built on the [Stellar](https://stellar.org/) blockchain using [Soroban](https://soroban.stellar.org/) smart contracts. It enables users to earn yield on deposits and access liquidity through overcollateralized loans with competitive interest rates.
 
