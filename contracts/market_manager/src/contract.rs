@@ -6,6 +6,7 @@ use crate::{
 };
 
 mod market {
+    #![allow(clippy::too_many_arguments)]
     use soroban_sdk::contractimport;
 
     #[cfg(not(feature = "deploy"))]
@@ -24,16 +25,20 @@ pub trait MarketManager {
     /// * `admin` - admin of the deployed market
     /// * `name` - name of the deployed market
     /// * `oracle_address` - address of SEP-40—compliant oracle contract
+    /// * `max_positions` - maximum number of positions for a single obligation to have at a single moment
+    /// * `min_collateral` - minimum allowed value of a collateral position at a single moment
+    /// * `update_in_queue_period` - amount of seconds required to pass before applying an issued pool's config update in an owned pool. Passing here `None` means that the market is permissionless
+    ///   and its pools and parameters cannot be modified(except for new pools initialization)
+    #[allow(clippy::too_many_arguments)]
     fn deploy(
         e: Env,
         salt: BytesN<32>,
         admin: Address,
         name: String,
         oracle_address: Address,
-        // TODO: max_positions,
-        // TODO: min_collateral,
-        // what would be the reasons for these parameters?
-        // Maybe, it's reasonable to have them to avoid liquidation fragmentation
+        max_positions: u32,
+        min_collateral: i128,
+        update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError>;
 
     /// Returns a list of all lending markets deployed by the manager
@@ -49,34 +54,38 @@ pub struct MarketManagerContract;
 
 #[contractimpl]
 impl MarketManager for MarketManagerContract {
+    #[allow(clippy::too_many_arguments)]
     fn deploy(
         e: Env,
         salt: BytesN<32>,
         market_admin: Address,
         name: String,
         oracle: Address,
+        max_positions: u32,
+        min_collateral: i128,
+        update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
         admin.require_auth();
 
-        // NB: `soroban_sdk 22` doesn't have an obvious and easy-to-implement way
-        // calculating new salt based on `String` or `Symbol`. Newer `soroban_sdk 23` has a way
-        // of doing this, see - <https://github.com/stellar/stellar-protocol/blob/master/core/cap-0069.md>,
-        // yet, most of our dependencies can rely only on `soroban sdk 22`, so, instead, we
-        // calculate new salt based on admin address and provided salt, as is done on other
-        // Soroban platforms, deployed with `soroban sdk 22`
-
-        // TODO: Should we do it like this or like Blend does it?
-        // let mut seed = Bytes::new(&e);
-        // seed.extend_from_slice(admin.to_xdr(&e).to_buffer::<40>().as_slice());
-        // seed.extend_from_array(&salt.to_array());
-        // let new_salt = e.crypto().keccak256(&seed);
+        // TODO: Fix this...
+        // let name_bytes: BytesN<32> = BytesN::<32>::from_val(&e, &name.to_val());
+        // std::dbg!(&name_bytes);
+        // let new_salt = e.crypto().keccak256(&name_bytes.into());
 
         let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_contract_wasm_hash,
-            (name, market_admin, oracle, e.current_contract_address()),
+            (
+                name,
+                market_admin,
+                oracle,
+                e.current_contract_address(),
+                max_positions,
+                min_collateral,
+                update_in_queue_period,
+            ),
         );
 
         storage::register_market(&e, &market_address)?;
@@ -116,8 +125,7 @@ impl MarketManagerContract {
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
     ///   new version of the contract
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        let config = storage::get_config(&e);
-        config.admin.require_auth();
+        require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }

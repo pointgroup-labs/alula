@@ -13,13 +13,17 @@ mod repay;
 mod security;
 mod storage_extension;
 mod swap;
+mod update;
 mod withdraw;
 
 use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
 use market::{
-    constants::{BPS_FACTOR, INDIVIDUAL_BUMP, ROUTER_ADDRESS},
+    constants::{
+        BPS_FACTOR, DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE,
+        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
+    },
     contract::{MarketContract, MarketContractClient},
     error::MCError,
     obligation::{BorrowObligation, DepositObligation},
@@ -97,7 +101,7 @@ impl TestMarketFixture<'_> {
         // NB: Taken from `blend`
         e.ledger().set(LedgerInfo {
             timestamp: 1514764800, // January 1, 2018
-            protocol_version: 22,
+            protocol_version: 23,
             sequence_number: 0, // TODO: Change this to something like 100 and fix failing test
             network_id: Default::default(),
             base_reserve: 10,
@@ -113,7 +117,7 @@ impl TestMarketFixture<'_> {
             Address::generate(&e),
         ];
 
-        // Configuring USDC SAC first, since it's used in the oracle as a base asset
+        // Configure USDC SAC first, since it's used in the oracle as a base asset
         let usdc_admin = Address::generate(&e);
         let usdc_ticker = symbol_short!("USDC");
         let TestAssetSetup {
@@ -126,14 +130,25 @@ impl TestMarketFixture<'_> {
         e.register_at(&oracle_address, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
 
+        // Register Market contract
         let contract_admin = Address::generate(&e);
         let market_manager_address = Address::generate(&e);
         let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
         let contract_id = e.register(
             MarketContract,
-            (contract_name, contract_admin.clone(), oracle_address.clone(), market_manager_address),
+            (
+                contract_name,
+                contract_admin.clone(),
+                oracle_address.clone(),
+                market_manager_address,
+                DEFAULT_MAX_POSITIONS,
+                DEFAULT_MIN_COLLATERAL_VALUE,
+                Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
+            ),
         );
         let contract_client = MarketContractClient::new(&e, &contract_id);
+
+        contract_client.update_market_status(&0);
 
         let router_address = Address::from_str(&e, ROUTER_ADDRESS);
         e.register_at(
@@ -315,6 +330,8 @@ impl TestMarketFixture<'_> {
         btc_sac.mint(&new_borrower, &(2 * collateral_amount));
         gold_sac.mint(&new_borrower, &(2 * collateral_amount));
 
+        // TODO: Add jTokens sum invariants
+
         for pool in &pools {
             let available_borrow = pool.compute_available_utilization_ratio_cap_borrow(e).unwrap();
 
@@ -340,6 +357,8 @@ impl TestMarketFixture<'_> {
                 &pool.token_address,
                 &collateral_amount,
             );
+
+            // WARN: Sum of jTokens on obligations must equal total_jTokens on a pool
         }
 
         // Interest rate invariants
@@ -716,6 +735,17 @@ pub fn get_obligation_j_tokens(
     Ok(deposit_obligation.j_tokens)
 }
 
+pub fn get_earn_vault_obligation_j_tokens(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation =
+        get_earn_vault_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.j_tokens)
+}
+
 pub fn get_multiply_pair_obligation_j_tokens(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -740,6 +770,17 @@ pub fn get_obligation_d_tokens(
     let deposit_obligation = get_borrow_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.d_tokens)
+}
+
+pub fn get_earn_vault_obligation_d_tokens(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    // NB: This is expected to always return Err(MCError::BorrowDoesNotExist)
+    let borrow_obligation = get_earn_vault_borrow_obligation(contract_client, user, pool_address)?;
+
+    Ok(borrow_obligation.d_tokens)
 }
 
 pub fn get_multiply_pair_obligation_d_tokens(
@@ -790,6 +831,17 @@ pub fn get_obligation_deposited(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let deposit_obligation = get_deposit_obligation(contract_client, user, pool_address)?;
+
+    Ok(deposit_obligation.deposited)
+}
+
+pub fn get_earn_vault_obligation_deposited(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_obligation =
+        get_earn_vault_deposit_obligation(contract_client, user, pool_address)?;
 
     Ok(deposit_obligation.deposited)
 }
@@ -877,6 +929,20 @@ pub fn get_obligation_j_tokens_as_tokens(
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
     let j_tokens = get_obligation_j_tokens(contract_client, user, pool_address)?;
+
+    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+
+    Ok(deposited_tokens)
+}
+
+pub fn get_earn_vault_obligation_j_tokens_as_tokens(
+    e: &Env,
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let j_tokens = get_earn_vault_obligation_j_tokens(contract_client, user, pool_address)?;
 
     let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
 
@@ -972,6 +1038,21 @@ pub fn get_deposit_obligation(
     Ok(deposit)
 }
 
+pub fn get_earn_vault_deposit_obligation(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<DepositObligation, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    let deposit =
+        obligation.deposits.get(pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
+
+    Ok(deposit)
+}
+
 pub fn get_multiply_pair_deposit_obligation(
     contract_client: &MarketContractClient,
     user: &Address,
@@ -1003,6 +1084,21 @@ pub fn get_borrow_obligation(
         return Err(MCError::ObligationDoesNotExist);
     };
 
+    let borrow = obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
+
+    Ok(borrow)
+}
+
+pub fn get_earn_vault_borrow_obligation(
+    contract_client: &MarketContractClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<BorrowObligation, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    // NB: Expected that this always returns `Err(MCError::BorrowDoesNotExist)`
     let borrow = obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
 
     Ok(borrow)
@@ -1153,6 +1249,39 @@ pub fn get_pool_fee_config(
 }
 
 // ---- MISC ----
+
+pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketContractClient<'a> {
+    let contract_name = soroban_sdk::String::from_str(e, "market_contract");
+    let contract_admin = Address::generate(e);
+    let oracle = Address::generate(e);
+
+    let contract_id = e.register(
+        MarketContract,
+        (
+            contract_name,
+            contract_admin.clone(),
+            oracle,
+            contract_admin,
+            DEFAULT_MAX_POSITIONS,
+            DEFAULT_MIN_COLLATERAL_VALUE,
+            if is_owned { Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS) } else { None },
+        ),
+    );
+
+    let client = MarketContractClient::new(e, &contract_id);
+
+    if is_owned {
+        client.update_market_status(&0);
+    }
+
+    client
+}
+
+pub fn register_random_sac(e: &Env) -> Address {
+    let token_admin = Address::generate(e);
+
+    e.register_stellar_asset_contract_v2(token_admin).address()
+}
 
 pub fn get_default_env() -> Env {
     let e = Env::default();

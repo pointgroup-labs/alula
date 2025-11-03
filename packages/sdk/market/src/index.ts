@@ -50,7 +50,7 @@ export const MCError = {
   20: {message:"ObligationDoesNotExist"},
   21: {message:"DepositDoesNotExist"},
   22: {message:"BorrowDoesNotExist"},
-  30: {message:"NegativeAmount"},
+  30: {message:"NegativeInputAmount"},
   40: {message:"WithdrawOverBalance"},
   41: {message:"PoolSupplyLimitExceeded"},
   42: {message:"PoolUtilizationRatioCapExceeded"},

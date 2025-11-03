@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, String, Symbol};
+use soroban_sdk::{Address, Env, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -8,56 +8,280 @@ use crate::{
     pool::Pool,
 };
 
-// ---- Contract's Methods Events ----
+// TODO: It's not clear which data we must include in topics. It'll become clear
+// when implementing event subscriptions. Blend includes both addresses and names in topics
 
-/// Emitted when the contract is constructed
-///
-/// - topics - `["constructor", admin: Address, name: String, oracle: Address]`
-/// - data - `[liquidation_threshold_percent: i128]`
-pub fn constructor(e: &Env, admin: &Address, name: &String, oracle: &Address) {
-    let topics = (Symbol::new(e, "constructor"), admin, name.clone(), oracle);
-    let data = ();
+// --- Contract's Methods Events ---
 
-    e.events().publish(topics, data);
+#[contractevent]
+struct DepositEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey, // TODO: Start return ObligationKey's from the contract
+    pub deposit_result: DepositResult,
 }
 
-/// Emitted when depositing tokens
-///
-/// - topics - `["deposit", pool_address: Address, obligation_key: ObligationKey]`
-/// - data - `[deposit_result: `[DepositResult]`]`
+#[contractevent]
+struct InitializePoolEvent {
+    #[topic]
+    pub token_address: Address,
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub token_ticker: Symbol,
+}
+
+// TODO: Should we still keep a `swap` endpoint public?
+#[contractevent]
+struct SwapEvent {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub token_in: Address,
+    #[topic]
+    pub token_out: Address,
+    pub amount_in: i128,
+    pub amount_out: i128,
+    pub received_amount: i128,
+}
+
+#[contractevent]
+struct BorrowEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey,
+    pub borrow_result: BorrowResult,
+}
+
+#[contractevent]
+struct AddCollateralEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey,
+    pub add_collateral_result: AddCollateralResult,
+}
+
+#[contractevent]
+struct RepayEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey,
+    pub repay_result: RepayResult,
+}
+
+#[contractevent]
+struct LiquidateEvent {
+    #[topic]
+    pub liquidator: Address,
+    #[topic]
+    pub borrower_obligation_key: ObligationKey,
+    #[topic]
+    pub borrow_pool_address: Address,
+    #[topic]
+    pub collateral_pool_address: Address,
+    // TODO: Introduce `LiquidateResult` struct
+    pub liquidated_amount: i128,
+    pub collateral_seized_amount: i128,
+}
+
+#[contractevent]
+struct RemoveCollateralEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey,
+    pub remove_collateral_result: RemoveCollateralResult,
+}
+
+#[contractevent]
+struct WithdrawEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey,
+    pub withdraw_result: WithdrawResult,
+}
+
+#[contractevent]
+struct FlashLoanEvent {
+    #[topic]
+    pub contract: Address,
+    #[topic]
+    pub pool_address: Address,
+    // TODO: Introduce `FlashLoanResult` struct
+    pub amount: i128,
+    pub fees_paid: i128,
+}
+
+#[contractevent]
+struct DepositWithLeverageEvent {
+    #[topic]
+    pub obligation_key: ObligationKey,
+    #[topic]
+    pub deposit_pool_address: Address,
+    #[topic]
+    pub borrow_pool_address: Address,
+    // TODO: `DepositWithLeverageResult` struct
+    pub original_amount: i128,
+    pub leverage_multiplier: u32,
+    pub total_deposited_amount: i128,
+    pub total_borrowed_amount: i128,
+}
+
+#[contractevent]
+struct WithdrawFromLeveragedEvent {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub deposit_pool_address: Address,
+    #[topic]
+    pub borrow_pool_address: Address,
+    // TODO: `WithdrawFromLeveragedResult` struct
+    pub amount: i128,
+    pub actual_amount_withdrawn: i128,
+}
+
+#[contractevent]
+struct AccrueInterestEvent {
+    #[topic]
+    pub user: Address,
+}
+
+// ----- Internal Error Events -----
+
+#[contractevent]
+struct LedgerTimestampError {
+    pub current_timestamp: u64,
+    pub stored_timestamp: u64,
+}
+
+#[contractevent]
+struct LeveragedPositionBadDebt {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub deposit_pool_address: Address,
+    #[topic]
+    pub borrow_pool_address: Address,
+    pub deposited_amount: i128,
+    pub borrowed_amount: i128,
+    pub deposited_amount_swapped: i128,
+}
+
+#[contractevent]
+struct UtilizationRatioExceedsLimit {
+    pub utilization_ratio_bps: i128,
+    pub utilization_ratio_limit_bps: i128,
+}
+
+#[contractevent]
+struct PoolIsMissingInStorage {
+    #[topic]
+    pub pool_address: Address,
+}
+
+#[contractevent]
+struct ObligationIsMissingInStorage {
+    #[topic]
+    pub obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct ObligationAmntBecomesNegative {
+    pub old_amount: i128,
+    pub new_amount: i128,
+}
+
+#[contractevent]
+struct PoolAmountBecomesNegative {
+    pub old_amount: i128,
+    pub new_amount: i128,
+}
+
+#[contractevent]
+struct PoolInconsistentTotalShares {
+    pub total_shares: i128,
+    pub individual_shares: i128,
+}
+
+#[contractevent]
+struct PoolInconsistentTotalTokens {
+    pub total_shares: i128,
+    pub total_tokens: i128,
+}
+
+#[contractevent]
+struct PoolContainsInconsistentState {
+    pub pool: Pool,
+}
+
+#[contractevent]
+struct ObligationIsUnexpectedlyEmpty {
+    #[topic]
+    pub obligation_key: ObligationKey,
+    #[topic]
+    pub pool_address: Address,
+}
+
+#[contractevent]
+struct ComputedInterestIsNegative {
+    #[topic]
+    pub pool_address: Address,
+    pub shares: i128,
+    pub tokens_from_shares: i128,
+    pub computed_interest: i128,
+    pub tokens_from_all_shares: i128,
+}
+
+#[contractevent]
+struct ReceivedUnexpectedSwapAmount {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub token_in: Address,
+    #[topic]
+    pub token_out: Address,
+    pub amount_in: i128,
+    pub amount_out: i128,
+    pub expected_amount_in: i128,
+    pub expected_amount_out: i128,
+}
+
+// --- Methods that abstract how events are published ---
+
 pub fn deposit(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
     deposit_result: DepositResult,
 ) {
-    let topics = (Symbol::new(e, "deposit"), pool_address, obligation_key.clone());
-    let data = (deposit_result,);
-
-    e.events().publish(topics, data);
+    DepositEvent {
+        pool_address: pool_address.clone(),
+        obligation_key: obligation_key.clone(),
+        deposit_result,
+    }
+    .publish(e);
 }
 
-/// Emitted when a loan pool is initialized
-///
-/// - topics - `["initialize_pool", token_address: Address, pool_address: Address, token_ticker:
-///   Symbol]`
-/// - data - `[]`
 pub fn initialize_pool(
     e: &Env,
     token_address: &Address,
     pool_address: &Address,
     token_ticker: &Symbol,
 ) {
-    let topics = (Symbol::new(e, "initialize_pool"), token_address, pool_address, token_ticker);
-    let data = ();
-
-    e.events().publish(topics, data);
+    InitializePoolEvent {
+        token_address: token_address.clone(),
+        pool_address: pool_address.clone(),
+        token_ticker: token_ticker.clone(),
+    }
+    .publish(e);
 }
 
 /// Emitted when tokens are swapped
-///
-/// - topics - `["swap", user: Address, token_in: Address, token_out: Address]`
-/// - data - `[amount_in: i128, amount_out: i128, received_amount: i128]`
 pub fn swap(
     e: &Env,
     user: &Address,
@@ -67,64 +291,60 @@ pub fn swap(
     amount_out: i128,
     received_amount: i128,
 ) {
-    let topics = (Symbol::new(e, "swap"), user, token_in, token_out);
-    let data = (amount_in, amount_out, received_amount);
-
-    e.events().publish(topics, data);
+    SwapEvent {
+        user: user.clone(),
+        token_in: token_in.clone(),
+        token_out: token_out.clone(),
+        amount_in,
+        amount_out,
+        received_amount,
+    }
+    .publish(e);
 }
-/// Emitted when tokens are borrowed from a pool
-///
-/// - topics - `["borrow", pool_address: Address, obligation_key: ObligationKey]`
-/// - data - `[`[BorrowResult]`]`
+
 pub fn borrow(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
     borrow_result: BorrowResult,
 ) {
-    let topics = (Symbol::new(e, "borrow"), pool_address, obligation_key.clone());
-    let data = (borrow_result,);
-
-    e.events().publish(topics, data);
+    BorrowEvent {
+        pool_address: pool_address.clone(),
+        obligation_key: obligation_key.clone(),
+        borrow_result,
+    }
+    .publish(e);
 }
 
-/// Emitted when collateral is added to a pool
-///
-/// - topics - `["add_collateral", pool_address: Address, obligation_key: ObligationKey]`
-/// - data - `[add_collateral_result: `[AddCollateralResult]`]`
 pub fn add_collateral(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
     add_collateral_result: AddCollateralResult,
 ) {
-    let topics = (Symbol::new(e, "add_collateral"), pool_address, obligation_key.clone());
-    let data = (add_collateral_result,);
-
-    e.events().publish(topics, data);
+    AddCollateralEvent {
+        pool_address: pool_address.clone(),
+        obligation_key: obligation_key.clone(),
+        add_collateral_result,
+    }
+    .publish(e);
 }
 
-/// Emitted when borrowed tokens are repaid
-///
-/// - topics - `["repay", pool_address: Address, obligation_key: ObligationKey]`
-/// - data - `[repay_result: `[RepayResult]`]`
 pub fn repay(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
     repay_result: RepayResult,
 ) {
-    let topics = (Symbol::new(e, "repay"), pool_address, obligation_key.clone());
-    let data = (repay_result,);
-
-    e.events().publish(topics, data);
+    RepayEvent {
+        pool_address: pool_address.clone(),
+        obligation_key: obligation_key.clone(),
+        repay_result,
+    }
+    .publish(e);
 }
 
-/// Emitted when a borrower's position is liquidated
-///
-/// - topics - `["liquidate", liquidator: Address, borrower_obligation_key: ObligationKey,
-///   borrow_pool: Address, collateral_pool: Address]`
-/// - data - `[liquidated_amount: i128, collateral_seized_amount: i128]`
+#[allow(clippy::too_many_arguments)]
 pub fn liquidate(
     e: &Env,
     liquidator: &Address,
@@ -134,54 +354,45 @@ pub fn liquidate(
     liquidated_amount: i128,
     collateral_seized_amount: i128,
 ) {
-    let topics = (
-        Symbol::new(e, "liquidate"),
-        liquidator,
-        borrower_obligation_key.clone(),
-        borrow_pool_address,
-        collateral_pool_address,
-    );
-    let data = (liquidated_amount, collateral_seized_amount);
-
-    e.events().publish(topics, data);
+    LiquidateEvent {
+        liquidator: liquidator.clone(),
+        borrower_obligation_key: borrower_obligation_key.clone(),
+        borrow_pool_address: borrow_pool_address.clone(),
+        collateral_pool_address: collateral_pool_address.clone(),
+        liquidated_amount,
+        collateral_seized_amount,
+    }
+    .publish(e);
 }
 
-/// Emitted when collateral tokens are removed from a pool
-///
-/// - topics - `["remove_collateral", pool_address: Address, user: Address]`
-/// - data - `[remove_collateral_result: `[RemoveCollateralResult]`]`
 pub fn remove_collateral(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
     remove_collateral_result: RemoveCollateralResult,
 ) {
-    let topics = (Symbol::new(e, "remove_collateral"), pool_address, obligation_key.clone());
-    let data = (remove_collateral_result,);
-
-    e.events().publish(topics, data);
+    RemoveCollateralEvent {
+        pool_address: pool_address.clone(),
+        obligation_key: obligation_key.clone(),
+        remove_collateral_result,
+    }
+    .publish(e);
 }
 
-/// Emitted when deposited tokens are withdrawn from a pool
-///
-/// - topics - `["withdraw", pool_address: Address, obligation_key: ObligationKey]`
-/// - data - `[withdraw_result: `[WithdrawResult]`]`
 pub fn withdraw(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
     withdraw_result: WithdrawResult,
 ) {
-    let topics = (Symbol::new(e, "withdraw"), pool_address, obligation_key.clone());
-    let data = (withdraw_result,);
-
-    e.events().publish(topics, data);
+    WithdrawEvent {
+        pool_address: pool_address.clone(),
+        obligation_key: obligation_key.clone(),
+        withdraw_result,
+    }
+    .publish(e);
 }
 
-/// Emitted when a flash loan is initiated
-///
-/// - topics - `["flash_loan", contract: Address, pool_address: Address]`
-/// - data - `[amount: i128, fees_paid: i128]`
 pub fn flash_loan(
     e: &Env,
     contract: &Address,
@@ -189,18 +400,15 @@ pub fn flash_loan(
     amount: i128,
     fees_paid: i128,
 ) {
-    let topics = (Symbol::new(e, "flash_loan"), contract, pool_address);
-    let data = (amount, fees_paid);
-
-    e.events().publish(topics, data);
+    FlashLoanEvent {
+        contract: contract.clone(),
+        pool_address: pool_address.clone(),
+        amount,
+        fees_paid,
+    }
+    .publish(e);
 }
 
-/// Emitted when tokens are deposited with leverage
-///
-/// - topics - `["deposit_with_leverage", obligation_key: ObligationKey, deposit_pool: Address,
-///   borrow_pool: Address]`
-/// - data - `[original_amount: i128, leverage_multiplier: u32, total_deposited_amount: i128,
-///   total_borrowed_amount: i128]`
 #[allow(clippy::too_many_arguments)]
 pub fn deposit_with_leverage(
     e: &Env,
@@ -212,23 +420,18 @@ pub fn deposit_with_leverage(
     total_deposited_amount: i128,
     total_borrowed_amount: i128,
 ) {
-    let topics = (
-        Symbol::new(e, "deposit_with_leverage"),
-        obligation_key.clone(),
-        deposit_pool_address,
-        borrow_pool_address,
-    );
-    let data =
-        (original_amount, leverage_multiplier, total_deposited_amount, total_borrowed_amount);
-
-    e.events().publish(topics, data);
+    DepositWithLeverageEvent {
+        obligation_key: obligation_key.clone(),
+        deposit_pool_address: deposit_pool_address.clone(),
+        borrow_pool_address: borrow_pool_address.clone(),
+        original_amount,
+        leverage_multiplier,
+        total_deposited_amount,
+        total_borrowed_amount,
+    }
+    .publish(e);
 }
 
-/// Emitted when a leveraged deposit position is withdrawn
-///
-/// - topics - `["withdraw_from_leveraged", user: Address, deposit_pool: Address, borrow_pool:
-///   Address]`
-/// - data - `[amount: i128, actual_amount_withdrawn: i128]`
 pub fn withdraw_from_leveraged(
     e: &Env,
     user: &Address,
@@ -237,51 +440,27 @@ pub fn withdraw_from_leveraged(
     amount: i128,
     actual_amount_withdrawn: i128,
 ) {
-    let topics = (
-        Symbol::new(e, "withdraw_from_leveraged"),
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    );
-    let data = (amount, actual_amount_withdrawn);
-
-    e.events().publish(topics, data);
+    WithdrawFromLeveragedEvent {
+        user: user.clone(),
+        deposit_pool_address: deposit_pool_address.clone(),
+        borrow_pool_address: borrow_pool_address.clone(),
+        amount,
+        actual_amount_withdrawn,
+    }
+    .publish(e);
 }
-
-/// Emitted when a user's obligation interest is accrued
-///
-/// - topics - `["accrue_interest", user: Address]`
-pub fn accrue_interest(e: &Env, user: &Address) {
-    let topics = (Symbol::new(e, "accrue_interest"), user);
-
-    e.events().publish(topics, ());
-}
-
-// ----- Internal Error Events -----
 
 /// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
 /// storage timestamp
-///
-/// - topics - `["current_ledger_timestamp_smaller_than_stored_timestamp"]`
-/// - data - `[current_timestamp: i128, stored_timestamp: i128]`
 pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     e: &Env,
     current_timestamp: u64,
     stored_timestamp: u64,
 ) {
-    let topics = (Symbol::new(e, "current_ledger_timestamp_smaller_than_stored_timestamp"),);
-    let data = (current_timestamp, stored_timestamp);
-
-    e.events().publish(topics, data);
+    LedgerTimestampError { current_timestamp, stored_timestamp }.publish(e);
 }
 
-/// Emitted when a leveraged position incurs bad debt. This typically happens when the value
-/// of the collateral for a leveraged loan drops significantly, making it insufficient
-/// to cover the borrowed amount, even after accounting for the initial deposit
-///
-/// - topics - `["leveraged_position_bad_debt", user: Address, deposit_pool_address: Address,
-///   borrow_pool_address: Address]`
-/// - data - `[deposited_amount: i128, borrowed_amount: i128, deposited_amount_swapped: i128]`
+/// Emitted when a leveraged position incurs bad debt
 pub fn leveraged_position_bad_debt(
     e: &Env,
     user: &Address,
@@ -291,148 +470,83 @@ pub fn leveraged_position_bad_debt(
     borrowed_amount: i128,
     deposited_amount_swapped: i128,
 ) {
-    let topics = (
-        Symbol::new(e, "leveraged_position_bad_debt"),
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    );
-    let data = (deposited_amount, borrowed_amount, deposited_amount_swapped);
-
-    e.events().publish(topics, data);
+    LeveragedPositionBadDebt {
+        user: user.clone(),
+        deposit_pool_address: deposit_pool_address.clone(),
+        borrow_pool_address: borrow_pool_address.clone(),
+        deposited_amount,
+        borrowed_amount,
+        deposited_amount_swapped,
+    }
+    .publish(e);
 }
 
 /// Emitted when a pool's utilization ratio exceeds a predefined limit
-///
-/// - topics - `["utilization_ratio_exceeds_limit"]`
-/// - data - `[utilization_ratio_bps: i128, utilization_ratio_limit_bps: i128]`
 pub fn utilization_ratio_exceeds_limit(
     e: &Env,
     utilization_ratio_bps: i128,
     utilization_ratio_limit_bps: i128,
 ) {
-    let topics = (Symbol::new(e, "utilization_ratio_exceeds_limit"),);
-    let data = (utilization_ratio_bps, utilization_ratio_limit_bps);
-
-    e.events().publish(topics, data);
+    UtilizationRatioExceedsLimit { utilization_ratio_bps, utilization_ratio_limit_bps }.publish(e);
 }
 
-/// Emitted when an attempt is made to interact with a loan pool that does not exist in storage.
-/// This indicates a potential issue with the provided pool address or a data inconsistency
-///
-/// - topics - `["pool_is_missing_in_storage", pool_address: Address]`
-/// - data - `[]`
+/// Emitted when an attempt is made to interact with a loan pool that does not exist in storage
 pub fn pool_is_missing_in_storage(e: &Env, pool_address: &Address) {
-    let topics = (Symbol::new(e, "pool_is_missing_in_storage"), pool_address);
-    let data = ();
-
-    e.events().publish(topics, data);
+    PoolIsMissingInStorage { pool_address: pool_address.clone() }.publish(e);
 }
 
-/// Emitted when an attempt is made to interact with an obligation that does not exist in storage.
-/// This indicates a potential issue with the user address or a data inconsistency
-///
-/// - topics - `["obligation_is_missing_in_storage", obligation_key: ObligationKey]`
-/// - data - `[]`
+/// Emitted when an attempt is made to interact with an obligation that does not exist in storage
 pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
-    let topics = (Symbol::new(e, "obligation_is_missing_in_storage"), obligation_key.clone());
-    let data = ();
-
-    e.events().publish(topics, data);
+    ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
-/// Emitted when an obligation's borrowed amount unexpectedly attempts to become negative.
-/// This is an anomalous condition that should not occur under normal operation and
-/// likely indicates an error in calculation or logic
-///
-/// - topics - `["obligation_borrowed_amount_turns_negative"]`
-/// - data - `[old_amount: i128, new_amount: i128]`
+/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn obligation_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
-    let topics = (Symbol::new(e, "obligation_borrowed_amount_turns_negative"),);
-    let data = (old_amount, new_amount);
-
-    e.events().publish(topics, data);
+    ObligationAmntBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
-/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative.
-/// This signifies a critical error, as a pool should always have a non-negative balance
-///
-/// - topics - `["pool_amount_becomes_negative"]`
-/// - data - `[old_amount: i128, new_amount: i128]`
+/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn pool_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
-    let topics = (Symbol::new(e, "pool_amount_becomes_negative"),);
-    let data = (old_amount, new_amount);
-
-    e.events().publish(topics, data);
+    PoolAmountBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
-/// Emitted when the total shares in a pool are found to be less than an individual user's shares.
-/// This indicates a severe logical inconsistency or a potential corruption of state,
-/// as individual shares should never exceed the total available shares in the pool
-///
-/// - topics - `["pool_total_shares_smaller_than_individual_user_shares"]`
-/// - data - `[total_shares: i128, individual_shares: i128]`
+/// Emitted when the total shares in a pool are found to be less than an individual user's shares
 pub fn pool_total_shares_smaller_than_individual_user_shares(
     e: &Env,
     total_shares: i128,
     individual_shares: i128,
 ) {
-    let topics = (Symbol::new(e, "pool_total_shares_smaller_than_individual_user_shares"),);
-    let data = (total_shares, individual_shares);
-
-    e.events().publish(topics, data);
+    PoolInconsistentTotalShares { total_shares, individual_shares }.publish(e);
 }
 
-/// Emitted when the total shares in a pool are found to be less than the total tokens amount.
-/// This must never happen with the shares model and, hence, indicates an invariant breakage
-///
-/// - topics - `["pool_total_shares_smaller_than_total_tokens"]`
-/// - data - `[total_shares: i128, total_tokens: i128]`
+/// Emitted when the total shares in a pool are found to be less than the total tokens amount
 pub fn pool_total_shares_smaller_than_total_tokens(
     e: &Env,
     total_shares: i128,
     total_tokens: i128,
 ) {
-    let topics = (Symbol::new(e, "pool_total_shares_smaller_than_total_tokens"),);
-    let data = (total_shares, total_tokens);
-
-    e.events().publish(topics, data);
+    PoolInconsistentTotalTokens { total_shares, total_tokens }.publish(e);
 }
 
 /// Emitted when pool state becomes generally inconsistent
-///
-/// - topics - `["pool_contains_inconsistent_state"]`
-/// - data - `[pool: Pool]`
 pub fn pool_contains_inconsistent_state(e: &Env, pool: &Pool) {
-    let topics = (Symbol::new(e, "pool_contains_inconsistent_state"),);
-    let data = (pool.clone(),);
-
-    e.events().publish(topics, data);
+    PoolContainsInconsistentState { pool: pool.clone() }.publish(e);
 }
 
-/// Emitted when obligation unexpectedly becomes empty. This is a severe invariant breakage
-///
-/// - topics - `["obligation_unexpectedly_empty"], obligation_key: ObligationKey, pool_address:
-///   Address]`
-/// - data - `[]`
+/// Emitted when obligation unexpectedly becomes empty
 pub fn obligation_is_unexpectedly_empty(
     e: &Env,
     obligation_key: &ObligationKey,
     pool_address: &Address,
 ) {
-    let topics =
-        (Symbol::new(e, "obligation_unexpectedly_empty"), obligation_key.clone(), pool_address);
-    let data = ();
-
-    e.events().publish(topics, data);
+    ObligationIsUnexpectedlyEmpty {
+        obligation_key: obligation_key.clone(),
+        pool_address: pool_address.clone(),
+    }
+    .publish(e);
 }
 
-/// Emitted when calculated interest(either for borrow or supply position) is negative. This is a
-/// severe invariant breakage
-///
-/// - topics - `["computed_interest_is_negative"], pool_address: Address]` Address]`
-/// - data - `[shares: i128, tokens_from_shares: i128, calculated_interest: i128,
-///   tokens_from_all_shares: i128]`
+/// Emitted when calculated interest(either for borrow or supply position) is negative
 pub fn computed_interest_is_negative(
     e: &Env,
     pool_address: &Address,
@@ -441,19 +555,19 @@ pub fn computed_interest_is_negative(
     computed_interest: i128,
     tokens_from_all_shares: i128,
 ) {
-    let topics = (Symbol::new(e, "computed_interest_is_negative"), pool_address);
-    let data = (shares, tokens_from_shares, computed_interest, tokens_from_all_shares);
-
-    e.events().publish(topics, data);
+    ComputedInterestIsNegative {
+        pool_address: pool_address.clone(),
+        shares,
+        tokens_from_shares,
+        computed_interest,
+        tokens_from_all_shares,
+    }
+    .publish(e);
 }
 
-#[allow(clippy::too_many_arguments)]
 /// Emitted when an unexpected amount has been received after a deterministic swap operation via a
 /// swap provider
-///
-/// - topics - `["received_unexpected_swap_amount"], user: Address, pool_address: Address]`
-/// - data - `[amount_in: i128, amount_out: i128, expected_amount_in: i128, expected_amount_out:
-///   i128]`
+#[allow(clippy::too_many_arguments)]
 pub fn received_unexpected_swap_amount(
     e: &Env,
     user: &Address,
@@ -464,16 +578,26 @@ pub fn received_unexpected_swap_amount(
     expected_amount_in: i128,
     expected_amount_out: i128,
 ) {
-    let topics = (Symbol::new(e, "received_unexpected_swap_amount"), user, token_in, token_out);
-    let data = (amount_in, amount_out, expected_amount_in, expected_amount_out);
-
-    e.events().publish(topics, data);
+    ReceivedUnexpectedSwapAmount {
+        user: user.clone(),
+        token_in: token_in.clone(),
+        token_out: token_out.clone(),
+        amount_in,
+        amount_out,
+        expected_amount_in,
+        expected_amount_out,
+    }
+    .publish(e);
 }
 
-// TODO: Write simple macro for this and pass `&str` there as input
-pub fn dbg(e: &Env, symbol: Symbol) {
-    let topics = (symbol,);
-    let data = ();
+// --- Helper Functions  ---
 
-    e.events().publish(topics, data);
+#[contractevent]
+struct DbgEvent {
+    #[topic]
+    pub symbol: Symbol,
+}
+
+pub fn dbg(e: &Env, symbol: Symbol) {
+    DbgEvent { symbol }.publish(e);
 }

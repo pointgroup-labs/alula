@@ -1,18 +1,17 @@
 #![cfg(test)]
 
 use market::{
-    contract::{MarketContract, MarketContractClient},
     error::MCError,
     pool::{PoolConfig, PoolHealthConfig},
 };
-use soroban_sdk::{Address, BytesN, Env, symbol_short, testutils::Address as _};
+use soroban_sdk::{Address, BytesN, symbol_short, testutils::Address as _};
 
-use crate::get_default_env;
+use crate::{get_default_env, register_random_sac, setup_market_client};
 
 #[test]
 fn test_pool_initialize() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -39,7 +38,7 @@ fn test_pool_initialize() {
 #[test]
 fn test_pool_initialize_with_custom_config() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -63,7 +62,7 @@ fn test_pool_initialize_with_custom_config() {
 #[test]
 fn test_pool_initialize_with_different_salt() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -78,7 +77,7 @@ fn test_pool_initialize_with_different_salt() {
 #[test]
 fn test_pool_initialize_non_conflicting() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address_1 = register_random_sac(&e);
     let token_ticker_1 = symbol_short!("TCK1");
@@ -112,7 +111,7 @@ fn test_pool_initialize_non_conflicting() {
 #[test]
 fn test_pool_reinitialize_no_salt() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -128,7 +127,7 @@ fn test_pool_reinitialize_no_salt() {
 #[test]
 fn test_pool_reinitialize_with_salt() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
@@ -146,7 +145,7 @@ fn test_pool_reinitialize_with_salt() {
 #[test]
 fn test_initialize_multiply_pair() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     // Initialize pools first
     let deposit_token_address = register_random_sac(&e);
@@ -182,7 +181,7 @@ fn test_initialize_multiply_pair() {
 #[test]
 fn test_multiply_pair_with_inexistent_pool() {
     let e = get_default_env();
-    let contract_client = setup_market_client(&e);
+    let contract_client = setup_market_client(&e, true);
 
     let deposit_pool_address = Address::generate(&e);
     let borrow_pool_address = Address::generate(&e);
@@ -206,23 +205,4 @@ fn test_multiply_pair_with_inexistent_pool() {
         contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
         Err(Ok(MCError::BorrowPoolDoesNotExist))
     );
-}
-
-// ---- Helpers ----
-
-fn setup_market_client<'a>(e: &Env) -> MarketContractClient<'a> {
-    let contract_name = soroban_sdk::String::from_str(e, "market_contract");
-    let contract_admin = Address::generate(e);
-    let oracle = Address::generate(e);
-
-    let contract_id =
-        e.register(MarketContract, (contract_name, contract_admin.clone(), oracle, contract_admin));
-
-    MarketContractClient::new(e, &contract_id)
-}
-
-fn register_random_sac(e: &Env) -> Address {
-    let token_admin = Address::generate(e);
-
-    e.register_stellar_asset_contract_v2(token_admin).address()
 }

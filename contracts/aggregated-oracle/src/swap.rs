@@ -1,5 +1,3 @@
-#![allow(clippy::too_many_arguments)] // Omitting Soroswap's clippy warnings
-
 use soroban_sdk::{Address, Env, panic_with_error};
 
 use crate::{

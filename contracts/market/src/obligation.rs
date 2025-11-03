@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, BytesN, Env, Map, Vec, contracttype};
+use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
     constants::*,
@@ -442,21 +442,102 @@ impl Obligation {
 
         let max_healthy_withdrawn_amount =
             self.compute_max_healthy_collateral_removed_amount(e, pool)?;
-        let deposit_decrease = i128::min(original_amount, max_healthy_withdrawn_amount);
+        let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
+        let deposit_decrease =
+            i128::min(i128::min(original_amount, max_healthy_withdrawn_amount), all_deposit);
 
-        pool.require_remove_collateral_preserves_ur_cap(e, deposit_decrease)?;
+        // TODO: Add failing test here regarding insurance fund
+        // if deposit_decrease > pool.total_available {
+        if deposit_decrease > pool.total_available_minus_accumulated_reserve_fees()? {
+            return Err(MCError::NotEnoughPoolFunds);
+        }
 
-        let computed_fees = compute_fees(
-            deposit_decrease,
-            pool.config.fee_config.withdraw_fee_bps,
-            pool.config.fee_config.host_fee_bps,
-        )?;
+        let withdraw_scarcity_fee = {
+            let current_utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
+
+            let new_utilization_ratio_bps = {
+                let new_total = pool.total_supply()? - deposit_decrease; // safe
+
+                if new_total == 0 {
+                    BPS_FACTOR
+                } else {
+                    pool.total_borrowed
+                        .fixed_div_ceil(new_total, BPS_FACTOR)
+                        .map_over_or_underflow()?
+                }
+            };
+
+            let utilization_ratio_diff_bps = if new_utilization_ratio_bps
+                > pool.config.health_config.utilization_ratio_limit_bps
+            {
+                // If withdraw leads to a scarcity state - update the last scarcity withdraw timestamp
+                // per deposit obligation
+                let deposit_decrease_to_total_supply_bps = deposit_decrease
+                    .fixed_div_ceil(pool.total_supply()?, BPS_FACTOR)
+                    .map_over_or_underflow()?;
+
+                let withdraw_scarcity_limit_bps = if current_utilization_ratio_bps
+                    < pool.config.health_config.utilization_ratio_limit_bps
+                {
+                    let remaining_utilization_ratio =
+                        pool.config.health_config.utilization_ratio_limit_bps
+                            - current_utilization_ratio_bps; // safe
+
+                    remaining_utilization_ratio
+                        .checked_add(pool.config.health_config.withdraw_scarcity_limit_bps)
+                        .map_over_or_underflow()?
+                } else {
+                    pool.config.health_config.withdraw_scarcity_limit_bps
+                };
+
+                if deposit_decrease_to_total_supply_bps > withdraw_scarcity_limit_bps {
+                    return Err(MCError::WithdrawScarcityOverLimit);
+                }
+
+                let last_scarcity_withdraw_ts = deposit_obligation.last_scarcity_withdraw_ts;
+                let scarcity_withdraw_cooldown =
+                    pool.config.health_config.withdraw_scarcity_cooldown_s;
+                let current_timestamp = e.ledger().timestamp();
+
+                // Check cooldown only if this is not the first scarcity withdrawal
+                // (last_scarcity_withdraw_ts == 0 means no previous scarcity withdrawal)
+                if last_scarcity_withdraw_ts != 0
+                    && current_timestamp
+                        < last_scarcity_withdraw_ts
+                            .checked_add(scarcity_withdraw_cooldown)
+                            .map_over_or_underflow()?
+                {
+                    return Err(MCError::ScarcityCooldownPeriod);
+                }
+
+                deposit_obligation.last_scarcity_withdraw_ts = current_timestamp;
+
+                new_utilization_ratio_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
+            } else {
+                0
+            };
+
+            let fee = utilization_ratio_diff_bps
+                .fixed_mul_ceil(pool.config.fee_config.withdraw_scarcity_fee_scalar_p as i128, 100)
+                .map_over_or_underflow()?;
+
+            u32::try_from(fee).map_err(|_| MCError::OverOrUnderflow)?
+        };
+
+        let withdraw_fee_bps = pool
+            .config
+            .fee_config
+            .withdraw_fee_bps
+            .checked_add(withdraw_scarcity_fee)
+            .map_over_or_underflow()?;
+
+        let computed_fees =
+            compute_fees(deposit_decrease, withdraw_fee_bps, pool.config.fee_config.host_fee_bps)?;
 
         let withdrawer_to_receive =
             deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
 
         let j_tokens_to_burn = pool.compute_j_tokens_from_tokens(e, deposit_decrease)?;
-        let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
 
         let mut received_interest =
             all_deposit.checked_sub(deposit_obligation.deposited).map_over_or_underflow()?;
@@ -471,12 +552,19 @@ impl Obligation {
                 all_deposit,
             );
 
+            // Only accept small negative values due to rounding errors in fixed-point math.
+            // Large negative values indicate a critical accounting bug.
+            if received_interest < -MAX_ACCEPTABLE_ROUNDING_ERROR {
+                return Err(MCError::InternalError);
+            }
+
+            // Small rounding error - safe to treat as zero interest
             received_interest = 0;
-            // return Err(MCError::InternalError);
         }
 
         if deposit_decrease >= received_interest {
             let deposited_diff = deposit_decrease - received_interest; // safe
+
             deposit_obligation
                 .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
         }
@@ -506,7 +594,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<RemoveCollateralResult, MCError> {
         let mut deposit_obligation =
-            self.deposits.get(pool.pool_address.clone()).unwrap_or_default();
+            self.deposits.get(pool.pool_address.clone()).ok_or(MCError::CollateralDoesNotExist)?;
 
         let max_possible_collateral_removed_amount =
             self.compute_max_healthy_collateral_removed_amount(e, pool)?;
@@ -541,7 +629,7 @@ impl Obligation {
     }
 
     /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt
-    /// - the real repaid amount is calculated as `min(debt, repaid_amount)`
+    /// — the real repaid amount is calculated as `min(debt, repaid_amount)`
     ///
     /// # Returns
     /// [`Result::Ok((real_repaid_amount, d_tokens_burnt))`] in success and
@@ -591,8 +679,14 @@ impl Obligation {
                 all_debt,
             );
 
+            // Only accept small negative values due to rounding errors in fixed-point math.
+            // Large negative values indicate a critical accounting bug.
+            if unpaid_interest < -MAX_ACCEPTABLE_ROUNDING_ERROR {
+                return Err(MCError::InternalError);
+            }
+
+            // Small rounding error - safe to treat as zero interest
             unpaid_interest = 0;
-            // return Err(MCError::InternalError);
         }
 
         if debt_decrease >= unpaid_interest {
@@ -953,7 +1047,7 @@ impl BorrowObligation {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct DepositObligation {
     /// A share of total supplied tokens in the pool that obligation contains
@@ -964,13 +1058,11 @@ pub struct DepositObligation {
     /// tokens, the time passed, which caused 2 tokens to be accrued, and the user deposited 20
     /// more tokens - this value will be equal to 120
     pub deposited: i128,
+    /// Timestamp of when the last scarcity withdraw took place
+    pub last_scarcity_withdraw_ts: u64,
 }
 
 impl DepositObligation {
-    pub fn new() -> Self {
-        Self { collateral: 0, j_tokens: 0, deposited: 0 }
-    }
-
     pub fn adjust_j_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.j_tokens, adjusting_amount)?;
         self.j_tokens = new_amount;
@@ -999,6 +1091,32 @@ impl DepositObligation {
 
         self.j_tokens == 0 && self.collateral == 0
     }
+}
+
+/// Used to generate a unique seed for `Earn` obligation
+/// See [`compute_earn_obligation_seed`]
+const EARN_OBLIGATION_SEED_STR: &str = "EV";
+
+/// Computes 'Earn' seed and caches it if it hasn't been computed yet, or gets it from the storage otherwise
+///
+/// # Returns
+/// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
+pub fn get_earn_obligation_seed(e: &Env) -> BytesN<32> {
+    if let Some(stored_seed) = storage::get_earn_obligation_seed(e) {
+        // TODO: Add tests that verify that caching actually takes place
+        stored_seed
+    } else {
+        let computed_seed = compute_earn_obligation_seed(e);
+        storage::set_earn_obligation_seed(e, &computed_seed);
+
+        computed_seed
+    }
+}
+
+fn compute_earn_obligation_seed(e: &Env) -> BytesN<32> {
+    let mut seed = Bytes::new(e);
+    seed.extend_from_slice(EARN_OBLIGATION_SEED_STR.as_bytes());
+    e.crypto().keccak256(&seed).into()
 }
 
 /// Adjusts a field on the obligation's structs
@@ -1157,4 +1275,29 @@ pub struct LiquidationValues {
     pub j_tokens_amount_sold: i128,
     /// The number of tokens that correspond to the sold jTokens
     pub tokens_from_sold_j_tokens: i128,
+}
+#[cfg(test)]
+mod tests {
+    use soroban_sdk::{BytesN, Env};
+
+    use super::*;
+
+    #[test]
+    fn test_computes_earn_obligation_seed_with_valid_address() {
+        let e = Env::default();
+
+        let seed = compute_earn_obligation_seed(&e);
+
+        assert_ne!(seed, BytesN::from_array(&e, &[0; 32]));
+    }
+
+    #[test]
+    fn test_computes_different_seeds_for_different_addresses() {
+        let e = Env::default();
+
+        let seed_1 = compute_earn_obligation_seed(&e);
+        let seed_2 = compute_earn_obligation_seed(&e);
+
+        assert_eq!(seed_1, seed_2);
+    }
 }

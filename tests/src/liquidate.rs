@@ -233,7 +233,7 @@ fn test_liquidate_negative_amount() {
         &-1,
     );
 
-    assert_eq!(result, Err(Ok(MCError::NegativeAmount)));
+    assert_eq!(result, Err(Ok(MCError::NegativeInputAmount)));
 }
 
 #[test]

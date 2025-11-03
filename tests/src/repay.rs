@@ -13,7 +13,13 @@ use crate::{
 #[test]
 fn test_repay() {
     let TestMarketFixture {
-        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
@@ -25,7 +31,15 @@ fn test_repay() {
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     // Repay the half of the debt
+
+    let borrower_balance_before = usdc_token_client.balance(borrower);
     contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    assert_eq!(
+        borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT / 4
+    );
 
     let obligation_borrowed =
         get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
@@ -127,7 +141,13 @@ fn test_repay_with_interest_accrual() {
 #[test]
 fn test_repay_unpaid_interest_only() {
     let TestMarketFixture {
-        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
@@ -150,7 +170,14 @@ fn test_repay_unpaid_interest_only() {
 
     assert_eq!(obligation_borrowed_before, DEFAULT_DEPOSIT_AMOUNT / 2);
 
+    let borrower_balance_before = usdc_token_client.balance(borrower);
     contract_client.repay(borrower, &usdc_pool_address, &obligation_unpaid_interest_before);
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    assert_eq!(
+        borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
+        obligation_unpaid_interest_before
+    );
 
     let obligation_unpaid_interest_after =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
@@ -163,8 +190,14 @@ fn test_repay_unpaid_interest_only() {
 
 #[test]
 fn test_repay_all_with_bigger_than_debt_value() {
-    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
-        TestMarketFixture::new();
+    let TestMarketFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -172,10 +205,18 @@ fn test_repay_all_with_bigger_than_debt_value() {
     contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+
+    let borrower_balance_before = usdc_token_client.balance(borrower);
     contract_client.repay(
         borrower,
         &usdc_pool_address,
         &(3 * DEFAULT_DEPOSIT_AMOUNT / 2), // x3 of borrowed amount
+    );
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    assert_eq!(
+        borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT / 2
     );
 
     assert_eq!(
