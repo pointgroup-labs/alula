@@ -185,9 +185,9 @@ This ensures that minor calculation rounding is handled gracefully while critica
 
 ### Prerequisites
 
-- **Rust** 1.84.1 or later
+- **Rust** 1.90.0 or later
 - **Stellar CLI** for contract deployment
-- **Node.js** 18+ for TypeScript utilities
+- **Node.js** for TypeScript utilities
 - **pnpm** package manager
 
 ### Installation
