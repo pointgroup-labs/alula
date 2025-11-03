@@ -14,7 +14,7 @@ Alula is a decentralized lending protocol built on the [Stellar](https://stellar
 
 - **Lending & borrowing**: Supply assets to earn yield or borrow against collateral.
 - **Multiple asset support**: Support for various Stellar assets.
-- **Dynamic interest rates**: Kinked interest rate model based on pool utilization.
+- **Dynamic interest rates**: Dual-kink interest rate model responding to pool utilization
 - **Liquidation protection**: Automated liquidation system to maintain protocol solvency.
 - **Overcollateralization**: Secure borrowing with configurable collateral ratios.
 - **Real-time price feeds**: Integration with Stellar price oracles.
@@ -46,15 +46,31 @@ Alula is a decentralized lending protocol built on the [Stellar](https://stellar
 
 ## 🔍 Overview
 
-Alula creates efficient lending markets on Stellar where users can:
+Alula is a decentralized lending protocol on Stellar that enables efficient capital markets through:
 
-- **Supply assets** to earn passive yield from borrower interest payments via standard or Earn obligations
-- **Borrow assets** against deposited collateral with competitive rates based on utilization
-- **Liquidate positions**: Participate in liquidations of unhealthy positions to earn liquidation bonuses
-- **Manage risk**: Monitor health factors and adjust positions to avoid liquidation
-- **Execute flash loans**: Utilize uncollateralized loans for arbitrage, refinancing, or complex DeFi strategies
+**For Lenders**:
 
-The protocol uses a pool-based model where each supported asset has its own lending pool with isolated risk parameters. Recent safety mechanism additions (PR #89) include withdrawal scarcity protection, time-locked governance, Earn obligations for passive lenders, and granular market controls.
+- Earn passive yield by supplying assets to lending pools
+- Choose between Standard (full-featured) or Earn (simplified) obligations
+- Withdraw anytime, subject to pool liquidity
+
+**For Borrowers**:
+
+- Access liquidity by borrowing against collateral
+- Competitive interest rates based on market utilization
+- Flexible collateral management and position monitoring
+
+**For Liquidators**:
+
+- Earn bonuses by liquidating unhealthy positions
+- Help maintain protocol solvency
+
+**For Traders**:
+
+- Execute flash loans for arbitrage and complex strategies
+- Use leveraged deposits to amplify exposure
+
+The protocol features isolated lending pools per asset, dual-kink interest rates, time-locked governance, and comprehensive safety mechanisms including withdrawal scarcity protection and emergency controls.
 
 ## 🏗️ Architecture
 
@@ -85,7 +101,7 @@ The protocol consists of a single unified market contract with modular component
 - **Pool Module**: Asset pools with isolated risk parameters, utilization tracking, and interest accrual
 - **Obligation Module**: User position tracking with two types:
   - **Standard Obligations**: Full-featured accounts supporting deposits, collateral, and borrowing
-  - **Earn Obligations**: Isolated deposit-only accounts for passive lenders (introduced in PR #89)
+  - **Earn Obligations**: Isolated deposit-only accounts for passive lenders
 - **Interest Rate Module**: Dual-kink (jump-rate) model responding to pool utilization
 - **Liquidation Module**: Health factor monitoring and liquidation execution
 - **Oracle Integration**: Price feed via aggregated oracle contract using deterministic seed derivation
@@ -98,9 +114,9 @@ Alula implements multiple layers of protection to ensure protocol stability and 
 
 When pool utilization exceeds configurable thresholds, the protocol activates scarcity protection:
 
-- **Dynamic Scarcity Fees**: Exponentially scaled fees applied when utilization > withdrawal scarcity limit (default: 100%)
+- **Dynamic Scarcity Fees**: Exponentially scaled fees applied when utilization exceeds withdrawal limits
 - **Withdrawal Cooldowns**: Time-based restrictions between scarcity withdrawals (configurable per pool)
-- **First-Withdrawal Bypass Protection**: Cooldown enforcement only after initial scarcity withdrawal (fixed in PR #89)
+- **First-Withdrawal Protection**: Cooldown enforcement applied consistently across all withdrawals
 
 **Why it matters**: Prevents liquidity draining during high utilization periods, protecting borrowers and lenders.
 
@@ -123,14 +139,13 @@ All pool configuration updates follow a time-delayed pattern:
 
 ### Earn Obligations (Isolated Deposit Accounts)
 
-Passive lenders can use Earn obligations for deposit-only functionality:
+Passive lenders can use Earn obligations for simplified deposit-only functionality:
 
-- **Seed Isolation**: Separate storage seed from standard obligations
-- **Operation Restrictions**: Only deposit and withdraw allowed (no borrowing or collateral)
-- **Risk Separation**: Earn users are isolated from borrowing risks
-- **Simplified UX**: Simpler interface for passive yield seekers
+- **Isolated Storage**: Separate account structure from standard obligations
+- **Deposit Only**: Simplified interface for passive yield - no borrowing or collateral management
+- **Risk Separation**: Earn users are protected from borrowing-related risks
 
-**Why it matters**: Reduces complexity for passive lenders and separates them from active borrowers.
+This reduces complexity for passive lenders who only want to earn yield without managing collateral or health factors.
 
 ### Pool and Market Status Controls
 
@@ -154,18 +169,17 @@ Granular control over protocol operations at two levels:
 
 Robust handling of edge cases in interest calculations:
 
-- **Rounding Error Tolerance**: Accepts small negative values (≤100 stroops) due to fixed-point math
-- **Critical Bug Detection**: Fails loudly on significant negative interest (>100 stroops absolute)
-- **Event Logging**: Emits `computed_interest_is_negative` events for monitoring
+- **Rounding Error Tolerance**: Accepts small negative values from fixed-point arithmetic
+- **Critical Bug Detection**: Fails immediately on significant negative interest indicating bugs
+- **Event Logging**: Emits monitoring events for all negative interest occurrences
 
-**Why it matters**: Distinguishes harmless rounding errors from critical accounting bugs.
+This ensures that minor calculation rounding is handled gracefully while critical accounting errors are caught immediately.
 
 ### Additional Safety Features
 
-- **Invariant Monitoring**: Pool state invariants tracked (see security audit for recommendations)
-- **Oracle Staleness Checks**: Maximum price age of 6 minutes (based on Reflector 5-minute resolution)
+- **Oracle Staleness Checks**: Maximum price age of 6 minutes
 - **Liability Factors**: Configurable risk weights for different asset types (100-200%)
-- **Position Limits**: Maximum 20 positions per user to prevent gas exhaustion
+- **Position Limits**: Maximum 20 positions per user
 
 ## 🚀 Getting Started
 
@@ -197,8 +211,8 @@ make build
 Or build specific components:
 
 ```bash
-# Build only the lending contract
-cargo build --release --target wasm32-unknown-unknown -p lending
+# Build only the market contract
+cargo build --release --target wasm32-unknown-unknown -p market
 
 # Build with optimizations
 make build-optimize
@@ -225,11 +239,11 @@ cargo test -p tests fuzz
 
 ### Contract Deployment
 
-1. **Deploy the lending contract**:
+1. **Deploy the market contract**:
 
 ```bash
 soroban contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/lending.wasm \
+  --wasm target/wasm32-unknown-unknown/release/market.wasm \
   --source YOUR_ACCOUNT \
   --network testnet
 ```
@@ -312,28 +326,32 @@ soroban contract invoke \
 
 ### Interest Rate Model
 
-Alula uses a dual-kink (jump-rate) interest rate model to determine borrowing and supply rates dynamically based on pool utilization.
+Alula uses a dual-kink interest rate model that adjusts rates based on pool utilization to balance supply and demand.
 
-#### Model Parameters
+#### How It Works
 
-- **Base rate**: Floor rate applied when utilization is zero
-- **Kink 1 (70%)**: First utilization threshold where rate slope increases
-- **Kink 2 (80%)**: Second utilization threshold where rate slope increases sharply
-- **Slope 1**: Incremental rate for utilization below Kink 1
-- **Slope 2**: Incremental rate between Kink 1 and Kink 2
-- **Slope 3**: Steep incremental rate above Kink 2 to discourage over-utilization
-- **Reserve ratio**: Fraction of interest retained as protocol reserves (default: 10%)
+The model has three zones with progressively steeper rates:
+
+| Utilization Range  | Rate Behavior                                                |
+| ------------------ | ------------------------------------------------------------ |
+| 0% - 70% (Kink 1)  | Gradual rate increase (Slope 1)                              |
+| 70% - 80% (Kink 2) | Moderate rate increase (Slope 2)                             |
+| 80% - 100%         | Steep rate increase (Slope 3) to discourage over-utilization |
+
+**Formula**:
 
 ```
-if Utilization < Kink1 (70%):
-  Interest Rate = Base Rate + Utilization × Slope 1
-
-if Kink1 ≤ Utilization < Kink2 (80%):
-  Interest Rate = Base Rate + Kink1 × Slope 1 + (Utilization - Kink1) × Slope 2
-
-if Utilization ≥ Kink2:
-  Interest Rate = Base Rate + Kink1 × Slope 1 + (Kink2 - Kink1) × Slope 2 + (Utilization - Kink2) × Slope 3
+Rate = Base Rate + Rate Adjustment Based on Utilization Zone
 ```
+
+**Example**: At 85% utilization, the rate includes:
+
+- Base rate
+- Rate increase from 0-70% utilization (Slope 1)
+- Rate increase from 70-80% utilization (Slope 2)
+- Rate increase from 80-85% utilization (Slope 3)
+
+**Reserve Ratio**: 10% of interest income is retained as protocol reserves.
 
 ### Health Factor
 
@@ -366,7 +384,7 @@ When a position becomes unhealthy (Health Factor < 1.0):
 **Cryptographic Primitives**:
 
 - Keccak-256 for deterministic seed derivation
-- Ed25519 signatures (Stellar native, quantum-vulnerable in 10-15 years)
+- Ed25519 signatures (Stellar native)
 - Secure randomness for flash loan callbacks
 
 **Risk Management**:
