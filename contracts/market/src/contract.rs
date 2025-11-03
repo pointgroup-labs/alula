@@ -1,4 +1,3 @@
-// use aggregated_oracle::PriceFeedClient; // TODO: Check why this breaks WASM build
 use soroban_sdk::{
     Address, BytesN, Env, String, Symbol, Vec, contract, contractclient, contractimpl,
 };
@@ -6,6 +5,7 @@ use soroban_sdk::{
 use crate::{
     constants::*,
     error::MCError,
+    events,
     helpers::{
         require_admin, require_borrow_allowed, require_deployer, require_deposit_allowed,
         require_not_frozen, require_owned_and_admin,
@@ -363,6 +363,26 @@ pub trait Market {
     /// * `user` - user which obligation is returned
     fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError>;
 
+    /// Accrues interest on all registered pools
+    fn poke(e: Env) -> Result<(), MCError>;
+
+    /// Accrues interest on all pools to whose obligation has open positions
+    fn poke_obligation(e: Env, user: Address) -> Result<(), MCError>;
+
+    /// Accrues interest on all pools to whose earn obligation has open positions
+    fn poke_earn_obligation(e: Env, user: Address) -> Result<(), MCError>;
+
+    /// Accrues interest on all pools to whose multiply pair obligation has open positions
+    fn poke_multiply_pair_obligation(
+        e: Env,
+        user: Address,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<(), MCError>;
+
+    /// Accrues interest on a pool
+    fn poke_pool(e: Env, pool_address: Address) -> Result<(), MCError>;
+
     /// Returns the user's `Earn` obligation
     ///
     /// # Arguments
@@ -381,9 +401,6 @@ pub trait Market {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<Obligation, MCError>;
-
-    // TODO:
-    // fn accrue_interest_on_multiply_pair_obligation() {}
 
     /// Returns the specific loan pool
     ///
@@ -531,14 +548,14 @@ impl Market for MarketContract {
         Ok(())
     }
 
+    // WARN: Will be removed prior to mainnet deployment
+
     /// Upgrades the lending contract
     ///
     /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     ///   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        // TODO: Implement decentralized governance of the contract
-        // or remove this at some point after mainnet deployment
         require_admin(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -598,7 +615,7 @@ impl Market for MarketContract {
         require_owned_and_admin(&e)?;
 
         // TODO: Add `MAX_RESERVES` check on obligations' operations
-        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions) || new_min_collateral_value < 0 {
+        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions) || new_min_collateral_value <= 0 {
             return Err(MCError::InvalidMarketUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);
@@ -971,10 +988,69 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new(user);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
-        obligation.accrue_interest(&e)?;
-        obligation.set(&e, &obligation_key);
-
         Ok(obligation)
+    }
+
+    fn poke(e: Env) -> Result<(), MCError> {
+        let pool_addresses = storage::get_all_pools(&e);
+
+        for pool_address in pool_addresses {
+            let mut pool = Pool::try_get(&e, &pool_address).map_err(|_| {
+                events::pool_is_missing_in_storage(&e, &pool_address);
+
+                MCError::InternalError
+            })?;
+
+            pool.accrue_interest(&e)?;
+            pool.set(&e);
+        }
+
+        Ok(())
+    }
+
+    fn poke_obligation(e: Env, user: Address) -> Result<(), MCError> {
+        let obligation_key = ObligationKey::new(user.clone());
+
+        let obligation = Obligation::try_get(&e, &obligation_key)?;
+        obligation.accrue_interest(&e)?;
+
+        Ok(())
+    }
+
+    fn poke_earn_obligation(e: Env, user: Address) -> Result<(), MCError> {
+        let obligation_key =
+            ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
+
+        let obligation = Obligation::try_get(&e, &obligation_key)?;
+        obligation.accrue_interest(&e)?;
+
+        Ok(())
+    }
+
+    fn poke_multiply_pair_obligation(
+        e: Env,
+        user: Address,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<(), MCError> {
+        let obligation_key = ObligationKey::new_with_seed(
+            user.clone(),
+            MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed,
+        );
+
+        let obligation = Obligation::try_get(&e, &obligation_key)?;
+        obligation.accrue_interest(&e)?;
+
+        Ok(())
+    }
+
+    fn poke_pool(e: Env, pool_address: Address) -> Result<(), MCError> {
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+
+        pool.accrue_interest(&e)?;
+        pool.set(&e);
+
+        Ok(())
     }
 
     fn get_earn_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
@@ -982,9 +1058,6 @@ impl Market for MarketContract {
 
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
-
-        obligation.accrue_interest(&e)?; // WARN: Stop accruing interest in setters?
-        obligation.set(&e, &obligation_key);
 
         Ok(obligation)
     }
@@ -999,20 +1072,11 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
-        obligation.accrue_interest(&e)?;
-        obligation.set(&e, &obligation_key);
-
         Ok(obligation)
     }
 
-    // TODO:
-    // fn accrue_interest_on_multiply_pair_obligation() {}
-
     fn get_pool(e: Env, pool_address: Address) -> Result<Pool, MCError> {
-        let mut pool = Pool::try_get(&e, &pool_address)?;
-        pool.accrue_interest(&e)?;
-
-        Ok(pool)
+        Pool::try_get(&e, &pool_address)
     }
 
     fn get_all_pools(e: Env) -> Vec<Address> {
@@ -1035,7 +1099,6 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<MultiplyPair, MCError> {
-        // TODO: This method is
         MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)
     }
 

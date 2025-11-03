@@ -125,6 +125,7 @@ fn test_repay_with_interest_accrual() {
     e.ledger().with_mut(|li| {
         li.timestamp += SECONDS_IN_YEAR / 12;
     });
+    contract_client.poke_pool(&usdc_pool_address);
 
     let unpaid_interest =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
@@ -162,6 +163,7 @@ fn test_repay_unpaid_interest_only() {
     e.ledger().with_mut(|li| {
         li.timestamp += SECONDS_IN_YEAR / 12;
     });
+    contract_client.poke_pool(&usdc_pool_address);
 
     let obligation_unpaid_interest_before =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();

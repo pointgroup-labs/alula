@@ -9,5 +9,5 @@ pub enum MMCError {
 
     // Market Manager errors (1000+)
     MarketAlreadyExists = 1000,
-    InvalidMaxPositions = 1001,
+    InvalidMarketState = 1001,
 }

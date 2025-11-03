@@ -6,7 +6,7 @@ use crate::{
     storage::{self, Config, extend_instance_storage},
 };
 
-// --- TODO: Remove this module before deployment ---
+// --- TODO: Remove this before deployment ---
 mod market {
     #![allow(clippy::too_many_arguments)]
     use soroban_sdk::contractimport;
@@ -68,10 +68,9 @@ impl MarketManager for MarketManagerContract {
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
-        require_nonnegative(min_collateral)?;
 
-        if !(2..=MAX_RESERVES).contains(&max_positions) {
-            return Err(MMCError::InvalidMaxPositions);
+        if !(2..=MAX_RESERVES).contains(&max_positions) || min_collateral <= 0 {
+            return Err(MMCError::InvalidMarketState);
         }
 
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
