@@ -52,7 +52,10 @@ pub struct Pool {
     pub last_accrual_timestamp: u64,
     /// Remaining supply incentives that are distributed evenly among their specified periods
     pub supply_incentives: Map<(u64, u64), PoolIncentive>,
-    // TODO: APY & APR?
+    /// Current borrow annual percentage rate in basis points
+    pub borrow_apr_bps: i128,
+    /// Current supply annual percentage rate in basis points
+    pub supply_apr_bps: i128,
 }
 
 macro_rules! generate_adjust_method {

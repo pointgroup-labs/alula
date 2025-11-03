@@ -10,7 +10,7 @@ use crate::{
         require_admin, require_borrow_allowed, require_deployer, require_deposit_allowed,
         require_not_frozen, require_owned_and_admin,
     },
-    interest_rate::{AnnualPercentageRates, AnnualPercentageYields},
+    interest_rate::AnnualPercentageYields,
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
     oracle::{get_asset_price, get_oracle_price_decimals},
@@ -383,6 +383,8 @@ pub trait Market {
     /// Accrues interest on a pool
     fn poke_pool(e: Env, pool_address: Address) -> Result<(), MCError>;
 
+    // TODO: Mark `read-only` methods
+
     /// Returns the user's `Earn` obligation
     ///
     /// # Arguments
@@ -492,13 +494,6 @@ pub trait Market {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> bool;
-
-    /// Returns APR calculated for the current utilization ratio of a pool in basis points
-    /// (e.g., 2912 = 29.12%, etc.)
-    ///
-    /// # Arguments
-    /// * `pool_address` - address of a pool for which APR is returned
-    fn get_apr(e: Env, pool_address: Address) -> Result<AnnualPercentageRates, MCError>;
 
     /// Returns APY calculated for the current utilization ratio of a pool in basis points
     /// (e.g., 2912 = 29.12%, etc.)
@@ -1044,6 +1039,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
+    // TODO: rename to `refresh`
     fn poke_pool(e: Env, pool_address: Address) -> Result<(), MCError> {
         let mut pool = Pool::try_get(&e, &pool_address)?;
 
@@ -1106,22 +1102,6 @@ impl Market for MarketContract {
         MultiplyPair::get_all(&e)
     }
 
-    /// Returns APR calculated for the current utilization ratio of a pool in basis points
-    /// (e.g., 2912 = 29.12%, etc.)
-    ///
-    /// # Arguments
-    /// * `pool_address` - address of a pool for which APR is returned
-    fn get_apr(e: Env, pool_address: Address) -> Result<AnnualPercentageRates, MCError> {
-        let pool = Pool::try_get(&e, &pool_address)?;
-
-        pool.get_apr()
-    }
-
-    /// Returns APY calculated for the current utilization ratio of a pool in basis points
-    /// (e.g., 2912 = 29.12%, etc.)
-    ///
-    /// # Arguments
-    /// * `pool_address` - address of a pool for which APY is returned
     fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 

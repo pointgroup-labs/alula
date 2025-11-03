@@ -88,6 +88,13 @@ impl Pool {
         self.total_borrowed = new_total_borrowed;
         self.last_accrual_timestamp = current_timestamp;
 
+        self.borrow_apr_bps = current_borrow_apr;
+        self.supply_apr_bps = current_borrow_apr
+            .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
+            .map_over_or_underflow()?
+            .fixed_mul_floor(BPS_FACTOR - self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
+            .map_over_or_underflow()?; // safe
+
         // -- Accrue supply APR incentives --
 
         let mut updated_incentives: Vec<((u64, u64), PoolIncentive)> = svec![e];
@@ -129,18 +136,6 @@ impl Pool {
         Ok(())
     }
 
-    /// Get current annual percentage rates (APR) for borrowing and supplying
-    /// based on the pool's utilization ratio and interest rate model
-    pub fn get_apr(&self) -> Result<AnnualPercentageRates, MCError> {
-        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
-
-        let borrow_apr_bps =
-            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
-        let res = AnnualPercentageRates::try_new(borrow_apr_bps, utilization_ratio_bps)?;
-
-        Ok(res)
-    }
-
     /// Get current annual percentage yields (APY) for borrowing and supplying
     /// based on the pool's utilization ratio, interest rate model, and accrual model
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
@@ -150,6 +145,8 @@ impl Pool {
             self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
         let supply_apr = borrow_apr
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
+            .map_over_or_underflow()?
+            .fixed_mul_floor(BPS_FACTOR - self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let borrow_apy_multiplier =

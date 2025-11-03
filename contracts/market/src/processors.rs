@@ -27,6 +27,7 @@ pub fn process_submit_requests_batch<'a>(
     earn_obligation_key: &'a ObligationKey,
 ) -> Result<RequestTransfers<'a>, MCError> {
     let mut transfers = RequestTransfers::new(e, user, smap![&e], smap![&e]);
+
     for request in requests {
         let Request { request_type, pool_address, amount } = request;
         let request_type = RequestType::try_from(request_type)?;
@@ -107,6 +108,9 @@ pub fn process_initialize_pool(
         last_accrual_timestamp: e.ledger().timestamp(),
 
         supply_incentives: Map::new(e),
+
+        borrow_apr_bps: 0,
+        supply_apr_bps: 0,
     };
 
     pool.set(e);

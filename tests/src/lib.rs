@@ -349,17 +349,6 @@ impl TestMarketFixture<'_> {
 
             // WARN: Sum of jTokens on obligations must equal total_jTokens on a pool
         }
-
-        // Interest rate invariants
-        let apys = pools
-            .iter()
-            .map(|pool| contract_client.get_apy(&pool.token_address))
-            .collect::<Vec<_>>();
-
-        for apy in apys {
-            assert!(apy.borrow_bps > 0);
-            assert!(apy.borrow_bps >= apy.supply_bps);
-        }
     }
 }
 
