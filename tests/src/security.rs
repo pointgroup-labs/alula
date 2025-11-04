@@ -34,12 +34,7 @@ fn test_initialize_pool_requires_admin() {
 
     // Try to initialize pool with unauthorized user
     let usdc_ticker = symbol_short!("USDC");
-    let result = unauthorized_client.try_initialize_pool(
-        &fixture.usdc_token_address,
-        &usdc_ticker,
-        &None,
-        &None,
-    );
+    let result = unauthorized_client.try_initialize_pool(&fixture.usdc_token_address, &None, &None);
 
     // Should fail because the unauthorized user cannot initialize pools
     assert!(result.is_err(), "Initialize pool should fail for unauthorized user");

@@ -1,9 +1,25 @@
-use soroban_sdk::Env;
+use soroban_sdk::{Env, Vec, contracttype};
 
 use crate::{
     error::MCError,
-    storage::{self, MarketStatus},
+    interest_rate::AnnualPercentageYields,
+    pool::Pool,
+    storage::{self, GlobalState, MarketStatus},
 };
+
+#[contracttype]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct PoolData {
+    pub pool: Pool,
+    pub apy: AnnualPercentageYields,
+}
+
+#[contracttype]
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct MarketData {
+    pub pool_data: Vec<PoolData>,
+    pub global_state: GlobalState,
+}
 
 /// Ensures that the provided amount is non-negative.
 #[inline(always)]

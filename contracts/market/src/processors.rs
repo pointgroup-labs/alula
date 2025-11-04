@@ -10,8 +10,8 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    helpers::require_nonnegative,
     math_utils::MathUtils,
+    misc::require_nonnegative,
     multiply_pair::MultiplyPair,
     obligation::{CoverBadDebtResult, LiquidationValues, Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
@@ -91,7 +91,6 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
 pub fn process_initialize_pool(
     e: &Env,
     token_address: &Address,
-    token_ticker: &Symbol,
     salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
 ) -> Result<Address, MCError> {
@@ -114,7 +113,11 @@ pub fn process_initialize_pool(
         None => Default::default(),
     };
 
-    let name = TokenClient::new(e, token_address).name();
+    let token_client = TokenClient::new(e, token_address);
+    let name = token_client.name();
+    let token_symbol = token_client.symbol();
+
+    events::initialize_pool(e, token_address, &pool_address, &token_symbol);
 
     let pool = Pool {
         total_d_tokens: 0,
@@ -130,7 +133,7 @@ pub fn process_initialize_pool(
         name,
         config: pool_config,
         pool_address: pool_address.clone(),
-        token_ticker: token_ticker.clone(),
+        token_symbol,
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
 
@@ -142,8 +145,6 @@ pub fn process_initialize_pool(
 
     pool.set(e);
     pool.register(e);
-
-    events::initialize_pool(e, token_address, &pool_address, token_ticker);
 
     Ok(pool_address)
 }

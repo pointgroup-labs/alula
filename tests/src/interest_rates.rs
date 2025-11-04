@@ -31,7 +31,7 @@ fn test_interest_rates() {
 
     // -- Move time --
     e.ledger().with_mut(|li| li.timestamp += 1);
-    contract_client.poke_pool(&usdc_pool_address);
+    contract_client.refresh_pool(&usdc_pool_address);
 
     // 0% UR
     let borrow_bps = contract_client.get_pool(&usdc_pool_address).borrow_apr_bps;

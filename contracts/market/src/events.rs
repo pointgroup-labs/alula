@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, Symbol, contractevent};
+use soroban_sdk::{Address, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -20,7 +20,7 @@ struct InitializePoolEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
-    pub token_ticker: Symbol,
+    pub token_symbol: String,
 }
 
 #[contractevent]
@@ -289,12 +289,12 @@ pub fn initialize_pool(
     e: &Env,
     token_address: &Address,
     pool_address: &Address,
-    token_ticker: &Symbol,
+    token_symbol: &String,
 ) {
     InitializePoolEvent {
         token_address: token_address.clone(),
         pool_address: pool_address.clone(),
-        token_ticker: token_ticker.clone(),
+        token_symbol: token_symbol.clone(),
     }
     .publish(e);
 }

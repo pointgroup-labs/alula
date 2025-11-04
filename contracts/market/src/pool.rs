@@ -6,7 +6,6 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    interest_rate::AnnualPercentageYields,
     interest_rate_model::InterestRateModel,
     math_utils::MathUtils,
     obligation::{
@@ -14,22 +13,8 @@ use crate::{
         RepayResult, WithdrawResult,
     },
     oracle::get_asset_price,
-    storage::{self, GlobalState, PoolUpdate},
+    storage::{self, PoolUpdate},
 };
-
-#[contracttype]
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct PoolData {
-    pub pool: Pool,
-    pub apy: AnnualPercentageYields,
-}
-
-#[contracttype]
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct MarketData {
-    pub pool_data: Vec<PoolData>,
-    pub global_state: GlobalState,
-}
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -39,7 +24,7 @@ pub struct Pool {
     /// The address of the token contract associated with the pool
     pub token_address: Address,
     /// The ticker symbol of the associated token
-    pub token_ticker: Symbol,
+    pub token_symbol: String,
     /// The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
     /// The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors

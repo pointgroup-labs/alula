@@ -110,7 +110,7 @@ impl LiquidationTest {
 
     fn make_unhealthy(&self) {
         self.test_fixture.e.ledger().with_mut(|li| li.timestamp += 3 * 365 * 24 * 60 * 60);
-        self.test_fixture.contract_client.poke();
+        self.test_fixture.contract_client.refresh();
     }
 
     fn collateral_amount(&self) -> i128 {
@@ -292,7 +292,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
     // - Accrue interest -
 
     e.ledger().with_mut(|li| li.timestamp += 2 * 360 * 24 * 60 * 60); // 2 years
-    contract_client.poke_pool(&usdc_pool_address);
+    contract_client.refresh_pool(&usdc_pool_address);
 
     let total_debt =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
@@ -509,7 +509,7 @@ fn test_liquidate_with_interest_accrual() {
 
     // Start with healthy position, accrue interest to make it risky
     test.test_fixture.e.ledger().with_mut(|li| li.timestamp += 40 * 365 * 24 * 60 * 60); // 40 years
-    test.test_fixture.contract_client.poke_pool(&test.test_fixture.usdc_pool_address);
+    test.test_fixture.contract_client.refresh_pool(&test.test_fixture.usdc_pool_address);
 
     let debt = test.debt();
     let liquidation_amount = test.liquidation_amount_from_percentage(20);

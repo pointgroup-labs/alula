@@ -6,15 +6,16 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    helpers::{
+    interest_rate::AnnualPercentageYields,
+    misc::{MarketData, PoolData},
+    misc::{
         require_admin, require_borrow_allowed, require_deployer, require_deposit_allowed,
         require_not_frozen, require_owned_and_admin,
     },
-    interest_rate::AnnualPercentageYields,
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
     oracle::{get_asset_price, get_oracle_price_decimals},
-    pool::{MarketData, Pool, PoolConfig, PoolData},
+    pool::{Pool, PoolConfig},
     processors::*,
     request::Request,
     storage::{self, GlobalState, MarketStatus, PoolUpdate},
@@ -97,8 +98,6 @@ pub trait Market {
     fn initialize_pool(
         e: Env,
         token_address: Address,
-        token_ticker: Symbol, /* NB: Token Interface contains a `.symbol()` endpoint, which can
-                               * be used for retrieving a token's ticker */
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError>;
@@ -364,16 +363,16 @@ pub trait Market {
     fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError>;
 
     /// Accrues interest on all registered pools
-    fn poke(e: Env) -> Result<(), MCError>;
+    fn refresh(e: Env) -> Result<(), MCError>;
 
     /// Accrues interest on all pools to whose obligation has open positions
-    fn poke_obligation(e: Env, user: Address) -> Result<(), MCError>;
+    fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError>;
 
     /// Accrues interest on all pools to whose earn obligation has open positions
-    fn poke_earn_obligation(e: Env, user: Address) -> Result<(), MCError>;
+    fn refresh_earn_obligation(e: Env, user: Address) -> Result<(), MCError>;
 
     /// Accrues interest on all pools to whose multiply pair obligation has open positions
-    fn poke_multiply_pair_obligation(
+    fn refresh_multiply_pair_obligation(
         e: Env,
         user: Address,
         deposit_pool_address: Address,
@@ -381,7 +380,7 @@ pub trait Market {
     ) -> Result<(), MCError>;
 
     /// Accrues interest on a pool
-    fn poke_pool(e: Env, pool_address: Address) -> Result<(), MCError>;
+    fn refresh_pool(e: Env, pool_address: Address) -> Result<(), MCError>;
 
     // TODO: Mark `read-only` methods
 
@@ -413,7 +412,8 @@ pub trait Market {
     /// Returns a list of all pool addresses in the protocol
     fn get_all_pools(e: Env) -> Vec<Address>;
 
-    /// Returns accumulated market data
+    /// Returns accumulated market data. Intended to be used in simulations only, since it will likely fail
+    /// the resource limits of Soroban
     fn get_market_data(e: Env) -> Result<MarketData, MCError>;
 
     /// Returns a list of all user obligations in the protocol
@@ -613,14 +613,12 @@ impl Market for MarketContract {
     fn initialize_pool(
         e: Env,
         token_address: Address,
-        token_ticker: Symbol, /* NB: Token Interface contains a `.symbol()` endpoint, which can
-                               * be used for retrieving a token's ticker */
         salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError> {
         require_admin(&e);
 
-        process_initialize_pool(&e, &token_address, &token_ticker, &salt, &pool_config)
+        process_initialize_pool(&e, &token_address, &salt, &pool_config)
     }
 
     fn initialize_multiply_pair(
@@ -968,7 +966,7 @@ impl Market for MarketContract {
         Ok(obligation)
     }
 
-    fn poke(e: Env) -> Result<(), MCError> {
+    fn refresh(e: Env) -> Result<(), MCError> {
         let pool_addresses = storage::get_all_pools(&e);
 
         for pool_address in pool_addresses {
@@ -985,7 +983,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn poke_obligation(e: Env, user: Address) -> Result<(), MCError> {
+    fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError> {
         let obligation_key = ObligationKey::new(user.clone());
 
         let obligation = Obligation::try_get(&e, &obligation_key)?;
@@ -994,7 +992,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn poke_earn_obligation(e: Env, user: Address) -> Result<(), MCError> {
+    fn refresh_earn_obligation(e: Env, user: Address) -> Result<(), MCError> {
         let obligation_key =
             ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
 
@@ -1004,7 +1002,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn poke_multiply_pair_obligation(
+    fn refresh_multiply_pair_obligation(
         e: Env,
         user: Address,
         deposit_pool_address: Address,
@@ -1021,8 +1019,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    // TODO: rename to `refresh`
-    fn poke_pool(e: Env, pool_address: Address) -> Result<(), MCError> {
+    fn refresh_pool(e: Env, pool_address: Address) -> Result<(), MCError> {
         let mut pool = Pool::try_get(&e, &pool_address)?;
 
         pool.accrue_interest(&e)?;

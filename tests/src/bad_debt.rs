@@ -56,7 +56,7 @@ fn test_accumulate_reserve_fees() {
     e.ledger().with_mut(|li| {
         li.timestamp += SECONDS_IN_YEAR / 12;
     });
-    contract_client.poke_pool(&usdc_pool_address);
+    contract_client.refresh_pool(&usdc_pool_address);
 
     // -- Verify the reserve is populated accordingly --
 
@@ -128,7 +128,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     e.ledger().with_mut(|li| {
         li.timestamp += 5 * SECONDS_IN_YEAR;
     });
-    contract_client.poke_pool(&usdc_pool_address);
+    contract_client.refresh_pool(&usdc_pool_address);
 
     // - Verify bad debt exists -
 
@@ -255,7 +255,7 @@ fn test_completely_socialize_loss() {
     e.ledger().with_mut(|li| {
         li.timestamp += 5 * SECONDS_IN_YEAR;
     });
-    contract_client.poke_obligation(borrower_1);
+    contract_client.refresh_obligation(borrower_1);
 
     // - Verify bad debt exists -
 
@@ -350,7 +350,7 @@ fn test_completely_cover_bad_debt() {
     e.ledger().with_mut(|li| {
         li.timestamp += 15 * SECONDS_IN_YEAR;
     });
-    contract_client.poke_pool(&usdc_pool_address);
+    contract_client.refresh_pool(&usdc_pool_address);
 
     // - Verify bad debt on 2nd borrower exists
 

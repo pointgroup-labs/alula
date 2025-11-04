@@ -22,7 +22,6 @@ fn test_queue_in_pool_config_update() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -76,7 +75,6 @@ fn test_queue_in_invalid_pool_config_update() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -168,7 +166,6 @@ fn test_cancel_pool_config_update() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -214,7 +211,6 @@ fn test_update_market_fails_for_permissionless_market() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -242,7 +238,7 @@ fn test_update_pool_in_permissionless_market_fails() {
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
 
-    let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+    let pool_address = contract_client.initialize_pool(&token_address, &None, &None);
 
     const NEW_SUPPLY_LIMIT: i128 = 100;
 

@@ -233,7 +233,7 @@ fn test_deposit_multiple_shareholders() {
     e.ledger().with_mut(|li| {
         li.timestamp += SECONDS_IN_YEAR / 12;
     });
-    contract_client.poke_pool(&gold_pool_address);
+    contract_client.refresh_pool(&gold_pool_address);
 
     // - Assert that the total debt has increased -
 

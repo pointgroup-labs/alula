@@ -14,10 +14,8 @@ fn test_pool_initialize() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
-    let pool_address_1 =
-        contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+    let pool_address_1 = contract_client.initialize_pool(&token_address, &None, &None);
 
     let all_pools = contract_client.get_all_pools();
     assert_eq!(all_pools.len(), 1);
@@ -25,7 +23,6 @@ fn test_pool_initialize() {
 
     let pool_address_2 = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &Some(BytesN::from_array(&e, &[0; 32])),
         &None,
     );
@@ -48,8 +45,7 @@ fn test_pool_initialize_with_custom_config() {
         ..Default::default()
     };
 
-    let pool_address =
-        contract_client.initialize_pool(&token_address, &token_ticker, &None, &Some(pool_config));
+    let pool_address = contract_client.initialize_pool(&token_address, &None, &Some(pool_config));
 
     let all_pools = contract_client.get_all_pools();
     assert_eq!(all_pools.len(), 1);
@@ -70,8 +66,8 @@ fn test_pool_initialize_with_different_salt() {
     let salt = BytesN::from_array(&e, &[0; 32]);
     let salt2 = BytesN::from_array(&e, &[1; 32]);
 
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt), &None);
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt2), &None);
+    contract_client.initialize_pool(&token_address, &Some(salt), &None);
+    contract_client.initialize_pool(&token_address, &Some(salt2), &None);
 }
 
 #[test]
@@ -87,19 +83,12 @@ fn test_pool_initialize_non_conflicting() {
 
     let salt = BytesN::from_array(&e, &[0; 32]);
 
-    let pool_address_1 =
-        contract_client.initialize_pool(&token_address_1, &token_ticker_1, &None, &None);
-    let pool_address_2 = contract_client.initialize_pool(
-        &token_address_1,
-        &token_ticker_1,
-        &Some(salt.clone()),
-        &None,
-    );
+    let pool_address_1 = contract_client.initialize_pool(&token_address_1, &None, &None);
+    let pool_address_2 =
+        contract_client.initialize_pool(&token_address_1, &Some(salt.clone()), &None);
 
-    let pool_address_3 =
-        contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
-    let pool_address_4 =
-        contract_client.initialize_pool(&token_address_2, &token_ticker_2, &Some(salt), &None);
+    let pool_address_3 = contract_client.initialize_pool(&token_address_2, &None, &None);
+    let pool_address_4 = contract_client.initialize_pool(&token_address_2, &Some(salt), &None);
 
     let all_pools = contract_client.get_all_pools();
     assert_eq!(
@@ -116,11 +105,11 @@ fn test_pool_reinitialize_no_salt() {
     let token_address = register_random_sac(&e);
     let token_ticker = symbol_short!("TCK1");
 
-    contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+    contract_client.initialize_pool(&token_address, &None, &None);
 
     assert_eq!(
         Err(Ok(MCError::PoolAlreadyExists)),
-        contract_client.try_initialize_pool(&token_address, &token_ticker, &None, &None),
+        contract_client.try_initialize_pool(&token_address, &None, &None),
     );
 }
 
@@ -134,11 +123,11 @@ fn test_pool_reinitialize_with_salt() {
 
     let salt = BytesN::from_array(&e, &[0; 32]);
 
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt.clone()), &None);
+    contract_client.initialize_pool(&token_address, &Some(salt.clone()), &None);
 
     assert_eq!(
         Err(Ok(MCError::PoolAlreadyExists)),
-        contract_client.try_initialize_pool(&token_address, &token_ticker, &Some(salt), &None),
+        contract_client.try_initialize_pool(&token_address, &Some(salt), &None),
     );
 }
 
@@ -154,14 +143,9 @@ fn test_initialize_multiply_pair() {
     let borrow_token_address = register_random_sac(&e);
     let borrow_token_ticker = symbol_short!("TCK2");
 
-    let deposit_pool_address = contract_client.initialize_pool(
-        &deposit_token_address,
-        &deposit_token_ticker,
-        &None,
-        &None,
-    );
-    let borrow_pool_address =
-        contract_client.initialize_pool(&borrow_token_address, &borrow_token_ticker, &None, &None);
+    let deposit_pool_address =
+        contract_client.initialize_pool(&deposit_token_address, &None, &None);
+    let borrow_pool_address = contract_client.initialize_pool(&borrow_token_address, &None, &None);
 
     // Initialize a multiply pair
     contract_client.initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address);
@@ -194,12 +178,8 @@ fn test_multiply_pair_with_inexistent_pool() {
     let deposit_token_address = register_random_sac(&e);
     let deposit_token_ticker = symbol_short!("TCK1");
 
-    let deposit_pool_address = contract_client.initialize_pool(
-        &deposit_token_address,
-        &deposit_token_ticker,
-        &None,
-        &None,
-    );
+    let deposit_pool_address =
+        contract_client.initialize_pool(&deposit_token_address, &None, &None);
 
     assert_eq!(
         contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
