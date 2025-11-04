@@ -63,17 +63,17 @@ pub fn process_submit_requests_batch<'a>(
 }
 
 pub fn process_get_global_state(e: &Env) -> GlobalState {
-    storage::extend_instance_storage(&e);
+    storage::extend_instance_storage(e);
 
-    let update_in_queue_period = storage::get_update_in_queue_period(&e);
-    let name = storage::get_name(&e);
-    let admin = storage::get_admin(&e);
-    let oracle = storage::get_oracle(&e);
-    let deployer = storage::get_deployer(&e);
-    let status = storage::get_market_status(&e) as u32;
+    let update_in_queue_period = storage::get_update_in_queue_period(e);
+    let name = storage::get_name(e);
+    let admin = storage::get_admin(e);
+    let oracle = storage::get_oracle(e);
+    let deployer = storage::get_deployer(e);
+    let status = storage::get_market_status(e) as u32;
     let is_owned = update_in_queue_period.is_some();
-    let max_positions = storage::get_max_positions(&e);
-    let min_collateral_value = storage::get_min_collateral_value(&e);
+    let max_positions = storage::get_max_positions(e);
+    let min_collateral_value = storage::get_min_collateral_value(e);
 
     GlobalState {
         name,
