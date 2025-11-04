@@ -5,7 +5,7 @@ use market::{
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
 };
-use soroban_sdk::{symbol_short, testutils::Ledger};
+use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_default_env,
@@ -18,7 +18,6 @@ fn test_queue_in_pool_config_update() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
@@ -71,7 +70,6 @@ fn test_queue_in_invalid_pool_config_update() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
@@ -162,7 +160,6 @@ fn test_cancel_pool_config_update() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
@@ -207,7 +204,6 @@ fn test_update_market_fails_for_permissionless_market() {
     let contract_client = setup_market_client(&e, false);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
@@ -236,7 +232,6 @@ fn test_update_pool_in_permissionless_market_fails() {
     let contract_client = setup_market_client(&e, false);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(&token_address, &None, &None);
 

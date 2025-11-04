@@ -1,5 +1,5 @@
 use soroban_sdk::{
-    Address, BytesN, Env, String, Symbol, Vec, contract, contractclient, contractimpl, vec as svec,
+    Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl, vec as svec,
 };
 
 use crate::{
@@ -7,10 +7,9 @@ use crate::{
     error::MCError,
     events,
     interest_rate::AnnualPercentageYields,
-    misc::{MarketData, PoolData},
     misc::{
-        require_admin, require_borrow_allowed, require_deployer, require_deposit_allowed,
-        require_not_frozen, require_owned_and_admin,
+        MarketData, PoolData, require_admin, require_borrow_allowed, require_deployer,
+        require_deposit_allowed, require_not_frozen, require_owned_and_admin,
     },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, get_earn_obligation_seed},

@@ -2,7 +2,7 @@
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Map, Symbol, Vec, map as smap,
+    Address, BytesN, Env, Map, Vec, map as smap,
     token::{self, TokenClient},
 };
 

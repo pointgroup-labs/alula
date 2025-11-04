@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env, Map, String, Symbol, Vec, contracttype};
+use soroban_sdk::{Address, Env, Map, String, Vec, contracttype};
 
 use crate::{
     accrual::AccrualModel,

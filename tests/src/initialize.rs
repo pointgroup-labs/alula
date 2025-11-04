@@ -4,7 +4,7 @@ use market::{
     error::MCError,
     pool::{PoolConfig, PoolHealthConfig},
 };
-use soroban_sdk::{Address, BytesN, symbol_short, testutils::Address as _};
+use soroban_sdk::{Address, BytesN, testutils::Address as _};
 
 use crate::{get_default_env, register_random_sac, setup_market_client};
 
@@ -38,7 +38,6 @@ fn test_pool_initialize_with_custom_config() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_config = PoolConfig {
         health_config: PoolHealthConfig { utilization_ratio_limit_bps: 8000, ..Default::default() },
@@ -61,7 +60,6 @@ fn test_pool_initialize_with_different_salt() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let salt2 = BytesN::from_array(&e, &[1; 32]);
@@ -76,10 +74,7 @@ fn test_pool_initialize_non_conflicting() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address_1 = register_random_sac(&e);
-    let token_ticker_1 = symbol_short!("TCK1");
-
     let token_address_2 = register_random_sac(&e);
-    let token_ticker_2 = symbol_short!("TCK2");
 
     let salt = BytesN::from_array(&e, &[0; 32]);
 
@@ -103,7 +98,6 @@ fn test_pool_reinitialize_no_salt() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     contract_client.initialize_pool(&token_address, &None, &None);
 
@@ -119,7 +113,6 @@ fn test_pool_reinitialize_with_salt() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let salt = BytesN::from_array(&e, &[0; 32]);
 
@@ -138,10 +131,7 @@ fn test_initialize_multiply_pair() {
 
     // Initialize pools first
     let deposit_token_address = register_random_sac(&e);
-    let deposit_token_ticker = symbol_short!("TCK1");
-
     let borrow_token_address = register_random_sac(&e);
-    let borrow_token_ticker = symbol_short!("TCK2");
 
     let deposit_pool_address =
         contract_client.initialize_pool(&deposit_token_address, &None, &None);
@@ -176,7 +166,6 @@ fn test_multiply_pair_with_inexistent_pool() {
     );
 
     let deposit_token_address = register_random_sac(&e);
-    let deposit_token_ticker = symbol_short!("TCK1");
 
     let deposit_pool_address =
         contract_client.initialize_pool(&deposit_token_address, &None, &None);

@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market::{contract::MarketContractClient, error::MCError};
-use soroban_sdk::{Address, Bytes, BytesN, symbol_short, testutils::Address as _};
+use soroban_sdk::{Address, Bytes, BytesN, testutils::Address as _};
 
 use crate::TestMarketFixture;
 
@@ -33,7 +33,6 @@ fn test_initialize_pool_requires_admin() {
     let unauthorized_client = MarketContractClient::new(&fixture.e, &fixture.contract_id);
 
     // Try to initialize pool with unauthorized user
-    let usdc_ticker = symbol_short!("USDC");
     let result = unauthorized_client.try_initialize_pool(&fixture.usdc_token_address, &None, &None);
 
     // Should fail because the unauthorized user cannot initialize pools

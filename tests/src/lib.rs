@@ -34,7 +34,7 @@ use market::{
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env, Symbol, symbol_short,
+    Address, Env, Symbol,
     testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
     token::{self, StellarAssetClient, TokenClient},
 };
@@ -117,7 +117,6 @@ impl TestMarketFixture<'_> {
 
         // Configure USDC SAC first, since it's used in the oracle as a base asset
         let usdc_admin = Address::generate(&e);
-        let usdc_ticker = symbol_short!("USDC");
         let TestAssetSetup {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
