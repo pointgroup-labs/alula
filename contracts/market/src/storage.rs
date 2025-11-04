@@ -9,14 +9,15 @@ use crate::{
 };
 
 #[contracttype]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct GlobalState {
+    pub status: u32,
     pub name: String,
-    pub admin: Address,
     pub is_owned: bool,
+    pub admin: Address,
     pub oracle: Address,
     pub deployer: Address,
     pub max_positions: u32,
-    pub status: u32,
     pub min_collateral_value: i128,
     pub update_in_queue_period: Option<u64>,
 }

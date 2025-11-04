@@ -30,7 +30,7 @@ impl AnnualPercentageRates {
 }
 
 /// Compound interest rates represented in basis points
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 #[contracttype]
 pub struct AnnualPercentageYields {
     pub borrow_bps: u32,

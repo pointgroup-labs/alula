@@ -1,5 +1,5 @@
 use soroban_sdk::{
-    Address, BytesN, Env, String, Symbol, Vec, contract, contractclient, contractimpl,
+    Address, BytesN, Env, String, Symbol, Vec, contract, contractclient, contractimpl, vec as svec,
 };
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
     oracle::{get_asset_price, get_oracle_price_decimals},
-    pool::{Pool, PoolConfig},
+    pool::{MarketData, Pool, PoolConfig, PoolData},
     processors::*,
     request::Request,
     storage::{self, GlobalState, MarketStatus, PoolUpdate},
@@ -412,6 +412,10 @@ pub trait Market {
 
     /// Returns a list of all pool addresses in the protocol
     fn get_all_pools(e: Env) -> Vec<Address>;
+
+    /// Returns accumulated market data
+    fn get_market_data(e: Env) -> Result<MarketData, MCError>;
+
     /// Returns a list of all user obligations in the protocol
     fn get_all_obligations(e: Env) -> Vec<Address>;
 
@@ -577,29 +581,7 @@ impl Market for MarketContract {
     }
 
     fn get_global_state(e: Env) -> GlobalState {
-        storage::extend_instance_storage(&e);
-
-        let update_in_queue_period = storage::get_update_in_queue_period(&e);
-        let name = storage::get_name(&e);
-        let admin = storage::get_admin(&e);
-        let oracle = storage::get_oracle(&e);
-        let deployer = storage::get_deployer(&e);
-        let status = storage::get_market_status(&e) as u32;
-        let is_owned = update_in_queue_period.is_some();
-        let max_positions = storage::get_max_positions(&e);
-        let min_collateral_value = storage::get_min_collateral_value(&e);
-
-        GlobalState {
-            name,
-            admin,
-            oracle,
-            status,
-            deployer,
-            is_owned,
-            max_positions,
-            min_collateral_value,
-            update_in_queue_period,
-        }
+        process_get_global_state(&e)
     }
 
     fn update_market(
@@ -1077,6 +1059,27 @@ impl Market for MarketContract {
 
     fn get_all_pools(e: Env) -> Vec<Address> {
         Pool::get_all(&e)
+    }
+
+    fn get_market_data(e: Env) -> Result<MarketData, MCError> {
+        let pool_addresses = storage::get_all_pools(&e);
+
+        let mut pool_data = svec![&e];
+        for pool_address in pool_addresses {
+            let pool = Pool::try_get(&e, &pool_address).map_err(|_| {
+                events::pool_is_missing_in_storage(&e, &pool_address);
+
+                MCError::InternalError
+            })?;
+            let apy = pool.get_apy()?;
+
+            pool_data.push_back(PoolData { pool, apy });
+        }
+
+        let global_state = process_get_global_state(&e);
+        let market_data = MarketData { pool_data, global_state };
+
+        Ok(market_data)
     }
 
     fn get_all_obligations(e: Env) -> Vec<Address> {

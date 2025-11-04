@@ -6,6 +6,7 @@ use crate::{
     constants::*,
     error::MCError,
     events,
+    interest_rate::AnnualPercentageYields,
     interest_rate_model::InterestRateModel,
     math_utils::MathUtils,
     obligation::{
@@ -13,8 +14,22 @@ use crate::{
         RepayResult, WithdrawResult,
     },
     oracle::get_asset_price,
-    storage::{self, PoolUpdate},
+    storage::{self, GlobalState, PoolUpdate},
 };
+
+#[contracttype]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct PoolData {
+    pub pool: Pool,
+    pub apy: AnnualPercentageYields,
+}
+
+#[contracttype]
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct MarketData {
+    pub pool_data: Vec<PoolData>,
+    pub global_state: GlobalState,
+}
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq, Clone)]
