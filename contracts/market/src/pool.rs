@@ -23,7 +23,7 @@ pub struct Pool {
     pub pool_address: Address,
     /// The address of the token contract associated with the pool
     pub token_address: Address,
-    /// The ticker symbol of the associated token
+    /// The token symbol of the associated asset
     pub token_symbol: String,
     /// The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
@@ -50,11 +50,11 @@ pub struct Pool {
     pub config: PoolConfig,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    /// Remaining supply incentives that are distributed evenly among their specified periods
+    /// Remaining supply incentives that are distributed evenly among specified periods
     pub supply_incentives: Map<(u64, u64), PoolIncentive>,
-    /// Current borrow annual percentage rate in basis points
+    /// Borrow annual percentage rate in basis points
     pub borrow_apr_bps: i128,
-    /// Current supply annual percentage rate in basis points
+    /// Supply annual percentage rate in basis points
     pub supply_apr_bps: i128,
 }
 
@@ -89,6 +89,7 @@ impl Pool {
         Ok(())
     }
 
+    // TODO: Add this to APR calculations
     /// Additionally incentivizes the pool's supply APR
     pub fn incentivize(
         &mut self,
@@ -195,16 +196,16 @@ impl Pool {
         Ok(())
     }
 
-    // TODO: Add dTokenRate?
+    // ---- Shares <—> Tokens Calculations ----
 
-    pub fn compute_tokens_from_d_tokens(
+    pub fn compute_tokens_from_d_tokens_ceil(
         &self,
         e: &Env,
         d_tokens_amount: i128,
     ) -> Result<i128, MCError> {
         // TODO: Check if there are some useful properties between jTokens and dTokens that
         // might cause some code re-usage | UPD: unlikely, for now
-        let tokens = Self::compute_tokens_from_shares(
+        let tokens = Self::compute_tokens_from_shares_ceil(
             e,
             d_tokens_amount,
             self.total_d_tokens,
@@ -214,12 +215,27 @@ impl Pool {
         Ok(tokens)
     }
 
-    pub fn compute_d_tokens_from_tokens(
+    pub fn compute_tokens_from_d_tokens_floor(
+        &self,
+        e: &Env,
+        d_tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        let tokens = Self::compute_tokens_from_shares_floor(
+            e,
+            d_tokens_amount,
+            self.total_d_tokens,
+            self.total_borrowed,
+        )?;
+
+        Ok(tokens)
+    }
+
+    pub fn compute_d_tokens_from_tokens_ceil(
         &self,
         e: &Env,
         tokens_amount: i128,
     ) -> Result<i128, MCError> {
-        let d_tokens = Self::compute_shares_from_tokens(
+        let d_tokens = Self::compute_shares_from_tokens_ceil(
             e,
             tokens_amount,
             self.total_d_tokens,
@@ -229,12 +245,27 @@ impl Pool {
         Ok(d_tokens)
     }
 
-    pub fn compute_tokens_from_j_tokens(
+    pub fn compute_d_tokens_from_tokens_floor(
+        &self,
+        e: &Env,
+        tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        let d_tokens = Self::compute_shares_from_tokens_floor(
+            e,
+            tokens_amount,
+            self.total_d_tokens,
+            self.total_borrowed,
+        )?;
+
+        Ok(d_tokens)
+    }
+
+    pub fn compute_tokens_from_j_tokens_floor(
         &self,
         e: &Env,
         j_tokens_amount: i128,
     ) -> Result<i128, MCError> {
-        let tokens = Self::compute_tokens_from_shares(
+        let tokens = Self::compute_tokens_from_shares_floor(
             e,
             j_tokens_amount,
             self.total_j_tokens,
@@ -244,12 +275,27 @@ impl Pool {
         Ok(tokens)
     }
 
-    pub fn compute_j_tokens_from_tokens(
+    pub fn compute_tokens_from_j_tokens_ceil(
+        &self,
+        e: &Env,
+        j_tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        let tokens = Self::compute_tokens_from_shares_ceil(
+            e,
+            j_tokens_amount,
+            self.total_j_tokens,
+            self.total_supply()?,
+        )?;
+
+        Ok(tokens)
+    }
+
+    pub fn compute_j_tokens_from_tokens_floor(
         &self,
         e: &Env,
         tokens_amount: i128,
     ) -> Result<i128, MCError> {
-        let j_tokens = Self::compute_shares_from_tokens(
+        let j_tokens = Self::compute_shares_from_tokens_floor(
             e,
             tokens_amount,
             self.total_j_tokens,
@@ -258,6 +304,175 @@ impl Pool {
 
         Ok(j_tokens)
     }
+
+    pub fn compute_j_tokens_from_tokens_ceil(
+        &self,
+        e: &Env,
+        tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        let j_tokens = Self::compute_shares_from_tokens_ceil(
+            e,
+            tokens_amount,
+            self.total_j_tokens,
+            self.total_supply()?,
+        )?;
+
+        Ok(j_tokens)
+    }
+
+    /// Computes the number of tokens proportional to the given share of the tokens in the pool ceiled.
+    /// Intended to be used for both `jTokens` and `dTokens` related calculations
+    fn compute_tokens_from_shares_ceil(
+        e: &Env,
+        shares_amount: i128,
+        total_shares_amount: i128,
+        total_tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        if shares_amount == 0 {
+            return Ok(0);
+        }
+
+        if total_shares_amount < shares_amount {
+            events::pool_total_shares_smaller_than_individual_user_shares(
+                e,
+                total_shares_amount,
+                shares_amount,
+            );
+
+            return Err(MCError::InternalError);
+        }
+
+        let tokens_amount = shares_amount
+            .fixed_mul_ceil(total_tokens_amount, total_shares_amount)
+            .map_over_or_underflow()?;
+
+        Ok(tokens_amount)
+    }
+
+    /// Computes the number of tokens proportional to the given share of the tokens in the pool floored.
+    /// Intended to be used for both `jTokens` and `dTokens` related calculations
+    fn compute_tokens_from_shares_floor(
+        e: &Env,
+        shares_amount: i128,
+        total_shares_amount: i128,
+        total_tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        if shares_amount == 0 {
+            return Ok(0);
+        }
+
+        if total_shares_amount < shares_amount {
+            events::pool_total_shares_smaller_than_individual_user_shares(
+                e,
+                total_shares_amount,
+                shares_amount,
+            );
+
+            return Err(MCError::InternalError);
+        }
+
+        let tokens_amount = shares_amount
+            .fixed_mul_floor(total_tokens_amount, total_shares_amount)
+            .map_over_or_underflow()?;
+
+        Ok(tokens_amount)
+    }
+
+    /// Computes the shares amount which must be issued or burnt from a specific obligation based on
+    /// the provided tokens amount ceiled. Intended to be used for both `jTokens` and `dTokens` related
+    /// calculations
+    fn compute_shares_from_tokens_ceil(
+        e: &Env,
+        tokens_amount: i128,
+        total_shares_amount: i128,
+        total_tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        // TODO: Is it always consistent with situations like:
+        // I have the last shares and I remove them - total supply becomes zero. Check this
+        if tokens_amount == 0 {
+            return Ok(0);
+        }
+
+        let shares_amount = if total_shares_amount == 0 {
+            // NB: Is it reasonable to make the initial, or maybe, even a constant?
+            tokens_amount
+        } else {
+            if total_shares_amount > total_tokens_amount {
+                events::pool_total_shares_smaller_than_total_tokens(
+                    e,
+                    total_shares_amount,
+                    total_tokens_amount,
+                );
+
+                return Err(MCError::InternalError);
+            }
+
+            // This must hold when issuing new shares: shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount /
+            // (tokens_added_amount + prev_total_tokens_amount)
+            // Which implies:
+            //   shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
+            // This must hold when burning issued shares:
+            //   shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
+            total_shares_amount
+                // Using 'ceil' here has advantages when withdrawing\repaying small amounts of
+                // tokens. Namely, if the token amount is really small, with
+                // `floor`, the respective amount of shares to burn is 0, and
+                // doesn't make a difference
+                .fixed_div_ceil(total_tokens_amount, tokens_amount)
+                .map_over_or_underflow()?
+        };
+
+        Ok(shares_amount)
+    }
+
+    /// Computes the shares amount which must be issued or burnt from a specific obligation based on
+    /// the provided tokens amount floored. Intended to be used for both `jTokens` and `dTokens` related
+    /// calculations
+    fn compute_shares_from_tokens_floor(
+        e: &Env,
+        tokens_amount: i128,
+        total_shares_amount: i128,
+        total_tokens_amount: i128,
+    ) -> Result<i128, MCError> {
+        // TODO: Is it always consistent with situations like:
+        // I have the last shares and I remove them - total supply becomes zero. Check this
+        if tokens_amount == 0 {
+            return Ok(0);
+        }
+
+        let shares_amount = if total_shares_amount == 0 {
+            // NB: Is it reasonable to make the initial, or maybe, even a constant?
+            tokens_amount
+        } else {
+            if total_shares_amount > total_tokens_amount {
+                events::pool_total_shares_smaller_than_total_tokens(
+                    e,
+                    total_shares_amount,
+                    total_tokens_amount,
+                );
+
+                return Err(MCError::InternalError);
+            }
+
+            // This must hold when issuing new shares: shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount /
+            // (tokens_added_amount + prev_total_tokens_amount)
+            // Which implies:
+            //   shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
+            // This must hold when burning issued shares:
+            //   shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
+            total_shares_amount
+                // Using 'ceil' here has advantages when withdrawing\repaying small amounts of
+                // tokens. Namely, if the token amount is really small, with
+                // `floor`, the respective amount of shares to burn is 0, and
+                // doesn't make a difference
+                .fixed_div_floor(total_tokens_amount, tokens_amount)
+                .map_over_or_underflow()?
+        };
+
+        Ok(shares_amount)
+    }
+
+    // ------------------
 
     pub fn require_available(&self, required: i128) -> Result<(), MCError> {
         if required > self.total_available_minus_accumulated_reserve_fees()? {
@@ -387,82 +602,6 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    /// Computes the number of tokens proportional to the given share of the tokens in the pool.
-    /// Intended to be used for both `jTokens` and `dTokens` related calculations
-    fn compute_tokens_from_shares(
-        e: &Env,
-        shares_amount: i128,
-        total_shares_amount: i128,
-        total_tokens_amount: i128,
-    ) -> Result<i128, MCError> {
-        if shares_amount == 0 {
-            return Ok(0);
-        }
-
-        if total_shares_amount < shares_amount {
-            events::pool_total_shares_smaller_than_individual_user_shares(
-                e,
-                total_shares_amount,
-                shares_amount,
-            );
-
-            return Err(MCError::InternalError);
-        }
-
-        let tokens_amount = shares_amount
-            .fixed_mul_floor(total_tokens_amount, total_shares_amount)
-            .map_over_or_underflow()?;
-
-        Ok(tokens_amount)
-    }
-
-    /// Computes the shares amount which must be issued or burnt from a specific obligation based on
-    /// the provided tokens amount. Intended to be used for both `jTokens` and `dTokens` related
-    /// calculations
-    fn compute_shares_from_tokens(
-        e: &Env,
-        tokens_amount: i128,
-        total_shares_amount: i128,
-        total_tokens_amount: i128,
-    ) -> Result<i128, MCError> {
-        // TODO: Is it always consistent with situations like:
-        // I have the last shares and I remove them - total supply becomes zero. Check this
-        if tokens_amount == 0 {
-            return Ok(0);
-        }
-
-        let shares_amount = if total_shares_amount == 0 {
-            // NB: Is it reasonable to make the initial amount smaller?
-            tokens_amount
-        } else {
-            if total_shares_amount > total_tokens_amount {
-                events::pool_total_shares_smaller_than_total_tokens(
-                    e,
-                    total_shares_amount,
-                    total_tokens_amount,
-                );
-
-                return Err(MCError::InternalError);
-            }
-
-            // This must hold when issuing new shares: shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount /
-            // (tokens_added_amount + prev_total_tokens_amount)
-            // Which implies:
-            //   shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
-            // This must hold when burning issued shares:
-            //   shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
-            total_shares_amount
-                // Using 'ceil' here has advantages when withdrawing\repaying small amounts of
-                // tokens. Namely, if the token amount is really small, with
-                // `floor`, the respective amount of shares to burn is 0, and
-                // doesn't make a difference
-                .fixed_div_ceil(total_tokens_amount, tokens_amount)
-                .map_over_or_underflow()?
-        };
-
-        Ok(shares_amount)
-    }
-
     pub fn available_accumulated_reserve_fees(&self) -> i128 {
         let total_available = self.total_available;
         let accumulated_reserve_fees = self.accumulated_reserve_fees;
@@ -561,7 +700,7 @@ impl Pool {
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
-        let deposited_tokens = self.compute_tokens_from_j_tokens(e, self.total_j_tokens)?;
+        let deposited_tokens = self.compute_tokens_from_j_tokens_floor(e, self.total_j_tokens)?;
         let collateral_sum =
             deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
 

@@ -312,7 +312,7 @@ impl Obligation {
     ) -> Result<i128, MCError> {
         let &DepositObligation { j_tokens, collateral, .. } = deposit_obligation;
 
-        let supply = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+        let supply = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
         let total_collateral_tokens = supply.checked_add(collateral).map_over_or_underflow()?;
 
         Self::compute_asset_value_scaled(e, total_collateral_tokens, pool, scalar_bps)
@@ -327,7 +327,7 @@ impl Obligation {
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
         let &BorrowObligation { d_tokens, .. } = borrow_obligation;
-        let debt = pool.compute_tokens_from_j_tokens(e, d_tokens)?;
+        let debt = pool.compute_tokens_from_j_tokens_ceil(e, d_tokens)?;
 
         Self::compute_asset_value_scaled(e, debt, pool, scalar_bps)
     }
@@ -370,7 +370,8 @@ impl Obligation {
 
         let deposited_tokens_minus_fee =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
-        let j_tokens_to_issue = pool.compute_j_tokens_from_tokens(e, deposited_tokens_minus_fee)?;
+        let j_tokens_to_issue =
+            pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
 
         deposit_obligation.adjust_deposited(e, deposited_tokens_minus_fee)?;
         deposit_obligation.adjust_j_tokens(e, j_tokens_to_issue)?;
@@ -409,7 +410,7 @@ impl Obligation {
         // 'what borrower receives' = 'borrower debt' - 'fees'
         let borrower_to_receive =
             real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
-        let d_tokens_to_issue = pool.compute_d_tokens_from_tokens(e, real_borrowed_amount)?;
+        let d_tokens_to_issue = pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
 
         borrow_obligation.adjust_d_tokens(e, d_tokens_to_issue)?;
         borrow_obligation.adjust_borrowed(e, real_borrowed_amount)?;
@@ -461,7 +462,8 @@ impl Obligation {
 
         let max_healthy_withdrawn_amount =
             self.compute_max_healthy_collateral_removed_amount(e, pool)?;
-        let all_deposit = pool.compute_tokens_from_j_tokens(e, deposit_obligation.j_tokens)?;
+        let all_deposit =
+            pool.compute_tokens_from_j_tokens_floor(e, deposit_obligation.j_tokens)?;
         let deposit_decrease =
             i128::min(i128::min(original_amount, max_healthy_withdrawn_amount), all_deposit);
 
@@ -551,10 +553,15 @@ impl Obligation {
         let withdrawer_to_receive =
             deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
 
-        let j_tokens_to_burn = pool.compute_j_tokens_from_tokens(e, deposit_decrease)?;
+        let j_tokens_to_burn = i128::min(
+            deposit_obligation.j_tokens,
+            pool.compute_j_tokens_from_tokens_ceil(e, deposit_decrease)?,
+        );
 
-        let mut received_interest =
-            all_deposit.checked_sub(deposit_obligation.deposited).map_over_or_underflow()?;
+        let all_deposit_ceil =
+            pool.compute_tokens_from_j_tokens_ceil(e, deposit_obligation.j_tokens)?;
+        let received_interest =
+            all_deposit_ceil.checked_sub(deposit_obligation.deposited).map_over_or_underflow()?;
 
         if received_interest < 0 {
             events::computed_interest_is_negative(
@@ -566,11 +573,8 @@ impl Obligation {
                 all_deposit,
             );
 
-            received_interest = 0;
-            // return Err(MCError::InternalError);
-        }
-
-        if deposit_decrease >= received_interest {
+            return Err(MCError::InternalError);
+        } else if deposit_decrease >= received_interest {
             let deposited_diff = deposit_decrease - received_interest; // safe
 
             deposit_obligation
@@ -651,7 +655,7 @@ impl Obligation {
         let mut borrow_obligation =
             self.borrows.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
 
-        let all_debt = pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+        let all_debt = pool.compute_tokens_from_d_tokens_floor(e, borrow_obligation.d_tokens)?;
         let all_debt_fees = compute_fees(
             all_debt,
             pool.config.fee_config.repay_fee_bps,
@@ -673,7 +677,7 @@ impl Obligation {
         let debt_decrease = amount_to_take_from_borrower
             .checked_sub(computed_fees.fee_sum)
             .map_over_or_underflow()?;
-        let d_tokens_to_burn = pool.compute_d_tokens_from_tokens(e, debt_decrease)?;
+        let d_tokens_to_burn = pool.compute_d_tokens_from_tokens_floor(e, debt_decrease)?;
 
         let mut unpaid_interest =
             all_debt.checked_sub(borrow_obligation.borrowed).map_over_or_underflow()?;
@@ -742,11 +746,11 @@ impl Obligation {
 
         let borrow_obligation_d_tokens = borrow_obligation.d_tokens;
         let borrow_obligation_d_tokens_as_tokens =
-            borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation_d_tokens)?;
+            borrow_pool.compute_tokens_from_d_tokens_floor(e, borrow_obligation_d_tokens)?;
 
         let collateral_obligation_j_tokens = collateral_obligation.j_tokens;
-        let collateral_obligation_j_tokens_as_tokens =
-            collateral_pool.compute_tokens_from_j_tokens(e, collateral_obligation_j_tokens)?;
+        let collateral_obligation_j_tokens_as_tokens = collateral_pool
+            .compute_tokens_from_j_tokens_floor(e, collateral_obligation_j_tokens)?;
 
         // 'liquidatable_bps' == ((amount * 10_000) / total_debt)
         let liquidatable_bps = amount
@@ -776,7 +780,7 @@ impl Obligation {
             let collateral_amount_sold = liquidation_value_with_incentive
                 .checked_div(collateral_price)
                 .map_over_or_underflow()?;
-            let d_tokens_repaid = borrow_pool.compute_d_tokens_from_tokens(e, amount)?;
+            let d_tokens_repaid = borrow_pool.compute_d_tokens_from_tokens_floor(e, amount)?;
 
             LiquidationValues {
                 liquidated_amount: amount,
@@ -790,7 +794,7 @@ impl Obligation {
 
             let full_collateral_j_tokens = collateral_obligation.j_tokens;
             let j_tokens_as_tokens =
-                collateral_pool.compute_tokens_from_j_tokens(e, full_collateral_j_tokens)?;
+                collateral_pool.compute_tokens_from_j_tokens_floor(e, full_collateral_j_tokens)?;
             let available_tokens_from_j_tokens =
                 i128::min(collateral_pool.total_available, j_tokens_as_tokens);
 
@@ -801,9 +805,9 @@ impl Obligation {
             if tokens_from_j_tokens_value >= value_left {
                 let tokens_from_sold_j_tokens =
                     value_left.checked_div(collateral_price).map_over_or_underflow()?;
-                let j_tokens_amount_sold =
-                    collateral_pool.compute_j_tokens_from_tokens(e, tokens_from_sold_j_tokens)?;
-                let d_tokens_repaid = borrow_pool.compute_d_tokens_from_tokens(e, amount)?;
+                let j_tokens_amount_sold = collateral_pool
+                    .compute_j_tokens_from_tokens_floor(e, tokens_from_sold_j_tokens)?;
+                let d_tokens_repaid = borrow_pool.compute_d_tokens_from_tokens_floor(e, amount)?;
 
                 LiquidationValues {
                     liquidated_amount: amount,
@@ -832,7 +836,7 @@ impl Obligation {
                     .checked_div(denominator)
                     .map_over_or_underflow()?;
                 let d_tokens_repaid = borrow_pool
-                    .compute_d_tokens_from_tokens(e, tokens_per_collateral_minus_incentive)?;
+                    .compute_d_tokens_from_tokens_floor(e, tokens_per_collateral_minus_incentive)?;
 
                 LiquidationValues {
                     liquidated_amount: tokens_per_collateral_minus_incentive,
@@ -925,7 +929,7 @@ impl Obligation {
         let deposit_pool = Pool::try_get(e, pool_address)?;
 
         let total_supply =
-            deposit_pool.compute_j_tokens_from_tokens(e, deposit_obligation.j_tokens)?;
+            deposit_pool.compute_j_tokens_from_tokens_floor(e, deposit_obligation.j_tokens)?;
         let deposited = deposit_obligation.deposited;
 
         if total_supply < deposited {
@@ -944,7 +948,8 @@ impl Obligation {
             self.borrows.get(pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
         let borrow_pool = Pool::try_get(e, pool_address)?;
 
-        let total_debt = borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+        let total_debt =
+            borrow_pool.compute_tokens_from_d_tokens_floor(e, borrow_obligation.d_tokens)?;
         let borrowed = borrow_obligation.borrowed;
 
         if total_debt < borrowed {
@@ -976,7 +981,8 @@ impl Obligation {
             MCError::InternalError
         })?;
 
-        let total_debt = borrow_pool.compute_tokens_from_d_tokens(e, borrow_obligation.d_tokens)?;
+        let total_debt =
+            borrow_pool.compute_tokens_from_d_tokens_floor(e, borrow_obligation.d_tokens)?;
 
         Ok(total_debt)
     }
@@ -1185,16 +1191,16 @@ pub struct ComputedFees {
     pub fee_sum: i128,
     /// Fee segregated to the market admin
     pub market_fee: i128,
-    /// Fee segregated to the protocol host
+    /// Fee segregated to the protocol host(market deployer)
     pub host_fee: i128,
 }
 
 #[contracttype]
 /// [`Obligation::deposit`] resulting data
 pub struct DepositResult {
-    /// Amount of `jTokens` to issue that represent the `originally_deposited` amount in the pool
+    /// Amount of `jTokens` to issue that represent the `deposited` amount in the pool
     pub j_tokens_to_issue: i128,
-    /// Amount of originally deposited tokens(minus all fees)
+    /// Amount of originally deposited tokens(minus all possible fees)
     pub deposited: i128,
     pub computed_fees: ComputedFees,
 }
@@ -1206,7 +1212,7 @@ pub struct BorrowResult {
     pub d_tokens_to_issue: i128,
     /// Amount of debt(in tokens) that is added to the borrower's obligation
     pub borrower_new_debt: i128,
-    /// Amount of tokens to receive by the borrower(`borrower_new_debt` minus fees)
+    /// Amount of tokens to receive by the borrower(`borrower_new_debt` minus all fees)
     pub borrower_to_receive: i128,
     pub computed_fees: ComputedFees,
 }
@@ -1214,7 +1220,7 @@ pub struct BorrowResult {
 #[contracttype]
 /// [`Obligation::add_collateral`] resulting data
 pub struct AddCollateralResult {
-    /// Amount of tokens added as collateral(with subtracted fees)
+    /// Amount of tokens added as collateral(minus all possible fees)
     pub added_collateral: i128,
     pub computed_fees: ComputedFees,
 }
@@ -1236,7 +1242,7 @@ pub struct WithdrawResult {
 #[derive(Clone)]
 /// [`Obligation::repay`] resulting data
 pub struct RepayResult {
-    /// Amount of `dTokens` to issue that represent the `real_repaid` amount in the pool
+    /// Amount of `dTokens` to burn that represent the `real_repaid` amount in the pool
     pub d_tokens_to_burn: i128,
     /// Amount of the debt that is repaid
     pub debt_repaid: i128,

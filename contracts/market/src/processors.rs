@@ -683,7 +683,8 @@ pub fn process_withdraw_from_leveraged(
     }
 
     let obligation_j_tokens = obligation.get_j_tokens(deposit_pool_address)?;
-    let deposited_tokens = deposit_pool.compute_tokens_from_j_tokens(e, obligation_j_tokens)?;
+    let deposited_tokens =
+        deposit_pool.compute_tokens_from_j_tokens_floor(e, obligation_j_tokens)?;
 
     // Compute the max withdrawable amount
     let max_withdrawable_amount = compute_leveraged_position_max_withdrawable_amount(
@@ -936,11 +937,12 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
             MCError::InternalError
         })?;
 
-        let obligation_pool_debt = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
+        let obligation_pool_debt = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
         let available_reserve_fees = pool.available_accumulated_reserve_fees();
 
         let debt_can_be_covered = i128::min(obligation_pool_debt, available_reserve_fees);
-        let d_tokens_can_be_covered = pool.compute_d_tokens_from_tokens(e, debt_can_be_covered)?;
+        let d_tokens_can_be_covered =
+            pool.compute_d_tokens_from_tokens_floor(e, debt_can_be_covered)?;
 
         // - Cover what can be covered from the reserves -
 

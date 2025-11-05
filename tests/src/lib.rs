@@ -864,7 +864,7 @@ pub fn get_obligation_d_tokens_as_tokens(
     let pool = contract_client.get_pool(pool_address);
     let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
 
-    let deposited_tokens = pool.compute_tokens_from_d_tokens(e, d_tokens)?;
+    let deposited_tokens = pool.compute_tokens_from_d_tokens_floor(e, d_tokens)?;
 
     Ok(deposited_tokens)
 }
@@ -895,7 +895,7 @@ pub fn get_obligation_j_tokens_as_tokens(
     let pool = contract_client.get_pool(pool_address);
     let j_tokens = get_obligation_j_tokens(contract_client, user, pool_address)?;
 
-    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
 
     Ok(deposited_tokens)
 }
@@ -909,7 +909,7 @@ pub fn get_earn_obligation_j_tokens_as_tokens(
     let pool = contract_client.get_pool(pool_address);
     let j_tokens = get_earn_obligation_j_tokens(contract_client, user, pool_address)?;
 
-    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
 
     Ok(deposited_tokens)
 }
@@ -929,7 +929,7 @@ pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
         borrow_pool_address,
     )?;
 
-    let deposited_tokens = pool.compute_tokens_from_j_tokens(e, j_tokens)?;
+    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
 
     Ok(deposited_tokens)
 }
