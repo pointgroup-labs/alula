@@ -642,6 +642,8 @@ impl Market for MarketContract {
         let pool = Pool::try_get(&e, &pool_address)?;
         pool.queue_in_config_update(&e, &new_pool_config)?;
 
+        events::queue_in_pool_config_update(&e, pool_address, new_pool_config);
+
         Ok(())
     }
 
@@ -651,6 +653,8 @@ impl Market for MarketContract {
         let pool = Pool::try_get(&e, &pool_address)?;
         pool.remove_pool_config_update(&e)?;
 
+        events::cancel_pool_config_update(&e, pool_address);
+
         Ok(())
     }
 
@@ -659,6 +663,8 @@ impl Market for MarketContract {
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.apply_pool_config_update(&e)?;
+
+        events::apply_pool_config_update(&e, pool_address);
 
         Ok(())
     }

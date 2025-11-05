@@ -469,7 +469,7 @@ impl Obligation {
 
         // TODO: Add failing test here regarding insurance fund
         // if deposit_decrease > pool.total_available {
-        if deposit_decrease > pool.total_available_minus_accumulated_reserve_fees()? {
+        if deposit_decrease > pool.total_available()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -536,7 +536,10 @@ impl Obligation {
             } as u32;
 
             (utilization_ratio_diff_bps as i128)
-                .fixed_mul_ceil(pool.config.fee_config.withdraw_scarcity_fee_scalar_p as i128, 100)
+                .fixed_mul_ceil(
+                    pool.config.fee_config.withdraw_scarcity_fee_sc_bps as i128,
+                    BPS_FACTOR,
+                )
                 .map_over_or_underflow()?
         } as u32;
 

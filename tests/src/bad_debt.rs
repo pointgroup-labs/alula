@@ -230,6 +230,8 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let market_value_diff_after =
         market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
 
+    dbg!(market_value_diff_before, market_value_diff_after); // MEGA_WARN. This issue still
+    // persists
     assert!(market_value_diff_before > market_value_diff_after);
 }
 

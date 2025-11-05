@@ -25,7 +25,7 @@ use market::{
         BPS_FACTOR, DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE,
         DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
     },
-    contract::{MarketContract, MarketContractClient},
+    contract::{MarketClient, MarketContract},
     error::MCError,
     obligation::{BorrowObligation, DepositObligation},
     pool::{PoolConfig, PoolFeeConfig},
@@ -55,7 +55,7 @@ pub enum Token {
 
 pub struct TestMarketFixture<'a> {
     pub e: Env,
-    pub contract_client: MarketContractClient<'a>,
+    pub contract_client: MarketClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
     pub users: Vec<Address>,
@@ -143,7 +143,7 @@ impl TestMarketFixture<'_> {
                 Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
             ),
         );
-        let contract_client = MarketContractClient::new(&e, &contract_id);
+        let contract_client = MarketClient::new(&e, &contract_id);
 
         contract_client.update_market_status(&0);
 
@@ -297,7 +297,7 @@ impl TestMarketFixture<'_> {
             .iter()
             .max_by(|x, y| x.total_available.cmp(&y.total_available))
             .unwrap()
-            .total_available_minus_accumulated_reserve_fees()
+            .total_available()
             .unwrap();
 
         usdc_sac.mint(&new_borrower, &(2 * collateral_amount));
@@ -690,7 +690,7 @@ impl RunCommand for WithdrawFromLeveraged {
 
 // - Direct accessors -
 pub fn get_obligation_j_tokens(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -700,7 +700,7 @@ pub fn get_obligation_j_tokens(
 }
 
 pub fn get_earn_obligation_j_tokens(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -711,7 +711,7 @@ pub fn get_earn_obligation_j_tokens(
 }
 
 pub fn get_multiply_pair_obligation_j_tokens(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -727,7 +727,7 @@ pub fn get_multiply_pair_obligation_j_tokens(
 }
 
 pub fn get_obligation_d_tokens(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -737,7 +737,7 @@ pub fn get_obligation_d_tokens(
 }
 
 pub fn get_earn_obligation_d_tokens(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -749,7 +749,7 @@ pub fn get_earn_obligation_d_tokens(
 }
 
 pub fn get_multiply_pair_obligation_d_tokens(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -765,7 +765,7 @@ pub fn get_multiply_pair_obligation_d_tokens(
 }
 
 pub fn get_obligation_borrowed(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -775,7 +775,7 @@ pub fn get_obligation_borrowed(
 }
 
 pub fn get_multiply_pair_obligation_borrowed(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -791,7 +791,7 @@ pub fn get_multiply_pair_obligation_borrowed(
 }
 
 pub fn get_obligation_deposited(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -801,7 +801,7 @@ pub fn get_obligation_deposited(
 }
 
 pub fn get_earn_obligation_deposited(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -812,7 +812,7 @@ pub fn get_earn_obligation_deposited(
 }
 
 pub fn get_multiply_pair_obligation_deposited(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -828,7 +828,7 @@ pub fn get_multiply_pair_obligation_deposited(
 }
 
 pub fn get_obligation_collateral(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -838,7 +838,7 @@ pub fn get_obligation_collateral(
 }
 
 pub fn get_multiply_pair_obligation_collateral(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -857,7 +857,7 @@ pub fn get_multiply_pair_obligation_collateral(
 
 pub fn get_obligation_d_tokens_as_tokens(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -871,7 +871,7 @@ pub fn get_obligation_d_tokens_as_tokens(
 
 pub fn get_obligation_unpaid_interest(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -888,7 +888,7 @@ pub fn get_obligation_unpaid_interest(
 
 pub fn get_obligation_j_tokens_as_tokens(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -902,7 +902,7 @@ pub fn get_obligation_j_tokens_as_tokens(
 
 pub fn get_earn_obligation_j_tokens_as_tokens(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
@@ -916,7 +916,7 @@ pub fn get_earn_obligation_j_tokens_as_tokens(
 
 pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -936,7 +936,7 @@ pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
 
 pub fn compute_user_obligation_debt_value(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(user);
@@ -946,7 +946,7 @@ pub fn compute_user_obligation_debt_value(
 
 pub fn compute_user_obligation_collateral_value(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
 ) -> i128 {
     let obligation = contract_client.get_user_obligation(user);
@@ -956,7 +956,7 @@ pub fn compute_user_obligation_collateral_value(
 
 pub fn compute_multiply_pair_obligation_debt_value(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -972,7 +972,7 @@ pub fn compute_multiply_pair_obligation_debt_value(
 
 pub fn compute_multiply_pair_obligation_collateral_value(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -989,7 +989,7 @@ pub fn compute_multiply_pair_obligation_collateral_value(
 // - Inner struct accessors -
 
 pub fn get_deposit_obligation(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositObligation, MCError> {
@@ -1004,7 +1004,7 @@ pub fn get_deposit_obligation(
 }
 
 pub fn get_earn_obligation_deposit_obligation(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositObligation, MCError> {
@@ -1019,7 +1019,7 @@ pub fn get_earn_obligation_deposit_obligation(
 }
 
 pub fn get_multiply_pair_deposit_obligation(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -1041,7 +1041,7 @@ pub fn get_multiply_pair_deposit_obligation(
 }
 
 pub fn get_borrow_obligation(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<BorrowObligation, MCError> {
@@ -1055,7 +1055,7 @@ pub fn get_borrow_obligation(
 }
 
 pub fn get_earn_obligation_borrow_obligation(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<BorrowObligation, MCError> {
@@ -1070,7 +1070,7 @@ pub fn get_earn_obligation_borrow_obligation(
 }
 
 pub fn get_multiply_pair_borrow_obligation(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     user: &Address,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
@@ -1091,35 +1091,26 @@ pub fn get_multiply_pair_borrow_obligation(
 
 // -- Pool --
 
-pub fn get_pool_total_j_tokens(
-    contract_client: &MarketContractClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_total_j_tokens(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
     pool.total_j_tokens
 }
 
-pub fn get_pool_total_d_tokens(
-    contract_client: &MarketContractClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_total_d_tokens(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
     pool.total_d_tokens
 }
 
-pub fn get_pool_total_borrowed(
-    contract_client: &MarketContractClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_total_borrowed(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
     pool.total_borrowed
 }
 
 pub fn get_pool_total_supply(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
@@ -1128,26 +1119,20 @@ pub fn get_pool_total_supply(
     Ok(total_supply)
 }
 
-pub fn get_pool_total_available(
-    contract_client: &MarketContractClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_total_available(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
     pool.total_available
 }
 
-pub fn get_pool_total_collateral(
-    contract_client: &MarketContractClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_total_collateral(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
     pool.total_collateral
 }
 
 pub fn get_pool_accumulated_host_fees(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
@@ -1156,7 +1141,7 @@ pub fn get_pool_accumulated_host_fees(
 }
 
 pub fn get_pool_accumulated_market_fees(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
@@ -1165,7 +1150,7 @@ pub fn get_pool_accumulated_market_fees(
 }
 
 pub fn get_pool_accumulated_reserve_fees(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
@@ -1174,7 +1159,7 @@ pub fn get_pool_accumulated_reserve_fees(
 }
 
 pub fn get_pool_available_reserve_fees(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
@@ -1184,7 +1169,7 @@ pub fn get_pool_available_reserve_fees(
 
 pub fn compute_pool_collateral_value(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
@@ -1194,7 +1179,7 @@ pub fn compute_pool_collateral_value(
 
 pub fn compute_pool_debt_value(
     e: &Env,
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let pool = contract_client.get_pool(pool_address);
@@ -1205,7 +1190,7 @@ pub fn compute_pool_debt_value(
 // - PoolConfig -
 
 pub fn get_pool_fee_config(
-    contract_client: &MarketContractClient,
+    contract_client: &MarketClient,
     pool_address: &Address,
 ) -> PoolFeeConfig {
     let pool = contract_client.get_pool(pool_address);
@@ -1215,7 +1200,7 @@ pub fn get_pool_fee_config(
 
 // ---- MISC ----
 
-pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketContractClient<'a> {
+pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
     let contract_name = soroban_sdk::String::from_str(e, "market_contract");
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
@@ -1233,7 +1218,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketContractClient<
         ),
     );
 
-    let client = MarketContractClient::new(e, &contract_id);
+    let client = MarketClient::new(e, &contract_id);
 
     if is_owned {
         client.update_market_status(&0);

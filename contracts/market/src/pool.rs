@@ -472,10 +472,10 @@ impl Pool {
         Ok(shares_amount)
     }
 
-    // ------------------
+    // ---- `require_` circuits ----
 
     pub fn require_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available_minus_accumulated_reserve_fees()? {
+        if required > self.total_available()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -512,7 +512,7 @@ impl Pool {
         removed_available_amount: i128,
     ) -> Result<(), MCError> {
         let max_available_amount_to_remove =
-            Self::compute_available_utilization_ratio_cap_remove_collateral(self, e)?;
+            Self::compute_available_utilization_ratio_cap_remove_deposit(self, e)?;
 
         if self.compute_utilization_ratio_bps()? != 0
             && removed_available_amount > max_available_amount_to_remove
@@ -538,52 +538,53 @@ impl Pool {
         Ok(())
     }
 
-    /// Computes the maximum available amount for collateral removal that doesn't exceed the
+    // ---- MISC ----
+
+    /// Computes the maximum available amount for deposit removal that doesn't exceed the
     /// utilization ratio limit on a pool
-    pub fn compute_available_utilization_ratio_cap_remove_collateral(
+    pub fn compute_available_utilization_ratio_cap_remove_deposit(
         &self,
         e: &Env,
     ) -> Result<i128, MCError> {
         let total_borrowed = self.total_borrowed;
-        let total_supply = self.total_supply()?; // WARN: Investigate how reserves affect UR
-        let utilization_ratio = self.compute_utilization_ratio_bps()?;
+        let total_supply = self.total_supply()?;
+        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
-        if utilization_ratio > self.config.health_config.utilization_ratio_limit_bps {
+        if utilization_ratio_bps > self.config.health_config.utilization_ratio_limit_bps {
             events::utilization_ratio_exceeds_limit(
                 e,
-                utilization_ratio,
+                utilization_ratio_bps,
                 self.config.health_config.utilization_ratio_limit_bps,
             );
 
             return Ok(0);
         }
 
-        let available_percentage_to_withdraw_bps =
-            self.config.health_config.utilization_ratio_limit_bps; // safe
-
-        let diff = total_borrowed
-            .fixed_div_ceil(available_percentage_to_withdraw_bps, BPS_FACTOR)
+        // 'utilization_ratio_limit' := 'total_borrowed' / 'total_supply' - 'max_allowed_to_remove_supply'
+        // ,implies
+        // 'max_allowed_to_remove_supply' := 'total_supply' - ('total_borrowed'/'utilization_ratio_limit')
+        let diff_term = total_borrowed
+            .fixed_div_ceil(self.config.health_config.utilization_ratio_limit_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
 
-        if total_supply < diff {
-            // TODO: Make it more specific?
+        if total_supply < diff_term {
             events::pool_contains_inconsistent_state(e, self);
 
             return Err(MCError::InternalError);
         }
 
-        Ok(total_supply - diff)
+        Ok(total_supply - diff_term) // safe
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
     /// ratio limit on a pool
     pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
-        let total_supply = self.total_supply()?; // WARN: Investigate how reserves affect UR
+        let total_supply = self.total_supply()?;
         let utilization_ratio = self.compute_utilization_ratio_bps()?;
 
         if utilization_ratio > self.config.health_config.utilization_ratio_limit_bps {
             // NB: This can happen when the `total_borrowed` amount on a pool has accrued over time
-            // by itself, so for now, we simply emit an event. We can agree to stop
+            // by itself, so we emit an event for now. We can agree to stop
             // accruing interest on a pool if this happens
             events::utilization_ratio_exceeds_limit(
                 e,
@@ -598,7 +599,7 @@ impl Pool {
             self.config.health_config.utilization_ratio_limit_bps - utilization_ratio; // safe
 
         total_supply
-            .fixed_mul_ceil(available_percentage_to_borrow_bps, BPS_FACTOR)
+            .fixed_mul_floor(available_percentage_to_borrow_bps, BPS_FACTOR)
             .map_over_or_underflow()
     }
 
@@ -609,16 +610,13 @@ impl Pool {
         i128::min(total_available, accumulated_reserve_fees)
     }
 
-    pub fn total_available_minus_accumulated_reserve_fees(&self) -> Result<i128, MCError> {
-        // TODO: Can we use `saturating_sub` here instead of `checked_sub`?
-        let res = self.total_available.saturating_sub(self.accumulated_reserve_fees);
-
-        Ok(res)
+    pub fn total_available(&self) -> Result<i128, MCError> {
+        self.total_available.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
     }
 
-    /// Calculates total debt (total_borrowed - accumulated reserve fees)
+    /// Calculates total debt
     pub fn total_debt(&self) -> Result<i128, MCError> {
-        self.total_borrowed.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
+        Ok(self.total_borrowed)
     }
 
     /// Calculates total supply (available + total_borrowed - accumulated reserve fees)
@@ -651,7 +649,6 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn queue_in_config_update(&self, e: &Env, config: &PoolConfig) -> Result<(), MCError> {
-        // TODO: Should we add an event here? Diagnostic Event is published with all info...
         storage::queue_in_pool_config_update(e, &self.pool_address, config)
     }
 
@@ -660,11 +657,10 @@ impl Pool {
     /// # WARNING
     /// Modifies the contract's storage
     pub fn remove_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
-        // TODO: event?
         storage::remove_pool_config_update(e, &self.pool_address)
     }
 
-    /// Applies the pool's config update from the queue if it exists and is seasoned
+    /// Applies the pool's config update from the queue if it exists and is matured
     ///
     /// # WARNING
     /// Modifies the contract's storage
@@ -682,13 +678,11 @@ impl Pool {
         {
             return Err(MCError::PoolConfigUpdateIsNotYetApplicable);
         }
-        self.config = pool_config_update.new_config;
 
+        self.config = pool_config_update.new_config;
         self.set(e);
 
         storage::remove_pool_config_update(e, &self.pool_address)?;
-
-        // TODO: event?
 
         Ok(())
     }
@@ -700,6 +694,7 @@ impl Pool {
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
+        // MEGA_WARN: this likely produces inconsistencies due to jTokens becoming `0` at one point
         let deposited_tokens = self.compute_tokens_from_j_tokens_floor(e, self.total_j_tokens)?;
         let collateral_sum =
             deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
@@ -756,9 +751,9 @@ pub struct PoolFeeConfig {
 
     pub deposit_fee_bps: u32,
     pub withdraw_fee_bps: u32,
-    /// Additional scalar (in percents) used for the additional withdrawal fee when the utilization ratio
-    /// exceeds `utilization_ratio_limit_bps` (i.e. `120` for `x1.20`, etc.)
-    pub withdraw_scarcity_fee_scalar_p: u32,
+    /// Additional scalar (in basis points) used for the additional withdrawal fee when the utilization ratio
+    /// exceeds `utilization_ratio_limit_bps`
+    pub withdraw_scarcity_fee_sc_bps: u32,
     pub add_collateral_fee_bps: u32,
     pub remove_collateral_fee_bps: u32,
     pub repay_fee_bps: u32,
@@ -781,8 +776,46 @@ impl Default for PoolFeeConfig {
 
             host_fee_bps: DEFAULT_HOST_FEE_BPS,
             take_rate_bps: DEFAULT_TAKE_RATE_BPS,
-            withdraw_scarcity_fee_scalar_p: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_PERCENT,
+            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
         }
+    }
+}
+
+impl PoolFeeConfig {
+    fn validate(&self) -> Result<(), &str> {
+        let &Self {
+            borrow_fee_bps,
+            flash_loan_fee_bps,
+            deposit_fee_bps,
+            withdraw_fee_bps,
+            add_collateral_fee_bps,
+            remove_collateral_fee_bps,
+            repay_fee_bps,
+            take_rate_bps,
+            ..
+        } = self;
+
+        let individual_fees = [
+            borrow_fee_bps,
+            flash_loan_fee_bps,
+            deposit_fee_bps,
+            withdraw_fee_bps,
+            add_collateral_fee_bps,
+            remove_collateral_fee_bps,
+            repay_fee_bps,
+        ];
+
+        for fee in individual_fees {
+            if fee as i128 > BPS_FACTOR {
+                return Err("Individual fees must not exceed 100%");
+            }
+        }
+
+        if take_rate_bps as i128 > BPS_FACTOR {
+            return Err("Take Rate must not exceed 100%");
+        }
+
+        Ok(())
     }
 }
 
@@ -812,9 +845,12 @@ pub struct PoolConfig {
 
 impl PoolConfig {
     pub fn validate(&self) -> Result<(), MCError> {
-        let PoolConfig { health_config, interest_rate_config, .. } = self;
+        let PoolConfig { health_config, interest_rate_config, fee_config, .. } = self;
 
-        if interest_rate_config.validate().is_err() || health_config.validate().is_err() {
+        if interest_rate_config.validate().is_err()
+            || health_config.validate().is_err()
+            || fee_config.validate().is_err()
+        {
             return Err(MCError::InvalidLoanPoolConfig);
         }
 
@@ -891,7 +927,7 @@ impl PoolHealthConfig {
             return Err("Utilization ratio limit must be between 0% and 100%");
         }
 
-        if !(0..(100 * BPS_IN_PERCENT)).contains(&open_ltv_bps) {
+        if !is_valid_bps_percent(open_ltv_bps) {
             return Err("Open LTV must be between 0% and 100%");
         }
 
@@ -903,7 +939,7 @@ impl PoolHealthConfig {
             return Err("Open LTV mustn't be bigger than close LTV");
         }
 
-        if !(0..(MAX_LIABILITY_FACTOR_BPS)).contains(&liability_factor_bps) {
+        if !(BPS_FACTOR..=(MAX_LIABILITY_FACTOR_BPS)).contains(&liability_factor_bps) {
             return Err("Invalid liability factor");
         }
 
@@ -945,6 +981,7 @@ impl Default for InterestRateConfig {
     }
 }
 
+// TODO: Under development still
 impl InterestRateConfig {
     fn validate(&self) -> Result<(), &str> {
         let &Self { target_utilization_ratio_bps, reactivity_constant } = self;
@@ -1000,5 +1037,5 @@ impl PoolIncentive {
 }
 
 fn is_valid_bps_percent(value: i128) -> bool {
-    (0..=100 * BPS_IN_PERCENT).contains(&value)
+    (0..=BPS_FACTOR).contains(&value)
 }

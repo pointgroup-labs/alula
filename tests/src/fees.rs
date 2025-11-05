@@ -437,13 +437,13 @@ fn test_withdraw_scarcity_fee() {
         pool_market_fees_after.checked_sub(pool_market_fees_before).unwrap();
     let pool_host_fees_diff = pool_host_fees_after.checked_sub(pool_host_fees_before).unwrap();
 
-    let PoolFeeConfig { withdraw_fee_bps, withdraw_scarcity_fee_scalar_p, host_fee_bps, .. } =
+    let PoolFeeConfig { withdraw_fee_bps, withdraw_scarcity_fee_sc_bps, host_fee_bps, .. } =
         get_pool_fee_config(&contract_client, &gold_pool_address);
 
     let withdraw_scarcity_fee_bps = {
         let bps_diff = BPS_FACTOR.checked_sub(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS).unwrap();
 
-        bps_diff.fixed_mul_ceil(withdraw_scarcity_fee_scalar_p as i128, 100).unwrap()
+        bps_diff.fixed_mul_ceil(withdraw_scarcity_fee_sc_bps as i128, BPS_FACTOR).unwrap()
     } as u32;
     let withdraw_fee_bps = withdraw_fee_bps.checked_add(withdraw_scarcity_fee_bps).unwrap();
 

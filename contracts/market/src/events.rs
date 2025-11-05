@@ -5,7 +5,7 @@ use crate::{
         AddCollateralResult, BorrowResult, DepositResult, ObligationKey, RemoveCollateralResult,
         RepayResult, WithdrawResult,
     },
-    pool::Pool,
+    pool::{Pool, PoolConfig},
 };
 
 // TODO: It's not clear which data we must include in topics. It'll become clear
@@ -29,6 +29,26 @@ struct InitializeMultiplyPairEvent {
     pub deposit_pool_address: Address,
     #[topic]
     pub borrow_pool_address: Address,
+}
+
+#[contractevent]
+struct QueueInPoolConfigUpdate {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub pool_config: PoolConfig,
+}
+
+#[contractevent]
+struct CancelPoolConfigUpdate {
+    #[topic]
+    pub pool_address: Address,
+}
+
+#[contractevent]
+struct ApplyPoolConfigUpdate {
+    #[topic]
+    pub pool_address: Address,
 }
 
 #[contractevent]
@@ -309,6 +329,18 @@ pub fn initialize_multiply_pair(
         borrow_pool_address: borrow_pool_address.clone(),
     }
     .publish(e);
+}
+
+pub fn queue_in_pool_config_update(e: &Env, pool_address: Address, pool_config: PoolConfig) {
+    QueueInPoolConfigUpdate { pool_address, pool_config }.publish(e);
+}
+
+pub fn cancel_pool_config_update(e: &Env, pool_address: Address) {
+    CancelPoolConfigUpdate { pool_address }.publish(e);
+}
+
+pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
+    ApplyPoolConfigUpdate { pool_address }.publish(e);
 }
 
 pub fn incentivize_pool(
