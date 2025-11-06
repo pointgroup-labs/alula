@@ -9,7 +9,7 @@ use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
-    assert_approx_eq_rel, get_deposit_obligation, get_obligation_collateral,
+    assert_approx_eq_rel, get_deposit_position, get_obligation_collateral,
     get_obligation_deposited, get_obligation_j_tokens, get_obligation_j_tokens_as_tokens,
     get_pool_total_available, get_pool_total_borrowed, get_pool_total_collateral,
     get_pool_total_j_tokens, get_pool_total_supply,
@@ -188,13 +188,13 @@ fn test_withdraw_zero() {
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation_before =
-        get_deposit_obligation(&contract_client, creditor, &gold_pool_address).unwrap();
+        get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
     let pool_before = contract_client.get_pool(&gold_pool_address);
 
     contract_client.withdraw(creditor, &gold_pool_address, &0);
 
     let obligation_after =
-        get_deposit_obligation(&contract_client, creditor, &gold_pool_address).unwrap();
+        get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
     let pool_after = contract_client.get_pool(&gold_pool_address);
 
     assert_eq!(obligation_before, obligation_after);
@@ -214,13 +214,13 @@ fn test_remove_collateral_zero() {
     );
 
     let obligation_before =
-        get_deposit_obligation(&contract_client, collateral_provider, &gold_pool_address).unwrap();
+        get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
     let pool_before = contract_client.get_pool(&gold_pool_address);
 
     contract_client.remove_collateral(collateral_provider, &gold_pool_address, &0);
 
     let obligation_after =
-        get_deposit_obligation(&contract_client, collateral_provider, &gold_pool_address).unwrap();
+        get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
     let pool_after = contract_client.get_pool(&gold_pool_address);
 
     assert_eq!(obligation_before, obligation_after);
@@ -293,7 +293,7 @@ fn test_withdraw_all_with_i128_max() {
 
     assert_eq!(pool_total_supply_after + DEFAULT_DEPOSIT_AMOUNT, pool_total_supply_before);
     assert_eq!(
-        get_deposit_obligation(&contract_client, creditor_1, &gold_pool_address),
+        get_deposit_position(&contract_client, creditor_1, &gold_pool_address),
         Err(MCError::DepositDoesNotExist)
     );
 }
@@ -335,7 +335,7 @@ fn test_remove_all_with_i128_max() {
         pool_total_collateral_before
     );
     assert_eq!(
-        get_deposit_obligation(&contract_client, creditor_1, &gold_pool_address),
+        get_deposit_position(&contract_client, creditor_1, &gold_pool_address),
         Err(MCError::DepositDoesNotExist)
     );
 }

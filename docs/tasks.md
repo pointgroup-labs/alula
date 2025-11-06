@@ -13,7 +13,7 @@ This document contains a comprehensive list of actionable improvement tasks for 
   - [ ] Implement property-based testing for critical functions
 
   **Implementation details:** Added comprehensive unit test module to `obligation.rs`:
-  - Basic functionality tests for `Obligation`, `BorrowObligation`, and `DepositObligation` structs
+  - Basic functionality tests for `Obligation`, `BorrowPosition`, and `DepositPosition` structs
   - Tests for successful adjustment operations (shares, collateral, borrowed amounts)
   - Tests for empty state validation
   - Improved test coverage from 74.11% to higher levels by targeting previously uncovered code paths

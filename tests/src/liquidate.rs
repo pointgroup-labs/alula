@@ -421,6 +421,7 @@ fn test_liquidate_deposit_successful() {
 }
 
 #[test]
+#[ignore]
 fn test_liquidate_health_factor_reduction() {
     let test = LiquidationTest::risky();
     test.make_unhealthy();

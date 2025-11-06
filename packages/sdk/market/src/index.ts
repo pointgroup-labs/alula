@@ -33,41 +33,41 @@ if (typeof window !== 'undefined') {
 
 
 
-export type AccrualModel = {tag: "Compounded", values: void};
+export type AccrualModel = { tag: "Compounded", values: void };
 
 export const MCError = {
-  0: {message:"InternalError"},
-  1: {message:"OverOrUnderflow"},
-  2: {message:"InvalidTimestamp"},
-  3: {message:"DependencyContractError"},
-  10: {message:"PoolAlreadyExists"},
-  11: {message:"PoolDoesNotExist"},
-  12: {message:"InvalidLoanPoolConfig"},
-  13: {message:"NotEnoughPoolFunds"},
-  14: {message:"DepositPoolDoesNotExist"},
-  15: {message:"BorrowPoolDoesNotExist"},
-  16: {message:"CollateralPoolDoesNotExist"},
-  20: {message:"ObligationDoesNotExist"},
-  21: {message:"DepositDoesNotExist"},
-  22: {message:"BorrowDoesNotExist"},
-  30: {message:"NegativeInputAmount"},
-  40: {message:"WithdrawOverBalance"},
-  41: {message:"PoolSupplyLimitExceeded"},
-  42: {message:"PoolUtilizationRatioCapExceeded"},
-  43: {message:"CollateralRemovalOverbalance"},
-  50: {message:"OracleDoesNotKnowAssetPrice"},
-  51: {message:"OracleStalePrice"},
-  60: {message:"HealthFactorIsLowerThanRequiredThreshold"},
-  61: {message:"InvalidLiquidationThreshold"},
-  62: {message:"LiquidatedPositionIsHealthy"},
-  63: {message:"LiquidationExceedsCloseFactor"},
-  64: {message:"SelfLiquidation"},
-  65: {message:"LiquidationWithEqualCollateralAndDepositPools"},
-  66: {message:"PositionDoesNotHaveBadDebt"},
-  70: {message:"InvalidLeverageMultiplier"},
-  71: {message:"InvalidSwapSlippage"},
-  72: {message:"MultiplyPairAlreadyExists"},
-  73: {message:"MultiplyPairDoesNotExist"}
+  0: { message: "InternalError" },
+  1: { message: "OverOrUnderflow" },
+  2: { message: "InvalidTimestamp" },
+  3: { message: "DependencyContractError" },
+  10: { message: "PoolAlreadyExists" },
+  11: { message: "PoolDoesNotExist" },
+  12: { message: "InvalidLoanPoolConfig" },
+  13: { message: "NotEnoughPoolFunds" },
+  14: { message: "DepositPoolDoesNotExist" },
+  15: { message: "BorrowPoolDoesNotExist" },
+  16: { message: "CollateralPoolDoesNotExist" },
+  20: { message: "ObligationDoesNotExist" },
+  21: { message: "DepositDoesNotExist" },
+  22: { message: "BorrowDoesNotExist" },
+  30: { message: "NegativeInputAmount" },
+  40: { message: "WithdrawOverBalance" },
+  41: { message: "PoolSupplyLimitExceeded" },
+  42: { message: "PoolUtilizationRatioCapExceeded" },
+  43: { message: "CollateralRemovalOverbalance" },
+  50: { message: "OracleDoesNotKnowAssetPrice" },
+  51: { message: "OracleStalePrice" },
+  60: { message: "HealthFactorIsLowerThanRequiredThreshold" },
+  61: { message: "InvalidLiquidationThreshold" },
+  62: { message: "LiquidatedPositionIsHealthy" },
+  63: { message: "LiquidationExceedsCloseFactor" },
+  64: { message: "SelfLiquidation" },
+  65: { message: "LiquidationWithEqualCollateralAndDepositPools" },
+  66: { message: "PositionDoesNotHaveBadDebt" },
+  70: { message: "InvalidLeverageMultiplier" },
+  71: { message: "InvalidSwapSlippage" },
+  72: { message: "MultiplyPairAlreadyExists" },
+  73: { message: "MultiplyPairDoesNotExist" }
 }
 
 
@@ -88,34 +88,34 @@ export interface AnnualPercentageYields {
   supply_bps: u32;
 }
 
-export type InterestRateModel = {tag: "Kinked", values: readonly [KinkedIRConfig]};
+export type InterestRateModel = { tag: "Kinked", values: readonly [KinkedIRConfig] };
 
 
 export interface KinkedIRConfig {
   /**
  * Base APR that is accrued regardless of the utilization ratio of a pool
  */
-base_apr_bps: i128;
+  base_apr_bps: i128;
   /**
  * APR that is accrued when the utilization ratio is at the kink 1 value
  */
-kink1_apr_bps: i128;
+  kink1_apr_bps: i128;
   /**
  * Kink 1 utilization ratio
  */
-kink1_ur_bps: i128;
+  kink1_ur_bps: i128;
   /**
  * APR that is accrued when the utilization ratio is at the kink 2 value
  */
-kink2_apr_bps: i128;
+  kink2_apr_bps: i128;
   /**
  * Kink 2 utilization ratio
  */
-kink2_ur_bps: i128;
+  kink2_ur_bps: i128;
   /**
  * APR that is accrued when the utilization ratio is at 100%
  */
-max_apr_bps: i128;
+  max_apr_bps: i128;
 }
 
 
@@ -123,21 +123,21 @@ export interface MultiplyPair {
   /**
  * Address of a pool in a pair for a leveraged borrow
  */
-borrow_pool: string;
+  borrow_pool: string;
   /**
  * Address of a pool in a pair for a leveraged deposit
  */
-deposit_pool: string;
+  deposit_pool: string;
   /**
  * Maximum leverage multiplier based on borrow pool openLTV value. Scaled with
  * [`LEVERAGE_SCALE`]
  */
-max_leverage_multiplier: u32;
+  max_leverage_multiplier: u32;
   /**
  * Deterministically computed unique seed per a pair, used to distinguish a user's multiply
  * pair obligation from others
  */
-seed: Buffer;
+  seed: Buffer;
 }
 
 
@@ -151,41 +151,41 @@ export interface Obligation {
   /**
  * Borrowed liquidity for the obligation, unique by borrow pool address
  */
-borrows: Map<string, BorrowObligation>;
+  borrows: Map<string, BorrowPosition>;
   /**
  * Deposited collateral for the obligation, unique by deposit pool address
  */
-deposits: Map<string, DepositObligation>;
+  deposits: Map<string, DepositPosition>;
 }
 
 
-export interface BorrowObligation {
+export interface BorrowPosition {
   /**
  * Accumulated value of initially borrowed tokens
  */
-borrowed: i128;
+  borrowed: i128;
   /**
  * Amount of the total debt shares that the obligation contains
  */
-d_tokens: i128;
+  d_tokens: i128;
 }
 
 
-export interface DepositObligation {
+export interface DepositPosition {
   /**
  * Accumulated value of collateral that doesn't accrue interest
  */
-collateral: i128;
+  collateral: i128;
   /**
  * Accumulated value of initially deposited tokens. E.g., if a user initially deposited 100
  * tokens, the time passed, which caused 2 tokens to be accrued, and the user deposited 20
  * more tokens - this value will be equal to 120
  */
-deposited: i128;
+  deposited: i128;
   /**
  * A share of total supplied tokens in the pool that obligation contains
  */
-j_tokens: i128;
+  j_tokens: i128;
 }
 
 
@@ -196,15 +196,15 @@ export interface ComputedFees {
   /**
  * Sum of `market_fee` and `host_fee`
  */
-fee_sum: i128;
+  fee_sum: i128;
   /**
  * Fee segregated to the protocol host
  */
-host_fee: i128;
+  host_fee: i128;
   /**
  * Fee segregated to the market admin
  */
-market_fee: i128;
+  market_fee: i128;
 }
 
 
@@ -216,11 +216,11 @@ export interface DepositResult {
   /**
  * Amount of originally deposited tokens(minus all fees)
  */
-deposited: i128;
+  deposited: i128;
   /**
  * Amount of `jTokens` to issue that represent the `originally_deposited` amount in the pool
  */
-j_tokens_to_issue: i128;
+  j_tokens_to_issue: i128;
 }
 
 
@@ -231,16 +231,16 @@ export interface BorrowResult {
   /**
  * Amount of debt(in tokens) that is added to the borrower's obligation
  */
-borrower_new_debt: i128;
+  borrower_new_debt: i128;
   /**
  * Amount of tokens to receive by the borrower(`borrower_new_debt` minus fees)
  */
-borrower_to_receive: i128;
+  borrower_to_receive: i128;
   computed_fees: ComputedFees;
   /**
  * Amount of `dTokens` to issue that represent the `borrower_new_debt` amount in the pool
  */
-d_tokens_to_issue: i128;
+  d_tokens_to_issue: i128;
 }
 
 
@@ -251,7 +251,7 @@ export interface AddCollateralResult {
   /**
  * Amount of tokens added as collateral(with subtracted fees)
  */
-added_collateral: i128;
+  added_collateral: i128;
   computed_fees: ComputedFees;
 }
 
@@ -262,18 +262,18 @@ added_collateral: i128;
 export interface WithdrawResult {
   computed_fees: ComputedFees;
   /**
- * Amount of the original deposit(in tokens) that is removed from the `DepositObligation`
+ * Amount of the original deposit(in tokens) that is removed from the `DepositPosition`
  */
-deposit_decrease: i128;
+  deposit_decrease: i128;
   /**
  * Amount of `jTokens` to burn that represent the `deposit_decreased_amount` amount in the
  * pool
  */
-j_tokens_to_burn: i128;
+  j_tokens_to_burn: i128;
   /**
  * Amount of tokens to receive by the withdrawer(`deposit_decreased_amount` minus fees)
  */
-withdrawer_to_receive: i128;
+  withdrawer_to_receive: i128;
 }
 
 
@@ -284,16 +284,16 @@ export interface RepayResult {
   /**
  * Excess amount given by the borrower that is sent back
  */
-amount_to_send_back: i128;
+  amount_to_send_back: i128;
   computed_fees: ComputedFees;
   /**
  * Amount of `dTokens` to issue that represent the `real_repaid` amount in the pool
  */
-d_tokens_to_burn: i128;
+  d_tokens_to_burn: i128;
   /**
  * Amount of the debt that is repaid
  */
-debt_repaid: i128;
+  debt_repaid: i128;
 }
 
 
@@ -304,11 +304,11 @@ export interface RemoveCollateralResult {
   /**
  * Amount of collateral tokens removed
  */
-collateral_decrease: i128;
+  collateral_decrease: i128;
   /**
  * Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
  */
-collateral_remover_to_receive: i128;
+  collateral_remover_to_receive: i128;
   computed_fees: ComputedFees;
 }
 
@@ -320,12 +320,12 @@ export interface CoverBadDebtResult {
   /**
  * `(pool address, borrower dTokens)` pairs for each bad debt obligation borrows
  */
-borrows_to_be_compensated: Array<readonly [string, i128]>;
+  borrows_to_be_compensated: Array<readonly [string, i128]>;
   /**
  * `(pool address, borrower jTokens, borrower collateral)` tuples for each bad debt obligation
  * collateral
  */
-collaterals_to_remove: Array<readonly [string, i128, i128]>;
+  collaterals_to_remove: Array<readonly [string, i128, i128]>;
 }
 
 
@@ -333,62 +333,62 @@ export interface Pool {
   /**
  * Amount of tokens that can be withdraw by the host platform admin as a fee
  */
-accumulated_host_fees: i128;
+  accumulated_host_fees: i128;
   /**
  * Amount of tokens that can be withdrawn by the market's admin as a fee
  */
-accumulated_market_fees: i128;
+  accumulated_market_fees: i128;
   /**
  * Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
  */
-accumulated_reserve_fees: i128;
+  accumulated_reserve_fees: i128;
   /**
  * Configuration settings for the pool
  */
-config: PoolConfig;
+  config: PoolConfig;
   /**
  * The timestamp of the last accrual re-calculation
  */
-last_accrual_timestamp: u64;
+  last_accrual_timestamp: u64;
   /**
  * The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
  * SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
  * "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
  */
-name: string;
+  name: string;
   /**
  * The address of the loan pool
  */
-pool_address: string;
+  pool_address: string;
   /**
  * The address of the token contract associated with the pool
  */
-token_address: string;
+  token_address: string;
   /**
  * The ticker symbol of the associated token
  */
-token_ticker: string;
+  token_ticker: string;
   /**
  * The total amount of currently available tokens for borrowing
  */
-total_available: i128;
+  total_available: i128;
   /**
  * The total amount of borrowed assets. This value increases with interest rate accrual
  */
-total_borrowed: i128;
+  total_borrowed: i128;
   /**
  * The total amount of deposited collateral assets that don't accrue interest
  */
-total_collateral: i128;
+  total_collateral: i128;
   /**
  * The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
  */
-total_d_tokens: i128;
+  total_d_tokens: i128;
   /**
  * The total `jTokens` amount. Represents the sum of all yielding interest collateral shares
  * distributed among creditors
  */
-total_j_tokens: i128;
+  total_j_tokens: i128;
 }
 
 
@@ -419,35 +419,35 @@ export interface PoolHealthConfig {
  * basis points with respect to a total obligation's collateral value. LTV greater than
  * that makes borrow position eligible to liquidation
  */
-close_ltv_bps: i128;
+  close_ltv_bps: i128;
   /**
  * The factor used to calculate the current borrow limit by multiplying the collateral value
  * by it before subtracting this value from the obligation's max borrow limit. Volatile
  * assets' pools are expected to have this value set way above 100%
  */
-liability_factor_bps: i128;
+  liability_factor_bps: i128;
   /**
  * Maximum percentage of a borrower's debt that can be liquidated
  */
-liquidation_close_factor_bps: i128;
+  liquidation_close_factor_bps: i128;
   /**
  * Additional discount given to liquidators when purchasing collateral
  */
-liquidation_incentive_bps: i128;
+  liquidation_incentive_bps: i128;
   /**
  * The maximum percentage of an asset's value that can be borrowed in basis points(e.g, 7000 =
  * 70%, etc) with respect to a total obligation's collateral value
  */
-open_ltv_bps: i128;
+  open_ltv_bps: i128;
   /**
  * The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` +
  * `total_borrowed`) 0 denotes unlimited supply
  */
-supply_limit: i128;
+  supply_limit: i128;
   /**
  * The maximum utilization ratio that is allowed to be reached via borrowing
  */
-utilization_ratio_limit_bps: i128;
+  utilization_ratio_limit_bps: i128;
 }
 
 
@@ -458,7 +458,7 @@ export interface GlobalState {
   status: boolean;
 }
 
-export type DataKey = {tag: "GlobalState", values: void} | {tag: "Pool", values: readonly [string]} | {tag: "Obligation", values: readonly [ObligationKey]} | {tag: "MultiplyPair", values: readonly [readonly [string, string]]} | {tag: "Accrual", values: void} | {tag: "AllPools", values: void} | {tag: "AllObligations", values: void} | {tag: "AllMultiplyPairs", values: void} | {tag: "OracleAddress", values: void};
+export type DataKey = { tag: "GlobalState", values: void } | { tag: "Pool", values: readonly [string] } | { tag: "Obligation", values: readonly [ObligationKey] } | { tag: "MultiplyPair", values: readonly [readonly [string, string]] } | { tag: "Accrual", values: void } | { tag: "AllPools", values: void } | { tag: "AllObligations", values: void } | { tag: "AllMultiplyPairs", values: void } | { tag: "OracleAddress", values: void };
 
 
 /**
@@ -472,7 +472,7 @@ export interface PriceData {
 /**
  * Asset type
  */
-export type Asset = {tag: "Stellar", values: readonly [string]} | {tag: "Other", values: readonly [string]};
+export type Asset = { tag: "Stellar", values: readonly [string] } | { tag: "Other", values: readonly [string] };
 
 export interface Client {
   /**
@@ -483,7 +483,7 @@ export interface Client {
    * * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
    * version of the contract
    */
-  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: {
+  upgrade: ({ new_wasm_hash }: { new_wasm_hash: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -553,7 +553,7 @@ export interface Client {
    * derive a deterministic pool address
    * * `pool_config` - optional `PoolConfig` data. If not provided, a default pool config is used
    */
-  initialize_pool: ({token_address, token_ticker, salt, pool_config}: {token_address: string, token_ticker: string, salt: Option<Buffer>, pool_config: Option<PoolConfig>}, options?: {
+  initialize_pool: ({ token_address, token_ticker, salt, pool_config }: { token_address: string, token_ticker: string, salt: Option<Buffer>, pool_config: Option<PoolConfig> }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -578,7 +578,7 @@ export interface Client {
    * * `deposit_pool_address` - address of a pool in a pair for a leveraged deposit
    * * `borrow_pool_address` - address of a pool in a pair for a leveraged borrow
    */
-  initialize_multiply_pair: ({deposit_pool_address, borrow_pool_address}: {deposit_pool_address: string, borrow_pool_address: string}, options?: {
+  initialize_multiply_pair: ({ deposit_pool_address, borrow_pool_address }: { deposit_pool_address: string, borrow_pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -604,7 +604,7 @@ export interface Client {
    * * `pool_address` - address of a pool to which the deposit happens
    * * `amount` - amount of tokens which are going to be deposited
    */
-  deposit: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  deposit: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -630,7 +630,7 @@ export interface Client {
    * * `pool_address` - address of a pool from which the borrow happens
    * * `amount` - amount of tokens which are going to be borrowed
    */
-  borrow: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  borrow: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -658,7 +658,7 @@ export interface Client {
    * * `token_out` - address of a token that would be given to the user
    * * `amount` - exact amount of the `token_in`
    */
-  swap: ({user, token_in, token_out, amount_in}: {user: string, token_in: string, token_out: string, amount_in: i128}, options?: {
+  swap: ({ user, token_in, token_out, amount_in }: { user: string, token_in: string, token_out: string, amount_in: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -686,7 +686,7 @@ export interface Client {
    * * `pool_address` - address of a pool to which the collateral is being added
    * * `amount` - amount of tokens which are being added as a collateral
    */
-  add_collateral: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  add_collateral: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -715,7 +715,7 @@ export interface Client {
    * pool. Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available
    * collateral
    */
-  remove_collateral: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  remove_collateral: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -743,7 +743,7 @@ export interface Client {
    * the outstanding debt will be repaid.
    * Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
    */
-  repay: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  repay: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -773,7 +773,7 @@ export interface Client {
    * a discount
    * * `amount` - amount of repaid tokens
    */
-  liquidate: ({liquidator, borrower, borrow_pool_address, collateral_pool_address, amount}: {liquidator: string, borrower: string, borrow_pool_address: string, collateral_pool_address: string, amount: i128}, options?: {
+  liquidate: ({ liquidator, borrower, borrow_pool_address, collateral_pool_address, amount }: { liquidator: string, borrower: string, borrow_pool_address: string, collateral_pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -802,7 +802,7 @@ export interface Client {
    * pool. Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens
    * available for it
    */
-  withdraw: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  withdraw: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -829,7 +829,7 @@ export interface Client {
    * * `pool_address` - address of a pool from which the flash loan happens
    * * `amount` - amount of lent tokens
    */
-  flash_loan: ({contract, pool_address, amount}: {contract: string, pool_address: string, amount: i128}, options?: {
+  flash_loan: ({ contract, pool_address, amount }: { contract: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -869,7 +869,7 @@ export interface Client {
   /**
    * Construct and simulate a check_multiply_pair_exists transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  check_multiply_pair_exists: ({deposit_pool_address, borrow_pool_address}: {deposit_pool_address: string, borrow_pool_address: string}, options?: {
+  check_multiply_pair_exists: ({ deposit_pool_address, borrow_pool_address }: { deposit_pool_address: string, borrow_pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -905,7 +905,7 @@ export interface Client {
    * * `leverage_multiplier` - leverage multiplier, where the last two digits represent decimal
    * places (e.g., 700 for x7.00, 255 for x2.55, etc.)
    */
-  deposit_with_leverage: ({user, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier}: {user: string, deposit_pool_address: string, borrow_pool_address: string, deposit_as_margin: boolean, amount: i128, leverage_multiplier: u32}, options?: {
+  deposit_with_leverage: ({ user, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier }: { user: string, deposit_pool_address: string, borrow_pool_address: string, deposit_as_margin: boolean, amount: i128, leverage_multiplier: u32 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -936,7 +936,7 @@ export interface Client {
    * tokens in the leveraged position (minus operational fees). Passing [`u64::MAX`] (or
    * [`i128::MAX`]) can be used to withdraw all available tokens
    */
-  withdraw_from_leveraged: ({user, deposit_pool_address, borrow_pool_address, amount}: {user: string, deposit_pool_address: string, borrow_pool_address: string, amount: i128}, options?: {
+  withdraw_from_leveraged: ({ user, deposit_pool_address, borrow_pool_address, amount }: { user: string, deposit_pool_address: string, borrow_pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -962,7 +962,7 @@ export interface Client {
    * * `pool_address` - address of a pool whose fees are redeemed
    * * `amount` - desired amount of fees to redeem as tokens
    */
-  redeem_accumulated_market_fees: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  redeem_accumulated_market_fees: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -988,7 +988,7 @@ export interface Client {
    * * `pool_address` - address of a pool whose fees are redeemed
    * * `amount` - desired amount of fees to redeem as tokens
    */
-  redeem_accumulated_host_fees: ({user, pool_address, amount}: {user: string, pool_address: string, amount: i128}, options?: {
+  redeem_accumulated_host_fees: ({ user, pool_address, amount }: { user: string, pool_address: string, amount: i128 }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1014,7 +1014,7 @@ export interface Client {
    * ### Arguments
    * * `bad_debt_obligation_user` - user that has a bad debt
    */
-  cover_obligation_bad_debt: ({bad_debt_obligation_user}: {bad_debt_obligation_user: string}, options?: {
+  cover_obligation_bad_debt: ({ bad_debt_obligation_user }: { bad_debt_obligation_user: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1042,7 +1042,7 @@ export interface Client {
    * * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
    * * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
    */
-  cover_multiply_pair_bad_debt: ({bad_debt_obligation_user, deposit_pool_address, borrow_pool_address}: {bad_debt_obligation_user: string, deposit_pool_address: string, borrow_pool_address: string}, options?: {
+  cover_multiply_pair_bad_debt: ({ bad_debt_obligation_user, deposit_pool_address, borrow_pool_address }: { bad_debt_obligation_user: string, deposit_pool_address: string, borrow_pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1108,7 +1108,7 @@ export interface Client {
    * ### Arguments
    * * `pool_address` - address of asset which price is returned
    */
-  get_pool_asset_oracle_price: ({pool_address}: {pool_address: string}, options?: {
+  get_pool_asset_oracle_price: ({ pool_address }: { pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1132,7 +1132,7 @@ export interface Client {
    * ### Arguments
    * * `user` - user which obligation is returned
    */
-  get_user_obligation: ({user}: {user: string}, options?: {
+  get_user_obligation: ({ user }: { user: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1158,7 +1158,7 @@ export interface Client {
    * * `deposit_pool_address` - address of a deposit pool from the pair
    * * `borrow_pool_address` - address of a borrow pool from the pair
    */
-  get_multiply_pair_obligation: ({user, deposit_pool_address, borrow_pool_address}: {user: string, deposit_pool_address: string, borrow_pool_address: string}, options?: {
+  get_multiply_pair_obligation: ({ user, deposit_pool_address, borrow_pool_address }: { user: string, deposit_pool_address: string, borrow_pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1182,7 +1182,7 @@ export interface Client {
    * ### Arguments
    * * `pool_address` - pool which data is returned
    */
-  get_pool: ({pool_address}: {pool_address: string}, options?: {
+  get_pool: ({ pool_address }: { pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1249,7 +1249,7 @@ export interface Client {
    * * `deposit_pool_address` - deposit pool of a pair that is returned
    * * `borrow_pool_address` - borrow pool of a pair that is returned
    */
-  get_multiply_pair: ({deposit_pool_address, borrow_pool_address}: {deposit_pool_address: string, borrow_pool_address: string}, options?: {
+  get_multiply_pair: ({ deposit_pool_address, borrow_pool_address }: { deposit_pool_address: string, borrow_pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1295,7 +1295,7 @@ export interface Client {
    * ### Arguments
    * * `pool_address` - address of a pool for which APR is returned
    */
-  get_apr: ({pool_address}: {pool_address: string}, options?: {
+  get_apr: ({ pool_address }: { pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1320,7 +1320,7 @@ export interface Client {
    * ### Arguments
    * * `pool_address` - address of a pool for which APY is returned
    */
-  get_apy: ({pool_address}: {pool_address: string}, options?: {
+  get_apy: ({ pool_address }: { pool_address: string }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -1362,8 +1362,8 @@ export interface Client {
 }
 export class Client extends ContractClient {
   static async deploy<T = Client>(
-        /** Constructor/Initialization Args for the contract's `__constructor` method */
-        {name, admin, oracle, deployer}: {name: string, admin: string, oracle: string, deployer: string},
+    /** Constructor/Initialization Args for the contract's `__constructor` method */
+    { name, admin, oracle, deployer }: { name: string, admin: string, oracle: string, deployer: string },
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
@@ -1375,11 +1375,11 @@ export class Client extends ContractClient {
         format?: "hex" | "base64";
       }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy({name, admin, oracle, deployer}, options)
+    return ContractClient.deploy({ name, admin, oracle, deployer }, options)
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAgAAAAAAAAAAAAAADEFjY3J1YWxNb2RlbAAAAAEAAAAAAAAAAAAAAApDb21wb3VuZGVkAAA=",
+      new ContractSpec(["AAAAAgAAAAAAAAAAAAAADEFjY3J1YWxNb2RlbAAAAAEAAAAAAAAAAAAAAApDb21wb3VuZGVkAAA=",
         "AAAAAAAAALlDb25zdHJ1Y3RzIHRoZSBtYXJrZXQgY29udHJhY3QKCiMjIyBBcmd1bWVudHMKKiBgYWRtaW5gIC0gbWFya2V0J3MgYWRtaW5pc3RyYXRvcgoqIGBuYW1lYCAtIG1hcmtldCdzIG5hbWUobm90IG5lY2Vzc2FyaWx5IHVuaXF1ZSkKKiBgb3JhY2xlYCAtIFNFUC00MCBjb21wbGlhbnQgb3JhY2xlJ3MgY29udHJhY3QgYWRkcmVzcwAAAAAAAA1fX2NvbnN0cnVjdG9yAAAAAAAABAAAAAAAAAAEbmFtZQAAABAAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAGb3JhY2xlAAAAAAATAAAAAAAAAAhkZXBsb3llcgAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
         "AAAAAAAAAJ1VcGdyYWRlcyB0aGUgbGVuZGluZyBjb250cmFjdAoKIyMjIEFyZ3VtZW50cwoqIGBuZXdfd2FzbV9oYXNoYCAtIGhhc2ggb2YgdGhlIFdBU00gYmluYXJ5IHVwbG9hZGVkIHRvIHRoZSBuZXR3b3JrIHRoYXQncyB1c2VkIGFzIGEgbmV3CnZlcnNpb24gb2YgdGhlIGNvbnRyYWN0AAAAAAAAB3VwZ3JhZGUAAAAAAQAAAAAAAAANbmV3X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",
         "AAAAAAAAACBHZXRzIHRoZSBjb250cmFjdCdzIGdsb2JhbCBzdGF0ZQAAABBnZXRfZ2xvYmFsX3N0YXRlAAAAAAAAAAEAAAfQAAAAC0dsb2JhbFN0YXRlAA==",
@@ -1441,45 +1441,45 @@ export class Client extends ContractClient {
         "AAAAAQAAAAAAAAAAAAAAC0dsb2JhbFN0YXRlAAAAAAQAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAIZGVwbG95ZXIAAAATAAAAAAAAAARuYW1lAAAAEAAAAAAAAAAGc3RhdHVzAAAAAAAB",
         "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAACQAAAAAAAAAAAAAAC0dsb2JhbFN0YXRlAAAAAAEAAAAAAAAABFBvb2wAAAABAAAAEwAAAAEAAAAAAAAACk9ibGlnYXRpb24AAAAAAAEAAAfQAAAADU9ibGlnYXRpb25LZXkAAAAAAAABAAAAAAAAAAxNdWx0aXBseVBhaXIAAAABAAAD7QAAAAIAAAATAAAAEwAAAAAAAAAAAAAAB0FjY3J1YWwAAAAAAAAAAAAAAAAIQWxsUG9vbHMAAAAAAAAAAAAAAA5BbGxPYmxpZ2F0aW9ucwAAAAAAAAAAAAAAAAAQQWxsTXVsdGlwbHlQYWlycwAAAAAAAAAAAAAADU9yYWNsZUFkZHJlc3MAAAA=",
         "AAAAAQAAAC9QcmljZSBkYXRhIGZvciBhbiBhc3NldCBhdCBhIHNwZWNpZmljIHRpbWVzdGFtcAAAAAAAAAAACVByaWNlRGF0YQAAAAAAAAIAAAAAAAAABXByaWNlAAAAAAAACwAAAAAAAAAJdGltZXN0YW1wAAAAAAAABg==",
-        "AAAAAgAAAApBc3NldCB0eXBlAAAAAAAAAAAABUFzc2V0AAAAAAAAAgAAAAEAAAAAAAAAB1N0ZWxsYXIAAAAAAQAAABMAAAABAAAAAAAAAAVPdGhlcgAAAAAAAAEAAAAR" ]),
+        "AAAAAgAAAApBc3NldCB0eXBlAAAAAAAAAAAABUFzc2V0AAAAAAAAAgAAAAEAAAAAAAAAB1N0ZWxsYXIAAAAAAQAAABMAAAABAAAAAAAAAAVPdGhlcgAAAAAAAAEAAAAR"]),
       options
     )
   }
   public readonly fromJSON = {
     upgrade: this.txFromJSON<null>,
-        get_global_state: this.txFromJSON<GlobalState>,
-        get_oracle_address: this.txFromJSON<string>,
-        initialize_pool: this.txFromJSON<Result<string>>,
-        initialize_multiply_pair: this.txFromJSON<Result<void>>,
-        deposit: this.txFromJSON<Result<void>>,
-        borrow: this.txFromJSON<Result<void>>,
-        swap: this.txFromJSON<Result<i128>>,
-        add_collateral: this.txFromJSON<Result<void>>,
-        remove_collateral: this.txFromJSON<Result<void>>,
-        repay: this.txFromJSON<Result<void>>,
-        liquidate: this.txFromJSON<Result<void>>,
-        withdraw: this.txFromJSON<Result<void>>,
-        flash_loan: this.txFromJSON<Result<void>>,
-        clean_multiply_pairs: this.txFromJSON<null>,
-        check_multiply_pair_exists: this.txFromJSON<boolean>,
-        deposit_with_leverage: this.txFromJSON<Result<void>>,
-        withdraw_from_leveraged: this.txFromJSON<Result<void>>,
-        redeem_accumulated_market_fees: this.txFromJSON<Result<void>>,
-        redeem_accumulated_host_fees: this.txFromJSON<Result<void>>,
-        cover_obligation_bad_debt: this.txFromJSON<Result<void>>,
-        cover_multiply_pair_bad_debt: this.txFromJSON<Result<void>>,
-        get_asset_decimals: this.txFromJSON<u32>,
-        get_oracle_price_decimals: this.txFromJSON<u32>,
-        get_pool_asset_oracle_price: this.txFromJSON<Result<i128>>,
-        get_user_obligation: this.txFromJSON<Result<Obligation>>,
-        get_multiply_pair_obligation: this.txFromJSON<Result<Obligation>>,
-        get_pool: this.txFromJSON<Result<Pool>>,
-        get_all_pools: this.txFromJSON<Array<string>>,
-        get_all_obligations: this.txFromJSON<Array<string>>,
-        get_multiply_pair: this.txFromJSON<Result<MultiplyPair>>,
-        get_all_multiply_pairs: this.txFromJSON<Array<MultiplyPair>>,
-        get_apr: this.txFromJSON<Result<AnnualPercentageRates>>,
-        get_apy: this.txFromJSON<Result<AnnualPercentageYields>>,
-        reset_storage: this.txFromJSON<null>
+    get_global_state: this.txFromJSON<GlobalState>,
+    get_oracle_address: this.txFromJSON<string>,
+    initialize_pool: this.txFromJSON<Result<string>>,
+    initialize_multiply_pair: this.txFromJSON<Result<void>>,
+    deposit: this.txFromJSON<Result<void>>,
+    borrow: this.txFromJSON<Result<void>>,
+    swap: this.txFromJSON<Result<i128>>,
+    add_collateral: this.txFromJSON<Result<void>>,
+    remove_collateral: this.txFromJSON<Result<void>>,
+    repay: this.txFromJSON<Result<void>>,
+    liquidate: this.txFromJSON<Result<void>>,
+    withdraw: this.txFromJSON<Result<void>>,
+    flash_loan: this.txFromJSON<Result<void>>,
+    clean_multiply_pairs: this.txFromJSON<null>,
+    check_multiply_pair_exists: this.txFromJSON<boolean>,
+    deposit_with_leverage: this.txFromJSON<Result<void>>,
+    withdraw_from_leveraged: this.txFromJSON<Result<void>>,
+    redeem_accumulated_market_fees: this.txFromJSON<Result<void>>,
+    redeem_accumulated_host_fees: this.txFromJSON<Result<void>>,
+    cover_obligation_bad_debt: this.txFromJSON<Result<void>>,
+    cover_multiply_pair_bad_debt: this.txFromJSON<Result<void>>,
+    get_asset_decimals: this.txFromJSON<u32>,
+    get_oracle_price_decimals: this.txFromJSON<u32>,
+    get_pool_asset_oracle_price: this.txFromJSON<Result<i128>>,
+    get_user_obligation: this.txFromJSON<Result<Obligation>>,
+    get_multiply_pair_obligation: this.txFromJSON<Result<Obligation>>,
+    get_pool: this.txFromJSON<Result<Pool>>,
+    get_all_pools: this.txFromJSON<Array<string>>,
+    get_all_obligations: this.txFromJSON<Array<string>>,
+    get_multiply_pair: this.txFromJSON<Result<MultiplyPair>>,
+    get_all_multiply_pairs: this.txFromJSON<Array<MultiplyPair>>,
+    get_apr: this.txFromJSON<Result<AnnualPercentageRates>>,
+    get_apy: this.txFromJSON<Result<AnnualPercentageYields>>,
+    reset_storage: this.txFromJSON<null>
   }
 }

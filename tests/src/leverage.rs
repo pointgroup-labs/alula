@@ -8,7 +8,7 @@ use market::{
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, assert_approx_eq_abs,
-    get_amount_scaled_down, get_amount_scaled_up, get_borrow_obligation, get_deposit_obligation,
+    get_amount_scaled_down, get_amount_scaled_up, get_borrow_position, get_deposit_position,
     get_multiply_pair_obligation_borrowed, get_multiply_pair_obligation_d_tokens,
     get_multiply_pair_obligation_j_tokens_as_tokens, get_pool_total_borrowed,
     get_pool_total_supply,
@@ -324,11 +324,11 @@ fn test_multiplied_deposits_are_isolated() {
     );
 
     assert_eq!(
-        get_deposit_obligation(&contract_client, looper, &gold_pool_address),
+        get_deposit_position(&contract_client, looper, &gold_pool_address),
         Err(MCError::ObligationDoesNotExist),
     );
     assert_eq!(
-        get_borrow_obligation(&contract_client, looper, &usdc_pool_address),
+        get_borrow_position(&contract_client, looper, &usdc_pool_address),
         Err(MCError::ObligationDoesNotExist),
     );
 }
