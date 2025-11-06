@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::error::MCError;
+use market::{error::MCError, obligation::ObligationKey};
 use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
@@ -101,11 +101,11 @@ fn test_obligations_list_contains_unique_obligations() {
 
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 2);
-    assert!(obligations.contains(creditor.clone()));
+    assert!(obligations.contains(ObligationKey::new(creditor.clone())));
 
     contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 1);
-    assert!(!obligations.contains(creditor.clone()));
+    assert!(!obligations.contains(ObligationKey::new(creditor.clone())));
 }

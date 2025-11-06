@@ -1,4 +1,3 @@
-// use aggregated_oracle::PriceFeedClient;
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
@@ -227,9 +226,8 @@ pub fn process_deposit<'a>(
     pool.accrue_interest(e)?;
 
     let supply_limit = pool.config.health_config.supply_limit;
-
-    // NB: 0 indicates unlimited supply
     if supply_limit != 0 {
+        // 0 indicates unlimited supply
         let new_supply = pool.total_supply()?.checked_add(amount).map_over_or_underflow()?;
 
         if new_supply > supply_limit {
@@ -237,11 +235,8 @@ pub fn process_deposit<'a>(
         }
     }
 
-    // WARN: Bug. We duplicate obligations if the user creates a deposit with leverage.
-    // We must separate `multiply` obligations from others in the obligation list
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
-
     obligation.require_no_borrow_position_exists(pool_address)?;
 
     let deposit_result = obligation.deposit(e, &pool, amount)?;
@@ -250,11 +245,11 @@ pub fn process_deposit<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
-    let mut user_transfers = Map::new(e);
-    user_transfers.set(pool.token_address, amount);
-
-    let transfers =
-        RequestTransfers::new_with_user_transfers(e, &obligation_key.user, user_transfers);
+    let transfers = RequestTransfers::new_with_user_transfers(
+        e,
+        &obligation_key.user,
+        smap![&e, (pool.token_address, amount)],
+    );
 
     events::deposit(e, pool_address, obligation_key, deposit_result);
 
@@ -282,11 +277,11 @@ pub fn process_borrow<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
-    let mut market_transfers = Map::new(e);
-    market_transfers.set(pool.token_address, borrow_result.borrower_to_receive);
-
-    let transfers =
-        RequestTransfers::new_with_market_transfers(e, &obligation_key.user, market_transfers);
+    let transfers = RequestTransfers::new_with_market_transfers(
+        e,
+        &obligation_key.user,
+        smap![&e, (pool.token_address, borrow_result.borrower_to_receive)],
+    );
 
     events::borrow(e, pool_address, obligation_key, borrow_result);
 
@@ -313,9 +308,11 @@ pub fn process_add_collateral<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
-    let user_transfers = smap![&e, (pool.token_address, amount)];
-    let transfers =
-        RequestTransfers::new_with_user_transfers(e, &obligation_key.user, user_transfers);
+    let transfers = RequestTransfers::new_with_user_transfers(
+        e,
+        &obligation_key.user,
+        smap![&e, (pool.token_address, amount)],
+    );
 
     events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
 
@@ -340,7 +337,7 @@ pub fn process_repay<'a>(
 
     if obligation.is_empty() {
         // NB: Obligation shouldn't be empty at this point due to some amount of collateral or
-        // deposit required to repay the debt
+        // deposit required to back up the debt
         events::obligation_is_unexpectedly_empty(e, obligation_key, pool_address);
 
         return Err(MCError::InternalError);
@@ -386,10 +383,11 @@ pub fn process_remove_collateral<'a>(
         obligation.set(e, obligation_key);
     }
 
-    let market_transfers =
-        smap![e, (pool.token_address, remove_collateral_result.collateral_remover_to_receive)];
-    let transfers =
-        RequestTransfers::new_with_market_transfers(e, &obligation_key.user, market_transfers);
+    let transfers = RequestTransfers::new_with_market_transfers(
+        e,
+        &obligation_key.user,
+        smap![e, (pool.token_address, remove_collateral_result.collateral_remover_to_receive)],
+    );
 
     events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
 
@@ -419,9 +417,11 @@ pub fn process_withdraw<'a>(
 
     pool.set(e);
 
-    let market_transfers = smap![e, (pool.token_address, withdraw_result.withdrawer_to_receive)];
-    let transfers =
-        RequestTransfers::new_with_market_transfers(e, &obligation_key.user, market_transfers);
+    let transfers = RequestTransfers::new_with_market_transfers(
+        e,
+        &obligation_key.user,
+        smap![e, (pool.token_address, withdraw_result.withdrawer_to_receive)],
+    );
 
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
 
@@ -452,7 +452,6 @@ pub fn process_flash_loan(
         &flash_loan_fee_bps,
     );
 
-    // Use ceiling for fee calculation to prevent precision loss exploitation
     let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 

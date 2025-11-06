@@ -416,7 +416,7 @@ pub trait Market {
     fn get_market_data(e: Env) -> Result<MarketData, MCError>;
 
     /// Returns a list of all user obligations in the protocol
-    fn get_all_obligations(e: Env) -> Vec<Address>;
+    fn get_all_obligations(e: Env) -> Vec<ObligationKey>;
 
     /// Returns the specific multiply pair
     ///
@@ -1084,12 +1084,12 @@ impl Market for MarketContract {
         Ok(market_data)
     }
 
-    fn get_all_obligations(e: Env) -> Vec<Address> {
+    fn get_all_obligations(e: Env) -> Vec<ObligationKey> {
         let obligations_map = Obligation::get_all(&e);
 
         let mut obligations_vec = Vec::new(&e);
-        for (obligation_addr, _) in obligations_map {
-            obligations_vec.push_back(obligation_addr.user)
+        for obligation_key in obligations_map.keys() {
+            obligations_vec.push_back(obligation_key)
         }
 
         obligations_vec
