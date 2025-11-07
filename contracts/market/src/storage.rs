@@ -262,7 +262,7 @@ pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
 pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpdate> {
     let config_update = e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()));
     if config_update.is_some() {
-        extend_shared_storage(&e, &DataKey::ConfigUpdate(pool_address.clone()));
+        extend_shared_storage(e, &DataKey::ConfigUpdate(pool_address.clone()));
     }
 
     config_update
