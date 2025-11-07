@@ -102,10 +102,8 @@ pub fn extend_shared_storage(e: &Env, key: &DataKey) {
 // - Oracle address -
 pub fn set_oracle(e: &Env, oracle: &Address) {
     e.storage().instance().set(&DataKey::Oracle, oracle);
-    extend_instance_storage(e);
 }
 pub fn get_oracle(e: &Env) -> Address {
-    extend_instance_storage(e);
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
 }
 
@@ -205,8 +203,9 @@ pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
 /// NB: Overwrites existing pool if it exists
 pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     let key = DataKey::Pool(pool_address.clone());
+
     e.storage().persistent().set(&key, pool);
-    extend_shared_storage(e, &key); // TODO: Should we do this, though?
+    extend_shared_storage(e, &key);
 }
 
 /// Checks whether a pool with the given address exists
@@ -254,7 +253,6 @@ pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
     if !e.storage().persistent().has(&key) {
         return Err(MCError::PoolDoesNotHaveQueuedInConfigUpdate);
     }
-
     e.storage().persistent().remove(&key);
 
     Ok(())
@@ -262,7 +260,12 @@ pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
 
 /// Gets pool's config update from the storage
 pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpdate> {
-    e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()))
+    let config_update = e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()));
+    if config_update.is_some() {
+        extend_shared_storage(&e, &DataKey::ConfigUpdate(pool_address.clone()));
+    }
+
+    config_update
 }
 
 // ---- Multiply Pair ----
@@ -359,7 +362,7 @@ pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     let key = DataKey::Obligation(obligation_key.clone());
     let res = e.storage().persistent().has(&key);
     if e.storage().persistent().has(&key) {
-        extend_shared_storage(e, &key);
+        extend_individual_storage(e, &key);
     }
     res
 }

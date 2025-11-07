@@ -29,13 +29,13 @@ impl MultiplyPair {
         borrow_pool_address: &Address,
         borrow_pool_open_ltv_bps: i128,
         flash_loan_fee_bps: i128,
-        collateral_pool_liability_factor_bps: i128,
+        deposit_pool_liability_factor_bps: i128,
     ) -> Self {
         let max_leverage_multiplier = Self::compute_max_leverage_multiplier(
             flash_loan_fee_bps,
             DEFAULT_MAX_SWAP_FEE_BPS,
             borrow_pool_open_ltv_bps,
-            collateral_pool_liability_factor_bps,
+            deposit_pool_liability_factor_bps,
         );
         let seed = Self::compute_obligation_seed(e, deposit_pool_address, borrow_pool_address);
 
@@ -113,7 +113,7 @@ impl MultiplyPair {
         flash_loan_fee_bps: i128,
         max_swap_fee_bps: i128,
         borrow_pool_open_ltv_bps: i128,
-        _collateral_pool_liability_factor_bps: i128, // TODO: start accounting in calculations
+        _deposit_pool_liability_factor_bps: i128, // TODO: start accounting in calculations
     ) -> u32 {
         // compile-time assertion, hence, no error is returned
         const _: () = assert!((LEVERAGE_SCALE as i128) < BPS_FACTOR, "leverage_scale_is_too_big");

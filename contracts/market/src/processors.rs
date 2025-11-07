@@ -62,8 +62,6 @@ pub fn process_submit_requests_batch<'a>(
 }
 
 pub fn process_get_global_state(e: &Env) -> GlobalState {
-    storage::extend_instance_storage(e);
-
     let update_in_queue_period = storage::get_update_in_queue_period(e);
     let name = storage::get_name(e);
     let admin = storage::get_admin(e);
@@ -155,18 +153,17 @@ pub fn process_initialize_multiply_pair(
 ) -> Result<(), MCError> {
     MultiplyPair::require_does_not_exists(e, deposit_pool_address, borrow_pool_address)?;
 
-    let (collateral_pool, borrow_pool) = (
+    let (deposit_pool, borrow_pool) = (
         Pool::try_get(e, deposit_pool_address).map_err(|_| MCError::DepositPoolDoesNotExist)?,
         Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
     );
-
     let pair = MultiplyPair::new(
         e,
         deposit_pool_address,
         borrow_pool_address,
         borrow_pool.config.health_config.open_ltv_bps,
         borrow_pool.config.fee_config.flash_loan_fee_bps as i128,
-        collateral_pool.config.health_config.liability_factor_bps,
+        deposit_pool.config.health_config.liability_factor_bps,
     );
 
     pair.set(e);

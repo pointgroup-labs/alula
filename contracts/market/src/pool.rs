@@ -681,7 +681,6 @@ impl Pool {
 
         self.config = pool_config_update.new_config;
         self.set(e);
-
         storage::remove_pool_config_update(e, &self.pool_address)?;
 
         Ok(())
