@@ -196,7 +196,7 @@ pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
     pools.push_back(pool_address.clone());
     e.storage().persistent().set(&DataKey::AllPools, &pools);
     extend_shared_storage(e, &DataKey::AllPools);
-    pools.len() + 1
+    pools.len() - 1
 }
 
 /// Sets a pool by its address
@@ -289,7 +289,7 @@ pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
     pairs.push_back(pair);
     e.storage().persistent().set(&DataKey::AllMultiplyPairs, &pairs);
     extend_shared_storage(e, &DataKey::AllMultiplyPairs);
-    pairs.len() + 1
+    pairs.len() - 1
 }
 
 /// Sets a multiply pair by its key (deposit and borrow pool addresses)
@@ -300,10 +300,7 @@ pub fn set_multiply_pair(
     pair: &MultiplyPair,
 ) {
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    e.storage()
-        .persistent()
-        // NB: Should we allow multiple pairs with the same pools?
-        .set(&key, pair);
+    e.storage().persistent().set(&key, pair);
     extend_shared_storage(e, &key);
 }
 
@@ -361,9 +358,10 @@ pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligat
 pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     let key = DataKey::Obligation(obligation_key.clone());
     let res = e.storage().persistent().has(&key);
-    if e.storage().persistent().has(&key) {
+    if res {
         extend_individual_storage(e, &key);
     }
+
     res
 }
 
