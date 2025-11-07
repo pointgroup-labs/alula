@@ -885,6 +885,7 @@ pub fn process_redeem_accumulated_host_fees(
     let mut pool = Pool::try_get(e, pool_address)?;
 
     let fees_to_be_redeemed = i128::min(amount, pool.accumulated_host_fees);
+    pool.require_available(fees_to_be_redeemed)?;
 
     pool.adjust_accumulated_host_fees(
         e,
@@ -907,6 +908,7 @@ pub fn process_redeem_accumulated_market_fees(
     let mut pool = Pool::try_get(e, pool_address)?;
 
     let fees_to_be_redeemed = i128::min(amount, pool.accumulated_market_fees);
+    pool.require_available(fees_to_be_redeemed)?;
 
     pool.adjust_accumulated_market_fees(
         e,
