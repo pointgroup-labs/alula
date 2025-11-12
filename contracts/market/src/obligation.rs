@@ -724,7 +724,8 @@ impl Obligation {
         })
     }
 
-    pub fn liquidate2(
+    /// Liquidates unhealthy borrow
+    pub fn liquidate(
         &mut self,
         e: &Env,
         borrow_pool: &Pool,
@@ -746,11 +747,12 @@ impl Obligation {
 
         let obligation_debt_value = self.compute_debt_value(e)?;
         let obligation_collateral_value = self.compute_collateral_value(e)?;
-        let debt_value_w_liability_factors =
+        let obligation_debt_value_w_liability_factors =
             self.compute_debt_value_scaled_w_liability_factors(e)?;
-        let collateral_value_w_close_ltvs = self.compute_collateral_value_scaled_w_close_ltvs(e)?;
+        let obligation_collateral_value_w_close_ltvs =
+            self.compute_collateral_value_scaled_w_close_ltvs(e)?;
 
-        if debt_value_w_liability_factors <= collateral_value_w_close_ltvs {
+        if obligation_debt_value_w_liability_factors <= obligation_collateral_value_w_close_ltvs {
             return Err(MCError::LiquidatedObligationIsHealthy);
         }
 
@@ -816,7 +818,7 @@ impl Obligation {
                     .map_over_or_underflow()?;
 
             // 4. Find the amount of collateral to give away that obey all LTV improving constraints
-            let mut collateral_to_sell_to_liquidator = position_collateral_sum
+            let collateral_to_sell_to_liquidator = position_collateral_sum
                 .min(max_ltv_improving_bonus)
                 .min(redeemed_collateral_amount_with_max_incentive);
 
@@ -862,32 +864,35 @@ impl Obligation {
             return Err(MCError::LiquidationMinCollateralTooBig);
         }
 
-        // -- Adjust deposit/collateral position --
+        // Distribute liquidator incentive between plain collateral and received `jTokens`
+        let (collateral_seized, j_tokens_seized) = if collateral_to_sell_to_liquidator
+            > deposit_position.collateral
+        {
+            let left_as_j_tokens = collateral_to_sell_to_liquidator - deposit_position.collateral; // safe
+            let j_tokens = collateral_pool
+                .compute_j_tokens_from_tokens_floor(e, left_as_j_tokens)?
+                .min(deposit_position.j_tokens);
 
-        if collateral_to_sell_to_liquidator > deposit_position.collateral {
-            deposit_position.adjust_collateral(
-                e,
-                deposit_position.collateral.checked_neg().map_over_or_underflow()?,
-            )?;
+            (deposit_position.collateral, j_tokens)
         } else {
-        }
-
-        // -- Adjust borrow position --
-
-        let d_tokens_to_burn = if liquidated_amount == position_debt {
-            borrow_position.d_tokens
-        } else {
-            borrow_pool.compute_d_tokens_from_tokens_floor(e, liquidated_amount)?
+            (collateral_to_sell_to_liquidator, 0)
         };
 
-        borrow_position
-            .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
+        // -- Adjust obligation positions --
+
+        deposit_position
+            .adjust_collateral(&e, collateral_seized.checked_neg().map_over_or_underflow()?)?;
+        deposit_position
+            .adjust_j_tokens(e, j_tokens_seized.checked_neg().map_over_or_underflow()?)?;
+
+        // TODO: Update received interest
+        // borrow_position.adjust_d_tokens(e, adjusting_amount)
 
         todo!()
     }
 
     /// Liquidates unhealthy borrow
-    pub fn liquidate(
+    pub fn liquidate2(
         &mut self,
         e: &Env,
         borrow_pool_address: &Address,

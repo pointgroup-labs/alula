@@ -29,6 +29,7 @@ pub trait MarketManager {
     /// * `oracle_address` - address of SEP-40—compliant oracle contract
     /// * `max_positions` - maximum number of positions for a single obligation to have at a single moment
     /// * `min_collateral` - minimum allowed value of a collateral position at a single moment
+    /// * `insolvency_ltv_bps` - unparameterized LTV(i.e., not scaled with closeLTV\openLTV\liability factors) that marks obligation in market as insolvent
     /// * `update_in_queue_period` - amount of seconds required to pass before applying an issued pool's config update in an owned pool. Passing here `None` means that the market is permissionless
     ///   and its pools and parameters cannot be modified(except for new pools initialization)
     #[allow(clippy::too_many_arguments)]
@@ -40,6 +41,7 @@ pub trait MarketManager {
         oracle_address: Address,
         max_positions: u32,
         min_collateral: i128,
+        insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError>;
 
@@ -65,6 +67,7 @@ impl MarketManager for MarketManagerContract {
         oracle: Address,
         max_positions: u32,
         min_collateral: i128,
+        insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
@@ -85,6 +88,7 @@ impl MarketManager for MarketManagerContract {
                 e.current_contract_address(),
                 max_positions,
                 min_collateral,
+                insolvency_ltv_bps,
                 update_in_queue_period,
             ),
         );

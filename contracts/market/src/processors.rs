@@ -777,7 +777,7 @@ pub fn process_withdraw_from_leveraged(
     Ok(())
 }
 
-pub fn process_liquidate_2<'a>(
+pub fn process_liquidate<'a>(
     e: &'a Env,
     liquidator: &Address,
     borrower_obligation_key: &ObligationKey,
@@ -792,6 +792,9 @@ pub fn process_liquidate_2<'a>(
     if borrow_pool_address == collateral_pool_address {
         return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
     }
+    if liquidator == &borrower_obligation_key.user {
+        return Err(MCError::SelfLiquidation);
+    }
 
     let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
     obligation.accrue_interest(e)?;
@@ -803,7 +806,7 @@ pub fn process_liquidate_2<'a>(
     );
     collateral_pool.require_collateral_is_seizable()?;
 
-    let liquidation_result: LiquidationResult2 = obligation.liquidate2(
+    let liquidation_result: LiquidationResult2 = obligation.liquidate(
         e,
         &borrow_pool,
         &collateral_pool,
@@ -812,102 +815,6 @@ pub fn process_liquidate_2<'a>(
     )?;
 
     todo!()
-}
-
-pub fn process_liquidate(
-    e: &Env,
-    liquidator: &Address,
-    borrower_obligation_key: &ObligationKey,
-    borrow_pool_address: &Address,
-    collateral_pool_address: &Address,
-    amount: i128,
-) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
-
-    if *liquidator == borrower_obligation_key.user {
-        // TODO: Can there any need for you to liquidate oneself?
-        return Err(MCError::SelfLiquidation);
-    }
-
-    if borrow_pool_address == collateral_pool_address {
-        // NB: Is this really a problem?
-        return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
-    }
-
-    let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
-    obligation.accrue_interest(e)?;
-
-    obligation.require_non_healthy(e)?;
-
-    let (mut borrow_pool, mut collateral_pool) = (
-        Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
-        Pool::try_get(e, collateral_pool_address)
-            .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
-    );
-
-    let LiquidationResult {
-        liquidated_amount,
-        d_tokens_repaid,
-        collateral_amount_sold,
-        j_tokens_amount_sold,
-        tokens_from_sold_j_tokens,
-    } = obligation.liquidate(
-        e,
-        borrow_pool_address,
-        collateral_pool_address,
-        &borrow_pool,
-        &collateral_pool,
-        amount,
-    )?;
-
-    // Validate liquidation amounts to prevent zero or negative
-    require_nonnegative(liquidated_amount)?;
-    require_nonnegative(collateral_amount_sold)?;
-
-    collateral_pool.adjust_total_available(
-        e,
-        tokens_from_sold_j_tokens.checked_neg().map_over_or_underflow()?,
-    )?;
-    collateral_pool
-        .adjust_total_j_tokens(e, j_tokens_amount_sold.checked_neg().map_over_or_underflow()?)?;
-    collateral_pool.adjust_total_collateral(
-        e,
-        collateral_amount_sold.checked_neg().map_over_or_underflow()?,
-    )?;
-
-    borrow_pool
-        .adjust_total_borrowed(e, liquidated_amount.checked_neg().map_over_or_underflow()?)?;
-    borrow_pool.adjust_total_d_tokens(e, d_tokens_repaid.checked_neg().map_over_or_underflow()?)?;
-
-    obligation.set(e, borrower_obligation_key);
-
-    collateral_pool.set(e);
-    borrow_pool.set(e);
-
-    let borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
-    borrowed_token_client.transfer(liquidator, e.current_contract_address(), &liquidated_amount);
-
-    let collateral_seized_amount =
-        tokens_from_sold_j_tokens.checked_add(collateral_amount_sold).map_over_or_underflow()?;
-
-    let collateral_token_client = token::Client::new(e, &collateral_pool.token_address);
-    collateral_token_client.transfer(
-        &e.current_contract_address(),
-        liquidator,
-        &collateral_seized_amount,
-    );
-
-    events::liquidate(
-        e,
-        liquidator,
-        borrower_obligation_key,
-        borrow_pool_address,
-        collateral_pool_address,
-        liquidated_amount,
-        collateral_seized_amount,
-    );
-
-    Ok(())
 }
 
 pub fn process_redeem_accumulated_host_fees(

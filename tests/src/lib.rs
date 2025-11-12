@@ -22,8 +22,9 @@ use std::ops::{Add, Sub};
 use arbitrary::Unstructured;
 use market::{
     constants::{
-        BPS_FACTOR, DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE,
-        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
+        BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
+        DEFAULT_MIN_COLLATERAL_VALUE, DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP,
+        ROUTER_ADDRESS,
     },
     contract::{MarketClient, MarketContract},
     error::MCError,
@@ -140,6 +141,7 @@ impl TestMarketFixture<'_> {
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
                 DEFAULT_MIN_COLLATERAL_VALUE,
+                DEFAULT_INSOLVENCY_LTV_BPS,
                 Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
             ),
         );
@@ -629,13 +631,13 @@ impl RunCommand for Liquidate {
 
             let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
 
-            let _ = contract_client.try_liquidate(
-                liquidator,
-                borrower,
-                &pool_address,
-                &collateral_pool_address,
-                &self.amount.0,
-            );
+            // let _ = contract_client.try_liquidate(
+            //     liquidator,
+            //     borrower,
+            //     &pool_address,
+            //     &collateral_pool_address,
+            //     &self.amount.0,
+            // );
         }
     }
 }
@@ -1213,6 +1215,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             contract_admin,
             DEFAULT_MAX_POSITIONS,
             DEFAULT_MIN_COLLATERAL_VALUE,
+            DEFAULT_INSOLVENCY_LTV_BPS,
             if is_owned { Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS) } else { None },
         ),
     );

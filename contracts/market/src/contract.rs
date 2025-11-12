@@ -415,17 +415,6 @@ pub trait Market {
     /// Returns a list of all multiply pairs registered for the market
     fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair>;
 
-    fn liquidate2(
-        e: Env,
-        liquidator: Address,
-        borrower: Address,
-        borrower_obligation_seed: Option<BytesN<32>>,
-        borrow_pool_address: Address,
-        collateral_pool_address: Address,
-        amount: i128,
-        min_received_collateral_amount: i128,
-    ) -> Result<(), MCError>;
-
     /// Liquidates borrower's position if position's health factor criterion isn't met
     ///
     /// # Arguments
@@ -440,9 +429,11 @@ pub trait Market {
         e: Env,
         liquidator: Address,
         borrower: Address,
+        borrower_obligation_seed: Option<BytesN<32>>,
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         amount: i128,
+        min_received_collateral_amount: i128,
     ) -> Result<(), MCError>;
 
     /// Creates a flash loan
@@ -793,11 +784,11 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn liquidate2(
+    fn liquidate(
         e: Env,
         liquidator: Address,
         borrower: Address,
-        borrower_obligation_seed: Option<BytesN<32>>, /* I am not sure if this is OK, to be honest... */
+        borrower_obligation_seed: Option<BytesN<32>>,
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         amount: i128,
@@ -811,7 +802,7 @@ impl Market for MarketContract {
             .map(|seed| ObligationKey::new_with_seed(borrower.clone(), seed))
             .unwrap_or_else(|| ObligationKey::new(borrower));
 
-        process_liquidate_2(
+        process_liquidate(
             &e,
             &liquidator,
             &obligation_key,
@@ -819,36 +810,13 @@ impl Market for MarketContract {
             &collateral_pool_address,
             amount,
             min_received_collateral_amount,
-        )?;
+        )?
+        .execute();
 
         Ok(())
     }
 
     // MEGA_WARN: Min collateral value enforced if borrows exist - implement this
-
-    fn liquidate(
-        e: Env,
-        liquidator: Address,
-        borrower: Address,
-        borrow_pool_address: Address,     // TODO: Must be Vec, right?
-        collateral_pool_address: Address, // TODO: Must also be Vec, right?
-        amount: i128,
-    ) -> Result<(), MCError> {
-        liquidator.require_auth();
-        require_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
-
-        let borrower_obligation_key = ObligationKey::new(borrower);
-
-        process_liquidate(
-            &e,
-            &liquidator,
-            &borrower_obligation_key,
-            &borrow_pool_address,
-            &collateral_pool_address,
-            amount,
-        )
-    }
 
     fn withdraw(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
         user.require_auth();
