@@ -12,7 +12,9 @@ use crate::{
     math_utils::MathUtils,
     misc::require_nonnegative,
     multiply_pair::MultiplyPair,
-    obligation::{CoverBadDebtResult, LiquidationValues, Obligation, ObligationKey},
+    obligation::{
+        CoverBadDebtResult, LiquidationResult, LiquidationResult2, Obligation, ObligationKey,
+    },
     pool::{Pool, PoolConfig},
     request::{Request, RequestTransfers, RequestType},
     storage::{self, GlobalState},
@@ -71,6 +73,7 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
     let is_owned = update_in_queue_period.is_some();
     let max_positions = storage::get_max_positions(e);
     let min_collateral_value = storage::get_min_collateral_value(e);
+    let insolvency_ltv_bps = storage::get_insolvency_ltv_bps(e);
 
     GlobalState {
         name,
@@ -80,6 +83,7 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
         deployer,
         is_owned,
         max_positions,
+        insolvency_ltv_bps,
         min_collateral_value,
         update_in_queue_period,
     }
@@ -773,6 +777,43 @@ pub fn process_withdraw_from_leveraged(
     Ok(())
 }
 
+pub fn process_liquidate_2<'a>(
+    e: &'a Env,
+    liquidator: &Address,
+    borrower_obligation_key: &ObligationKey,
+    borrow_pool_address: &Address,
+    collateral_pool_address: &Address,
+    amount: i128,
+    min_collateral_received_amount: i128,
+) -> Result<RequestTransfers<'a>, MCError> {
+    require_nonnegative(amount)?;
+    require_nonnegative(min_collateral_received_amount)?;
+
+    if borrow_pool_address == collateral_pool_address {
+        return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
+    }
+
+    let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
+    obligation.accrue_interest(e)?;
+
+    let (borrow_pool, collateral_pool) = (
+        Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
+        Pool::try_get(e, collateral_pool_address)
+            .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
+    );
+    collateral_pool.require_collateral_is_seizable()?;
+
+    let liquidation_result: LiquidationResult2 = obligation.liquidate2(
+        e,
+        &borrow_pool,
+        &collateral_pool,
+        amount,
+        min_collateral_received_amount,
+    )?;
+
+    todo!()
+}
+
 pub fn process_liquidate(
     e: &Env,
     liquidator: &Address,
@@ -804,11 +845,7 @@ pub fn process_liquidate(
             .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
     );
 
-    // // TODO: Accrue interest on pools for consistency?
-    // borrow_pool.accrue_interest(e)?;
-    // collateral_pool.accrue_interest(e)?;
-
-    let LiquidationValues {
+    let LiquidationResult {
         liquidated_amount,
         d_tokens_repaid,
         collateral_amount_sold,
@@ -1071,7 +1108,7 @@ fn compute_leveraged_position_max_withdrawable_amount(
         );
 
         // TODO: This has to be thought of when implementing security mechanisms
-        return Err(MCError::BadDebtPosition);
+        return Err(MCError::InternalError);
     }
 
     Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe

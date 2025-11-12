@@ -131,5 +131,6 @@ pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;
 pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 10i128.pow(5); // 10^5 = 0.01
 pub const DEFAULT_MAX_POSITIONS: u32 = 20;
+pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850; // 98.5%
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market

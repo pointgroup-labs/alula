@@ -120,7 +120,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
             &gold_pool_address,
             &1,
         ),
-        Err(Ok(MCError::LiquidatedPositionIsHealthy))
+        Err(Ok(MCError::LiquidatedObligationIsHealthy))
     );
 
     // - Accrue bad debt on the pool -

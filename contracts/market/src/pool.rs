@@ -538,6 +538,14 @@ impl Pool {
         Ok(())
     }
 
+    pub fn require_collateral_is_seizable(&self) -> Result<(), MCError> {
+        if self.config.health_config.close_ltv_bps == 0 {
+            return Err(MCError::AssetCannotBeUsedAsCollateral);
+        }
+
+        Ok(())
+    }
+
     // ---- MISC ----
 
     /// Computes the maximum available amount for deposit removal that doesn't exceed the
@@ -886,6 +894,9 @@ pub struct PoolHealthConfig {
     pub liquidation_close_factor_bps: i128,
     /// Additional discount given to liquidators when purchasing collateral
     pub liquidation_incentive_bps: i128,
+    /// LTV calculated for unparameterized obligation positions(i.e., no openLTV/liability factors scaling) that marks
+    /// position as insolvent. Used as a means to avoid unprofitable health-improving liquidations
+    pub insolvency_ltv_bps: i128,
 }
 
 impl Default for PoolHealthConfig {
@@ -900,6 +911,7 @@ impl Default for PoolHealthConfig {
             liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD_BPS, // TODO: Rename?
             withdraw_scarcity_limit_bps: DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS,
             withdraw_scarcity_cooldown_s: DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS,
+            insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
         }
     }
 }
@@ -916,6 +928,7 @@ impl PoolHealthConfig {
             liquidation_incentive_bps,
             withdraw_scarcity_limit_bps,
             withdraw_scarcity_cooldown_s,
+            insolvency_ltv_bps,
         } = self;
 
         if supply_limit < 0 {

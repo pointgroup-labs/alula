@@ -41,27 +41,10 @@ pub trait Market {
         oracle: Address,
         deployer: Address,
         max_positions: u32,
+        insolvency_ltv_bps: i128,
         min_collateral_value: i128,
         update_in_queue_period: Option<u64>,
-    ) -> Result<(), MCError> {
-        let market_status = if update_in_queue_period.is_some() {
-            // Owned markets begin in a frozen state
-            MarketStatus::Frozen
-        } else {
-            MarketStatus::Active
-        };
-
-        storage::set_name(&e, &name);
-        storage::set_admin(&e, &admin);
-        storage::set_oracle(&e, &oracle);
-        storage::set_deployer(&e, &deployer);
-        storage::set_market_status(&e, &market_status);
-        storage::set_max_positions(&e, max_positions);
-        storage::set_update_in_queue_period(&e, update_in_queue_period);
-        storage::set_min_collateral_value(&e, min_collateral_value);
-
-        Ok(())
-    }
+    ) -> Result<(), MCError>;
 
     /// Submits a request batch
     fn submit_requests_batch(e: Env, user: Address, requests: Vec<Request>) -> Result<(), MCError>;
@@ -432,6 +415,17 @@ pub trait Market {
     /// Returns a list of all multiply pairs registered for the market
     fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair>;
 
+    fn liquidate2(
+        e: Env,
+        liquidator: Address,
+        borrower: Address,
+        borrower_obligation_seed: Option<BytesN<32>>,
+        borrow_pool_address: Address,
+        collateral_pool_address: Address,
+        amount: i128,
+        min_received_collateral_amount: i128,
+    ) -> Result<(), MCError>;
+
     /// Liquidates borrower's position if position's health factor criterion isn't met
     ///
     /// # Arguments
@@ -525,10 +519,11 @@ impl Market for MarketContract {
         deployer: Address,
         max_positions: u32,
         min_collateral_value: i128,
+        insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<(), MCError> {
         let market_status = if update_in_queue_period.is_some() {
-            // NB: Owned markets begin in a frozen state
+            // Owned markets begin in a frozen state
             MarketStatus::Frozen
         } else {
             MarketStatus::Active
@@ -542,6 +537,7 @@ impl Market for MarketContract {
         storage::set_max_positions(&e, max_positions);
         storage::set_update_in_queue_period(&e, update_in_queue_period);
         storage::set_min_collateral_value(&e, min_collateral_value);
+        storage::set_insolvency_ltv_bps(&e, insolvency_ltv_bps);
 
         Ok(())
     }
@@ -793,6 +789,37 @@ impl Market for MarketContract {
 
         let obligation_key = ObligationKey::new(user);
         process_repay(&e, &obligation_key, &pool_address, amount)?.execute();
+
+        Ok(())
+    }
+
+    fn liquidate2(
+        e: Env,
+        liquidator: Address,
+        borrower: Address,
+        borrower_obligation_seed: Option<BytesN<32>>, /* I am not sure if this is OK, to be honest... */
+        borrow_pool_address: Address,
+        collateral_pool_address: Address,
+        amount: i128,
+        min_received_collateral_amount: i128,
+    ) -> Result<(), MCError> {
+        storage::extend_instance_storage(&e);
+        require_not_frozen(&e)?;
+        liquidator.require_auth();
+
+        let obligation_key = borrower_obligation_seed
+            .map(|seed| ObligationKey::new_with_seed(borrower.clone(), seed))
+            .unwrap_or_else(|| ObligationKey::new(borrower));
+
+        process_liquidate_2(
+            &e,
+            &liquidator,
+            &obligation_key,
+            &borrow_pool_address,
+            &collateral_pool_address,
+            amount,
+            min_received_collateral_amount,
+        )?;
 
         Ok(())
     }

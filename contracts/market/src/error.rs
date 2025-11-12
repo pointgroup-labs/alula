@@ -53,12 +53,14 @@ pub enum MCError {
     OracleStalePrice = 501,
 
     // Health factor and liquidation errors (600-699)
-    BadDebtPosition = 600,
-    LiquidatedPositionIsHealthy = 601,
+    LiquidatedObligationIsHealthy = 601,
     LiquidationExceedsCloseFactor = 602,
     SelfLiquidation = 603,
     LiquidationWithEqualCollateralAndDepositPools = 604,
     PositionDoesNotHaveBadDebt = 605,
+    AssetCannotBeUsedAsCollateral = 606,
+    PairIsNotLiquidatable = 607,
+    LiquidationMinCollateralTooBig = 608,
 
     // Leverage and swap errors (700-799)
     InvalidLeverageMultiplier = 700,

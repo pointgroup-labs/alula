@@ -184,7 +184,7 @@ fn test_liquidate_healthy_position_fails() {
         &1,
     );
 
-    assert_eq!(result, Err(Ok(MCError::LiquidatedPositionIsHealthy)));
+    assert_eq!(result, Err(Ok(MCError::LiquidatedObligationIsHealthy)));
 }
 
 #[test]
@@ -444,7 +444,7 @@ fn test_liquidate_health_factor_reduction() {
             &test.test_fixture.gold_pool_address,
             &10,
         ),
-        Err(Ok(MCError::LiquidatedPositionIsHealthy))
+        Err(Ok(MCError::LiquidatedObligationIsHealthy))
     );
 }
 
@@ -490,7 +490,7 @@ fn test_liquidate_multiple_small() {
                 let expected = initial_debt - (small_amount * i);
                 assert_eq!(current_debt, expected, "Liquidation {} failed", i);
             }
-            Err(Ok(MCError::LiquidatedPositionIsHealthy)) => {
+            Err(Ok(MCError::LiquidatedObligationIsHealthy)) => {
                 // Position became healthy, this is expected
                 break;
             }

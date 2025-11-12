@@ -18,6 +18,7 @@ pub struct GlobalState {
     pub oracle: Address,
     pub deployer: Address,
     pub max_positions: u32,
+    pub insolvency_ltv_bps: i128,
     pub min_collateral_value: i128,
     pub update_in_queue_period: Option<u64>,
 }
@@ -66,6 +67,7 @@ pub enum DataKey {
     DeployerHost,
     Oracle,
     MinCollateralValue,
+    InsolvencyLtvBps,
     MaxPositions,
     GlobalState,
     Accrual,
@@ -134,6 +136,14 @@ pub fn get_min_collateral_value(e: &Env) -> i128 {
         .instance()
         .get(&DataKey::MinCollateralValue)
         .expect("MinCollateralValue must be set")
+}
+
+// - InsolvencyLtvBps -
+pub fn set_insolvency_ltv_bps(e: &Env, insolvency_ltv_bps: i128) {
+    e.storage().instance().set(&DataKey::InsolvencyLtvBps, &insolvency_ltv_bps);
+}
+pub fn get_insolvency_ltv_bps(e: &Env) -> i128 {
+    e.storage().instance().get(&DataKey::InsolvencyLtvBps).expect("InsolvencyLtvBps must be set")
 }
 
 // - MarketStatus -
