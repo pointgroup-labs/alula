@@ -772,7 +772,8 @@ impl Obligation {
             .map_over_or_underflow()?;
 
         let (mut collateral_to_sell_to_liquidator, liquidated_amount) = if is_solvent {
-            // LTV-improving scenario
+            // -- LTV-improving scenario --
+
             let liquidated_amount = amount;
 
             // 1. Check if the liquidation doesn't exceed the close factor
@@ -819,8 +820,9 @@ impl Obligation {
 
             (collateral_to_sell_to_liquidator, liquidated_amount)
         } else {
-            // Insolvency scenario - the obligation is given away completely to liquidators to decrease the amount of `bad debt`
-            // in the market
+            // -- Insolvency scenario - the obligation is given away completely to liquidators to decrease the amount of `bad debt`
+            // in the market --
+
             let liquidated_amount = amount.min(position_debt);
             let liquidated_value =
                 liquidated_amount.checked_mul(borrowed_asset_price).map_over_or_underflow()?;
@@ -842,8 +844,8 @@ impl Obligation {
             (collateral_to_sell_to_liquidator, liquidated_amount)
         };
 
-        let mut is_collateral_drained = false;
-        if position_collateral_sum > collateral_to_sell_to_liquidator {
+        let is_collateral_drained = if position_collateral_sum > collateral_to_sell_to_liquidator {
+            // TODO: Verify that everything works well here with ceiling/flooring
             let collateral_left = position_collateral_sum - collateral_to_sell_to_liquidator; // safe 
             let collateral_value_left =
                 collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
@@ -852,12 +854,18 @@ impl Obligation {
                 // If collateral that's left is worth less than the configured `min_collateral_value` on the market,
                 // the liquidator additionally receives all of the collateral that's left
                 collateral_to_sell_to_liquidator += collateral_left;
-                is_collateral_drained = true;
+
+                true
+            } else {
+                false
             }
-        }
+        } else {
+            true
+        };
 
         // Verify that collateral amount is sufficient for a liquidator
         if collateral_to_sell_to_liquidator < min_demanded_collateral_amount {
+            // TODO: This is something I also am not so sure about
             return Err(MCError::LiquidationMinCollateralTooBig);
         }
 
@@ -902,8 +910,8 @@ impl Obligation {
                 );
 
                 return Err(MCError::InternalError);
-            } else if tokens_from_j_tokens_seized_ceil > deposit_position.deposited {
-                tokens_from_j_tokens_seized_ceil - deposit_position.deposited // safe
+            } else if tokens_from_j_tokens_seized_ceil > received_interest {
+                tokens_from_j_tokens_seized_ceil - received_interest // safe
             } else {
                 0
             };
@@ -924,10 +932,6 @@ impl Obligation {
 
         let is_full_debt_being_liquidated = liquidated_amount == position_debt;
         let (d_tokens_to_burn, decreased_borrowed_amount) = if is_full_debt_being_liquidated {
-            self.borrows
-                .remove(borrow_pool.pool_address.clone())
-                .expect("Borrow position must exist at this point");
-
             (borrow_position.d_tokens, borrow_position.borrowed)
         } else {
             let d_tokens_to_burn =
@@ -948,8 +952,8 @@ impl Obligation {
                 );
 
                 return Err(MCError::InternalError);
-            } else if liquidated_amount > borrow_position.borrowed {
-                liquidated_amount - borrow_position.borrowed // safe
+            } else if liquidated_amount > unpaid_interest {
+                liquidated_amount - unpaid_interest // safe
             } else {
                 0
             };
@@ -963,8 +967,17 @@ impl Obligation {
         borrow_position
             .adjust_borrowed(e, decreased_borrowed_amount.checked_neg().map_over_or_underflow()?)?;
 
-        self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
-        self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
+        if deposit_position.is_empty() {
+            self.deposits.remove(collateral_pool.pool_address.clone());
+        } else {
+            self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
+        }
+
+        if borrow_position.is_empty() {
+            self.borrows.remove(borrow_pool.pool_address.clone());
+        } else {
+            self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
+        }
 
         Ok(LiquidationResult {
             j_tokens_seized,
