@@ -912,7 +912,7 @@ impl Obligation {
         };
 
         deposit_position
-            .adjust_collateral(&e, collateral_seized.checked_neg().map_over_or_underflow()?)?;
+            .adjust_collateral(e, collateral_seized.checked_neg().map_over_or_underflow()?)?;
         deposit_position
             .adjust_j_tokens(e, j_tokens_seized.checked_neg().map_over_or_underflow()?)?;
         deposit_position.adjust_deposited(

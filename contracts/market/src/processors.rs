@@ -827,12 +827,12 @@ pub fn process_liquidate<'a>(
         liquidator_obligation.set(e, &liquidator_obligation_key);
     }
 
-    borrow_pool.liquidation_repay_debt(&e, &liquidation_result)?;
-    collateral_pool.liquidation_redeem_collateral(&e, &liquidation_result)?;
+    borrow_pool.liquidation_repay_debt(e, &liquidation_result)?;
+    collateral_pool.liquidation_redeem_collateral(e, &liquidation_result)?;
 
-    obligation.set(&e, borrower_obligation_key);
-    borrow_pool.set(&e);
-    collateral_pool.set(&e);
+    obligation.set(e, borrower_obligation_key);
+    borrow_pool.set(e);
+    collateral_pool.set(e);
 
     let user_transfers =
         smap![e, (borrow_pool.token_address.clone(), liquidation_result.debt_repaid)];
@@ -840,7 +840,7 @@ pub fn process_liquidate<'a>(
         e,
         (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized)
     ];
-    let transfers = RequestTransfers::new(e, &liquidator, market_transfers, user_transfers);
+    let transfers = RequestTransfers::new(e, liquidator, market_transfers, user_transfers);
 
     events::liquidate(
         e,
