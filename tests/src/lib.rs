@@ -627,9 +627,9 @@ impl RunCommand for Liquidate {
         let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
 
         if pool_address != collateral_pool_address {
-            let TestMarketFixture { contract_client, users, .. } = test_fixture;
+            let TestMarketFixture { contract_client: _, users, .. } = test_fixture;
 
-            let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
+            let (_liquidator, _borrower) = (&users[who], &users[(who + 1) % users.len()]);
 
             // let _ = contract_client.try_liquidate(
             //     liquidator,

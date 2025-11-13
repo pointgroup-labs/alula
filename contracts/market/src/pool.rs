@@ -9,8 +9,8 @@ use crate::{
     interest_rate_model::InterestRateModel,
     math_utils::MathUtils,
     obligation::{
-        AddCollateralResult, BorrowResult, ComputedFees, DepositResult, RemoveCollateralResult,
-        RepayResult, WithdrawResult,
+        AddCollateralResult, BorrowResult, ComputedFees, DepositResult, LiquidationResult,
+        RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     oracle::get_asset_price,
     storage::{self, PoolUpdate},
@@ -192,6 +192,35 @@ impl Pool {
         )?;
 
         self.adjust_fees(e, &remove_collateral_result.computed_fees)?;
+
+        Ok(())
+    }
+
+    /// Repays liquidated obligation's debt to the pool
+    pub fn liquidation_repay_debt(
+        &mut self,
+        e: &Env,
+        liquidation_result: &LiquidationResult,
+    ) -> Result<(), MCError> {
+        self.adjust_total_borrowed(
+            e,
+            liquidation_result.debt_repaid.checked_neg().map_over_or_underflow()?,
+        )?;
+        self.adjust_total_d_tokens(
+            e,
+            liquidation_result.d_tokens_burned.checked_neg().map_over_or_underflow()?,
+        )?;
+
+        Ok(())
+    }
+
+    /// Removes liquidated plain collateral from the pool as a part of the liquidator's incentive
+    pub fn liquidation_redeem_collateral(
+        &mut self,
+        e: &Env,
+        liquidation_result: &LiquidationResult,
+    ) -> Result<(), MCError> {
+        self.adjust_total_collateral(e, liquidation_result.plain_collateral_seized)?;
 
         Ok(())
     }
@@ -969,6 +998,10 @@ impl PoolHealthConfig {
 
         if !(0..MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS).contains(&withdraw_scarcity_cooldown_s) {
             return Err("Withdrawal scarcity cooldown seconds exceed limit");
+        }
+
+        if !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps) {
+            return Err("Insolvency LTV bps must be within 95% to 100%");
         }
 
         Ok(())

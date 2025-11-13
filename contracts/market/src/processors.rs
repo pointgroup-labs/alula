@@ -12,9 +12,7 @@ use crate::{
     math_utils::MathUtils,
     misc::require_nonnegative,
     multiply_pair::MultiplyPair,
-    obligation::{
-        CoverBadDebtResult, LiquidationResult, LiquidationResult2, Obligation, ObligationKey,
-    },
+    obligation::{CoverBadDebtResult, Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
     request::{Request, RequestTransfers, RequestType},
     storage::{self, GlobalState},
@@ -24,7 +22,7 @@ use crate::{
 pub fn process_submit_requests_batch<'a>(
     e: &'a Env,
     user: &'a Address,
-    requests: &'a Vec<Request>,
+    requests: &Vec<Request>,
     plain_obligation_key: &'a ObligationKey,
     earn_obligation_key: &'a ObligationKey,
 ) -> Result<RequestTransfers<'a>, MCError> {
@@ -779,15 +777,15 @@ pub fn process_withdraw_from_leveraged(
 
 pub fn process_liquidate<'a>(
     e: &'a Env,
-    liquidator: &Address,
+    liquidator: &'a Address,
     borrower_obligation_key: &ObligationKey,
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
     amount: i128,
-    min_collateral_received_amount: i128,
+    min_demanded_collateral_amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
-    require_nonnegative(min_collateral_received_amount)?;
+    require_nonnegative(min_demanded_collateral_amount)?;
 
     if borrow_pool_address == collateral_pool_address {
         return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
@@ -799,22 +797,61 @@ pub fn process_liquidate<'a>(
     let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
     obligation.accrue_interest(e)?;
 
-    let (borrow_pool, collateral_pool) = (
+    let (mut borrow_pool, mut collateral_pool) = (
         Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
         Pool::try_get(e, collateral_pool_address)
             .map_err(|_| MCError::CollateralPoolDoesNotExist)?,
     );
     collateral_pool.require_collateral_is_seizable()?;
 
-    let liquidation_result: LiquidationResult2 = obligation.liquidate(
+    let liquidation_result = obligation.liquidate(
         e,
         &borrow_pool,
         &collateral_pool,
         amount,
-        min_collateral_received_amount,
+        min_demanded_collateral_amount,
     )?;
 
-    todo!()
+    if liquidation_result.j_tokens_seized > 0 {
+        // In case the liquidated obligation's plain collateral wasn't sufficient to cover the liquidation,
+        // borrower's jTokens are transferred to the liquidator as a part of the incentive
+        let liquidator_obligation_key = ObligationKey::new(liquidator.clone());
+        let mut liquidator_obligation = Obligation::try_get(e, &liquidator_obligation_key)
+            .unwrap_or(Obligation::new(e, &liquidator_obligation_key));
+
+        liquidator_obligation.liquidation_increase_j_tokens(
+            e,
+            &collateral_pool,
+            liquidation_result.j_tokens_seized,
+        )?;
+        liquidator_obligation.set(e, &liquidator_obligation_key);
+    }
+
+    borrow_pool.liquidation_repay_debt(&e, &liquidation_result)?;
+    collateral_pool.liquidation_redeem_collateral(&e, &liquidation_result)?;
+
+    obligation.set(&e, borrower_obligation_key);
+    borrow_pool.set(&e);
+    collateral_pool.set(&e);
+
+    let user_transfers =
+        smap![e, (borrow_pool.token_address.clone(), liquidation_result.debt_repaid)];
+    let market_transfers = smap![
+        e,
+        (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized)
+    ];
+    let transfers = RequestTransfers::new(e, &liquidator, market_transfers, user_transfers);
+
+    events::liquidate(
+        e,
+        liquidator,
+        borrower_obligation_key,
+        borrow_pool_address,
+        collateral_pool_address,
+        liquidation_result,
+    );
+
+    Ok(transfers)
 }
 
 pub fn process_redeem_accumulated_host_fees(

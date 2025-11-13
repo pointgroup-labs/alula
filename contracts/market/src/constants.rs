@@ -85,6 +85,10 @@ pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100% (equivalent to a liability factor to make no difference)
 pub const MAX_LIABILITY_FACTOR_BPS: i128 = 2 * BPS_FACTOR; // 200%
 
+pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850; // 98.5%
+pub const MIN_INSOLVENCY_LTV_BPS: i128 = 9_500; // 95%
+pub const MAX_INSOLVENCY_LTV_BPS: i128 = BPS_FACTOR; // 100%
+
 // ---- Swap ----
 
 /// Default max slippage in bps
@@ -131,6 +135,5 @@ pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;
 pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 10i128.pow(5); // 10^5 = 0.01
 pub const DEFAULT_MAX_POSITIONS: u32 = 20;
-pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850; // 98.5%
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market

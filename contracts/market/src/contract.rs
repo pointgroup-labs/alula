@@ -415,16 +415,18 @@ pub trait Market {
     /// Returns a list of all multiply pairs registered for the market
     fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair>;
 
-    /// Liquidates borrower's position if position's health factor criterion isn't met
+    /// Liquidates the borrower's position if the position's health factor criterion isn't met
     ///
     /// # Arguments
-    /// * `liquidator` - agent which liquidates the borrower's position
+    /// * `liquidator` - agent that liquidates the borrower's position
     /// * `borrower` - the borrower whose position is being liquidated
+    /// * `borrower_obligation_seed` - the borrower obligation's seed(if any)
     /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
-    ///   liquidator
+    ///   liquidator
     /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
-    ///   a discount
+    ///   a discount
     /// * `amount` - amount of repaid tokens
+    /// * `min_demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
     fn liquidate(
         e: Env,
         liquidator: Address,
@@ -433,7 +435,7 @@ pub trait Market {
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         amount: i128,
-        min_received_collateral_amount: i128,
+        min_demanded_collateral_amount: i128,
     ) -> Result<(), MCError>;
 
     /// Creates a flash loan
@@ -792,7 +794,7 @@ impl Market for MarketContract {
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         amount: i128,
-        min_received_collateral_amount: i128,
+        min_demanded_collateral_amount: i128,
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         require_not_frozen(&e)?;
@@ -809,14 +811,14 @@ impl Market for MarketContract {
             &borrow_pool_address,
             &collateral_pool_address,
             amount,
-            min_received_collateral_amount,
+            min_demanded_collateral_amount,
         )?
         .execute();
 
         Ok(())
     }
 
-    // MEGA_WARN: Min collateral value enforced if borrows exist - implement this
+    // MEGA_WARN: Min collateral value enforced only if borrows exist - implement this
 
     fn withdraw(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
         user.require_auth();

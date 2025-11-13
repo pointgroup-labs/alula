@@ -2,8 +2,8 @@ use soroban_sdk::{Address, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
-        AddCollateralResult, BorrowResult, DepositResult, ObligationKey, RemoveCollateralResult,
-        RepayResult, WithdrawResult,
+        AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, ObligationKey,
+        RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     pool::{Pool, PoolConfig},
 };
@@ -121,9 +121,7 @@ struct LiquidateEvent {
     pub borrow_pool_address: Address,
     #[topic]
     pub collateral_pool_address: Address,
-    // TODO: Introduce `LiquidateResult` struct
-    pub liquidated_amount: i128,
-    pub collateral_seized_amount: i128,
+    pub liquidation_result: LiquidationResult,
 }
 
 #[contractevent]
@@ -269,10 +267,9 @@ struct ObligationIsUnexpectedlyEmpty {
 struct ComputedInterestIsNegative {
     #[topic]
     pub pool_address: Address,
-    pub shares: i128,
-    pub tokens_from_shares: i128,
+    pub position_shares: i128,
+    pub tokens_from_shares_ceil: i128,
     pub computed_interest: i128,
-    pub tokens_from_all_shares: i128,
 }
 
 #[contractevent]
@@ -428,16 +425,14 @@ pub fn liquidate(
     borrower_obligation_key: &ObligationKey,
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
-    liquidated_amount: i128,
-    collateral_seized_amount: i128,
+    liquidation_result: LiquidationResult,
 ) {
     LiquidateEvent {
         liquidator: liquidator.clone(),
         borrower_obligation_key: borrower_obligation_key.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
         collateral_pool_address: collateral_pool_address.clone(),
-        liquidated_amount,
-        collateral_seized_amount,
+        liquidation_result,
     }
     .publish(e);
 }
@@ -627,17 +622,15 @@ pub fn obligation_is_unexpectedly_empty(
 pub fn computed_interest_is_negative(
     e: &Env,
     pool_address: &Address,
-    shares: i128,
-    tokens_from_shares: i128,
+    position_shares: i128,
+    tokens_from_position_shares_ceil: i128,
     computed_interest: i128,
-    tokens_from_all_shares: i128,
 ) {
     ComputedInterestIsNegative {
-        pool_address: pool_address.clone(),
-        shares,
-        tokens_from_shares,
+        position_shares,
         computed_interest,
-        tokens_from_all_shares,
+        pool_address: pool_address.clone(),
+        tokens_from_shares_ceil: tokens_from_position_shares_ceil,
     }
     .publish(e);
 }

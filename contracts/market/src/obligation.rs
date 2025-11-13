@@ -2,13 +2,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
-    constants::*,
-    error::MCError,
-    events,
-    math_utils::MathUtils,
-    oracle::get_asset_price,
-    pool::{Pool, PoolHealthConfig},
-    storage,
+    constants::*, error::MCError, events, math_utils::MathUtils, oracle::get_asset_price,
+    pool::Pool, storage,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -561,10 +556,9 @@ impl Obligation {
             events::computed_interest_is_negative(
                 e,
                 &pool.pool_address,
-                j_tokens_to_burn,
-                deposit_decrease,
+                deposit_position.j_tokens,
+                all_deposit_ceil,
                 received_interest,
-                all_deposit,
             );
 
             return Err(MCError::InternalError);
@@ -688,10 +682,9 @@ impl Obligation {
             events::computed_interest_is_negative(
                 e,
                 &pool.pool_address,
-                d_tokens_to_burn,
-                debt_decrease,
-                unpaid_interest,
+                borrow_position.d_tokens,
                 all_debt,
+                unpaid_interest,
             );
 
             return Err(MCError::InternalError);
@@ -731,8 +724,8 @@ impl Obligation {
         borrow_pool: &Pool,
         collateral_pool: &Pool,
         amount: i128,
-        min_collateral_amount: i128,
-    ) -> Result<LiquidationResult2, MCError> {
+        min_demanded_collateral_amount: i128,
+    ) -> Result<LiquidationResult, MCError> {
         let (mut deposit_position, mut borrow_position) = (
             self.deposits
                 .get(collateral_pool.pool_address.clone())
@@ -741,32 +734,33 @@ impl Obligation {
                 .get(borrow_pool.pool_address.clone())
                 .ok_or(MCError::PairIsNotLiquidatable)?,
         );
+        let (insolvency_ltv_bps, min_collateral_value) =
+            (storage::get_insolvency_ltv_bps(e), storage::get_min_collateral_value(e));
 
-        let insolvency_ltv_bps = storage::get_insolvency_ltv_bps(e);
-        let min_collateral_value = storage::get_min_collateral_value(e);
-
-        let obligation_debt_value = self.compute_debt_value(e)?;
-        let obligation_collateral_value = self.compute_collateral_value(e)?;
-        let obligation_debt_value_w_liability_factors =
-            self.compute_debt_value_scaled_w_liability_factors(e)?;
-        let obligation_collateral_value_w_close_ltvs =
-            self.compute_collateral_value_scaled_w_close_ltvs(e)?;
-
+        let (obligation_debt_value_w_liability_factors, obligation_collateral_value_w_close_ltvs) = (
+            self.compute_debt_value_scaled_w_liability_factors(e)?,
+            self.compute_collateral_value_scaled_w_close_ltvs(e)?,
+        );
         if obligation_debt_value_w_liability_factors <= obligation_collateral_value_w_close_ltvs {
             return Err(MCError::LiquidatedObligationIsHealthy);
         }
 
+        let (obligation_debt_value, obligation_collateral_value) =
+            (self.compute_debt_value(e)?, self.compute_collateral_value(e)?);
         let unparameterized_ltv_bps = obligation_debt_value
             .fixed_div_ceil(obligation_collateral_value, BPS_FACTOR)
             .map_over_or_underflow()?;
+
         let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
 
-        let liquidation_incentive_bps = borrow_pool.config.health_config.liquidation_incentive_bps;
-        let liquidation_close_factor_bps =
-            borrow_pool.config.health_config.liquidation_close_factor_bps;
-
-        let borrowed_asset_price = get_asset_price(e, &borrow_pool.token_address)?;
-        let collateral_asset_price = get_asset_price(e, &collateral_pool.token_address)?;
+        let (liquidation_incentive_bps, liquidation_close_factor_bps) = (
+            borrow_pool.config.health_config.liquidation_incentive_bps,
+            borrow_pool.config.health_config.liquidation_close_factor_bps,
+        );
+        let (borrowed_asset_price, collateral_asset_price) = (
+            get_asset_price(e, &borrow_pool.token_address)?,
+            get_asset_price(e, &collateral_pool.token_address)?,
+        );
 
         let position_debt =
             borrow_pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
@@ -778,9 +772,10 @@ impl Obligation {
             .map_over_or_underflow()?;
 
         let (mut collateral_to_sell_to_liquidator, liquidated_amount) = if is_solvent {
+            // LTV-improving scenario
             let liquidated_amount = amount;
 
-            // 1. Check if liquidation doesn't exceed the close factor
+            // 1. Check if the liquidation doesn't exceed the close factor
             let liquidated_borrow_bps = liquidated_amount
                 .fixed_div_ceil(position_debt, BPS_FACTOR)
                 .map_over_or_underflow()?;
@@ -803,7 +798,7 @@ impl Obligation {
             let denominator = obligation_debt_value
                 .checked_mul(collateral_asset_price)
                 .map_over_or_underflow()?;
-            let max_ltv_improving_bonus =
+            let max_ltv_improving_collateral_seized =
                 numerator.checked_div(denominator).map_over_or_underflow()?;
 
             let collateral_value_to_redeem_with_max_incentive = liquidated_value
@@ -817,13 +812,15 @@ impl Obligation {
                     .checked_div(collateral_asset_price)
                     .map_over_or_underflow()?;
 
-            // 4. Find the amount of collateral to give away that obey all LTV improving constraints
+            // 4. Find the amount of collateral to give away that obeys all LTV improving constraints
             let collateral_to_sell_to_liquidator = position_collateral_sum
-                .min(max_ltv_improving_bonus)
+                .min(max_ltv_improving_collateral_seized)
                 .min(redeemed_collateral_amount_with_max_incentive);
 
             (collateral_to_sell_to_liquidator, liquidated_amount)
         } else {
+            // Insolvency scenario - the obligation is given away completely to liquidators to decrease the amount of `bad debt`
+            // in the market
             let liquidated_amount = amount.min(position_debt);
             let liquidated_value =
                 liquidated_amount.checked_mul(borrowed_asset_price).map_over_or_underflow()?;
@@ -852,7 +849,7 @@ impl Obligation {
                 collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
 
             if collateral_value_left < min_collateral_value {
-                // If collateral that's left is worth less than the configured `min_collateral_value` in the market,
+                // If collateral that's left is worth less than the configured `min_collateral_value` on the market,
                 // the liquidator additionally receives all of the collateral that's left
                 collateral_to_sell_to_liquidator += collateral_left;
                 is_collateral_drained = true;
@@ -860,198 +857,138 @@ impl Obligation {
         }
 
         // Verify that collateral amount is sufficient for a liquidator
-        if collateral_to_sell_to_liquidator < min_collateral_amount {
+        if collateral_to_sell_to_liquidator < min_demanded_collateral_amount {
             return Err(MCError::LiquidationMinCollateralTooBig);
         }
 
+        // -- Adjust Deposit Position --
+
         // Distribute liquidator incentive between plain collateral and received `jTokens`
-        let (collateral_seized, j_tokens_seized) = if collateral_to_sell_to_liquidator
-            > deposit_position.collateral
-        {
-            let left_as_j_tokens = collateral_to_sell_to_liquidator - deposit_position.collateral; // safe
-            let j_tokens = collateral_pool
-                .compute_j_tokens_from_tokens_floor(e, left_as_j_tokens)?
-                .min(deposit_position.j_tokens);
+        let (collateral_seized, j_tokens_seized) =
+            if collateral_to_sell_to_liquidator > deposit_position.collateral {
+                let j_tokens = if is_collateral_drained {
+                    deposit_position.j_tokens
+                } else {
+                    let left_as_j_tokens =
+                        collateral_to_sell_to_liquidator - deposit_position.collateral; // safe
 
-            (deposit_position.collateral, j_tokens)
-        } else {
-            (collateral_to_sell_to_liquidator, 0)
+                    collateral_pool
+                        .compute_j_tokens_from_tokens_floor(e, left_as_j_tokens)?
+                        .min(deposit_position.j_tokens)
+                };
+
+                (deposit_position.collateral, j_tokens)
+            } else {
+                (collateral_to_sell_to_liquidator, 0)
+            };
+
+        let tokens_from_j_tokens_seized_ceil =
+            collateral_pool.compute_tokens_from_j_tokens_ceil(e, j_tokens_seized)?;
+
+        let decreased_deposited_amount = {
+            let position_deposited_ceil =
+                collateral_pool.compute_tokens_from_j_tokens_ceil(e, deposit_position.j_tokens)?;
+            let received_interest = position_deposited_ceil
+                .checked_sub(deposit_position.deposited)
+                .map_over_or_underflow()?;
+
+            let deposited_diff = if received_interest.is_negative() {
+                events::computed_interest_is_negative(
+                    e,
+                    &borrow_pool.pool_address,
+                    borrow_position.d_tokens,
+                    position_deposited_ceil,
+                    received_interest,
+                );
+
+                return Err(MCError::InternalError);
+            } else if tokens_from_j_tokens_seized_ceil > deposit_position.deposited {
+                tokens_from_j_tokens_seized_ceil - deposit_position.deposited // safe
+            } else {
+                0
+            };
+
+            deposited_diff.min(deposit_position.deposited)
         };
-
-        // -- Adjust obligation positions --
 
         deposit_position
             .adjust_collateral(&e, collateral_seized.checked_neg().map_over_or_underflow()?)?;
         deposit_position
             .adjust_j_tokens(e, j_tokens_seized.checked_neg().map_over_or_underflow()?)?;
+        deposit_position.adjust_deposited(
+            e,
+            decreased_deposited_amount.checked_neg().map_over_or_underflow()?,
+        )?;
 
-        // TODO: Update received interest
-        // borrow_position.adjust_d_tokens(e, adjusting_amount)
+        // -- Adjust Borrow Position --
 
-        todo!()
+        let is_full_debt_being_liquidated = liquidated_amount == position_debt;
+        let (d_tokens_to_burn, decreased_borrowed_amount) = if is_full_debt_being_liquidated {
+            self.borrows
+                .remove(borrow_pool.pool_address.clone())
+                .expect("Borrow position must exist at this point");
+
+            (borrow_position.d_tokens, borrow_position.borrowed)
+        } else {
+            let d_tokens_to_burn =
+                borrow_pool.compute_tokens_from_d_tokens_floor(e, liquidated_amount)?;
+
+            let position_debt_ceil =
+                borrow_pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
+            let unpaid_interest =
+                position_debt_ceil.checked_sub(borrow_position.borrowed).map_over_or_underflow()?;
+
+            let borrowed_diff = if unpaid_interest.is_negative() {
+                events::computed_interest_is_negative(
+                    e,
+                    &borrow_pool.pool_address,
+                    borrow_position.d_tokens,
+                    position_debt_ceil,
+                    unpaid_interest,
+                );
+
+                return Err(MCError::InternalError);
+            } else if liquidated_amount > borrow_position.borrowed {
+                liquidated_amount - borrow_position.borrowed // safe
+            } else {
+                0
+            };
+
+            (d_tokens_to_burn, borrowed_diff)
+        };
+        let decreased_borrowed_amount = decreased_borrowed_amount.min(borrow_position.borrowed);
+
+        borrow_position
+            .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
+        borrow_position
+            .adjust_borrowed(e, decreased_borrowed_amount.checked_neg().map_over_or_underflow()?)?;
+
+        self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
+        self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
+
+        Ok(LiquidationResult {
+            j_tokens_seized,
+            debt_repaid: liquidated_amount,
+            d_tokens_burned: d_tokens_to_burn,
+            plain_collateral_seized: collateral_seized,
+            tokens_from_j_tokens_seized: tokens_from_j_tokens_seized_ceil,
+        })
     }
 
-    /// Liquidates unhealthy borrow
-    pub fn liquidate2(
+    /// Increases `jTokens` amount for the liquidator's obligation if the plain collateral wasn't sufficient to cover the liquidation
+    pub fn liquidation_increase_j_tokens(
         &mut self,
         e: &Env,
-        borrow_pool_address: &Address,
-        collateral_pool_address: &Address,
-        borrow_pool: &Pool,
         collateral_pool: &Pool,
-        amount: i128,
-    ) -> Result<LiquidationResult, MCError> {
-        let (mut collateral_obligation, mut borrow_position) = (
-            self.deposits
-                .get(collateral_pool_address.clone())
-                .ok_or(MCError::DepositDoesNotExist)?,
-            self.borrows.get(borrow_pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?,
-        );
+        j_tokens_amount: i128,
+    ) -> Result<(), MCError> {
+        let mut deposit_position =
+            self.deposits.get(collateral_pool.pool_address.clone()).unwrap_or_default();
 
-        let PoolHealthConfig { liquidation_close_factor_bps, liquidation_incentive_bps, .. } =
-            borrow_pool.config.health_config;
+        deposit_position.adjust_j_tokens(e, j_tokens_amount)?;
+        self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
 
-        let borrow_position_d_tokens = borrow_position.d_tokens;
-        let borrow_position_d_tokens_as_tokens =
-            borrow_pool.compute_tokens_from_d_tokens_floor(e, borrow_position_d_tokens)?;
-
-        let collateral_obligation_j_tokens = collateral_obligation.j_tokens;
-        let collateral_obligation_j_tokens_as_tokens = collateral_pool
-            .compute_tokens_from_j_tokens_floor(e, collateral_obligation_j_tokens)?;
-
-        // 'liquidatable_bps' == ((amount * 10_000) / total_debt)
-        let liquidatable_bps = amount
-            .fixed_div_floor(borrow_position_d_tokens_as_tokens, BPS_FACTOR)
-            .map_over_or_underflow()?;
-        if liquidatable_bps > liquidation_close_factor_bps {
-            // TODO: What's the best way to set `close_factor_bps` value?
-            return Err(MCError::LiquidationExceedsCloseFactor);
-        }
-
-        let borrow_price = get_asset_price(e, &borrow_pool.token_address)?;
-        let liquidation_value = amount.checked_mul(borrow_price).map_over_or_underflow()?;
-
-        // Value, which liquidator would like to receive if a full liquidation takes place
-        // 'liquidation_value_with_incentive' == (liquidation_value * (10_000 +
-        // liquidation_incentive_bps)) / 10_000
-        let liquidation_value_with_incentive = liquidation_value
-            .fixed_mul_floor(BPS_FACTOR + liquidation_incentive_bps, BPS_FACTOR)
-            .map_over_or_underflow()?;
-
-        let collateral_price = get_asset_price(e, &collateral_pool.token_address)?;
-        let full_collateral_amount = collateral_obligation.collateral;
-        let full_collateral_value =
-            full_collateral_amount.checked_mul(collateral_price).map_over_or_underflow()?;
-
-        let liquidation_values = if full_collateral_value >= liquidation_value_with_incentive {
-            let collateral_amount_sold = liquidation_value_with_incentive
-                .checked_div(collateral_price)
-                .map_over_or_underflow()?;
-            let d_tokens_repaid = borrow_pool.compute_d_tokens_from_tokens_floor(e, amount)?;
-
-            LiquidationResult {
-                liquidated_amount: amount,
-                d_tokens_repaid,
-                collateral_amount_sold,
-                j_tokens_amount_sold: 0,
-                tokens_from_sold_j_tokens: 0,
-            }
-        } else {
-            let value_left = liquidation_value_with_incentive - full_collateral_value; // safe
-
-            let full_collateral_j_tokens = collateral_obligation.j_tokens;
-            let j_tokens_as_tokens =
-                collateral_pool.compute_tokens_from_j_tokens_floor(e, full_collateral_j_tokens)?;
-            let available_tokens_from_j_tokens =
-                i128::min(collateral_pool.total_available, j_tokens_as_tokens);
-
-            let tokens_from_j_tokens_value = available_tokens_from_j_tokens
-                .checked_mul(collateral_price)
-                .map_over_or_underflow()?;
-
-            if tokens_from_j_tokens_value >= value_left {
-                let tokens_from_sold_j_tokens =
-                    value_left.checked_div(collateral_price).map_over_or_underflow()?;
-                let j_tokens_amount_sold = collateral_pool
-                    .compute_j_tokens_from_tokens_floor(e, tokens_from_sold_j_tokens)?;
-                let d_tokens_repaid = borrow_pool.compute_d_tokens_from_tokens_floor(e, amount)?;
-
-                LiquidationResult {
-                    liquidated_amount: amount,
-                    d_tokens_repaid,
-                    collateral_amount_sold: full_collateral_amount,
-                    j_tokens_amount_sold,
-                    tokens_from_sold_j_tokens,
-                }
-            } else {
-                // The case when full liquidation cannot take place because of not enough available
-                // amount in the pool
-                let collateral_value_sum = full_collateral_value
-                    .checked_add(tokens_from_j_tokens_value)
-                    .map_over_or_underflow()?;
-                let tokens_per_collateral =
-                    collateral_value_sum.checked_div(collateral_price).map_over_or_underflow()?;
-
-                let numerator = BPS_FACTOR - liquidation_incentive_bps; // safe
-                let denominator = BPS_FACTOR;
-
-                // Liquidator cannot receive the entire desired value of collateral,
-                // so only a proportional amount of tokens must be repaid
-                let tokens_per_collateral_minus_incentive = tokens_per_collateral
-                    .checked_mul(numerator)
-                    .map_over_or_underflow()?
-                    .checked_div(denominator)
-                    .map_over_or_underflow()?;
-                let d_tokens_repaid = borrow_pool
-                    .compute_d_tokens_from_tokens_floor(e, tokens_per_collateral_minus_incentive)?;
-
-                LiquidationResult {
-                    liquidated_amount: tokens_per_collateral_minus_incentive,
-                    d_tokens_repaid,
-                    collateral_amount_sold: full_collateral_amount,
-                    j_tokens_amount_sold: full_collateral_j_tokens,
-                    tokens_from_sold_j_tokens: available_tokens_from_j_tokens,
-                }
-            }
-        };
-
-        let unpaid_interest = borrow_position_d_tokens_as_tokens - borrow_position.borrowed;
-        let borrowed_diff = if liquidation_values.liquidated_amount >= unpaid_interest {
-            liquidation_values.liquidated_amount - unpaid_interest // safe
-        } else {
-            0
-        };
-
-        let received_interest =
-            collateral_obligation_j_tokens_as_tokens - collateral_obligation.deposited;
-        let deposited_diff = if liquidation_values.tokens_from_sold_j_tokens >= received_interest {
-            liquidation_values.tokens_from_sold_j_tokens - received_interest // safe
-        } else {
-            0
-        };
-
-        borrow_position.adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;
-        borrow_position.adjust_d_tokens(
-            e,
-            liquidation_values.d_tokens_repaid.checked_neg().map_over_or_underflow()?,
-        )?;
-
-        collateral_obligation
-            .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
-        collateral_obligation.adjust_j_tokens(
-            e,
-            liquidation_values.j_tokens_amount_sold.checked_neg().map_over_or_underflow()?,
-        )?;
-        collateral_obligation.adjust_collateral(
-            e,
-            liquidation_values.collateral_amount_sold.checked_neg().map_over_or_underflow()?,
-        )?;
-
-        self.borrows.set(borrow_pool_address.clone(), borrow_position);
-        self.deposits.set(collateral_pool_address.clone(), collateral_obligation);
-        // TODO: Remove empty obligations?
-
-        Ok(liquidation_values)
+        Ok(())
     }
 
     /// Covers the obligation's bad debt by returning the list of the obligation's positions
@@ -1480,32 +1417,21 @@ pub struct CoverBadDebtResult {
     pub collaterals_to_remove: Vec<(Address, i128, i128)>,
 }
 
-pub struct LiquidationResult2 {
-    /// The amount of dTokens that are burned from the borrower's borrow position
-    pub d_tokens_repaid: i128,
-    /// The amount of jTokens seized from the borrower's position and given away to the liquidator
+#[contracttype]
+pub struct LiquidationResult {
+    /// The amount of debt tokens repaid by the liquidator
+    pub debt_repaid: i128,
+    /// The amount of `dTokens` that are burned from the borrower's borrow position
+    pub d_tokens_burned: i128,
+    /// The amount of plain collateral seized from the borrower's obligation and transferred to the liquidator
+    pub plain_collateral_seized: i128,
+    /// The amount of `jTokens` seized from the borrower's obligation and given away to the liquidator's obligation
     /// in case the borrower's position doesn't contain enough plain collateral to cover the liquidation expenses
-    pub received_plain_collateral: i128,
-    /// The amount of jTokens seized from the borrower's position and given away the liquidator
-    /// in case if borrower's position doesn't contains enough plain collateral to cover the liquidation expenses
-    pub received_j_tokens: i128,
-    /// The amount of tokens representing the `received_j_tokens`
-    pub tokens_from_received_j_tokens: i128,
+    pub j_tokens_seized: i128,
+    /// The amount of tokens representing the `j_tokens_seized` computed via ceiling
+    pub tokens_from_j_tokens_seized: i128,
 }
 
-// TODO: Move this somewhere else when working on liquidation
-pub struct LiquidationResult {
-    /// The amount of tokens repaid by the liquidator
-    pub liquidated_amount: i128,
-    /// The amount of dTokens repaid by the liquidator
-    pub d_tokens_repaid: i128,
-    /// The number of the borrower's collateral tokens that are taken by the liquidator
-    pub collateral_amount_sold: i128,
-    /// The number of available pool tokens that are taken from the borrower's jTokens
-    pub j_tokens_amount_sold: i128,
-    /// The number of tokens that correspond to the sold jTokens
-    pub tokens_from_sold_j_tokens: i128,
-}
 #[cfg(test)]
 mod tests {
     use soroban_sdk::{BytesN, Env};
