@@ -182,6 +182,7 @@ pub trait Market {
         deposit_as_margin: bool,
         amount: i128,
         // TODO: swap_aggregator_address: Address? But there must be some standard for this, right?
+        // TODO: Somehow account for slippage?
         leverage_multiplier: u32,
     ) -> Result<(), MCError>;
 
@@ -425,7 +426,7 @@ pub trait Market {
     ///   liquidator
     /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
     ///   a discount
-    /// * `amount` - amount of repaid tokens
+    /// * `repay_amount` - amount of repaid tokens
     /// * `min_demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
     fn liquidate(
         e: Env,
@@ -434,7 +435,7 @@ pub trait Market {
         borrower_obligation_seed: Option<BytesN<32>>,
         borrow_pool_address: Address,
         collateral_pool_address: Address,
-        amount: i128,
+        repay_amount: i128,
         min_demanded_collateral_amount: i128,
     ) -> Result<(), MCError>;
 
@@ -563,7 +564,7 @@ impl Market for MarketContract {
             &plain_obligation_key,
             &earn_obligation_key,
         )?
-        .execute();
+        .execute_transfers();
 
         Ok(())
     }
@@ -695,7 +696,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -713,7 +714,7 @@ impl Market for MarketContract {
         let vault_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
 
-        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -724,7 +725,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_borrow(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_borrow(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -754,7 +755,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_add_collateral(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_add_collateral(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -770,7 +771,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_remove_collateral(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_remove_collateral(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -781,7 +782,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_repay(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_repay(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -793,7 +794,7 @@ impl Market for MarketContract {
         borrower_obligation_seed: Option<BytesN<32>>,
         borrow_pool_address: Address,
         collateral_pool_address: Address,
-        amount: i128,
+        repay_amount: i128,
         min_demanded_collateral_amount: i128,
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
@@ -810,10 +811,10 @@ impl Market for MarketContract {
             &obligation_key,
             &borrow_pool_address,
             &collateral_pool_address,
-            amount,
+            repay_amount,
             min_demanded_collateral_amount,
         )?
-        .execute();
+        .execute_transfers(); // TODO: Maybe rename
 
         Ok(())
     }
@@ -826,7 +827,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -844,7 +845,7 @@ impl Market for MarketContract {
         let vault_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
 
-        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute();
+        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
         Ok(())
     }
@@ -883,22 +884,26 @@ impl Market for MarketContract {
         borrow_pool_address: Address,
         deposit_as_margin: bool,
         amount: i128,
-        // TODO: swap_aggregator_address: Address? But there must be some standard for this, right?
         leverage_multiplier: u32,
     ) -> Result<(), MCError> {
+        storage::extend_instance_storage(&e);
         user.require_auth();
         require_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+
+        let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
+        let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
+        Obligation::require_does_not_exist(&e, &obligation_key)?;
 
         process_deposit_with_leverage(
             &e,
-            &user,
-            &deposit_pool_address,
-            &borrow_pool_address,
+            &obligation_key,
+            &multiply_pair,
             deposit_as_margin,
             amount,
             leverage_multiplier,
-        )
+        )?;
+
+        Ok(())
     }
 
     fn withdraw_from_leveraged(
@@ -999,7 +1004,7 @@ impl Market for MarketContract {
 
         for pool_address in pool_addresses {
             let mut pool = Pool::try_get(&e, &pool_address).map_err(|_| {
-                events::pool_is_missing_in_storage(&e, &pool_address);
+                events::pool_is_unexpectedly_missing_in_storage(&e, &pool_address);
 
                 MCError::InternalError
             })?;
@@ -1100,7 +1105,7 @@ impl Market for MarketContract {
         let mut pool_data = svec![&e];
         for pool_address in pool_addresses {
             let pool = Pool::try_get(&e, &pool_address).map_err(|_| {
-                events::pool_is_missing_in_storage(&e, &pool_address);
+                events::pool_is_unexpectedly_missing_in_storage(&e, &pool_address);
 
                 MCError::InternalError
             })?;

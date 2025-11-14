@@ -753,7 +753,7 @@ impl Pool {
     /// Refreshes the pool with the contract's storage data
     pub fn refresh(&mut self, e: &Env) -> Result<(), MCError> {
         let Some(refreshed_pool) = storage::get_pool(e, &self.pool_address) else {
-            events::pool_is_missing_in_storage(e, &self.pool_address);
+            events::pool_is_unexpectedly_missing_in_storage(e, &self.pool_address);
 
             return Err(MCError::InternalError);
         };

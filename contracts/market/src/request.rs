@@ -48,7 +48,7 @@ impl TryFrom<u32> for RequestType {
 
 pub struct RequestTransfers<'a> {
     pub e: &'a Env,
-    pub user: &'a Address,
+    pub user: Address,
     pub market_transfers: Map<Address, i128>,
     pub user_transfers: Map<Address, i128>,
 }
@@ -56,7 +56,7 @@ pub struct RequestTransfers<'a> {
 impl<'a> RequestTransfers<'a> {
     pub fn new(
         e: &'a Env,
-        user: &'a Address,
+        user: Address,
         market_transfers: Map<Address, i128>,
         user_transfers: Map<Address, i128>,
     ) -> Self {
@@ -65,7 +65,7 @@ impl<'a> RequestTransfers<'a> {
 
     pub fn new_with_user_transfers(
         e: &'a Env,
-        user: &'a Address,
+        user: Address,
         user_transfers: Map<Address, i128>,
     ) -> Self {
         Self { e, user, user_transfers, market_transfers: Map::new(e) }
@@ -73,13 +73,39 @@ impl<'a> RequestTransfers<'a> {
 
     pub fn new_with_market_transfers(
         e: &'a Env,
-        user: &'a Address,
+        user: Address,
         market_transfers: Map<Address, i128>,
     ) -> Self {
         Self { e, user, market_transfers, user_transfers: Map::new(e) }
     }
 
-    pub fn merge(&mut self, other: &RequestTransfers<'a>) -> Result<(), MCError> {
+    pub fn add_user_transfer(
+        &mut self,
+        token_address: &Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        let prev = self.user_transfers.get(token_address.clone()).unwrap_or(0);
+        let new = prev.checked_add(amount).map_over_or_underflow()?;
+
+        self.user_transfers.set(token_address.clone(), new);
+
+        Ok(())
+    }
+
+    pub fn add_market_transfer(
+        &mut self,
+        token_address: &Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        let prev = self.market_transfers.get(token_address.clone()).unwrap_or(0);
+        let new = prev.checked_add(amount).map_over_or_underflow()?;
+
+        self.market_transfers.set(token_address.clone(), new);
+
+        Ok(())
+    }
+
+    pub fn merge(&mut self, other: RequestTransfers<'a>) -> Result<(), MCError> {
         for (token_address, amount) in other.market_transfers.iter() {
             let old = self.market_transfers.get(token_address.clone()).unwrap_or_default();
             let new = old.checked_add(amount).map_over_or_underflow()?;
@@ -97,15 +123,15 @@ impl<'a> RequestTransfers<'a> {
         Ok(())
     }
 
-    pub fn execute(self) {
+    pub fn execute_transfers(self) {
         for (token_address, amount) in self.market_transfers {
             let token_client = TokenClient::new(self.e, &token_address);
-            token_client.transfer(&self.e.current_contract_address(), self.user, &amount);
+            token_client.transfer(&self.e.current_contract_address(), &self.user, &amount);
         }
 
         for (token_address, amount) in self.user_transfers {
             let token_client = TokenClient::new(self.e, &token_address);
-            token_client.transfer(self.user, self.e.current_contract_address(), &amount);
+            token_client.transfer(&self.user, self.e.current_contract_address(), &amount);
         }
     }
 }

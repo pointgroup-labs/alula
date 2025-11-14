@@ -130,6 +130,14 @@ impl Obligation {
 
     // ------ `require_X` Circuit Breakers ------
 
+    pub fn require_does_not_exist(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
+        if storage::obligation_exists(e, obligation_key) {
+            return Err(MCError::ObligationDoesNotExist);
+        }
+
+        Ok(())
+    }
+
     pub fn require_non_healthy(&self, e: &Env) -> Result<(), MCError> {
         if self.is_healthy(e)? {
             return Err(MCError::LiquidatedObligationIsHealthy);
@@ -181,7 +189,7 @@ impl Obligation {
 
         for (pool_address, deposit_position) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
-                events::pool_is_missing_in_storage(e, &pool_address);
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
                 MCError::InternalError
             })?;
@@ -271,7 +279,7 @@ impl Obligation {
 
         for (pool_address, borrow_position) in self.borrows.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
-                events::pool_is_missing_in_storage(e, &pool_address);
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
                 MCError::InternalError
             })?;
@@ -296,7 +304,7 @@ impl Obligation {
 
         for (pool_address, borrow_position) in self.borrows.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
-                events::pool_is_missing_in_storage(e, &pool_address);
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
                 MCError::InternalError
             })?;
@@ -317,7 +325,7 @@ impl Obligation {
 
         for (pool_address, deposit_position) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
-                events::pool_is_missing_in_storage(e, &pool_address);
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
                 MCError::InternalError
             })?;
@@ -342,7 +350,7 @@ impl Obligation {
 
         for (pool_address, deposit_position) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
-                events::pool_is_missing_in_storage(e, &pool_address);
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
                 MCError::InternalError
             })?;
@@ -850,6 +858,8 @@ impl Obligation {
             let collateral_value_left =
                 collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
 
+            // TODO: Check if this can be checked in `cover_bad_debt`
+
             if collateral_value_left < min_collateral_value {
                 // If collateral that's left is worth less than the configured `min_collateral_value` on the market,
                 // the liquidator additionally receives all of the collateral that's left
@@ -868,6 +878,8 @@ impl Obligation {
             // TODO: This is something I also am not so sure about
             return Err(MCError::LiquidationMinCollateralTooBig);
         }
+
+        // TODO: Split this into few different functions
 
         // -- Adjust Deposit Position --
 

@@ -5,6 +5,7 @@ use market::{
     pool::{PoolConfig, PoolHealthConfig},
     swap,
 };
+use soroban_fixed_point_math::FixedPoint;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, assert_approx_eq_abs,
@@ -206,16 +207,18 @@ fn test_deposit_borrow_as_margin() {
         &LEVERAGE_MULTIPLIER,
     );
 
-    // 'borrow' position is expected to have 'initial_amount * (leverage - 1) + flash_borrow_fees'
-    let flash_borrowed_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128 - 1);
-    let expected_borrowed_amount = get_amount_scaled_up(
-        flash_borrowed_amount,
-        usdc_pool.config.fee_config.flash_loan_fee_bps as i128,
-    ); // TODO: This better be checked once more
+    // 'borrow' position is expected to have 'initial_amount * (leverage - 1)'
+    let divisor = BPS_FACTOR + usdc_pool.config.fee_config.flash_loan_fee_bps as i128;
+    let expected_borrowed_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128 - 1);
+    // 'flash_borrowed_amount' is expected to equal 'expected_borrowed_amount' when repaid with flash loan fees.
+    // So, we divide accordingly
+    let flash_borrowed_amount =
+        expected_borrowed_amount.fixed_div_floor(divisor, BPS_FACTOR).unwrap();
     // 'supply' position is expected to have 'amount_out(initial_amount * leverage)'
-    let amount_in = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128);
+    let amount_in = flash_borrowed_amount.checked_add(DEFAULT_DEPOSIT_AMOUNT).unwrap();
     let amount_out =
         swap::get_amount_out(&e, &usdc_pool_address, &gold_pool_address, amount_in).unwrap();
+
     let expected_deposited_amount = amount_out;
 
     let obligation_j_tokens_as_tokens = get_multiply_pair_obligation_j_tokens_as_tokens(
@@ -484,7 +487,7 @@ fn test_withdraw_over_balance() {
         get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
 
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees (TODO:
+    assert!(borrowed_token_supply_after == borrowed_token_supply_before); // flash loan fees (TODO:
     // Add a more rigorous
     // check)
 }
@@ -534,9 +537,8 @@ fn test_withdraw_all_available_with_i128_max() {
 
     // Full withdraw took place
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO:
-    // Add a more rigorous
-    // check)
+    assert!(borrowed_token_supply_after == borrowed_token_supply_before);
+    // TODO: Add a more rigorous check
 }
 
 #[test]

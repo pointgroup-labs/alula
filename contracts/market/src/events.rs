@@ -209,6 +209,16 @@ struct LeveragedPositionBadDebt {
 }
 
 #[contractevent]
+struct LeverageBorrowExceedsOpenLTV {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub flash_borrow_amount: i128,
+    pub flash_repay_amount: i128,
+    pub max_healthy_borrow_amount: i128,
+}
+
+#[contractevent]
 struct UtilizationRatioExceedsLimit {
     pub utilization_ratio_bps: i128,
     pub utilization_ratio_limit_bps: i128,
@@ -553,6 +563,22 @@ pub fn leveraged_position_bad_debt(
     .publish(e);
 }
 
+pub fn leverage_borrow_exceeds_open_ltvs(
+    e: &Env,
+    user: &Address,
+    flash_borrow_amount: i128,
+    flash_repay_amount: i128,
+    max_healthy_borrow_amount: i128,
+) {
+    LeverageBorrowExceedsOpenLTV {
+        user: user.clone(),
+        flash_borrow_amount,
+        flash_repay_amount,
+        max_healthy_borrow_amount,
+    }
+    .publish(e);
+}
+
 /// Emitted when a pool's utilization ratio exceeds a predefined limit
 pub fn utilization_ratio_exceeds_limit(
     e: &Env,
@@ -563,12 +589,12 @@ pub fn utilization_ratio_exceeds_limit(
 }
 
 /// Emitted when an attempt is made to interact with a loan pool that does not exist in storage
-pub fn pool_is_missing_in_storage(e: &Env, pool_address: &Address) {
+pub fn pool_is_unexpectedly_missing_in_storage(e: &Env, pool_address: &Address) {
     PoolIsMissingInStorage { pool_address: pool_address.clone() }.publish(e);
 }
 
 /// Emitted when an attempt is made to interact with an obligation that does not exist in storage
-pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
+pub fn obligation_is_unexpectedly_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
     ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
