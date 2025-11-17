@@ -54,7 +54,7 @@ export interface Client {
   /**
    * Construct and simulate a deploy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  deploy: ({salt, market_admin, name, oracle, max_positions, min_collateral, update_in_queue_period}: {salt: Buffer, market_admin: string, name: string, oracle: string, max_positions: u32, min_collateral: i128, update_in_queue_period: Option<u64>}, options?: {
+  deploy: ({salt, market_admin, name, oracle, max_positions, min_collateral, insolvency_ltv_bps, update_in_queue_period}: {salt: Buffer, market_admin: string, name: string, oracle: string, max_positions: u32, min_collateral: i128, insolvency_ltv_bps: i128, update_in_queue_period: Option<u64>}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -181,7 +181,7 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAHAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADW1heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAAA5taW5fY29sbGF0ZXJhbAAAAAAACwAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAD6AAAAAYAAAABAAAD6QAAABMAAAfQAAAACE1NQ0Vycm9y",
+      new ContractSpec([ "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAIAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADW1heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAAA5taW5fY29sbGF0ZXJhbAAAAAAACwAAAAAAAAASaW5zb2x2ZW5jeV9sdHZfYnBzAAAAAAALAAAAAAAAABZ1cGRhdGVfaW5fcXVldWVfcGVyaW9kAAAAAAPoAAAABgAAAAEAAAPpAAAAEwAAB9AAAAAITU1DRXJyb3I=",
         "AAAAAAAAAAAAAAALZ2V0X21hcmtldHMAAAAAAAAAAAEAAAPsAAAAEwAAA+0AAAAA",
         "AAAAAAAAAAAAAAAKZ2V0X2NvbmZpZwAAAAAAAAAAAAEAAAfQAAAABkNvbmZpZwAA",
         "AAAAAAAAANVDb25zdHJ1Y3RzIHRoZSBtYW5hZ2VyIGNvbnRyYWN0CgojIEFyZ3VtZW50cwoqIGBhZG1pbmAgLSBtYW5hZ2VyJ3MgYWRtaW4KKiBgbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaGAgLSBoYXNoIG9mIHRoZSBXQVNNIGJpbmFyeSB1cGxvYWRlZCB0byB0aGUgbmV0d29yaywgdXNlZCBhcyBhCnZlcnNpb24gb2YgdGhlIGRlcGxveWVkIG1hcmtldCBjb250cmFjdCBpbnN0YW5jZXMAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAZbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",

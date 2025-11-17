@@ -750,7 +750,7 @@ impl Obligation {
 
         let unpaid_interest =
             all_debt.checked_sub(borrow_position.borrowed).map_over_or_underflow()?;
-        if unpaid_interest < 0 {
+        if unpaid_interest.is_negative() {
             events::computed_interest_is_negative(
                 e,
                 &pool.pool_address,
