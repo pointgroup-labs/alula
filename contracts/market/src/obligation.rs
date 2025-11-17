@@ -492,7 +492,7 @@ impl Obligation {
 
         deposit_position.adjust_deposited(e, deposited_tokens_minus_fee)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
-        deposit_position.require_position_min_collateral_value(
+        deposit_position.require_has_min_collateral_value(
             e,
             pool,
             deposited_tokens_minus_fee,
@@ -572,7 +572,7 @@ impl Obligation {
         let added_collateral =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         deposit_position.adjust_collateral(e, added_collateral)?;
-        deposit_position.require_position_min_collateral_value(e, pool, 0, 0)?;
+        deposit_position.require_has_min_collateral_value(e, pool, 0, 0)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
@@ -661,7 +661,7 @@ impl Obligation {
             self.try_remove_deposit_position(e, &pool.pool_address)?;
         } else {
             if self.borrow_exists() {
-                deposit_position.require_position_min_collateral_value(
+                deposit_position.require_has_min_collateral_value(
                     e,
                     pool,
                     deposit_decrease.checked_neg().map_over_or_underflow()?,
@@ -715,7 +715,7 @@ impl Obligation {
             self.try_remove_deposit_position(e, &pool.pool_address)?;
         } else {
             if self.borrow_exists() {
-                deposit_position.require_position_min_collateral_value(e, pool, 0, 0)?;
+                deposit_position.require_has_min_collateral_value(e, pool, 0, 0)?;
             }
             self.deposits.set(pool.pool_address.clone(), deposit_position);
         }
@@ -867,7 +867,7 @@ impl Obligation {
 
             let liquidated_amount = amount;
 
-            // 1. Check if the liquidation doesn't exceed the close factor
+            // Check if the liquidation doesn't exceed the close factor
             let liquidated_borrow_bps = liquidated_amount
                 .fixed_div_ceil(position_debt, BPS_FACTOR)
                 .map_over_or_underflow()?;
@@ -875,7 +875,7 @@ impl Obligation {
                 return Err(MCError::LiquidationExceedsCloseFactor);
             }
 
-            // 2. Count the maximum amount of sold collateral that improves LTV
+            // Count the maximum amount of sold collateral that improves LTV
             // ----
             // 'received_collateral_amount' < ('obligation_collateral_value' * 'borrowed_asset_repaid_amount' * 'borrowed_asset_price') /
             //                          / ('obligation_debt_value' * 'collateral_asset_price'),
@@ -904,7 +904,7 @@ impl Obligation {
                     .checked_div(collateral_asset_price)
                     .map_over_or_underflow()?;
 
-            // 4. Find the amount of collateral to give away that obeys all LTV improving constraints
+            // Find the amount of collateral to give away that obeys all LTV improving constraints
             let collateral_to_sell_to_liquidator = position_collateral_sum
                 .min(max_ltv_improving_collateral_seized)
                 .min(redeemed_collateral_amount_with_max_incentive);
@@ -1069,7 +1069,7 @@ impl Obligation {
         }
 
         if borrow_position.is_empty() {
-            // self.remove_borrow_position()
+            self.try_remove_borrow_position(&e, &borrow_pool.pool_address)?;
         } else {
             self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
         }
@@ -1101,7 +1101,7 @@ impl Obligation {
         Ok(())
     }
 
-    /// Covers the obligation's bad debt by returning the list of the obligation's positions
+    /// Accounts for the bad debt on the obligation
     pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResult, MCError> {
         let collateral_value = self.compute_collateral_value(e)?;
         let debt_value = self.compute_debt_value(e)?;
@@ -1195,7 +1195,7 @@ impl DepositPosition {
     }
 
     /// Requires the deposit position to have at least `min_collateral_value` of the asset collateral
-    pub fn require_position_min_collateral_value(
+    pub fn require_has_min_collateral_value(
         &self,
         e: &Env,
         pool: &Pool,
