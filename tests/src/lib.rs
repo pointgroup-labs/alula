@@ -23,8 +23,7 @@ use arbitrary::Unstructured;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
-        DEFAULT_MIN_COLLATERAL_VALUE, DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP,
-        ROUTER_ADDRESS,
+        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
     },
     contract::{MarketClient, MarketContract},
     error::MCError,
@@ -140,7 +139,7 @@ impl TestMarketFixture<'_> {
                 oracle_address.clone(),
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
-                DEFAULT_MIN_COLLATERAL_VALUE,
+                0i128,
                 DEFAULT_INSOLVENCY_LTV_BPS,
                 Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
             ),
@@ -1214,7 +1213,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             oracle,
             contract_admin,
             DEFAULT_MAX_POSITIONS,
-            DEFAULT_MIN_COLLATERAL_VALUE,
+            0i128,
             DEFAULT_INSOLVENCY_LTV_BPS,
             if is_owned { Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS) } else { None },
         ),

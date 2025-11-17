@@ -16,6 +16,8 @@ pub enum MCError {
     InvalidMarketStatusUpdate = 8,
     IncorrectRequestType = 9,
     OverOrUnderflow = 10,
+    TooManyPositions = 11,
+    MinCollateralValueIsNotMet = 12,
 
     // Pool-related errors (100-199)
     PoolAlreadyExists = 100,
@@ -31,18 +33,16 @@ pub enum MCError {
     BorrowForbiddenOnPool = 110,
     DepositForbiddenOnPool = 111,
     PoolIsFrozen = 112,
-    IncentivePeriodDoesNotStartInTheFuture = 113,
-    IncentivePeriodStartDoesNotPrecedePeriodEnd = 114,
+    InvalidIncentivePeriod = 113,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,
     DepositDoesNotExist = 201,
-    CollateralDoesNotExist = 202,
-    BorrowDoesNotExist = 203,
-    WithdrawScarcityOverLimit = 204,
-    ScarcityCooldownPeriod = 205,
-    BorrowPositionForAssetExists = 206,
-    DepositPositionForAssetExists = 207,
+    BorrowDoesNotExist = 202,
+    WithdrawScarcityOverLimit = 203,
+    ScarcityCooldownPeriod = 204,
+    BorrowPositionForAssetExists = 205,
+    DepositPositionForAssetExists = 206,
 
     // Balance and limit errors (400-499)
     PoolSupplyLimitExceeded = 400,
@@ -53,18 +53,18 @@ pub enum MCError {
     OracleStalePrice = 501,
 
     // Health factor and liquidation errors (600-699)
+    InvalidLiquidationInputs = 600,
     LiquidatedObligationIsHealthy = 601,
     LiquidationExceedsCloseFactor = 602,
-    SelfLiquidation = 603,
-    LiquidationWithEqualCollateralAndDepositPools = 604,
-    PositionDoesNotHaveBadDebt = 605,
-    AssetCannotBeUsedAsCollateral = 606,
-    PairIsNotLiquidatable = 607,
-    LiquidationMinCollateralTooBig = 608,
+    PositionDoesNotHaveBadDebt = 603,
+    AssetCannotBeUsedAsCollateral = 604,
+    LiquidationMinCollateralTooBig = 605,
 
     // Leverage and swap errors (700-799)
     InvalidLeverageMultiplier = 700,
     InvalidSwapSlippage = 701,
     MultiplyPairAlreadyExists = 702,
     MultiplyPairDoesNotExist = 703,
+    LeveragePositionContainsBadDebt = 704,
+    InconsistentDepositWithLeverage = 705,
 }

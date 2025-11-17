@@ -379,7 +379,7 @@ impl Pool {
 
     /// Computes the number of tokens proportional to the given share of the tokens in the pool floored.
     /// Intended to be used for both `jTokens` and `dTokens` related calculations
-    fn compute_tokens_from_shares_floor(
+    pub fn compute_tokens_from_shares_floor(
         e: &Env,
         shares_amount: i128,
         total_shares_amount: i128,

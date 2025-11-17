@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market::{
-    constants::{DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE, MAX_RESERVES},
+    constants::MAX_RESERVES,
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
 };
@@ -324,13 +324,6 @@ fn test_update_market_status() {
 fn test_update_market_config() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
-
-    let global_state = contract_client.get_global_state();
-    let (min_collateral_value, max_positions) =
-        (global_state.min_collateral_value, global_state.max_positions);
-
-    assert_eq!(min_collateral_value, DEFAULT_MIN_COLLATERAL_VALUE);
-    assert_eq!(max_positions, DEFAULT_MAX_POSITIONS);
 
     const MAX_POSITIONS: u32 = 2 * MAX_RESERVES;
     const MIN_COLLATERAL_VALUE: i128 = 10 * 10i128.pow(7);

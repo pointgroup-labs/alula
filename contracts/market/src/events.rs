@@ -2,8 +2,8 @@ use soroban_sdk::{Address, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
-        AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, ObligationKey,
-        RemoveCollateralResult, RepayResult, WithdrawResult,
+        AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, Obligation,
+        ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     pool::{Pool, PoolConfig},
 };
@@ -281,6 +281,14 @@ struct ComputedInterestIsNegative {
     pub position_shares: i128,
     pub tokens_from_shares_ceil: i128,
     pub computed_interest: i128,
+}
+
+#[contractevent]
+struct PositionsCountBecomesNegative {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation: Obligation,
 }
 
 #[contractevent]
@@ -660,6 +668,14 @@ pub fn computed_interest_is_negative(
         computed_interest,
         pool_address: pool_address.clone(),
         tokens_from_shares_ceil: tokens_from_position_shares_ceil,
+    }
+    .publish(e);
+}
+
+pub fn positions_count_becomes_negative(e: &Env, pool_address: &Address, obligation: &Obligation) {
+    PositionsCountBecomesNegative {
+        pool_address: pool_address.clone(),
+        obligation: obligation.clone(),
     }
     .publish(e);
 }

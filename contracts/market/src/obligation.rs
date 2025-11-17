@@ -30,10 +30,12 @@ pub struct Obligation {
     pub deposits: Map<Address, DepositPosition>,
     /// Borrowed liquidity for the obligation, unique by borrow pool address
     pub borrows: Map<Address, BorrowPosition>,
+    /// Count of non-empty positions
+    pub positions: u32,
+    // /// Market value of obligation's collateral
+    // pub collateral_value: i128,
     // /// Last update to collateral, liquidity, or their market values
     // pub last_update: u64,
-    // /// Market value of deposits
-    // pub deposited_value: i128,
     // /// Market value of deposits
     // pub borrowed_value: i128,
 }
@@ -47,7 +49,29 @@ impl Obligation {
     pub fn new(e: &Env, obligation_key: &ObligationKey) -> Self {
         storage::register_obligation(e, obligation_key);
 
-        Self { deposits: Map::new(e), borrows: Map::new(e) }
+        Self { deposits: Map::new(e), borrows: Map::new(e), positions: 0 }
+    }
+
+    /// Verifies that the new deposit position doesn't exceed the max allowed number of positions and
+    /// creates one
+    pub fn try_create_deposit_position(&mut self, e: &Env) -> Result<DepositPosition, MCError> {
+        if self.positions >= storage::get_max_positions(e) {
+            return Err(MCError::TooManyPositions);
+        }
+        self.positions += 1;
+
+        Ok(DepositPosition::default())
+    }
+
+    /// Verifies that the new borrow position doesn't exceed the max allowed number of positions and
+    /// creates one
+    pub fn try_create_borrow_position(&mut self, e: &Env) -> Result<BorrowPosition, MCError> {
+        if self.positions >= storage::get_max_positions(e) {
+            return Err(MCError::TooManyPositions);
+        }
+        self.positions += 1;
+
+        Ok(BorrowPosition::default())
     }
 
     /// Saves/updates obligation in the contract's storage
@@ -174,7 +198,7 @@ impl Obligation {
         if !self.borrows.contains_key(borrow_pool_address.clone())
             || !self.deposits.contains_key(collateral_pool_address.clone())
         {
-            return Err(MCError::PairIsNotLiquidatable);
+            return Err(MCError::InvalidLiquidationInputs);
         }
 
         Ok(())
@@ -420,14 +444,16 @@ impl Obligation {
         pool: &Pool,
         original_amount: i128,
     ) -> Result<DepositResult, MCError> {
-        let mut deposit_position = self.deposits.get(pool.pool_address.clone()).unwrap_or_default();
+        let mut deposit_position = self
+            .deposits
+            .get(pool.pool_address.clone())
+            .unwrap_or(self.try_create_deposit_position(e)?);
 
         let computed_fees = compute_fees(
             original_amount,
             pool.config.fee_config.deposit_fee_bps,
             pool.config.fee_config.host_fee_bps,
         )?;
-
         let deposited_tokens_minus_fee =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         let j_tokens_to_issue =
@@ -435,6 +461,12 @@ impl Obligation {
 
         deposit_position.adjust_deposited(e, deposited_tokens_minus_fee)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
+        deposit_position.require_position_min_collateral_value(
+            e,
+            &pool,
+            deposited_tokens_minus_fee,
+            j_tokens_to_issue,
+        )?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
@@ -459,7 +491,10 @@ impl Obligation {
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
         // WARN: This can potentially create a borrow obligation with 0ed fields
-        let mut borrow_position = self.borrows.get(pool.pool_address.clone()).unwrap_or_default();
+        let mut borrow_position = self
+            .borrows
+            .get(pool.pool_address.clone())
+            .unwrap_or(self.try_create_borrow_position(e)?);
 
         let computed_fees = compute_fees(
             real_borrowed_amount,
@@ -492,7 +527,10 @@ impl Obligation {
         pool: &Pool,
         original_amount: i128,
     ) -> Result<AddCollateralResult, MCError> {
-        let mut deposit_position = self.deposits.get(pool.pool_address.clone()).unwrap_or_default();
+        let mut deposit_position = self
+            .deposits
+            .get(pool.pool_address.clone())
+            .unwrap_or(self.try_create_deposit_position(e)?);
 
         let computed_fees = compute_fees(
             original_amount,
@@ -503,6 +541,7 @@ impl Obligation {
         let added_collateral =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         deposit_position.adjust_collateral(e, added_collateral)?;
+        deposit_position.require_position_min_collateral_value(e, &pool, 0, 0)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
@@ -586,9 +625,24 @@ impl Obligation {
 
         deposit_position
             .adjust_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
+
         if deposit_position.is_empty() {
             self.deposits.remove(pool.pool_address.clone());
+            if self.positions == 0 {
+                events::positions_count_becomes_negative(e, &pool.pool_address, &self);
+
+                return Err(MCError::InternalError);
+            }
+            self.positions -= 1;
         } else {
+            if self.borrow_exists() {
+                deposit_position.require_position_min_collateral_value(
+                    e,
+                    pool,
+                    deposit_decrease.checked_neg().map_over_or_underflow()?,
+                    j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
+                )?;
+            }
             self.deposits.set(pool.pool_address.clone(), deposit_position);
         }
 
@@ -608,7 +662,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<RemoveCollateralResult, MCError> {
         let mut deposit_position =
-            self.deposits.get(pool.pool_address.clone()).ok_or(MCError::CollateralDoesNotExist)?;
+            self.deposits.get(pool.pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
 
         let collateral_decrease = if self.borrow_exists() {
             let max_possible_collateral_removed_amount =
@@ -631,9 +685,19 @@ impl Obligation {
 
         deposit_position
             .adjust_collateral(e, collateral_decrease.checked_neg().map_over_or_underflow()?)?;
+
         if deposit_position.is_empty() {
             self.deposits.remove(pool.pool_address.clone());
+            if self.positions == 0 {
+                events::positions_count_becomes_negative(e, &pool.pool_address, &self);
+
+                return Err(MCError::InternalError);
+            }
+            self.positions -= 1;
         } else {
+            if self.borrow_exists() {
+                deposit_position.require_position_min_collateral_value(e, &pool, 0, 0)?;
+            }
             self.deposits.set(pool.pool_address.clone(), deposit_position);
         }
 
@@ -737,10 +801,10 @@ impl Obligation {
         let (mut deposit_position, mut borrow_position) = (
             self.deposits
                 .get(collateral_pool.pool_address.clone())
-                .ok_or(MCError::PairIsNotLiquidatable)?,
+                .ok_or(MCError::InvalidLiquidationInputs)?,
             self.borrows
                 .get(borrow_pool.pool_address.clone())
-                .ok_or(MCError::PairIsNotLiquidatable)?,
+                .ok_or(MCError::InvalidLiquidationInputs)?,
         );
         let (insolvency_ltv_bps, min_collateral_value) =
             (storage::get_insolvency_ltv_bps(e), storage::get_min_collateral_value(e));
@@ -981,12 +1045,24 @@ impl Obligation {
 
         if deposit_position.is_empty() {
             self.deposits.remove(collateral_pool.pool_address.clone());
+            if self.positions == 0 {
+                events::positions_count_becomes_negative(e, &collateral_pool.pool_address, &self);
+
+                return Err(MCError::InternalError);
+            }
+            self.positions -= 1;
         } else {
             self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
         }
 
         if borrow_position.is_empty() {
             self.borrows.remove(borrow_pool.pool_address.clone());
+            if self.positions == 0 {
+                events::positions_count_becomes_negative(e, &borrow_pool.pool_address, &self);
+
+                return Err(MCError::InternalError);
+            }
+            self.positions -= 1;
         } else {
             self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
         }
@@ -1007,8 +1083,10 @@ impl Obligation {
         collateral_pool: &Pool,
         j_tokens_amount: i128,
     ) -> Result<(), MCError> {
-        let mut deposit_position =
-            self.deposits.get(collateral_pool.pool_address.clone()).unwrap_or_default();
+        let mut deposit_position = self
+            .deposits
+            .get(collateral_pool.pool_address.clone())
+            .unwrap_or(self.try_create_deposit_position(e)?);
 
         deposit_position.adjust_j_tokens(e, j_tokens_amount)?;
         self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
@@ -1105,6 +1183,37 @@ impl DepositPosition {
     pub fn adjust_collateral(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.collateral, adjusting_amount)?;
         self.collateral = new_amount;
+
+        Ok(())
+    }
+
+    /// Requires the deposit position to have at least `min_collateral_value` of the asset collateral
+    pub fn require_position_min_collateral_value(
+        &self,
+        e: &Env,
+        pool: &Pool,
+        total_supply_diff: i128,
+        j_tokens_diff: i128,
+    ) -> Result<(), MCError> {
+        let new_total_supply =
+            pool.total_supply()?.checked_add(total_supply_diff).map_over_or_underflow()?;
+        let new_pool_j_tokens =
+            pool.total_j_tokens.checked_add(j_tokens_diff).map_over_or_underflow()?;
+
+        let supplied_tokens = Pool::compute_tokens_from_shares_floor(
+            e,
+            self.j_tokens,
+            new_pool_j_tokens,
+            new_total_supply,
+        )?;
+        let collateral_sum =
+            self.collateral.checked_add(supplied_tokens).map_over_or_underflow()?;
+        let price = get_asset_price(e, &pool.token_address)?;
+        let value = collateral_sum.checked_mul(price).map_over_or_underflow()?;
+
+        if value < storage::get_min_collateral_value(e) {
+            return Err(MCError::MinCollateralValueIsNotMet);
+        }
 
         Ok(())
     }

@@ -188,9 +188,9 @@ pub fn process_incentivize_pool(
 
     let current_timestamp = e.ledger().timestamp();
     if start_period < current_timestamp {
-        return Err(MCError::IncentivePeriodDoesNotStartInTheFuture);
+        return Err(MCError::InvalidIncentivePeriod);
     } else if start_period >= end_period {
-        return Err(MCError::IncentivePeriodStartDoesNotPrecedePeriodEnd);
+        return Err(MCError::InvalidIncentivePeriod);
     }
     let period = (start_period, end_period);
 
@@ -617,7 +617,7 @@ pub fn process_deposit_with_leverage(
             max_healthy_borrow_amount,
         );
 
-        return Err(MCError::InternalError);
+        return Err(MCError::InconsistentDepositWithLeverage);
     }
 
     process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount)?.execute_transfers();
@@ -819,11 +819,9 @@ pub fn process_liquidate<'a>(
     require_nonnegative(repay_amount)?;
     require_nonnegative(min_demanded_collateral_amount)?;
 
-    if borrow_pool_address == collateral_pool_address {
-        return Err(MCError::LiquidationWithEqualCollateralAndDepositPools);
-    }
-    if liquidator == &borrower_obligation_key.user {
-        return Err(MCError::SelfLiquidation);
+    if borrow_pool_address == collateral_pool_address || liquidator == &borrower_obligation_key.user
+    {
+        return Err(MCError::InvalidLiquidationInputs);
     }
 
     let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
@@ -1080,7 +1078,7 @@ fn compute_leveraged_position_max_withdrawable_to_wallet_amount(
             deposit_tokens_to_repay_flash_loan,
         );
 
-        return Err(MCError::InternalError);
+        return Err(MCError::LeveragePositionContainsBadDebt);
     }
 
     Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe
