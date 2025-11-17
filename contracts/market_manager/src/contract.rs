@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 use soroban_sdk::{Address, BytesN, Env, Map, String, contract, contractclient, contractimpl};
 
 use crate::{
@@ -8,7 +9,6 @@ use crate::{
 
 // --- TODO: Remove this before deployment ---
 mod market {
-    #![allow(clippy::too_many_arguments)]
     use soroban_sdk::contractimport;
 
     #[cfg(not(feature = "deploy"))]

@@ -423,11 +423,12 @@ pub trait Market {
     /// * `borrower` - the borrower whose position is being liquidated
     /// * `borrower_obligation_seed` - the borrower obligation's seed(if any)
     /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
-    ///   liquidator
+    ///       liquidator
     /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
-    ///   a discount
+    ///       a discount
     /// * `repay_amount` - amount of repaid tokens
     /// * `min_demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
+    #[allow(clippy::too_many_arguments)]
     fn liquidate(
         e: Env,
         liquidator: Address,
@@ -787,6 +788,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn liquidate(
         e: Env,
         liquidator: Address,

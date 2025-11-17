@@ -560,7 +560,7 @@ pub fn process_deposit_with_leverage(
 
     borrow_pool
         .adjust_total_available(e, flash_borrow_amount.checked_neg().map_over_or_underflow()?)?;
-    borrow_pool.set(&e);
+    borrow_pool.set(e);
 
     // -- Swap --
 
@@ -596,12 +596,12 @@ pub fn process_deposit_with_leverage(
         received_amount
     };
 
-    process_deposit(e, &obligation_key, &pair.deposit_pool, deposit_amount)?.execute_transfers();
+    process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount)?.execute_transfers();
 
     // -- Borrow to repay the flash loan --
 
-    let updated_obligation = Obligation::try_get(e, &obligation_key).map_err(|_| {
-        events::obligation_is_unexpectedly_missing_in_storage(e, &obligation_key);
+    let updated_obligation = Obligation::try_get(e, obligation_key).map_err(|_| {
+        events::obligation_is_unexpectedly_missing_in_storage(e, obligation_key);
 
         MCError::InternalError
     })?;
@@ -620,7 +620,7 @@ pub fn process_deposit_with_leverage(
         return Err(MCError::InternalError);
     }
 
-    process_borrow(e, &obligation_key, &pair.borrow_pool, flash_repay_amount)?.execute_transfers();
+    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount)?.execute_transfers();
     borrow_pool.refresh(e)?;
 
     // -- Flash Repay --
@@ -638,7 +638,7 @@ pub fn process_deposit_with_leverage(
 
     events::deposit_with_leverage(
         e,
-        &obligation_key,
+        obligation_key,
         &pair.deposit_pool,
         &pair.borrow_pool,
         amount,
@@ -682,7 +682,7 @@ pub fn process_withdraw_from_leveraged(
     );
 
     if borrow_position.is_empty() {
-        process_withdraw(e, &obligation_key, &deposit_pool.pool_address, amount)?;
+        process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount)?;
 
         return Ok(());
     }
@@ -727,11 +727,11 @@ pub fn process_withdraw_from_leveraged(
     );
     borrow_pool
         .adjust_total_available(e, flash_borrow_amount.checked_neg().map_over_or_underflow()?)?;
-    borrow_pool.set(&e);
+    borrow_pool.set(e);
 
     // -- Repay Debt --
 
-    process_repay(e, &obligation_key, &borrow_pool.pool_address, flash_borrow_amount)?
+    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount)?
         .execute_transfers();
     borrow_pool.refresh(e)?;
 
@@ -740,7 +740,7 @@ pub fn process_withdraw_from_leveraged(
     let withdrawn_amount = withdrawn_to_wallet_amount
         .checked_add(plain_leverage_to_be_withdrawn)
         .map_over_or_underflow()?;
-    process_withdraw(e, &obligation_key, &deposit_pool.pool_address, withdrawn_amount)?
+    process_withdraw(e, obligation_key, &deposit_pool.pool_address, withdrawn_amount)?
         .execute_transfers();
     deposit_pool.refresh(e)?;
 
@@ -792,7 +792,7 @@ pub fn process_withdraw_from_leveraged(
     );
     borrow_pool.adjust_total_available(e, flash_borrow_amount)?;
     borrow_pool.adjust_accumulated_market_fees(e, flash_loan_fee)?;
-    borrow_pool.set(&e);
+    borrow_pool.set(e);
 
     events::withdraw_from_leveraged(
         e,
