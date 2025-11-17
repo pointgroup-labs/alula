@@ -182,7 +182,6 @@ impl Obligation {
         &self,
         pool_address: &Address,
     ) -> Result<(), MCError> {
-        // MEGA_WARN: Must be 'deposits' Add failing tests for this
         if self.deposits.contains_key(pool_address.clone()) {
             return Err(MCError::DepositPositionForAssetExists);
         }

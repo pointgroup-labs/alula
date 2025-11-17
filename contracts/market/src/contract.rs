@@ -162,7 +162,7 @@ pub trait Market {
     ///
     /// # WARNING
     /// This increases the perceived `supply APR` only
-    /// when `(borrowed token borrow APR < supply token supply APR * leverage(MEGA_WARN: right?))` holds true
+    /// when `(borrowed token borrow APR < supply token supply APR * leverage(TODO: right?))` holds true
     ///
     /// # Arguments
     /// * `user` - user that deposits tokens with leverage
@@ -592,8 +592,7 @@ impl Market for MarketContract {
         require_owned_and_admin(&e)?;
         storage::extend_instance_storage(&e);
 
-        // TODO: Add `MAX_RESERVES` check on obligations' operations
-        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions) || new_min_collateral_value <= 0 {
+        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions) || new_min_collateral_value < 0 {
             return Err(MCError::InvalidMarketUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);
@@ -847,12 +846,10 @@ impl Market for MarketContract {
             repay_amount,
             min_demanded_collateral_amount,
         )?
-        .execute_transfers(); // TODO: Maybe rename
+        .execute_transfers();
 
         Ok(())
     }
-
-    // MEGA_WARN: Min collateral value enforced only if borrows exist - implement this
 
     fn withdraw(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
         user.require_auth();
@@ -925,7 +922,7 @@ impl Market for MarketContract {
 
         let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
-        // TODO: We can allow to multiply more with the current multiplier
+        // TODO: We can allow to multiply more but only with the preserved current multiplier
         Obligation::require_does_not_exist(&e, &obligation_key)?;
 
         process_deposit_with_leverage(
@@ -1032,14 +1029,12 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let pool_addresses = storage::get_all_pools(&e);
-
         for pool_address in pool_addresses {
             let mut pool = Pool::try_get(&e, &pool_address).map_err(|_| {
                 events::pool_is_unexpectedly_missing_in_storage(&e, &pool_address);
 
                 MCError::InternalError
             })?;
-
             pool.accrue_interest(&e)?;
             pool.set(&e);
         }
@@ -1051,7 +1046,6 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user.clone());
-
         let obligation = Obligation::try_get(&e, &obligation_key)?;
         obligation.accrue_interest(&e)?;
 
@@ -1063,7 +1057,6 @@ impl Market for MarketContract {
 
         let obligation_key =
             ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
-
         let obligation = Obligation::try_get(&e, &obligation_key)?;
         obligation.accrue_interest(&e)?;
 
@@ -1082,7 +1075,6 @@ impl Market for MarketContract {
             user.clone(),
             MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed,
         );
-
         let obligation = Obligation::try_get(&e, &obligation_key)?;
         obligation.accrue_interest(&e)?;
 
@@ -1093,7 +1085,6 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
-
         pool.accrue_interest(&e)?;
         pool.set(&e);
 
@@ -1132,18 +1123,16 @@ impl Market for MarketContract {
 
     fn get_market_data(e: Env) -> Result<MarketData, MCError> {
         let pool_addresses = storage::get_all_pools(&e);
-
         let mut pool_data = svec![&e];
+
         for pool_address in pool_addresses {
             let pool = Pool::try_get(&e, &pool_address).map_err(|_| {
                 events::pool_is_unexpectedly_missing_in_storage(&e, &pool_address);
 
                 MCError::InternalError
             })?;
-
             pool_data.push_back(pool.get_pool_data()?);
         }
-
         let global_state = process_get_global_state(&e);
         let market_data = MarketData { pool_data, global_state };
 
