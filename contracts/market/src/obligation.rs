@@ -31,7 +31,7 @@ pub struct Obligation {
     /// Borrowed liquidity for the obligation, unique by borrow pool address
     pub borrows: Map<Address, BorrowPosition>,
     /// Count of non-empty positions
-    pub positions: u32,
+    pub positions_count: u32,
     // /// Market value of obligation's collateral
     // pub collateral_value: i128,
     // /// Last update to collateral, liquidity, or their market values
@@ -49,16 +49,16 @@ impl Obligation {
     pub fn new(e: &Env, obligation_key: &ObligationKey) -> Self {
         storage::register_obligation(e, obligation_key);
 
-        Self { deposits: Map::new(e), borrows: Map::new(e), positions: 0 }
+        Self { deposits: Map::new(e), borrows: Map::new(e), positions_count: 0 }
     }
 
     /// Verifies that the new deposit position doesn't exceed the max allowed number of positions and
     /// creates one
     pub fn try_create_deposit_position(&mut self, e: &Env) -> Result<DepositPosition, MCError> {
-        if self.positions >= storage::get_max_positions(e) {
+        if self.positions_count >= storage::get_max_positions(e) {
             return Err(MCError::TooManyPositions);
         }
-        self.positions += 1;
+        self.positions_count += 1;
 
         Ok(DepositPosition::default())
     }
@@ -66,12 +66,46 @@ impl Obligation {
     /// Verifies that the new borrow position doesn't exceed the max allowed number of positions and
     /// creates one
     pub fn try_create_borrow_position(&mut self, e: &Env) -> Result<BorrowPosition, MCError> {
-        if self.positions >= storage::get_max_positions(e) {
+        if self.positions_count >= storage::get_max_positions(e) {
             return Err(MCError::TooManyPositions);
         }
-        self.positions += 1;
+        self.positions_count += 1;
 
         Ok(BorrowPosition::default())
+    }
+
+    /// Removes the deposit position for the obligation if
+    pub fn try_remove_deposit_position(
+        &mut self,
+        e: &Env,
+        pool_address: &Address,
+    ) -> Result<(), MCError> {
+        self.deposits.remove(pool_address.clone());
+        if self.positions_count == 0 {
+            events::positions_count_becomes_negative(e, &pool_address, self);
+
+            return Err(MCError::InternalError);
+        }
+        self.positions_count -= 1;
+
+        Ok(())
+    }
+
+    /// Removes the borrow position for the obligation
+    pub fn try_remove_borrow_position(
+        &mut self,
+        e: &Env,
+        pool_address: &Address,
+    ) -> Result<(), MCError> {
+        self.borrows.remove(pool_address.clone());
+        if self.positions_count == 0 {
+            events::positions_count_becomes_negative(e, &pool_address, self);
+
+            return Err(MCError::InternalError);
+        }
+        self.positions_count -= 1;
+
+        Ok(())
     }
 
     /// Saves/updates obligation in the contract's storage
@@ -133,11 +167,9 @@ impl Obligation {
     /// [`Result::Ok(true)`] if obligation **CANNOT** be liquidated,
     /// [`Result::Err(MMError)`] if any error occurred during calculation
     pub fn is_healthy(&self, e: &Env) -> Result<bool, MCError> {
-        // TODO: Maybe, somehow cache these values?
-        let is_healthy = self.compute_collateral_value_scaled_w_close_ltvs(e)?
-            >= self.compute_debt_value_scaled_w_liability_factors(e)?;
-
-        Ok(is_healthy)
+        // TODO: Maybe, somehow cache these values?;
+        Ok(self.compute_collateral_value_scaled_w_close_ltvs(e)?
+            >= self.compute_debt_value_scaled_w_liability_factors(e)?)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -164,7 +196,7 @@ impl Obligation {
 
     pub fn require_non_healthy(&self, e: &Env) -> Result<(), MCError> {
         if self.is_healthy(e)? {
-            return Err(MCError::LiquidatedObligationIsHealthy);
+            return Err(MCError::ObligationIsHealthy);
         }
 
         Ok(())
@@ -626,13 +658,7 @@ impl Obligation {
             .adjust_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_position.is_empty() {
-            self.deposits.remove(pool.pool_address.clone());
-            if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &pool.pool_address, self);
-
-                return Err(MCError::InternalError);
-            }
-            self.positions -= 1;
+            self.try_remove_deposit_position(e, &pool.pool_address)?;
         } else {
             if self.borrow_exists() {
                 deposit_position.require_position_min_collateral_value(
@@ -686,13 +712,7 @@ impl Obligation {
             .adjust_collateral(e, collateral_decrease.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_position.is_empty() {
-            self.deposits.remove(pool.pool_address.clone());
-            if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &pool.pool_address, self);
-
-                return Err(MCError::InternalError);
-            }
-            self.positions -= 1;
+            self.try_remove_deposit_position(e, &pool.pool_address)?;
         } else {
             if self.borrow_exists() {
                 deposit_position.require_position_min_collateral_value(e, pool, 0, 0)?;
@@ -769,7 +789,7 @@ impl Obligation {
             .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
 
         if borrow_position.is_empty() {
-            self.borrows.remove(pool.pool_address.clone());
+            self.try_remove_borrow_position(e, &pool.pool_address)?;
         } else {
             self.borrows.set(pool.pool_address.clone(), borrow_position);
         }
@@ -813,7 +833,7 @@ impl Obligation {
             self.compute_collateral_value_scaled_w_close_ltvs(e)?,
         );
         if obligation_debt_value_w_liability_factors <= obligation_collateral_value_w_close_ltvs {
-            return Err(MCError::LiquidatedObligationIsHealthy);
+            return Err(MCError::ObligationIsHealthy);
         }
 
         let (obligation_debt_value, obligation_collateral_value) =
@@ -1043,25 +1063,13 @@ impl Obligation {
             .adjust_borrowed(e, decreased_borrowed_amount.checked_neg().map_over_or_underflow()?)?;
 
         if deposit_position.is_empty() {
-            self.deposits.remove(collateral_pool.pool_address.clone());
-            if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &collateral_pool.pool_address, self);
-
-                return Err(MCError::InternalError);
-            }
-            self.positions -= 1;
+            self.try_remove_deposit_position(e, &collateral_pool.pool_address)?;
         } else {
             self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
         }
 
         if borrow_position.is_empty() {
-            self.borrows.remove(borrow_pool.pool_address.clone());
-            if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &borrow_pool.pool_address, self);
-
-                return Err(MCError::InternalError);
-            }
-            self.positions -= 1;
+            // self.remove_borrow_position()
         } else {
             self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
         }

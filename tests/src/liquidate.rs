@@ -184,7 +184,7 @@
 //         &1,
 //     );
 
-//     assert_eq!(result, Err(Ok(MCError::LiquidatedObligationIsHealthy)));
+//     assert_eq!(result, Err(Ok(MCError::ObligationIsHealthy)));
 // }
 
 // #[test]
@@ -444,7 +444,7 @@
 //             &test.test_fixture.gold_pool_address,
 //             &10,
 //         ),
-//         Err(Ok(MCError::LiquidatedObligationIsHealthy))
+//         Err(Ok(MCError::ObligationIsHealthy))
 //     );
 // }
 
@@ -490,7 +490,7 @@
 //                 let expected = initial_debt - (small_amount * i);
 //                 assert_eq!(current_debt, expected, "Liquidation {} failed", i);
 //             }
-//             Err(Ok(MCError::LiquidatedObligationIsHealthy)) => {
+//             Err(Ok(MCError::ObligationIsHealthy)) => {
 //                 // Position became healthy, this is expected
 //                 break;
 //             }

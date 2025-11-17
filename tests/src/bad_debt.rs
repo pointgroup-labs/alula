@@ -120,7 +120,7 @@
 //             &gold_pool_address,
 //             &1,
 //         ),
-//         Err(Ok(MCError::LiquidatedObligationIsHealthy))
+//         Err(Ok(MCError::ObligationIsHealthy))
 //     );
 
 //     // - Accrue bad debt on the pool -

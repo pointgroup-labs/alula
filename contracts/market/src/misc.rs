@@ -6,9 +6,11 @@ use crate::{
     pool::Pool,
     storage::{self, GlobalState, MarketStatus},
 };
-
 #[contracttype]
 #[derive(Debug, PartialEq, Eq, Clone)]
+
+/// Represents the pool's plain data with additionally computed info. Intended to be used as a result of simulated read-only
+/// invocations
 pub struct PoolData {
     pub pool: Pool,
     pub apy: AnnualPercentageYields,
@@ -16,6 +18,8 @@ pub struct PoolData {
     pub d_token_rate_ceil_bps: i128,
 }
 
+/// Represents the entire market's data(for every pool) with additionally computed info. Intended to be used as a result of simulated read-only
+/// invocations
 #[contracttype]
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct MarketData {
