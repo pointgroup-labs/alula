@@ -90,7 +90,6 @@ impl Pool {
         Ok(())
     }
 
-    // TODO: Add this to APR calculations
     /// Additionally incentivizes the pool's supply APR
     pub fn incentivize(
         &mut self,
@@ -98,6 +97,7 @@ impl Pool {
         period: (u64, u64),
         current_timestamp: u64,
     ) -> Result<(), MCError> {
+        // TODO: Add this to APR calculations
         let incentive = if let Some(mut existing_incentive) = self.supply_incentives.get(period) {
             existing_incentive.add_to_incentive(amount, current_timestamp, period);
 

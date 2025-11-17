@@ -29,7 +29,6 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
     let price_data =
         oracle_contract.lastprice(&asset).ok_or(MCError::OracleDoesNotKnowAssetPrice)?;
 
-    // TODO: Add sanity checks? I.e., a price range for the asset to be considered adequate
     require_nonnegative(price_data.price)?;
 
     // Validate price is not too old and not from the future
