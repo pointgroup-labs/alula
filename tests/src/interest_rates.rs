@@ -42,35 +42,35 @@ fn test_interest_rates() {
     // Borrow 50% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
-    let rates = contract_client.get_apy(&usdc_pool_address);
+    let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 23_89);
     assert_eq!(rates.supply_bps, 10_10);
 
     // Borrow 75% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
 
-    let rates = contract_client.get_apy(&usdc_pool_address);
+    let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 56_83);
     assert_eq!(rates.supply_bps, 35_48);
 
     // Borrow 80% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20));
 
-    let rates = contract_client.get_apy(&usdc_pool_address);
+    let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 82_21);
     assert_eq!(rates.supply_bps, 54_03);
 
     // Borrow 90% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    let rates = contract_client.get_apy(&usdc_pool_address);
+    let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 897_41);
     assert_eq!(rates.supply_bps, 544_30);
 
     // Borrow 100% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    let rates = contract_client.get_apy(&usdc_pool_address);
+    let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.supply_bps, 355_982);
     assert_eq!(rates.borrow_bps, 535_981);
 }
@@ -97,7 +97,7 @@ fn test_interest_rates_no_take_rate() {
     // Borrow 100% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let rates = contract_client.get_apy(&usdc_pool_address);
+    let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 535_981);
     assert_eq!(rates.supply_bps, 535_981);
 }

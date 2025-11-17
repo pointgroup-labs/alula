@@ -6,7 +6,6 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    interest_rate::AnnualPercentageYields,
     misc::{
         MarketData, PoolData, require_admin, require_borrow_allowed, require_deployer,
         require_deposit_allowed, require_not_frozen, require_owned_and_admin,
@@ -487,12 +486,12 @@ pub trait Market {
         borrow_pool_address: Address,
     ) -> bool;
 
-    /// Returns APY calculated for the current utilization ratio of a pool in basis points
-    /// (e.g., 2912 = 29.12%, etc.)
+    /// Returns pool's data together with borrow/supply APYs and other additional computed info.
+    /// Intended to be used in simulations only
     ///
     /// # Arguments
-    /// * `pool_address` - address of a pool for which APY is returned
-    fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields, MCError>;
+    /// * `pool_address` - address of a pool for which data is returned
+    fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError>;
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
     /// resetting on the testnet without re-deploying the contract
@@ -1109,9 +1108,8 @@ impl Market for MarketContract {
 
                 MCError::InternalError
             })?;
-            let apy = pool.get_apy()?;
 
-            pool_data.push_back(PoolData { pool, apy });
+            pool_data.push_back(pool.get_pool_data()?);
         }
 
         let global_state = process_get_global_state(&e);
@@ -1143,10 +1141,10 @@ impl Market for MarketContract {
         MultiplyPair::get_all(&e)
     }
 
-    fn get_apy(e: Env, pool_address: Address) -> Result<AnnualPercentageYields, MCError> {
+    fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        pool.get_apy()
+        pool.get_pool_data()
     }
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require

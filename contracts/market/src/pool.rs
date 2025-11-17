@@ -8,6 +8,7 @@ use crate::{
     events,
     interest_rate_model::InterestRateModel,
     math_utils::MathUtils,
+    misc::PoolData,
     obligation::{
         AddCollateralResult, BorrowResult, ComputedFees, DepositResult, LiquidationResult,
         RemoveCollateralResult, RepayResult, WithdrawResult,
@@ -360,7 +361,6 @@ impl Pool {
         if shares_amount == 0 {
             return Ok(0);
         }
-
         if total_shares_amount < shares_amount {
             events::pool_total_shares_smaller_than_individual_user_shares(
                 e,
@@ -370,7 +370,6 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-
         let tokens_amount = shares_amount
             .fixed_mul_ceil(total_tokens_amount, total_shares_amount)
             .map_over_or_underflow()?;
@@ -389,7 +388,6 @@ impl Pool {
         if shares_amount == 0 {
             return Ok(0);
         }
-
         if total_shares_amount < shares_amount {
             events::pool_total_shares_smaller_than_individual_user_shares(
                 e,
@@ -399,7 +397,6 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-
         let tokens_amount = shares_amount
             .fixed_mul_floor(total_tokens_amount, total_shares_amount)
             .map_over_or_underflow()?;
@@ -576,6 +573,30 @@ impl Pool {
     }
 
     // ---- MISC ----
+
+    pub fn get_pool_data(self) -> Result<PoolData, MCError> {
+        let apy = self.get_apy()?;
+        let j_token_rate_floor_bps = self.get_j_token_rate_floor()?;
+        let d_token_rate_ceil_bps = self.get_d_token_rate_ceil()?;
+
+        Ok(PoolData { pool: self, apy, j_token_rate_floor_bps, d_token_rate_ceil_bps })
+    }
+
+    /// Returns a `jTokenRate` with floor rounding in basis points (i.e., 10001 for 1.0001, etc)
+    fn get_j_token_rate_floor(&self) -> Result<i128, MCError> {
+        let total_supply = self.total_supply()?;
+        let total_j_tokens = self.total_j_tokens;
+
+        total_supply.fixed_div_floor(total_j_tokens, BPS_FACTOR).map_over_or_underflow()
+    }
+
+    /// Returns a `dTokenRate` with ceil rounding in basis points (i.e. 10023 for 1.0023, etc)
+    fn get_d_token_rate_ceil(&self) -> Result<i128, MCError> {
+        let total_borrowed = self.total_borrowed;
+        let total_d_tokens = self.total_d_tokens;
+
+        total_borrowed.fixed_div_ceil(total_d_tokens, BPS_FACTOR).map_over_or_underflow()
+    }
 
     /// Computes the maximum available amount for deposit removal that doesn't exceed the
     /// utilization ratio limit on a pool

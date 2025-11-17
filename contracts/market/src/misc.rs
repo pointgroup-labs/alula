@@ -12,6 +12,8 @@ use crate::{
 pub struct PoolData {
     pub pool: Pool,
     pub apy: AnnualPercentageYields,
+    pub j_token_rate_floor_bps: i128,
+    pub d_token_rate_ceil_bps: i128,
 }
 
 #[contracttype]
