@@ -3,7 +3,6 @@ use soroban_sdk::{Address, Env, Map, contracttype, token::TokenClient};
 use crate::{error::MCError, math_utils::MathUtils};
 
 /// A request from the submission batch
-#[derive(Clone)]
 #[contracttype]
 pub struct Request {
     pub request_type: u32,
