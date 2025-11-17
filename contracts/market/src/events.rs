@@ -66,7 +66,7 @@ struct DepositEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey, // TODO: Start return ObligationKey's from the contract
+    pub obligation_key: ObligationKey,
     pub deposit_result: DepositResult,
 }
 
