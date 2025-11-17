@@ -463,7 +463,7 @@ impl Obligation {
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
         deposit_position.require_position_min_collateral_value(
             e,
-            &pool,
+            pool,
             deposited_tokens_minus_fee,
             j_tokens_to_issue,
         )?;
@@ -541,7 +541,7 @@ impl Obligation {
         let added_collateral =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         deposit_position.adjust_collateral(e, added_collateral)?;
-        deposit_position.require_position_min_collateral_value(e, &pool, 0, 0)?;
+        deposit_position.require_position_min_collateral_value(e, pool, 0, 0)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
@@ -629,7 +629,7 @@ impl Obligation {
         if deposit_position.is_empty() {
             self.deposits.remove(pool.pool_address.clone());
             if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &pool.pool_address, &self);
+                events::positions_count_becomes_negative(e, &pool.pool_address, self);
 
                 return Err(MCError::InternalError);
             }
@@ -689,14 +689,14 @@ impl Obligation {
         if deposit_position.is_empty() {
             self.deposits.remove(pool.pool_address.clone());
             if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &pool.pool_address, &self);
+                events::positions_count_becomes_negative(e, &pool.pool_address, self);
 
                 return Err(MCError::InternalError);
             }
             self.positions -= 1;
         } else {
             if self.borrow_exists() {
-                deposit_position.require_position_min_collateral_value(e, &pool, 0, 0)?;
+                deposit_position.require_position_min_collateral_value(e, pool, 0, 0)?;
             }
             self.deposits.set(pool.pool_address.clone(), deposit_position);
         }
@@ -1046,7 +1046,7 @@ impl Obligation {
         if deposit_position.is_empty() {
             self.deposits.remove(collateral_pool.pool_address.clone());
             if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &collateral_pool.pool_address, &self);
+                events::positions_count_becomes_negative(e, &collateral_pool.pool_address, self);
 
                 return Err(MCError::InternalError);
             }
@@ -1058,7 +1058,7 @@ impl Obligation {
         if borrow_position.is_empty() {
             self.borrows.remove(borrow_pool.pool_address.clone());
             if self.positions == 0 {
-                events::positions_count_becomes_negative(e, &borrow_pool.pool_address, &self);
+                events::positions_count_becomes_negative(e, &borrow_pool.pool_address, self);
 
                 return Err(MCError::InternalError);
             }

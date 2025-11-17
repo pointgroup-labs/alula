@@ -187,9 +187,7 @@ pub fn process_incentivize_pool(
     require_nonnegative(amount)?;
 
     let current_timestamp = e.ledger().timestamp();
-    if start_period < current_timestamp {
-        return Err(MCError::InvalidIncentivePeriod);
-    } else if start_period >= end_period {
+    if start_period < current_timestamp || start_period >= end_period {
         return Err(MCError::InvalidIncentivePeriod);
     }
     let period = (start_period, end_period);
