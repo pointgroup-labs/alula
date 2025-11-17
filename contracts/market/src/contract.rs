@@ -1,5 +1,5 @@
 use soroban_sdk::{
-    Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl, vec as svec,
+    Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl, token, vec as svec,
 };
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     events,
     misc::{
         MarketData, PoolData, require_admin, require_borrow_allowed, require_deployer,
-        require_deposit_allowed, require_not_frozen, require_owned_and_admin,
+        require_deposit_allowed, require_nonnegative, require_not_frozen, require_owned_and_admin,
     },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
@@ -277,6 +277,75 @@ pub trait Market {
     ///   Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
     fn repay(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
 
+    /// Liquidates the borrower's position if the position's health factor criterion isn't met
+    ///
+    /// # Arguments
+    /// * `liquidator` - agent that liquidates the borrower's position
+    /// * `borrower` - the borrower whose position is being liquidated
+    /// * `borrower_obligation_seed` - the borrower obligation's seed(if any)
+    /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
+    ///       liquidator
+    /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
+    ///       a discount
+    /// * `repay_amount` - amount of repaid tokens
+    /// * `min_demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
+    #[allow(clippy::too_many_arguments)]
+    fn liquidate(
+        e: Env,
+        liquidator: Address,
+        borrower: Address,
+        borrower_obligation_seed: Option<BytesN<32>>,
+        borrow_pool_address: Address,
+        collateral_pool_address: Address,
+        repay_amount: i128,
+        min_demanded_collateral_amount: i128,
+    ) -> Result<(), MCError>;
+
+    /// Creates a flash loan
+    ///
+    /// # Arguments
+    /// * `contract` - contract's address which leverages the flash loaned amount and adheres to
+    ///   `erc3156` standard
+    /// * `pool_address` - address of a pool from which the flash loan happens
+    /// * `amount` - amount of lent tokens
+    fn flash_loan(
+        e: Env,
+        contract: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError>;
+
+    // -- TO BE REMOVED --
+
+    /// Swap tokens via a swap provider contract. This guarantees a swap
+    /// and is agnostic to the possible price slippage
+    ///
+    /// # Arguments
+    /// * `user` - user which deposits a token
+    /// * `token_in` - address of a token that would be taken from the user
+    /// * `token_out` - address of a token that would be given to the user
+    /// * `amount` - exact amount of the `token_in`
+    fn swap(
+        e: Env,
+        user: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_in: i128,
+    ) -> Result<i128, MCError>;
+
+    /// Donates tokens to a pool's insurance reserve
+    ///
+    /// # Arguments
+    /// * `user` - user that donates tokens
+    /// * `pool_address` - address of a pool to whose reserve the donation takes place
+    /// * `amount` - donation amount
+    fn donate_to_reserve(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError>;
+
     /// Redeems accumulated market fees
     ///
     /// # Arguments
@@ -364,8 +433,6 @@ pub trait Market {
     /// Accrues interest on a pool
     fn refresh_pool(e: Env, pool_address: Address) -> Result<(), MCError>;
 
-    // TODO: Mark `read-only` methods
-
     /// Returns the user's `Earn` obligation
     ///
     /// # Arguments
@@ -391,6 +458,13 @@ pub trait Market {
     /// * `pool_address` - pool which data is returned
     fn get_pool(e: Env, pool_address: Address) -> Result<Pool, MCError>;
 
+    /// Returns pool's data together with borrow/supply APYs and other additionally computed info.
+    /// Intended to be used in simulations only
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool for which data is returned
+    fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError>;
+
     /// Returns a list of all pool addresses in the protocol
     fn get_all_pools(e: Env) -> Vec<Address>;
 
@@ -415,62 +489,6 @@ pub trait Market {
     /// Returns a list of all multiply pairs registered for the market
     fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair>;
 
-    /// Liquidates the borrower's position if the position's health factor criterion isn't met
-    ///
-    /// # Arguments
-    /// * `liquidator` - agent that liquidates the borrower's position
-    /// * `borrower` - the borrower whose position is being liquidated
-    /// * `borrower_obligation_seed` - the borrower obligation's seed(if any)
-    /// * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
-    ///       liquidator
-    /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
-    ///       a discount
-    /// * `repay_amount` - amount of repaid tokens
-    /// * `min_demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
-    #[allow(clippy::too_many_arguments)]
-    fn liquidate(
-        e: Env,
-        liquidator: Address,
-        borrower: Address,
-        borrower_obligation_seed: Option<BytesN<32>>,
-        borrow_pool_address: Address,
-        collateral_pool_address: Address,
-        repay_amount: i128,
-        min_demanded_collateral_amount: i128,
-    ) -> Result<(), MCError>;
-
-    /// Creates a flash loan
-    ///
-    /// # Arguments
-    /// * `contract` - contract's address which leverages the flash loaned amount and adheres to
-    ///   `erc3156` standard
-    /// * `pool_address` - address of a pool from which the flash loan happens
-    /// * `amount` - amount of lent tokens
-    fn flash_loan(
-        e: Env,
-        contract: Address,
-        pool_address: Address,
-        amount: i128,
-    ) -> Result<(), MCError>;
-
-    // -- TO BE REMOVED --
-
-    /// Swap tokens via a swap provider contract. This guarantees a swap
-    /// and is agnostic to the possible price slippage
-    ///
-    /// # Arguments
-    /// * `user` - user which deposits a token
-    /// * `token_in` - address of a token that would be taken from the user
-    /// * `token_out` - address of a token that would be given to the user
-    /// * `amount` - exact amount of the `token_in`
-    fn swap(
-        e: Env,
-        user: Address,
-        token_in: Address,
-        token_out: Address,
-        amount_in: i128,
-    ) -> Result<i128, MCError>;
-
     /// Upgrades the lending contract
     ///
     /// # Arguments
@@ -485,13 +503,6 @@ pub trait Market {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> bool;
-
-    /// Returns pool's data together with borrow/supply APYs and other additional computed info.
-    /// Intended to be used in simulations only
-    ///
-    /// # Arguments
-    /// * `pool_address` - address of a pool for which data is returned
-    fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError>;
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
     /// resetting on the testnet without re-deploying the contract
@@ -742,6 +753,27 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
+    }
+
+    fn donate_to_reserve(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<(), MCError> {
+        user.require_auth();
+        require_nonnegative(amount)?;
+        storage::extend_instance_storage(&e);
+
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+        pool.accrue_interest(&e)?;
+        pool.adjust_accumulated_reserve_fees(&e, amount)?;
+        pool.set(&e);
+
+        let token_client = token::Client::new(&e, &pool.token_address);
+        token_client.transfer(&user, e.current_contract_address(), &amount);
+
+        Ok(())
     }
 
     fn add_collateral(
