@@ -171,14 +171,15 @@ struct DepositWithLeverageEvent {
 #[contractevent]
 struct WithdrawFromLeveragedEvent {
     #[topic]
-    pub user: Address,
+    pub obligation_key: ObligationKey,
     #[topic]
     pub deposit_pool_address: Address,
     #[topic]
     pub borrow_pool_address: Address,
-    // TODO: `WithdrawFromLeveragedResult` struct
-    pub amount: i128,
-    pub actual_amount_withdrawn: i128,
+    pub withdrawn_to_wallet_amount: i128,
+    pub deposit_reduced_amount: i128,
+    pub borrow_reduced_amount: i128,
+    // TODO: Introduce `WithdrawFromLeveragedResult` struct
 }
 
 #[contractevent]
@@ -516,18 +517,20 @@ pub fn deposit_with_leverage(
 
 pub fn withdraw_from_leveraged(
     e: &Env,
-    user: &Address,
+    obligation_key: &ObligationKey,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
-    amount: i128,
-    actual_amount_withdrawn: i128,
+    withdrawn_to_wallet_amount: i128,
+    deposit_reduced_amount: i128,
+    borrow_reduced_amount: i128,
 ) {
     WithdrawFromLeveragedEvent {
-        user: user.clone(),
+        obligation_key: obligation_key.clone(),
         deposit_pool_address: deposit_pool_address.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
-        amount,
-        actual_amount_withdrawn,
+        withdrawn_to_wallet_amount,
+        deposit_reduced_amount,
+        borrow_reduced_amount,
     }
     .publish(e);
 }

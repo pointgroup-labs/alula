@@ -217,7 +217,7 @@ pub trait Market {
     /// * `user` - user that deleverages and withdraws from the position
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
-    /// * `amount` - desired amount of deposited tokens to withdraw.
+    /// * `amount` - desired amount of tokens to receive in the user wallet
     ///   The actual amount withdrawn is capped by the value difference between deposited and borrowed
     ///   tokens in the leveraged position (minus operational fees). Passing [`u64::MAX`] (or
     ///   [`i128::MAX`]) can be used to withdraw all available tokens
@@ -892,6 +892,7 @@ impl Market for MarketContract {
 
         let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
+        // TODO: We can allow to multiply more with the current multiplier
         Obligation::require_does_not_exist(&e, &obligation_key)?;
 
         process_deposit_with_leverage(
@@ -913,17 +914,14 @@ impl Market for MarketContract {
         borrow_pool_address: Address,
         amount: i128,
     ) -> Result<(), MCError> {
+        storage::extend_instance_storage(&e);
         user.require_auth();
         require_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
 
-        process_withdraw_from_leveraged(
-            &e,
-            &user,
-            &deposit_pool_address,
-            &borrow_pool_address,
-            amount,
-        )
+        let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
+        let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
+
+        process_withdraw_from_leveraged(&e, &obligation_key, &multiply_pair, amount)
     }
 
     fn redeem_accumulated_market_fees(
