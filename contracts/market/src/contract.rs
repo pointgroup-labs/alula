@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use soroban_sdk::{
     Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl, token, vec as svec,
 };
@@ -32,7 +34,6 @@ pub trait Market {
     /// * `min_collateral_value` - minimum collateral value of a user's obligation
     /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
     ///   `None` for permissionless markets since they cannot be updated
-    #[allow(clippy::too_many_arguments)]
     fn __constructor(
         e: Env,
         name: String,
@@ -289,7 +290,6 @@ pub trait Market {
     ///       a discount
     /// * `repay_amount` - amount of repaid tokens
     /// * `min_demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
-    #[allow(clippy::too_many_arguments)]
     fn liquidate(
         e: Env,
         liquidator: Address,
@@ -515,7 +515,6 @@ pub struct MarketContract;
 
 #[contractimpl]
 impl Market for MarketContract {
-    #[allow(clippy::too_many_arguments)]
     fn __constructor(
         e: Env,
         name: String,
@@ -818,7 +817,6 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn liquidate(
         e: Env,
         liquidator: Address,

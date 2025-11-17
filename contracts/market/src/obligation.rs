@@ -82,7 +82,7 @@ impl Obligation {
     ) -> Result<(), MCError> {
         self.deposits.remove(pool_address.clone());
         if self.positions_count == 0 {
-            events::positions_count_becomes_negative(e, &pool_address, self);
+            events::positions_count_becomes_negative(e, pool_address, self);
 
             return Err(MCError::InternalError);
         }
@@ -99,7 +99,7 @@ impl Obligation {
     ) -> Result<(), MCError> {
         self.borrows.remove(pool_address.clone());
         if self.positions_count == 0 {
-            events::positions_count_becomes_negative(e, &pool_address, self);
+            events::positions_count_becomes_negative(e, pool_address, self);
 
             return Err(MCError::InternalError);
         }
@@ -1069,7 +1069,7 @@ impl Obligation {
         }
 
         if borrow_position.is_empty() {
-            self.try_remove_borrow_position(&e, &borrow_pool.pool_address)?;
+            self.try_remove_borrow_position(e, &borrow_pool.pool_address)?;
         } else {
             self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
         }
