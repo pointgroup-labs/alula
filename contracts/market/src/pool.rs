@@ -940,10 +940,10 @@ pub struct PoolHealthConfig {
     /// by it before subtracting this value from the obligation's max borrow limit. Volatile
     /// assets' pools are expected to have this value set way above 100%
     pub liability_factor_bps: i128,
-    /// Maximum percentage of a borrower's debt that can be liquidated
+    /// Maximum percentage of a borrower's debt that can be liquidated at once
     pub liquidation_close_factor_bps: i128,
-    /// Additional discount given to liquidators when purchasing collateral
-    pub liquidation_incentive_bps: i128,
+    /// Maximum additional value in the received tokens that can be given to liquidators when purchasing collateral
+    pub max_liquidation_incentive_bps: i128,
     /// LTV calculated for unparameterized obligation positions(i.e., no openLTV/liability factors scaling) that marks
     /// position as insolvent. Used as a means to avoid unprofitable health-improving liquidations
     pub insolvency_ltv_bps: i128,
@@ -958,7 +958,7 @@ impl Default for PoolHealthConfig {
             close_ltv_bps: DEFAULT_CLOSE_LTV_BPS,
             liability_factor_bps: DEFAULT_LIABILITY_FACTOR_BPS,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR_BPS,
-            liquidation_incentive_bps: DEFAULT_LIQUIDATION_SPREAD_BPS, // TODO: Rename?
+            max_liquidation_incentive_bps: DEFAULT_LIQUIDATION_INCENTIVE_BPS,
             withdraw_scarcity_limit_bps: DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS,
             withdraw_scarcity_cooldown_s: DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS,
             insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
@@ -975,7 +975,7 @@ impl PoolHealthConfig {
             close_ltv_bps,
             liability_factor_bps,
             liquidation_close_factor_bps,
-            liquidation_incentive_bps,
+            max_liquidation_incentive_bps,
             withdraw_scarcity_limit_bps,
             withdraw_scarcity_cooldown_s,
             insolvency_ltv_bps,
@@ -1009,7 +1009,7 @@ impl PoolHealthConfig {
             return Err("Liquidation close factor must be between 0% and 100%");
         }
 
-        if !is_valid_bps_percent(liquidation_incentive_bps) {
+        if !is_valid_bps_percent(max_liquidation_incentive_bps) {
             return Err("Liquidation incentive must be between 0% and 100%");
         }
 

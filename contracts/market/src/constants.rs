@@ -77,7 +77,7 @@ pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 /// Max portion of a position that can be liquidated in one go
 pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
 /// Additional spread taken during liquidation
-pub const DEFAULT_LIQUIDATION_SPREAD_BPS: i128 = 1_000;
+pub const DEFAULT_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000; // 10%
 pub const DEFAULT_OPEN_LTV_BPS: i128 = 7_000;
 pub const DEFAULT_CLOSE_LTV_BPS: i128 = 8_000;
 /// Health factor threshold expressed in bps (100% = 10_000 bps)

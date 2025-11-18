@@ -844,8 +844,8 @@ impl Obligation {
 
         let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
 
-        let (liquidation_incentive_bps, liquidation_close_factor_bps) = (
-            borrow_pool.config.health_config.liquidation_incentive_bps,
+        let (max_liquidation_incentive_bps, liquidation_close_factor_bps) = (
+            borrow_pool.config.health_config.max_liquidation_incentive_bps,
             borrow_pool.config.health_config.liquidation_close_factor_bps,
         );
         let (borrowed_asset_price, collateral_asset_price) = (
@@ -895,7 +895,9 @@ impl Obligation {
 
             let collateral_value_to_redeem_with_max_incentive = liquidated_value
                 .fixed_mul_floor(
-                    BPS_FACTOR.checked_add(liquidation_incentive_bps).map_over_or_underflow()?,
+                    BPS_FACTOR
+                        .checked_add(max_liquidation_incentive_bps)
+                        .map_over_or_underflow()?,
                     BPS_FACTOR,
                 )
                 .map_over_or_underflow()?;
@@ -920,7 +922,9 @@ impl Obligation {
 
             let collateral_value_to_redeem_with_max_incentive = liquidated_value
                 .fixed_mul_floor(
-                    BPS_FACTOR.checked_add(liquidation_incentive_bps).map_over_or_underflow()?,
+                    BPS_FACTOR
+                        .checked_add(max_liquidation_incentive_bps)
+                        .map_over_or_underflow()?,
                     BPS_FACTOR,
                 )
                 .map_over_or_underflow()?;
