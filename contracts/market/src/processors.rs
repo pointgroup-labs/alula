@@ -837,7 +837,6 @@ pub fn process_liquidate<'a>(
         repay_amount,
         min_demanded_collateral_amount,
     )?;
-
     if liquidation_result.j_tokens_seized > 0 {
         // In case the liquidated obligation's plain collateral wasn't sufficient to cover the liquidation,
         // borrower's jTokens are transferred to the liquidator as a part of the incentive
@@ -950,7 +949,7 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
         let d_tokens_can_be_covered =
             pool.compute_d_tokens_from_tokens_floor(e, debt_can_be_covered)?;
 
-        // - Cover what can be covered from the reserves -
+        // -- Cover what can be covered from the reserves --
 
         pool.adjust_total_available(e, debt_can_be_covered)?;
         pool.adjust_total_borrowed(e, debt_can_be_covered.checked_neg().map_over_or_underflow()?)?;
@@ -963,7 +962,7 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
             d_tokens_can_be_covered.checked_neg().map_over_or_underflow()?,
         )?;
 
-        // - Socialize all remaining bad debt -
+        // -- Socialize all remaining bad debt --
 
         if obligation_pool_debt > debt_can_be_covered {
             let left_to_socialize = obligation_pool_debt - debt_can_be_covered; // safe
@@ -987,8 +986,8 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
             MCError::InternalError
         })?;
 
-        // - Remove any collateral(both deposit and collateral-only cases) from the obligation to
-        //   benefit the pool -
+        // -- Remove any collateral(both deposit and collateral-only cases) from the obligation to
+        //   benefit the pool --
 
         pool.adjust_total_j_tokens(e, j_tokens.checked_neg().map_over_or_underflow()?)?;
         pool.adjust_total_collateral(e, collateral.checked_neg().map_over_or_underflow()?)?;
