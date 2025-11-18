@@ -238,10 +238,9 @@ impl Obligation {
     // ------ Health Factor Removing Computations ------
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    /// obligation
+    /// obligation with floor rounding
     pub fn compute_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
-        let mut value_sum = 0_i128;
-
+        let mut value_sum = 0i128;
         for (pool_address, deposit_position) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
                 events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
@@ -255,7 +254,6 @@ impl Obligation {
                 &deposit_position,
                 BPS_FACTOR,
             )?;
-
             value_sum = value_sum.checked_add(new_value_term).map_over_or_underflow()?;
         }
 
@@ -292,15 +290,16 @@ impl Obligation {
     }
 
     /// Computes the maximum healthy amount of the token that can be additionally added to the debt
-    /// or removed from the collateral, scaled with the corresponding coefficient(`open_ltv_bps`
-    /// or `liability_factor_bps`, etc)
+    /// or removed from the collateral, scaled with the corresponding coefficient(`open_ltv_bps` for removed collateral
+    /// or `liability_factor_bps` for added borrow)
     fn compute_max_health_factor_decreasing_amount(
         &self,
         e: &Env,
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        let collateral_value_scaled = self.compute_collateral_value_scaled_w_open_ltvs(e)?;
+        let (collateral_value_scaled, amount_of_borrow_backing_collateral_positions) =
+            self.compute_collateral_value_scaled_w_open_ltvs(e)?;
         let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
 
         let max_amount = if collateral_value_scaled <= debt_value_scaled {
@@ -309,15 +308,22 @@ impl Obligation {
             0
         } else {
             let asset_price = get_asset_price(e, &pool.token_address)?;
-            let value_left = collateral_value_scaled - debt_value_scaled;
+            let min_collateral_value = storage::get_min_collateral_value(e);
+
+            let value_left = collateral_value_scaled - debt_value_scaled; // safe
+            let min_collateral_value_requirement = min_collateral_value
+                .checked_mul(amount_of_borrow_backing_collateral_positions as i128)
+                .map_over_or_underflow()?;
+            let borrow_backing_value_left =
+                i128::max(value_left - min_collateral_value_requirement, 0);
 
             // ----
-            // 'value_left' = amount * scalar_bps(i.e. liability_factor_bps or open_ltv_bps) *
-            // asset_price , implies:
-            // 'amount' = value_left / (scalar_bps * asset_price)
+            // 'borrow_backing_value_left' = amount * scalar_bps(i.e. liability_factor_bps or open_ltv_bps) *
+            // asset_price, implies:
+            // 'amount' = borrow_backing_value_left / (scalar_bps * asset_price)
             // ----
 
-            let numerator = value_left;
+            let numerator = borrow_backing_value_left;
             let denominator =
                 asset_price.fixed_mul_floor(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
 
@@ -399,9 +405,11 @@ impl Obligation {
     }
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    /// obligation, scaling each value with the appropriate `open_ltv_bps` value
-    fn compute_collateral_value_scaled_w_open_ltvs(&self, e: &Env) -> Result<i128, MCError> {
-        let mut value_sum = 0_i128;
+    /// obligation, scaling each value with the appropriate `open_ltv_bps` value.
+    /// As a second value, it returns the amount of open positions that are used as collateral that can back up borrows
+    fn compute_collateral_value_scaled_w_open_ltvs(&self, e: &Env) -> Result<(i128, u32), MCError> {
+        let mut value_sum = 0i128;
+        let mut positions_with_non_zero_close_ltv_count = 0u32;
 
         for (pool_address, deposit_position) in self.deposits.iter() {
             let pool = Pool::try_get(e, &pool_address).map_err(|_| {
@@ -410,17 +418,19 @@ impl Obligation {
                 MCError::InternalError
             })?;
 
+            if pool.config.health_config.close_ltv_bps > 0 {
+                positions_with_non_zero_close_ltv_count += 1;
+            }
             let new_value_term = Self::compute_pool_collateral_value_scaled(
                 e,
                 &pool,
                 &deposit_position,
                 pool.config.health_config.open_ltv_bps,
             )?;
-
             value_sum = value_sum.checked_add(new_value_term).map_over_or_underflow()?;
         }
 
-        Ok(value_sum)
+        Ok((value_sum, positions_with_non_zero_close_ltv_count))
     }
 
     /// Computes obligation's collateral pool's asset total(collateral + deposit) value scaled
@@ -436,7 +446,13 @@ impl Obligation {
         let supply = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
         let total_collateral_tokens = supply.checked_add(collateral).map_over_or_underflow()?;
 
-        Self::compute_asset_value_scaled(e, total_collateral_tokens, pool, scalar_bps)
+        if scalar_bps == BPS_FACTOR {
+            let price = get_asset_price(e, &pool.token_address)?;
+
+            total_collateral_tokens.checked_mul(price).map_over_or_underflow()
+        } else {
+            Self::compute_asset_value_scaled_floor(e, total_collateral_tokens, pool, scalar_bps)
+        }
     }
 
     /// Computes obligation's debt pool's asset value scaled
@@ -450,10 +466,16 @@ impl Obligation {
         let &BorrowPosition { d_tokens, .. } = borrow_position;
         let debt = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
 
-        Self::compute_asset_value_scaled(e, debt, pool, scalar_bps)
+        if scalar_bps == BPS_FACTOR {
+            let price = get_asset_price(e, &pool.token_address)?;
+
+            debt.checked_mul(price).map_over_or_underflow()
+        } else {
+            Self::compute_asset_value_scaled_ceil(e, debt, pool, scalar_bps)
+        }
     }
 
-    fn compute_asset_value_scaled(
+    fn compute_asset_value_scaled_floor(
         e: &Env,
         amount: i128,
         pool: &Pool,
@@ -462,6 +484,19 @@ impl Obligation {
         let price = get_asset_price(e, &pool.token_address)?;
         let value = amount.checked_mul(price).map_over_or_underflow()?;
         let value_scaled = value.fixed_mul_floor(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
+
+        Ok(value_scaled)
+    }
+
+    fn compute_asset_value_scaled_ceil(
+        e: &Env,
+        amount: i128,
+        pool: &Pool,
+        scalar_bps: i128,
+    ) -> Result<i128, MCError> {
+        let price = get_asset_price(e, &pool.token_address)?;
+        let value = amount.checked_mul(price).map_over_or_underflow()?;
+        let value_scaled = value.fixed_mul_ceil(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
 
         Ok(value_scaled)
     }
@@ -492,12 +527,6 @@ impl Obligation {
 
         deposit_position.adjust_deposited(e, deposited_tokens_minus_fee)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
-        deposit_position.require_has_min_collateral_value(
-            e,
-            pool,
-            deposited_tokens_minus_fee,
-            j_tokens_to_issue,
-        )?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
@@ -572,7 +601,6 @@ impl Obligation {
         let added_collateral =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         deposit_position.adjust_collateral(e, added_collateral)?;
-        deposit_position.require_has_min_collateral_value(e, pool, 0, 0)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
@@ -660,14 +688,6 @@ impl Obligation {
         if deposit_position.is_empty() {
             self.try_remove_deposit_position(e, &pool.pool_address)?;
         } else {
-            if self.borrow_exists() {
-                deposit_position.require_has_min_collateral_value(
-                    e,
-                    pool,
-                    deposit_decrease.checked_neg().map_over_or_underflow()?,
-                    j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
-                )?;
-            }
             self.deposits.set(pool.pool_address.clone(), deposit_position);
         }
 
@@ -714,9 +734,6 @@ impl Obligation {
         if deposit_position.is_empty() {
             self.try_remove_deposit_position(e, &pool.pool_address)?;
         } else {
-            if self.borrow_exists() {
-                deposit_position.require_has_min_collateral_value(e, pool, 0, 0)?;
-            }
             self.deposits.set(pool.pool_address.clone(), deposit_position);
         }
 
@@ -1194,37 +1211,6 @@ impl DepositPosition {
     pub fn adjust_collateral(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.collateral, adjusting_amount)?;
         self.collateral = new_amount;
-
-        Ok(())
-    }
-
-    /// Requires the deposit position to have at least `min_collateral_value` of the asset collateral
-    pub fn require_has_min_collateral_value(
-        &self,
-        e: &Env,
-        pool: &Pool,
-        total_supply_diff: i128,
-        j_tokens_diff: i128,
-    ) -> Result<(), MCError> {
-        let new_total_supply =
-            pool.total_supply()?.checked_add(total_supply_diff).map_over_or_underflow()?;
-        let new_pool_j_tokens =
-            pool.total_j_tokens.checked_add(j_tokens_diff).map_over_or_underflow()?;
-
-        let supplied_tokens = Pool::compute_tokens_from_shares_floor(
-            e,
-            self.j_tokens,
-            new_pool_j_tokens,
-            new_total_supply,
-        )?;
-        let collateral_sum =
-            self.collateral.checked_add(supplied_tokens).map_over_or_underflow()?;
-        let price = get_asset_price(e, &pool.token_address)?;
-        let value = collateral_sum.checked_mul(price).map_over_or_underflow()?;
-
-        if value < storage::get_min_collateral_value(e) {
-            return Err(MCError::MinCollateralValueIsNotMet);
-        }
 
         Ok(())
     }
