@@ -413,9 +413,6 @@ pub trait Market {
     /// * `user` - user which obligation is returned
     fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError>;
 
-    /// Accrues interest on all registered pools
-    fn refresh(e: Env) -> Result<(), MCError>;
-
     /// Accrues interest on all pools to whose obligation has open positions
     fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError>;
 
@@ -468,11 +465,15 @@ pub trait Market {
     /// Returns a list of all pool addresses in the protocol
     fn get_all_pools(e: Env) -> Vec<Address>;
 
-    /// Returns accumulated market data. Intended to be used in simulations only, since it will likely fail
-    /// the resource limits of Soroban
+    /// Returns accumulated market data. Intended to be used in simulations only
     fn get_market_data(e: Env) -> Result<MarketData, MCError>;
 
     /// Returns a list of all user obligations in the protocol
+    ///
+    /// WARNING: It is originally intended to be used in `read-only` simulations,
+    /// yet, simulations as well as on-ledger invocations are constrained by the resource limits.
+    /// A proper way of accessing a list of all obligations would be to read
+    /// the corresponding storage entry
     fn get_all_obligations(e: Env) -> Vec<ObligationKey>;
 
     /// Returns the specific multiply pair
@@ -1021,23 +1022,6 @@ impl Market for MarketContract {
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
         Ok(obligation)
-    }
-
-    fn refresh(e: Env) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
-
-        let pool_addresses = storage::get_all_pools(&e);
-        for pool_address in pool_addresses {
-            let mut pool = Pool::try_get(&e, &pool_address).map_err(|_| {
-                events::pool_is_unexpectedly_missing_in_storage(&e, &pool_address);
-
-                MCError::InternalError
-            })?;
-            pool.accrue_interest(&e)?;
-            pool.set(&e);
-        }
-
-        Ok(())
     }
 
     fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError> {

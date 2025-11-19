@@ -168,7 +168,7 @@ test/coverage: ## Generate test coverage
 	@cargo +nightly llvm-cov --doc --no-report || true
 
 test/coverage/missing: ## Show missing test coverage lines
-	@cargo +nightly llvm-cov report --show-missing-lines || true
+	cargo +nightly llvm-cov report --show-missing-lines || true
 
 test/coverage/html: ## Generate HTML test coverage report
 	@cargo +nightly llvm-cov nextest --html --no-tests=warn || true
