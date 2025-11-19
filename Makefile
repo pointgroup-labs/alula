@@ -175,8 +175,6 @@ test/coverage/html: ## Generate HTML test coverage report
 	@cargo +nightly llvm-cov --doc --html || true
 	@echo "HTML coverage: target/llvm-cov/html/"
 
-benchmark: ## Run benchmarks
-	@cargo bench --locked
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Code Generation
@@ -246,9 +244,6 @@ audit: ## Audit dependencies
 	@$(call require_tool,cargo-audit)
 	cargo audit
 	pnpm audit
-
-audit/fix: ## Fix security vulnerabilities
-	cargo audit fix || true
 
 clean: ## Clean build artifacts
 	cargo clean
