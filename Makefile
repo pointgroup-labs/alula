@@ -130,7 +130,6 @@ build/deploy: build/prepare ## Build contracts for deployment
 build/optimize: build/deploy ## Optimize contracts
 	@echo "$(BLUE)Optimizing contracts...$(NC)"
 
-# 	TODO: Move this into a `build_optimize` helper
 	@stellar contract optimize \
 		--wasm "$(DEPLOY_DIR)/$(SOROSWAP_SEP_40_ADAPTER_CONTRACT).wasm" \
 		--wasm-out $(WASM_DIR)/deploy_optimized/$(SOROSWAP_SEP_40_ADAPTER_CONTRACT).optimized.wasm
@@ -161,8 +160,8 @@ test: build
 	@echo "$(BLUE)Running unit tests...$(NC)"
 	@cargo nextest run --locked --workspace --lib
 
-test/fuzz: ## Run fuzzing suite
-	RUST_BACKTRACE=1 cargo +nightly fuzz run --fuzz-dir=tests/fuzz --sanitizer=thread fuzz_target -- -max_len=1048576
+test/fuzz: build ## Run fuzzing suite
+	RUST_BACKTRACE=1 cargo +nightly fuzz run --fuzz-dir=tests/fuzz --sanitizer=none fuzz_target -- -max_len=1048576
 
 test/coverage: ## Generate test coverage
 	@cargo +nightly llvm-cov nextest --no-tests=warn --no-report || true
