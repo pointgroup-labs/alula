@@ -61,7 +61,6 @@ impl Pool {
         }
 
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
-
         let current_borrow_apr =
             self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
         let accrual_multiplier =
@@ -71,14 +70,11 @@ impl Pool {
             .total_borrowed
             .fixed_mul_ceil(accrual_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
             .map_over_or_underflow()?;
-
         let accrued =
             new_total_borrowed.checked_sub(self.total_borrowed).map_over_or_underflow()?;
-
         let accrued_to_reserve = accrued
             .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
-
         let new_accumulated_reserve_fees = self
             .accumulated_reserve_fees
             .checked_add(accrued_to_reserve)
