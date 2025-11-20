@@ -306,11 +306,13 @@ pub trait Market {
     /// # Arguments
     /// * `contract` - contract's address which leverages the flash loaned amount and adheres to
     ///   `erc3156` standard
+    /// * `caller` - flash loan caller
     /// * `pool_address` - address of a pool from which the flash loan happens
     /// * `amount` - amount of lent tokens
     fn flash_loan(
         e: Env,
         contract: Address,
+        caller: Address,
         pool_address: Address,
         amount: i128,
     ) -> Result<(), MCError>;
@@ -882,10 +884,11 @@ impl Market for MarketContract {
     fn flash_loan(
         e: Env,
         contract: Address,
+        caller: Address,
         pool_address: Address,
         amount: i128,
     ) -> Result<(), MCError> {
-        contract.require_auth();
+        caller.require_auth();
         require_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
