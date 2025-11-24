@@ -260,6 +260,7 @@ impl TestMarketFixture<'_> {
             btc_pool_address,
             usdc_sac,
             usdc_pool_address,
+            users,
             ..
         } = self;
 
@@ -305,9 +306,78 @@ impl TestMarketFixture<'_> {
         btc_sac.mint(&new_borrower, &(2 * collateral_amount));
         gold_sac.mint(&new_borrower, &(2 * collateral_amount));
 
-        // TODO: Add jTokens sum invariants
+        let multiply_pairs = contract_client.get_all_multiply_pairs();
 
         for pool in &pools {
+            let (mut j_tokens_sum, mut d_tokens_sum) = (0i128, 0i128);
+            for user in users {
+                if let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) {
+                    if let Some(deposit_position) =
+                        obligation.deposits.get(pool.pool_address.clone())
+                    {
+                        j_tokens_sum += deposit_position.j_tokens;
+                    }
+                    if let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
+                    {
+                        d_tokens_sum += borrow_position.d_tokens;
+                    }
+                }
+
+                if let Ok(Ok(earn_obligation)) = contract_client.try_get_earn_user_obligation(user)
+                {
+                    if let Some(deposit_position) =
+                        earn_obligation.deposits.get(pool.pool_address.clone())
+                    {
+                        j_tokens_sum += deposit_position.j_tokens;
+                    }
+                    if let Some(borrow_position) =
+                        earn_obligation.borrows.get(pool.pool_address.clone())
+                    {
+                        d_tokens_sum += borrow_position.d_tokens;
+                    }
+                }
+
+                for mp in &multiply_pairs {
+                    if mp.deposit_pool == pool.pool_address {
+                        if let Ok(Ok(mp_obligation)) = contract_client
+                            .try_get_multiply_pair_obligation(
+                                user,
+                                &mp.deposit_pool,
+                                &mp.borrow_pool,
+                            )
+                        {
+                            if let Some(deposit_position) =
+                                mp_obligation.deposits.get(pool.pool_address.clone())
+                            {
+                                j_tokens_sum += deposit_position.j_tokens;
+                            }
+                        }
+                    } else if mp.borrow_pool == pool.pool_address {
+                        if let Ok(Ok(mp_obligation)) = contract_client
+                            .try_get_multiply_pair_obligation(
+                                user,
+                                &mp.deposit_pool,
+                                &mp.borrow_pool,
+                            )
+                        {
+                            if let Some(borrow_position) =
+                                mp_obligation.borrows.get(pool.pool_address.clone())
+                            {
+                                d_tokens_sum += borrow_position.d_tokens;
+                            }
+                        }
+                    }
+                }
+            }
+
+            let pool = contract_client.get_pool(&pool.pool_address);
+
+            let pool_j_tokens = pool.total_j_tokens;
+            let pool_d_tokens = pool.total_d_tokens;
+
+            assert_eq!(pool_j_tokens, j_tokens_sum);
+            assert_eq!(pool_d_tokens, d_tokens_sum);
+
             let available_borrow = pool.compute_available_utilization_ratio_cap_borrow(e).unwrap();
 
             if pool.total_available == 0 {
@@ -332,8 +402,6 @@ impl TestMarketFixture<'_> {
                 &pool.token_address,
                 &collateral_amount,
             );
-
-            // WARN: Sum of jTokens on obligations must equal total_jTokens on a pool
         }
     }
 }
