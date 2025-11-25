@@ -348,9 +348,9 @@ impl TestMarketFixture<'_> {
                             )
                             && let Some(deposit_position) =
                                 mp_obligation.deposits.get(pool.pool_address.clone())
-                            {
-                                j_tokens_sum += deposit_position.j_tokens;
-                            }
+                        {
+                            j_tokens_sum += deposit_position.j_tokens;
+                        }
                     } else if mp.borrow_pool == pool.pool_address
                         && let Ok(Ok(mp_obligation)) = contract_client
                             .try_get_multiply_pair_obligation(
@@ -358,11 +358,11 @@ impl TestMarketFixture<'_> {
                                 &mp.deposit_pool,
                                 &mp.borrow_pool,
                             )
-                            && let Some(borrow_position) =
-                                mp_obligation.borrows.get(pool.pool_address.clone())
-                            {
-                                d_tokens_sum += borrow_position.d_tokens;
-                            }
+                        && let Some(borrow_position) =
+                            mp_obligation.borrows.get(pool.pool_address.clone())
+                    {
+                        d_tokens_sum += borrow_position.d_tokens;
+                    }
                 }
             }
 

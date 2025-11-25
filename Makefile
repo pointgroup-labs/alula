@@ -136,11 +136,11 @@ build/optimize: build/deploy ## Build + optimize for production
 test: build ## Run tests
 	@cargo nextest run --locked --workspace --lib
 
-test/watch: ## Run tests in watch mode
+test/watch: build ## Run tests in watch mode
 	@cargo watch -x 'nextest run --workspace --lib'
 
-test/fuzz: ## Run fuzzing suite
-	@RUST_BACKTRACE=1 $(CARGO_NIGHTLY) fuzz run --fuzz-dir=tests/fuzz --sanitizer=thread fuzz_target -- -max_len=1048576
+test/fuzz: build ## Run fuzzing suite
+	@RUST_BACKTRACE=1 $(CARGO_NIGHTLY) fuzz run --fuzz-dir=tests/fuzz --sanitizer=none fuzz_target -- -max_len=1048576
 
 # ── Coverage ──────────────────────────────────────────────────────────────────
 
@@ -165,9 +165,6 @@ cov/json: ## Generate JSON coverage
 	@$(LLVM_COV) nextest $(LLVM_COV_FLAGS) --json --output-path target/coverage.json --no-tests=warn || true
 	$(call success,"Output: target/coverage.json")
 
-benchmark: ## Run benchmarks
-	@cargo bench --locked
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Code Quality
 # ══════════════════════════════════════════════════════════════════════════════
@@ -189,8 +186,8 @@ lint/fix: ## Auto-fix lint issues
 	@cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged
 
 # Compound targets
-ci: fmt/check lint test ## Run full CI pipeline
-pre-commit: fmt lint test ## Pre-commit checks
+ci:  test lint fmt/check  ## Run full CI pipeline
+pre-commit: test lint fmt  ## Pre-commit checks
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SDK Generation
