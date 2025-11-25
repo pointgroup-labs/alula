@@ -23,7 +23,7 @@ impl Contract {
 
 #[contractimpl]
 impl ModErc3156 for Contract {
-    fn exec_op(e: Env, caller: Address, token: Address, amount: i128, fee_bps: i128) {
+    fn exec_op(e: Env, _caller: Address, token: Address, amount: i128, fee_bps: i128) {
         let caller: Address = e.storage().instance().get(&DataKey::Caller).unwrap();
         let bpa: Address = e.storage().instance().get(&DataKey::BorrowPoolAddress).unwrap();
         let market_contract_id: Address =

@@ -754,7 +754,7 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool: &Pool,
-        original_amount: i128,
+        provided_amount: i128,
     ) -> Result<RepayResult, MCError> {
         let mut borrow_position =
             self.borrows.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
@@ -764,24 +764,29 @@ impl Obligation {
             all_debt,
             pool.config.fee_config.repay_fee_bps,
             pool.config.fee_config.host_fee_bps,
-        )?
-        .fee_sum;
-        let amount_to_repay_all_debt =
-            all_debt.checked_add(all_debt_fees).map_over_or_underflow()?;
-        let amount_to_take_from_borrower = i128::min(original_amount, amount_to_repay_all_debt);
-        let computed_fees = compute_fees(
-            amount_to_take_from_borrower,
-            pool.config.fee_config.repay_fee_bps,
-            pool.config.fee_config.host_fee_bps,
         )?;
-        let debt_decrease = amount_to_take_from_borrower
+        let amount_to_repay_all_debt =
+            all_debt.checked_add(all_debt_fees.fee_sum).map_over_or_underflow()?;
+
+        let (is_debt_repaid, amount_to_take_from_borrower, computed_fees) =
+            if provided_amount < amount_to_repay_all_debt {
+                let computed_fees = compute_fees(
+                    provided_amount,
+                    pool.config.fee_config.repay_fee_bps,
+                    pool.config.fee_config.host_fee_bps,
+                )?;
+
+                (false, provided_amount, computed_fees)
+            } else {
+                (true, amount_to_repay_all_debt, all_debt_fees)
+            };
+        let debt_decrease_in_tokens = amount_to_take_from_borrower
             .checked_sub(computed_fees.fee_sum)
             .map_over_or_underflow()?;
-
-        let d_tokens_to_burn = if amount_to_take_from_borrower == amount_to_repay_all_debt {
+        let d_tokens_to_burn = if is_debt_repaid {
             borrow_position.d_tokens
         } else {
-            pool.compute_d_tokens_from_tokens_floor(e, debt_decrease)?
+            pool.compute_d_tokens_from_tokens_floor(e, debt_decrease_in_tokens)?
         };
 
         let unpaid_interest =
@@ -796,30 +801,28 @@ impl Obligation {
             );
 
             return Err(MCError::InternalError);
-        } else if debt_decrease >= unpaid_interest {
-            let borrowed_diff = debt_decrease - unpaid_interest; // safe
+        } else if debt_decrease_in_tokens >= unpaid_interest {
+            let borrowed_diff = debt_decrease_in_tokens - unpaid_interest; // safe
             borrow_position
                 .adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;
         }
 
-        borrow_position
-            .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
-
-        if borrow_position.is_empty() {
+        if is_debt_repaid {
             self.try_remove_borrow_position(e, &pool.pool_address)?;
         } else {
+            borrow_position
+                .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
             self.borrows.set(pool.pool_address.clone(), borrow_position);
         }
-
-        let amount_to_send_back = if amount_to_take_from_borrower < original_amount {
-            original_amount - amount_to_take_from_borrower // safe
+        let amount_to_send_back = if amount_to_take_from_borrower < provided_amount {
+            provided_amount - amount_to_take_from_borrower // safe
         } else {
             0
         };
 
         Ok(RepayResult {
             d_tokens_to_burn,
-            debt_repaid: debt_decrease,
+            debt_repaid: debt_decrease_in_tokens,
             amount_to_send_back,
             computed_fees,
         })
@@ -1284,7 +1287,7 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     Ok(())
 }
 
-/// Computes fees for any operations
+/// Computes operations fees
 ///
 /// # Arguments
 /// * `original_amount` - original operation amount

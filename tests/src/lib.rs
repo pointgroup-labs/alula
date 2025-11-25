@@ -27,6 +27,7 @@ use market::{
     },
     contract::{MarketClient, MarketContract},
     error::MCError,
+    math_utils::MathUtils,
     obligation::{BorrowPosition, DepositPosition},
     pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
@@ -370,6 +371,7 @@ impl TestMarketFixture<'_> {
                 }
             }
 
+            contract_client.refresh_pool(&pool.pool_address);
             let pool = contract_client.get_pool(&pool.pool_address);
 
             let pool_j_tokens = pool.total_j_tokens;
@@ -396,12 +398,30 @@ impl TestMarketFixture<'_> {
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
 
             contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
-
             contract_client.remove_collateral(
                 &new_borrower,
                 &pool.token_address,
                 &collateral_amount,
             );
+
+            if let Ok(Ok(mut obligation)) = contract_client.try_get_user_obligation(&new_borrower) {
+                // NB: If borrower's obligation still not closed due to unfavorable roundings - remove it manually to preserve invariants
+                let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
+                else {
+                    continue;
+                };
+
+                let mut pool = contract_client.get_pool(&pool.pool_address);
+                pool.adjust_total_d_tokens(
+                    e,
+                    borrow_position.d_tokens.checked_neg().map_over_or_underflow().unwrap(),
+                )
+                .unwrap();
+                e.as_contract(contract_id, || {
+                    obligation.try_remove_borrow_position(e, &pool.pool_address.clone()).unwrap();
+                    pool.set(e);
+                })
+            }
         }
     }
 }
