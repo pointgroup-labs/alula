@@ -346,28 +346,23 @@ impl TestMarketFixture<'_> {
                                 &mp.deposit_pool,
                                 &mp.borrow_pool,
                             )
-                        {
-                            if let Some(deposit_position) =
+                            && let Some(deposit_position) =
                                 mp_obligation.deposits.get(pool.pool_address.clone())
                             {
                                 j_tokens_sum += deposit_position.j_tokens;
                             }
-                        }
-                    } else if mp.borrow_pool == pool.pool_address {
-                        if let Ok(Ok(mp_obligation)) = contract_client
+                    } else if mp.borrow_pool == pool.pool_address
+                        && let Ok(Ok(mp_obligation)) = contract_client
                             .try_get_multiply_pair_obligation(
                                 user,
                                 &mp.deposit_pool,
                                 &mp.borrow_pool,
                             )
-                        {
-                            if let Some(borrow_position) =
+                            && let Some(borrow_position) =
                                 mp_obligation.borrows.get(pool.pool_address.clone())
                             {
                                 d_tokens_sum += borrow_position.d_tokens;
                             }
-                        }
-                    }
                 }
             }
 
