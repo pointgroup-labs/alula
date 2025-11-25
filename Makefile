@@ -165,14 +165,14 @@ test/fuzz: ## Run fuzzing suite
 	RUST_BACKTRACE=1 cargo +nightly fuzz run --fuzz-dir=tests/fuzz --sanitizer=thread fuzz_target -- -max_len=1048576
 
 test/coverage: ## Generate test coverage
-	@cargo +nightly llvm-cov nextest --no-tests=warn --no-report || true
+	@cargo +nightly llvm-cov nextest --branch --no-tests=warn --no-report || true
 	@cargo +nightly llvm-cov --doc --no-report || true
 
 test/coverage/missing: ## Show missing test coverage lines
-	@cargo +nightly llvm-cov report --show-missing-lines || true
+	@cargo +nightly llvm-cov report --branch --show-missing-lines || true
 
 test/coverage/html: ## Generate HTML test coverage report
-	@cargo +nightly llvm-cov nextest --html --no-tests=warn || true
+	@cargo +nightly llvm-cov nextest --branch --html --no-tests=warn || true
 	@cargo +nightly llvm-cov --doc --html || true
 	@echo "HTML coverage: target/llvm-cov/html/"
 
