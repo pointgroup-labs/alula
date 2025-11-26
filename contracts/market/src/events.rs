@@ -210,7 +210,7 @@ struct LeveragedPositionBadDebt {
 }
 
 #[contractevent]
-struct LeverageBorrowExceedsOpenLTV {
+struct LeverageExceedsBorrowCapacity {
     #[topic]
     pub user: Address,
     #[topic]
@@ -574,14 +574,14 @@ pub fn leveraged_position_bad_debt(
     .publish(e);
 }
 
-pub fn leverage_borrow_exceeds_open_ltvs(
+pub fn leverage_borrow_exceeds_borrowing_capacity(
     e: &Env,
     user: &Address,
     flash_borrow_amount: i128,
     flash_repay_amount: i128,
     max_healthy_borrow_amount: i128,
 ) {
-    LeverageBorrowExceedsOpenLTV {
+    LeverageExceedsBorrowCapacity {
         user: user.clone(),
         flash_borrow_amount,
         flash_repay_amount,

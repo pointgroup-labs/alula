@@ -101,7 +101,7 @@ pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1; // 0.01%
 /// Scale to represent leverage multipliers (e.g., with current scale 100 = 1.0x, 224 = 2.24x)
 pub const LEVERAGE_SCALE: u32 = 100;
 /// Minimum leverage multiplier (scaled by LEVERAGE_SCALE)
-pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE; // 1
+pub const MIN_LEVERAGE_MULTIPLIER: u32 = 100; // x1
 
 // ---- Fees ----
 
@@ -121,6 +121,8 @@ pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
 // ---- Oracle ----
 
 /// Maximum acceptable oracle price age in seconds
+
+// TODO: Make it configurable? | Should we even have something like this?
 pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Relies on 'Reflector' resolution being 5 minutes
 
 // ---- Dependency Contract Addresses ----
