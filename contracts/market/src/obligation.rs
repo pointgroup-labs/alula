@@ -612,7 +612,7 @@ impl Obligation {
         &mut self,
         e: &Env,
         pool: &Pool,
-        original_amount: i128,
+        provided_amount: i128,
     ) -> Result<WithdrawResult, MCError> {
         let mut deposit_position =
             self.deposits.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
@@ -621,44 +621,42 @@ impl Obligation {
         let deposit_decrease = if self.borrow_exists() {
             let max_healthy_withdrawn_amount =
                 self.compute_max_healthy_collateral_removed_amount(e, pool)?;
-            i128::min(i128::min(original_amount, max_healthy_withdrawn_amount), all_deposit)
+
+            all_deposit.min(max_healthy_withdrawn_amount).min(provided_amount)
         } else {
-            i128::min(all_deposit, original_amount)
+            all_deposit.min(provided_amount)
         };
-        // TODO: Add failing test here regarding insurance fund
-        // if deposit_decrease > pool.total_available {
         if deposit_decrease > pool.total_available()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
+        let is_all_withdrawn = deposit_decrease == all_deposit;
 
-        let withdraw_scarcity_fee =
+        let withdraw_scarcity_fee_bps =
             compute_withdraw_scarcity_fee_bps(e, pool, deposit_decrease, &mut deposit_position)?;
         let withdraw_fee_bps = pool
             .config
             .fee_config
             .withdraw_fee_bps
-            .checked_add(withdraw_scarcity_fee)
+            .checked_add(withdraw_scarcity_fee_bps)
             .map_over_or_underflow()?;
         let computed_fees =
             compute_fees(deposit_decrease, withdraw_fee_bps, pool.config.fee_config.host_fee_bps)?;
         let withdrawer_to_receive =
             deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
 
-        let j_tokens_to_burn = if deposit_decrease == all_deposit {
+        let j_tokens_to_burn = if is_all_withdrawn {
             deposit_position.j_tokens
         } else {
-            i128::min(
-                deposit_position.j_tokens,
-                pool.compute_j_tokens_from_tokens_ceil(e, deposit_decrease)?,
-            )
+            // TODO: Is this `min` redundant?
+            pool.compute_j_tokens_from_tokens_ceil(e, deposit_decrease)?
+                .min(deposit_position.j_tokens)
         };
 
         let all_deposit_ceil =
             pool.compute_tokens_from_j_tokens_ceil(e, deposit_position.j_tokens)?;
         let received_interest =
             all_deposit_ceil.checked_sub(deposit_position.deposited).map_over_or_underflow()?;
-
-        if received_interest < 0 {
+        if received_interest.is_negative() {
             events::computed_interest_is_negative(
                 e,
                 &pool.pool_address,
@@ -669,14 +667,13 @@ impl Obligation {
 
             return Err(MCError::InternalError);
         } else if deposit_decrease >= received_interest {
-            if deposit_decrease == all_deposit {
+            if is_all_withdrawn {
                 deposit_position.adjust_deposited(
                     e,
                     deposit_position.deposited.checked_neg().map_over_or_underflow()?,
                 )?;
             } else {
                 let deposited_diff = deposit_decrease - received_interest; // safe
-
                 deposit_position
                     .adjust_deposited(e, deposited_diff.checked_neg().map_over_or_underflow()?)?;
             }
@@ -1219,10 +1216,6 @@ impl DepositPosition {
     }
 
     pub fn is_empty(&self) -> bool {
-        if self.j_tokens == 0 && self.deposited != 0 {
-            // TODO: Invariant breakage
-        }
-
         self.j_tokens == 0 && self.collateral == 0
     }
 }

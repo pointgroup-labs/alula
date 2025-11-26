@@ -434,6 +434,7 @@ impl TestMarketFixture<'_> {
 }
 
 // ---- Fuzzing suite ----
+
 pub trait RunCommand {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize);
 }
