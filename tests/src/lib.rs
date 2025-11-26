@@ -244,6 +244,14 @@ impl TestMarketFixture<'_> {
         }
     }
 
+    pub fn get_token_sac(&self, token: Token) -> &StellarAssetClient<'_> {
+        match token {
+            Token::BTC => &self.btc_sac,
+            Token::USDC => &self.usdc_sac,
+            Token::GOLD => &self.gold_sac,
+        }
+    }
+
     pub fn pass_time(&self, seconds: u64) {
         self.e.ledger().with_mut(|li| {
             li.timestamp = li.timestamp.saturating_add(seconds);
@@ -270,11 +278,11 @@ impl TestMarketFixture<'_> {
             contract_client.get_pool(btc_pool_address),
             contract_client.get_pool(gold_pool_address),
         ];
-
         let clients =
             pools.iter().map(|pool| token::Client::new(e, &pool.token_address)).collect::<Vec<_>>();
 
-        // Pool data must be non-negative
+        // -- Pool data must be non-negative --
+
         for pool in &pools {
             assert!(pool.total_borrowed >= 0);
             assert!(pool.total_collateral >= 0);
@@ -282,18 +290,34 @@ impl TestMarketFixture<'_> {
             assert!(pool.total_d_tokens >= 0);
         }
 
-        // Contract's token balances shouldn't be smaller than the corresponding `available` values
-        // on pools
-        let token_balances =
-            clients.iter().map(|client| client.balance(contract_id)).collect::<Vec<_>>();
+        // -- Contract's token balances shouldn't be smaller than the corresponding `available` + fees values on pools --
 
-        let contract_balances = pools.iter().map(|pool| pool.total_available);
+        let token_balances: Vec<i128> =
+            clients.iter().map(|client| client.balance(contract_id)).collect();
 
-        for (&token_balance, contract_balance) in token_balances.iter().zip(contract_balances) {
-            assert!(token_balance >= contract_balance);
+        for (pool, &token_balance) in pools.iter().zip(token_balances.iter()) {
+            // Calculate the Total Liabilities of the protocol (User Liquidity + Admin Revenue)
+            let expected_minimum_balance = pool
+                .total_available
+                .checked_add(pool.accumulated_market_fees)
+                .expect("Overflow in invariant calc")
+                .checked_add(pool.accumulated_host_fees)
+                .expect("Overflow in invariant calc")
+                .checked_add(pool.accumulated_reserve_fees)
+                .expect("Overflow in invariant calc");
+
+            assert!(
+                token_balance >= expected_minimum_balance,
+                "INSOLVENCY DETECTED in Pool {:?}: Physical Balance ({}) < Net Available + Fees \
+                 ({})",
+                pool.pool_address,
+                token_balance,
+                expected_minimum_balance
+            );
         }
 
-        // Check that you can always borrow what's available on the pool
+        // -- It must be always possible to borrow what's available on the pool --
+
         let new_borrower = Address::generate(e);
 
         let collateral_amount = pools
@@ -310,17 +334,19 @@ impl TestMarketFixture<'_> {
         let multiply_pairs = contract_client.get_all_multiply_pairs();
 
         for pool in &pools {
-            let (mut j_tokens_sum, mut d_tokens_sum) = (0i128, 0i128);
+            let (mut j_tokens_obligations_sum, mut d_tokens_obligations_sum) = (0_i128, 0_i128);
+
             for user in users {
                 if let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) {
                     if let Some(deposit_position) =
                         obligation.deposits.get(pool.pool_address.clone())
                     {
-                        j_tokens_sum += deposit_position.j_tokens;
+                        j_tokens_obligations_sum += deposit_position.j_tokens;
                     }
+
                     if let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
                     {
-                        d_tokens_sum += borrow_position.d_tokens;
+                        d_tokens_obligations_sum += borrow_position.d_tokens;
                     }
                 }
 
@@ -329,12 +355,13 @@ impl TestMarketFixture<'_> {
                     if let Some(deposit_position) =
                         earn_obligation.deposits.get(pool.pool_address.clone())
                     {
-                        j_tokens_sum += deposit_position.j_tokens;
+                        j_tokens_obligations_sum += deposit_position.j_tokens;
                     }
+
                     if let Some(borrow_position) =
                         earn_obligation.borrows.get(pool.pool_address.clone())
                     {
-                        d_tokens_sum += borrow_position.d_tokens;
+                        d_tokens_obligations_sum += borrow_position.d_tokens;
                     }
                 }
 
@@ -349,7 +376,7 @@ impl TestMarketFixture<'_> {
                             && let Some(deposit_position) =
                                 mp_obligation.deposits.get(pool.pool_address.clone())
                         {
-                            j_tokens_sum += deposit_position.j_tokens;
+                            j_tokens_obligations_sum += deposit_position.j_tokens;
                         }
                     } else if mp.borrow_pool == pool.pool_address
                         && let Ok(Ok(mp_obligation)) = contract_client
@@ -361,7 +388,7 @@ impl TestMarketFixture<'_> {
                         && let Some(borrow_position) =
                             mp_obligation.borrows.get(pool.pool_address.clone())
                     {
-                        d_tokens_sum += borrow_position.d_tokens;
+                        d_tokens_obligations_sum += borrow_position.d_tokens;
                     }
                 }
             }
@@ -369,25 +396,10 @@ impl TestMarketFixture<'_> {
             contract_client.refresh_pool(&pool.pool_address);
             let pool = contract_client.get_pool(&pool.pool_address);
 
-            let pool_j_tokens = pool.total_j_tokens;
-            let pool_d_tokens = pool.total_d_tokens;
-
-            assert_eq!(pool_j_tokens, j_tokens_sum);
-            assert_eq!(pool_d_tokens, d_tokens_sum);
+            assert_eq!(pool.total_j_tokens, j_tokens_obligations_sum);
+            assert_eq!(pool.total_d_tokens, d_tokens_obligations_sum);
 
             let available_borrow = pool.compute_available_utilization_ratio_cap_borrow(e).unwrap();
-
-            if pool.total_available == 0 {
-                assert_eq!(available_borrow, pool.total_available);
-            } else {
-                // TODO: Think about how to count this correctly
-                // assert!(
-                //     available_borrow
-                //         .fixed_div_ceil(pool.available, BPS_FACTOR)
-                //         .unwrap()
-                //         > 9_900
-                // );
-            }
 
             contract_client.add_collateral(&new_borrower, &pool.token_address, &collateral_amount);
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
@@ -419,44 +431,6 @@ impl TestMarketFixture<'_> {
             }
         }
     }
-}
-
-pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClient) {
-    oracle_client.set_price_stable(&soroban_sdk::vec![
-        e,
-        50_00000000000000, // BTC
-        3_00000000000000,  // GOLD
-        1_00000000000000,  // USDC
-    ]);
-}
-
-pub fn make_oracle_prices_equal(e: &Env, oracle_client: &MockPriceOracleClient) {
-    oracle_client.set_price_stable(&soroban_sdk::vec![
-        e,
-        1_00000000000000, // BTC
-        1_00000000000000, // GOLD
-        1_00000000000000, // USDC
-    ]);
-}
-
-pub struct TestAssetSetup<'a> {
-    pub token_client: TokenClient<'a>,
-    pub token_address: Address,
-    pub sac_client: StellarAssetClient<'a>,
-}
-
-pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> TestAssetSetup<'a> {
-    let token_address = e.register_stellar_asset_contract_v2(admin.clone()).address();
-    let sac_client = StellarAssetClient::new(e, &token_address);
-    let token_client = TokenClient::new(e, &token_address);
-
-    sac_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
-
-    for user in users {
-        sac_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
-    }
-
-    TestAssetSetup { token_address, token_client, sac_client }
 }
 
 // ---- Fuzzing suite ----
@@ -1282,6 +1256,44 @@ pub fn get_pool_fee_config(
 }
 
 // ---- MISC ----
+
+pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![
+        e,
+        50_00000000000000, // BTC
+        3_00000000000000,  // GOLD
+        1_00000000000000,  // USDC
+    ]);
+}
+
+pub fn make_oracle_prices_equal(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![
+        e,
+        1_00000000000000, // BTC
+        1_00000000000000, // GOLD
+        1_00000000000000, // USDC
+    ]);
+}
+
+pub struct TestAssetSetup<'a> {
+    pub token_client: TokenClient<'a>,
+    pub token_address: Address,
+    pub sac_client: StellarAssetClient<'a>,
+}
+
+pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> TestAssetSetup<'a> {
+    let token_address = e.register_stellar_asset_contract_v2(admin.clone()).address();
+    let sac_client = StellarAssetClient::new(e, &token_address);
+    let token_client = TokenClient::new(e, &token_address);
+
+    sac_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
+
+    for user in users {
+        sac_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
+    }
+
+    TestAssetSetup { token_address, token_client, sac_client }
+}
 
 pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
     let contract_name = soroban_sdk::String::from_str(e, "market_contract");
