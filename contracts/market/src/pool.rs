@@ -400,13 +400,17 @@ impl Pool {
         let shares_amount = if total_shares_amount == 0 {
             INITIAL_SHARES_AMOUNT
         } else {
-            // ----
             // This must hold when issuing new shares:
+            // ----
             // shares_to_issue / (shares_to_issue + prev_total_shares) = tokens_added_amount /
             // (tokens_added_amount + prev_total_tokens_amount)
+            // ----
             // Which implies:
+            // ----
             //   shares_to_issue = prev_total_shares * (tokens_added_amount / prev_total_tokens_amount)
+            // ----
             // This must hold when burning issued shares:
+            // ----
             //   shares_to_burn = prev_total_shares * (tokens_removed_amount / prev_total_tokens_amount)
             // ----
             total_shares_amount

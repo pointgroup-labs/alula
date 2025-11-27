@@ -837,9 +837,10 @@ pub fn process_liquidate<'a>(
         repay_amount,
         min_demanded_collateral_amount,
     )?;
-    if liquidation_result.j_tokens_seized > 0 {
+    if liquidation_result.j_tokens_seized.is_positive() {
         // In case the liquidated obligation's plain collateral wasn't sufficient to cover the liquidation,
         // borrower's jTokens are transferred to the liquidator as a part of the incentive
+
         let liquidator_obligation_key = ObligationKey::new(liquidator.clone());
         let mut liquidator_obligation = Obligation::try_get(e, &liquidator_obligation_key)
             .unwrap_or(Obligation::new(e, &liquidator_obligation_key));

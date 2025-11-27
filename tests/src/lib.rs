@@ -830,7 +830,7 @@ pub fn get_obligation_borrowed(
 ) -> Result<i128, MCError> {
     let borrow_position = get_borrow_position(contract_client, user, pool_address)?;
 
-    Ok(borrow_position.borrowed)
+    Ok(borrow_position.originally_borrowed)
 }
 
 pub fn get_multiply_pair_obligation_borrowed(
@@ -846,7 +846,7 @@ pub fn get_multiply_pair_obligation_borrowed(
         borrow_pool_address,
     )?;
 
-    Ok(borrow_position.borrowed)
+    Ok(borrow_position.originally_borrowed)
 }
 
 pub fn get_obligation_deposited(
@@ -856,7 +856,7 @@ pub fn get_obligation_deposited(
 ) -> Result<i128, MCError> {
     let deposit_position = get_deposit_position(contract_client, user, pool_address)?;
 
-    Ok(deposit_position.deposited)
+    Ok(deposit_position.originally_deposited)
 }
 
 pub fn get_earn_obligation_deposited(
@@ -867,7 +867,7 @@ pub fn get_earn_obligation_deposited(
     let deposit_position =
         get_earn_obligation_deposit_position(contract_client, user, pool_address)?;
 
-    Ok(deposit_position.deposited)
+    Ok(deposit_position.originally_deposited)
 }
 
 pub fn get_multiply_pair_obligation_deposited(
@@ -883,7 +883,7 @@ pub fn get_multiply_pair_obligation_deposited(
         borrow_pool_address,
     )?;
 
-    Ok(deposit_position.deposited)
+    Ok(deposit_position.originally_deposited)
 }
 
 pub fn get_obligation_collateral(
