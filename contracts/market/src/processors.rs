@@ -943,7 +943,7 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
 
         let debt_can_be_covered = i128::min(obligation_pool_debt, available_reserve_fees);
         let d_tokens_can_be_covered =
-            pool.compute_d_tokens_from_tokens_floor(e, debt_can_be_covered)?;
+            pool.compute_d_tokens_from_tokens_floor(debt_can_be_covered)?;
 
         // -- Cover what can be covered from the reserves --
 

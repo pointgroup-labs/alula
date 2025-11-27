@@ -523,7 +523,7 @@ impl Obligation {
         let deposited_tokens_minus_fee =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         let j_tokens_to_issue =
-            pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
+            pool.compute_j_tokens_from_tokens_floor(deposited_tokens_minus_fee)?;
 
         deposit_position.adjust_deposited(e, deposited_tokens_minus_fee)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
@@ -565,7 +565,7 @@ impl Obligation {
         // 'what borrower receives' = 'borrower debt' - 'fees'
         let borrower_to_receive =
             real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
-        let d_tokens_to_issue = pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
+        let d_tokens_to_issue = pool.compute_d_tokens_from_tokens_ceil(real_borrowed_amount)?;
 
         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
         borrow_position.adjust_borrowed(e, real_borrowed_amount)?;
@@ -648,8 +648,7 @@ impl Obligation {
             deposit_position.j_tokens
         } else {
             // TODO: Is this `min` redundant?
-            pool.compute_j_tokens_from_tokens_ceil(e, deposit_decrease)?
-                .min(deposit_position.j_tokens)
+            pool.compute_j_tokens_from_tokens_ceil(deposit_decrease)?.min(deposit_position.j_tokens)
         };
 
         let all_deposit_ceil =
@@ -783,7 +782,7 @@ impl Obligation {
         let d_tokens_to_burn = if is_debt_repaid {
             borrow_position.d_tokens
         } else {
-            pool.compute_d_tokens_from_tokens_floor(e, debt_decrease_in_tokens)?
+            pool.compute_d_tokens_from_tokens_floor(debt_decrease_in_tokens)?
         };
 
         let unpaid_interest =
@@ -997,7 +996,7 @@ impl Obligation {
                         collateral_to_sell_to_liquidator - deposit_position.collateral; // safe
 
                     collateral_pool
-                        .compute_j_tokens_from_tokens_floor(e, left_as_j_tokens)?
+                        .compute_j_tokens_from_tokens_floor(left_as_j_tokens)?
                         .min(deposit_position.j_tokens)
                 };
 
