@@ -1,11 +1,12 @@
 #![cfg(test)]
 
-use crate::{DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 use market::{
     error::MCError,
     request::{Request, RequestType},
 };
 use soroban_sdk::vec as svec;
+
+use crate::{DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
 #[test]
 fn test_empty_batching() {

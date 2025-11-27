@@ -598,9 +598,10 @@ pub struct WithdrawCollateral {
 
 #[derive(Arbitrary, Debug)]
 pub struct Liquidate {
-    pub amount: Amount,
     pub token: Token,
+    pub repay_amount: Amount,
     pub collateral_token: Token,
+    pub min_collateral_received_amount: Amount,
 }
 
 #[derive(Arbitrary, Debug)]
@@ -680,21 +681,22 @@ impl RunCommand for Repay {
 
 impl RunCommand for Liquidate {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
-        let pool_address = test_fixture.get_pool_address(self.token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.token);
         let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
 
-        if pool_address != collateral_pool_address {
-            let TestMarketFixture { contract_client: _, users, .. } = test_fixture;
+        if borrow_pool_address != collateral_pool_address {
+            let TestMarketFixture { contract_client, users, .. } = test_fixture;
+            let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
 
-            let (_liquidator, _borrower) = (&users[who], &users[(who + 1) % users.len()]);
-
-            // let _ = contract_client.try_liquidate(
-            //     liquidator,
-            //     borrower,
-            //     &pool_address,
-            //     &collateral_pool_address,
-            //     &self.amount.0,
-            // );
+            let _ = contract_client.try_liquidate(
+                liquidator,
+                borrower,
+                &None,
+                &borrow_pool_address,
+                &collateral_pool_address,
+                &self.repay_amount.0,
+                &self.min_collateral_received_amount.0,
+            );
         }
     }
 }
