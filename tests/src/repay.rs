@@ -5,9 +5,8 @@ use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_borrow_position,
-    get_obligation_borrowed, get_obligation_d_tokens, get_obligation_d_tokens_as_tokens,
-    get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
-    get_pool_total_d_tokens,
+    get_obligation_borrowed, get_obligation_d_tokens_as_tokens, get_obligation_unpaid_interest,
+    get_pool_total_available, get_pool_total_borrowed,
 };
 
 #[test]
@@ -43,21 +42,16 @@ fn test_repay() {
 
     let obligation_borrowed =
         get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
-    let obligation_d_tokens =
-        get_obligation_d_tokens(&contract_client, borrower, &usdc_pool_address).unwrap();
     let obligation_d_tokens_as_tokens =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
     assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
-    assert_eq!(obligation_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
     assert_eq!(obligation_d_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
     let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
-    assert_eq!(pool_total_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
     assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
     assert_eq!(pool_total_available, (3 * DEFAULT_DEPOSIT_AMOUNT) / 4);
 
@@ -71,9 +65,7 @@ fn test_repay() {
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
     let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
-    assert_eq!(pool_total_d_tokens, 0);
     assert_eq!(pool_total_borrowed, 0);
     assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT);
 }
@@ -228,9 +220,7 @@ fn test_repay_all_with_bigger_than_debt_value() {
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
     let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-    let pool_total_d_tokens = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 
-    assert_eq!(pool_total_d_tokens, 0);
     assert_eq!(pool_total_borrowed, 0);
     assert_eq!(pool_total_available, (2 * DEFAULT_DEPOSIT_AMOUNT));
 }

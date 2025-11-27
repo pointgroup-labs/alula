@@ -106,7 +106,7 @@ pub const MIN_LEVERAGE_MULTIPLIER: u32 = 100; // x1
 // ---- Fees ----
 
 pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
-pub const DEFAULT_BORROW_FEE_BPS: u32 = 5; // 0.05%
+pub const DEFAULT_BORROW_FEE_BPS: u32 = 0;
 pub const DEFAULT_DEPOSIT_FEE_BPS: u32 = 0;
 pub const DEFAULT_WITHDRAW_FEE_BPS: u32 = 0;
 pub const DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS: u32 = 20_000; // 200%

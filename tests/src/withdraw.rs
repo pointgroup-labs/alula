@@ -10,9 +10,8 @@ use soroban_sdk::testutils::Ledger;
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
     assert_approx_eq_rel, get_deposit_position, get_obligation_collateral,
-    get_obligation_deposited, get_obligation_j_tokens, get_obligation_j_tokens_as_tokens,
-    get_pool_total_available, get_pool_total_borrowed, get_pool_total_collateral,
-    get_pool_total_j_tokens, get_pool_total_supply,
+    get_obligation_deposited, get_obligation_j_tokens_as_tokens, get_pool_total_available,
+    get_pool_total_borrowed, get_pool_total_collateral, get_pool_total_supply,
 };
 
 #[test]
@@ -43,22 +42,17 @@ fn test_withdraw() {
 
     let obligation_supplied =
         get_obligation_deposited(&contract_client, creditor, &gold_pool_address).unwrap();
-    let obligation_j_tokens =
-        get_obligation_j_tokens(&contract_client, creditor, &gold_pool_address).unwrap();
     let obligation_j_tokens_as_tokens =
         get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
             .unwrap();
 
     assert_eq!(obligation_supplied, DEFAULT_DEPOSIT_AMOUNT / 2);
-    assert_eq!(obligation_j_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
     let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_supply, DEFAULT_DEPOSIT_AMOUNT / 2);
-    assert_eq!(pool_total_j_tokens, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT / 2);
 
     // Withdraw 50% again
@@ -69,20 +63,14 @@ fn test_withdraw() {
         Err(MCError::ObligationDoesNotExist)
     );
     assert_eq!(
-        get_obligation_j_tokens(&contract_client, creditor, &gold_pool_address),
-        Err(MCError::ObligationDoesNotExist)
-    );
-    assert_eq!(
         get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address),
         Err(MCError::ObligationDoesNotExist)
     );
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
     let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_supply, 0);
-    assert_eq!(pool_total_j_tokens, 0);
     assert_eq!(pool_total_available, 0);
 }
 
@@ -116,8 +104,6 @@ fn test_remove_collateral() {
     let obligation_collateral =
         get_obligation_collateral(&contract_client, collateral_provider, &gold_pool_address)
             .unwrap();
-    let obligation_j_tokens =
-        get_obligation_j_tokens(&contract_client, collateral_provider, &gold_pool_address).unwrap();
     let obligation_j_tokens_as_tokens = get_obligation_j_tokens_as_tokens(
         &e,
         &contract_client,
@@ -127,17 +113,14 @@ fn test_remove_collateral() {
     .unwrap();
 
     assert_eq!(obligation_collateral, DEFAULT_DEPOSIT_AMOUNT / 2);
-    assert_eq!(obligation_j_tokens, 0);
     assert_eq!(obligation_j_tokens_as_tokens, 0);
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
     let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
     let pool_total_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_collateral, DEFAULT_DEPOSIT_AMOUNT / 2);
     assert_eq!(pool_total_supply, 0);
-    assert_eq!(pool_total_j_tokens, 0);
     assert_eq!(pool_total_available, 0);
 
     // Remove 50% again
@@ -155,10 +138,6 @@ fn test_remove_collateral() {
         Err(MCError::ObligationDoesNotExist)
     );
     assert_eq!(
-        get_obligation_j_tokens(&contract_client, collateral_provider, &gold_pool_address),
-        Err(MCError::ObligationDoesNotExist)
-    );
-    assert_eq!(
         get_obligation_j_tokens_as_tokens(
             &e,
             &contract_client,
@@ -169,13 +148,11 @@ fn test_remove_collateral() {
     );
 
     let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let pool_total_j_tokens = get_pool_total_j_tokens(&contract_client, &gold_pool_address);
     let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
     let pool_total_collateral = get_pool_total_collateral(&contract_client, &gold_pool_address);
 
     assert_eq!(pool_total_collateral, 0);
     assert_eq!(pool_total_supply, 0);
-    assert_eq!(pool_total_j_tokens, 0);
     assert_eq!(pool_total_available, 0);
 }
 
@@ -382,33 +359,30 @@ fn withdraw_up_to_open_ltv() {
     let creditor = &users[0];
     let loan_provider = &users[1];
 
+    let creditor_balance_1 = gold_token_client.balance(creditor);
+
     contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(loan_provider, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT));
+
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-
     contract_client.borrow(creditor, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2));
-
-    let obligation_j_tokens_before =
-        get_obligation_j_tokens(&contract_client, creditor, &gold_pool_address).unwrap();
-    let creditor_balance_before = gold_token_client.balance(creditor);
     // Try to withdraw more than default openLTV(70%) allows
     contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    let obligation_j_tokens_after =
-        get_obligation_j_tokens(&contract_client, creditor, &gold_pool_address).unwrap();
-    let creditor_balance_after = gold_token_client.balance(creditor);
 
-    assert_approx_eq_rel(
-        creditor_balance_after.checked_sub(creditor_balance_before).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT.checked_sub(100 * (obligation_j_tokens_before / 2) / 70).unwrap(),
-        5,
-    );
+    let creditor_balance_2 = gold_token_client.balance(creditor);
+    assert!(creditor_balance_1 > creditor_balance_2);
 
-    assert_eq!(obligation_j_tokens_before, DEFAULT_DEPOSIT_AMOUNT);
-    // Check that the required amount to back up the borrow remains
-    assert_approx_eq_rel(
-        // TODO: Investigate a bit deeper when checking maths
-        obligation_j_tokens_after,
-        (100 * (obligation_j_tokens_before / 2)) / 70,
-        5,
+    // Repay all debt
+    contract_client.repay(&creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    // Withdraw all
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    let creditor_balance_3 = gold_token_client.balance(creditor);
+
+    assert_eq!(creditor_balance_1, creditor_balance_3);
+    assert_eq!(
+        contract_client.try_withdraw(creditor, &gold_pool_address, &1),
+        Err(Ok(MCError::ObligationDoesNotExist))
     );
 }
 

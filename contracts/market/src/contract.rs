@@ -566,18 +566,9 @@ impl Market for MarketContract {
     fn submit_requests_batch(e: Env, user: Address, requests: Vec<Request>) -> Result<(), MCError> {
         user.require_auth();
 
-        let plain_obligation_key = ObligationKey::new(user.clone());
-        let earn_obligation_key =
-            ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
+        let obligation_key = ObligationKey::new(user.clone());
 
-        process_submit_requests_batch(
-            &e,
-            &user,
-            &requests,
-            &plain_obligation_key,
-            &earn_obligation_key,
-        )?
-        .execute_transfers();
+        process_submit_requests_batch(&e, &user, &requests, &obligation_key)?.execute_transfers();
 
         Ok(())
     }

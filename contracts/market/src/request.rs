@@ -18,8 +18,6 @@ pub enum RequestType {
     Repay = 3,
     AddCollateral = 4,
     RemoveCollateral = 5,
-    DepositIntoEarnObligation = 6,
-    WithdrawFromEarnObligation = 7,
     // TODO: Liquidate, Leverage, Flash Loan ...
 }
 
@@ -36,12 +34,16 @@ impl TryFrom<u32> for RequestType {
             3 => Repay,
             4 => AddCollateral,
             5 => RemoveCollateral,
-            6 => DepositIntoEarnObligation,
-            7 => WithdrawFromEarnObligation,
             _ => return Err(MCError::IncorrectRequestType),
         };
 
         Ok(req_type)
+    }
+}
+
+impl From<RequestType> for u32 {
+    fn from(value: RequestType) -> Self {
+        value as u32 // safe
     }
 }
 
@@ -127,7 +129,6 @@ impl<'a> RequestTransfers<'a> {
             let token_client = TokenClient::new(self.e, &token_address);
             token_client.transfer(&self.user, self.e.current_contract_address(), &amount);
         }
-
         for (token_address, amount) in self.market_transfers {
             let token_client = TokenClient::new(self.e, &token_address);
             token_client.transfer(&self.e.current_contract_address(), &self.user, &amount);

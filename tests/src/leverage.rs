@@ -10,9 +10,8 @@ use soroban_fixed_point_math::FixedPoint;
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, assert_approx_eq_abs,
     get_amount_scaled_down, get_amount_scaled_up, get_borrow_position, get_deposit_position,
-    get_multiply_pair_obligation_borrowed, get_multiply_pair_obligation_d_tokens,
-    get_multiply_pair_obligation_j_tokens_as_tokens, get_pool_total_borrowed,
-    get_pool_total_supply,
+    get_multiply_pair_obligation_borrowed, get_multiply_pair_obligation_j_tokens_as_tokens,
+    get_pool_total_borrowed, get_pool_total_supply,
 };
 
 // ---- Deposit with leverage ----
@@ -126,16 +125,8 @@ fn test_deposit_with_no_leverage() {
         &usdc_pool_address,
     )
     .unwrap();
-    let obligation_d_tokens = get_multiply_pair_obligation_d_tokens(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
 
     assert_eq!(obligation_borrowed, 0);
-    assert_eq!(obligation_d_tokens, 0);
 }
 
 #[test]
