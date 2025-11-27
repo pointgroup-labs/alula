@@ -125,7 +125,7 @@ pub fn process_initialize_pool(
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
 
-        supply_incentives: Map::new(e),
+        bootstrap_periods: Map::new(e),
 
         borrow_apr_bps: 0,
         supply_apr_bps: 0,
@@ -165,7 +165,7 @@ pub fn process_initialize_multiply_pair(
     Ok(())
 }
 
-pub fn process_incentivize_pool(
+pub fn process_bootstrap_pool(
     e: &Env,
     pool_address: &Address,
     sponsor: &Address,
@@ -177,13 +177,13 @@ pub fn process_incentivize_pool(
 
     let current_timestamp = e.ledger().timestamp();
     if start_period < current_timestamp || start_period >= end_period {
-        return Err(MCError::InvalidIncentivePeriod);
+        return Err(MCError::InvalidBootstrapPeriod);
     }
     let period = (start_period, end_period);
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    pool.incentivize(amount, period, current_timestamp)?;
+    pool.bootstrap(amount, period, current_timestamp)?;
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -194,7 +194,7 @@ pub fn process_incentivize_pool(
         &amount,
     );
 
-    events::incentivize_pool(e, pool_address, sponsor, amount, period);
+    events::bootstrap_pool(e, pool_address, sponsor, amount, period);
 
     Ok(())
 }

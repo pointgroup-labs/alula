@@ -127,8 +127,9 @@ pub trait Market {
         pool_address: Address,
     ) -> Result<PoolUpdate, MCError>;
 
-    /// Incentivizes a pool's supply with a donated asset amount for a defined period of time
-    fn incentivize_pool(
+    /// Incentivizes a pool's supply with a donated asset amount for a defined period of time. Useful for bootstrapping pools
+    /// after deployment
+    fn bootstrap_pool(
         e: Env,
         pool_address: Address,
         sponsor: Address,
@@ -162,8 +163,8 @@ pub trait Market {
     /// loan and token swap
     ///
     /// # WARNING
-    /// This increases the perceived `supply APR` only
-    /// when `(borrowed token borrow APR < supply token supply APR * leverage(TODO: right?))` holds true
+    /// This increases the perceived `supply APR` only for favorable supply and borrow APRs
+    /// on deposited and borrowed tokens respectively
     ///
     /// # Arguments
     /// * `user` - user that deposits tokens with leverage
@@ -181,8 +182,8 @@ pub trait Market {
         borrow_pool_address: Address,
         deposit_as_margin: bool,
         amount: i128,
-        // TODO: swap_aggregator_address: Address? But there must be some standard for this, right?
-        // TODO: Somehow account for slippage?
+        // TODO: swap_aggregator_address: Address? This requires standardization
+        // TODO: Account for slippage
         leverage_multiplier: u32,
     ) -> Result<(), MCError>;
 
@@ -678,7 +679,7 @@ impl Market for MarketContract {
         pool.get_pool_config_update(&e)
     }
 
-    fn incentivize_pool(
+    fn bootstrap_pool(
         e: Env,
         pool_address: Address,
         sponsor: Address,
@@ -690,7 +691,7 @@ impl Market for MarketContract {
         require_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
-        process_incentivize_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
+        process_bootstrap_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
     }
 
     fn deposit(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {

@@ -51,8 +51,8 @@ pub struct Pool {
     pub config: PoolConfig,
     /// The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    /// Remaining supply incentives that are distributed evenly among specified periods
-    pub supply_incentives: Map<(u64, u64), PoolIncentive>,
+    /// Remaining supply bootstrap amounts that are distributed evenly among specified periods
+    pub bootstrap_periods: Map<(u64, u64), PoolBootstrapPeriod>,
     /// Borrow annual percentage rate in basis points
     pub borrow_apr_bps: i128,
     /// Supply annual percentage rate in basis points
@@ -90,23 +90,22 @@ impl Pool {
         Ok(())
     }
 
-    /// Additionally incentivizes the pool's supply APR
-    pub fn incentivize(
+    /// Bootstraps the pool by distributing additional rewards to suppliers
+    pub fn bootstrap(
         &mut self,
         amount: i128,
         period: (u64, u64),
         current_timestamp: u64,
     ) -> Result<(), MCError> {
-        // TODO: Add this to APR calculations
-        let incentive = if let Some(mut existing_incentive) = self.supply_incentives.get(period) {
-            existing_incentive.add_to_incentive(amount, current_timestamp, period);
+        let bootstrap_period = if let Some(mut existing) = self.bootstrap_periods.get(period) {
+            existing.add_to(amount, current_timestamp, period);
 
-            existing_incentive
+            existing
         } else {
-            PoolIncentive::new(amount, period)
+            PoolBootstrapPeriod::new(amount, period)
         };
 
-        self.supply_incentives.set(period, incentive);
+        self.bootstrap_periods.set(period, bootstrap_period);
 
         Ok(())
     }
@@ -1011,16 +1010,16 @@ impl InterestRateConfig {
 
 #[contracttype]
 #[derive(Debug, Clone)]
-pub struct PoolIncentive {
-    /// Total provided incentive amount
+pub struct PoolBootstrapPeriod {
+    /// Total provided bootstrap amount
     pub total_amount: i128,
-    /// Remaining incentive amount
+    /// Remaining bootstrap amount
     pub remaining_amount: i128,
-    /// Accrued incentive per second
+    /// Accrual rate in tokens per second
     pub accrual_rate: i128,
 }
 
-impl PoolIncentive {
+impl PoolBootstrapPeriod {
     pub fn new(total_amount: i128, period: (u64, u64)) -> Self {
         let period_seconds = (period.1 - period.0) as i128; // safe
         let accrual_rate_ceil = total_amount / period_seconds; // safe
@@ -1028,12 +1027,7 @@ impl PoolIncentive {
         Self { total_amount, remaining_amount: total_amount, accrual_rate: accrual_rate_ceil }
     }
 
-    pub fn add_to_incentive(
-        &mut self,
-        new_amount: i128,
-        current_timestamp: u64,
-        period: (u64, u64),
-    ) {
+    pub fn add_to(&mut self, new_amount: i128, current_timestamp: u64, period: (u64, u64)) {
         let seconds_left = (period.1 - current_timestamp) as i128; // safe
 
         if seconds_left > 0 {

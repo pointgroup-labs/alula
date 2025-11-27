@@ -1,5 +1,4 @@
 use soroban_sdk::contracterror;
-// TODO: Standardize/stabilize error codes(check how others do it)
 
 #[contracterror]
 #[derive(Debug, Eq, PartialEq)]
@@ -33,7 +32,7 @@ pub enum MCError {
     BorrowForbiddenOnPool = 110,
     DepositForbiddenOnPool = 111,
     PoolIsFrozen = 112,
-    InvalidIncentivePeriod = 113,
+    InvalidBootstrapPeriod = 113,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,

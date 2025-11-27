@@ -17,6 +17,7 @@ import type {
   i128,
   u256,
   i256,
+  AssembledTransactionOptions,
   Option,
   Typepoint,
   Duration,
@@ -54,62 +55,17 @@ export interface Client {
   /**
    * Construct and simulate a deploy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  deploy: ({salt, market_admin, name, oracle, max_positions, min_collateral, insolvency_ltv_bps, update_in_queue_period}: {salt: Buffer, market_admin: string, name: string, oracle: string, max_positions: u32, min_collateral: i128, insolvency_ltv_bps: i128, update_in_queue_period: Option<u64>}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<string>>>
+  deploy: ({salt, market_admin, name, oracle, max_positions, min_collateral, insolvency_ltv_bps, update_in_queue_period}: {salt: Buffer, market_admin: string, name: string, oracle: string, max_positions: u32, min_collateral: i128, insolvency_ltv_bps: i128, update_in_queue_period: Option<u64>}, options?: AssembledTransactionOptions<Result<string>>) => Promise<AssembledTransaction<Result<string>>>
 
   /**
    * Construct and simulate a get_markets transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_markets: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Map<string, void>>>
+  get_markets: (options?: AssembledTransactionOptions<Map<string, void>>) => Promise<AssembledTransaction<Map<string, void>>>
 
   /**
    * Construct and simulate a get_config transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  get_config: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Config>>
+  get_config: (options?: AssembledTransactionOptions<Config>) => Promise<AssembledTransaction<Config>>
 
   /**
    * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -119,22 +75,7 @@ export interface Client {
    * * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
    * new version of the contract
    */
-  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<null>>
+  upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: AssembledTransactionOptions<null>) => Promise<AssembledTransaction<null>>
 
   /**
    * Construct and simulate a upgrade_deployed_markets transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -144,22 +85,7 @@ export interface Client {
    * * `new_market_contract_wasm_hash` - hash of the WASM binary uploaded to the network that
    * will be used as a new version of the contract for every deployed market
    */
-  upgrade_deployed_markets: ({new_market_contract_wasm_hash}: {new_market_contract_wasm_hash: Buffer}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<null>>
+  upgrade_deployed_markets: ({new_market_contract_wasm_hash}: {new_market_contract_wasm_hash: Buffer}, options?: AssembledTransactionOptions<null>) => Promise<AssembledTransaction<null>>
 
 }
 export class Client extends ContractClient {

@@ -52,7 +52,7 @@ struct ApplyPoolConfigUpdate {
 }
 
 #[contractevent]
-struct IncentivizePoolEvent {
+struct BootstrapPoolEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
@@ -359,14 +359,14 @@ pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
     ApplyPoolConfigUpdate { pool_address }.publish(e);
 }
 
-pub fn incentivize_pool(
+pub fn bootstrap_pool(
     e: &Env,
     pool_address: &Address,
     sponsor: &Address,
     amount: i128,
     period: (u64, u64),
 ) {
-    IncentivizePoolEvent {
+    BootstrapPoolEvent {
         pool_address: pool_address.clone(),
         sponsor: sponsor.clone(),
         amount,

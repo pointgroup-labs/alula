@@ -373,7 +373,7 @@ fn withdraw_up_to_open_ltv() {
     assert!(creditor_balance_1 > creditor_balance_2);
 
     // Repay all debt
-    contract_client.repay(&creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.repay(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // Withdraw all
     contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);

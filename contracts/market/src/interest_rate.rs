@@ -8,7 +8,7 @@ use crate::{
     events,
     interest_rate_model::InterestRate,
     math_utils::MathUtils,
-    pool::{Pool, PoolIncentive},
+    pool::{Pool, PoolBootstrapPeriod},
 };
 
 /// Linear annual interest rates represented in basis points
@@ -91,42 +91,42 @@ impl Pool {
             .fixed_mul_floor(BPS_FACTOR - self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?; // safe
 
-        // -- Accrue supply APR incentives --
+        // -- Accrue supply APR bootstraps --
 
-        let mut updated_incentives: Vec<((u64, u64), PoolIncentive)> = svec![e];
-        let mut outdated_incentive_periods: Vec<(u64, u64)> = svec![e];
+        let mut updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
+        let mut outdated_periods: Vec<(u64, u64)> = svec![e];
 
-        for ((start_period, end_period), pool_incentive) in self.supply_incentives.iter() {
+        for ((start_period, end_period), pool_bootstrap) in self.bootstrap_periods.iter() {
             if end_period <= current_timestamp {
                 let new_total_available = self
                     .total_available
-                    .checked_add(pool_incentive.remaining_amount)
+                    .checked_add(pool_bootstrap.remaining_amount)
                     .map_over_or_underflow()?;
 
                 self.total_available = new_total_available;
-                outdated_incentive_periods.push_back((start_period, end_period));
+                outdated_periods.push_back((start_period, end_period));
             } else if current_timestamp > start_period && current_timestamp < end_period {
-                let mut updated_incentive = pool_incentive;
-                let accrual_rate = updated_incentive.accrual_rate;
+                let mut updated: PoolBootstrapPeriod = pool_bootstrap;
+                let accrual_rate = updated.accrual_rate;
 
                 let seconds_remained = end_period - current_timestamp;
                 let new_remaining_amount = (seconds_remained as i128) * accrual_rate; // safe
-                let diff = updated_incentive.remaining_amount - new_remaining_amount; // safe
+                let diff = updated.remaining_amount - new_remaining_amount; // updatedfe
 
                 let new_total_available =
                     self.total_available.checked_add(diff).map_over_or_underflow()?;
                 self.total_available = new_total_available;
 
-                updated_incentive.remaining_amount = new_remaining_amount;
-                updated_incentives.push_back(((start_period, end_period), updated_incentive));
+                updated.remaining_amount = new_remaining_amount;
+                updated_periods.push_back(((start_period, end_period), updated));
             }
         }
 
-        for outdated_period in outdated_incentive_periods {
-            self.supply_incentives.remove(outdated_period);
+        for outdated_period in outdated_periods {
+            self.bootstrap_periods.remove(outdated_period);
         }
-        for (period, updated_incentive) in updated_incentives {
-            self.supply_incentives.set(period, updated_incentive);
+        for (period, updated_period) in updated_periods {
+            self.bootstrap_periods.set(period, updated_period);
         }
 
         Ok(())

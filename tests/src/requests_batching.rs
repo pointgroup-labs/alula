@@ -32,9 +32,9 @@ fn test_empty_batching() {
         usdc_token_client.balance(&contract_id),
         btc_token_client.balance(&contract_id),
         gold_token_client.balance(&contract_id),
-        usdc_token_client.balance(&user),
-        btc_token_client.balance(&user),
-        gold_token_client.balance(&user),
+        usdc_token_client.balance(user),
+        btc_token_client.balance(user),
+        gold_token_client.balance(user),
     );
 
     contract_client.submit_requests_batch(user, &svec![&e]);
@@ -46,9 +46,9 @@ fn test_empty_batching() {
         usdc_token_client.balance(&contract_id),
         btc_token_client.balance(&contract_id),
         gold_token_client.balance(&contract_id),
-        usdc_token_client.balance(&user),
-        btc_token_client.balance(&user),
-        gold_token_client.balance(&user),
+        usdc_token_client.balance(user),
+        btc_token_client.balance(user),
+        gold_token_client.balance(user),
     );
 
     assert_eq!(tuple_before, tuple_after);
@@ -75,15 +75,15 @@ fn test_simple_batching() {
 
     let pool_supply_1 = contract_client.get_pool(&usdc_pool_address).total_supply().unwrap();
     let contract_balance_1 = usdc_token_client.balance(&contract_id);
-    let user_balance_1 = usdc_token_client.balance(&user);
+    let user_balance_1 = usdc_token_client.balance(user);
 
     let simple_batch = svec![&e, request_0];
 
-    contract_client.submit_requests_batch(&user, &simple_batch);
+    contract_client.submit_requests_batch(user, &simple_batch);
 
     let pool_supply_2 = contract_client.get_pool(&usdc_pool_address).total_supply().unwrap();
     let contract_balance_2 = usdc_token_client.balance(&contract_id);
-    let user_balance_2 = usdc_token_client.balance(&user);
+    let user_balance_2 = usdc_token_client.balance(user);
 
     let pool_supply_diff = pool_supply_2.checked_sub(pool_supply_1).unwrap();
     let contract_balance_diff = contract_balance_2.checked_sub(contract_balance_1).unwrap();
@@ -110,7 +110,7 @@ fn test_complex_batching() {
     let user = &users[0];
     let liquidity_provider = &users[1];
     contract_client.deposit(
-        &liquidity_provider,
+        liquidity_provider,
         &usdc_pool_address,
         &(100 * DEFAULT_DEPOSIT_AMOUNT),
     );
@@ -121,7 +121,7 @@ fn test_complex_batching() {
         amount: DEFAULT_DEPOSIT_AMOUNT,
     };
     assert_eq!(
-        contract_client.try_submit_requests_batch(&user, &svec![&e, invalid_r]),
+        contract_client.try_submit_requests_batch(user, &svec![&e, invalid_r]),
         Err(Ok(MCError::IncorrectRequestType))
     );
 
@@ -130,7 +130,7 @@ fn test_complex_batching() {
     let tuple_before = (
         contract_client.get_pool(&usdc_pool_address).total_supply().unwrap(),
         usdc_token_client.balance(&contract_id),
-        usdc_token_client.balance(&user),
+        usdc_token_client.balance(user),
     );
     let deposit_r = Request {
         request_type: RequestType::Deposit.into(),
@@ -144,12 +144,12 @@ fn test_complex_batching() {
     };
     let r_0 = svec![&e, deposit_r, withdraw_r];
 
-    contract_client.submit_requests_batch(&user, &r_0);
+    contract_client.submit_requests_batch(user, &r_0);
 
     let tuple_after = (
         contract_client.get_pool(&usdc_pool_address).total_supply().unwrap(),
         usdc_token_client.balance(&contract_id),
-        usdc_token_client.balance(&user),
+        usdc_token_client.balance(user),
     );
 
     assert_eq!(tuple_before, tuple_after);
@@ -159,10 +159,10 @@ fn test_complex_batching() {
     let tuple_before = (
         contract_client.get_pool(&usdc_pool_address).total_supply().unwrap(),
         usdc_token_client.balance(&contract_id),
-        usdc_token_client.balance(&user),
+        usdc_token_client.balance(user),
         contract_client.get_pool(&gold_pool_address).total_supply().unwrap(),
         gold_token_client.balance(&contract_id),
-        gold_token_client.balance(&user),
+        gold_token_client.balance(user),
     );
     let add_collateral_r = Request {
         request_type: RequestType::AddCollateral.into(),
@@ -191,10 +191,10 @@ fn test_complex_batching() {
     let tuple_after = (
         contract_client.get_pool(&usdc_pool_address).total_supply().unwrap(),
         usdc_token_client.balance(&contract_id),
-        usdc_token_client.balance(&user),
+        usdc_token_client.balance(user),
         contract_client.get_pool(&gold_pool_address).total_supply().unwrap(),
         gold_token_client.balance(&contract_id),
-        gold_token_client.balance(&user),
+        gold_token_client.balance(user),
     );
 
     assert_eq!(tuple_before, tuple_after);

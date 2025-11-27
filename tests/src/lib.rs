@@ -439,8 +439,7 @@ pub trait RunCommand {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize);
 }
 
-// TODO: This screams `add macro`, though it's unlikely that many more actors/commands will be
-// added so, there's no need for it
+// TODO: Macro?
 #[derive(Arbitrary, Debug)]
 pub enum Command {
     TomRepay(Repay),
