@@ -10,8 +10,9 @@ use soroban_sdk::testutils::Ledger;
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
     assert_approx_eq_rel, get_deposit_position, get_obligation_collateral,
-    get_obligation_deposited, get_obligation_j_tokens_as_tokens, get_pool_total_available,
-    get_pool_total_borrowed, get_pool_total_collateral, get_pool_total_supply,
+    get_obligation_j_tokens_as_tokens, get_obligation_originally_deposited,
+    get_pool_total_available, get_pool_total_borrowed, get_pool_total_collateral,
+    get_pool_total_supply,
 };
 
 #[test]
@@ -41,7 +42,8 @@ fn test_withdraw() {
     );
 
     let obligation_supplied =
-        get_obligation_deposited(&contract_client, creditor, &gold_pool_address).unwrap();
+        get_obligation_originally_deposited(&contract_client, creditor, &gold_pool_address)
+            .unwrap();
     let obligation_j_tokens_as_tokens =
         get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
             .unwrap();
@@ -59,7 +61,7 @@ fn test_withdraw() {
     contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     assert_eq!(
-        get_obligation_deposited(&contract_client, creditor, &gold_pool_address),
+        get_obligation_originally_deposited(&contract_client, creditor, &gold_pool_address),
         Err(MCError::ObligationDoesNotExist)
     );
     assert_eq!(

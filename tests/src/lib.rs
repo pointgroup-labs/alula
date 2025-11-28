@@ -823,7 +823,7 @@ pub fn get_multiply_pair_obligation_d_tokens(
     Ok(borrow_position.d_tokens)
 }
 
-pub fn get_obligation_borrowed(
+pub fn get_obligation_initially_borrowed(
     contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
@@ -849,7 +849,7 @@ pub fn get_multiply_pair_obligation_borrowed(
     Ok(borrow_position.originally_borrowed)
 }
 
-pub fn get_obligation_deposited(
+pub fn get_obligation_originally_deposited(
     contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
@@ -923,7 +923,7 @@ pub fn get_obligation_d_tokens_as_tokens(
     let pool = contract_client.get_pool(pool_address);
     let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
 
-    let deposited_tokens = pool.compute_tokens_from_d_tokens_floor(e, d_tokens)?;
+    let deposited_tokens = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
 
     Ok(deposited_tokens)
 }
@@ -935,7 +935,8 @@ pub fn get_obligation_unpaid_interest(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let total_debt = get_obligation_d_tokens_as_tokens(e, contract_client, user, pool_address)?;
-    let initially_borrowed = get_obligation_borrowed(contract_client, user, pool_address)?;
+    let initially_borrowed =
+        get_obligation_initially_borrowed(contract_client, user, pool_address)?;
 
     if total_debt < initially_borrowed {
         return Err(MCError::InternalError);
@@ -957,6 +958,24 @@ pub fn get_obligation_j_tokens_as_tokens(
     let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
 
     Ok(deposited_tokens)
+}
+
+pub fn get_obligation_received_interest(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let total_supply = get_obligation_j_tokens_as_tokens(e, contract_client, user, pool_address)?;
+    let initially_deposited =
+        get_obligation_originally_deposited(contract_client, user, pool_address)?;
+
+    if total_supply < initially_deposited {
+        return Err(MCError::InternalError);
+    }
+    let received_interest = total_supply - initially_deposited;
+
+    Ok(received_interest)
 }
 
 pub fn get_earn_obligation_j_tokens_as_tokens(

@@ -91,18 +91,13 @@ impl Pool {
     }
 
     /// Bootstraps the pool by distributing additional rewards to suppliers
-    pub fn bootstrap(
-        &mut self,
-        amount: i128,
-        period: (u64, u64),
-        current_timestamp: u64,
-    ) -> Result<(), MCError> {
+    pub fn bootstrap(&mut self, amount: i128, period: (u64, u64)) -> Result<(), MCError> {
         let bootstrap_period = if let Some(mut existing) = self.bootstrap_periods.get(period) {
-            existing.add_to(amount, current_timestamp, period);
+            existing.add_to(amount);
 
             existing
         } else {
-            PoolBootstrapPeriod::new(amount, period)
+            PoolBootstrapPeriod::new(amount, period.0)
         };
 
         self.bootstrap_periods.set(period, bootstrap_period);
@@ -1019,27 +1014,17 @@ pub struct PoolBootstrapPeriod {
     pub total_amount: i128,
     /// Remaining bootstrap amount
     pub remaining_amount: i128,
-    /// Accrual rate in tokens per second
-    pub accrual_rate: i128,
+    pub prev_accrual_timestamp: u64,
 }
 
 impl PoolBootstrapPeriod {
-    pub fn new(total_amount: i128, period: (u64, u64)) -> Self {
-        let period_seconds = (period.1 - period.0) as i128; // safe
-        let accrual_rate_ceil = total_amount / period_seconds; // safe
-
-        Self { total_amount, remaining_amount: total_amount, accrual_rate: accrual_rate_ceil }
+    pub fn new(total_amount: i128, start_period: u64) -> Self {
+        Self { total_amount, remaining_amount: total_amount, prev_accrual_timestamp: start_period }
     }
 
-    pub fn add_to(&mut self, new_amount: i128, current_timestamp: u64, period: (u64, u64)) {
-        let seconds_left = (period.1 - current_timestamp) as i128; // safe
-
-        if seconds_left > 0 {
-            let new_additional_accrual_rate = new_amount / seconds_left; // safe
-
-            self.remaining_amount += new_amount;
-            self.accrual_rate += new_additional_accrual_rate;
-        }
+    pub fn add_to(&mut self, new_amount: i128) {
+        self.total_amount += new_amount;
+        self.remaining_amount += new_amount;
     }
 }
 

@@ -183,7 +183,7 @@ pub fn process_bootstrap_pool(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    pool.bootstrap(amount, period, current_timestamp)?;
+    pool.bootstrap(amount, period)?;
     pool.set(e);
 
     let token_client = token::Client::new(e, &pool.token_address);

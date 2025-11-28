@@ -107,11 +107,15 @@ impl Pool {
                 outdated_periods.push_back((start_period, end_period));
             } else if current_timestamp > start_period && current_timestamp < end_period {
                 let mut updated: PoolBootstrapPeriod = pool_bootstrap;
-                let accrual_rate = updated.accrual_rate;
+                let prev_accrual_timestamp = updated.prev_accrual_timestamp;
 
-                let seconds_remained = end_period - current_timestamp;
+                let seconds_passed = current_timestamp - prev_accrual_timestamp; // safe
+                let period_len = end_period - start_period; // safe
+
+                // let distributed_amount = updated.total_amount.fixed_mul_floor(y, denominator)
+
                 let new_remaining_amount = (seconds_remained as i128) * accrual_rate; // safe
-                let diff = updated.remaining_amount - new_remaining_amount; // updatedfe
+                let diff = updated.remaining_amount - new_remaining_amount; // safe
 
                 let new_total_available =
                     self.total_available.checked_add(diff).map_over_or_underflow()?;

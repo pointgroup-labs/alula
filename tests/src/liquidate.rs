@@ -10,7 +10,7 @@
 // };
 
 // use crate::{
-//     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_borrowed, get_obligation_collateral,
+//     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_initially_borrowed, get_obligation_collateral,
 //     get_obligation_d_tokens_as_tokens, get_obligation_j_tokens_as_tokens,
 //     get_obligation_unpaid_interest,
 // };
@@ -133,7 +133,7 @@
 //     }
 
 //     fn initially_borrowed(&self) -> i128 {
-//         get_obligation_borrowed(
+//         get_obligation_initially_borrowed(
 //             &self.test_fixture.contract_client,
 //             &self.borrower,
 //             &self.test_fixture.usdc_pool_address,

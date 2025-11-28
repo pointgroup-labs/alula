@@ -5,7 +5,7 @@ use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_borrow_position,
-    get_obligation_borrowed, get_obligation_d_tokens_as_tokens, get_obligation_unpaid_interest,
+    get_obligation_initially_borrowed, get_obligation_d_tokens_as_tokens, get_obligation_unpaid_interest,
     get_pool_total_available, get_pool_total_borrowed,
 };
 
@@ -41,7 +41,7 @@ fn test_repay() {
     );
 
     let obligation_borrowed =
-        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
     let obligation_d_tokens_as_tokens =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
@@ -59,7 +59,7 @@ fn test_repay() {
     contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
 
     assert_eq!(
-        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address),
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address),
         Err(MCError::BorrowDoesNotExist)
     );
 
@@ -160,7 +160,7 @@ fn test_repay_unpaid_interest_only() {
     let obligation_unpaid_interest_before =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
     let obligation_borrowed_before =
-        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
 
     assert_eq!(obligation_borrowed_before, DEFAULT_DEPOSIT_AMOUNT / 2);
 
@@ -176,7 +176,7 @@ fn test_repay_unpaid_interest_only() {
     let obligation_unpaid_interest_after =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
     let obligation_borrowed_after =
-        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
 
     assert_approx_eq_abs(obligation_unpaid_interest_after, 0, 1);
     assert_eq!(obligation_borrowed_after, DEFAULT_DEPOSIT_AMOUNT / 2);
@@ -214,7 +214,7 @@ fn test_repay_all_with_bigger_than_debt_value() {
     );
 
     assert_eq!(
-        get_obligation_borrowed(&contract_client, borrower, &usdc_pool_address),
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address),
         Err(MCError::BorrowDoesNotExist)
     );
 

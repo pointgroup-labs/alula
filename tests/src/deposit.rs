@@ -13,9 +13,10 @@ use soroban_sdk::{
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, DEFAULT_USER_ASSET_MINT_AMOUNT,
     TestMarketFixture, get_earn_obligation_borrow_position, get_earn_obligation_deposited,
-    get_earn_obligation_j_tokens_as_tokens, get_obligation_borrowed, get_obligation_collateral,
-    get_obligation_deposited, get_obligation_j_tokens_as_tokens, get_pool_total_available,
-    get_pool_total_collateral, get_pool_total_supply,
+    get_earn_obligation_j_tokens_as_tokens, get_obligation_collateral,
+    get_obligation_initially_borrowed, get_obligation_j_tokens_as_tokens,
+    get_obligation_originally_deposited, get_pool_total_available, get_pool_total_collateral,
+    get_pool_total_supply,
 };
 
 #[test]
@@ -44,12 +45,13 @@ fn test_deposit() {
         get_obligation_j_tokens_as_tokens(&e, &contract_client, creditor, &gold_pool_address)
             .unwrap();
     let obligation_deposited =
-        get_obligation_deposited(&contract_client, creditor, &gold_pool_address).unwrap();
+        get_obligation_originally_deposited(&contract_client, creditor, &gold_pool_address)
+            .unwrap();
 
     assert_eq!(obligation_j_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(obligation_deposited, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(
-        get_obligation_borrowed(&contract_client, creditor, &gold_pool_address),
+        get_obligation_initially_borrowed(&contract_client, creditor, &gold_pool_address),
         Err(MCError::BorrowDoesNotExist)
     );
 }
