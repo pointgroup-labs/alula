@@ -401,13 +401,23 @@ impl TestMarketFixture<'_> {
 
             let available_borrow = pool.compute_available_utilization_ratio_cap_borrow(e).unwrap();
 
-            contract_client.add_collateral(&new_borrower, &pool.token_address, &collateral_amount);
+            let collateral_pool_address = if &pool.token_address == btc_pool_address {
+                gold_pool_address
+            } else {
+                btc_pool_address
+            };
+
+            contract_client.add_collateral(
+                &new_borrower,
+                &collateral_pool_address,
+                &collateral_amount,
+            );
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
 
             contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
             contract_client.remove_collateral(
                 &new_borrower,
-                &pool.token_address,
+                &collateral_pool_address,
                 &collateral_amount,
             );
 

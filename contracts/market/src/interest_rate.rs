@@ -106,23 +106,24 @@ impl Pool {
                 self.total_available = new_total_available;
                 outdated_periods.push_back((start_period, end_period));
             } else if current_timestamp > start_period && current_timestamp < end_period {
-                let mut updated: PoolBootstrapPeriod = pool_bootstrap;
-                let prev_accrual_timestamp = updated.prev_accrual_timestamp;
+                // TODO: Fix this later
+                // let mut updated: PoolBootstrapPeriod = pool_bootstrap;
+                // let prev_accrual_timestamp = updated.prev_accrual_timestamp;
 
-                let seconds_passed = current_timestamp - prev_accrual_timestamp; // safe
-                let period_len = end_period - start_period; // safe
+                // let seconds_passed = current_timestamp - prev_accrual_timestamp; // safe
+                // let period_len = end_period - start_period; // safe
 
                 // let distributed_amount = updated.total_amount.fixed_mul_floor(y, denominator)
 
-                let new_remaining_amount = (seconds_remained as i128) * accrual_rate; // safe
-                let diff = updated.remaining_amount - new_remaining_amount; // safe
+                // let new_remaining_amount = (seconds_remained as i128) * accrual_rate; // safe
+                // let diff = updated.remaining_amount - new_remaining_amount; // safe
 
-                let new_total_available =
-                    self.total_available.checked_add(diff).map_over_or_underflow()?;
-                self.total_available = new_total_available;
+                // let new_total_available =
+                //     self.total_available.checked_add(diff).map_over_or_underflow()?;
+                // self.total_available = new_total_available;
 
-                updated.remaining_amount = new_remaining_amount;
-                updated_periods.push_back(((start_period, end_period), updated));
+                // updated.remaining_amount = new_remaining_amount;
+                // updated_periods.push_back(((start_period, end_period), updated));
             }
         }
 

@@ -251,6 +251,7 @@ pub fn process_borrow<'a>(
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_deposit_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -284,6 +285,7 @@ pub fn process_add_collateral<'a>(
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+    obligation.require_no_borrow_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
