@@ -866,7 +866,11 @@ impl Obligation {
         let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
 
         let (max_liquidation_incentive_bps, liquidation_close_factor_bps) = (
-            borrow_pool.config.health_config.max_liquidation_incentive_bps,
+            borrow_pool
+                .config
+                .health_config
+                .max_liquidation_incentive_bps
+                .min(collateral_pool.config.health_config.max_liquidation_incentive_bps),
             borrow_pool.config.health_config.liquidation_close_factor_bps,
         );
         let (borrowed_asset_price, collateral_asset_price) = (
@@ -934,8 +938,7 @@ impl Obligation {
             // Find the amount of collateral to give away that obeys all LTV improving constraints
             let collateral_to_sell_to_liquidator = position_collateral_sum
                 .min(max_ltv_improving_collateral_seized)
-                .min(redeemed_collateral_amount_with_max_incentive)
-                .min(demanded_collateral_amount);
+                .min(redeemed_collateral_amount_with_max_incentive);
 
             (collateral_to_sell_to_liquidator, liquidated_amount)
         } else {

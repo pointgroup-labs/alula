@@ -179,6 +179,18 @@ impl LiquidationTest {
 
         (self.debt() * borrow_pool.config.health_config.liquidation_close_factor_bps) / BPS_FACTOR
     }
+
+    fn max_collateral_amount(&self) -> i128 {
+        let collateral_pool = self.fixture.contract_client.get_pool(&self.collateral_pool_address);
+        let borrow_pool = self.fixture.contract_client.get_pool(&self.borrow_pool_address);
+        let max_liquidation_incentive = borrow_pool
+            .config
+            .health_config
+            .max_liquidation_incentive_bps
+            .min(collateral_pool.config.health_config.max_liquidation_incentive_bps);
+
+        (self.debt() * max_liquidation_incentive) / BPS_FACTOR
+    }
 }
 
 // -- Basic Liquidation Tests --
@@ -354,7 +366,6 @@ fn test_liquidate_at_exact_close_factor() {
 
     let liquidation_amount = test.max_liquidation_amount();
     let collateral_seized_amount = 15_000;
-
     test.fixture.contract_client.liquidate(
         &test.liquidator,
         &test.borrower,
@@ -372,19 +383,6 @@ fn test_liquidate_at_exact_close_factor() {
     assert_eq!(debt_after, debt_before - liquidation_amount);
     assert!(collateral_after <= collateral_before - collateral_seized_amount);
     assert!(ltv_after < ltv_before);
-
-    assert_eq!(
-        test.fixture.contract_client.try_liquidate(
-            &test.liquidator,
-            &test.borrower,
-            &None,
-            &test.borrow_pool_address,
-            &test.collateral_pool_address,
-            &1,
-            &0,
-        ),
-        Err(Ok(MCError::ObligationIsHealthy))
-    );
 }
 
 #[test]
@@ -411,200 +409,209 @@ fn test_insolvent_liquidation_can_exceed_close_factor() {
     assert_eq!(debt_after, debt_before - liquidation_amount);
 }
 
-// #[test]
-// fn test_liquidate_collateral_successful() {
-//     let test = LiquidationTest::risky();
-//     test.wait_n_years(3);
+#[test]
+fn test_liquidate_deposit_successful() {
+    let test = LiquidationTest::risky_with_deposit_as_collateral();
+    test.wait_n_years(2);
 
-//     let debt_before = test.debt();
-//     let collateral_before = test.collateral();
-//     let liquidation_amount = test.liquidation_amount_from_percentage(10);
+    let debt_before = test.debt();
+    let deposit_before = test.total_supplied();
+    let liquidation_amount = test.liquidation_amount_from_percentage(10);
+    let collateral_amount = test.liquidation_amount_from_percentage(10);
 
-//     test.fixture.contract_client.liquidate(
-//         &test.liquidator,
-//         &test.borrower,
-//         &test.fixture.usdc_pool_address,
-//         &test.fixture.gold_pool_address,
-//         &liquidation_amount,
-//     );
+    assert_eq!(
+        test.fixture.contract_client.try_get_user_obligation(&test.liquidator),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
 
-//     let debt_after = test.debt();
-//     let collateral_after = test.collateral();
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &collateral_amount,
+    );
 
-//     // Debt should be reduced
-//     assert_eq!(debt_after, debt_before - liquidation_amount);
+    let debt_after = test.debt();
+    let deposit_after = test.total_supplied();
+    let liquidator_j_tokens_tokens = get_obligation_j_tokens_as_tokens(
+        &test.fixture.e,
+        &test.fixture.contract_client,
+        &test.liquidator,
+        &test.collateral_pool_address,
+    )
+    .unwrap();
 
-//     // Collateral should be seized
-//     assert!(
-//         collateral_after < collateral_before,
-//         "Collateral should be reduced from {} to {}",
-//         collateral_before,
-//         collateral_after
-//     );
-// }
+    assert_eq!(debt_after, debt_before - liquidation_amount);
+    assert!(
+        deposit_after < deposit_before,
+        "Deposit should be reduced from {} to {}",
+        deposit_before,
+        deposit_after
+    );
+    assert!(collateral_amount <= liquidator_j_tokens_tokens);
+}
 
-// #[test]
-// fn test_liquidate_deposit_successful() {
-//     let test = LiquidationTest::risky_with_deposit_as_collateral();
-//     test.wait_n_years(3);
+#[test]
+fn test_liquidating_solvent_debt_reduces_ltv() {
+    let test = LiquidationTest::risky_with_deposit_as_collateral();
+    test.wait_n_years(2);
 
-//     let debt_before = test.debt();
-//     let deposit_before = test.total_supplied();
-//     let liquidation_amount = test.liquidation_amount_from_percentage(10);
+    let ltv_before = test.ltv();
+    let liquidation_amount = test.max_liquidation_amount();
+    let collateral_amount = test.max_collateral_amount();
 
-//     test.fixture.contract_client.liquidate(
-//         &test.liquidator,
-//         &test.borrower,
-//         &test.fixture.usdc_pool_address,
-//         &test.fixture.gold_pool_address,
-//         &liquidation_amount,
-//     );
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &collateral_amount,
+    );
 
-//     let debt_after = test.debt();
-//     let deposit_after = test.total_supplied();
+    let ltv_after = test.ltv();
 
-//     // Debt should be reduced
-//     assert_eq!(debt_after, debt_before - liquidation_amount);
+    assert!(ltv_after < ltv_before);
+}
 
-//     // Collateral should be seized
-//     assert!(
-//         deposit_after < deposit_before,
-//         "Deposit should be reduced from {} to {}",
-//         deposit_before,
-//         deposit_after
-//     );
-// }
+#[test]
+fn test_liquidating_insolvent_debt_increases_ltv() {
+    let test = LiquidationTest::risky_with_deposit_as_collateral();
+    test.wait_n_years(3);
 
-// #[test]
-// #[ignore]
-// fn test_liquidate_health_factor_reduction() {
-//     let test = LiquidationTest::risky();
-//     test.wait_n_years(3);
+    let ltv_before = test.ltv();
+    let liquidation_amount = test.max_liquidation_amount();
+    let collateral_amount = test.max_collateral_amount();
 
-//     let liquidation_amount = test.max_liquidation_amount();
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &collateral_amount,
+    );
 
-//     test.fixture.contract_client.liquidate(
-//         &test.liquidator,
-//         &test.borrower,
-//         &test.fixture.usdc_pool_address,
-//         &test.fixture.gold_pool_address,
-//         &liquidation_amount,
-//     );
+    let ltv_after = test.ltv();
 
-//     assert_eq!(
-//         test.fixture.contract_client.try_liquidate(
-//             &test.liquidator,
-//             &test.borrower,
-//             &test.fixture.usdc_pool_address,
-//             &test.fixture.gold_pool_address,
-//             &10,
-//         ),
-//         Err(Ok(MCError::ObligationIsHealthy))
-//     );
-// }
+    assert!(ltv_after > ltv_before);
+}
 
-// // -- Edge Cases --
+// -- Edge Cases --
 
-// #[test]
-// fn test_liquidate_same_pool_fails() {
-//     let test = LiquidationTest::risky();
-//     test.wait_n_years(3);
+#[test]
+fn test_liquidate_same_pool_fails() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
 
-//     let result = test.fixture.contract_client.try_liquidate(
-//         &test.liquidator,
-//         &test.borrower,
-//         &test.fixture.usdc_pool_address,
-//         &test.fixture.usdc_pool_address,
-//         &test.liquidation_amount_from_percentage(10),
-//     );
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.borrow_pool_address,
+        &1,
+        &0,
+    );
 
-//     assert_eq!(result, Err(Ok(MCError::LiquidationWithEqualCollateralAndDepositPools)));
-// }
+    assert_eq!(result, Err(Ok(MCError::InvalidLiquidationInputs)));
+}
 
-// #[test]
-// fn test_liquidate_multiple_small() {
-//     let test = LiquidationTest::risky();
-//     test.wait_n_years(3);
+#[test]
+fn test_liquidate_multiple_small() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
 
-//     let initial_debt = test.debt();
-//     let small_amount = test.liquidation_amount_from_percentage(5);
+    let initial_debt = test.debt();
+    let small_amount = test.liquidation_amount_from_percentage(5);
 
-//     // Multiple small liquidations
-//     for i in 1..=3 {
-//         let result = test.fixture.contract_client.try_liquidate(
-//             &test.liquidator,
-//             &test.borrower,
-//             &test.fixture.usdc_pool_address,
-//             &test.fixture.gold_pool_address,
-//             &small_amount,
-//         );
+    // Multiple small liquidations
+    for i in 1..=3 {
+        let result = test.fixture.contract_client.try_liquidate(
+            &test.liquidator,
+            &test.borrower,
+            &None,
+            &test.borrow_pool_address,
+            &test.collateral_pool_address,
+            &small_amount,
+            &small_amount,
+        );
 
-//         match result {
-//             Ok(_) => {
-//                 let current_debt = test.debt();
-//                 let expected = initial_debt - (small_amount * i);
-//                 assert_eq!(current_debt, expected, "Liquidation {} failed", i);
-//             }
-//             Err(Ok(MCError::ObligationIsHealthy)) => {
-//                 // Position became healthy, this is expected
-//                 break;
-//             }
-//             Err(Ok(error)) => {
-//                 panic!("Unexpected error in liquidation {}: {:?}", i, error);
-//             }
-//             Err(Err(host_error)) => {
-//                 panic!("Host error: {:?}", host_error);
-//             }
-//         }
-//     }
-// }
+        match result {
+            Ok(_) => {
+                let current_debt = test.debt();
+                let expected = initial_debt - (small_amount * i);
+                assert_eq!(current_debt, expected, "Liquidation {} failed", i);
+            }
+            Err(Ok(MCError::ObligationIsHealthy)) => {
+                // Position became healthy, this is expected
+                break;
+            }
+            Err(Ok(error)) => {
+                panic!("Unexpected error in liquidation {}: {:?}", i, error);
+            }
+            Err(Err(host_error)) => {
+                panic!("Host error: {:?}", host_error);
+            }
+        }
+    }
+}
 
-// #[test]
-// fn test_liquidate_with_interest_accrual() {
-//     let test = LiquidationTest::new();
+#[test]
+fn test_liquidate_with_interest_accrual() {
+    let test = LiquidationTest::new();
 
-//     // Start with healthy position, accrue interest to make it risky
-//     test.fixture.e.ledger().with_mut(|li| li.timestamp += 40 * 365 * 24 * 60 * 60); // 40 years
-//     test.fixture.contract_client.refresh_pool(&test.fixture.usdc_pool_address);
+    // Start with healthy position, accrue interest to make it risky
+    test.fixture.e.ledger().with_mut(|li| li.timestamp += 40 * 365 * 24 * 60 * 60); // 40 years
+    test.fixture.contract_client.refresh_pool(&test.fixture.usdc_pool_address);
 
-//     let debt = test.debt();
-//     let liquidation_amount = test.liquidation_amount_from_percentage(20);
+    let debt = test.debt();
+    let liquidation_amount = test.liquidation_amount_from_percentage(20);
 
-//     test.fixture.contract_client.liquidate(
-//         &test.liquidator,
-//         &test.borrower,
-//         &test.fixture.usdc_pool_address,
-//         &test.fixture.gold_pool_address,
-//         &liquidation_amount,
-//     );
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &1,
+    );
 
-//     let new_debt = test.debt();
+    let new_debt = test.debt();
 
-//     assert!(new_debt < debt, "Debt should be reduced");
-// }
+    assert!(new_debt < debt, "Debt should be reduced");
+}
 
-// #[test]
-// fn test_liquidate_unpaid_interest_only() {
-//     let test = LiquidationTest::risky();
-//     test.wait_n_years(3);
+#[test]
+fn test_liquidate_unpaid_interest_only() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
 
-//     let initially_borrowed_before = test.initially_borrowed();
-//     let unpaid_interest = test.unpaid_interest();
+    let initially_borrowed_before = test.initially_borrowed();
+    let unpaid_interest = test.unpaid_interest();
 
-//     test.fixture.contract_client.liquidate(
-//         &test.liquidator,
-//         &test.borrower,
-//         &test.fixture.usdc_pool_address,
-//         &test.fixture.gold_pool_address,
-//         &unpaid_interest,
-//     );
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &unpaid_interest,
+        &1,
+    );
 
-//     let initially_borrowed_after = test.initially_borrowed();
-//     let new_unpaid_interest = test.unpaid_interest();
-//     let new_initially_borrowed = test.initially_borrowed();
-//     let new_debt = test.debt();
+    let initially_borrowed_after = test.initially_borrowed();
+    let new_unpaid_interest = test.unpaid_interest();
+    let new_initially_borrowed = test.initially_borrowed();
+    let new_debt = test.debt();
 
-//     assert_eq!(new_unpaid_interest, 0);
-//     assert_eq!(new_initially_borrowed, new_debt);
-//     assert_eq!(initially_borrowed_before, initially_borrowed_after);
-// }
+    assert_eq!(new_unpaid_interest, 0);
+    assert_eq!(new_initially_borrowed, new_debt);
+    assert_eq!(initially_borrowed_before, initially_borrowed_after);
+}
