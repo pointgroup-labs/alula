@@ -57,7 +57,7 @@ pub enum MCError {
     LiquidationExceedsCloseFactor = 602,
     PositionDoesNotHaveBadDebt = 603,
     AssetCannotBeUsedAsCollateral = 604,
-    LiquidationMinCollateralTooBig = 605,
+    LiquidationExcessiveDemandedCollateral = 605,
 
     // Leverage and swap errors (700-799)
     InvalidLeverageMultiplier = 700,

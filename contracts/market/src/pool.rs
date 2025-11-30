@@ -215,7 +215,10 @@ impl Pool {
         e: &Env,
         liquidation_result: &LiquidationResult,
     ) -> Result<(), MCError> {
-        self.adjust_total_collateral(e, liquidation_result.plain_collateral_seized)?;
+        self.adjust_total_collateral(
+            e,
+            liquidation_result.plain_collateral_seized.checked_neg().map_over_or_underflow()?,
+        )?;
 
         Ok(())
     }

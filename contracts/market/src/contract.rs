@@ -290,7 +290,7 @@ pub trait Market {
     /// * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
     ///       a discount
     /// * `repay_amount` - amount of repaid tokens
-    /// * `min_demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
+    /// * `demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
     fn liquidate(
         e: Env,
         liquidator: Address,
@@ -299,7 +299,7 @@ pub trait Market {
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         repay_amount: i128,
-        min_demanded_collateral_amount: i128,
+        demanded_collateral_amount: i128,
     ) -> Result<(), MCError>;
 
     /// Creates a flash loan

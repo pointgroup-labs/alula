@@ -1022,6 +1022,17 @@ pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
     Ok(deposited_tokens)
 }
 
+pub fn compute_unparameterized_ltv_bps(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+) -> Result<i128, MCError> {
+    let debt_value = compute_user_obligation_debt_value(e, contract_client, user);
+    let collateral_value = compute_user_obligation_collateral_value(e, contract_client, user);
+
+    debt_value.fixed_div_ceil(collateral_value, BPS_FACTOR).map_over_or_underflow()
+}
+
 pub fn compute_user_obligation_debt_value(
     e: &Env,
     contract_client: &MarketClient,

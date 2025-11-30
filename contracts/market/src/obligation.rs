@@ -836,7 +836,7 @@ impl Obligation {
         borrow_pool: &Pool,
         collateral_pool: &Pool,
         amount: i128,
-        min_demanded_collateral_amount: i128,
+        demanded_collateral_amount: i128,
     ) -> Result<LiquidationResult, MCError> {
         let (mut deposit_position, mut borrow_position) = (
             self.deposits
@@ -910,8 +910,13 @@ impl Obligation {
             let denominator = obligation_debt_value
                 .checked_mul(collateral_asset_price)
                 .map_over_or_underflow()?;
-            let max_ltv_improving_collateral_seized =
-                numerator.checked_div(denominator).map_over_or_underflow()?;
+            let max_ltv_improving_collateral_seized = numerator
+                .checked_div(denominator)
+                .map_over_or_underflow()?
+                .checked_mul(99)
+                .map_over_or_underflow()?
+                .checked_div(100)
+                .map_over_or_underflow()?;
 
             let collateral_value_to_redeem_with_max_incentive = liquidated_value
                 .fixed_mul_floor(
@@ -929,7 +934,8 @@ impl Obligation {
             // Find the amount of collateral to give away that obeys all LTV improving constraints
             let collateral_to_sell_to_liquidator = position_collateral_sum
                 .min(max_ltv_improving_collateral_seized)
-                .min(redeemed_collateral_amount_with_max_incentive);
+                .min(redeemed_collateral_amount_with_max_incentive)
+                .min(demanded_collateral_amount);
 
             (collateral_to_sell_to_liquidator, liquidated_amount)
         } else {
@@ -973,8 +979,8 @@ impl Obligation {
             false
         };
 
-        if collateral_to_sell_to_liquidator < min_demanded_collateral_amount {
-            return Err(MCError::LiquidationMinCollateralTooBig);
+        if collateral_to_sell_to_liquidator < demanded_collateral_amount {
+            return Err(MCError::LiquidationExcessiveDemandedCollateral);
         }
 
         let is_plain_collateral_sufficient =
@@ -1048,7 +1054,7 @@ impl Obligation {
             (borrow_position.d_tokens, borrow_position.originally_borrowed)
         } else {
             let d_tokens_to_burn =
-                borrow_pool.compute_tokens_from_d_tokens_floor(e, liquidated_amount)?;
+                borrow_pool.compute_d_tokens_from_tokens_floor(liquidated_amount)?;
             let unpaid_interest = position_debt
                 .checked_sub(borrow_position.originally_borrowed)
                 .map_over_or_underflow()?;
@@ -1078,10 +1084,10 @@ impl Obligation {
         borrow_position
             .adjust_borrowed(e, decreased_borrowed_amount.checked_neg().map_over_or_underflow()?)?;
 
-        if borrow_position.is_empty() {
-            self.try_remove_borrow_position(e, &borrow_pool.pool_address)?;
+        if deposit_position.is_empty() {
+            self.try_remove_deposit_position(e, &collateral_pool.pool_address)?;
         } else {
-            self.borrows.set(collateral_pool.pool_address.clone(), borrow_position);
+            self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
         }
 
         if borrow_position.is_empty() {
