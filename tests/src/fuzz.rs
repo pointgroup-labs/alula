@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use crate::{
-    Amount, Borrow, Command::*, Deposit, DepositCollateral, Input, PassTime, Repay,
-    TestMarketFixture, Token::*,
+    Amount, Borrow, Command::*, Deposit, DepositCollateral, DepositWithLeverage, Input, PassTime,
+    Repay, TestMarketFixture, Token::*,
 };
 
 #[allow(unused)]
@@ -40,6 +40,42 @@ fn test_inconsistent_d_tokens_amount() {
             NibblesDepositCollateral(DepositCollateral { amount: Amount(1906286495), token: USDC }),
             NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
             NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+        ],
+    };
+
+    test_fuzzed_issue(&input);
+}
+
+#[test]
+fn test_x() {
+    let input = Input {
+        commands: [
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: GOLD }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038443), token: BTC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(1197926579), token: BTC }),
+            JerryDeposit(Deposit { amount: Amount(2975934976), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678056863), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            JerryBorrow(Borrow { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2680867530), token: GOLD }),
+            JerryDepositWithLeverage(DepositWithLeverage {
+                amount: Amount(3402287818),
+                deposit_token: GOLD,
+                borrow_token: USDC,
+                flash_loan_amount: Amount(2678038431),
+                leverage: 2678038431,
+            }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            TomRepay(Repay { amount: Amount(0), token: BTC }),
         ],
     };
 

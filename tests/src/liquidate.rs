@@ -1,191 +1,195 @@
-// #![cfg(test)]
+#![cfg(test)]
 
-// use market::{
-//     constants::{BPS_FACTOR, DEFAULT_CLOSE_FACTOR_BPS},
-//     error::MCError,
-// };
-// use soroban_sdk::{
-//     Address,
-//     testutils::{Address as _, Ledger},
-// };
+use market::{
+    constants::{BPS_FACTOR, DEFAULT_CLOSE_FACTOR_BPS},
+    error::MCError,
+};
+use soroban_sdk::{
+    Address,
+    testutils::{Address as _, Ledger},
+};
 
-// use crate::{
-//     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_initially_borrowed, get_obligation_collateral,
-//     get_obligation_d_tokens_as_tokens, get_obligation_j_tokens_as_tokens,
-//     get_obligation_unpaid_interest,
-// };
+use crate::{
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_collateral,
+    get_obligation_d_tokens_as_tokens, get_obligation_initially_borrowed,
+    get_obligation_j_tokens_as_tokens, get_obligation_unpaid_interest,
+};
 
-// struct LiquidationTest {
-//     test_fixture: TestMarketFixture<'static>,
-//     borrower: Address,
-//     liquidator: Address,
-// }
+struct LiquidationTest {
+    fixture: TestMarketFixture<'static>,
+    borrower: Address,
+    liquidator: Address,
+    borrow_pool_address: Address,
+    collateral_pool_address: Address,
+}
 
-// impl LiquidationTest {
-//     /// Creates a standard setup with healthy position
-//     fn new() -> Self {
-//         let test_fixture = TestMarketFixture::new();
-//         let borrower = test_fixture.users[0].clone();
-//         let lender = test_fixture.users[1].clone();
-//         let liquidator = test_fixture.users[2].clone();
+impl LiquidationTest {
+    /// Creates a standard setup with healthy position
+    fn new() -> Self {
+        let fixture = TestMarketFixture::new();
+        let (borrow_pool_address, collateral_pool_address) =
+            (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
 
-//         test_fixture.contract_client.deposit(
-//             &lender,
-//             &test_fixture.usdc_pool_address,
-//             &(DEFAULT_DEPOSIT_AMOUNT * 2),
-//         );
-//         test_fixture.contract_client.add_collateral(
-//             &borrower,
-//             &test_fixture.gold_pool_address,
-//             &DEFAULT_DEPOSIT_AMOUNT,
-//         );
+        let borrower = fixture.users[0].clone();
+        let liquidity_provider = fixture.users[1].clone();
+        let liquidator = fixture.users[2].clone();
 
-//         test_fixture.contract_client.borrow(
-//             &borrower,
-//             &test_fixture.usdc_pool_address,
-//             &(DEFAULT_DEPOSIT_AMOUNT / 3), // Conservative 33% borrow ratio
-//         );
+        fixture.contract_client.deposit(
+            &liquidity_provider,
+            &borrow_pool_address,
+            &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        );
+        fixture.contract_client.add_collateral(
+            &borrower,
+            &collateral_pool_address,
+            &DEFAULT_DEPOSIT_AMOUNT,
+        );
 
-//         Self { test_fixture, borrower, liquidator }
-//     }
+        fixture.contract_client.borrow(
+            &borrower,
+            &borrow_pool_address,
+            &(DEFAULT_DEPOSIT_AMOUNT / 3), // Conservative 33% borrow ratio
+        );
 
-//     /// Creates a risky position closer to liquidation threshold
-//     fn risky() -> Self {
-//         let test_fixture = TestMarketFixture::new();
-//         let borrower = test_fixture.users[0].clone();
-//         let lender = test_fixture.users[1].clone();
-//         let liquidator = test_fixture.users[2].clone();
+        Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
+    }
 
-//         test_fixture.contract_client.deposit(
-//             &lender,
-//             &test_fixture.usdc_pool_address,
-//             &((3 * DEFAULT_DEPOSIT_AMOUNT) / 2),
-//         );
+    /// Creates a risky position closer to liquidation threshold
+    fn risky() -> Self {
+        let fixture = TestMarketFixture::new();
+        let (borrow_pool_address, collateral_pool_address) =
+            (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
 
-//         let collateral = DEFAULT_DEPOSIT_AMOUNT;
-//         let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow ratio(default open LTV is 70%)
+        let borrower = fixture.users[0].clone();
+        let liquidity_provider = fixture.users[1].clone();
+        let liquidator = fixture.users[2].clone();
 
-//         test_fixture.contract_client.add_collateral(
-//             &borrower,
-//             &test_fixture.gold_pool_address,
-//             &collateral,
-//         );
-//         test_fixture.contract_client.borrow(
-//             &borrower,
-//             &test_fixture.usdc_pool_address,
-//             &borrow_amount,
-//         );
+        fixture.contract_client.deposit(
+            &liquidity_provider,
+            &borrow_pool_address,
+            &((3 * DEFAULT_DEPOSIT_AMOUNT) / 2),
+        );
 
-//         Self { test_fixture, borrower, liquidator }
-//     }
+        let collateral = DEFAULT_DEPOSIT_AMOUNT;
+        let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow ratio(default open LTV is 70%)
 
-//     fn risky_with_deposit_as_collateral() -> Self {
-//         let test_fixture = TestMarketFixture::new();
-//         let borrower = test_fixture.users[0].clone();
-//         let lender = test_fixture.users[1].clone();
-//         let liquidator = test_fixture.users[2].clone();
+        fixture.contract_client.add_collateral(&borrower, &collateral_pool_address, &collateral);
+        fixture.contract_client.borrow(&borrower, &borrow_pool_address, &borrow_amount);
 
-//         test_fixture.contract_client.deposit(
-//             &lender,
-//             &test_fixture.usdc_pool_address,
-//             &(3 * DEFAULT_DEPOSIT_AMOUNT / 2),
-//         );
+        Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
+    }
 
-//         let collateral = DEFAULT_DEPOSIT_AMOUNT;
-//         let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow ratio(default open LTV is 70%)
+    fn risky_with_deposit_as_collateral() -> Self {
+        let fixture = TestMarketFixture::new();
+        let (borrow_pool_address, collateral_pool_address) =
+            (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
 
-//         test_fixture.contract_client.deposit(
-//             &borrower,
-//             &test_fixture.gold_pool_address,
-//             &collateral,
-//         );
-//         test_fixture.contract_client.borrow(
-//             &borrower,
-//             &test_fixture.usdc_pool_address,
-//             &borrow_amount,
-//         );
+        let borrower = fixture.users[0].clone();
+        let liquidity_provider = fixture.users[1].clone();
+        let liquidator = fixture.users[2].clone();
 
-//         Self { test_fixture, borrower, liquidator }
-//     }
+        fixture.contract_client.deposit(
+            &liquidity_provider,
+            &borrow_pool_address,
+            &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        );
 
-//     fn make_unhealthy(&self) {
-//         self.test_fixture.e.ledger().with_mut(|li| li.timestamp += 3 * 365 * 24 * 60 * 60);
-//         self.test_fixture.contract_client.refresh();
-//     }
+        fixture.contract_client.deposit(
+            &borrower,
+            &collateral_pool_address,
+            &DEFAULT_DEPOSIT_AMOUNT,
+        );
+        fixture.contract_client.borrow(
+            &borrower,
+            &fixture.usdc_pool_address,
+            &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+        );
 
-//     fn collateral_amount(&self) -> i128 {
-//         get_obligation_collateral(
-//             &self.test_fixture.contract_client,
-//             &self.borrower,
-//             &self.test_fixture.gold_pool_address,
-//         )
-//         .unwrap()
-//     }
+        Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
+    }
 
-//     fn total_supplied(&self) -> i128 {
-//         get_obligation_j_tokens_as_tokens(
-//             &self.test_fixture.e,
-//             &self.test_fixture.contract_client,
-//             &self.borrower,
-//             &self.test_fixture.gold_pool_address,
-//         )
-//         .unwrap()
-//     }
+    fn make_unhealthy(&self) {
+        self.fixture.e.ledger().with_mut(|li| li.timestamp += 3 * 365 * 24 * 60 * 60);
 
-//     fn initially_borrowed(&self) -> i128 {
-//         get_obligation_initially_borrowed(
-//             &self.test_fixture.contract_client,
-//             &self.borrower,
-//             &self.test_fixture.usdc_pool_address,
-//         )
-//         .unwrap()
-//     }
+        self.fixture.contract_client.refresh_pool(&self.borrow_pool_address);
+        self.fixture.contract_client.refresh_pool(&self.collateral_pool_address);
+    }
 
-//     fn debt(&self) -> i128 {
-//         get_obligation_d_tokens_as_tokens(
-//             &self.test_fixture.e,
-//             &self.test_fixture.contract_client,
-//             &self.borrower,
-//             &self.test_fixture.usdc_pool_address,
-//         )
-//         .unwrap()
-//     }
+    fn collateral_amount(&self) -> i128 {
+        get_obligation_collateral(
+            &self.fixture.contract_client,
+            &self.borrower,
+            &self.collateral_pool_address,
+        )
+        .unwrap()
+    }
 
-//     fn unpaid_interest(&self) -> i128 {
-//         get_obligation_unpaid_interest(
-//             &self.test_fixture.e,
-//             &self.test_fixture.contract_client,
-//             &self.borrower,
-//             &self.test_fixture.usdc_pool_address,
-//         )
-//         .unwrap()
-//     }
+    fn total_supplied(&self) -> i128 {
+        get_obligation_j_tokens_as_tokens(
+            &self.fixture.e,
+            &self.fixture.contract_client,
+            &self.borrower,
+            &self.fixture.gold_pool_address,
+        )
+        .unwrap()
+    }
 
-//     fn liquidation_amount_from_percentage(&self, percentage: i128) -> i128 {
-//         (self.debt() * percentage) / 100
-//     }
+    fn initially_borrowed(&self) -> i128 {
+        get_obligation_initially_borrowed(
+            &self.fixture.contract_client,
+            &self.borrower,
+            &self.fixture.usdc_pool_address,
+        )
+        .unwrap()
+    }
 
-//     fn max_liquidation_amount(&self) -> i128 {
-//         (self.debt() * DEFAULT_CLOSE_FACTOR_BPS) / BPS_FACTOR
-//     }
-// }
+    fn debt(&self) -> i128 {
+        get_obligation_d_tokens_as_tokens(
+            &self.fixture.e,
+            &self.fixture.contract_client,
+            &self.borrower,
+            &self.fixture.usdc_pool_address,
+        )
+        .unwrap()
+    }
 
-// // -- Basic Liquidation Tests --
+    fn unpaid_interest(&self) -> i128 {
+        get_obligation_unpaid_interest(
+            &self.fixture.e,
+            &self.fixture.contract_client,
+            &self.borrower,
+            &self.fixture.usdc_pool_address,
+        )
+        .unwrap()
+    }
 
-// #[test]
-// fn test_liquidate_healthy_position_fails() {
-//     let test = LiquidationTest::new();
+    fn liquidation_amount_from_percentage(&self, percentage: i128) -> i128 {
+        (self.debt() * percentage) / 100
+    }
 
-//     let result = test.test_fixture.contract_client.try_liquidate(
-//         &test.liquidator,
-//         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
-//         &1,
-//     );
+    fn max_liquidation_amount(&self) -> i128 {
+        (self.debt() * DEFAULT_CLOSE_FACTOR_BPS) / BPS_FACTOR
+    }
+}
 
-//     assert_eq!(result, Err(Ok(MCError::ObligationIsHealthy)));
-// }
+// -- Basic Liquidation Tests --
+
+#[test]
+fn test_liquidate_healthy_position_fails() {
+    let test = LiquidationTest::new();
+
+    let result = test.fixture.contract_client.try_liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &1,
+        &0,
+    );
+
+    assert_eq!(result, Err(Ok(MCError::ObligationIsHealthy)));
+}
 
 // #[test]
 // fn test_liquidate_zero() {
@@ -193,26 +197,26 @@
 //     test.make_unhealthy();
 
 //     let usdc_pool_before =
-//         test.test_fixture.contract_client.get_pool(&test.test_fixture.usdc_pool_address);
+//         test.fixture.contract_client.get_pool(&test.fixture.usdc_pool_address);
 
 //     let gold_pool_before =
-//         test.test_fixture.contract_client.get_pool(&test.test_fixture.gold_pool_address);
+//         test.fixture.contract_client.get_pool(&test.fixture.gold_pool_address);
 
 //     let debt_before = test.debt();
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &0,
 //     );
 
 //     let usdc_pool_after =
-//         test.test_fixture.contract_client.get_pool(&test.test_fixture.usdc_pool_address);
+//         test.fixture.contract_client.get_pool(&test.fixture.usdc_pool_address);
 
 //     let gold_pool_after =
-//         test.test_fixture.contract_client.get_pool(&test.test_fixture.gold_pool_address);
+//         test.fixture.contract_client.get_pool(&test.fixture.gold_pool_address);
 
 //     let debt_after = test.debt();
 
@@ -226,11 +230,11 @@
 //     let test = LiquidationTest::risky();
 //     test.make_unhealthy();
 
-//     let result = test.test_fixture.contract_client.try_liquidate(
+//     let result = test.fixture.contract_client.try_liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &-1,
 //     );
 
@@ -242,11 +246,11 @@
 //     let test = LiquidationTest::risky();
 //     test.make_unhealthy();
 
-//     let result = test.test_fixture.contract_client.try_liquidate(
+//     let result = test.fixture.contract_client.try_liquidate(
 //         &test.borrower, // Same as borrower
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &test.liquidation_amount_from_percentage(10),
 //     );
 
@@ -256,13 +260,13 @@
 // #[test]
 // fn test_liquidate_nonexistent_user_fails() {
 //     let test = LiquidationTest::new();
-//     let fake_user = Address::generate(&test.test_fixture.e);
+//     let fake_user = Address::generate(&test.fixture.e);
 
-//     let result = test.test_fixture.contract_client.try_liquidate(
+//     let result = test.fixture.contract_client.try_liquidate(
 //         &test.liquidator,
 //         &fake_user,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &1,
 //     );
 
@@ -321,11 +325,11 @@
 //     let debt_before = test.debt();
 //     let liquidation_amount = test.max_liquidation_amount();
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &liquidation_amount,
 //     );
 
@@ -341,11 +345,11 @@
 //     let debt_before = test.debt();
 //     let under_limit = test.max_liquidation_amount() - 1;
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &under_limit,
 //     );
 
@@ -365,11 +369,11 @@
 //     let collateral_before = test.collateral_amount();
 //     let liquidation_amount = test.liquidation_amount_from_percentage(10);
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &liquidation_amount,
 //     );
 
@@ -397,11 +401,11 @@
 //     let deposit_before = test.total_supplied();
 //     let liquidation_amount = test.liquidation_amount_from_percentage(10);
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &liquidation_amount,
 //     );
 
@@ -428,20 +432,20 @@
 
 //     let liquidation_amount = test.max_liquidation_amount();
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &liquidation_amount,
 //     );
 
 //     assert_eq!(
-//         test.test_fixture.contract_client.try_liquidate(
+//         test.fixture.contract_client.try_liquidate(
 //             &test.liquidator,
 //             &test.borrower,
-//             &test.test_fixture.usdc_pool_address,
-//             &test.test_fixture.gold_pool_address,
+//             &test.fixture.usdc_pool_address,
+//             &test.fixture.gold_pool_address,
 //             &10,
 //         ),
 //         Err(Ok(MCError::ObligationIsHealthy))
@@ -455,11 +459,11 @@
 //     let test = LiquidationTest::risky();
 //     test.make_unhealthy();
 
-//     let result = test.test_fixture.contract_client.try_liquidate(
+//     let result = test.fixture.contract_client.try_liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.usdc_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.usdc_pool_address,
 //         &test.liquidation_amount_from_percentage(10),
 //     );
 
@@ -476,11 +480,11 @@
 
 //     // Multiple small liquidations
 //     for i in 1..=3 {
-//         let result = test.test_fixture.contract_client.try_liquidate(
+//         let result = test.fixture.contract_client.try_liquidate(
 //             &test.liquidator,
 //             &test.borrower,
-//             &test.test_fixture.usdc_pool_address,
-//             &test.test_fixture.gold_pool_address,
+//             &test.fixture.usdc_pool_address,
+//             &test.fixture.gold_pool_address,
 //             &small_amount,
 //         );
 
@@ -509,17 +513,17 @@
 //     let test = LiquidationTest::new();
 
 //     // Start with healthy position, accrue interest to make it risky
-//     test.test_fixture.e.ledger().with_mut(|li| li.timestamp += 40 * 365 * 24 * 60 * 60); // 40 years
-//     test.test_fixture.contract_client.refresh_pool(&test.test_fixture.usdc_pool_address);
+//     test.fixture.e.ledger().with_mut(|li| li.timestamp += 40 * 365 * 24 * 60 * 60); // 40 years
+//     test.fixture.contract_client.refresh_pool(&test.fixture.usdc_pool_address);
 
 //     let debt = test.debt();
 //     let liquidation_amount = test.liquidation_amount_from_percentage(20);
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &liquidation_amount,
 //     );
 
@@ -536,11 +540,11 @@
 //     let initially_borrowed_before = test.initially_borrowed();
 //     let unpaid_interest = test.unpaid_interest();
 
-//     test.test_fixture.contract_client.liquidate(
+//     test.fixture.contract_client.liquidate(
 //         &test.liquidator,
 //         &test.borrower,
-//         &test.test_fixture.usdc_pool_address,
-//         &test.test_fixture.gold_pool_address,
+//         &test.fixture.usdc_pool_address,
+//         &test.fixture.gold_pool_address,
 //         &unpaid_interest,
 //     );
 
