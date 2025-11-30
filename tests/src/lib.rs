@@ -639,7 +639,10 @@ impl RunCommand for Borrow {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
-        let _ = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0);
+        if let Err(Ok(MCError::InternalError)) = res {
+            panic!("Internal Error");
+        }
     }
 }
 
@@ -648,7 +651,10 @@ impl RunCommand for Deposit {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let _ = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0);
+        if let Err(Ok(MCError::InternalError)) = res {
+            panic!("Internal Error");
+        }
     }
 }
 
@@ -657,7 +663,10 @@ impl RunCommand for DepositCollateral {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let _ = contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0);
+        if let Err(Ok(MCError::InternalError)) = res {
+            panic!("Internal Error");
+        }
     }
 }
 
@@ -666,7 +675,10 @@ impl RunCommand for WithdrawCollateral {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let _ = contract_client.try_remove_collateral(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_remove_collateral(&users[who], &pool_address, &self.amount.0);
+        if let Err(Ok(MCError::InternalError)) = res {
+            panic!("Internal Error");
+        }
     }
 }
 
@@ -675,7 +687,10 @@ impl RunCommand for Withdraw {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let _ = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0);
+        if let Err(Ok(MCError::InternalError)) = res {
+            panic!("Internal Error");
+        }
     }
 }
 
@@ -684,7 +699,10 @@ impl RunCommand for Repay {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let _ = contract_client.try_repay(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_repay(&users[who], &pool_address, &self.amount.0);
+        if let Err(Ok(MCError::InternalError)) = res {
+            panic!("Internal Error");
+        }
     }
 }
 
@@ -697,7 +715,7 @@ impl RunCommand for Liquidate {
             let TestMarketFixture { contract_client, users, .. } = test_fixture;
             let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
 
-            let _ = contract_client.try_liquidate(
+            let res = contract_client.try_liquidate(
                 liquidator,
                 borrower,
                 &None,
@@ -706,6 +724,9 @@ impl RunCommand for Liquidate {
                 &self.repay_amount.0,
                 &self.min_collateral_received_amount.0,
             );
+            if let Err(Ok(MCError::InternalError)) = res {
+                panic!("Internal Error");
+            }
         }
     }
 }
@@ -726,7 +747,7 @@ impl RunCommand for DepositWithLeverage {
                 &self.flash_loan_amount.0,
             );
 
-            let _ = contract_client.try_deposit_with_leverage(
+            let res = contract_client.try_deposit_with_leverage(
                 lender,
                 &deposit_pool_address,
                 &borrow_pool_address,
@@ -734,6 +755,9 @@ impl RunCommand for DepositWithLeverage {
                 &self.amount.0,
                 &self.leverage,
             );
+            if let Err(Ok(MCError::InternalError)) = res {
+                panic!("Internal Error");
+            }
         }
     }
 }
@@ -745,12 +769,15 @@ impl RunCommand for WithdrawFromLeveraged {
 
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let _ = contract_client.try_withdraw_from_leveraged(
+        let res = contract_client.try_withdraw_from_leveraged(
             &users[who],
             &deposit_pool_address,
             &borrow_pool_address,
             &self.amount.0,
         );
+        if let Err(Ok(MCError::InternalError)) = res {
+            panic!("Internal Error");
+        }
     }
 }
 
@@ -811,7 +838,7 @@ pub fn get_earn_obligation_d_tokens(
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
-    // NB: This is expected to always return Err(MCError::BorrowDoesNotExist)
+    // NB: This is expected to always return Err(MCError::BorrowPositionDoesNotExist)
     let borrow_position = get_earn_obligation_borrow_position(contract_client, user, pool_address)?;
 
     Ok(borrow_position.d_tokens)
@@ -1096,8 +1123,10 @@ pub fn get_deposit_position(
         return Err(MCError::ObligationDoesNotExist);
     };
 
-    let deposit =
-        obligation.deposits.get(pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
+    let deposit = obligation
+        .deposits
+        .get(pool_address.clone())
+        .ok_or(MCError::DepositPositionDoesNotExist)?;
 
     Ok(deposit)
 }
@@ -1111,8 +1140,10 @@ pub fn get_earn_obligation_deposit_position(
         return Err(MCError::ObligationDoesNotExist);
     };
 
-    let deposit =
-        obligation.deposits.get(pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
+    let deposit = obligation
+        .deposits
+        .get(pool_address.clone())
+        .ok_or(MCError::DepositPositionDoesNotExist)?;
 
     Ok(deposit)
 }
@@ -1134,7 +1165,7 @@ pub fn get_multiply_pair_deposit_position(
     let deposit = obligation
         .deposits
         .get(deposit_pool_address.clone())
-        .ok_or(MCError::DepositDoesNotExist)?;
+        .ok_or(MCError::DepositPositionDoesNotExist)?;
 
     Ok(deposit)
 }
@@ -1148,7 +1179,8 @@ pub fn get_borrow_position(
         return Err(MCError::ObligationDoesNotExist);
     };
 
-    let borrow = obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
+    let borrow =
+        obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowPositionDoesNotExist)?;
 
     Ok(borrow)
 }
@@ -1162,8 +1194,9 @@ pub fn get_earn_obligation_borrow_position(
         return Err(MCError::ObligationDoesNotExist);
     };
 
-    // NB: Expected that this always returns `Err(MCError::BorrowDoesNotExist)`
-    let borrow = obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
+    // NB: Expected that this always returns `Err(MCError::BorrowPositionDoesNotExist)`
+    let borrow =
+        obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowPositionDoesNotExist)?;
 
     Ok(borrow)
 }
@@ -1182,8 +1215,10 @@ pub fn get_multiply_pair_borrow_position(
         return Err(MCError::ObligationDoesNotExist);
     };
 
-    let borrow =
-        obligation.borrows.get(borrow_pool_address.clone()).ok_or(MCError::BorrowDoesNotExist)?;
+    let borrow = obligation
+        .borrows
+        .get(borrow_pool_address.clone())
+        .ok_or(MCError::BorrowPositionDoesNotExist)?;
 
     Ok(borrow)
 }

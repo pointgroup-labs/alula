@@ -52,7 +52,7 @@ fn test_deposit() {
     assert_eq!(obligation_deposited, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(
         get_obligation_initially_borrowed(&contract_client, creditor, &gold_pool_address),
-        Err(MCError::BorrowDoesNotExist)
+        Err(MCError::BorrowPositionDoesNotExist)
     );
 }
 
@@ -265,7 +265,7 @@ fn test_deposit_into_earn_obligation() {
     assert_eq!(obligation_deposited, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(
         get_earn_obligation_borrow_position(&contract_client, creditor, &gold_pool_address),
-        Err(MCError::BorrowDoesNotExist)
+        Err(MCError::BorrowPositionDoesNotExist)
     );
 }
 

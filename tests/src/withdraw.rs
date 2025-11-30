@@ -273,7 +273,7 @@ fn test_withdraw_all_with_i128_max() {
     assert_eq!(pool_total_supply_after + DEFAULT_DEPOSIT_AMOUNT, pool_total_supply_before);
     assert_eq!(
         get_deposit_position(&contract_client, creditor_1, &gold_pool_address),
-        Err(MCError::DepositDoesNotExist)
+        Err(MCError::DepositPositionDoesNotExist)
     );
 }
 
@@ -315,7 +315,7 @@ fn test_remove_all_with_i128_max() {
     );
     assert_eq!(
         get_deposit_position(&contract_client, creditor_1, &gold_pool_address),
-        Err(MCError::DepositDoesNotExist)
+        Err(MCError::DepositPositionDoesNotExist)
     );
 }
 

@@ -160,17 +160,6 @@ impl Obligation {
         Ok(())
     }
 
-    /// # Returns
-    ///
-    /// [`Result::Ok(false)`] if obligation **CAN** be liquidated,
-    /// [`Result::Ok(true)`] if obligation **CANNOT** be liquidated,
-    /// [`Result::Err(MMError)`] if any error occurred during calculation
-    pub fn is_healthy(&self, e: &Env) -> Result<bool, MCError> {
-        // TODO: Maybe, somehow cache these values?;
-        Ok(self.compute_collateral_value_scaled_w_close_ltvs(e)?
-            >= self.compute_debt_value_scaled_w_liability_factors(e)?)
-    }
-
     pub fn is_empty(&self) -> bool {
         self.deposits.is_empty() && self.borrows.is_empty()
     }
@@ -179,23 +168,11 @@ impl Obligation {
         !self.borrows.is_empty()
     }
 
-    pub fn deposit_exists(&self) -> bool {
-        !self.deposits.is_empty()
-    }
-
     // ------ `require_X` Circuit Breakers ------
 
     pub fn require_does_not_exist(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
         if storage::obligation_exists(e, obligation_key) {
             return Err(MCError::ObligationDoesNotExist);
-        }
-
-        Ok(())
-    }
-
-    pub fn require_non_healthy(&self, e: &Env) -> Result<(), MCError> {
-        if self.is_healthy(e)? {
-            return Err(MCError::ObligationIsHealthy);
         }
 
         Ok(())
@@ -707,8 +684,10 @@ impl Obligation {
         pool: &Pool,
         original_amount: i128,
     ) -> Result<RemoveCollateralResult, MCError> {
-        let mut deposit_position =
-            self.deposits.get(pool.pool_address.clone()).ok_or(MCError::DepositDoesNotExist)?;
+        let mut deposit_position = self
+            .deposits
+            .get(pool.pool_address.clone())
+            .ok_or(MCError::DepositPositionDoesNotExist)?;
 
         let collateral_decrease = if self.borrow_exists() {
             let max_possible_collateral_removed_amount =

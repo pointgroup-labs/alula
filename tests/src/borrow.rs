@@ -9,8 +9,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_initially_borrowed,
-    get_obligation_d_tokens_as_tokens, get_pool_fee_config, get_pool_total_available,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_d_tokens_as_tokens,
+    get_obligation_initially_borrowed, get_pool_fee_config, get_pool_total_available,
     get_pool_total_borrowed,
 };
 
@@ -82,7 +82,8 @@ fn test_borrow_multiple_shareholders() {
     contract_client.borrow(borrower_2, &usdc_pool_address, &BORROWER_2_BORROW_AMOUNT);
 
     let obligation_borrowed_1 =
-        get_obligation_initially_borrowed(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+        get_obligation_initially_borrowed(&contract_client, borrower_1, &usdc_pool_address)
+            .unwrap();
     let obligation_d_tokens_as_tokens_1 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
             .unwrap();
@@ -91,7 +92,8 @@ fn test_borrow_multiple_shareholders() {
     assert_eq!(obligation_d_tokens_as_tokens_1, DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation_borrowed_2 =
-        get_obligation_initially_borrowed(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+        get_obligation_initially_borrowed(&contract_client, borrower_2, &usdc_pool_address)
+            .unwrap();
     let obligation_d_tokens_as_tokens_2 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
             .unwrap();
@@ -119,7 +121,8 @@ fn test_borrow_multiple_shareholders() {
     // - Assert that the total debt has increased -
 
     let obligation_borrowed_1 =
-        get_obligation_initially_borrowed(&contract_client, borrower_1, &usdc_pool_address).unwrap();
+        get_obligation_initially_borrowed(&contract_client, borrower_1, &usdc_pool_address)
+            .unwrap();
     let obligation_d_tokens_as_tokens_1 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
             .unwrap();
@@ -128,7 +131,8 @@ fn test_borrow_multiple_shareholders() {
     assert!(obligation_d_tokens_as_tokens_1 > DEFAULT_DEPOSIT_AMOUNT);
 
     let obligation_borrowed_2 =
-        get_obligation_initially_borrowed(&contract_client, borrower_2, &usdc_pool_address).unwrap();
+        get_obligation_initially_borrowed(&contract_client, borrower_2, &usdc_pool_address)
+            .unwrap();
     let obligation_d_tokens_as_tokens_2 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
             .unwrap();
@@ -216,6 +220,20 @@ fn test_borrow_negative() {
     assert_eq!(
         contract_client.try_borrow(borrower, &usdc_pool_address, &-1),
         Err(Ok(MCError::NegativeInputAmount))
+    );
+}
+
+#[test]
+fn test_deposit_exists() {
+    let TestMarketFixture { contract_client, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+
+    contract_client.deposit(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    assert_eq!(
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1),
+        Err(Ok(MCError::DepositPositionForAssetExists))
     );
 }
 

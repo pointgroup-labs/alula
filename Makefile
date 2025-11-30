@@ -243,7 +243,7 @@ clean/all: clean ## Deep clean (including downloads)
 
 b: build       ## → build
 t: test        ## → test
-c: cov         ## → cov
+c: check       ## → check
 l: lint        ## → lint
 f: fmt         ## → fmt
 w: test/watch  ## → test/watch

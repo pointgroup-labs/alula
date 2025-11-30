@@ -670,11 +670,11 @@ pub fn process_withdraw_from_leveraged(
         obligation
             .deposits
             .get(deposit_pool.pool_address.clone())
-            .ok_or(MCError::DepositDoesNotExist)?,
+            .ok_or(MCError::DepositPositionDoesNotExist)?,
         obligation
             .borrows
             .get(borrow_pool.pool_address.clone())
-            .ok_or(MCError::BorrowDoesNotExist)?,
+            .ok_or(MCError::BorrowPositionDoesNotExist)?,
     );
 
     if borrow_position.is_empty() {

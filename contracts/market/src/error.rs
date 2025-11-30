@@ -36,8 +36,8 @@ pub enum MCError {
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,
-    DepositDoesNotExist = 201,
-    BorrowDoesNotExist = 202,
+    DepositPositionDoesNotExist = 201,
+    BorrowPositionDoesNotExist = 202,
     WithdrawScarcityOverLimit = 203,
     ScarcityCooldownPeriod = 204,
     BorrowPositionForAssetExists = 205,

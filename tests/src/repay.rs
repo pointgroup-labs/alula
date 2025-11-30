@@ -5,8 +5,8 @@ use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_borrow_position,
-    get_obligation_initially_borrowed, get_obligation_d_tokens_as_tokens, get_obligation_unpaid_interest,
-    get_pool_total_available, get_pool_total_borrowed,
+    get_obligation_d_tokens_as_tokens, get_obligation_initially_borrowed,
+    get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
 };
 
 #[test]
@@ -60,7 +60,7 @@ fn test_repay() {
 
     assert_eq!(
         get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address),
-        Err(MCError::BorrowDoesNotExist)
+        Err(MCError::BorrowPositionDoesNotExist)
     );
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
@@ -215,7 +215,7 @@ fn test_repay_all_with_bigger_than_debt_value() {
 
     assert_eq!(
         get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address),
-        Err(MCError::BorrowDoesNotExist)
+        Err(MCError::BorrowPositionDoesNotExist)
     );
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
