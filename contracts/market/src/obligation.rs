@@ -184,6 +184,14 @@ impl Obligation {
         Ok(())
     }
 
+    pub fn require_borrow_exists(&self) -> Result<(), MCError> {
+        if !self.borrow_exists() {
+            return Err(MCError::BadDebtCoverageCriterionIsNotMet);
+        }
+
+        Ok(())
+    }
+
     pub fn require_no_borrow_position_exists(&self, pool_address: &Address) -> Result<(), MCError> {
         if self.borrows.contains_key(pool_address.clone()) {
             return Err(MCError::BorrowPositionForAssetExists);
@@ -1129,13 +1137,6 @@ impl Obligation {
 
     /// Accounts for the bad debt on the obligation
     pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResult, MCError> {
-        let collateral_value = self.compute_collateral_value(e)?;
-        let debt_value = self.compute_debt_value(e)?;
-
-        if collateral_value >= debt_value {
-            return Err(MCError::BadDebtCoverageCriterionIsNotMet);
-        }
-
         let mut borrows_to_be_compensated: Vec<(Address, i128)> = Vec::new(e);
         for (pool_address, borrow_position) in self.borrows.iter() {
             borrows_to_be_compensated.push_back((pool_address, borrow_position.d_tokens));

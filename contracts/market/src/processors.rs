@@ -933,6 +933,7 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
     obligation_key: ObligationKey,
 ) -> Result<(), MCError> {
     let obligation = Obligation::try_get(e, &obligation_key)?;
+    obligation.require_borrow_exists()?;
     obligation.require_no_liquidatable_collateral_exists(e)?;
 
     let CoverBadDebtResult { borrows_to_be_compensated, collaterals_to_remove } =
@@ -1003,25 +1004,6 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
     obligation.remove(e, &obligation_key);
 
     Ok(())
-}
-
-#[allow(unused)]
-pub fn process_swap_for_exact_tokens(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_out: i128,
-) -> Result<i128, MCError> {
-    let amount_in = swap::get_amount_in(e, token_in, token_out, amount_out)?;
-
-    let received_amount = swap::swap_tokens_for_exact_tokens(
-        e, user, token_in, token_out, amount_in, amount_out, None,
-    )?;
-
-    events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
-
-    Ok(received_amount)
 }
 
 pub fn process_swap_exact_tokens(

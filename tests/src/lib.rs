@@ -11,7 +11,6 @@ mod market_manager;
 mod misc;
 mod repay;
 mod requests_batching;
-mod security;
 mod storage_extension;
 mod swap;
 mod update;

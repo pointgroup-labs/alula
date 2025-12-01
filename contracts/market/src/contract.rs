@@ -500,14 +500,6 @@ pub trait Market {
     ///   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>);
 
-    fn clean_multiply_pairs(e: Env);
-
-    fn check_multiply_pair_exists(
-        e: Env,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> bool;
-
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
     /// resetting on the testnet without re-deploying the contract
     fn reset_storage(e: Env);
@@ -885,20 +877,6 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         process_flash_loan(&e, &contract, &pool_address, amount)
-    }
-
-    fn clean_multiply_pairs(e: Env) {
-        require_admin(&e);
-
-        storage::remove_all_multiply_pairs(&e);
-    }
-
-    fn check_multiply_pair_exists(
-        e: Env,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> bool {
-        MultiplyPair::exists(&e, &deposit_pool_address, &borrow_pool_address)
     }
 
     fn deposit_with_leverage(

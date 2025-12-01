@@ -84,7 +84,7 @@ fn test_accumulate_reserve_fees() {
 fn test_obligation_does_not_have_bad_debt_by_default() {
     let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
         TestMarketFixture::new();
-    contract_client.update_market(&10, &100_000);
+    contract_client.update_market(&10, &10);
     let borrower = &users[0];
     let loan_provider = &users[1];
 

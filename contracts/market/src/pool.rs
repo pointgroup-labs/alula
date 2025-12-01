@@ -242,21 +242,6 @@ impl Pool {
         Ok(tokens)
     }
 
-    pub fn compute_tokens_from_d_tokens_floor(
-        &self,
-        e: &Env,
-        d_tokens_amount: i128,
-    ) -> Result<i128, MCError> {
-        let tokens = Self::compute_tokens_from_shares_floor(
-            e,
-            d_tokens_amount,
-            self.total_d_tokens,
-            self.total_borrowed,
-        )?;
-
-        Ok(tokens)
-    }
-
     pub fn compute_d_tokens_from_tokens_ceil(&self, tokens_amount: i128) -> Result<i128, MCError> {
         let d_tokens = Self::compute_shares_from_tokens_ceil(
             tokens_amount,
@@ -476,23 +461,6 @@ impl Pool {
         Ok(())
     }
 
-    pub fn require_remove_collateral_preserves_ur_cap(
-        &self,
-        e: &Env,
-        removed_available_amount: i128,
-    ) -> Result<(), MCError> {
-        let max_available_amount_to_remove =
-            Self::compute_available_utilization_ratio_cap_remove_deposit(self, e)?;
-
-        if self.compute_utilization_ratio_bps()? != 0
-            && removed_available_amount > max_available_amount_to_remove
-        {
-            return Err(MCError::PoolUtilizationRatioCapExceeded);
-        }
-
-        Ok(())
-    }
-
     pub fn require_borrow_preserves_ur_cap(
         &self,
         e: &Env,
@@ -540,42 +508,6 @@ impl Pool {
         let total_d_tokens = self.total_d_tokens;
 
         total_borrowed.fixed_div_ceil(total_d_tokens, BPS_FACTOR).map_over_or_underflow()
-    }
-
-    /// Computes the maximum available amount for deposit removal that doesn't exceed the
-    /// utilization ratio limit on a pool
-    pub fn compute_available_utilization_ratio_cap_remove_deposit(
-        &self,
-        e: &Env,
-    ) -> Result<i128, MCError> {
-        let total_borrowed = self.total_borrowed;
-        let total_supply = self.total_supply()?;
-        let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
-
-        if utilization_ratio_bps > self.config.health_config.utilization_ratio_limit_bps {
-            events::utilization_ratio_exceeds_limit(
-                e,
-                utilization_ratio_bps,
-                self.config.health_config.utilization_ratio_limit_bps,
-            );
-
-            return Ok(0);
-        }
-
-        // 'utilization_ratio_limit' := 'total_borrowed' / 'total_supply' - 'max_allowed_to_remove_supply'
-        // ,implies
-        // 'max_allowed_to_remove_supply' := 'total_supply' - ('total_borrowed'/'utilization_ratio_limit')
-        let diff_term = total_borrowed
-            .fixed_div_ceil(self.config.health_config.utilization_ratio_limit_bps, BPS_FACTOR)
-            .map_over_or_underflow()?;
-
-        if total_supply < diff_term {
-            events::pool_contains_inconsistent_state(e, self);
-
-            return Err(MCError::InternalError);
-        }
-
-        Ok(total_supply - diff_term) // safe
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization
