@@ -858,7 +858,11 @@ pub fn process_liquidate<'a>(
     borrow_pool.liquidation_repay_debt(e, &liquidation_result)?;
     collateral_pool.liquidation_redeem_collateral(e, &liquidation_result)?;
 
-    obligation.set(e, borrower_obligation_key);
+    if obligation.is_empty() {
+        obligation.remove(e, borrower_obligation_key);
+    } else {
+        obligation.set(e, borrower_obligation_key);
+    }
     borrow_pool.set(e);
     collateral_pool.set(e);
 

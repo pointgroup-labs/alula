@@ -823,8 +823,8 @@ impl Market for MarketContract {
         min_demanded_collateral_amount: i128,
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
-        require_not_frozen(&e)?;
         liquidator.require_auth();
+        require_not_frozen(&e)?;
 
         let obligation_key = borrower_obligation_seed
             .map(|seed| ObligationKey::new_with_seed(borrower.clone(), seed))

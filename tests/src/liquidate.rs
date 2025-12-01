@@ -1,6 +1,10 @@
 #![cfg(test)]
 
-use market::{constants::BPS_FACTOR, error::MCError};
+use market::{
+    constants::BPS_FACTOR,
+    error::MCError,
+    pool::{PoolConfig, PoolHealthConfig},
+};
 use soroban_sdk::{
     Address,
     testutils::{Address as _, Ledger},
@@ -54,7 +58,14 @@ impl LiquidationTest {
 
     /// Creates a risky position closer to liquidation threshold
     fn risky() -> Self {
-        let fixture = TestMarketFixture::new();
+        let pool_config = PoolConfig {
+            health_config: PoolHealthConfig {
+                liability_factor_bps: (BPS_FACTOR * 11) / 10,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let fixture = TestMarketFixture::new_with_pool_config(pool_config);
         let (borrow_pool_address, collateral_pool_address) =
             (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
 
@@ -96,6 +107,40 @@ impl LiquidationTest {
             &borrower,
             &collateral_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
+        );
+        fixture.contract_client.borrow(
+            &borrower,
+            &fixture.usdc_pool_address,
+            &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+        );
+
+        Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
+    }
+
+    fn risky_with_both_as_a_collateral() -> Self {
+        let fixture = TestMarketFixture::new();
+        let (borrow_pool_address, collateral_pool_address) =
+            (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
+
+        let borrower = fixture.users[0].clone();
+        let liquidity_provider = fixture.users[1].clone();
+        let liquidator = fixture.users[2].clone();
+
+        fixture.contract_client.deposit(
+            &liquidity_provider,
+            &borrow_pool_address,
+            &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        );
+
+        fixture.contract_client.add_collateral(
+            &borrower,
+            &collateral_pool_address,
+            &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        );
+        fixture.contract_client.deposit(
+            &borrower,
+            &collateral_pool_address,
+            &(DEFAULT_DEPOSIT_AMOUNT / 2),
         );
         fixture.contract_client.borrow(
             &borrower,
@@ -501,6 +546,36 @@ fn test_liquidating_insolvent_debt_increases_ltv() {
 
     assert!(ltv_after > ltv_before);
 }
+
+#[test]
+fn test_liquidate_both_plain_collateral_and_shares() {
+    let test = LiquidationTest::risky_with_both_as_a_collateral();
+    test.wait_n_years(3);
+
+    let debt_before = test.debt();
+    let deposit_before = test.total_supplied();
+    let collateral_before = test.collateral();
+    let liquidation_amount = debt_before;
+    let collateral_amount = deposit_before + collateral_before;
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &collateral_amount,
+    );
+
+    assert_eq!(
+        test.fixture.contract_client.try_get_user_obligation(&test.borrower),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
+}
+
+#[test]
+fn test_min_collateral_seized() {}
 
 // -- Edge Cases --
 

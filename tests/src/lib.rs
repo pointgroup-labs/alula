@@ -640,7 +640,7 @@ impl RunCommand for Borrow {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
         let res = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0);
-        if let Err(Ok(MCError::InternalError)) = res {
+        if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
     }
@@ -652,7 +652,7 @@ impl RunCommand for Deposit {
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
         let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0);
-        if let Err(Ok(MCError::InternalError)) = res {
+        if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
     }
@@ -664,7 +664,7 @@ impl RunCommand for DepositCollateral {
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
         let res = contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0);
-        if let Err(Ok(MCError::InternalError)) = res {
+        if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
     }
@@ -676,7 +676,7 @@ impl RunCommand for WithdrawCollateral {
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
         let res = contract_client.try_remove_collateral(&users[who], &pool_address, &self.amount.0);
-        if let Err(Ok(MCError::InternalError)) = res {
+        if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
     }
@@ -688,7 +688,7 @@ impl RunCommand for Withdraw {
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
         let res = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0);
-        if let Err(Ok(MCError::InternalError)) = res {
+        if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
     }
@@ -700,7 +700,7 @@ impl RunCommand for Repay {
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
         let res = contract_client.try_repay(&users[who], &pool_address, &self.amount.0);
-        if let Err(Ok(MCError::InternalError)) = res {
+        if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
     }
@@ -724,7 +724,7 @@ impl RunCommand for Liquidate {
                 &self.repay_amount.0,
                 &self.min_collateral_received_amount.0,
             );
-            if let Err(Ok(MCError::InternalError)) = res {
+            if matches!(res, Err(Ok(MCError::InternalError))) {
                 panic!("Internal Error");
             }
         }
@@ -755,7 +755,7 @@ impl RunCommand for DepositWithLeverage {
                 &self.amount.0,
                 &self.leverage,
             );
-            if let Err(Ok(MCError::InternalError)) = res {
+            if matches!(res, Err(Ok(MCError::InternalError))) {
                 panic!("Internal Error");
             }
         }
@@ -775,7 +775,7 @@ impl RunCommand for WithdrawFromLeveraged {
             &borrow_pool_address,
             &self.amount.0,
         );
-        if let Err(Ok(MCError::InternalError)) = res {
+        if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
     }

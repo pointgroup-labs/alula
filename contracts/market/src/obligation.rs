@@ -197,20 +197,6 @@ impl Obligation {
         Ok(())
     }
 
-    pub fn require_is_liquidatable_pair(
-        &self,
-        borrow_pool_address: &Address,
-        collateral_pool_address: &Address,
-    ) -> Result<(), MCError> {
-        if !self.borrows.contains_key(borrow_pool_address.clone())
-            || !self.deposits.contains_key(collateral_pool_address.clone())
-        {
-            return Err(MCError::InvalidLiquidationInputs);
-        }
-
-        Ok(())
-    }
-
     // ------ Health Factor Removing Computations ------
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per

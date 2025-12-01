@@ -9,9 +9,9 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_d_tokens_as_tokens,
-    get_obligation_initially_borrowed, get_pool_fee_config, get_pool_total_available,
-    get_pool_total_borrowed,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture,
+    get_obligation_d_tokens_as_tokens, get_obligation_initially_borrowed, get_pool_fee_config,
+    get_pool_total_available, get_pool_total_borrowed,
 };
 
 #[test]
@@ -287,4 +287,30 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     assert_eq!(pool_total_borrowed, MAX_HEALTHY_BORROW_AMOUNT);
     assert_eq!(pool_total_borrowed, MAX_HEALTHY_BORROW_AMOUNT);
     assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT - MAX_HEALTHY_BORROW_AMOUNT);
+}
+
+#[test]
+fn test_borrow_w_big_liability_factor() {
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            liability_factor_bps: 2 * BPS_FACTOR, // 200%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let borrower = &users[0];
+    let loan_provider = &users[1];
+
+    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
+
+    let borrowed =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, &borrower, &usdc_pool_address)
+            .unwrap();
+
+    assert!(borrowed < DEFAULT_COLLATERAL_AMOUNT / 2);
 }
