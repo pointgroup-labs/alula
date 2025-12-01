@@ -374,8 +374,6 @@ impl Pool {
         total_shares_amount: i128,
         total_tokens_amount: i128,
     ) -> Result<i128, MCError> {
-        // TODO: Is it always consistent with situations like:
-        // I have the last shares and I remove them - total supply becomes zero. Check this
         if tokens_amount == 0 {
             return Ok(0);
         }
@@ -627,7 +625,6 @@ impl Pool {
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
-        // MEGA_WARN: this likely produces inconsistencies due to jTokens becoming `0` at one point
         let deposited_tokens = self.compute_tokens_from_j_tokens_floor(e, self.total_j_tokens)?;
         let collateral_sum =
             deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;

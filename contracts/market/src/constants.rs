@@ -120,7 +120,6 @@ pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
 
 // ---- Oracle ----
 
-// TODO: Make it configurable? | Should we even have something like this?
 /// Maximum acceptable oracle price age in seconds
 pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Relies on 'Reflector' resolution being 5 minutes
 

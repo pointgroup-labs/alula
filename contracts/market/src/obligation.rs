@@ -79,7 +79,7 @@ impl Obligation {
         Ok(BorrowPosition::default())
     }
 
-    /// Removes the deposit position for the obligation if
+    /// Removes the deposit position for the obligation
     pub fn try_remove_deposit_position(
         &mut self,
         e: &Env,
@@ -174,7 +174,7 @@ impl Obligation {
         !self.borrows.is_empty()
     }
 
-    // ------ `require_X` Circuit Breakers ------
+    // ------ `require_` circuits ------
 
     pub fn require_does_not_exist(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
         if storage::obligation_exists(e, obligation_key) {
@@ -721,12 +721,12 @@ impl Obligation {
         let collateral_decrease = if self.borrow_exists() {
             let max_possible_collateral_removed_amount =
                 self.compute_max_healthy_collateral_removed_amount(e, pool)?;
-            i128::min(
-                i128::min(original_amount, max_possible_collateral_removed_amount),
-                deposit_position.collateral,
-            )
+
+            original_amount
+                .min(max_possible_collateral_removed_amount)
+                .min(deposit_position.collateral)
         } else {
-            i128::min(original_amount, deposit_position.collateral)
+            original_amount.min(deposit_position.collateral)
         };
 
         let computed_fees = compute_fees(
