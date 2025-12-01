@@ -44,11 +44,11 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
-const precentFromMaxMultiply = ref(90)
+const percentFromMaxMultiply = ref(90)
 
 const maxMultiply = computed(() => data?.multiplier || 0)
 const selectedMultiplier = computed(() => {
-  return Number((precentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
+  return Number((percentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
 })
 
 const txFee = ref(0)
@@ -289,7 +289,7 @@ watchDebounced([
         </div>
 
         <multiply-select
-          v-model="precentFromMaxMultiply"
+          v-model="percentFromMaxMultiply"
           :multiplier="selectedMultiplier"
           :max-multiply="maxMultiply"
         />

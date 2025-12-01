@@ -27,7 +27,7 @@ export async function sendSorobanTx(tx: any, user: string, network: RPCcluster, 
 
   const sendResponse = await server.sendTransaction(txObject)
 
-  console.log('[Tx send responce]', sendResponse)
+  console.log('[Tx send response]', sendResponse)
 
   if (sendResponse.status === 'ERROR') {
     const errorMessage = parseStellarError(tx.simulation?.error)

@@ -26,7 +26,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function loadUserMultilpyObligation(props: {
+  async function loadUserMultiplyObligation(props: {
     client: StellarClient
     market: string
     depositPoolAddress: string
@@ -105,7 +105,7 @@ export const useUserStore = defineStore('user', () => {
       ),
       ...Object.values(markets).flatMap(m =>
         m.leveragePools.map(p =>
-          loadUserMultilpyObligation({
+          loadUserMultiplyObligation({
             market: m.marketState.name,
             depositPoolAddress: p.deposit_pool,
             borrowPoolAddress: p.borrow_pool,

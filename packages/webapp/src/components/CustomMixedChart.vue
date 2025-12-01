@@ -123,7 +123,7 @@ const hoverLinePlugin = {
 const getFirstTickOffset = {
   id: 'getFirstTickOffset',
   afterLayout(chart: any) {
-    const allTicksOfset = chart.scales.x.ticks.map((_t: any, idx: number) => chart.scales.x.getPixelForTick(idx))
+    const allTicksOffset = chart.scales.x.ticks.map((_t: any, idx: number) => chart.scales.x.getPixelForTick(idx))
     // const firstTickX = chart.scales.x.getPixelForTick(0) ?? 0
 
     // const secondPixel = chart.scales.x.getPixelForTick(1) ?? 0
@@ -136,7 +136,7 @@ const getFirstTickOffset = {
       // }
       return {
         ...t,
-        pixelSpacing: allTicksOfset[idx],
+        pixelSpacing: allTicksOffset[idx],
       }
     })
   },

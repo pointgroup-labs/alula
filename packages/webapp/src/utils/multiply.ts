@@ -24,7 +24,7 @@ export function checkIsHaveMultiply(
 
 /**
  * @param ltvByBps — LTV в basis points (0…10000)
- * @returns number ≥1, max multiplyer
+ * @returns number ≥1, max multiplier
  */
 export function calculateMaxMultiplierFromBps(ltvByBps: number): number {
   if (!Number.isInteger(ltvByBps) || ltvByBps < 0 || ltvByBps >= 10_000) {

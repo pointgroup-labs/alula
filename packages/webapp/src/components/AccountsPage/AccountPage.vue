@@ -1,7 +1,7 @@
 <template>
   <main class="account-page container">
     <div class="account-cards card">
-      <account-supplie-table />
+      <account-supply-table />
       <div class="separator-vert" />
       <account-borrow-table />
     </div>

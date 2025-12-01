@@ -9,6 +9,7 @@ extend-exclude = [
   "pnpm-lock.yaml",
   "cliff.toml",
   "Cargo.lock",
+  "**/packages/webapp/.nuxt"
 ]
 
 [default]

@@ -188,7 +188,7 @@ watch(selectedPool, (p) => {
           </template>
         </BTable>
 
-        <account-supplie-table-mobile
+        <account-supply-table-mobile
           v-else
           :items="items"
           @dialog-handler="(e: any) => withdrawDialogHandler(e.item)"
