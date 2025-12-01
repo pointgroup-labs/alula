@@ -72,17 +72,17 @@ pids
 
 
 # UI package
-packages/ui/node_modules
-packages/ui/dist
-packages/ui/dist-ssr
-packages/ui/cross-env
-packages/ui/.nuxt
-packages/ui/.output
-packages/ui/dist
-packages/ui/.local
-packages/ui/.vite-ssg-dist
-packages/ui/.vite-ssg-temp
-packages/ui/cypress/downloads
+packages/webapp/node_modules
+packages/webapp/dist
+packages/webapp/dist-ssr
+packages/webapp/cross-env
+packages/webapp/.nuxt
+packages/webapp/.output
+packages/webapp/dist
+packages/webapp/.local
+packages/webapp/.vite-ssg-dist
+packages/webapp/.vite-ssg-temp
+packages/webapp/cypress/downloads
 
 # SDK package
 packages/sdk/node_modules/

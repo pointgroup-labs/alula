@@ -7,7 +7,7 @@
   "packageManager": "pnpm@10.11.1",
   "scripts": {
     "sdk": "pnpm -F {./packages/sdk}",
-    "ui": "pnpm -F {./packages/ui}",
+    "webapp": "pnpm -F {./packages/webapp}",
     "test": "vitest",
     "lint": "eslint --cache .",
     "lint:fix": "pnpm lint --fix"
