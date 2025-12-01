@@ -575,8 +575,70 @@ fn test_liquidate_both_plain_collateral_and_shares() {
 }
 
 #[test]
-fn test_min_collateral_seized() {}
+fn test_min_collateral_seized() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
 
+    let debt_before = test.debt();
+    let deposit_before = test.total_supplied();
+    let collateral_before = test.collateral();
+    let liquidation_amount = (2 * debt_before) / 3;
+    let collateral_amount = ((deposit_before + collateral_before) / 2) + 100;
+
+    test.fixture.contract_client.update_market(&10, &(collateral_amount / 2));
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &collateral_amount,
+    );
+
+    assert_eq!(
+        get_obligation_collateral(
+            &test.fixture.contract_client,
+            &test.borrower,
+            &test.collateral_pool_address
+        ),
+        Err(MCError::DepositPositionDoesNotExist)
+    );
+}
+
+#[test]
+fn test_liquidated_all_mixed_collateral() {
+    let test = LiquidationTest::risky_with_both_as_a_collateral();
+    test.wait_n_years(3);
+
+    let debt_before = test.debt();
+    let deposit_before = test.total_supplied();
+    let collateral_before = test.collateral();
+    let liquidation_amount = debt_before;
+    let collateral_amount = deposit_before + collateral_before;
+
+    test.fixture.contract_client.update_market(&10, &(collateral_amount / 2));
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &collateral_amount,
+    );
+
+    assert_eq!(
+        get_obligation_collateral(
+            &test.fixture.contract_client,
+            &test.borrower,
+            &test.collateral_pool_address
+        ),
+        Err(MCError::ObligationDoesNotExist)
+    );
+}
 // -- Edge Cases --
 
 #[test]

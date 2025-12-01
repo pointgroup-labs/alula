@@ -933,7 +933,7 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
     obligation_key: ObligationKey,
 ) -> Result<(), MCError> {
     let obligation = Obligation::try_get(e, &obligation_key)?;
-    // TODO: Only allow covering bad debt when no more liquidations are possible on the obligation
+    obligation.require_no_liquidatable_collateral_exists(e)?;
 
     let CoverBadDebtResult { borrows_to_be_compensated, collaterals_to_remove } =
         obligation.cover_bad_debt(e)?;

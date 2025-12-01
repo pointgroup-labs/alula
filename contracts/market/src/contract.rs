@@ -56,7 +56,7 @@ pub trait Market {
     ///
     /// # Arguments
     /// * `new_max_positions` - updated maximum number of positions that a single obligation can have
-    /// * `new_min_collateral_value` - updated minimum collateral value allowed
+    /// * `new_min_collateral_value` - updated minimum collateral allowed
     fn update_market(
         e: Env,
         new_max_positions: u32,

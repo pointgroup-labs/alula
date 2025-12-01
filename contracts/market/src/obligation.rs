@@ -2,7 +2,13 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
 
 use crate::{
-    constants::*, error::MCError, events, math_utils::MathUtils, oracle, pool::Pool, storage,
+    constants::*,
+    error::MCError,
+    events,
+    math_utils::MathUtils,
+    oracle::{self, get_asset_price},
+    pool::Pool,
+    storage,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,6 +198,35 @@ impl Obligation {
     ) -> Result<(), MCError> {
         if self.deposits.contains_key(pool_address.clone()) {
             return Err(MCError::DepositPositionForAssetExists);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_no_liquidatable_collateral_exists(&self, e: &Env) -> Result<(), MCError> {
+        for (pool_address, deposit_position) in self.deposits.iter() {
+            let DepositPosition { j_tokens, collateral, .. } = deposit_position;
+            let pool = &storage::get_pool(e, &pool_address).ok_or_else(|| {
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+                MCError::PoolDoesNotExist
+            })?;
+
+            let token_address = &pool.token_address;
+            let price = get_asset_price(&e, token_address)?;
+            let collateral = pool
+                .compute_tokens_from_j_tokens_floor(e, j_tokens)?
+                .checked_add(collateral)
+                .map_over_or_underflow()?;
+            let collateral_value = collateral.checked_mul(price).map_over_or_underflow()?;
+
+            let min_collateral_value = storage::get_min_collateral_value(e)
+                .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
+                .map_over_or_underflow()?;
+
+            if collateral_value > min_collateral_value {
+                return Err(MCError::BadDebtCoverageCriterionIsNotMet);
+            }
         }
 
         Ok(())
@@ -811,9 +846,6 @@ impl Obligation {
                 .get(borrow_pool.pool_address.clone())
                 .ok_or(MCError::InvalidLiquidationInputs)?,
         );
-        let (insolvency_ltv_bps, min_collateral_value) =
-            (storage::get_insolvency_ltv_bps(e), storage::get_min_collateral_value(e));
-
         let (obligation_debt_value_w_liability_factors, obligation_collateral_value_w_close_ltvs) = (
             self.compute_debt_value_scaled_w_liability_factors(e)?,
             self.compute_collateral_value_scaled_w_close_ltvs(e)?,
@@ -827,9 +859,6 @@ impl Obligation {
         let unparameterized_ltv_bps = obligation_debt_value
             .fixed_div_ceil(obligation_collateral_value, BPS_FACTOR)
             .map_over_or_underflow()?;
-
-        let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
-
         let (max_liquidation_incentive_bps, liquidation_close_factor_bps) = (
             borrow_pool
                 .config
@@ -838,10 +867,18 @@ impl Obligation {
                 .min(collateral_pool.config.health_config.max_liquidation_incentive_bps),
             borrow_pool.config.health_config.liquidation_close_factor_bps,
         );
-        let (borrowed_asset_price, collateral_asset_price) = (
+        let (borrowed_asset_price, collateral_asset_price, price_decimals) = (
             oracle::get_asset_price(e, &borrow_pool.token_address)?,
             oracle::get_asset_price(e, &collateral_pool.token_address)?,
+            10i128.pow(oracle::get_oracle_price_decimals(e)),
         );
+        let (insolvency_ltv_bps, min_collateral_value) = (
+            storage::get_insolvency_ltv_bps(e),
+            storage::get_min_collateral_value(e)
+                .checked_mul(price_decimals as i128)
+                .map_over_or_underflow()?,
+        );
+        let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
 
         let position_debt =
             borrow_pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
@@ -935,7 +972,6 @@ impl Obligation {
         let collateral_value_left =
             collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
 
-        // TODO: Check if this can be checked in `cover_bad_debt`
         let is_all_collateral_drained = if collateral_value_left < min_collateral_value {
             // If collateral(both plain collateral and supply shares) that's left is worth
             // less than the configured `min_collateral_value` on the market, the liquidator
@@ -1097,7 +1133,7 @@ impl Obligation {
         let debt_value = self.compute_debt_value(e)?;
 
         if collateral_value >= debt_value {
-            return Err(MCError::PositionDoesNotHaveBadDebt);
+            return Err(MCError::BadDebtCoverageCriterionIsNotMet);
         }
 
         let mut borrows_to_be_compensated: Vec<(Address, i128)> = Vec::new(e);
