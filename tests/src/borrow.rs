@@ -309,7 +309,7 @@ fn test_borrow_w_big_liability_factor() {
     contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
 
     let borrowed =
-        get_obligation_d_tokens_as_tokens(&e, &contract_client, &borrower, &usdc_pool_address)
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
     assert!(borrowed < DEFAULT_COLLATERAL_AMOUNT / 2);

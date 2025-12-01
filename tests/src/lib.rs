@@ -408,7 +408,7 @@ impl TestMarketFixture<'_> {
 
             contract_client.add_collateral(
                 &new_borrower,
-                &collateral_pool_address,
+                collateral_pool_address,
                 &collateral_amount,
             );
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
@@ -416,7 +416,7 @@ impl TestMarketFixture<'_> {
             contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
             contract_client.remove_collateral(
                 &new_borrower,
-                &collateral_pool_address,
+                collateral_pool_address,
                 &collateral_amount,
             );
 

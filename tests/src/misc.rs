@@ -142,10 +142,10 @@ fn test_bootstrap_pool() {
     // -- Assert no received interest has accrued due to 0% utilization --
 
     let received_interest_1 =
-        get_obligation_received_interest(&e, &contract_client, &creditor_1, &gold_pool_address)
+        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
             .unwrap();
     let received_interest_2 =
-        get_obligation_received_interest(&e, &contract_client, &creditor_2, &gold_pool_address)
+        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
             .unwrap();
 
     assert_eq!(received_interest_1, 0);
@@ -154,7 +154,7 @@ fn test_bootstrap_pool() {
     // -- Bootstrap pool --
 
     gold_token_client.approve(
-        &liquidity_provider,
+        liquidity_provider,
         &contract_id,
         &DEFAULT_DEPOSIT_AMOUNT,
         &(e.ledger().sequence()),
@@ -162,7 +162,7 @@ fn test_bootstrap_pool() {
 
     contract_client.bootstrap_pool(
         &gold_pool_address,
-        &liquidity_provider,
+        liquidity_provider,
         &DEFAULT_DEPOSIT_AMOUNT,
         &e.ledger().timestamp(),
         &(e.ledger().timestamp() + SECONDS_IN_YEAR),
@@ -174,10 +174,10 @@ fn test_bootstrap_pool() {
     contract_client.refresh_pool(&gold_pool_address);
 
     let received_interest_1 =
-        get_obligation_received_interest(&e, &contract_client, &creditor_1, &gold_pool_address)
+        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
             .unwrap();
     let received_interest_2 =
-        get_obligation_received_interest(&e, &contract_client, &creditor_2, &gold_pool_address)
+        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
             .unwrap();
 
     // TODO: Fix later
@@ -203,25 +203,25 @@ fn test_too_many_positions() {
 
     contract_client.update_market(&2, &1);
 
-    contract_client.add_collateral(&user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.add_collateral(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
 
     assert_eq!(
-        contract_client.try_add_collateral(&user, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2)),
+        contract_client.try_add_collateral(user, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2)),
         Err(Ok(MCError::TooManyPositions))
     );
 
-    contract_client.remove_collateral(&user, &gold_pool_address, &i128::MAX);
+    contract_client.remove_collateral(user, &gold_pool_address, &i128::MAX);
 
     assert!(
         contract_client
-            .try_add_collateral(&user, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2))
+            .try_add_collateral(user, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2))
             .is_ok()
     );
 
     assert_eq!(
         contract_client.try_add_collateral(
-            &user,
+            user,
             &gold_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 2)
         ),
@@ -232,7 +232,7 @@ fn test_too_many_positions() {
 
     assert!(
         contract_client
-            .try_add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2))
+            .try_add_collateral(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2))
             .is_ok()
     );
 }
@@ -245,9 +245,9 @@ fn test_unable_to_borrow_and_deposit_the_same_asset() {
     let user_1 = &users[1];
     let user_2 = &users[2];
 
-    contract_client.add_collateral(&user_1, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(user_1, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     assert_eq!(
-        contract_client.try_borrow(&user_1, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2)),
+        contract_client.try_borrow(user_1, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2)),
         Err(Ok(MCError::DepositPositionForAssetExists))
     );
 

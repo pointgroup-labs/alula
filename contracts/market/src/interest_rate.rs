@@ -93,7 +93,7 @@ impl Pool {
 
         // -- Accrue supply APR bootstraps --
 
-        let mut updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
+        let updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
         let mut outdated_periods: Vec<(u64, u64)> = svec![e];
 
         for ((start_period, end_period), pool_bootstrap) in self.bootstrap_periods.iter() {

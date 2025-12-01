@@ -221,7 +221,7 @@ impl Obligation {
             })?;
 
             let token_address = &pool.token_address;
-            let price = get_asset_price(&e, token_address)?;
+            let price = get_asset_price(e, token_address)?;
             let collateral = pool
                 .compute_tokens_from_j_tokens_floor(e, j_tokens)?
                 .checked_add(collateral)
@@ -883,7 +883,7 @@ impl Obligation {
         let (insolvency_ltv_bps, min_collateral_value) = (
             storage::get_insolvency_ltv_bps(e),
             storage::get_min_collateral_value(e)
-                .checked_mul(price_decimals as i128)
+                .checked_mul(price_decimals)
                 .map_over_or_underflow()?,
         );
         let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
