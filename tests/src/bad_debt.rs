@@ -421,3 +421,19 @@ fn test_completely_cover_bad_debt() {
     assert_eq!(pool_borrowed_diff, pool_accumulated_reserve_fees_diff);
     assert!(pool_available_after > 0); // reserve fees are left
 }
+
+#[test]
+fn test_donate_to_reserve() {
+    let TestMarketFixture { contract_client, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let donor = &users[0];
+
+    let reserve_before = contract_client.get_pool(&usdc_pool_address).accumulated_reserve_fees;
+    assert_eq!(reserve_before, 0);
+
+    let donation_amount = 1_000_000_000;
+    contract_client.donate_to_reserve(donor, &usdc_pool_address, &donation_amount);
+
+    let reserve_after = contract_client.get_pool(&usdc_pool_address).accumulated_reserve_fees;
+    assert_eq!(reserve_after, donation_amount);
+}
