@@ -497,7 +497,11 @@ impl Pool {
         let total_supply = self.total_supply()?;
         let total_j_tokens = self.total_j_tokens;
 
-        total_supply.fixed_div_floor(total_j_tokens, BPS_FACTOR).map_over_or_underflow()
+        if total_j_tokens == 0 {
+            Ok(0)
+        } else {
+            total_supply.fixed_div_floor(total_j_tokens, BPS_FACTOR).map_over_or_underflow()
+        }
     }
 
     /// Returns a `dTokenRate` with ceil rounding in basis points (i.e. 10023 for 1.0023, etc)
@@ -505,7 +509,11 @@ impl Pool {
         let total_borrowed = self.total_borrowed;
         let total_d_tokens = self.total_d_tokens;
 
-        total_borrowed.fixed_div_ceil(total_d_tokens, BPS_FACTOR).map_over_or_underflow()
+        if total_d_tokens == 0 {
+            Ok(0)
+        } else {
+            total_borrowed.fixed_div_ceil(total_d_tokens, BPS_FACTOR).map_over_or_underflow()
+        }
     }
 
     /// Computes the maximum available amount for borrowing that doesn't exceed the utilization

@@ -1,13 +1,12 @@
 #![cfg(test)]
 
-use market::{error::MCError, obligation::ObligationKey};
+use market::{constants::BPS_FACTOR, error::MCError, misc::PoolData, obligation::ObligationKey};
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT,
-    DEFAULT_DEPOSIT_AMOUNT,
-    TestMarketFixture,
-    // get_obligation_received_interest,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_d_tokens,
+    get_obligation_j_tokens,
 };
 
 #[test]
@@ -254,3 +253,59 @@ fn test_unable_to_borrow_and_deposit_the_same_asset() {
         Err(Ok(MCError::BorrowPositionForAssetExists))
     );
 }
+
+#[test]
+fn test_get_pool_data() {
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let creditor = &users[0];
+    let debtor = &users[1];
+
+    let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } =
+        contract_client.get_pool_data(&usdc_pool_address);
+
+    assert_eq!(j_token_rate_floor_bps, 0);
+    assert_eq!(d_token_rate_ceil_bps, 0);
+    assert_eq!(apy.supply_bps, 0);
+    assert!(apy.supply_bps <= apy.borrow_bps);
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+
+    let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } =
+        contract_client.get_pool_data(&usdc_pool_address);
+
+    assert!(j_token_rate_floor_bps > 0);
+    assert!(d_token_rate_ceil_bps > 0);
+    assert!(apy.supply_bps > 0);
+    assert!(apy.supply_bps <= apy.borrow_bps);
+
+    let user_j_tokens =
+        get_obligation_j_tokens(&contract_client, creditor, &usdc_pool_address).unwrap();
+    let tokens_from_j_tokens =
+        user_j_tokens.fixed_mul_ceil(j_token_rate_floor_bps, BPS_FACTOR).unwrap();
+
+    let user_d_tokens =
+        get_obligation_d_tokens(&contract_client, debtor, &usdc_pool_address).unwrap();
+    let tokens_from_d_tokens =
+        user_d_tokens.fixed_mul_floor(d_token_rate_ceil_bps, BPS_FACTOR).unwrap();
+
+    assert_eq!(tokens_from_j_tokens, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(tokens_from_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 10);
+}
+
+// #[test]
+// fn test_get_market_data() {
+//     let TestMarketFixture { contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+
+//     let market_data = contract_client.get_market_data();
+//     let MarketData {} = market_data;
+
+//     // let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } = usdc_pool_data;
+
+//     assert_eq!(j_token_rate_floor_bps, 0);
+//     assert_eq!(d_token_rate_ceil_bps, 0);
+//     assert_eq!(apy.supply_bps, 0);
+//     assert!(apy.supply_bps <= apy.borrow_bps);
+// }

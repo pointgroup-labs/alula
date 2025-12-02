@@ -138,4 +138,4 @@ pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
 
-pub const INITIAL_SHARES_AMOUNT: i128 = 10_i128.pow(15);
+pub const INITIAL_SHARES_AMOUNT: i128 = 10_i128.pow(5);

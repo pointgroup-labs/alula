@@ -14,7 +14,7 @@ use crate::{
     },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
-    oracle::{get_asset_price, get_oracle_price_decimals},
+    oracle,
     pool::{Pool, PoolConfig},
     processors::*,
     request::Request,
@@ -981,13 +981,13 @@ impl Market for MarketContract {
     }
 
     fn get_oracle_price_decimals(e: Env) -> u32 {
-        get_oracle_price_decimals(&e)
+        oracle::get_oracle_price_decimals(&e)
     }
 
     fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        get_asset_price(&e, &pool.token_address)
+        oracle::get_asset_price(&e, &pool.token_address)
     }
 
     fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
