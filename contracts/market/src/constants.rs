@@ -38,7 +38,7 @@ pub const SHARED_THRESHOLD: u32 = 50 * LEDGERS_PER_DAY;
 pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + LEDGERS_PER_DAY;
 /// Individual persistent storage extension is usually paid by the data owners. It should neither be
 /// paid very often (to reduce extension operation costs) nor very rarely (to minimize archival
-/// risk)(TODO: Though, is it really a sound argument?)
+/// risk)
 pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
@@ -54,13 +54,6 @@ pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: i128 = 8_000; // 80%
 pub const DEFAULT_KINK1_APR_BPS: i128 = 3_000; // 30%
 pub const DEFAULT_KINK2_APR_BPS: i128 = 6_000; // 60%
 pub const DEFAULT_MAX_APR_BPS: i128 = 40_000; // 400%
-
-// -- Interest Reactivity --
-
-pub const DEFAULT_TARGET_UTILIZATION_RATIO_BPS: i128 = 7_000; // 70%
-pub const DEFAULT_REACTIVITY_CONSTANT: i128 = 0;
-
-pub const MAX_REACTIVITY_CONSTANT: i128 = 100; // 100%(represents 0.0001)
 
 // ---- Deposit ----
 

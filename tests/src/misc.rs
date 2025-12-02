@@ -14,7 +14,7 @@ use soroban_sdk::{
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_d_tokens,
-    get_obligation_j_tokens,
+    get_obligation_j_tokens, get_obligation_received_interest,
 };
 
 #[test]
@@ -122,78 +122,111 @@ fn test_obligations_list_contains_unique_obligations() {
     assert!(!obligations.contains(ObligationKey::new(creditor.clone())));
 }
 
-// #[test]
-// fn test_bootstrap_pool() {
-//     let TestMarketFixture {
-//         e,
-//         contract_client,
-//         gold_pool_address,
-//         gold_token_client,
-//         contract_id,
-//         users,
-//         ..
-//     } = TestMarketFixture::new();
-//     let liquidity_provider = &users[0];
-//     let creditor_1 = &users[1];
-//     let creditor_2 = &users[2];
+#[test]
+fn test_bootstrap_pool() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        gold_pool_address,
+        gold_token_client,
+        contract_id,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let creditor_1 = &users[1];
+    let creditor_2 = &users[2];
 
-//     contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-//     contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-//     // -- Move time --
+    // -- Move time --
 
-//     e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR);
-//     contract_client.refresh_pool(&gold_pool_address);
+    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR);
+    contract_client.refresh_pool(&gold_pool_address);
 
-//     // -- Assert no received interest has accrued due to 0% utilization --
+    // -- Assert no received interest has accrued due to 0% utilization --
 
-//     let received_interest_1 =
-//         get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
-//             .unwrap();
-//     let received_interest_2 =
-//         get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
-//             .unwrap();
+    let received_interest_1 =
+        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
+            .unwrap();
+    let received_interest_2 =
+        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
+            .unwrap();
 
-//     assert_eq!(received_interest_1, 0);
-//     assert_eq!(received_interest_2, 0);
+    assert_eq!(received_interest_1, 0);
+    assert_eq!(received_interest_2, 0);
 
-//     // -- Bootstrap pool --
+    // -- Bootstrap pool --
 
-//     gold_token_client.approve(
-//         liquidity_provider,
-//         &contract_id,
-//         &DEFAULT_DEPOSIT_AMOUNT,
-//         &(e.ledger().sequence()),
-//     );
+    gold_token_client.approve(
+        liquidity_provider,
+        &contract_id,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &(e.ledger().sequence()),
+    );
+    contract_client.bootstrap_pool(
+        &gold_pool_address,
+        liquidity_provider,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &e.ledger().timestamp(),
+        &(e.ledger().timestamp() + SECONDS_IN_YEAR),
+    );
 
-//     contract_client.bootstrap_pool(
-//         &gold_pool_address,
-//         liquidity_provider,
-//         &DEFAULT_DEPOSIT_AMOUNT,
-//         &e.ledger().timestamp(),
-//         &(e.ledger().timestamp() + SECONDS_IN_YEAR),
-//     );
+    // -- Assert half of bootstrapped value has accrued --
 
-//     // -- Assert half of bootstrapped value has accrued --
+    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 2);
+    contract_client.refresh_pool(&gold_pool_address);
 
-//     e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 4);
-//     contract_client.refresh_pool(&gold_pool_address);
+    let received_interest_1 =
+        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
+            .unwrap();
+    let received_interest_2 =
+        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
+            .unwrap();
 
-//     let received_interest_1 =
-//         get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
-//             .unwrap();
-//     let received_interest_2 =
-//         get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
-//             .unwrap();
+    assert_eq!(received_interest_1, received_interest_2);
+    assert_eq!(
+        received_interest_1.checked_add(received_interest_2).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT / 2
+    );
 
-//     // TODO: Fix later
+    // -- Wait till the bootstrap period ends --
 
-//     // assert_eq!(received_interest_1, received_interest_2);
-//     // assert_eq!(
-//     //     received_interest_1.checked_add(received_interest_2).unwrap(),
-//     //     DEFAULT_DEPOSIT_AMOUNT / 2
-//     // );
-// }
+    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 2);
+    contract_client.refresh_pool(&gold_pool_address);
+
+    let received_interest_1 =
+        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
+            .unwrap();
+    let received_interest_2 =
+        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
+            .unwrap();
+
+    assert_eq!(received_interest_1, received_interest_2);
+    assert_eq!(
+        received_interest_1.checked_add(received_interest_2).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT
+    );
+
+    // -- Assert no bootstrap takes place after draining --
+
+    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 2);
+    contract_client.refresh_pool(&gold_pool_address);
+
+    let received_interest_1 =
+        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
+            .unwrap();
+    let received_interest_2 =
+        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
+            .unwrap();
+
+    assert_eq!(received_interest_1, received_interest_2);
+    assert_eq!(
+        received_interest_1.checked_add(received_interest_2).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT
+    );
+}
 
 #[test]
 fn test_too_many_positions() {

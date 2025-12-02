@@ -27,9 +27,6 @@ fn test_swap_equal_prices() {
     let user_btc_balance_before = btc_token_client.balance(user);
     let user_usdc_balance_before = usdc_token_client.balance(user);
 
-    // TODO: Here we depend on the inner module, which encapsulates 'swap' operations.
-    // Later, we can depend on the contract's API, which returns proper amounts out and amounts in.
-    // It can also be used to present slippage when depositing with leverage on UI
     let amount_out =
         swap::get_amount_out(&e, &btc_token_address, &usdc_token_address, AMOUNT_IN).unwrap();
     let received_amount =

@@ -350,8 +350,6 @@ fn test_max_deviation_check() {
     assert!(aggregated_oracle_client.lastprice(&xlm_asset_stellar).is_some());
 }
 
-// TODO: Add more tests?
-
 // ---- Helpers -----
 struct TestFixture<'a> {
     e: Env,
