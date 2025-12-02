@@ -23,7 +23,7 @@ pub struct PoolData {
 #[contracttype]
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct MarketData {
-    pub pool_data: Vec<PoolData>,
+    pub pools_data: Vec<PoolData>,
     pub global_state: GlobalState,
 }
 

@@ -1078,7 +1078,7 @@ impl Market for MarketContract {
 
     fn get_market_data(e: Env) -> Result<MarketData, MCError> {
         let pool_addresses = storage::get_all_pools(&e);
-        let mut pool_data = svec![&e];
+        let mut pools_data = svec![&e];
 
         for pool_address in pool_addresses {
             let pool = Pool::try_get(&e, &pool_address).map_err(|_| {
@@ -1086,10 +1086,10 @@ impl Market for MarketContract {
 
                 MCError::InternalError
             })?;
-            pool_data.push_back(pool.get_pool_data()?);
+            pools_data.push_back(pool.get_pool_data()?);
         }
         let global_state = process_get_global_state(&e);
-        let market_data = MarketData { pool_data, global_state };
+        let market_data = MarketData { pools_data, global_state };
 
         Ok(market_data)
     }

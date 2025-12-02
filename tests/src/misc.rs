@@ -1,8 +1,16 @@
 #![cfg(test)]
 
-use market::{constants::BPS_FACTOR, error::MCError, misc::PoolData, obligation::ObligationKey};
+use market::{
+    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    error::MCError,
+    misc::{MarketData, PoolData},
+    obligation::ObligationKey,
+};
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, testutils::Address as _};
+use soroban_sdk::{
+    Address,
+    testutils::{Address as _, Ledger},
+};
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_d_tokens,
@@ -295,17 +303,79 @@ fn test_get_pool_data() {
     assert_eq!(tokens_from_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 10);
 }
 
-// #[test]
-// fn test_get_market_data() {
-//     let TestMarketFixture { contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+#[test]
+fn test_get_market_data() {
+    let TestMarketFixture { contract_client, .. } = TestMarketFixture::new();
 
-//     let market_data = contract_client.get_market_data();
-//     let MarketData {} = market_data;
+    let market_data = contract_client.get_market_data();
+    let MarketData { pools_data, global_state } = market_data;
 
-//     // let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } = usdc_pool_data;
+    assert!(global_state.update_in_queue_period.is_some());
 
-//     assert_eq!(j_token_rate_floor_bps, 0);
-//     assert_eq!(d_token_rate_ceil_bps, 0);
-//     assert_eq!(apy.supply_bps, 0);
-//     assert!(apy.supply_bps <= apy.borrow_bps);
-// }
+    for pool_data in pools_data.iter() {
+        let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } = pool_data;
+
+        assert_eq!(j_token_rate_floor_bps, 0);
+        assert_eq!(d_token_rate_ceil_bps, 0);
+        assert_eq!(apy.supply_bps, 0);
+        assert!(apy.supply_bps <= apy.borrow_bps);
+    }
+}
+
+#[test]
+fn test_refresh_pool() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let debtor = &users[1];
+
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+
+    let pool_before = contract_client.get_pool(&usdc_pool_address);
+
+    // -- Move time --
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR;
+    });
+
+    let pool_after = contract_client.get_pool(&usdc_pool_address);
+    assert_eq!(pool_before, pool_after);
+
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let pool_after_w_refresh = contract_client.get_pool(&usdc_pool_address);
+    assert_ne!(pool_before, pool_after_w_refresh);
+}
+
+#[test]
+fn test_refresh_obligation() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let debtor = &users[1];
+
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+
+    let obligation_before = contract_client.get_user_obligation(&debtor);
+
+    // -- Move time --
+
+    // e.ledger().with_mut(|li| {
+    //     li.timestamp += SECONDS_IN_YEAR;
+    // });
+
+    // let pool_after = contract_client.get_pool(&usdc_pool_address);
+    // assert_eq!(pool_before, pool_after);
+
+    // contract_client.refresh_pool(&usdc_pool_address);
+
+    // let pool_after_w_refresh = contract_client.get_pool(&usdc_pool_address);
+    // assert_ne!(pool_before, pool_after_w_refresh);
+}
