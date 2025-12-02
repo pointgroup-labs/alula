@@ -387,7 +387,7 @@ fn test_refresh_obligation() {
     assert_eq!(usdc_pool_before, usdc_pool_after);
     assert_eq!(btc_pool_before, btc_pool_after);
 
-    contract_client.refresh_obligation(&debtor);
+    contract_client.refresh_obligation(debtor);
 
     let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
     let btc_pool_after = contract_client.get_pool(&btc_pool_address);
@@ -439,7 +439,7 @@ fn test_refresh_earn_obligation() {
     assert_eq!(usdc_pool_before, usdc_pool_after);
     assert_eq!(btc_pool_before, btc_pool_after);
 
-    contract_client.refresh_earn_obligation(&creditor);
+    contract_client.refresh_earn_obligation(creditor);
 
     let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
     let btc_pool_after = contract_client.get_pool(&btc_pool_address);
@@ -485,7 +485,7 @@ fn test_refresh_multiply_pair_obligation() {
     assert_eq!(usdc_pool_before, usdc_pool_after);
 
     contract_client.refresh_multiply_pair_obligation(
-        &looper,
+        looper,
         &gold_pool_address,
         &usdc_pool_address,
     );
