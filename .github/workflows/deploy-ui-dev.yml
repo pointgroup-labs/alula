@@ -1,4 +1,4 @@
-name: Deploy UI DEV
+name: Deploy Webapp DEV
 
 on:
   workflow_dispatch:
@@ -9,12 +9,12 @@ on:
       # - stage
       # - main
     paths:
-      - packages/ui/nuxt.config.ts
-      - packages/ui/public/**
-      - packages/ui/src/**
+      - packages/webapp/nuxt.config.ts
+      - packages/webapp/public/**
+      - packages/webapp/src/**
 
 env:
-  WORKDIR: packages/ui
+  WORKDIR: packages/webapp
 
 permissions:
   contents: read
