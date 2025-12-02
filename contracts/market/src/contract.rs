@@ -1086,10 +1086,17 @@ impl Market for MarketContract {
 
                 MCError::InternalError
             })?;
-            pools_data.push_back(pool.get_pool_data()?);
+            pools_data.push_back(pool.get_pool_data(&e)?);
         }
         let global_state = process_get_global_state(&e);
-        let market_data = MarketData { pools_data, global_state };
+        let multiply_pairs = MultiplyPair::get_all(&e);
+        let market_data = MarketData {
+            global_state,
+            pools_data,
+            multiply_pairs,
+            asset_decimals: 7,
+            oracle_price_decimals: oracle::get_oracle_price_decimals(&e),
+        };
 
         Ok(market_data)
     }
@@ -1120,7 +1127,7 @@ impl Market for MarketContract {
     fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        pool.get_pool_data()
+        pool.get_pool_data(&e)
     }
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require

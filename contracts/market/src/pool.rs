@@ -13,7 +13,7 @@ use crate::{
         AddCollateralResult, BorrowResult, ComputedFees, DepositResult, LiquidationResult,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    oracle::get_asset_price,
+    oracle::{self, get_asset_price},
     storage::{self, PoolUpdate},
 };
 
@@ -484,12 +484,23 @@ impl Pool {
 
     // ---- MISC ----
 
-    pub fn get_pool_data(self) -> Result<PoolData, MCError> {
+    pub fn get_pool_data(self, e: &Env) -> Result<PoolData, MCError> {
         let apy = self.get_apy()?;
         let j_token_rate_floor_bps = self.get_j_token_rate_floor()?;
         let d_token_rate_ceil_bps = self.get_d_token_rate_ceil()?;
+        let total_supply = self.total_supply()?;
+        let total_available_adjusted = self.total_available()?;
+        let oracle_asset_price = oracle::get_asset_price(e, &self.token_address)?;
 
-        Ok(PoolData { pool: self, apy, j_token_rate_floor_bps, d_token_rate_ceil_bps })
+        Ok(PoolData {
+            pool: self,
+            apy,
+            j_token_rate_floor_bps,
+            d_token_rate_ceil_bps,
+            total_supply,
+            total_available_adjusted,
+            oracle_asset_price,
+        })
     }
 
     /// Returns a `jTokenRate` with floor rounding in basis points (i.e., 10001 for 1.0001, etc)
