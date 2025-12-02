@@ -30,7 +30,7 @@ export function useMarket(state: MarketsState) {
   const activeMarket = computed(() => state.markets[activeMarketFilter.value])
   const marketClient = computed(() => activeMarket.value?.client)
 
-  const selectedMarketPools = computed(() => activeMarket.value?.pools ?? [])
+  const selectedMarketPools = computed(() => activeMarket.value?.marketState.pools_data ?? [])
   const assetDecimals = computed(() => marketClient.value?.marketSdk.assetDecimals || 7)
 
   const selectedMarketAddress = ref()
@@ -99,12 +99,12 @@ export function useMarket(state: MarketsState) {
   })
 
   const stop = watch(() => state.markets, async (markets) => {
-    const pools = Object.values(markets).flatMap(m => m.pools)
+    const pools = Object.values(markets).flatMap(m => m.marketState.pools_data)
     if (pools?.length > 0) {
       const q = route.query
       selectedMarketAddress.value = q?.pool
 
-      if (!pools.some(p => p.pool_address === q?.pool) || !selectedMarketAddress.value) {
+      if (!pools.some(p => p.pool.pool_address === q?.pool) || !selectedMarketAddress.value) {
         stop()
         return
       }
@@ -148,33 +148,15 @@ export function useMarket(state: MarketsState) {
 
     activeActionPool,
 
-    preparePool,
-    loadMarketPools,
+    loadPoolData,
   }
 }
 
-async function loadMarketPools(client?: any, marketName?: string) {
-  if (!client) {
-    return
-  }
+async function loadPoolData(address: string, client: any) {
   try {
-    const allPools = await client.marketSdk.getAllPools()
-    console.log(`%c[${marketName} Pools]`, 'color: #FFB726', allPools)
-    return await Promise.all(
-      allPools.map(async (pool_address: string) => await preparePool(pool_address, client)),
-    )
+    const poolData = await client.marketSdk.getPoolData(address)
+    return poolData
   } catch (error) {
     console.log(error)
-  }
-}
-
-async function preparePool(pool_address: string, client?: any) {
-  const [poolInfo, pool_price] = await Promise.all([
-    client?.marketSdk.getPoolInfo(pool_address),
-    client?.marketSdk.getPoolAssetOraclePrice(pool_address),
-  ])
-  return {
-    ...poolInfo,
-    pool_price,
   }
 }

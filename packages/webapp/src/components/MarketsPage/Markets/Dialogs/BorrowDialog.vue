@@ -2,7 +2,7 @@
 import type { MarketTableItem } from '~/types/table'
 import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
-import { bigintToNumber, destructurePoolAsset, focusInput, shortenNumber, truncatePercent } from '~/utils'
+import { /* bigintToNumber, destructurePoolAsset, */ focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -25,7 +25,7 @@ const agree = ref(false)
 
 const dialog = defineModel({ default: false })
 
-const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool_address)
+const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool.pool_address)
 
 const reloadFee = ref(false)
 
@@ -35,22 +35,21 @@ const balance = computed(() => {
   if (!data) {
     return 0
   }
-  if (data.raw.token_ticker === 'XLM') {
+  if (data.raw.pool.token_symbol === 'native') {
     return wallet.nativeBalance
   }
-  const [, asset_issuer] = destructurePoolAsset(data.raw.name)
+  const [, asset_issuer] = destructurePoolAsset(data.raw.pool.name)
   return wallet.getAssetBalance(String(asset_issuer))
+  return 0
 })
 
 const poolBorrowLimit = computed(() => {
   if (!data) {
     return 0
   }
-  const utilRatioLimit = Number(data?.raw.config.health_config.utilization_ratio_limit_bps || 0) / 10_000
-  const totalSupply = Number(bigintToNumber(data.raw.total_available + data.raw.total_borrowed - data.raw.accumulated_reserve_fees, marketsStore.assetDecimals))
-  const maxBorrow = totalSupply * utilRatioLimit
-  const totalBorrow = Number(bigintToNumber(data.raw.total_borrowed, marketsStore.assetDecimals))
-  return Math.max(maxBorrow - totalBorrow, 0)
+  const utilRatioLimit = Number(data?.raw.pool.config.health_config.utilization_ratio_limit_bps || 0) / 10_000
+  const availableAdjusted = Number(bigintToNumber(data.raw.total_available_adjusted, data.assetDecimals))
+  return availableAdjusted * utilRatioLimit
 })
 
 const availableToBorrow = computed(() => {
@@ -59,7 +58,7 @@ const availableToBorrow = computed(() => {
   }
   const userTotalDepositInUsd = userStore.userTotalDepositInUsd
   const userTotalBorrowedInUsd = Number(userStore.userTotalBorrowedInUsd) || 0
-  const openLTV = Number(data?.raw.config.health_config.open_ltv_bps || 0) / 10_000
+  const openLTV = Number(data?.raw.pool.config.health_config.open_ltv_bps || 0) / 10_000
   const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
   const maxAvailableUsd = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
@@ -72,7 +71,7 @@ const healthFactor = computed(() => {
   const depositUsd = userStore.userTotalDepositInUsd
   const borrowedUsd = userStore.userTotalBorrowedInUsd
   const price = data?.price || 0
-  const closeLTV = Number(data?.raw.config.health_config.close_ltv_bps || 0) / 10_000
+  const closeLTV = Number(data?.raw.pool.config.health_config.close_ltv_bps || 0) / 10_000
 
   const extraBorrowUsd = (amount.value || 0) * price
   const totalBorrowUsd = borrowedUsd + extraBorrowUsd
@@ -87,17 +86,17 @@ const healthFactor = computed(() => {
 })
 
 const maxLtv = computed(() => data?.max_ltv || 0)
-const closeLTV = computed(() => Number(data?.raw.config.health_config.close_ltv_bps || 0) / 100)
+const closeLTV = computed(() => Number(data?.raw.pool.config.health_config.close_ltv_bps || 0) / 100)
 
-const liquidationPenalty = computed(() => Number(data?.raw.config.health_config.liquidation_close_factor_bps || 0) / 100)
+const liquidationPenalty = computed(() => Number(data?.raw.pool.config.health_config.liquidation_close_factor_bps || 0) / 100)
 
 const marketFee = computed(() => {
-  const marketFeeBps = data?.raw.config.fee_config.borrow_fee_bps
+  const marketFeeBps = data?.raw.pool.config.fee_config.borrow_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
 
 async function borrow() {
-  if (!publicKey.value || !data?.raw.pool_address) {
+  if (!publicKey.value || !data?.raw.pool.pool_address) {
     return
   }
   if (!amount.value || amount.value <= 0) {
@@ -105,16 +104,22 @@ async function borrow() {
     return
   }
 
-  const marketProps = {
-    market: marketsStore.activeMarketFilter,
-    client: marketClient.value!,
-    pool_address: data?.raw.pool_address,
-    amount: amount.value,
-    asset_data: data?.raw.name,
-    poolBorrowLimit: poolBorrowLimit.value,
-  }
+  try {
+    marketsStore.poolActiveAddress = data?.raw.pool.pool_address
 
-  await market.borrow(marketProps)
+    const marketProps = {
+      market: marketsStore.activeMarketFilter,
+      client: marketClient.value!,
+      pool_address: data?.raw.pool.pool_address,
+      amount: amount.value,
+      asset_data: data?.raw.pool.name,
+      poolBorrowLimit: poolBorrowLimit.value,
+    }
+
+    await market.borrow(marketProps)
+  } finally {
+    marketsStore.poolActiveAddress = undefined
+  }
 }
 
 let interval: string | number | NodeJS.Timeout | undefined
@@ -147,7 +152,7 @@ watchDebounced([
   }
   const tx = await marketClient.value?.marketSdk.borrowTx(
     publicKey.value,
-    d?.raw.pool_address || '',
+    d?.raw.pool.pool_address || '',
     0,
   )
   txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)

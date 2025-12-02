@@ -95,6 +95,14 @@ export class MarketClient {
   }
 
   /**
+   * Get pool
+   */
+  async getPoolData(pool_address: string) {
+    const poolResult = await this.base.get_pool_data({ pool_address })
+    return this.unwrapOk2(poolResult.result)
+  }
+
+  /**
    * Get all leverage pools -- DELETE
    */
   async getAllLeveragePools() {

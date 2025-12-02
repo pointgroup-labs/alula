@@ -1,20 +1,24 @@
 <script lang="ts" setup>
 import borrowingIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
-import { bigintToNumber, formatPrice, shortenNumber } from '~/utils'
+import { formatPrice, shortenNumber } from '~/utils'
 
 const marketsStore = useMarketsStore()
-const { assetDecimals } = useMarketActions()
 
 const loading = computed(() => marketsStore.state.loading)
-const pools = computed(() => Object.values(marketsStore.state.markets)?.flatMap(m => m.pools))
 
 const poolsInfo = computed(() => {
-  return pools.value?.reduce((acc, pool) => {
-    const borrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals.value))
-    const totalSupplied = pool.total_available + pool.total_borrowed + pool.total_collateral
-    const supplied = Number(bigintToNumber(totalSupplied, assetDecimals.value)) * Number(pool.pool_price)
-    acc.total_borrowed += borrowed * Number(pool.pool_price)
-    acc.total_collateral += supplied
+  return Object.values(marketsStore.state.markets)?.reduce((acc, { marketState }) => {
+    const assetDecimals = marketsStore.assetDecimals
+    const oraclePriceDecimale = marketState.oracle_price_decimals
+
+    for (const data of marketState.pools_data) {
+      const price = Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimale))
+      const totalSupplied = data.pool.total_available + data.pool.total_borrowed + data.pool.total_collateral
+      const supplied = Number(bigintToNumber(totalSupplied, assetDecimals)) * price
+      const borrowed = Number(bigintToNumber(data.pool.total_borrowed, assetDecimals)) * price
+      acc.total_borrowed += borrowed
+      acc.total_collateral += supplied
+    }
     return acc
   }, { total_collateral: 0, total_borrowed: 0 })
 })

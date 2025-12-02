@@ -14,9 +14,7 @@ const infoDialog = toRef(marketsStore, 'marketInfoDialog')
 
 const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
 
-const assetDecimals = computed(() => marketsStore.assetDecimals)
-
-const selectedMarketPools = computed(() => marketsStore.selectedMarketPools ?? [])
+const activeMarket = computed(() => marketsStore.activeMarket)
 const loading = computed(() => marketsStore.state.loading)
 
 const fields = [
@@ -31,19 +29,25 @@ const fields = [
 ]
 
 const items = computed<MarketTableItem[]>(() => {
-  return selectedMarketPools.value?.map((p) => {
-    const tokenSymbol = p.token_ticker
-    const tokenName = getTokenName(tokenSymbol)
-    const icon = getTokenIcon(tokenSymbol) || ''
-    const total_supply = Number(bigintToNumber(p.total_available + p.total_borrowed + p.total_collateral, assetDecimals.value)) || 0
-    const total_borrowed = Number(bigintToNumber(p.total_borrowed, assetDecimals.value)) || 0
-    const depositApy = p.pool_apy.supply_bps / 100
-    const borrowApy = p.pool_apy.borrow_bps / 100
-    const utilRate = Number(p.total_borrowed) / Number((p.total_available + p.total_borrowed)) * 100
-    const maxLTV = Number(p.config.health_config.open_ltv_bps) / 100
-    const supply_limit = Number(bigintToNumber(p.config.health_config.supply_limit, assetDecimals.value)) || 0
+  const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 0
+  const oraclePriceDecimals = activeMarket.value?.marketState.oracle_price_decimals ?? 0
+  const poolsData = activeMarket.value?.marketState?.pools_data ?? []
+  return poolsData?.map((data) => {
+    const pool = data.pool
+    const tokenSymbol = getTokenSymbol(pool.token_symbol)
+    const tokenName = getTokenName(pool.token_symbol)
+    const icon = getTokenIcon(pool.token_symbol) || ''
+    const total_supply = Number(bigintToNumber(data.total_supply, assetDecimals)) || 0
+    const total_borrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals)) || 0
+    const depositApy = data.apy.supply_bps / 100
+    const borrowApy = data.apy.borrow_bps / 100
+    const utilRate = Number(pool.total_borrowed) / Number((pool.total_available + pool.total_borrowed)) * 100
+    const maxLTV = Number(pool.config.health_config.open_ltv_bps) / 100
+    const supply_limit = Number(bigintToNumber(pool.config.health_config.supply_limit, assetDecimals)) || 0
+    const price = Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimals)) || 0
+    const available = Number(bigintToNumber(data.total_available_adjusted, assetDecimals))
     return {
-      raw: p,
+      raw: data,
       asset: { name: tokenName, symbol: tokenSymbol, icon },
       total_supply,
       total_borrowed,
@@ -52,11 +56,12 @@ const items = computed<MarketTableItem[]>(() => {
       utilization_rate: `${truncatePercent(utilRate || 0, 2)}%`,
       max_ltv: `${truncatePercent(maxLTV || 0, 2)}%`,
       action: 'Supply',
-      price: Number(p.pool_price),
+      price,
       supply_limit,
-      available: Number(p.total_available) / (10 ** assetDecimals.value),
-      pool_address: p.pool_address,
+      available,
+      pool_address: pool.pool_address,
       market: marketsStore.activeMarketFilter,
+      assetDecimals,
     }
   })
 })
@@ -79,7 +84,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
 </script>
 
 <template>
-  <div v-if="selectedMarketPools.length === 0 && loading">
+  <div v-if="activeMarket && loading">
     <table-skeleton v-if="width > 650" />
     <table-skeleton-mobile v-else />
   </div>
@@ -246,5 +251,5 @@ provide('selectedMarketDetails', selectedMarketDetails)
     :data="selectedPool"
   />
 
-  <market-info-dialog v-model="infoDialog" />
+  <!-- <market-info-dialog v-model="infoDialog" /> -->
 </template>

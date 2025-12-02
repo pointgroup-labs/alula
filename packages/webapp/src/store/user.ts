@@ -73,20 +73,30 @@ export const useUserStore = defineStore('user', () => {
 
   const userTotalDepositInUsd = computed(() => {
     const obligation = state.obligations[marketsStore.activeMarketFilter]
-    const pools = activeMarket.value?.pools
-    if (!obligation || !pools) {
+    const marketState = activeMarket.value?.marketState
+
+    if (!obligation || !marketState) {
       return 0
     }
-    return calcUserTotalStakeInUsd(obligation, pools, marketsStore.assetDecimals) ?? 0
+    const assetDecimals = marketState.asset_decimals
+    const oraclePriceDecimals = marketState.oracle_price_decimals
+    const poolsData = marketState.pools_data
+
+    return calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
   })
 
   const userTotalBorrowedInUsd = computed(() => {
     const obligation = state.obligations[marketsStore.activeMarketFilter]
-    const pools = activeMarket.value?.pools
-    if (!obligation || !pools) {
+    const marketState = activeMarket.value?.marketState
+
+    if (!obligation || !marketState) {
       return 0
     }
-    return calcUserTotalBorrowedInUsd(obligation, pools, marketsStore.assetDecimals) ?? 0
+    const assetDecimals = marketState.asset_decimals
+    const oraclePriceDecimals = marketState.oracle_price_decimals
+    const poolsData = marketState.pools_data
+
+    return calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
   })
 
   watch([
@@ -101,12 +111,12 @@ export const useUserStore = defineStore('user', () => {
 
     const tasks = [
       ...Object.values(markets).map(m =>
-        loadUserObligation(m.marketState.name, m.client),
+        loadUserObligation(m.marketName, m.client),
       ),
       ...Object.values(markets).flatMap(m =>
-        m.leveragePools.map(p =>
+        m.marketState.multiply_pairs.map(p =>
           loadUserMultiplyObligation({
-            market: m.marketState.name,
+            market: m.marketName,
             depositPoolAddress: p.deposit_pool,
             borrowPoolAddress: p.borrow_pool,
             client: m.client,

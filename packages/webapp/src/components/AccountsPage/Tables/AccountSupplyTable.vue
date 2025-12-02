@@ -9,7 +9,6 @@ const { width } = useWindowSize()
 const userStore = useUserStore()
 
 const marketsStore = useMarketsStore()
-const decimals = computed(() => marketsStore.assetDecimals)
 
 const market = useMarketActions()
 
@@ -29,35 +28,40 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
   const res = []
   for (const market in userStore.state.obligations) {
     const deposits = userStore.state.obligations[market]?.deposits ?? []
-    const pools = marketsStore.state.markets[market]?.pools
+    const marketState = marketsStore.state.markets[market]?.marketState
+    const poolsData = marketState?.pools_data
+    const assetDecimals = marketState?.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState?.oracle_price_decimals ?? 0
     for (const deposit of deposits) {
       const [pool_address, dep] = deposit
-      const pool = pools?.find(p => p.pool_address === pool_address)
-      if (!pool) {
+      const activePool = poolsData?.find(data => data.pool.pool_address === pool_address)
+      if (!activePool) {
         continue
       }
 
-      const tokenSymbol = pool.token_ticker
-      const tokenName = getTokenName(tokenSymbol)
-      const icon = getTokenIcon(tokenSymbol)
-      const available = Number(bigintToNumber(pool.total_available, decimals.value))
+      const tokenSymbol = getTokenSymbol(activePool.pool.token_symbol)
+      const tokenName = getTokenName(activePool.pool.token_symbol)
+      const icon = getTokenIcon(activePool.pool.token_symbol)
+      const available = Number(bigintToNumber(activePool.total_available_adjusted, assetDecimals))
 
       const deposited = calculateTotalStake(dep.j_tokens, {
-        total_j_tokens: pool.total_j_tokens,
-        total_borrowed: pool.total_borrowed,
-        total_available: pool.total_available,
+        total_j_tokens: activePool.pool.total_j_tokens,
+        total_borrowed: activePool.pool.total_borrowed,
+        total_available: activePool.pool.total_available,
       })
-      const userCollateral = bigintToNumber(dep.collateral, decimals.value)
+      const userCollateral = bigintToNumber(dep.collateral, assetDecimals)
       const balance = Number(deposited) + Number(userCollateral)
 
-      const poolApy = pool.pool_apy.supply_bps / 100
+      const price = activePool.oracle_asset_price ? bigintToNumber(activePool.oracle_asset_price, oraclePriceDecimals) : 0
+
+      const poolApy = activePool.apy.supply_bps / 100
 
       const data = {
-        raw: pool,
+        raw: activePool,
         asset: { name: tokenName, symbol: tokenSymbol, icon },
         balance,
-        balanceUsd: formatPrice(balance * Number(pool.pool_price), 2, 2),
-        price: Number(pool.pool_price),
+        balanceUsd: formatPrice(balance * Number(price), 2, 2),
+        price: Number(price),
         available,
         supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
         action: 'Withdraw',

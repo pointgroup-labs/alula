@@ -1,6 +1,6 @@
 // import type { CompoundRates, Pool } from '@jlend/sdk'
 import type { StellarClient } from '@alula/client-sdk'
-import type { GlobalState, MultiplyPair, Pool } from '@alula/market-sdk'
+import type { MarketData, MultiplyPair, Pool, PoolData } from '@alula/market-sdk'
 import { defineStore } from 'pinia'
 
 export const useMarketsStore = defineStore('markets', () => {
@@ -28,8 +28,7 @@ export const useMarketsStore = defineStore('markets', () => {
 
     activeActionPool,
 
-    preparePool,
-    loadMarketPools,
+    loadPoolData,
   } = useMarket(state)
 
   const clientStore = useClientStore()
@@ -38,25 +37,17 @@ export const useMarketsStore = defineStore('markets', () => {
   const rpcStore = useRpcStore()
   const network = computed(() => rpcStore.network)
 
-  async function loadLeveragePools(client?: any) {
-    if (!isClient || !client) {
-      return
-    }
-    try {
-      state.loadingLeveragePools = true
-      const allPools = await client.marketSdk.getAllLeveragePools()
-      return allPools
-    } finally {
-      state.loadingLeveragePools = false
-    }
-  }
+  const poolActiveAddress = ref<string>()
 
   async function updatePool(pool_address: string, market: string, client: StellarClient) {
-    const preparedPool = await preparePool(pool_address, client)
-    const updatedMarketPool = state.markets[market]?.pools.map(p => (p.pool_address === pool_address ? preparedPool : p)) as PoolWithPrice[]
+    const poolData = await loadPoolData(pool_address, client)
+    const updatedMarketPool = state.markets[market]?.marketState.pools_data.map(data => (data.pool.pool_address === pool_address ? poolData : data)) as PoolData[]
     state.markets[market] = {
       ...state.markets[market]!,
-      pools: updatedMarketPool,
+      marketState: {
+        ...state.markets[market]!.marketState,
+        pools_data: updatedMarketPool,
+      },
     }
   }
 
@@ -80,7 +71,7 @@ export const useMarketsStore = defineStore('markets', () => {
   async function getMarketsList() {
     const map = await alulaClient.value?.marketManagerSdk.getMarketList()
     state.marketsList = [...map]?.map(([address]) => address)
-    console.log('%c[Markets list]', 'color: #FFB726', state.marketsList.keys())
+    console.log('%c[Markets Adresses]', 'color: #FFB726', state.marketsList)
   }
 
   async function loadMarketsData() {
@@ -91,33 +82,20 @@ export const useMarketsStore = defineStore('markets', () => {
 
       await getMarketsList()
 
-      const results = await Promise.all(
-        state.marketsList.map(async (market) => {
-          const client = clientStore.initClient(market)
-          const marketState = await client?.marketSdk.getMarketData()
-          console.log('%c[Market state]', 'color: #FFB726', marketState)
-          const leveragePools = await loadLeveragePools(client).then(v => v ?? []).catch(() => [])
-          console.log('%c[Leverage pools]', 'color: #FFB726', leveragePools)
-          // const [pools = [], leveragePools = []] = await Promise.all([
-          //   loadMarketPools(client, marketState.name).then(v => v ?? []).catch(() => []),
-          //   loadLeveragePools(client).then(v => v ?? []).catch(() => []),
-          // ])
-          // return {
-          //   name: marketState.name,
-          //   address: market,
-          //   marketState,
-          //   pools,
-          //   leveragePools,
-          //   client,
-          // }
-          return {}
+      const marketsWithState = await Promise.all(
+        state.marketsList.map(async (address) => {
+          const client = clientStore.initClient(address)
+          const marketState = await client?.marketSdk.getMarketData() as MarketData
+          return {
+            client,
+            marketState,
+            address,
+            marketName: marketState?.global_state?.name,
+          }
         }),
       )
 
-      // state.markets = results.reduce((acc, { name, address, marketState, pools, leveragePools, client }) => {
-      //   acc[name] = { marketState, pools, address, leveragePools, client }
-      //   return acc
-      // }, {} as typeof state.markets)
+      state.markets = Object.fromEntries(marketsWithState.map(c => [c.marketName, c]))
       console.log('%c[Markets info]', 'color: #FFB726', state.markets)
     } catch (error) {
       console.log(error)
@@ -135,6 +113,8 @@ export const useMarketsStore = defineStore('markets', () => {
 
     marketClient,
     assetDecimals,
+
+    poolActiveAddress,
 
     activeMarket,
     activeMarketFilter,
@@ -163,10 +143,9 @@ export type MarketsState = {
   loadingLeveragePools: boolean
   marketsList: string[]
   markets: Record<string, {
-    marketState: GlobalState
+    marketState: MarketData
+    marketName: string
     address: string
-    pools: PoolWithPrice[]
-    leveragePools: MultiplyPair[]
     client: StellarClient
   }>
 }

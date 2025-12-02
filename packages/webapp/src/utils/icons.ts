@@ -13,5 +13,9 @@ export function getTokenIcon(token: string) {
 }
 
 export function getTokenName(token: string) {
-  return token === 'XLM' ? 'Stellar' : token
+  return token === 'native' ? 'Stellar' : token
+}
+
+export function getTokenSymbol(token: string) {
+  return token === 'native' ? 'XLM' : token
 }

@@ -2,7 +2,7 @@
 import type { MarketTableItem } from '~/types/table'
 import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
-import { destructurePoolAsset, focusInput, formatPrice } from '~/utils'
+import { focusInput, formatPrice } from '~/utils'
 
 const {
   data,
@@ -34,14 +34,14 @@ const balance = computed(() => {
   if (!data) {
     return 0
   }
-  if (data.raw.token_ticker === 'XLM') {
+  if (data.raw.pool.token_symbol === 'native') {
     return wallet.nativeBalance
   }
-  const [, asset_issuer] = destructurePoolAsset(data?.raw.name)
+  const [, asset_issuer] = destructurePoolAsset(data?.raw.pool.name)
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
-const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool_address)
+const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool.pool_address)
 const reloadFee = ref(false)
 
 const txFee = ref(0)
@@ -50,31 +50,37 @@ const isSupplyLimited = computed(() => data?.supply_limit && data?.supply_limit 
 const supplyLimit = computed(() => isSupplyLimited.value ? Math.max(Number(data?.supply_limit) || 0 - Number(data?.total_supply), 0) : 0)
 const limitLabel = computed(() => isSupplyLimited.value ? formatPrice(Number(data?.supply_limit) || 0, 2, 2) : '-')
 
-const contractAddress = computed(() => data?.raw.pool_address || '')
+const contractAddress = computed(() => data?.raw.pool.pool_address || '')
 
 const marketFee = computed(() => {
-  const marketFeeBps = collateralOnly.value ? data?.raw.config.fee_config.add_collateral_fee_bps : data?.raw.config.fee_config.deposit_fee_bps
+  const marketFeeBps = collateralOnly.value ? data?.raw.pool.config.fee_config.add_collateral_fee_bps : data?.raw.pool.config.fee_config.deposit_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
 
 async function supply() {
-  if (!publicKey.value || !data?.raw.pool_address) {
-    return
+  try {
+    if (!publicKey.value || !data?.raw.pool.pool_address) {
+      return
+    }
+    if (!amount.value || amount.value <= 0) {
+      focusInput('.supply-dialog__input')
+      return
+    }
+    marketsStore.poolActiveAddress = data?.raw.pool.pool_address
+
+    const marketProps = {
+      market: marketsStore.activeMarketFilter,
+      client: marketClient.value!,
+      pool_address: data?.raw.pool.pool_address,
+      amount: amount.value,
+      asset_data: data?.raw.pool.name,
+    }
+    collateralOnly.value
+      ? await market.addCollateral(marketProps)
+      : await market.deposit(marketProps)
+  } finally {
+    marketsStore.poolActiveAddress = undefined
   }
-  if (!amount.value || amount.value <= 0) {
-    focusInput('.supply-dialog__input')
-    return
-  }
-  const marketProps = {
-    market: marketsStore.activeMarketFilter,
-    client: marketClient.value!,
-    pool_address: data?.raw.pool_address,
-    amount: amount.value,
-    asset_data: data?.raw.name,
-  }
-  collateralOnly.value
-    ? await market.addCollateral(marketProps)
-    : await market.deposit(marketProps)
 }
 
 watchDebounced([
@@ -91,7 +97,7 @@ watchDebounced([
 
     const tx = await marketClient.value.marketSdk.depositTx(
       publicKey.value,
-      d?.raw.pool_address || '',
+      d?.raw.pool.pool_address || '',
       0,
     )
     txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)

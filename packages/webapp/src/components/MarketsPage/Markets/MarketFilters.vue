@@ -4,7 +4,7 @@ import { capitalize } from 'lodash-es'
 const marketsStore = useMarketsStore()
 const activeMarketFilter = toRef(marketsStore, 'activeMarketFilter')
 
-const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
+const markets = computed(() => Object.values(marketsStore.state.markets).map(m => m.marketName) ?? [])
 
 watch([
   activeMarketFilter,
