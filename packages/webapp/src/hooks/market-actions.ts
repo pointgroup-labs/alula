@@ -210,7 +210,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.wathdrawDeposit(pk, pool_address, increasedAmount, kit.value),
+      exec: () => client!.marketSdk.withdrawDeposit(pk, pool_address, increasedAmount, kit.value),
     })
 
     withdrawAmount.value = undefined

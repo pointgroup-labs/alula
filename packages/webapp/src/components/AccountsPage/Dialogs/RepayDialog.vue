@@ -27,25 +27,25 @@ const activeMarket = computed(() => marketsStore.state.markets[String(data?.mark
 const userStore = useUserStore()
 
 const userTotalDepositByMarket = computed(() => {
-  const obligation = userStore.state.obligations[String(activeMarket.value?.marketState.name)]
-  const pools = activeMarket.value?.pools
-  const assetDecimals = marketsStore.assetDecimals
+  const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
+  const pools = activeMarket.value?.marketState.pools_data
+  const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 7
+  const oraclePriceDecimals = activeMarket.value?.marketState.oracle_price_decimals ?? 0
   if (!obligation || !pools) {
     return 0
   }
-  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals) ?? 0
+  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals) ?? 0
 })
 
-const userTotalBorrowedByMarket = computed(() => {
-  const obligation = userStore.state.obligations[String(activeMarket.value?.marketState.name)]
-  const pools = activeMarket.value?.pools
-  const assetDecimals = marketsStore.assetDecimals
+const userTotalBorrowByMarket = computed(() => {
+  const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
+  const pools = activeMarket.value?.marketState.pools_data
+  const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 7
+  const oraclePriceDecimals = activeMarket.value?.marketState.oracle_price_decimals ?? 0
   if (!obligation || !pools) {
     return 0
   }
-  const val = calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals) ?? 0
-  const decimals = String(val).includes('e') ? getZeroCountAfterDecimal(val) : null
-  return decimals ? val.toFixed(decimals) : String(val)
+  return calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals, oraclePriceDecimals) ?? 0
 })
 
 const loading = ref(false)
@@ -64,12 +64,12 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(data.asset_issuer))
 })
 
-const closeLTV = computed(() => data?.raw?.config?.health_config.close_ltv_bps ? Number(data.raw.config.health_config.close_ltv_bps) / 10_000 : 0)
+const closeLTV = computed(() => data?.raw?.pool.config?.health_config.close_ltv_bps ? Number(data.raw.pool.config.health_config.close_ltv_bps) / 10_000 : 0)
 
 const healthFactor = computed(() => {
-  const amountInUsd = Number(amount.value || 0) * Number(data?.raw?.pool_price || 0)
+  const amountInUsd = Number(amount.value || 0) * Number(data?.price || 0)
   const deposited = (userTotalDepositByMarket.value * closeLTV.value)
-  const borrowed = Math.max(Number(userTotalBorrowedByMarket.value) - amountInUsd, 0)
+  const borrowed = Math.max(Number(userTotalBorrowByMarket.value) - amountInUsd, 0)
   const result = Math.max(deposited / borrowed, 0)
   return Math.min(result, 10)
 })
@@ -107,11 +107,11 @@ async function repay() {
     isValidate.value = false
 
     const marketProps = {
-      market: activeMarket.value!.marketState.name,
+      market: activeMarket.value!.marketName,
       client: activeMarket.value!.client,
       pool_address: data?.pool_address,
       amount: amount.value,
-      asset_data: data?.raw.name,
+      asset_data: data?.raw?.pool.name,
       limit: balance.value,
     }
 

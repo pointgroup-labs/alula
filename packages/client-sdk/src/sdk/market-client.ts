@@ -251,7 +251,7 @@ export class MarketClient {
   /**
    * Withdraw
    */
-  async wathdrawDeposit(
+  async withdrawDeposit(
     user: string,
     pool_address: string,
     amount: number,

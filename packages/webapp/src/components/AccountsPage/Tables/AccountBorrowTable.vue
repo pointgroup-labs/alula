@@ -16,7 +16,6 @@ const { width } = useWindowSize()
 const userStore = useUserStore()
 
 const marketsStore = useMarketsStore()
-const assetDecimals = computed(() => marketsStore.assetDecimals)
 
 const market = useMarketActions()
 
@@ -36,33 +35,40 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
   const res = []
   for (const market in userStore.state.obligations) {
     const deposits = userStore.state.obligations[market]?.borrows ?? []
-    const pools = marketsStore.state.markets[market]?.pools
+    const marketState = marketsStore.state.markets[market]?.marketState
+    const poolsData = marketState?.pools_data
+    const assetDecimals = marketState?.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState?.oracle_price_decimals ?? 0
     for (const deposit of deposits) {
       const [pool_address, borrow] = deposit
-      const pool = pools?.find(p => p.pool_address === pool_address)
-      if (!pool) {
+      const activePool = poolsData?.find(data => data.pool.pool_address === pool_address)
+      if (!activePool) {
         continue
       }
 
-      const tokenSymbol = pool.token_ticker
+      const tokenSymbol = getTokenSymbol(activePool.pool.token_symbol)
       const tokenName = getTokenName(tokenSymbol)
       const icon = getTokenIcon(tokenSymbol)
       const rawDept = calculateBorrow(borrow.d_tokens, {
-        total_borrowed: pool.total_borrowed,
-        total_d_tokens: pool.total_d_tokens,
-      }, assetDecimals.value)
-      const debt = Number(rawDept)
-      const debtUsd = formatPrice(Number(debt) * Number(pool.pool_price), 2, 2)
+        total_borrowed: activePool.pool.total_borrowed,
+        total_d_tokens: activePool.pool.total_d_tokens,
+      }, assetDecimals)
 
-      const [, asset_issuer] = destructurePoolAsset(pool.name)
-      const borrowApy = pool.pool_apy.borrow_bps / 100
+      const price = activePool.oracle_asset_price ? bigintToNumber(activePool.oracle_asset_price, oraclePriceDecimals) : 0
+
+      const debt = Number(rawDept)
+      const debtUsd = formatPrice(Number(debt) * Number(price), 2, 2)
+
+      const [, asset_issuer] = destructurePoolAsset(activePool.pool.name)
+      const borrowApy = activePool.apy.borrow_bps / 100
 
       const data = {
+        raw: activePool,
         market,
-        raw: pool,
         asset: { name: tokenName, symbol: tokenSymbol, icon },
         debt,
         debtUsd,
+        price,
         borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
         action: 'Repay',
         pool_address,

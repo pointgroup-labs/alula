@@ -29,7 +29,7 @@ const userTotalDepositByMarket = computed(() => {
   return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals) ?? 0
 })
 
-const userTotalBorrowedByMarket = computed(() => {
+const userTotalBorrowByMarket = computed(() => {
   const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
   const pools = activeMarket.value?.marketState.pools_data
   const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 7
@@ -67,7 +67,7 @@ const healthFactor = computed(() => {
   const price = Number(data?.price || 0)
   const withdrawUsd = Number(amount.value || 0) * price
   const depositedAfterWithdraw = Math.max(userTotalDepositByMarket.value - withdrawUsd, 0)
-  const borrowed = userTotalBorrowedByMarket.value
+  const borrowed = userTotalBorrowByMarket.value
 
   const result = borrowed === 0 ? 10 : Math.max((depositedAfterWithdraw * closeLTV.value) / borrowed, 0)
   return Math.min(result, 10)
@@ -76,7 +76,7 @@ const healthFactor = computed(() => {
 const availableToWithdraw = computed(() => {
   const price = Number(data?.price || 1)
   const deposited = userTotalDepositByMarket.value
-  const borrowed = userTotalBorrowedByMarket.value
+  const borrowed = userTotalBorrowByMarket.value
 
   const targetDeposit = borrowed / openLtv.value
   const maxWithdrawUsd = Math.max(deposited - targetDeposit, 0)

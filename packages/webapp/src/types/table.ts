@@ -59,6 +59,7 @@ export type BorrowCardTableItem = {
   debtUsd: number | string
   borrow_apy: string | number
   action: string | number
+  price: string | number
   pool_address: string
   asset_issuer: string
   market?: string
