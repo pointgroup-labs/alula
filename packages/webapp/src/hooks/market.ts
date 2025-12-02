@@ -13,9 +13,8 @@ export function useMarket(state: MarketsState) {
   }>({
     market: undefined,
     poolAddress: undefined,
-    poolActionType: undefined
+    poolActionType: undefined,
   })
-
 
   const route = useRoute()
   const router = useRouter()
@@ -170,14 +169,12 @@ async function loadMarketPools(client?: any, marketName?: string) {
 }
 
 async function preparePool(pool_address: string, client?: any) {
-  const [poolInfo, pool_price, pool_apy] = await Promise.all([
+  const [poolInfo, pool_price] = await Promise.all([
     client?.marketSdk.getPoolInfo(pool_address),
     client?.marketSdk.getPoolAssetOraclePrice(pool_address),
-    client?.marketSdk.getPoolApy(pool_address),
   ])
   return {
     ...poolInfo,
     pool_price,
-    pool_apy,
   }
 }

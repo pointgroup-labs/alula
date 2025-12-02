@@ -18,6 +18,6 @@ export class MarketManagerClient {
   }
 
   async getMarketList() {
-    return (await this.base.get_market_list()).result
+    return (await this.base.get_markets()).result
   }
 }

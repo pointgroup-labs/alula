@@ -37,7 +37,8 @@ export class MarketClient {
    * Get market data
    */
   async getMarketData() {
-    return (await this.base.get_global_state()).result
+    const result = await this.base.get_market_data()
+    return this.unwrapOk2(result.result)
   }
 
   /**
@@ -87,21 +88,21 @@ export class MarketClient {
   }
 
   /**
-   * Get all pools
+   * Get all pools -- DELETE
    */
   async getAllPools() {
     return (await this.base.get_all_pools()).result
   }
 
   /**
-   * Get all leverage pools
+   * Get all leverage pools -- DELETE
    */
   async getAllLeveragePools() {
     return (await this.base.get_all_multiply_pairs()).result
   }
 
   /**
-   * Get leverage pool
+   * Get leverage pool -- DELETE
    */
   async getLeveragePool(deposit_pool_address: string, borrow_pool_address: string): Promise<MultiplyPair> {
     const result = await this.base.get_multiply_pair({ deposit_pool_address, borrow_pool_address })
@@ -109,19 +110,11 @@ export class MarketClient {
   }
 
   /**
-   * Get pool info
+   * Get pool info -- DELETE
    */
   async getPoolInfo(pool_address: string): Promise<Pool> {
     const poolResult = await this.base.get_pool({ pool_address })
     return this.unwrapOk2(poolResult.result)
-  }
-
-  /**
-   * Get pool APY
-   */
-  async getPoolApy(pool_address: string): Promise<AnnualPercentageYields> {
-    const poolApy = await this.base.get_apy({ pool_address })
-    return this.unwrapOk2(poolApy.result)
   }
 
   /**

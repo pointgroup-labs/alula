@@ -78,8 +78,9 @@ export const useMarketsStore = defineStore('markets', () => {
   }
 
   async function getMarketsList() {
-    state.marketsList = await alulaClient.value?.marketManagerSdk.getMarketList()
-    console.log('%c[Markets list]', 'color: #FFB726', state.marketsList)
+    const map = await alulaClient.value?.marketManagerSdk.getMarketList()
+    state.marketsList = [...map]?.map(([address]) => address)
+    console.log('%c[Markets list]', 'color: #FFB726', state.marketsList.keys())
   }
 
   async function loadMarketsData() {
@@ -94,25 +95,29 @@ export const useMarketsStore = defineStore('markets', () => {
         state.marketsList.map(async (market) => {
           const client = clientStore.initClient(market)
           const marketState = await client?.marketSdk.getMarketData()
-          const [pools = [], leveragePools = []] = await Promise.all([
-            loadMarketPools(client, marketState.name).then(v => v ?? []).catch(() => []),
-            loadLeveragePools(client).then(v => v ?? []).catch(() => []),
-          ])
-          return {
-            name: marketState.name,
-            address: market,
-            marketState,
-            pools,
-            leveragePools,
-            client,
-          }
+          console.log('%c[Market state]', 'color: #FFB726', marketState)
+          const leveragePools = await loadLeveragePools(client).then(v => v ?? []).catch(() => [])
+          console.log('%c[Leverage pools]', 'color: #FFB726', leveragePools)
+          // const [pools = [], leveragePools = []] = await Promise.all([
+          //   loadMarketPools(client, marketState.name).then(v => v ?? []).catch(() => []),
+          //   loadLeveragePools(client).then(v => v ?? []).catch(() => []),
+          // ])
+          // return {
+          //   name: marketState.name,
+          //   address: market,
+          //   marketState,
+          //   pools,
+          //   leveragePools,
+          //   client,
+          // }
+          return {}
         }),
       )
 
-      state.markets = results.reduce((acc, { name, address, marketState, pools, leveragePools, client }) => {
-        acc[name] = { marketState, pools, address, leveragePools, client }
-        return acc
-      }, {} as typeof state.markets)
+      // state.markets = results.reduce((acc, { name, address, marketState, pools, leveragePools, client }) => {
+      //   acc[name] = { marketState, pools, address, leveragePools, client }
+      //   return acc
+      // }, {} as typeof state.markets)
       console.log('%c[Markets info]', 'color: #FFB726', state.markets)
     } catch (error) {
       console.log(error)

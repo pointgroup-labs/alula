@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "@alula/client-sdk": "workspace:^",
-    "@alula/market-manager-sdk": "workspace:^",
-    "@alula/market-sdk": "workspace:^",
+    "@alula/market-manager-sdk": "link:../sdk/market_manager",
+    "@alula/market-sdk": "link:../sdk/market",
     "@bootstrap-vue-next/nuxt": "^0.30.5",
     "@creit.tech/stellar-wallets-kit": "^1.9.5",
     "@floating-ui/vue": "^1.1.9",
