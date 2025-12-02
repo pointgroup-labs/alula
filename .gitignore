@@ -70,6 +70,8 @@ pids
 # contract unit test test-snapshots
 **/test_snapshots/
 
+.claude
+
 
 # UI package
 packages/webapp/node_modules

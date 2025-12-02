@@ -2,10 +2,12 @@ use soroban_sdk::contracterror;
 
 #[contracterror]
 #[derive(Debug, Eq, PartialEq)]
-#[repr(u32)]
 /// Market Manager Contract Error
 pub enum MMCError {
-    // Core errors
-    InternalError = 0,
-    MarketAlreadyExists = 1,
+    // Common Core errors (0-99)
+    NegativeInputAmount = 1,
+
+    // Market Manager errors (1000+)
+    MarketAlreadyExists = 1000,
+    InvalidMarketState = 1001,
 }

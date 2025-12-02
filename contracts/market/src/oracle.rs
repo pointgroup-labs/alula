@@ -5,7 +5,7 @@ use soroban_sdk::{Address, Env};
 use crate::{
     constants::*,
     error::MCError,
-    helpers::require_nonnegative,
+    misc::require_nonnegative,
     storage::{self},
 };
 
@@ -21,15 +21,14 @@ use crate::{
 /// * `Ok(i128)` - The latest price of the asset if available and valid.
 /// * `Err(MCError)` - An error if the price is not available, stale
 pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError> {
-    let oracle_address = storage::get_oracle_address(e);
-    let oracle_contract = PriceFeedClient::new(e, &oracle_address);
+    let oracle = storage::get_oracle(e);
+    let oracle_contract = PriceFeedClient::new(e, &oracle);
 
     let asset = Asset::Stellar(token_address.clone());
 
     let price_data =
         oracle_contract.lastprice(&asset).ok_or(MCError::OracleDoesNotKnowAssetPrice)?;
 
-    // TODO: Add sanity checks? I.e., a price range for the asset to be considered adequate
     require_nonnegative(price_data.price)?;
 
     // Validate price is not too old and not from the future
@@ -43,7 +42,7 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
 }
 
 pub fn get_oracle_price_decimals(e: &Env) -> u32 {
-    let oracle_address = storage::get_oracle_address(e);
+    let oracle_address = storage::get_oracle(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
 
     oracle_contract.decimals()

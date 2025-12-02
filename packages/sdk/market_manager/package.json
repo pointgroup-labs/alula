@@ -1,5 +1,6 @@
 {
-  "name": "@alula/market-manager-sdk",
+  "version": "0.0.0",
+  "name": "market_manager",
   "type": "module",
   "version": "0.0.0",
   "exports": "./dist/index.js",

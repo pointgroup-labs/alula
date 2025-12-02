@@ -4,7 +4,7 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "pnpm@10.11.1",
+  "packageManager": "pnpm@10.20.0",
   "scripts": {
     "sdk": "pnpm -F {./packages/sdk}",
     "webapp": "pnpm -F {./packages/webapp}",
@@ -13,10 +13,10 @@
     "lint:fix": "pnpm lint --fix"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^5.4.1",
-    "@types/node": "^24.5.2",
-    "eslint": "^9.36.0",
+    "@antfu/eslint-config": "^6.2.0",
+    "@types/node": "^24.10.0",
+    "eslint": "^9.39.0",
     "eslint-plugin-format": "^1.0.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   }
 }

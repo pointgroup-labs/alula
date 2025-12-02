@@ -18,6 +18,7 @@ use crate::{
 fn test_accumulate_reserve_fees_are_empty_prior_accrual() {
     let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
         TestMarketFixture::new();
+
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -56,6 +57,7 @@ fn test_accumulate_reserve_fees() {
     e.ledger().with_mut(|li| {
         li.timestamp += SECONDS_IN_YEAR / 12;
     });
+    contract_client.refresh_pool(&usdc_pool_address);
 
     // -- Verify the reserve is populated accordingly --
 
@@ -82,6 +84,7 @@ fn test_accumulate_reserve_fees() {
 fn test_obligation_does_not_have_bad_debt_by_default() {
     let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
         TestMarketFixture::new();
+    contract_client.update_market(&10, &10);
     let borrower = &users[0];
     let loan_provider = &users[1];
 
@@ -91,7 +94,7 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 
     assert_eq!(
         contract_client.try_cover_obligation_bad_debt(borrower),
-        Err(Ok(MCError::PositionDoesNotHaveBadDebt))
+        Err(Ok(MCError::BadDebtCoverageCriterionIsNotMet))
     );
 }
 
@@ -100,6 +103,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let TestMarketFixture {
         e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
+    contract_client.update_market(&10, &100_000);
     let borrower = &users[0];
     let loan_provider = &users[1];
     let liquidator = &users[2];
@@ -115,11 +119,13 @@ fn test_partially_socialize_full_bad_debt_loss() {
         contract_client.try_liquidate(
             liquidator,
             borrower,
+            &None,
             &usdc_pool_address,
             &gold_pool_address,
             &1,
+            &0
         ),
-        Err(Ok(MCError::LiquidatedPositionIsHealthy))
+        Err(Ok(MCError::ObligationIsHealthy))
     );
 
     // - Accrue bad debt on the pool -
@@ -127,6 +133,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     e.ledger().with_mut(|li| {
         li.timestamp += 5 * SECONDS_IN_YEAR;
     });
+    contract_client.refresh_pool(&usdc_pool_address);
 
     // - Verify bad debt exists -
 
@@ -200,7 +207,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     assert_eq!(pool_accumulated_market_fees_diff, 0);
     assert_eq!(pool_j_tokens_after, pool_j_tokens_before);
     assert_eq!(pool_available_diff, available_reserve_fees_before); // reserve tokens become available
-    assert_eq!(pool_accumulated_reserve_fees_diff, available_reserve_fees_before); // all reserve is spent 
+    assert_eq!(pool_accumulated_reserve_fees_diff, available_reserve_fees_before); // all reserve is spent
     assert_eq!(available_reserve_fees_after, 0); // same
 
     // - Verify obligation no longer exists -
@@ -228,6 +235,8 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let market_value_diff_after =
         market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
 
+    dbg!(market_value_diff_before, market_value_diff_after); // MEGA_WARN. This issue still
+    // persists
     assert!(market_value_diff_before > market_value_diff_after);
 }
 
@@ -236,6 +245,7 @@ fn test_completely_socialize_loss() {
     let TestMarketFixture {
         e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
+    contract_client.update_market(&10, &100_000);
     let borrower_1 = &users[0];
     let borrower_2 = &users[1];
     let loan_provider = &users[2];
@@ -253,6 +263,7 @@ fn test_completely_socialize_loss() {
     e.ledger().with_mut(|li| {
         li.timestamp += 5 * SECONDS_IN_YEAR;
     });
+    contract_client.refresh_obligation(borrower_1);
 
     // - Verify bad debt exists -
 
@@ -330,6 +341,7 @@ fn test_completely_cover_bad_debt() {
     let TestMarketFixture {
         e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new();
+    contract_client.update_market(&10, &100_000);
     let borrower_1 = &users[0];
     let borrower_2 = &users[1];
     let loan_provider = &users[2];
@@ -347,6 +359,7 @@ fn test_completely_cover_bad_debt() {
     e.ledger().with_mut(|li| {
         li.timestamp += 15 * SECONDS_IN_YEAR;
     });
+    contract_client.refresh_pool(&usdc_pool_address);
 
     // - Verify bad debt on 2nd borrower exists
 
@@ -407,6 +420,20 @@ fn test_completely_cover_bad_debt() {
     assert_eq!(pool_available_diff, pool_accumulated_reserve_fees_diff); // complete coverage took place
     assert_eq!(pool_borrowed_diff, pool_accumulated_reserve_fees_diff);
     assert!(pool_available_after > 0); // reserve fees are left
+}
 
-    // TODO: Some other checks?
+#[test]
+fn test_donate_to_reserve() {
+    let TestMarketFixture { contract_client, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let donor = &users[0];
+
+    let reserve_before = contract_client.get_pool(&usdc_pool_address).accumulated_reserve_fees;
+    assert_eq!(reserve_before, 0);
+
+    let donation_amount = 1_000_000_000;
+    contract_client.donate_to_reserve(donor, &usdc_pool_address, &donation_amount);
+
+    let reserve_after = contract_client.get_pool(&usdc_pool_address).accumulated_reserve_fees;
+    assert_eq!(reserve_after, donation_amount);
 }

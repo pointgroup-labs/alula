@@ -1,9 +1,14 @@
 #![cfg(test)]
 
-use market::error::MCError;
+use market::{error::MCError, obligation::ObligationKey};
 use soroban_sdk::{Address, testutils::Address as _};
 
-use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
+use crate::{
+    DEFAULT_COLLATERAL_AMOUNT,
+    DEFAULT_DEPOSIT_AMOUNT,
+    TestMarketFixture,
+    // get_obligation_received_interest,
+};
 
 #[test]
 fn test_obligation_does_not_exist_prior_anything() {
@@ -101,11 +106,151 @@ fn test_obligations_list_contains_unique_obligations() {
 
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 2);
-    assert!(obligations.contains(creditor.clone()));
+    assert!(obligations.contains(ObligationKey::new(creditor.clone())));
 
     contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 1);
-    assert!(!obligations.contains(creditor.clone()));
+    assert!(!obligations.contains(ObligationKey::new(creditor.clone())));
+}
+
+// #[test]
+// fn test_bootstrap_pool() {
+//     let TestMarketFixture {
+//         e,
+//         contract_client,
+//         gold_pool_address,
+//         gold_token_client,
+//         contract_id,
+//         users,
+//         ..
+//     } = TestMarketFixture::new();
+//     let liquidity_provider = &users[0];
+//     let creditor_1 = &users[1];
+//     let creditor_2 = &users[2];
+
+//     contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+//     contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+//     // -- Move time --
+
+//     e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR);
+//     contract_client.refresh_pool(&gold_pool_address);
+
+//     // -- Assert no received interest has accrued due to 0% utilization --
+
+//     let received_interest_1 =
+//         get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
+//             .unwrap();
+//     let received_interest_2 =
+//         get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
+//             .unwrap();
+
+//     assert_eq!(received_interest_1, 0);
+//     assert_eq!(received_interest_2, 0);
+
+//     // -- Bootstrap pool --
+
+//     gold_token_client.approve(
+//         liquidity_provider,
+//         &contract_id,
+//         &DEFAULT_DEPOSIT_AMOUNT,
+//         &(e.ledger().sequence()),
+//     );
+
+//     contract_client.bootstrap_pool(
+//         &gold_pool_address,
+//         liquidity_provider,
+//         &DEFAULT_DEPOSIT_AMOUNT,
+//         &e.ledger().timestamp(),
+//         &(e.ledger().timestamp() + SECONDS_IN_YEAR),
+//     );
+
+//     // -- Assert half of bootstrapped value has accrued --
+
+//     e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 4);
+//     contract_client.refresh_pool(&gold_pool_address);
+
+//     let received_interest_1 =
+//         get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
+//             .unwrap();
+//     let received_interest_2 =
+//         get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
+//             .unwrap();
+
+//     // TODO: Fix later
+
+//     // assert_eq!(received_interest_1, received_interest_2);
+//     // assert_eq!(
+//     //     received_interest_1.checked_add(received_interest_2).unwrap(),
+//     //     DEFAULT_DEPOSIT_AMOUNT / 2
+//     // );
+// }
+
+#[test]
+fn test_too_many_positions() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        btc_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+
+    contract_client.update_market(&2, &1);
+
+    contract_client.add_collateral(user, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+
+    assert_eq!(
+        contract_client.try_add_collateral(user, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2)),
+        Err(Ok(MCError::TooManyPositions))
+    );
+
+    contract_client.remove_collateral(user, &gold_pool_address, &i128::MAX);
+
+    assert!(
+        contract_client
+            .try_add_collateral(user, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2))
+            .is_ok()
+    );
+
+    assert_eq!(
+        contract_client.try_add_collateral(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2)),
+        Err(Ok(MCError::TooManyPositions))
+    );
+
+    contract_client.update_market(&3, &1);
+
+    assert!(
+        contract_client
+            .try_add_collateral(user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2))
+            .is_ok()
+    );
+}
+
+#[test]
+fn test_unable_to_borrow_and_deposit_the_same_asset() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let user_1 = &users[1];
+    let user_2 = &users[2];
+
+    contract_client.add_collateral(user_1, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    assert_eq!(
+        contract_client.try_borrow(user_1, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2)),
+        Err(Ok(MCError::DepositPositionForAssetExists))
+    );
+
+    contract_client.deposit(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(user_2, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.borrow(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(
+        contract_client.try_deposit(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT),
+        Err(Ok(MCError::BorrowPositionForAssetExists))
+    );
 }

@@ -4,27 +4,26 @@
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_fixed_point_math::*;
 use soroban_sdk::{
-    Address, Env, Symbol, Vec, contract, contracterror, contractimpl, contracttype,
+    Address, Env, Vec, contract, contracterror, contractimpl, contracttype,
     token::{StellarAssetClient, TokenClient},
 };
 
 #[contracttype]
 enum DataKey {
-    BaseAssetSymbol,
     BaseAssetTokenAddress,
-    TickerByAddress(Address),
 }
 
 const FEE_NUMERATOR: i128 = 997;
 const FEE_DENOMINATOR: i128 = 1000;
 
+// Mock Router relies on the locally deployed Oracle Contract for prices.
+// In this way, swapping stays consistent with Oracle prices in integration tests
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
-// WARN: This is a plain copied enum and it is not synchronized with the deployed contract's errors.
-// Likely, the Soroswap team will not break the backward compatibility, so this is relatively fine
+// WARN: This is a plain copied enum, and its errors are not in sync with those in the deployed contract.
+// Likely, the Soroswap team will not break the backward compatibility, so this is fine
 pub enum CombinedRouterError {
     RouterNotInitialized = 501,
     RouterNegativeNotAllowed = 502,
@@ -35,6 +34,7 @@ pub enum CombinedRouterError {
     RouterInsufficientOutputAmount = 507,
     RouterExcessiveInputAmount = 508,
     RouterPairDoesNotExist = 509,
+
     LibraryInsufficientAmount = 510,
     LibraryInsufficientLiquidity = 511,
     LibraryInsufficientInputAmount = 512,
@@ -48,8 +48,7 @@ pub struct MockSoroswapRouterContract;
 
 #[contractimpl]
 impl MockSoroswapRouterContract {
-    pub fn __constructor(e: Env, base_asset_symbol: Symbol, base_asset_token_address: Address) {
-        e.storage().instance().set(&DataKey::BaseAssetSymbol, &base_asset_symbol);
+    pub fn __constructor(e: Env, base_asset_token_address: Address) {
         e.storage().instance().set(&DataKey::BaseAssetTokenAddress, &base_asset_token_address);
     }
 
@@ -128,12 +127,6 @@ impl MockSoroswapRouterContract {
 
         Ok(soroban_sdk::vec![&e, amount_in, amount_out])
     }
-
-    /// Maps a randomly generated token address to a token ticker. This is required to use a
-    /// `sep-40` compliant oracle as a price-source in mocked router
-    pub fn map_address_to_ticker(e: Env, address: Address, ticker: Symbol) {
-        e.storage().instance().set(&DataKey::TickerByAddress(address), &ticker);
-    }
 }
 
 fn burn_and_mint_tokens(
@@ -144,11 +137,11 @@ fn burn_and_mint_tokens(
     minted_amount: i128,
     to: &Address,
 ) {
-    let minted_sac_client = StellarAssetClient::new(e, minted_token);
-    let burnt_token_client = TokenClient::new(e, burnt_token);
+    let sac_client = StellarAssetClient::new(e, minted_token);
+    let token_client = TokenClient::new(e, burnt_token);
 
-    minted_sac_client.mint(to, &minted_amount);
-    burnt_token_client.burn(to, &burnt_amount);
+    sac_client.mint(to, &minted_amount);
+    token_client.burn(to, &burnt_amount);
 }
 
 fn get_amount_in(
@@ -184,8 +177,8 @@ fn get_amounts_in(
 
     let oracle_address = Address::from_str(e, ORACLE_ADDRESS);
     let oracle_contract = PriceFeedClient::new(e, &oracle_address);
-    let decimals = oracle_contract.decimals();
 
+    let decimals = oracle_contract.decimals();
     let price_scaling_factor = i128::pow(10, decimals);
 
     let usdc_sac_address = e.storage().instance().get(&DataKey::BaseAssetTokenAddress).unwrap();
@@ -194,18 +187,32 @@ fn get_amounts_in(
     let usdc_as_token_out = last_address == usdc_sac_address;
 
     let amount_in = if usdc_as_token_in {
+        // Case 1: USDC -> Token (Calculating A_in in USDC)
+        // A_in = (A_out * Price) / Price_Scaling_Factor
         let price = oracle_contract.lastprice(&Asset::Stellar(last_address.clone())).unwrap().price;
 
-        let value = amount_out.checked_mul(price).unwrap();
+        let numerator = amount_out.checked_mul(price).unwrap();
+        let denominator = price_scaling_factor;
 
-        value.checked_div(price_scaling_factor).unwrap()
+        // Apply Ceiling: (numerator + denominator - 1) / denominator
+        let numerator_plus_denominator = numerator.checked_add(denominator).unwrap();
+        let numerator_minus_one = numerator_plus_denominator.checked_sub(1).unwrap();
+
+        numerator_minus_one.checked_div(denominator).unwrap()
     } else if usdc_as_token_out {
+        // Case 2: Token -> USDC (Calculating A_in in Token)
+        // A_in = (A_out * Price_Scaling_Factor) / Price
         let price =
             oracle_contract.lastprice(&Asset::Stellar(first_address.clone())).unwrap().price;
 
-        let amount_out_scaled = amount_out.checked_mul(price_scaling_factor).unwrap();
+        let numerator = amount_out.checked_mul(price_scaling_factor).unwrap();
+        let denominator = price;
 
-        amount_out_scaled.checked_div(price).unwrap()
+        // Apply Ceiling: (numerator + denominator - 1) / denominator
+        let numerator_plus_denominator = numerator.checked_add(denominator).unwrap();
+        let numerator_minus_one = numerator_plus_denominator.checked_sub(1).unwrap();
+
+        numerator_minus_one.checked_div(denominator).unwrap()
     } else {
         // Mocked router supports only pairs with USDC
         return Err(CombinedRouterError::RouterPairDoesNotExist);
@@ -242,14 +249,12 @@ fn get_amounts_out(
 
     let amount_out = if usdc_as_token_in {
         let price = oracle_contract.lastprice(&Asset::Stellar(last_address.clone())).unwrap().price;
-
         let amount_in_scaled = amount_in_minus_fees.checked_mul(price_scaling_factor).unwrap();
 
         amount_in_scaled.checked_div(price).unwrap()
     } else if usdc_as_token_out {
         let price =
             oracle_contract.lastprice(&Asset::Stellar(first_address.clone())).unwrap().price;
-
         let value = amount_in_minus_fees.checked_mul(price).unwrap();
 
         value.checked_div(price_scaling_factor).unwrap()
@@ -259,19 +264,6 @@ fn get_amounts_out(
     };
 
     Ok(soroban_sdk::vec![&e, amount_in, amount_out])
-}
-
-#[allow(unused)]
-fn get_ticker_by_address(e: &Env, address: &Address) -> Option<Symbol> {
-    e.storage().instance().get(&DataKey::TickerByAddress(address.clone()))
-}
-
-#[allow(unused)]
-fn get_end_tickers_from_path(e: &Env, path: &Vec<Address>) -> (Symbol, Symbol) {
-    let first_ticker = get_ticker_by_address(e, &path.first().unwrap()).unwrap();
-    let last_ticker = get_ticker_by_address(e, &path.last().unwrap()).unwrap();
-
-    (first_ticker, last_ticker)
 }
 
 fn get_end_addresses_from_path(path: &Vec<Address>) -> (Address, Address) {
