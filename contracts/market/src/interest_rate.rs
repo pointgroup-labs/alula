@@ -11,24 +11,6 @@ use crate::{
     pool::{Pool, PoolBootstrapPeriod},
 };
 
-/// Linear annual interest rates represented in basis points
-#[derive(Debug, Eq, PartialEq)]
-#[contracttype]
-pub struct AnnualPercentageRates {
-    pub borrow_bps: u64,
-    pub supply_bps: u64,
-}
-
-impl AnnualPercentageRates {
-    pub fn try_new(borrow_bps: i128, utilization_ratio_bps: i128) -> Result<Self, MCError> {
-        let supply_bps = borrow_bps
-            .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
-            .map_over_or_underflow()?;
-
-        Ok(Self { borrow_bps: borrow_bps as u64, supply_bps: supply_bps as u64 })
-    }
-}
-
 /// Compound interest rates represented in basis points
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[contracttype]
