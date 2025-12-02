@@ -14,7 +14,7 @@ use crate::{
     },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
-    oracle::{get_asset_price, get_oracle_price_decimals},
+    oracle,
     pool::{Pool, PoolConfig},
     processors::*,
     request::Request,
@@ -981,13 +981,13 @@ impl Market for MarketContract {
     }
 
     fn get_oracle_price_decimals(e: Env) -> u32 {
-        get_oracle_price_decimals(&e)
+        oracle::get_oracle_price_decimals(&e)
     }
 
     fn get_pool_asset_oracle_price(e: Env, pool_address: Address) -> Result<i128, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        get_asset_price(&e, &pool.token_address)
+        oracle::get_asset_price(&e, &pool.token_address)
     }
 
     fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
@@ -1078,7 +1078,7 @@ impl Market for MarketContract {
 
     fn get_market_data(e: Env) -> Result<MarketData, MCError> {
         let pool_addresses = storage::get_all_pools(&e);
-        let mut pool_data = svec![&e];
+        let mut pools_data = svec![&e];
 
         for pool_address in pool_addresses {
             let pool = Pool::try_get(&e, &pool_address).map_err(|_| {
@@ -1086,10 +1086,17 @@ impl Market for MarketContract {
 
                 MCError::InternalError
             })?;
-            pool_data.push_back(pool.get_pool_data()?);
+            pools_data.push_back(pool.get_pool_data(&e)?);
         }
         let global_state = process_get_global_state(&e);
-        let market_data = MarketData { pool_data, global_state };
+        let multiply_pairs = MultiplyPair::get_all(&e);
+        let market_data = MarketData {
+            global_state,
+            pools_data,
+            multiply_pairs,
+            asset_decimals: 7,
+            oracle_price_decimals: oracle::get_oracle_price_decimals(&e),
+        };
 
         Ok(market_data)
     }
@@ -1120,7 +1127,7 @@ impl Market for MarketContract {
     fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError> {
         let pool = Pool::try_get(&e, &pool_address)?;
 
-        pool.get_pool_data()
+        pool.get_pool_data(&e)
     }
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require

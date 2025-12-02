@@ -9,6 +9,7 @@ mod leverage;
 mod liquidate;
 mod market_manager;
 mod misc;
+mod oracle;
 mod repay;
 mod requests_batching;
 mod storage_extension;
