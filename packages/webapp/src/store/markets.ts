@@ -1,6 +1,6 @@
 // import type { CompoundRates, Pool } from '@jlend/sdk'
 import type { StellarClient } from '@alula/client-sdk'
-import type { MarketData, MultiplyPair, Pool, PoolData } from '@alula/market-sdk'
+import type { MarketData, Pool, PoolData } from '@alula/market-sdk'
 import { defineStore } from 'pinia'
 
 export const useMarketsStore = defineStore('markets', () => {
@@ -39,7 +39,7 @@ export const useMarketsStore = defineStore('markets', () => {
 
   const poolActiveAddress = ref<string>()
 
-  async function updatePool(pool_address: string, market: string, client: StellarClient) {
+  async function updatePool(pool_address: string, market: string, client: StellarClient, withLogs = true) {
     const poolData = await loadPoolData(pool_address, client)
     const updatedMarketPool = state.markets[market]?.marketState.pools_data.map(data => (data.pool.pool_address === pool_address ? poolData : data)) as PoolData[]
     state.markets[market] = {
@@ -49,22 +49,9 @@ export const useMarketsStore = defineStore('markets', () => {
         pools_data: updatedMarketPool,
       },
     }
-  }
 
-  async function updateLeveragePool(props: {
-    deposit_pool_address: string
-    borrow_pool_address: string
-    market: string
-    client: StellarClient
-  }) {
-    const { client, market, deposit_pool_address, borrow_pool_address } = props
-    const newPoolData = await client.marketSdk.getLeveragePool(deposit_pool_address, borrow_pool_address)
-    const updatedMarketPools = state.markets[market]?.leveragePools.map((p) => {
-      return (p.deposit_pool === deposit_pool_address && p.borrow_pool === borrow_pool_address ? (newPoolData || p) : p)
-    }) as MultiplyPair[]
-    state.markets[market] = {
-      ...state.markets[market]!,
-      leveragePools: updatedMarketPools,
+    if (withLogs) {
+      console.log('%c[Updated pool]', 'color: #FFB726', poolData)
     }
   }
 
@@ -133,8 +120,6 @@ export const useMarketsStore = defineStore('markets', () => {
     activeActionPool,
 
     updatePool,
-    updateLeveragePool,
-
   }
 })
 

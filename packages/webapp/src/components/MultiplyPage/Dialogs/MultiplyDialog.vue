@@ -121,12 +121,6 @@ async function leverage() {
         depositPoolAddress: deposit_pool_address,
         borrowPoolAddress: borrow_pool_address,
       })
-      await marketsStore.updateLeveragePool({
-        deposit_pool_address,
-        borrow_pool_address,
-        market: activeMarket.value!.marketState.global_state.name,
-        client: activeMarket.value!.client,
-      })
       await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client)
     },
   })
@@ -193,10 +187,10 @@ watchDebounced([
           class="multiply-dialog__input"
           label-left="You Deposit"
           :rules="[
-            (v: number) => {
+            (v) => {
               return v && Number(v) < balance || 'Insufficient balance'
             },
-            (v: number) => {
+            (v) => {
               return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool leverage limit'
             },
           ]"

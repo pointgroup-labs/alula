@@ -8,12 +8,12 @@ const loading = computed(() => marketsStore.state.loading)
 
 const poolsInfo = computed(() => {
   return Object.values(marketsStore.state.markets)?.reduce((acc, { marketState }) => {
-    const assetDecimals = marketsStore.assetDecimals
+    const assetDecimals = marketState.asset_decimals
     const oraclePriceDecimale = marketState.oracle_price_decimals
 
     for (const data of marketState.pools_data) {
       const price = Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimale))
-      const totalSupplied = data.pool.total_available + data.pool.total_borrowed + data.pool.total_collateral
+      const totalSupplied = data.total_supply
       const supplied = Number(bigintToNumber(totalSupplied, assetDecimals)) * price
       const borrowed = Number(bigintToNumber(data.pool.total_borrowed, assetDecimals)) * price
       acc.total_borrowed += borrowed

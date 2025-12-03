@@ -22,29 +22,19 @@ export function useSmartReloader() {
       }
 
       for (const market of Object.values<any>(markets)) {
-        const name = market?.marketState?.name
+        const marketState = market?.marketState
+        const name = marketState?.global_state.name
         const client = market?.client
         if (!name || !client) {
           continue
         }
 
-        for (const p of (market.pools ?? [])) {
-          const addr = p?.pool_address
+        for (const data of (marketState?.pools_data ?? [])) {
+          const addr = data?.pool.pool_address
           if (!addr) {
             continue
           }
-          jobs.push(() => marketsStore.updatePool(addr, name, client))
-        }
-
-        for (const lp of (market.leveragePools ?? [])) {
-          jobs.push(() =>
-            marketsStore.updateLeveragePool({
-              market: name,
-              deposit_pool_address: lp.deposit_pool,
-              borrow_pool_address: lp.borrow_pool,
-              client,
-            }),
-          )
+          jobs.push(() => marketsStore.updatePool(addr, name, client, false))
         }
       }
       POOL_JOBS.value = jobs
@@ -68,7 +58,7 @@ export function useSmartReloader() {
           continue
         }
 
-        jobs.push(() => userStore.updateUserObligation(key, client))
+        jobs.push(() => userStore.updateUserObligation(key, client, false))
       }
 
       for (const key in multiplyObligations) {
@@ -78,13 +68,13 @@ export function useSmartReloader() {
         if (!obligation || !client) {
           continue
         }
-        for (const p of (market?.leveragePools ?? [])) {
+        for (const p of (market?.marketState.multiply_pairs ?? [])) {
           jobs.push(() => userStore.updateUserMultiplyObligation({
             market: key,
             client,
             depositPoolAddress: p.deposit_pool,
             borrowPoolAddress: p.borrow_pool,
-          }))
+            withLogs: false }))
         }
       }
 

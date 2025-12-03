@@ -89,12 +89,6 @@ async function withdrawLeverage() {
           depositPoolAddress: deposit_pool_address,
           borrowPoolAddress: borrow_pool_address,
         })
-        await marketsStore.updateLeveragePool({
-          deposit_pool_address,
-          borrow_pool_address,
-          market: activeMarket.value!.marketState.global_state.name,
-          client: activeMarket.value!.client,
-        })
         await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client)
       },
     })

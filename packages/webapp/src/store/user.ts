@@ -42,30 +42,43 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function updateUserObligation(market: string, client: StellarClient) {
+  async function updateUserObligation(market: string, client: StellarClient, withLogs = true) {
     try {
       loading.value = true
       if (!client) {
         return
       }
       state.obligations[market] = await client.marketSdk.getUserObligation(wallet.publicKey)
+      if (withLogs) {
+        console.log(`%c[Update ${market} market Obligation]`, 'color: #FFB726', state.obligations[market])
+      }
     } finally {
       loading.value = false
     }
   }
 
-  async function updateUserMultiplyObligation(props: {
+  async function updateUserMultiplyObligation({
+    market,
+    depositPoolAddress,
+    borrowPoolAddress,
+    client,
+    withLogs = true,
+  }: {
     market: string
-    client: StellarClient
     depositPoolAddress: string
     borrowPoolAddress: string
+    client?: StellarClient
+    withLogs?: boolean
   }) {
     try {
       loading.value = true
-      if (!props.client) {
+      if (!client) {
         return
       }
-      state.multiplyObligations[props.market] = await props.client.marketSdk.getUserMultiplyObligation(wallet.publicKey, props.depositPoolAddress, props.borrowPoolAddress)
+      state.multiplyObligations[market] = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      if (withLogs) {
+        console.log(`%c[Update ${market} market Leverage Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
+      }
     } finally {
       loading.value = false
     }
