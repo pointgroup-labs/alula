@@ -92,15 +92,11 @@ impl Pool {
 
     /// Bootstraps the pool by distributing additional rewards to suppliers
     pub fn bootstrap(&mut self, amount: i128, period: (u64, u64)) -> Result<(), MCError> {
-        let bootstrap_period = if let Some(mut existing) = self.bootstrap_periods.get(period) {
-            existing.add_to(amount);
+        if self.bootstrap_periods.get(period).is_some() {
+            return Err(MCError::InvalidBootstrapPeriod);
+        }
 
-            existing
-        } else {
-            PoolBootstrapPeriod::new(amount, period.0)
-        };
-
-        self.bootstrap_periods.set(period, bootstrap_period);
+        self.bootstrap_periods.set(period, PoolBootstrapPeriod::new(amount));
 
         Ok(())
     }
@@ -230,8 +226,6 @@ impl Pool {
         e: &Env,
         d_tokens_amount: i128,
     ) -> Result<i128, MCError> {
-        // TODO: Check if there are some useful properties between jTokens and dTokens that
-        // might cause some code re-usage | UPD: unlikely, for now
         let tokens = Self::compute_tokens_from_shares_ceil(
             e,
             d_tokens_amount,
@@ -789,17 +783,13 @@ pub struct PoolConfig {
     pub health_config: PoolHealthConfig,
     pub accrual_model: AccrualModel,
     pub interest_rate_model: InterestRateModel,
-    pub interest_rate_config: InterestRateConfig,
 }
 
 impl PoolConfig {
     pub fn validate(&self) -> Result<(), MCError> {
-        let PoolConfig { health_config, interest_rate_config, fee_config, .. } = self;
+        let PoolConfig { health_config, fee_config, .. } = self;
 
-        if interest_rate_config.validate().is_err()
-            || health_config.validate().is_err()
-            || fee_config.validate().is_err()
-        {
+        if health_config.validate().is_err() || fee_config.validate().is_err() {
             return Err(MCError::InvalidLoanPoolConfig);
         }
 
@@ -922,60 +912,17 @@ impl PoolHealthConfig {
 }
 
 #[contracttype]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct InterestRateConfig {
-    /// Target utilization ratio for a pool
-    pub target_utilization_ratio_bps: i128,
-    /// Constant that represents how strongly the interest rate adjusts to the target interest rate
-    pub reactivity_constant: i128,
-}
-
-impl Default for InterestRateConfig {
-    fn default() -> Self {
-        Self {
-            target_utilization_ratio_bps: DEFAULT_TARGET_UTILIZATION_RATIO_BPS,
-            reactivity_constant: DEFAULT_REACTIVITY_CONSTANT,
-        }
-    }
-}
-
-// TODO: Under development still
-impl InterestRateConfig {
-    fn validate(&self) -> Result<(), &str> {
-        let &Self { target_utilization_ratio_bps, reactivity_constant } = self;
-
-        if !is_valid_bps_percent(target_utilization_ratio_bps) {
-            return Err("Target utilization ratio must be between 0% and 100%");
-        }
-
-        // Lemme think, they claim that MAX_REACTIVITY_CONSTANT is 10e(-4)
-        // 10(e-4) is 0.0001
-        if !(0..MAX_REACTIVITY_CONSTANT).contains(&reactivity_constant) {
-            return Err("Reactivity constant must be between 0% a 100%");
-        }
-
-        Ok(())
-    }
-}
-
-#[contracttype]
 #[derive(Debug, Clone)]
 pub struct PoolBootstrapPeriod {
     /// Total provided bootstrap amount
     pub total_amount: i128,
     /// Remaining bootstrap amount
     pub remaining_amount: i128,
-    pub prev_accrual_timestamp: u64,
 }
 
 impl PoolBootstrapPeriod {
-    pub fn new(total_amount: i128, start_period: u64) -> Self {
-        Self { total_amount, remaining_amount: total_amount, prev_accrual_timestamp: start_period }
-    }
-
-    pub fn add_to(&mut self, new_amount: i128) {
-        self.total_amount += new_amount;
-        self.remaining_amount += new_amount;
+    pub fn new(total_amount: i128) -> Self {
+        Self { total_amount, remaining_amount: total_amount }
     }
 }
 

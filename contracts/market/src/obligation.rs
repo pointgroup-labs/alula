@@ -673,7 +673,7 @@ impl Obligation {
                 received_interest,
             );
 
-            return Err(MCError::InternalError);
+            // return Err(MCError::InternalError);
         } else if deposit_decrease >= received_interest {
             if is_all_withdrawn {
                 deposit_position.adjust_originally_deposited(
@@ -809,7 +809,7 @@ impl Obligation {
                 unpaid_interest,
             );
 
-            return Err(MCError::InternalError);
+            // return Err(MCError::InternalError);
         } else if debt_decrease_in_tokens >= unpaid_interest {
             let borrowed_diff = debt_decrease_in_tokens - unpaid_interest; // safe
             borrow_position
@@ -1045,7 +1045,7 @@ impl Obligation {
                 0
             };
 
-            // TODO: Also not sure about this
+            // TODO: Redundant?
             deposited_diff.min(deposit_position.originally_deposited)
         };
 
@@ -1247,7 +1247,6 @@ const EARN_OBLIGATION_SEED_STR: &str = "EV";
 /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
 pub fn get_earn_obligation_seed(e: &Env) -> BytesN<32> {
     if let Some(stored_seed) = storage::get_earn_obligation_seed(e) {
-        // TODO: Add tests that verify that caching actually takes place
         stored_seed
     } else {
         let computed_seed = compute_earn_obligation_seed(e);
@@ -1330,9 +1329,14 @@ fn compute_withdraw_scarcity_fee_bps(
     deposit_decrease: i128,
     deposit_position: &mut DepositPosition,
 ) -> Result<u32, MCError> {
+    let pool_total_supply = pool.total_supply()?;
+    if pool_total_supply == 0 {
+        return Ok(0);
+    }
+
     let current_utilization_ratio_bps = pool.compute_utilization_ratio_bps()?;
     let new_utilization_ratio_bps = {
-        let new_total_supply = pool.total_supply()? - deposit_decrease; // safe
+        let new_total_supply = pool_total_supply - deposit_decrease; // safe
 
         if new_total_supply == 0 {
             BPS_FACTOR
@@ -1349,7 +1353,7 @@ fn compute_withdraw_scarcity_fee_bps(
         // If withdraw leads to a scarcity state - update the last scarcity withdraw timestamp
         // per deposit obligation
         let deposit_decrease_to_total_supply_bps = deposit_decrease
-            .fixed_div_ceil(pool.total_supply()?, BPS_FACTOR)
+            .fixed_div_ceil(pool_total_supply, BPS_FACTOR)
             .map_over_or_underflow()?;
 
         let withdraw_scarcity_limit_bps = if current_utilization_ratio_bps

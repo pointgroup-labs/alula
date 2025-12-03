@@ -8,6 +8,7 @@ use crate::{
 };
 
 // --- TODO: Remove this before deployment ---
+
 mod market {
     use soroban_sdk::contractimport;
 
@@ -72,7 +73,7 @@ impl MarketManager for MarketManagerContract {
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
-        if !(2..=MAX_RESERVES).contains(&max_positions) || min_collateral < 0 {
+        if !(2..=(2 * MAX_RESERVES)).contains(&max_positions) || min_collateral < 0 {
             return Err(MMCError::InvalidMarketState);
         }
 

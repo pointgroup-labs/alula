@@ -325,5 +325,3 @@ fn test_earn_vault_deposit_is_isolated() {
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
     assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
 }
-
-// TODO: Add test that shows that borrows on plain market obligations aren't affected by deposit into the `Earn` Vault

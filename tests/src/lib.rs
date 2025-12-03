@@ -96,7 +96,7 @@ impl TestMarketFixture<'_> {
 
     fn new_with_pool_config(pool_config: PoolConfig) -> Self {
         let e = get_default_env();
-        e.mock_all_auths_allowing_non_root_auth(); // TODO: Test flash loans on testnet
+        e.mock_all_auths_allowing_non_root_auth();
 
         e.ledger().set(LedgerInfo {
             timestamp: 1590969600, // June 1, 2020

@@ -8,9 +8,6 @@ use crate::{
     pool::{Pool, PoolConfig},
 };
 
-// TODO: It's not clear which data we must include in topics. It'll become clear
-// when implementing event subscriptions. Blend includes both addresses and names in topics
-
 // --- Contract's Methods Events ---
 
 #[contractevent]
@@ -70,7 +67,7 @@ struct DepositEvent {
     pub deposit_result: DepositResult,
 }
 
-// TODO: Should we still keep a `swap` endpoint public?
+// TODO: TO BE REMOVED
 #[contractevent]
 struct SwapEvent {
     #[topic]
@@ -148,7 +145,6 @@ struct FlashLoanEvent {
     pub contract: Address,
     #[topic]
     pub pool_address: Address,
-    // TODO: Introduce `FlashLoanResult` struct
     pub amount: i128,
     pub fees_paid: i128,
 }
@@ -161,7 +157,6 @@ struct DepositWithLeverageEvent {
     pub deposit_pool_address: Address,
     #[topic]
     pub borrow_pool_address: Address,
-    // TODO: `DepositWithLeverageResult` struct
     pub original_amount: i128,
     pub leverage_multiplier: u32,
     pub total_deposited_amount: i128,
@@ -179,7 +174,6 @@ struct WithdrawFromLeveragedEvent {
     pub withdrawn_to_wallet_amount: i128,
     pub deposit_reduced_amount: i128,
     pub borrow_reduced_amount: i128,
-    // TODO: Introduce `WithdrawFromLeveragedResult` struct
 }
 
 #[contractevent]

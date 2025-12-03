@@ -11,24 +11,6 @@ use crate::{
     pool::{Pool, PoolBootstrapPeriod},
 };
 
-/// Linear annual interest rates represented in basis points
-#[derive(Debug, Eq, PartialEq)]
-#[contracttype]
-pub struct AnnualPercentageRates {
-    pub borrow_bps: u64,
-    pub supply_bps: u64,
-}
-
-impl AnnualPercentageRates {
-    pub fn try_new(borrow_bps: i128, utilization_ratio_bps: i128) -> Result<Self, MCError> {
-        let supply_bps = borrow_bps
-            .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
-            .map_over_or_underflow()?;
-
-        Ok(Self { borrow_bps: borrow_bps as u64, supply_bps: supply_bps as u64 })
-    }
-}
-
 /// Compound interest rates represented in basis points
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[contracttype]
@@ -93,37 +75,37 @@ impl Pool {
 
         // -- Accrue supply APR bootstraps --
 
-        let updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
+        let mut updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
         let mut outdated_periods: Vec<(u64, u64)> = svec![e];
 
-        for ((start_period, end_period), pool_bootstrap) in self.bootstrap_periods.iter() {
+        for ((start_period, end_period), mut pool_bootstrap_period) in self.bootstrap_periods.iter()
+        {
             if end_period <= current_timestamp {
                 let new_total_available = self
                     .total_available
-                    .checked_add(pool_bootstrap.remaining_amount)
+                    .checked_add(pool_bootstrap_period.remaining_amount)
                     .map_over_or_underflow()?;
 
                 self.total_available = new_total_available;
                 outdated_periods.push_back((start_period, end_period));
             } else if current_timestamp > start_period && current_timestamp < end_period {
-                // TODO: Fix this later
-                // let mut updated: PoolBootstrapPeriod = pool_bootstrap;
-                // let prev_accrual_timestamp = updated.prev_accrual_timestamp;
+                let remaining_time_period = end_period - current_timestamp; // safe
+                let remaining_time_ratio = remaining_time_period
+                    .fixed_div_ceil(end_period - start_period, BPS_FACTOR as u64)
+                    .map_over_or_underflow()?; // safe
 
-                // let seconds_passed = current_timestamp - prev_accrual_timestamp; // safe
-                // let period_len = end_period - start_period; // safe
+                let new_remaining_amount = pool_bootstrap_period
+                    .total_amount
+                    .fixed_mul_floor(remaining_time_ratio as i128, BPS_FACTOR)
+                    .map_over_or_underflow()?;
+                let diff = pool_bootstrap_period.remaining_amount - new_remaining_amount; // safe
 
-                // let distributed_amount = updated.total_amount.fixed_mul_floor(y, denominator)
+                let new_total_available =
+                    self.total_available.checked_add(diff).map_over_or_underflow()?;
+                self.total_available = new_total_available;
 
-                // let new_remaining_amount = (seconds_remained as i128) * accrual_rate; // safe
-                // let diff = updated.remaining_amount - new_remaining_amount; // safe
-
-                // let new_total_available =
-                //     self.total_available.checked_add(diff).map_over_or_underflow()?;
-                // self.total_available = new_total_available;
-
-                // updated.remaining_amount = new_remaining_amount;
-                // updated_periods.push_back(((start_period, end_period), updated));
+                pool_bootstrap_period.remaining_amount = new_remaining_amount;
+                updated_periods.push_back(((start_period, end_period), pool_bootstrap_period));
             }
         }
 
@@ -148,7 +130,7 @@ impl Pool {
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?
             .fixed_mul_floor(BPS_FACTOR - self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
-            .map_over_or_underflow()?;
+            .map_over_or_underflow()?; // safe
 
         let borrow_apy_multiplier =
             self.config.accrual_model.compute_multiplier(borrow_apr, SECONDS_IN_YEAR)?;
