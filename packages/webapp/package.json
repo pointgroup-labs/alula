@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.15.1",
   "scripts": {
-    "dev": "nuxt dev",
+    "dev": "pnpm build:sdk && nuxt dev",
     "build": "cross-env NUXT_ENV=production nuxt generate",
     "build:sdk": "pnpm -w -r --filter market --filter market_manager run build",
     "build:ssg": "pnpm build:sdk && cross-env NUXT_ENV=production nuxt generate",
@@ -29,7 +29,7 @@
     "@floating-ui/vue": "^1.1.9",
     "@gtm-support/vue-gtm": "^3.1.0",
     "@pinia/nuxt": "^0.11.3",
-    "@stellar/stellar-sdk": "^13.3.0",
+    "@stellar/stellar-sdk": "^14.1.1",
     "@vueuse/nuxt": "^13.9.0",
     "axios": "^1.13.2",
     "bn.js": "^5.2.2",
