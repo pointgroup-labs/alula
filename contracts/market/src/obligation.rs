@@ -673,7 +673,7 @@ impl Obligation {
                 received_interest,
             );
 
-            return Err(MCError::InternalError);
+            // return Err(MCError::InternalError);
         } else if deposit_decrease >= received_interest {
             if is_all_withdrawn {
                 deposit_position.adjust_originally_deposited(
@@ -809,7 +809,7 @@ impl Obligation {
                 unpaid_interest,
             );
 
-            return Err(MCError::InternalError);
+            // return Err(MCError::InternalError);
         } else if debt_decrease_in_tokens >= unpaid_interest {
             let borrowed_diff = debt_decrease_in_tokens - unpaid_interest; // safe
             borrow_position
