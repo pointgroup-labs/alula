@@ -166,16 +166,16 @@ watch(() => route.query, (q) => {
         :fee="POOL_REMAINING_BALANCE + txFee"
         class="supply-dialog__input"
         :rules="[
-          (v) => {
+          (v: number) => {
             return v && Number(v) < balance || 'Insufficient balance'
           },
-          (v) => {
+          (v: number) => {
             return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
           },
         ]"
       >
         <template #label-right>
-          Wallet: {{ balance }} {{ data?.asset.symbol }}
+          Balance: {{ balance }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 
@@ -245,7 +245,7 @@ watch(() => route.query, (q) => {
         <market-dialog-action-btn
           variant="primary"
           :loading="loading"
-          :pool="data?.raw"
+          :pool="data?.raw.pool"
           @click-handler="supply"
         >
           Supply {{ data?.asset.symbol }}

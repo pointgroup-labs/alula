@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 // import type { Pool } from '@jlend/sdk'
+import type { Pool } from '@alula/market-sdk'
 import type { BButtonProps } from 'bootstrap-vue-next'
 import { clickElement, destructurePoolAsset, shortenAddress } from '~/utils'
 
@@ -9,7 +10,7 @@ const {
   pool,
   ...props
 } = defineProps<{
-  pool?: any
+  pool?: Pool
   isTrust?: boolean
   loading?: boolean
   variant?: 'primary' | 'accent'
@@ -32,7 +33,7 @@ const assetData = computed(() => destructurePoolAsset(String(pool?.name)) || [])
 
 const isTrust = computed(() => {
   const asset_issuer = assetData.value?.[1]
-  return pool?.token_ticker === 'XLM'
+  return pool?.token_symbol === 'native'
     || !!wallet.balances?.find((b: any) => b.asset_issuer?.toLowerCase() === asset_issuer?.toLowerCase())
 })
 

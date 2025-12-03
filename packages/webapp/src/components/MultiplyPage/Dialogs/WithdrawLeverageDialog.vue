@@ -33,16 +33,16 @@ const balance = computed(() => {
     return 0
   }
   const deposits: any = userStore.state.multiplyObligations[String(data?.market)]?.deposits || []
-  const depositPool = data.depositPool
-  const depositAsset = deposits.find(([deposit]: any) => deposit.includes(depositPool?.pool_address))
+  const { depositPoolData } = data
+  const depositAsset = deposits.find(([deposit]: any) => deposit.includes(depositPoolData?.pool.pool_address))
   if (!depositAsset) {
     return 0
   }
   const userShares = depositAsset[1].j_tokens || 0
   const deposited = calculateTotalStake(userShares, {
-    total_j_tokens: depositPool.total_j_tokens,
-    total_borrowed: depositPool.total_borrowed,
-    total_available: depositPool.total_available,
+    total_j_tokens: depositPoolData.pool.total_j_tokens,
+    total_borrowed: depositPoolData.pool.total_borrowed,
+    total_available: depositPoolData.pool.total_available,
   }).toString()
   return Number(deposited) || 0
 })
@@ -50,28 +50,28 @@ const balance = computed(() => {
 const txFee = ref(0)
 
 const marketFee = computed(() => {
-  const marketFeeBps = data?.borrowPool.config.fee_config.withdraw_fee_bps
+  const marketFeeBps = data?.borrowPoolData.pool.config.fee_config.withdraw_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
 
 async function withdrawLeverage() {
-  if (!publicKey.value || !data?.depositPool.pool_address) {
+  if (!publicKey.value || !data?.depositPoolData.pool.pool_address) {
     return
   }
   if (!amount.value || amount.value <= 0) {
     focusInput('.multiply-dialog')
     return
   }
-  const deposit_pool_address = data?.depositPool.pool_address
-  const borrow_pool_address = data?.borrowPool.pool_address
-  const asset_code = data?.depositPool.token_ticker
+  const deposit_pool_address = data?.depositPoolData.pool.pool_address
+  const borrow_pool_address = data?.borrowPoolData.pool.pool_address
+  const asset_code = data?.depositPoolData.pool.token_symbol
   if (!deposit_pool_address || !borrow_pool_address) {
     return
   }
 
   const marketProps = {
     client: activeMarket.value!.client,
-    market: activeMarket.value!.marketState.name,
+    market: activeMarket.value!.marketState.global_state.name,
     deposit_pool_address,
     borrow_pool_address,
     amount: amount.value,
@@ -84,7 +84,7 @@ async function withdrawLeverage() {
       ...marketProps,
       action: async () => {
         await userStore.updateUserMultiplyObligation({
-          market: activeMarket.value!.marketState.name,
+          market: activeMarket.value!.marketState.global_state.name,
           client: activeMarket.value!.client,
           depositPoolAddress: deposit_pool_address,
           borrowPoolAddress: borrow_pool_address,
@@ -92,10 +92,10 @@ async function withdrawLeverage() {
         await marketsStore.updateLeveragePool({
           deposit_pool_address,
           borrow_pool_address,
-          market: activeMarket.value!.marketState.name,
+          market: activeMarket.value!.marketState.global_state.name,
           client: activeMarket.value!.client,
         })
-        await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.name, activeMarket.value!.client)
+        await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client)
       },
     })
   } finally {
@@ -126,14 +126,14 @@ watchDebounced([
   () => data,
   reloadFee,
   publicKey,
-], async ([d, _r]) => {
-  if (!d || !publicKey.value || !dialog.value) {
+], async ([data]) => {
+  if (!data || !publicKey.value || !dialog.value) {
     return
   }
   const tx = await activeMarket.value!.client.marketSdk.withdrawLeverageTx(
     publicKey.value,
-    d?.depositPool.pool_address || '',
-    d?.borrowPool.pool_address || '',
+    data?.depositPoolData.pool.pool_address || '',
+    data?.borrowPoolData.pool.pool_address || '',
     1,
   )
 
@@ -162,7 +162,7 @@ watchDebounced([
           :icon="data?.asset.icon"
           label-left="You Deposit"
           :rules="[
-            (v) => !isValidate || (v && Number(v) < balance) || 'Insufficient balance',
+            (v: any) => !isValidate || (v && Number(v) < balance) || 'Insufficient balance',
           ]"
         >
           <template #label-right>
@@ -191,7 +191,7 @@ watchDebounced([
           <market-dialog-action-btn
             variant="primary"
             :loading="market.isLoading(String(data?.pool_address), 'withdrawLeverage', String(data?.market))"
-            :pool="data?.depositPool"
+            :pool="data?.depositPoolData.pool"
             @click-handler="withdrawLeverage"
           >
             Withdraw {{ data?.asset.symbol }}

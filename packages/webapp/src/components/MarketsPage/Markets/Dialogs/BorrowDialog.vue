@@ -31,18 +31,6 @@ const reloadFee = ref(false)
 
 const txFee = ref(0)
 
-const balance = computed(() => {
-  if (!data) {
-    return 0
-  }
-  if (data.raw.pool.token_symbol === 'native') {
-    return wallet.nativeBalance
-  }
-  const [, asset_issuer] = destructurePoolAsset(data.raw.pool.name)
-  return wallet.getAssetBalance(String(asset_issuer))
-  return 0
-})
-
 const poolBorrowLimit = computed(() => {
   if (!data) {
     return 0
@@ -180,13 +168,13 @@ watchDebounced([
         :balance="availableToBorrow"
         :fee="POOL_REMAINING_BALANCE"
         :rules="[
-          (v) => {
+          (v: any) => {
             return v && Number(v) < availableToBorrow || 'Borrow limit exceeded'
           },
         ]"
       >
         <template #label-right>
-          Wallet: {{ balance }} {{ data?.asset.symbol }}
+          Available: {{ formatPrice(availableToBorrow, 0, 7) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 
@@ -291,7 +279,7 @@ watchDebounced([
         <market-dialog-action-btn
           variant="accent"
           :loading="loading"
-          :pool="data?.raw"
+          :pool="data?.raw.pool"
           :disabled="!agree"
           @click-handler="borrow"
         >

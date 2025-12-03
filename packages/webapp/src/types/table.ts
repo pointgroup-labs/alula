@@ -1,5 +1,4 @@
 import type { PoolData } from '@alula/market-sdk'
-import type { PoolWithPrice } from '~/store/markets'
 
 export type TableAsset = {
   asset: {
@@ -36,8 +35,8 @@ export type BorrowTableItem = {
 }
 
 export type MultiplyTableItem = {
-  depositPool: PoolWithPrice
-  borrowPool: PoolWithPrice
+  depositPoolData: PoolData
+  borrowPoolData: PoolData
   borrowAsset: {
     name: string
     symbol: string
@@ -51,6 +50,7 @@ export type MultiplyTableItem = {
   supplied: number
   pool_address: string
   market?: string
+  assetDecimals: number
 } & TableAsset
 
 export type BorrowCardTableItem = {

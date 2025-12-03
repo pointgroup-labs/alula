@@ -21,9 +21,7 @@ const market = useMarketActions()
 
 const userStore = useUserStore()
 
-const assetDecimals = computed(() => marketsStore.assetDecimals)
-
-const pools = computed(() => Object.values(marketsStore.state.markets)?.flatMap(m => m.pools) ?? [])
+const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
 const loading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
 const fields = [
@@ -40,42 +38,47 @@ const fields = [
 const items = computed<MultiplyTableItem[]>(() => {
   const res = []
   for (const market in marketsStore.state.markets) {
-    const pools = marketsStore.state.markets[market]?.pools ?? []
-    const leveragePools = marketsStore.state.markets[market]?.leveragePools ?? []
-
+    const state = marketsStore.state.markets[market]?.marketState
+    const poolsData = state?.pools_data ?? []
+    const leveragePools = state?.multiply_pairs ?? []
+    const oraclePriceDecimals = state?.oracle_price_decimals ?? 0
+    const assetDecimals = state?.asset_decimals ?? 0
     for (const { borrow_pool, deposit_pool } of leveragePools) {
-      const depositPool = pools.find(p => p.pool_address === deposit_pool)!
-      const borrowPool = pools.find(p => p.pool_address === borrow_pool)!
-      const depositTokenSymbol = depositPool?.token_ticker
-      const borrowTokenSymbol = borrowPool?.token_ticker
+      const depositPoolData = poolsData.find(p => p.pool.pool_address === deposit_pool)!
+      const borrowPoolData = poolsData.find(p => p.pool.pool_address === borrow_pool)!
+      const depositTokenSymbol = getTokenSymbol(depositPoolData?.pool.token_symbol)
+      const borrowTokenSymbol = getTokenSymbol(borrowPoolData?.pool.token_symbol)
       const depositTokenName = getTokenName(String(depositTokenSymbol))
       const depositTokenIcon = getTokenIcon(String(depositTokenSymbol)) || ''
       const borrowTokenName = getTokenName(String(borrowTokenSymbol))
       const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol)) || ''
-      const ltv = Number(depositPool?.config.health_config.open_ltv_bps) || 0
+      const ltv = Number(depositPoolData?.pool.config.health_config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
-      const supplyBPS = Number(depositPool?.pool_apy.supply_bps || 0) / 10_000
-      const borrowBPS = Number(borrowPool?.pool_apy.borrow_bps || 0) / 10_000
+      const supplyBPS = Number(depositPoolData?.apy.supply_bps || 0) / 10_000
+      const borrowBPS = Number(borrowPoolData?.apy.borrow_bps || 0) / 10_000
       const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
-      const supplied = depositPool && depositPool.total_available ? Number(bigintToNumber(depositPool.total_available, assetDecimals.value)) : 0
+      const supplied = depositPoolData && depositPoolData.pool.total_available ? Number(bigintToNumber(depositPoolData.pool.total_available, assetDecimals)) : 0
       const liquidity
-        = borrowPool && borrowPool.total_available
-          ? Number(bigintToNumber(borrowPool.total_available/*  + borrowPool.total_borrowed + borrowPool.total_collateral */, assetDecimals.value))
+        = borrowPoolData && borrowPoolData.pool.total_available
+          ? Number(bigintToNumber(borrowPoolData.pool.total_available/*  + borrowPoolData.total_borrowed + borrowPoolData.total_collateral */, assetDecimals))
           : 0
+      const depositPoolPrice = Number(bigintToNumber(depositPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
+      const borrowPPoolPrice = Number(bigintToNumber(borrowPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
 
       const data = {
         market,
-        depositPool,
-        borrowPool,
+        depositPoolData,
+        borrowPoolData,
         asset: { name: depositTokenName, symbol: depositTokenSymbol, icon: depositTokenIcon },
         borrowAsset: { name: borrowTokenName, symbol: borrowTokenSymbol, icon: borrowTokenIcon },
         liquidity,
         multiplier,
         maxAPY,
-        price: Number(depositPool?.pool_price) || 0,
-        borrowPoolPrice: Number(borrowPool?.pool_price) || 0,
-        pool_address: depositPool?.pool_address || '',
+        price: depositPoolPrice,
+        borrowPoolPrice: borrowPPoolPrice,
+        pool_address: depositPoolData?.pool.pool_address || '',
         supplied,
+        assetDecimals,
       }
 
       res.push(data)
@@ -112,7 +115,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 </script>
 
 <template>
-  <div v-if="pools.length === 0 && loading">
+  <div v-if="markets.length === 0 && loading">
     <table-skeleton v-if="width > 650" />
     <table-skeleton-mobile v-else />
   </div>
@@ -231,7 +234,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
             @click="multiplyDialogHandler(data.item, 'supply')"
           >
             Multiply
-          </j-btn> 
+          </j-btn>
           <j-btn
             v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
             size="md"

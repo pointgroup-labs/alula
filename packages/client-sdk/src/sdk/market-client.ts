@@ -320,6 +320,7 @@ export class MarketClient {
     leverage_multiplier: number,
     kit: any,
   ) {
+    console.log('%c[Leverage]', 'color: #00ff00', { user, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier })
     const tx = await this.leverageTx(user, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier)
 
     console.log('%c[Leverage tx]', 'color: #00ff00', tx)

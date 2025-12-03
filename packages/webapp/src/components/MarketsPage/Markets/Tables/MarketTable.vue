@@ -232,7 +232,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
     <market-table-mobile
       v-else
       :items="items"
-      @dialog-handler="(e) => supplyDialogHandler(e.item, e.action)"
+      @dialog-handler="(e: any) => supplyDialogHandler(e.item, e.action)"
       @on-row-clicked="onRowClicked"
     />
 

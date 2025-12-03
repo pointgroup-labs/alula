@@ -36,11 +36,12 @@ const balance = computed(() => {
   if (!data) {
     return 0
   }
-  const poolAsset = isDepositMultiply.value ? data.depositPool.name : data.borrowPool.name
+  const currentPool = isDepositMultiply.value ? data.depositPoolData.pool : data.borrowPoolData.pool
+  const poolAsset = currentPool.token_symbol
   if (poolAsset === 'native') {
     return wallet.nativeBalance
   }
-  const [, asset_issuer] = destructurePoolAsset(poolAsset)
+  const [, asset_issuer] = destructurePoolAsset(currentPool.name)
   return wallet.getAssetBalance(String(asset_issuer))
 })
 
@@ -53,16 +54,15 @@ const selectedMultiplier = computed(() => {
 
 const txFee = ref(0)
 
-const borrowPoolData = computed(() => data?.borrowPool)
-const depositPoolData = computed(() => isDepositMultiply.value ? data?.depositPool : data?.borrowPool)
+const multiplySymbol = computed(() =>
+  getTokenSymbol(String(isDepositMultiply.value ? data?.depositPoolData.pool.token_symbol : data?.borrowPoolData.pool.token_symbol)))
 
-const maxMultiplyTicker = computed(() => isDepositMultiply.value ? data?.depositPool.token_ticker : data?.borrowPool.token_ticker)
-
-const borrowAvailable = computed(() => borrowPoolData.value ? bigintToNumber(borrowPoolData.value?.total_available, marketsStore.assetDecimals) : 0)
-const borrowAvailableInUsd = computed(() => Number(borrowAvailable.value) * Number(borrowPoolData.value?.pool_price || 0))
+const borrowPoolData = computed(() => data?.borrowPoolData)
+const borrowAvailable = computed(() => borrowPoolData.value ? bigintToNumber(borrowPoolData.value?.total_available_adjusted, data!.assetDecimals) : 0)
+const borrowAvailableInUsd = computed(() => Number(borrowAvailable.value) * Number(data?.borrowPoolPrice || 0))
 
 const marketFee = computed(() => {
-  const marketFeeBps = borrowPoolData.value?.config.fee_config.flash_loan_fee_bps
+  const marketFeeBps = borrowPoolData.value?.pool.config.fee_config.flash_loan_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
 
@@ -70,13 +70,15 @@ const liquidityAvailable = computed(() => {
   if (!borrowPoolData.value) {
     return 0
   }
-  return `${formatPrice(borrowAvailable.value || 0, 2, 2)} ${borrowPoolData.value.token_ticker}`
+  return `${formatPrice(borrowAvailable.value || 0, 2, 2)} ${borrowPoolData.value.pool.token_symbol}`
 })
 
 const maxAPY = computed(() => data?.maxAPY || 0)
 
+const depositPoolPrice = computed(() => isDepositMultiply.value ? data?.price : data?.borrowPoolPrice)
+
 const supplyLimit = computed(() =>
-  calcRemainingMultiplyUSD(borrowAvailableInUsd.value, Number(depositPoolData.value?.pool_price || 0), Number(selectedMultiplier.value) || 0),
+  calcRemainingMultiplyUSD(borrowAvailableInUsd.value, Number(depositPoolPrice.value || 0), Number(selectedMultiplier.value) || 0),
 )
 
 function swapAsset() {
@@ -84,7 +86,7 @@ function swapAsset() {
 }
 
 async function leverage() {
-  if (!publicKey.value || !data?.depositPool.pool_address) {
+  if (!publicKey.value || !data?.depositPoolData.pool.pool_address) {
     return
   }
   if (!amount.value || amount.value <= 0 || amount.value > balance.value) {
@@ -92,8 +94,8 @@ async function leverage() {
     return
   }
 
-  const deposit_pool_address = data?.depositPool.pool_address
-  const borrow_pool_address = data?.borrowPool.pool_address
+  const deposit_pool_address = data?.depositPoolData.pool.pool_address
+  const borrow_pool_address = data?.borrowPoolData.pool.pool_address
   const asset_code = isDepositMultiply.value ? data?.asset.symbol : data?.borrowAsset.symbol
   if (!deposit_pool_address || !borrow_pool_address) {
     return
@@ -101,7 +103,7 @@ async function leverage() {
 
   const marketProps = {
     client: activeMarket.value!.client,
-    market: activeMarket.value!.marketState.name,
+    market: activeMarket.value!.marketState.global_state.name,
     deposit_pool_address,
     borrow_pool_address,
     deposit_as_margin: isDepositMultiply.value,
@@ -114,7 +116,7 @@ async function leverage() {
     ...marketProps,
     action: async () => {
       await userStore.updateUserMultiplyObligation({
-        market: activeMarket.value!.marketState.name,
+        market: activeMarket.value!.marketState.global_state.name,
         client: activeMarket.value!.client,
         depositPoolAddress: deposit_pool_address,
         borrowPoolAddress: borrow_pool_address,
@@ -122,10 +124,10 @@ async function leverage() {
       await marketsStore.updateLeveragePool({
         deposit_pool_address,
         borrow_pool_address,
-        market: activeMarket.value!.marketState.name,
+        market: activeMarket.value!.marketState.global_state.name,
         client: activeMarket.value!.client,
       })
-      await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.name, activeMarket.value!.client)
+      await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client)
     },
   })
 }
@@ -153,14 +155,14 @@ watchDebounced([
   () => data,
   reloadFee,
   publicKey,
-], async ([d, _r]) => {
-  if (!d || !publicKey.value) {
+], async ([data]) => {
+  if (!data || !publicKey.value) {
     return
   }
   const tx = await activeMarket.value?.client.marketSdk.leverageTx(
     publicKey.value,
-    d?.depositPool.pool_address || '',
-    d?.borrowPool.pool_address || '',
+    data?.depositPoolData.pool.pool_address || '',
+    data?.borrowPoolData.pool.pool_address || '',
     isDepositMultiply.value,
     1,
     2,
@@ -191,10 +193,10 @@ watchDebounced([
           class="multiply-dialog__input"
           label-left="You Deposit"
           :rules="[
-            (v) => {
+            (v: number) => {
               return v && Number(v) < balance || 'Insufficient balance'
             },
-            (v) => {
+            (v: number) => {
               return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool leverage limit'
             },
           ]"
@@ -259,7 +261,7 @@ watchDebounced([
           <!-- Max Multiplied Amount -->
           <div class="dialog-info-table__item">
             <span>Max Multiplied Amount</span>
-            <span>{{ formatPrice(Number(supplyLimit || 0).toFixed(2), 2) }} {{ maxMultiplyTicker }}</span>
+            <span>{{ formatPrice(Number(supplyLimit || 0).toFixed(2), 2) }} {{ multiplySymbol }}</span>
           </div>
 
           <!-- Max Multiplied Amount -->
@@ -298,7 +300,7 @@ watchDebounced([
           <market-dialog-action-btn
             variant="primary"
             :loading="market.isLoading(String(data?.pool_address), 'leverage', String(data?.market))"
-            :pool="data?.depositPool"
+            :pool="data?.depositPoolData.pool"
             :disabled="Number(selectedMultiplier) < 1"
             @click-handler="leverage"
           >
