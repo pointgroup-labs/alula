@@ -36,8 +36,10 @@ const poolBorrowLimit = computed(() => {
     return 0
   }
   const utilRatioLimit = Number(data?.raw.pool.config.health_config.utilization_ratio_limit_bps || 0) / 10_000
-  const availableAdjusted = Number(bigintToNumber(data.raw.total_available_adjusted, data.assetDecimals))
-  return availableAdjusted * utilRatioLimit
+  const totalSupply = Number(bigintToNumber(data.raw.total_supply, data.assetDecimals))
+  const totalBorrow = Number(bigintToNumber(data.raw.pool.total_borrowed, data.assetDecimals))
+  const availableByRatioLimit = totalSupply * utilRatioLimit
+  return Math.max(availableByRatioLimit - totalBorrow, 0)
 })
 
 const availableToBorrow = computed(() => {
