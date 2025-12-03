@@ -5,17 +5,16 @@ import { bigintToNumber, shortenNumber, truncatePercent } from '~/utils'
 const { width } = useWindowSize()
 
 const { generateExplorerLink } = useExplorerLink()
-const marketsStore = useMarketsStore()
 
 const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
 
 const pool = computed(() => selectedMarketDetails.value?.raw?.pool)
 
-const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, marketsStore.assetDecimals)) || 0)
+const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, selectedMarketDetails.value?.assetDecimals)) || 0)
 const totalSupplied = computed(() => {
-  const supplied = Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.total_available, marketsStore.assetDecimals)) || 0
-  const openLTV = Number(pool.value?.config.health_config.open_ltv_bps) / 10_000
-  return (supplied * openLTV) || 0
+  const supplied = Number(bigintToNumber(selectedMarketDetails.value?.raw?.total_supply, selectedMarketDetails.value?.assetDecimals)) || 0
+  const utilRatio = Number(pool.value?.config.health_config.utilization_ratio_limit_bps) / 10_000
+  return (supplied * utilRatio) || 0
 })
 
 const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(selectedMarketDetails.value?.price || 0)).toFixed(2) || 0)
