@@ -152,7 +152,7 @@ pub trait Market {
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
-    fn deposit_into_earn_obligation(
+    fn deposit_earn(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -239,7 +239,7 @@ pub trait Market {
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
-    fn withdraw_from_earn_obligation(
+    fn withdraw_earn(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -732,7 +732,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn deposit_into_earn_obligation(
+    fn deposit_earn(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -905,7 +905,7 @@ impl Market for MarketContract {
         process_compute_withdraw_fees(&e, &obligation_key, &pool_address, amount)
     }
 
-    fn withdraw_from_earn_obligation(
+    fn withdraw_earn(
         e: Env,
         user: Address,
         pool_address: Address,

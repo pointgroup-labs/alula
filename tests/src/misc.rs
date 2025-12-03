@@ -442,19 +442,11 @@ fn test_refresh_earn_obligation() {
     let creditor = &users[0];
     let debtor = &users[1];
 
-    contract_client.deposit_into_earn_obligation(
-        creditor,
-        &usdc_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.deposit_earn(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    contract_client.deposit_into_earn_obligation(
-        creditor,
-        &btc_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.deposit_earn(creditor, &btc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.borrow(debtor, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
