@@ -466,6 +466,22 @@ fn test_withdraw_scarcity_fee() {
 }
 
 #[test]
+fn test_withdraw_scarcity_fee_no_borrow() {
+    let TestMarketFixture { contract_client, gold_pool_address, users, gold_token_client, .. } =
+        TestMarketFixture::new();
+    let creditor = &users[0];
+
+    let creditor_balance_before = gold_token_client.balance(creditor);
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let creditor_balance_after = gold_token_client.balance(creditor);
+
+    assert_eq!(creditor_balance_before, creditor_balance_after);
+}
+
+#[test]
 fn test_repay_fee() {
     const REPAY_FEE_BPS: u32 = 300; // 3%
 

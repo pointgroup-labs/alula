@@ -270,7 +270,7 @@ fn test_deposit_into_earn_obligation() {
 }
 
 #[test]
-fn test_earn_vault_deposit_is_isolated() {
+fn test_earn_deposit_is_isolated() {
     let TestMarketFixture {
         contract_client,
         gold_pool_address,
@@ -311,7 +311,7 @@ fn test_earn_vault_deposit_is_isolated() {
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
     assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
 
-    // - Withdraw from the earn vault -
+    // - Withdraw from the earn obligation -
 
     let creditor_balance_before = gold_token_client.balance(creditor);
     contract_client.withdraw_from_earn_obligation(

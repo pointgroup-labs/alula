@@ -12,7 +12,7 @@ use crate::{
     math_utils::MathUtils,
     misc::require_nonnegative,
     multiply_pair::MultiplyPair,
-    obligation::{CoverBadDebtResult, Obligation, ObligationKey},
+    obligation::{CoverBadDebtResult, Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
     request::{Request, RequestTransfers, RequestType},
     storage::{self, GlobalState},
@@ -414,6 +414,20 @@ pub fn process_withdraw<'a>(
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
 
     Ok(transfers)
+}
+
+pub fn process_compute_withdraw_fees(
+    e: &Env,
+    obligation_key: &ObligationKey,
+    pool_address: &Address,
+    amount: i128,
+) -> Result<WithdrawResult, MCError> {
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
+    let pool = Pool::try_get(e, pool_address)?;
+
+    let withdraw_result = obligation.withdraw(e, &pool, amount)?;
+
+    Ok(withdraw_result)
 }
 
 pub fn process_flash_loan(
