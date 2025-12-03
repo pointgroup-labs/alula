@@ -14,7 +14,7 @@ const { width } = useWindowSize()
 const isMobile = computed(() => width.value <= 650)
 
 const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
-const pool = computed(() => selectedMarketDetails.value?.raw)
+const pool = computed(() => selectedMarketDetails.value?.raw.pool)
 
 const BPS = 10_000n
 

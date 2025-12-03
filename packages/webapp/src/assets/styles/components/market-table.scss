@@ -19,11 +19,18 @@
     tr {
       height: 80px;
       cursor: pointer;
+
+      &:hover {
+        td {
+          background: $neutral-2;
+        }
+      }
     }
 
     td {
       text-align: center;
       vertical-align: middle;
+      transition: background 0.1s ease-in-out;
     }
   }
 
@@ -120,6 +127,14 @@ body.body--dark {
       background: $neutral-18;
       color: $neutral-9;
       border-color: $neutral-12;
+    }
+
+    tr {
+      &:hover {
+        td {
+          background: rgba(17, 17, 17, 0.562);
+        }
+      }
     }
 
     td {

@@ -8,7 +8,7 @@ const marketsStore = useMarketsStore()
 
 const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
 
-const pool = computed(() => selectedMarketDetails.value?.raw)
+const pool = computed(() => selectedMarketDetails.value?.raw?.pool)
 
 const assetDecimals = computed(() => marketsStore.assetDecimals)
 

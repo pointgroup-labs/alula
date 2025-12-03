@@ -251,5 +251,5 @@ provide('selectedMarketDetails', selectedMarketDetails)
     :data="selectedPool"
   />
 
-  <!-- <market-info-dialog v-model="infoDialog" /> -->
+  <market-info-dialog v-model="infoDialog" />
 </template>

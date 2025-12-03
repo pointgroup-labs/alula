@@ -9,7 +9,7 @@ const marketsStore = useMarketsStore()
 
 const selectedMarketDetails = inject('selectedMarketDetails') as Ref<MarketTableItem>
 
-const pool = computed(() => selectedMarketDetails.value?.raw)
+const pool = computed(() => selectedMarketDetails.value?.raw?.pool)
 
 const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, marketsStore.assetDecimals)) || 0)
 const totalSupplied = computed(() => {
@@ -18,8 +18,8 @@ const totalSupplied = computed(() => {
   return (supplied * openLTV) || 0
 })
 
-const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(pool.value?.pool_price || 0)).toFixed(2) || 0)
-const totalSuppliedUsd = computed(() => Number(totalSupplied.value * Number(pool.value?.pool_price || 0)).toFixed(2) || 0)
+const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(selectedMarketDetails.value?.price || 0)).toFixed(2) || 0)
+const totalSuppliedUsd = computed(() => Number(totalSupplied.value * Number(selectedMarketDetails.value?.price || 0)).toFixed(2) || 0)
 
 const borrowCap = computed(() => {
   if (!pool.value) {
