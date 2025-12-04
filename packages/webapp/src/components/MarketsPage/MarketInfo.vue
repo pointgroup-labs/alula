@@ -13,7 +13,7 @@ const poolsInfo = computed(() => {
 
     for (const data of marketState.pools_data) {
       const price = Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimale))
-      const totalSupplied = data.total_supply
+      const totalSupplied = data.total_supply + data.pool.total_collateral
       const supplied = Number(bigintToNumber(totalSupplied, assetDecimals)) * price
       const borrowed = Number(bigintToNumber(data.pool.total_borrowed, assetDecimals)) * price
       acc.total_borrowed += borrowed

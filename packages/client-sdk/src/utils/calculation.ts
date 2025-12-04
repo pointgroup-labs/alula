@@ -82,6 +82,9 @@ export function calculateTotalStake(
   },
   decimals = 7,
 ) {
+  if (depositedPool.total_j_tokens === 0n) {
+    return new Decimal(0)
+  }
   const j = new Decimal(j_tokens.toString())
   const totalJ = new Decimal(depositedPool.total_j_tokens.toString())
   const borrowed = new Decimal(depositedPool.total_borrowed.toString())

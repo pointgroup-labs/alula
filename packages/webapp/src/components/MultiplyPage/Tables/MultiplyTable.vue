@@ -163,7 +163,10 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       </template>
 
       <template #cell(maxAPY)="data">
-        <div class="table-cell cell-apy">
+        <div
+          class="table-cell cell-apy"
+          :class="[`cell-apy--${data.item.maxAPY < 0 ? 'negative' : 'positive'}`]"
+        >
           {{ truncatePercent(data.item.maxAPY || 0, 2) }}%
         </div>
       </template>
@@ -295,6 +298,10 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     font-size: 14px;
     font-style: normal;
     font-weight: 700;
+
+    &--negative {
+      color: $danger;
+    }
   }
 }
 </style>
