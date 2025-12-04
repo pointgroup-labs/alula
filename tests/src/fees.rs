@@ -693,7 +693,6 @@ fn redeem_market_fees() {
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_market_fees = get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
-    dbg!(pool_market_fees);
 
     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
     let pool_balance_before = usdc_token_client.balance(&contract_id);
@@ -741,7 +740,6 @@ fn redeem_host_fees() {
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_host_fees = get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
-    dbg!(pool_host_fees);
 
     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
     let pool_balance_before = usdc_token_client.balance(&contract_id);
