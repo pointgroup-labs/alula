@@ -32,3 +32,20 @@ export function calcUserTotalShares(
   )
   return scaled.toFixed(precision)
 }
+
+export function checkIsCanUsePool(
+  obligations: Iterable<[string, any]> | [],
+  poolAddress?: string,
+): boolean {
+  if (!poolAddress) {
+    return true
+  }
+
+  for (const [address] of obligations) {
+    if (address === poolAddress) {
+      return false
+    }
+  }
+
+  return true
+}

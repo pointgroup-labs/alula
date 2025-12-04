@@ -2,67 +2,43 @@
 import type { MarketTableItem } from '~/types/table'
 import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
-import { /* bigintToNumber, destructurePoolAsset, */ focusInput, shortenNumber, truncatePercent } from '~/utils'
+import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
-const {
-  data,
-} = defineProps<{
-  data?: MarketTableItem
-}>()
+const props = defineProps<{ data?: MarketTableItem }>()
 
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
+const userStore = useUserStore()
+
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
-const userStore = useUserStore()
+const poolData = toRef(props, 'data')
 
-const marketClient = computed(() => marketsStore.marketClient)
+const {
+  marketClient,
+  agree,
+  isLoading,
+  reloadFee,
+  txFee,
+  poolBorrowLimit,
+  availableToBorrow,
+  maxLtv,
+  closeLTV,
+  liquidationPenalty,
+  isCanBorrow,
+} = useBorrowDialog(poolData)
 
 const amount = toRef(market, 'borrowAmount')
-const agree = ref(false)
 
 const dialog = defineModel({ default: false })
-
-const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool.pool_address)
-
-const reloadFee = ref(false)
-
-const txFee = ref(0)
-
-const poolBorrowLimit = computed(() => {
-  if (!data) {
-    return 0
-  }
-  const utilRatioLimit = Number(data?.raw.pool.config.health_config.utilization_ratio_limit_bps || 0) / 10_000
-  const totalSupply = Number(bigintToNumber(data.raw.total_supply, data.assetDecimals))
-  const totalBorrow = Number(bigintToNumber(data.raw.pool.total_borrowed, data.assetDecimals))
-  const availableByRatioLimit = totalSupply * utilRatioLimit
-  return Math.max(availableByRatioLimit - totalBorrow, 0)
-})
-
-const availableToBorrow = computed(() => {
-  if (!data) {
-    return 0
-  }
-  const userTotalDepositInUsd = userStore.userTotalDepositInUsd
-  const userTotalBorrowedInUsd = Number(userStore.userTotalBorrowedInUsd) || 0
-  const openLTV = Number(data?.raw.pool.config.health_config.open_ltv_bps || 0) / 10_000
-  const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
-  const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
-  const userAvailable = Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0)
-  const maxAvailableUsd = Math.min(userAvailable, marketAvailableInUsd)
-  const maxAvailableAssets = maxAvailableUsd / Number(data.price)
-
-  return marketAvailableInUsd > userAvailable ? maxAvailableAssets : Math.floor(maxAvailableAssets)
-})
 
 const healthFactor = computed(() => {
   const depositUsd = userStore.userTotalDepositInUsd
   const borrowedUsd = userStore.userTotalBorrowedInUsd
-  const price = data?.price || 0
-  const closeLTV = Number(data?.raw.pool.config.health_config.close_ltv_bps || 0) / 10_000
+  const price = poolData.value?.price || 0
+  const closeLTV = Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 10_000
 
   const extraBorrowUsd = (amount.value || 0) * price
   const totalBorrowUsd = borrowedUsd + extraBorrowUsd
@@ -76,24 +52,9 @@ const healthFactor = computed(() => {
   return Math.min(hf, 10)
 })
 
-const maxLtv = computed(() => data?.max_ltv || 0)
-const closeLTV = computed(() => Number(data?.raw.pool.config.health_config.close_ltv_bps || 0) / 100)
-
-const liquidationPenalty = computed(() => Number(data?.raw.pool.config.health_config.liquidation_close_factor_bps || 0) / 100)
-
 const marketFee = computed(() => {
-  const marketFeeBps = data?.raw.pool.config.fee_config.borrow_fee_bps
+  const marketFeeBps = poolData.value?.raw.pool.config.fee_config.borrow_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
-})
-
-const isCanBorrow = computed(() => {
-  const depositObligations = userStore.state.obligations[String(data?.market)]?.deposits ?? []
-  for (const [address] of depositObligations) {
-    if (address === data?.raw.pool.pool_address) {
-      return false
-    }
-  }
-  return true
 })
 
 const attentionText = computed(() =>
@@ -102,7 +63,7 @@ const attentionText = computed(() =>
     : 'You cannot open a loan in the same pool where you have a deposit.')
 
 async function borrow() {
-  if (!publicKey.value || !data?.raw.pool.pool_address) {
+  if (!publicKey.value || !poolData.value?.raw.pool.pool_address) {
     return
   }
   if (!amount.value || amount.value <= 0) {
@@ -111,14 +72,14 @@ async function borrow() {
   }
 
   try {
-    marketsStore.poolActiveAddress = data?.raw.pool.pool_address
+    marketsStore.poolActiveAddress = poolData.value?.raw.pool.pool_address
 
     const marketProps = {
       market: marketsStore.activeMarketFilter,
       client: marketClient.value!,
-      pool_address: data?.raw.pool.pool_address,
+      pool_address: poolData.value?.raw.pool.pool_address,
       amount: amount.value,
-      asset_data: data?.raw.pool.name,
+      asset_data: poolData.value?.raw.pool.name,
       poolBorrowLimit: poolBorrowLimit.value,
     }
 
@@ -147,22 +108,6 @@ watch(dialog, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
-
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  if (!d || !publicKey.value || !marketClient.value) {
-    return
-  }
-  const tx = await marketClient.value?.marketSdk.borrowTx(
-    publicKey.value,
-    d?.raw.pool.pool_address || '',
-    0,
-  )
-  txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
-}, { immediate: true, debounce: 300 })
 </script>
 
 <template>
@@ -204,7 +149,7 @@ watchDebounced([
         <div class="dialog-info-table__item">
           <span>Health Factor</span>
           <span>
-            <template v-if="loading">
+            <template v-if="isLoading">
               <j-loading-spinner
                 width="14px"
                 style="padding: 0; width: 14px; margin-left: auto"
@@ -295,7 +240,7 @@ watchDebounced([
 
         <market-dialog-action-btn
           variant="accent"
-          :loading="loading"
+          :loading="isLoading"
           :pool="data?.raw.pool"
           :disabled="!agree || !isCanBorrow"
           @click-handler="borrow"

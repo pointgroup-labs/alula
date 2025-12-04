@@ -4,88 +4,60 @@ import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
 
-const {
-  data,
-} = defineProps<{
-  data?: MarketTableItem
-}>()
-
-const router = useRouter()
-const route = useRoute()
+const props = defineProps<{ data?: MarketTableItem }>()
 
 const dialog = defineModel({ default: false })
-
-const loadingFee = ref(false)
 
 const { generateExplorerLink } = useExplorerLink()
 
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
-const userStore = useUserStore()
+const poolData = toRef(props, 'data')
 
 const amount = toRef(market, 'depositAmount')
-const collateralOnly = toRef(market, 'collateralOnly')
-
-const marketClient = computed(() => marketsStore.marketClient)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
 
-const balance = computed(() => {
-  if (!data) {
-    return 0
-  }
-  if (data.raw.pool.token_symbol === 'native') {
-    return wallet.nativeBalance
-  }
-  const [, asset_issuer] = destructurePoolAsset(data?.raw.pool.name)
-  return wallet.getAssetBalance(String(asset_issuer))
-})
-
-const loading = computed(() => marketsStore.poolActiveAddress === data?.raw.pool.pool_address)
-const reloadFee = ref(false)
-
-const txFee = ref(0)
-
-const isSupplyLimited = computed(() => data?.supply_limit && data?.supply_limit > 0)
-const supplyLimit = computed(() => isSupplyLimited.value ? Math.max(Number(data?.supply_limit) || 0 - Number(data?.total_supply), 0) : 0)
-const limitLabel = computed(() => isSupplyLimited.value ? formatPrice(Number(data?.supply_limit) || 0, 2, 2) : '-')
-
-const contractAddress = computed(() => data?.raw.pool.pool_address || '')
+const {
+  marketClient,
+  collateralOnly,
+  balance,
+  txFee,
+  reloadFee,
+  isLoadingFee,
+  supplyLimit,
+  limitLabel,
+  contractAddress,
+  isLoading,
+  isCanSupply,
+} = useSupplyDialog(poolData)
 
 const marketFee = computed(() => {
-  const marketFeeBps = collateralOnly.value ? data?.raw.pool.config.fee_config.add_collateral_fee_bps : data?.raw.pool.config.fee_config.deposit_fee_bps
+  const marketFeeBps = collateralOnly.value
+    ? poolData.value?.raw.pool.config.fee_config.add_collateral_fee_bps
+    : poolData.value?.raw.pool.config.fee_config.deposit_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
-})
-
-const isCanSupply = computed(() => {
-  const depositObligations = userStore.state.obligations[String(data?.market)]?.borrows ?? []
-  for (const [address] of depositObligations) {
-    if (address === data?.raw.pool.pool_address) {
-      return false
-    }
-  }
-  return true
 })
 
 async function supply() {
   try {
-    if (!publicKey.value || !data?.raw.pool.pool_address) {
+    if (!publicKey.value || !poolData.value?.raw.pool.pool_address) {
       return
     }
     if (!amount.value || amount.value <= 0) {
       focusInput('.supply-dialog__input')
       return
     }
-    marketsStore.poolActiveAddress = data?.raw.pool.pool_address
+    marketsStore.poolActiveAddress = poolData.value?.raw.pool.pool_address
 
     const marketProps = {
       market: marketsStore.activeMarketFilter,
       client: marketClient.value!,
-      pool_address: data?.raw.pool.pool_address,
+      pool_address: poolData.value?.raw.pool.pool_address,
       amount: amount.value,
-      asset_data: data?.raw.pool.name,
+      asset_data: poolData.value?.raw.pool.name,
     }
     collateralOnly.value
       ? await market.addCollateral(marketProps)
@@ -94,29 +66,6 @@ async function supply() {
     marketsStore.poolActiveAddress = undefined
   }
 }
-
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  try {
-    loadingFee.value = true
-
-    if (!d || !publicKey.value || !marketClient.value) {
-      return
-    }
-
-    const tx = await marketClient.value.marketSdk.depositTx(
-      publicKey.value,
-      d?.raw.pool.pool_address || '',
-      0,
-    )
-    txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
-  } finally {
-    loadingFee.value = false
-  }
-}, { immediate: true, debounce: 300 })
 
 let interval: string | number | NodeJS.Timeout | undefined
 
@@ -137,22 +86,6 @@ watch(dialog, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
-
-watchDebounced(collateralOnly, (c) => {
-  const query = { ...route.query }
-  if (c) {
-    query['collateral-only'] = 'true'
-  } else {
-    delete query['collateral-only']
-  }
-  router.replace({ query })
-}, { debounce: 100 })
-
-watch(() => route.query, (q) => {
-  if (q['collateral-only']) {
-    collateralOnly.value = true
-  }
-}, { immediate: true, once: true })
 </script>
 
 <template>
@@ -163,10 +96,10 @@ watch(() => route.query, (q) => {
     <template #header>
       <div class="supply-dialog__title">
         <img
-          :src="data?.asset.icon"
-          :alt="`${data?.asset.symbol} icon`"
+          :src="poolData?.asset.icon"
+          :alt="`${poolData?.asset.symbol} icon`"
         >
-        <span>Supply {{ data?.asset.symbol }}</span>
+        <span>Supply {{ poolData?.asset.symbol }}</span>
       </div>
     </template>
 
@@ -187,12 +120,12 @@ watch(() => route.query, (q) => {
         ]"
       >
         <template #label-right>
-          Balance: {{ balance }} {{ data?.asset.symbol }}
+          Balance: {{ balance }} {{ poolData?.asset.symbol }}
         </template>
       </input-widget>
 
       <div
-        v-if="data"
+        v-if="poolData"
         class="dialog-info-table"
       >
         <!-- Supply Limit -->
@@ -222,7 +155,7 @@ watch(() => route.query, (q) => {
         >
           <span>Market Fee</span>
 
-          <span>{{ formatPrice(marketFee) }} {{ data?.asset.symbol }}</span>
+          <span>{{ formatPrice(marketFee) }} {{ poolData?.asset.symbol }}</span>
         </div>
 
         <!-- Transaction Fee -->
@@ -231,7 +164,7 @@ watch(() => route.query, (q) => {
         >
           <span>Transaction Fee</span>
           <j-loading-spinner
-            v-if="loadingFee"
+            v-if="isLoadingFee"
             width="14px"
             style="margin:0 20px 0 auto;"
           />
@@ -258,17 +191,17 @@ watch(() => route.query, (q) => {
       <div class="supply-dialog-action">
         <div class="action-info">
           <span>Supply APY</span>
-          <span>{{ data?.deposit_apy }}</span>
+          <span>{{ poolData?.deposit_apy }}</span>
         </div>
 
         <market-dialog-action-btn
           variant="primary"
-          :loading="loading"
-          :pool="data?.raw.pool"
+          :loading="isLoading"
+          :pool="poolData?.raw.pool"
           :disabled="!isCanSupply"
           @click-handler="supply"
         >
-          Supply {{ data?.asset.symbol }}
+          Supply {{ poolData?.asset.symbol }}
         </market-dialog-action-btn>
       </div>
     </div>

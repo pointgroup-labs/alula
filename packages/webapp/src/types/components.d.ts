@@ -56,7 +56,7 @@ declare module 'vue' {
     MarketDetailsBorrow: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Details/MarketDetailsBorrow.vue')['default']
     MarketDetailsBottom: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Interest/MarketDetailsBottom.vue')['default']
     MarketDetailsSupply: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Details/MarketDetailsSupply.vue')['default']
-    MarketDialogActionBtn: typeof import('./../components/MarketsPage/Markets/Dialogs/MarketDialogActionBtn.vue')['default']
+    MarketDialogActionBtn: typeof import('./../components/Widget/MarketDialogActionBtn.vue')['default']
     MarketFilters: typeof import('./../components/MarketsPage/Markets/MarketFilters.vue')['default']
     MarketHistoryChartBorrow: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Details/MarketHistoryChartBorrow.vue')['default']
     MarketHistoryChartSupply: typeof import('./../components/MarketsPage/Markets/MarketDetailInfo/Details/MarketHistoryChartSupply.vue')['default']

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
-import { amountToUsdWithShort, bigintToNumber, formatPrice, getTokenIcon, getTokenName, shortenNumber, truncatePercent } from '~/utils'
+import { amountToUsdWithShort, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   onlyMultiplied = false,
@@ -10,19 +10,20 @@ const {
 
 const { width } = useWindowSize()
 
-const marketsStore = useMarketsStore()
-
-const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
-
-const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
-const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
+const {
+  tableItems,
+  selectedMarketAddress,
+  dialogLeverage,
+  dialogLeverageWithdraw,
+  markets,
+  isLoading,
+  selectedPool,
+  activeLeverageMarket,
+} = useMultiplyTable()
 
 const market = useMarketActions()
 
 const userStore = useUserStore()
-
-const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
-const loading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
 const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
@@ -35,68 +36,10 @@ const fields = [
   { key: 'action', label: '' },
 ]
 
-const items = computed<MultiplyTableItem[]>(() => {
-  const res = []
-  for (const market in marketsStore.state.markets) {
-    const state = marketsStore.state.markets[market]?.marketState
-    const poolsData = state?.pools_data ?? []
-    const leveragePools = state?.multiply_pairs ?? []
-    const oraclePriceDecimals = state?.oracle_price_decimals ?? 0
-    const assetDecimals = state?.asset_decimals ?? 0
-    for (const { borrow_pool, deposit_pool } of leveragePools) {
-      const depositPoolData = poolsData.find(p => p.pool.pool_address === deposit_pool)!
-      const borrowPoolData = poolsData.find(p => p.pool.pool_address === borrow_pool)!
-      const depositTokenSymbol = getTokenSymbol(depositPoolData?.pool.token_symbol)
-      const borrowTokenSymbol = getTokenSymbol(borrowPoolData?.pool.token_symbol)
-      const depositTokenName = getTokenName(String(depositTokenSymbol))
-      const depositTokenIcon = getTokenIcon(String(depositTokenSymbol)) || ''
-      const borrowTokenName = getTokenName(String(borrowTokenSymbol))
-      const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol)) || ''
-      const ltv = Number(depositPoolData?.pool.config.health_config.open_ltv_bps) || 0
-      const multiplier = calculateMaxMultiplierFromBps(ltv)
-      const supplyBPS = Number(depositPoolData?.apy.supply_bps || 0) / 10_000
-      const borrowBPS = Number(borrowPoolData?.apy.borrow_bps || 0) / 10_000
-      const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
-      const supplied = depositPoolData && depositPoolData.pool.total_available ? Number(bigintToNumber(depositPoolData.pool.total_available, assetDecimals)) : 0
-      const liquidity
-        = borrowPoolData && borrowPoolData.pool.total_available
-          ? Number(bigintToNumber(borrowPoolData.pool.total_available/*  + borrowPoolData.total_borrowed + borrowPoolData.total_collateral */, assetDecimals))
-          : 0
-      const depositPoolPrice = Number(bigintToNumber(depositPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
-      const borrowPPoolPrice = Number(bigintToNumber(borrowPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
-
-      const data = {
-        market,
-        depositPoolData,
-        borrowPoolData,
-        asset: { name: depositTokenName, symbol: depositTokenSymbol, icon: depositTokenIcon },
-        borrowAsset: { name: borrowTokenName, symbol: borrowTokenSymbol, icon: borrowTokenIcon },
-        liquidity,
-        multiplier,
-        maxAPY,
-        price: depositPoolPrice,
-        borrowPoolPrice: borrowPPoolPrice,
-        pool_address: depositPoolData?.pool.pool_address || '',
-        supplied,
-        assetDecimals,
-      }
-
-      res.push(data)
-    }
-  }
-
-  return res
-})
-
 const filteredData = computed(() => {
-  const data = onlyMultiplied ? items.value?.filter(item => isUserHaveMultiply(item.pool_address, String(item.market))) : items.value
+  const data = onlyMultiplied ? tableItems.value?.filter(item => isUserHaveMultiply(item.pool_address, String(item.market))) : tableItems.value
   return data.filter(Boolean)
 })
-
-const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
-const selectedPool = computed(() =>
-  items.value.find(item => item.pool_address === selectedMarketAddress.value
-    && activeLeverageMarket.value === item.market))
 
 async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' | 'withdraw') {
   selectedMarketAddress.value = item?.pool_address
@@ -107,7 +50,7 @@ async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' |
 function isUserHaveMultiply(poolAddress: string, market: string) {
   return checkIsHaveMultiply(
     userStore.state.multiplyObligations,
-    items.value ?? [],
+    tableItems.value ?? [],
     poolAddress,
     market,
   )
@@ -115,7 +58,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 </script>
 
 <template>
-  <div v-if="markets.length === 0 && loading">
+  <div v-if="markets.length === 0 && isLoading">
     <table-skeleton v-if="width > 650" />
     <table-skeleton-mobile v-else />
   </div>
@@ -257,7 +200,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         #empty
       >
         <div
-          v-show="!loading"
+          v-show="!isLoading"
           class="no-data"
         >
           No Pools
@@ -271,7 +214,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       @dialog-handler="(e: any) => multiplyDialogHandler(e.item, e.action)"
     />
 
-    <j-loading-spinner v-if="loading">
+    <j-loading-spinner v-if="isLoading">
       Loading...
     </j-loading-spinner>
   </div>

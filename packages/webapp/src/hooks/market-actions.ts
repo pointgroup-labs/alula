@@ -357,7 +357,7 @@ export function useMarketActions() {
         amount,
         leverage_multiplier,
         kit.value),
-      reset: () => (withdrawAmount.value = undefined),
+      reset: () => (depositAmount.value = undefined),
     })
   }
 
