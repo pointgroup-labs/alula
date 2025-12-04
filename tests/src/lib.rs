@@ -410,7 +410,7 @@ impl TestMarketFixture<'_> {
                 &(i64::MAX as i128),
             );
 
-            let token_client = token::Client::new(&e, &pool.token_address);
+            let token_client = token::Client::new(e, &pool.token_address);
             let balance_1 = token_client.balance(&new_borrower);
 
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
