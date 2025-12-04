@@ -13,7 +13,7 @@ use crate::{
         require_deposit_allowed, require_nonnegative, require_not_frozen, require_owned_and_admin,
     },
     multiply_pair::MultiplyPair,
-    obligation::{Obligation, ObligationKey, get_earn_obligation_seed},
+    obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
     oracle,
     pool::{Pool, PoolConfig},
     processors::*,
@@ -152,7 +152,7 @@ pub trait Market {
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
-    fn deposit_into_earn_obligation(
+    fn deposit_earn(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -198,13 +198,48 @@ pub trait Market {
     ///   available for it
     fn withdraw(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
 
+    /// Simulates withdrawal of the deposited tokens from the loan pool to the user
+    ///
+    /// # Arguments
+    /// * `user` - user which withdraws deposited tokens
+    /// * `pool_address` - address of a pool from which the withdrawal happens
+    /// * `amount` - desired amount of tokens to withdraw.
+    ///   The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
+    ///   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens
+    ///   available for it
+    ///
+    /// # Returns
+    /// [`WithdrawResult`] with simulated withdrawal data
+    fn simulate_withdraw(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<WithdrawResult, MCError>;
+
+    /// Simulates Withdrawal of the deposited tokens from the `Earn` obligation from the loan pool to the user
+    ///
+    /// # Arguments
+    /// * `user` - user that deposits a token
+    /// * `pool_address` - address of a pool to which the deposit happens
+    /// * `amount` - amount of tokens which are going to be deposited
+    ///
+    /// # Returns
+    /// [`WithdrawResult`] with simulated withdrawal data
+    fn simulate_earn_withdraw(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<WithdrawResult, MCError>;
+
     /// Withdraws deposited tokens from the `Earn` obligation from the loan pool to the user
     ///
     /// # Arguments
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
-    fn withdraw_from_earn_obligation(
+    fn withdraw_earn(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -436,7 +471,7 @@ pub trait Market {
     /// Returns the user's `Earn` obligation
     ///
     /// # Arguments
-    /// * `user` - user whose `Earn` vault obligation is returned
+    /// * `user` - user whose `Earn` obligation is returned
     fn get_earn_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError>;
 
     /// Returns the user's obligation for a specific multiply pair
@@ -697,7 +732,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn deposit_into_earn_obligation(
+    fn deposit_earn(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -707,8 +742,8 @@ impl Market for MarketContract {
         require_deposit_allowed(&e)?;
         storage::extend_instance_storage(&e);
 
-        let vault_seed = get_earn_obligation_seed(&e);
-        let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
+        let earn_seed: BytesN<32> = get_earn_obligation_seed(&e);
+        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
         process_deposit(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
@@ -847,7 +882,30 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn withdraw_from_earn_obligation(
+    fn simulate_withdraw(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<WithdrawResult, MCError> {
+        let obligation_key = ObligationKey::new(user);
+
+        process_compute_withdraw_fees(&e, &obligation_key, &pool_address, amount)
+    }
+
+    fn simulate_earn_withdraw(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+    ) -> Result<WithdrawResult, MCError> {
+        let earn_seed = get_earn_obligation_seed(&e);
+        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
+
+        process_compute_withdraw_fees(&e, &obligation_key, &pool_address, amount)
+    }
+
+    fn withdraw_earn(
         e: Env,
         user: Address,
         pool_address: Address,
@@ -857,8 +915,8 @@ impl Market for MarketContract {
         require_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
-        let vault_seed = get_earn_obligation_seed(&e);
-        let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
+        let earn_seed = get_earn_obligation_seed(&e);
+        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
         process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
 
@@ -1047,9 +1105,9 @@ impl Market for MarketContract {
     }
 
     fn get_earn_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
-        let vault_seed = get_earn_obligation_seed(&e);
+        let earn_seed = get_earn_obligation_seed(&e);
 
-        let obligation_key = ObligationKey::new_with_seed(user, vault_seed);
+        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
         Ok(obligation)

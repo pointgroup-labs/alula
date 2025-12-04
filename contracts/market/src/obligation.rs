@@ -1339,7 +1339,8 @@ fn compute_withdraw_scarcity_fee_bps(
         let new_total_supply = pool_total_supply - deposit_decrease; // safe
 
         if new_total_supply == 0 {
-            BPS_FACTOR
+            // Happens only when the last withdrawal takes place in a pool
+            0
         } else {
             pool.total_borrowed
                 .fixed_div_ceil(new_total_supply, BPS_FACTOR)
@@ -1350,8 +1351,6 @@ fn compute_withdraw_scarcity_fee_bps(
     let utilization_ratio_diff_bps = if new_utilization_ratio_bps
         > pool.config.health_config.utilization_ratio_limit_bps
     {
-        // If withdraw leads to a scarcity state - update the last scarcity withdraw timestamp
-        // per deposit obligation
         let deposit_decrease_to_total_supply_bps = deposit_decrease
             .fixed_div_ceil(pool_total_supply, BPS_FACTOR)
             .map_over_or_underflow()?;

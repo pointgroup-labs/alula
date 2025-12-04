@@ -232,7 +232,7 @@ fn test_deposit_multiple_shareholders() {
 }
 
 #[test]
-fn test_deposit_into_earn_obligation() {
+fn test_deposit_earn() {
     let TestMarketFixture {
         e, contract_client, gold_pool_address, users, gold_token_client, ..
     } = TestMarketFixture::new();
@@ -240,11 +240,7 @@ fn test_deposit_into_earn_obligation() {
 
     let creditor_balance_before = gold_token_client.balance(creditor);
 
-    contract_client.deposit_into_earn_obligation(
-        creditor,
-        &gold_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let creditor_balance_after = gold_token_client.balance(creditor);
     let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
@@ -270,7 +266,7 @@ fn test_deposit_into_earn_obligation() {
 }
 
 #[test]
-fn test_earn_vault_deposit_is_isolated() {
+fn test_earn_deposit_is_isolated() {
     let TestMarketFixture {
         contract_client,
         gold_pool_address,
@@ -282,11 +278,7 @@ fn test_earn_vault_deposit_is_isolated() {
     let creditor = &users[0];
     let liquidity_provider = &users[0];
 
-    contract_client.deposit_into_earn_obligation(
-        creditor,
-        &gold_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     assert_eq!(
         contract_client.try_borrow(creditor, &usdc_pool_address, &1),
@@ -294,11 +286,7 @@ fn test_earn_vault_deposit_is_isolated() {
     );
 
     // Deposit as a liquidity provider to ignore withdrawal scarcity fees
-    contract_client.deposit_into_earn_obligation(
-        liquidity_provider,
-        &gold_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.deposit_earn(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // - Try withdraw all -
@@ -311,14 +299,10 @@ fn test_earn_vault_deposit_is_isolated() {
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
     assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
 
-    // - Withdraw from the earn vault -
+    // - Withdraw from the earn obligation -
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.withdraw_from_earn_obligation(
-        creditor,
-        &gold_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.withdraw_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     let creditor_balance_diff =

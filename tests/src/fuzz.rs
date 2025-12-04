@@ -2,7 +2,7 @@
 
 use crate::{
     Amount, Borrow, Command::*, Deposit, DepositCollateral, DepositWithLeverage, Input, PassTime,
-    Repay, TestMarketFixture, Token::*,
+    Repay, TestMarketFixture, Token::*, Withdraw, WithdrawCollateral, WithdrawFromLeveraged,
 };
 
 #[allow(unused)]
@@ -117,4 +117,98 @@ fn test_y() {
     };
 
     test_fuzzed_issue(&input);
+}
+
+#[test]
+#[ignore]
+fn test_nov_30() {
+    let input = Input {
+        commands: [
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: GOLD }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: GOLD }),
+            ButchDeposit(Deposit { amount: Amount(289649777), token: GOLD }),
+            JerryDeposit(Deposit { amount: Amount(1635931344), token: GOLD }),
+            NibblesDeposit(Deposit { amount: Amount(1738514335), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            JerryBorrow(Borrow { amount: Amount(1503633311), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038393), token: BTC }),
+            JerryWithdraw(Withdraw { amount: Amount(754636781), token: BTC }),
+            TomRepay(Repay { amount: Amount(821075880), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            TomRepay(Repay { amount: Amount(0), token: BTC }),
+        ],
+    };
+
+    test_fuzzed_issue(&input);
+}
+
+#[test]
+fn test_dec_2_1() {
+    test_fuzzed_issue(&Input {
+        commands: [
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: GOLD }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            TomWithdrawFromLeveraged(WithdrawFromLeveraged {
+                amount: Amount(3586718025),
+                deposit_token: USDC,
+                borrow_token: GOLD,
+            }),
+            JerryDeposit(Deposit { amount: Amount(1635931344), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            ButchDepositCollateral(DepositCollateral { amount: Amount(132044232), token: BTC }),
+            TomDepositCollateral(DepositCollateral { amount: Amount(482789362), token: USDC }),
+            NibblesWithdrawCollateral(WithdrawCollateral {
+                amount: Amount(3321542594),
+                token: USDC,
+            }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            ButchBorrow(Borrow { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038309), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678026655), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678628255), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            TomRepay(Repay { amount: Amount(0), token: BTC }),
+        ],
+    });
+}
+
+#[test]
+fn test_dec_2_2() {
+    test_fuzzed_issue(&Input {
+        commands: [
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: GOLD }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: BTC }),
+            ButchDeposit(Deposit { amount: Amount(1162167621), token: BTC }),
+            ButchDeposit(Deposit { amount: Amount(1162167621), token: BTC }),
+            ButchDeposit(Deposit { amount: Amount(1162167621), token: BTC }),
+            ButchDeposit(Deposit { amount: Amount(1162167621), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2667577344), token: BTC }),
+            TomRepay(Repay { amount: Amount(0), token: BTC }),
+            TomRepay(Repay { amount: Amount(0), token: BTC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            TomDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            TomBorrow(Borrow { amount: Amount(522133279), token: BTC }),
+            TomBorrow(Borrow { amount: Amount(522133407), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678026655), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: USDC }),
+            NibblesDepositCollateral(DepositCollateral { amount: Amount(2678038431), token: BTC }),
+        ],
+    });
 }
