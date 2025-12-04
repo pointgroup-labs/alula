@@ -22,6 +22,8 @@ const { generateExplorerLink } = useExplorerLink()
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
+const userStore = useUserStore()
+
 const amount = toRef(market, 'depositAmount')
 const collateralOnly = toRef(market, 'collateralOnly')
 
@@ -55,6 +57,16 @@ const contractAddress = computed(() => data?.raw.pool.pool_address || '')
 const marketFee = computed(() => {
   const marketFeeBps = collateralOnly.value ? data?.raw.pool.config.fee_config.add_collateral_fee_bps : data?.raw.pool.config.fee_config.deposit_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
+})
+
+const isCanSupply = computed(() => {
+  const depositObligations = userStore.state.obligations[String(data?.market)]?.borrows ?? []
+  for (const [address] of depositObligations) {
+    if (address === data?.raw.pool.pool_address) {
+      return false
+    }
+  }
+  return true
 })
 
 async function supply() {
@@ -166,10 +178,10 @@ watch(() => route.query, (q) => {
         :fee="POOL_REMAINING_BALANCE + txFee"
         class="supply-dialog__input"
         :rules="[
-          (v: number) => {
+          (v) => {
             return v && Number(v) < balance || 'Insufficient balance'
           },
-          (v: number) => {
+          (v) => {
             return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
           },
         ]"
@@ -227,9 +239,16 @@ watch(() => route.query, (q) => {
         </div>
       </div>
 
+      <warning-block
+        v-if="!isCanSupply"
+        text="You cannot deposit funds into a pool where you have an active loan."
+        :is-warning="!isCanSupply"
+      />
+
       <j-toggle
         v-model="collateralOnly"
         size="small"
+        :disabled="!isCanSupply"
       >
         <template #append>
           Collateral Only
@@ -246,6 +265,7 @@ watch(() => route.query, (q) => {
           variant="primary"
           :loading="loading"
           :pool="data?.raw.pool"
+          :disabled="!isCanSupply"
           @click-handler="supply"
         >
           Supply {{ data?.asset.symbol }}

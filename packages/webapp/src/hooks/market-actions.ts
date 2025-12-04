@@ -65,6 +65,7 @@ export function useMarketActions() {
     body: string
     exec: () => Promise<{ txHash?: string }>
     action?: () => void | Promise<void>
+    reset?: () => void
   }) {
     const { pool, type, title, body, exec, market, client } = opts
     marketsStore.activeActionPool = {
@@ -81,6 +82,7 @@ export function useMarketActions() {
     })
     try {
       const res = await exec()
+      opts?.reset?.()
       await reloadData(pool, market, client, opts?.action)
       toast.create({
         title: `${title} Success`,
@@ -139,9 +141,8 @@ export function useMarketActions() {
       title: 'Deposit',
       body: `Sending transaction to deposit ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.depositToLending(pk, pool_address, amount, kit.value),
+      reset: () => (depositAmount.value = undefined),
     })
-
-    depositAmount.value = undefined
   }
 
   // Borrow
@@ -174,9 +175,8 @@ export function useMarketActions() {
       title: 'Borrow',
       body: `Sending transaction to borrow ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.borrowLendingAsset(pk, pool_address, amount, kit.value),
+      reset: () => (borrowAmount.value = undefined),
     })
-
-    borrowAmount.value = undefined
   }
 
   // Withdraw
@@ -211,9 +211,8 @@ export function useMarketActions() {
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.withdrawDeposit(pk, pool_address, increasedAmount, kit.value),
+      reset: () => (withdrawAmount.value = undefined),
     })
-
-    withdrawAmount.value = undefined
   }
 
   // Repay
@@ -249,9 +248,8 @@ export function useMarketActions() {
       title: 'Repay',
       body: `Sending transaction to repay ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.repayBorrow(pk, pool_address, increasedAmount, kit.value),
+      reset: () => (repayAmount.value = undefined),
     })
-
-    repayAmount.value = undefined
   }
 
   // Add collateral
@@ -285,9 +283,8 @@ export function useMarketActions() {
       title: 'Add Collateral',
       body: `Sending transaction to add collateral ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.addCollateral(pk, pool_address, amount, kit.value),
+      reset: () => (depositAmount.value = undefined),
     })
-
-    depositAmount.value = undefined
   }
 
   // Remove collateral
@@ -320,9 +317,8 @@ export function useMarketActions() {
       title: 'Withdraw Collateral',
       body: `Sending transaction to withdraw collateral ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.marketSdk.removeCollateral(pk, pool_address, amount, kit.value),
+      reset: () => (withdrawAmount.value = undefined),
     })
-
-    withdrawAmount.value = undefined
   }
 
   // Leverage
@@ -361,9 +357,8 @@ export function useMarketActions() {
         amount,
         leverage_multiplier,
         kit.value),
+      reset: () => (withdrawAmount.value = undefined),
     })
-
-    withdrawAmount.value = undefined
   }
 
   // Withdraw Leverage
@@ -400,9 +395,8 @@ export function useMarketActions() {
         borrow_pool_address,
         increasedAmount,
         connectionStore.kit),
+      reset: () => (withdrawAmount.value = undefined),
     })
-
-    withdrawAmount.value = undefined
   }
 
   async function reloadData(pool_address: string, market: string, client: StellarClient, action?: () => void | Promise<void>) {

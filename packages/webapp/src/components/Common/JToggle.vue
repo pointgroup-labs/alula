@@ -1,17 +1,14 @@
 <script lang="ts" setup>
 const {
-  modelValue,
   disabled = false,
 } = defineProps<{
-  modelValue: boolean
   disabled?: boolean
   color?: string
 }>()
 
-const emit = defineEmits(['update:modelValue'])
 const slots = defineSlots()
 
-const value = ref(false)
+const value = defineModel({ default: false })
 
 function toggleHandler() {
   if (disabled) {
@@ -19,14 +16,6 @@ function toggleHandler() {
   }
   value.value = !value.value
 }
-
-watch(value, () => {
-  emit('update:modelValue', value.value)
-})
-
-watch(() => modelValue, (v) => {
-  value.value = v
-}, { immediate: true })
 </script>
 
 <template>
@@ -61,6 +50,10 @@ watch(() => modelValue, (v) => {
   align-items: center;
   gap: $spacing-8;
   cursor: pointer;
+
+  &:has(.form-check-input:disabled) {
+    cursor: not-allowed;
+  }
 
   &__label {
     font-size: 16px;

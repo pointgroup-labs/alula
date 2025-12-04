@@ -51,10 +51,11 @@ const availableToBorrow = computed(() => {
   const openLTV = Number(data?.raw.pool.config.health_config.open_ltv_bps || 0) / 10_000
   const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(data.price)
   const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
-  const maxAvailableUsd = Math.min(Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0), marketAvailableInUsd)
+  const userAvailable = Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0)
+  const maxAvailableUsd = Math.min(userAvailable, marketAvailableInUsd)
   const maxAvailableAssets = maxAvailableUsd / Number(data.price)
 
-  return Math.max(maxAvailableAssets, 0)
+  return marketAvailableInUsd > userAvailable ? maxAvailableAssets : Math.floor(maxAvailableAssets)
 })
 
 const healthFactor = computed(() => {
@@ -84,6 +85,21 @@ const marketFee = computed(() => {
   const marketFeeBps = data?.raw.pool.config.fee_config.borrow_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
+
+const isCanBorrow = computed(() => {
+  const depositObligations = userStore.state.obligations[String(data?.market)]?.deposits ?? []
+  for (const [address] of depositObligations) {
+    if (address === data?.raw.pool.pool_address) {
+      return false
+    }
+  }
+  return true
+})
+
+const attentionText = computed(() =>
+  isCanBorrow.value
+    ? 'Parameter changes via governance can alter your account health factor and risk of liquidation.'
+    : 'You cannot open a loan in the same pool where you have a deposit.')
 
 async function borrow() {
   if (!publicKey.value || !data?.raw.pool.pool_address) {
@@ -257,17 +273,16 @@ watchDebounced([
         </div>
       </div>
 
-      <div class="supply-warning">
-        <i-app-warning-color class="warning-icon" />
-        <div>
-          <span>Attention</span>: Parameter changes via governance can alter your account health factor and
-          risk of
-          liquidation.
-        </div>
-      </div>
+      <warning-block
+        :text="attentionText"
+        :is-warning="!isCanBorrow"
+      />
 
       <div class="supply-agree">
-        <j-checkbox v-model="agree">
+        <j-checkbox
+          v-model="agree"
+          :disabled="!isCanBorrow"
+        >
           I acknowledge the risks involved.
         </j-checkbox>
       </div>
@@ -282,7 +297,7 @@ watchDebounced([
           variant="accent"
           :loading="loading"
           :pool="data?.raw.pool"
-          :disabled="!agree"
+          :disabled="!agree || !isCanBorrow"
           @click-handler="borrow"
         >
           Borrow {{ data?.asset.symbol }}
@@ -294,30 +309,6 @@ watchDebounced([
 
 <style lang="scss">
 .borrow-dialog {
-  .supply-warning {
-    padding: $spacing-16;
-    border-radius: $spacing-8;
-    background-color: $neutral-2;
-    display: flex;
-    align-items: flex-start;
-    gap: $spacing-8;
-    color: $neutral-6;
-    font-size: 11px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 12px;
-
-    span {
-      font-weight: 700;
-    }
-
-    .warning-icon {
-      min-width: 16px;
-      width: 16px;
-      height: 16px;
-    }
-  }
-
   .supply-agree {
     font-size: 11px;
     font-style: normal;
@@ -326,15 +317,6 @@ watchDebounced([
     display: flex;
     align-items: center;
     gap: $spacing-8;
-  }
-}
-
-body.body--dark {
-  .borrow-dialog {
-    .supply-warning {
-      background-color: $neutral-18;
-      color: $neutral-12;
-    }
   }
 }
 </style>

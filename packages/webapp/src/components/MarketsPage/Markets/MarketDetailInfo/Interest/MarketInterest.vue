@@ -62,13 +62,13 @@ const utilizationRate = computed(() => {
             class="market-interest-legend__item"
             :style="{ '--legend-color': '#006CE4' }"
           >
-            Borrow APR
+            Current Utilization Rate
           </div>
           <div
             class="market-interest-legend__item"
             :style="{ '--legend-color': '#FFD101' }"
           >
-            Utilization Rate
+            Pool Utilization Rate
           </div>
         </div>
       </dynamic-teleport>

@@ -16,6 +16,8 @@ declare module 'vue' {
     AppFooter: typeof import('./../components/AppFooter.vue')['default']
     AppHeader: typeof import('./../components/AppHeader.vue')['default']
     AppSettings: typeof import('./../components/Settings/AppSettings.vue')['default']
+    Attention: typeof import('../components/Widget/WarningBlock.vue')['default']
+    AttentionTip: typeof import('../components/Widget/WarningBlock.vue')['default']
     BorrowDialog: typeof import('./../components/MarketsPage/Markets/Dialogs/BorrowDialog.vue')['default']
     ChartDateFilter: typeof import('./../components/Widget/ChartDateFilter.vue')['default']
     ConnectWallet: typeof import('./../components/ConnectWallet.vue')['default']
@@ -90,6 +92,7 @@ declare module 'vue' {
     TableSkeleton: typeof import('./../components/Skeleton/TableSkeleton.vue')['default']
     TableSkeletonMobile: typeof import('./../components/Skeleton/TableSkeletonMobile.vue')['default']
     TotalCard: typeof import('./../components/Widget/TotalCard.vue')['default']
+    WarningBlock: typeof import('./../components/Widget/WarningBlock.vue')['default']
     WithdrawDialog: typeof import('./../components/AccountsPage/Dialogs/WithdrawDialog.vue')['default']
     WithdrawLeverageDialog: typeof import('./../components/MultiplyPage/Dialogs/WithdrawLeverageDialog.vue')['default']
   }
