@@ -104,7 +104,7 @@ pub fn swap_tokens_for_exact_tokens(
         let auth_entry = InvokerContractAuthEntry::Contract(SubContractInvocation {
             context: ContractContext {
                 contract: token_in.clone(),
-                fn_name: Symbol::new(&e, "transfer"),
+                fn_name: Symbol::new(e, "transfer"),
                 args: (e.current_contract_address(), pair, amount_in_max as i128).into_val(e),
             },
             sub_invocations: vec![&e],
