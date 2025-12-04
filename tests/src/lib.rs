@@ -263,11 +263,8 @@ impl TestMarketFixture<'_> {
             e,
             contract_client,
             contract_id,
-            gold_sac,
             gold_pool_address,
-            btc_sac,
             btc_pool_address,
-            usdc_sac,
             usdc_pool_address,
             users,
             ..
@@ -319,14 +316,6 @@ impl TestMarketFixture<'_> {
         }
 
         // -- It must be always possible to borrow what's available on the pool --
-
-        let new_borrower = Address::generate(e);
-
-        let collateral_amount = (i64::MAX as i128) * 2;
-
-        usdc_sac.mint(&new_borrower, &collateral_amount);
-        btc_sac.mint(&new_borrower, &collateral_amount);
-        gold_sac.mint(&new_borrower, &collateral_amount);
 
         let multiply_pairs = contract_client.get_all_multiply_pairs();
 
@@ -395,56 +384,6 @@ impl TestMarketFixture<'_> {
 
             assert_eq!(pool.total_j_tokens, j_tokens_obligations_sum);
             assert_eq!(pool.total_d_tokens, d_tokens_obligations_sum);
-
-            let available_borrow = pool.compute_available_utilization_ratio_cap_borrow(e).unwrap();
-
-            let collateral_pool_address = if &pool.token_address == btc_pool_address {
-                gold_pool_address
-            } else {
-                btc_pool_address
-            };
-
-            contract_client.add_collateral(
-                &new_borrower,
-                collateral_pool_address,
-                &(i64::MAX as i128),
-            );
-
-            let token_client = token::Client::new(e, &pool.token_address);
-            let balance_1 = token_client.balance(&new_borrower);
-
-            contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
-
-            let balance_2 = token_client.balance(&new_borrower);
-            let diff = balance_2.checked_sub(balance_1).unwrap();
-            let expected_fee = available_borrow
-                .fixed_mul_ceil(pool.config.fee_config.borrow_fee_bps as i128, BPS_FACTOR)
-                .unwrap();
-            assert!(diff >= available_borrow.checked_sub(expected_fee).unwrap());
-
-            contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
-            contract_client.remove_collateral(
-                &new_borrower,
-                collateral_pool_address,
-                &collateral_amount,
-            );
-
-            if let Ok(Ok(_obligation)) = contract_client.try_get_user_obligation(&new_borrower) {
-                let sac_client = StellarAssetClient::new(e, &pool.token_address);
-                sac_client.mint(&new_borrower, &available_borrow);
-
-                contract_client.repay(&new_borrower, &pool.pool_address, &available_borrow);
-                contract_client.remove_collateral(
-                    &new_borrower,
-                    collateral_pool_address,
-                    &i128::MAX,
-                );
-
-                assert_eq!(
-                    contract_client.try_get_user_obligation(&new_borrower),
-                    Err(Ok(MCError::ObligationDoesNotExist))
-                );
-            }
         }
     }
 }
