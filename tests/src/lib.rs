@@ -333,7 +333,10 @@ impl TestMarketFixture<'_> {
 
         let multiply_pairs = contract_client.get_all_multiply_pairs();
 
-        for pool in &pools {
+        for (p_ind, pool) in pools.iter().enumerate() {
+            if p_ind == 2 {
+                std::dbg!("");
+            }
             let (mut j_tokens_obligations_sum, mut d_tokens_obligations_sum) = (0_i128, 0_i128);
 
             for user in users {
@@ -412,6 +415,7 @@ impl TestMarketFixture<'_> {
                 collateral_pool_address,
                 &collateral_amount,
             );
+            std::dbg!(&p_ind);
             contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
 
             contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);

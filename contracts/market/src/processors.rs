@@ -652,8 +652,6 @@ pub fn process_deposit_with_leverage(
     Ok(())
 }
 
-// TODO: adjust_leverage() {}
-
 pub fn process_withdraw_from_leveraged(
     e: &Env,
     obligation_key: &ObligationKey,
@@ -710,9 +708,12 @@ pub fn process_withdraw_from_leveraged(
             &borrow_pool.token_address,
             deposited_tokens,
             borrowed_tokens,
-            borrow_pool.config.fee_config.flash_loan_fee_bps,
         )?;
+
     let withdrawn_to_user_wallet_amount = i128::min(amount, max_withdrawable_to_user_wallet_amount);
+    let is_all_withdrawn =
+        withdrawn_to_user_wallet_amount == max_withdrawable_to_user_wallet_amount;
+
     let withdrawn_ratio_bps = withdrawn_to_user_wallet_amount
         .fixed_div_ceil(max_withdrawable_to_user_wallet_amount, BPS_FACTOR)
         .map_over_or_underflow()?;
@@ -723,64 +724,71 @@ pub fn process_withdraw_from_leveraged(
         .fixed_mul_floor(withdrawn_ratio_bps, BPS_FACTOR)
         .map_over_or_underflow()?;
 
-    // To maintain LTV for the leveraged position, the amount of borrowed tokens to be repaid
-    // must be proportional to the withdrawn amount of the deposited tokens
-    let flash_borrow_amount =
-        borrowed_tokens.fixed_mul_ceil(withdrawn_ratio_bps, BPS_FACTOR).map_over_or_underflow()?;
-    borrow_pool.require_total_available(flash_borrow_amount)?;
-
     // -- Flash Borrow --
 
-    let flash_borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
-    flash_borrowed_token_client.transfer(
-        &e.current_contract_address(),
-        &obligation_key.user,
-        &flash_borrow_amount,
-    );
+    let (swap_amount_in, swap_amount_out) = if is_all_withdrawn {
+        let swap_amount_out = borrowed_tokens;
+        let swap_amount_in = swap::get_amount_in(
+            e,
+            &deposit_pool.token_address,
+            &borrow_pool.token_address,
+            swap_amount_out,
+        )?;
+
+        if swap_amount_in > plain_leverage_to_be_withdrawn {
+            // TODO: This is possible due to price differences
+            // between DEX and the oracle
+            return Err(MCError::InternalError);
+        }
+
+        (swap_amount_in, swap_amount_out)
+    } else {
+        let swap_amount_in = plain_leverage_to_be_withdrawn;
+        let swap_amount_out = swap::get_amount_out(
+            e,
+            &deposit_pool.token_address,
+            &borrow_pool.token_address,
+            swap_amount_in,
+        )?;
+
+        (swap_amount_in, swap_amount_out)
+    };
+    let flash_borrow_amount = swap_amount_out;
+
+    // To maintain LTV for the leveraged position, the amount of borrowed tokens to be repaid
+    // must be proportional to the withdrawn amount of the deposited tokens
+    borrow_pool.require_total_available(flash_borrow_amount)?;
     borrow_pool
         .adjust_total_available(e, flash_borrow_amount.checked_neg().map_over_or_underflow()?)?;
     borrow_pool.set(e);
 
     // -- Repay Debt --
 
-    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount)?
-        .execute_transfers();
+    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount)?;
     borrow_pool.refresh(e)?;
 
-    // -- Withdraw --
+    // -- Withdraw plain leverage --
 
-    let withdrawn_amount = withdrawn_to_user_wallet_amount
-        .checked_add(plain_leverage_to_be_withdrawn)
-        .map_over_or_underflow()?;
-    process_withdraw(e, obligation_key, &deposit_pool.pool_address, withdrawn_amount)?
-        .execute_transfers();
+    process_withdraw(
+        e,
+        obligation_key,
+        &deposit_pool.pool_address,
+        plain_leverage_to_be_withdrawn,
+    )?;
     deposit_pool.refresh(e)?;
 
     // -- Swap to repay the flash loan --
 
-    let flash_loan_fee = flash_borrow_amount
-        .fixed_mul_ceil(borrow_pool.config.fee_config.flash_loan_fee_bps as i128, BPS_FACTOR)
-        .map_over_or_underflow()?;
-    let flash_repay_amount =
-        flash_borrow_amount.checked_add(flash_loan_fee).map_over_or_underflow()?;
-
-    let swap_amount_out = flash_repay_amount;
-    let swap_amount_in = swap::get_amount_in(
-        e,
-        &deposit_pool.token_address,
-        &borrow_pool.token_address,
-        swap_amount_out,
-    )?;
     let received_amount = swap::swap_tokens_for_exact_tokens(
         e,
-        &obligation_key.user,
+        &e.current_contract_address(),
         &deposit_pool.token_address,
         &borrow_pool.token_address,
         swap_amount_in,
         swap_amount_out,
         Some(0),
     )?;
-    if received_amount < flash_repay_amount {
+    if received_amount < swap_amount_out {
         events::received_unexpected_swap_amount(
             e,
             &obligation_key.user,
@@ -797,14 +805,22 @@ pub fn process_withdraw_from_leveraged(
 
     // -- Flash Repay --
 
-    flash_borrowed_token_client.transfer(
-        &obligation_key.user,
-        e.current_contract_address(),
-        &flash_repay_amount,
-    );
-    borrow_pool.adjust_total_available(e, flash_borrow_amount)?;
-    borrow_pool.adjust_accumulated_market_fees(e, flash_loan_fee)?;
+    borrow_pool.adjust_total_available(e, received_amount)?;
     borrow_pool.set(e);
+
+    // -- Withdraw remaining to the user's wallet --
+
+    process_withdraw(
+        e,
+        obligation_key,
+        &deposit_pool.pool_address,
+        withdrawn_to_user_wallet_amount,
+    )?
+    .execute_transfers();
+
+    let total_withdrawn_amount = withdrawn_to_user_wallet_amount
+        .checked_add(plain_leverage_to_be_withdrawn)
+        .map_over_or_underflow()?;
 
     events::withdraw_from_leveraged(
         e,
@@ -812,12 +828,14 @@ pub fn process_withdraw_from_leveraged(
         &deposit_pool.pool_address,
         &borrow_pool.pool_address,
         withdrawn_to_user_wallet_amount,
-        withdrawn_amount,
+        total_withdrawn_amount,
         flash_borrow_amount,
     );
 
     Ok(())
 }
+
+// TODO: adjust_leverage() {}
 
 pub fn process_liquidate<'a>(
     e: &'a Env,
@@ -1050,18 +1068,12 @@ fn compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
     borrowed_token: &Address,
     deposited_amount: i128,
     borrowed_amount: i128,
-    flash_loan_fee_bps: u32,
 ) -> Result<i128, MCError> {
     require_nonnegative(deposited_amount)?;
     require_nonnegative(borrowed_amount)?;
 
-    let flash_loan_fee = borrowed_amount
-        .fixed_mul_ceil(flash_loan_fee_bps as i128, BPS_FACTOR)
-        .map_over_or_underflow()?;
-    let flash_repay_amount = borrowed_amount.checked_add(flash_loan_fee).map_over_or_underflow()?;
-    let deposit_tokens_to_repay_flash_loan =
-        swap::get_amount_in(e, deposited_token, borrowed_token, flash_repay_amount)?;
-    if deposit_tokens_to_repay_flash_loan > deposited_amount {
+    let x_tokens = swap::get_amount_in(e, deposited_token, borrowed_token, borrowed_amount)?;
+    if x_tokens > deposited_amount {
         events::leveraged_position_bad_debt(
             e,
             user,
@@ -1069,11 +1081,11 @@ fn compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
             borrowed_token,
             deposited_amount,
             borrowed_amount,
-            deposit_tokens_to_repay_flash_loan,
+            x_tokens,
         );
 
         return Err(MCError::LeveragePositionContainsBadDebt);
     }
 
-    Ok(deposited_amount - deposit_tokens_to_repay_flash_loan) // safe
+    Ok(deposited_amount - x_tokens) // safe
 }

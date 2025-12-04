@@ -10,7 +10,10 @@ fn test_fuzzed_issue(input: &Input) {
     let test_fixture = TestMarketFixture::new();
     test_fixture.e.cost_estimate().budget().reset_unlimited();
 
-    for command in &input.commands {
+    for (ind, command) in input.commands.iter().enumerate() {
+        if ind == 14 {
+            std::dbg!("");
+        }
         command.run(&test_fixture);
         test_fixture.assert_invariants();
     }
