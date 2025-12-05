@@ -85,7 +85,9 @@ const availableToWithdraw = computed(() => {
   let maxWithdrawAmount = maxWithdrawUsd / price
 
   const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value
-  maxWithdrawAmount = Math.min(balance, maxWithdrawAmount)
+  const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 7
+  const totalAvailable = data ? bigintToNumber(data.raw.pool.total_available, assetDecimals) : 0
+  maxWithdrawAmount = Math.min(balance, maxWithdrawAmount, Number(totalAvailable))
 
   return Math.max(Number(truncatePercent(maxWithdrawAmount, 7)), 0)
 })
