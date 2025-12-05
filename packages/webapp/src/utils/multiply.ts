@@ -63,7 +63,7 @@ export function calculateCurrentMultiplier(
   const initialValue = totalValue - borrowed * borrowedPrice
 
   if (initialValue <= 0) {
-    return Infinity // теоретически невозможно, но защита
+    return Infinity
   }
 
   return totalValue / initialValue
