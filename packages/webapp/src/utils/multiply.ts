@@ -1,10 +1,9 @@
-import type { Obligation } from '@alula/market-sdk'
-import type { MultiplyTableItem } from '~/types/table'
+import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
 import Decimal from 'decimal.js'
 
 export function checkIsHaveMultiply(
-  obligations: Record<string, Obligation>,
-  tableData: MultiplyTableItem[],
+  obligations: ObligationUI,
+  tableData: MultiplyTableItem[] | MultiplyAccountTableItem[],
   poolAddress: string,
   market: string,
 ) {
@@ -52,4 +51,20 @@ export function calcRemainingMultiplyUSD(
     return borrowAvailableInUsd
   }
   return borrowAvailableInUsd / poolPrice / selectedMultiplier
+}
+
+export function calculateCurrentMultiplier(
+  deposited: number,
+  depositedPrice: number,
+  borrowed: number,
+  borrowedPrice: number,
+) {
+  const totalValue = deposited * depositedPrice
+  const initialValue = totalValue - borrowed * borrowedPrice
+
+  if (initialValue <= 0) {
+    return Infinity // теоретически невозможно, но защита
+  }
+
+  return totalValue / initialValue
 }

@@ -63,6 +63,7 @@ export function useMarketActions() {
     type: TableActionType
     title: string
     body: string
+    withObligation?: boolean
     exec: () => Promise<{ txHash?: string }>
     action?: () => void | Promise<void>
     reset?: () => void
@@ -83,7 +84,13 @@ export function useMarketActions() {
     try {
       const res = await exec()
       opts?.reset?.()
-      await reloadData(pool, market, client, opts?.action)
+      await reloadData({
+        pool_address: pool,
+        market,
+        client,
+        withObligation: opts?.withObligation,
+        action: opts?.action,
+      })
       toast.create({
         title: `${title} Success`,
         body: 'Transaction sent successfully',
@@ -188,9 +195,10 @@ export function useMarketActions() {
       amount: number
       limit: number
       asset_data: string
+      withBuffer: boolean
     }) {
     const pk = requireWallet()
-    const { client, market, pool_address, amount, limit, asset_data } = props
+    const { client, market, pool_address, amount, limit, asset_data, withBuffer } = props
     if (!amount || amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
@@ -201,7 +209,7 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const increasedAmount = amount * 1.05
+    const increasedAmount = withBuffer ? amount * 1.05 : amount
 
     await runAction({
       client,
@@ -348,6 +356,7 @@ export function useMarketActions() {
       type: 'leverage',
       title: 'Leverage',
       body: `Sending transaction to leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
+      withObligation: false,
       action: props.action,
       exec: () => client!.marketSdk.leverage(
         pk,
@@ -388,6 +397,7 @@ export function useMarketActions() {
       type: 'withdrawLeverage',
       title: 'Leverage',
       body: `Sending transaction to Withdraw leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
+      withObligation: false,
       action: props.action,
       exec: () => client!.marketSdk.withdrawLeverage(
         pk,
@@ -399,13 +409,27 @@ export function useMarketActions() {
     })
   }
 
-  async function reloadData(pool_address: string, market: string, client: StellarClient, action?: () => void | Promise<void>) {
-    await Promise.all([
-      marketsStore.updatePool(pool_address, market, client),
-      wallet.loadBalances(),
-      userStore.updateUserObligation(market, client),
-      action?.(),
-    ])
+  async function reloadData({
+    pool_address,
+    market,
+    client,
+    withObligation = true,
+    action,
+  }: { pool_address: string
+    market: string
+    client: StellarClient
+    withObligation?: boolean
+    action?: () => void | Promise<void> }) {
+    const tasks = [
+      () => marketsStore.updatePool(pool_address, market, client),
+      () => wallet.loadBalances(),
+      () => action?.(),
+    ]
+    if (withObligation) {
+      tasks.push(() => userStore.updateUserObligation(market, client))
+    }
+
+    await Promise.allSettled(tasks.map(cb => cb()))
   }
 
   function isDisabled(pool_address: string, actionType: TableActionType, activeMarket: string) {

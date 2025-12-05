@@ -36,6 +36,7 @@
 
   .market-cell {
     span {
+      text-transform: capitalize;
       max-width: 72px;
       overflow: hidden;
       text-overflow: ellipsis;

@@ -39,9 +39,6 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
         continue
       }
 
-      const tokenSymbol = getTokenSymbol(activePool.pool.token_symbol)
-      const tokenName = getTokenName(activePool.pool.token_symbol)
-      const icon = getTokenIcon(activePool.pool.token_symbol)
       const available = Number(bigintToNumber(activePool.total_available_adjusted, assetDecimals))
 
       const deposited = calculateTotalStake(dep.j_tokens, {
@@ -58,7 +55,7 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
 
       const data = {
         raw: activePool,
-        asset: { name: tokenName, symbol: tokenSymbol, icon },
+        asset: getFullTokenData(activePool.pool.token_symbol),
         balance,
         balanceUsd: formatPrice(balance * Number(price), 2, 2),
         price: Number(price),

@@ -1,10 +1,12 @@
 <script lang="ts" setup>
-import type { MultiplyTableItem } from '~/types/table'
+import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
 
 const {
   items,
+  showInAccounts = false,
 } = defineProps<{
-  items: MultiplyTableItem[]
+  items: MultiplyTableItem[] | MultiplyAccountTableItem[]
+  showInAccounts?: boolean
 }>()
 
 const emits = defineEmits(['dialogHandler'])
@@ -13,6 +15,11 @@ const market = useMarketActions()
 
 const userStore = useUserStore()
 
+const labelsByPage = computed(() => ({
+  supply: showInAccounts ? 'Borrowed' : 'Supplied',
+  liquidity: showInAccounts ? 'Deposited' : 'Liquidity',
+}))
+
 function isUserHaveMultiply(poolAddress: string, market: string) {
   return checkIsHaveMultiply(
     userStore.state.multiplyObligations,
@@ -20,6 +27,26 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     poolAddress,
     market,
   )
+}
+
+function getLiquidity(data: MultiplyTableItem | MultiplyAccountTableItem) {
+  let amount = 0
+  if (showInAccounts && 'deposited' in data) {
+    amount = data.deposited
+  } else if (!showInAccounts && 'liquidity' in data) {
+    amount = data.liquidity
+  }
+  return shortenNumber(amount || 0)
+}
+
+function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
+  let amount = 0
+  if (showInAccounts && 'borrowed' in data) {
+    amount = data.borrowed
+  } else if (!showInAccounts && 'supplied' in data) {
+    amount = data.supplied
+  }
+  return shortenNumber(amount || 0)
 }
 </script>
 
@@ -72,10 +99,10 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     <div class="mobile-card-body">
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          Liquidity
+          {{ labelsByPage.liquidity }}
         </div>
         <div class="info-wrapper__value ">
-          {{ shortenNumber(item.liquidity || 0) }} {{ item.borrowAsset.symbol }}
+          <span>{{ getLiquidity(item) }}</span> {{ item.borrowAsset.symbol }}
         </div>
       </div>
 
@@ -83,10 +110,10 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          Supplied
+          {{ labelsByPage.supply }}
         </div>
         <div class="info-wrapper__value ">
-          {{ shortenNumber(item.supplied.toFixed(2) || 0) }} {{ item.asset.symbol }}
+          <span>{{ getSupply(item) }}</span> {{ item.asset.symbol }}
         </div>
       </div>
 

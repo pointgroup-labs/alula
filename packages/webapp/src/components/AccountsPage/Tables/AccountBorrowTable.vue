@@ -5,8 +5,6 @@ import { calculateBorrow } from '@alula/client-sdk/src/utils'
 import {
   destructurePoolAsset,
   formatPrice,
-  getTokenIcon,
-  getTokenName,
   shortenNumber,
   truncatePercent,
 } from '~/utils'
@@ -46,9 +44,6 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
         continue
       }
 
-      const tokenSymbol = getTokenSymbol(activePool.pool.token_symbol)
-      const tokenName = getTokenName(tokenSymbol)
-      const icon = getTokenIcon(tokenSymbol)
       const rawDept = calculateBorrow(borrow.d_tokens, {
         total_borrowed: activePool.pool.total_borrowed,
         total_d_tokens: activePool.pool.total_d_tokens,
@@ -65,7 +60,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
       const data = {
         raw: activePool,
         market,
-        asset: { name: tokenName, symbol: tokenSymbol, icon },
+        asset: getFullTokenData(activePool.pool.token_symbol),
         debt,
         debtUsd,
         price,

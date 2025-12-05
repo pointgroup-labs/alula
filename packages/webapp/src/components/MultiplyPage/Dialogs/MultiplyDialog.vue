@@ -115,13 +115,15 @@ async function leverage() {
   await market.leverage({
     ...marketProps,
     action: async () => {
-      await userStore.updateUserMultiplyObligation({
-        market: activeMarket.value!.marketState.global_state.name,
-        client: activeMarket.value!.client,
-        depositPoolAddress: deposit_pool_address,
-        borrowPoolAddress: borrow_pool_address,
-      })
-      await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client)
+      await Promise.allSettled([
+        userStore.updateUserMultiplyObligation({
+          market: activeMarket.value!.marketState.global_state.name,
+          client: activeMarket.value!.client,
+          depositPoolAddress: deposit_pool_address,
+          borrowPoolAddress: borrow_pool_address,
+        }),
+        marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client),
+      ])
     },
   })
 }

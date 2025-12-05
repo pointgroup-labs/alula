@@ -48,6 +48,8 @@ const market = useMarketActions()
 const amount = toRef(market, 'withdrawAmount')
 const collateralOnly = toRef(market, 'collateralOnly')
 
+const dialog = defineModel({ default: false })
+
 const loading = ref(false)
 const reloadFee = ref(false)
 
@@ -85,7 +87,7 @@ const availableToWithdraw = computed(() => {
   const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value
   maxWithdrawAmount = Math.min(balance, maxWithdrawAmount)
 
-  return Math.max(maxWithdrawAmount, 0)
+  return Math.max(Number(truncatePercent(maxWithdrawAmount, 7)), 0)
 })
 
 const infoTableData = computed(() => {
@@ -123,8 +125,6 @@ const infoTableData = computed(() => {
   }]
 })
 
-const dialog = defineModel({ default: false })
-
 async function withdraw() {
   if (!data) {
     return
@@ -144,6 +144,7 @@ async function withdraw() {
       amount: amount.value,
       asset_data: data?.raw?.pool.name,
       limit: collateralBalance.value,
+      withBuffer: Number(availableToWithdraw.value) === Number(amount.value),
     }
 
     collateralOnly.value

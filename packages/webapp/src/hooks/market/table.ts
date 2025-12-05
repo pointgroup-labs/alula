@@ -12,9 +12,6 @@ export function useMarketTable() {
     const poolsData = activeMarket.value?.marketState?.pools_data ?? []
     return poolsData?.map((data) => {
       const pool = data.pool
-      const tokenSymbol = getTokenSymbol(pool.token_symbol)
-      const tokenName = getTokenName(pool.token_symbol)
-      const icon = getTokenIcon(pool.token_symbol) || ''
       const total_supply = Number(bigintToNumber(data.total_supply, assetDecimals)) || 0
       const total_borrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals)) || 0
       const depositApy = data.apy.supply_bps / 100
@@ -26,7 +23,7 @@ export function useMarketTable() {
       const available = Number(bigintToNumber(data.total_available_adjusted, assetDecimals))
       return {
         raw: data,
-        asset: { name: tokenName, symbol: tokenSymbol, icon },
+        asset: getFullTokenData(pool.token_symbol),
         total_supply,
         total_borrowed,
         deposit_apy: `${truncatePercent(depositApy || 0, 2)}%`,

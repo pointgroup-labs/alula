@@ -2,7 +2,7 @@ import type { Obligation, PoolData } from '@alula/market-sdk'
 import Decimal from 'decimal.js'
 import { bigintToNumber, bpsToNumber } from './format'
 
-export function calcUserTotalStakeInUsd(obligation: Obligation, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number) {
+export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number) {
   const deposits = [...obligation?.deposits]
   if (!deposits || deposits.length === 0) {
     return 0
@@ -43,7 +43,7 @@ export function calcUserTotalStakeInUsd(obligation: Obligation, poolsData: PoolD
   return userDepositsInUsd
 }
 
-export function calcUserTotalBorrowedInUsd(obligation: Obligation, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number) {
+export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number) {
   const borrows = [...obligation?.borrows]
   if (!borrows || borrows.length === 0) {
     return 0

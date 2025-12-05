@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { MultiplyTableItem } from '~/types/table'
+import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
 import { calcFee, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
@@ -7,7 +7,7 @@ import { focusInput, formatPrice } from '~/utils'
 const {
   data,
 } = defineProps<{
-  data?: MultiplyTableItem
+  data?: MultiplyTableItem | MultiplyAccountTableItem
 }>()
 
 const marketsStore = useMarketsStore()
@@ -83,13 +83,15 @@ async function withdrawLeverage() {
     await market.withdrawLeverage({
       ...marketProps,
       action: async () => {
-        await userStore.updateUserMultiplyObligation({
-          market: activeMarket.value!.marketState.global_state.name,
-          client: activeMarket.value!.client,
-          depositPoolAddress: deposit_pool_address,
-          borrowPoolAddress: borrow_pool_address,
-        })
-        await marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client)
+        await Promise.allSettled([
+          userStore.updateUserMultiplyObligation({
+            market: activeMarket.value!.marketState.global_state.name,
+            client: activeMarket.value!.client,
+            depositPoolAddress: deposit_pool_address,
+            borrowPoolAddress: borrow_pool_address,
+          }),
+          marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client),
+        ])
       },
     })
   } finally {

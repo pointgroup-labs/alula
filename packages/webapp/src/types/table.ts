@@ -37,17 +37,28 @@ export type BorrowTableItem = {
 export type MultiplyTableItem = {
   depositPoolData: PoolData
   borrowPoolData: PoolData
-  borrowAsset: {
-    name: string
-    symbol: string
-    icon: string
-  }
+  borrowAsset: TableAsset['asset']
   liquidity: number
   multiplier: number
   maxAPY: number
   price: number
   borrowPoolPrice: number
   supplied: number
+  pool_address: string
+  market?: string
+  assetDecimals: number
+} & TableAsset
+
+export type MultiplyAccountTableItem = {
+  depositPoolData: PoolData
+  borrowPoolData: PoolData
+  borrowAsset: TableAsset['asset']
+  deposited: number
+  borrowed: number
+  multiplier: number
+  maxAPY: number
+  price: number
+  borrowPoolPrice: number
   pool_address: string
   market?: string
   assetDecimals: number

@@ -1,5 +1,5 @@
 import type { StellarClient } from '@alula/client-sdk'
-import type { Obligation } from '@alula/market-sdk'
+import type { BorrowPosition, DepositPosition, Obligation } from '@alula/market-sdk'
 import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { defineStore } from 'pinia'
 
@@ -19,7 +19,8 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserObligation(market: string, client: StellarClient) {
     try {
       loading.value = true
-      state.obligations[market] = await client.marketSdk.getUserObligation(wallet.publicKey)
+      const obligations = await client.marketSdk.getUserObligation(wallet.publicKey)
+      state.obligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
       loading.value = false
@@ -35,7 +36,8 @@ export const useUserStore = defineStore('user', () => {
     try {
       loading.value = true
       const { client, market, depositPoolAddress, borrowPoolAddress } = props
-      state.multiplyObligations[market] = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      const obligations = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      state.multiplyObligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market Multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
     } finally {
       loading.value = false
@@ -48,7 +50,8 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      state.obligations[market] = await client.marketSdk.getUserObligation(wallet.publicKey)
+      const obligation = await client.marketSdk.getUserObligation(wallet.publicKey)
+      state.obligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Obligation]`, 'color: #FFB726', state.obligations[market])
       }
@@ -75,7 +78,8 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      state.multiplyObligations[market] = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      const obligation = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      state.multiplyObligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Leverage Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
       }
@@ -154,7 +158,30 @@ export const useUserStore = defineStore('user', () => {
   }
 })
 
-type UserState = {
-  obligations: Record<string, Obligation>
-  multiplyObligations: Record<string, Obligation>
+export type ObligationUI = Record<string, ObligationArray | undefined>
+
+export type ObligationArray = Omit<Obligation, 'borrows' | 'deposits'> & {
+  borrows: Array<[string, BorrowPosition]>
+  deposits: Array<[string, DepositPosition]>
+}
+
+export type UserState = {
+  obligations: ObligationUI
+  multiplyObligations: ObligationUI
+}
+
+function adaptAbligation(ob?: Obligation): ObligationArray | undefined {
+  if (!ob) {
+    return undefined
+  }
+  return {
+    positions_count: ob?.positions_count,
+    borrows: Array.isArray(ob?.borrows)
+      ? ob?.borrows as ObligationArray['borrows']
+      : [...ob.borrows.entries()],
+
+    deposits: Array.isArray(ob?.deposits)
+      ? ob?.deposits as ObligationArray['deposits']
+      : [...ob?.deposits.entries()],
+  }
 }

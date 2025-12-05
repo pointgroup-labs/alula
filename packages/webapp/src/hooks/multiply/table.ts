@@ -22,12 +22,6 @@ export function useMultiplyTable() {
       for (const { borrow_pool, deposit_pool } of leveragePools) {
         const depositPoolData = poolsData.find(p => p.pool.pool_address === deposit_pool)!
         const borrowPoolData = poolsData.find(p => p.pool.pool_address === borrow_pool)!
-        const depositTokenSymbol = getTokenSymbol(depositPoolData?.pool.token_symbol)
-        const borrowTokenSymbol = getTokenSymbol(borrowPoolData?.pool.token_symbol)
-        const depositTokenName = getTokenName(String(depositTokenSymbol))
-        const depositTokenIcon = getTokenIcon(String(depositTokenSymbol)) || ''
-        const borrowTokenName = getTokenName(String(borrowTokenSymbol))
-        const borrowTokenIcon = getTokenIcon(String(borrowTokenSymbol)) || ''
         const ltv = Number(depositPoolData?.pool.config.health_config.open_ltv_bps) || 0
         const multiplier = calculateMaxMultiplierFromBps(ltv)
         const supplyBPS = Number(depositPoolData?.apy.supply_bps || 0) / 10_000
@@ -45,8 +39,8 @@ export function useMultiplyTable() {
           market,
           depositPoolData,
           borrowPoolData,
-          asset: { name: depositTokenName, symbol: depositTokenSymbol, icon: depositTokenIcon },
-          borrowAsset: { name: borrowTokenName, symbol: borrowTokenSymbol, icon: borrowTokenIcon },
+          asset: getFullTokenData(depositPoolData?.pool.token_symbol),
+          borrowAsset: getFullTokenData(borrowPoolData?.pool.token_symbol),
           liquidity,
           multiplier,
           maxAPY,

@@ -10,7 +10,7 @@
       <div class="account-card__title">
         Your Multiplies
       </div>
-      <multiply-table only-multiplied />
+      <account-multiply-table only-multiplied />
     </div>
   </main>
 </template>
