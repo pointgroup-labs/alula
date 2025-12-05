@@ -42,13 +42,16 @@ function normalizeAmount(price: number) {
       <total-card
         title="Total Collateral"
         :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
+        bg="linear-gradient(101deg, #00A5FF 3.44%, #004266 95.59%)"
+        icon-color="#006CE4"
       />
       <total-card
         title="Total Borrow"
         :body="`$${normalizeAmount(poolsInfo.total_borrowed)}`"
         color="#111"
-        bg-color="#FFD101"
+        bg="linear-gradient(101deg, #FFD101 3.44%, #FFEA8D 95.59%)"
         :icon="borrowingIcon"
+        icon-color="#FFD101"
       />
     </template>
 

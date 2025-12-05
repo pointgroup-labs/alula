@@ -3,14 +3,16 @@ import defaultIcon from '~/assets/img/icons/strongbox-icon.svg?raw'
 
 const {
   color = '#fff',
-  bgColor = '#006CE4',
+  bg = '#006CE4',
   icon = defaultIcon,
+  iconColor = '#fff',
 } = defineProps<{
   title: string
   body: string
   icon?: string
   color?: string
-  bgColor?: string
+  bg?: string
+  iconColor?: string
   loading?: boolean
 }>()
 </script>
@@ -18,7 +20,7 @@ const {
 <template>
   <div
     class="total-card"
-    :style="{ color, backgroundColor: bgColor }"
+    :style="{ color, background: bg }"
   >
     <div class="total-card__info">
       <div class="total-card__title">
@@ -33,7 +35,7 @@ const {
 
     <div
       class="total-card__icon"
-      :style="{ color: bgColor }"
+      :style="{ color: iconColor }"
       v-html="icon"
     />
   </div>
