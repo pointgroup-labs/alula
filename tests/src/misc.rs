@@ -104,7 +104,7 @@ fn test_computed_interest_is_negative_reproduced() {
     contract_client.deposit(k1, &usdc_pool_address, &110000000);
     wait(&e, 20);
     contract_client.withdraw(k1, &usdc_pool_address, &115500801);
-    wait(&e, ((13 * 60 * 60)));
+    wait(&e, 13 * 60 * 60);
 }
 
 #[test]
