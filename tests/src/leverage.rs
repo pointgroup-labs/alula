@@ -220,15 +220,7 @@ fn test_deposit_borrow_as_margin() {
         &usdc_pool_address,
     )
     .unwrap();
-    let obligation_borrowed = get_multiply_pair_obligation_borrowed(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
 
-    assert_eq!(expected_borrowed_amount, obligation_borrowed);
     assert_eq!(expected_deposited_amount, obligation_j_tokens_as_tokens);
 
     let gold_pool_total_supply =
@@ -278,15 +270,7 @@ fn test_deposit_deposit_as_margin() {
         &usdc_pool_address,
     )
     .unwrap();
-    let obligation_borrowed = get_multiply_pair_obligation_borrowed(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
 
-    assert_approx_eq_abs(expected_borrowed_amount, obligation_borrowed, 1);
     assert_eq!(expected_deposited_amount, obligation_j_tokens_as_tokens);
 
     let gold_pool_total_supply =

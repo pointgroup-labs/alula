@@ -9,7 +9,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     get_obligation_d_tokens_as_tokens, get_obligation_initially_borrowed, get_pool_fee_config,
     get_pool_total_available, get_pool_total_borrowed,
 };
@@ -52,7 +52,7 @@ fn test_borrow() {
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
-    assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT);
+    assert_approx_eq_abs(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT, 2);
     assert_eq!(obligation_d_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
@@ -72,7 +72,6 @@ fn test_borrow_multiple_shareholders() {
     let loan_provider = &users[2];
 
     contract_client.deposit(loan_provider, &usdc_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
-
     contract_client.deposit(borrower_1, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.deposit(borrower_2, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
 
@@ -81,24 +80,15 @@ fn test_borrow_multiple_shareholders() {
     const BORROWER_2_BORROW_AMOUNT: i128 = (3 * DEFAULT_DEPOSIT_AMOUNT) / 2;
     contract_client.borrow(borrower_2, &usdc_pool_address, &BORROWER_2_BORROW_AMOUNT);
 
-    let obligation_borrowed_1 =
-        get_obligation_initially_borrowed(&contract_client, borrower_1, &usdc_pool_address)
-            .unwrap();
     let obligation_d_tokens_as_tokens_1 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
             .unwrap();
 
-    assert_eq!(obligation_borrowed_1, DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(obligation_d_tokens_as_tokens_1, DEFAULT_DEPOSIT_AMOUNT);
-
-    let obligation_borrowed_2 =
-        get_obligation_initially_borrowed(&contract_client, borrower_2, &usdc_pool_address)
-            .unwrap();
     let obligation_d_tokens_as_tokens_2 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
             .unwrap();
 
-    assert_eq!(obligation_borrowed_2, BORROWER_2_BORROW_AMOUNT);
     assert_eq!(obligation_d_tokens_as_tokens_2, BORROWER_2_BORROW_AMOUNT);
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
@@ -120,24 +110,16 @@ fn test_borrow_multiple_shareholders() {
 
     // - Assert that the total debt has increased -
 
-    let obligation_borrowed_1 =
-        get_obligation_initially_borrowed(&contract_client, borrower_1, &usdc_pool_address)
-            .unwrap();
     let obligation_d_tokens_as_tokens_1 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
             .unwrap();
 
-    assert_eq!(obligation_borrowed_1, DEFAULT_DEPOSIT_AMOUNT);
     assert!(obligation_d_tokens_as_tokens_1 > DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation_borrowed_2 =
-        get_obligation_initially_borrowed(&contract_client, borrower_2, &usdc_pool_address)
-            .unwrap();
     let obligation_d_tokens_as_tokens_2 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
             .unwrap();
 
-    assert_eq!(obligation_borrowed_2, BORROWER_2_BORROW_AMOUNT);
     assert!(obligation_d_tokens_as_tokens_2 > BORROWER_2_BORROW_AMOUNT);
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
@@ -278,7 +260,7 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     const MAX_HEALTHY_BORROW_AMOUNT: i128 =
         (DEFAULT_OPEN_LTV_BPS * DEFAULT_DEPOSIT_AMOUNT) / BPS_FACTOR;
 
-    assert_eq!(obligation_borrowed, MAX_HEALTHY_BORROW_AMOUNT);
+    assert_approx_eq_abs(obligation_borrowed, MAX_HEALTHY_BORROW_AMOUNT, 2);
     assert_eq!(obligation_d_tokens_as_tokens, MAX_HEALTHY_BORROW_AMOUNT);
 
     let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);

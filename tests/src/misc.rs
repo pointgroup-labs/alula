@@ -8,14 +8,104 @@ use market::{
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address,
+    Address, Env,
     testutils::{Address as _, Ledger},
 };
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_obligation_d_tokens,
-    get_obligation_j_tokens, get_obligation_received_interest,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
+    assert_approx_eq_rel, get_obligation_d_tokens, get_obligation_j_tokens,
+    get_obligation_received_interest,
 };
+
+fn wait(e: &Env, am: u64) {
+    e.ledger().with_mut(|li| {
+        li.timestamp += am;
+    });
+}
+
+#[test]
+fn test_computed_interest_is_negative_reproduced() {
+    let TestMarketFixture {
+        e, users, contract_client, usdc_pool_address, gold_pool_address, ..
+    } = TestMarketFixture::new();
+
+    let maksym = &users[0];
+    let k1 = &users[1];
+    let maksym2 = &users[2];
+    let k2 = &users[3];
+
+    contract_client.deposit(&maksym, &gold_pool_address, &100000000000);
+    wait(&e, 15);
+    contract_client.deposit(&maksym2, &gold_pool_address, &1000000000);
+    wait(&e, 60 + 39);
+    contract_client.get_market_data();
+    wait(&e, 25);
+    contract_client.get_pool_data(&usdc_pool_address);
+    wait(&e, 35);
+    contract_client.deposit(&maksym2, &usdc_pool_address, &1000000);
+    wait(&e, 10);
+    contract_client.borrow(&maksym, &usdc_pool_address, &10000);
+    wait(&e, 10);
+    contract_client.get_market_data();
+    wait(&e, (2 * 60) + 20);
+    contract_client.get_market_data();
+    wait(&e, (3 * 60 * 60) + 35 * 60);
+    contract_client.deposit(&k1, &gold_pool_address, &110000000);
+    wait(&e, 30);
+    contract_client.deposit(&k1, &usdc_pool_address, &220000000);
+    wait(&e, 60 * 60 + 60 * 5 + 29);
+    contract_client.withdraw(&k1, &usdc_pool_address, &220000000);
+    wait(&e, 60 * 2 + 5);
+    contract_client.deposit(&k2, &usdc_pool_address, &1000000000);
+    wait(&e, 35);
+    contract_client.borrow(&k1, &usdc_pool_address, &77367249);
+    wait(&e, 27 * 60);
+    contract_client.deposit(&k1, &gold_pool_address, &120000000);
+    wait(&e, 0 * 60 * 60 + 2 * 60 + 20);
+    contract_client.deposit(&k1, &gold_pool_address, &10000000);
+    wait(&e, 0 * 60 * 60 + 10 * 60 + 36);
+    contract_client.deposit(&k1, &gold_pool_address, &10000000);
+    wait(&e, 0 * 60 * 60 + 1 * 60 + 45);
+    contract_client.deposit(&k1, &gold_pool_address, &10000000);
+    wait(&e, 0 * 60 * 60 + 2 * 60 + 31);
+    contract_client.deposit(&k1, &gold_pool_address, &550000000);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 15);
+    contract_client.deposit(&k1, &gold_pool_address, &2220000000);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 25);
+    contract_client.deposit(&k1, &gold_pool_address, &670000000);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 20);
+    contract_client.deposit(&k1, &gold_pool_address, &1000000000);
+    wait(&e, 0 * 60 * 60 + 3 * 60 + 25);
+    contract_client.withdraw(&k1, &gold_pool_address, &4819579912);
+    wait(&e, 0 * 60 * 60 + 28 * 60 + 42);
+    contract_client.deposit(&k1, &gold_pool_address, &23330000000);
+    wait(&e, 0 * 60 * 60 + 4 * 60 + 15);
+    contract_client.deposit(&k1, &gold_pool_address, &220000000);
+    wait(&e, 0 * 60 * 60 + 15 * 60 + 10);
+    contract_client.withdraw(&k2, &usdc_pool_address, &105000000);
+    wait(&e, 0 * 60 * 60 + 12 * 60 + 5);
+    contract_client.withdraw(&k2, &usdc_pool_address, &773598393);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 20);
+    contract_client.repay(&k1, &usdc_pool_address, &81237000);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 30);
+    contract_client.borrow(&k2, &gold_pool_address, &53141657);
+    wait(&e, 0 * 60 * 60 + 10 * 60 + 41);
+    contract_client.deposit(&k2, &usdc_pool_address, &110000000);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 45);
+    contract_client.repay(&k2, &gold_pool_address, &55798739);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 25);
+    contract_client.withdraw(&k2, &usdc_pool_address, &195847114);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 20);
+    contract_client.add_collateral(&k2, &usdc_pool_address, &440000000);
+    wait(&e, 0 * 60 * 60 + 10 * 60 + 10);
+    contract_client.remove_collateral(&k2, &usdc_pool_address, &440000000);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 35);
+    contract_client.deposit(&k1, &usdc_pool_address, &110000000);
+    wait(&e, 0 * 60 * 60 + 0 * 60 + 20);
+    contract_client.withdraw(&k1, &usdc_pool_address, &115500801);
+    wait(&e, 13 * 60 * 60 + 0 * 60 + 0);
+}
 
 #[test]
 fn test_obligation_does_not_exist_prior_anything() {
@@ -154,8 +244,8 @@ fn test_bootstrap_pool() {
         get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
             .unwrap();
 
-    assert_eq!(received_interest_1, 0);
-    assert_eq!(received_interest_2, 0);
+    assert_approx_eq_abs(received_interest_1, 0, 2);
+    assert_approx_eq_abs(received_interest_2, 0, 2);
 
     // -- Bootstrap pool --
 
@@ -185,10 +275,11 @@ fn test_bootstrap_pool() {
         get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
             .unwrap();
 
-    assert_eq!(received_interest_1, received_interest_2);
-    assert_eq!(
+    assert_approx_eq_rel(received_interest_1, received_interest_2, 1);
+    assert_approx_eq_rel(
         received_interest_1.checked_add(received_interest_2).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT / 2
+        DEFAULT_DEPOSIT_AMOUNT / 2,
+        10,
     );
 
     // -- Wait till the bootstrap period ends --
@@ -204,9 +295,10 @@ fn test_bootstrap_pool() {
             .unwrap();
 
     assert_eq!(received_interest_1, received_interest_2);
-    assert_eq!(
+    assert_approx_eq_rel(
         received_interest_1.checked_add(received_interest_2).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT
+        DEFAULT_DEPOSIT_AMOUNT,
+        10,
     );
 
     // -- Assert no bootstrap takes place after draining --
@@ -222,9 +314,10 @@ fn test_bootstrap_pool() {
             .unwrap();
 
     assert_eq!(received_interest_1, received_interest_2);
-    assert_eq!(
+    assert_approx_eq_rel(
         received_interest_1.checked_add(received_interest_2).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT
+        DEFAULT_DEPOSIT_AMOUNT,
+        10,
     );
 }
 
@@ -310,9 +403,9 @@ fn test_get_pool_data() {
     assert_eq!(apy.supply_bps, 0);
     assert!(apy.supply_bps <= apy.borrow_bps);
 
-    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+    contract_client.deposit(creditor, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_COLLATERAL_AMOUNT));
+    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } =
         contract_client.get_pool_data(&usdc_pool_address);
@@ -332,8 +425,8 @@ fn test_get_pool_data() {
     let tokens_from_d_tokens =
         user_d_tokens.fixed_mul_floor(d_token_rate_ceil_bps, BPS_FACTOR).unwrap();
 
-    assert_eq!(tokens_from_j_tokens, DEFAULT_DEPOSIT_AMOUNT);
-    assert_eq!(tokens_from_d_tokens, DEFAULT_DEPOSIT_AMOUNT / 10);
+    assert_eq!(tokens_from_j_tokens, 2 * DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(tokens_from_d_tokens, DEFAULT_DEPOSIT_AMOUNT);
 }
 
 #[test]

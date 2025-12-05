@@ -532,8 +532,10 @@ impl Obligation {
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         let j_tokens_to_issue =
             pool.compute_j_tokens_from_tokens_floor(deposited_tokens_minus_fee)?;
+        // NB: '-2' used as a fix to guarantee that 'tokens_from_shares - original_amount' >= 0
+        let new_originally_deposited = i128::max(deposited_tokens_minus_fee - 2, 0);
 
-        deposit_position.adjust_originally_deposited(e, deposited_tokens_minus_fee)?;
+        deposit_position.adjust_originally_deposited(e, new_originally_deposited)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
@@ -574,9 +576,11 @@ impl Obligation {
         let borrower_to_receive =
             real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         let d_tokens_to_issue = pool.compute_d_tokens_from_tokens_ceil(real_borrowed_amount)?;
+        // NB: '-2' used as a fix to guarantee that 'tokens_from_shares - original_amount' >= 0
+        let new_originally_borrowed = i128::max(real_borrowed_amount - 2, 0);
 
         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
-        borrow_position.adjust_borrowed(e, real_borrowed_amount)?;
+        borrow_position.adjust_originally_borrowed(e, new_originally_borrowed)?;
 
         self.borrows.set(pool.pool_address.clone(), borrow_position);
 
@@ -673,7 +677,7 @@ impl Obligation {
                 received_interest,
             );
 
-            // return Err(MCError::InternalError);
+            return Err(MCError::InternalError);
         } else if deposit_decrease >= received_interest {
             if is_all_withdrawn {
                 deposit_position.adjust_originally_deposited(
@@ -681,7 +685,10 @@ impl Obligation {
                     deposit_position.originally_deposited.checked_neg().map_over_or_underflow()?,
                 )?;
             } else {
-                let deposited_diff = deposit_decrease - received_interest; // safe
+                let deposited_diff = i128::min(
+                    deposit_decrease - received_interest,
+                    deposit_position.originally_deposited,
+                ); // safe
                 deposit_position.adjust_originally_deposited(
                     e,
                     deposited_diff.checked_neg().map_over_or_underflow()?,
@@ -809,11 +816,16 @@ impl Obligation {
                 unpaid_interest,
             );
 
-            // return Err(MCError::InternalError);
+            return Err(MCError::InternalError);
         } else if debt_decrease_in_tokens >= unpaid_interest {
-            let borrowed_diff = debt_decrease_in_tokens - unpaid_interest; // safe
-            borrow_position
-                .adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;
+            let borrowed_diff = i128::min(
+                debt_decrease_in_tokens - unpaid_interest,
+                borrow_position.originally_borrowed,
+            ); // safe
+            borrow_position.adjust_originally_borrowed(
+                e,
+                borrowed_diff.checked_neg().map_over_or_underflow()?,
+            )?;
         }
 
         if is_debt_repaid {
@@ -1093,8 +1105,10 @@ impl Obligation {
 
         borrow_position
             .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
-        borrow_position
-            .adjust_borrowed(e, decreased_borrowed_amount.checked_neg().map_over_or_underflow()?)?;
+        borrow_position.adjust_originally_borrowed(
+            e,
+            decreased_borrowed_amount.checked_neg().map_over_or_underflow()?,
+        )?;
 
         if deposit_position.is_empty() {
             self.try_remove_deposit_position(e, &collateral_pool.pool_address)?;
@@ -1176,7 +1190,11 @@ impl BorrowPosition {
         Ok(())
     }
 
-    pub fn adjust_borrowed(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
+    pub fn adjust_originally_borrowed(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.originally_borrowed, adjusting_amount)?;
         self.originally_borrowed = new_amount;
 
