@@ -3,12 +3,14 @@
 use crate::{
     Amount, Borrow, Command::*, Deposit, DepositCollateral, DepositWithLeverage, Input, PassTime,
     Repay, TestMarketFixture, Token::*, Withdraw, WithdrawCollateral, WithdrawFromLeveraged,
+    make_oracle_prices_different,
 };
 
 #[allow(unused)]
 fn test_fuzzed_issue(input: &Input) {
     let test_fixture = TestMarketFixture::new();
     test_fixture.e.cost_estimate().budget().reset_unlimited();
+    make_oracle_prices_different(&test_fixture.e, &test_fixture.oracle_client);
 
     for (ind, command) in input.commands.iter().enumerate() {
         command.run(&test_fixture);

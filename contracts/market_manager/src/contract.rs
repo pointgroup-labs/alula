@@ -105,6 +105,8 @@ impl MarketManager for MarketManagerContract {
         storage::get_markets(&e).unwrap_or(Map::new(&e))
     }
 
+    // fn verify() -> bool {}
+
     fn get_config(e: Env) -> Config {
         extend_instance_storage(&e);
 

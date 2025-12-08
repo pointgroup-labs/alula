@@ -108,6 +108,49 @@ fn test_computed_interest_is_negative_reproduced() {
 }
 
 #[test]
+fn test_x() {
+    let TestMarketFixture {
+        e, users, contract_client, usdc_pool_address, gold_pool_address, ..
+    } = TestMarketFixture::new();
+
+    let maksym = &users[0];
+    let k1 = &users[1];
+
+    contract_client.deposit(maksym, &gold_pool_address, &10000000000);
+    wait(&e, 40);
+    contract_client.add_collateral(maksym, &usdc_pool_address, &1000000000);
+    wait(&e, 55);
+    contract_client.remove_collateral(maksym, &usdc_pool_address, &1000000000);
+    wait(&e, 20);
+    contract_client.withdraw(maksym, &gold_pool_address, &10500000000);
+    wait(&e, 25);
+    contract_client.deposit(maksym, &usdc_pool_address, &10000000000);
+    wait(&e, 50);
+    contract_client.deposit(k1, &gold_pool_address, &10000000000i128);
+    wait(&e, 60);
+    contract_client.borrow(maksym, &gold_pool_address, &6979216852i128);
+    wait(&e, 20);
+    contract_client.borrow(maksym, &gold_pool_address, &7328177694);
+    wait(&e, 20);
+    contract_client.deposit_with_leverage(
+        maksym,
+        &gold_pool_address,
+        &usdc_pool_address,
+        &true,
+        &1000000000,
+        &237,
+    );
+    wait(&e, 5 * 60 + 26);
+    contract_client.withdraw_from_leveraged(
+        maksym,
+        &gold_pool_address,
+        &usdc_pool_address,
+        &1000000000,
+    );
+    // contract_client.borrow()
+}
+
+#[test]
 fn test_obligation_does_not_exist_prior_anything() {
     let TestMarketFixture { users, contract_client, .. } = TestMarketFixture::new();
 
