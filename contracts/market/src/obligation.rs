@@ -531,7 +531,7 @@ impl Obligation {
         let deposited_tokens_minus_fee =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         let (j_tokens_to_issue, new_originally_deposited) =
-            pool.compute_j_tokens_from_tokens_floor(&e, deposited_tokens_minus_fee)?;
+            pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
 
         deposit_position.adjust_originally_deposited(e, new_originally_deposited)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
@@ -574,7 +574,7 @@ impl Obligation {
         let borrower_to_receive =
             real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
         let (d_tokens_to_issue, new_originally_borrowed) =
-            pool.compute_d_tokens_from_tokens_ceil(&e, real_borrowed_amount)?;
+            pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
 
         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
         borrow_position.adjust_originally_borrowed(e, new_originally_borrowed)?;
