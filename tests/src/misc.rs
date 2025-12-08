@@ -108,7 +108,7 @@ fn test_computed_interest_is_negative_reproduced() {
 }
 
 #[test]
-fn test_x() {
+fn test_computed_interest_is_negative_reproduced_2() {
     let TestMarketFixture {
         e, users, contract_client, usdc_pool_address, gold_pool_address, ..
     } = TestMarketFixture::new();
@@ -147,7 +147,6 @@ fn test_x() {
         &usdc_pool_address,
         &1000000000,
     );
-    // contract_client.borrow()
 }
 
 #[test]
