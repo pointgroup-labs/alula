@@ -236,6 +236,8 @@ impl Pool {
         Ok(tokens)
     }
 
+    /// # Returns
+    /// `(d_tokens, tokens)`: `[(i128, i128)]`, where `tokens` is the amount that is guaranteed to be represented by the `d_tokens`
     pub fn compute_d_tokens_from_tokens_ceil(
         &self,
         e: &Env,
@@ -250,9 +252,8 @@ impl Pool {
         let new_d_tokens = self.total_d_tokens.checked_add(d_tokens).map_over_or_underflow()?;
         let new_total_borrowed =
             self.total_borrowed.checked_add(tokens_amount).map_over_or_underflow()?;
-
         let tokens =
-            Self::compute_tokens_from_shares_floor(e, d_tokens, new_d_tokens, new_total_borrowed)?;
+            Self::compute_tokens_from_shares_ceil(e, d_tokens, new_d_tokens, new_total_borrowed)?;
 
         Ok((d_tokens, tokens))
     }
@@ -298,7 +299,7 @@ impl Pool {
     }
 
     /// # Returns
-    /// TODO
+    /// `(j_tokens, tokens)`: `[(i128, i128)]`, where `tokens` is the amount that is guaranteed to be represented by the `j_tokens`
     pub fn compute_j_tokens_from_tokens_floor(
         &self,
         e: &Env,
@@ -314,7 +315,6 @@ impl Pool {
 
         let new_j_tokens = self.total_j_tokens.checked_add(j_tokens).map_over_or_underflow()?;
         let new_total_supply = total_supply.checked_add(tokens_amount).map_over_or_underflow()?;
-
         let tokens =
             Self::compute_tokens_from_shares_floor(e, j_tokens, new_j_tokens, new_total_supply)?;
 
@@ -333,7 +333,7 @@ impl Pool {
 
     /// Computes the number of tokens proportional to the given share of the tokens in the pool ceiled.
     /// Intended to be used for both `jTokens` and `dTokens` related calculations
-    fn compute_tokens_from_shares_ceil(
+    pub fn compute_tokens_from_shares_ceil(
         e: &Env,
         shares_amount: i128,
         total_shares_amount: i128,

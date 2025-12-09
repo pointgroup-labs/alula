@@ -1085,7 +1085,7 @@ impl Obligation {
                 let new_total_borrowed = borrow_pool.total_borrowed - liquidated_amount; // safe
                 let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
 
-                Pool::compute_tokens_from_shares_floor(
+                Pool::compute_tokens_from_shares_ceil(
                     e,
                     new_d_tokens,
                     new_total_d_tokens,
