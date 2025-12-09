@@ -456,15 +456,22 @@ fn test_withdraw_over_balance() {
         &(10 * withdrawable_amount / 9),
     );
 
+    assert_eq!(
+        contract_client.try_get_multiply_pair_obligation(
+            looper,
+            &gold_pool_address,
+            &usdc_pool_address
+        ),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
+
     let deposited_token_supply_after =
         contract_client.get_pool(&gold_pool_address).total_supply().unwrap();
     let borrowed_token_supply_after =
         get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
 
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
-    assert!(borrowed_token_supply_after == borrowed_token_supply_before); // flash loan fees (TODO:
-    // Add a more rigorous
-    // check)
+    assert_eq!(borrowed_token_supply_after, borrowed_token_supply_before);
 }
 
 #[test]
