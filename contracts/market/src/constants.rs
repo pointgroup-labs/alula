@@ -44,7 +44,7 @@ pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
 // ---- Interest Rate and Accrual ----
 
-// -- Kinked(wth 2 kink points) interest rate model --
+// -- Kinked(with 2 kink points) interest rate model --
 
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
 pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000; // 10%
