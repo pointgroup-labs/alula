@@ -24,10 +24,10 @@ fn test_interest_rates() {
         e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new_with_pool_config(pool_config);
     let debtor = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
     contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // -- Move time --
     e.ledger().with_mut(|li| li.timestamp += 1);
@@ -89,10 +89,10 @@ fn test_interest_rates_no_take_rate() {
     let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
         TestMarketFixture::new_with_pool_config(pool_config);
     let debtor = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
     contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     // Borrow 100% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);

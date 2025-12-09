@@ -356,12 +356,12 @@ fn withdraw_up_to_open_ltv() {
         ..
     } = TestMarketFixture::new();
     let creditor = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
     let creditor_balance_1 = gold_token_client.balance(creditor);
 
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(loan_provider, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.borrow(creditor, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2));
@@ -396,9 +396,9 @@ fn remove_collateral_up_to_open_ltv() {
         ..
     } = TestMarketFixture::new();
     let collateral_adder = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
-    contract_client.deposit(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.add_collateral(collateral_adder, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     contract_client.borrow(collateral_adder, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2));

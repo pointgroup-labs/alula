@@ -684,10 +684,10 @@ impl RunCommand for DepositWithLeverage {
         if deposit_pool_address != borrow_pool_address {
             let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-            let (flash_loan_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
+            let (flash_liquidity_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
 
             contract_client.deposit(
-                flash_loan_provider,
+                flash_liquidity_provider,
                 &borrow_pool_address,
                 &self.flash_loan_amount.0,
             );

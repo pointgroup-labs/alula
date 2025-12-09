@@ -29,10 +29,10 @@ fn test_borrow_fee() {
         ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 
     let market_fees_before = get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
     let host_fees_before = get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
@@ -613,10 +613,10 @@ fn test_repay_fee() {
         ..
     } = TestMarketFixture::new_with_pool_config(pool_config);
     let borrower = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(4 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.borrow(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 
@@ -685,10 +685,10 @@ fn redeem_market_fees() {
         ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
@@ -732,10 +732,10 @@ fn redeem_host_fees() {
         ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
-    let loan_provider = &users[1];
+    let liquidity_provider = &users[1];
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(loan_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
 
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
