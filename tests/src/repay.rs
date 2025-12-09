@@ -243,7 +243,7 @@ fn test_consecutive_borrows_can_lead_to_unpaid_interest_become_negative() {
     contract_client.borrow(borrower_3, &usdc_pool_address, &i128::MAX);
 
     // NB: Consecutive borrows can lead to 'unpaid_interest_becomes_negative' internal error when repaying the first borrow
-    // right away. This is a consequence of generating aт amount of dTokens with ceiling rounding to favour the protocol when borrowing
+    // right away. This is a consequence of generating an amount of dTokens with ceiling rounding to favour the protocol when borrowing
     assert_eq!(
         contract_client.try_repay(borrower_1, &usdc_pool_address, &1),
         Err(Ok(MCError::InternalError))
