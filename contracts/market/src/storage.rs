@@ -9,14 +9,16 @@ use crate::{
 };
 
 #[contracttype]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct GlobalState {
+    pub status: u32,
     pub name: String,
-    pub admin: Address,
     pub is_owned: bool,
+    pub admin: Address,
     pub oracle: Address,
     pub deployer: Address,
     pub max_positions: u32,
-    pub status: u32,
+    pub insolvency_ltv_bps: i128,
     pub min_collateral_value: i128,
     pub update_in_queue_period: Option<u64>,
 }
@@ -65,6 +67,7 @@ pub enum DataKey {
     DeployerHost,
     Oracle,
     MinCollateralValue,
+    InsolvencyLtvBps,
     MaxPositions,
     GlobalState,
     Accrual,
@@ -101,10 +104,8 @@ pub fn extend_shared_storage(e: &Env, key: &DataKey) {
 // - Oracle address -
 pub fn set_oracle(e: &Env, oracle: &Address) {
     e.storage().instance().set(&DataKey::Oracle, oracle);
-    extend_instance_storage(e);
 }
 pub fn get_oracle(e: &Env) -> Address {
-    extend_instance_storage(e);
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
 }
 
@@ -135,6 +136,14 @@ pub fn get_min_collateral_value(e: &Env) -> i128 {
         .instance()
         .get(&DataKey::MinCollateralValue)
         .expect("MinCollateralValue must be set")
+}
+
+// - InsolvencyLtvBps -
+pub fn set_insolvency_ltv_bps(e: &Env, insolvency_ltv_bps: i128) {
+    e.storage().instance().set(&DataKey::InsolvencyLtvBps, &insolvency_ltv_bps);
+}
+pub fn get_insolvency_ltv_bps(e: &Env) -> i128 {
+    e.storage().instance().get(&DataKey::InsolvencyLtvBps).expect("InsolvencyLtvBps must be set")
 }
 
 // - MarketStatus -
@@ -197,15 +206,16 @@ pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
     pools.push_back(pool_address.clone());
     e.storage().persistent().set(&DataKey::AllPools, &pools);
     extend_shared_storage(e, &DataKey::AllPools);
-    pools.len() + 1
+    pools.len() - 1
 }
 
 /// Sets a pool by its address
 /// NB: Overwrites existing pool if it exists
 pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     let key = DataKey::Pool(pool_address.clone());
+
     e.storage().persistent().set(&key, pool);
-    extend_shared_storage(e, &key); // TODO: Should we do this, though?
+    extend_shared_storage(e, &key);
 }
 
 /// Checks whether a pool with the given address exists
@@ -253,7 +263,6 @@ pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
     if !e.storage().persistent().has(&key) {
         return Err(MCError::PoolDoesNotHaveQueuedInConfigUpdate);
     }
-
     e.storage().persistent().remove(&key);
 
     Ok(())
@@ -261,7 +270,12 @@ pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
 
 /// Gets pool's config update from the storage
 pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpdate> {
-    e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()))
+    let config_update = e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()));
+    if config_update.is_some() {
+        extend_shared_storage(e, &DataKey::ConfigUpdate(pool_address.clone()));
+    }
+
+    config_update
 }
 
 // ---- Multiply Pair ----
@@ -285,7 +299,7 @@ pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
     pairs.push_back(pair);
     e.storage().persistent().set(&DataKey::AllMultiplyPairs, &pairs);
     extend_shared_storage(e, &DataKey::AllMultiplyPairs);
-    pairs.len() + 1
+    pairs.len() - 1
 }
 
 /// Sets a multiply pair by its key (deposit and borrow pool addresses)
@@ -296,10 +310,7 @@ pub fn set_multiply_pair(
     pair: &MultiplyPair,
 ) {
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    e.storage()
-        .persistent()
-        // NB: Should we allow multiple pairs with the same pools?
-        .set(&key, pair);
+    e.storage().persistent().set(&key, pair);
     extend_shared_storage(e, &key);
 }
 
@@ -357,9 +368,10 @@ pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligat
 pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     let key = DataKey::Obligation(obligation_key.clone());
     let res = e.storage().persistent().has(&key);
-    if e.storage().persistent().has(&key) {
-        extend_shared_storage(e, &key);
+    if res {
+        extend_individual_storage(e, &key);
     }
+
     res
 }
 

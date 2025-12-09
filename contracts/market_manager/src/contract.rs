@@ -1,12 +1,15 @@
-use soroban_sdk::{Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl};
+#![allow(clippy::too_many_arguments)]
+use soroban_sdk::{Address, BytesN, Env, Map, String, contract, contractclient, contractimpl};
 
 use crate::{
+    constants::MAX_RESERVES,
     error::MMCError,
     storage::{self, Config, extend_instance_storage},
 };
 
+// --- TODO: Remove this before deployment ---
+
 mod market {
-    #![allow(clippy::too_many_arguments)]
     use soroban_sdk::contractimport;
 
     #[cfg(not(feature = "deploy"))]
@@ -27,6 +30,7 @@ pub trait MarketManager {
     /// * `oracle_address` - address of SEP-40—compliant oracle contract
     /// * `max_positions` - maximum number of positions for a single obligation to have at a single moment
     /// * `min_collateral` - minimum allowed value of a collateral position at a single moment
+    /// * `insolvency_ltv_bps` - unparameterized LTV(i.e., not scaled with closeLTV\openLTV\liability factors) that marks obligation in market as insolvent
     /// * `update_in_queue_period` - amount of seconds required to pass before applying an issued pool's config update in an owned pool. Passing here `None` means that the market is permissionless
     ///   and its pools and parameters cannot be modified(except for new pools initialization)
     #[allow(clippy::too_many_arguments)]
@@ -38,11 +42,12 @@ pub trait MarketManager {
         oracle_address: Address,
         max_positions: u32,
         min_collateral: i128,
+        insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError>;
 
-    /// Returns a list of all lending markets deployed by the manager
-    fn get_market_list(e: Env) -> Vec<Address>;
+    /// Returns a set of all lending markets deployed by the manager
+    fn get_markets(e: Env) -> Map<Address, ()>;
 
     /// Returns contract's [`Config`]
     fn get_config(e: Env) -> Config;
@@ -63,17 +68,17 @@ impl MarketManager for MarketManagerContract {
         oracle: Address,
         max_positions: u32,
         min_collateral: i128,
+        insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
+        if !(2..=(2 * MAX_RESERVES)).contains(&max_positions) || min_collateral < 0 {
+            return Err(MMCError::InvalidMarketState);
+        }
+
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
         admin.require_auth();
-
-        // TODO: Fix this...
-        // let name_bytes: BytesN<32> = BytesN::<32>::from_val(&e, &name.to_val());
-        // std::dbg!(&name_bytes);
-        // let new_salt = e.crypto().keccak256(&name_bytes.into());
 
         let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_contract_wasm_hash,
@@ -84,6 +89,7 @@ impl MarketManager for MarketManagerContract {
                 e.current_contract_address(),
                 max_positions,
                 min_collateral,
+                insolvency_ltv_bps,
                 update_in_queue_period,
             ),
         );
@@ -93,11 +99,13 @@ impl MarketManager for MarketManagerContract {
         Ok(market_address)
     }
 
-    fn get_market_list(e: Env) -> Vec<Address> {
+    fn get_markets(e: Env) -> Map<Address, ()> {
         extend_instance_storage(&e);
 
-        storage::get_markets(&e).unwrap_or(Vec::new(&e))
+        storage::get_markets(&e).unwrap_or(Map::new(&e))
     }
+
+    // fn verify() -> bool {}
 
     fn get_config(e: Env) -> Config {
         extend_instance_storage(&e);
@@ -119,6 +127,8 @@ impl MarketManagerContract {
         storage::set_market_contract_wasm_hash(&e, &market_contract_wasm_hash);
     }
 
+    // --- TODO: TO BE REMOVED ---
+
     /// Upgrades the market manager contract
     ///
     /// # Arguments
@@ -139,7 +149,7 @@ impl MarketManagerContract {
         require_admin(&e);
 
         if let Some(deployed_markets) = storage::get_markets(&e) {
-            for market_address in deployed_markets {
+            for market_address in deployed_markets.keys() {
                 let market_client = market::Client::new(&e, &market_address);
                 market_client.upgrade(&new_market_contract_wasm_hash);
             }
@@ -151,6 +161,16 @@ impl MarketManagerContract {
 
 // -- Helpers --
 
+#[inline(always)] // TODO: to be removed
 fn require_admin(e: &Env) {
     storage::get_admin(e).require_auth();
+}
+
+#[inline(always)]
+pub fn require_nonnegative(amount: i128) -> Result<(), MMCError> {
+    if amount < 0 {
+        return Err(MMCError::NegativeInputAmount);
+    }
+
+    Ok(())
 }

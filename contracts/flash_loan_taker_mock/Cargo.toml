@@ -10,6 +10,7 @@ doctest = false
 
 [dependencies]
 market = { path = "../market" }
+moderc3156 = { path = "../../moderc3156" }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 

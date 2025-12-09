@@ -19,6 +19,7 @@
     "lastprices",
     "libfuzzer",
     "Liquidatable",
+    "ltvs",
     "moderc",
     "MSVC",
     "multiplicator",

@@ -1,0 +1,310 @@
+diff --git a/contracts/market/src/obligation.rs b/contracts/market/src/obligation.rs
+index 6017a7a..12956b1 100644
+--- a/contracts/market/src/obligation.rs
++++ b/contracts/market/src/obligation.rs
+@@ -530,10 +530,8 @@ impl Obligation {
+         )?;
+         let deposited_tokens_minus_fee =
+             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+-        let j_tokens_to_issue =
+-            pool.compute_j_tokens_from_tokens_floor(deposited_tokens_minus_fee)?;
+-        // NB: '-2' used as a fix to guarantee that 'tokens_from_shares - original_amount' >= 0
+-        let new_originally_deposited = i128::max(deposited_tokens_minus_fee - 2, 0);
++        let (j_tokens_to_issue, new_originally_deposited) =
++            pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
+ 
+         deposit_position.adjust_originally_deposited(e, new_originally_deposited)?;
+         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
+@@ -575,9 +573,8 @@ impl Obligation {
+         // 'what borrower receives' = 'borrower debt' - 'fees'
+         let borrower_to_receive =
+             real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+-        let d_tokens_to_issue = pool.compute_d_tokens_from_tokens_ceil(real_borrowed_amount)?;
+-        // NB: '-2' used as a fix to guarantee that 'tokens_from_shares - original_amount' >= 0
+-        let new_originally_borrowed = i128::max(real_borrowed_amount - 2, 0);
++        let (d_tokens_to_issue, new_originally_borrowed) =
++            pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
+ 
+         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
+         borrow_position.adjust_originally_borrowed(e, new_originally_borrowed)?;
+@@ -679,21 +676,24 @@ impl Obligation {
+ 
+             return Err(MCError::InternalError);
+         } else if deposit_decrease >= received_interest {
+-            if is_all_withdrawn {
+-                deposit_position.adjust_originally_deposited(
+-                    e,
+-                    deposit_position.originally_deposited.checked_neg().map_over_or_underflow()?,
+-                )?;
++            let new_originally_deposited = if is_all_withdrawn {
++                0
+             } else {
+-                let deposited_diff = i128::min(
+-                    deposit_decrease - received_interest,
+-                    deposit_position.originally_deposited,
+-                ); // safe
+-                deposit_position.adjust_originally_deposited(
++                let new_total_j_tokens = pool.total_j_tokens - j_tokens_to_burn; // safe
++                let new_total_supply = pool.total_supply()? - deposit_decrease; // safe
++                let new_j_tokens = deposit_position.j_tokens - j_tokens_to_burn; // safe
++
++                Pool::compute_tokens_from_shares_floor(
+                     e,
+-                    deposited_diff.checked_neg().map_over_or_underflow()?,
+-                )?;
+-            }
++                    new_j_tokens,
++                    new_total_j_tokens,
++                    new_total_supply,
++                )?
++            };
++            let diff = deposit_position.originally_deposited - new_originally_deposited; // safe
++
++            deposit_position
++                .adjust_originally_deposited(e, diff.checked_neg().map_over_or_underflow()?)?;
+         }
+ 
+         deposit_position
+@@ -784,7 +784,7 @@ impl Obligation {
+         let amount_to_repay_all_debt =
+             all_debt.checked_add(all_debt_fees.fee_sum).map_over_or_underflow()?;
+ 
+-        let (is_debt_repaid, amount_to_take_from_borrower, computed_fees) =
++        let (is_all_repaid, amount_to_take_from_borrower, computed_fees) =
+             if provided_amount < amount_to_repay_all_debt {
+                 let computed_fees = compute_fees(
+                     provided_amount,
+@@ -799,7 +799,7 @@ impl Obligation {
+         let debt_decrease_in_tokens = amount_to_take_from_borrower
+             .checked_sub(computed_fees.fee_sum)
+             .map_over_or_underflow()?;
+-        let d_tokens_to_burn = if is_debt_repaid {
++        let d_tokens_to_burn = if is_all_repaid {
+             borrow_position.d_tokens
+         } else {
+             pool.compute_d_tokens_from_tokens_floor(debt_decrease_in_tokens)?
+@@ -818,17 +818,27 @@ impl Obligation {
+ 
+             return Err(MCError::InternalError);
+         } else if debt_decrease_in_tokens >= unpaid_interest {
+-            let borrowed_diff = i128::min(
+-                debt_decrease_in_tokens - unpaid_interest,
+-                borrow_position.originally_borrowed,
+-            ); // safe
+-            borrow_position.adjust_originally_borrowed(
+-                e,
+-                borrowed_diff.checked_neg().map_over_or_underflow()?,
+-            )?;
++            let new_originally_borrowed = if is_all_repaid {
++                0
++            } else {
++                let new_total_d_tokens = pool.total_d_tokens - d_tokens_to_burn; // safe
++                let new_total_borrowed = pool.total_borrowed - debt_decrease_in_tokens; // safe
++                let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
++
++                Pool::compute_tokens_from_shares_floor(
++                    e,
++                    new_d_tokens,
++                    new_total_d_tokens,
++                    new_total_borrowed,
++                )?
++            };
++            let diff = borrow_position.originally_borrowed - new_originally_borrowed; // safe
++
++            borrow_position
++                .adjust_originally_borrowed(e, diff.checked_neg().map_over_or_underflow()?)?;
+         }
+ 
+-        if is_debt_repaid {
++        if is_all_repaid {
+             self.try_remove_borrow_position(e, &pool.pool_address)?;
+         } else {
+             borrow_position
+diff --git a/contracts/market/src/pool.rs b/contracts/market/src/pool.rs
+index 330cff0..3687c4b 100644
+--- a/contracts/market/src/pool.rs
++++ b/contracts/market/src/pool.rs
+@@ -236,14 +236,25 @@ impl Pool {
+         Ok(tokens)
+     }
+ 
+-    pub fn compute_d_tokens_from_tokens_ceil(&self, tokens_amount: i128) -> Result<i128, MCError> {
++    pub fn compute_d_tokens_from_tokens_ceil(
++        &self,
++        e: &Env,
++        tokens_amount: i128,
++    ) -> Result<(i128, i128), MCError> {
+         let d_tokens = Self::compute_shares_from_tokens_ceil(
+             tokens_amount,
+             self.total_d_tokens,
+             self.total_borrowed,
+         )?;
+ 
+-        Ok(d_tokens)
++        let new_d_tokens = self.total_d_tokens.checked_add(d_tokens).map_over_or_underflow()?;
++        let new_total_borrowed =
++            self.total_borrowed.checked_add(tokens_amount).map_over_or_underflow()?;
++
++        let tokens =
++            Self::compute_tokens_from_shares_floor(e, d_tokens, new_d_tokens, new_total_borrowed)?;
++
++        Ok((d_tokens, tokens))
+     }
+ 
+     pub fn compute_d_tokens_from_tokens_floor(&self, tokens_amount: i128) -> Result<i128, MCError> {
+@@ -286,14 +297,28 @@ impl Pool {
+         Ok(tokens)
+     }
+ 
+-    pub fn compute_j_tokens_from_tokens_floor(&self, tokens_amount: i128) -> Result<i128, MCError> {
++    /// # Returns
++    /// TODO
++    pub fn compute_j_tokens_from_tokens_floor(
++        &self,
++        e: &Env,
++        tokens_amount: i128,
++    ) -> Result<(i128, i128), MCError> {
++        let total_supply = self.total_supply()?;
++
+         let j_tokens = Self::compute_shares_from_tokens_floor(
+             tokens_amount,
+             self.total_j_tokens,
+-            self.total_supply()?,
++            total_supply,
+         )?;
+ 
+-        Ok(j_tokens)
++        let new_j_tokens = self.total_j_tokens.checked_add(j_tokens).map_over_or_underflow()?;
++        let new_total_supply = total_supply.checked_add(tokens_amount).map_over_or_underflow()?;
++
++        let tokens =
++            Self::compute_tokens_from_shares_floor(e, j_tokens, new_j_tokens, new_total_supply)?;
++
++        Ok((j_tokens, tokens))
+     }
+ 
+     pub fn compute_j_tokens_from_tokens_ceil(&self, tokens_amount: i128) -> Result<i128, MCError> {
+diff --git a/contracts/market_manager/src/contract.rs b/contracts/market_manager/src/contract.rs
+index 10852d2..0f990c1 100644
+--- a/contracts/market_manager/src/contract.rs
++++ b/contracts/market_manager/src/contract.rs
+@@ -105,6 +105,8 @@ impl MarketManager for MarketManagerContract {
+         storage::get_markets(&e).unwrap_or(Map::new(&e))
+     }
+ 
++    // fn verify() -> bool {}
++
+     fn get_config(e: Env) -> Config {
+         extend_instance_storage(&e);
+ 
+diff --git a/tests/src/fuzz.rs b/tests/src/fuzz.rs
+index 4b64ea7..ea47fe7 100644
+--- a/tests/src/fuzz.rs
++++ b/tests/src/fuzz.rs
+@@ -3,12 +3,14 @@
+ use crate::{
+     Amount, Borrow, Command::*, Deposit, DepositCollateral, DepositWithLeverage, Input, PassTime,
+     Repay, TestMarketFixture, Token::*, Withdraw, WithdrawCollateral, WithdrawFromLeveraged,
++    make_oracle_prices_different,
+ };
+ 
+ #[allow(unused)]
+ fn test_fuzzed_issue(input: &Input) {
+     let test_fixture = TestMarketFixture::new();
+     test_fixture.e.cost_estimate().budget().reset_unlimited();
++    make_oracle_prices_different(&test_fixture.e, &test_fixture.oracle_client);
+ 
+     for (ind, command) in input.commands.iter().enumerate() {
+         command.run(&test_fixture);
+diff --git a/tests/src/misc.rs b/tests/src/misc.rs
+index a2df1eb..783b269 100644
+--- a/tests/src/misc.rs
++++ b/tests/src/misc.rs
+@@ -107,6 +107,49 @@ fn test_computed_interest_is_negative_reproduced() {
+     wait(&e, 13 * 60 * 60);
+ }
+ 
++#[test]
++fn test_x() {
++    let TestMarketFixture {
++        e, users, contract_client, usdc_pool_address, gold_pool_address, ..
++    } = TestMarketFixture::new();
++
++    let maksym = &users[0];
++    let k1 = &users[1];
++
++    contract_client.deposit(maksym, &gold_pool_address, &10000000000);
++    wait(&e, 40);
++    contract_client.add_collateral(maksym, &usdc_pool_address, &1000000000);
++    wait(&e, 55);
++    contract_client.remove_collateral(maksym, &usdc_pool_address, &1000000000);
++    wait(&e, 20);
++    contract_client.withdraw(maksym, &gold_pool_address, &10500000000);
++    wait(&e, 25);
++    contract_client.deposit(maksym, &usdc_pool_address, &10000000000);
++    wait(&e, 50);
++    contract_client.deposit(k1, &gold_pool_address, &10000000000i128);
++    wait(&e, 60);
++    contract_client.borrow(maksym, &gold_pool_address, &6979216852i128);
++    wait(&e, 20);
++    contract_client.borrow(maksym, &gold_pool_address, &7328177694);
++    wait(&e, 20);
++    contract_client.deposit_with_leverage(
++        maksym,
++        &gold_pool_address,
++        &usdc_pool_address,
++        &true,
++        &1000000000,
++        &237,
++    );
++    wait(&e, 5 * 60 + 26);
++    contract_client.withdraw_from_leveraged(
++        maksym,
++        &gold_pool_address,
++        &usdc_pool_address,
++        &1000000000,
++    );
++    // contract_client.borrow()
++}
++
+ #[test]
+ fn test_obligation_does_not_exist_prior_anything() {
+     let TestMarketFixture { users, contract_client, .. } = TestMarketFixture::new();
+diff --git a/wasms/deploy/aggregated_oracle.wasm b/wasms/deploy/aggregated_oracle.wasm
+new file mode 100644
+index 0000000..b3ff379
+Binary files /dev/null and b/wasms/deploy/aggregated_oracle.wasm differ
+diff --git a/wasms/deploy/market.wasm b/wasms/deploy/market.wasm
+new file mode 100644
+index 0000000..f1ba2eb
+Binary files /dev/null and b/wasms/deploy/market.wasm differ
+diff --git a/wasms/deploy/market_manager.wasm b/wasms/deploy/market_manager.wasm
+new file mode 100644
+index 0000000..99760d6
+Binary files /dev/null and b/wasms/deploy/market_manager.wasm differ
+diff --git a/wasms/deploy/soroswap_sep_40_adapter.wasm b/wasms/deploy/soroswap_sep_40_adapter.wasm
+new file mode 100644
+index 0000000..86da9d9
+Binary files /dev/null and b/wasms/deploy/soroswap_sep_40_adapter.wasm differ
+diff --git a/wasms/deploy_optimized/aggregated_oracle.optimized.wasm b/wasms/deploy_optimized/aggregated_oracle.optimized.wasm
+new file mode 100644
+index 0000000..13effa7
+Binary files /dev/null and b/wasms/deploy_optimized/aggregated_oracle.optimized.wasm differ
+diff --git a/wasms/deploy_optimized/market.optimized.wasm b/wasms/deploy_optimized/market.optimized.wasm
+new file mode 100644
+index 0000000..16119f1
+Binary files /dev/null and b/wasms/deploy_optimized/market.optimized.wasm differ
+diff --git a/wasms/deploy_optimized/market_manager.optimized.wasm b/wasms/deploy_optimized/market_manager.optimized.wasm
+new file mode 100644
+index 0000000..b136270
+Binary files /dev/null and b/wasms/deploy_optimized/market_manager.optimized.wasm differ
+diff --git a/wasms/deploy_optimized/soroswap_sep_40_adapter.optimized.wasm b/wasms/deploy_optimized/soroswap_sep_40_adapter.optimized.wasm
+new file mode 100644
+index 0000000..a83ca56
+Binary files /dev/null and b/wasms/deploy_optimized/soroswap_sep_40_adapter.optimized.wasm differ
+diff --git a/wasms/market.wasm b/wasms/market.wasm
+index b90cb63..ef059dd 100644
+Binary files a/wasms/market.wasm and b/wasms/market.wasm differ
+diff --git a/wasms/mocks/flash_loan_taker_mock.wasm b/wasms/mocks/flash_loan_taker_mock.wasm
+index 71709e4..605b185 100644
+Binary files a/wasms/mocks/flash_loan_taker_mock.wasm and b/wasms/mocks/flash_loan_taker_mock.wasm differ

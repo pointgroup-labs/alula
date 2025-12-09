@@ -37,6 +37,7 @@ ehthumbs_vista.db
 target
 .soroban
 .stellar
+package-lock.json
 
 # build output
 dist/

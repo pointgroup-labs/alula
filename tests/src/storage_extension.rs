@@ -52,7 +52,7 @@ fn test_storage_ttl_extension() {
     });
 
     // Extend instance storage
-    contract_client.get_global_state();
+    contract_client.update_market_status(&0);
 
     e.as_contract(&contract_id, || {
         // Instance's TTL is bumped

@@ -38,11 +38,13 @@ pub const SHARED_THRESHOLD: u32 = 50 * LEDGERS_PER_DAY;
 pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + LEDGERS_PER_DAY;
 /// Individual persistent storage extension is usually paid by the data owners. It should neither be
 /// paid very often (to reduce extension operation costs) nor very rarely (to minimize archival
-/// risk)(TODO: Though, is it really a sound argument?)
+/// risk)
 pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
 // ---- Interest Rate and Accrual ----
+
+// -- Kinked(wth 2 kink points) interest rate model --
 
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
 pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000; // 10%
@@ -68,13 +70,17 @@ pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
 /// Max portion of a position that can be liquidated in one go
 pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
 /// Additional spread taken during liquidation
-pub const DEFAULT_LIQUIDATION_SPREAD_BPS: i128 = 1_000;
+pub const DEFAULT_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000; // 10%
 pub const DEFAULT_OPEN_LTV_BPS: i128 = 7_000;
 pub const DEFAULT_CLOSE_LTV_BPS: i128 = 8_000;
 /// Health factor threshold expressed in bps (100% = 10_000 bps)
 pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100% (equivalent to a liability factor to make no difference)
 pub const MAX_LIABILITY_FACTOR_BPS: i128 = 2 * BPS_FACTOR; // 200%
+
+pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850; // 98.5%
+pub const MIN_INSOLVENCY_LTV_BPS: i128 = 9_500; // 95%
+pub const MAX_INSOLVENCY_LTV_BPS: i128 = BPS_FACTOR; // 100%
 
 // ---- Swap ----
 
@@ -88,15 +94,15 @@ pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1; // 0.01%
 /// Scale to represent leverage multipliers (e.g., with current scale 100 = 1.0x, 224 = 2.24x)
 pub const LEVERAGE_SCALE: u32 = 100;
 /// Minimum leverage multiplier (scaled by LEVERAGE_SCALE)
-pub const MIN_LEVERAGE_MULTIPLIER: u32 = LEVERAGE_SCALE; // 1
+pub const MIN_LEVERAGE_MULTIPLIER: u32 = 100; // x1
 
 // ---- Fees ----
 
 pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
-pub const DEFAULT_BORROW_FEE_BPS: u32 = 5; // 0.05%
+pub const DEFAULT_BORROW_FEE_BPS: u32 = 0;
 pub const DEFAULT_DEPOSIT_FEE_BPS: u32 = 0;
 pub const DEFAULT_WITHDRAW_FEE_BPS: u32 = 0;
-pub const DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_PERCENT: u32 = 200; // 200%
+pub const DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS: u32 = 20_000; // 200%
 pub const DEFAULT_FLASH_LOAN_FEE_BPS: u32 = 1; // 0.01%
 pub const DEFAULT_ADD_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
@@ -125,10 +131,4 @@ pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
 
-// ---- Rounding Error Tolerance ----
-
-/// Maximum acceptable negative interest due to rounding errors in fixed-point math
-/// Values more negative than this threshold indicate a critical accounting bug
-/// and should cause the transaction to fail rather than silently set interest to 0.
-/// Set to 100 stroops to handle precision loss in token conversions.
-pub const MAX_ACCEPTABLE_ROUNDING_ERROR: i128 = 100;
+pub const INITIAL_SHARES_AMOUNT: i128 = 10_i128.pow(5);

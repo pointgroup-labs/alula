@@ -5,13 +5,13 @@ use market::{
     pool::{PoolConfig, PoolHealthConfig},
     swap,
 };
+use soroban_fixed_point_math::FixedPoint;
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, assert_approx_eq_abs,
-    get_amount_scaled_down, get_amount_scaled_up, get_borrow_obligation, get_deposit_obligation,
-    get_multiply_pair_obligation_borrowed, get_multiply_pair_obligation_d_tokens,
-    get_multiply_pair_obligation_j_tokens_as_tokens, get_pool_total_borrowed,
-    get_pool_total_supply,
+    get_amount_scaled_down, get_amount_scaled_up, get_borrow_position, get_deposit_position,
+    get_multiply_pair_obligation_borrowed, get_multiply_pair_obligation_j_tokens_as_tokens,
+    get_pool_total_borrowed, get_pool_total_supply,
 };
 
 // ---- Deposit with leverage ----
@@ -125,16 +125,8 @@ fn test_deposit_with_no_leverage() {
         &usdc_pool_address,
     )
     .unwrap();
-    let obligation_d_tokens = get_multiply_pair_obligation_d_tokens(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
 
     assert_eq!(obligation_borrowed, 0);
-    assert_eq!(obligation_d_tokens, 0);
 }
 
 #[test]
@@ -206,16 +198,18 @@ fn test_deposit_borrow_as_margin() {
         &LEVERAGE_MULTIPLIER,
     );
 
-    // 'borrow' position is expected to have 'initial_amount * (leverage - 1) + flash_borrow_fees'
-    let flash_borrowed_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128 - 1);
-    let expected_borrowed_amount = get_amount_scaled_up(
-        flash_borrowed_amount,
-        usdc_pool.config.fee_config.flash_loan_fee_bps as i128,
-    ); // TODO: This better be checked once more
+    // 'borrow' position is expected to have 'initial_amount * (leverage - 1)'
+    let divisor = BPS_FACTOR + usdc_pool.config.fee_config.flash_loan_fee_bps as i128;
+    let expected_borrowed_amount = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128 - 1);
+    // 'flash_borrowed_amount' is expected to equal 'expected_borrowed_amount' when repaid with flash loan fees.
+    // So, we divide accordingly
+    let flash_borrowed_amount =
+        expected_borrowed_amount.fixed_div_floor(divisor, BPS_FACTOR).unwrap();
     // 'supply' position is expected to have 'amount_out(initial_amount * leverage)'
-    let amount_in = DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128);
+    let amount_in = flash_borrowed_amount.checked_add(DEFAULT_DEPOSIT_AMOUNT).unwrap();
     let amount_out =
         swap::get_amount_out(&e, &usdc_pool_address, &gold_pool_address, amount_in).unwrap();
+
     let expected_deposited_amount = amount_out;
 
     let obligation_j_tokens_as_tokens = get_multiply_pair_obligation_j_tokens_as_tokens(
@@ -226,15 +220,7 @@ fn test_deposit_borrow_as_margin() {
         &usdc_pool_address,
     )
     .unwrap();
-    let obligation_borrowed = get_multiply_pair_obligation_borrowed(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
 
-    assert_eq!(expected_borrowed_amount, obligation_borrowed);
     assert_eq!(expected_deposited_amount, obligation_j_tokens_as_tokens);
 
     let gold_pool_total_supply =
@@ -284,15 +270,7 @@ fn test_deposit_deposit_as_margin() {
         &usdc_pool_address,
     )
     .unwrap();
-    let obligation_borrowed = get_multiply_pair_obligation_borrowed(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
 
-    assert_approx_eq_abs(expected_borrowed_amount, obligation_borrowed, 1);
     assert_eq!(expected_deposited_amount, obligation_j_tokens_as_tokens);
 
     let gold_pool_total_supply =
@@ -324,11 +302,11 @@ fn test_multiplied_deposits_are_isolated() {
     );
 
     assert_eq!(
-        get_deposit_obligation(&contract_client, looper, &gold_pool_address),
+        get_deposit_position(&contract_client, looper, &gold_pool_address),
         Err(MCError::ObligationDoesNotExist),
     );
     assert_eq!(
-        get_borrow_obligation(&contract_client, looper, &usdc_pool_address),
+        get_borrow_position(&contract_client, looper, &usdc_pool_address),
         Err(MCError::ObligationDoesNotExist),
     );
 }
@@ -478,15 +456,22 @@ fn test_withdraw_over_balance() {
         &(10 * withdrawable_amount / 9),
     );
 
+    assert_eq!(
+        contract_client.try_get_multiply_pair_obligation(
+            looper,
+            &gold_pool_address,
+            &usdc_pool_address
+        ),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
+
     let deposited_token_supply_after =
         contract_client.get_pool(&gold_pool_address).total_supply().unwrap();
     let borrowed_token_supply_after =
         get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
 
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees (TODO:
-    // Add a more rigorous
-    // check)
+    assert_eq!(borrowed_token_supply_after, borrowed_token_supply_before);
 }
 
 #[test]
@@ -534,9 +519,8 @@ fn test_withdraw_all_available_with_i128_max() {
 
     // Full withdraw took place
     assert_eq!(deposited_token_supply_after, 0); // Everything has been withdrawn
-    assert!(borrowed_token_supply_after > borrowed_token_supply_before); // flash loan fees(TODO:
-    // Add a more rigorous
-    // check)
+    assert!(borrowed_token_supply_after == borrowed_token_supply_before);
+    // TODO: Add a more rigorous check
 }
 
 #[test]

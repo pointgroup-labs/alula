@@ -1,11 +1,11 @@
 #![cfg(test)]
 
 use market::{
-    constants::{DEFAULT_MAX_POSITIONS, DEFAULT_MIN_COLLATERAL_VALUE, MAX_RESERVES},
+    constants::MAX_RESERVES,
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
 };
-use soroban_sdk::{symbol_short, testutils::Ledger};
+use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_default_env,
@@ -18,11 +18,9 @@ fn test_queue_in_pool_config_update() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -72,11 +70,9 @@ fn test_queue_in_invalid_pool_config_update() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -101,16 +97,13 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     } = TestMarketFixture::new();
     let borrower = &users[0];
     let loan_provider = &users[0];
+    let creditor = &users[1];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.deposit_into_earn_obligation(
-        loan_provider,
-        &usdc_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.deposit_earn(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1).is_ok());
-    assert!(contract_client.try_deposit(loan_provider, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
 
     let pool_config_update_queue_in_period =
         contract_client.get_global_state().update_in_queue_period.unwrap();
@@ -132,7 +125,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         contract_client.try_borrow(borrower, &usdc_pool_address, &1),
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
-    assert!(contract_client.try_deposit(loan_provider, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
 
     let new_pool_config = PoolConfig {
         status: PoolStatus { borrow_enabled: false, deposit_enabled: false },
@@ -152,7 +145,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
     assert_eq!(
-        contract_client.try_deposit(loan_provider, &usdc_pool_address, &1),
+        contract_client.try_deposit(creditor, &usdc_pool_address, &1),
         Err(Ok(MCError::DepositForbiddenOnPool))
     );
 }
@@ -163,11 +156,9 @@ fn test_cancel_pool_config_update() {
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -209,11 +200,9 @@ fn test_update_market_fails_for_permissionless_market() {
     let contract_client = setup_market_client(&e, false);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &None,
         &None, // default pool config
     );
@@ -239,9 +228,8 @@ fn test_update_pool_in_permissionless_market_fails() {
     let contract_client = setup_market_client(&e, false);
 
     let token_address = register_random_sac(&e);
-    let token_ticker = symbol_short!("TCK1");
 
-    let pool_address = contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+    let pool_address = contract_client.initialize_pool(&token_address, &None, &None);
 
     const NEW_SUPPLY_LIMIT: i128 = 100;
 
@@ -268,11 +256,7 @@ fn test_update_market_status() {
     let status = contract_client.get_global_state().status;
     assert_eq!(status, 0);
 
-    contract_client.deposit_into_earn_obligation(
-        liquidity_provider,
-        &usdc_pool_address,
-        &DEFAULT_DEPOSIT_AMOUNT,
-    );
+    contract_client.deposit_earn(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     assert!(contract_client.try_deposit(creditor, &gold_pool_address, &100).is_ok());
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
@@ -332,13 +316,6 @@ fn test_update_market_status() {
 fn test_update_market_config() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
-
-    let global_state = contract_client.get_global_state();
-    let (min_collateral_value, max_positions) =
-        (global_state.min_collateral_value, global_state.max_positions);
-
-    assert_eq!(min_collateral_value, DEFAULT_MIN_COLLATERAL_VALUE);
-    assert_eq!(max_positions, DEFAULT_MAX_POSITIONS);
 
     const MAX_POSITIONS: u32 = 2 * MAX_RESERVES;
     const MIN_COLLATERAL_VALUE: i128 = 10 * 10i128.pow(7);

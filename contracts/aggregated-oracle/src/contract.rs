@@ -14,7 +14,7 @@ use crate::{
 
 /// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price
 /// aggregation
-#[contractclient(name = "AggregatedPriceFeedClient")] // TODO: Move this to #![no_std] crate
+#[contractclient(name = "AggregatedPriceFeedClient")]
 pub trait AggregatedPriceFeedTrait {
     /// Returns the base asset the price is reported in
     fn base(e: Env) -> Asset;

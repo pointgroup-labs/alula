@@ -1,26 +1,14 @@
-use soroban_sdk::{Address, Env, Symbol, contractevent};
+use soroban_sdk::{Address, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
-        AddCollateralResult, BorrowResult, DepositResult, ObligationKey, RemoveCollateralResult,
-        RepayResult, WithdrawResult,
+        AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, Obligation,
+        ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    pool::Pool,
+    pool::{Pool, PoolConfig},
 };
 
-// TODO: It's not clear which data we must include in topics. It'll become clear
-// when implementing event subscriptions. Blend includes both addresses and names in topics
-
 // --- Contract's Methods Events ---
-
-#[contractevent]
-struct DepositEvent {
-    #[topic]
-    pub pool_address: Address,
-    #[topic]
-    pub obligation_key: ObligationKey, // TODO: Start return ObligationKey's from the contract
-    pub deposit_result: DepositResult,
-}
 
 #[contractevent]
 struct InitializePoolEvent {
@@ -29,10 +17,57 @@ struct InitializePoolEvent {
     #[topic]
     pub pool_address: Address,
     #[topic]
-    pub token_ticker: Symbol,
+    pub token_symbol: String,
 }
 
-// TODO: Should we still keep a `swap` endpoint public?
+#[contractevent]
+struct InitializeMultiplyPairEvent {
+    #[topic]
+    pub deposit_pool_address: Address,
+    #[topic]
+    pub borrow_pool_address: Address,
+}
+
+#[contractevent]
+struct QueueInPoolConfigUpdate {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub pool_config: PoolConfig,
+}
+
+#[contractevent]
+struct CancelPoolConfigUpdate {
+    #[topic]
+    pub pool_address: Address,
+}
+
+#[contractevent]
+struct ApplyPoolConfigUpdate {
+    #[topic]
+    pub pool_address: Address,
+}
+
+#[contractevent]
+struct BootstrapPoolEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub sponsor: Address,
+    pub amount: i128,
+    pub period: (u64, u64),
+}
+
+#[contractevent]
+struct DepositEvent {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation_key: ObligationKey,
+    pub deposit_result: DepositResult,
+}
+
+// TODO: TO BE REMOVED
 #[contractevent]
 struct SwapEvent {
     #[topic]
@@ -83,9 +118,7 @@ struct LiquidateEvent {
     pub borrow_pool_address: Address,
     #[topic]
     pub collateral_pool_address: Address,
-    // TODO: Introduce `LiquidateResult` struct
-    pub liquidated_amount: i128,
-    pub collateral_seized_amount: i128,
+    pub liquidation_result: LiquidationResult,
 }
 
 #[contractevent]
@@ -112,7 +145,6 @@ struct FlashLoanEvent {
     pub contract: Address,
     #[topic]
     pub pool_address: Address,
-    // TODO: Introduce `FlashLoanResult` struct
     pub amount: i128,
     pub fees_paid: i128,
 }
@@ -125,7 +157,6 @@ struct DepositWithLeverageEvent {
     pub deposit_pool_address: Address,
     #[topic]
     pub borrow_pool_address: Address,
-    // TODO: `DepositWithLeverageResult` struct
     pub original_amount: i128,
     pub leverage_multiplier: u32,
     pub total_deposited_amount: i128,
@@ -135,14 +166,14 @@ struct DepositWithLeverageEvent {
 #[contractevent]
 struct WithdrawFromLeveragedEvent {
     #[topic]
-    pub user: Address,
+    pub obligation_key: ObligationKey,
     #[topic]
     pub deposit_pool_address: Address,
     #[topic]
     pub borrow_pool_address: Address,
-    // TODO: `WithdrawFromLeveragedResult` struct
-    pub amount: i128,
-    pub actual_amount_withdrawn: i128,
+    pub withdrawn_to_wallet_amount: i128,
+    pub deposit_reduced_amount: i128,
+    pub borrow_reduced_amount: i128,
 }
 
 #[contractevent]
@@ -170,6 +201,16 @@ struct LeveragedPositionBadDebt {
     pub deposited_amount: i128,
     pub borrowed_amount: i128,
     pub deposited_amount_swapped: i128,
+}
+
+#[contractevent]
+struct LeverageExceedsBorrowCapacity {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub flash_borrow_amount: i128,
+    pub flash_repay_amount: i128,
+    pub max_healthy_borrow_amount: i128,
 }
 
 #[contractevent]
@@ -231,10 +272,17 @@ struct ObligationIsUnexpectedlyEmpty {
 struct ComputedInterestIsNegative {
     #[topic]
     pub pool_address: Address,
-    pub shares: i128,
-    pub tokens_from_shares: i128,
+    pub position_shares: i128,
+    pub tokens_from_shares_ceil: i128,
     pub computed_interest: i128,
-    pub tokens_from_all_shares: i128,
+}
+
+#[contractevent]
+struct PositionsCountBecomesNegative {
+    #[topic]
+    pub pool_address: Address,
+    #[topic]
+    pub obligation: Obligation,
 }
 
 #[contractevent]
@@ -271,17 +319,56 @@ pub fn initialize_pool(
     e: &Env,
     token_address: &Address,
     pool_address: &Address,
-    token_ticker: &Symbol,
+    token_symbol: &String,
 ) {
     InitializePoolEvent {
         token_address: token_address.clone(),
         pool_address: pool_address.clone(),
-        token_ticker: token_ticker.clone(),
+        token_symbol: token_symbol.clone(),
     }
     .publish(e);
 }
 
-/// Emitted when tokens are swapped
+pub fn initialize_multiply_pair(
+    e: &Env,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) {
+    InitializeMultiplyPairEvent {
+        deposit_pool_address: deposit_pool_address.clone(),
+        borrow_pool_address: borrow_pool_address.clone(),
+    }
+    .publish(e);
+}
+
+pub fn queue_in_pool_config_update(e: &Env, pool_address: Address, pool_config: PoolConfig) {
+    QueueInPoolConfigUpdate { pool_address, pool_config }.publish(e);
+}
+
+pub fn cancel_pool_config_update(e: &Env, pool_address: Address) {
+    CancelPoolConfigUpdate { pool_address }.publish(e);
+}
+
+pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
+    ApplyPoolConfigUpdate { pool_address }.publish(e);
+}
+
+pub fn bootstrap_pool(
+    e: &Env,
+    pool_address: &Address,
+    sponsor: &Address,
+    amount: i128,
+    period: (u64, u64),
+) {
+    BootstrapPoolEvent {
+        pool_address: pool_address.clone(),
+        sponsor: sponsor.clone(),
+        amount,
+        period,
+    }
+    .publish(e);
+}
+
 pub fn swap(
     e: &Env,
     user: &Address,
@@ -351,16 +438,14 @@ pub fn liquidate(
     borrower_obligation_key: &ObligationKey,
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
-    liquidated_amount: i128,
-    collateral_seized_amount: i128,
+    liquidation_result: LiquidationResult,
 ) {
     LiquidateEvent {
         liquidator: liquidator.clone(),
         borrower_obligation_key: borrower_obligation_key.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
         collateral_pool_address: collateral_pool_address.clone(),
-        liquidated_amount,
-        collateral_seized_amount,
+        liquidation_result,
     }
     .publish(e);
 }
@@ -434,18 +519,20 @@ pub fn deposit_with_leverage(
 
 pub fn withdraw_from_leveraged(
     e: &Env,
-    user: &Address,
+    obligation_key: &ObligationKey,
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
-    amount: i128,
-    actual_amount_withdrawn: i128,
+    withdrawn_to_wallet_amount: i128,
+    deposit_reduced_amount: i128,
+    borrow_reduced_amount: i128,
 ) {
     WithdrawFromLeveragedEvent {
-        user: user.clone(),
+        obligation_key: obligation_key.clone(),
         deposit_pool_address: deposit_pool_address.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
-        amount,
-        actual_amount_withdrawn,
+        withdrawn_to_wallet_amount,
+        deposit_reduced_amount,
+        borrow_reduced_amount,
     }
     .publish(e);
 }
@@ -481,6 +568,22 @@ pub fn leveraged_position_bad_debt(
     .publish(e);
 }
 
+pub fn leverage_borrow_exceeds_borrowing_capacity(
+    e: &Env,
+    user: &Address,
+    flash_borrow_amount: i128,
+    flash_repay_amount: i128,
+    max_healthy_borrow_amount: i128,
+) {
+    LeverageExceedsBorrowCapacity {
+        user: user.clone(),
+        flash_borrow_amount,
+        flash_repay_amount,
+        max_healthy_borrow_amount,
+    }
+    .publish(e);
+}
+
 /// Emitted when a pool's utilization ratio exceeds a predefined limit
 pub fn utilization_ratio_exceeds_limit(
     e: &Env,
@@ -491,12 +594,12 @@ pub fn utilization_ratio_exceeds_limit(
 }
 
 /// Emitted when an attempt is made to interact with a loan pool that does not exist in storage
-pub fn pool_is_missing_in_storage(e: &Env, pool_address: &Address) {
+pub fn pool_is_unexpectedly_missing_in_storage(e: &Env, pool_address: &Address) {
     PoolIsMissingInStorage { pool_address: pool_address.clone() }.publish(e);
 }
 
 /// Emitted when an attempt is made to interact with an obligation that does not exist in storage
-pub fn obligation_is_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
+pub fn obligation_is_unexpectedly_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
     ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
@@ -550,17 +653,23 @@ pub fn obligation_is_unexpectedly_empty(
 pub fn computed_interest_is_negative(
     e: &Env,
     pool_address: &Address,
-    shares: i128,
-    tokens_from_shares: i128,
+    position_shares: i128,
+    tokens_from_position_shares_ceil: i128,
     computed_interest: i128,
-    tokens_from_all_shares: i128,
 ) {
     ComputedInterestIsNegative {
-        pool_address: pool_address.clone(),
-        shares,
-        tokens_from_shares,
+        position_shares,
         computed_interest,
-        tokens_from_all_shares,
+        pool_address: pool_address.clone(),
+        tokens_from_shares_ceil: tokens_from_position_shares_ceil,
+    }
+    .publish(e);
+}
+
+pub fn positions_count_becomes_negative(e: &Env, pool_address: &Address, obligation: &Obligation) {
+    PositionsCountBecomesNegative {
+        pool_address: pool_address.clone(),
+        obligation: obligation.clone(),
     }
     .publish(e);
 }

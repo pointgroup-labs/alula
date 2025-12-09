@@ -415,6 +415,9 @@ fn test_withdraw_scarcity_fee() {
     let pool_host_fees_before =
         get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
 
+    let simulated_withdraw_result =
+        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount);
+
     contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount);
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
@@ -437,13 +440,13 @@ fn test_withdraw_scarcity_fee() {
         pool_market_fees_after.checked_sub(pool_market_fees_before).unwrap();
     let pool_host_fees_diff = pool_host_fees_after.checked_sub(pool_host_fees_before).unwrap();
 
-    let PoolFeeConfig { withdraw_fee_bps, withdraw_scarcity_fee_scalar_p, host_fee_bps, .. } =
+    let PoolFeeConfig { withdraw_fee_bps, withdraw_scarcity_fee_sc_bps, host_fee_bps, .. } =
         get_pool_fee_config(&contract_client, &gold_pool_address);
 
     let withdraw_scarcity_fee_bps = {
         let bps_diff = BPS_FACTOR.checked_sub(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS).unwrap();
 
-        bps_diff.fixed_mul_ceil(withdraw_scarcity_fee_scalar_p as i128, 100).unwrap()
+        bps_diff.fixed_mul_ceil(withdraw_scarcity_fee_sc_bps as i128, BPS_FACTOR).unwrap()
     } as u32;
     let withdraw_fee_bps = withdraw_fee_bps.checked_add(withdraw_scarcity_fee_bps).unwrap();
 
@@ -462,7 +465,133 @@ fn test_withdraw_scarcity_fee() {
     assert_eq!(pool_market_fees_diff, expected_market_fees_diff);
     assert_eq!(pool_host_fees_diff, expected_host_fees_diff);
 
+    assert_eq!(pool_market_fees_diff, simulated_withdraw_result.computed_fees.market_fee);
+    assert_eq!(pool_host_fees_diff, simulated_withdraw_result.computed_fees.host_fee);
+
     assert_eq!(creditor_deposit_diff, expected_creditor_deposit_diff);
+    assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
+}
+
+#[test]
+fn test_withdraw_scarcity_fee_no_borrow() {
+    let TestMarketFixture { contract_client, gold_pool_address, users, gold_token_client, .. } =
+        TestMarketFixture::new();
+    let creditor = &users[0];
+
+    let creditor_balance_before = gold_token_client.balance(creditor);
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let creditor_balance_after = gold_token_client.balance(creditor);
+
+    assert_eq!(creditor_balance_before, creditor_balance_after);
+}
+
+#[test]
+fn test_simulate_withdraw_scarcity_fee() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        gold_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
+    let borrower = &users[1];
+
+    let utilization_ratio_limit_bps = contract_client
+        .get_pool(&gold_pool_address)
+        .config
+        .health_config
+        .utilization_ratio_limit_bps;
+    let remaining_utilization_bps = BPS_FACTOR.checked_sub(utilization_ratio_limit_bps).unwrap();
+
+    let (borrow_amount, withdraw_amount) = (
+        DEFAULT_DEPOSIT_AMOUNT
+            .fixed_mul_floor((utilization_ratio_limit_bps).min(BPS_FACTOR), BPS_FACTOR)
+            .unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT.fixed_mul_floor(remaining_utilization_bps, BPS_FACTOR).unwrap(),
+    );
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount);
+
+    let creditor_balance_before = gold_token_client.balance(creditor);
+    let simulated_withdraw_result =
+        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount);
+    let market_fees_before = get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
+    let host_fees_before = get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
+
+    contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount);
+
+    let creditor_balance_after = gold_token_client.balance(creditor);
+    let creditor_balance_diff =
+        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+    let market_fees_after = get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
+    let host_fees_after = get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
+
+    let market_fees_diff = market_fees_after.checked_sub(market_fees_before).unwrap();
+    let host_fees_diff = host_fees_after.checked_sub(host_fees_before).unwrap();
+
+    assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
+    assert_eq!(host_fees_diff, simulated_withdraw_result.computed_fees.host_fee);
+    assert_eq!(market_fees_diff, simulated_withdraw_result.computed_fees.market_fee);
+}
+
+#[test]
+fn test_simulate_withdraw_earn_scarcity_fee() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        gold_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
+    let borrower = &users[1];
+
+    let utilization_ratio_limit_bps = contract_client
+        .get_pool(&gold_pool_address)
+        .config
+        .health_config
+        .utilization_ratio_limit_bps;
+    let remaining_utilization_bps = BPS_FACTOR.checked_sub(utilization_ratio_limit_bps).unwrap();
+
+    let (borrow_amount, withdraw_amount) = (
+        DEFAULT_DEPOSIT_AMOUNT
+            .fixed_mul_floor((utilization_ratio_limit_bps).min(BPS_FACTOR), BPS_FACTOR)
+            .unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT.fixed_mul_floor(remaining_utilization_bps, BPS_FACTOR).unwrap(),
+    );
+
+    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount);
+
+    let creditor_balance_before = gold_token_client.balance(creditor);
+    let simulated_withdraw_result =
+        contract_client.simulate_earn_withdraw(creditor, &gold_pool_address, &withdraw_amount);
+    let market_fees_before = get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
+    let host_fees_before = get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
+
+    contract_client.withdraw_earn(creditor, &gold_pool_address, &withdraw_amount);
+
+    let creditor_balance_after = gold_token_client.balance(creditor);
+    let creditor_balance_diff =
+        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+    let market_fees_after = get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
+    let host_fees_after = get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
+
+    let market_fees_diff = market_fees_after.checked_sub(market_fees_before).unwrap();
+    let host_fees_diff = host_fees_after.checked_sub(host_fees_before).unwrap();
+
+    assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
+    assert_eq!(host_fees_diff, simulated_withdraw_result.computed_fees.host_fee);
+    assert_eq!(market_fees_diff, simulated_withdraw_result.computed_fees.market_fee);
 }
 
 #[test]
@@ -564,7 +693,6 @@ fn redeem_market_fees() {
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_market_fees = get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
-    dbg!(pool_market_fees);
 
     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
     let pool_balance_before = usdc_token_client.balance(&contract_id);
@@ -612,7 +740,6 @@ fn redeem_host_fees() {
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_host_fees = get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
-    dbg!(pool_host_fees);
 
     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
     let pool_balance_before = usdc_token_client.balance(&contract_id);

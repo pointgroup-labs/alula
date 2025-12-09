@@ -4,8 +4,8 @@ use soroban_sdk::contracttype;
 use crate::{
     constants::*,
     error::MCError,
-    helpers::require_nonnegative,
     math_utils::{self, MathUtils},
+    misc::require_nonnegative,
 };
 
 pub trait Accrual {
