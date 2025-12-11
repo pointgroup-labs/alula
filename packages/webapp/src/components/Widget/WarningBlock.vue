@@ -50,7 +50,7 @@ const {
 }
 
 body.body--dark {
-  .supply-warning {
+  .warning-block {
     background-color: $neutral-18;
     color: $neutral-12;
   }

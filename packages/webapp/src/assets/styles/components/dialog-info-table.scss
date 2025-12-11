@@ -43,6 +43,9 @@
 body.body--dark {
   .dialog-info-table {
     &__item {
+      a {
+        color: #fff;
+      }
       &:nth-child(even) {
         background-color: $neutral-18;
       }

@@ -214,7 +214,10 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       @dialog-handler="(e: any) => multiplyDialogHandler(e.item, e.action)"
     />
 
-    <j-loading-spinner v-if="isLoading">
+    <j-loading-spinner
+      v-if="isLoading"
+      class="table-loading-spinner"
+    >
       Loading...
     </j-loading-spinner>
   </div>

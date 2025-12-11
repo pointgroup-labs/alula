@@ -260,11 +260,14 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     <multiply-table-mobile
       v-else
       :items="filteredData"
-      @dialog-handler="(e: any) => multiplyDialogHandler(e.item)"
       show-in-accounts
+      @dialog-handler="(e: any) => multiplyDialogHandler(e.item)"
     />
 
-    <j-loading-spinner v-if="isLoading">
+    <j-loading-spinner
+      v-if="isLoading"
+      class="table-loading-spinner"
+    >
       Loading...
     </j-loading-spinner>
   </div>

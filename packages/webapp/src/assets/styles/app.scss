@@ -142,4 +142,15 @@ body.body--dark {
   .separator-vert {
     background-color: $neutral-16;
   }
+
+  .table-wrapper {
+    .loading-spinner {
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+
+      .spinner-border {
+        color: #fff !important;
+      }
+    }
+  }
 }

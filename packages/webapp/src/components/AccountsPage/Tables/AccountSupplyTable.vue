@@ -204,7 +204,10 @@ watch(selectedPool, (p) => {
         no supplied assets
       </div>
 
-      <j-loading-spinner v-if="userStore.loading">
+      <j-loading-spinner
+        v-if="userStore.loading"
+        class="table-loading-spinner"
+      >
         Loading...
       </j-loading-spinner>
     </div>
@@ -274,14 +277,6 @@ body.body--dark {
     }
     .no-data {
       color: $neutral-9;
-    }
-    .loading-spinner {
-      background: rgba(0, 0, 0, 0.5);
-      color: #fff;
-
-      .spinner-border {
-        color: #fff !important;
-      }
     }
   }
 }

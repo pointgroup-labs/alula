@@ -182,7 +182,7 @@ watch(selectedMarket, (p) => {
                 pill
                 variant="success"
                 icon-right
-                size="lg"
+                size="md"
                 class="repay-btn"
                 :disabled="market.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'repay', data.item.market!)"
@@ -209,7 +209,10 @@ watch(selectedMarket, (p) => {
         no borrowed assets
       </div>
 
-      <j-loading-spinner v-if="userStore.loading">
+      <j-loading-spinner
+        v-if="userStore.loading"
+        class="table-loading-spinner"
+      >
         Loading...
       </j-loading-spinner>
     </div>

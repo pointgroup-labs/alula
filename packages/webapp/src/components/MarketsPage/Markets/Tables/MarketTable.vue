@@ -195,7 +195,10 @@ provide('selectedMarketDetails', selectedMarketDetails)
       @on-row-clicked="onRowClicked"
     />
 
-    <j-loading-spinner v-if="loading">
+    <j-loading-spinner
+      v-if="loading"
+      class="table-loading-spinner"
+    >
       Loading...
     </j-loading-spinner>
   </div>
