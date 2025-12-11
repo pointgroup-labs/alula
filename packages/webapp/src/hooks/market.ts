@@ -43,13 +43,15 @@ export function useMarket(state: MarketsState) {
     }
   }
 
-  watch(publicKey, async () => {
+  watch([
+    publicKey,
+    () => state.markets], async () => {
     if (Object.keys(state.markets).length === 0) {
       return
     }
     await regenerateMarketClient()
     console.log('%c[Regenerated market clients]', 'color: #FFB726', state.markets)
-  })
+  }, { immediate: true })
 
   watch([
     () => route.path,
