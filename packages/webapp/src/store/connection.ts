@@ -69,7 +69,7 @@ export const useConnectionStore = defineStore('connection', () => {
       try {
         await kit.value.setWallet(selectedWalletId.value)
         const { address } = await kit.value.getAddress()
-        await isAccountValid(address)
+        await validateAccount(address)
         await walletStore.initWallet(address)
       } catch {
         selectedWalletId.value = ''
@@ -93,7 +93,7 @@ export const useConnectionStore = defineStore('connection', () => {
         try {
           kit.value.setWallet(option.id)
           const { address } = await kit.value.getAddress()
-          await isAccountValid(address)
+          await validateAccount(address)
           await walletStore.initWallet(address)
         } finally {
           loading.value = false
@@ -105,7 +105,7 @@ export const useConnectionStore = defineStore('connection', () => {
     })
   }
 
-  async function isAccountValid(address: string) {
+  async function validateAccount(address: string) {
     const rpcUrl = RPC_URLS[network.value as RPCcluster]
     try {
       const res = await fetch(`${rpcUrl}/accounts/${address}`)
