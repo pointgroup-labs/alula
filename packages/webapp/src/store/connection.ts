@@ -1,6 +1,10 @@
+import type { RPCcluster } from '@alula/client-sdk'
+import { RPC_URLS } from '@alula/client-sdk'
 import { defineStore } from 'pinia'
 
 export const useConnectionStore = defineStore('connection', () => {
+  const toast = useToast()
+
   const walletStore = useWallet()
   const clientStore = useClientStore()
   const rpcStore = useRpcStore()
@@ -65,27 +69,13 @@ export const useConnectionStore = defineStore('connection', () => {
       try {
         await kit.value.setWallet(selectedWalletId.value)
         const { address } = await kit.value.getAddress()
+        await isAccountValid(address)
         await walletStore.initWallet(address)
-        publicKey.value = address
       } catch {
         selectedWalletId.value = ''
       }
     }
   }
-
-  watch(network, async () => {
-    if (!kit.value) {
-      return
-    }
-    disconnect()
-    await initKit()
-  })
-
-  onMounted(async () => {
-    if (import.meta.client) {
-      await initKit()
-    }
-  })
 
   async function connectWallet() {
     if (publicKey.value) {
@@ -103,8 +93,8 @@ export const useConnectionStore = defineStore('connection', () => {
         try {
           kit.value.setWallet(option.id)
           const { address } = await kit.value.getAddress()
+          await isAccountValid(address)
           await walletStore.initWallet(address)
-          publicKey.value = address
         } finally {
           loading.value = false
         }
@@ -115,6 +105,24 @@ export const useConnectionStore = defineStore('connection', () => {
     })
   }
 
+  async function isAccountValid(address: string) {
+    const rpcUrl = RPC_URLS[network.value as RPCcluster]
+    try {
+      const res = await fetch(`${rpcUrl}/accounts/${address}`)
+      if (!res.ok) {
+        throw new Error(`Account not found (${res.status})`)
+      }
+    } catch (error) {
+      console.log('Account not found')
+      toast.create({
+        title: 'Account not found',
+        body: 'Please create an account',
+        variant: 'danger',
+      })
+      throw error
+    }
+  }
+
   function disconnect() {
     kit.value.disconnect()
     alulaClient.value?.reset()
@@ -122,6 +130,20 @@ export const useConnectionStore = defineStore('connection', () => {
     balances.value = undefined
     selectedWalletId.value = ''
   }
+
+  watch(network, async () => {
+    if (!kit.value) {
+      return
+    }
+    disconnect()
+    await initKit()
+  })
+
+  onMounted(async () => {
+    if (import.meta.client) {
+      await initKit()
+    }
+  })
 
   return {
     kit,
