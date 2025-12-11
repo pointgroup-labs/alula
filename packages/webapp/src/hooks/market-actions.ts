@@ -232,10 +232,11 @@ export function useMarketActions() {
       amount: number
       limit: number
       asset_data: string
+      withBuffer: boolean
     },
   ) {
     const pk = requireWallet()
-    const { client, market, pool_address, amount, limit, asset_data } = props
+    const { client, market, pool_address, amount, limit, asset_data, withBuffer } = props
     if (!amount || amount <= 0) {
       throw new Error('Amount should be greater than 0')
     }
@@ -246,7 +247,7 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const increasedAmount = amount * 1.05
+    const increasedAmount = withBuffer ? amount * 1.05 : amount
 
     await runAction({
       client,

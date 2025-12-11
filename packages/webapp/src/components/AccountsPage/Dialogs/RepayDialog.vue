@@ -105,6 +105,7 @@ async function repay() {
   try {
     loading.value = true
     isValidate.value = false
+    const withBuffer = Number(data.debt) === Number(amount.value) && Number(balance.value) !== Number(amount.value)
 
     const marketProps = {
       market: activeMarket.value!.marketName,
@@ -113,6 +114,7 @@ async function repay() {
       amount: amount.value,
       asset_data: data?.raw?.pool.name,
       limit: balance.value,
+      withBuffer,
     }
 
     await market.repay(marketProps)
