@@ -41,6 +41,8 @@ const marketFee = computed(() => {
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
 
+const reserveAmount = computed(() => poolData.value?.raw.pool.token_symbol === 'native' ? 2 : 0)
+
 async function supply() {
   try {
     if (!publicKey.value || !poolData.value?.raw.pool.pool_address) {
@@ -108,7 +110,7 @@ watch(dialog, async (v) => {
         v-model="amount"
         :balance="balance"
         :limit="Number(supplyLimit) || 0"
-        :fee="POOL_REMAINING_BALANCE + txFee"
+        :fee="POOL_REMAINING_BALANCE + txFee + reserveAmount"
         class="supply-dialog__input"
         :rules="[
           (v) => {
