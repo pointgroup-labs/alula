@@ -56,6 +56,7 @@ const reloadFee = ref(false)
 const isValidate = ref(true)
 
 const txFee = ref(0)
+const poolFee = ref(0)
 
 const collateralBalance = computed(() => Number(data?.collateral) || 0)
 const supplyBalance = computed(() => Number(data?.balance || 0) - collateralBalance.value)
@@ -75,6 +76,13 @@ const healthFactor = computed(() => {
   return Math.min(result, 10)
 })
 
+const poolLimit = computed(() => {
+  if (!data) {
+    return 0
+  }
+  return Math.max(Number(bigintToNumber(data.raw.total_available_adjusted, data.assetDecimals)), 0)
+})
+
 const availableToWithdraw = computed(() => {
   const price = Number(data?.price || 1)
   const deposited = userTotalDepositByMarket.value
@@ -82,14 +90,13 @@ const availableToWithdraw = computed(() => {
 
   const targetDeposit = borrowed / openLtv.value
   const maxWithdrawUsd = Math.max(deposited - targetDeposit, 0)
-  let maxWithdrawAmount = maxWithdrawUsd / price
-
+  const maxWithdrawAmount = maxWithdrawUsd / price
   const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value
-  const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 7
-  const totalAvailable = data ? bigintToNumber(data.raw.pool.total_available, assetDecimals) : 0
-  maxWithdrawAmount = Math.min(balance, maxWithdrawAmount, Number(totalAvailable))
+  return Math.max(Math.min(balance, maxWithdrawAmount), 0)
+})
 
-  return Math.max(Number(truncatePercent(maxWithdrawAmount, 7)), 0)
+const availableToWithdrawWithPoolLimit = computed(() => {
+  return Math.min(Number(truncatePercent(availableToWithdraw.value, 7)), Number(poolLimit.value))
 })
 
 const infoTableData = computed(() => {
@@ -120,6 +127,14 @@ const infoTableData = computed(() => {
   {
     label: 'Available to Withdraw',
     value: `${shortenNumber(availableToWithdraw.value || 0)} ${data?.asset.symbol}`,
+  },
+  {
+    label: 'Pool Withdraw Limit',
+    value: `${shortenNumber(poolLimit.value || 0)} ${data?.asset.symbol}`,
+  },
+  {
+    label: 'Pool Fee',
+    value: `${poolFee.value || 0} ${data?.asset.symbol}`,
   },
   {
     label: 'Transaction Fee',
@@ -178,6 +193,16 @@ watch(() => modelValue, async (v) => {
   }, RELOAD_FEE_INTERVAL)
 })
 
+watchDebounced(amount, async (a) => {
+  if (!a || Number(a) <= 0) {
+    poolFee.value = 0
+    return
+  }
+  const feeData = await activeMarket.value?.client.marketSdk.simulateWithdraw(publicKey.value, data!.pool_address, a)
+  const feeSum = feeData?.computed_fees?.fee_sum
+  poolFee.value = feeSum && data?.assetDecimals ? Number(bigintToNumber(feeSum, data.assetDecimals)) : 0
+}, { debounce: 500 })
+
 watch(() => data, (d) => {
   if (!d) {
     dialog.value = false
@@ -226,16 +251,16 @@ watch(collateralBalance, (b) => {
     <div class="account-dialog__body">
       <input-widget
         v-model="amount"
-        :balance="availableToWithdraw"
+        :balance="availableToWithdrawWithPoolLimit"
         class="withdraw-dialog__input"
         :rules="[
           (v) => {
-            return !isValidate || (v && Number(v) <= availableToWithdraw) || 'Withdraw limit exceeded'
+            return !isValidate || (v && Number(v) <= availableToWithdrawWithPoolLimit) || 'Withdraw limit exceeded'
           },
         ]"
       >
         <template #label-right>
-          Amount: {{ formatPrice(availableToWithdraw || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
+          Amount: {{ formatPrice(availableToWithdrawWithPoolLimit || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 

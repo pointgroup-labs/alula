@@ -56,6 +56,7 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
       const data = {
         raw: activePool,
         asset: getFullTokenData(activePool.pool.token_symbol),
+        assetDecimals,
         balance,
         balanceUsd: formatPrice(balance * Number(price), 2, 2),
         price: Number(price),

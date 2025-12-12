@@ -79,6 +79,7 @@ export type BorrowCardTableItem = {
 export type SuppliedCardTableItem = {
   raw: PoolData
   available: string | number
+  assetDecimals: number
   balance: string | number
   balanceUsd: string | number
   supply_apy: string | number

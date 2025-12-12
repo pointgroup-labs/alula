@@ -1,4 +1,4 @@
-import type { AnnualPercentageYields, MultiplyPair, Obligation, Pool } from '@alula/market-sdk'
+import type { MultiplyPair, Obligation, Pool, WithdrawResult } from '@alula/market-sdk'
 // import type { CompoundRates, Obligation, Pool } from '@jlend/sdk'
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
@@ -100,6 +100,14 @@ export class MarketClient {
   async getPoolData(pool_address: string) {
     const poolResult = await this.base.get_pool_data({ pool_address })
     return this.unwrapOk2(poolResult.result)
+  }
+
+  /**
+   * Simulate withdraw
+   */
+  async simulateWithdraw(user: string, pool_address: string, amount: string | number): Promise<WithdrawResult> {
+    const result = await this.base.simulate_withdraw({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return this.unwrapOk2(result.result)
   }
 
   /**
