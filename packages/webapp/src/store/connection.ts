@@ -2,9 +2,9 @@ import type { RPCcluster } from '@alula/client-sdk'
 import { RPC_URLS } from '@alula/client-sdk'
 import { defineStore } from 'pinia'
 
-export const useConnectionStore = defineStore('connection', () => {
-  const toast = useToast()
+const VALIDATE_INTERVAL = 10_000
 
+export const useConnectionStore = defineStore('connection', () => {
   const walletStore = useWallet()
   const clientStore = useClientStore()
   const rpcStore = useRpcStore()
@@ -107,20 +107,8 @@ export const useConnectionStore = defineStore('connection', () => {
 
   async function validateAccount(address: string) {
     const rpcUrl = RPC_URLS[network.value as RPCcluster]
-    try {
-      const res = await fetch(`${rpcUrl}/accounts/${address}`)
-      if (!res.ok) {
-        throw new Error(`Account not found (${res.status})`)
-      }
-    } catch (error) {
-      console.log('Account not found')
-      toast.create({
-        title: 'Account not found',
-        body: 'Please create an account',
-        variant: 'danger',
-      })
-      throw error
-    }
+    const res = await fetch(`${rpcUrl}/accounts/${address}`)
+    clientStore.isValidAccount = !!res.ok
   }
 
   function disconnect() {
@@ -138,6 +126,27 @@ export const useConnectionStore = defineStore('connection', () => {
     disconnect()
     await initKit()
   })
+
+  let interval: any
+
+  watch([
+    publicKey,
+    () => clientStore.isValidAccount,
+  ], async ([pubkey, isValid], [, prevIsValid]) => {
+    clearInterval(interval)
+    // if user connect new wallet without balances, need to validate account
+    if (pubkey && !isValid) {
+      interval = setInterval(async () => {
+        await validateAccount(pubkey)
+      }, VALIDATE_INTERVAL)
+    }
+    // if user connected and topped up balance - init wallet again to load balances and regenerate market clients
+    if (pubkey && !prevIsValid && isValid) {
+      walletStore.publicKey = undefined
+      await sleep(200)
+      await walletStore.initWallet(pubkey)
+    }
+  }, { immediate: true })
 
   onMounted(async () => {
     if (import.meta.client) {

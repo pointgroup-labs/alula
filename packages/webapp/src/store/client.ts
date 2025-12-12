@@ -11,16 +11,20 @@ export const useClientStore = defineStore('client', () => {
 
   const publicKey = computed(() => walletStore.publicKey)
 
+  const isValidAccount = ref(false)
+
   const alulaClient = computed(() => initClient())
 
   function initClient(marketAddress?: string) {
+    const pubkey = isValidAccount.value ? publicKey.value : undefined
     return import.meta.client && network.value
-      ? StellarClient.fromAddress(publicKey.value, network.value as RPCcluster, marketAddress)
+      ? StellarClient.fromAddress(pubkey, network.value as RPCcluster, marketAddress)
       : {} as StellarClient
   }
   return {
     alulaClient,
 
     initClient,
+    isValidAccount,
   }
 })

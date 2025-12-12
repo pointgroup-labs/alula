@@ -43,7 +43,7 @@ export function useMarket(state: MarketsState) {
     }
   }
 
-  watch([
+  watchDebounced([
     publicKey,
     () => state.markets], async () => {
     if (Object.keys(state.markets).length === 0) {
@@ -51,7 +51,7 @@ export function useMarket(state: MarketsState) {
     }
     await regenerateMarketClient()
     console.log('%c[Regenerated market clients]', 'color: #FFB726', state.markets)
-  }, { immediate: true })
+  }, { immediate: true, debounce: 200 })
 
   watch([
     () => route.path,
