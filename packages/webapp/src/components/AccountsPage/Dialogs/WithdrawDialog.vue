@@ -92,7 +92,7 @@ const availableToWithdraw = computed(() => {
   const maxWithdrawUsd = Math.max(deposited - targetDeposit, 0)
   const maxWithdrawAmount = maxWithdrawUsd / price
   const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value
-  return Math.max(Math.min(balance, maxWithdrawAmount), 0)
+  return Math.min(balance, maxWithdrawAmount)
 })
 
 const availableToWithdrawWithPoolLimit = computed(() => {
