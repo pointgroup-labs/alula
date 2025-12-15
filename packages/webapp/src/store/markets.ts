@@ -58,7 +58,7 @@ export const useMarketsStore = defineStore('markets', () => {
   async function getMarketsList() {
     const map = await alulaClient.value?.marketManagerSdk.getMarketList()
     state.marketsList = [...map]?.map(([address]) => address)
-    console.log('%c[Markets Adresses]', 'color: #FFB726', state.marketsList)
+    console.log('%c[Markets Addresses]', 'color: #FFB726', state.marketsList)
   }
 
   async function loadMarketsData() {
