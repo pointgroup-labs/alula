@@ -336,7 +336,7 @@ declare global {
   export type { Network } from '../store/rpc'
   import('../store/rpc')
   // @ts-ignore
-  export type { ObligationUI, ObligationArray, UserState } from '../store/user'
+  export type { UserState } from '../store/user'
   import('../store/user')
   // @ts-ignore
   export type { ToastAction, AlertToastVariant, ToastProps } from '../features/toast/toast'

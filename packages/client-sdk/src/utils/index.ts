@@ -1,5 +1,6 @@
 export * from './bind-own-methods'
 export * from './cache-manager'
 export * from './calculation'
+export * from './calculation'
 export * from './format'
 export * from './rpc'

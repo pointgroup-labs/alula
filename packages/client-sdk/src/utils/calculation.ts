@@ -1,5 +1,6 @@
-import type { Obligation, PoolData } from '@alula/market-sdk'
+import type { PoolData } from '@alula/market-sdk'
 import Decimal from 'decimal.js'
+import { ObligationArray } from '../types'
 import { bigintToNumber, bpsToNumber } from './format'
 
 export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number) {
@@ -61,7 +62,7 @@ export function calcUserTotalBorrowedInUsd(obligation: ObligationArray, poolsDat
 
     const price = borrowedPool?.oracle_asset_price ? bigintToNumber(borrowedPool?.oracle_asset_price, oraclePriceDecimals) : 0
 
-    const borrowBps = bigintToNumber(data.d_tokens * borrowedPool.d_token_rate_ceil_bps, assetDecimals)
+    const borrowBps = bigintToNumber(data.d_tokens * BigInt(borrowedPool.d_token_rate_ceil_bps), assetDecimals)
     const userBorrow = bpsToNumber(Number(borrowBps))
     if (!borrowedPool || !userBorrow) {
       userBorrowedInUsd += 0

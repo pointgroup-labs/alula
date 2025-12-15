@@ -51,6 +51,10 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+    devDependencies:
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
 
   packages/sdk/market:
     dependencies:

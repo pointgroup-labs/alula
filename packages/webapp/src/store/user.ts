@@ -1,6 +1,7 @@
 import type { StellarClient } from '@alula/client-sdk'
-import type { BorrowPosition, DepositPosition, Obligation } from '@alula/market-sdk'
-import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import type { ObligationArray, ObligationUI } from '@alula/client-sdk/src/types'
+import type { Obligation } from '@alula/market-sdk'
+import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
 import { defineStore } from 'pinia'
 
 export const useUserStore = defineStore('user', () => {
@@ -157,13 +158,6 @@ export const useUserStore = defineStore('user', () => {
     updateUserMultiplyObligation,
   }
 })
-
-export type ObligationUI = Record<string, ObligationArray | undefined>
-
-export type ObligationArray = Omit<Obligation, 'borrows' | 'deposits'> & {
-  borrows: Array<[string, BorrowPosition]>
-  deposits: Array<[string, DepositPosition]>
-}
 
 export type UserState = {
   obligations: ObligationUI

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
-import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
