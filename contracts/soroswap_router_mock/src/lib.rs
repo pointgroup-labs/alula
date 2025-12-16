@@ -127,6 +127,14 @@ impl MockSoroswapRouterContract {
 
         Ok(soroban_sdk::vec![&e, amount_in, amount_out])
     }
+
+    pub fn router_pair_for(
+        _e: Env,
+        token_a: Address,
+        _token_b: Address,
+    ) -> Result<Address, CombinedRouterError> {
+        Ok(token_a)
+    }
 }
 
 fn burn_and_mint_tokens(

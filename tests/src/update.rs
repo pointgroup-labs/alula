@@ -96,11 +96,11 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         e, contract_client, gold_pool_address, users, usdc_pool_address, ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
-    let loan_provider = &users[0];
+    let liquidity_provider = &users[0];
     let creditor = &users[1];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.deposit_earn(loan_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit_earn(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1).is_ok());
     assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());

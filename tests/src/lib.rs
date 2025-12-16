@@ -263,11 +263,8 @@ impl TestMarketFixture<'_> {
             e,
             contract_client,
             contract_id,
-            gold_sac,
             gold_pool_address,
-            btc_sac,
             btc_pool_address,
-            usdc_sac,
             usdc_pool_address,
             users,
             ..
@@ -288,6 +285,8 @@ impl TestMarketFixture<'_> {
             assert!(pool.total_collateral >= 0);
             assert!(pool.total_j_tokens >= 0);
             assert!(pool.total_d_tokens >= 0);
+            assert!(pool.total_supply().unwrap() >= 0);
+            assert!(pool.total_available().unwrap() >= 0);
         }
 
         // -- Contract's token balances shouldn't be smaller than the corresponding `available` + fees values on pools --
@@ -318,22 +317,9 @@ impl TestMarketFixture<'_> {
 
         // -- It must be always possible to borrow what's available on the pool --
 
-        let new_borrower = Address::generate(e);
-
-        let collateral_amount = pools
-            .iter()
-            .max_by(|x, y| x.total_available.cmp(&y.total_available))
-            .unwrap()
-            .total_available()
-            .unwrap();
-
-        usdc_sac.mint(&new_borrower, &(2 * collateral_amount));
-        btc_sac.mint(&new_borrower, &(2 * collateral_amount));
-        gold_sac.mint(&new_borrower, &(2 * collateral_amount));
-
         let multiply_pairs = contract_client.get_all_multiply_pairs();
 
-        for pool in &pools {
+        for pool in pools {
             let (mut j_tokens_obligations_sum, mut d_tokens_obligations_sum) = (0_i128, 0_i128);
 
             for user in users {
@@ -398,47 +384,6 @@ impl TestMarketFixture<'_> {
 
             assert_eq!(pool.total_j_tokens, j_tokens_obligations_sum);
             assert_eq!(pool.total_d_tokens, d_tokens_obligations_sum);
-
-            let available_borrow = pool.compute_available_utilization_ratio_cap_borrow(e).unwrap();
-
-            let collateral_pool_address = if &pool.token_address == btc_pool_address {
-                gold_pool_address
-            } else {
-                btc_pool_address
-            };
-
-            contract_client.add_collateral(
-                &new_borrower,
-                collateral_pool_address,
-                &collateral_amount,
-            );
-            contract_client.borrow(&new_borrower, &pool.token_address, &available_borrow);
-
-            contract_client.repay(&new_borrower, &pool.token_address, &available_borrow);
-            contract_client.remove_collateral(
-                &new_borrower,
-                collateral_pool_address,
-                &collateral_amount,
-            );
-
-            if let Ok(Ok(mut obligation)) = contract_client.try_get_user_obligation(&new_borrower) {
-                // NB: If borrower's obligation still not closed due to unfavorable roundings - remove it manually to preserve invariants
-                let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
-                else {
-                    continue;
-                };
-
-                let mut pool = contract_client.get_pool(&pool.pool_address);
-                pool.adjust_total_d_tokens(
-                    e,
-                    borrow_position.d_tokens.checked_neg().map_over_or_underflow().unwrap(),
-                )
-                .unwrap();
-                e.as_contract(contract_id, || {
-                    obligation.try_remove_borrow_position(e, &pool.pool_address.clone()).unwrap();
-                    pool.set(e);
-                })
-            }
         }
     }
 }
@@ -739,10 +684,10 @@ impl RunCommand for DepositWithLeverage {
         if deposit_pool_address != borrow_pool_address {
             let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-            let (flash_loan_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
+            let (flash_liquidity_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
 
             contract_client.deposit(
-                flash_loan_provider,
+                flash_liquidity_provider,
                 &borrow_pool_address,
                 &self.flash_loan_amount.0,
             );

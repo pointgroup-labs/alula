@@ -530,10 +530,10 @@ impl Obligation {
         )?;
         let deposited_tokens_minus_fee =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
-        let j_tokens_to_issue =
-            pool.compute_j_tokens_from_tokens_floor(deposited_tokens_minus_fee)?;
+        let (j_tokens_to_issue, new_originally_deposited) =
+            pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
 
-        deposit_position.adjust_originally_deposited(e, deposited_tokens_minus_fee)?;
+        deposit_position.adjust_originally_deposited(e, new_originally_deposited)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
@@ -573,10 +573,11 @@ impl Obligation {
         // 'what borrower receives' = 'borrower debt' - 'fees'
         let borrower_to_receive =
             real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
-        let d_tokens_to_issue = pool.compute_d_tokens_from_tokens_ceil(real_borrowed_amount)?;
+        let (d_tokens_to_issue, new_originally_borrowed) =
+            pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
 
         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
-        borrow_position.adjust_borrowed(e, real_borrowed_amount)?;
+        borrow_position.adjust_originally_borrowed(e, new_originally_borrowed)?;
 
         self.borrows.set(pool.pool_address.clone(), borrow_position);
 
@@ -673,20 +674,24 @@ impl Obligation {
                 received_interest,
             );
 
-            // return Err(MCError::InternalError);
+            return Err(MCError::InternalError);
         } else if deposit_decrease >= received_interest {
-            if is_all_withdrawn {
-                deposit_position.adjust_originally_deposited(
-                    e,
-                    deposit_position.originally_deposited.checked_neg().map_over_or_underflow()?,
-                )?;
+            let new_originally_deposited = if is_all_withdrawn {
+                0
             } else {
-                let deposited_diff = deposit_decrease - received_interest; // safe
-                deposit_position.adjust_originally_deposited(
+                let new_total_j_tokens = pool.total_j_tokens - j_tokens_to_burn; // safe
+                let new_total_supply = pool.total_supply()? - deposit_decrease; // safe
+                let new_j_tokens = deposit_position.j_tokens - j_tokens_to_burn; // safe
+
+                Pool::compute_tokens_from_shares_floor(
                     e,
-                    deposited_diff.checked_neg().map_over_or_underflow()?,
-                )?;
-            }
+                    new_j_tokens,
+                    new_total_j_tokens,
+                    new_total_supply,
+                )?
+            };
+
+            deposit_position.set_originally_deposited(e, new_originally_deposited)?;
         }
 
         deposit_position
@@ -777,7 +782,7 @@ impl Obligation {
         let amount_to_repay_all_debt =
             all_debt.checked_add(all_debt_fees.fee_sum).map_over_or_underflow()?;
 
-        let (is_debt_repaid, amount_to_take_from_borrower, computed_fees) =
+        let (is_all_repaid, amount_to_take_from_borrower, computed_fees) =
             if provided_amount < amount_to_repay_all_debt {
                 let computed_fees = compute_fees(
                     provided_amount,
@@ -792,7 +797,7 @@ impl Obligation {
         let debt_decrease_in_tokens = amount_to_take_from_borrower
             .checked_sub(computed_fees.fee_sum)
             .map_over_or_underflow()?;
-        let d_tokens_to_burn = if is_debt_repaid {
+        let d_tokens_to_burn = if is_all_repaid {
             borrow_position.d_tokens
         } else {
             pool.compute_d_tokens_from_tokens_floor(debt_decrease_in_tokens)?
@@ -809,14 +814,27 @@ impl Obligation {
                 unpaid_interest,
             );
 
-            // return Err(MCError::InternalError);
+            return Err(MCError::InternalError);
         } else if debt_decrease_in_tokens >= unpaid_interest {
-            let borrowed_diff = debt_decrease_in_tokens - unpaid_interest; // safe
-            borrow_position
-                .adjust_borrowed(e, borrowed_diff.checked_neg().map_over_or_underflow()?)?;
+            let new_originally_borrowed = if is_all_repaid {
+                0
+            } else {
+                let new_total_d_tokens = pool.total_d_tokens - d_tokens_to_burn; // safe
+                let new_total_borrowed = pool.total_borrowed - debt_decrease_in_tokens; // safe
+                let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
+
+                Pool::compute_tokens_from_shares_floor(
+                    e,
+                    new_d_tokens,
+                    new_total_d_tokens,
+                    new_total_borrowed,
+                )?
+            };
+
+            borrow_position.set_originally_borrowed(e, new_originally_borrowed)?;
         }
 
-        if is_debt_repaid {
+        if is_all_repaid {
             self.try_remove_borrow_position(e, &pool.pool_address)?;
         } else {
             borrow_position
@@ -1023,54 +1041,36 @@ impl Obligation {
             (deposit_position.collateral, j_tokens)
         };
 
-        let decreased_deposited_amount = {
-            let position_deposited_ceil =
-                collateral_pool.compute_tokens_from_j_tokens_ceil(e, deposit_position.j_tokens)?;
-            let received_interest = position_deposited_ceil
-                .checked_sub(deposit_position.originally_deposited)
-                .map_over_or_underflow()?;
-            let deposited_diff = if received_interest.is_negative() {
-                events::computed_interest_is_negative(
-                    e,
-                    &borrow_pool.pool_address,
-                    borrow_position.d_tokens,
-                    position_deposited_ceil,
-                    received_interest,
-                );
+        if j_tokens_seized.is_positive() {
+            let new_j_tokens = deposit_position.j_tokens - j_tokens_seized; // safe
+            let new_originally_deposited = Pool::compute_tokens_from_shares_floor(
+                e,
+                new_j_tokens,
+                collateral_pool.total_j_tokens,
+                collateral_pool.total_supply()?,
+            )?;
 
-                return Err(MCError::InternalError);
-            } else if tokens_from_j_tokens_seized > received_interest {
-                tokens_from_j_tokens_seized - received_interest // safe
-            } else {
-                0
-            };
-
-            // TODO: Redundant?
-            deposited_diff.min(deposit_position.originally_deposited)
-        };
+            deposit_position.set_originally_deposited(e, new_originally_deposited)?;
+        }
 
         deposit_position
             .adjust_collateral(e, plain_collateral_seized.checked_neg().map_over_or_underflow()?)?;
         deposit_position
             .adjust_j_tokens(e, j_tokens_seized.checked_neg().map_over_or_underflow()?)?;
-        deposit_position.adjust_originally_deposited(
-            e,
-            decreased_deposited_amount.checked_neg().map_over_or_underflow()?,
-        )?;
 
         // -- Adjust Borrow Position --
 
         let is_all_debt_liquidated = liquidated_amount == position_debt;
-        let (d_tokens_to_burn, decreased_borrowed_amount) = if is_all_debt_liquidated {
+        let (d_tokens_to_burn, new_originally_borrowed) = if is_all_debt_liquidated {
             // All gone
-            (borrow_position.d_tokens, borrow_position.originally_borrowed)
+            (borrow_position.d_tokens, 0)
         } else {
             let d_tokens_to_burn =
                 borrow_pool.compute_d_tokens_from_tokens_floor(liquidated_amount)?;
             let unpaid_interest = position_debt
                 .checked_sub(borrow_position.originally_borrowed)
                 .map_over_or_underflow()?;
-            let borrowed_diff = if unpaid_interest.is_negative() {
+            let new_originally_borrowed = if unpaid_interest.is_negative() {
                 events::computed_interest_is_negative(
                     e,
                     &borrow_pool.pool_address,
@@ -1081,20 +1081,26 @@ impl Obligation {
 
                 return Err(MCError::InternalError);
             } else if liquidated_amount > unpaid_interest {
-                liquidated_amount - unpaid_interest // safe
+                let new_total_d_tokens = borrow_pool.total_d_tokens - d_tokens_to_burn; // safe
+                let new_total_borrowed = borrow_pool.total_borrowed - liquidated_amount; // safe
+                let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
+
+                Pool::compute_tokens_from_shares_ceil(
+                    e,
+                    new_d_tokens,
+                    new_total_d_tokens,
+                    new_total_borrowed,
+                )?
             } else {
-                0
+                borrow_position.originally_borrowed
             };
 
-            (d_tokens_to_burn, borrowed_diff)
+            (d_tokens_to_burn, new_originally_borrowed)
         };
-        let decreased_borrowed_amount =
-            decreased_borrowed_amount.min(borrow_position.originally_borrowed);
 
         borrow_position
             .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
-        borrow_position
-            .adjust_borrowed(e, decreased_borrowed_amount.checked_neg().map_over_or_underflow()?)?;
+        borrow_position.set_originally_borrowed(e, new_originally_borrowed)?;
 
         if deposit_position.is_empty() {
             self.try_remove_deposit_position(e, &collateral_pool.pool_address)?;
@@ -1176,7 +1182,22 @@ impl BorrowPosition {
         Ok(())
     }
 
-    pub fn adjust_borrowed(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
+    pub fn set_originally_borrowed(&mut self, e: &Env, new_amount: i128) -> Result<(), MCError> {
+        if new_amount.is_negative() {
+            events::obligation_amount_becomes_negative(e, self.originally_borrowed, new_amount);
+
+            return Err(MCError::InternalError);
+        }
+        self.originally_borrowed = new_amount;
+
+        Ok(())
+    }
+
+    pub fn adjust_originally_borrowed(
+        &mut self,
+        e: &Env,
+        adjusting_amount: i128,
+    ) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.originally_borrowed, adjusting_amount)?;
         self.originally_borrowed = new_amount;
 
@@ -1210,6 +1231,18 @@ impl DepositPosition {
     pub fn adjust_j_tokens(&mut self, e: &Env, adjusting_amount: i128) -> Result<(), MCError> {
         let new_amount = adjust_obligation_field(e, self.j_tokens, adjusting_amount)?;
         self.j_tokens = new_amount;
+
+        Ok(())
+    }
+
+    pub fn set_originally_deposited(&mut self, e: &Env, new_amount: i128) -> Result<(), MCError> {
+        if new_amount.is_negative() {
+            events::obligation_amount_becomes_negative(e, self.originally_deposited, new_amount);
+
+            return Err(MCError::InternalError);
+        }
+
+        self.originally_deposited = new_amount;
 
         Ok(())
     }
