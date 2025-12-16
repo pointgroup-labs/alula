@@ -18,11 +18,7 @@ function close() {
 let body: HTMLElement | null
 
 watch(() => isSidebar, (val) => {
-  if (val) {
-    body?.classList.add('body--no-scroll')
-  } else {
-    body?.classList.remove('body--no-scroll')
-  }
+  body?.classList.toggle('body--no-scroll', val)
 })
 
 onMounted(() => {
