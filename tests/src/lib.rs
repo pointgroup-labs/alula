@@ -12,6 +12,7 @@ mod misc;
 mod oracle;
 mod repay;
 mod requests_batching;
+mod security;
 mod storage_extension;
 mod swap;
 mod update;
@@ -27,7 +28,7 @@ use market::{
     },
     contract::{MarketClient, MarketContract},
     error::MCError,
-    math_utils::MathUtils,
+    utils::MathUtils,
     obligation::{BorrowPosition, DepositPosition},
     pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
@@ -143,6 +144,7 @@ impl TestMarketFixture<'_> {
                 0i128,
                 DEFAULT_INSOLVENCY_LTV_BPS,
                 Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
+                true, // is_upgradable
             ),
         );
         let contract_client = MarketClient::new(&e, &contract_id);
@@ -1333,6 +1335,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             0i128,
             DEFAULT_INSOLVENCY_LTV_BPS,
             if is_owned { Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS) } else { None },
+            true, // is_upgradable
         ),
     );
 

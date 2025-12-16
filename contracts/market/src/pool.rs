@@ -7,8 +7,8 @@ use crate::{
     error::MCError,
     events,
     interest_rate_model::InterestRateModel,
-    math_utils::MathUtils,
-    misc::PoolData,
+    utils::MathUtils,
+    types::PoolData,
     obligation::{
         AddCollateralResult, BorrowResult, ComputedFees, DepositResult, LiquidationResult,
         RemoveCollateralResult, RepayResult, WithdrawResult,

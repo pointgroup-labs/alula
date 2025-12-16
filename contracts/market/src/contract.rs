@@ -8,9 +8,10 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    misc::{
-        MarketData, PoolData, require_admin, require_borrow_allowed, require_deployer,
-        require_deposit_allowed, require_nonnegative, require_not_frozen, require_owned_and_admin,
+    types::{MarketData, PoolData},
+    utils::{
+        require_admin, require_borrow_allowed, require_deployer, require_deposit_allowed,
+        require_not_frozen, require_owned_and_admin, require_positive,
     },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
@@ -34,6 +35,7 @@ pub trait Market {
     /// * `min_collateral_value` - minimum collateral value of a user's obligation
     /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
     ///   `None` for permissionless markets since they cannot be updated
+    /// * `is_upgradable` - if true, contract can be upgraded; if false, upgrades are permanently disabled
     fn __constructor(
         e: Env,
         name: String,
@@ -44,6 +46,7 @@ pub trait Market {
         insolvency_ltv_bps: i128,
         min_collateral_value: i128,
         update_in_queue_period: Option<u64>,
+        is_upgradable: bool,
     ) -> Result<(), MCError>;
 
     /// Submits a request batch
@@ -533,10 +536,23 @@ pub trait Market {
     /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     ///   version of the contract
-    fn upgrade(e: Env, new_wasm_hash: BytesN<32>);
+    fn propose_upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), MCError>;
+
+    /// Executes a previously proposed upgrade after the time-lock has expired
+    fn execute_upgrade(e: Env) -> Result<(), MCError>;
+
+    /// Cancels a pending upgrade proposal
+    fn cancel_upgrade(e: Env) -> Result<(), MCError>;
+
+    /// Returns the pending upgrade if one exists
+    fn get_pending_upgrade(e: Env) -> Option<storage::PendingUpgrade>;
+
+    /// Returns whether the contract can be upgraded
+    fn is_upgradable(e: Env) -> bool;
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
-    /// resetting on the testnet without re-deploying the contract
+    /// resetting on the testnet without re-deploying the contract.
+    #[cfg(not(feature = "mainnet"))]
     fn reset_storage(e: Env);
 }
 
@@ -556,6 +572,7 @@ impl Market for MarketContract {
         min_collateral_value: i128,
         insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
+        is_upgradable: bool,
     ) -> Result<(), MCError> {
         let market_status = if update_in_queue_period.is_some() {
             // Owned markets begin in a frozen state
@@ -573,21 +590,75 @@ impl Market for MarketContract {
         storage::set_update_in_queue_period(&e, update_in_queue_period);
         storage::set_min_collateral_value(&e, min_collateral_value);
         storage::set_insolvency_ltv_bps(&e, insolvency_ltv_bps);
+        storage::set_is_upgradable(&e, is_upgradable);
 
         Ok(())
     }
 
-    // WARN: All upgrade possibilities will be removed prior to mainnet deployment
-
-    /// Upgrades the lending contract
+    /// Proposes a contract upgrade with a time-lock delay
     ///
     /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     ///   version of the contract
-    fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
+    fn propose_upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), MCError> {
         require_admin(&e);
 
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
+        if !storage::is_upgradable(&e) {
+            return Err(MCError::InvalidMarketUpdate);
+        }
+
+        if storage::has_pending_upgrade(&e) {
+            return Err(MCError::InvalidMarketUpdate);
+        }
+
+        let execute_after = e.ledger().timestamp() + UPGRADE_DELAY_SECONDS;
+        let pending =
+            storage::PendingUpgrade { new_wasm_hash, execute_after_timestamp: execute_after };
+
+        storage::set_pending_upgrade(&e, &pending);
+        events::propose_upgrade(&e, &pending.new_wasm_hash, execute_after);
+
+        Ok(())
+    }
+
+    /// Executes a previously proposed upgrade after the time-lock has expired
+    fn execute_upgrade(e: Env) -> Result<(), MCError> {
+        require_admin(&e);
+
+        let pending =
+            storage::get_pending_upgrade(&e).ok_or(MCError::PoolDoesNotHaveQueuedInConfigUpdate)?;
+
+        if e.ledger().timestamp() < pending.execute_after_timestamp {
+            return Err(MCError::PoolConfigUpdateIsNotYetApplicable);
+        }
+
+        storage::remove_pending_upgrade(&e);
+        e.deployer().update_current_contract_wasm(pending.new_wasm_hash);
+
+        Ok(())
+    }
+
+    /// Cancels a pending upgrade proposal
+    fn cancel_upgrade(e: Env) -> Result<(), MCError> {
+        require_admin(&e);
+
+        if !storage::has_pending_upgrade(&e) {
+            return Err(MCError::PoolDoesNotHaveQueuedInConfigUpdate);
+        }
+
+        storage::remove_pending_upgrade(&e);
+        events::cancel_upgrade(&e);
+
+        Ok(())
+    }
+
+    /// Returns the pending upgrade if one exists
+    fn get_pending_upgrade(e: Env) -> Option<storage::PendingUpgrade> {
+        storage::get_pending_upgrade(&e)
+    }
+
+    fn is_upgradable(e: Env) -> bool {
+        storage::is_upgradable(&e)
     }
 
     // TODO: Re-design this to include liquidations and leveraged operations
@@ -753,6 +824,7 @@ impl Market for MarketContract {
     fn borrow(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
         user.require_auth();
         require_borrow_allowed(&e)?;
+        require_positive(amount)?;
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
@@ -782,7 +854,7 @@ impl Market for MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_nonnegative(amount)?;
+        require_positive(amount)?;
         storage::extend_instance_storage(&e);
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
@@ -1189,7 +1261,8 @@ impl Market for MarketContract {
     }
 
     /// Resets the contract's storage. Useful when the contract's invariants are broken and require
-    /// resetting on the testnet without re-deploying the contract
+    /// resetting on the testnet without re-deploying the contract.
+    #[cfg(not(feature = "mainnet"))]
     fn reset_storage(e: Env) {
         require_admin(&e);
 

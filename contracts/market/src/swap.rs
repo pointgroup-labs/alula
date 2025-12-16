@@ -7,7 +7,7 @@ use soroban_sdk::{
     vec,
 };
 
-use crate::{constants::*, error::MCError, math_utils::MathUtils, soroswap_router as router};
+use crate::{constants::*, error::MCError, utils::MathUtils, soroswap_router as router};
 
 // TODO: Maybe, create some internal trait for common swap operations and
 //  implement it for different swap providers?

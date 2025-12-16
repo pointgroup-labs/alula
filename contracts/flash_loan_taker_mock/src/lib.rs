@@ -90,11 +90,10 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
     fn test_flash_loan_zero() {
         let FlashLoanTest { test_fixture, flash_loan_taker_contract_id, .. } = FlashLoanTest::new();
         let caller = &test_fixture.users[1];
-        let gold_pool_before =
-            test_fixture.contract_client.get_pool(&test_fixture.gold_pool_address);
 
         test_fixture.contract_client.flash_loan(
             &flash_loan_taker_contract_id,
@@ -102,12 +101,6 @@ mod test {
             &test_fixture.usdc_pool_address,
             &0,
         );
-
-        let gold_pool_after =
-            test_fixture.contract_client.get_pool(&test_fixture.gold_pool_address);
-
-        // Must be equal, since flash loan fee is calculated as a percentage and `x * 0 = 0`
-        assert_eq!(gold_pool_before, gold_pool_after);
     }
 
     #[test]

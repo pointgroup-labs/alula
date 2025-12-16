@@ -33,6 +33,7 @@ pub trait MarketManager {
     /// * `insolvency_ltv_bps` - unparameterized LTV(i.e., not scaled with closeLTV\openLTV\liability factors) that marks obligation in market as insolvent
     /// * `update_in_queue_period` - amount of seconds required to pass before applying an issued pool's config update in an owned pool. Passing here `None` means that the market is permissionless
     ///   and its pools and parameters cannot be modified(except for new pools initialization)
+    /// * `is_upgradable` - if true, market can be upgraded; if false, upgrades are permanently disabled
     #[allow(clippy::too_many_arguments)]
     fn deploy(
         e: Env,
@@ -44,6 +45,7 @@ pub trait MarketManager {
         min_collateral: i128,
         insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
+        is_upgradable: bool,
     ) -> Result<Address, MMCError>;
 
     /// Returns a set of all lending markets deployed by the manager
@@ -70,6 +72,7 @@ impl MarketManager for MarketManagerContract {
         min_collateral: i128,
         insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
+        is_upgradable: bool,
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
@@ -91,6 +94,7 @@ impl MarketManager for MarketManagerContract {
                 min_collateral,
                 insolvency_ltv_bps,
                 update_in_queue_period,
+                is_upgradable,
             ),
         );
 
@@ -138,22 +142,61 @@ impl MarketManagerContract {
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
-    /// Upgrades all deployed market contracts
+    /// Proposes upgrades for all deployed upgradable market contracts
+    ///
+    /// Note: Due to the timelock mechanism, the actual upgrade execution must be done
+    /// separately by calling `execute_upgrade` on each market after the timelock period.
+    /// Markets deployed with `is_upgradable = false` are skipped.
     ///
     /// # Arguments
     /// * `new_market_contract_wasm_hash` - hash of the WASM binary uploaded to the network that
     ///   will be used as a new version of the contract for every deployed market
-    pub fn upgrade_deployed_markets(e: Env, new_market_contract_wasm_hash: BytesN<32>) {
+    pub fn propose_upgrade_deployed_markets(e: Env, new_market_contract_wasm_hash: BytesN<32>) {
         require_admin(&e);
 
         if let Some(deployed_markets) = storage::get_markets(&e) {
             for market_address in deployed_markets.keys() {
                 let market_client = market::Client::new(&e, &market_address);
-                market_client.upgrade(&new_market_contract_wasm_hash);
+                if market_client.is_upgradable() {
+                    market_client.propose_upgrade(&new_market_contract_wasm_hash);
+                }
             }
         }
 
         storage::set_market_contract_wasm_hash(&e, &new_market_contract_wasm_hash);
+    }
+
+    /// Executes pending upgrades for all deployed upgradable market contracts
+    ///
+    /// This should be called after the timelock period has passed for proposed upgrades.
+    /// Markets deployed with `is_upgradable = false` are skipped.
+    pub fn execute_upgrade_deployed_markets(e: Env) {
+        require_admin(&e);
+
+        if let Some(deployed_markets) = storage::get_markets(&e) {
+            for market_address in deployed_markets.keys() {
+                let market_client = market::Client::new(&e, &market_address);
+                if market_client.is_upgradable() {
+                    market_client.execute_upgrade();
+                }
+            }
+        }
+    }
+
+    /// Cancels pending upgrades for all deployed upgradable market contracts
+    ///
+    /// Markets deployed with `is_upgradable = false` are skipped.
+    pub fn cancel_upgrade_deployed_markets(e: Env) {
+        require_admin(&e);
+
+        if let Some(deployed_markets) = storage::get_markets(&e) {
+            for market_address in deployed_markets.keys() {
+                let market_client = market::Client::new(&e, &market_address);
+                if market_client.is_upgradable() {
+                    market_client.cancel_upgrade();
+                }
+            }
+        }
     }
 }
 

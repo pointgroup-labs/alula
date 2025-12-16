@@ -59,6 +59,13 @@ pub struct PoolUpdate {
 }
 
 #[contracttype]
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct PendingUpgrade {
+    pub new_wasm_hash: BytesN<32>,
+    pub execute_after_timestamp: u64,
+}
+
+#[contracttype]
 pub enum DataKey {
     Name,
     Admin,
@@ -80,6 +87,8 @@ pub enum DataKey {
     Obligation(ObligationKey),
     MultiplyPair((Address, Address)),
     EarnObligationSeed,
+    PendingUpgrade,
+    IsUpgradable,
 }
 
 // -- TTL Bumpers --
@@ -185,6 +194,29 @@ pub fn set_earn_obligation_seed(e: &Env, seed: &BytesN<32>) {
 pub fn get_earn_obligation_seed(e: &Env) -> Option<BytesN<32>> {
     e.storage().instance().get(&DataKey::EarnObligationSeed)
 }
+
+// - PendingUpgrade -
+pub fn set_pending_upgrade(e: &Env, pending: &PendingUpgrade) {
+    e.storage().instance().set(&DataKey::PendingUpgrade, pending)
+}
+pub fn get_pending_upgrade(e: &Env) -> Option<PendingUpgrade> {
+    e.storage().instance().get(&DataKey::PendingUpgrade)
+}
+pub fn has_pending_upgrade(e: &Env) -> bool {
+    e.storage().instance().has(&DataKey::PendingUpgrade)
+}
+pub fn remove_pending_upgrade(e: &Env) {
+    e.storage().instance().remove(&DataKey::PendingUpgrade)
+}
+
+// - IsUpgradable -
+pub fn set_is_upgradable(e: &Env, is_upgradable: bool) {
+    e.storage().instance().set(&DataKey::IsUpgradable, &is_upgradable)
+}
+pub fn is_upgradable(e: &Env) -> bool {
+    e.storage().instance().get(&DataKey::IsUpgradable).unwrap_or(true)
+}
+
 // ---- Pool ----
 
 /// Gets all pools stored in the contract

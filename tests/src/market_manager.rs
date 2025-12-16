@@ -66,6 +66,7 @@ fn test_manager_deploy_markets() {
         &1,
         &DEFAULT_INSOLVENCY_LTV_BPS,
         &None,
+        &true,
     );
 
     let market_list = manager_client.get_markets();
@@ -83,6 +84,7 @@ fn test_manager_deploy_markets() {
         &1,
         &DEFAULT_INSOLVENCY_LTV_BPS,
         &None,
+        &true,
     );
 
     let market_list = manager_client.get_markets();
@@ -109,6 +111,7 @@ fn test_manager_cannot_redeploy_market() {
         &1,
         &DEFAULT_INSOLVENCY_LTV_BPS,
         &None,
+        &true,
     );
 
     let name_2 = String::from_str(&e, "market_2");
@@ -125,7 +128,8 @@ fn test_manager_cannot_redeploy_market() {
                 &2,
                 &1,
                 &DEFAULT_INSOLVENCY_LTV_BPS,
-                &None
+                &None,
+                &true,
             )
             .is_err()
     );
@@ -150,6 +154,7 @@ fn test_manager_invalid_deploy() {
             &-1,
             &DEFAULT_INSOLVENCY_LTV_BPS,
             &None,
+            &true,
         ),
         Err(Ok(MMCError::InvalidMarketState))
     );
@@ -164,6 +169,7 @@ fn test_manager_invalid_deploy() {
             &0,
             &DEFAULT_INSOLVENCY_LTV_BPS,
             &None,
+            &true,
         ),
         Err(Ok(MMCError::InvalidMarketState))
     );
@@ -179,6 +185,7 @@ fn test_manager_invalid_deploy() {
                 &0,
                 &DEFAULT_INSOLVENCY_LTV_BPS,
                 &None,
+                &true,
             )
             .is_ok(),
     );

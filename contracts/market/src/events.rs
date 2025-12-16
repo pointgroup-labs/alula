@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, String, Symbol, contractevent};
+use soroban_sdk::{Address, BytesN, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -47,6 +47,16 @@ struct ApplyPoolConfigUpdate {
     #[topic]
     pub pool_address: Address,
 }
+
+#[contractevent]
+struct ProposeUpgradeEvent {
+    #[topic]
+    pub new_wasm_hash: BytesN<32>,
+    pub execute_after_timestamp: u64,
+}
+
+#[contractevent]
+struct CancelUpgradeEvent {}
 
 #[contractevent]
 struct BootstrapPoolEvent {
@@ -351,6 +361,15 @@ pub fn cancel_pool_config_update(e: &Env, pool_address: Address) {
 
 pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
     ApplyPoolConfigUpdate { pool_address }.publish(e);
+}
+
+pub fn propose_upgrade(e: &Env, new_wasm_hash: &BytesN<32>, execute_after_timestamp: u64) {
+    ProposeUpgradeEvent { new_wasm_hash: new_wasm_hash.clone(), execute_after_timestamp }
+        .publish(e);
+}
+
+pub fn cancel_upgrade(e: &Env) {
+    CancelUpgradeEvent {}.publish(e);
 }
 
 pub fn bootstrap_pool(

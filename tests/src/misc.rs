@@ -3,7 +3,7 @@
 use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
-    misc::{MarketData, PoolData},
+    types::{MarketData, PoolData},
     obligation::ObligationKey,
 };
 use soroban_fixed_point_math::FixedPoint;

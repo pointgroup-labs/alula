@@ -7,7 +7,7 @@ use crate::{
     error::MCError,
     events,
     interest_rate_model::InterestRate,
-    math_utils::MathUtils,
+    utils::MathUtils,
     pool::{Pool, PoolBootstrapPeriod},
 };
 

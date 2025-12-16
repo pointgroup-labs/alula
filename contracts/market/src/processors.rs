@@ -9,8 +9,7 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    math_utils::MathUtils,
-    misc::require_nonnegative,
+    utils::{MathUtils, require_nonnegative, require_positive},
     multiply_pair::MultiplyPair,
     obligation::{CoverBadDebtResult, Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
@@ -173,7 +172,7 @@ pub fn process_bootstrap_pool(
     start_period: u64,
     end_period: u64,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let current_timestamp = e.ledger().timestamp();
     if start_period < current_timestamp || start_period >= end_period {
@@ -205,7 +204,7 @@ pub fn process_deposit<'a>(
     pool_address: &Address,
     amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_deposit_enabled()?;
@@ -281,7 +280,7 @@ pub fn process_add_collateral<'a>(
     pool_address: &Address,
     amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
@@ -313,7 +312,7 @@ pub fn process_repay<'a>(
     pool_address: &Address,
     amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
@@ -353,7 +352,7 @@ pub fn process_remove_collateral<'a>(
     pool_address: &Address,
     amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
@@ -388,7 +387,7 @@ pub fn process_withdraw<'a>(
     pool_address: &Address,
     amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
@@ -436,9 +435,9 @@ pub fn process_flash_loan(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
-    let mut pool = Pool::try_get(e, pool_address)?;
+    let pool = Pool::try_get(e, pool_address)?;
     pool.require_total_available(amount)?;
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -464,6 +463,8 @@ pub fn process_flash_loan(
         &amount_to_repay,
     );
 
+    // Reload pool after callback to preserve any state changes made during the callback
+    let mut pool = Pool::try_get(e, pool_address)?;
     pool.adjust_accumulated_market_fees(e, fees)?;
     pool.set(e);
 
@@ -480,7 +481,7 @@ pub fn process_deposit_with_leverage(
     amount: i128,
     leverage_multiplier: u32,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
@@ -602,41 +603,45 @@ pub fn process_deposit_with_leverage(
 
     // -- Borrow to repay the flash loan --
 
-    let updated_obligation = Obligation::try_get(e, obligation_key).map_err(|_| {
-        events::obligation_is_unexpectedly_missing_in_storage(e, obligation_key);
+    // Happens with x1.0 leverage / no leverage
+    if flash_repay_amount > 0 {
+        let updated_obligation = Obligation::try_get(e, obligation_key).map_err(|_| {
+            events::obligation_is_unexpectedly_missing_in_storage(e, obligation_key);
 
-        MCError::InternalError
-    })?;
+            MCError::InternalError
+        })?;
 
-    let max_healthy_borrow_amount =
-        updated_obligation.compute_max_healthy_debt_added_amount(e, &borrow_pool)?;
-    if flash_repay_amount > max_healthy_borrow_amount {
-        events::leverage_borrow_exceeds_borrowing_capacity(
-            e,
+        let max_healthy_borrow_amount =
+            updated_obligation.compute_max_healthy_debt_added_amount(e, &borrow_pool)?;
+        if flash_repay_amount > max_healthy_borrow_amount {
+            events::leverage_borrow_exceeds_borrowing_capacity(
+                e,
+                &obligation_key.user,
+                flash_borrow_amount,
+                flash_repay_amount,
+                max_healthy_borrow_amount,
+            );
+
+            return Err(MCError::InconsistentDepositWithLeverage);
+        }
+
+        process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount)?
+            .execute_transfers();
+        borrow_pool.refresh(e)?;
+
+        // -- Flash Repay --
+
+        flash_borrowed_token_client.transfer(
             &obligation_key.user,
-            flash_borrow_amount,
-            flash_repay_amount,
-            max_healthy_borrow_amount,
+            e.current_contract_address(),
+            &flash_repay_amount,
         );
 
-        return Err(MCError::InconsistentDepositWithLeverage);
+        borrow_pool.adjust_total_available(e, flash_borrow_amount)?;
+        borrow_pool.adjust_accumulated_market_fees(e, flash_loan_fee)?;
+
+        borrow_pool.set(e);
     }
-
-    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount)?.execute_transfers();
-    borrow_pool.refresh(e)?;
-
-    // -- Flash Repay --
-
-    flash_borrowed_token_client.transfer(
-        &obligation_key.user,
-        e.current_contract_address(),
-        &flash_repay_amount,
-    );
-
-    borrow_pool.adjust_total_available(e, flash_borrow_amount)?;
-    borrow_pool.adjust_accumulated_market_fees(e, flash_loan_fee)?;
-
-    borrow_pool.set(e);
 
     events::deposit_with_leverage(
         e,
@@ -658,7 +663,7 @@ pub fn process_withdraw_from_leveraged(
     pair: &MultiplyPair,
     amount: i128,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, &pair.deposit_pool).map_err(|_| {
@@ -846,7 +851,7 @@ pub fn process_liquidate<'a>(
     repay_amount: i128,
     min_demanded_collateral_amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(repay_amount)?;
+    require_positive(repay_amount)?;
     require_nonnegative(min_demanded_collateral_amount)?;
 
     if borrow_pool_address == collateral_pool_address || liquidator == &borrower_obligation_key.user
@@ -1045,7 +1050,7 @@ pub fn process_swap_exact_tokens(
     token_out: &Address,
     amount_in: i128,
 ) -> Result<i128, MCError> {
-    require_nonnegative(amount_in)?;
+    require_positive(amount_in)?;
 
     // Since `amount_out` is calculated within the call, there's no price slippage
     let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;

@@ -132,3 +132,11 @@ pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
 
 pub const INITIAL_SHARES_AMOUNT: i128 = 10_i128.pow(5);
+
+/// Time-lock delay for contract upgrades
+/// On mainnet: 7 days (gives users time to react)
+/// Otherwise: 0 (immediate upgrades for faster development)
+#[cfg(feature = "mainnet")]
+pub const UPGRADE_DELAY_SECONDS: u64 = 7 * SECONDS_PER_DAY;
+#[cfg(not(feature = "mainnet"))]
+pub const UPGRADE_DELAY_SECONDS: u64 = 0;
