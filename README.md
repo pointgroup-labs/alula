@@ -1,8 +1,18 @@
 [![Stellar Portal](https://img.shields.io/badge/STELLAR-grey?logo=stellar&style=for-the-badge)](https://stellar.org/)
+[![Soroban](https://img.shields.io/badge/SOROBAN-blue?logo=stellar&style=for-the-badge)](https://soroban.stellar.org/)
 [![GitHub license](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=apache&style=for-the-badge)](./LICENSE)
 [![Tests Status](https://img.shields.io/github/actions/workflow/status/mfactory-lab/alula/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/rust-2024_edition-orange?logo=rust&style=for-the-badge)](https://www.rust-lang.org/)
 
 # Alula Lending Protocol
+
+<div align="center">
+  <strong>Decentralized Lending on Stellar/Soroban</strong>
+  <br/>
+  <em>Earn yield • Borrow against collateral • Leverage positions • Flash loans</em>
+</div>
+
+<br/>
 
 Alula is a decentralized lending protocol built on the [Stellar](https://stellar.org/) blockchain using [Soroban](https://soroban.stellar.org/) smart contracts. It enables users to earn yield on deposits and access liquidity through overcollateralized loans with competitive interest rates.
 
@@ -32,16 +42,15 @@ Alula is a decentralized lending protocol built on the [Stellar](https://stellar
   - [Installation](#installation)
   - [Building](#building)
   - [Testing](#testing)
+  - [Code Quality](#code-quality)
 - [Usage](#-usage)
-  - [Contract Deployment](#contract-deployment)
-  - [Pool Management](#pool-management)
-  - [Lending Operations](#lending-operations)
 - [Protocol Mechanics](#-protocol-mechanics)
   - [Interest Rate Model](#interest-rate-model)
   - [Health Factor](#health-factor)
   - [Liquidation Process](#liquidation-process)
 - [Security](#-security)
 - [Contributions](#-contributions)
+- [Quick Reference](#-quick-reference)
 - [License](#-license)
 
 ## 🔍 Overview
@@ -74,37 +83,51 @@ The protocol features isolated lending pools per asset, dual-kink interest rates
 
 ## 🏗️ Architecture
 
-The protocol consists of a single unified market contract with modular components:
+The protocol consists of multiple contracts working together:
 
 ```
-├── contracts/market/           # Main market contract
-│   ├── lib.rs                  # Entry points: deposit, borrow, liquidate, etc.
-│   ├── pool.rs                 # Pool state management and accounting
-│   ├── obligation.rs           # User positions (deposits, borrows, collateral)
-│   ├── interest_rate.rs        # Dual-kink interest rate model
-│   ├── liquidation.rs          # Liquidation logic and health calculations
-│   ├── flash_loan.rs           # Flash loan implementation
-│   ├── deposit_with_leverage.rs # Leveraged deposit functionality
-│   ├── storage.rs              # Storage keys and state management
-│   ├── helpers.rs              # Authorization and validation
-│   ├── multiply_pair.rs        # Oracle integration via Keccak seed derivation
-│   ├── constants.rs            # Protocol-wide constants
-│   ├── events.rs               # Event emission system
-│   └── error.rs                # Error definitions
-├── tests/                      # Comprehensive test suite
-└── packages/                   # TypeScript SDK and utilities (planned)
+alula/
+├── contracts/
+│   ├── market/                     # Core lending market contract
+│   │   ├── src/
+│   │   │   ├── contract.rs         # Entry points: deposit, borrow, liquidate, flash_loan
+│   │   │   ├── pool.rs             # Pool state, j-token/d-token accounting
+│   │   │   ├── obligation.rs       # User positions (deposits, borrows, collateral)
+│   │   │   ├── processors.rs       # Core operation processors
+│   │   │   ├── interest_rate.rs    # Dual-kink interest rate model
+│   │   │   ├── oracle.rs           # SEP-40 oracle integration
+│   │   │   ├── storage.rs          # Storage keys, TTL management
+│   │   │   ├── multiply_pair.rs    # Leveraged position support
+│   │   │   └── error.rs            # Error definitions
+│   │   └── Cargo.toml
+│   ├── market_manager/             # Factory: deploys & manages Market instances
+│   ├── aggregated_oracle/          # Aggregates prices from multiple SEP-40 oracles
+│   └── soroswap_sep_40_adapter/    # Adapts Soroswap AMM prices to SEP-40 interface
+├── tests/                          # Comprehensive test suite with fuzzing
+├── packages/                       # TypeScript SDK (generated)
+└── wasms/                          # Compiled WASM artifacts
 ```
 
 ### Key Components
 
-- **Market Contract**: Unified contract handling all protocol operations with modular internal structure
-- **Pool Module**: Asset pools with isolated risk parameters, utilization tracking, and interest accrual
+- **Market Contract**: Core lending operations with isolated pools per asset
+- **Market Manager**: Factory contract for deploying and managing Market instances
+- **Aggregated Oracle**: Price feed aggregation from multiple SEP-40 sources
+- **Pool Module**: Asset pools with j-tokens (supply shares) and d-tokens (debt shares)
 - **Obligation Module**: User position tracking with two types:
   - **Standard Obligations**: Full-featured accounts supporting deposits, collateral, and borrowing
-  - **Earn Obligations**: Isolated deposit-only accounts for passive lenders
+  - **Earn Obligations**: Simplified deposit-only accounts for passive yield
 - **Interest Rate Module**: Dual-kink (jump-rate) model responding to pool utilization
-- **Liquidation Module**: Health factor monitoring and liquidation execution
-- **Oracle Integration**: Price feed via aggregated oracle contract using deterministic seed derivation
+
+### Key Concepts
+
+| Concept              | Description                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| **j-tokens**         | Supply shares representing a user's proportion of pool deposits                      |
+| **d-tokens**         | Debt shares representing a user's proportion of pool borrowings                      |
+| **LTV**              | Loan-to-Value ratio: `open_ltv` (max at borrow), `close_ltv` (liquidation threshold) |
+| **Health Factor**    | Position safety ratio; below 1.0 triggers liquidation eligibility                    |
+| **Liability Factor** | Risk weight applied to volatile assets (100-200%)                                    |
 
 ## 🛡️ Safety Mechanisms
 
@@ -185,9 +208,13 @@ This ensures that minor calculation rounding is handled gracefully while critica
 
 ### Prerequisites
 
-- **Rust** 1.90.0 or later
-- **Stellar CLI** for contract deployment
-- **Node.js** for TypeScript utilities
+- **Rust** 1.79+ (nightly for formatting/coverage)
+- **Stellar CLI** (`stellar-cli`) for contract deployment
+- **Make** for build automation
+
+Optional:
+
+- **Node.js** 18+ for TypeScript SDK
 - **pnpm** package manager
 
 ### Installation
@@ -196,43 +223,53 @@ This ensures that minor calculation rounding is handled gracefully while critica
 # Clone the repository
 git clone https://github.com/mfactory-lab/alula.git && cd alula
 
-# Install dependencies
-pnpm install
+# Install Rust development tools
+make setup
 ```
 
 ### Building
 
-Build all contracts:
-
 ```bash
+# Build all contracts (downloads dependencies, builds mocks and main contracts)
 make build
-```
 
-Or build specific components:
+# Build for testnet deployment
+make build/deploy
 
-```bash
-# Build only the market contract
-cargo build --release --target wasm32-unknown-unknown -p market
+# Build for mainnet (with 7-day upgrade timelock)
+make build/mainnet
 
-# Build with optimizations
-make build-optimize
+# Build and optimize for production
+make build/optimize
 ```
 
 ### Testing
 
-Run the comprehensive test suite:
-
 ```bash
-# Run all tests
+# Run all tests with cargo-nextest
 make test
 
-# Run specific test categories
-cargo test -p tests deposit
-cargo test -p tests liquidate
-cargo test -p tests interest_rates
+# Run tests in watch mode (auto-rerun on changes)
+make test/watch
 
-# Run fuzz tests
-cargo test -p tests fuzz
+# Run a specific test
+cargo nextest run <test_name> --workspace --lib
+
+# Run fuzzing suite
+make test/fuzz
+
+# Generate coverage report
+make cov                     # Terminal report
+make cov/html                # HTML report at target/llvm-cov/html/index.html
+```
+
+### Code Quality
+
+```bash
+make check        # Run cargo check
+make lint         # Run clippy with warnings as errors
+make fmt          # Format code (cargo sort + nightly fmt)
+make ci           # Full CI pipeline: test + lint + fmt/check
 ```
 
 ## 📖 Usage
@@ -375,34 +412,39 @@ When a position becomes unhealthy (Health Factor < 1.0):
 
 ### Audit Status
 
-- [ ] **External Security Audit** - Planned by established audit firm
-- [x] **Comprehensive Test Suite** - >90% code coverage with fuzz testing
-- [x] **Formal Verification** - Critical functions verified for correctness
+| Audit                    | Status      | Report                          |
+| ------------------------ | ----------- | ------------------------------- |
+| External Security Audit  | 📋 Planned  | TBD                             |
+| Comprehensive Test Suite | ✅ Complete | >90% coverage with fuzz testing |
 
 ### Security Features
 
-**Cryptographic Primitives**:
+**Authorization & Access Control**:
 
-- Keccak-256 for deterministic seed derivation
-- Ed25519 signatures (Stellar native)
-- Secure randomness for flash loan callbacks
+- Soroban `require_auth()` on all state-modifying operations
+- Admin/deployer role separation
+- Time-locked upgrades (7 days on mainnet)
+- Queue-based pool configuration updates (24-hour delay)
+
+**Arithmetic Safety**:
+
+- Checked arithmetic (`checked_add`, `checked_mul`, etc.) throughout
+- Fixed-point math via `soroban-fixed-point-math` library
+- Proper rounding direction (floor for supplies, ceil for debts)
 
 **Risk Management**:
 
 - **Isolated pools**: Each asset has separate risk parameters
-- **Overcollateralization**: Minimum 125% collateral ratio (configurable per pool)
-- **Liquidation incentives**: Economic rewards for liquidators (5-10% bonus)
-- **Health factor monitoring**: Real-time position safety tracking
-- **Liability factors**: Risk-adjusted debt weights (100-200% based on asset volatility)
+- **Overcollateralization**: Configurable LTV ratios per pool
+- **Liquidation incentives**: Economic rewards for maintaining solvency
+- **Oracle staleness checks**: Maximum 6-minute price age
+- **Position limits**: Maximum 20 positions per user
 
-**Smart Contract Security**:
+**Storage & State**:
 
-- Use of `checked_*` arithmetic operations to prevent overflows
-- Comprehensive input validation on all external functions
-- Access control for administrative functions (admin/deployer separation)
-- Reentrancy protection via Soroban execution model
-- Time-lock governance for sensitive parameter changes (24-hour default delay)
-- Event logging for all critical operations
+- TTL management prevents data archival
+- Instance storage extended on significant operations
+- Namespaced storage keys prevent collisions
 
 ### Reporting Vulnerabilities
 
@@ -437,6 +479,46 @@ We welcome contributions!
 ## 📄 License
 
 This project is licensed under the [Apache License 2.0](https://opensource.org/licenses/Apache-2.0).
+
+## 📚 Quick Reference
+
+### Make Commands
+
+| Command               | Description                     |
+| --------------------- | ------------------------------- |
+| `make build`          | Build all contracts             |
+| `make build/mainnet`  | Build for mainnet with timelock |
+| `make build/optimize` | Build and optimize WASMs        |
+| `make test`           | Run all tests                   |
+| `make test/watch`     | Run tests in watch mode         |
+| `make test/fuzz`      | Run fuzzing suite               |
+| `make cov`            | Generate coverage report        |
+| `make cov/html`       | Generate HTML coverage          |
+| `make lint`           | Run clippy                      |
+| `make fmt`            | Format code                     |
+| `make ci`             | Full CI pipeline                |
+| `make sdk`            | Generate TypeScript SDK         |
+| `make clean`          | Clean build artifacts           |
+
+### Protocol Parameters (Defaults)
+
+| Parameter         | Value  | Description                        |
+| ----------------- | ------ | ---------------------------------- |
+| Open LTV          | 70%    | Maximum LTV at borrow time         |
+| Close LTV         | 80%    | LTV threshold for liquidation      |
+| Liquidation Bonus | 10%    | Incentive for liquidators          |
+| Close Factor      | 50%    | Max debt repayable per liquidation |
+| Utilization Limit | 90%    | Max pool utilization for borrowing |
+| Oracle Max Age    | 6 min  | Maximum acceptable price staleness |
+| Upgrade Delay     | 7 days | Timelock for mainnet upgrades      |
+
+### Decimal Precision
+
+| Type          | Decimals | Example                    |
+| ------------- | -------- | -------------------------- |
+| Token amounts | 7        | 1 XLM = 10,000,000 stroops |
+| Oracle prices | 14       | 1.00 = 10^14               |
+| Basis points  | 4        | 100% = 10,000 BPS          |
 
 ## 📞 Support
 

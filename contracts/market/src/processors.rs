@@ -9,13 +9,13 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    utils::{MathUtils, require_nonnegative, require_positive},
     multiply_pair::MultiplyPair,
     obligation::{CoverBadDebtResult, Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
     request::{Request, RequestTransfers, RequestType},
     storage::{self, GlobalState},
     swap,
+    utils::{MathUtils, require_nonnegative, require_positive},
 };
 
 pub fn process_submit_requests_batch<'a>(
@@ -463,6 +463,7 @@ pub fn process_flash_loan(
         &amount_to_repay,
     );
 
+    // TODO: check it
     // Reload pool after callback to preserve any state changes made during the callback
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.adjust_accumulated_market_fees(e, fees)?;
