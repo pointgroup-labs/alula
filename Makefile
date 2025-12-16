@@ -39,6 +39,9 @@ B := \033[0;34m
 C := \033[0;36m
 N := \033[0m
 
+# Make comma (for use in $(call) arguments)
+COMMA := ,
+
 .DEFAULT_GOAL := help
 .SILENT: help
 .PHONY: all build test clean help
@@ -120,14 +123,29 @@ build/deploy: build/prepare ## Build for deployment
 	$(call build_contract,market_manager,$(DEPLOY_DIR),--features deploy)
 	$(call success,"Deploy build complete")
 
-build/optimize: build/deploy ## Build + optimize for production
+build/mainnet: build/prepare ## Build for mainnet
+	$(call build_contract,soroswap_sep_40_adapter,$(DEPLOY_DIR))
+	$(call build_contract,aggregated_oracle,$(DEPLOY_DIR))
+	$(call build_contract,market,$(DEPLOY_DIR),--features deploy$(COMMA)mainnet)
+	$(call build_contract,market_manager,$(DEPLOY_DIR),--features deploy)
+	$(call success,"Mainnet build complete")
+
+define do_optimize
 	$(call optimize_contract,soroswap_sep_40_adapter)
 	$(call optimize_contract,aggregated_oracle)
 	$(call optimize_contract,market)
 	$(call optimize_contract,market_manager)
-	$(call success,"Optimization complete")
 	@printf "\n$(C)Sizes:$(N)\n"
 	@find $(DEPLOY_OPTIMIZED_DIR) -name "*.wasm" -exec sh -c 'printf "  %-40s %s\n" "$$(basename {})" "$$(ls -lh {} | awk "{print \$$5}")"' \;
+endef
+
+build/optimize: build/deploy ## Optimize for deployment
+	$(do_optimize)
+	$(call success,"Optimization complete")
+
+build/optimize/mainnet: build/mainnet ## Optimize for mainnet
+	$(do_optimize)
+	$(call success,"Optimization complete (mainnet)")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Testing
@@ -241,9 +259,11 @@ clean/all: clean ## Deep clean (including downloads)
 # Aliases
 # ══════════════════════════════════════════════════════════════════════════════
 
-b: build       ## → build
-t: test        ## → test
-c: check       ## → check
-l: lint        ## → lint
-f: fmt         ## → fmt
-w: test/watch  ## → test/watch
+b: build       		## → build
+bd: build/deploy    ## → build/deploy
+bm: build/mainnet   ## → build/mainnet
+t: test        		## → test
+c: check       		## → check
+l: lint        		## → lint
+f: fmt         		## → fmt
+w: test/watch  		## → test/watch

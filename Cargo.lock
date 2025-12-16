@@ -1445,9 +1445,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "23.0.3"
+version = "23.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdefc9240bddd3ff4d47fd4d8f8dd44784840e25a18e426c6c987db8572d6df9"
+checksum = "1f778688aade32f689dd386878e7ff553ccd31f7de194da52db972a2a667baa8"
 dependencies = [
  "serde",
  "serde_json",
@@ -1459,9 +1459,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "23.0.3"
+version = "23.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cb0dc3eb3661962cb8833513953b5839df14d589d96f8370b5b0c3870a8b3b5"
+checksum = "64ddf4cb462f95404af5f38bacd41f61285ca8af8099b0875ad2cdbb133690e4"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -1478,13 +1478,14 @@ dependencies = [
  "soroban-ledger-snapshot",
  "soroban-sdk-macros",
  "stellar-strkey",
+ "visibility",
 ]
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "23.0.3"
+version = "23.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7eab5f4e5f3836a4b4aeecb2837160e944621b2f8dbad775638a2ab8e10fd5bb"
+checksum = "632bdcd72882afa0f2490616944d63610e0d40e186aec74170cc5dd21f75df44"
 dependencies = [
  "darling 0.20.11",
  "heck",
@@ -1502,9 +1503,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "23.0.3"
+version = "23.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd257b0365307e0b8d38040ee0364abcc610fc6e61960ff5e26803922d098921"
+checksum = "83e23eb9e61eb7831a169132982f18cd4664d0b109f72871ef25645cfe6a0a91"
 dependencies = [
  "base64",
  "stellar-xdr",
@@ -1514,9 +1515,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "23.0.3"
+version = "23.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ec3c72de91fdcf637045f3351df029a98b9de9ad22ced4063f74d0b5873f526"
+checksum = "44a20e878c4f6c995541dce4269c52170f2655decc4e794ab70624b936adc1c7"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1723,6 +1724,17 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "visibility"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d674d135b4a8c1d7e813e2f8d1c9a58308aee4a680323066025e53132218bd91"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.107",
+]
 
 [[package]]
 name = "wasi"
