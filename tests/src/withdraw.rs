@@ -156,6 +156,7 @@ fn test_remove_collateral() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_withdraw_zero() {
     let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
         TestMarketFixture::new();
@@ -163,21 +164,11 @@ fn test_withdraw_zero() {
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let obligation_before =
-        get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-
     contract_client.withdraw(creditor, &gold_pool_address, &0);
-
-    let obligation_after =
-        get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(obligation_before, obligation_after);
-    assert_eq!(pool_before, pool_after);
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_remove_collateral_zero() {
     let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
         TestMarketFixture::new();
@@ -189,18 +180,7 @@ fn test_remove_collateral_zero() {
         &DEFAULT_DEPOSIT_AMOUNT,
     );
 
-    let obligation_before =
-        get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-
     contract_client.remove_collateral(collateral_provider, &gold_pool_address, &0);
-
-    let obligation_after =
-        get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(obligation_before, obligation_after);
-    assert_eq!(pool_before, pool_after);
 }
 
 #[test]

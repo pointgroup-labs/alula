@@ -17,6 +17,7 @@ use crate::{
 // ---- Deposit with leverage ----
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_deposit_zero() {
     const LEVERAGE: u32 = 3; // x3 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
@@ -33,9 +34,6 @@ fn test_deposit_zero() {
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
     );
 
-    let gold_pool_before = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_before = contract_client.get_pool(&gold_pool_address);
-
     contract_client.deposit_with_leverage(
         looper,
         &gold_pool_address,
@@ -44,12 +42,6 @@ fn test_deposit_zero() {
         &0,
         &LEVERAGE_MULTIPLIER,
     );
-
-    let gold_pool_after = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(gold_pool_before, gold_pool_after);
-    assert_eq!(usdc_pool_before, usdc_pool_after);
 }
 
 #[test]
@@ -122,15 +114,16 @@ fn test_deposit_with_no_leverage() {
     // TODO: Doesn't this account for fees?
     assert_eq!(amount_out, obligation_j_tokens_as_tokens);
 
-    let obligation_borrowed = get_multiply_pair_obligation_borrowed(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
-
-    assert_eq!(obligation_borrowed, 0);
+    // With x1.0 leverage (no leverage), there's no borrowing, so no borrow position exists
+    assert_eq!(
+        get_multiply_pair_obligation_borrowed(
+            &contract_client,
+            looper,
+            &gold_pool_address,
+            &usdc_pool_address,
+        ),
+        Err(MCError::BorrowPositionDoesNotExist)
+    );
 }
 
 #[test]
@@ -556,6 +549,7 @@ fn test_withdraw_all_available_with_i128_max() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_withdraw_zero() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
@@ -579,27 +573,7 @@ fn test_withdraw_zero() {
         &LEVERAGE_MULTIPLIER,
     );
 
-    let gold_pool_before = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_before = contract_client.get_pool(&gold_pool_address);
-    let obligation_before = contract_client.get_multiply_pair_obligation(
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    );
-
     contract_client.withdraw_from_leveraged(looper, &gold_pool_address, &usdc_pool_address, &0);
-
-    let gold_pool_after = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_after = contract_client.get_pool(&gold_pool_address);
-    let obligation_after = contract_client.get_multiply_pair_obligation(
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    );
-
-    assert_eq!(gold_pool_before, gold_pool_after);
-    assert_eq!(usdc_pool_before, usdc_pool_after);
-    assert_eq!(obligation_before, obligation_after);
 }
 
 #[test]

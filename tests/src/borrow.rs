@@ -173,6 +173,7 @@ fn test_borrow_exceeds_utilization_cap() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_borrow_zero() {
     let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
         TestMarketFixture::new();
@@ -182,11 +183,7 @@ fn test_borrow_zero() {
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    let pool_before = contract_client.get_pool(&usdc_pool_address);
     contract_client.borrow(borrower, &usdc_pool_address, &0);
-    let pool_after = contract_client.get_pool(&usdc_pool_address);
-
-    assert_eq!(pool_before, pool_after);
 }
 
 #[test]

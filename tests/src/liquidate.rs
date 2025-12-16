@@ -258,14 +258,10 @@ fn test_liquidate_healthy_position_fails() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_liquidate_zero() {
     let test = LiquidationTest::risky();
     test.wait_n_years(3);
-
-    let borrow_pool_before = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_before =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_before = test.debt();
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
@@ -276,15 +272,6 @@ fn test_liquidate_zero() {
         &0,
         &0,
     );
-
-    let borrow_pool_after = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_after =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_after = test.debt();
-
-    assert_eq!(debt_before, debt_after);
-    assert_eq!(borrow_pool_before, borrow_pool_after);
-    assert_eq!(collateral_pool_before, collateral_pool_after);
 }
 
 #[test]
@@ -326,8 +313,8 @@ fn test_liquidate_self_fails() {
         &None,
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
-        &0,
+        &1,
+        &1,
     );
 
     assert_eq!(result, Err(Ok(MCError::InvalidLiquidationInputs)));
@@ -344,8 +331,8 @@ fn test_liquidate_nonexistent_user_fails() {
         &None,
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
-        &0,
+        &1,
+        &1,
     );
 
     assert_eq!(result, Err(Ok(MCError::ObligationDoesNotExist)));

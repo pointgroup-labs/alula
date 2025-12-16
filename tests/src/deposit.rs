@@ -52,16 +52,13 @@ fn test_deposit() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_deposit_zero() {
-    let TestMarketFixture { contract_client, usdc_token_address, gold_pool_address, users, .. } =
+    let TestMarketFixture { contract_client, usdc_token_address, users, .. } =
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    let pool_before = contract_client.get_pool(&gold_pool_address);
     contract_client.deposit(creditor, &usdc_token_address, &0);
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(pool_after, pool_before);
 }
 
 #[test]
@@ -110,16 +107,13 @@ fn test_add_collateral() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #1)")] // NegativeInputAmount
 fn test_add_collateral_zero() {
     let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    let pool_before = contract_client.get_pool(&gold_pool_address);
     contract_client.add_collateral(creditor, &gold_pool_address, &0);
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(pool_before, pool_after);
 }
 
 #[test]
