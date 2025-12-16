@@ -25,7 +25,7 @@ watch(() => rpcStore.network, (val) => {
   >
     <div class="d-flex justify-content-between align-items-center">
       <div class="setting-item__title">
-        Nerwork RPC
+        Network RPC
       </div>
       <j-popover
         :teleport-to-body="false"

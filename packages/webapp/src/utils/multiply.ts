@@ -1,3 +1,4 @@
+import type { ObligationUI } from '@alula/client-sdk'
 import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
 import Decimal from 'decimal.js'
 
@@ -50,7 +51,7 @@ export function calcRemainingMultiplyUSD(
   if (selectedMultiplier <= 1) {
     return borrowAvailableInUsd
   }
-  return borrowAvailableInUsd / poolPrice / selectedMultiplier
+  return borrowAvailableInUsd / (poolPrice * selectedMultiplier)
 }
 
 export function calculateCurrentMultiplier(

@@ -260,12 +260,6 @@ watchDebounced([
             <span>{{ formatPrice(Number(supplyLimit || 0).toFixed(2), 2) }} {{ multiplySymbol }}</span>
           </div>
 
-          <!-- Max Multiplied Amount -->
-          <div class="dialog-info-table__item">
-            <span>Max Multiplied Amount</span>
-            <span>90.00 %</span>
-          </div>
-
           <!-- Total Supply -->
           <div class="dialog-info-table__item">
             <span>Total Supply</span>
