@@ -211,35 +211,6 @@ impl Obligation {
         Ok(())
     }
 
-    pub fn require_no_liquidatable_collateral_exists(&self, e: &Env) -> Result<(), MCError> {
-        for (pool_address, deposit_position) in self.deposits.iter() {
-            let DepositPosition { j_tokens, collateral, .. } = deposit_position;
-            let pool = &storage::get_pool(e, &pool_address).ok_or_else(|| {
-                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
-
-                MCError::PoolDoesNotExist
-            })?;
-
-            let token_address = &pool.token_address;
-            let price = get_asset_price(e, token_address)?;
-            let collateral = pool
-                .compute_tokens_from_j_tokens_floor(e, j_tokens)?
-                .checked_add(collateral)
-                .map_over_or_underflow()?;
-            let collateral_value = collateral.checked_mul(price).map_over_or_underflow()?;
-
-            let min_collateral_value = storage::get_min_collateral_value(e)
-                .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
-                .map_over_or_underflow()?;
-
-            if collateral_value > min_collateral_value {
-                return Err(MCError::BadDebtCoverageCriterionIsNotMet);
-            }
-        }
-
-        Ok(())
-    }
-
     // ------ Health Factor Removing Computations ------
 
     /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
@@ -814,7 +785,8 @@ impl Obligation {
                 unpaid_interest,
             );
 
-            return Err(MCError::InternalError);
+            // return Err(MCError::InternalError); // For now, this only makes the experience worse due to a known valid case that yields
+            // this behavior
         } else if debt_decrease_in_tokens >= unpaid_interest {
             let new_originally_borrowed = if is_all_repaid {
                 0
@@ -1142,14 +1114,34 @@ impl Obligation {
     }
 
     /// Accounts for the bad debt on the obligation
-    pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResult, MCError> {
-        let mut borrows_to_be_compensated: Vec<(Address, i128)> = Vec::new(e);
+    pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResultOld, MCError> {
+        let mut borrows_to_take_care: Vec<(Address, i128)> = Vec::new(e);
         for (pool_address, borrow_position) in self.borrows.iter() {
-            borrows_to_be_compensated.push_back((pool_address, borrow_position.d_tokens));
+            borrows_to_take_care.push_back((pool_address, borrow_position.d_tokens));
         }
 
         let mut collaterals_to_remove: Vec<(Address, i128, i128)> = Vec::new(e);
         for (pool_address, deposit_position) in self.deposits.iter() {
+            let pool = Pool::try_get(e, &pool_address)?;
+            let token_address = pool.token_address.clone();
+
+            let collateral_price = get_asset_price(e, &token_address)?;
+            let tokens_from_j_tokens =
+                pool.compute_tokens_from_j_tokens_floor(e, deposit_position.j_tokens)?;
+            let collateral_sum = tokens_from_j_tokens
+                .checked_add(deposit_position.collateral)
+                .map_over_or_underflow()?;
+
+            let collateral_value =
+                collateral_sum.checked_mul(collateral_price).map_over_or_underflow()?;
+            let min_collateral_value = storage::get_min_collateral_value(e)
+                .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
+                .map_over_or_underflow()?;
+
+            if collateral_value > min_collateral_value {
+                return Err(MCError::BadDebtCoverageCriterionIsNotMet);
+            }
+
             collaterals_to_remove.push_back((
                 pool_address,
                 deposit_position.j_tokens,
@@ -1157,7 +1149,7 @@ impl Obligation {
             ));
         }
 
-        Ok(CoverBadDebtResult { borrows_to_be_compensated, collaterals_to_remove })
+        Ok(CoverBadDebtResultOld { borrows_to_take_care, collaterals_to_remove })
     }
 }
 
@@ -1508,9 +1500,9 @@ pub struct RemoveCollateralResult {
 
 #[contracttype]
 /// [`Obligation::cover_bad_debt`] resulting data
-pub struct CoverBadDebtResult {
+pub struct CoverBadDebtResultOld {
     /// `(pool address, borrower dTokens)` pairs for each bad debt obligation borrows
-    pub borrows_to_be_compensated: Vec<(Address, i128)>,
+    pub borrows_to_take_care: Vec<(Address, i128)>,
     /// `(pool address, borrower jTokens, borrower collateral)` tuples for each bad debt obligation
     /// collateral
     pub collaterals_to_remove: Vec<(Address, i128, i128)>,

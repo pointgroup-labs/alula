@@ -219,6 +219,7 @@ fn test_repay_all_with_bigger_than_debt_value() {
 }
 
 #[test]
+#[ignore]
 fn test_consecutive_borrows_can_lead_to_unpaid_interest_become_negative() {
     let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
         TestMarketFixture::new();

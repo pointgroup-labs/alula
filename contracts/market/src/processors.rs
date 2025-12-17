@@ -1,3 +1,4 @@
+use insurance_fund_trait::InsuranceFundClient;
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
@@ -12,7 +13,7 @@ use crate::{
     math_utils::MathUtils,
     misc::require_nonnegative,
     multiply_pair::MultiplyPair,
-    obligation::{CoverBadDebtResult, Obligation, ObligationKey, WithdrawResult},
+    obligation::{CoverBadDebtResultOld, Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
     request::{Request, RequestTransfers, RequestType},
     storage::{self, GlobalState},
@@ -938,6 +939,49 @@ pub fn process_redeem_accumulated_host_fees(
 
     Ok(())
 }
+pub fn process_cover_bad_debt_2(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
+    let obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_borrow_exists()?;
+
+    let CoverBadDebtResultOld { borrows_to_take_care, collaterals_to_remove } =
+        obligation.cover_bad_debt(e)?;
+
+    for (pool_address, d_tokens) in borrows_to_take_care {
+        let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
+            events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+            MCError::InternalError
+        })?;
+        let obligation_pool_debt = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
+        let locally_available_insurance_funds = pool.available_accumulated_reserve_fees();
+
+        let debt_can_be_covered =
+            i128::min(obligation_pool_debt, locally_available_insurance_funds);
+        let d_tokens_can_be_covered =
+            pool.compute_d_tokens_from_tokens_floor(debt_can_be_covered)?;
+
+        // If this is enough - stop here, right?
+
+        // -- Cover what can be covered from the reserves --
+
+        pool.adjust_total_available(e, debt_can_be_covered)?;
+        pool.adjust_total_borrowed(e, debt_can_be_covered.checked_neg().map_over_or_underflow()?)?;
+        pool.adjust_accumulated_reserve_fees(
+            e,
+            debt_can_be_covered.checked_neg().map_over_or_underflow()?,
+        )?;
+        pool.adjust_total_d_tokens(
+            e,
+            d_tokens_can_be_covered.checked_neg().map_over_or_underflow()?,
+        )?;
+
+        // -- Issue cover bad debt request to the Insurance Fund contract --
+
+        let insurance_fund_client = InsuranceFundClient::new(e, &storage::get_insurance_fund(e));
+    }
+
+    todo!()
+}
 
 pub fn process_redeem_accumulated_market_fees(
     e: &Env,
@@ -966,18 +1010,16 @@ pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
 ) -> Result<(), MCError> {
     let obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.require_borrow_exists()?;
-    obligation.require_no_liquidatable_collateral_exists(e)?;
 
-    let CoverBadDebtResult { borrows_to_be_compensated, collaterals_to_remove } =
+    let CoverBadDebtResultOld { borrows_to_take_care, collaterals_to_remove } =
         obligation.cover_bad_debt(e)?;
 
-    for (pool_address, d_tokens) in borrows_to_be_compensated {
+    for (pool_address, d_tokens) in borrows_to_take_care {
         let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
             events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
             MCError::InternalError
         })?;
-
         let obligation_pool_debt = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
         let available_reserve_fees = pool.available_accumulated_reserve_fees();
 

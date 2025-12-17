@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["contracts/*", "moderc3156", "tests", "tests/fuzz"]
+members = ["contracts/*", "insurance_fund_trait", "moderc3156", "tests", "tests/fuzz"]
 
 [workspace.package]
 edition = "2024"
@@ -10,6 +10,9 @@ enum_dispatch = "0.3.13"
 sep-40-oracle = "^1.3.0"
 soroban-fixed-point-math = "^1.4.0"
 soroban-sdk = "^23.0.0"
+insurance-fund-trait = { path = "insurance_fund_trait" }
+moderc3156 = { path = "moderc3156" }
+market = { path = "contracts/market/" }
 
 [profile.release]
 opt-level = "z"

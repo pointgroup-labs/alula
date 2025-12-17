@@ -62,24 +62,25 @@ pub struct PoolUpdate {
 pub enum DataKey {
     Name,
     Admin,
-    UpdateInQueuePeriod,
-    IsOwned,
-    DeployerHost,
     Oracle,
-    MinCollateralValue,
-    InsolvencyLtvBps,
-    MaxPositions,
-    GlobalState,
     Accrual,
+    IsOwned,
     AllPools,
-    AllObligations,
-    AllMultiplyPairs,
+    GlobalState,
+    DeployerHost,
+    MaxPositions,
     MarketStatus,
-    ConfigUpdate(Address),
     Pool(Address),
+    InsuranceFund,
+    AllObligations,
+    InsolvencyLtvBps,
+    AllMultiplyPairs,
+    EarnObligationSeed,
+    MinCollateralValue,
+    UpdateInQueuePeriod,
+    ConfigUpdate(Address),
     Obligation(ObligationKey),
     MultiplyPair((Address, Address)),
-    EarnObligationSeed,
 }
 
 // -- TTL Bumpers --
@@ -107,6 +108,14 @@ pub fn set_oracle(e: &Env, oracle: &Address) {
 }
 pub fn get_oracle(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
+}
+
+// - InsuranceFund -
+pub fn set_insurance_fund(e: &Env, insurance_fund: &Address) {
+    e.storage().instance().set(&DataKey::InsuranceFund, &insurance_fund)
+}
+pub fn get_insurance_fund(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::InsuranceFund).expect("InsuranceFund must be set")
 }
 
 // - UpdateInQueuePeriod -

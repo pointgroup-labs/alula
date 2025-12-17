@@ -29,6 +29,7 @@ pub trait Market {
     /// * `admin` - market's administrator
     /// * `name` - market's name(not necessarily unique)
     /// * `oracle` - SEP-40 compliant oracle's contract address
+    /// * `insurance_fund` - address of `Insurance Fund` compliant contract
     /// * `deployer` - address of a deployer contract
     /// * `max_positions` - max allowed number of positions in an obligation
     /// * `min_collateral_value` - minimum collateral value of a user's obligation
@@ -39,6 +40,7 @@ pub trait Market {
         name: String,
         admin: Address,
         oracle: Address,
+        insurance_fund: Address,
         deployer: Address,
         max_positions: u32,
         insolvency_ltv_bps: i128,
@@ -551,6 +553,7 @@ impl Market for MarketContract {
         name: String,
         admin: Address,
         oracle: Address,
+        insurance_fund: Address,
         deployer: Address,
         max_positions: u32,
         min_collateral_value: i128,
@@ -569,6 +572,7 @@ impl Market for MarketContract {
         storage::set_oracle(&e, &oracle);
         storage::set_deployer(&e, &deployer);
         storage::set_market_status(&e, &market_status);
+        storage::set_insurance_fund(&e, &insurance_fund);
         storage::set_max_positions(&e, max_positions);
         storage::set_update_in_queue_period(&e, update_in_queue_period);
         storage::set_min_collateral_value(&e, min_collateral_value);

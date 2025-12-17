@@ -62,7 +62,7 @@ pub struct TestMarketFixture<'a> {
     pub users: Vec<Address>,
     // Oracle
     pub oracle_client: MockPriceOracleClient<'a>,
-    pub oracle_address: Address,
+    pub oracle: Address,
     // Swap Router
     pub router_client: router::Client<'a>,
     pub router_address: Address,
@@ -124,9 +124,10 @@ impl TestMarketFixture<'_> {
             token_address: usdc_token_address,
         } = setup_test_asset(&e, &usdc_admin, &users);
 
-        let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
-        e.register_at(&oracle_address, MockPriceOracleWASM, ());
-        let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
+        let oracle = Address::from_str(&e, ORACLE_ADDRESS);
+        let insurance_fund = Address::generate(&e);
+        e.register_at(&oracle, MockPriceOracleWASM, ());
+        let oracle_client = MockPriceOracleClient::new(&e, &oracle);
 
         // Register Market contract
         let contract_admin = Address::generate(&e);
@@ -137,7 +138,8 @@ impl TestMarketFixture<'_> {
             (
                 contract_name,
                 contract_admin.clone(),
-                oracle_address.clone(),
+                oracle.clone(),
+                insurance_fund,
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
                 0i128,
@@ -200,7 +202,7 @@ impl TestMarketFixture<'_> {
             contract_admin,
             // Oracle
             oracle_client,
-            oracle_address,
+            oracle,
             // Swap router
             router_client,
             router_address,
@@ -1321,6 +1323,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
     let contract_name = soroban_sdk::String::from_str(e, "market_contract");
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
+    let insurance_fund = Address::generate(e);
 
     let contract_id = e.register(
         MarketContract,
@@ -1328,6 +1331,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             contract_name,
             contract_admin.clone(),
             oracle,
+            insurance_fund,
             contract_admin,
             DEFAULT_MAX_POSITIONS,
             0i128,
