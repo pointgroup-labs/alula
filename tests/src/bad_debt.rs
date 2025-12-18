@@ -93,7 +93,7 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
     contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
 
     assert_eq!(
-        contract_client.try_cover_obligation_bad_debt(borrower),
+        contract_client.try_issue_cover_bad_debt(borrower),
         Err(Ok(MCError::BadDebtCoverageCriterionIsNotMet))
     );
 }
@@ -175,7 +175,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let available_reserve_fees_before =
         get_pool_available_reserve_fees(&contract_client, &usdc_pool_address);
 
-    contract_client.cover_obligation_bad_debt(borrower);
+    contract_client.issue_cover_bad_debt(borrower);
 
     let available_reserve_fees_after =
         get_pool_available_reserve_fees(&contract_client, &usdc_pool_address);
@@ -275,7 +275,7 @@ fn test_completely_socialize_loss() {
     assert!(total_obligation_debt_value > total_obligation_collateral_value);
 
     // - Partially cover bad debt to one of the borrowers -
-    contract_client.cover_obligation_bad_debt(borrower_1);
+    contract_client.issue_cover_bad_debt(borrower_1);
 
     // - Verify no more reserves left -
 
@@ -305,7 +305,7 @@ fn test_completely_socialize_loss() {
     let available_reserve_fees_before =
         get_pool_available_reserve_fees(&contract_client, &usdc_pool_address);
 
-    contract_client.cover_obligation_bad_debt(borrower_2);
+    contract_client.issue_cover_bad_debt(borrower_2);
 
     let accumulated_reserve_fees_after =
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
@@ -389,7 +389,7 @@ fn test_completely_cover_bad_debt() {
     let pool_d_tokens_before = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
     let pool_j_tokens_before = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
 
-    contract_client.cover_obligation_bad_debt(borrower_2);
+    contract_client.issue_cover_bad_debt(borrower_2);
 
     // - Verify 2nd obligation no longer exists -
 

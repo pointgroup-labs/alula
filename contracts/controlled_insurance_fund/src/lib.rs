@@ -1,5 +1,5 @@
 #![no_std]
-use insurance_fund_trait::{CoverageStatus, InsuranceFund};
+use insurance_fund_trait::{CoverageStatus, InsuranceFund, IssueRequestResult};
 use soroban_sdk::{Address, Env, contract, contractimpl, panic_with_error, token};
 use storage::Request;
 
@@ -36,6 +36,7 @@ impl ControlledInsuranceFundContract {
     /// Withdraws tokens if there are no coverage results that must be claimed first
     pub fn withdraw(e: Env, token: Address, to: Address, amount: i128) {
         require_admin(&e);
+
         if storage::get_must_claim(&e) {
             panic_with_error!(&e, ContractError::MustClaimCoverage);
         }
@@ -75,21 +76,26 @@ impl ControlledInsuranceFundContract {
         storage::set_must_claim(&e, true);
     }
 
-    pub fn update_market_status(_e: Env) {
-        todo!()
+    /// TODO: For descriptive purposes only
+    pub fn update_market_status(e: Env, new_status: u32) {
+        let market = storage::get_market(&e);
+        let market_client = market::MarketPartialClient::new(&e, &market);
+
+        market_client.update_market_status(&new_status); // TODO: We better have a set of statuses that 
+        // are allowed to be updated from the Insurance Fund contract as on blend
     }
 }
 
 #[contractimpl]
 impl InsuranceFund for ControlledInsuranceFundContract {
-    fn request_coverage(e: Env, token: Address, amount: i128) -> Option<u64> {
+    fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult {
         require_market(&e);
         storage::extend_instance_storage(&e);
 
         let request = Request::new(token, amount);
         let request_id = storage::set_request(&e, request);
 
-        Some(request_id)
+        IssueRequestResult::Processing(request_id)
     }
 
     fn get_status(e: Env, request_id: u64) -> Option<CoverageStatus> {

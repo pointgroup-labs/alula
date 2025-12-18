@@ -32,7 +32,7 @@ pub trait Market {
     /// * `insurance_fund` - address of `Insurance Fund` compliant contract
     /// * `deployer` - address of a deployer contract
     /// * `max_positions` - max allowed number of positions in an obligation
-    /// * `min_collateral_value` - minimum collateral value of a user's obligation
+    /// * `min_collateral_value_cents` - minimum collateral value of a user's obligation in US dollar cents
     /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
     ///   `None` for permissionless markets since they cannot be updated
     fn __constructor(
@@ -44,7 +44,7 @@ pub trait Market {
         deployer: Address,
         max_positions: u32,
         insolvency_ltv_bps: i128,
-        min_collateral_value: i128,
+        min_collateral_value_cents: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<(), MCError>;
 
@@ -58,11 +58,11 @@ pub trait Market {
     ///
     /// # Arguments
     /// * `new_max_positions` - updated maximum number of positions that a single obligation can have
-    /// * `new_min_collateral_value` - updated minimum collateral allowed
+    /// * `new_min_collateral_value_cents` - updated minimum collateral allowed
     fn update_market(
         e: Env,
         new_max_positions: u32,
-        new_min_collateral_value: i128,
+        new_min_collateral_value_cents: i128,
     ) -> Result<(), MCError>;
 
     /// Updates the market status
@@ -412,25 +412,40 @@ pub trait Market {
         amount: i128,
     ) -> Result<(), MCError>;
 
-    /// Covers fully or partially bad debt if it exists under a user obligation. Socializes all
-    /// remaining bad debt in case the market reserves doesn't contain enough funds to cover it
-    /// completely
+    /// Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     ///
     /// # Arguments
-    /// * `bad_debt_obligation_user` - user that has a bad debt
-    fn cover_obligation_bad_debt(e: Env, bad_debt_obligation_user: Address) -> Result<(), MCError>;
+    /// * `user` - user that has a bad debt
+    fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError>;
 
-    /// Covers fully or partially bad debt if it exists under a multiply pair user obligation.
-    /// Socializes all remaining bad debt in case the reserve doesn't contain enough funds to
-    /// cover it completely
+    /// Issues `cover bad debt` requests on every bad debt borrow position on the user's multiply pair obligation to the Insurance Fund contract
     ///
     /// # Arguments
-    /// * `bad_debt_obligation_user` - user that has a bad debt
+    /// * `user` - user that has a bad debt
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
-    fn cover_multiply_pair_bad_debt(
+    fn issue_cover_bad_debt_pair(
         e: Env,
-        bad_debt_obligation_user: Address,
+        user: Address,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<(), MCError>;
+
+    /// Claims `cover bad debt` requests results for the user's obligation from the Insurance Fund if they exist
+    ///
+    /// # Arguments
+    /// * `user` - user that has open `cover bad debt` requests
+    fn claim_cover_bad_debt_result(e: Env, user: Address) -> Result<(), MCError>;
+
+    /// Claims `cover bad debt` request's result for the user's multiply pair obligation from the Insurance Fund if it exists
+    ///
+    /// # Arguments
+    /// * `user` - user that has open `cover bad debt` requests
+    /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
+    /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
+    fn claim_cover_bad_debt_result_pair(
+        e: Env,
+        user: Address,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError>;
@@ -556,7 +571,7 @@ impl Market for MarketContract {
         insurance_fund: Address,
         deployer: Address,
         max_positions: u32,
-        min_collateral_value: i128,
+        min_collateral_value_cents: i128,
         insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<(), MCError> {
@@ -575,7 +590,7 @@ impl Market for MarketContract {
         storage::set_insurance_fund(&e, &insurance_fund);
         storage::set_max_positions(&e, max_positions);
         storage::set_update_in_queue_period(&e, update_in_queue_period);
-        storage::set_min_collateral_value(&e, min_collateral_value);
+        storage::set_min_collateral_value_cents(&e, min_collateral_value_cents);
         storage::set_insolvency_ltv_bps(&e, insolvency_ltv_bps);
 
         Ok(())
@@ -612,16 +627,18 @@ impl Market for MarketContract {
     fn update_market(
         e: Env,
         new_max_positions: u32,
-        new_min_collateral_value: i128,
+        new_min_collateral_value_cents: i128,
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
         storage::extend_instance_storage(&e);
 
-        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions) || new_min_collateral_value < 0 {
+        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions)
+            || new_min_collateral_value_cents < 0
+        {
             return Err(MCError::InvalidMarketUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);
-        storage::set_min_collateral_value(&e, new_min_collateral_value);
+        storage::set_min_collateral_value_cents(&e, new_min_collateral_value_cents);
 
         Ok(())
     }
@@ -1012,29 +1029,46 @@ impl Market for MarketContract {
         process_redeem_accumulated_host_fees(&e, &user, &pool_address, amount)
     }
 
-    fn cover_obligation_bad_debt(e: Env, bad_debt_obligation_user: Address) -> Result<(), MCError> {
+    fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
-        let obligation_key = ObligationKey::new(bad_debt_obligation_user);
+        let obligation_key = ObligationKey::new(user);
 
-        process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(&e, obligation_key)?;
-
-        Ok(())
+        process_issue_cover_bad_debt_request(&e, &obligation_key)
     }
 
-    fn cover_multiply_pair_bad_debt(
+    fn issue_cover_bad_debt_pair(
         e: Env,
-        bad_debt_obligation_user: Address,
+        user: Address,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
 
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
-        let obligation_key = ObligationKey::new_with_seed(bad_debt_obligation_user, mp_seed);
+        let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
 
-        process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(&e, obligation_key)?;
+        process_issue_cover_bad_debt_request(&e, &obligation_key)
+    }
 
-        Ok(())
+    fn claim_cover_bad_debt_result(e: Env, user: Address) -> Result<(), MCError> {
+        storage::extend_instance_storage(&e);
+        let obligation_key = ObligationKey::new(user);
+
+        process_claim_cover_bad_debt_result(&e, &obligation_key)
+    }
+
+    fn claim_cover_bad_debt_result_pair(
+        e: Env,
+        user: Address,
+        deposit_pool_address: Address,
+        borrow_pool_address: Address,
+    ) -> Result<(), MCError> {
+        storage::extend_instance_storage(&e);
+
+        let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
+        let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
+
+        process_claim_cover_bad_debt_result(&e, &obligation_key)
     }
 
     fn get_asset_decimals() -> u32 {

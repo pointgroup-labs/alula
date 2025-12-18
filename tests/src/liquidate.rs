@@ -371,7 +371,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
             &over_limit_amount,
             &1,
         ),
-        Err(Ok(MCError::LiquidationExceedsCloseFactor))
+        Err(Ok(MCError::InvalidLiquidationInputs))
     );
 }
 

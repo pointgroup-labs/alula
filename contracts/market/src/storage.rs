@@ -19,7 +19,7 @@ pub struct GlobalState {
     pub deployer: Address,
     pub max_positions: u32,
     pub insolvency_ltv_bps: i128,
-    pub min_collateral_value: i128,
+    pub min_collateral_value_cents: i128,
     pub update_in_queue_period: Option<u64>,
 }
 
@@ -76,7 +76,7 @@ pub enum DataKey {
     InsolvencyLtvBps,
     AllMultiplyPairs,
     EarnObligationSeed,
-    MinCollateralValue,
+    MinCollateralValueCents,
     UpdateInQueuePeriod,
     ConfigUpdate(Address),
     Obligation(ObligationKey),
@@ -136,15 +136,15 @@ pub fn get_max_positions(e: &Env) -> u32 {
     e.storage().instance().get(&DataKey::MaxPositions).expect("MaxPositions must be set")
 }
 
-// - MinCollateralValue -
-pub fn set_min_collateral_value(e: &Env, min_collateral_value: i128) {
-    e.storage().instance().set(&DataKey::MinCollateralValue, &min_collateral_value);
+// - MinCollateralValueCents -
+pub fn set_min_collateral_value_cents(e: &Env, min_collateral_value_cents: i128) {
+    e.storage().instance().set(&DataKey::MinCollateralValueCents, &min_collateral_value_cents);
 }
-pub fn get_min_collateral_value(e: &Env) -> i128 {
+pub fn get_min_collateral_value_cents(e: &Env) -> i128 {
     e.storage()
         .instance()
-        .get(&DataKey::MinCollateralValue)
-        .expect("MinCollateralValue must be set")
+        .get(&DataKey::MinCollateralValueCents)
+        .expect("MinCollateralValueCents must be set")
 }
 
 // - InsolvencyLtvBps -

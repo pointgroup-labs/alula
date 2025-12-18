@@ -17,7 +17,7 @@ pub trait InsuranceFund {
     /// # Returns
     /// [`Some(u64)`] - unique `request_id` tracking this specific coverage event, or
     /// `None` if the fund can immediately cover the request
-    fn request_coverage(e: Env, token: Address, amount: i128) -> Option<u64>;
+    fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult;
 
     /// Returns the status of an active coverage request
     ///
@@ -34,6 +34,13 @@ pub trait InsuranceFund {
     /// # Returns
     /// [`i128`] amount of tokens that are covered and sent to the Market contract
     fn claim_coverage(e: Env, request_id: u64) -> i128;
+}
+
+#[contracttype]
+#[derive(Debug)]
+pub enum IssueRequestResult {
+    Processing(u64),
+    Immediate,
 }
 
 #[contracttype]
