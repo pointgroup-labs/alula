@@ -11,8 +11,8 @@ DEPLOY_OPTIMIZED_DIR  := $(WASM_DIR)/deploy_optimized
 DOWNLOADS_DIR         := $(WASM_DIR)/downloads
 
 # Contracts
-CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter
-DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter
+CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter farms
+DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter farms
 MOCK_CONTRACTS        := soroswap_router_mock flash_loan_taker_mock
 
 # External dependencies
@@ -110,6 +110,7 @@ build: build/prepare ## Build all contracts
 	$(call build_contract,aggregated_oracle,$(WASM_DIR))
 	$(call build_contract,market,$(WASM_DIR))
 	$(call build_contract,market_manager,$(WASM_DIR))
+	$(call build_contract,farms,$(WASM_DIR))
 	$(call build_contract,flash_loan_taker_mock,$(MOCKS_DIR))
 	$(call success,"Build complete")
 
@@ -118,6 +119,7 @@ build/deploy: build/prepare ## Build for deployment
 	$(call build_contract,aggregated_oracle,$(DEPLOY_DIR))
 	$(call build_contract,market,$(DEPLOY_DIR),--features deploy)
 	$(call build_contract,market_manager,$(DEPLOY_DIR),--features deploy)
+	$(call build_contract,farms,$(DEPLOY_DIR),--features deploy)
 	$(call success,"Deploy build complete")
 
 build/optimize: build/deploy ## Build + optimize for production
@@ -125,6 +127,7 @@ build/optimize: build/deploy ## Build + optimize for production
 	$(call optimize_contract,aggregated_oracle)
 	$(call optimize_contract,market)
 	$(call optimize_contract,market_manager)
+	$(call optimize_contract,farms)
 	$(call success,"Optimization complete")
 	@printf "\n$(C)Sizes:$(N)\n"
 	@find $(DEPLOY_OPTIMIZED_DIR) -name "*.wasm" -exec sh -c 'printf "  %-40s %s\n" "$$(basename {})" "$$(ls -lh {} | awk "{print \$$5}")"' \;

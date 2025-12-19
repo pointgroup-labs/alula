@@ -609,6 +609,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "farms"
+version = "0.0.1"
+dependencies = [
+ "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "ff"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1648,6 +1656,7 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "farms",
  "market",
  "market_manager",
  "sep-40-oracle",
