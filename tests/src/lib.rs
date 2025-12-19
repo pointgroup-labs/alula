@@ -1,6 +1,7 @@
 mod bad_debt;
 mod borrow;
 mod deposit;
+mod farms;
 mod fees;
 mod fuzz;
 mod initialize;
