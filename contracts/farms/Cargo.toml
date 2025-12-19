@@ -1,0 +1,20 @@
+[package]
+name = "farms"
+version = "0.0.1"
+edition = { workspace = true }
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = true
+
+[dependencies]
+soroban-fixed-point-math = { workspace = true }
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+
+[features]
+deploy = []
+testutils = ["soroban-sdk/testutils"]
