@@ -7,7 +7,7 @@ use crate::{
     events,
     math_utils::MathUtils,
     oracle::{self, get_asset_price},
-    pool::Pool,
+    pool::{Pool, PoolFeeConfig},
     storage,
 };
 
@@ -1366,6 +1366,78 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     Ok(())
 }
 
+/// Computes operational fees
+///
+/// # Arguments
+/// * `original_amount` - original operation amount passed as a contract's argument
+/// * `fee_bps` - operation's fee
+/// * `referrer` - optional referrer address
+/// * `pool_fee_config` - pool's fee configuration
+pub fn compute_fees_2(
+    e: &Env,
+    original_amount: i128,
+    fee_bps: u32,
+    referrer: &Option<Address>,
+    pool_fee_config: &PoolFeeConfig,
+) -> Result<ComputedFees2, MCError> {
+    if fee_bps == 0
+        || original_amount == 0
+        || (referrer.is_none() && pool_fee_config.origination_fee_beneficiaries.is_none())
+    {
+        return Ok(ComputedFees2 {
+            fee_sum: 0,
+            referrer_fee: None,
+            operation_fee_distributed: None,
+        });
+    }
+
+    let fee_sum =
+        original_amount.fixed_mul_ceil(fee_bps as i128, BPS_FACTOR).map_over_or_underflow()?;
+
+    let mut referrer_fee = None;
+    if let Some(referrer) = referrer {
+        if let Some(referrers_map) = &pool_fee_config.referrers {
+            if let Some(referrer_share_bps) = referrers_map.get(referrer.clone()) {
+                if referrer_share_bps > 0 {
+                    referrer_fee = Some(
+                        fee_sum
+                            .fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR)
+                            .map_over_or_underflow()?,
+                    );
+                }
+            }
+        }
+    };
+
+    let net_protocol_fee =
+        fee_sum.checked_sub(*(referrer_fee.as_ref().unwrap_or(&0))).map_over_or_underflow()?;
+
+    let operation_fee_distributed = if net_protocol_fee > 0 {
+        if let Some(beneficiaries_map) = &pool_fee_config.origination_fee_beneficiaries {
+            let mut distribution: Map<Address, i128> = Map::new(e);
+
+            for (beneficiary, share_bps) in beneficiaries_map.iter() {
+                if share_bps > 0 {
+                    let share_amount = net_protocol_fee
+                        .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
+                        .map_over_or_underflow()?;
+
+                    if share_amount > 0 {
+                        distribution.set(beneficiary, share_amount);
+                    }
+                }
+            }
+            Some(distribution)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    Ok(ComputedFees2 { fee_sum, referrer_fee, operation_fee_distributed })
+}
+
 /// Computes operations fees
 ///
 /// # Arguments
@@ -1460,6 +1532,18 @@ fn compute_withdraw_scarcity_fee_bps(
         .map_over_or_underflow()? as u32;
 
     Ok(fee)
+}
+
+#[contracttype]
+#[derive(Clone)]
+/// Represents operational fees
+pub struct ComputedFees2 {
+    /// Fee sum
+    pub fee_sum: i128,
+    /// Fee, immediately sent to the referrer if one is present
+    pub referrer_fee: Option<i128>,
+    /// Operation fee, distributed between beneficiaries
+    pub operation_fee_distributed: Option<Map<Address, i128>>,
 }
 
 #[contracttype]
