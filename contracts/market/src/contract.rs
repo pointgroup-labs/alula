@@ -49,7 +49,12 @@ pub trait Market {
     ) -> Result<(), MCError>;
 
     /// Submits a request batch
-    fn submit_requests_batch(e: Env, user: Address, requests: Vec<Request>) -> Result<(), MCError>;
+    fn submit_requests_batch(
+        e: Env,
+        user: Address,
+        requests: Vec<Request>,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError>;
 
     /// Gets the contract's global state
     fn get_global_state(e: Env) -> GlobalState;
@@ -654,12 +659,18 @@ impl Market for MarketContract {
     }
 
     // TODO: Re-design this to include liquidations and leveraged operations
-    fn submit_requests_batch(e: Env, user: Address, requests: Vec<Request>) -> Result<(), MCError> {
+    fn submit_requests_batch(
+        e: Env,
+        user: Address,
+        requests: Vec<Request>,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError> {
         user.require_auth();
 
         let obligation_key = ObligationKey::new(user.clone());
 
-        process_submit_requests_batch(&e, &user, &requests, &obligation_key)?.execute_transfers();
+        process_submit_requests_batch(&e, &user, &requests, &obligation_key, &referrer)?
+            .execute_transfers();
 
         Ok(())
     }
@@ -798,7 +809,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
 
         Ok(())
     }
@@ -817,7 +828,7 @@ impl Market for MarketContract {
         let earn_seed: BytesN<32> = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
-        process_deposit(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
 
         Ok(())
     }
@@ -834,7 +845,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_borrow(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
 
         Ok(())
     }
@@ -886,7 +897,8 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_add_collateral(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_add_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
+            .execute_transfers();
 
         Ok(())
     }
@@ -903,7 +915,8 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_remove_collateral(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_remove_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
+            .execute_transfers();
 
         Ok(())
     }
@@ -920,7 +933,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_repay(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_repay(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
 
         Ok(())
     }
@@ -969,7 +982,8 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)?
+            .execute_transfers();
 
         Ok(())
     }
@@ -983,7 +997,7 @@ impl Market for MarketContract {
     ) -> Result<WithdrawResult, MCError> {
         let obligation_key = ObligationKey::new(user);
 
-        process_compute_withdraw_fees(&e, &obligation_key, &pool_address, amount)
+        process_compute_withdraw_fees(&e, &obligation_key, &pool_address, amount, &referrer)
     }
 
     fn simulate_earn_withdraw(
@@ -996,7 +1010,7 @@ impl Market for MarketContract {
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
-        process_compute_withdraw_fees(&e, &obligation_key, &pool_address, amount)
+        process_compute_withdraw_fees(&e, &obligation_key, &pool_address, amount, &referrer)
     }
 
     fn withdraw_earn(
@@ -1013,7 +1027,8 @@ impl Market for MarketContract {
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
-        process_withdraw(&e, &obligation_key, &pool_address, amount)?.execute_transfers();
+        process_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)?
+            .execute_transfers();
 
         Ok(())
     }
@@ -1058,6 +1073,7 @@ impl Market for MarketContract {
             deposit_as_margin,
             amount,
             leverage_multiplier,
+            &referrer,
         )?;
 
         Ok(())
@@ -1078,7 +1094,7 @@ impl Market for MarketContract {
         let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
 
-        process_withdraw_from_leveraged(&e, &obligation_key, &multiply_pair, amount)
+        process_withdraw_from_leveraged(&e, &obligation_key, &multiply_pair, amount, &referrer)
     }
 
     fn redeem_accumulated_market_fees(

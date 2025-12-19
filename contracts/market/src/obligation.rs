@@ -505,19 +505,19 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<DepositResult, MCError> {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_deposit_position(e)?);
 
-        // Now, how should this look?
-        // First, we must check if there's a way to programmatically look into the memo?
-
         let computed_fees = compute_fees(
+            e,
             original_amount,
             pool.config.fee_config.deposit_fee_bps,
-            // pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
         let deposited_tokens_minus_fee =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
@@ -542,6 +542,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<BorrowResult, MCError> {
         let max_healthy_borrow_added_amount =
             self.compute_max_healthy_debt_added_amount(e, pool)?;
@@ -556,9 +557,11 @@ impl Obligation {
             .unwrap_or(self.try_create_borrow_position(e)?);
 
         let computed_fees = compute_fees(
+            e,
             real_borrowed_amount,
             pool.config.fee_config.borrow_fee_bps,
-            // pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
 
         // 'what borrower receives' = 'borrower debt' - 'fees'
@@ -586,6 +589,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<AddCollateralResult, MCError> {
         let mut deposit_position = self
             .deposits
@@ -593,9 +597,11 @@ impl Obligation {
             .unwrap_or(self.try_create_deposit_position(e)?);
 
         let computed_fees = compute_fees(
+            e,
             original_amount,
             pool.config.fee_config.add_collateral_fee_bps,
-            // pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
 
         let added_collateral =
@@ -613,6 +619,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         provided_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<WithdrawResult, MCError> {
         let mut deposit_position =
             self.deposits.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
@@ -639,7 +646,13 @@ impl Obligation {
             .withdraw_fee_bps
             .checked_add(withdraw_scarcity_fee_bps)
             .map_over_or_underflow()?;
-        let computed_fees = compute_fees(deposit_decrease, withdraw_fee_bps)?;
+        let computed_fees = compute_fees(
+            e,
+            deposit_decrease,
+            pool.config.fee_config.withdraw_fee_bps,
+            referrer,
+            &pool.config.fee_config,
+        )?;
         let withdrawer_to_receive =
             deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
 
@@ -707,6 +720,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<RemoveCollateralResult, MCError> {
         let mut deposit_position = self
             .deposits
@@ -725,9 +739,11 @@ impl Obligation {
         };
 
         let computed_fees = compute_fees(
+            e,
             collateral_decrease,
             pool.config.fee_config.remove_collateral_fee_bps,
-            // pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
         let collateral_remover_to_receive =
             collateral_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
@@ -759,15 +775,18 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         provided_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<RepayResult, MCError> {
         let mut borrow_position =
             self.borrows.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
 
         let all_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
         let all_debt_fees = compute_fees(
+            e,
             all_debt,
             pool.config.fee_config.repay_fee_bps,
-            // pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
         let amount_to_repay_all_debt =
             all_debt.checked_add(all_debt_fees.fee_sum).map_over_or_underflow()?;
@@ -775,11 +794,12 @@ impl Obligation {
         let (is_all_repaid, amount_to_take_from_borrower, computed_fees) =
             if provided_amount < amount_to_repay_all_debt {
                 let computed_fees = compute_fees(
+                    e,
                     provided_amount,
                     pool.config.fee_config.repay_fee_bps,
-                    // pool.config.fee_config.host_fee_bps,
+                    referrer,
+                    &pool.config.fee_config,
                 )?;
-
                 (false, provided_amount, computed_fees)
             } else {
                 (true, amount_to_repay_all_debt, all_debt_fees)
@@ -1366,38 +1386,33 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     Ok(())
 }
 
-/// Computes operational fees
-///
-/// # Arguments
-/// * `original_amount` - original operation amount passed as a contract's argument
-/// * `fee_bps` - operation's fee
-/// * `referrer` - optional referrer address
-/// * `pool_fee_config` - pool's fee configuration
-pub fn compute_fees_2(
+/// Computes the operation's one-time fees
+pub fn compute_fees(
     e: &Env,
     original_amount: i128,
     fee_bps: u32,
     referrer: &Option<Address>,
     pool_fee_config: &PoolFeeConfig,
-) -> Result<ComputedFees2, MCError> {
-    if fee_bps == 0
-        || original_amount == 0
-        || (referrer.is_none() && pool_fee_config.origination_fee_beneficiaries.is_none())
-    {
-        return Ok(ComputedFees2 {
+) -> Result<ComputedFees, MCError> {
+    if fee_bps == 0 || original_amount == 0 {
+        return Ok(ComputedFees {
             fee_sum: 0,
             referrer_fee: None,
             operation_fee_distributed: None,
         });
     }
 
+    // -- Calculate Total Fee --
+
     let fee_sum =
         original_amount.fixed_mul_ceil(fee_bps as i128, BPS_FACTOR).map_over_or_underflow()?;
 
+    // -- Calculate the Referrer Split --
+
     let mut referrer_fee = None;
-    if let Some(referrer) = referrer {
+    if let Some(referrer_addr) = referrer {
         if let Some(referrers_map) = &pool_fee_config.referrers {
-            if let Some(referrer_share_bps) = referrers_map.get(referrer.clone()) {
+            if let Some(referrer_share_bps) = referrers_map.get(referrer_addr.clone()) {
                 if referrer_share_bps > 0 {
                     referrer_fee = Some(
                         fee_sum
@@ -1409,9 +1424,9 @@ pub fn compute_fees_2(
         }
     };
 
-    let net_protocol_fee =
-        fee_sum.checked_sub(*(referrer_fee.as_ref().unwrap_or(&0))).map_over_or_underflow()?;
+    // -- Calculate the Protocol Split --
 
+    let net_protocol_fee = fee_sum - referrer_fee.unwrap_or(0); // safe
     let operation_fee_distributed = if net_protocol_fee > 0 {
         if let Some(beneficiaries_map) = &pool_fee_config.origination_fee_beneficiaries {
             let mut distribution: Map<Address, i128> = Map::new(e);
@@ -1429,32 +1444,16 @@ pub fn compute_fees_2(
             }
             Some(distribution)
         } else {
+            // No beneficiaries exist. Funds are collected but not distributed. Market Admin can collect them with all the other
+            // excessive tokens on a pool later
             None
         }
     } else {
+        // No fees for the beneficiaries are left
         None
     };
 
-    Ok(ComputedFees2 { fee_sum, referrer_fee, operation_fee_distributed })
-}
-
-/// Computes operations fees
-///
-/// # Arguments
-/// * `original_amount` - original operation amount
-/// * `operation_fee_bps` - percentage of the original amount that is segregated for fees
-/// * `host_fee_bps` - percentage of the operation fee that is segregated for the host lending
-///   platform
-pub fn compute_fees(
-    original_amount: i128,
-    operation_fee_bps: u32,
-) -> Result<ComputedFees, MCError> {
-    let fee_sum = original_amount
-        .fixed_mul_floor(operation_fee_bps as i128, BPS_FACTOR)
-        .map_over_or_underflow()?;
-    let market_fee = fee_sum;
-
-    Ok(ComputedFees { fee_sum, market_fee })
+    Ok(ComputedFees { fee_sum, referrer_fee, operation_fee_distributed })
 }
 
 /// Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
@@ -1537,23 +1536,13 @@ fn compute_withdraw_scarcity_fee_bps(
 #[contracttype]
 #[derive(Clone)]
 /// Represents operational fees
-pub struct ComputedFees2 {
+pub struct ComputedFees {
     /// Fee sum
     pub fee_sum: i128,
     /// Fee, immediately sent to the referrer if one is present
     pub referrer_fee: Option<i128>,
     /// Operation fee, distributed between beneficiaries
     pub operation_fee_distributed: Option<Map<Address, i128>>,
-}
-
-#[contracttype]
-#[derive(Clone)]
-/// Generally represents computed fees issued by any possible operation on a market
-pub struct ComputedFees {
-    /// Sum of `market_fee` and `host_fee`
-    pub fee_sum: i128,
-    /// Fee segregated to the market admin
-    pub market_fee: i128,
 }
 
 #[contracttype]

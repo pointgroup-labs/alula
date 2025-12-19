@@ -37,7 +37,7 @@ fn test_empty_batching() {
         gold_token_client.balance(user),
     );
 
-    contract_client.submit_requests_batch(user, &svec![&e]);
+    contract_client.submit_requests_batch(user, &svec![&e], &None);
 
     let tuple_after = (
         contract_client.get_pool(&usdc_pool_address),
@@ -79,7 +79,7 @@ fn test_simple_batching() {
 
     let simple_batch = svec![&e, request_0];
 
-    contract_client.submit_requests_batch(user, &simple_batch);
+    contract_client.submit_requests_batch(user, &simple_batch, &None);
 
     let pool_supply_2 = contract_client.get_pool(&usdc_pool_address).total_supply().unwrap();
     let contract_balance_2 = usdc_token_client.balance(&contract_id);
@@ -122,7 +122,7 @@ fn test_complex_batching() {
         amount: DEFAULT_DEPOSIT_AMOUNT,
     };
     assert_eq!(
-        contract_client.try_submit_requests_batch(user, &svec![&e, invalid_r]),
+        contract_client.try_submit_requests_batch(user, &svec![&e, invalid_r], &None),
         Err(Ok(MCError::IncorrectRequestType))
     );
 
@@ -145,7 +145,7 @@ fn test_complex_batching() {
     };
     let r_0 = svec![&e, deposit_r, withdraw_r];
 
-    contract_client.submit_requests_batch(user, &r_0);
+    contract_client.submit_requests_batch(user, &r_0, &None);
 
     let tuple_after = (
         contract_client.get_pool(&usdc_pool_address).total_supply().unwrap(),
@@ -187,7 +187,7 @@ fn test_complex_batching() {
     };
     let r_1 = svec![&e, add_collateral_r, borrow_r, repay_r, remove_collateral_r];
 
-    contract_client.submit_requests_batch(user, &r_1);
+    contract_client.submit_requests_batch(user, &r_1, &None);
 
     let tuple_after = (
         contract_client.get_pool(&usdc_pool_address).total_supply().unwrap(),

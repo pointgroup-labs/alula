@@ -25,6 +25,7 @@ pub fn process_submit_requests_batch<'a>(
     user: &'a Address,
     requests: &Vec<Request>,
     obligation_key: &'a ObligationKey,
+    referrer: &'a Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     let mut transfers = RequestTransfers::new(e, user.clone(), smap![&e], smap![&e]);
 
@@ -33,15 +34,23 @@ pub fn process_submit_requests_batch<'a>(
         let request_type = RequestType::try_from(request_type)?;
 
         let new_transfers = match request_type {
-            RequestType::Deposit => process_deposit(e, obligation_key, &pool_address, amount)?,
-            RequestType::Borrow => process_borrow(e, obligation_key, &pool_address, amount)?,
-            RequestType::Withdraw => process_withdraw(e, obligation_key, &pool_address, amount)?,
-            RequestType::Repay => process_repay(e, obligation_key, &pool_address, amount)?,
+            RequestType::Deposit => {
+                process_deposit(e, obligation_key, &pool_address, amount, &referrer)?
+            }
+            RequestType::Borrow => {
+                process_borrow(e, obligation_key, &pool_address, amount, &referrer)?
+            }
+            RequestType::Withdraw => {
+                process_withdraw(e, obligation_key, &pool_address, amount, &referrer)?
+            }
+            RequestType::Repay => {
+                process_repay(e, obligation_key, &pool_address, amount, &referrer)?
+            }
             RequestType::AddCollateral => {
-                process_add_collateral(e, obligation_key, &pool_address, amount)?
+                process_add_collateral(e, obligation_key, &pool_address, amount, &referrer)?
             }
             RequestType::RemoveCollateral => {
-                process_remove_collateral(e, obligation_key, &pool_address, amount)?
+                process_remove_collateral(e, obligation_key, &pool_address, amount, &referrer)?
             }
         };
 
@@ -205,6 +214,7 @@ pub fn process_deposit<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
@@ -227,7 +237,7 @@ pub fn process_deposit<'a>(
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_borrow_position_exists(pool_address)?;
 
-    let deposit_result = obligation.deposit(e, &pool, amount)?;
+    let deposit_result = obligation.deposit(e, &pool, amount, referrer)?;
     pool.deposit(e, &deposit_result)?;
 
     obligation.set(e, obligation_key);
@@ -249,6 +259,7 @@ pub fn process_borrow<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
@@ -260,7 +271,7 @@ pub fn process_borrow<'a>(
     pool.require_borrow_enabled()?;
     pool.accrue_interest(e)?;
 
-    let borrow_result = obligation.borrow(e, &pool, amount)?;
+    let borrow_result = obligation.borrow(e, &pool, amount, &referrer)?;
     pool.borrow(e, &borrow_result)?;
 
     obligation.set(e, obligation_key);
@@ -282,6 +293,7 @@ pub fn process_add_collateral<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
@@ -292,7 +304,7 @@ pub fn process_add_collateral<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let add_collateral_result = obligation.add_collateral(e, &pool, amount)?;
+    let add_collateral_result = obligation.add_collateral(e, &pool, amount, &referrer)?;
     pool.add_collateral(e, &add_collateral_result)?;
 
     obligation.set(e, obligation_key);
@@ -314,6 +326,7 @@ pub fn process_repay<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
@@ -322,7 +335,7 @@ pub fn process_repay<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let repay_result = obligation.repay(e, &pool, amount)?;
+    let repay_result = obligation.repay(e, &pool, amount, &referrer)?;
     pool.repay(e, &repay_result)?;
 
     if obligation.is_empty() {
@@ -354,6 +367,7 @@ pub fn process_remove_collateral<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
@@ -362,7 +376,7 @@ pub fn process_remove_collateral<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount)?;
+    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount, &referrer)?;
     pool.remove_collateral(e, &remove_collateral_result)?;
 
     pool.set(e);
@@ -389,6 +403,7 @@ pub fn process_withdraw<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
@@ -396,7 +411,7 @@ pub fn process_withdraw<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    let withdraw_result = obligation.withdraw(e, &pool, amount)?;
+    let withdraw_result = obligation.withdraw(e, &pool, amount, &referrer)?;
     pool.withdraw(e, &withdraw_result)?;
 
     if obligation.is_empty() {
@@ -423,11 +438,12 @@ pub fn process_compute_withdraw_fees(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<WithdrawResult, MCError> {
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     let pool = Pool::try_get(e, pool_address)?;
 
-    let withdraw_result = obligation.withdraw(e, &pool, amount)?;
+    let withdraw_result = obligation.withdraw(e, &pool, amount, &referrer)?;
 
     Ok(withdraw_result)
 }
@@ -481,6 +497,7 @@ pub fn process_deposit_with_leverage(
     deposit_as_margin: bool,
     amount: i128,
     leverage_multiplier: u32,
+    referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
@@ -600,7 +617,8 @@ pub fn process_deposit_with_leverage(
     } else {
         received_amount
     };
-    process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount)?.execute_transfers();
+    process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount, &referrer)?
+        .execute_transfers();
 
     // -- Borrow to repay the flash loan --
 
@@ -624,7 +642,8 @@ pub fn process_deposit_with_leverage(
         return Err(MCError::InconsistentDepositWithLeverage);
     }
 
-    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount)?.execute_transfers();
+    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount, &referrer)?
+        .execute_transfers();
     borrow_pool.refresh(e)?;
 
     // -- Flash Repay --
@@ -659,6 +678,7 @@ pub fn process_withdraw_from_leveraged(
     obligation_key: &ObligationKey,
     pair: &MultiplyPair,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
@@ -692,7 +712,7 @@ pub fn process_withdraw_from_leveraged(
     );
 
     if borrow_position.is_empty() {
-        process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount)?
+        process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount, &referrer)?
             .execute_transfers();
 
         return Ok(());
@@ -766,7 +786,7 @@ pub fn process_withdraw_from_leveraged(
 
     // -- Repay Debt --
 
-    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount)?;
+    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount, &referrer)?;
     borrow_pool.refresh(e)?;
 
     // -- Withdraw plain leverage --
@@ -776,6 +796,7 @@ pub fn process_withdraw_from_leveraged(
         obligation_key,
         &deposit_pool.pool_address,
         plain_leverage_to_be_withdrawn,
+        &referrer,
     )?;
     deposit_pool.refresh(e)?;
 
@@ -817,6 +838,7 @@ pub fn process_withdraw_from_leveraged(
         obligation_key,
         &deposit_pool.pool_address,
         withdrawn_to_user_wallet_amount,
+        referrer,
     )?
     .execute_transfers();
 

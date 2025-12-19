@@ -85,7 +85,7 @@ impl Pool {
 
     fn adjust_fees(&mut self, e: &Env, fees: &ComputedFees) -> Result<(), MCError> {
         // self.adjust_accumulated_host_fees(e, fees.host_fee)?;
-        self.adjust_accumulated_market_fees(e, fees.market_fee)?;
+        // self.adjust_accumulated_market_fees(e, fees.market_fee)?;
 
         Ok(())
     }
