@@ -31,6 +31,7 @@ fn test_deposit_zero() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
 
     let gold_pool_before = contract_client.get_pool(&gold_pool_address);
@@ -169,6 +170,7 @@ fn test_deposit_with_unhealthy_leverage() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
 
     assert_eq!(
@@ -200,6 +202,7 @@ fn test_deposit_borrow_as_margin() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
     contract_client.deposit_with_leverage(
         looper,
@@ -259,6 +262,7 @@ fn test_deposit_deposit_as_margin() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
     contract_client.deposit_with_leverage(
         looper,
@@ -311,6 +315,7 @@ fn test_multiplied_deposits_are_isolated() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
     contract_client.deposit_with_leverage(
         looper,
@@ -355,6 +360,7 @@ fn test_withdraw() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
     contract_client.deposit_with_leverage(
         looper,
@@ -456,6 +462,7 @@ fn test_withdraw_over_balance() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
 
     let borrowed_token_supply_before =
@@ -523,6 +530,7 @@ fn test_withdraw_all_available_with_i128_max() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
     contract_client.deposit_with_leverage(
         looper,
@@ -569,6 +577,7 @@ fn test_withdraw_zero() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
     contract_client.deposit_with_leverage(
         looper,
@@ -616,6 +625,7 @@ fn test_withdraw_negative() {
         liquidity_provider,
         &usdc_pool_address,
         &(1000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
     contract_client.deposit_with_leverage(
         looper,

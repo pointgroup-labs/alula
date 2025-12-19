@@ -99,11 +99,11 @@ pub const MIN_LEVERAGE_MULTIPLIER: u32 = 100; // x1
 // ---- Fees ----
 
 pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
-pub const DEFAULT_BORROW_FEE_BPS: u32 = 0;
-pub const DEFAULT_DEPOSIT_FEE_BPS: u32 = 0;
-pub const DEFAULT_WITHDRAW_FEE_BPS: u32 = 0;
+pub const DEFAULT_borrow_fee_bps: u32 = 0;
+pub const DEFAULT_deposit_fee_bps: u32 = 0;
+pub const DEFAULT_withdraw_fee_bps: u32 = 0;
 pub const DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS: u32 = 20_000; // 200%
-pub const DEFAULT_FLASH_LOAN_FEE_BPS: u32 = 1; // 0.01%
+pub const DEFAULT_flash_loan_fee_bps: u32 = 1; // 0.01%
 pub const DEFAULT_ADD_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
 

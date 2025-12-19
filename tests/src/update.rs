@@ -32,9 +32,9 @@ fn test_queue_in_pool_config_update() {
 
     let before_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
 
-    const NEW_BORROW_FEE_BPS: u32 = 1000;
+    const NEW_borrow_fee_bps: u32 = 1000;
     let new_pool_config = PoolConfig {
-        fee_config: PoolFeeConfig { borrow_fee_bps: NEW_BORROW_FEE_BPS, ..Default::default() },
+        fee_config: PoolFeeConfig { borrow_fee_bps: NEW_borrow_fee_bps, ..Default::default() },
         ..Default::default()
     };
 
@@ -60,8 +60,8 @@ fn test_queue_in_pool_config_update() {
 
     let after_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
 
-    assert_ne!(before_borrow_fee_bps, NEW_BORROW_FEE_BPS);
-    assert_eq!(after_borrow_fee_bps, NEW_BORROW_FEE_BPS);
+    assert_ne!(before_borrow_fee_bps, NEW_borrow_fee_bps);
+    assert_eq!(after_borrow_fee_bps, NEW_borrow_fee_bps);
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     contract_client.deposit_earn(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1).is_ok());
-    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None).is_ok());
 
     let pool_config_update_queue_in_period =
         contract_client.get_global_state().update_in_queue_period.unwrap();
@@ -125,7 +125,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         contract_client.try_borrow(borrower, &usdc_pool_address, &1),
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
-    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None).is_ok());
 
     let new_pool_config = PoolConfig {
         status: PoolStatus { borrow_enabled: false, deposit_enabled: false },
@@ -145,7 +145,7 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
     assert_eq!(
-        contract_client.try_deposit(creditor, &usdc_pool_address, &1),
+        contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::DepositForbiddenOnPool))
     );
 }
@@ -258,7 +258,7 @@ fn test_update_market_status() {
 
     contract_client.deposit_earn(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
-    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &100).is_ok());
+    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &100, &None).is_ok());
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
     assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &100).is_ok());
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1).is_ok());
@@ -267,7 +267,7 @@ fn test_update_market_status() {
     let status = contract_client.get_global_state().status;
     assert_eq!(status, 1);
 
-    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &1, &None).is_ok());
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
     assert_eq!(
         contract_client.try_borrow(creditor, &usdc_pool_address, &1),
@@ -280,7 +280,7 @@ fn test_update_market_status() {
     assert_eq!(status, 2);
 
     assert_eq!(
-        contract_client.try_deposit(creditor, &gold_pool_address, &1),
+        contract_client.try_deposit(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::DepositForbiddenOnMarket))
     );
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
@@ -295,7 +295,7 @@ fn test_update_market_status() {
     assert_eq!(status, 3);
 
     assert_eq!(
-        contract_client.try_deposit(creditor, &gold_pool_address, &1),
+        contract_client.try_deposit(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::DepositForbiddenOnMarket))
     );
     assert_eq!(

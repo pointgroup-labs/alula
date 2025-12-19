@@ -25,8 +25,13 @@ fn test_accumulate_reserve_fees_are_empty_prior_accrual() {
     let accumulated_reserve_fees_before_borrow =
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let accumulated_reserve_fees_after_borrow =
@@ -44,8 +49,13 @@ fn test_accumulate_reserve_fees() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
@@ -88,8 +98,8 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
 
     assert_eq!(
@@ -109,7 +119,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let liquidator = &users[2];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // Borrow max possible amount
     contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
@@ -252,7 +262,12 @@ fn test_completely_socialize_loss() {
 
     contract_client.add_collateral(borrower_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
     // Borrow max possible amounts
     contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX);
@@ -348,7 +363,12 @@ fn test_completely_cover_bad_debt() {
 
     contract_client.add_collateral(borrower_1, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT));
     contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(20 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(20 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
     // Borrow max possible amounts
     contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX); // will borrow x10 due to having x10 more collateral

@@ -84,7 +84,7 @@ impl Pool {
     generate_adjust_method!(adjust_accumulated_reserve_fees, accumulated_reserve_fees);
 
     fn adjust_fees(&mut self, e: &Env, fees: &ComputedFees) -> Result<(), MCError> {
-        self.adjust_accumulated_host_fees(e, fees.host_fee)?;
+        // self.adjust_accumulated_host_fees(e, fees.host_fee)?;
         self.adjust_accumulated_market_fees(e, fees.market_fee)?;
 
         Ok(())
@@ -712,7 +712,7 @@ impl Pool {
 }
 
 #[contracttype]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PoolFeeConfig {
     pub borrow_fee_bps: u32,
     pub flash_loan_fee_bps: u32,
@@ -726,25 +726,34 @@ pub struct PoolFeeConfig {
     pub remove_collateral_fee_bps: u32,
     pub repay_fee_bps: u32,
 
+    /// Borrow rate percentage that is taken from the suppliers and distributed among the `take_rate` beneficiaries
     pub take_rate_bps: u32,
-    pub host_fee_bps: u32,
+    /// A map of beneficiaries who split the `take_rate` and their distribution proportions(in basis points). Proportions must add up to 10_000
+    pub take_rate_beneficiaries: Option<Map<Address, u32>>,
+    /// A map of beneficiaries who split the `origination fee` left after removing the possible referrer's cut and their distribution proportions.
+    /// Proportions must add up to 10_000
+    pub origination_fee_beneficiaries: Option<Map<Address, u32>>,
+    /// A map of allowed referrers and their immediately received percentage of the origination fee
+    pub referrers: Option<Map<Address, u32>>,
 }
 
 impl Default for PoolFeeConfig {
     fn default() -> Self {
         Self {
-            borrow_fee_bps: DEFAULT_BORROW_FEE_BPS,
-            flash_loan_fee_bps: DEFAULT_FLASH_LOAN_FEE_BPS,
+            borrow_fee_bps: DEFAULT_borrow_fee_bps,
+            flash_loan_fee_bps: DEFAULT_flash_loan_fee_bps,
 
-            deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
-            withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
+            deposit_fee_bps: DEFAULT_deposit_fee_bps,
+            withdraw_fee_bps: DEFAULT_withdraw_fee_bps,
+            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
             add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
             remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
             repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
 
-            host_fee_bps: DEFAULT_HOST_FEE_BPS,
             take_rate_bps: DEFAULT_TAKE_RATE_BPS,
-            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
+            take_rate_beneficiaries: None,
+            origination_fee_beneficiaries: None,
+            referrers: None,
         }
     }
 }
@@ -801,7 +810,7 @@ impl Default for PoolStatus {
 }
 
 #[contracttype]
-#[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct PoolConfig {
     pub status: PoolStatus,
     pub fee_config: PoolFeeConfig,

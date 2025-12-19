@@ -97,9 +97,9 @@ pub fn process_initialize_pool(
                 return Err(MCError::InvalidLoanPoolConfig);
             }
 
-            *cfg
+            cfg.clone()
         }
-        None => Default::default(),
+        None => PoolConfig::default(),
     };
 
     let token_client = TokenClient::new(e, token_address);
@@ -224,6 +224,7 @@ pub fn process_deposit<'a>(
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_borrow_position_exists(pool_address)?;
 
     let deposit_result = obligation.deposit(e, &pool, amount)?;

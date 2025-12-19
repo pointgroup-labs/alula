@@ -113,6 +113,7 @@ fn test_complex_batching() {
         liquidity_provider,
         &usdc_pool_address,
         &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
 
     let invalid_r = Request {

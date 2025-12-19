@@ -163,7 +163,7 @@ impl TestMarketFixture<'_> {
             token_address: gold_token_address,
         } = setup_test_asset(&e, &gold_admin, &users);
         let gold_pool_address =
-            contract_client.initialize_pool(&gold_token_address, &None, &Some(pool_config));
+            contract_client.initialize_pool(&gold_token_address, &None, &Some(pool_config.clone()));
 
         // BTC
         let btc_admin = Address::generate(&e);
@@ -173,11 +173,11 @@ impl TestMarketFixture<'_> {
             token_address: btc_token_address,
         } = setup_test_asset(&e, &btc_admin, &users);
         let btc_pool_address =
-            contract_client.initialize_pool(&btc_token_address, &None, &Some(pool_config));
+            contract_client.initialize_pool(&btc_token_address, &None, &Some(pool_config.clone()));
 
         // USDC
         let usdc_pool_address =
-            contract_client.initialize_pool(&usdc_token_address, &None, &Some(pool_config));
+            contract_client.initialize_pool(&usdc_token_address, &None, &Some(pool_config.clone()));
 
         contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
 
@@ -598,7 +598,7 @@ impl RunCommand for Deposit {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0, &None);
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -692,6 +692,7 @@ impl RunCommand for DepositWithLeverage {
                 flash_liquidity_provider,
                 &borrow_pool_address,
                 &self.flash_loan_amount.0,
+                &None,
             );
 
             let res = contract_client.try_deposit_with_leverage(

@@ -27,7 +27,7 @@ fn test_interest_rates() {
     let liquidity_provider = &users[1];
 
     contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // -- Move time --
     e.ledger().with_mut(|li| li.timestamp += 1);
@@ -92,7 +92,7 @@ fn test_interest_rates_no_take_rate() {
     let liquidity_provider = &users[1];
 
     contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // Borrow 100% of the deposited value
     contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);

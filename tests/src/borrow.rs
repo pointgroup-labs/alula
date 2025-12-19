@@ -29,9 +29,14 @@ fn test_borrow() {
     let liquidity_provider = &users[1];
 
     // NB: GOLD is used as the main collateral in integration tests
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     // NB: USDC is used as the main borrowed token in integration tests
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
@@ -71,9 +76,14 @@ fn test_borrow_multiple_shareholders() {
     let borrower_2 = &users[1];
     let liquidity_provider = &users[2];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(borrower_1, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(borrower_2, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(borrower_1, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(borrower_2, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT), &None);
 
     contract_client.borrow(borrower_1, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
@@ -152,8 +162,8 @@ fn test_borrow_exceeds_utilization_cap() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
     contract_client.borrow(borrower, &usdc_pool_address, &BORROW_AMOUNT);
@@ -179,8 +189,8 @@ fn test_borrow_zero() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_before = contract_client.get_pool(&usdc_pool_address);
     contract_client.borrow(borrower, &usdc_pool_address, &0);
@@ -196,8 +206,8 @@ fn test_borrow_negative() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     assert_eq!(
         contract_client.try_borrow(borrower, &usdc_pool_address, &-1),
@@ -211,7 +221,7 @@ fn test_deposit_exists() {
         TestMarketFixture::new();
     let borrower = &users[0];
 
-    contract_client.deposit(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     assert_eq!(
         contract_client.try_borrow(borrower, &usdc_pool_address, &1),
@@ -233,7 +243,7 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
@@ -286,7 +296,7 @@ fn test_borrow_w_big_liability_factor() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
 

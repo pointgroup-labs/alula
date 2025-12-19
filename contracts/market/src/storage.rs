@@ -259,7 +259,7 @@ pub fn queue_in_pool_config_update(
     }
 
     let pool_update =
-        PoolUpdate { new_config: *config, queued_in_timestamp: e.ledger().timestamp() };
+        PoolUpdate { new_config: config.clone(), queued_in_timestamp: e.ledger().timestamp() };
     e.storage().persistent().set(&key, &pool_update);
 
     Ok(())

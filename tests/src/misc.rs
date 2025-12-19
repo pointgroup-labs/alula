@@ -35,15 +35,15 @@ fn test_computed_interest_is_negative_reproduced() {
     let maksym2 = &users[2];
     let k2 = &users[3];
 
-    contract_client.deposit(maksym, &gold_pool_address, &100000000000);
+    contract_client.deposit(maksym, &gold_pool_address, &100000000000, &None);
     wait(&e, 15);
-    contract_client.deposit(maksym2, &gold_pool_address, &1000000000);
+    contract_client.deposit(maksym2, &gold_pool_address, &1000000000, &None);
     wait(&e, 60 + 39);
     contract_client.get_market_data();
     wait(&e, 25);
     contract_client.get_pool_data(&usdc_pool_address);
     wait(&e, 35);
-    contract_client.deposit(maksym2, &usdc_pool_address, &1000000);
+    contract_client.deposit(maksym2, &usdc_pool_address, &1000000, &None);
     wait(&e, 10);
     contract_client.borrow(maksym, &usdc_pool_address, &10000);
     wait(&e, 10);
@@ -51,37 +51,37 @@ fn test_computed_interest_is_negative_reproduced() {
     wait(&e, (2 * 60) + 20);
     contract_client.get_market_data();
     wait(&e, (3 * 60 * 60) + 35 * 60);
-    contract_client.deposit(k1, &gold_pool_address, &110000000);
+    contract_client.deposit(k1, &gold_pool_address, &110000000, &None);
     wait(&e, 30);
-    contract_client.deposit(k1, &usdc_pool_address, &220000000);
+    contract_client.deposit(k1, &usdc_pool_address, &220000000, &None);
     wait(&e, 60 * 60 + 60 * 5 + 29);
     contract_client.withdraw(k1, &usdc_pool_address, &220000000);
     wait(&e, 60 * 2 + 5);
-    contract_client.deposit(k2, &usdc_pool_address, &1000000000);
+    contract_client.deposit(k2, &usdc_pool_address, &1000000000, &None);
     wait(&e, 35);
     contract_client.borrow(k1, &usdc_pool_address, &77367249);
     wait(&e, 27 * 60);
-    contract_client.deposit(k1, &gold_pool_address, &120000000);
+    contract_client.deposit(k1, &gold_pool_address, &120000000, &None);
     wait(&e, (2 * 60) + 20);
-    contract_client.deposit(k1, &gold_pool_address, &10000000);
+    contract_client.deposit(k1, &gold_pool_address, &10000000, &None);
     wait(&e, (10 * 60) + 36);
-    contract_client.deposit(k1, &gold_pool_address, &10000000);
+    contract_client.deposit(k1, &gold_pool_address, &10000000, &None);
     wait(&e, 60 + 45);
-    contract_client.deposit(k1, &gold_pool_address, &10000000);
+    contract_client.deposit(k1, &gold_pool_address, &10000000, &None);
     wait(&e, (2 * 60) + 31);
-    contract_client.deposit(k1, &gold_pool_address, &550000000);
+    contract_client.deposit(k1, &gold_pool_address, &550000000, &None);
     wait(&e, 15);
-    contract_client.deposit(k1, &gold_pool_address, &2220000000);
+    contract_client.deposit(k1, &gold_pool_address, &2220000000, &None);
     wait(&e, 25);
-    contract_client.deposit(k1, &gold_pool_address, &670000000);
+    contract_client.deposit(k1, &gold_pool_address, &670000000, &None);
     wait(&e, 20);
-    contract_client.deposit(k1, &gold_pool_address, &1000000000);
+    contract_client.deposit(k1, &gold_pool_address, &1000000000, &None);
     wait(&e, (3 * 60) + 25);
     contract_client.withdraw(k1, &gold_pool_address, &4819579912);
     wait(&e, (28 * 60) + 42);
-    contract_client.deposit(k1, &gold_pool_address, &23330000000);
+    contract_client.deposit(k1, &gold_pool_address, &23330000000, &None);
     wait(&e, (4 * 60) + 15);
-    contract_client.deposit(k1, &gold_pool_address, &220000000);
+    contract_client.deposit(k1, &gold_pool_address, &220000000, &None);
     wait(&e, (15 * 60) + 10);
     contract_client.withdraw(k2, &usdc_pool_address, &105000000);
     wait(&e, (12 * 60) + 5);
@@ -91,7 +91,7 @@ fn test_computed_interest_is_negative_reproduced() {
     wait(&e, 30);
     contract_client.borrow(k2, &gold_pool_address, &53141657);
     wait(&e, (10 * 60) + 41);
-    contract_client.deposit(k2, &usdc_pool_address, &110000000);
+    contract_client.deposit(k2, &usdc_pool_address, &110000000, &None);
     wait(&e, 45);
     contract_client.repay(k2, &gold_pool_address, &55798739);
     wait(&e, 25);
@@ -101,7 +101,7 @@ fn test_computed_interest_is_negative_reproduced() {
     wait(&e, (10 * 60) + 10);
     contract_client.remove_collateral(k2, &usdc_pool_address, &440000000);
     wait(&e, 35);
-    contract_client.deposit(k1, &usdc_pool_address, &110000000);
+    contract_client.deposit(k1, &usdc_pool_address, &110000000, &None);
     wait(&e, 20);
     contract_client.withdraw(k1, &usdc_pool_address, &115500801);
     wait(&e, 13 * 60 * 60);
@@ -116,7 +116,7 @@ fn test_computed_interest_is_negative_reproduced_2() {
     let maksym = &users[0];
     let k1 = &users[1];
 
-    contract_client.deposit(maksym, &gold_pool_address, &10000000000);
+    contract_client.deposit(maksym, &gold_pool_address, &10000000000, &None);
     wait(&e, 40);
     contract_client.add_collateral(maksym, &usdc_pool_address, &1000000000);
     wait(&e, 55);
@@ -124,9 +124,9 @@ fn test_computed_interest_is_negative_reproduced_2() {
     wait(&e, 20);
     contract_client.withdraw(maksym, &gold_pool_address, &10500000000);
     wait(&e, 25);
-    contract_client.deposit(maksym, &usdc_pool_address, &10000000000);
+    contract_client.deposit(maksym, &usdc_pool_address, &10000000000, &None);
     wait(&e, 50);
-    contract_client.deposit(k1, &gold_pool_address, &10000000000i128);
+    contract_client.deposit(k1, &gold_pool_address, &10000000000i128, &None);
     wait(&e, 60);
     contract_client.borrow(maksym, &gold_pool_address, &6979216852i128);
     wait(&e, 20);
@@ -192,8 +192,8 @@ fn test_reset_storage_removes_obligations() {
 
     assert!(contract_client.get_all_obligations().is_empty());
 
-    contract_client.deposit(user1, &usdc_pool_address, &1000);
-    contract_client.deposit(user2, &usdc_pool_address, &1000);
+    contract_client.deposit(user1, &usdc_pool_address, &1000, &None);
+    contract_client.deposit(user2, &usdc_pool_address, &1000, &None);
 
     assert!(contract_client.try_get_user_obligation(user1).is_ok());
     assert!(contract_client.try_get_user_obligation(user2).is_ok());
@@ -240,8 +240,13 @@ fn test_obligations_list_contains_unique_obligations() {
     let liquidity_provider = &users[0];
     let creditor = &users[1];
 
-    contract_client.deposit(liquidity_provider, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(
+        liquidity_provider,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 2);
@@ -269,8 +274,8 @@ fn test_bootstrap_pool() {
     let creditor_1 = &users[1];
     let creditor_2 = &users[2];
 
-    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // -- Move time --
 
@@ -421,11 +426,11 @@ fn test_unable_to_borrow_and_deposit_the_same_asset() {
         Err(Ok(MCError::DepositPositionForAssetExists))
     );
 
-    contract_client.deposit(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(user_2, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.borrow(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
     assert_eq!(
-        contract_client.try_deposit(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT),
+        contract_client.try_deposit(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None),
         Err(Ok(MCError::BorrowPositionForAssetExists))
     );
 }
@@ -445,7 +450,7 @@ fn test_get_pool_data() {
     assert_eq!(apy.supply_bps, 0);
     assert!(apy.supply_bps <= apy.borrow_bps);
 
-    contract_client.deposit(creditor, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(creditor, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_COLLATERAL_AMOUNT));
     contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
 
@@ -498,7 +503,7 @@ fn test_refresh_pool() {
     let liquidity_provider = &users[0];
     let debtor = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
@@ -533,11 +538,11 @@ fn test_refresh_obligation() {
     let liquidity_provider = &users[0];
     let debtor = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
-    contract_client.deposit(liquidity_provider, &btc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &btc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
     contract_client.borrow(debtor, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
 
@@ -622,6 +627,7 @@ fn test_refresh_multiply_pair_obligation() {
         liquidity_provider,
         &usdc_pool_address,
         &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
     );
 
     contract_client.deposit_with_leverage(

@@ -146,7 +146,14 @@ pub trait Market {
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
-    fn deposit(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
+    fn deposit(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError>;
 
     /// Deposits tokens into the loan pool as a part of the `Earn` isolated obligation that prohibits all types of borrowing
     ///
@@ -742,7 +749,13 @@ impl Market for MarketContract {
         process_bootstrap_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
     }
 
-    fn deposit(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
+    fn deposit(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError> {
         user.require_auth();
         require_deposit_allowed(&e)?;
         storage::extend_instance_storage(&e);

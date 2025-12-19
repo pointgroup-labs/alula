@@ -40,6 +40,7 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
         fixture.contract_client.add_collateral(
             &borrower,
@@ -77,6 +78,7 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &((3 * DEFAULT_DEPOSIT_AMOUNT) / 2),
+            &None,
         );
 
         let collateral = DEFAULT_DEPOSIT_AMOUNT;
@@ -101,12 +103,14 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
 
         fixture.contract_client.deposit(
             &borrower,
             &collateral_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
         );
         fixture.contract_client.borrow(
             &borrower,
@@ -130,6 +134,7 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
 
         fixture.contract_client.add_collateral(
@@ -141,6 +146,7 @@ impl LiquidationTest {
             &borrower,
             &collateral_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
         );
         fixture.contract_client.borrow(
             &borrower,

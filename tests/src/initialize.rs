@@ -44,7 +44,8 @@ fn test_pool_initialize_with_custom_config() {
         ..Default::default()
     };
 
-    let pool_address = contract_client.initialize_pool(&token_address, &None, &Some(pool_config));
+    let pool_address =
+        contract_client.initialize_pool(&token_address, &None, &Some(pool_config.clone()));
 
     let all_pools = contract_client.get_all_pools();
     assert_eq!(all_pools.len(), 1);

@@ -511,10 +511,13 @@ impl Obligation {
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_deposit_position(e)?);
 
+        // Now, how should this look?
+        // First, we must check if there's a way to programmatically look into the memo?
+
         let computed_fees = compute_fees(
             original_amount,
             pool.config.fee_config.deposit_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            // pool.config.fee_config.host_fee_bps,
         )?;
         let deposited_tokens_minus_fee =
             original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
@@ -555,7 +558,7 @@ impl Obligation {
         let computed_fees = compute_fees(
             real_borrowed_amount,
             pool.config.fee_config.borrow_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            // pool.config.fee_config.host_fee_bps,
         )?;
 
         // 'what borrower receives' = 'borrower debt' - 'fees'
@@ -592,7 +595,7 @@ impl Obligation {
         let computed_fees = compute_fees(
             original_amount,
             pool.config.fee_config.add_collateral_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            // pool.config.fee_config.host_fee_bps,
         )?;
 
         let added_collateral =
@@ -636,8 +639,7 @@ impl Obligation {
             .withdraw_fee_bps
             .checked_add(withdraw_scarcity_fee_bps)
             .map_over_or_underflow()?;
-        let computed_fees =
-            compute_fees(deposit_decrease, withdraw_fee_bps, pool.config.fee_config.host_fee_bps)?;
+        let computed_fees = compute_fees(deposit_decrease, withdraw_fee_bps)?;
         let withdrawer_to_receive =
             deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
 
@@ -725,7 +727,7 @@ impl Obligation {
         let computed_fees = compute_fees(
             collateral_decrease,
             pool.config.fee_config.remove_collateral_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            // pool.config.fee_config.host_fee_bps,
         )?;
         let collateral_remover_to_receive =
             collateral_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
@@ -765,7 +767,7 @@ impl Obligation {
         let all_debt_fees = compute_fees(
             all_debt,
             pool.config.fee_config.repay_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            // pool.config.fee_config.host_fee_bps,
         )?;
         let amount_to_repay_all_debt =
             all_debt.checked_add(all_debt_fees.fee_sum).map_over_or_underflow()?;
@@ -775,7 +777,7 @@ impl Obligation {
                 let computed_fees = compute_fees(
                     provided_amount,
                     pool.config.fee_config.repay_fee_bps,
-                    pool.config.fee_config.host_fee_bps,
+                    // pool.config.fee_config.host_fee_bps,
                 )?;
 
                 (false, provided_amount, computed_fees)
@@ -1374,16 +1376,13 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
 pub fn compute_fees(
     original_amount: i128,
     operation_fee_bps: u32,
-    host_fee_bps: u32,
 ) -> Result<ComputedFees, MCError> {
     let fee_sum = original_amount
         .fixed_mul_floor(operation_fee_bps as i128, BPS_FACTOR)
         .map_over_or_underflow()?;
-    let host_fee =
-        fee_sum.fixed_mul_floor(host_fee_bps as i128, BPS_FACTOR).map_over_or_underflow()?;
-    let market_fee = fee_sum.checked_sub(host_fee).map_over_or_underflow()?;
+    let market_fee = fee_sum;
 
-    Ok(ComputedFees { fee_sum, market_fee, host_fee })
+    Ok(ComputedFees { fee_sum, market_fee })
 }
 
 /// Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
@@ -1471,8 +1470,6 @@ pub struct ComputedFees {
     pub fee_sum: i128,
     /// Fee segregated to the market admin
     pub market_fee: i128,
-    /// Fee segregated to the protocol host(market deployer)
-    pub host_fee: i128,
 }
 
 #[contracttype]
