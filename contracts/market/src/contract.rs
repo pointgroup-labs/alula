@@ -161,11 +161,13 @@ pub trait Market {
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn deposit_earn(
         e: Env,
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError>;
 
     /// Deposits tokens into the loan pool with leverage. Leverage is achieved by utilizing flash
@@ -184,6 +186,7 @@ pub trait Market {
     /// * `amount` - original borrow amount before the leverage
     /// * `leverage_multiplier` - leverage multiplier, where the last two digits represent decimal
     ///   places (e.g., 700 for x7.00, 255 for x2.55, etc.)
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -194,6 +197,7 @@ pub trait Market {
         // TODO: swap_aggregator_address: Address? This requires standardization
         // TODO: Account for slippage
         leverage_multiplier: u32,
+        referrer: Option<Address>,
     ) -> Result<(), MCError>;
 
     /// Withdraws deposited tokens from the loan pool to the user
@@ -205,7 +209,14 @@ pub trait Market {
     ///   The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
     ///   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens
     ///   available for it
-    fn withdraw(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
+    fn withdraw(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError>;
 
     /// Simulates withdrawal of the deposited tokens from the loan pool to the user
     ///
@@ -216,6 +227,7 @@ pub trait Market {
     ///   The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
     ///   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to withdraw all tokens
     ///   available for it
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     ///
     /// # Returns
     /// [`WithdrawResult`] with simulated withdrawal data
@@ -224,6 +236,7 @@ pub trait Market {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<WithdrawResult, MCError>;
 
     /// Simulates Withdrawal of the deposited tokens from the `Earn` obligation from the loan pool to the user
@@ -232,6 +245,7 @@ pub trait Market {
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     ///
     /// # Returns
     /// [`WithdrawResult`] with simulated withdrawal data
@@ -240,6 +254,7 @@ pub trait Market {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<WithdrawResult, MCError>;
 
     /// Withdraws deposited tokens from the `Earn` obligation from the loan pool to the user
@@ -248,11 +263,13 @@ pub trait Market {
     /// * `user` - user that deposits a token
     /// * `pool_address` - address of a pool to which the deposit happens
     /// * `amount` - amount of tokens which are going to be deposited
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn withdraw_earn(
         e: Env,
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError>;
 
     /// Withdraws tokens from the leveraged deposit position without affecting the leverage
@@ -266,12 +283,14 @@ pub trait Market {
     ///   The actual amount withdrawn is capped by the value difference between deposited and borrowed
     ///   tokens in the leveraged position (minus operational fees). Passing [`u64::MAX`] (or
     ///   [`i128::MAX`]) can be used to withdraw all available tokens
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn withdraw_from_leveraged(
         e: Env,
         user: Address,
         deposit_pool_address: Address,
         borrow_pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError>;
 
     /// Borrows tokens from the loan pool
@@ -280,7 +299,14 @@ pub trait Market {
     /// * `user` - user which borrows a token
     /// * `pool_address` - address of a pool from which the borrow happens
     /// * `amount` - amount of tokens which are going to be borrowed
-    fn borrow(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
+    fn borrow(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError>;
 
     /// Adds tokens into the loan pool as collateral only.
     /// This implies that they are always available for a healthy withdrawal for the
@@ -290,11 +316,13 @@ pub trait Market {
     /// * `user` - user that adds collateral
     /// * `pool_address` - address of a pool to which the collateral is being added
     /// * `amount` - amount of tokens which are being added as a collateral
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn add_collateral(
         e: Env,
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError>;
 
     /// Removes collateral tokens from the loan pool to the user
@@ -306,11 +334,13 @@ pub trait Market {
     ///   The actual amount removed is capped to maintain the position's LTV at its Open LTV on the
     ///   pool. Passing [`u64::MAX`] (or [`i128::MAX`]) effectively removes all available
     ///   collateral
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn remove_collateral(
         e: Env,
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError>;
 
     /// Repays borrowed tokens
@@ -321,7 +351,14 @@ pub trait Market {
     /// * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only
     ///   the outstanding debt will be repaid.
     ///   Passing [`u64::MAX`] (or [`i128::MAX`]) can be used to repay the entire debt
-    fn repay(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
+    /// * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
+    fn repay(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError>;
 
     /// Liquidates the borrower's position if the position's health factor criterion isn't met
     ///
@@ -771,6 +808,7 @@ impl Market for MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
         require_deposit_allowed(&e)?;
@@ -784,7 +822,13 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn borrow(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
+    fn borrow(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError> {
         user.require_auth();
         require_borrow_allowed(&e)?;
         storage::extend_instance_storage(&e);
@@ -835,6 +879,7 @@ impl Market for MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
         require_not_frozen(&e)?;
@@ -851,6 +896,7 @@ impl Market for MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
         require_not_frozen(&e)?;
@@ -862,7 +908,13 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn repay(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
+    fn repay(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError> {
         user.require_auth();
         require_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
@@ -905,7 +957,13 @@ impl Market for MarketContract {
         Ok(())
     }
 
-    fn withdraw(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
+    fn withdraw(
+        e: Env,
+        user: Address,
+        pool_address: Address,
+        amount: i128,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError> {
         user.require_auth();
         require_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
@@ -921,6 +979,7 @@ impl Market for MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<WithdrawResult, MCError> {
         let obligation_key = ObligationKey::new(user);
 
@@ -932,6 +991,7 @@ impl Market for MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<WithdrawResult, MCError> {
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
@@ -944,6 +1004,7 @@ impl Market for MarketContract {
         user: Address,
         pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
         require_not_frozen(&e)?;
@@ -979,6 +1040,7 @@ impl Market for MarketContract {
         deposit_as_margin: bool,
         amount: i128,
         leverage_multiplier: u32,
+        referrer: Option<Address>,
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         user.require_auth();
@@ -1007,6 +1069,7 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
         amount: i128,
+        referrer: Option<Address>,
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         user.require_auth();

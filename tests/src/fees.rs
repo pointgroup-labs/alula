@@ -47,7 +47,7 @@ fn test_borrow_fee() {
     let pool_balance_before = usdc_token_client.balance(&contract_id);
     let borrower_balance_before = usdc_token_client.balance(borrower);
 
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_balance_after = usdc_token_client.balance(&contract_id);
     let borrower_balance_after = usdc_token_client.balance(borrower);
@@ -172,6 +172,7 @@ fn test_add_collateral_fee() {
         collateral_adder,
         &gold_pool_address,
         &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
     );
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
@@ -234,6 +235,7 @@ fn test_remove_collateral_fee() {
         collateral_adder,
         &gold_pool_address,
         &(2 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
     );
 
     let pool_balance_before = gold_token_client.balance(&contract_id);
@@ -250,6 +252,7 @@ fn test_remove_collateral_fee() {
         collateral_adder,
         &gold_pool_address,
         &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
     );
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
@@ -328,7 +331,7 @@ fn test_withdraw_fee() {
     let pool_host_fees_before =
         get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
 
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
     let creditor_balance_after = gold_token_client.balance(creditor);
@@ -392,7 +395,12 @@ fn test_withdraw_scarcity_fee() {
     let borrower = &users[1];
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.add_collateral(
+        borrower,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
     // - Borrow up to utilization ratio cap -
 
@@ -401,7 +409,7 @@ fn test_withdraw_scarcity_fee() {
         .unwrap();
     let withdraw_amount = DEFAULT_DEPOSIT_AMOUNT.checked_sub(borrow_amount).unwrap();
 
-    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount);
+    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
 
     // - Withdraw rest and check the fees -
 
@@ -417,9 +425,9 @@ fn test_withdraw_scarcity_fee() {
         get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
 
     let simulated_withdraw_result =
-        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount);
+        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
 
-    contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount);
+    contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
 
     let pool_balance_after = gold_token_client.balance(&contract_id);
     let creditor_balance_after = gold_token_client.balance(creditor);
@@ -482,7 +490,7 @@ fn test_withdraw_scarcity_fee_no_borrow() {
     let creditor_balance_before = gold_token_client.balance(creditor);
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let creditor_balance_after = gold_token_client.balance(creditor);
 
@@ -517,16 +525,16 @@ fn test_simulate_withdraw_scarcity_fee() {
     );
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount);
+    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
 
     let creditor_balance_before = gold_token_client.balance(creditor);
     let simulated_withdraw_result =
-        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount);
+        contract_client.simulate_withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
     let market_fees_before = get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
     let host_fees_before = get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
 
-    contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount);
+    contract_client.withdraw(creditor, &gold_pool_address, &withdraw_amount, &None);
 
     let creditor_balance_after = gold_token_client.balance(creditor);
     let creditor_balance_diff =
@@ -569,17 +577,21 @@ fn test_simulate_withdraw_earn_scarcity_fee() {
         DEFAULT_DEPOSIT_AMOUNT.fixed_mul_floor(remaining_utilization_bps, BPS_FACTOR).unwrap(),
     );
 
-    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount);
+    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    let simulated_withdraw_result =
-        contract_client.simulate_earn_withdraw(creditor, &gold_pool_address, &withdraw_amount);
+    let simulated_withdraw_result = contract_client.simulate_earn_withdraw(
+        creditor,
+        &gold_pool_address,
+        &withdraw_amount,
+        &None,
+    );
     let market_fees_before = get_pool_accumulated_market_fees(&contract_client, &gold_pool_address);
     let host_fees_before = get_pool_accumulated_host_fees(&contract_client, &gold_pool_address);
 
-    contract_client.withdraw_earn(creditor, &gold_pool_address, &withdraw_amount);
+    contract_client.withdraw_earn(creditor, &gold_pool_address, &withdraw_amount, &None);
 
     let creditor_balance_after = gold_token_client.balance(creditor);
     let creditor_balance_diff =
@@ -624,7 +636,7 @@ fn test_repay_fee() {
         &None,
     );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.borrow(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
 
     let pool_market_fees_before =
         get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
@@ -637,7 +649,7 @@ fn test_repay_fee() {
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
-    contract_client.repay(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.repay(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_balance_after = usdc_token_client.balance(&contract_id);
     let borrower_balance_after = usdc_token_client.balance(borrower);
@@ -701,7 +713,7 @@ fn redeem_market_fees() {
         &None,
     );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_market_fees = get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
 
@@ -753,7 +765,7 @@ fn redeem_host_fees() {
         &None,
     );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_host_fees = get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
 

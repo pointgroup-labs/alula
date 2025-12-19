@@ -93,7 +93,7 @@ fn test_add_collateral() {
     let creditor = &users[0];
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     assert_eq!(
@@ -116,7 +116,7 @@ fn test_add_collateral_zero() {
     let creditor = &users[0];
 
     let pool_before = contract_client.get_pool(&gold_pool_address);
-    contract_client.add_collateral(creditor, &gold_pool_address, &0);
+    contract_client.add_collateral(creditor, &gold_pool_address, &0, &None);
     let pool_after = contract_client.get_pool(&gold_pool_address);
 
     assert_eq!(pool_before, pool_after);
@@ -129,7 +129,7 @@ fn test_add_collateral_negative() {
     let creditor = &users[0];
 
     assert_eq!(
-        contract_client.try_add_collateral(creditor, &gold_pool_address, &-1),
+        contract_client.try_add_collateral(creditor, &gold_pool_address, &-1, &None),
         Err(Ok(MCError::NegativeInputAmount))
     );
 }
@@ -207,7 +207,7 @@ fn test_deposit_multiple_shareholders() {
     const BORROWER_BORROWED: i128 = DEFAULT_DEPOSIT_AMOUNT / 3;
 
     contract_client.deposit(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.borrow(borrower, &gold_pool_address, &BORROWER_BORROWED);
+    contract_client.borrow(borrower, &gold_pool_address, &BORROWER_BORROWED, &None);
 
     // - Wait 1 month -
 
@@ -242,7 +242,7 @@ fn test_deposit_earn() {
 
     let creditor_balance_before = gold_token_client.balance(creditor);
 
-    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let creditor_balance_after = gold_token_client.balance(creditor);
     let pool_total_available = get_pool_total_available(&contract_client, &gold_pool_address);
@@ -277,21 +277,26 @@ fn test_earn_deposit_is_isolated() {
     let creditor = &users[0];
     let liquidity_provider = &users[0];
 
-    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     assert_eq!(
-        contract_client.try_borrow(creditor, &usdc_pool_address, &1),
+        contract_client.try_borrow(creditor, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
 
     // Deposit as a liquidity provider to ignore withdrawal scarcity fees
-    contract_client.deposit_earn(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit_earn(
+        liquidity_provider,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // - Try withdraw all -
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.withdraw(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.withdraw(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     let creditor_balance_diff =
@@ -301,7 +306,7 @@ fn test_earn_deposit_is_isolated() {
     // - Withdraw from the earn obligation -
 
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.withdraw_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     let creditor_balance_diff =

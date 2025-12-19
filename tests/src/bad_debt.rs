@@ -32,7 +32,7 @@ fn test_accumulate_reserve_fees_are_empty_prior_accrual() {
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let accumulated_reserve_fees_after_borrow =
         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
@@ -56,7 +56,7 @@ fn test_accumulate_reserve_fees() {
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
     let accumulated_reserve_fees_before =
@@ -100,7 +100,7 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 
     contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
+    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
 
     assert_eq!(
         contract_client.try_issue_cover_bad_debt(borrower),
@@ -118,11 +118,11 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let liquidity_provider = &users[1];
     let liquidator = &users[2];
 
-    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // Borrow max possible amount
-    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX);
+    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
 
     // Verify obligation is still healthy
     assert_eq!(
@@ -260,8 +260,8 @@ fn test_completely_socialize_loss() {
     let borrower_2 = &users[1];
     let liquidity_provider = &users[2];
 
-    contract_client.add_collateral(borrower_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(
         liquidity_provider,
         &usdc_pool_address,
@@ -270,8 +270,8 @@ fn test_completely_socialize_loss() {
     );
 
     // Borrow max possible amounts
-    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX);
-    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX);
+    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX, &None);
 
     // - Accrue bad debt on the pool -
 
@@ -361,8 +361,13 @@ fn test_completely_cover_bad_debt() {
     let borrower_2 = &users[1];
     let liquidity_provider = &users[2];
 
-    contract_client.add_collateral(borrower_1, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(
+        borrower_1,
+        &gold_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(
         liquidity_provider,
         &usdc_pool_address,
@@ -371,8 +376,8 @@ fn test_completely_cover_bad_debt() {
     );
 
     // Borrow max possible amounts
-    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX); // will borrow x10 due to having x10 more collateral
-    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX);
+    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX, &None); // will borrow x10 due to having x10 more collateral
+    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX, &None);
 
     // - Accrue bad debt on the pool -
 

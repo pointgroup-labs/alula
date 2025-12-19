@@ -44,6 +44,7 @@ fn test_deposit_zero() {
         &false,
         &0,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     let gold_pool_after = contract_client.get_pool(&gold_pool_address);
@@ -68,6 +69,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
             &false,
             &DEFAULT_DEPOSIT_AMOUNT,
             &(MIN_LEVERAGE_MULTIPLIER - 1), // x(<1)
+            &None
         )
     );
 
@@ -84,6 +86,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
             &false,
             &DEFAULT_DEPOSIT_AMOUNT,
             &(max_leverage_multiplier + 1),
+            &None
         )
     );
 }
@@ -104,6 +107,7 @@ fn test_deposit_with_no_leverage() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &MIN_LEVERAGE_MULTIPLIER, // x1.0
+        &None,
     );
 
     // Check if this is equivalent to a plain deposit
@@ -151,6 +155,7 @@ fn test_deposit_with_unavailable_flash_loan_capacity() {
             &false,
             &1,
             &LEVERAGE_MULTIPLIER,
+            &None
         ),
         Err(Ok(MCError::NotEnoughPoolFunds))
     );
@@ -181,6 +186,7 @@ fn test_deposit_with_unhealthy_leverage() {
             &false,
             &DEFAULT_DEPOSIT_AMOUNT,
             &LEVERAGE_MULTIPLIER,
+            &None
         ),
         Err(Ok(MCError::InvalidLeverageMultiplier))
     );
@@ -211,6 +217,7 @@ fn test_deposit_borrow_as_margin() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     // 'borrow' position is expected to have 'initial_amount * (leverage - 1)'
@@ -271,6 +278,7 @@ fn test_deposit_deposit_as_margin() {
         &true,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     // 'supply' position is expected to have 'initial_amount * leverage'
@@ -324,6 +332,7 @@ fn test_multiplied_deposits_are_isolated() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     assert_eq!(
@@ -369,6 +378,7 @@ fn test_withdraw() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     let amount_out =
@@ -382,6 +392,7 @@ fn test_withdraw() {
         &gold_pool_address,
         &usdc_pool_address,
         &withdrawable_amount,
+        &None,
     );
 
     // Check obligation
@@ -475,6 +486,7 @@ fn test_withdraw_over_balance() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     let amount_out =
@@ -489,6 +501,7 @@ fn test_withdraw_over_balance() {
         &gold_pool_address,
         &usdc_pool_address,
         &(10 * withdrawable_amount / 9),
+        &None,
     );
 
     assert_eq!(
@@ -539,6 +552,7 @@ fn test_withdraw_all_available_with_i128_max() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     let borrowed_token_supply_before =
@@ -550,6 +564,7 @@ fn test_withdraw_all_available_with_i128_max() {
         &gold_pool_address,
         &usdc_pool_address,
         &i128::MAX,
+        &None,
     );
 
     let deposited_token_supply_after =
@@ -586,6 +601,7 @@ fn test_withdraw_zero() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     let gold_pool_before = contract_client.get_pool(&gold_pool_address);
@@ -596,7 +612,13 @@ fn test_withdraw_zero() {
         &usdc_pool_address,
     );
 
-    contract_client.withdraw_from_leveraged(looper, &gold_pool_address, &usdc_pool_address, &0);
+    contract_client.withdraw_from_leveraged(
+        looper,
+        &gold_pool_address,
+        &usdc_pool_address,
+        &0,
+        &None,
+    );
 
     let gold_pool_after = contract_client.get_pool(&gold_pool_address);
     let usdc_pool_after = contract_client.get_pool(&gold_pool_address);
@@ -634,6 +656,7 @@ fn test_withdraw_negative() {
         &false,
         &DEFAULT_DEPOSIT_AMOUNT,
         &LEVERAGE_MULTIPLIER,
+        &None,
     );
 
     assert_eq!(
@@ -642,7 +665,8 @@ fn test_withdraw_negative() {
             looper,
             &gold_pool_address,
             &usdc_pool_address,
-            &-1
+            &-1,
+            &None
         )
     );
 }

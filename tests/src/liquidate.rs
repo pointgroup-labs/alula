@@ -46,12 +46,14 @@ impl LiquidationTest {
             &borrower,
             &collateral_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
         );
 
         fixture.contract_client.borrow(
             &borrower,
             &borrow_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 3), // Conservative 33% borrow ratio
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -84,8 +86,13 @@ impl LiquidationTest {
         let collateral = DEFAULT_DEPOSIT_AMOUNT;
         let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow ratio(default open LTV is 70%)
 
-        fixture.contract_client.add_collateral(&borrower, &collateral_pool_address, &collateral);
-        fixture.contract_client.borrow(&borrower, &borrow_pool_address, &borrow_amount);
+        fixture.contract_client.add_collateral(
+            &borrower,
+            &collateral_pool_address,
+            &collateral,
+            &None,
+        );
+        fixture.contract_client.borrow(&borrower, &borrow_pool_address, &borrow_amount, &None);
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
     }
@@ -116,6 +123,7 @@ impl LiquidationTest {
             &borrower,
             &fixture.usdc_pool_address,
             &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -141,6 +149,7 @@ impl LiquidationTest {
             &borrower,
             &collateral_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
         );
         fixture.contract_client.deposit(
             &borrower,
@@ -152,6 +161,7 @@ impl LiquidationTest {
             &borrower,
             &fixture.usdc_pool_address,
             &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
