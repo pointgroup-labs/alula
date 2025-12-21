@@ -1,6 +1,6 @@
-use soroban_sdk::{Address, Env, Map, contracttype, token::TokenClient};
+use soroban_sdk::{Address, Env, Map, contracttype, map as smap, token::TokenClient};
 
-use crate::{error::MCError, math_utils::MathUtils};
+use crate::{error::MCError, events, math_utils::MathUtils};
 
 /// A request from the submission batch
 #[contracttype]
@@ -52,6 +52,8 @@ pub struct RequestTransfers<'a> {
     pub user: Address,
     pub market_transfers: Map<Address, i128>,
     pub user_transfers: Map<Address, i128>,
+    pub referrer: Option<Address>,
+    pub referrer_fee_transfers: Option<Map<Address, i128>>,
 }
 
 impl<'a> RequestTransfers<'a> {
@@ -60,52 +62,105 @@ impl<'a> RequestTransfers<'a> {
         user: Address,
         market_transfers: Map<Address, i128>,
         user_transfers: Map<Address, i128>,
+        referrer: Option<Address>,
     ) -> Self {
-        Self { e, user, user_transfers, market_transfers }
+        let referrer_fee_transfers = if referrer.is_some() { Some(smap![e]) } else { None };
+
+        Self { e, user, user_transfers, market_transfers, referrer, referrer_fee_transfers }
     }
 
     pub fn new_with_user_transfers(
         e: &'a Env,
         user: Address,
         user_transfers: Map<Address, i128>,
+        referrer: Option<Address>,
     ) -> Self {
-        Self { e, user, user_transfers, market_transfers: Map::new(e) }
+        let referrer_fee_transfers = if referrer.is_some() { Some(smap![e]) } else { None };
+
+        Self {
+            e,
+            user,
+            user_transfers,
+            market_transfers: smap![e],
+            referrer,
+            referrer_fee_transfers,
+        }
     }
 
     pub fn new_with_market_transfers(
         e: &'a Env,
         user: Address,
         market_transfers: Map<Address, i128>,
+        referrer: Option<Address>,
     ) -> Self {
-        Self { e, user, market_transfers, user_transfers: Map::new(e) }
+        let referrer_fee_transfers = if referrer.is_some() { Some(smap![e]) } else { None };
+
+        Self {
+            e,
+            user,
+            market_transfers,
+            user_transfers: smap![e],
+            referrer,
+            referrer_fee_transfers,
+        }
     }
 
     pub fn merge(&mut self, other: RequestTransfers<'a>) -> Result<(), MCError> {
+        // 1. Merge Market Transfers (Market -> User)
         for (token_address, amount) in other.market_transfers.iter() {
-            let old = self.market_transfers.get(token_address.clone()).unwrap_or_default();
+            let old = self.market_transfers.get(token_address.clone()).unwrap_or(0);
             let new = old.checked_add(amount).map_over_or_underflow()?;
-
             self.market_transfers.set(token_address, new);
         }
 
+        // 2. Merge User Transfers (User -> Market)
         for (token_address, amount) in other.user_transfers.iter() {
-            let old = self.user_transfers.get(token_address.clone()).unwrap_or_default();
+            let old = self.user_transfers.get(token_address.clone()).unwrap_or(0);
             let new = old.checked_add(amount).map_over_or_underflow()?;
-
             self.user_transfers.set(token_address, new);
+        }
+
+        // 3. Merge Referrer Fees (Market -> Referrer)
+        if let Some(other_fees) = other.referrer_fee_transfers {
+            let my_fees: &mut Map<Address, i128> =
+                self.referrer_fee_transfers.get_or_insert_with(|| Map::new(self.e));
+
+            for (token_address, amount) in other_fees.iter() {
+                let old = my_fees.get(token_address.clone()).unwrap_or(0);
+                let new = old.checked_add(amount).map_over_or_underflow()?;
+                my_fees.set(token_address, new);
+            }
         }
 
         Ok(())
     }
 
-    pub fn execute_transfers(self) {
+    pub fn execute_transfers(self, e: &Env) -> Result<(), MCError> {
+        // TODO: Will re-using token clients here improve the performance?
+
         for (token_address, amount) in self.user_transfers {
             let token_client = TokenClient::new(self.e, &token_address);
             token_client.transfer(&self.user, self.e.current_contract_address(), &amount);
         }
+
         for (token_address, amount) in self.market_transfers {
             let token_client = TokenClient::new(self.e, &token_address);
             token_client.transfer(&self.e.current_contract_address(), &self.user, &amount);
         }
+
+        if let Some(referrer_fee_transfers) = self.referrer_fee_transfers {
+            let referrer = self.referrer.ok_or_else(|| {
+                events::referrer_is_unexpectedly_missing(e);
+
+                MCError::InternalError
+            })?;
+
+            for (token_address, amount) in referrer_fee_transfers {
+                let token_client = TokenClient::new(self.e, &token_address);
+                token_client.transfer(&self.e.current_contract_address(), &referrer, &amount);
+            }
+        }
+
+        Ok(())
     }
 }

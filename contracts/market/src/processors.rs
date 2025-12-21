@@ -27,7 +27,8 @@ pub fn process_submit_requests_batch<'a>(
     obligation_key: &'a ObligationKey,
     referrer: &'a Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    let mut transfers = RequestTransfers::new(e, user.clone(), smap![&e], smap![&e]);
+    let mut transfers =
+        RequestTransfers::new(e, user.clone(), smap![&e], smap![&e], referrer.clone());
 
     for request in requests {
         let Request { request_type, pool_address, amount } = request;
@@ -234,8 +235,8 @@ pub fn process_deposit<'a>(
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
-    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_borrow_position_exists(pool_address)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
     let deposit_result = obligation.deposit(e, &pool, amount, referrer)?;
     pool.deposit(e, &deposit_result)?;
@@ -247,6 +248,7 @@ pub fn process_deposit<'a>(
         e,
         obligation_key.user.clone(),
         smap![&e, (pool.token_address, amount)],
+        referrer.clone(),
     );
 
     events::deposit(e, pool_address, obligation_key, deposit_result);
@@ -281,6 +283,7 @@ pub fn process_borrow<'a>(
         e,
         obligation_key.user.clone(),
         smap![&e, (pool.token_address, borrow_result.borrower_to_receive)],
+        referrer.clone(),
     );
 
     events::borrow(e, pool_address, obligation_key, borrow_result);
@@ -314,6 +317,7 @@ pub fn process_add_collateral<'a>(
         e,
         obligation_key.user.clone(),
         smap![&e, (pool.token_address, amount)],
+        referrer.clone(),
     );
 
     events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
@@ -354,8 +358,13 @@ pub fn process_repay<'a>(
     // amount), contract => borrower(excess amount). See - <https://discord.com/channels/897514728459468821/1424779244189520145>
     let user_transfers = smap![e, (pool.token_address.clone(), amount)];
     let market_transfers = smap![e, (pool.token_address, repay_result.amount_to_send_back)];
-    let transfers =
-        RequestTransfers::new(e, obligation_key.user.clone(), market_transfers, user_transfers);
+    let transfers = RequestTransfers::new(
+        e,
+        obligation_key.user.clone(),
+        market_transfers,
+        user_transfers,
+        referrer.clone(),
+    );
 
     events::repay(e, pool_address, obligation_key, repay_result);
 
@@ -391,6 +400,7 @@ pub fn process_remove_collateral<'a>(
         e,
         obligation_key.user.clone(),
         smap![e, (pool.token_address, remove_collateral_result.collateral_remover_to_receive)],
+        referrer.clone(),
     );
 
     events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
@@ -426,6 +436,7 @@ pub fn process_withdraw<'a>(
         e,
         obligation_key.user.clone(),
         smap![e, (pool.token_address, withdraw_result.withdrawer_to_receive)],
+        referrer.clone(),
     );
 
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
@@ -618,7 +629,7 @@ pub fn process_deposit_with_leverage(
         received_amount
     };
     process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount, &referrer)?
-        .execute_transfers();
+        .execute_transfers(&e)?;
 
     // -- Borrow to repay the flash loan --
 
@@ -643,7 +654,7 @@ pub fn process_deposit_with_leverage(
     }
 
     process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount, &referrer)?
-        .execute_transfers();
+        .execute_transfers(&e)?;
     borrow_pool.refresh(e)?;
 
     // -- Flash Repay --
@@ -713,7 +724,7 @@ pub fn process_withdraw_from_leveraged(
 
     if borrow_position.is_empty() {
         process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount, &referrer)?
-            .execute_transfers();
+            .execute_transfers(&e)?;
 
         return Ok(());
     }
@@ -840,7 +851,7 @@ pub fn process_withdraw_from_leveraged(
         withdrawn_to_user_wallet_amount,
         referrer,
     )?
-    .execute_transfers();
+    .execute_transfers(&e)?;
 
     let total_withdrawn_amount = withdrawn_to_user_wallet_amount
         .checked_add(plain_leverage_to_be_withdrawn)
@@ -928,7 +939,8 @@ pub fn process_liquidate<'a>(
         e,
         (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized)
     ];
-    let transfers = RequestTransfers::new(e, liquidator.clone(), market_transfers, user_transfers);
+    let transfers =
+        RequestTransfers::new(e, liquidator.clone(), market_transfers, user_transfers, None);
 
     events::liquidate(
         e,

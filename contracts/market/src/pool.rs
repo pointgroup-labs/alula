@@ -83,6 +83,8 @@ impl Pool {
     generate_adjust_method!(adjust_accumulated_host_fees, accumulated_host_fees);
     generate_adjust_method!(adjust_accumulated_reserve_fees, accumulated_reserve_fees);
 
+    // fn adjust_fees(&mut self, e; &Env, fees: Comp)
+
     fn adjust_fees(&mut self, e: &Env, fees: &ComputedFees) -> Result<(), MCError> {
         // self.adjust_accumulated_host_fees(e, fees.host_fee)?;
         // self.adjust_accumulated_market_fees(e, fees.market_fee)?;
@@ -835,7 +837,7 @@ impl PoolConfig {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct PoolHealthConfig {
     /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` +
-    /// `total_borrowed`) 0 denotes unlimited supply
+    /// `total_borrowed`). 0 denotes unlimited supply
     pub supply_limit: i128,
     /// The maximum utilization ratio that is allowed to be reached via borrowing
     pub utilization_ratio_limit_bps: i128,

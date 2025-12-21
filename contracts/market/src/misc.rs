@@ -67,7 +67,7 @@ pub fn require_deployer(e: &Env) {
 }
 
 #[inline(always)]
-pub fn require_borrow_allowed(e: &Env) -> Result<(), MCError> {
+pub fn require_borrow_on_market_allowed(e: &Env) -> Result<(), MCError> {
     if !matches!(storage::get_market_status(e), MarketStatus::Active) {
         return Err(MCError::BorrowForbiddenOnMarket);
     }
@@ -76,7 +76,7 @@ pub fn require_borrow_allowed(e: &Env) -> Result<(), MCError> {
 }
 
 #[inline(always)]
-pub fn require_deposit_allowed(e: &Env) -> Result<(), MCError> {
+pub fn require_deposit_on_market_allowed(e: &Env) -> Result<(), MCError> {
     if !matches!(storage::get_market_status(e), MarketStatus::Active | MarketStatus::BorrowFrozen) {
         return Err(MCError::DepositForbiddenOnMarket);
     }
@@ -85,7 +85,7 @@ pub fn require_deposit_allowed(e: &Env) -> Result<(), MCError> {
 }
 
 #[inline(always)]
-pub fn require_not_frozen(e: &Env) -> Result<(), MCError> {
+pub fn require_market_not_frozen(e: &Env) -> Result<(), MCError> {
     if matches!(storage::get_market_status(e), MarketStatus::Frozen) {
         return Err(MCError::MarketIsFrozen);
     }

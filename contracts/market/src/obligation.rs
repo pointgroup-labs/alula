@@ -1442,7 +1442,8 @@ pub fn compute_fees(
                     }
                 }
             }
-            Some(distribution)
+
+            Some(distribution) // TODO: Can we return here an empty Map and if yes - is that a problem?
         } else {
             // No beneficiaries exist. Funds are collected but not distributed. Market Admin can collect them with all the other
             // excessive tokens on a pool later

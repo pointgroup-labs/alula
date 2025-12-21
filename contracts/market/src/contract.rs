@@ -9,8 +9,9 @@ use crate::{
     error::MCError,
     events,
     misc::{
-        MarketData, PoolData, require_admin, require_borrow_allowed, require_deployer,
-        require_deposit_allowed, require_nonnegative, require_not_frozen, require_owned_and_admin,
+        MarketData, PoolData, require_admin, require_borrow_on_market_allowed, require_deployer,
+        require_deposit_on_market_allowed, require_market_not_frozen, require_nonnegative,
+        require_owned_and_admin,
     },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
@@ -670,9 +671,7 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new(user.clone());
 
         process_submit_requests_batch(&e, &user, &requests, &obligation_key, &referrer)?
-            .execute_transfers();
-
-        Ok(())
+            .execute_transfers(&e)
     }
 
     fn get_global_state(e: Env) -> GlobalState {
@@ -791,7 +790,7 @@ impl Market for MarketContract {
         end_period: u64,
     ) -> Result<(), MCError> {
         require_admin(&e);
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         process_bootstrap_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
@@ -805,13 +804,12 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_deposit_allowed(&e)?;
+        require_deposit_on_market_allowed(&e)?;
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
-
-        Ok(())
+        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?
+            .execute_transfers(&e)
     }
 
     fn deposit_earn(
@@ -822,15 +820,14 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_deposit_allowed(&e)?;
+        require_deposit_on_market_allowed(&e)?;
         storage::extend_instance_storage(&e);
 
         let earn_seed: BytesN<32> = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
-        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
-
-        Ok(())
+        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?
+            .execute_transfers(&e)
     }
 
     fn borrow(
@@ -841,13 +838,11 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_borrow_allowed(&e)?;
+        require_borrow_on_market_allowed(&e)?;
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
-
-        Ok(())
+        process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
     fn swap(
@@ -858,7 +853,7 @@ impl Market for MarketContract {
         amount_in: i128,
     ) -> Result<i128, MCError> {
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
@@ -893,14 +888,12 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
         process_add_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers();
-
-        Ok(())
+            .execute_transfers(&e)
     }
 
     fn remove_collateral(
@@ -911,14 +904,12 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
         process_remove_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers();
-
-        Ok(())
+            .execute_transfers(&e)
     }
 
     fn repay(
@@ -929,13 +920,11 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
-        process_repay(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers();
-
-        Ok(())
+        process_repay(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
     fn liquidate(
@@ -950,7 +939,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         liquidator.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
 
         let obligation_key = borrower_obligation_seed
             .map(|seed| ObligationKey::new_with_seed(borrower.clone(), seed))
@@ -965,9 +954,7 @@ impl Market for MarketContract {
             repay_amount,
             min_demanded_collateral_amount,
         )?
-        .execute_transfers();
-
-        Ok(())
+        .execute_transfers(&e)
     }
 
     fn withdraw(
@@ -978,14 +965,12 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
         process_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers();
-
-        Ok(())
+            .execute_transfers(&e)
     }
 
     fn simulate_withdraw(
@@ -1021,16 +1006,14 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
         process_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers();
-
-        Ok(())
+            .execute_transfers(&e)
     }
 
     fn flash_loan(
@@ -1041,7 +1024,7 @@ impl Market for MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         caller.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
         process_flash_loan(&e, &contract, &pool_address, amount)
@@ -1059,7 +1042,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
 
         let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
@@ -1089,7 +1072,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         user.require_auth();
-        require_not_frozen(&e)?;
+        require_market_not_frozen(&e)?;
 
         let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());

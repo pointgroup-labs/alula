@@ -320,6 +320,9 @@ struct InsuranceFundMissingRequest {
     request_id: u64,
 }
 
+#[contractevent]
+struct ReferrerIsUnexpectedlyMissing {}
+
 // --- Methods that abstract how events are published ---
 
 pub fn deposit(
@@ -748,6 +751,10 @@ pub fn insurance_fund_missing_request(
         request_id,
     }
     .publish(e);
+}
+
+pub fn referrer_is_unexpectedly_missing(e: &Env) {
+    ReferrerIsUnexpectedlyMissing {}.publish(e);
 }
 
 // --- Helper Functions  ---
