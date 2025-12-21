@@ -742,11 +742,11 @@ pub struct PoolFeeConfig {
 impl Default for PoolFeeConfig {
     fn default() -> Self {
         Self {
-            borrow_fee_bps: DEFAULT_borrow_fee_bps,
-            flash_loan_fee_bps: DEFAULT_flash_loan_fee_bps,
+            borrow_fee_bps: DEFAULT_BORROW_FEE_BPS,
+            flash_loan_fee_bps: DEFAULT_FLASH_LOAN_FEE_BPS,
 
-            deposit_fee_bps: DEFAULT_deposit_fee_bps,
-            withdraw_fee_bps: DEFAULT_withdraw_fee_bps,
+            deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
+            withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
             withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
             add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
             remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,

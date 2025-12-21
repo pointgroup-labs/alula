@@ -444,7 +444,7 @@ pub fn process_withdraw<'a>(
     Ok(transfers)
 }
 
-pub fn process_compute_withdraw_fees(
+pub fn process_simulate_withdraw(
     e: &Env,
     obligation_key: &ObligationKey,
     pool_address: &Address,
@@ -1012,7 +1012,7 @@ pub fn process_redeem_accumulated_market_fees(
     Ok(())
 }
 
-pub fn process_issue_cover_bad_debt_request(
+pub fn process_issue_cover_bad_debt(
     e: &Env,
     obligation_key: &ObligationKey,
 ) -> Result<(), MCError> {
@@ -1196,6 +1196,20 @@ pub fn process_claim_cover_bad_debt_result(
             CoverageStatus::Pending => {}
         }
         if let CoverageStatus::Ready(covered_amount) = request_status {}
+    }
+
+    Ok(())
+}
+
+pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+    let mut pool = Pool::try_get(e, pool_address)?;
+
+    Ok(())
+}
+
+pub fn process_distribute_all_pools_fees(e: &Env) -> Result<(), MCError> {
+    for pool_address in Pool::get_all(e) {
+        process_distribute_pool_fees(e, &pool_address)?;
     }
 
     Ok(())
