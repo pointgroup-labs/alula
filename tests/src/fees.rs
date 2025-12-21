@@ -2,7 +2,7 @@
 
 // use market::{
 //     constants::{BPS_FACTOR, DEFAULT_UTILIZATION_RATIO_LIMIT_BPS},
-//     obligation::{ComputedFees, compute_fees},
+//     obligation::{OperationFees, compute_fees},
 //     pool::{PoolConfig, PoolFeeConfig},
 // };
 // use soroban_fixed_point_math::FixedPoint;
@@ -66,8 +66,8 @@
 
 //     let PoolFeeConfig { borrow_fee_bps, .. } =
 //         get_pool_fee_config(&contract_client, &usdc_pool_address);
-//     let ComputedFees { fee_sum, .. } =
-//         compute_fees(DEFAULT_DEPOSIT_AMOUNT, borrow_fee_bps).unwrap();
+//     let OperationFees { fee_sum, .. } =
+//         compute_operation_fees(DEFAULT_DEPOSIT_AMOUNT, borrow_fee_bps).unwrap();
 
 //     let expected_borrower_balance_diff = DEFAULT_DEPOSIT_AMOUNT.checked_sub(fee_sum).unwrap();
 //     let expected_pool_balance_diff = expected_borrower_balance_diff;
@@ -126,8 +126,8 @@
 
 //     // let deposit_fee_bps_var: u32 =
 //     //     get_pool_fee_config(&contract_client, &gold_pool_address).deposit_fee_bps;
-//     let ComputedFees { fee_sum, market_fee } =
-//         compute_fees(DEFAULT_DEPOSIT_AMOUNT, deposit_fee_bps).unwrap();
+//     let OperationFees { fee_sum, market_fee } =
+//         compute_operation_fees(DEFAULT_DEPOSIT_AMOUNT, deposit_fee_bps).unwrap();
 
 //     let expected_creditor_balance_diff = DEFAULT_DEPOSIT_AMOUNT;
 //     let expected_pool_balance_diff = expected_creditor_balance_diff;
@@ -191,8 +191,8 @@
 
 //     let PoolFeeConfig { add_collateral_fee_bps, .. } =
 //         get_pool_fee_config(&contract_client, &gold_pool_address);
-//     let ComputedFees { fee_sum, market_fee } =
-//         compute_fees(DEFAULT_COLLATERAL_AMOUNT, add_collateral_fee_bps).unwrap();
+//     let OperationFees { fee_sum, market_fee } =
+//         compute_operation_fees(DEFAULT_COLLATERAL_AMOUNT, add_collateral_fee_bps).unwrap();
 
 //     let expected_collateral_adder_balance_diff = DEFAULT_COLLATERAL_AMOUNT;
 //     let expected_pool_balance_diff = expected_collateral_adder_balance_diff;
@@ -276,8 +276,8 @@
 
 //     let PoolFeeConfig { remove_collateral_fee_bps, .. } =
 //         get_pool_fee_config(&contract_client, &gold_pool_address);
-//     let ComputedFees { fee_sum, market_fee } =
-//         compute_fees(DEFAULT_COLLATERAL_AMOUNT, remove_collateral_fee_bps).unwrap();
+//     let OperationFees { fee_sum, market_fee } =
+//         compute_operation_fees(DEFAULT_COLLATERAL_AMOUNT, remove_collateral_fee_bps).unwrap();
 
 //     let expected_collateral_adder_balance_diff =
 //         DEFAULT_COLLATERAL_AMOUNT.checked_sub(fee_sum).unwrap();
@@ -355,8 +355,8 @@
 
 //     // let PoolFeeConfig { withdraw_fee_bps, .. } =
 //     //     get_pool_fee_config(&contract_client, &gold_pool_address);
-//     let ComputedFees { fee_sum, market_fee } =
-//         compute_fees(DEFAULT_DEPOSIT_AMOUNT, withdraw_fee_bps).unwrap();
+//     let OperationFees { fee_sum, market_fee } =
+//         compute_operation_fees(DEFAULT_DEPOSIT_AMOUNT, withdraw_fee_bps).unwrap();
 
 //     let expected_creditor_balance_diff = DEFAULT_DEPOSIT_AMOUNT.checked_sub(fee_sum).unwrap();
 //     let expected_pool_balance_diff = expected_creditor_balance_diff;
@@ -459,8 +459,8 @@
 //     } as u32;
 //     // let withdraw_fee_bps = withdraw_fee_bps.checked_add(withdraw_scarcity_fee_bps).unwrap();
 
-//     let ComputedFees { fee_sum, market_fee } =
-//         compute_fees(withdraw_amount, withdraw_fee_bps).unwrap();
+//     let OperationFees { fee_sum, market_fee } =
+//         compute_operation_fees(withdraw_amount, withdraw_fee_bps).unwrap();
 
 //     let expected_creditor_balance_diff = withdraw_amount.checked_sub(fee_sum).unwrap();
 //     let expected_pool_balance_diff = expected_creditor_balance_diff;
@@ -474,8 +474,8 @@
 //     assert_eq!(pool_market_fees_diff, expected_market_fees_diff);
 //     assert_eq!(pool_host_fees_diff, expected_host_fees_diff);
 
-//     assert_eq!(pool_market_fees_diff, simulated_withdraw_result.computed_fees.market_fee);
-//     // assert_eq!(pool_host_fees_diff, simulated_withdraw_result.computed_fees.host_fee);
+//     assert_eq!(pool_market_fees_diff, simulated_withdraw_result.operation_fees.market_fee);
+//     // assert_eq!(pool_host_fees_diff, simulated_withdraw_result.operation_fees.host_fee);
 
 //     assert_eq!(creditor_deposit_diff, expected_creditor_deposit_diff);
 //     assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
@@ -546,8 +546,8 @@
 //     let host_fees_diff = host_fees_after.checked_sub(host_fees_before).unwrap();
 
 //     assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
-//     // assert_eq!(host_fees_diff, simulated_withdraw_result.computed_fees.host_fee);
-//     assert_eq!(market_fees_diff, simulated_withdraw_result.computed_fees.market_fee);
+//     // assert_eq!(host_fees_diff, simulated_withdraw_result.operation_fees.host_fee);
+//     assert_eq!(market_fees_diff, simulated_withdraw_result.operation_fees.market_fee);
 // }
 
 // #[test]
@@ -603,8 +603,8 @@
 //     let host_fees_diff = host_fees_after.checked_sub(host_fees_before).unwrap();
 
 //     assert_eq!(creditor_balance_diff, simulated_withdraw_result.withdrawer_to_receive);
-//     // assert_eq!(host_fees_diff, simulated_withdraw_result.computed_fees.host_fee);
-//     assert_eq!(market_fees_diff, simulated_withdraw_result.computed_fees.market_fee);
+//     // assert_eq!(host_fees_diff, simulated_withdraw_result.operation_fees.host_fee);
+//     assert_eq!(market_fees_diff, simulated_withdraw_result.operation_fees.market_fee);
 // }
 
 // #[test]
@@ -672,8 +672,8 @@
 
 //     let PoolFeeConfig { repay_fee_bps, .. } =
 //         get_pool_fee_config(&contract_client, &usdc_pool_address);
-//     let ComputedFees { fee_sum, market_fee } =
-//         compute_fees(DEFAULT_DEPOSIT_AMOUNT, repay_fee_bps).unwrap();
+//     let OperationFees { fee_sum, market_fee } =
+//         compute_operation_fees(DEFAULT_DEPOSIT_AMOUNT, repay_fee_bps).unwrap();
 
 //     let expected_borrower_balance_diff = DEFAULT_DEPOSIT_AMOUNT;
 //     let expected_pool_balance_diff = expected_borrower_balance_diff;

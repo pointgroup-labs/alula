@@ -512,7 +512,7 @@ impl Obligation {
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_deposit_position(e)?);
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             e,
             original_amount,
             pool.config.fee_config.deposit_fee_bps,
@@ -520,7 +520,7 @@ impl Obligation {
             &pool.config.fee_config,
         )?;
         let deposited_tokens_minus_fee =
-            original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            original_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (j_tokens_to_issue, new_originally_deposited) =
             pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
 
@@ -532,7 +532,7 @@ impl Obligation {
         Ok(DepositResult {
             j_tokens_to_issue,
             deposited: deposited_tokens_minus_fee,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -556,7 +556,7 @@ impl Obligation {
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_borrow_position(e)?);
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             e,
             real_borrowed_amount,
             pool.config.fee_config.borrow_fee_bps,
@@ -566,7 +566,7 @@ impl Obligation {
 
         // 'what borrower receives' = 'borrower debt' - 'fees'
         let borrower_to_receive =
-            real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            real_borrowed_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (d_tokens_to_issue, new_originally_borrowed) =
             pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
 
@@ -579,7 +579,7 @@ impl Obligation {
             d_tokens_to_issue,
             borrower_to_receive,
             borrower_new_debt: real_borrowed_amount,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -596,7 +596,7 @@ impl Obligation {
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_deposit_position(e)?);
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             e,
             original_amount,
             pool.config.fee_config.add_collateral_fee_bps,
@@ -605,12 +605,12 @@ impl Obligation {
         )?;
 
         let added_collateral =
-            original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            original_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         deposit_position.adjust_collateral(e, added_collateral)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
-        Ok(AddCollateralResult { added_collateral, computed_fees })
+        Ok(AddCollateralResult { added_collateral, operation_fees })
     }
 
     /// Withdraws assets from an obligation per pool
@@ -646,7 +646,7 @@ impl Obligation {
             .withdraw_fee_bps
             .checked_add(withdraw_scarcity_fee_bps)
             .map_over_or_underflow()?;
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             e,
             deposit_decrease,
             pool.config.fee_config.withdraw_fee_bps,
@@ -654,7 +654,7 @@ impl Obligation {
             &pool.config.fee_config,
         )?;
         let withdrawer_to_receive =
-            deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            deposit_decrease.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
 
         let j_tokens_to_burn = if is_all_withdrawn {
             deposit_position.j_tokens
@@ -710,7 +710,7 @@ impl Obligation {
             j_tokens_to_burn,
             deposit_decrease,
             withdrawer_to_receive,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -738,7 +738,7 @@ impl Obligation {
             original_amount.min(deposit_position.collateral)
         };
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             e,
             collateral_decrease,
             pool.config.fee_config.remove_collateral_fee_bps,
@@ -746,7 +746,7 @@ impl Obligation {
             &pool.config.fee_config,
         )?;
         let collateral_remover_to_receive =
-            collateral_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            collateral_decrease.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
 
         deposit_position
             .adjust_collateral(e, collateral_decrease.checked_neg().map_over_or_underflow()?)?;
@@ -760,7 +760,7 @@ impl Obligation {
         Ok(RemoveCollateralResult {
             collateral_decrease,
             collateral_remover_to_receive,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -781,7 +781,7 @@ impl Obligation {
             self.borrows.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
 
         let all_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
-        let all_debt_fees = compute_fees(
+        let all_debt_fees = compute_operation_fees(
             e,
             all_debt,
             pool.config.fee_config.repay_fee_bps,
@@ -791,21 +791,21 @@ impl Obligation {
         let amount_to_repay_all_debt =
             all_debt.checked_add(all_debt_fees.fee_sum).map_over_or_underflow()?;
 
-        let (is_all_repaid, amount_to_take_from_borrower, computed_fees) =
+        let (is_all_repaid, amount_to_take_from_borrower, operation_fees) =
             if provided_amount < amount_to_repay_all_debt {
-                let computed_fees = compute_fees(
+                let operation_fees = compute_operation_fees(
                     e,
                     provided_amount,
                     pool.config.fee_config.repay_fee_bps,
                     referrer,
                     &pool.config.fee_config,
                 )?;
-                (false, provided_amount, computed_fees)
+                (false, provided_amount, operation_fees)
             } else {
                 (true, amount_to_repay_all_debt, all_debt_fees)
             };
         let debt_decrease_in_tokens = amount_to_take_from_borrower
-            .checked_sub(computed_fees.fee_sum)
+            .checked_sub(operation_fees.fee_sum)
             .map_over_or_underflow()?;
         let d_tokens_to_burn = if is_all_repaid {
             borrow_position.d_tokens
@@ -862,7 +862,7 @@ impl Obligation {
             d_tokens_to_burn,
             debt_repaid: debt_decrease_in_tokens,
             amount_to_send_back,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -1387,15 +1387,15 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
 }
 
 /// Computes the operation's one-time fees
-pub fn compute_fees(
+pub fn compute_operation_fees(
     e: &Env,
     original_amount: i128,
     fee_bps: u32,
     referrer: &Option<Address>,
     pool_fee_config: &PoolFeeConfig,
-) -> Result<ComputedFees, MCError> {
+) -> Result<OperationFees, MCError> {
     if fee_bps == 0 || original_amount == 0 {
-        return Ok(ComputedFees {
+        return Ok(OperationFees {
             fee_sum: 0,
             referrer_fee: None,
             operation_fee_distributed: None,
@@ -1454,7 +1454,7 @@ pub fn compute_fees(
         None
     };
 
-    Ok(ComputedFees { fee_sum, referrer_fee, operation_fee_distributed })
+    Ok(OperationFees { fee_sum, referrer_fee, operation_fee_distributed })
 }
 
 /// Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
@@ -1536,8 +1536,8 @@ fn compute_withdraw_scarcity_fee_bps(
 
 #[contracttype]
 #[derive(Clone)]
-/// Represents operational fees
-pub struct ComputedFees {
+/// Represents operational one-time fees
+pub struct OperationFees {
     /// Fee sum
     pub fee_sum: i128,
     /// Fee, immediately sent to the referrer if one is present
@@ -1553,7 +1553,7 @@ pub struct DepositResult {
     pub j_tokens_to_issue: i128,
     /// Amount of originally deposited tokens(minus all possible fees)
     pub deposited: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1565,7 +1565,7 @@ pub struct BorrowResult {
     pub borrower_new_debt: i128,
     /// Amount of tokens to receive by the borrower(`borrower_new_debt` minus all fees)
     pub borrower_to_receive: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1573,7 +1573,7 @@ pub struct BorrowResult {
 pub struct AddCollateralResult {
     /// Amount of tokens added as collateral(minus all possible fees)
     pub added_collateral: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1586,7 +1586,7 @@ pub struct WithdrawResult {
     pub deposit_decrease: i128,
     /// Amount of tokens to receive by the withdrawer(`deposit_decreased_amount` minus fees)
     pub withdrawer_to_receive: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1599,7 +1599,7 @@ pub struct RepayResult {
     pub debt_repaid: i128,
     /// Excess amount given by the borrower that is sent back
     pub amount_to_send_back: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1609,7 +1609,7 @@ pub struct RemoveCollateralResult {
     pub collateral_decrease: i128,
     /// Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
     pub collateral_remover_to_receive: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]

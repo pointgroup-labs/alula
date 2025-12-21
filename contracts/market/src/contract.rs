@@ -432,32 +432,6 @@ pub trait Market {
     /// * `amount` - donation amount
     fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
 
-    /// Redeems accumulated market fees
-    ///
-    /// # Arguments
-    /// * `user` - user that tries to redeem market fees
-    /// * `pool_address` - address of a pool whose fees are redeemed
-    /// * `amount` - desired amount of fees to redeem as tokens
-    fn redeem_accumulated_market_fees(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-    ) -> Result<(), MCError>;
-
-    /// Redeems accumulated host fees
-    ///
-    /// # Arguments
-    /// * `user` - user that tries to redeem host fees
-    /// * `pool_address` - address of a pool whose fees are redeemed
-    /// * `amount` - desired amount of fees to redeem as tokens
-    fn redeem_accumulated_host_fees(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-    ) -> Result<(), MCError>;
-
     /// Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     ///
     /// # Arguments
@@ -810,6 +784,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
+
         process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?
             .execute_transfers(&e)
     }
@@ -844,6 +819,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
+
         process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
@@ -889,6 +865,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
+
         process_add_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
             .execute_transfers(&e)
     }
@@ -905,6 +882,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
+
         process_remove_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
             .execute_transfers(&e)
     }
@@ -921,6 +899,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
+
         process_repay(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
@@ -966,6 +945,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let obligation_key = ObligationKey::new(user);
+
         process_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)?
             .execute_transfers(&e)
     }
@@ -1075,30 +1055,6 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
 
         process_withdraw_from_leveraged(&e, &obligation_key, &multiply_pair, amount, &referrer)
-    }
-
-    fn redeem_accumulated_market_fees(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-    ) -> Result<(), MCError> {
-        require_admin(&e);
-        storage::extend_instance_storage(&e);
-
-        process_redeem_accumulated_market_fees(&e, &user, &pool_address, amount)
-    }
-
-    fn redeem_accumulated_host_fees(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-    ) -> Result<(), MCError> {
-        require_deployer(&e);
-        storage::extend_instance_storage(&e);
-
-        process_redeem_accumulated_host_fees(&e, &user, &pool_address, amount)
     }
 
     fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError> {

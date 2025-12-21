@@ -10,7 +10,7 @@ use crate::{
     math_utils::MathUtils,
     misc::PoolData,
     obligation::{
-        AddCollateralResult, BorrowResult, ComputedFees, DepositResult, LiquidationResult,
+        AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, OperationFees,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     oracle::{self, get_asset_price},
@@ -37,12 +37,6 @@ pub struct Pool {
     pub total_available: i128,
     /// The total amount of deposited collateral assets that don't accrue interest
     pub total_collateral: i128,
-    /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
-    pub accumulated_reserve_fees: i128,
-    /// Amount of tokens that can be withdrawn by the market's admin as a fee
-    pub accumulated_market_fees: i128,
-    /// Amount of tokens that can be withdrawn by the host platform admin as a fee
-    pub accumulated_host_fees: i128,
     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
     /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
     /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
@@ -57,6 +51,10 @@ pub struct Pool {
     pub borrow_apr_bps: i128,
     /// Supply annual percentage rate in basis points
     pub supply_apr_bps: i128,
+    /// Accumulated beneficiaries' fees, eligible for distribution
+    pub accumulated_beneficiaries_fees: Map<Address, i128>,
+    /// Maintained sum of the accumulated beneficiaries' fees
+    pub beneficiaries_fees_sum: i128,
 }
 
 macro_rules! generate_adjust_method {
@@ -79,13 +77,12 @@ impl Pool {
     generate_adjust_method!(adjust_total_available, total_available);
     generate_adjust_method!(adjust_total_d_tokens, total_d_tokens);
     generate_adjust_method!(adjust_total_collateral, total_collateral);
-    generate_adjust_method!(adjust_accumulated_market_fees, accumulated_market_fees);
-    generate_adjust_method!(adjust_accumulated_host_fees, accumulated_host_fees);
-    generate_adjust_method!(adjust_accumulated_reserve_fees, accumulated_reserve_fees);
 
-    // fn adjust_fees(&mut self, e; &Env, fees: Comp)
-
-    fn adjust_fees(&mut self, e: &Env, fees: &ComputedFees) -> Result<(), MCError> {
+    fn adjust_accumulated_fees_with_computed_per_operation(
+        &mut self,
+        e: &Env,
+        fees: &OperationFees,
+    ) -> Result<(), MCError> {
         // self.adjust_accumulated_host_fees(e, fees.host_fee)?;
         // self.adjust_accumulated_market_fees(e, fees.market_fee)?;
 
@@ -108,7 +105,10 @@ impl Pool {
         self.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
         self.adjust_total_available(e, deposit_result.deposited)?;
 
-        self.adjust_fees(e, &deposit_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &deposit_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -124,7 +124,10 @@ impl Pool {
             withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_fees(e, &withdraw_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &withdraw_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -138,7 +141,7 @@ impl Pool {
             borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_fees(e, &borrow_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &borrow_result.operation_fees)?;
 
         Ok(())
     }
@@ -151,7 +154,10 @@ impl Pool {
     ) -> Result<(), MCError> {
         self.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
 
-        self.adjust_fees(e, &add_collateral_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &add_collateral_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -168,7 +174,7 @@ impl Pool {
         )?;
         self.adjust_total_available(e, repay_result.debt_repaid)?;
 
-        self.adjust_fees(e, &repay_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &repay_result.operation_fees)?;
 
         Ok(())
     }
@@ -184,7 +190,10 @@ impl Pool {
             remove_collateral_result.collateral_decrease.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_fees(e, &remove_collateral_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &remove_collateral_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -575,15 +584,12 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    pub fn available_accumulated_reserve_fees(&self) -> i128 {
-        let total_available = self.total_available;
-        let accumulated_reserve_fees = self.accumulated_reserve_fees;
-
-        i128::min(total_available, accumulated_reserve_fees)
+    pub fn available_accumulated_beneficiaries_fees_sum(&self) -> i128 {
+        i128::min(self.total_available, self.beneficiaries_fees_sum)
     }
 
     pub fn total_available(&self) -> Result<i128, MCError> {
-        self.total_available.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
+        self.total_available.checked_sub(self.beneficiaries_fees_sum).map_over_or_underflow()
     }
 
     /// Calculates total debt
@@ -593,10 +599,12 @@ impl Pool {
 
     /// Calculates total supply (available + total_borrowed - accumulated reserve fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
-        let total_funds =
-            self.total_available.checked_add(self.total_borrowed).map_over_or_underflow()?;
+        // let total_funds =
+        //     self.total_available.checked_add(self.total_borrowed).map_over_or_underflow()?;
 
-        total_funds.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
+        // total_funds.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
+
+        self.total_available()?.checked_add(self.total_borrowed).map_over_or_underflow()
     }
 
     /// Tries to get the pool from the contract's storage
