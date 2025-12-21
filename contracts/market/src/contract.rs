@@ -33,7 +33,8 @@ pub trait Market {
     /// * `insurance_fund` - address of `Insurance Fund` trait compliant contract
     /// * `deployer` - address of a deployer contract
     /// * `max_positions` - max allowed number of positions in an obligation
-    /// * `min_collateral_value_cents` - minimum collateral value of a user's obligation in US dollar cents
+    /// * `min_collateral_value_cents` - minimum collateral value of a user's obligation in US dollar cents required
+    /// to start receiving `Borrowing Capacity` increase
     /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
     ///   `None` for permissionless markets since they cannot be updated
     fn __constructor(
@@ -463,7 +464,7 @@ pub trait Market {
     /// * `user` - user that has a bad debt
     fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError>;
 
-    /// Issues `cover bad debt` requests on every bad debt borrow position on the user's multiply pair obligation to the Insurance Fund contract
+    /// Issues `cover bad debt` requests on a bad debt borrow position on the user's multiply pair obligation to the Insurance Fund contract
     ///
     /// # Arguments
     /// * `user` - user that has a bad debt
@@ -485,7 +486,7 @@ pub trait Market {
     /// Claims `cover bad debt` request's result for the user's multiply pair obligation from the Insurance Fund if it exists
     ///
     /// # Arguments
-    /// * `user` - user that has open `cover bad debt` requests
+    /// * `user` - user that has an open `cover bad debt` requests
     /// * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
     /// * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
     fn claim_cover_bad_debt_result_pair(
