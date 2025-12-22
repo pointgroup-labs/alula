@@ -32,9 +32,9 @@ fn test_queue_in_pool_config_update() {
 
     let before_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
 
-    const NEW_borrow_fee_bps: u32 = 1000;
+    const NEW_BORROW_FEE_BPS: u32 = 1000;
     let new_pool_config = PoolConfig {
-        fee_config: PoolFeeConfig { borrow_fee_bps: NEW_borrow_fee_bps, ..Default::default() },
+        fee_config: PoolFeeConfig { borrow_fee_bps: NEW_BORROW_FEE_BPS, ..Default::default() },
         ..Default::default()
     };
 
@@ -60,8 +60,8 @@ fn test_queue_in_pool_config_update() {
 
     let after_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
 
-    assert_ne!(before_borrow_fee_bps, NEW_borrow_fee_bps);
-    assert_eq!(after_borrow_fee_bps, NEW_borrow_fee_bps);
+    assert_ne!(before_borrow_fee_bps, NEW_BORROW_FEE_BPS);
+    assert_eq!(after_borrow_fee_bps, NEW_BORROW_FEE_BPS);
 }
 
 #[test]

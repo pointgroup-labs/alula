@@ -672,7 +672,7 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         if !(2..=2 * MAX_RESERVES).contains(&new_max_positions)
-            || new_min_collateral_value_cents < 0
+            || new_min_collateral_value_cents.is_negative()
         {
             return Err(MCError::InvalidMarketUpdate);
         }

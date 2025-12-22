@@ -61,7 +61,7 @@ macro_rules! generate_adjust_method {
     ($method_name:ident, $field:ident) => {
         pub fn $method_name(&mut self, e: &Env, amount: i128) -> Result<(), MCError> {
             let new_amount = self.$field.checked_add(amount).map_over_or_underflow()?;
-            if new_amount < 0 {
+            if new_amount.is_negative() {
                 events::pool_amount_becomes_negative(e, self.$field, new_amount);
                 return Err(MCError::InternalError);
             }
@@ -907,7 +907,7 @@ impl PoolHealthConfig {
             insolvency_ltv_bps,
         } = self;
 
-        if supply_limit < 0 {
+        if supply_limit.is_negative() {
             return Err("Supply limit must be non-negative");
         }
 

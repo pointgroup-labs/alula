@@ -2,11 +2,9 @@ use insurance_fund_trait::{CoverageStatus, InsuranceFundClient, IssueRequestResu
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, IntoVal, Map, Symbol, Vec,
-    auth::{ContractContext, InvokerContractAuthEntry, SubContractInvocation},
+    Address, BytesN, Env, Map, Vec,
     map as smap,
     token::{self, TokenClient},
-    vec as svec,
 };
 
 use crate::{
@@ -39,22 +37,22 @@ pub fn process_submit_requests_batch<'a>(
 
         let new_transfers = match request_type {
             RequestType::Deposit => {
-                process_deposit(e, obligation_key, &pool_address, amount, &referrer)?
+                process_deposit(e, obligation_key, &pool_address, amount, referrer)?
             }
             RequestType::Borrow => {
-                process_borrow(e, obligation_key, &pool_address, amount, &referrer)?
+                process_borrow(e, obligation_key, &pool_address, amount, referrer)?
             }
             RequestType::Withdraw => {
-                process_withdraw(e, obligation_key, &pool_address, amount, &referrer)?
+                process_withdraw(e, obligation_key, &pool_address, amount, referrer)?
             }
             RequestType::Repay => {
-                process_repay(e, obligation_key, &pool_address, amount, &referrer)?
+                process_repay(e, obligation_key, &pool_address, amount, referrer)?
             }
             RequestType::AddCollateral => {
-                process_add_collateral(e, obligation_key, &pool_address, amount, &referrer)?
+                process_add_collateral(e, obligation_key, &pool_address, amount, referrer)?
             }
             RequestType::RemoveCollateral => {
-                process_remove_collateral(e, obligation_key, &pool_address, amount, &referrer)?
+                process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)?
             }
         };
 
@@ -275,7 +273,7 @@ pub fn process_borrow<'a>(
     pool.require_borrow_enabled()?;
     pool.accrue_interest(e)?;
 
-    let borrow_result = obligation.borrow(e, &pool, amount, &referrer)?;
+    let borrow_result = obligation.borrow(e, &pool, amount, referrer)?;
     pool.borrow(e, &borrow_result)?;
 
     obligation.set(e, obligation_key);
@@ -309,7 +307,7 @@ pub fn process_add_collateral<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let add_collateral_result = obligation.add_collateral(e, &pool, amount, &referrer)?;
+    let add_collateral_result = obligation.add_collateral(e, &pool, amount, referrer)?;
     pool.add_collateral(e, &add_collateral_result)?;
 
     obligation.set(e, obligation_key);
@@ -341,7 +339,7 @@ pub fn process_repay<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let repay_result = obligation.repay(e, &pool, amount, &referrer)?;
+    let repay_result = obligation.repay(e, &pool, amount, referrer)?;
     pool.repay(e, &repay_result)?;
 
     if obligation.is_empty() {
@@ -387,7 +385,7 @@ pub fn process_remove_collateral<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount, &referrer)?;
+    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount, referrer)?;
     pool.remove_collateral(e, &remove_collateral_result)?;
 
     pool.set(e);
@@ -423,7 +421,7 @@ pub fn process_withdraw<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    let withdraw_result = obligation.withdraw(e, &pool, amount, &referrer)?;
+    let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
     pool.withdraw(e, &withdraw_result)?;
 
     if obligation.is_empty() {
@@ -456,7 +454,7 @@ pub fn process_simulate_withdraw(
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     let pool = Pool::try_get(e, pool_address)?;
 
-    let withdraw_result = obligation.withdraw(e, &pool, amount, &referrer)?;
+    let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
 
     Ok(withdraw_result)
 }
@@ -469,7 +467,7 @@ pub fn process_flash_loan(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let mut pool = Pool::try_get(e, pool_address)?;
+    let pool = Pool::try_get(e, pool_address)?;
     pool.require_total_available(amount)?;
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -630,8 +628,8 @@ pub fn process_deposit_with_leverage(
     } else {
         received_amount
     };
-    process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount, &referrer)?
-        .execute_transfers(&e)?;
+    process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount, referrer)?
+        .execute_transfers(e)?;
 
     // -- Borrow to repay the flash loan --
 
@@ -655,8 +653,8 @@ pub fn process_deposit_with_leverage(
         return Err(MCError::InconsistentDepositWithLeverage);
     }
 
-    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount, &referrer)?
-        .execute_transfers(&e)?;
+    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount, referrer)?
+        .execute_transfers(e)?;
     borrow_pool.refresh(e)?;
 
     // -- Flash Repay --
@@ -725,8 +723,8 @@ pub fn process_withdraw_from_leveraged(
     );
 
     if borrow_position.is_empty() {
-        process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount, &referrer)?
-            .execute_transfers(&e)?;
+        process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount, referrer)?
+            .execute_transfers(e)?;
 
         return Ok(());
     }
@@ -799,7 +797,7 @@ pub fn process_withdraw_from_leveraged(
 
     // -- Repay Debt --
 
-    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount, &referrer)?;
+    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount, referrer)?;
     borrow_pool.refresh(e)?;
 
     // -- Withdraw plain leverage --
@@ -809,7 +807,7 @@ pub fn process_withdraw_from_leveraged(
         obligation_key,
         &deposit_pool.pool_address,
         plain_leverage_to_be_withdrawn,
-        &referrer,
+        referrer,
     )?;
     deposit_pool.refresh(e)?;
 
@@ -853,7 +851,7 @@ pub fn process_withdraw_from_leveraged(
         withdrawn_to_user_wallet_amount,
         referrer,
     )?
-    .execute_transfers(&e)?;
+    .execute_transfers(e)?;
 
     let total_withdrawn_amount = withdrawn_to_user_wallet_amount
         .checked_add(plain_leverage_to_be_withdrawn)
@@ -985,7 +983,7 @@ pub fn process_finalize_cover_bad_debt(
 }
 
 pub fn process_cover_bad_debt_2(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
-    let obligation = Obligation::try_get(e, &obligation_key)?;
+    let obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
 
     // let active_request_ex
@@ -997,14 +995,14 @@ pub fn process_issue_cover_bad_debt(
     e: &Env,
     obligation_key: &ObligationKey,
 ) -> Result<(), MCError> {
-    let mut obligation = Obligation::try_get(e, &obligation_key)?;
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
     obligation.require_borrow_exists()?;
     obligation.require_no_liquidatable_collateral_exists(e)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
     let insurance_fund = storage::get_insurance_fund(e);
-    let insurance_fund_client = insurance_fund_trait::InsuranceFundClient::new(&e, &insurance_fund);
+    let insurance_fund_client = insurance_fund_trait::InsuranceFundClient::new(e, &insurance_fund);
 
     let mut borrow_positions_pools_to_remove: Vec<Address> = Vec::new(e);
     for (pool_address, borrow_position) in obligation.borrows.iter() {
@@ -1107,11 +1105,11 @@ pub fn process_claim_cover_bad_debt_results(
     e: &Env,
     obligation_key: &ObligationKey,
 ) -> Result<(), MCError> {
-    let mut obligation = Obligation::try_get(e, &obligation_key)?;
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let insurance_fund = storage::get_insurance_fund(e);
-    let insurance_fund_client = InsuranceFundClient::new(&e, &insurance_fund);
+    let insurance_fund_client = InsuranceFundClient::new(e, &insurance_fund);
 
     for (pool_address, request_id) in obligation.insurance_fund_requests_ids.keys() {
         let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
@@ -1144,9 +1142,7 @@ pub fn process_claim_cover_bad_debt_results(
                 }
 
                 let borrow_position =
-                    obligation.borrows.get(pool_address.clone()).ok_or_else(||
-                // TODO: add event
-                MCError::InternalError)?;
+                    obligation.borrows.get(pool_address.clone()).ok_or(MCError::InternalError)?;
 
                 let obligation_debt =
                     pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;

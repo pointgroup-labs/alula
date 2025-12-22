@@ -479,9 +479,9 @@ fn test_get_pool_data() {
     let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } =
         contract_client.get_pool_data(&usdc_pool_address);
 
-    assert!(j_token_rate_floor_bps > 0);
-    assert!(d_token_rate_ceil_bps > 0);
-    assert!(apy.supply_bps > 0);
+    assert!(j_token_rate_floor_bps.is_positive());
+    assert!(d_token_rate_ceil_bps.is_positive());
+    assert_ne!(apy.supply_bps, 0);
     assert!(apy.supply_bps <= apy.borrow_bps);
 
     let user_j_tokens =

@@ -414,7 +414,7 @@ impl Obligation {
                 MCError::InternalError
             })?;
 
-            if pool.config.health_config.close_ltv_bps > 0 {
+            if pool.config.health_config.close_ltv_bps.is_positive() {
                 positions_with_non_zero_close_ltv_count += 1;
             }
             let new_value_term = Self::compute_pool_collateral_value_scaled(
@@ -1364,7 +1364,7 @@ fn adjust_obligation_field(
 ) -> Result<i128, MCError> {
     let new_amount = current_value.checked_add(adjusting_amount).map_over_or_underflow()?;
 
-    if new_amount < 0 {
+    if new_amount.is_negative() {
         events::obligation_amount_becomes_negative(e, current_value, new_amount);
 
         return Err(MCError::InternalError);
@@ -1410,34 +1410,32 @@ pub fn compute_operation_fees(
     // -- Calculate the Referrer Split --
 
     let mut referrer_fee = None;
-    if let Some(referrer_addr) = referrer {
-        if let Some(referrers_map) = &pool_fee_config.referrers {
-            if let Some(referrer_share_bps) = referrers_map.get(referrer_addr.clone()) {
-                if referrer_share_bps > 0 {
-                    referrer_fee = Some(
-                        fee_sum
-                            .fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR)
-                            .map_over_or_underflow()?,
-                    );
-                }
-            }
-        }
+    if let Some(referrer_addr) = referrer
+        && let Some(referrers_map) = &pool_fee_config.referrers
+        && let Some(referrer_share_bps) = referrers_map.get(referrer_addr.clone())
+        && referrer_share_bps != 0
+    {
+        referrer_fee = Some(
+            fee_sum
+                .fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR)
+                .map_over_or_underflow()?,
+        );
     };
 
     // -- Calculate the Protocol Split --
 
     let net_protocol_fee = fee_sum - referrer_fee.unwrap_or(0); // safe
-    let operation_fee_distributed = if net_protocol_fee > 0 {
+    let operation_fee_distributed = if net_protocol_fee.is_positive() {
         if let Some(beneficiaries_map) = &pool_fee_config.origination_fee_beneficiaries {
             let mut distribution: Map<Address, i128> = Map::new(e);
 
             for (beneficiary, share_bps) in beneficiaries_map.iter() {
-                if share_bps > 0 {
+                if share_bps != 0 {
                     let share_amount = net_protocol_fee
                         .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
                         .map_over_or_underflow()?;
 
-                    if share_amount > 0 {
+                    if share_amount.is_positive() {
                         distribution.set(beneficiary, share_amount);
                     }
                 }

@@ -76,7 +76,7 @@ impl MarketManager for MarketManagerContract {
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
-        if !(2..=(2 * MAX_RESERVES)).contains(&max_positions) || min_collateral < 0 {
+        if !(2..=(2 * MAX_RESERVES)).contains(&max_positions) || min_collateral.is_negative() {
             return Err(MMCError::InvalidMarketState);
         }
 
@@ -170,7 +170,7 @@ fn require_admin(e: &Env) {
 
 #[inline(always)]
 pub fn require_nonnegative(amount: i128) -> Result<(), MMCError> {
-    if amount < 0 {
+    if amount.is_negative() {
         return Err(MMCError::NegativeInputAmount);
     }
 

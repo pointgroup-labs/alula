@@ -37,7 +37,7 @@ pub struct MarketData {
 /// Ensures that the provided amount is non-negative.
 #[inline(always)]
 pub fn require_nonnegative(amount: i128) -> Result<(), MCError> {
-    if amount < 0 {
+    if amount.is_negative() {
         return Err(MCError::NegativeInputAmount);
     }
 
