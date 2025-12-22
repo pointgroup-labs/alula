@@ -655,7 +655,7 @@ impl Obligation {
         let operation_fees = compute_operation_fees(
             e,
             deposit_decrease,
-            pool.config.fee_config.withdraw_fee_bps,
+            withdraw_fee_bps,
             referrer,
             &pool.config.fee_config,
         )?;

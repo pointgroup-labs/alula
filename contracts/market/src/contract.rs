@@ -34,7 +34,7 @@ pub trait Market {
     /// * `deployer` - address of a deployer contract
     /// * `max_positions` - max allowed number of positions in an obligation
     /// * `min_collateral_value_cents` - minimum collateral value of a user's obligation in US dollar cents required
-    /// to start receiving `Borrowing Capacity` increase
+    ///   to start receiving `Borrowing Capacity` increase
     /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
     ///   `None` for permissionless markets since they cannot be updated
     fn __constructor(
