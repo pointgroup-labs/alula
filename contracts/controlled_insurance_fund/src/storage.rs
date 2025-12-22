@@ -92,6 +92,7 @@ pub fn get_request(e: &Env, request_id: u64) -> Option<Request> {
 
     result
 }
+
 pub fn update_request(e: &Env, request_id: u64, request: Request) {
     let key = DataKey::Request(request_id);
 
