@@ -9,7 +9,7 @@ use crate::{
     error::MCError,
     events,
     misc::{
-        MarketData, PoolData, require_admin, require_borrows_on_market_allowed, require_deployer,
+        MarketData, PoolData, require_admin, require_borrows_on_market_allowed,
         require_deposits_on_market_allowed, require_market_not_frozen, require_nonnegative,
         require_owned_and_admin,
     },
@@ -30,7 +30,7 @@ pub trait Market {
     /// * `admin` - market's administrator
     /// * `name` - market's name(not necessarily unique)
     /// * `oracle` - SEP-40 compliant oracle's contract address
-    /// * `insurance_fund` - address of `Insurance Fund` trait compliant contract
+    /// * `insurance_fund` - `Insurance Fund` trait compliant contract's address
     /// * `deployer` - address of a deployer contract
     /// * `max_positions` - max allowed number of positions in an obligation
     /// * `min_collateral_value_cents` - minimum collateral value of a user's obligation in US dollar cents required
@@ -455,7 +455,7 @@ pub trait Market {
     ///
     /// # Arguments
     /// * `user` - user that has open `cover bad debt` requests
-    fn claim_cover_bad_debt_result(e: Env, user: Address) -> Result<(), MCError>;
+    fn claim_cover_bad_debt_results(e: Env, user: Address) -> Result<(), MCError>;
 
     /// Claims `cover bad debt` request's result for the user's multiply pair obligation from the Insurance Fund if it exists
     ///
@@ -659,6 +659,11 @@ impl Market for MarketContract {
         new_max_positions: u32,
         new_min_collateral_value_cents: i128,
     ) -> Result<(), MCError> {
+        // TODO: Okay, how should this look
+        // + we better freeze withdrawals when there's a bad debt, right?
+
+        //
+
         require_owned_and_admin(&e)?;
         storage::extend_instance_storage(&e);
 
@@ -1078,11 +1083,11 @@ impl Market for MarketContract {
         process_issue_cover_bad_debt(&e, &obligation_key)
     }
 
-    fn claim_cover_bad_debt_result(e: Env, user: Address) -> Result<(), MCError> {
+    fn claim_cover_bad_debt_results(e: Env, user: Address) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         let obligation_key = ObligationKey::new(user);
 
-        process_claim_cover_bad_debt_result(&e, &obligation_key)
+        process_claim_cover_bad_debt_results(&e, &obligation_key)
     }
 
     fn claim_cover_bad_debt_result_pair(
@@ -1096,7 +1101,7 @@ impl Market for MarketContract {
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
 
-        process_claim_cover_bad_debt_result(&e, &obligation_key)
+        process_claim_cover_bad_debt_results(&e, &obligation_key)
     }
 
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError> {

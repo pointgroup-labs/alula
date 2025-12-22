@@ -28,7 +28,7 @@ pub trait MarketManager {
     /// * `admin` - admin of the deployed market
     /// * `name` - name of the deployed market
     /// * `oracle` - address of SEP-40—compliant oracle contract
-    /// * `insurance_fund` - address of `Insurance Fund` trait compliant contract
+    /// * `insurance_fund` - `Insurance Fund` trait compliant contract's address
     /// * `max_positions` - maximum number of positions for a single obligation to have at a single moment
     /// * `min_collateral` - minimum allowed value of a collateral position at a single moment
     /// * `insolvency_ltv_bps` - unparameterized LTV(i.e., not scaled with closeLTV\openLTV\liability factors) that marks obligation in market as insolvent

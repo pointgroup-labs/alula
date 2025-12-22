@@ -1103,7 +1103,7 @@ pub fn process_issue_cover_bad_debt(
     Ok(())
 }
 
-pub fn process_claim_cover_bad_debt_result(
+pub fn process_claim_cover_bad_debt_results(
     e: &Env,
     obligation_key: &ObligationKey,
 ) -> Result<(), MCError> {
