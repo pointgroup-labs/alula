@@ -290,6 +290,8 @@ impl Obligation {
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
+        // TODO: What to do when `scalar_bps` == 0?
+
         let (collateral_value_scaled, amount_of_borrow_backing_collateral_positions) =
             self.compute_collateral_value_scaled_w_open_ltvs(e)?;
         let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
@@ -299,8 +301,12 @@ impl Obligation {
             // any health factor decreasing operation is prohibited
             0
         } else {
-            let asset_price = oracle::get_asset_price(e, &pool.token_address)?;
-            let min_collateral_value_cents = storage::get_min_collateral_value_cents(e);
+            let asset_price: i128 = oracle::get_asset_price(e, &pool.token_address)?;
+            let oracle_decimals = oracle::get_oracle_price_decimals(e);
+
+            let min_collateral_value_cents = storage::get_min_collateral_value_cents(e)
+                .checked_mul(i128::pow(10, oracle_decimals))
+                .map_over_or_underflow()?;
 
             let value_left = collateral_value_scaled - debt_value_scaled; // safe
             let min_collateral_value_requirement = min_collateral_value_cents
@@ -321,7 +327,7 @@ impl Obligation {
 
             let numerator = borrow_backing_value_left;
             let denominator =
-                asset_price.fixed_mul_floor(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
+                asset_price.fixed_mul_ceil(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
 
             numerator.checked_div(denominator).map_over_or_underflow()?
         };
@@ -1159,7 +1165,7 @@ impl Obligation {
             let pool = &storage::get_pool(e, &pool_address).ok_or_else(|| {
                 events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
-                MCError::PoolDoesNotExist
+                MCError::InternalError
             })?;
 
             let token_address = &pool.token_address;
@@ -1170,6 +1176,7 @@ impl Obligation {
                 .map_over_or_underflow()?;
             let collateral_value = all_collateral.checked_mul(price).map_over_or_underflow()?;
 
+            // BUG: This doesn't work well
             let min_collateral_value = storage::get_min_collateral_value_cents(e)
                 .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
                 .map_over_or_underflow()?
@@ -1181,41 +1188,6 @@ impl Obligation {
 
         Ok(())
     }
-
-    // // We must have something like this indeed, but it must be more clever than this, no?
-
-    // /// Accounts for the bad debt on the obligation
-    // pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResult, MCError> {
-    //     let mut borrows_to_take_care: Vec<(Address, i128)> = Vec::new(e);
-    //     for (pool_address, borrow_position) in self.borrows.iter() {
-    //         borrows_to_take_care.push_back((pool_address, borrow_position.d_tokens));
-    //     }
-
-    //     let mut collaterals_to_remove: Vec<(Address, i128, i128)> = Vec::new(e);
-    //     for (pool_address, deposit_position) in self.deposits.iter() {
-    //         let pool = Pool::try_get(e, &pool_address)?;
-    //         let token_address = pool.token_address.clone();
-
-    //         let collateral_price = get_asset_price(e, &token_address)?;
-    //         let tokens_from_j_tokens =
-    //             pool.compute_tokens_from_j_tokens_floor(e, deposit_position.j_tokens)?;
-    //         let collateral_sum = tokens_from_j_tokens
-    //             .checked_add(deposit_position.collateral)
-    //             .map_over_or_underflow()?;
-
-    //         let collateral_value =
-    //             collateral_sum.checked_mul(collateral_price).map_over_or_underflow()?;
-    //         let min_collateral_value = storage::get_min_collateral_value(e)
-    //             .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
-    //             .map_over_or_underflow()?;
-
-    //         if collateral_value > min_collateral_value {
-    //             return Err(MCError::BadDebtCoverageCriterionIsNotMet);
-    //         }
-    //     }
-
-    //     Ok(CoverBadDebtResult { borrows_to_take_care })
-    // }
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
