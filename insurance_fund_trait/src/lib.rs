@@ -4,7 +4,7 @@ use soroban_sdk::{Address, Env, contractclient, contracttype};
 #[contractclient(name = "InsuranceFundClient")]
 pub trait InsuranceFund {
     /// Accounts for new reserves added to the Fund contract. Required, since some implementations can account for balances
-    /// apart from the token's amounts on the contract
+    /// apart from the plain token's amount
     ///
     /// # Panics
     /// If the Market contract hasn't authorized the call
@@ -15,7 +15,7 @@ pub trait InsuranceFund {
     fn add_reserves(e: Env, token: Address, amount: i128);
 
     /// Notifies the Fund of bad debt.
-    /// The Fund records the request if needed and starts its internal process (Auction/Vote/etc.)
+    /// The Fund records the request and starts its internal process (Auction/Vote/etc.)
     /// or covers the entire amount immediately if possible
     ///
     /// # Arguments
@@ -26,8 +26,8 @@ pub trait InsuranceFund {
     /// If the Market contract hasn't authorized the call
     ///
     /// # Returns
-    /// [`Some(u64)`] - unique `request_id` tracking this specific coverage event, or
-    /// `None` if the fund can immediately cover the request
+    /// [`IssueRequestResult::Recorded(u64)`] - where `u64` value represents a unique `request_id` tracking this specific coverage event,
+    /// [`IssueRequestResult::Immediate(i128)`] - where `i128` is the amount covered if the fund can(and decides) immediately cover the request
     fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult;
 
     /// Returns the status of an active coverage request
@@ -43,15 +43,15 @@ pub trait InsuranceFund {
     /// If the Market contract hasn't authorized the call, the request does not exist or is in [`CoverageStatus::Pending`] state
     ///
     /// # Returns
-    /// [`i128`] amount of tokens that are covered and sent to the Market contract
+    /// [`i128`] amount of tokens that are covered and sent to the Market contract(`0` is considered as a valid amount)
     fn claim_coverage(e: Env, request_id: u64) -> i128;
 }
 
 #[contracttype]
 #[derive(Debug)]
 pub enum IssueRequestResult {
-    Processing(u64),
-    Immediate,
+    Recorded(u64),
+    Immediate(i128),
 }
 
 #[contracttype]

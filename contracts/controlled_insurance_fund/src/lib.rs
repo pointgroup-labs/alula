@@ -99,7 +99,7 @@ impl InsuranceFund for ControlledInsuranceFundContract {
         let request = Request::new(token, amount);
         let request_id = storage::set_request(&e, request);
 
-        IssueRequestResult::Processing(request_id)
+        IssueRequestResult::Recorded(request_id)
     }
 
     fn get_status(e: Env, request_id: u64) -> Option<CoverageStatus> {

@@ -1019,7 +1019,7 @@ pub fn process_issue_cover_bad_debt(
         let market_balance_before = token_client.balance(&e.current_contract_address());
 
         match insurance_fund_client.request_coverage(&pool.token_address, &obligation_pool_debt) {
-            IssueRequestResult::Processing(request_id) => {
+            IssueRequestResult::Recorded(request_id) => {
                 if obligation
                     .insurance_fund_requests_ids
                     .contains_key((pool_address.clone(), request_id))
