@@ -7,4 +7,5 @@ pub enum ContractError {
     RequestIsNotReady = 2,
     RequestIsReady = 3,
     InsufficientContractBalance = 4,
+    OverOrUnderflow = 10,
 }

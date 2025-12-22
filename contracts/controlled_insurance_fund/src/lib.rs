@@ -83,7 +83,9 @@ impl ControlledInsuranceFundContract {
             panic_with_error!(&e, ContractError::InsufficientContractBalance);
         }
 
-        let new_locked_total = total_locked.checked_add(real_covered_amount).unwrap();
+        let new_locked_total = total_locked.checked_add(real_covered_amount).unwrap_or_else(|| {
+            panic_with_error!(&e, ContractError::OverOrUnderflow);
+        });
         storage::set_locked_amount(&e, &request.token, new_locked_total);
 
         request.status = CoverageStatus::Ready(real_covered_amount);

@@ -265,6 +265,7 @@ pub fn process_borrow<'a>(
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_deposit_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
 
@@ -301,6 +302,7 @@ pub fn process_add_collateral<'a>(
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_borrow_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
 
@@ -334,6 +336,7 @@ pub fn process_repay<'a>(
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -380,6 +383,7 @@ pub fn process_remove_collateral<'a>(
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -417,6 +421,7 @@ pub fn process_withdraw<'a>(
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
@@ -451,6 +456,7 @@ pub fn process_simulate_withdraw(
     referrer: &Option<Address>,
 ) -> Result<WithdrawResult, MCError> {
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     let pool = Pool::try_get(e, pool_address)?;
 
     let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
@@ -889,6 +895,7 @@ pub fn process_liquidate<'a>(
     }
 
     let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let (mut borrow_pool, mut collateral_pool) = (
@@ -1066,6 +1073,7 @@ pub fn process_issue_cover_bad_debt(
 }
 
 pub fn process_claim_cover_bad_debt_results(
+    // TODO: Call this from `Controlled Insurance Fund` right away
     e: &Env,
     obligation_key: &ObligationKey,
 ) -> Result<(), MCError> {

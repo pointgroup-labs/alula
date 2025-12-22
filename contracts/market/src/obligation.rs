@@ -302,17 +302,12 @@ impl Obligation {
             0
         } else {
             let asset_price: i128 = oracle::get_asset_price(e, &pool.token_address)?;
-            let oracle_decimals = oracle::get_oracle_price_decimals(e);
-
-            let min_collateral_value_cents = storage::get_min_collateral_value_cents(e)
-                .checked_mul(i128::pow(10, oracle_decimals))
-                .map_over_or_underflow()?;
 
             let value_left = collateral_value_scaled - debt_value_scaled; // safe
-            let min_collateral_value_requirement = min_collateral_value_cents
+            let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
+            let min_collateral_value_requirement = min_collateral_value_threshold
                 .checked_mul(amount_of_borrow_backing_collateral_positions as i128)
-                .map_over_or_underflow()?
-                / 100;
+                .map_over_or_underflow()?;
             let borrow_backing_value_left =
                 i128::max(value_left - min_collateral_value_requirement, 0);
 
@@ -910,17 +905,13 @@ impl Obligation {
                 .min(collateral_pool.config.health_config.max_liquidation_incentive_bps),
             borrow_pool.config.health_config.liquidation_close_factor_bps,
         );
-        let (borrowed_asset_price, collateral_asset_price, price_decimals_factor) = (
+        let (borrowed_asset_price, collateral_asset_price) = (
             oracle::get_asset_price(e, &borrow_pool.token_address)?,
             oracle::get_asset_price(e, &collateral_pool.token_address)?,
-            10i128.pow(oracle::get_oracle_price_decimals(e)),
         );
         let (insolvency_ltv_bps, min_collateral_value_cents) = (
             storage::get_insolvency_ltv_bps(e),
-            storage::get_min_collateral_value_cents(e)
-                .checked_mul(price_decimals_factor)
-                .map_over_or_underflow()?
-                / 100,
+            compute_min_collateral_threshold_scaled(e)?, // TODO: Fix for arbitrary price decimals
         );
         let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
 
@@ -1176,12 +1167,7 @@ impl Obligation {
                 .map_over_or_underflow()?;
             let collateral_value = all_collateral.checked_mul(price).map_over_or_underflow()?;
 
-            // BUG: This doesn't work well.
-            // TODO: Check this in every place that uses `min_collateral_value_cents`
-            let min_collateral_value = storage::get_min_collateral_value_cents(e)
-                .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
-                .map_over_or_underflow()?
-                / 100; // safe
+            let min_collateral_value = compute_min_collateral_threshold_scaled(e)?;
             if collateral_value > min_collateral_value {
                 return Err(MCError::BadDebtCoverageCriterionIsNotMet);
             }
@@ -1399,7 +1385,7 @@ pub fn compute_operation_fees(
 
     let net_protocol_fee = fee_sum - referrer_fee.unwrap_or(0); // safe
     let operation_fee_distributed = if net_protocol_fee.is_positive() {
-        if let Some(beneficiaries_map) = &pool_fee_config.origination_fee_beneficiaries {
+        if let Some(beneficiaries_map) = &pool_fee_config.operation_fee_beneficiaries {
             let mut distribution: Map<Address, i128> = Map::new(e);
 
             for (beneficiary, share_bps) in beneficiaries_map.iter() {
@@ -1605,6 +1591,21 @@ pub struct LiquidationResult {
     pub tokens_from_j_tokens_seized: i128,
 }
 
+pub fn compute_min_collateral_threshold_scaled(e: &Env) -> Result<i128, MCError> {
+    let min_collat_cents = storage::get_min_collateral_value_cents(e);
+
+    let oracle_decimals = oracle::get_oracle_price_decimals(e); // e.g., 14
+    let token_decimals = 7; // TODO: Must be implemented for non-SAC assets as well
+    let total_scale = i128::pow(10, oracle_decimals + token_decimals);
+
+    let threshold = min_collat_cents
+        .checked_mul(total_scale)
+        .map_over_or_underflow()?
+        .checked_div(100)
+        .map_over_or_underflow()?;
+
+    Ok(threshold)
+}
 #[cfg(test)]
 mod tests {
     use soroban_sdk::{BytesN, Env};

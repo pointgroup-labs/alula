@@ -734,7 +734,7 @@ pub struct PoolFeeConfig {
     pub take_rate_beneficiaries: Option<Map<Address, u32>>,
     /// A map of beneficiaries who split the `origination fee` left after removing the possible referrer's cut and their distribution proportions.
     /// Proportions must add up to 10_000
-    pub origination_fee_beneficiaries: Option<Map<Address, u32>>,
+    pub operation_fee_beneficiaries: Option<Map<Address, u32>>,
     /// A map of allowed referrers and their immediately received percentage of the origination fee
     pub referrers: Option<Map<Address, u32>>,
 }
@@ -754,7 +754,7 @@ impl Default for PoolFeeConfig {
 
             take_rate_bps: DEFAULT_TAKE_RATE_BPS,
             take_rate_beneficiaries: None,
-            origination_fee_beneficiaries: None,
+            operation_fee_beneficiaries: None,
             referrers: None,
         }
     }
