@@ -4,6 +4,7 @@ use market::{
     constants::MAX_RESERVES,
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
+    storage::MarketStatus,
 };
 use soroban_sdk::testutils::Ledger;
 
@@ -273,9 +274,9 @@ fn test_update_market_status() {
     assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &100, &None).is_ok());
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
-    contract_client.update_market_status(&1);
+    contract_client.update_market_status(&(MarketStatus::BorrowFrozen as u32));
     let status = contract_client.get_global_state().status;
-    assert_eq!(status, 1);
+    assert_eq!(status, MarketStatus::BorrowFrozen as u32);
 
     assert!(contract_client.try_deposit(creditor, &gold_pool_address, &1, &None).is_ok());
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None).is_ok());
@@ -285,9 +286,9 @@ fn test_update_market_status() {
     );
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
-    contract_client.update_market_status(&2);
+    contract_client.update_market_status(&(MarketStatus::DepositFrozen as u32));
     let status = contract_client.get_global_state().status;
-    assert_eq!(status, 2);
+    assert_eq!(status, MarketStatus::DepositFrozen as u32);
 
     assert_eq!(
         contract_client.try_deposit(creditor, &gold_pool_address, &1, &None),
@@ -300,9 +301,9 @@ fn test_update_market_status() {
     );
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
-    contract_client.update_market_status(&3);
+    contract_client.update_market_status(&(MarketStatus::Frozen as u32));
     let status = contract_client.get_global_state().status;
-    assert_eq!(status, 3);
+    assert_eq!(status, MarketStatus::Frozen as u32);
 
     assert_eq!(
         contract_client.try_deposit(creditor, &gold_pool_address, &1, &None),

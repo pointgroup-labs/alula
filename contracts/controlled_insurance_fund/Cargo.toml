@@ -1,5 +1,5 @@
 [package]
-name = "controlled_sig_insurance_fund"
+name = "controlled_insurance_fund"
 version = "0.0.1"
 edition = "2024"
 publish = false

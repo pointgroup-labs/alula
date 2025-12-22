@@ -125,15 +125,25 @@ impl TestMarketFixture<'_> {
         } = setup_test_asset(&e, &usdc_admin, &users);
 
         let oracle = Address::from_str(&e, ORACLE_ADDRESS);
-        let insurance_fund = Address::generate(&e);
         e.register_at(&oracle, MockPriceOracleWASM, ());
         let oracle_client = MockPriceOracleClient::new(&e, &oracle);
 
-        // Register Market contract
         let contract_admin = Address::generate(&e);
+
+        let insurance_fund = e.register(
+            controlled_insurance_fund::ControlledInsuranceFundContract,
+            (contract_admin.clone(),),
+        );
+        let insurance_fund_full_client =
+            controlled_insurance_fund::ControlledInsuranceFundContractClient::new(
+                &e,
+                &insurance_fund,
+            );
+
+        // Register Market contract
         let market_manager_address = Address::generate(&e);
         let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
-        let contract_id = e.register(
+        let market_contract_id = e.register(
             MarketContract,
             (
                 contract_name,
@@ -147,7 +157,9 @@ impl TestMarketFixture<'_> {
                 Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
             ),
         );
-        let contract_client = MarketClient::new(&e, &contract_id);
+        let contract_client = MarketClient::new(&e, &market_contract_id);
+
+        insurance_fund_full_client.set_market(&market_contract_id);
 
         contract_client.update_market_status(&0);
 
@@ -198,7 +210,7 @@ impl TestMarketFixture<'_> {
         Self {
             e,
             contract_client,
-            contract_id,
+            contract_id: market_contract_id,
             contract_admin,
             // Oracle
             oracle_client,

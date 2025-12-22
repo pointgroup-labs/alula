@@ -84,12 +84,17 @@ use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 fn test_obligation_does_not_have_bad_debt_by_default() {
     let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
         TestMarketFixture::new();
-    contract_client.update_market(&10, &10);
+    contract_client.update_market(&10, &1);
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(borrower, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
     contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
 
     assert_eq!(

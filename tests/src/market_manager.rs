@@ -28,6 +28,7 @@ struct ManagerSetup<'a> {
 impl<'a> ManagerSetup<'a> {
     fn new() -> Self {
         let e = get_default_env();
+        e.cost_estimate().budget().reset_unlimited();
         let manager_admin = Address::generate(&e);
         let market_contract_wasm_hash = e.deployer().upload_contract_wasm(market::WASM);
 
