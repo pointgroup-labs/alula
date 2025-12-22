@@ -1030,7 +1030,7 @@ pub fn process_issue_cover_bad_debt(
                 }
                 obligation.insurance_fund_requests_ids.set((pool_address, request_id), ());
             }
-            IssueRequestResult::Immediate => {
+            IssueRequestResult::Immediate(_) => {
                 let market_balance_after = token_client.balance(&e.current_contract_address());
                 let diff = market_balance_after - market_balance_before; // safe
                 if diff != obligation_pool_debt {

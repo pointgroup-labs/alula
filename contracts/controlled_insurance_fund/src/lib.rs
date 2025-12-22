@@ -1,6 +1,6 @@
 #![no_std]
 use insurance_fund_trait::{CoverageStatus, InsuranceFund, IssueRequestResult};
-use soroban_sdk::{Address, Env, contract, contractimpl, panic_with_error, token};
+use soroban_sdk::{Address, Env, contract, contractevent, contractimpl, panic_with_error, token};
 use storage::Request;
 
 use crate::error::ContractError;
@@ -14,11 +14,11 @@ impl ControlledInsuranceFundContract {
     pub fn __constructor(e: Env, admin: Address) {
         storage::set_admin(&e, admin);
         storage::init_requests_counter(&e);
-        storage::set_must_claim(&e, false); // MustClaim mutex starts as unlocked
     }
 
     /// Sets an insured market contract address in the storage
     pub fn set_market(e: Env, market: Address) {
+        // TODO: This must be a one-time lock or something like that
         require_admin(&e);
         storage::extend_instance_storage(&e);
 
@@ -33,63 +33,78 @@ impl ControlledInsuranceFundContract {
         storage::get_request(e, request_id)
     }
 
-    /// Withdraws tokens if there are no coverage results that must be claimed first
+    /// Withdraws tokens, respecting the locked liquidity needed for pending claims
+    ///
+    /// # Panics
+    /// If the fund does not have enough *free* liquidity for available for withdraw
     pub fn withdraw(e: Env, token: Address, to: Address, amount: i128) {
         require_admin(&e);
 
-        if storage::get_must_claim(&e) {
-            panic_with_error!(&e, ContractError::MustClaimCoverage);
+        let token_client = token::Client::new(&e, &token);
+        let current_balance = token_client.balance(&e.current_contract_address());
+        let locked_amount = storage::get_locked_amount(&e, &token);
+
+        let free_balance = current_balance.checked_sub(locked_amount).unwrap_or(0);
+        if amount > free_balance {
+            panic_with_error!(&e, ContractError::InsufficientContractBalance);
         }
 
-        let token_client = token::Client::new(&e, &token);
         token_client.transfer(&e.current_contract_address(), &to, &amount);
     }
 
-    /// Marks existing request as ready
+    /// Marks existing request as ready and locks the liquidity
     ///
     /// # Panics
-    /// If a request that's ready and must be claimed already exists, or if a request
-    /// with given `request_id` does not exist
+    /// If the fund does not have enough *free* liquidity to cover this request
     pub fn mark_ready(e: Env, request_id: u64, covered_amount: i128) {
         require_admin(&e);
-        if storage::get_must_claim(&e) {
-            panic_with_error!(&e, ContractError::MustClaimCoverage);
-        }
 
         let Some(mut request) = storage::get_request(&e, request_id) else {
             panic_with_error!(&e, ContractError::RequestDoesNotExist);
         };
         if !matches!(request.status, CoverageStatus::Pending) {
+            panic_with_error!(&e, ContractError::RequestIsReady);
+        }
+
+        let real_covered_amount = i128::min(covered_amount, request.amount);
+
+        let token_client = token::Client::new(&e, &request.token);
+        let current_balance = token_client.balance(&e.current_contract_address());
+        let total_locked = storage::get_locked_amount(&e, &request.token);
+
+        if current_balance < total_locked {
+            TotalLockedExceedsBalance { request_id, total_locked, current_balance }.publish(&e);
+
             panic_with_error!(&e, ContractError::InternalError);
         }
 
-        let fund_balance =
-            token::Client::new(&e, &request.token).balance(&e.current_contract_address());
-        let real_covered_amount = i128::min(covered_amount, request.amount);
-        if fund_balance < real_covered_amount {
+        let free_liquidity = current_balance - total_locked; // safe
+        if free_liquidity < real_covered_amount {
             panic_with_error!(&e, ContractError::InsufficientContractBalance);
         }
 
+        let new_locked_total = total_locked.checked_add(real_covered_amount).unwrap();
+        storage::set_locked_amount(&e, &request.token, new_locked_total);
+
         request.status = CoverageStatus::Ready(real_covered_amount);
         storage::update_request(&e, request_id, request);
-
-        storage::set_must_claim(&e, true);
     }
 
-    /// TODO: For descriptive purposes only
+    /// Updates market status (Descriptive/Helper). Funds can decide that a market is not insured
+    /// enough to proceed safely and update its status accordingly. Market admin can rewrite
+    /// this behavior
     pub fn update_market_status(e: Env, new_status: u32) {
         let market = storage::get_market(&e);
         let market_client = market::MarketPartialClient::new(&e, &market);
-
-        market_client.update_market_status(&new_status); // TODO: We better have a set of statuses that 
-        // are allowed to be updated from the Insurance Fund contract as on blend
+        market_client.update_market_status(&new_status);
     }
 }
 
 #[contractimpl]
 impl InsuranceFund for ControlledInsuranceFundContract {
     fn add_reserves(e: Env, _token: Address, _amount: i128) {
-        require_market(&e);
+        require_market(&e); // NB: Only validation for this token-balance driven implementation
+        storage::extend_instance_storage(&e);
     }
 
     fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult {
@@ -99,12 +114,11 @@ impl InsuranceFund for ControlledInsuranceFundContract {
         let request = Request::new(token, amount);
         let request_id = storage::set_request(&e, request);
 
-        IssueRequestResult::Recorded(request_id)
+        IssueRequestResult::Recorded(request_id) // NB: `Controlled` implementation always returns `Recorded`
     }
 
     fn get_status(e: Env, request_id: u64) -> Option<CoverageStatus> {
         storage::extend_instance_storage(&e);
-
         let request = storage::get_request(&e, request_id)?;
 
         Some(request.status)
@@ -113,9 +127,6 @@ impl InsuranceFund for ControlledInsuranceFundContract {
     fn claim_coverage(e: Env, request_id: u64) -> i128 {
         let market = storage::get_market(&e);
         market.require_auth();
-        if !storage::get_must_claim(&e) {
-            panic_with_error!(&e, ContractError::InternalError);
-        }
         storage::extend_instance_storage(&e);
 
         let Some(request) = storage::get_request(&e, request_id) else {
@@ -128,8 +139,21 @@ impl InsuranceFund for ControlledInsuranceFundContract {
         let token_client = token::Client::new(&e, &request.token);
         token_client.transfer(&e.current_contract_address(), &market, &coverage_amount);
 
+        let current_locked = storage::get_locked_amount(&e, &request.token);
+        if current_locked < coverage_amount {
+            CoverageExceedsTotalLocked {
+                request_id,
+                total_locked: current_locked,
+                coverage_amount,
+            }
+            .publish(&e);
+
+            panic_with_error!(&e, ContractError::InternalError);
+        }
+        let new_locked = current_locked - coverage_amount; // safe
+
+        storage::set_locked_amount(&e, &request.token, new_locked);
         storage::remove_request(&e, request_id);
-        storage::set_must_claim(&e, false);
 
         coverage_amount
     }
@@ -145,6 +169,22 @@ fn require_admin(e: &Env) {
 fn require_market(e: &Env) {
     let market = storage::get_market(e);
     market.require_auth();
+}
+
+// -- Events --
+
+#[contractevent]
+struct CoverageExceedsTotalLocked {
+    request_id: u64,
+    total_locked: i128,
+    coverage_amount: i128,
+}
+
+#[contractevent]
+struct TotalLockedExceedsBalance {
+    request_id: u64,
+    total_locked: i128,
+    current_balance: i128,
 }
 
 pub mod error;

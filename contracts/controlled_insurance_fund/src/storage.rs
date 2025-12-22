@@ -13,7 +13,7 @@ pub enum DataKey {
     Market,
     Request(u64),
     RequestsCounter,
-    MustClaim,
+    LockedAmount(Address),
 }
 
 #[contracttype]
@@ -98,14 +98,18 @@ pub fn remove_request(e: &Env, request_id: u64) {
     }
 }
 
-// -- MustClaim --
+// -- Locked Amounts (Per Asset) --
 
-pub fn set_must_claim(e: &Env, value: bool) {
-    e.storage().instance().set(&DataKey::MustClaim, &value);
+pub fn get_locked_amount(e: &Env, token: &Address) -> i128 {
+    e.storage().instance().get(&DataKey::LockedAmount(token.clone())).unwrap_or(0)
 }
 
-pub fn get_must_claim(e: &Env) -> bool {
-    e.storage().instance().get(&DataKey::MustClaim).expect("MustClaim must be set")
+pub fn set_locked_amount(e: &Env, token: &Address, amount: i128) {
+    if amount == 0 {
+        e.storage().instance().remove(&DataKey::LockedAmount(token.clone()));
+    } else {
+        e.storage().instance().set(&DataKey::LockedAmount(token.clone()), &amount);
+    }
 }
 
 // ---- TTL Bumpers ----
