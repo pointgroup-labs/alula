@@ -35,7 +35,7 @@ use market::{
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env, Symbol,
+    Address, Env, Map, Symbol,
     testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
     token::{self, StellarAssetClient, TokenClient},
 };
@@ -1245,6 +1245,15 @@ pub fn get_pool_available_beneficiaries_fees_sum(
     let pool = contract_client.get_pool(pool_address);
 
     pool.available_beneficiaries_fees_sum()
+}
+
+pub fn get_pool_beneficiaries_fees(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> Map<Address, i128> {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.beneficiaries_fees.clone()
 }
 
 pub fn compute_pool_collateral_value(

@@ -2,34 +2,44 @@
 
 use market::error::MCError;
 
-use crate::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
+use crate::{
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_pool_beneficiaries_fees,
+    get_pool_beneficiaries_fees_sum,
+};
 
-// #[test]
-// fn test_accumulate_reserve_fees_are_empty_prior_accrual() {
-//     let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
-//         TestMarketFixture::new();
+#[test]
+fn test_beneficiaries_are_empty_prior_accrual() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
 
-//     let borrower = &users[0];
-//     let liquidity_provider = &users[1];
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
 
-//     let accumulated_reserve_fees_before_borrow =
-//         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
+    let beneficiaries_fees_sum_before =
+        get_pool_beneficiaries_fees_sum(&contract_client, &usdc_pool_address);
+    let beneficiaries_fees_before =
+        get_pool_beneficiaries_fees(&contract_client, &usdc_pool_address);
 
-//     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
-//     contract_client.deposit(
-//         liquidity_provider,
-//         &usdc_pool_address,
-//         &(2 * DEFAULT_DEPOSIT_AMOUNT),
-//         &None,
-//     );
-//     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-//     let accumulated_reserve_fees_after_borrow =
-//         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
+    let beneficiaries_fees_sum_after =
+        get_pool_beneficiaries_fees_sum(&contract_client, &usdc_pool_address);
+    let beneficiaries_fees_after =
+        get_pool_beneficiaries_fees(&contract_client, &usdc_pool_address);
 
-//     assert_eq!(accumulated_reserve_fees_before_borrow, accumulated_reserve_fees_after_borrow);
-//     assert_eq!(accumulated_reserve_fees_before_borrow, 0);
-// }
+    assert_eq!(beneficiaries_fees_sum_before, beneficiaries_fees_sum_after);
+    assert_eq!(beneficiaries_fees_sum_before, 0);
+
+    assert!(beneficiaries_fees_before.is_empty());
+    assert!(beneficiaries_fees_after.is_empty());
+}
 
 // #[test]
 // fn test_accumulate_reserve_fees() {
