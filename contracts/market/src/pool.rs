@@ -80,11 +80,16 @@ impl Pool {
 
     fn adjust_accumulated_fees_with_computed_per_operation(
         &mut self,
-        e: &Env,
         fees: &OperationFees,
     ) -> Result<(), MCError> {
-        // self.adjust_accumulated_host_fees(e, fees.host_fee)?;
-        // self.adjust_accumulated_market_fees(e, fees.market_fee)?;
+        if let Some(new_beneficiaries_fees) = &fees.operation_fee_distributed {
+            for (beneficiary_address, amount) in new_beneficiaries_fees.iter() {
+                let old = self.beneficiaries_fees.get(beneficiary_address.clone()).unwrap_or(0);
+                let new = old.checked_add(amount).map_over_or_underflow()?;
+
+                self.beneficiaries_fees.set(beneficiary_address, new);
+            }
+        }
 
         Ok(())
     }
@@ -105,10 +110,7 @@ impl Pool {
         self.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
         self.adjust_total_available(e, deposit_result.deposited)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(
-            e,
-            &deposit_result.operation_fees,
-        )?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&deposit_result.operation_fees)?;
 
         Ok(())
     }
@@ -124,10 +126,7 @@ impl Pool {
             withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(
-            e,
-            &withdraw_result.operation_fees,
-        )?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&withdraw_result.operation_fees)?;
 
         Ok(())
     }
@@ -141,7 +140,7 @@ impl Pool {
             borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(e, &borrow_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&borrow_result.operation_fees)?;
 
         Ok(())
     }
@@ -155,7 +154,6 @@ impl Pool {
         self.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
-            e,
             &add_collateral_result.operation_fees,
         )?;
 
@@ -174,7 +172,7 @@ impl Pool {
         )?;
         self.adjust_total_available(e, repay_result.debt_repaid)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(e, &repay_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&repay_result.operation_fees)?;
 
         Ok(())
     }
@@ -191,7 +189,6 @@ impl Pool {
         )?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
-            e,
             &remove_collateral_result.operation_fees,
         )?;
 
@@ -599,11 +596,6 @@ impl Pool {
 
     /// Calculates total supply (available + total_borrowed - accumulated reserve fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
-        // let total_funds =
-        //     self.total_available.checked_add(self.total_borrowed).map_over_or_underflow()?;
-
-        // total_funds.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
-
         self.total_available()?.checked_add(self.total_borrowed).map_over_or_underflow()
     }
 
