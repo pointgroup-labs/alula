@@ -1176,7 +1176,8 @@ impl Obligation {
                 .map_over_or_underflow()?;
             let collateral_value = all_collateral.checked_mul(price).map_over_or_underflow()?;
 
-            // BUG: This doesn't work well
+            // BUG: This doesn't work well.
+            // TODO: Check this in every place that uses `min_collateral_value_cents`
             let min_collateral_value = storage::get_min_collateral_value_cents(e)
                 .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
                 .map_over_or_underflow()?
