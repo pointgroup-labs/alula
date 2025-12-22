@@ -10,8 +10,8 @@ use crate::{
     events,
     misc::{
         MarketData, PoolData, require_admin, require_borrows_on_market_allowed,
-        require_deposits_on_market_allowed, require_market_not_frozen, require_nonnegative,
-        require_owned_and_admin,
+        require_deposits_on_market_allowed, require_insurance_fund, require_market_not_frozen,
+        require_nonnegative, require_owned_and_admin,
     },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
@@ -77,6 +77,15 @@ pub trait Market {
     /// # Arguments
     /// * `new_status` - numerical representation of the new market status
     fn update_market_status(e: Env, new_status: u32) -> Result<(), MCError>;
+
+    /// Updates the market status from the Insurance Fund contract
+    ///
+    /// # Arguments
+    /// * `new_status` - numerical representation of the new market status
+    ///
+    /// # Panics
+    /// If the Fund contract hasn't authorized the call
+    fn fund_update_market_status(e: Env, new_status: u32) -> Result<(), MCError>;
 
     /// Initializes a loan pool for a specific asset
     ///
@@ -659,11 +668,6 @@ impl Market for MarketContract {
         new_max_positions: u32,
         new_min_collateral_value_cents: i128,
     ) -> Result<(), MCError> {
-        // TODO: Okay, how should this look
-        // + we better freeze withdrawals when there's a bad debt, right?
-
-        //
-
         require_owned_and_admin(&e)?;
         storage::extend_instance_storage(&e);
 
@@ -683,6 +687,21 @@ impl Market for MarketContract {
         storage::extend_instance_storage(&e);
 
         let new_status = MarketStatus::try_from(new_status)?;
+        storage::set_market_status(&e, &new_status);
+
+        Ok(())
+    }
+
+    fn fund_update_market_status(e: Env, new_status: u32) -> Result<(), MCError> {
+        require_insurance_fund(&e)?;
+        storage::extend_instance_storage(&e);
+
+        let old_status = storage::get_market_status(&e);
+        let new_status = MarketStatus::try_from(new_status)?;
+        if old_status.is_admin_protected() || new_status.is_admin_protected() {
+            return Err(MCError::InvalidMarketStatusUpdate);
+        }
+
         storage::set_market_status(&e, &new_status);
 
         Ok(())

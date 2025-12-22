@@ -29,10 +29,28 @@ pub enum MarketStatus {
     Active,
     /// Borrow operations are prohibited
     BorrowFrozen,
+    /// Borrow operations are prohibited and IF cannot over-write
+    BorrowFrozenByAdmin,
     /// Borrowing and depositing operations on the market are prohibited
     DepositFrozen,
+    /// Borrowing and depositing operations on the market are prohibited and IF cannot over-write
+    DepositFrozenByAdmin,
     /// All operations on the market are prohibited
     Frozen,
+    /// All operations on the market are prohibited and IF cannot over-write
+    FrozenByAdmin,
+}
+
+impl MarketStatus {
+    /// Returns [`true`] if status is a "hard lock" that only Market Admin can move from
+    pub fn is_admin_protected(&self) -> bool {
+        matches!(
+            self,
+            MarketStatus::BorrowFrozenByAdmin
+                | MarketStatus::DepositFrozenByAdmin
+                | MarketStatus::FrozenByAdmin
+        )
+    }
 }
 
 impl TryFrom<u32> for MarketStatus {
@@ -42,8 +60,11 @@ impl TryFrom<u32> for MarketStatus {
         let market_status = match value {
             0 => MarketStatus::Active,
             1 => MarketStatus::BorrowFrozen,
-            2 => MarketStatus::DepositFrozen,
-            3 => MarketStatus::Frozen,
+            2 => MarketStatus::BorrowFrozenByAdmin,
+            3 => MarketStatus::DepositFrozen,
+            4 => MarketStatus::DepositFrozenByAdmin,
+            5 => MarketStatus::Frozen,
+            6 => MarketStatus::FrozenByAdmin,
             _ => return Err(MCError::InvalidMarketStatusUpdate),
         };
 

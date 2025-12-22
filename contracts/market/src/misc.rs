@@ -55,6 +55,14 @@ pub fn require_owned_and_admin(e: &Env) -> Result<(), MCError> {
     Ok(())
 }
 
+#[inline(always)]
+pub fn require_insurance_fund(e: &Env) -> Result<(), MCError> {
+    let fund = storage::get_insurance_fund(e);
+    fund.require_auth();
+
+    Ok(())
+}
+
 /// Ensures that the caller is the admin of the contract
 #[inline(always)]
 pub fn require_admin(e: &Env) {
