@@ -52,7 +52,7 @@ pub struct Pool {
     /// Supply annual percentage rate in basis points
     pub supply_apr_bps: i128,
     /// Accumulated beneficiaries' fees, eligible for distribution
-    pub accumulated_beneficiaries_fees: Map<Address, i128>,
+    pub beneficiaries_fees: Map<Address, i128>,
     /// Maintained sum of the accumulated beneficiaries' fees
     pub beneficiaries_fees_sum: i128,
 }
@@ -584,7 +584,7 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    pub fn available_accumulated_beneficiaries_fees_sum(&self) -> i128 {
+    pub fn available_beneficiaries_fees_sum(&self) -> i128 {
         i128::min(self.total_available, self.beneficiaries_fees_sum)
     }
 

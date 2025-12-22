@@ -3,6 +3,17 @@ use soroban_sdk::{Address, Env, contractclient, contracttype};
 
 #[contractclient(name = "InsuranceFundClient")]
 pub trait InsuranceFund {
+    /// Accounts for new reserves added to the Fund contract. Required, since some implementations can account for balances
+    /// apart from the token's amounts on the contract
+    ///
+    /// # Panics
+    /// If the Market contract hasn't authorized the call
+    ///
+    /// # Arguments
+    /// * `token` - asset sent
+    /// * `amount` - amount of the sent asset
+    fn add_reserves(e: Env, token: Address, amount: i128);
+
     /// Notifies the Fund of bad debt.
     /// The Fund records the request if needed and starts its internal process (Auction/Vote/etc.)
     /// or covers the entire amount immediately if possible

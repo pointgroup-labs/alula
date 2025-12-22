@@ -2,8 +2,11 @@ use insurance_fund_trait::{CoverageStatus, InsuranceFundClient, IssueRequestResu
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Map, Vec, map as smap,
+    Address, BytesN, Env, IntoVal, Map, Symbol, Vec,
+    auth::{ContractContext, InvokerContractAuthEntry, SubContractInvocation},
+    map as smap,
     token::{self, TokenClient},
+    vec as svec,
 };
 
 use crate::{
@@ -125,7 +128,7 @@ pub fn process_initialize_pool(
         total_available: 0,
         total_collateral: 0,
 
-        accumulated_beneficiaries_fees: smap![e],
+        beneficiaries_fees: smap![e],
         beneficiaries_fees_sum: 0,
 
         name,
@@ -1181,6 +1184,28 @@ pub fn process_claim_cover_bad_debt_result(
 
 pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let mut pool = Pool::try_get(e, pool_address)?;
+    let insurance_fund_addr = storage::get_insurance_fund(e);
+
+    let token_client = token::Client::new(e, &pool.token_address);
+    let market_addr = e.current_contract_address();
+
+    for (beneficiary_address, amount) in pool.beneficiaries_fees.iter() {
+        if amount == 0 {
+            continue;
+        }
+
+        token_client.transfer(&market_addr, &beneficiary_address, &amount);
+
+        if beneficiary_address == insurance_fund_addr {
+            let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
+            fund_client.add_reserves(&pool.token_address, &amount);
+        }
+    }
+
+    // Reset the internal ledger
+    pool.beneficiaries_fees = smap![&e];
+    pool.beneficiaries_fees_sum = 0;
+    pool.set(e);
 
     Ok(())
 }

@@ -1232,7 +1232,7 @@ pub fn get_pool_available_beneficiaries_fees_sum(
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    pool.available_accumulated_beneficiaries_fees_sum()
+    pool.available_beneficiaries_fees_sum()
 }
 
 pub fn compute_pool_collateral_value(

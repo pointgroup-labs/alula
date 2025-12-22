@@ -72,13 +72,10 @@ impl Pool {
                         .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
                         .map_over_or_underflow()?;
 
-                    let prev = self
-                        .accumulated_beneficiaries_fees
-                        .get(beneficiary_addr.clone())
-                        .unwrap_or(0);
+                    let prev = self.beneficiaries_fees.get(beneficiary_addr.clone()).unwrap_or(0);
                     let new = prev.checked_add(share).map_over_or_underflow()?;
 
-                    self.accumulated_beneficiaries_fees.set(beneficiary_addr, new);
+                    self.beneficiaries_fees.set(beneficiary_addr, new);
                 }
             }
         }

@@ -88,6 +88,10 @@ impl ControlledInsuranceFundContract {
 
 #[contractimpl]
 impl InsuranceFund for ControlledInsuranceFundContract {
+    fn add_reserves(e: Env, _token: Address, _amount: i128) {
+        require_market(&e);
+    }
+
     fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult {
         require_market(&e);
         storage::extend_instance_storage(&e);
