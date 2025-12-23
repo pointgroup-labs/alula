@@ -126,7 +126,8 @@ pub fn process_initialize_pool(
         total_collateral: 0,
 
         beneficiaries_fees: smap![e],
-        beneficiaries_fees_sum: 0,
+        operation_fees_sum: 0,
+        take_rate_fees_sum: 0,
 
         name,
         config: pool_config,
@@ -1169,7 +1170,8 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
 
     // Reset the internal ledger
     pool.beneficiaries_fees = smap![&e];
-    pool.beneficiaries_fees_sum = 0;
+    pool.take_rate_fees_sum = 0;
+    pool.operation_fees_sum = 0;
     pool.set(e);
 
     Ok(())

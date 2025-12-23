@@ -53,8 +53,10 @@ pub struct Pool {
     pub supply_apr_bps: i128,
     /// Accumulated beneficiaries' fees, eligible for distribution
     pub beneficiaries_fees: Map<Address, i128>,
-    /// Maintained sum of the accumulated beneficiaries' fees
-    pub beneficiaries_fees_sum: i128,
+    /// Maintained sum of the accumulated per-operation beneficiaries' fees
+    pub operation_fees_sum: i128,
+    /// Maintained sum of the accumulated per take rate beneficiaries' fees
+    pub take_rate_fees_sum: i128,
 }
 
 macro_rules! generate_adjust_method {
@@ -90,6 +92,12 @@ impl Pool {
                 self.beneficiaries_fees.set(beneficiary_address, new);
             }
         }
+
+        let referrer_fees = fees.referrer_fee.unwrap_or(0);
+        let net_protocol_fees = fees.fee_sum - referrer_fees;
+
+        self.operation_fees_sum =
+            self.operation_fees_sum.checked_add(net_protocol_fees).map_over_or_underflow()?;
 
         Ok(())
     }
@@ -581,12 +589,12 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    pub fn available_beneficiaries_fees_sum(&self) -> i128 {
-        i128::min(self.total_available, self.beneficiaries_fees_sum)
+    pub fn operation_fees_sum(&self) -> i128 {
+        self.operation_fees_sum
     }
 
     pub fn total_available(&self) -> Result<i128, MCError> {
-        self.total_available.checked_sub(self.beneficiaries_fees_sum).map_over_or_underflow()
+        self.total_available.checked_sub(self.take_rate_fees_sum).map_over_or_underflow()
     }
 
     /// Calculates total debt

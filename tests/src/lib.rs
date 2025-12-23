@@ -309,10 +309,10 @@ impl TestMarketFixture<'_> {
             clients.iter().map(|client| client.balance(contract_id)).collect();
 
         for (pool, &token_balance) in pools.iter().zip(token_balances.iter()) {
-            // Calculate the Total Liabilities of the protocol (User Liquidity + Admin Revenue)
+            // Calculate the Total Liabilities of the protocol (User Liquidity + Fees Sum)
             let expected_minimum_balance = pool
                 .total_available
-                .checked_add(pool.beneficiaries_fees_sum)
+                .checked_add(pool.operation_fees_sum)
                 .expect("Overflow in invariant calc");
 
             assert!(
@@ -1229,22 +1229,19 @@ pub fn get_pool_total_collateral(contract_client: &MarketClient, pool_address: &
     pool.total_collateral
 }
 
-pub fn get_pool_beneficiaries_fees_sum(
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_operation_fees_sum(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    pool.beneficiaries_fees_sum
+    pool.operation_fees_sum
 }
 
-pub fn get_pool_available_beneficiaries_fees_sum(
+pub fn get_pool_available_take_rate_fees_sum(
     contract_client: &MarketClient,
     pool_address: &Address,
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    pool.available_beneficiaries_fees_sum()
+    pool.total_available().unwrap()
 }
 
 pub fn get_pool_beneficiaries_fees(

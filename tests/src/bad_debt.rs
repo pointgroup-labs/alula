@@ -1,10 +1,15 @@
 #![cfg(test)]
 
-use market::error::MCError;
+use market::{
+    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    error::MCError,
+};
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_pool_beneficiaries_fees,
-    get_pool_beneficiaries_fees_sum,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_pool_beneficiaries_fees, get_pool_fee_config,
+    get_pool_operation_fees_sum, get_pool_total_borrowed,
 };
 
 #[test]
@@ -15,8 +20,8 @@ fn test_beneficiaries_are_empty_prior_accrual() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    let beneficiaries_fees_sum_before =
-        get_pool_beneficiaries_fees_sum(&contract_client, &usdc_pool_address);
+    let operation_fees_sum_before =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
     let beneficiaries_fees_before =
         get_pool_beneficiaries_fees(&contract_client, &usdc_pool_address);
 
@@ -30,65 +35,64 @@ fn test_beneficiaries_are_empty_prior_accrual() {
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let beneficiaries_fees_sum_after =
-        get_pool_beneficiaries_fees_sum(&contract_client, &usdc_pool_address);
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
     let beneficiaries_fees_after =
         get_pool_beneficiaries_fees(&contract_client, &usdc_pool_address);
 
-    assert_eq!(beneficiaries_fees_sum_before, beneficiaries_fees_sum_after);
-    assert_eq!(beneficiaries_fees_sum_before, 0);
+    assert_eq!(operation_fees_sum_before, beneficiaries_fees_sum_after);
+    assert_eq!(operation_fees_sum_before, 0);
 
     assert!(beneficiaries_fees_before.is_empty());
     assert!(beneficiaries_fees_after.is_empty());
 }
 
-// #[test]
-// fn test_accumulate_reserve_fees() {
-//     let TestMarketFixture {
-//         e, contract_client, usdc_pool_address, gold_pool_address, users, ..
-//     } = TestMarketFixture::new();
-//     let borrower = &users[0];
-//     let liquidity_provider = &users[1];
+#[test]
+fn test_accumulate_reserve_fees() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
 
-//     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
-//     contract_client.deposit(
-//         liquidity_provider,
-//         &usdc_pool_address,
-//         &(2 * DEFAULT_DEPOSIT_AMOUNT),
-//         &None,
-//     );
-//     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-//     let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-//     let accumulated_reserve_fees_before =
-//         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let beneficiaries_sum_before =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-//     // -- Accrue debt on the pool --
+    // -- Accrue debt on the pool --
 
-//     e.ledger().with_mut(|li| {
-//         li.timestamp += SECONDS_IN_YEAR / 12;
-//     });
-//     contract_client.refresh_pool(&usdc_pool_address);
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
 
-//     // -- Verify the reserve is populated accordingly --
+    // -- Verify the reserve is populated accordingly --
 
-//     let accumulated_reserve_fees_after =
-//         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
-//     let pool_total_borrowed_after = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let beneficiaries_sum_after = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed_after = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
-//     let accumulated_reserve_fees_diff =
-//         accumulated_reserve_fees_after.checked_sub(accumulated_reserve_fees_before).unwrap();
-//     let pool_total_borrowed_diff =
-//         pool_total_borrowed_after.checked_sub(pool_total_borrowed_before).unwrap();
+    let accumulated_reserve_fees_diff =
+        beneficiaries_sum_after.checked_sub(beneficiaries_sum_before).unwrap();
+    let pool_total_borrowed_diff =
+        pool_total_borrowed_after.checked_sub(pool_total_borrowed_before).unwrap();
 
-//     let take_rate = get_pool_fee_config(&contract_client, &usdc_pool_address).take_rate_bps;
-//     let expected_accumulated_reserve_fees_diff =
-//         pool_total_borrowed_diff.fixed_mul_ceil(take_rate as i128, BPS_FACTOR).unwrap();
+    let take_rate = get_pool_fee_config(&contract_client, &usdc_pool_address).take_rate_bps;
+    let expected_accumulated_reserve_fees_diff =
+        pool_total_borrowed_diff.fixed_mul_ceil(take_rate as i128, BPS_FACTOR).unwrap();
 
-//     assert!(pool_total_borrowed_diff > 0);
-//     assert_eq!(accumulated_reserve_fees_diff, expected_accumulated_reserve_fees_diff);
+    assert!(pool_total_borrowed_diff > 0);
+    assert_eq!(accumulated_reserve_fees_diff, expected_accumulated_reserve_fees_diff);
 
-//     assert!(accumulated_reserve_fees_after > accumulated_reserve_fees_before);
-// }
+    assert!(beneficiaries_sum_after > beneficiaries_sum_before);
+}
 
 #[test]
 fn test_obligation_does_not_have_bad_debt_by_default() {
@@ -184,7 +188,7 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //         get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
 //     let pool_accumulated_host_fees_before =
 //         get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
-//     let pool_accumulated_reserve_fees_before =
+//     let pool_beneficiaries_sum_before =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
 //     let available_reserve_fees_before =
@@ -203,7 +207,7 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //         get_pool_accumulated_market_fees(&contract_client, &usdc_pool_address);
 //     let pool_accumulated_host_fees_after =
 //         get_pool_accumulated_host_fees(&contract_client, &usdc_pool_address);
-//     let pool_accumulated_reserve_fees_after =
+//     let pool_beneficiaries_sum_after =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
 //     let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
@@ -212,8 +216,8 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //         .unwrap();
 //     let pool_accumulated_host_fees_diff =
 //         pool_accumulated_host_fees_after.checked_sub(pool_accumulated_host_fees_before).unwrap();
-//     let pool_accumulated_reserve_fees_diff = pool_accumulated_reserve_fees_before
-//         .checked_sub(pool_accumulated_reserve_fees_after)
+//     let pool_accumulated_reserve_fees_diff = pool_beneficiaries_sum_before
+//         .checked_sub(pool_beneficiaries_sum_after)
 //         .unwrap();
 
 //     assert_eq!(pool_d_tokens_after, 0);
@@ -317,17 +321,17 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //     let pool_available_before = get_pool_total_available(&contract_client, &usdc_pool_address);
 //     let pool_d_tokens_before = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 //     let pool_j_tokens_before = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
-//     let pool_accumulated_reserve_fees_before =
+//     let pool_beneficiaries_sum_before =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
-//     let accumulated_reserve_fees_before =
+//     let beneficiaries_sum_before =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 //     let available_reserve_fees_before =
 //         get_pool_available_reserve_fees(&contract_client, &usdc_pool_address);
 
 //     contract_client.issue_cover_bad_debt(borrower_2);
 
-//     let accumulated_reserve_fees_after =
+//     let beneficiaries_sum_after =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 //     let available_reserve_fees_after =
 //         get_pool_available_reserve_fees(&contract_client, &usdc_pool_address);
@@ -336,12 +340,12 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //     let pool_available_after = get_pool_total_available(&contract_client, &usdc_pool_address);
 //     let pool_d_tokens_after = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 //     let pool_j_tokens_after = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
-//     let pool_accumulated_reserve_fees_after =
+//     let pool_beneficiaries_sum_after =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
 //     let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
-//     let pool_accumulated_reserve_fees_diff = pool_accumulated_reserve_fees_before
-//         .checked_sub(pool_accumulated_reserve_fees_after)
+//     let pool_accumulated_reserve_fees_diff = pool_beneficiaries_sum_before
+//         .checked_sub(pool_beneficiaries_sum_after)
 //         .unwrap();
 
 //     assert_eq!(pool_d_tokens_after, 0);
@@ -352,8 +356,8 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //     assert_eq!(pool_accumulated_reserve_fees_diff, 0); // no reserve to cover bad debt
 //     assert_eq!(available_reserve_fees_after, 0);
 //     assert_eq!(available_reserve_fees_before, 0);
-//     assert_eq!(accumulated_reserve_fees_after, 0);
-//     assert_eq!(accumulated_reserve_fees_before, 0);
+//     assert_eq!(beneficiaries_sum_after, 0);
+//     assert_eq!(beneficiaries_sum_before, 0);
 // }
 
 // #[test]
@@ -407,7 +411,7 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //             .unwrap();
 //     let pool_available_reserve_fees_before =
 //         get_pool_available_reserve_fees(&contract_client, &usdc_pool_address);
-//     let pool_accumulated_reserve_fees_before =
+//     let pool_beneficiaries_sum_before =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
 //     assert!(pool_available_reserve_fees_before > borrower_2_debt_before);
@@ -432,13 +436,13 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 //     let pool_available_after = get_pool_total_available(&contract_client, &usdc_pool_address);
 //     let pool_d_tokens_after = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
 //     let pool_j_tokens_after = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
-//     let pool_accumulated_reserve_fees_after =
+//     let pool_beneficiaries_sum_after =
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
 //     let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
 //     let pool_borrowed_diff = pool_borrowed_before.checked_sub(pool_borrowed_after).unwrap();
-//     let pool_accumulated_reserve_fees_diff = pool_accumulated_reserve_fees_before
-//         .checked_sub(pool_accumulated_reserve_fees_after)
+//     let pool_accumulated_reserve_fees_diff = pool_beneficiaries_sum_before
+//         .checked_sub(pool_beneficiaries_sum_after)
 //         .unwrap();
 
 //     assert!(pool_d_tokens_after > 0); // another borrower still has bad debt

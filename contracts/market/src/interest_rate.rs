@@ -74,13 +74,11 @@ impl Pool {
                 self.beneficiaries_fees.set(beneficiary_addr, new);
             }
         }
-        let new_beneficiaries_fees_sum = self
-            .beneficiaries_fees_sum
-            .checked_add(take_rate_accrual_part)
-            .map_over_or_underflow()?;
+        let new_take_rate_fees_sum =
+            self.take_rate_fees_sum.checked_add(take_rate_accrual_part).map_over_or_underflow()?;
 
         self.total_borrowed = new_total_borrowed;
-        self.beneficiaries_fees_sum = new_beneficiaries_fees_sum;
+        self.take_rate_fees_sum = new_take_rate_fees_sum;
 
         self.borrow_apr_bps = current_borrow_apr;
         self.supply_apr_bps = current_borrow_apr
