@@ -4,6 +4,7 @@ use market::{
     constants::MAX_RESERVES,
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
+    storage::MarketStatus,
 };
 use soroban_sdk::testutils::Ledger;
 
@@ -99,11 +100,16 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     let liquidity_provider = &users[0];
     let creditor = &users[1];
 
-    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.deposit_earn(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.deposit_earn(
+        liquidity_provider,
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
-    assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1).is_ok());
-    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None).is_ok());
 
     let pool_config_update_queue_in_period =
         contract_client.get_global_state().update_in_queue_period.unwrap();
@@ -122,10 +128,10 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     contract_client.apply_pool_config_update(&usdc_pool_address);
 
     assert_eq!(
-        contract_client.try_borrow(borrower, &usdc_pool_address, &1),
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
-    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None).is_ok());
 
     let new_pool_config = PoolConfig {
         status: PoolStatus { borrow_enabled: false, deposit_enabled: false },
@@ -141,11 +147,11 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     contract_client.apply_pool_config_update(&usdc_pool_address);
 
     assert_eq!(
-        contract_client.try_borrow(borrower, &usdc_pool_address, &1),
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::BorrowForbiddenOnPool))
     );
     assert_eq!(
-        contract_client.try_deposit(creditor, &usdc_pool_address, &1),
+        contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::DepositForbiddenOnPool))
     );
 }
@@ -256,58 +262,63 @@ fn test_update_market_status() {
     let status = contract_client.get_global_state().status;
     assert_eq!(status, 0);
 
-    contract_client.deposit_earn(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit_earn(
+        liquidity_provider,
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
-    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &100).is_ok());
-    assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
-    assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &100).is_ok());
-    assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &100, &None).is_ok());
+    assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None).is_ok());
+    assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &100, &None).is_ok());
+    assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
-    contract_client.update_market_status(&1);
+    contract_client.update_market_status(&(MarketStatus::BorrowFrozen as u32));
     let status = contract_client.get_global_state().status;
-    assert_eq!(status, 1);
+    assert_eq!(status, MarketStatus::BorrowFrozen as u32);
 
-    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &1).is_ok());
-    assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
+    assert!(contract_client.try_deposit(creditor, &gold_pool_address, &1, &None).is_ok());
+    assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None).is_ok());
     assert_eq!(
-        contract_client.try_borrow(creditor, &usdc_pool_address, &1),
+        contract_client.try_borrow(creditor, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::BorrowForbiddenOnMarket))
     );
-    assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
-    contract_client.update_market_status(&2);
+    contract_client.update_market_status(&(MarketStatus::DepositFrozen as u32));
     let status = contract_client.get_global_state().status;
-    assert_eq!(status, 2);
+    assert_eq!(status, MarketStatus::DepositFrozen as u32);
 
     assert_eq!(
-        contract_client.try_deposit(creditor, &gold_pool_address, &1),
+        contract_client.try_deposit(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::DepositForbiddenOnMarket))
     );
-    assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1).is_ok());
+    assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None).is_ok());
     assert_eq!(
-        contract_client.try_borrow(creditor, &usdc_pool_address, &1),
+        contract_client.try_borrow(creditor, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::BorrowForbiddenOnMarket))
     );
-    assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1).is_ok());
+    assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
-    contract_client.update_market_status(&3);
+    contract_client.update_market_status(&(MarketStatus::Frozen as u32));
     let status = contract_client.get_global_state().status;
-    assert_eq!(status, 3);
+    assert_eq!(status, MarketStatus::Frozen as u32);
 
     assert_eq!(
-        contract_client.try_deposit(creditor, &gold_pool_address, &1),
+        contract_client.try_deposit(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::DepositForbiddenOnMarket))
     );
     assert_eq!(
-        contract_client.try_withdraw(creditor, &gold_pool_address, &1),
+        contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::MarketIsFrozen))
     );
     assert_eq!(
-        contract_client.try_borrow(creditor, &usdc_pool_address, &1),
+        contract_client.try_borrow(creditor, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::BorrowForbiddenOnMarket))
     );
     assert_eq!(
-        contract_client.try_repay(creditor, &usdc_pool_address, &1),
+        contract_client.try_repay(creditor, &usdc_pool_address, &1, &None),
         Err(Ok(MCError::MarketIsFrozen))
     );
 }
@@ -318,7 +329,7 @@ fn test_update_market_config() {
     let contract_client = setup_market_client(&e, true);
 
     const MAX_POSITIONS: u32 = 2 * MAX_RESERVES;
-    const MIN_COLLATERAL_VALUE: i128 = 10 * 10i128.pow(7);
+    const MIN_COLLATERAL_VALUE_CENTS: i128 = 10 * 10i128.pow(7);
 
     assert_eq!(
         contract_client.try_update_market(&(MAX_POSITIONS + 1), &0),
@@ -329,16 +340,16 @@ fn test_update_market_config() {
         Err(Ok(MCError::InvalidMarketUpdate))
     );
     assert_eq!(
-        contract_client.try_update_market(&(1), &MIN_COLLATERAL_VALUE),
+        contract_client.try_update_market(&(1), &MIN_COLLATERAL_VALUE_CENTS),
         Err(Ok(MCError::InvalidMarketUpdate))
     );
 
-    contract_client.update_market(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE);
+    contract_client.update_market(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);
 
     let global_state = contract_client.get_global_state();
-    let (new_min_collateral_value, new_max_positions) =
-        (global_state.min_collateral_value, global_state.max_positions);
+    let (new_min_collateral_value_cents, new_max_positions) =
+        (global_state.min_collateral_value_cents, global_state.max_positions);
 
-    assert_eq!(new_min_collateral_value, MIN_COLLATERAL_VALUE);
+    assert_eq!(new_min_collateral_value_cents, MIN_COLLATERAL_VALUE_CENTS);
     assert_eq!(new_max_positions, MAX_POSITIONS);
 }

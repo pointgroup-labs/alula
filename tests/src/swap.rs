@@ -41,7 +41,7 @@ fn test_swap_equal_prices() {
     let usdc_balance_diff = user_usdc_balance_after - user_usdc_balance_before;
 
     // BTC is swapped for USDC
-    assert!(btc_balance_diff < 0 && usdc_balance_diff > 0);
+    assert!(btc_balance_diff.is_negative() && usdc_balance_diff.is_positive());
 
     let abs_btc_balance_diff = -btc_balance_diff;
 
@@ -88,7 +88,7 @@ fn test_swap_different_prices() {
     let usdc_balance_diff = user_usdc_balance_after - user_usdc_balance_before;
 
     // GOLD is swapped for USDC
-    assert!(gold_balance_diff < 0 && usdc_balance_diff > 0);
+    assert!(gold_balance_diff.is_negative() && usdc_balance_diff.is_positive());
 
     let abs_gold_balance_diff = -gold_balance_diff;
 

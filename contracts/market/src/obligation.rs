@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
+use soroban_sdk::{Address, Bytes, BytesN, Env, Map, contracttype};
 
 use crate::{
     constants::*,
@@ -7,7 +7,7 @@ use crate::{
     events,
     math_utils::MathUtils,
     oracle::{self, get_asset_price},
-    pool::Pool,
+    pool::{Pool, PoolFeeConfig},
     storage,
 };
 
@@ -37,6 +37,9 @@ pub struct Obligation {
     pub borrows: Map<Address, BorrowPosition>,
     /// Count of non-empty positions
     pub positions_count: u32,
+    /// Request IDs per pool address that are present only if there are active requests to the Insurance Fund to cover
+    /// bad debt on an obligation
+    pub insurance_fund_requests_ids: Map<(Address, u64), ()>,
     // /// Market value of obligation's collateral
     // pub collateral_value: i128,
     // /// Last update to collateral, liquidity, or their market values
@@ -54,7 +57,12 @@ impl Obligation {
     pub fn new(e: &Env, obligation_key: &ObligationKey) -> Self {
         storage::register_obligation(e, obligation_key);
 
-        Self { deposits: Map::new(e), borrows: Map::new(e), positions_count: 0 }
+        Self {
+            deposits: Map::new(e),
+            borrows: Map::new(e),
+            positions_count: 0,
+            insurance_fund_requests_ids: Map::new(e),
+        }
     }
 
     /// Verifies that the new deposit position doesn't exceed the max allowed number of positions and
@@ -211,30 +219,9 @@ impl Obligation {
         Ok(())
     }
 
-    pub fn require_no_liquidatable_collateral_exists(&self, e: &Env) -> Result<(), MCError> {
-        for (pool_address, deposit_position) in self.deposits.iter() {
-            let DepositPosition { j_tokens, collateral, .. } = deposit_position;
-            let pool = &storage::get_pool(e, &pool_address).ok_or_else(|| {
-                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
-
-                MCError::PoolDoesNotExist
-            })?;
-
-            let token_address = &pool.token_address;
-            let price = get_asset_price(e, token_address)?;
-            let collateral = pool
-                .compute_tokens_from_j_tokens_floor(e, j_tokens)?
-                .checked_add(collateral)
-                .map_over_or_underflow()?;
-            let collateral_value = collateral.checked_mul(price).map_over_or_underflow()?;
-
-            let min_collateral_value = storage::get_min_collateral_value(e)
-                .checked_mul(10i128.pow(oracle::get_oracle_price_decimals(e)))
-                .map_over_or_underflow()?;
-
-            if collateral_value > min_collateral_value {
-                return Err(MCError::BadDebtCoverageCriterionIsNotMet);
-            }
+    pub fn require_no_active_cover_bad_debt_requests_exists(&self) -> Result<(), MCError> {
+        if !self.insurance_fund_requests_ids.is_empty() {
+            return Err(MCError::ObligationContainsOpenCoverBadDebtRequests);
         }
 
         Ok(())
@@ -303,6 +290,8 @@ impl Obligation {
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
+        // TODO: What to do when `scalar_bps` == 0?
+
         let (collateral_value_scaled, amount_of_borrow_backing_collateral_positions) =
             self.compute_collateral_value_scaled_w_open_ltvs(e)?;
         let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
@@ -312,11 +301,11 @@ impl Obligation {
             // any health factor decreasing operation is prohibited
             0
         } else {
-            let asset_price = oracle::get_asset_price(e, &pool.token_address)?;
-            let min_collateral_value = storage::get_min_collateral_value(e);
+            let asset_price: i128 = oracle::get_asset_price(e, &pool.token_address)?;
 
             let value_left = collateral_value_scaled - debt_value_scaled; // safe
-            let min_collateral_value_requirement = min_collateral_value
+            let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
+            let min_collateral_value_requirement = min_collateral_value_threshold
                 .checked_mul(amount_of_borrow_backing_collateral_positions as i128)
                 .map_over_or_underflow()?;
             let borrow_backing_value_left =
@@ -333,7 +322,7 @@ impl Obligation {
 
             let numerator = borrow_backing_value_left;
             let denominator =
-                asset_price.fixed_mul_floor(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
+                asset_price.fixed_mul_ceil(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
 
             numerator.checked_div(denominator).map_over_or_underflow()?
         };
@@ -426,7 +415,7 @@ impl Obligation {
                 MCError::InternalError
             })?;
 
-            if pool.config.health_config.close_ltv_bps > 0 {
+            if pool.config.health_config.close_ltv_bps.is_positive() {
                 positions_with_non_zero_close_ltv_count += 1;
             }
             let new_value_term = Self::compute_pool_collateral_value_scaled(
@@ -517,19 +506,21 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<DepositResult, MCError> {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_deposit_position(e)?);
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             original_amount,
             pool.config.fee_config.deposit_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
         let deposited_tokens_minus_fee =
-            original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            original_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (j_tokens_to_issue, new_originally_deposited) =
             pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
 
@@ -541,7 +532,7 @@ impl Obligation {
         Ok(DepositResult {
             j_tokens_to_issue,
             deposited: deposited_tokens_minus_fee,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -551,6 +542,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<BorrowResult, MCError> {
         let max_healthy_borrow_added_amount =
             self.compute_max_healthy_debt_added_amount(e, pool)?;
@@ -564,15 +556,16 @@ impl Obligation {
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_borrow_position(e)?);
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             real_borrowed_amount,
             pool.config.fee_config.borrow_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
 
         // 'what borrower receives' = 'borrower debt' - 'fees'
         let borrower_to_receive =
-            real_borrowed_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            real_borrowed_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (d_tokens_to_issue, new_originally_borrowed) =
             pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
 
@@ -585,7 +578,7 @@ impl Obligation {
             d_tokens_to_issue,
             borrower_to_receive,
             borrower_new_debt: real_borrowed_amount,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -595,25 +588,27 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<AddCollateralResult, MCError> {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
             .unwrap_or(self.try_create_deposit_position(e)?);
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             original_amount,
             pool.config.fee_config.add_collateral_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
 
         let added_collateral =
-            original_amount.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            original_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         deposit_position.adjust_collateral(e, added_collateral)?;
 
         self.deposits.set(pool.pool_address.clone(), deposit_position);
 
-        Ok(AddCollateralResult { added_collateral, computed_fees })
+        Ok(AddCollateralResult { added_collateral, operation_fees })
     }
 
     /// Withdraws assets from an obligation per pool
@@ -622,6 +617,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         provided_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<WithdrawResult, MCError> {
         let mut deposit_position =
             self.deposits.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
@@ -648,10 +644,14 @@ impl Obligation {
             .withdraw_fee_bps
             .checked_add(withdraw_scarcity_fee_bps)
             .map_over_or_underflow()?;
-        let computed_fees =
-            compute_fees(deposit_decrease, withdraw_fee_bps, pool.config.fee_config.host_fee_bps)?;
+        let operation_fees = compute_operation_fees(
+            deposit_decrease,
+            withdraw_fee_bps,
+            referrer,
+            &pool.config.fee_config,
+        )?;
         let withdrawer_to_receive =
-            deposit_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            deposit_decrease.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
 
         let j_tokens_to_burn = if is_all_withdrawn {
             deposit_position.j_tokens
@@ -707,7 +707,7 @@ impl Obligation {
             j_tokens_to_burn,
             deposit_decrease,
             withdrawer_to_receive,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -717,6 +717,7 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         original_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<RemoveCollateralResult, MCError> {
         let mut deposit_position = self
             .deposits
@@ -734,13 +735,14 @@ impl Obligation {
             original_amount.min(deposit_position.collateral)
         };
 
-        let computed_fees = compute_fees(
+        let operation_fees = compute_operation_fees(
             collateral_decrease,
             pool.config.fee_config.remove_collateral_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
         let collateral_remover_to_receive =
-            collateral_decrease.checked_sub(computed_fees.fee_sum).map_over_or_underflow()?;
+            collateral_decrease.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
 
         deposit_position
             .adjust_collateral(e, collateral_decrease.checked_neg().map_over_or_underflow()?)?;
@@ -754,7 +756,7 @@ impl Obligation {
         Ok(RemoveCollateralResult {
             collateral_decrease,
             collateral_remover_to_receive,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -769,33 +771,35 @@ impl Obligation {
         e: &Env,
         pool: &Pool,
         provided_amount: i128,
+        referrer: &Option<Address>,
     ) -> Result<RepayResult, MCError> {
         let mut borrow_position =
             self.borrows.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
 
         let all_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
-        let all_debt_fees = compute_fees(
+        let all_debt_fees = compute_operation_fees(
             all_debt,
             pool.config.fee_config.repay_fee_bps,
-            pool.config.fee_config.host_fee_bps,
+            referrer,
+            &pool.config.fee_config,
         )?;
         let amount_to_repay_all_debt =
             all_debt.checked_add(all_debt_fees.fee_sum).map_over_or_underflow()?;
 
-        let (is_all_repaid, amount_to_take_from_borrower, computed_fees) =
+        let (is_all_repaid, amount_to_take_from_borrower, operation_fees) =
             if provided_amount < amount_to_repay_all_debt {
-                let computed_fees = compute_fees(
+                let operation_fees = compute_operation_fees(
                     provided_amount,
                     pool.config.fee_config.repay_fee_bps,
-                    pool.config.fee_config.host_fee_bps,
+                    referrer,
+                    &pool.config.fee_config,
                 )?;
-
-                (false, provided_amount, computed_fees)
+                (false, provided_amount, operation_fees)
             } else {
                 (true, amount_to_repay_all_debt, all_debt_fees)
             };
         let debt_decrease_in_tokens = amount_to_take_from_borrower
-            .checked_sub(computed_fees.fee_sum)
+            .checked_sub(operation_fees.fee_sum)
             .map_over_or_underflow()?;
         let d_tokens_to_burn = if is_all_repaid {
             borrow_position.d_tokens
@@ -814,7 +818,8 @@ impl Obligation {
                 unpaid_interest,
             );
 
-            return Err(MCError::InternalError);
+            // return Err(MCError::InternalError); // For now, this only makes the experience worse due to a known valid case that yields
+            // this behavior
         } else if debt_decrease_in_tokens >= unpaid_interest {
             let new_originally_borrowed = if is_all_repaid {
                 0
@@ -851,7 +856,7 @@ impl Obligation {
             d_tokens_to_burn,
             debt_repaid: debt_decrease_in_tokens,
             amount_to_send_back,
-            computed_fees,
+            operation_fees,
         })
     }
 
@@ -893,16 +898,13 @@ impl Obligation {
                 .min(collateral_pool.config.health_config.max_liquidation_incentive_bps),
             borrow_pool.config.health_config.liquidation_close_factor_bps,
         );
-        let (borrowed_asset_price, collateral_asset_price, price_decimals) = (
+        let (borrowed_asset_price, collateral_asset_price) = (
             oracle::get_asset_price(e, &borrow_pool.token_address)?,
             oracle::get_asset_price(e, &collateral_pool.token_address)?,
-            10i128.pow(oracle::get_oracle_price_decimals(e)),
         );
-        let (insolvency_ltv_bps, min_collateral_value) = (
+        let (insolvency_ltv_bps, min_collateral_value_threshold) = (
             storage::get_insolvency_ltv_bps(e),
-            storage::get_min_collateral_value(e)
-                .checked_mul(price_decimals)
-                .map_over_or_underflow()?,
+            compute_min_collateral_threshold_scaled(e)?, // TODO: Fix for arbitrary price decimals
         );
         let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
 
@@ -925,7 +927,7 @@ impl Obligation {
                 .fixed_div_ceil(position_debt, BPS_FACTOR)
                 .map_over_or_underflow()?;
             if liquidated_borrow_bps > liquidation_close_factor_bps {
-                return Err(MCError::LiquidationExceedsCloseFactor);
+                return Err(MCError::InvalidLiquidationInputs);
             }
             // Count the maximum amount of sold collateral that improves LTV:
             // ----
@@ -998,7 +1000,7 @@ impl Obligation {
         let collateral_value_left =
             collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
 
-        let is_all_collateral_drained = if collateral_value_left < min_collateral_value {
+        let is_all_collateral_drained = if collateral_value_left < min_collateral_value_threshold {
             // If collateral(both plain collateral and supply shares) that's left is worth
             // less than the configured `min_collateral_value` on the market, the liquidator
             // additionally receives all of the collateral that's left
@@ -1141,23 +1143,30 @@ impl Obligation {
         Ok(())
     }
 
-    /// Accounts for the bad debt on the obligation
-    pub fn cover_bad_debt(&self, e: &Env) -> Result<CoverBadDebtResult, MCError> {
-        let mut borrows_to_be_compensated: Vec<(Address, i128)> = Vec::new(e);
-        for (pool_address, borrow_position) in self.borrows.iter() {
-            borrows_to_be_compensated.push_back((pool_address, borrow_position.d_tokens));
-        }
-
-        let mut collaterals_to_remove: Vec<(Address, i128, i128)> = Vec::new(e);
+    pub fn require_no_liquidatable_collateral_exists(&self, e: &Env) -> Result<(), MCError> {
         for (pool_address, deposit_position) in self.deposits.iter() {
-            collaterals_to_remove.push_back((
-                pool_address,
-                deposit_position.j_tokens,
-                deposit_position.collateral,
-            ));
+            let DepositPosition { j_tokens, collateral, .. } = deposit_position;
+            let pool = &storage::get_pool(e, &pool_address).ok_or_else(|| {
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+                MCError::InternalError
+            })?;
+
+            let token_address = &pool.token_address;
+            let price = get_asset_price(e, token_address)?;
+            let all_collateral = pool
+                .compute_tokens_from_j_tokens_floor(e, j_tokens)?
+                .checked_add(collateral)
+                .map_over_or_underflow()?;
+            let collateral_value = all_collateral.checked_mul(price).map_over_or_underflow()?;
+
+            let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
+            if collateral_value > min_collateral_value_threshold {
+                return Err(MCError::BadDebtCoverageCriterionIsNotMet);
+            }
         }
 
-        Ok(CoverBadDebtResult { borrows_to_be_compensated, collaterals_to_remove })
+        Ok(())
     }
 }
 
@@ -1307,7 +1316,7 @@ fn adjust_obligation_field(
 ) -> Result<i128, MCError> {
     let new_amount = current_value.checked_add(adjusting_amount).map_over_or_underflow()?;
 
-    if new_amount < 0 {
+    if new_amount.is_negative() {
         events::obligation_amount_becomes_negative(e, current_value, new_amount);
 
         return Err(MCError::InternalError);
@@ -1329,26 +1338,38 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     Ok(())
 }
 
-/// Computes operations fees
-///
-/// # Arguments
-/// * `original_amount` - original operation amount
-/// * `operation_fee_bps` - percentage of the original amount that is segregated for fees
-/// * `host_fee_bps` - percentage of the operation fee that is segregated for the host lending
-///   platform
-pub fn compute_fees(
+/// Computes the operation's one-time fees
+pub fn compute_operation_fees(
     original_amount: i128,
-    operation_fee_bps: u32,
-    host_fee_bps: u32,
-) -> Result<ComputedFees, MCError> {
-    let fee_sum = original_amount
-        .fixed_mul_floor(operation_fee_bps as i128, BPS_FACTOR)
-        .map_over_or_underflow()?;
-    let host_fee =
-        fee_sum.fixed_mul_floor(host_fee_bps as i128, BPS_FACTOR).map_over_or_underflow()?;
-    let market_fee = fee_sum.checked_sub(host_fee).map_over_or_underflow()?;
+    fee_bps: u32,
+    referrer: &Option<Address>,
+    pool_fee_config: &PoolFeeConfig,
+) -> Result<OperationFees, MCError> {
+    if fee_bps == 0 || original_amount == 0 {
+        return Ok(OperationFees { fee_sum: 0, referrer_fee: None });
+    }
 
-    Ok(ComputedFees { fee_sum, market_fee, host_fee })
+    // -- Calculate Total Fee --
+
+    let fee_sum =
+        original_amount.fixed_mul_ceil(fee_bps as i128, BPS_FACTOR).map_over_or_underflow()?;
+
+    // -- Calculate the Referrer Split --
+
+    let mut referrer_fee = None;
+    if let Some(referrer_addr) = referrer
+        && let Some(referrers_map) = &pool_fee_config.referrers
+        && let Some(referrer_share_bps) = referrers_map.get(referrer_addr.clone())
+        && referrer_share_bps != 0
+    {
+        referrer_fee = Some(
+            fee_sum
+                .fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR)
+                .map_over_or_underflow()?,
+        );
+    };
+
+    Ok(OperationFees { fee_sum, referrer_fee })
 }
 
 /// Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
@@ -1430,14 +1451,12 @@ fn compute_withdraw_scarcity_fee_bps(
 
 #[contracttype]
 #[derive(Clone)]
-/// Generally represents computed fees issued by any possible operation on a market
-pub struct ComputedFees {
-    /// Sum of `market_fee` and `host_fee`
+/// Represents operational one-time fees
+pub struct OperationFees {
+    /// Fee sum
     pub fee_sum: i128,
-    /// Fee segregated to the market admin
-    pub market_fee: i128,
-    /// Fee segregated to the protocol host(market deployer)
-    pub host_fee: i128,
+    /// Fee, immediately sent to the referrer if one is present
+    pub referrer_fee: Option<i128>,
 }
 
 #[contracttype]
@@ -1447,7 +1466,7 @@ pub struct DepositResult {
     pub j_tokens_to_issue: i128,
     /// Amount of originally deposited tokens(minus all possible fees)
     pub deposited: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1459,7 +1478,7 @@ pub struct BorrowResult {
     pub borrower_new_debt: i128,
     /// Amount of tokens to receive by the borrower(`borrower_new_debt` minus all fees)
     pub borrower_to_receive: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1467,7 +1486,7 @@ pub struct BorrowResult {
 pub struct AddCollateralResult {
     /// Amount of tokens added as collateral(minus all possible fees)
     pub added_collateral: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1480,7 +1499,7 @@ pub struct WithdrawResult {
     pub deposit_decrease: i128,
     /// Amount of tokens to receive by the withdrawer(`deposit_decreased_amount` minus fees)
     pub withdrawer_to_receive: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1493,7 +1512,7 @@ pub struct RepayResult {
     pub debt_repaid: i128,
     /// Excess amount given by the borrower that is sent back
     pub amount_to_send_back: i128,
-    pub computed_fees: ComputedFees,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1503,17 +1522,7 @@ pub struct RemoveCollateralResult {
     pub collateral_decrease: i128,
     /// Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
     pub collateral_remover_to_receive: i128,
-    pub computed_fees: ComputedFees,
-}
-
-#[contracttype]
-/// [`Obligation::cover_bad_debt`] resulting data
-pub struct CoverBadDebtResult {
-    /// `(pool address, borrower dTokens)` pairs for each bad debt obligation borrows
-    pub borrows_to_be_compensated: Vec<(Address, i128)>,
-    /// `(pool address, borrower jTokens, borrower collateral)` tuples for each bad debt obligation
-    /// collateral
-    pub collaterals_to_remove: Vec<(Address, i128, i128)>,
+    pub operation_fees: OperationFees,
 }
 
 #[contracttype]
@@ -1531,6 +1540,21 @@ pub struct LiquidationResult {
     pub tokens_from_j_tokens_seized: i128,
 }
 
+pub fn compute_min_collateral_threshold_scaled(e: &Env) -> Result<i128, MCError> {
+    let min_collat_cents = storage::get_min_collateral_value_cents(e);
+
+    let oracle_decimals = oracle::get_oracle_price_decimals(e); // e.g., 14
+    let token_decimals = 7; // TODO: Must be implemented for non-SAC assets as well
+    let total_scale = i128::pow(10, oracle_decimals + token_decimals);
+
+    let threshold = min_collat_cents
+        .checked_mul(total_scale)
+        .map_over_or_underflow()?
+        .checked_div(100)
+        .map_over_or_underflow()?;
+
+    Ok(threshold)
+}
 #[cfg(test)]
 mod tests {
     use soroban_sdk::{BytesN, Env};

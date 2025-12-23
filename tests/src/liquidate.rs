@@ -40,17 +40,20 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
         fixture.contract_client.add_collateral(
             &borrower,
             &collateral_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
         );
 
         fixture.contract_client.borrow(
             &borrower,
             &borrow_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 3), // Conservative 33% borrow ratio
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -77,13 +80,19 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &((3 * DEFAULT_DEPOSIT_AMOUNT) / 2),
+            &None,
         );
 
         let collateral = DEFAULT_DEPOSIT_AMOUNT;
         let borrow_amount = (DEFAULT_DEPOSIT_AMOUNT * 65) / 100; // 65% borrow ratio(default open LTV is 70%)
 
-        fixture.contract_client.add_collateral(&borrower, &collateral_pool_address, &collateral);
-        fixture.contract_client.borrow(&borrower, &borrow_pool_address, &borrow_amount);
+        fixture.contract_client.add_collateral(
+            &borrower,
+            &collateral_pool_address,
+            &collateral,
+            &None,
+        );
+        fixture.contract_client.borrow(&borrower, &borrow_pool_address, &borrow_amount, &None);
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
     }
@@ -101,17 +110,20 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
 
         fixture.contract_client.deposit(
             &borrower,
             &collateral_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
+            &None,
         );
         fixture.contract_client.borrow(
             &borrower,
             &fixture.usdc_pool_address,
             &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -130,22 +142,26 @@ impl LiquidationTest {
             &liquidity_provider,
             &borrow_pool_address,
             &(2 * DEFAULT_DEPOSIT_AMOUNT),
+            &None,
         );
 
         fixture.contract_client.add_collateral(
             &borrower,
             &collateral_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
         );
         fixture.contract_client.deposit(
             &borrower,
             &collateral_pool_address,
             &(DEFAULT_DEPOSIT_AMOUNT / 2),
+            &None,
         );
         fixture.contract_client.borrow(
             &borrower,
             &fixture.usdc_pool_address,
             &((DEFAULT_DEPOSIT_AMOUNT * 65) / 100), // 65% borrow ratio(default open LTV is 70%),
+            &None,
         );
 
         Self { fixture, borrower, liquidator, borrow_pool_address, collateral_pool_address }
@@ -371,7 +387,7 @@ fn test_liquidate_exceeds_close_factor_fails() {
             &over_limit_amount,
             &1,
         ),
-        Err(Ok(MCError::LiquidationExceedsCloseFactor))
+        Err(Ok(MCError::InvalidLiquidationInputs))
     );
 }
 

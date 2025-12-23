@@ -13,291 +13,315 @@ use crate::{
 #[contractevent]
 struct InitializePoolEvent {
     #[topic]
-    pub token_address: Address,
+    token_address: Address,
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub token_symbol: String,
+    token_symbol: String,
 }
 
 #[contractevent]
 struct InitializeMultiplyPairEvent {
     #[topic]
-    pub deposit_pool_address: Address,
+    deposit_pool_address: Address,
     #[topic]
-    pub borrow_pool_address: Address,
+    borrow_pool_address: Address,
 }
 
 #[contractevent]
 struct QueueInPoolConfigUpdate {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub pool_config: PoolConfig,
+    pool_config: PoolConfig,
 }
 
 #[contractevent]
 struct CancelPoolConfigUpdate {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
 }
 
 #[contractevent]
 struct ApplyPoolConfigUpdate {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
 }
 
 #[contractevent]
 struct BootstrapPoolEvent {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub sponsor: Address,
-    pub amount: i128,
-    pub period: (u64, u64),
+    sponsor: Address,
+    amount: i128,
+    period: (u64, u64),
 }
 
 #[contractevent]
 struct DepositEvent {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey,
-    pub deposit_result: DepositResult,
+    obligation_key: ObligationKey,
+    deposit_result: DepositResult,
 }
 
 // TODO: TO BE REMOVED
 #[contractevent]
 struct SwapEvent {
     #[topic]
-    pub user: Address,
+    user: Address,
     #[topic]
-    pub token_in: Address,
+    token_in: Address,
     #[topic]
-    pub token_out: Address,
-    pub amount_in: i128,
-    pub amount_out: i128,
-    pub received_amount: i128,
+    token_out: Address,
+    amount_in: i128,
+    amount_out: i128,
+    received_amount: i128,
 }
 
 #[contractevent]
 struct BorrowEvent {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey,
-    pub borrow_result: BorrowResult,
+    obligation_key: ObligationKey,
+    borrow_result: BorrowResult,
 }
 
 #[contractevent]
 struct AddCollateralEvent {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey,
-    pub add_collateral_result: AddCollateralResult,
+    obligation_key: ObligationKey,
+    add_collateral_result: AddCollateralResult,
 }
 
 #[contractevent]
 struct RepayEvent {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey,
-    pub repay_result: RepayResult,
+    obligation_key: ObligationKey,
+    repay_result: RepayResult,
 }
 
 #[contractevent]
 struct LiquidateEvent {
     #[topic]
-    pub liquidator: Address,
+    liquidator: Address,
     #[topic]
-    pub borrower_obligation_key: ObligationKey,
+    borrower_obligation_key: ObligationKey,
     #[topic]
-    pub borrow_pool_address: Address,
+    borrow_pool_address: Address,
     #[topic]
-    pub collateral_pool_address: Address,
-    pub liquidation_result: LiquidationResult,
+    collateral_pool_address: Address,
+    liquidation_result: LiquidationResult,
 }
 
 #[contractevent]
 struct RemoveCollateralEvent {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey,
-    pub remove_collateral_result: RemoveCollateralResult,
+    obligation_key: ObligationKey,
+    remove_collateral_result: RemoveCollateralResult,
 }
 
 #[contractevent]
 struct WithdrawEvent {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub obligation_key: ObligationKey,
-    pub withdraw_result: WithdrawResult,
+    obligation_key: ObligationKey,
+    withdraw_result: WithdrawResult,
 }
 
 #[contractevent]
 struct FlashLoanEvent {
     #[topic]
-    pub contract: Address,
+    contract: Address,
     #[topic]
-    pub pool_address: Address,
-    pub amount: i128,
-    pub fees_paid: i128,
+    pool_address: Address,
+    amount: i128,
+    fees_paid: i128,
 }
 
 #[contractevent]
 struct DepositWithLeverageEvent {
     #[topic]
-    pub obligation_key: ObligationKey,
+    obligation_key: ObligationKey,
     #[topic]
-    pub deposit_pool_address: Address,
+    deposit_pool_address: Address,
     #[topic]
-    pub borrow_pool_address: Address,
-    pub original_amount: i128,
-    pub leverage_multiplier: u32,
-    pub total_deposited_amount: i128,
-    pub total_borrowed_amount: i128,
+    borrow_pool_address: Address,
+    original_amount: i128,
+    leverage_multiplier: u32,
+    total_deposited_amount: i128,
+    total_borrowed_amount: i128,
 }
 
 #[contractevent]
 struct WithdrawFromLeveragedEvent {
     #[topic]
-    pub obligation_key: ObligationKey,
+    obligation_key: ObligationKey,
     #[topic]
-    pub deposit_pool_address: Address,
+    deposit_pool_address: Address,
     #[topic]
-    pub borrow_pool_address: Address,
-    pub withdrawn_to_wallet_amount: i128,
-    pub deposit_reduced_amount: i128,
-    pub borrow_reduced_amount: i128,
+    borrow_pool_address: Address,
+    withdrawn_to_wallet_amount: i128,
+    deposit_reduced_amount: i128,
+    borrow_reduced_amount: i128,
 }
 
 #[contractevent]
 struct AccrueInterestEvent {
     #[topic]
-    pub user: Address,
+    user: Address,
 }
 
 // ----- Internal Error Events -----
 
 #[contractevent]
 struct LedgerTimestampError {
-    pub current_timestamp: u64,
-    pub stored_timestamp: u64,
+    current_timestamp: u64,
+    stored_timestamp: u64,
 }
 
 #[contractevent]
 struct LeveragedPositionBadDebt {
     #[topic]
-    pub user: Address,
+    user: Address,
     #[topic]
-    pub deposit_pool_address: Address,
+    deposit_pool_address: Address,
     #[topic]
-    pub borrow_pool_address: Address,
-    pub deposited_amount: i128,
-    pub borrowed_amount: i128,
-    pub deposited_amount_swapped: i128,
+    borrow_pool_address: Address,
+    deposited_amount: i128,
+    borrowed_amount: i128,
+    deposited_amount_swapped: i128,
 }
 
 #[contractevent]
 struct LeverageExceedsBorrowCapacity {
     #[topic]
-    pub user: Address,
+    user: Address,
     #[topic]
-    pub flash_borrow_amount: i128,
-    pub flash_repay_amount: i128,
-    pub max_healthy_borrow_amount: i128,
+    flash_borrow_amount: i128,
+    flash_repay_amount: i128,
+    max_healthy_borrow_amount: i128,
 }
 
 #[contractevent]
 struct UtilizationRatioExceedsLimit {
-    pub utilization_ratio_bps: i128,
-    pub utilization_ratio_limit_bps: i128,
+    utilization_ratio_bps: i128,
+    utilization_ratio_limit_bps: i128,
 }
 
 #[contractevent]
 struct PoolIsMissingInStorage {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
 }
 
 #[contractevent]
 struct ObligationIsMissingInStorage {
     #[topic]
-    pub obligation_key: ObligationKey,
+    obligation_key: ObligationKey,
 }
 
 #[contractevent]
 struct ObligationAmntBecomesNegative {
-    pub old_amount: i128,
-    pub new_amount: i128,
+    old_amount: i128,
+    new_amount: i128,
 }
 
 #[contractevent]
 struct PoolAmountBecomesNegative {
-    pub old_amount: i128,
-    pub new_amount: i128,
+    old_amount: i128,
+    new_amount: i128,
 }
 
 #[contractevent]
 struct PoolInconsistentTotalShares {
-    pub total_shares: i128,
-    pub individual_shares: i128,
+    total_shares: i128,
+    individual_shares: i128,
 }
 
 #[contractevent]
 struct PoolInconsistentTotalTokens {
-    pub total_shares: i128,
-    pub total_tokens: i128,
+    total_shares: i128,
+    total_tokens: i128,
 }
 
 #[contractevent]
 struct PoolContainsInconsistentState {
-    pub pool: Pool,
+    pool: Pool,
 }
 
 #[contractevent]
 struct ObligationIsUnexpectedlyEmpty {
     #[topic]
-    pub obligation_key: ObligationKey,
+    obligation_key: ObligationKey,
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
 }
 
 #[contractevent]
 struct ComputedInterestIsNegative {
     #[topic]
-    pub pool_address: Address,
-    pub position_shares: i128,
-    pub tokens_from_shares_ceil: i128,
-    pub computed_interest: i128,
+    pool_address: Address,
+    position_shares: i128,
+    tokens_from_shares_ceil: i128,
+    computed_interest: i128,
 }
 
 #[contractevent]
 struct PositionsCountBecomesNegative {
     #[topic]
-    pub pool_address: Address,
+    pool_address: Address,
     #[topic]
-    pub obligation: Obligation,
+    obligation: Obligation,
 }
 
 #[contractevent]
 struct ReceivedUnexpectedSwapAmount {
     #[topic]
-    pub user: Address,
+    user: Address,
     #[topic]
-    pub token_in: Address,
+    token_in: Address,
     #[topic]
-    pub token_out: Address,
-    pub amount_in: i128,
-    pub amount_out: i128,
-    pub expected_amount_in: i128,
-    pub expected_amount_out: i128,
+    token_out: Address,
+    amount_in: i128,
+    amount_out: i128,
+    expected_amount_in: i128,
+    expected_amount_out: i128,
 }
+
+#[contractevent]
+struct InconsistentImmediateCoverage {
+    #[topic]
+    obligation_key: ObligationKey,
+    #[topic]
+    pool_address: Address,
+    #[topic]
+    balance_diff: i128,
+    debt_amount: i128,
+}
+
+#[contractevent]
+struct InsuranceFundMissingRequest {
+    #[topic]
+    obligation_key: ObligationKey,
+    #[topic]
+    pool_address: Address,
+    #[topic]
+    request_id: u64,
+}
+
+#[contractevent]
+struct ReferrerIsUnexpectedlyMissing {}
 
 // --- Methods that abstract how events are published ---
 
@@ -697,6 +721,40 @@ pub fn received_unexpected_swap_amount(
         expected_amount_out,
     }
     .publish(e);
+}
+
+pub fn inconsistent_immediate_insurance_fund_coverage(
+    e: &Env,
+    obligation_key: &ObligationKey,
+    pool_address: &Address,
+    balance_diff: i128,
+    debt_amount: i128,
+) {
+    InconsistentImmediateCoverage {
+        obligation_key: obligation_key.clone(),
+        pool_address: pool_address.clone(),
+        balance_diff,
+        debt_amount,
+    }
+    .publish(e);
+}
+
+pub fn insurance_fund_missing_request(
+    e: &Env,
+    obligation_key: &ObligationKey,
+    pool_address: &Address,
+    request_id: u64,
+) {
+    InsuranceFundMissingRequest {
+        obligation_key: obligation_key.clone(),
+        pool_address: pool_address.clone(),
+        request_id,
+    }
+    .publish(e);
+}
+
+pub fn referrer_is_unexpectedly_missing(e: &Env) {
+    ReferrerIsUnexpectedlyMissing {}.publish(e);
 }
 
 // --- Helper Functions  ---

@@ -19,7 +19,7 @@ pub struct GlobalState {
     pub deployer: Address,
     pub max_positions: u32,
     pub insolvency_ltv_bps: i128,
-    pub min_collateral_value: i128,
+    pub min_collateral_value_cents: i128,
     pub update_in_queue_period: Option<u64>,
 }
 
@@ -29,10 +29,28 @@ pub enum MarketStatus {
     Active,
     /// Borrow operations are prohibited
     BorrowFrozen,
+    /// Borrow operations are prohibited and IF cannot over-write
+    BorrowFrozenByAdmin,
     /// Borrowing and depositing operations on the market are prohibited
     DepositFrozen,
+    /// Borrowing and depositing operations on the market are prohibited and IF cannot over-write
+    DepositFrozenByAdmin,
     /// All operations on the market are prohibited
     Frozen,
+    /// All operations on the market are prohibited and IF cannot over-write
+    FrozenByAdmin,
+}
+
+impl MarketStatus {
+    /// Returns [`true`] if status is a "hard lock" that only Market Admin can move from
+    pub fn is_admin_protected(&self) -> bool {
+        matches!(
+            self,
+            MarketStatus::BorrowFrozenByAdmin
+                | MarketStatus::DepositFrozenByAdmin
+                | MarketStatus::FrozenByAdmin
+        )
+    }
 }
 
 impl TryFrom<u32> for MarketStatus {
@@ -42,8 +60,11 @@ impl TryFrom<u32> for MarketStatus {
         let market_status = match value {
             0 => MarketStatus::Active,
             1 => MarketStatus::BorrowFrozen,
-            2 => MarketStatus::DepositFrozen,
-            3 => MarketStatus::Frozen,
+            2 => MarketStatus::BorrowFrozenByAdmin,
+            3 => MarketStatus::DepositFrozen,
+            4 => MarketStatus::DepositFrozenByAdmin,
+            5 => MarketStatus::Frozen,
+            6 => MarketStatus::FrozenByAdmin,
             _ => return Err(MCError::InvalidMarketStatusUpdate),
         };
 
@@ -62,24 +83,25 @@ pub struct PoolUpdate {
 pub enum DataKey {
     Name,
     Admin,
-    UpdateInQueuePeriod,
-    IsOwned,
-    DeployerHost,
     Oracle,
-    MinCollateralValue,
-    InsolvencyLtvBps,
-    MaxPositions,
-    GlobalState,
     Accrual,
+    IsOwned,
     AllPools,
-    AllObligations,
-    AllMultiplyPairs,
+    GlobalState,
+    DeployerHost,
+    MaxPositions,
     MarketStatus,
-    ConfigUpdate(Address),
     Pool(Address),
+    InsuranceFund,
+    AllObligations,
+    InsolvencyLtvBps,
+    AllMultiplyPairs,
+    EarnObligationSeed,
+    MinCollateralValueCents,
+    UpdateInQueuePeriod,
+    ConfigUpdate(Address),
     Obligation(ObligationKey),
     MultiplyPair((Address, Address)),
-    EarnObligationSeed,
 }
 
 // -- TTL Bumpers --
@@ -109,6 +131,14 @@ pub fn get_oracle(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
 }
 
+// - InsuranceFund -
+pub fn set_insurance_fund(e: &Env, insurance_fund: &Address) {
+    e.storage().instance().set(&DataKey::InsuranceFund, &insurance_fund)
+}
+pub fn get_insurance_fund(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::InsuranceFund).expect("InsuranceFund must be set")
+}
+
 // - UpdateInQueuePeriod -
 pub fn set_update_in_queue_period(e: &Env, update_in_queue_period: Option<u64>) {
     e.storage().instance().set(&DataKey::UpdateInQueuePeriod, &update_in_queue_period)
@@ -127,15 +157,15 @@ pub fn get_max_positions(e: &Env) -> u32 {
     e.storage().instance().get(&DataKey::MaxPositions).expect("MaxPositions must be set")
 }
 
-// - MinCollateralValue -
-pub fn set_min_collateral_value(e: &Env, min_collateral_value: i128) {
-    e.storage().instance().set(&DataKey::MinCollateralValue, &min_collateral_value);
+// - MinCollateralValueCents -
+pub fn set_min_collateral_value_cents(e: &Env, min_collateral_value_cents: i128) {
+    e.storage().instance().set(&DataKey::MinCollateralValueCents, &min_collateral_value_cents);
 }
-pub fn get_min_collateral_value(e: &Env) -> i128 {
+pub fn get_min_collateral_value_cents(e: &Env) -> i128 {
     e.storage()
         .instance()
-        .get(&DataKey::MinCollateralValue)
-        .expect("MinCollateralValue must be set")
+        .get(&DataKey::MinCollateralValueCents)
+        .expect("MinCollateralValueCents must be set")
 }
 
 // - InsolvencyLtvBps -
@@ -250,7 +280,7 @@ pub fn queue_in_pool_config_update(
     }
 
     let pool_update =
-        PoolUpdate { new_config: *config, queued_in_timestamp: e.ledger().timestamp() };
+        PoolUpdate { new_config: config.clone(), queued_in_timestamp: e.ledger().timestamp() };
     e.storage().persistent().set(&key, &pool_update);
 
     Ok(())

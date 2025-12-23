@@ -26,8 +26,13 @@ fn test_interest_rates() {
     let debtor = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(
+        debtor,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // -- Move time --
     e.ledger().with_mut(|li| li.timestamp += 1);
@@ -40,35 +45,35 @@ fn test_interest_rates() {
     assert_eq!(supply_bps, 00_00);
 
     // Borrow 50% of the deposited value
-    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
 
     let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 23_89);
     assert_eq!(rates.supply_bps, 10_10);
 
     // Borrow 75% of the deposited value
-    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
 
     let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 56_83);
     assert_eq!(rates.supply_bps, 35_48);
 
     // Borrow 80% of the deposited value
-    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 20), &None);
 
     let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 82_21);
     assert_eq!(rates.supply_bps, 54_03);
 
     // Borrow 90% of the deposited value
-    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10), &None);
 
     let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 897_41);
     assert_eq!(rates.supply_bps, 544_30);
 
     // Borrow 100% of the deposited value
-    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10), &None);
 
     let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.supply_bps, 355_982);
@@ -91,11 +96,16 @@ fn test_interest_rates_no_take_rate() {
     let debtor = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.add_collateral(debtor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(
+        debtor,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // Borrow 100% of the deposited value
-    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 535_981);

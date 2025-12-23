@@ -1,3 +1,4 @@
+use insurance_fund_trait::{CoverageStatus, InsuranceFundClient, IssueRequestResult};
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
@@ -12,7 +13,7 @@ use crate::{
     math_utils::MathUtils,
     misc::require_nonnegative,
     multiply_pair::MultiplyPair,
-    obligation::{CoverBadDebtResult, Obligation, ObligationKey, WithdrawResult},
+    obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
     request::{Request, RequestTransfers, RequestType},
     storage::{self, GlobalState},
@@ -24,23 +25,33 @@ pub fn process_submit_requests_batch<'a>(
     user: &'a Address,
     requests: &Vec<Request>,
     obligation_key: &'a ObligationKey,
+    referrer: &'a Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    let mut transfers = RequestTransfers::new(e, user.clone(), smap![&e], smap![&e]);
+    let mut transfers =
+        RequestTransfers::new(e, user.clone(), smap![&e], smap![&e], referrer.clone());
 
     for request in requests {
         let Request { request_type, pool_address, amount } = request;
         let request_type = RequestType::try_from(request_type)?;
 
         let new_transfers = match request_type {
-            RequestType::Deposit => process_deposit(e, obligation_key, &pool_address, amount)?,
-            RequestType::Borrow => process_borrow(e, obligation_key, &pool_address, amount)?,
-            RequestType::Withdraw => process_withdraw(e, obligation_key, &pool_address, amount)?,
-            RequestType::Repay => process_repay(e, obligation_key, &pool_address, amount)?,
+            RequestType::Deposit => {
+                process_deposit(e, obligation_key, &pool_address, amount, referrer)?
+            }
+            RequestType::Borrow => {
+                process_borrow(e, obligation_key, &pool_address, amount, referrer)?
+            }
+            RequestType::Withdraw => {
+                process_withdraw(e, obligation_key, &pool_address, amount, referrer)?
+            }
+            RequestType::Repay => {
+                process_repay(e, obligation_key, &pool_address, amount, referrer)?
+            }
             RequestType::AddCollateral => {
-                process_add_collateral(e, obligation_key, &pool_address, amount)?
+                process_add_collateral(e, obligation_key, &pool_address, amount, referrer)?
             }
             RequestType::RemoveCollateral => {
-                process_remove_collateral(e, obligation_key, &pool_address, amount)?
+                process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)?
             }
         };
 
@@ -59,7 +70,7 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
     let status = storage::get_market_status(e) as u32;
     let is_owned = update_in_queue_period.is_some();
     let max_positions = storage::get_max_positions(e);
-    let min_collateral_value = storage::get_min_collateral_value(e);
+    let min_collateral_value_cents = storage::get_min_collateral_value_cents(e);
     let insolvency_ltv_bps = storage::get_insolvency_ltv_bps(e);
 
     GlobalState {
@@ -71,7 +82,7 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
         is_owned,
         max_positions,
         insolvency_ltv_bps,
-        min_collateral_value,
+        min_collateral_value_cents,
         update_in_queue_period,
     }
 }
@@ -96,9 +107,9 @@ pub fn process_initialize_pool(
                 return Err(MCError::InvalidLoanPoolConfig);
             }
 
-            *cfg
+            cfg.clone()
         }
-        None => Default::default(),
+        None => PoolConfig::default(),
     };
 
     let token_client = TokenClient::new(e, token_address);
@@ -114,9 +125,8 @@ pub fn process_initialize_pool(
         total_available: 0,
         total_collateral: 0,
 
-        accumulated_host_fees: 0,
-        accumulated_market_fees: 0,
-        accumulated_reserve_fees: 0,
+        operation_fees_sum: 0,
+        take_rate_fees_sum: 0,
 
         name,
         config: pool_config,
@@ -204,6 +214,7 @@ pub fn process_deposit<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
@@ -224,8 +235,9 @@ pub fn process_deposit<'a>(
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
     obligation.require_no_borrow_position_exists(pool_address)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
-    let deposit_result = obligation.deposit(e, &pool, amount)?;
+    let deposit_result = obligation.deposit(e, &pool, amount, referrer)?;
     pool.deposit(e, &deposit_result)?;
 
     obligation.set(e, obligation_key);
@@ -235,6 +247,7 @@ pub fn process_deposit<'a>(
         e,
         obligation_key.user.clone(),
         smap![&e, (pool.token_address, amount)],
+        referrer.clone(),
     );
 
     events::deposit(e, pool_address, obligation_key, deposit_result);
@@ -247,10 +260,12 @@ pub fn process_borrow<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_deposit_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
 
@@ -258,7 +273,7 @@ pub fn process_borrow<'a>(
     pool.require_borrow_enabled()?;
     pool.accrue_interest(e)?;
 
-    let borrow_result = obligation.borrow(e, &pool, amount)?;
+    let borrow_result = obligation.borrow(e, &pool, amount, referrer)?;
     pool.borrow(e, &borrow_result)?;
 
     obligation.set(e, obligation_key);
@@ -268,6 +283,7 @@ pub fn process_borrow<'a>(
         e,
         obligation_key.user.clone(),
         smap![&e, (pool.token_address, borrow_result.borrower_to_receive)],
+        referrer.clone(),
     );
 
     events::borrow(e, pool_address, obligation_key, borrow_result);
@@ -280,17 +296,19 @@ pub fn process_add_collateral<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.require_no_borrow_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let add_collateral_result = obligation.add_collateral(e, &pool, amount)?;
+    let add_collateral_result = obligation.add_collateral(e, &pool, amount, referrer)?;
     pool.add_collateral(e, &add_collateral_result)?;
 
     obligation.set(e, obligation_key);
@@ -300,6 +318,7 @@ pub fn process_add_collateral<'a>(
         e,
         obligation_key.user.clone(),
         smap![&e, (pool.token_address, amount)],
+        referrer.clone(),
     );
 
     events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
@@ -312,15 +331,17 @@ pub fn process_repay<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let repay_result = obligation.repay(e, &pool, amount)?;
+    let repay_result = obligation.repay(e, &pool, amount, referrer)?;
     pool.repay(e, &repay_result)?;
 
     if obligation.is_empty() {
@@ -339,8 +360,13 @@ pub fn process_repay<'a>(
     // amount), contract => borrower(excess amount). See - <https://discord.com/channels/897514728459468821/1424779244189520145>
     let user_transfers = smap![e, (pool.token_address.clone(), amount)];
     let market_transfers = smap![e, (pool.token_address, repay_result.amount_to_send_back)];
-    let transfers =
-        RequestTransfers::new(e, obligation_key.user.clone(), market_transfers, user_transfers);
+    let transfers = RequestTransfers::new(
+        e,
+        obligation_key.user.clone(),
+        market_transfers,
+        user_transfers,
+        referrer.clone(),
+    );
 
     events::repay(e, pool_address, obligation_key, repay_result);
 
@@ -352,15 +378,17 @@ pub fn process_remove_collateral<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
 
-    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount)?;
+    let remove_collateral_result = obligation.remove_collateral(e, &pool, amount, referrer)?;
     pool.remove_collateral(e, &remove_collateral_result)?;
 
     pool.set(e);
@@ -375,6 +403,7 @@ pub fn process_remove_collateral<'a>(
         e,
         obligation_key.user.clone(),
         smap![e, (pool.token_address, remove_collateral_result.collateral_remover_to_receive)],
+        referrer.clone(),
     );
 
     events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
@@ -387,14 +416,16 @@ pub fn process_withdraw<'a>(
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    let withdraw_result = obligation.withdraw(e, &pool, amount)?;
+    let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
     pool.withdraw(e, &withdraw_result)?;
 
     if obligation.is_empty() {
@@ -409,6 +440,7 @@ pub fn process_withdraw<'a>(
         e,
         obligation_key.user.clone(),
         smap![e, (pool.token_address, withdraw_result.withdrawer_to_receive)],
+        referrer.clone(),
     );
 
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
@@ -416,16 +448,18 @@ pub fn process_withdraw<'a>(
     Ok(transfers)
 }
 
-pub fn process_compute_withdraw_fees(
+pub fn process_simulate_withdraw(
     e: &Env,
     obligation_key: &ObligationKey,
     pool_address: &Address,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<WithdrawResult, MCError> {
     let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     let pool = Pool::try_get(e, pool_address)?;
 
-    let withdraw_result = obligation.withdraw(e, &pool, amount)?;
+    let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
 
     Ok(withdraw_result)
 }
@@ -464,7 +498,7 @@ pub fn process_flash_loan(
         &amount_to_repay,
     );
 
-    pool.adjust_accumulated_market_fees(e, fees)?;
+    pool.adjust_operation_fees_sum(e, fees)?;
     pool.set(e);
 
     events::flash_loan(e, contract, pool_address, amount, fees);
@@ -479,6 +513,7 @@ pub fn process_deposit_with_leverage(
     deposit_as_margin: bool,
     amount: i128,
     leverage_multiplier: u32,
+    referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
@@ -598,7 +633,8 @@ pub fn process_deposit_with_leverage(
     } else {
         received_amount
     };
-    process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount)?.execute_transfers();
+    process_deposit(e, obligation_key, &pair.deposit_pool, deposit_amount, referrer)?
+        .execute_transfers(e)?;
 
     // -- Borrow to repay the flash loan --
 
@@ -622,7 +658,8 @@ pub fn process_deposit_with_leverage(
         return Err(MCError::InconsistentDepositWithLeverage);
     }
 
-    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount)?.execute_transfers();
+    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount, referrer)?
+        .execute_transfers(e)?;
     borrow_pool.refresh(e)?;
 
     // -- Flash Repay --
@@ -634,7 +671,7 @@ pub fn process_deposit_with_leverage(
     );
 
     borrow_pool.adjust_total_available(e, flash_borrow_amount)?;
-    borrow_pool.adjust_accumulated_market_fees(e, flash_loan_fee)?;
+    borrow_pool.adjust_operation_fees_sum(e, flash_loan_fee)?;
 
     borrow_pool.set(e);
 
@@ -657,6 +694,7 @@ pub fn process_withdraw_from_leveraged(
     obligation_key: &ObligationKey,
     pair: &MultiplyPair,
     amount: i128,
+    referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
@@ -690,8 +728,8 @@ pub fn process_withdraw_from_leveraged(
     );
 
     if borrow_position.is_empty() {
-        process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount)?
-            .execute_transfers();
+        process_withdraw(e, obligation_key, &deposit_pool.pool_address, amount, referrer)?
+            .execute_transfers(e)?;
 
         return Ok(());
     }
@@ -764,7 +802,7 @@ pub fn process_withdraw_from_leveraged(
 
     // -- Repay Debt --
 
-    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount)?;
+    process_repay(e, obligation_key, &borrow_pool.pool_address, flash_borrow_amount, referrer)?;
     borrow_pool.refresh(e)?;
 
     // -- Withdraw plain leverage --
@@ -774,6 +812,7 @@ pub fn process_withdraw_from_leveraged(
         obligation_key,
         &deposit_pool.pool_address,
         plain_leverage_to_be_withdrawn,
+        referrer,
     )?;
     deposit_pool.refresh(e)?;
 
@@ -815,8 +854,9 @@ pub fn process_withdraw_from_leveraged(
         obligation_key,
         &deposit_pool.pool_address,
         withdrawn_to_user_wallet_amount,
+        referrer,
     )?
-    .execute_transfers();
+    .execute_transfers(e)?;
 
     let total_withdrawn_amount = withdrawn_to_user_wallet_amount
         .checked_add(plain_leverage_to_be_withdrawn)
@@ -855,6 +895,7 @@ pub fn process_liquidate<'a>(
     }
 
     let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
     let (mut borrow_pool, mut collateral_pool) = (
@@ -904,7 +945,8 @@ pub fn process_liquidate<'a>(
         e,
         (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized)
     ];
-    let transfers = RequestTransfers::new(e, liquidator.clone(), market_transfers, user_transfers);
+    let transfers =
+        RequestTransfers::new(e, liquidator.clone(), market_transfers, user_transfers, None);
 
     events::liquidate(
         e,
@@ -918,122 +960,260 @@ pub fn process_liquidate<'a>(
     Ok(transfers)
 }
 
-pub fn process_redeem_accumulated_host_fees(
+pub fn process_issue_cover_bad_debt(
     e: &Env,
-    user: &Address,
-    pool_address: &Address,
-    amount: i128,
+    obligation_key: &ObligationKey,
 ) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(e, pool_address)?;
-    let fees_to_be_redeemed = i128::min(amount, pool.accumulated_host_fees);
-
-    pool.adjust_accumulated_host_fees(
-        e,
-        fees_to_be_redeemed.checked_neg().map_over_or_underflow()?,
-    )?;
-    pool.set(e);
-
-    let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &fees_to_be_redeemed);
-
-    Ok(())
-}
-
-pub fn process_redeem_accumulated_market_fees(
-    e: &Env,
-    user: &Address,
-    pool_address: &Address,
-    amount: i128,
-) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(e, pool_address)?;
-    let fees_to_be_redeemed = i128::min(amount, pool.accumulated_market_fees);
-
-    pool.adjust_accumulated_market_fees(
-        e,
-        fees_to_be_redeemed.checked_neg().map_over_or_underflow()?,
-    )?;
-    pool.set(e);
-
-    let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &fees_to_be_redeemed);
-
-    Ok(())
-}
-
-pub fn process_cover_obligation_bad_debt_and_socialize_any_remaining_loss(
-    e: &Env,
-    obligation_key: ObligationKey,
-) -> Result<(), MCError> {
-    let obligation = Obligation::try_get(e, &obligation_key)?;
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.accrue_interest(e)?;
     obligation.require_borrow_exists()?;
     obligation.require_no_liquidatable_collateral_exists(e)?;
+    obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
-    let CoverBadDebtResult { borrows_to_be_compensated, collaterals_to_remove } =
-        obligation.cover_bad_debt(e)?;
+    let insurance_fund = storage::get_insurance_fund(e);
+    let insurance_fund_client = insurance_fund_trait::InsuranceFundClient::new(e, &insurance_fund);
 
-    for (pool_address, d_tokens) in borrows_to_be_compensated {
+    let mut borrow_positions_pools_to_remove: Vec<Address> = Vec::new(e);
+    for (pool_address, borrow_position) in obligation.borrows.iter() {
+        let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
+            events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+            MCError::InternalError
+        })?;
+        let obligation_pool_debt =
+            pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
+        let token_client = token::Client::new(e, &pool.token_address);
+        let market_balance_before = token_client.balance(&e.current_contract_address());
+
+        match insurance_fund_client.request_coverage(&pool.token_address, &obligation_pool_debt) {
+            IssueRequestResult::Recorded(request_id) => {
+                if obligation
+                    .insurance_fund_requests_ids
+                    .contains_key((pool_address.clone(), request_id))
+                {
+                    // TODO: Add event
+
+                    return Err(MCError::DependencyContractError);
+                }
+                obligation.insurance_fund_requests_ids.set((pool_address, request_id), ());
+            }
+            IssueRequestResult::Immediate(_covered_amount) => {
+                // TODO: Account for cases when `covered_amount` is smaller
+                let market_balance_after = token_client.balance(&e.current_contract_address());
+                let diff = market_balance_after - market_balance_before; // safe
+                if diff != obligation_pool_debt {
+                    // TODO: Remove
+                    events::inconsistent_immediate_insurance_fund_coverage(
+                        e,
+                        obligation_key,
+                        &pool_address,
+                        diff,
+                        obligation_pool_debt,
+                    );
+
+                    return Err(MCError::DependencyContractError);
+                }
+
+                pool.adjust_total_available(e, obligation_pool_debt)?;
+                pool.adjust_total_borrowed(
+                    e,
+                    obligation_pool_debt.checked_neg().map_over_or_underflow()?,
+                )?;
+                pool.adjust_total_d_tokens(
+                    e,
+                    borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
+                )?;
+
+                pool.set(e);
+                borrow_positions_pools_to_remove.push_back(pool_address);
+            }
+        }
+    }
+
+    for pool_address in borrow_positions_pools_to_remove {
+        obligation.try_remove_borrow_position(e, &pool_address)?;
+    }
+
+    // -- Use all non-liquidatable collateral to benefit suppliers --
+
+    let mut deposit_positions_pools_to_remove: Vec<Address> = Vec::new(e);
+
+    for (pool_address, deposit_position) in obligation.deposits.iter() {
         let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
             events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
             MCError::InternalError
         })?;
 
-        let obligation_pool_debt = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
-        let available_reserve_fees = pool.available_accumulated_reserve_fees();
-
-        let debt_can_be_covered = i128::min(obligation_pool_debt, available_reserve_fees);
-        let d_tokens_can_be_covered =
-            pool.compute_d_tokens_from_tokens_floor(debt_can_be_covered)?;
-
-        // -- Cover what can be covered from the reserves --
-
-        pool.adjust_total_available(e, debt_can_be_covered)?;
-        pool.adjust_total_borrowed(e, debt_can_be_covered.checked_neg().map_over_or_underflow()?)?;
-        pool.adjust_accumulated_reserve_fees(
+        pool.adjust_total_available(e, deposit_position.collateral)?;
+        pool.adjust_total_collateral(
             e,
-            debt_can_be_covered.checked_neg().map_over_or_underflow()?,
+            deposit_position.collateral.checked_neg().map_over_or_underflow()?,
         )?;
-        pool.adjust_total_d_tokens(
+        pool.adjust_total_j_tokens(
             e,
-            d_tokens_can_be_covered.checked_neg().map_over_or_underflow()?,
+            deposit_position.j_tokens.checked_neg().map_over_or_underflow()?,
         )?;
 
-        // -- Socialize all remaining bad debt --
+        pool.set(e);
+        deposit_positions_pools_to_remove.push_back(pool_address);
+    }
 
-        if obligation_pool_debt > debt_can_be_covered {
-            let left_to_socialize = obligation_pool_debt - debt_can_be_covered; // safe
-            let d_tokens_left =
-                d_tokens.checked_sub(d_tokens_can_be_covered).map_over_or_underflow()?;
+    for pool_address in deposit_positions_pools_to_remove {
+        obligation.try_remove_deposit_position(e, &pool_address)?;
+    }
 
-            pool.adjust_total_borrowed(
+    if obligation.is_empty() {
+        obligation.remove(e, obligation_key);
+    } else {
+        obligation.set(e, obligation_key);
+    }
+
+    Ok(())
+}
+
+pub fn process_claim_cover_bad_debt_results(
+    e: &Env,
+    obligation_key: &ObligationKey,
+) -> Result<(), MCError> {
+    let mut obligation = Obligation::try_get(e, obligation_key)?;
+    obligation.accrue_interest(e)?;
+
+    let insurance_fund = storage::get_insurance_fund(e);
+    let insurance_fund_client = InsuranceFundClient::new(e, &insurance_fund);
+
+    let mut completed_requests: Vec<(Address, u64)> = Vec::new(e);
+
+    for ((pool_address, request_id), _) in obligation.insurance_fund_requests_ids.iter() {
+        let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
+            events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+            MCError::InternalError
+        })?;
+
+        let request_status = insurance_fund_client.get_status(&request_id).ok_or_else(|| {
+            events::insurance_fund_missing_request(e, obligation_key, &pool_address, request_id);
+            MCError::DependencyContractError
+        })?;
+
+        if let CoverageStatus::Ready(approved_amount) = request_status {
+            let token_client = token::Client::new(e, &pool.token_address);
+            let balance_before = token_client.balance(&e.current_contract_address());
+
+            insurance_fund_client.claim_coverage(&request_id);
+
+            let balance_after = token_client.balance(&e.current_contract_address());
+            let actual_received = balance_after - balance_before;
+
+            if actual_received != approved_amount {
+                // TODO: Add event
+
+                return Err(MCError::DependencyContractError);
+            }
+
+            let borrow_position =
+                obligation.borrows.get(pool_address.clone()).ok_or(MCError::InternalError)?;
+
+            let total_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
+            let covered_amount = i128::min(total_debt, actual_received);
+
+            // -- Socialize losses --
+
+            pool.adjust_total_available(e, covered_amount)?;
+            pool.adjust_total_borrowed(e, total_debt.checked_neg().map_over_or_underflow()?)?;
+            pool.adjust_total_d_tokens(
                 e,
-                left_to_socialize.checked_neg().map_over_or_underflow()?,
+                borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
             )?;
-            pool.adjust_total_d_tokens(e, d_tokens_left.checked_neg().map_over_or_underflow()?)?;
+
+            pool.set(e);
+
+            obligation.try_remove_borrow_position(e, &pool_address)?;
+            completed_requests.push_back((pool_address, request_id));
+        }
+    }
+
+    for (pool_addr, req_id) in completed_requests {
+        obligation.insurance_fund_requests_ids.remove((pool_addr, req_id));
+    }
+
+    if obligation.is_empty() {
+        obligation.remove(e, obligation_key);
+    } else {
+        obligation.set(e, obligation_key);
+    }
+
+    Ok(())
+}
+
+pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+    let mut pool = Pool::try_get(e, pool_address)?;
+    let insurance_fund_addr = storage::get_insurance_fund(e);
+
+    let token_client = token::Client::new(e, &pool.token_address);
+    let market_addr = e.current_contract_address();
+
+    if pool.total_available > pool.take_rate_fees_sum {
+        // TODO: Ideally, we can distribute `take_rate` fees when there's not enough available liquidity
+        // to redeem all of them, but this requires an additional refactoring
+
+        // -- Distribute Take Rate Fees --
+
+        if let Some(take_rate_beneficiaries) = &pool.config.fee_config.take_rate_beneficiaries {
+            for (beneficiary_address, share_bps) in take_rate_beneficiaries.iter() {
+                if share_bps == 0 {
+                    continue;
+                }
+
+                let amount = pool
+                    .take_rate_fees_sum
+                    .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
+                    .map_over_or_underflow()?;
+
+                token_client.transfer(&market_addr, &beneficiary_address, &amount);
+                if beneficiary_address == insurance_fund_addr {
+                    let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
+                    fund_client.add_reserves(&pool.token_address, &amount);
+                }
+            }
         }
 
-        pool.set(e);
+        pool.take_rate_fees_sum = 0;
     }
 
-    for (pool_address, j_tokens, collateral) in collaterals_to_remove {
-        let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
-            events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+    // -- Distribute Operation Fees --
 
-            MCError::InternalError
-        })?;
+    if let Some(operation_beneficiaries) = &pool.config.fee_config.operation_fee_beneficiaries {
+        for (beneficiary_address, share_bps) in operation_beneficiaries.iter() {
+            if share_bps == 0 {
+                continue;
+            }
 
-        // -- Remove any collateral(both deposit and collateral-only cases) from the obligation to
-        //   benefit the pool --
+            let amount = pool
+                .operation_fees_sum
+                .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
+                .map_over_or_underflow()?;
 
-        pool.adjust_total_j_tokens(e, j_tokens.checked_neg().map_over_or_underflow()?)?;
-        pool.adjust_total_collateral(e, collateral.checked_neg().map_over_or_underflow()?)?;
-        pool.adjust_total_available(e, collateral)?;
-
-        pool.set(e);
+            token_client.transfer(&market_addr, &beneficiary_address, &amount);
+            if beneficiary_address == insurance_fund_addr {
+                let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
+                fund_client.add_reserves(&pool.token_address, &amount);
+            }
+        }
     }
+    pool.operation_fees_sum = 0;
 
-    // TODO: Check if removing the obligation is the only way to move on after bad debt
-    obligation.remove(e, &obligation_key);
+    pool.set(e);
+
+    // TODO: Add `skim_fees` endpoint that allows admin to receive any excessive fees
+
+    Ok(())
+}
+
+pub fn process_distribute_all_pools_fees(e: &Env) -> Result<(), MCError> {
+    for pool_address in Pool::get_all(e) {
+        process_distribute_pool_fees(e, &pool_address)?;
+    }
 
     Ok(())
 }

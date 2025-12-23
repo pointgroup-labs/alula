@@ -54,26 +54,26 @@ impl Pool {
             .map_over_or_underflow()?;
         let accrued =
             new_total_borrowed.checked_sub(self.total_borrowed).map_over_or_underflow()?;
-        let accrued_to_reserve = accrued
+        let take_rate_accrual_part = accrued
             .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
-        let new_accumulated_reserve_fees = self
-            .accumulated_reserve_fees
-            .checked_add(accrued_to_reserve)
-            .map_over_or_underflow()?;
 
-        self.accumulated_reserve_fees = new_accumulated_reserve_fees;
+        let new_take_rate_fees_sum =
+            self.take_rate_fees_sum.checked_add(take_rate_accrual_part).map_over_or_underflow()?;
+
         self.total_borrowed = new_total_borrowed;
-        self.last_accrual_timestamp = current_timestamp;
+        self.take_rate_fees_sum = new_take_rate_fees_sum;
 
         self.borrow_apr_bps = current_borrow_apr;
         self.supply_apr_bps = current_borrow_apr
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?
             .fixed_mul_floor(BPS_FACTOR - self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
-            .map_over_or_underflow()?; // safe
+            .map_over_or_underflow()?;
 
-        // -- Accrue supply APR bootstraps --
+        self.last_accrual_timestamp = current_timestamp;
+
+        // -- Accrue supply APR bootstraps(candidate to be removed) --
 
         let mut updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
         let mut outdated_periods: Vec<(u64, u64)> = svec![e];

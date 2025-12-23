@@ -10,7 +10,7 @@ use crate::{
     math_utils::MathUtils,
     misc::PoolData,
     obligation::{
-        AddCollateralResult, BorrowResult, ComputedFees, DepositResult, LiquidationResult,
+        AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, OperationFees,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     oracle::{self, get_asset_price},
@@ -37,12 +37,6 @@ pub struct Pool {
     pub total_available: i128,
     /// The total amount of deposited collateral assets that don't accrue interest
     pub total_collateral: i128,
-    /// Amount of tokens in the insurance reserve that can be used to cover a bad debt scenario
-    pub accumulated_reserve_fees: i128,
-    /// Amount of tokens that can be withdrawn by the market's admin as a fee
-    pub accumulated_market_fees: i128,
-    /// Amount of tokens that can be withdrawn by the host platform admin as a fee
-    pub accumulated_host_fees: i128,
     /// The result of `TokenClient::name(&self)` invocation: `native` string for XLM SAC and the
     /// SAC's native asset code and asset issuer concatenated with `:` for other SACs(e.g,
     /// "AQUA:GAHPYWLK6YRN7CVYZOO4H3VDRZ7PVF5UJGLZCSPAEIKJE2XSWF5LAGER")
@@ -57,13 +51,17 @@ pub struct Pool {
     pub borrow_apr_bps: i128,
     /// Supply annual percentage rate in basis points
     pub supply_apr_bps: i128,
+    /// Maintained sum of the accumulated per-operation beneficiaries' fees
+    pub operation_fees_sum: i128,
+    ///  Maintained sum of the accumulated per take rate beneficiaries' fees
+    pub take_rate_fees_sum: i128,
 }
 
 macro_rules! generate_adjust_method {
     ($method_name:ident, $field:ident) => {
         pub fn $method_name(&mut self, e: &Env, amount: i128) -> Result<(), MCError> {
             let new_amount = self.$field.checked_add(amount).map_over_or_underflow()?;
-            if new_amount < 0 {
+            if new_amount.is_negative() {
                 events::pool_amount_becomes_negative(e, self.$field, new_amount);
                 return Err(MCError::InternalError);
             }
@@ -79,13 +77,17 @@ impl Pool {
     generate_adjust_method!(adjust_total_available, total_available);
     generate_adjust_method!(adjust_total_d_tokens, total_d_tokens);
     generate_adjust_method!(adjust_total_collateral, total_collateral);
-    generate_adjust_method!(adjust_accumulated_market_fees, accumulated_market_fees);
-    generate_adjust_method!(adjust_accumulated_host_fees, accumulated_host_fees);
-    generate_adjust_method!(adjust_accumulated_reserve_fees, accumulated_reserve_fees);
+    generate_adjust_method!(adjust_operation_fees_sum, operation_fees_sum);
 
-    fn adjust_fees(&mut self, e: &Env, fees: &ComputedFees) -> Result<(), MCError> {
-        self.adjust_accumulated_host_fees(e, fees.host_fee)?;
-        self.adjust_accumulated_market_fees(e, fees.market_fee)?;
+    fn adjust_accumulated_fees_with_computed_per_operation(
+        &mut self,
+        fees: &OperationFees,
+    ) -> Result<(), MCError> {
+        let referrer_fees = fees.referrer_fee.unwrap_or(0);
+        let net_protocol_fees = fees.fee_sum - referrer_fees;
+
+        self.operation_fees_sum =
+            self.operation_fees_sum.checked_add(net_protocol_fees).map_over_or_underflow()?;
 
         Ok(())
     }
@@ -106,7 +108,7 @@ impl Pool {
         self.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
         self.adjust_total_available(e, deposit_result.deposited)?;
 
-        self.adjust_fees(e, &deposit_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&deposit_result.operation_fees)?;
 
         Ok(())
     }
@@ -122,7 +124,7 @@ impl Pool {
             withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_fees(e, &withdraw_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&withdraw_result.operation_fees)?;
 
         Ok(())
     }
@@ -136,7 +138,7 @@ impl Pool {
             borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_fees(e, &borrow_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&borrow_result.operation_fees)?;
 
         Ok(())
     }
@@ -149,7 +151,9 @@ impl Pool {
     ) -> Result<(), MCError> {
         self.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
 
-        self.adjust_fees(e, &add_collateral_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            &add_collateral_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -166,7 +170,7 @@ impl Pool {
         )?;
         self.adjust_total_available(e, repay_result.debt_repaid)?;
 
-        self.adjust_fees(e, &repay_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(&repay_result.operation_fees)?;
 
         Ok(())
     }
@@ -182,7 +186,9 @@ impl Pool {
             remove_collateral_result.collateral_decrease.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_fees(e, &remove_collateral_result.computed_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            &remove_collateral_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -573,15 +579,12 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    pub fn available_accumulated_reserve_fees(&self) -> i128 {
-        let total_available = self.total_available;
-        let accumulated_reserve_fees = self.accumulated_reserve_fees;
-
-        i128::min(total_available, accumulated_reserve_fees)
+    pub fn operation_fees_sum(&self) -> i128 {
+        self.operation_fees_sum
     }
 
     pub fn total_available(&self) -> Result<i128, MCError> {
-        self.total_available.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
+        self.total_available.checked_sub(self.take_rate_fees_sum).map_over_or_underflow()
     }
 
     /// Calculates total debt
@@ -591,10 +594,7 @@ impl Pool {
 
     /// Calculates total supply (available + total_borrowed - accumulated reserve fees)
     pub fn total_supply(&self) -> Result<i128, MCError> {
-        let total_funds =
-            self.total_available.checked_add(self.total_borrowed).map_over_or_underflow()?;
-
-        total_funds.checked_sub(self.accumulated_reserve_fees).map_over_or_underflow()
+        self.total_available()?.checked_add(self.total_borrowed).map_over_or_underflow()
     }
 
     /// Tries to get the pool from the contract's storage
@@ -712,7 +712,7 @@ impl Pool {
 }
 
 #[contracttype]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PoolFeeConfig {
     pub borrow_fee_bps: u32,
     pub flash_loan_fee_bps: u32,
@@ -726,8 +726,15 @@ pub struct PoolFeeConfig {
     pub remove_collateral_fee_bps: u32,
     pub repay_fee_bps: u32,
 
+    /// Borrow rate percentage that is taken from the suppliers and distributed among the `take_rate` beneficiaries
     pub take_rate_bps: u32,
-    pub host_fee_bps: u32,
+    /// A map of beneficiaries who split the `take_rate` and their distribution proportions(in basis points). Proportions must add up to 10_000
+    pub take_rate_beneficiaries: Option<Map<Address, u32>>,
+    /// A map of beneficiaries who split the `origination fee` left after removing the possible referrer's cut and their distribution proportions.
+    /// Proportions must add up to 10_000
+    pub operation_fee_beneficiaries: Option<Map<Address, u32>>,
+    /// A map of allowed referrers and their immediately received percentage of the origination fee
+    pub referrers: Option<Map<Address, u32>>,
 }
 
 impl Default for PoolFeeConfig {
@@ -738,13 +745,15 @@ impl Default for PoolFeeConfig {
 
             deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
             withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
+            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
             add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
             remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
             repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
 
-            host_fee_bps: DEFAULT_HOST_FEE_BPS,
             take_rate_bps: DEFAULT_TAKE_RATE_BPS,
-            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
+            take_rate_beneficiaries: None,
+            operation_fee_beneficiaries: None,
+            referrers: None,
         }
     }
 }
@@ -760,8 +769,10 @@ impl PoolFeeConfig {
             remove_collateral_fee_bps,
             repay_fee_bps,
             take_rate_bps,
+            take_rate_beneficiaries,
+            operation_fee_beneficiaries,
             ..
-        } = self;
+        } = &self;
 
         let individual_fees = [
             borrow_fee_bps,
@@ -773,14 +784,44 @@ impl PoolFeeConfig {
             repay_fee_bps,
         ];
 
-        for fee in individual_fees {
+        for &fee in individual_fees {
             if fee as i128 > BPS_FACTOR {
                 return Err("Individual fees must not exceed 100%");
             }
         }
 
-        if take_rate_bps as i128 > BPS_FACTOR {
+        if *take_rate_bps as i128 > BPS_FACTOR {
             return Err("Take Rate must not exceed 100%");
+        }
+
+        if let Some(take_rate_beneficiaries) = take_rate_beneficiaries {
+            if take_rate_beneficiaries.is_empty() {
+                return Err("Provided Take Rate beneficiaries are empty");
+            }
+
+            let mut share_sum: u32 = 0;
+            for (_, share_bps) in take_rate_beneficiaries.iter() {
+                share_sum = share_sum.checked_add(share_bps).unwrap();
+            }
+
+            if share_sum as i128 != BPS_FACTOR {
+                return Err("Provided Take Rate shares don't add up to 100%");
+            }
+        }
+
+        if let Some(operation_fee_beneficiaries) = operation_fee_beneficiaries {
+            if operation_fee_beneficiaries.is_empty() {
+                return Err("Provided Operation fees beneficiaries are empty");
+            }
+
+            let mut share_sum: u32 = 0;
+            for (_, share_bps) in operation_fee_beneficiaries.iter() {
+                share_sum = share_sum.checked_add(share_bps).unwrap();
+            }
+
+            if share_sum as i128 != BPS_FACTOR {
+                return Err("Provided Operation fees shares don't add up to 100%");
+            }
         }
 
         Ok(())
@@ -801,7 +842,7 @@ impl Default for PoolStatus {
 }
 
 #[contracttype]
-#[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct PoolConfig {
     pub status: PoolStatus,
     pub fee_config: PoolFeeConfig,
@@ -826,7 +867,7 @@ impl PoolConfig {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct PoolHealthConfig {
     /// The maximum amount of supplied tokens that can be supplied in the pool(i.e., `available` +
-    /// `total_borrowed`) 0 denotes unlimited supply
+    /// `total_borrowed`). 0 denotes unlimited supply
     pub supply_limit: i128,
     /// The maximum utilization ratio that is allowed to be reached via borrowing
     pub utilization_ratio_limit_bps: i128,
@@ -888,7 +929,7 @@ impl PoolHealthConfig {
             insolvency_ltv_bps,
         } = self;
 
-        if supply_limit < 0 {
+        if supply_limit.is_negative() {
             return Err("Supply limit must be non-negative");
         }
 

@@ -27,7 +27,8 @@ pub trait MarketManager {
     /// * `salt` - salt bytes that are used to derive a deterministic market address
     /// * `admin` - admin of the deployed market
     /// * `name` - name of the deployed market
-    /// * `oracle_address` - address of SEP-40—compliant oracle contract
+    /// * `oracle` - address of SEP-40—compliant oracle contract
+    /// * `insurance_fund` - `Insurance Fund` trait compliant contract's address
     /// * `max_positions` - maximum number of positions for a single obligation to have at a single moment
     /// * `min_collateral` - minimum allowed value of a collateral position at a single moment
     /// * `insolvency_ltv_bps` - unparameterized LTV(i.e., not scaled with closeLTV\openLTV\liability factors) that marks obligation in market as insolvent
@@ -39,7 +40,8 @@ pub trait MarketManager {
         salt: BytesN<32>,
         admin: Address,
         name: String,
-        oracle_address: Address,
+        oracle: Address,
+        insurance_fund: Address,
         max_positions: u32,
         min_collateral: i128,
         insolvency_ltv_bps: i128,
@@ -66,6 +68,7 @@ impl MarketManager for MarketManagerContract {
         market_admin: Address,
         name: String,
         oracle: Address,
+        insurance_fund: Address,
         max_positions: u32,
         min_collateral: i128,
         insolvency_ltv_bps: i128,
@@ -73,7 +76,7 @@ impl MarketManager for MarketManagerContract {
     ) -> Result<Address, MMCError> {
         extend_instance_storage(&e);
 
-        if !(2..=(2 * MAX_RESERVES)).contains(&max_positions) || min_collateral < 0 {
+        if !(2..=(2 * MAX_RESERVES)).contains(&max_positions) || min_collateral.is_negative() {
             return Err(MMCError::InvalidMarketState);
         }
 
@@ -86,6 +89,7 @@ impl MarketManager for MarketManagerContract {
                 name,
                 market_admin,
                 oracle,
+                insurance_fund,
                 e.current_contract_address(),
                 max_positions,
                 min_collateral,
@@ -166,7 +170,7 @@ fn require_admin(e: &Env) {
 
 #[inline(always)]
 pub fn require_nonnegative(amount: i128) -> Result<(), MMCError> {
-    if amount < 0 {
+    if amount.is_negative() {
         return Err(MMCError::NegativeInputAmount);
     }
 

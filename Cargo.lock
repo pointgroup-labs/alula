@@ -258,6 +258,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
+name = "controlled_insurance_fund"
+version = "0.0.1"
+dependencies = [
+ "insurance-fund-trait",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -805,6 +813,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e04e2fd2b8188ea827b32ef11de88377086d690286ab35747ef7f9bf3ccb590"
 
 [[package]]
+name = "insurance-fund-trait"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -917,6 +932,7 @@ name = "market"
 version = "0.0.5"
 dependencies = [
  "enum_dispatch",
+ "insurance-fund-trait",
  "moderc3156",
  "sep-40-oracle",
  "soroban-fixed-point-math",
@@ -1648,6 +1664,8 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "controlled_insurance_fund",
+ "insurance-fund-trait",
  "market",
  "market_manager",
  "sep-40-oracle",

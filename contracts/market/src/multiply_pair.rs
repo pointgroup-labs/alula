@@ -36,7 +36,7 @@ impl MultiplyPair {
             DEFAULT_MAX_SWAP_FEE_BPS,
             borrow_pool_open_ltv_bps,
             deposit_pool_liability_factor_bps,
-            storage::get_min_collateral_value(e),
+            storage::get_min_collateral_value_cents(e),
         );
         let seed = Self::compute_obligation_seed(e, deposit_pool_address, borrow_pool_address);
 

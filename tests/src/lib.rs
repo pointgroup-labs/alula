@@ -20,6 +20,8 @@ mod withdraw;
 use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
+use controlled_insurance_fund::ControlledInsuranceFundContractClient;
+use insurance_fund_trait::InsuranceFundClient;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
@@ -62,10 +64,14 @@ pub struct TestMarketFixture<'a> {
     pub users: Vec<Address>,
     // Oracle
     pub oracle_client: MockPriceOracleClient<'a>,
-    pub oracle_address: Address,
+    pub oracle: Address,
     // Swap Router
     pub router_client: router::Client<'a>,
     pub router_address: Address,
+    // Insurance Fund
+    pub controlled_insurance_fund_client: ControlledInsuranceFundContractClient<'a>,
+    pub insurance_fund_client: InsuranceFundClient<'a>,
+    pub insurance_fund: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
@@ -114,6 +120,7 @@ impl TestMarketFixture<'_> {
             Address::generate(&e),
             Address::generate(&e),
             Address::generate(&e),
+            Address::generate(&e),
         ];
 
         // Configure USDC SAC first, since it's used in the oracle as a base asset
@@ -124,20 +131,33 @@ impl TestMarketFixture<'_> {
             token_address: usdc_token_address,
         } = setup_test_asset(&e, &usdc_admin, &users);
 
-        let oracle_address = Address::from_str(&e, ORACLE_ADDRESS);
-        e.register_at(&oracle_address, MockPriceOracleWASM, ());
-        let oracle_client = MockPriceOracleClient::new(&e, &oracle_address);
+        let oracle = Address::from_str(&e, ORACLE_ADDRESS);
+        e.register_at(&oracle, MockPriceOracleWASM, ());
+        let oracle_client = MockPriceOracleClient::new(&e, &oracle);
+
+        let contract_admin = Address::generate(&e);
+
+        let insurance_fund = e.register(
+            controlled_insurance_fund::ControlledInsuranceFundContract,
+            (contract_admin.clone(),),
+        );
+        let controlled_insurance_fund_client =
+            controlled_insurance_fund::ControlledInsuranceFundContractClient::new(
+                &e,
+                &insurance_fund,
+            );
+        let insurance_fund_client = InsuranceFundClient::new(&e, &insurance_fund);
 
         // Register Market contract
-        let contract_admin = Address::generate(&e);
         let market_manager_address = Address::generate(&e);
         let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
-        let contract_id = e.register(
+        let market_contract_id = e.register(
             MarketContract,
             (
                 contract_name,
                 contract_admin.clone(),
-                oracle_address.clone(),
+                oracle.clone(),
+                insurance_fund.clone(),
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
                 0i128,
@@ -145,7 +165,9 @@ impl TestMarketFixture<'_> {
                 Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
             ),
         );
-        let contract_client = MarketClient::new(&e, &contract_id);
+        let contract_client = MarketClient::new(&e, &market_contract_id);
+
+        controlled_insurance_fund_client.set_market(&market_contract_id);
 
         contract_client.update_market_status(&0);
 
@@ -161,7 +183,7 @@ impl TestMarketFixture<'_> {
             token_address: gold_token_address,
         } = setup_test_asset(&e, &gold_admin, &users);
         let gold_pool_address =
-            contract_client.initialize_pool(&gold_token_address, &None, &Some(pool_config));
+            contract_client.initialize_pool(&gold_token_address, &None, &Some(pool_config.clone()));
 
         // BTC
         let btc_admin = Address::generate(&e);
@@ -171,11 +193,11 @@ impl TestMarketFixture<'_> {
             token_address: btc_token_address,
         } = setup_test_asset(&e, &btc_admin, &users);
         let btc_pool_address =
-            contract_client.initialize_pool(&btc_token_address, &None, &Some(pool_config));
+            contract_client.initialize_pool(&btc_token_address, &None, &Some(pool_config.clone()));
 
         // USDC
         let usdc_pool_address =
-            contract_client.initialize_pool(&usdc_token_address, &None, &Some(pool_config));
+            contract_client.initialize_pool(&usdc_token_address, &None, &Some(pool_config.clone()));
 
         contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
 
@@ -196,14 +218,18 @@ impl TestMarketFixture<'_> {
         Self {
             e,
             contract_client,
-            contract_id,
+            contract_id: market_contract_id,
             contract_admin,
             // Oracle
             oracle_client,
-            oracle_address,
+            oracle,
             // Swap router
             router_client,
             router_address,
+            // Insurance Fund
+            controlled_insurance_fund_client,
+            insurance_fund_client,
+            insurance_fund,
             // GOLD
             gold_sac,
             gold_token_client,
@@ -295,14 +321,10 @@ impl TestMarketFixture<'_> {
             clients.iter().map(|client| client.balance(contract_id)).collect();
 
         for (pool, &token_balance) in pools.iter().zip(token_balances.iter()) {
-            // Calculate the Total Liabilities of the protocol (User Liquidity + Admin Revenue)
+            // Calculate the Total Liabilities of the protocol (User Liquidity + Fees Sum)
             let expected_minimum_balance = pool
                 .total_available
-                .checked_add(pool.accumulated_market_fees)
-                .expect("Overflow in invariant calc")
-                .checked_add(pool.accumulated_host_fees)
-                .expect("Overflow in invariant calc")
-                .checked_add(pool.accumulated_reserve_fees)
+                .checked_add(pool.operation_fees_sum)
                 .expect("Overflow in invariant calc");
 
             assert!(
@@ -584,7 +606,7 @@ impl RunCommand for Borrow {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
-        let res = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0, &None);
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -596,7 +618,7 @@ impl RunCommand for Deposit {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0, &None);
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -608,7 +630,8 @@ impl RunCommand for DepositCollateral {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0);
+        let res =
+            contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0, &None);
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -620,7 +643,12 @@ impl RunCommand for WithdrawCollateral {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_remove_collateral(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_remove_collateral(
+            &users[who],
+            &pool_address,
+            &self.amount.0,
+            &None,
+        );
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -632,7 +660,7 @@ impl RunCommand for Withdraw {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0, &None);
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -644,7 +672,7 @@ impl RunCommand for Repay {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_repay(&users[who], &pool_address, &self.amount.0);
+        let res = contract_client.try_repay(&users[who], &pool_address, &self.amount.0, &None);
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -690,6 +718,7 @@ impl RunCommand for DepositWithLeverage {
                 flash_liquidity_provider,
                 &borrow_pool_address,
                 &self.flash_loan_amount.0,
+                &None,
             );
 
             let res = contract_client.try_deposit_with_leverage(
@@ -699,6 +728,7 @@ impl RunCommand for DepositWithLeverage {
                 &false,
                 &self.amount.0,
                 &self.leverage,
+                &None,
             );
             if matches!(res, Err(Ok(MCError::InternalError))) {
                 panic!("Internal Error");
@@ -719,6 +749,7 @@ impl RunCommand for WithdrawFromLeveraged {
             &deposit_pool_address,
             &borrow_pool_address,
             &self.amount.0,
+            &None,
         );
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
@@ -1210,40 +1241,25 @@ pub fn get_pool_total_collateral(contract_client: &MarketClient, pool_address: &
     pool.total_collateral
 }
 
-pub fn get_pool_accumulated_host_fees(
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_operation_fees_sum(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    pool.accumulated_host_fees
+    pool.operation_fees_sum
 }
 
-pub fn get_pool_accumulated_market_fees(
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> i128 {
+pub fn get_pool_take_rate_fees_sum(contract_client: &MarketClient, pool_address: &Address) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    pool.accumulated_market_fees
+    pool.take_rate_fees_sum
 }
 
-pub fn get_pool_accumulated_reserve_fees(
+pub fn get_pool_available_take_rate_fees_sum(
     contract_client: &MarketClient,
     pool_address: &Address,
 ) -> i128 {
     let pool = contract_client.get_pool(pool_address);
 
-    pool.accumulated_reserve_fees
-}
-
-pub fn get_pool_available_reserve_fees(
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> i128 {
-    let pool = contract_client.get_pool(pool_address);
-
-    i128::min(pool.total_available, pool.accumulated_reserve_fees)
+    pool.total_available().unwrap()
 }
 
 pub fn compute_pool_collateral_value(
@@ -1321,6 +1337,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
     let contract_name = soroban_sdk::String::from_str(e, "market_contract");
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
+    let insurance_fund = Address::generate(e);
 
     let contract_id = e.register(
         MarketContract,
@@ -1328,6 +1345,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             contract_name,
             contract_admin.clone(),
             oracle,
+            insurance_fund,
             contract_admin,
             DEFAULT_MAX_POSITIONS,
             0i128,

@@ -83,6 +83,7 @@ mod test {
                 lender,
                 &test_fixture.usdc_pool_address,
                 &DEFAULT_DEPOSIT_AMOUNT,
+                &None,
             );
 
             Self { test_fixture, flash_loan_taker_contract_id }

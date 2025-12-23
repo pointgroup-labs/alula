@@ -11,8 +11,8 @@ DEPLOY_OPTIMIZED_DIR  := $(WASM_DIR)/deploy_optimized
 DOWNLOADS_DIR         := $(WASM_DIR)/downloads
 
 # Contracts
-CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter
-DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter
+CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund
+DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund
 MOCK_CONTRACTS        := soroswap_router_mock flash_loan_taker_mock
 
 # External dependencies
@@ -107,6 +107,7 @@ build/prepare:
 build: build/prepare ## Build all contracts
 	$(call build_contract,soroswap_router_mock,$(MOCKS_DIR))
 	$(call build_contract,soroswap_sep_40_adapter,$(WASM_DIR))
+	$(call build_contract,controlled_insurance_fund,$(WASM_DIR))
 	$(call build_contract,aggregated_oracle,$(WASM_DIR))
 	$(call build_contract,market,$(WASM_DIR))
 	$(call build_contract,market_manager,$(WASM_DIR))
@@ -115,6 +116,7 @@ build: build/prepare ## Build all contracts
 
 build/deploy: build/prepare ## Build for deployment
 	$(call build_contract,soroswap_sep_40_adapter,$(DEPLOY_DIR))
+	$(call build_contract,controlled_insurance_fund,$(DEPLOY_DIR))
 	$(call build_contract,aggregated_oracle,$(DEPLOY_DIR))
 	$(call build_contract,market,$(DEPLOY_DIR),--features deploy)
 	$(call build_contract,market_manager,$(DEPLOY_DIR),--features deploy)
@@ -122,6 +124,7 @@ build/deploy: build/prepare ## Build for deployment
 
 build/optimize: build/deploy ## Build + optimize for production
 	$(call optimize_contract,soroswap_sep_40_adapter)
+	$(call optimize_contract,controlled_insurance_fund)
 	$(call optimize_contract,aggregated_oracle)
 	$(call optimize_contract,market)
 	$(call optimize_contract,market_manager)

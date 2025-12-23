@@ -54,7 +54,7 @@ pub enum MCError {
     // Health factor and liquidation errors (600-699)
     InvalidLiquidationInputs = 600,
     ObligationIsHealthy = 601,
-    LiquidationExceedsCloseFactor = 602,
+    ObligationContainsOpenCoverBadDebtRequests = 602,
     BadDebtCoverageCriterionIsNotMet = 603,
     AssetCannotBeUsedAsCollateral = 604,
     LiquidationExcessiveDemandedCollateral = 605,
