@@ -17,12 +17,18 @@ export function bigintToNumber(
 }
 
 export function amountToBigInt(
-  amount: string,
+  amount: string | number,
   decimals: number,
 ): bigint {
-  const [whole, frac = ''] = amount.split('.')
-  const normalizedFrac = (frac + '0'.repeat(decimals)).slice(0, decimals)
-  return BigInt(whole + normalizedFrac)
+  const d = new Decimal(amount)
+
+  const scaled = d.mul(
+    new Decimal(10).pow(decimals),
+  )
+
+  return BigInt(
+    scaled.toFixed(0, Decimal.ROUND_DOWN),
+  )
 }
 
 export function bpsToNumber(bps: number): number {
