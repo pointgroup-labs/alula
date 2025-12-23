@@ -514,7 +514,6 @@ impl Obligation {
             .unwrap_or(self.try_create_deposit_position(e)?);
 
         let operation_fees = compute_operation_fees(
-            e,
             original_amount,
             pool.config.fee_config.deposit_fee_bps,
             referrer,
@@ -558,7 +557,6 @@ impl Obligation {
             .unwrap_or(self.try_create_borrow_position(e)?);
 
         let operation_fees = compute_operation_fees(
-            e,
             real_borrowed_amount,
             pool.config.fee_config.borrow_fee_bps,
             referrer,
@@ -598,7 +596,6 @@ impl Obligation {
             .unwrap_or(self.try_create_deposit_position(e)?);
 
         let operation_fees = compute_operation_fees(
-            e,
             original_amount,
             pool.config.fee_config.add_collateral_fee_bps,
             referrer,
@@ -648,7 +645,6 @@ impl Obligation {
             .checked_add(withdraw_scarcity_fee_bps)
             .map_over_or_underflow()?;
         let operation_fees = compute_operation_fees(
-            e,
             deposit_decrease,
             withdraw_fee_bps,
             referrer,
@@ -740,7 +736,6 @@ impl Obligation {
         };
 
         let operation_fees = compute_operation_fees(
-            e,
             collateral_decrease,
             pool.config.fee_config.remove_collateral_fee_bps,
             referrer,
@@ -783,7 +778,6 @@ impl Obligation {
 
         let all_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
         let all_debt_fees = compute_operation_fees(
-            e,
             all_debt,
             pool.config.fee_config.repay_fee_bps,
             referrer,
@@ -795,7 +789,6 @@ impl Obligation {
         let (is_all_repaid, amount_to_take_from_borrower, operation_fees) =
             if provided_amount < amount_to_repay_all_debt {
                 let operation_fees = compute_operation_fees(
-                    e,
                     provided_amount,
                     pool.config.fee_config.repay_fee_bps,
                     referrer,
@@ -1347,7 +1340,6 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
 
 /// Computes the operation's one-time fees
 pub fn compute_operation_fees(
-    e: &Env,
     original_amount: i128,
     fee_bps: u32,
     referrer: &Option<Address>,

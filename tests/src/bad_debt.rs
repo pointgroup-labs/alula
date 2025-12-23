@@ -1,20 +1,15 @@
 #![cfg(test)]
 
-use market::{
-    constants::SECONDS_IN_YEAR,
-    error::MCError,
-};
+use market::{constants::SECONDS_IN_YEAR, error::MCError};
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{
-    map as smap,
-    testutils::Ledger,
-};
+use soroban_sdk::{map as smap, testutils::Ledger};
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_pool_collateral_value,
     compute_pool_debt_value, compute_user_obligation_collateral_value,
-    compute_user_obligation_debt_value, get_obligation_d_tokens_as_tokens, get_pool_total_available,
-    get_pool_total_borrowed, get_pool_total_d_tokens, get_pool_total_j_tokens,
+    compute_user_obligation_debt_value, get_obligation_d_tokens_as_tokens,
+    get_pool_total_available, get_pool_total_borrowed, get_pool_total_d_tokens,
+    get_pool_total_j_tokens,
 };
 
 #[test]
@@ -41,13 +36,12 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
 }
 
 #[test]
-#[ignore]
 fn test_partially_socialize_full_bad_debt_loss() {
     let TestMarketFixture {
         e,
         contract_client,
         insurance_fund,
-        
+
         controlled_insurance_fund_client,
         usdc_token_client,
         usdc_pool_address,
@@ -128,7 +122,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
         &None,
         &usdc_pool_address,
         &gold_pool_address,
-        (&debt_amount.fixed_mul_ceil(98, 100).unwrap()),
+        &debt_amount.fixed_mul_ceil(98, 100).unwrap(),
         &DEFAULT_DEPOSIT_AMOUNT,
     );
 
@@ -357,7 +351,7 @@ fn test_completely_cover_bad_debt() {
         &None,
         &usdc_pool_address,
         &gold_pool_address,
-        (&borrower_2_debt_before.fixed_mul_ceil(98, 100).unwrap()),
+        &borrower_2_debt_before.fixed_mul_ceil(98, 100).unwrap(),
         &DEFAULT_DEPOSIT_AMOUNT,
     );
 

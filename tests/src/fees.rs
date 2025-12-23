@@ -71,7 +71,6 @@ fn test_borrow_fee() {
 
     let usdc_pool_fee_config = get_pool_fee_config(&contract_client, &usdc_pool_address);
     let OperationFees { fee_sum, .. } = compute_operation_fees(
-        &e,
         DEFAULT_DEPOSIT_AMOUNT,
         borrow_fee_bps,
         &None,
@@ -134,7 +133,6 @@ fn test_deposit_fee() {
 
     let pool_fee_config = get_pool_fee_config(&contract_client, &gold_pool_address);
     let OperationFees { fee_sum, .. } = compute_operation_fees(
-        &e,
         DEFAULT_DEPOSIT_AMOUNT,
         pool_fee_config.deposit_fee_bps,
         &None,
@@ -167,7 +165,6 @@ fn test_add_collateral_fee() {
         ..Default::default()
     };
     let TestMarketFixture {
-        e,
         contract_id,
         contract_client,
         gold_pool_address,
@@ -202,7 +199,6 @@ fn test_add_collateral_fee() {
 
     let pool_fee_config = get_pool_fee_config(&contract_client, &gold_pool_address);
     let OperationFees { fee_sum, .. } = compute_operation_fees(
-        &e,
         DEFAULT_COLLATERAL_AMOUNT,
         pool_fee_config.add_collateral_fee_bps,
         &None,
@@ -235,7 +231,6 @@ fn test_remove_collateral_fee() {
         ..Default::default()
     };
     let TestMarketFixture {
-        e,
         contract_id,
         contract_client,
         gold_pool_address,
@@ -282,7 +277,6 @@ fn test_remove_collateral_fee() {
 
     let pool_fee_config = get_pool_fee_config(&contract_client, &gold_pool_address);
     let OperationFees { fee_sum, .. } = compute_operation_fees(
-        &e,
         DEFAULT_COLLATERAL_AMOUNT,
         pool_fee_config.remove_collateral_fee_bps,
         &None,
@@ -352,7 +346,6 @@ fn test_withdraw_fee() {
 
     let pool_fee_config = get_pool_fee_config(&contract_client, &gold_pool_address);
     let OperationFees { fee_sum, .. } = compute_operation_fees(
-        &e,
         DEFAULT_DEPOSIT_AMOUNT,
         pool_fee_config.withdraw_fee_bps,
         &None,
@@ -454,7 +447,6 @@ fn test_withdraw_scarcity_fee() {
     } as u32;
 
     let OperationFees { fee_sum, .. } = compute_operation_fees(
-        &e,
         withdraw_amount,
         pool_fee_config.withdraw_fee_bps + withdraw_scarcity_fee_bps,
         &None,
@@ -653,7 +645,6 @@ fn test_repay_fee() {
 
     let pool_fee_config = get_pool_fee_config(&contract_client, &usdc_pool_address);
     let OperationFees { fee_sum, .. } = compute_operation_fees(
-        &e,
         DEFAULT_DEPOSIT_AMOUNT,
         pool_fee_config.repay_fee_bps,
         &None,
