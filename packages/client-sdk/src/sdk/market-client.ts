@@ -106,7 +106,7 @@ export class MarketClient {
    * Simulate withdraw
    */
   async simulateWithdraw(user: string, pool_address: string, amount: string | number): Promise<WithdrawResult> {
-    const result = await this.base.simulate_withdraw({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    const result = await this.base.simulate_withdraw({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals), referrer: null })
     return this.unwrapOk2(result.result)
   }
 
@@ -151,42 +151,42 @@ export class MarketClient {
    * Deposit Tx
    */
   async depositTx(user: string, pool_address: string, amount: string | number): Promise<any> {
-    return await this.base.deposit({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.deposit({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals), referrer: null })
   }
 
   /**
    * Borrow Tx
    */
   async borrowTx(user: string, pool_address: string, amount: string | number) {
-    return await this.base.borrow({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.borrow({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals), referrer: null })
   }
 
   /**
    * Withdraw Tx
    */
   async withdrawTx(user: string, pool_address: string, amount: string | number) {
-    return await this.base.withdraw({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.withdraw({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals), referrer: null })
   }
 
   /**
    * Repay Tx
    */
   async repayTx(user: string, pool_address: string, amount: string | number) {
-    return await this.base.repay({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.repay({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals), referrer: null })
   }
 
   /**
    * Collateral Tx
    */
   async collateralTx(user: string, pool_address: string, amount: string | number) {
-    return await this.base.add_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.add_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals), referrer: null })
   }
 
   /**
    * Remove collateral Tx
    */
   async removeCollateralTx(user: string, pool_address: string, amount: string | number) {
-    return await this.base.remove_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals) })
+    return await this.base.remove_collateral({ user, pool_address, amount: amountToBigInt(String(amount), this.assetDecimals), referrer: null })
   }
 
   /**
@@ -209,6 +209,7 @@ export class MarketClient {
         deposit_as_margin,
         amount: amountInBigInt,
         leverage_multiplier: Number(multiplier),
+        referrer: null,
       })
   }
 
@@ -223,6 +224,7 @@ export class MarketClient {
         deposit_pool_address,
         borrow_pool_address,
         amount: amountToBigInt(String(amount), this.assetDecimals),
+        referrer: null,
       })
   }
 
