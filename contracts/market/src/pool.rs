@@ -77,6 +77,7 @@ impl Pool {
     generate_adjust_method!(adjust_total_available, total_available);
     generate_adjust_method!(adjust_total_d_tokens, total_d_tokens);
     generate_adjust_method!(adjust_total_collateral, total_collateral);
+    generate_adjust_method!(adjust_operation_fees_sum, operation_fees_sum);
 
     fn adjust_accumulated_fees_with_computed_per_operation(
         &mut self,
@@ -795,7 +796,7 @@ impl PoolFeeConfig {
 
         if let Some(take_rate_beneficiaries) = take_rate_beneficiaries {
             if take_rate_beneficiaries.is_empty() {
-                return Err("Provided take rate beneficiaries are empty");
+                return Err("Provided Take Rate beneficiaries are empty");
             }
 
             let mut share_sum: u32 = 0;
@@ -810,7 +811,7 @@ impl PoolFeeConfig {
 
         if let Some(operation_fee_beneficiaries) = operation_fee_beneficiaries {
             if operation_fee_beneficiaries.is_empty() {
-                return Err("Provided operation fees beneficiaries are empty");
+                return Err("Provided Operation fees beneficiaries are empty");
             }
 
             let mut share_sum: u32 = 0;
@@ -819,7 +820,7 @@ impl PoolFeeConfig {
             }
 
             if share_sum as i128 != BPS_FACTOR {
-                return Err("Provided operation fees shares don't add up to 100%");
+                return Err("Provided Operation fees shares don't add up to 100%");
             }
         }
 

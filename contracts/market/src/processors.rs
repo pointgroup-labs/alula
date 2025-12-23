@@ -472,7 +472,7 @@ pub fn process_flash_loan(
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
 
-    let pool = Pool::try_get(e, pool_address)?;
+    let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_total_available(amount)?;
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -498,7 +498,7 @@ pub fn process_flash_loan(
         &amount_to_repay,
     );
 
-    // pool.adjust_accumulated_market_fees(e, fees)?; // TODO: It's unclear for now, how to operate with these fees here...
+    pool.adjust_operation_fees_sum(e, fees)?;
     pool.set(e);
 
     events::flash_loan(e, contract, pool_address, amount, fees);
@@ -671,7 +671,7 @@ pub fn process_deposit_with_leverage(
     );
 
     borrow_pool.adjust_total_available(e, flash_borrow_amount)?;
-    // borrow_pool.adjust_accumulated_market_fees(e, flash_loan_fee)?; TODO: Fees in leverage
+    borrow_pool.adjust_operation_fees_sum(e, flash_loan_fee)?;
 
     borrow_pool.set(e);
 
@@ -1073,7 +1073,6 @@ pub fn process_issue_cover_bad_debt(
 }
 
 pub fn process_claim_cover_bad_debt_results(
-    // TODO: Call this from `Controlled Insurance Fund` right away
     e: &Env,
     obligation_key: &ObligationKey,
 ) -> Result<(), MCError> {
