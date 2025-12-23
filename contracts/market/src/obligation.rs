@@ -909,7 +909,7 @@ impl Obligation {
             oracle::get_asset_price(e, &borrow_pool.token_address)?,
             oracle::get_asset_price(e, &collateral_pool.token_address)?,
         );
-        let (insolvency_ltv_bps, min_collateral_value_cents) = (
+        let (insolvency_ltv_bps, min_collateral_value_threshold) = (
             storage::get_insolvency_ltv_bps(e),
             compute_min_collateral_threshold_scaled(e)?, // TODO: Fix for arbitrary price decimals
         );
@@ -1007,7 +1007,7 @@ impl Obligation {
         let collateral_value_left =
             collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
 
-        let is_all_collateral_drained = if collateral_value_left < min_collateral_value_cents {
+        let is_all_collateral_drained = if collateral_value_left < min_collateral_value_threshold {
             // If collateral(both plain collateral and supply shares) that's left is worth
             // less than the configured `min_collateral_value` on the market, the liquidator
             // additionally receives all of the collateral that's left
@@ -1167,8 +1167,8 @@ impl Obligation {
                 .map_over_or_underflow()?;
             let collateral_value = all_collateral.checked_mul(price).map_over_or_underflow()?;
 
-            let min_collateral_value = compute_min_collateral_threshold_scaled(e)?;
-            if collateral_value > min_collateral_value {
+            let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
+            if collateral_value > min_collateral_value_threshold {
                 return Err(MCError::BadDebtCoverageCriterionIsNotMet);
             }
         }
@@ -1354,11 +1354,7 @@ pub fn compute_operation_fees(
     pool_fee_config: &PoolFeeConfig,
 ) -> Result<OperationFees, MCError> {
     if fee_bps == 0 || original_amount == 0 {
-        return Ok(OperationFees {
-            fee_sum: 0,
-            referrer_fee: None,
-            operation_fee_distributed: None,
-        });
+        return Ok(OperationFees { fee_sum: 0, referrer_fee: None });
     }
 
     // -- Calculate Total Fee --
@@ -1381,37 +1377,7 @@ pub fn compute_operation_fees(
         );
     };
 
-    // -- Calculate the Protocol Split --
-
-    let net_protocol_fee = fee_sum - referrer_fee.unwrap_or(0); // safe
-    let operation_fee_distributed = if net_protocol_fee.is_positive() {
-        if let Some(beneficiaries_map) = &pool_fee_config.operation_fee_beneficiaries {
-            let mut distribution: Map<Address, i128> = Map::new(e);
-
-            for (beneficiary, share_bps) in beneficiaries_map.iter() {
-                if share_bps != 0 {
-                    let share_amount = net_protocol_fee
-                        .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
-                        .map_over_or_underflow()?;
-
-                    if share_amount.is_positive() {
-                        distribution.set(beneficiary, share_amount);
-                    }
-                }
-            }
-
-            Some(distribution) // TODO: Can we return here an empty Map and if yes - is that a problem?
-        } else {
-            // No beneficiaries exist. Funds are collected but not distributed. Market Admin can collect them with all the other
-            // excessive tokens on a pool later
-            None
-        }
-    } else {
-        // No fees for the beneficiaries are left
-        None
-    };
-
-    Ok(OperationFees { fee_sum, referrer_fee, operation_fee_distributed })
+    Ok(OperationFees { fee_sum, referrer_fee })
 }
 
 /// Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
@@ -1499,8 +1465,6 @@ pub struct OperationFees {
     pub fee_sum: i128,
     /// Fee, immediately sent to the referrer if one is present
     pub referrer_fee: Option<i128>,
-    /// Operation fee, distributed between beneficiaries
-    pub operation_fee_distributed: Option<Map<Address, i128>>,
 }
 
 #[contracttype]

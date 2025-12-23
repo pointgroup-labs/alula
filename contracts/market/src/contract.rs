@@ -150,7 +150,7 @@ pub trait Market {
     ///
     /// # Arguments
     /// * `pool_address` - address of a pool, for which the beneficiaries list is set
-    /// * `beneficiaries` - a list of beneficiaries addresses and their shares(in basis points)
+    /// * `beneficiaries` - a list of beneficiaries' addresses and their shares(in basis points)
     fn set_take_rate_fees_beneficiaries(
         e: Env,
         pool_address: Address,
@@ -161,7 +161,7 @@ pub trait Market {
     ///
     /// # Arguments
     /// * `pool_address` - address of a pool, for which the beneficiaries list is set
-    /// * `beneficiaries` - a list of beneficiaries addresses and their shares(in basis points)
+    /// * `beneficiaries` - a list of beneficiaries' addresses and their shares(in basis points)
     fn set_operation_fees_beneficiaries(
         e: Env,
         pool_address: Address,
