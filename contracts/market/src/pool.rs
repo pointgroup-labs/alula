@@ -51,11 +51,9 @@ pub struct Pool {
     pub borrow_apr_bps: i128,
     /// Supply annual percentage rate in basis points
     pub supply_apr_bps: i128,
-    /// Accumulated beneficiaries' fees, eligible for distribution
-    pub beneficiaries_fees: Map<Address, i128>,
     /// Maintained sum of the accumulated per-operation beneficiaries' fees
     pub operation_fees_sum: i128,
-    /// Maintained sum of the accumulated per take rate beneficiaries' fees
+    ///  Maintained sum of the accumulated per take rate beneficiaries' fees
     pub take_rate_fees_sum: i128,
 }
 
@@ -84,15 +82,6 @@ impl Pool {
         &mut self,
         fees: &OperationFees,
     ) -> Result<(), MCError> {
-        if let Some(new_beneficiaries_fees) = &fees.operation_fee_distributed {
-            for (beneficiary_address, amount) in new_beneficiaries_fees.iter() {
-                let old = self.beneficiaries_fees.get(beneficiary_address.clone()).unwrap_or(0);
-                let new = old.checked_add(amount).map_over_or_underflow()?;
-
-                self.beneficiaries_fees.set(beneficiary_address, new);
-            }
-        }
-
         let referrer_fees = fees.referrer_fee.unwrap_or(0);
         let net_protocol_fees = fees.fee_sum - referrer_fees;
 
@@ -779,8 +768,10 @@ impl PoolFeeConfig {
             remove_collateral_fee_bps,
             repay_fee_bps,
             take_rate_bps,
+            take_rate_beneficiaries,
+            operation_fee_beneficiaries,
             ..
-        } = self;
+        } = &self;
 
         let individual_fees = [
             borrow_fee_bps,
@@ -792,14 +783,44 @@ impl PoolFeeConfig {
             repay_fee_bps,
         ];
 
-        for fee in individual_fees {
+        for &fee in individual_fees {
             if fee as i128 > BPS_FACTOR {
                 return Err("Individual fees must not exceed 100%");
             }
         }
 
-        if take_rate_bps as i128 > BPS_FACTOR {
+        if *take_rate_bps as i128 > BPS_FACTOR {
             return Err("Take Rate must not exceed 100%");
+        }
+
+        if let Some(take_rate_beneficiaries) = take_rate_beneficiaries {
+            if take_rate_beneficiaries.is_empty() {
+                return Err("Provided take rate beneficiaries are empty");
+            }
+
+            let mut share_sum: u32 = 0;
+            for (_, share_bps) in take_rate_beneficiaries.iter() {
+                share_sum = share_sum.checked_add(share_bps).unwrap();
+            }
+
+            if share_sum as i128 != BPS_FACTOR {
+                return Err("Provided Take Rate shares don't add up to 100%");
+            }
+        }
+
+        if let Some(operation_fee_beneficiaries) = operation_fee_beneficiaries {
+            if operation_fee_beneficiaries.is_empty() {
+                return Err("Provided operation fees beneficiaries are empty");
+            }
+
+            let mut share_sum: u32 = 0;
+            for (_, share_bps) in operation_fee_beneficiaries.iter() {
+                share_sum = share_sum.checked_add(share_bps).unwrap();
+            }
+
+            if share_sum as i128 != BPS_FACTOR {
+                return Err("Provided operation fees shares don't add up to 100%");
+            }
         }
 
         Ok(())

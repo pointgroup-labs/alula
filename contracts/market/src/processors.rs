@@ -125,7 +125,6 @@ pub fn process_initialize_pool(
         total_available: 0,
         total_collateral: 0,
 
-        beneficiaries_fees: smap![e],
         operation_fees_sum: 0,
         take_rate_fees_sum: 0,
 
@@ -1155,24 +1154,59 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
     let token_client = token::Client::new(e, &pool.token_address);
     let market_addr = e.current_contract_address();
 
-    for (beneficiary_address, amount) in pool.beneficiaries_fees.iter() {
-        if amount == 0 {
-            continue;
+    if pool.total_available > pool.take_rate_fees_sum {
+        // TODO: Ideally, we can distribute `take_rate` fees when there's not enough available liquidity
+        // to redeem all of them, but this requires an additional refactoring
+
+        // -- Distribute Take Rate Fees --
+
+        if let Some(take_rate_beneficiaries) = &pool.config.fee_config.take_rate_beneficiaries {
+            for (beneficiary_address, share_bps) in take_rate_beneficiaries.iter() {
+                if share_bps == 0 {
+                    continue;
+                }
+
+                let amount = pool
+                    .take_rate_fees_sum
+                    .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
+                    .map_over_or_underflow()?;
+
+                token_client.transfer(&market_addr, &beneficiary_address, &amount);
+                if beneficiary_address == insurance_fund_addr {
+                    let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
+                    fund_client.add_reserves(&pool.token_address, &amount);
+                }
+            }
         }
 
-        token_client.transfer(&market_addr, &beneficiary_address, &amount);
-
-        if beneficiary_address == insurance_fund_addr {
-            let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
-            fund_client.add_reserves(&pool.token_address, &amount);
-        }
+        pool.take_rate_fees_sum = 0;
     }
 
-    // Reset the internal ledger
-    pool.beneficiaries_fees = smap![&e];
-    pool.take_rate_fees_sum = 0;
+    // -- Distribute Operation Fees --
+
+    if let Some(operation_beneficiaries) = &pool.config.fee_config.operation_fee_beneficiaries {
+        for (beneficiary_address, share_bps) in operation_beneficiaries.iter() {
+            if share_bps == 0 {
+                continue;
+            }
+
+            let amount = pool
+                .operation_fees_sum
+                .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
+                .map_over_or_underflow()?;
+
+            token_client.transfer(&market_addr, &beneficiary_address, &amount);
+            if beneficiary_address == insurance_fund_addr {
+                let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
+                fund_client.add_reserves(&pool.token_address, &amount);
+            }
+        }
+    }
     pool.operation_fees_sum = 0;
+
     pool.set(e);
+
+    // TODO: Add `skim_fees` endpoint that allows admin to receive any excessive fees
 
     Ok(())
 }

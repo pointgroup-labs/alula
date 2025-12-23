@@ -114,6 +114,7 @@ impl TestMarketFixture<'_> {
             Address::generate(&e),
             Address::generate(&e),
             Address::generate(&e),
+            Address::generate(&e),
         ];
 
         // Configure USDC SAC first, since it's used in the oracle as a base asset
@@ -1242,15 +1243,6 @@ pub fn get_pool_available_take_rate_fees_sum(
     let pool = contract_client.get_pool(pool_address);
 
     pool.total_available().unwrap()
-}
-
-pub fn get_pool_beneficiaries_fees(
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> Map<Address, i128> {
-    let pool = contract_client.get_pool(pool_address);
-
-    pool.beneficiaries_fees.clone()
 }
 
 pub fn compute_pool_collateral_value(

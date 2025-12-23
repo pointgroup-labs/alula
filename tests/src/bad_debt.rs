@@ -8,8 +8,8 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_pool_beneficiaries_fees, get_pool_fee_config,
-    get_pool_operation_fees_sum, get_pool_total_borrowed,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, get_pool_fee_config, get_pool_operation_fees_sum,
+    get_pool_total_borrowed,
 };
 
 #[test]
@@ -23,7 +23,7 @@ fn test_beneficiaries_are_empty_prior_accrual() {
     let operation_fees_sum_before =
         get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
     let beneficiaries_fees_before =
-        get_pool_beneficiaries_fees(&contract_client, &usdc_pool_address);
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(
@@ -37,13 +37,10 @@ fn test_beneficiaries_are_empty_prior_accrual() {
     let beneficiaries_fees_sum_after =
         get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
     let beneficiaries_fees_after =
-        get_pool_beneficiaries_fees(&contract_client, &usdc_pool_address);
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
     assert_eq!(operation_fees_sum_before, beneficiaries_fees_sum_after);
     assert_eq!(operation_fees_sum_before, 0);
-
-    assert!(beneficiaries_fees_before.is_empty());
-    assert!(beneficiaries_fees_after.is_empty());
 }
 
 #[test]

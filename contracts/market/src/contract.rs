@@ -1,7 +1,8 @@
 #![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
-    Address, BytesN, Env, String, Vec, contract, contractclient, contractimpl, token, vec as svec,
+    Address, BytesN, Env, Map, String, Vec, contract, contractclient, contractimpl, token,
+    vec as svec,
 };
 
 use crate::{
@@ -144,6 +145,28 @@ pub trait Market {
         e: Env,
         pool_address: Address,
     ) -> Result<PoolUpdate, MCError>;
+
+    /// Set the `take rate` fees beneficiaries list. Shares(in basis points) must add up to 100%
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool, for which the beneficiaries list is set
+    /// * `beneficiaries` - a list of beneficiaries addresses and their shares(in basis points)
+    fn set_take_rate_fees_beneficiaries(
+        e: Env,
+        pool_address: Address,
+        beneficiaries: Map<Address, u32>,
+    ) -> Result<(), MCError>;
+
+    /// Set the `operation` fees beneficiaries list. Shares(in basis points) must add up to 100%
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool, for which the beneficiaries list is set
+    /// * `beneficiaries` - a list of beneficiaries addresses and their shares(in basis points)
+    fn set_operation_fees_beneficiaries(
+        e: Env,
+        pool_address: Address,
+        beneficiaries: Map<Address, u32>,
+    ) -> Result<(), MCError>;
 
     /// Incentivizes a pool's supply with a donated asset amount for a defined period of time. Useful for bootstrapping pools
     /// after deployment
@@ -776,9 +799,49 @@ impl Market for MarketContract {
         e: Env,
         pool_address: Address,
     ) -> Result<PoolUpdate, MCError> {
+        require_admin(&e);
+
         let pool = Pool::try_get(&e, &pool_address)?;
 
         pool.get_pool_config_update(&e)
+    }
+
+    fn set_take_rate_fees_beneficiaries(
+        e: Env,
+        pool_address: Address,
+        beneficiaries: Map<Address, u32>,
+    ) -> Result<(), MCError> {
+        require_admin(&e);
+
+        let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
+        let mut new_config = pool.config;
+
+        new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries);
+        new_config.validate()?;
+
+        pool.config = new_config;
+        pool.set(&e);
+
+        Ok(())
+    }
+
+    fn set_operation_fees_beneficiaries(
+        e: Env,
+        pool_address: Address,
+        beneficiaries: Map<Address, u32>,
+    ) -> Result<(), MCError> {
+        require_admin(&e);
+
+        let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
+        let mut new_config = pool.config;
+
+        new_config.fee_config.operation_fee_beneficiaries = Some(beneficiaries);
+        new_config.validate()?; // TODO: Validate only fee_config?
+
+        pool.config = new_config;
+        pool.set(&e);
+
+        Ok(())
     }
 
     fn bootstrap_pool(

@@ -58,22 +58,6 @@ impl Pool {
             .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
 
-        // TODO: Is it OK that we deduce `take_rate` from compounded accrual?
-        // TODO: Is everything OK here with precision loss?
-        if take_rate_accrual_part.is_positive()
-            && let Some(take_rate_beneficiaries) = &self.config.fee_config.take_rate_beneficiaries
-        {
-            for (beneficiary_addr, share_bps) in take_rate_beneficiaries.iter() {
-                let share = take_rate_accrual_part
-                    .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
-                    .map_over_or_underflow()?;
-
-                let prev = self.beneficiaries_fees.get(beneficiary_addr.clone()).unwrap_or(0);
-                let new = prev.checked_add(share).map_over_or_underflow()?;
-
-                self.beneficiaries_fees.set(beneficiary_addr, new);
-            }
-        }
         let new_take_rate_fees_sum =
             self.take_rate_fees_sum.checked_add(take_rate_accrual_part).map_over_or_underflow()?;
 

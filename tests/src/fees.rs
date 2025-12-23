@@ -2,10 +2,12 @@
 
 use market::{
     constants::{BPS_FACTOR, DEFAULT_UTILIZATION_RATIO_LIMIT_BPS},
+    error::MCError,
     obligation::{OperationFees, compute_operation_fees},
     pool::{PoolConfig, PoolFeeConfig},
 };
 use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{Address, map as smap, testutils::Address as _};
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture,
@@ -667,96 +669,165 @@ fn test_repay_fee() {
     assert_eq!(borrower_debt_diff, expected_borrower_debt_diff);
 }
 
-// #[test]
-// fn test_distribute_all_pools_fees() {
-//     let TestMarketFixture {
-//         contract_id,
-//         contract_client,
-//         contract_admin,
-//         usdc_pool_address,
-//         gold_pool_address,
-//         users,
-//         usdc_token_client,
-//         ..
-//     } = TestMarketFixture::new();
-//     let borrower = &users[0];
-//     let liquidity_provider = &users[1];
+#[test]
+fn test_distribute_all_pools_fees() {
+    const DEPOSIT_FEE_BPS: u32 = 1_000; // 10%
 
-//     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
-//     contract_client.deposit(
-//         liquidity_provider,
-//         &usdc_pool_address,
-//         &(2 * DEFAULT_DEPOSIT_AMOUNT),
-//         &None,
-//     );
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { deposit_fee_bps: DEPOSIT_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+    let TestMarketFixture {
+        e,
+        contract_id,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        gold_token_client,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let creditor = &users[0];
+    let debtor = &users[1];
+    let liquidity_provider = &users[2];
+    let beneficiary_1 = &Address::generate(&e);
+    let beneficiary_2 = &Address::generate(&e);
 
-//     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let gold_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let usdc_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-//     let pool_market_fees = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    assert_eq!(gold_pool_operation_fees, 0);
+    assert_eq!(usdc_pool_operation_fees, 0);
 
-//     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
-//     let pool_balance_before = usdc_token_client.balance(&contract_id);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-//     contract_client.distribute_all_pools_fees();
+    let gold_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let usdc_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-//     let contract_admin_balance_after = usdc_token_client.balance(&contract_admin);
-//     let contract_admin_balance_diff =
-//         contract_admin_balance_after.checked_sub(contract_admin_balance_before).unwrap();
+    assert!(gold_pool_operation_fees > 0);
+    assert!(usdc_pool_operation_fees > 0);
 
-//     let pool_balance_after = usdc_token_client.balance(&contract_id);
-//     let pool_balance_diff = pool_balance_before.checked_sub(pool_balance_after).unwrap();
+    let gold_market_balance_before = gold_token_client.balance(&contract_id);
+    let usdc_market_balance_before = usdc_token_client.balance(&contract_id);
 
-//     let pool_market_fees_new = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    contract_client.distribute_all_pools_fees();
 
-//     assert_eq!(contract_admin_balance_diff, pool_market_fees);
-//     assert_eq!(pool_balance_diff, pool_market_fees);
+    let gold_market_balance_after = gold_token_client.balance(&contract_id);
+    let usdc_market_balance_after = usdc_token_client.balance(&contract_id);
 
-//     assert_eq!(pool_market_fees_new, 0);
-// }
+    assert_eq!(gold_market_balance_after, gold_market_balance_before);
+    assert_eq!(usdc_market_balance_after, usdc_market_balance_before);
 
-// #[test]
-// fn test_distribute_pool_fees() {
-//     let TestMarketFixture {
-//         contract_id,
-//         contract_client,
-//         contract_admin,
-//         usdc_pool_address,
-//         gold_pool_address,
-//         users,
-//         usdc_token_client,
-//         ..
-//     } = TestMarketFixture::new();
-//     let borrower = &users[0];
-//     let liquidity_provider = &users[1];
+    let gold_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let usdc_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-//     contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
-//     contract_client.deposit(
-//         liquidity_provider,
-//         &usdc_pool_address,
-//         &(2 * DEFAULT_DEPOSIT_AMOUNT),
-//         &None,
-//     );
+    assert_eq!(gold_pool_operation_fees, 0);
+    assert_eq!(usdc_pool_operation_fees, 0);
 
-//     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(
+        contract_client.try_set_operation_fees_beneficiaries(
+            &gold_pool_address,
+            &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 8000)],
+        ),
+        Err(Ok(MCError::InvalidLoanPoolConfig))
+    );
 
-//     let pool_host_fees = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    // -- Set up beneficiaries --
 
-//     let contract_admin_balance_before = usdc_token_client.balance(&contract_admin);
-//     let pool_balance_before = usdc_token_client.balance(&contract_id);
+    contract_client.set_operation_fees_beneficiaries(
+        &gold_pool_address,
+        &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7000)],
+    );
+    contract_client.set_operation_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7000)],
+    );
 
-//     contract_client.distribute_pool_fees(&usdc_pool_address);
+    // -- Repeat all operations --
 
-//     let contract_admin_balance_after = usdc_token_client.balance(&contract_admin);
-//     let contract_admin_balance_diff =
-//         contract_admin_balance_after.checked_sub(contract_admin_balance_before).unwrap();
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-//     let pool_balance_after = usdc_token_client.balance(&contract_id);
-//     let pool_balance_diff = pool_balance_before.checked_sub(pool_balance_after).unwrap();
+    // -- Verify that fees are distributed --
 
-//     let pool_host_fees_new = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    let gold_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let usdc_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-//     assert_eq!(contract_admin_balance_diff, pool_host_fees);
-//     assert_eq!(pool_balance_diff, pool_host_fees);
+    assert!(gold_pool_operation_fees > 0);
+    assert!(usdc_pool_operation_fees > 0);
 
-//     assert_eq!(pool_host_fees_new, 0);
-// }
+    let gold_market_balance_before = gold_token_client.balance(&contract_id);
+    let usdc_market_balance_before = usdc_token_client.balance(&contract_id);
+
+    contract_client.distribute_all_pools_fees();
+
+    let gold_market_balance_after = gold_token_client.balance(&contract_id);
+    let usdc_market_balance_after = usdc_token_client.balance(&contract_id);
+
+    assert_eq!(
+        gold_market_balance_before.checked_sub(gold_market_balance_after).unwrap(),
+        gold_pool_operation_fees
+    );
+    assert_eq!(
+        usdc_market_balance_before.checked_sub(usdc_market_balance_after).unwrap(),
+        usdc_pool_operation_fees
+    );
+
+    let beneficiary_1_gold_balance = gold_token_client.balance(beneficiary_1);
+    let beneficiary_2_gold_balance = gold_token_client.balance(beneficiary_2);
+
+    assert_eq!(
+        beneficiary_1_gold_balance,
+        gold_pool_operation_fees.fixed_mul_floor(3000, BPS_FACTOR).unwrap()
+    );
+    assert_eq!(
+        beneficiary_2_gold_balance,
+        gold_pool_operation_fees.fixed_mul_floor(7000, BPS_FACTOR).unwrap()
+    );
+
+    let beneficiary_1_usdc_balance = usdc_token_client.balance(beneficiary_1);
+    let beneficiary_2_usdc_balance = usdc_token_client.balance(beneficiary_2);
+
+    assert_eq!(
+        beneficiary_1_usdc_balance,
+        usdc_pool_operation_fees.fixed_mul_floor(3000, BPS_FACTOR).unwrap()
+    );
+    assert_eq!(
+        beneficiary_2_usdc_balance,
+        usdc_pool_operation_fees.fixed_mul_floor(7000, BPS_FACTOR).unwrap()
+    );
+
+    let gold_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let usdc_pool_operation_fees =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+
+    assert_eq!(gold_pool_operation_fees, 0);
+    assert_eq!(usdc_pool_operation_fees, 0);
+}
+
+// TODO: Add test for `distribute_pool_fees`
