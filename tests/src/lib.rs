@@ -20,6 +20,8 @@ mod withdraw;
 use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
+use controlled_insurance_fund::ControlledInsuranceFundContractClient;
+use insurance_fund_trait::InsuranceFundClient;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
@@ -66,6 +68,10 @@ pub struct TestMarketFixture<'a> {
     // Swap Router
     pub router_client: router::Client<'a>,
     pub router_address: Address,
+    // Insurance Fund
+    pub controlled_insurance_fund_client: ControlledInsuranceFundContractClient<'a>,
+    pub insurance_fund_client: InsuranceFundClient<'a>,
+    pub insurance_fund: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
@@ -135,11 +141,12 @@ impl TestMarketFixture<'_> {
             controlled_insurance_fund::ControlledInsuranceFundContract,
             (contract_admin.clone(),),
         );
-        let insurance_fund_full_client =
+        let controlled_insurance_fund_client =
             controlled_insurance_fund::ControlledInsuranceFundContractClient::new(
                 &e,
                 &insurance_fund,
             );
+        let insurance_fund_client = InsuranceFundClient::new(&e, &insurance_fund);
 
         // Register Market contract
         let market_manager_address = Address::generate(&e);
@@ -150,7 +157,7 @@ impl TestMarketFixture<'_> {
                 contract_name,
                 contract_admin.clone(),
                 oracle.clone(),
-                insurance_fund,
+                insurance_fund.clone(),
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
                 0i128,
@@ -160,7 +167,7 @@ impl TestMarketFixture<'_> {
         );
         let contract_client = MarketClient::new(&e, &market_contract_id);
 
-        insurance_fund_full_client.set_market(&market_contract_id);
+        controlled_insurance_fund_client.set_market(&market_contract_id);
 
         contract_client.update_market_status(&0);
 
@@ -219,6 +226,10 @@ impl TestMarketFixture<'_> {
             // Swap router
             router_client,
             router_address,
+            // Insurance Fund
+            controlled_insurance_fund_client,
+            insurance_fund_client,
+            insurance_fund,
             // GOLD
             gold_sac,
             gold_token_client,
@@ -1234,6 +1245,12 @@ pub fn get_pool_operation_fees_sum(contract_client: &MarketClient, pool_address:
     let pool = contract_client.get_pool(pool_address);
 
     pool.operation_fees_sum
+}
+
+pub fn get_pool_take_rate_fees_sum(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.take_rate_fees_sum
 }
 
 pub fn get_pool_available_take_rate_fees_sum(

@@ -1,18 +1,22 @@
 #![cfg(test)]
 
 use market::{
-    constants::{BPS_FACTOR, DEFAULT_UTILIZATION_RATIO_LIMIT_BPS},
+    constants::{BPS_FACTOR, DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, SECONDS_IN_YEAR},
     error::MCError,
     obligation::{OperationFees, compute_operation_fees},
     pool::{PoolConfig, PoolFeeConfig},
 };
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, map as smap, testutils::Address as _};
+use soroban_sdk::{
+    Address, map as smap,
+    testutils::{Address as _, Ledger},
+};
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     get_obligation_collateral, get_obligation_d_tokens_as_tokens,
     get_obligation_j_tokens_as_tokens, get_pool_fee_config, get_pool_operation_fees_sum,
+    get_pool_take_rate_fees_sum, get_pool_total_borrowed,
 };
 
 // -- Default Fees(only for borrow and flash loan(the latter tested in 'flash_loan_taker_mock')) --
@@ -828,6 +832,166 @@ fn test_distribute_all_pools_fees() {
 
     assert_eq!(gold_pool_operation_fees, 0);
     assert_eq!(usdc_pool_operation_fees, 0);
+}
+
+#[test]
+fn test_take_rate_fees_are_empty_prior_accrual() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    let take_rate_fee_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    let take_rate_fees_after = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+
+    assert_eq!(take_rate_fee_before, take_rate_fees_after);
+    assert_eq!(take_rate_fee_before, 0);
+}
+
+#[test]
+fn test_accumulate_take_rate_fees() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    let pool_total_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+
+    // -- Accrue debt on the pool --
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed_after = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+
+    let fees_diff = fees_after.checked_sub(fees_before).unwrap();
+    let pool_total_borrowed_diff =
+        pool_total_borrowed_after.checked_sub(pool_total_borrowed_before).unwrap();
+
+    let take_rate = get_pool_fee_config(&contract_client, &usdc_pool_address).take_rate_bps;
+    let expected_accumulated_reserve_fees_diff =
+        pool_total_borrowed_diff.fixed_mul_ceil(take_rate as i128, BPS_FACTOR).unwrap();
+
+    assert!(pool_total_borrowed_diff > 0);
+    assert_eq!(fees_diff, expected_accumulated_reserve_fees_diff);
+
+    assert!(fees_after > fees_before);
+}
+
+#[test]
+fn test_distribute_take_rate_fees() {
+    let TestMarketFixture {
+        e,
+        contract_id,
+        contract_client,
+        usdc_token_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+    let beneficiary_1 = Address::generate(&e);
+    let beneficiary_2 = Address::generate(&e);
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    // -- Accrue debt on the pool --
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_before = usdc_token_client.balance(&contract_id);
+
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_after = usdc_token_client.balance(&contract_id);
+
+    assert_eq!(balance_before, balance_after);
+    assert_ne!(fees_before, fees_after);
+    assert_eq!(fees_after, 0);
+
+    assert_eq!(
+        contract_client.try_set_take_rate_fees_beneficiaries(
+            &usdc_pool_address,
+            &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 8000)],
+        ),
+        Err(Ok(MCError::InvalidLoanPoolConfig))
+    );
+
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7_000)],
+    );
+
+    // -- Accrue debt on the pool --
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_before = usdc_token_client.balance(&contract_id);
+    let beneficiary_1_balance_before = usdc_token_client.balance(&beneficiary_1);
+    let beneficiary_2_balance_before = usdc_token_client.balance(&beneficiary_2);
+
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let fees_after = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_after = usdc_token_client.balance(&contract_id);
+    let beneficiary_1_balance_after = usdc_token_client.balance(&beneficiary_1);
+    let beneficiary_2_balance_after = usdc_token_client.balance(&beneficiary_2);
+
+    assert_approx_eq_abs(balance_before.checked_sub(balance_after).unwrap(), fees_before, 1);
+    assert_approx_eq_abs(
+        beneficiary_1_balance_after.checked_sub(beneficiary_1_balance_before).unwrap(),
+        fees_before.fixed_mul_floor(3000, BPS_FACTOR).unwrap(),
+        1,
+    );
+    assert_approx_eq_abs(
+        beneficiary_2_balance_after.checked_sub(beneficiary_2_balance_before).unwrap(),
+        fees_before.fixed_mul_floor(7000, BPS_FACTOR).unwrap(),
+        1,
+    );
+    assert_eq!(fees_after, 0);
 }
 
 // TODO: Add test for `distribute_pool_fees`
