@@ -1,20 +1,19 @@
 #![cfg(test)]
 
 use market::{
-    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    constants::SECONDS_IN_YEAR,
     error::MCError,
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, map as smap,
-    testutils::{Address as _, Ledger},
+    map as smap,
+    testutils::Ledger,
 };
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, compute_pool_collateral_value,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_pool_collateral_value,
     compute_pool_debt_value, compute_user_obligation_collateral_value,
-    compute_user_obligation_debt_value, get_obligation_d_tokens_as_tokens, get_pool_fee_config,
-    get_pool_operation_fees_sum, get_pool_take_rate_fees_sum, get_pool_total_available,
+    compute_user_obligation_debt_value, get_obligation_d_tokens_as_tokens, get_pool_total_available,
     get_pool_total_borrowed, get_pool_total_d_tokens, get_pool_total_j_tokens,
 };
 
@@ -48,7 +47,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
         e,
         contract_client,
         insurance_fund,
-        insurance_fund_client,
+        
         controlled_insurance_fund_client,
         usdc_token_client,
         usdc_pool_address,
@@ -129,7 +128,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
         &None,
         &usdc_pool_address,
         &gold_pool_address,
-        &(&debt_amount.fixed_mul_ceil(98, 100).unwrap()),
+        (&debt_amount.fixed_mul_ceil(98, 100).unwrap()),
         &DEFAULT_DEPOSIT_AMOUNT,
     );
 
@@ -181,8 +180,8 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let market_value_diff_after =
         market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
 
-    // dbg!(market_value_diff_before, market_value_diff_after); // MEGA_WARN. This issue still
-    // // persists
+    dbg!(market_value_diff_before, market_value_diff_after); // MEGA_WARN. This issue still
+    // persists
     assert!(market_value_diff_before > market_value_diff_after);
 }
 
@@ -271,9 +270,8 @@ fn test_partially_socialize_full_bad_debt_loss() {
 //         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
 
 //     let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
-//     let pool_accumulated_reserve_fees_diff = pool_beneficiaries_sum_before
-//         .checked_sub(pool_beneficiaries_sum_after)
-//         .unwrap();
+//     let pool_accumulated_reserve_fees_diff =
+//         pool_beneficiaries_sum_before.checked_sub(pool_beneficiaries_sum_after).unwrap();
 
 //     assert_eq!(pool_d_tokens_after, 0);
 //     assert!(pool_d_tokens_before > pool_d_tokens_after);
@@ -287,101 +285,121 @@ fn test_partially_socialize_full_bad_debt_loss() {
 //     assert_eq!(beneficiaries_sum_before, 0);
 // }
 
-// #[test]
-// fn test_completely_cover_bad_debt() {
-//     let TestMarketFixture {
-//         e, contract_client, usdc_pool_address, gold_pool_address, users, ..
-//     } = TestMarketFixture::new();
-//     contract_client.update_market(&10, &100_000);
-//     let borrower_1 = &users[0];
-//     let borrower_2 = &users[1];
-//     let liquidity_provider = &users[2];
+#[test]
+fn test_completely_cover_bad_debt() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        insurance_fund,
+        controlled_insurance_fund_client,
+        usdc_token_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let borrower_1 = &users[0];
+    let borrower_2 = &users[1];
+    let liquidity_provider = &users[2];
+    let liquidator = &users[3];
 
-//     contract_client.add_collateral(
-//         borrower_1,
-//         &gold_pool_address,
-//         &(10 * DEFAULT_DEPOSIT_AMOUNT),
-//         &None,
-//     );
-//     contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-//     contract_client.deposit(
-//         liquidity_provider,
-//         &usdc_pool_address,
-//         &(20 * DEFAULT_DEPOSIT_AMOUNT),
-//         &None,
-//     );
+    contract_client.add_collateral(
+        borrower_1,
+        &gold_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(20 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
-//     // Borrow max possible amounts
-//     contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX, &None); // will borrow x10 due to having x10 more collateral
-//     contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX, &None);
+    // Borrow max possible amounts
+    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX, &None); // will borrow x10 due to having x10 more collateral
+    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX, &None);
 
-//     // - Accrue bad debt on the pool -
+    // - Accrue bad debt on the pool -
 
-//     e.ledger().with_mut(|li| {
-//         li.timestamp += 15 * SECONDS_IN_YEAR;
-//     });
-//     contract_client.refresh_pool(&usdc_pool_address);
+    e.ledger().with_mut(|li| {
+        li.timestamp += 15 * SECONDS_IN_YEAR;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
 
-//     // - Verify bad debt on 2nd borrower exists
+    // - Verify bad debt on 2nd borrower exists
 
-//     let total_obligation_collateral_value =
-//         compute_user_obligation_collateral_value(&e, &contract_client, borrower_2);
-//     let total_obligation_debt_value =
-//         compute_user_obligation_debt_value(&e, &contract_client, borrower_2);
+    let total_obligation_collateral_value =
+        compute_user_obligation_collateral_value(&e, &contract_client, borrower_2);
+    let total_obligation_debt_value =
+        compute_user_obligation_debt_value(&e, &contract_client, borrower_2);
 
-//     assert!(total_obligation_debt_value > total_obligation_collateral_value);
+    assert!(total_obligation_debt_value > total_obligation_collateral_value);
 
-//     // - Verify that reserve can cover it -
+    // - Verify that reserve can cover it -
 
-//     let borrower_2_debt_before =
-//         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
-//             .unwrap();
-//     let pool_available_reserve_fees_before =
-//         get_pool_available_reserve_fees(&contract_client, &usdc_pool_address);
-//     let pool_beneficiaries_sum_before =
-//         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (insurance_fund.clone(), 10_000)],
+    );
+    contract_client.distribute_pool_fees(&usdc_pool_address);
 
-//     assert!(pool_available_reserve_fees_before > borrower_2_debt_before);
+    let borrower_2_debt_before =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
+            .unwrap();
+    let insurance_fund_balance = usdc_token_client.balance(&insurance_fund);
+    assert!(borrower_2_debt_before < insurance_fund_balance);
 
-//     // - Verify complete bad debt covering takes place -
+    contract_client.liquidate(
+        liquidator,
+        borrower_2,
+        &None,
+        &usdc_pool_address,
+        &gold_pool_address,
+        (&borrower_2_debt_before.fixed_mul_ceil(98, 100).unwrap()),
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
 
-//     let pool_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-//     let pool_available_before = get_pool_total_available(&contract_client, &usdc_pool_address);
-//     let pool_d_tokens_before = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
-//     let pool_j_tokens_before = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
+    let borrower_2_new_debt =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_2, &usdc_pool_address)
+            .unwrap();
 
-//     contract_client.issue_cover_bad_debt(borrower_2);
+    // - Verify complete bad debt covering takes place -
 
-//     // - Verify 2nd obligation no longer exists -
+    let pool_borrowed_before = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_available_before = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_d_tokens_before = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
+    let pool_j_tokens_before = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
 
-//     assert_eq!(
-//         contract_client.try_get_user_obligation(borrower_2),
-//         Err(Ok(MCError::ObligationDoesNotExist))
-//     );
+    contract_client.issue_cover_bad_debt(borrower_2);
+    controlled_insurance_fund_client.mark_ready(&0, &insurance_fund_balance);
+    contract_client.claim_cover_bad_debt_results(borrower_2);
 
-//     let pool_borrowed_after = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-//     let pool_available_after = get_pool_total_available(&contract_client, &usdc_pool_address);
-//     let pool_d_tokens_after = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
-//     let pool_j_tokens_after = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
-//     let pool_beneficiaries_sum_after =
-//         get_pool_accumulated_reserve_fees(&contract_client, &usdc_pool_address);
+    // - Verify 2nd obligation no longer exists -
 
-//     let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
-//     let pool_borrowed_diff = pool_borrowed_before.checked_sub(pool_borrowed_after).unwrap();
-//     let pool_accumulated_reserve_fees_diff = pool_beneficiaries_sum_before
-//         .checked_sub(pool_beneficiaries_sum_after)
-//         .unwrap();
+    assert_eq!(
+        contract_client.try_get_user_obligation(borrower_2),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
 
-//     assert!(pool_d_tokens_after > 0); // another borrower still has bad debt
-//     assert!(pool_borrowed_after > 0);
-//     assert!(pool_d_tokens_before > pool_d_tokens_after);
-//     assert!(pool_borrowed_before > pool_borrowed_after);
+    let pool_borrowed_after = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let pool_available_after = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_d_tokens_after = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
+    let pool_j_tokens_after = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
 
-//     assert_eq!(pool_j_tokens_after, pool_j_tokens_before);
-//     assert_eq!(pool_available_diff, pool_accumulated_reserve_fees_diff); // complete coverage took place
-//     assert_eq!(pool_borrowed_diff, pool_accumulated_reserve_fees_diff);
-//     assert!(pool_available_after > 0); // reserve fees are left
-// }
+    let pool_available_diff = pool_available_after.checked_sub(pool_available_before).unwrap();
+    let pool_borrowed_diff = pool_borrowed_before.checked_sub(pool_borrowed_after).unwrap();
+
+    assert!(pool_d_tokens_after > 0); // another borrower still has bad debt
+    assert!(pool_borrowed_after > 0);
+    assert!(pool_d_tokens_before > pool_d_tokens_after);
+    assert!(pool_borrowed_before > pool_borrowed_after);
+
+    assert_eq!(pool_j_tokens_after, pool_j_tokens_before);
+    assert_eq!(pool_available_diff, borrower_2_new_debt); // complete coverage took place
+    assert_eq!(pool_borrowed_diff, borrower_2_new_debt);
+}
 
 #[test]
 fn test_donate() {

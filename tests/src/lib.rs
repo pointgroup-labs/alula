@@ -37,7 +37,7 @@ use market::{
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env, Map, Symbol,
+    Address, Env, Symbol,
     testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
     token::{self, StellarAssetClient, TokenClient},
 };
