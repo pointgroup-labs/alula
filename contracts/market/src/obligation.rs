@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
+use soroban_sdk::{Address, Bytes, BytesN, Env, Map, contracttype};
 
 use crate::{
     constants::*,
@@ -1523,13 +1523,6 @@ pub struct RemoveCollateralResult {
     /// Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
     pub collateral_remover_to_receive: i128,
     pub operation_fees: OperationFees,
-}
-
-#[contracttype]
-/// [`Obligation::cover_bad_debt`] resulting data
-pub struct CoverBadDebtResult {
-    /// `(pool address, borrower dTokens)` pairs for each bad debt obligation borrows
-    pub borrows_to_take_care: Vec<(Address, i128)>,
 }
 
 #[contracttype]
