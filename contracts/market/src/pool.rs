@@ -584,7 +584,10 @@ impl Pool {
     }
 
     pub fn total_available(&self) -> Result<i128, MCError> {
-        self.total_available.checked_sub(self.take_rate_fees_sum).map_over_or_underflow()
+        Ok(i128::max(
+            self.total_available.checked_sub(self.take_rate_fees_sum).map_over_or_underflow()?,
+            0,
+        ))
     }
 
     /// Calculates total debt
