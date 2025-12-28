@@ -103,7 +103,7 @@ fn test_pool_reinitialize_no_salt() {
     contract_client.initialize_pool(&token_address, &None, &None);
 
     assert_eq!(
-        Err(Ok(MCError::PoolAlreadyExists)),
+        Err(Ok(MCError::InvalidInitialization)),
         contract_client.try_initialize_pool(&token_address, &None, &None),
     );
 }
@@ -120,7 +120,7 @@ fn test_pool_reinitialize_with_salt() {
     contract_client.initialize_pool(&token_address, &Some(salt.clone()), &None);
 
     assert_eq!(
-        Err(Ok(MCError::PoolAlreadyExists)),
+        Err(Ok(MCError::InvalidInitialization)),
         contract_client.try_initialize_pool(&token_address, &Some(salt), &None),
     );
 }
@@ -150,6 +150,22 @@ fn test_initialize_multiply_pair() {
     assert_eq!(
         contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
         Err(Ok(MCError::MultiplyPairAlreadyExists))
+    );
+}
+
+#[test]
+fn test_initialize_multiply_pair_with_same_pools_fails() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let deposit_token_address = register_random_sac(&e);
+
+    let deposit_pool_address =
+        contract_client.initialize_pool(&deposit_token_address, &None, &None);
+
+    assert_eq!(
+        contract_client.try_initialize_multiply_pair(&deposit_pool_address, &deposit_pool_address),
+        Err(Ok(MCError::InvalidInitialization))
     );
 }
 

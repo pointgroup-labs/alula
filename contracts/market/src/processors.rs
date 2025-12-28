@@ -154,6 +154,10 @@ pub fn process_initialize_multiply_pair(
 ) -> Result<(), MCError> {
     MultiplyPair::require_does_not_exists(e, deposit_pool_address, borrow_pool_address)?;
 
+    if deposit_pool_address == borrow_pool_address {
+        return Err(MCError::InvalidInitialization);
+    }
+
     let (deposit_pool, borrow_pool) = (
         Pool::try_get(e, deposit_pool_address).map_err(|_| MCError::DepositPoolDoesNotExist)?,
         Pool::try_get(e, borrow_pool_address).map_err(|_| MCError::BorrowPoolDoesNotExist)?,
@@ -554,8 +558,8 @@ pub fn process_deposit_with_leverage(
 
         (flash_borrow_amount, amount_in, amount_out)
     } else {
-        // Flash borrow such an amount, that the corresponding `flash_repay_amount`
-        // equals (`LEVERAGE` - 1) * `initial_borrow_amount`
+        // Flash borrow such an amount that after the operation, the `borrow` position's amount
+        // is equal to (`LEVERAGE` - 1) * `initial_borrow_amount`
         let flash_borrow_amount = {
             let borrowed_additional_leverage_amount = amount
                 .fixed_mul_floor(leverage_multiplier_minus_1 as i128, LEVERAGE_SCALE as i128)
@@ -658,17 +662,10 @@ pub fn process_deposit_with_leverage(
         return Err(MCError::InconsistentDepositWithLeverage);
     }
 
-    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount, referrer)?
-        .execute_transfers(e)?;
+    process_borrow(e, obligation_key, &pair.borrow_pool, flash_repay_amount, referrer)?;
     borrow_pool.refresh(e)?;
 
     // -- Flash Repay --
-
-    flash_borrowed_token_client.transfer(
-        &obligation_key.user,
-        e.current_contract_address(),
-        &flash_repay_amount,
-    );
 
     borrow_pool.adjust_total_available(e, flash_borrow_amount)?;
     borrow_pool.adjust_operation_fees_sum(e, flash_loan_fee)?;
@@ -1280,6 +1277,9 @@ fn compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
     borrowed_token: &Address,
     deposited_amount: i128,
     borrowed_amount: i128,
+    // TODO: max_slippage,
+    // TODO: flash_loan_fee,
+    // TODO: operational_fee
 ) -> Result<i128, MCError> {
     require_nonnegative(deposited_amount)?;
     require_nonnegative(borrowed_amount)?;

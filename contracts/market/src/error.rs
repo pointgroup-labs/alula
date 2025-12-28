@@ -19,7 +19,7 @@ pub enum MCError {
     MinCollateralValueIsNotMet = 12,
 
     // Pool-related errors (100-199)
-    PoolAlreadyExists = 100,
+    InvalidInitialization = 100,
     PoolDoesNotExist = 101,
     InvalidLoanPoolConfig = 102,
     NotEnoughPoolFunds = 103,
@@ -60,7 +60,7 @@ pub enum MCError {
     LiquidationExcessiveDemandedCollateral = 605,
 
     // Leverage and swap errors (700-799)
-    InvalidLeverageMultiplier = 700,
+    InvalidLeverageInputs = 700,
     InvalidSwapSlippage = 701,
     MultiplyPairAlreadyExists = 702,
     MultiplyPairDoesNotExist = 703,

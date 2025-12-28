@@ -102,6 +102,7 @@ pub enum DataKey {
     ConfigUpdate(Address),
     Obligation(ObligationKey),
     MultiplyPair((Address, Address)),
+    ProposedAdmin,
 }
 
 // -- TTL Bumpers --
@@ -215,6 +216,18 @@ pub fn set_earn_obligation_seed(e: &Env, seed: &BytesN<32>) {
 pub fn get_earn_obligation_seed(e: &Env) -> Option<BytesN<32>> {
     e.storage().instance().get(&DataKey::EarnObligationSeed)
 }
+
+// - ProposedAdmin -
+pub fn set_proposed_admin(e: &Env, proposed_admin: &Address) {
+    e.storage().instance().set(&DataKey::ProposedAdmin, &proposed_admin);
+}
+pub fn get_proposed_admin(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::ProposedAdmin)
+}
+pub fn remove_proposed_admin(e: &Env) {
+    e.storage().instance().remove(&DataKey::ProposedAdmin);
+}
+
 // ---- Pool ----
 
 /// Gets all pools stored in the contract

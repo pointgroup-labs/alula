@@ -147,14 +147,14 @@ impl MultiplyPair {
 
     /// # Returns
     /// - [`Ok(())`] if the provided multiplier is within the valid range
-    /// - [`Err(MCError::InvalidLeverageMultiplier)`] otherwise
+    /// - [`Err(MCError::InvalidLeverageInputs)`] otherwise
     pub fn require_valid_leverage_multiplier(
         &self,
         leverage_multiplier: u32,
     ) -> Result<(), MCError> {
         if !(MIN_LEVERAGE_MULTIPLIER..=self.max_leverage_multiplier).contains(&leverage_multiplier)
         {
-            return Err(MCError::InvalidLeverageMultiplier);
+            return Err(MCError::InvalidLeverageInputs);
         }
 
         Ok(())
@@ -246,5 +246,51 @@ mod tests {
         let seed2 = MultiplyPair::compute_obligation_seed(&e, &deposit_pool, &borrow_pool2);
 
         assert_ne!(seed1, seed2);
+    }
+
+    #[test]
+    fn compare_mults() {
+        let open_ltv_bps: i128 = 8000;
+        let liab_f_bps: i128 = 12000;
+        let max_swap_fee_bps: i128 = 100; // 1%
+        let flash_loan_fee_bps: i128 = 50; // 0.5%
+
+        let new_val = new_formula(open_ltv_bps, liab_f_bps, max_swap_fee_bps, flash_loan_fee_bps);
+        let old_val = MultiplyPair::compute_max_leverage_multiplier(
+            flash_loan_fee_bps,
+            max_swap_fee_bps,
+            open_ltv_bps,
+            liab_f_bps,
+            1,
+        );
+
+        extern crate std;
+
+        let _x = 123;
+
+        std::dbg!(new_val, old_val);
+    }
+
+    fn new_formula(
+        open_ltv_bps: i128,
+        liab_f_bps: i128,
+        max_swap_fee_bps: i128,
+        flash_loan_fee_bps: i128,
+    ) -> i128 {
+        let numerator = (BPS_FACTOR.checked_add(max_swap_fee_bps).unwrap())
+            .fixed_mul_floor(BPS_FACTOR.checked_add(flash_loan_fee_bps).unwrap(), BPS_FACTOR)
+            .unwrap()
+            * 100;
+
+        let denominator = liab_f_bps
+            .fixed_mul_ceil(BPS_FACTOR + max_swap_fee_bps, BPS_FACTOR)
+            .unwrap()
+            .fixed_mul_ceil(BPS_FACTOR + flash_loan_fee_bps, BPS_FACTOR)
+            .unwrap()
+            - open_ltv_bps;
+
+        let result = numerator.checked_div(denominator).unwrap();
+
+        result
     }
 }

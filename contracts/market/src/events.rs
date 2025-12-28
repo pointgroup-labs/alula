@@ -177,10 +177,13 @@ struct WithdrawFromLeveragedEvent {
 }
 
 #[contractevent]
-struct AccrueInterestEvent {
+struct ProposeNewAdmin {
     #[topic]
-    user: Address,
+    new_admin: Address,
 }
+
+#[contractevent]
+struct AcceptAdminProposal {}
 
 // ----- Internal Error Events -----
 
@@ -580,6 +583,16 @@ pub fn withdraw_from_leveraged(
     }
     .publish(e);
 }
+
+pub fn propose_new_admin(e: &Env, new_admin: Address) {
+    ProposeNewAdmin { new_admin }.publish(e);
+}
+
+pub fn accept_proposed_admin(e: &Env) {
+    AcceptAdminProposal {}.publish(e);
+}
+
+// --- Internal Errors Events ---
 
 /// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
 /// storage timestamp

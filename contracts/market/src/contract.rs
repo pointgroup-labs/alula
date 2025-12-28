@@ -17,7 +17,7 @@ use crate::{
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
     oracle,
-    pool::{Pool, PoolConfig},
+    pool::{Pool, PoolConfig, PoolStatus},
     processors::*,
     request::Request,
     storage::{self, GlobalState, MarketStatus, PoolUpdate},
@@ -25,32 +25,6 @@ use crate::{
 
 #[contractclient(name = "MarketClient")]
 pub trait Market {
-    /// Constructs the market contract
-    ///
-    /// # Arguments
-    /// * `admin` - market's administrator
-    /// * `name` - market's name(not necessarily unique)
-    /// * `oracle` - SEP-40 compliant oracle's contract address
-    /// * `insurance_fund` - `Insurance Fund` trait compliant contract's address
-    /// * `deployer` - address of a deployer contract
-    /// * `max_positions` - max allowed number of positions in an obligation
-    /// * `min_collateral_value_cents` - minimum collateral value of a user's obligation in US dollar cents required
-    ///   to start receiving `Borrowing Capacity` increase
-    /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
-    ///   `None` for permissionless markets since they cannot be updated
-    fn __constructor(
-        e: Env,
-        name: String,
-        admin: Address,
-        oracle: Address,
-        insurance_fund: Address,
-        deployer: Address,
-        max_positions: u32,
-        insolvency_ltv_bps: i128,
-        min_collateral_value_cents: i128,
-        update_in_queue_period: Option<u64>,
-    ) -> Result<(), MCError>;
-
     /// Submits a request batch
     fn submit_requests_batch(
         e: Env,
@@ -621,39 +595,6 @@ pub struct MarketContract;
 
 #[contractimpl]
 impl Market for MarketContract {
-    fn __constructor(
-        e: Env,
-        name: String,
-        admin: Address,
-        oracle: Address,
-        insurance_fund: Address,
-        deployer: Address,
-        max_positions: u32,
-        min_collateral_value_cents: i128,
-        insolvency_ltv_bps: i128,
-        update_in_queue_period: Option<u64>,
-    ) -> Result<(), MCError> {
-        let market_status = if update_in_queue_period.is_some() {
-            // Owned markets begin in a frozen state
-            MarketStatus::Frozen
-        } else {
-            MarketStatus::Active
-        };
-
-        storage::set_name(&e, &name);
-        storage::set_admin(&e, &admin);
-        storage::set_oracle(&e, &oracle);
-        storage::set_deployer(&e, &deployer);
-        storage::set_market_status(&e, &market_status);
-        storage::set_insurance_fund(&e, &insurance_fund);
-        storage::set_max_positions(&e, max_positions);
-        storage::set_update_in_queue_period(&e, update_in_queue_period);
-        storage::set_min_collateral_value_cents(&e, min_collateral_value_cents);
-        storage::set_insolvency_ltv_bps(&e, insolvency_ltv_bps);
-
-        Ok(())
-    }
-
     // WARN: All upgrade possibilities will be removed prior to mainnet deployment
 
     /// Upgrades the lending contract
@@ -813,9 +754,12 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         require_admin(&e);
 
-        let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
-        let mut new_config = pool.config;
+        // NB: Distribute pool fees for valid fees tracking afterwards
+        process_distribute_pool_fees(&e, &pool_address)?;
 
+        let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
+
+        let mut new_config = pool.config;
         new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries);
         new_config.validate()?;
 
@@ -831,6 +775,9 @@ impl Market for MarketContract {
         beneficiaries: Map<Address, u32>,
     ) -> Result<(), MCError> {
         require_admin(&e);
+
+        // NB: Distribute pool fees for valid fees tracking afterwards
+        process_distribute_pool_fees(&e, &pool_address)?;
 
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
         let mut new_config = pool.config;
@@ -1106,12 +1053,15 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         user.require_auth();
-        require_market_not_frozen(&e)?;
+        require_deposits_on_market_allowed(&e)?;
+        require_borrows_on_market_allowed(&e)?;
 
         let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
         // TODO: We can allow to multiply more but only with the preserved current multiplier
-        Obligation::require_does_not_exist(&e, &obligation_key)?;
+        if storage::obligation_exists(&e, &obligation_key) {
+            return Err(MCError::InvalidLeverageInputs);
+        }
 
         process_deposit_with_leverage(
             &e,
@@ -1136,7 +1086,8 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         user.require_auth();
-        require_market_not_frozen(&e)?;
+        require_deposits_on_market_allowed(&e)?;
+        require_borrows_on_market_allowed(&e)?;
 
         let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
@@ -1361,5 +1312,105 @@ impl Market for MarketContract {
         storage::remove_all_obligations(&e);
         storage::remove_all_pools(&e);
         storage::remove_all_multiply_pairs(&e);
+    }
+}
+
+#[contractimpl]
+impl MarketContract {
+    /// Constructs the market contract
+    ///
+    /// # Arguments
+    /// * `admin` - market's administrator
+    /// * `name` - market's name(not necessarily unique)
+    /// * `oracle` - SEP-40 compliant oracle's contract address
+    /// * `insurance_fund` - `Insurance Fund` trait compliant contract's address
+    /// * `deployer` - address of a deployer contract
+    /// * `max_positions` - max allowed number of positions in an obligation
+    /// * `min_collateral_value_cents` - minimum collateral value of a user's obligation in US dollar cents required
+    ///   to start receiving `Borrowing Capacity` increase
+    /// * `update_in_queue_period` - the time it takes for a market update to be in the update queue.
+    ///   `None` for permissionless markets since they cannot be updated
+    pub fn __constructor(
+        e: Env,
+        name: String,
+        admin: Address,
+        oracle: Address,
+        insurance_fund: Address,
+        deployer: Address,
+        max_positions: u32,
+        min_collateral_value_cents: i128,
+        insolvency_ltv_bps: i128,
+        update_in_queue_period: Option<u64>,
+    ) -> Result<(), MCError> {
+        let market_status = if update_in_queue_period.is_some() {
+            // Owned markets begin in a frozen state
+            MarketStatus::Frozen
+        } else {
+            MarketStatus::Active
+        };
+
+        storage::set_name(&e, &name);
+        storage::set_admin(&e, &admin);
+        storage::set_oracle(&e, &oracle);
+        storage::set_deployer(&e, &deployer);
+        storage::set_market_status(&e, &market_status);
+        storage::set_insurance_fund(&e, &insurance_fund);
+        storage::set_max_positions(&e, max_positions);
+        storage::set_update_in_queue_period(&e, update_in_queue_period);
+        storage::set_min_collateral_value_cents(&e, min_collateral_value_cents);
+        storage::set_insolvency_ltv_bps(&e, insolvency_ltv_bps);
+
+        Ok(())
+    }
+
+    /// Updates pool's status
+    ///
+    /// # Arguments
+    /// * `pool_address` - address of a pool whose status is updated
+    /// * `new_status` - new pool's status
+    pub fn update_pool_status(
+        // TODO: tests
+        e: Env,
+        pool_address: Address,
+        new_status: PoolStatus,
+    ) -> Result<(), MCError> {
+        require_owned_and_admin(&e)?;
+
+        let mut pool = Pool::try_get(&e, &pool_address)?;
+        pool.config.status = new_status;
+
+        pool.set(&e);
+
+        Ok(())
+    }
+
+    /// Proposes a new market's admin
+    ///
+    /// # Arguments
+    /// * `new_admin` - proposed admin
+    pub fn propose_new_admin(e: Env, new_admin: Address) -> Result<(), MCError> {
+        require_admin(&e);
+        storage::extend_instance_storage(&e);
+
+        storage::set_proposed_admin(&e, &new_admin);
+
+        events::propose_new_admin(&e, new_admin);
+
+        Ok(())
+    }
+
+    /// Accepts the proposal to become a new admin
+    pub fn accept_proposed_admin(e: Env) -> Result<(), MCError> {
+        storage::extend_instance_storage(&e);
+
+        let proposed_admin = storage::get_proposed_admin(&e).ok_or(MCError::InvalidMarketUpdate)?;
+        proposed_admin.require_auth();
+
+        storage::set_admin(&e, &proposed_admin);
+        storage::remove_proposed_admin(&e);
+
+        events::accept_proposed_admin(&e);
+
+        Ok(())
     }
 }

@@ -94,7 +94,7 @@ pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1; // 0.01%
 /// Scale to represent leverage multipliers (e.g., with current scale 100 = 1.0x, 224 = 2.24x)
 pub const LEVERAGE_SCALE: u32 = 100;
 /// Minimum leverage multiplier (scaled by LEVERAGE_SCALE)
-pub const MIN_LEVERAGE_MULTIPLIER: u32 = 100; // x1
+pub const MIN_LEVERAGE_MULTIPLIER: u32 = 101; // x1.01
 
 // ---- Fees ----
 
@@ -118,7 +118,7 @@ pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Rel
 
 // ---- Dependency Contract Addresses ----
 
-pub const ROUTER_ADDRESS: &str = "CCMAPXWVZD4USEKDWRYS7DA4Y3D7E2SDMGBFJUCEXTC7VN6CUBGWPFUS";
+pub const ROUTER_ADDRESS: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD";
 
 // ---- MISC ----
 

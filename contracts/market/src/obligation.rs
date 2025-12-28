@@ -184,14 +184,6 @@ impl Obligation {
 
     // ------ `require_` circuits ------
 
-    pub fn require_does_not_exist(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
-        if storage::obligation_exists(e, obligation_key) {
-            return Err(MCError::ObligationDoesNotExist);
-        }
-
-        Ok(())
-    }
-
     pub fn require_borrow_exists(&self) -> Result<(), MCError> {
         if !self.borrow_exists() {
             return Err(MCError::BadDebtCoverageCriterionIsNotMet);

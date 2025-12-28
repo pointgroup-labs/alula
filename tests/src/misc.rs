@@ -1,5 +1,6 @@
 #![cfg(test)]
 
+use controlled_insurance_fund::storage::DataKey;
 use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
@@ -681,4 +682,31 @@ fn test_refresh_multiply_pair_obligation() {
 
     let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
     assert_ne!(usdc_pool_before, usdc_pool_after);
+}
+
+#[test]
+fn transfer_admin() {
+    let TestMarketFixture { e, contract_id, full_contract_client, contract_admin, .. } =
+        TestMarketFixture::new();
+    let new_admin = Address::generate(&e);
+    assert_ne!(new_admin, contract_admin);
+
+    e.as_contract(&contract_id, || {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        assert_eq!(admin, contract_admin);
+    });
+
+    full_contract_client.propose_new_admin(&new_admin);
+
+    e.as_contract(&contract_id, || {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        assert_eq!(admin, contract_admin);
+    });
+
+    full_contract_client.accept_proposed_admin();
+
+    e.as_contract(&contract_id, || {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        assert_eq!(admin, new_admin);
+    });
 }

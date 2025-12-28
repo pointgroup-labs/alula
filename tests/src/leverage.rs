@@ -61,7 +61,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
     let looper = &users[0];
 
     assert_eq!(
-        Err(Ok(MCError::InvalidLeverageMultiplier)),
+        Err(Ok(MCError::InvalidLeverageInputs)),
         contract_client.try_deposit_with_leverage(
             looper,
             &gold_pool_address,
@@ -78,7 +78,7 @@ fn test_deposit_with_invalid_leverage_multiplier() {
         .max_leverage_multiplier;
 
     assert_eq!(
-        Err(Ok(MCError::InvalidLeverageMultiplier)),
+        Err(Ok(MCError::InvalidLeverageInputs)),
         contract_client.try_deposit_with_leverage(
             looper,
             &gold_pool_address,
@@ -95,47 +95,22 @@ fn test_deposit_with_invalid_leverage_multiplier() {
 // right?
 #[test]
 fn test_deposit_with_no_leverage() {
-    let TestMarketFixture {
-        e, contract_client, gold_pool_address, usdc_pool_address, users, ..
-    } = TestMarketFixture::new();
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
     let looper = &users[0];
 
-    contract_client.deposit_with_leverage(
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-        &false,
-        &DEFAULT_DEPOSIT_AMOUNT,
-        &MIN_LEVERAGE_MULTIPLIER, // x1.0
-        &None,
+    assert_eq!(
+        contract_client.try_deposit_with_leverage(
+            looper,
+            &gold_pool_address,
+            &usdc_pool_address,
+            &false,
+            &DEFAULT_DEPOSIT_AMOUNT,
+            &100, // x1.0
+            &None,
+        ),
+        Err(Ok(MCError::InvalidLeverageInputs))
     );
-
-    // Check if this is equivalent to a plain deposit
-    let obligation_j_tokens_as_tokens = get_multiply_pair_obligation_j_tokens_as_tokens(
-        &e,
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
-
-    let amount_out =
-        swap::get_amount_out(&e, &gold_pool_address, &usdc_pool_address, DEFAULT_DEPOSIT_AMOUNT)
-            .unwrap();
-
-    // TODO: Doesn't this account for fees?
-    assert_eq!(amount_out, obligation_j_tokens_as_tokens);
-
-    let obligation_borrowed = get_multiply_pair_obligation_borrowed(
-        &contract_client,
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    )
-    .unwrap();
-
-    assert_eq!(obligation_borrowed, 0);
 }
 
 #[test]
@@ -188,7 +163,7 @@ fn test_deposit_with_unhealthy_leverage() {
             &LEVERAGE_MULTIPLIER,
             &None
         ),
-        Err(Ok(MCError::InvalidLeverageMultiplier))
+        Err(Ok(MCError::InvalidLeverageInputs))
     );
 }
 

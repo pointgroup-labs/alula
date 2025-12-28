@@ -462,7 +462,7 @@ impl Pool {
 
     pub fn require_does_not_exist(e: &Env, pool_address: &Address) -> Result<(), MCError> {
         if Self::exists(e, pool_address) {
-            return Err(MCError::PoolAlreadyExists);
+            return Err(MCError::InvalidInitialization);
         }
 
         Ok(())
@@ -842,6 +842,7 @@ impl PoolFeeConfig {
 pub struct PoolStatus {
     pub borrow_enabled: bool,
     pub deposit_enabled: bool,
+    // TODO: More statuses
 }
 
 impl Default for PoolStatus {
