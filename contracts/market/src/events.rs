@@ -321,6 +321,26 @@ struct InsuranceFundMissingRequest {
 }
 
 #[contractevent]
+struct DuplicateRequestId {
+    #[topic]
+    obligation_key: ObligationKey,
+    #[topic]
+    pool_address: Address,
+    request_id: u64,
+}
+
+#[contractevent]
+struct ClaimMismatch {
+    #[topic]
+    obligation_key: ObligationKey,
+    #[topic]
+    pool_address: Address,
+    request_id: u64,
+    approved_amount: i128,
+    actual_received: i128,
+}
+
+#[contractevent]
 struct ReferrerIsUnexpectedlyMissing {}
 
 // --- Methods that abstract how events are published ---
@@ -749,6 +769,38 @@ pub fn insurance_fund_missing_request(
         obligation_key: obligation_key.clone(),
         pool_address: pool_address.clone(),
         request_id,
+    }
+    .publish(e);
+}
+
+pub fn insurance_fund_duplicate_request_id(
+    e: &Env,
+    obligation_key: &ObligationKey,
+    pool_address: &Address,
+    request_id: u64,
+) {
+    DuplicateRequestId {
+        obligation_key: obligation_key.clone(),
+        pool_address: pool_address.clone(),
+        request_id,
+    }
+    .publish(e);
+}
+
+pub fn insurance_fund_claim_mismatch(
+    e: &Env,
+    obligation_key: &ObligationKey,
+    pool_address: &Address,
+    request_id: u64,
+    approved_amount: i128,
+    actual_received: i128,
+) {
+    ClaimMismatch {
+        obligation_key: obligation_key.clone(),
+        pool_address: pool_address.clone(),
+        request_id,
+        approved_amount,
+        actual_received,
     }
     .publish(e);
 }

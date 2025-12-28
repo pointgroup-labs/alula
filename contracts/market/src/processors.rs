@@ -991,30 +991,40 @@ pub fn process_issue_cover_bad_debt(
                     .insurance_fund_requests_ids
                     .contains_key((pool_address.clone(), request_id))
                 {
-                    // TODO: Add event
+                    events::insurance_fund_duplicate_request_id(
+                        e,
+                        obligation_key,
+                        &pool_address,
+                        request_id,
+                    );
 
                     return Err(MCError::DependencyContractError);
                 }
                 obligation.insurance_fund_requests_ids.set((pool_address, request_id), ());
             }
-            IssueRequestResult::Immediate(_covered_amount) => {
-                // TODO: Account for cases when `covered_amount` is smaller
+            IssueRequestResult::Immediate(covered_amount) => {
                 let market_balance_after = token_client.balance(&e.current_contract_address());
-                let diff = market_balance_after - market_balance_before; // safe
-                if diff != obligation_pool_debt {
-                    // TODO: Remove
+                let actual_received = market_balance_after - market_balance_before; // safe
+
+                // Verify the insurance fund transferred what it claimed
+                if actual_received != covered_amount {
                     events::inconsistent_immediate_insurance_fund_coverage(
                         e,
                         obligation_key,
                         &pool_address,
-                        diff,
-                        obligation_pool_debt,
+                        actual_received,
+                        covered_amount,
                     );
 
                     return Err(MCError::DependencyContractError);
                 }
 
-                pool.adjust_total_available(e, obligation_pool_debt)?;
+                // Cap coverage to actual debt (defensive, shouldn't happen with well-behaved fund)
+                let effective_coverage = i128::min(obligation_pool_debt, actual_received);
+
+                // Socialize any uncovered portion: add what we received to available,
+                // but remove full debt - the gap reduces j-token value for suppliers
+                pool.adjust_total_available(e, effective_coverage)?;
                 pool.adjust_total_borrowed(
                     e,
                     obligation_pool_debt.checked_neg().map_over_or_underflow()?,
@@ -1106,7 +1116,14 @@ pub fn process_claim_cover_bad_debt_results(
             let actual_received = balance_after - balance_before;
 
             if actual_received != approved_amount {
-                // TODO: Add event
+                events::insurance_fund_claim_mismatch(
+                    e,
+                    obligation_key,
+                    &pool_address,
+                    request_id,
+                    approved_amount,
+                    actual_received,
+                );
 
                 return Err(MCError::DependencyContractError);
             }
@@ -1160,6 +1177,8 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
         // -- Distribute Take Rate Fees --
 
         if let Some(take_rate_beneficiaries) = &pool.config.fee_config.take_rate_beneficiaries {
+            let mut distributed_sum: i128 = 0;
+
             for (beneficiary_address, share_bps) in take_rate_beneficiaries.iter() {
                 if share_bps == 0 {
                     continue;
@@ -1170,20 +1189,27 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
                     .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
                     .map_over_or_underflow()?;
 
+                distributed_sum = distributed_sum.checked_add(amount).map_over_or_underflow()?;
+
                 token_client.transfer(&market_addr, &beneficiary_address, &amount);
                 if beneficiary_address == insurance_fund_addr {
                     let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
                     fund_client.add_reserves(&pool.token_address, &amount);
                 }
             }
-        }
 
-        pool.take_rate_fees_sum = 0;
+            pool.take_rate_fees_sum =
+                pool.take_rate_fees_sum.checked_sub(distributed_sum).map_over_or_underflow()?;
+        } else {
+            pool.take_rate_fees_sum = 0;
+        }
     }
 
     // -- Distribute Operation Fees --
 
     if let Some(operation_beneficiaries) = &pool.config.fee_config.operation_fee_beneficiaries {
+        let mut distributed_sum: i128 = 0;
+
         for (beneficiary_address, share_bps) in operation_beneficiaries.iter() {
             if share_bps == 0 {
                 continue;
@@ -1194,14 +1220,20 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
                 .fixed_mul_floor(share_bps as i128, BPS_FACTOR)
                 .map_over_or_underflow()?;
 
+            distributed_sum = distributed_sum.checked_add(amount).map_over_or_underflow()?;
+
             token_client.transfer(&market_addr, &beneficiary_address, &amount);
             if beneficiary_address == insurance_fund_addr {
                 let fund_client = InsuranceFundClient::new(e, &insurance_fund_addr);
                 fund_client.add_reserves(&pool.token_address, &amount);
             }
         }
+
+        pool.operation_fees_sum =
+            pool.operation_fees_sum.checked_sub(distributed_sum).map_over_or_underflow()?;
+    } else {
+        pool.operation_fees_sum = 0;
     }
-    pool.operation_fees_sum = 0;
 
     pool.set(e);
 

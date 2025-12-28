@@ -804,7 +804,10 @@ impl PoolFeeConfig {
 
             let mut share_sum: u32 = 0;
             for (_, share_bps) in take_rate_beneficiaries.iter() {
-                share_sum = share_sum.checked_add(share_bps).unwrap();
+                share_sum = match share_sum.checked_add(share_bps) {
+                    Some(sum) => sum,
+                    None => return Err("Take Rate shares overflow"),
+                };
             }
 
             if share_sum as i128 != BPS_FACTOR {
@@ -819,7 +822,10 @@ impl PoolFeeConfig {
 
             let mut share_sum: u32 = 0;
             for (_, share_bps) in operation_fee_beneficiaries.iter() {
-                share_sum = share_sum.checked_add(share_bps).unwrap();
+                share_sum = match share_sum.checked_add(share_bps) {
+                    Some(sum) => sum,
+                    None => return Err("Operation fee shares overflow"),
+                };
             }
 
             if share_sum as i128 != BPS_FACTOR {
