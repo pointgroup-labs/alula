@@ -469,16 +469,48 @@ impl Pool {
     }
 
     pub fn require_deposit_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.deposit_enabled {
-            return Err(MCError::DepositForbiddenOnPool);
+        if !self.config.status.is_deposit_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
         }
 
         Ok(())
     }
 
     pub fn require_borrow_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.borrow_enabled {
-            return Err(MCError::BorrowForbiddenOnPool);
+        if !self.config.status.is_borrow_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_add_collateral_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.is_add_collateral_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_remove_collateral_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.is_remove_collateral_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_withdraw_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.is_withdraw_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_repay_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.is_repay_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
         }
 
         Ok(())
@@ -840,14 +872,42 @@ impl PoolFeeConfig {
 #[contracttype]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoolStatus {
-    pub borrow_enabled: bool,
-    pub deposit_enabled: bool,
-    // TODO: More statuses
+    pub flags: u32,
 }
 
 impl Default for PoolStatus {
     fn default() -> Self {
-        Self { borrow_enabled: true, deposit_enabled: true }
+        Self { flags: POOL_STATUS_ALL_ENABLED }
+    }
+}
+
+impl PoolStatus {
+    pub fn new_all_disabled() -> Self {
+        Self { flags: 0 }
+    }
+
+    pub fn is_deposit_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_DEPOSIT_ENABLED) > 0
+    }
+
+    pub fn is_borrow_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_BORROW_ENABLED) > 0
+    }
+
+    pub fn is_withdraw_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_WITHDRAW_ENABLED) > 0
+    }
+
+    pub fn is_repay_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_REPAY_ENABLED) > 0
+    }
+
+    pub fn is_add_collateral_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_ADD_COLLATERAL_ENABLED) > 0
+    }
+
+    pub fn is_remove_collateral_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_REMOVE_COLLATERAL_ENABLED) > 0
     }
 }
 

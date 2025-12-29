@@ -311,6 +311,7 @@ pub fn process_add_collateral<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
+    pool.require_add_collateral_enabled()?;
 
     let add_collateral_result = obligation.add_collateral(e, &pool, amount, referrer)?;
     pool.add_collateral(e, &add_collateral_result)?;
@@ -344,6 +345,7 @@ pub fn process_repay<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
+    pool.require_repay_enabled()?;
 
     let repay_result = obligation.repay(e, &pool, amount, referrer)?;
     pool.repay(e, &repay_result)?;
@@ -391,6 +393,7 @@ pub fn process_remove_collateral<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
+    pool.require_remove_collateral_enabled()?;
 
     let remove_collateral_result = obligation.remove_collateral(e, &pool, amount, referrer)?;
     pool.remove_collateral(e, &remove_collateral_result)?;
@@ -429,6 +432,8 @@ pub fn process_withdraw<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
+    pool.require_withdraw_enabled()?;
+
     let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
     pool.withdraw(e, &withdraw_result)?;
 

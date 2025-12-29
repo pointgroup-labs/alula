@@ -29,10 +29,8 @@ pub enum MCError {
     PoolAlreadyContainsQueuedInConfigUpdate = 107,
     PoolDoesNotHaveQueuedInConfigUpdate = 108,
     PoolConfigUpdateIsNotYetApplicable = 109,
-    BorrowForbiddenOnPool = 110,
-    DepositForbiddenOnPool = 111,
-    PoolIsFrozen = 112,
-    InvalidBootstrapPeriod = 113,
+    OperationForbiddenOnPool = 110,
+    InvalidBootstrapPeriod = 111,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,

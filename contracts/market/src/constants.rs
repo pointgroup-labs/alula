@@ -111,6 +111,16 @@ pub const DEFAULT_HOST_FEE_BPS: u32 = 2000; // 20%
 
 pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
 
+// ---- Pool Statuses ----
+
+pub const POOL_STATUS_DEPOSIT_ENABLED: u32 = 1 << 0;
+pub const POOL_STATUS_BORROW_ENABLED: u32 = 1 << 1;
+pub const POOL_STATUS_WITHDRAW_ENABLED: u32 = 1 << 2;
+pub const POOL_STATUS_REPAY_ENABLED: u32 = 1 << 3;
+pub const POOL_STATUS_ADD_COLLATERAL_ENABLED: u32 = 1 << 4;
+pub const POOL_STATUS_REMOVE_COLLATERAL_ENABLED: u32 = 1 << 5;
+pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
+
 // ---- Oracle ----
 
 // Maximum acceptable oracle price age in seconds

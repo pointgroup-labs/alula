@@ -17,7 +17,7 @@ use crate::{
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
     oracle,
-    pool::{Pool, PoolConfig, PoolStatus},
+    pool::{Pool, PoolConfig},
     processors::*,
     request::Request,
     storage::{self, GlobalState, MarketStatus, PoolUpdate},
@@ -1367,17 +1367,16 @@ impl MarketContract {
     //
     // # Arguments
     // * `pool_address` - address of a pool whose status is updated
-    // * `new_status` - new pool's status
+    // * `new_status_flags` - new pool's status flags bits
     pub fn update_pool_status(
-        // TODO: tests
         e: Env,
         pool_address: Address,
-        new_status: PoolStatus,
+        new_status_flags: u32,
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
-        pool.config.status = new_status;
+        pool.config.status.flags = new_status_flags;
 
         pool.set(&e);
 

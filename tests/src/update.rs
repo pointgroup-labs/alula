@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use market::{
-    constants::MAX_RESERVES,
+    constants::{MAX_RESERVES, POOL_STATUS_DEPOSIT_ENABLED},
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
     storage::MarketStatus,
@@ -114,10 +114,8 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     let pool_config_update_queue_in_period =
         contract_client.get_global_state().update_in_queue_period.unwrap();
 
-    let new_pool_config = PoolConfig {
-        status: PoolStatus { borrow_enabled: false, deposit_enabled: true },
-        ..Default::default()
-    };
+    let new_pool_status = PoolStatus { flags: POOL_STATUS_DEPOSIT_ENABLED };
+    let new_pool_config = PoolConfig { status: new_pool_status, ..Default::default() };
 
     contract_client.queue_in_pool_config_update(&usdc_pool_address, &new_pool_config);
 
@@ -129,14 +127,12 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
 
     assert_eq!(
         contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
-        Err(Ok(MCError::BorrowForbiddenOnPool))
+        Err(Ok(MCError::OperationForbiddenOnPool))
     );
     assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None).is_ok());
 
-    let new_pool_config = PoolConfig {
-        status: PoolStatus { borrow_enabled: false, deposit_enabled: false },
-        ..Default::default()
-    };
+    let new_pool_config =
+        PoolConfig { status: PoolStatus::new_all_disabled(), ..Default::default() };
 
     contract_client.queue_in_pool_config_update(&usdc_pool_address, &new_pool_config);
 
@@ -148,11 +144,11 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
 
     assert_eq!(
         contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
-        Err(Ok(MCError::BorrowForbiddenOnPool))
+        Err(Ok(MCError::OperationForbiddenOnPool))
     );
     assert_eq!(
         contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None),
-        Err(Ok(MCError::DepositForbiddenOnPool))
+        Err(Ok(MCError::OperationForbiddenOnPool))
     );
 }
 
@@ -250,6 +246,54 @@ fn test_update_pool_in_permissionless_market_fails() {
     );
 
     assert_eq!(contract_client.try_update_market(&1, &1), Err(Ok(MCError::MarketIsNotOwned)));
+}
+
+#[test]
+fn test_update_pool_status_instantaneously_in_owned_markets() {
+    let TestMarketFixture {
+        contract_client,
+        full_contract_client,
+        gold_pool_address,
+        users,
+        usdc_pool_address,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[0];
+    let creditor = &users[1];
+
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.deposit_earn(
+        liquidity_provider,
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+
+    assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None).is_ok());
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None).is_ok());
+
+    let new_pool_status_flags = POOL_STATUS_DEPOSIT_ENABLED;
+
+    full_contract_client.update_pool_status(&usdc_pool_address, &new_pool_status_flags);
+
+    assert_eq!(
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
+        Err(Ok(MCError::OperationForbiddenOnPool))
+    );
+    assert!(contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None).is_ok());
+
+    let new_pool_status_flags = 0;
+    full_contract_client.update_pool_status(&usdc_pool_address, &new_pool_status_flags);
+
+    assert_eq!(
+        contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
+        Err(Ok(MCError::OperationForbiddenOnPool))
+    );
+    assert_eq!(
+        contract_client.try_deposit(creditor, &usdc_pool_address, &1, &None),
+        Err(Ok(MCError::OperationForbiddenOnPool))
+    );
 }
 
 #[test]
