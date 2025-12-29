@@ -55,6 +55,10 @@ pub struct Pool {
     pub operation_fees_sum: i128,
     //  Maintained sum of the accumulated per take rate beneficiaries' fees
     pub take_rate_fees_sum: i128,
+    // Target utilization ratio in basis points
+    pub target_utilization_ratio_bps: i128,
+    // Interest rate modifier in basis points
+    pub interest_rate_modifier: i128,
 }
 
 macro_rules! generate_adjust_method {
@@ -919,13 +923,17 @@ pub struct PoolConfig {
     pub health_config: PoolHealthConfig,
     pub accrual_model: AccrualModel,
     pub interest_rate_model: InterestRateModel,
+    pub ir_reactivity_constant: u32,
 }
 
 impl PoolConfig {
     pub fn validate(&self) -> Result<(), MCError> {
-        let PoolConfig { health_config, fee_config, .. } = self;
+        let PoolConfig { health_config, fee_config, ir_reactivity_constant, .. } = self;
 
-        if health_config.validate().is_err() || fee_config.validate().is_err() {
+        if health_config.validate().is_err()
+            || fee_config.validate().is_err()
+            || !(MIN_REACTIVITY_CONSTANT..=MAX_REACTIVITY_CONSTANT).contains(ir_reactivity_constant)
+        {
             return Err(MCError::InvalidLoanPoolConfig);
         }
 

@@ -47,13 +47,20 @@ pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 // -- Kinked(with 2 kink points) interest rate model --
 
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
-pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000; // 10%
-pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: i128 = 7_000; // 70%
-pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: i128 = 8_000; // 80%
+pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000;
+pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: i128 = 7_000;
+pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: i128 = 8_000;
 
-pub const DEFAULT_KINK1_APR_BPS: i128 = 3_000; // 30%
-pub const DEFAULT_KINK2_APR_BPS: i128 = 6_000; // 60%
-pub const DEFAULT_MAX_APR_BPS: i128 = 40_000; // 400%
+pub const DEFAULT_KINK1_APR_BPS: i128 = 3_000;
+pub const DEFAULT_KINK2_APR_BPS: i128 = 6_000;
+pub const DEFAULT_MAX_APR_BPS: i128 = 40_000;
+
+pub const DEFAULT_TARGET_UTILIZATION_RATIO_BPS: i128 = 6_500;
+pub const DEFAULT_REACTIVITY_CONSTANT: i128 = BPS_FACTOR; // x1
+pub const MIN_REACTIVITY_CONSTANT: u32 = 0;
+pub const MAX_REACTIVITY_CONSTANT: u32 = 100; // 0.01
+pub const MIN_IR_MODIFIER: i128 = BPS_FACTOR / 10; // x0.1
+pub const MAX_IR_MODIFIER: i128 = BPS_FACTOR * 10; // x10
 
 // ---- Deposit ----
 
@@ -63,23 +70,23 @@ pub const DEFAULT_SUPPLY_LIMIT: i128 = 0;
 // ---- Borrow ----
 
 // Default utilization ratio limit
-pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000; // 90%
+pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000;
 
 // ---- Liquidation ----
 
 // Max portion of a position that can be liquidated in one go
 pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
 // Additional spread taken during liquidation
-pub const DEFAULT_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000; // 10%
+pub const DEFAULT_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000;
 pub const DEFAULT_OPEN_LTV_BPS: i128 = 7_000;
 pub const DEFAULT_CLOSE_LTV_BPS: i128 = 8_000;
 // Health factor threshold expressed in bps (100% = 10_000 bps)
-pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = BPS_FACTOR; // 100%
+pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = BPS_FACTOR;
 pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100% (equivalent to a liability factor to make no difference)
-pub const MAX_LIABILITY_FACTOR_BPS: i128 = 2 * BPS_FACTOR; // 200%
+pub const MAX_LIABILITY_FACTOR_BPS: i128 = 2 * BPS_FACTOR;
 
-pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850; // 98.5%
-pub const MIN_INSOLVENCY_LTV_BPS: i128 = 9_500; // 95%
+pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850;
+pub const MIN_INSOLVENCY_LTV_BPS: i128 = 9_500;
 pub const MAX_INSOLVENCY_LTV_BPS: i128 = BPS_FACTOR; // 100%
 
 // ---- Swap ----
@@ -107,11 +114,9 @@ pub const DEFAULT_FLASH_LOAN_FEE_BPS: u32 = 1; // 0.01%
 pub const DEFAULT_ADD_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
 
-pub const DEFAULT_HOST_FEE_BPS: u32 = 2000; // 20%
+pub const DEFAULT_TAKE_RATE_BPS: u32 = 1_000; // 10%
 
-pub const DEFAULT_TAKE_RATE_BPS: u32 = 1000; // 10%
-
-// ---- Pool Statuses ----
+// ---- Pool Status ----
 
 pub const POOL_STATUS_DEPOSIT_ENABLED: u32 = 1 << 0;
 pub const POOL_STATUS_BORROW_ENABLED: u32 = 1 << 1;

@@ -43,9 +43,13 @@ impl Pool {
         }
 
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
-        let current_borrow_apr =
-            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
-        let accrual_multiplier =
+        let current_borrow_apr = self
+            .config
+            .interest_rate_model
+            .compute_borrow_apr(utilization_ratio_bps)?
+            .fixed_mul_ceil(self.interest_rate_modifier, BPS_FACTOR)
+            .map_over_or_underflow()?;
+        let accrual_multiplier: i128 =
             self.config.accrual_model.compute_multiplier(current_borrow_apr, seconds_passed)?;
 
         let new_total_borrowed = self
@@ -72,6 +76,31 @@ impl Pool {
             .map_over_or_underflow()?;
 
         self.last_accrual_timestamp = current_timestamp;
+
+        // TODO: Verify that all allowed params imply an expected/reasonable behavior
+        let utilization_diff = utilization_ratio_bps
+            .checked_sub(self.target_utilization_ratio_bps)
+            .map_over_or_underflow()?;
+        let utilization_error =
+            (seconds_passed as i128).checked_mul(utilization_diff).map_over_or_underflow()?;
+        let new_interest_rate_modifier = if utilization_diff >= 0 {
+            // Positive diff - modifier decreases
+            let rate_diff = utilization_error
+                .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR * 10)
+                .map_over_or_underflow()?;
+
+            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier - rate_diff)
+        } else {
+            // Negative diff - modifier increases
+            let rate_diff = utilization_error
+                .fixed_mul_ceil(self.config.ir_reactivity_constant as i128, BPS_FACTOR)
+                .map_over_or_underflow()?
+                .checked_neg()
+                .map_over_or_underflow()?;
+            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier + rate_diff)
+        };
+
+        self.interest_rate_modifier = new_interest_rate_modifier;
 
         // -- Accrue supply APR bootstraps(candidate to be removed) --
 

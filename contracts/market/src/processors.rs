@@ -139,6 +139,9 @@ pub fn process_initialize_pool(
 
         borrow_apr_bps: 0,
         supply_apr_bps: 0,
+
+        target_utilization_ratio_bps: DEFAULT_TARGET_UTILIZATION_RATIO_BPS,
+        interest_rate_modifier: BPS_FACTOR,
     };
 
     pool.set(e);
