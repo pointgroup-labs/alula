@@ -594,8 +594,8 @@ pub fn accept_proposed_admin(e: &Env) {
 
 // --- Internal Errors Events ---
 
-/// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
-/// storage timestamp
+// Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
+// storage timestamp
 pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     e: &Env,
     current_timestamp: u64,
@@ -604,7 +604,7 @@ pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     LedgerTimestampError { current_timestamp, stored_timestamp }.publish(e);
 }
 
-/// Emitted when a leveraged position incurs bad debt
+// Emitted when a leveraged position incurs bad debt
 pub fn leveraged_position_bad_debt(
     e: &Env,
     user: &Address,
@@ -641,7 +641,7 @@ pub fn leverage_borrow_exceeds_borrowing_capacity(
     .publish(e);
 }
 
-/// Emitted when a pool's utilization ratio exceeds a predefined limit
+// Emitted when a pool's utilization ratio exceeds a predefined limit
 pub fn utilization_ratio_exceeds_limit(
     e: &Env,
     utilization_ratio_bps: i128,
@@ -650,27 +650,27 @@ pub fn utilization_ratio_exceeds_limit(
     UtilizationRatioExceedsLimit { utilization_ratio_bps, utilization_ratio_limit_bps }.publish(e);
 }
 
-/// Emitted when an attempt is made to interact with a loan pool that does not exist in storage
+// Emitted when an attempt is made to interact with a loan pool that does not exist in storage
 pub fn pool_is_unexpectedly_missing_in_storage(e: &Env, pool_address: &Address) {
     PoolIsMissingInStorage { pool_address: pool_address.clone() }.publish(e);
 }
 
-/// Emitted when an attempt is made to interact with an obligation that does not exist in storage
+// Emitted when an attempt is made to interact with an obligation that does not exist in storage
 pub fn obligation_is_unexpectedly_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
     ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
-/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
+// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn obligation_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
     ObligationAmntBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
-/// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
+// Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
 pub fn pool_amount_becomes_negative(e: &Env, old_amount: i128, new_amount: i128) {
     PoolAmountBecomesNegative { old_amount, new_amount }.publish(e);
 }
 
-/// Emitted when the total shares in a pool are found to be less than an individual user's shares
+// Emitted when the total shares in a pool are found to be less than an individual user's shares
 pub fn pool_total_shares_smaller_than_individual_user_shares(
     e: &Env,
     total_shares: i128,
@@ -679,7 +679,7 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     PoolInconsistentTotalShares { total_shares, individual_shares }.publish(e);
 }
 
-/// Emitted when the total shares in a pool are found to be less than the total tokens amount
+// Emitted when the total shares in a pool are found to be less than the total tokens amount
 pub fn pool_total_shares_smaller_than_total_tokens(
     e: &Env,
     total_shares: i128,
@@ -688,12 +688,12 @@ pub fn pool_total_shares_smaller_than_total_tokens(
     PoolInconsistentTotalTokens { total_shares, total_tokens }.publish(e);
 }
 
-/// Emitted when pool state becomes generally inconsistent
+// Emitted when pool state becomes generally inconsistent
 pub fn pool_contains_inconsistent_state(e: &Env, pool: &Pool) {
     PoolContainsInconsistentState { pool: pool.clone() }.publish(e);
 }
 
-/// Emitted when obligation unexpectedly becomes empty
+// Emitted when obligation unexpectedly becomes empty
 pub fn obligation_is_unexpectedly_empty(
     e: &Env,
     obligation_key: &ObligationKey,
@@ -706,7 +706,7 @@ pub fn obligation_is_unexpectedly_empty(
     .publish(e);
 }
 
-/// Emitted when calculated interest(either for borrow or supply position) is negative
+// Emitted when calculated interest(either for borrow or supply position) is negative
 pub fn computed_interest_is_negative(
     e: &Env,
     pool_address: &Address,
@@ -731,8 +731,8 @@ pub fn positions_count_becomes_negative(e: &Env, pool_address: &Address, obligat
     .publish(e);
 }
 
-/// Emitted when an unexpected amount has been received after a deterministic swap operation via a
-/// swap provider
+// Emitted when an unexpected amount has been received after a deterministic swap operation via a
+// swap provider
 #[allow(clippy::too_many_arguments)]
 pub fn received_unexpected_swap_amount(
     e: &Env,

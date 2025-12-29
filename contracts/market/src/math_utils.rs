@@ -12,17 +12,17 @@ impl<T> MathUtils<T> for Option<T> {
     }
 }
 
-/// `O(log(n))` algorithm for quick exponentiation of fixed-point decimal number representations
-/// with multiplication flooring
-///
-/// # Arguments
-/// * `base` - The base value in fixed-point representation (scaled by denominator)
-/// * `exp` - The exponent (power) to raise the base to
-/// * `denominator` - The scaling factor for fixed-point arithmetic
-///
-/// # Returns
-/// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
-///   overflow occurs
+// `O(log(n))` algorithm for quick exponentiation of fixed-point decimal number representations
+// with multiplication flooring
+//
+// # Arguments
+// * `base` - The base value in fixed-point representation (scaled by denominator)
+// * `exp` - The exponent (power) to raise the base to
+// * `denominator` - The scaling factor for fixed-point arithmetic
+//
+// # Returns
+// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
+//   overflow occurs
 pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, MCError> {
     if exp == 0 {
         return Ok(denominator);
@@ -44,17 +44,17 @@ pub fn bin_pow(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, 
     Ok(result)
 }
 
-/// `O(log(n))` algorithm for quick exponentiation of fixed-point decimal number representations
-/// with multiplication ceiling
-///
-/// # Arguments
-/// * `base` - The base value in fixed-point representation (scaled by denominator)
-/// * `exp` - The exponent (power) to raise the base to
-/// * `denominator` - The scaling factor for fixed-point arithmetic
-///
-/// # Returns
-/// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
-///   overflow occurs
+// `O(log(n))` algorithm for quick exponentiation of fixed-point decimal number representations
+// with multiplication ceiling
+//
+// # Arguments
+// * `base` - The base value in fixed-point representation (scaled by denominator)
+// * `exp` - The exponent (power) to raise the base to
+// * `denominator` - The scaling factor for fixed-point arithmetic
+//
+// # Returns
+// * `Result<i128, MCError>` - The result of base^exp in fixed-point representation, or an error if
+//   overflow occurs
 pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i128, MCError> {
     if exp == 0 {
         return Ok(denominator);
@@ -76,29 +76,29 @@ pub fn bin_pow_ceil(mut base: i128, mut exp: u64, denominator: i128) -> Result<i
     Ok(result)
 }
 
-/// Helper function for fixed-point floor multiplication
-///
-/// # Arguments
-/// * `x` - First operand in fixed-point representation
-/// * `y` - Second operand in fixed-point representation
-/// * `denominator` - The scaling factor for fixed-point arithmetic
-///
-/// # Returns
-/// * `Result<i128, MCError>` - The product x*y/denominator, or an error if overflow occurs
+// Helper function for fixed-point floor multiplication
+//
+// # Arguments
+// * `x` - First operand in fixed-point representation
+// * `y` - Second operand in fixed-point representation
+// * `denominator` - The scaling factor for fixed-point arithmetic
+//
+// # Returns
+// * `Result<i128, MCError>` - The product x*y/denominator, or an error if overflow occurs
 #[inline]
 fn fixed_mul(x: i128, y: i128, denominator: i128) -> Result<i128, MCError> {
     x.fixed_mul_floor(y, denominator).map_over_or_underflow()
 }
 
-/// Helper function for fixed-point ceiling multiplication
-///
-/// # Arguments
-/// * `x` - First operand in fixed-point representation
-/// * `y` - Second operand in fixed-point representation
-/// * `denominator` - The scaling factor for fixed-point arithmetic
-///
-/// # Returns
-/// * `Result<i128, MCError>` - The product x*y/denominator(ceiled), or an error if overflow occurs
+// Helper function for fixed-point ceiling multiplication
+//
+// # Arguments
+// * `x` - First operand in fixed-point representation
+// * `y` - Second operand in fixed-point representation
+// * `denominator` - The scaling factor for fixed-point arithmetic
+//
+// # Returns
+// * `Result<i128, MCError>` - The product x*y/denominator(ceiled), or an error if overflow occurs
 #[inline]
 pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, MCError> {
     x.fixed_mul_ceil(y, denominator).map_over_or_underflow()

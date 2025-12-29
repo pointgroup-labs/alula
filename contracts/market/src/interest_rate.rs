@@ -11,7 +11,7 @@ use crate::{
     pool::{Pool, PoolBootstrapPeriod},
 };
 
-/// Compound interest rates represented in basis points
+// Compound interest rates represented in basis points
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[contracttype]
 pub struct AnnualPercentageYields {
@@ -20,8 +20,8 @@ pub struct AnnualPercentageYields {
 }
 
 impl Pool {
-    /// Accrues interest on the pool's total borrowed amount based
-    /// on the time elapsed since the last accrual
+    // Accrues interest on the pool's total borrowed amount based
+    // on the time elapsed since the last accrual
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), MCError> {
         let current_timestamp = e.ledger().timestamp();
         if current_timestamp < self.last_accrual_timestamp {
@@ -119,8 +119,8 @@ impl Pool {
         Ok(())
     }
 
-    /// Get current annual percentage yields (APY) for borrowing and supplying
-    /// based on the pool's utilization ratio, interest rate model, and accrual model
+    // Get current annual percentage yields (APY) for borrowing and supplying
+    // based on the pool's utilization ratio, interest rate model, and accrual model
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
@@ -145,7 +145,7 @@ impl Pool {
         Ok(apy)
     }
 
-    /// Computes the current utilization ratio in basis points (bps)
+    // Computes the current utilization ratio in basis points (bps)
     pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
         // WARN: Is this a correct way to count UR now, when we have reserves?
         let total = self.total_supply()?;

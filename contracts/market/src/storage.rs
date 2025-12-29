@@ -25,24 +25,24 @@ pub struct GlobalState {
 
 #[contracttype]
 pub enum MarketStatus {
-    /// All operations are allowed
+    // All operations are allowed
     Active,
-    /// Borrow operations are prohibited
+    // Borrow operations are prohibited
     BorrowFrozen,
-    /// Borrow operations are prohibited and IF cannot over-write
+    // Borrow operations are prohibited and IF cannot over-write
     BorrowFrozenByAdmin,
-    /// Borrowing and depositing operations on the market are prohibited
+    // Borrowing and depositing operations on the market are prohibited
     DepositFrozen,
-    /// Borrowing and depositing operations on the market are prohibited and IF cannot over-write
+    // Borrowing and depositing operations on the market are prohibited and IF cannot over-write
     DepositFrozenByAdmin,
-    /// All operations on the market are prohibited
+    // All operations on the market are prohibited
     Frozen,
-    /// All operations on the market are prohibited and IF cannot over-write
+    // All operations on the market are prohibited and IF cannot over-write
     FrozenByAdmin,
 }
 
 impl MarketStatus {
-    /// Returns [`true`] if status is a "hard lock" that only Market Admin can move from
+    // Returns [`true`] if status is a "hard lock" that only Market Admin can move from
     pub fn is_admin_protected(&self) -> bool {
         matches!(
             self,
@@ -107,17 +107,17 @@ pub enum DataKey {
 
 // -- TTL Bumpers --
 
-/// Instance bumper
+// Instance bumper
 pub fn extend_instance_storage(e: &Env) {
     e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }
 
-/// Persistent individual resource bumper
+// Persistent individual resource bumper
 pub fn extend_individual_storage(e: &Env, key: &DataKey) {
     e.storage().persistent().extend_ttl(key, INDIVIDUAL_THRESHOLD, INDIVIDUAL_BUMP);
 }
 
-/// Persistent shared resource bumper
+// Persistent shared resource bumper
 pub fn extend_shared_storage(e: &Env, key: &DataKey) {
     e.storage().persistent().extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
@@ -230,7 +230,7 @@ pub fn remove_proposed_admin(e: &Env) {
 
 // ---- Pool ----
 
-/// Gets all pools stored in the contract
+// Gets all pools stored in the contract
 pub fn get_all_pools(e: &Env) -> Vec<Address> {
     let res = e.storage().persistent().get(&DataKey::AllPools);
     if let Some(pools) = res {
@@ -241,9 +241,9 @@ pub fn get_all_pools(e: &Env) -> Vec<Address> {
     }
 }
 
-/// Registers a new pool in the contract storage and returns its index
-/// NB: Does not check for existing pools, use `pool_exists` before calling this
-/// if you want to avoid duplicates
+// Registers a new pool in the contract storage and returns its index
+// NB: Does not check for existing pools, use `pool_exists` before calling this
+// if you want to avoid duplicates
 pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
     let mut pools = get_all_pools(e);
     pools.push_back(pool_address.clone());
@@ -252,8 +252,8 @@ pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
     pools.len() - 1
 }
 
-/// Sets a pool by its address
-/// NB: Overwrites existing pool if it exists
+// Sets a pool by its address
+// NB: Overwrites existing pool if it exists
 pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     let key = DataKey::Pool(pool_address.clone());
 
@@ -261,7 +261,7 @@ pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     extend_shared_storage(e, &key);
 }
 
-/// Checks whether a pool with the given address exists
+// Checks whether a pool with the given address exists
 pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     let key = DataKey::Pool(pool_address.clone());
     let res = e.storage().persistent().has(&key);
@@ -271,7 +271,7 @@ pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     res
 }
 
-/// Gets a pool by its address
+// Gets a pool by its address
 pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     let key = DataKey::Pool(pool_address.clone());
     let res = e.storage().persistent().get(&key);
@@ -281,7 +281,7 @@ pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     res
 }
 
-/// Queues in pool's config update
+// Queues in pool's config update
 pub fn queue_in_pool_config_update(
     e: &Env,
     pool_address: &Address,
@@ -299,7 +299,7 @@ pub fn queue_in_pool_config_update(
     Ok(())
 }
 
-/// Removes pool's config update from the queue
+// Removes pool's config update from the queue
 pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let key = DataKey::ConfigUpdate(pool_address.clone());
 
@@ -311,7 +311,7 @@ pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
     Ok(())
 }
 
-/// Gets pool's config update from the storage
+// Gets pool's config update from the storage
 pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpdate> {
     let config_update = e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()));
     if config_update.is_some() {
@@ -323,7 +323,7 @@ pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpd
 
 // ---- Multiply Pair ----
 
-/// Gets all multiply pairs stored in the contract
+// Gets all multiply pairs stored in the contract
 pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
     let storage = e.storage().persistent();
     if let Some(pairs) = storage.get(&DataKey::AllMultiplyPairs) {
@@ -334,9 +334,9 @@ pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
     }
 }
 
-/// Registers a new multiply pair in the contract storage and returns its index
-/// NB: Does not check for existing pairs, use `multiply_pair_exists` before calling this
-/// if you want to avoid duplicates
+// Registers a new multiply pair in the contract storage and returns its index
+// NB: Does not check for existing pairs, use `multiply_pair_exists` before calling this
+// if you want to avoid duplicates
 pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
     let mut pairs = get_all_multiply_pairs(e);
     pairs.push_back(pair);
@@ -345,7 +345,7 @@ pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
     pairs.len() - 1
 }
 
-/// Sets a multiply pair by its key (deposit and borrow pool addresses)
+// Sets a multiply pair by its key (deposit and borrow pool addresses)
 pub fn set_multiply_pair(
     e: &Env,
     deposit_pool_address: &Address,
@@ -357,7 +357,7 @@ pub fn set_multiply_pair(
     extend_shared_storage(e, &key);
 }
 
-/// Checks whether a multiply pair with the given deposit and borrow pool addresses exists
+// Checks whether a multiply pair with the given deposit and borrow pool addresses exists
 pub fn multiply_pair_exists(
     e: &Env,
     deposit_pool_address: &Address,
@@ -372,7 +372,7 @@ pub fn multiply_pair_exists(
     res
 }
 
-/// Gets a multiply pair by its key (deposit and borrow pool addresses) if it exists
+// Gets a multiply pair by its key (deposit and borrow pool addresses) if it exists
 pub fn get_multiply_pair(
     e: &Env,
     deposit_pool_address: &Address,
@@ -388,14 +388,14 @@ pub fn get_multiply_pair(
 
 // ---- Obligation ----
 
-/// Sets an obligation by its key
+// Sets an obligation by its key
 pub fn set_obligation(e: &Env, obligation_key: &ObligationKey, obligation: &Obligation) {
     let key = DataKey::Obligation(obligation_key.clone());
     e.storage().persistent().set(&key, obligation);
     extend_individual_storage(e, &key);
 }
 
-/// Gets an obligation by its key, if it exists
+// Gets an obligation by its key, if it exists
 pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligation> {
     let key = DataKey::Obligation(obligation_key.clone());
     let res = e.storage().persistent().get(&key);
@@ -405,9 +405,9 @@ pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligat
     res
 }
 
-/// # Returns
-/// `true` if an obligation with the given key exists,
-/// `false` otherwise
+// # Returns
+// `true` if an obligation with the given key exists,
+// `false` otherwise
 pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     let key = DataKey::Obligation(obligation_key.clone());
     let res = e.storage().persistent().has(&key);
@@ -418,7 +418,7 @@ pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     res
 }
 
-/// Registers a new obligation key in the contract storage
+// Registers a new obligation key in the contract storage
 pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) {
     let storage = e.storage().persistent();
     let mut obligations = get_all_obligations(e);
@@ -427,7 +427,7 @@ pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) {
     extend_shared_storage(e, &DataKey::AllObligations);
 }
 
-/// Gets all obligation keys stored in the contract
+// Gets all obligation keys stored in the contract
 pub fn get_all_obligations(e: &Env) -> Map<ObligationKey, ()> {
     let storage = e.storage().persistent();
     if let Some(obligations) = storage.get(&DataKey::AllObligations) {
@@ -440,8 +440,8 @@ pub fn get_all_obligations(e: &Env) -> Map<ObligationKey, ()> {
 
 // ---- State Removal(useful only for state resetting on testnet) ----
 
-/// Removes a pool from the contract storage by its address
-/// Also removes the pool from the list of all pools
+// Removes a pool from the contract storage by its address
+// Also removes the pool from the list of all pools
 pub fn remove_pool(e: &Env, pool_address: &Address) {
     let storage = e.storage().persistent();
     storage.remove(&DataKey::Pool(pool_address.clone()));
@@ -452,8 +452,8 @@ pub fn remove_pool(e: &Env, pool_address: &Address) {
     }
 }
 
-/// Removes all pools from the contract storage
-/// Also clears the list of all pools
+// Removes all pools from the contract storage
+// Also clears the list of all pools
 pub fn remove_all_pools(e: &Env) {
     let storage = e.storage().persistent();
     for pool in get_all_pools(e) {
@@ -462,8 +462,8 @@ pub fn remove_all_pools(e: &Env) {
     storage.remove(&DataKey::AllPools);
 }
 
-/// Removes a multiply pair from the contract storage by its key
-/// Also removes the multiply pair from the list of all multiply pairs
+// Removes a multiply pair from the contract storage by its key
+// Also removes the multiply pair from the list of all multiply pairs
 pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
     let storage = e.storage().persistent();
     storage.remove(&DataKey::MultiplyPair(pair.key()));
@@ -474,7 +474,7 @@ pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
     }
 }
 
-/// Removes all multiply pairs from the contract storage
+// Removes all multiply pairs from the contract storage
 pub fn remove_all_multiply_pairs(e: &Env) {
     let storage = e.storage().persistent();
     for pair in get_all_multiply_pairs(e) {
@@ -483,8 +483,8 @@ pub fn remove_all_multiply_pairs(e: &Env) {
     storage.remove(&DataKey::AllMultiplyPairs);
 }
 
-/// Removes an obligation from the contract storage by its key
-/// Also removes the obligation key from the list of all obligations
+// Removes an obligation from the contract storage by its key
+// Also removes the obligation key from the list of all obligations
 pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
     let storage = e.storage().persistent();
     storage.remove(&DataKey::Obligation(obligation_key.clone()));
@@ -494,8 +494,8 @@ pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
     storage.set(&DataKey::AllObligations, &obligations);
 }
 
-/// Removes all obligations from the contract storage
-/// Also clears the list of all obligations
+// Removes all obligations from the contract storage
+// Also clears the list of all obligations
 pub fn remove_all_obligations(e: &Env) {
     let storage = e.storage().persistent();
     for (key, _) in get_all_obligations(e) {

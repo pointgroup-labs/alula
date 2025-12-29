@@ -9,17 +9,17 @@ use crate::{
     storage::{self},
 };
 
-/// Fetches the latest price for a given asset from the oracle contract.
-/// Validates that the price is non-negative and not stale.
-/// The price is expected to be in the format defined by the oracle (e.g., scaled by 10^decimals).
-///
-/// # Arguments
-/// * `e` - The Soroban environment.
-/// * `token_address` - The address of the token/asset for which the price is requested.
-///
-/// # Returns
-/// * `Ok(i128)` - The latest price of the asset if available and valid.
-/// * `Err(MCError)` - An error if the price is not available, stale
+// Fetches the latest price for a given asset from the oracle contract.
+// Validates that the price is non-negative and not stale.
+// The price is expected to be in the format defined by the oracle (e.g., scaled by 10^decimals).
+//
+// # Arguments
+// * `e` - The Soroban environment.
+// * `token_address` - The address of the token/asset for which the price is requested.
+//
+// # Returns
+// * `Ok(i128)` - The latest price of the asset if available and valid.
+// * `Err(MCError)` - An error if the price is not available, stale
 pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError> {
     let oracle = storage::get_oracle(e);
     let oracle_contract = PriceFeedClient::new(e, &oracle);

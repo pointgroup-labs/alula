@@ -1277,10 +1277,10 @@ fn compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
     borrowed_token: &Address,
     deposited_amount: i128,
     borrowed_amount: i128,
-    // TODO: max_slippage,
-    // TODO: flash_loan_fee,
-    // TODO: operational_fee
 ) -> Result<i128, MCError> {
+    // TODO: This formula is too simple, and it's likely leading to the issues
+    // we have when partially withdrawing from the leveraged position
+
     require_nonnegative(deposited_amount)?;
     require_nonnegative(borrowed_amount)?;
 
