@@ -13,8 +13,8 @@
 #![cfg(test)]
 
 use farms::{
-    FarmConfig, FarmConfigUpdate, FarmsClient, FarmsContract, LockingMode, RewardCurvePoint,
-    RewardScheduleCurve, TimeUnit,
+    Delegatee, FarmConfig, FarmConfigUpdate, FarmsClient, FarmsContract, LockingMode,
+    RewardCurvePoint, RewardScheduleCurve, TimeUnit,
 };
 use soroban_sdk::{
     Address, IntoVal,
@@ -161,22 +161,22 @@ fn test_stake_and_unstake() {
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
     // Initialize user
-    fixture.farms_client.initialize_user(user, &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
 
     // Stake
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 1000);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.total_staked, 1000);
 
     // Unstake
-    let net_amount = fixture.farms_client.unstake(user, &farm_id, &500);
+    let net_amount = fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &500);
     assert_eq!(net_amount, 500); // No penalty
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 500);
 }
 
@@ -194,11 +194,11 @@ fn test_stake_with_warmup() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Stake should be pending
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 0);
     assert_eq!(user_state.pending_deposit_stake, 1000);
 
@@ -206,9 +206,9 @@ fn test_stake_with_warmup() {
     fixture.pass_time(3601);
 
     // Refresh to activate pending stake
-    fixture.farms_client.refresh_user_state(user, &farm_id);
+    fixture.farms_client.refresh_user_state(&Delegatee::from(user.clone()), &farm_id);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 1000);
     assert_eq!(user_state.pending_deposit_stake, 0);
 }
@@ -252,19 +252,20 @@ fn test_reward_accrual_and_harvest() {
     );
 
     // User stakes
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Pass 100 seconds
     fixture.pass_time(100);
 
     // Check pending rewards (should be ~10,000 = 100 * 100 seconds)
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     assert!(!pending.is_empty());
 
     // Harvest
     let initial_balance = fixture.reward_token_client.balance(user);
-    let harvested = fixture.farms_client.harvest(user, &farm_id, &0);
+    let harvested = fixture.farms_client.harvest(&Delegatee::from(user.clone()), &farm_id, &0);
     let final_balance = fixture.reward_token_client.balance(user);
 
     assert!(harvested > 0);
@@ -291,11 +292,11 @@ fn test_early_withdrawal_penalty() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Unstake immediately (should incur 10% penalty)
-    let net_amount = fixture.farms_client.unstake(user, &farm_id, &1000);
+    let net_amount = fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1000);
     assert_eq!(net_amount, 900); // 1000 - 10% = 900
 }
 
@@ -314,14 +315,14 @@ fn test_no_penalty_after_lock_expires() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Pass lock duration
     fixture.pass_time(3601);
 
     // Unstake after lock expires (no penalty)
-    let net_amount = fixture.farms_client.unstake(user, &farm_id, &1000);
+    let net_amount = fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1000);
     assert_eq!(net_amount, 1000);
 }
 
@@ -379,7 +380,7 @@ fn test_delegated_farm_with_set_stake() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
@@ -387,10 +388,10 @@ fn test_delegated_farm_with_set_stake() {
         },
     }]);
 
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Verify user state was updated (auto-initialized)
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 1000);
 
     // Verify farm total was updated
@@ -421,16 +422,16 @@ fn test_delegated_farm_stake_increase_and_decrease() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 1000);
 
     // Increase stake (e.g., user deposited more)
@@ -441,16 +442,16 @@ fn test_delegated_farm_stake_increase_and_decrease() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1500i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1500);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1500);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 1500);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
@@ -464,16 +465,16 @@ fn test_delegated_farm_stake_increase_and_decrease() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 500i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &500);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &500);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 500);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
@@ -502,14 +503,14 @@ fn test_delegated_farm_user_count_tracking() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
@@ -522,14 +523,14 @@ fn test_delegated_farm_user_count_tracking() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 0i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &0);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &0);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 0);
@@ -558,14 +559,14 @@ fn test_delegated_farm_deposit_cap() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 400i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &400);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &400);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.total_staked, 400);
@@ -578,7 +579,7 @@ fn test_delegated_farm_deposit_cap() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 600i128.into_val(e)
             ],
@@ -586,7 +587,11 @@ fn test_delegated_farm_deposit_cap() {
         },
     }]);
 
-    let result = fixture.farms_client.try_set_stake_delegated(user, &farm_id, &600);
+    let result = fixture.farms_client.try_set_stake_delegated(
+        &Delegatee::from(user.clone()),
+        &farm_id,
+        &600,
+    );
     assert!(result.is_err());
 }
 
@@ -615,7 +620,7 @@ fn test_delegated_farm_frozen_rejects_stake() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
@@ -623,7 +628,11 @@ fn test_delegated_farm_frozen_rejects_stake() {
         },
     }]);
 
-    let result = fixture.farms_client.try_set_stake_delegated(user, &farm_id, &1000);
+    let result = fixture.farms_client.try_set_stake_delegated(
+        &Delegatee::from(user.clone()),
+        &farm_id,
+        &1000,
+    );
     assert!(result.is_err());
 }
 
@@ -644,28 +653,30 @@ fn test_unstake_with_cooldown() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Unstake - should move to pending
-    fixture.farms_client.unstake(user, &farm_id, &500);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &500);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 500);
     assert_eq!(user_state.pending_withdrawal_stake, 500);
 
     // Attempt withdraw before cooldown should fail
-    let result = fixture.farms_client.try_withdraw_unstaked(user, &farm_id);
+    let result =
+        fixture.farms_client.try_withdraw_unstaked(&Delegatee::from(user.clone()), &farm_id);
     assert!(result.is_err());
 
     // Pass cooldown time
     fixture.pass_time(3601);
 
     // Withdraw should succeed now
-    let withdrawn = fixture.farms_client.withdraw_unstaked(user, &farm_id);
+    let withdrawn =
+        fixture.farms_client.withdraw_unstaked(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(withdrawn, 500);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.pending_withdrawal_stake, 0);
 }
 
@@ -730,12 +741,13 @@ fn test_multiple_reward_tokens() {
     );
 
     // User stakes and earns from both
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     fixture.pass_time(100);
 
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(pending.len(), 2);
     assert!(pending.get(0).unwrap() > 0);
     assert!(pending.get(1).unwrap() > 0);
@@ -770,13 +782,14 @@ fn test_harvest_all() {
         &1_000_000,
     );
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     fixture.pass_time(100);
 
     let initial_balance = fixture.reward_token_client.balance(user);
-    let total_harvested = fixture.farms_client.harvest_all(user, &farm_id);
+    let total_harvested =
+        fixture.farms_client.harvest_all(&Delegatee::from(user.clone()), &farm_id);
     let final_balance = fixture.reward_token_client.balance(user);
 
     assert!(total_harvested > 0);
@@ -802,13 +815,13 @@ fn test_linear_penalty_decay_halfway() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Pass 500 seconds (halfway) - should have 5% penalty
     fixture.pass_time(500);
 
-    let net_amount = fixture.farms_client.unstake(user, &farm_id, &1000);
+    let net_amount = fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1000);
     // 5% of 1000 = 50, so net = 950
     assert_eq!(net_amount, 950);
 }
@@ -928,14 +941,14 @@ fn test_reward_user_once_airdrop() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Airdrop reward to user via delegate
     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
@@ -945,7 +958,7 @@ fn test_reward_user_once_airdrop() {
             fn_name: "reward_user_once",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 0u32.into_val(e),
                 500i128.into_val(e)
@@ -953,17 +966,18 @@ fn test_reward_user_once_airdrop() {
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.reward_user_once(user, &farm_id, &0, &500);
+    fixture.farms_client.reward_user_once(&Delegatee::from(user.clone()), &farm_id, &0, &500);
 
     // Check user has pending rewards
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     assert!(pending.get(0).unwrap() >= 500); // At least the airdrop amount
 
     // Harvest - use mock_all_auths_allowing_non_root_auth to auto-approve all authorization
     // This is needed because the vault's transfer auth isn't rooted in the harvest call
     e.mock_all_auths_allowing_non_root_auth();
     let initial_balance = fixture.reward_token_client.balance(user);
-    let harvested = fixture.farms_client.harvest(user, &farm_id, &0);
+    let harvested = fixture.farms_client.harvest(&Delegatee::from(user.clone()), &farm_id, &0);
     let final_balance = fixture.reward_token_client.balance(user);
 
     assert!(harvested >= 500);
@@ -997,14 +1011,14 @@ fn test_reward_user_once_disabled_fails() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Attempt airdrop should fail
     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
@@ -1014,7 +1028,7 @@ fn test_reward_user_once_disabled_fails() {
             fn_name: "reward_user_once",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 0u32.into_val(e),
                 500i128.into_val(e)
@@ -1023,7 +1037,12 @@ fn test_reward_user_once_disabled_fails() {
         },
     }]);
 
-    let result = fixture.farms_client.try_reward_user_once(user, &farm_id, &0, &500);
+    let result = fixture.farms_client.try_reward_user_once(
+        &Delegatee::from(user.clone()),
+        &farm_id,
+        &0,
+        &500,
+    );
     assert!(result.is_err());
 }
 
@@ -1108,11 +1127,11 @@ fn test_withdraw_slashed_amount() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Unstake immediately to generate slashed amount
-    fixture.farms_client.unstake(user, &farm_id, &1000);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.slashed_amount_current, 100); // 10% of 1000
@@ -1164,12 +1183,12 @@ fn test_stake_minimum_amount() {
     let farm_config = FarmConfig::default();
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
 
     // Stake minimum amount (1)
-    fixture.farms_client.stake(user, &farm_id, &1);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.active_stake, 1);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
@@ -1186,10 +1205,10 @@ fn test_stake_zero_fails() {
     let farm_config = FarmConfig::default();
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
 
     // Attempt to stake 0 should fail
-    fixture.farms_client.stake(user, &farm_id, &0);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &0);
 }
 
 #[test]
@@ -1207,13 +1226,14 @@ fn test_harvest_with_zero_pending_rewards() {
     );
 
     // User stakes but no rewards were funded
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     fixture.pass_time(100);
 
     // Harvest should fail with NoRewardsToHarvest (no schedule, no rewards)
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(pending.get(0).unwrap(), 0);
 }
 
@@ -1253,14 +1273,15 @@ fn test_rewards_accrue_with_empty_farm_then_user_joins() {
     fixture.pass_time(100);
 
     // Now user joins
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Let another 100 seconds pass
     fixture.pass_time(100);
 
     // User should only get rewards from the time they staked (100 seconds * 100 = 10,000)
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     let pending_amount = pending.get(0).unwrap();
 
     // Should be approximately 10,000 (not 20,000)
@@ -1281,15 +1302,16 @@ fn test_withdraw_unstaked_exactly_at_cooldown_end() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
-    fixture.farms_client.unstake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Advance exactly to cooldown end
     fixture.pass_time(100);
 
     // Should succeed exactly at boundary
-    let withdrawn = fixture.farms_client.withdraw_unstaked(user, &farm_id);
+    let withdrawn =
+        fixture.farms_client.withdraw_unstaked(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(withdrawn, 1000);
 }
 
@@ -1303,15 +1325,15 @@ fn test_withdraw_unstaked_one_second_before_cooldown_end() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
-    fixture.farms_client.unstake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Advance to 1 second before cooldown end
     fixture.pass_time(99);
 
     // Should fail
-    fixture.farms_client.withdraw_unstaked(user, &farm_id);
+    fixture.farms_client.withdraw_unstaked(&Delegatee::from(user.clone()), &farm_id);
 }
 
 #[test]
@@ -1323,10 +1345,10 @@ fn test_activate_pending_stake_exactly_at_warmup_end() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.pending_deposit_stake, 1000);
     assert_eq!(user_state.active_stake, 0);
 
@@ -1334,9 +1356,9 @@ fn test_activate_pending_stake_exactly_at_warmup_end() {
     fixture.pass_time(100);
 
     // Refresh should activate pending stake
-    fixture.farms_client.refresh_user_state(user, &farm_id);
+    fixture.farms_client.refresh_user_state(&Delegatee::from(user.clone()), &farm_id);
 
-    let user_state = fixture.farms_client.get_user_state(user, &farm_id);
+    let user_state = fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(user_state.pending_deposit_stake, 0);
     assert_eq!(user_state.active_stake, 1000);
 }
@@ -1355,14 +1377,14 @@ fn test_penalty_exactly_at_lock_expiry() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Advance exactly to lock expiry
     fixture.pass_time(100);
 
     // Unstake should have no penalty
-    let net_amount = fixture.farms_client.unstake(user, &farm_id, &1000);
+    let net_amount = fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1000);
     assert_eq!(net_amount, 1000);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
@@ -1381,30 +1403,30 @@ fn test_user_count_multiple_stake_unstake_cycles() {
     let farm_config = FarmConfig::default();
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
 
     // First stake
-    fixture.farms_client.stake(user, &farm_id, &500);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &500);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
 
     // Stake more (should not increment)
-    fixture.farms_client.stake(user, &farm_id, &500);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &500);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
 
     // Partial unstake (should not decrement)
-    fixture.farms_client.unstake(user, &farm_id, &500);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &500);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
 
     // Full unstake (should decrement)
-    fixture.farms_client.unstake(user, &farm_id, &500);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &500);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 0);
 
     // Re-stake (should increment again)
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
 }
@@ -1418,21 +1440,21 @@ fn test_multiple_users_count() {
     let farm_config = FarmConfig::default();
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user1, &farm_id);
-    fixture.farms_client.initialize_user(user2, &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user1.clone()), &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user2.clone()), &farm_id);
 
-    fixture.farms_client.stake(user1, &farm_id, &1000);
+    fixture.farms_client.stake(&Delegatee::from(user1.clone()), &farm_id, &1000);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
     assert_eq!(farm.total_staked, 1000);
 
-    fixture.farms_client.stake(user2, &farm_id, &2000);
+    fixture.farms_client.stake(&Delegatee::from(user2.clone()), &farm_id, &2000);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 2);
     assert_eq!(farm.total_staked, 3000);
 
     // User1 fully unstakes
-    fixture.farms_client.unstake(user1, &farm_id, &1000);
+    fixture.farms_client.unstake(&Delegatee::from(user1.clone()), &farm_id, &1000);
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
     assert_eq!(farm.total_staked, 2000);
@@ -1451,8 +1473,8 @@ fn test_double_user_initialization_fails() {
     let farm_config = FarmConfig::default();
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.initialize_user(user, &farm_id); // Should fail
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id); // Should fail
 }
 
 #[test]
@@ -1463,7 +1485,7 @@ fn test_stake_to_nonexistent_farm_fails() {
     let user = &fixture.market_fixture.users[0];
 
     let fake_farm_id = soroban_sdk::BytesN::from_array(e, &[42u8; 32]);
-    fixture.farms_client.stake(user, &fake_farm_id, &1000);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &fake_farm_id, &1000);
 }
 
 #[test]
@@ -1475,9 +1497,9 @@ fn test_unstake_more_than_staked_fails() {
     let farm_config = FarmConfig::default();
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
-    fixture.farms_client.unstake(user, &farm_id, &1500); // Should fail
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &1500); // Should fail
 }
 
 #[test]
@@ -1490,14 +1512,14 @@ fn test_double_unstake_without_withdrawal_fails() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // First unstake goes to pending
-    fixture.farms_client.unstake(user, &farm_id, &500);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &500);
 
     // Second unstake should fail (must withdraw first)
-    fixture.farms_client.unstake(user, &farm_id, &500);
+    fixture.farms_client.unstake(&Delegatee::from(user.clone()), &farm_id, &500);
 }
 
 #[test]
@@ -1513,8 +1535,8 @@ fn test_stake_on_delegated_farm_fails() {
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
     // Try to stake directly on delegated farm
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 }
 
 #[test]
@@ -1536,14 +1558,14 @@ fn test_set_stake_delegated_on_non_delegated_farm_fails() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 }
 
 #[test]
@@ -1626,19 +1648,21 @@ fn test_reward_schedule_starting_in_future() {
         &1_000_000,
     );
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Wait 50 seconds (still before schedule starts)
     fixture.pass_time(50);
 
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     assert_eq!(pending.get(0).unwrap(), 0); // No rewards yet
 
     // Wait another 100 seconds (50 seconds into reward period)
     fixture.pass_time(100);
 
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     let pending_amount = pending.get(0).unwrap();
     // Should have ~50 seconds * 100 = 5000 rewards
     assert!(pending_amount > 0);
@@ -1677,13 +1701,14 @@ fn test_reward_schedule_rate_drops_to_zero() {
         &1_000_000,
     );
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     // Wait 200 seconds (100 in reward period, 100 after)
     fixture.pass_time(200);
 
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     let pending_amount = pending.get(0).unwrap();
 
     // Should only have 10,000 rewards (100 seconds * 100)
@@ -1726,16 +1751,18 @@ fn test_proportional_rewards_with_unequal_stakes() {
     );
 
     // User1: 25%, User2: 75%
-    fixture.farms_client.initialize_user(user1, &farm_id);
-    fixture.farms_client.initialize_user(user2, &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user1.clone()), &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user2.clone()), &farm_id);
 
-    fixture.farms_client.stake(user1, &farm_id, &1000);
-    fixture.farms_client.stake(user2, &farm_id, &3000);
+    fixture.farms_client.stake(&Delegatee::from(user1.clone()), &farm_id, &1000);
+    fixture.farms_client.stake(&Delegatee::from(user2.clone()), &farm_id, &3000);
 
     fixture.pass_time(100);
 
-    let pending1 = fixture.farms_client.get_pending_rewards(user1, &farm_id);
-    let pending2 = fixture.farms_client.get_pending_rewards(user2, &farm_id);
+    let pending1 =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user1.clone()), &farm_id);
+    let pending2 =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user2.clone()), &farm_id);
 
     let rewards1 = pending1.get(0).unwrap();
     let rewards2 = pending2.get(0).unwrap();
@@ -1783,13 +1810,14 @@ fn test_very_small_stake_with_large_rewards() {
     );
 
     // Very small stake
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1);
 
     fixture.pass_time(100);
 
     // User should get all the rewards (only staker)
-    let pending = fixture.farms_client.get_pending_rewards(user, &farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &farm_id);
     let pending_amount = pending.get(0).unwrap();
 
     // 100 seconds * 1,000,000 = 100,000,000
@@ -1819,18 +1847,19 @@ fn test_with_expiry_lock_all_users_same_unlock() {
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
-    fixture.farms_client.initialize_user(user1, &farm_id);
-    fixture.farms_client.initialize_user(user2, &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user1.clone()), &farm_id);
+    fixture.farms_client.initialize_user(&Delegatee::from(user2.clone()), &farm_id);
 
     // User1 stakes immediately
-    fixture.farms_client.stake(user1, &farm_id, &1000);
+    fixture.farms_client.stake(&Delegatee::from(user1.clone()), &farm_id, &1000);
 
     // User2 stakes 500 seconds later
     fixture.pass_time(500);
-    fixture.farms_client.stake(user2, &farm_id, &1000);
+    fixture.farms_client.stake(&Delegatee::from(user2.clone()), &farm_id, &1000);
 
     // User2 unstakes immediately after staking (500s into lock, 500s remaining)
-    let net_amount2 = fixture.farms_client.unstake(user2, &farm_id, &1000);
+    let net_amount2 =
+        fixture.farms_client.unstake(&Delegatee::from(user2.clone()), &farm_id, &1000);
     // Penalty should be 5% (50% of 10% max penalty due to linear decay)
     assert_eq!(net_amount2, 950);
 
@@ -1838,7 +1867,8 @@ fn test_with_expiry_lock_all_users_same_unlock() {
     fixture.pass_time(500);
 
     // User1 can now unstake without penalty
-    let net_amount1 = fixture.farms_client.unstake(user1, &farm_id, &1000);
+    let net_amount1 =
+        fixture.farms_client.unstake(&Delegatee::from(user1.clone()), &farm_id, &1000);
     assert_eq!(net_amount1, 1000);
 }
 
@@ -1867,14 +1897,14 @@ fn test_delegated_farm_set_stake_to_same_value() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     let farm_before = fixture.farms_client.get_farm(&farm_id);
 
@@ -1886,14 +1916,14 @@ fn test_delegated_farm_set_stake_to_same_value() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     let farm_after = fixture.farms_client.get_farm(&farm_id);
 
@@ -1923,14 +1953,14 @@ fn test_delegated_farm_set_stake_to_zero_removes_user() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 1000i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &1000);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 1);
@@ -1943,14 +1973,14 @@ fn test_delegated_farm_set_stake_to_zero_removes_user() {
             fn_name: "set_stake_delegated",
             args: soroban_sdk::vec![
                 e,
-                user.into_val(e),
+                Delegatee::from(user.clone()).into_val(e),
                 farm_id.clone().into_val(e),
                 0i128.into_val(e)
             ],
             sub_invokes: &[],
         },
     }]);
-    fixture.farms_client.set_stake_delegated(user, &farm_id, &0);
+    fixture.farms_client.set_stake_delegated(&Delegatee::from(user.clone()), &farm_id, &0);
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.num_users, 0);
@@ -1994,8 +2024,8 @@ fn test_treasury_fee_on_harvest() {
         &1_000_000,
     );
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     fixture.pass_time(100);
 
@@ -2005,7 +2035,7 @@ fn test_treasury_fee_on_harvest() {
         fixture.reward_token_client.balance(&fixture.market_fixture.contract_admin);
 
     e.mock_all_auths_allowing_non_root_auth();
-    let harvested = fixture.farms_client.harvest(user, &farm_id, &0);
+    let harvested = fixture.farms_client.harvest(&Delegatee::from(user.clone()), &farm_id, &0);
 
     let final_user_balance = fixture.reward_token_client.balance(user);
     let final_treasury_balance =
@@ -2059,20 +2089,20 @@ fn test_min_claim_duration_prevents_rapid_claims() {
         &1_000_000,
     );
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     fixture.pass_time(50);
 
     // First harvest
     e.mock_all_auths_allowing_non_root_auth();
-    fixture.farms_client.harvest(user, &farm_id, &0);
+    fixture.farms_client.harvest(&Delegatee::from(user.clone()), &farm_id, &0);
 
     // Wait only 50 seconds (less than 100)
     fixture.pass_time(50);
 
     // Second harvest should fail
-    fixture.farms_client.harvest(user, &farm_id, &0);
+    fixture.farms_client.harvest(&Delegatee::from(user.clone()), &farm_id, &0);
 }
 
 #[test]
@@ -2108,21 +2138,21 @@ fn test_min_claim_duration_allows_claim_after_duration() {
         &1_000_000,
     );
 
-    fixture.farms_client.initialize_user(user, &farm_id);
-    fixture.farms_client.stake(user, &farm_id, &1000);
+    fixture.farms_client.initialize_user(&Delegatee::from(user.clone()), &farm_id);
+    fixture.farms_client.stake(&Delegatee::from(user.clone()), &farm_id, &1000);
 
     fixture.pass_time(100);
 
     // First harvest
     e.mock_all_auths_allowing_non_root_auth();
-    let first_harvest = fixture.farms_client.harvest(user, &farm_id, &0);
+    let first_harvest = fixture.farms_client.harvest(&Delegatee::from(user.clone()), &farm_id, &0);
     assert!(first_harvest > 0);
 
     // Wait 100 seconds (exactly min duration)
     fixture.pass_time(100);
 
     // Second harvest should succeed
-    let second_harvest = fixture.farms_client.harvest(user, &farm_id, &0);
+    let second_harvest = fixture.farms_client.harvest(&Delegatee::from(user.clone()), &farm_id, &0);
     assert!(second_harvest > 0);
 }
 
@@ -2282,7 +2312,8 @@ fn test_market_farms_auto_refresh_on_deposit() {
         obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
 
     // Verify farm stake was AUTOMATICALLY updated (no manual refresh needed)
-    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    let user_state =
+        fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &supply_farm_id);
     assert_eq!(user_state.active_stake, j_tokens);
 
     let farm = fixture.farms_client.get_farm(&supply_farm_id);
@@ -2339,7 +2370,8 @@ fn test_market_farms_auto_refresh_on_borrow() {
         obligation.borrows.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().d_tokens;
 
     // Verify farm stake was AUTOMATICALLY updated
-    let user_state = fixture.farms_client.get_user_state(user, &debt_farm_id);
+    let user_state =
+        fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &debt_farm_id);
     assert_eq!(user_state.active_stake, d_tokens);
 }
 
@@ -2384,7 +2416,8 @@ fn test_market_farms_refresh_obligation_syncs_supply_stake() {
     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
 
     // Verify farm stake was updated
-    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    let user_state =
+        fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &supply_farm_id);
     assert_eq!(user_state.active_stake, j_tokens);
 
     let farm = fixture.farms_client.get_farm(&supply_farm_id);
@@ -2428,7 +2461,8 @@ fn test_market_farms_refresh_after_withdraw_updates_stake() {
     let initial_j_tokens =
         obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
 
-    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    let user_state =
+        fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &supply_farm_id);
     assert_eq!(user_state.active_stake, initial_j_tokens);
 
     // User withdraws half
@@ -2447,7 +2481,8 @@ fn test_market_farms_refresh_after_withdraw_updates_stake() {
     let final_j_tokens =
         obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
 
-    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    let user_state =
+        fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &supply_farm_id);
     assert_eq!(user_state.active_stake, final_j_tokens);
     assert!(final_j_tokens < initial_j_tokens);
 }
@@ -2509,7 +2544,8 @@ fn test_market_farms_refresh_debt_farm_on_borrow() {
     assert!(d_tokens > 0);
 
     // Verify farm stake
-    let user_state = fixture.farms_client.get_user_state(user, &debt_farm_id);
+    let user_state =
+        fixture.farms_client.get_user_state(&Delegatee::from(user.clone()), &debt_farm_id);
     assert_eq!(user_state.active_stake, d_tokens);
 }
 
@@ -2625,13 +2661,15 @@ fn test_market_farms_full_e2e_deposit_refresh_harvest() {
     fixture.pass_time(100);
 
     // === Verify Rewards Accrued ===
-    let pending = fixture.farms_client.get_pending_rewards(user, &supply_farm_id);
+    let pending =
+        fixture.farms_client.get_pending_rewards(&Delegatee::from(user.clone()), &supply_farm_id);
     let pending_amount = pending.get(0).unwrap();
     assert!(pending_amount > 0);
 
     // === Harvest Rewards ===
     let initial_balance = fixture.reward_token_client.balance(user);
-    let harvested = fixture.farms_client.harvest(user, &supply_farm_id, &0);
+    let harvested =
+        fixture.farms_client.harvest(&Delegatee::from(user.clone()), &supply_farm_id, &0);
     let final_balance = fixture.reward_token_client.balance(user);
 
     assert!(harvested > 0);
