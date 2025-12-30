@@ -45,7 +45,7 @@ Alula is a money-market protocol built around per-asset pools inside a Market co
 
 ### Risk Management
 
-Risk is enforced at the obligation level using oracle-priced valuations. The protocol monitors a position’s Health Factor (weighted collateral value / weighted debt value) and a risk-adjusted Liquidation Health Factor (LHF) derived from per-asset close-LTV and liability-factor parameters. 
+Risk is enforced at the obligation level using oracle-priced valuations. The protocol monitors a position’s Health Factor (weighted collateral value / weighted debt value) and a risk-adjusted Liquidation Health Factor (LHF) derived from per-asset close-LTV and liability-factor parameters.
 
 If LHF < 1, the obligation can be liquidated in small slices: a liquidator repays debt and receives collateral at a bounded discount (liquidation bonus). If a position becomes insolvent, the protocol can enter insolvency handling to reduce bad debt; any residual losses after liquidations are covered first by the pool’s insurance fund, and only then (if needed) socialized across lenders in that pool.
 
@@ -53,15 +53,15 @@ If LHF < 1, the obligation can be liquidated in small slices: a liquidator repay
 
 Borrow APR is a configurable dual-kink function of utilization (piecewise-linear). Pools define parameters such as:
 
-* `BaseAPR`, `APR_k1`, `APR_k2`, `APR_max`
-* `U_k1`, `U_k2`
+- `BaseAPR`, `APR_k1`, `APR_k2`, `APR_max`
+- `U_k1`, `U_k2`
 
 ### Fees & Insurance Fund
 
 Markets support a dual-layer fee model:
 
-* **Take rate (streaming)**: a portion of borrower interest is diverted before reaching lenders; supply APY is shown net of take rate
-* **Origination fee (atomic)**: charged on certain operations (e.g., `borrow`, `flash_loan`), with optional referrer split
+- **Take rate (streaming)**: a portion of borrower interest is diverted before reaching lenders; supply APY is shown net of take rate
+- **Origination fee (atomic)**: charged on certain operations (e.g., `borrow`, `flash_loan`), with optional referrer split
 
 Accrued fees are distributed via the permissionless distribute method according to configured beneficiaries. Each pool can fund an insurance fund via fee routing to absorb residual losses after liquidations before any shortfall is socialized to lenders.
 
@@ -98,13 +98,13 @@ cargo nextest run test_liquidate --workspace --lib
 
 ## Security
 
-* Checked arithmetic — no overflows
-* `require_auth()` on all mutations
-* Oracle staleness checks; aggregated oracle can include circuit-breaker behavior (returning no price on large short-window moves)
-* Owned markets support queued config updates; ungoverned markets have immutable configuration
-* Emergency pause controls (market status)
-* Segregated pools / isolated markets to contain risk
-* Liquidations execute in slices (close-factor in health-improving mode)
+- Checked arithmetic — no overflows
+- `require_auth()` on all mutations
+- Oracle staleness checks; aggregated oracle can include circuit-breaker behavior (returning no price on large short-window moves)
+- Owned markets support queued config updates; ungoverned markets have immutable configuration
+- Emergency pause controls (market status)
+- Segregated pools / isolated markets to contain risk
+- Liquidations execute in slices (close-factor in health-improving mode)
 
 ## Contributions
 
