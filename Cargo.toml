@@ -1,23 +1,16 @@
 [workspace]
 resolver = "2"
-members = [
-  "contracts/*",
-  "farms_interface",
-  "insurance_fund_trait",
-  "moderc3156",
-  "tests",
-  "tests/fuzz",
-]
+members = ["contracts/*", "libs/*", "tests", "tests/fuzz"]
 
 [workspace.package]
 edition = "2024"
 
 [workspace.dependencies]
 enum_dispatch = "0.3.13"
-farms_interface = { path = "farms_interface" }
-insurance-fund-trait = { path = "insurance_fund_trait" }
+farms-interface = { path = "libs/farms-interface" }
+insurance-fund-interface = { path = "libs/insurance-fund-interface" }
 market = { path = "contracts/market/" }
-moderc3156 = { path = "moderc3156" }
+moderc3156 = { path = "libs/moderc3156" }
 sep-40-oracle = "^1.3.0"
 soroban-fixed-point-math = "^1.4.0"
 soroban-sdk = "^23.0.0"

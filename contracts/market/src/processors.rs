@@ -1,4 +1,4 @@
-use insurance_fund_trait::{CoverageStatus, InsuranceFundClient, IssueRequestResult};
+use insurance_fund_interface::{CoverageStatus, InsuranceFundClient, IssueRequestResult};
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
@@ -1036,7 +1036,7 @@ pub fn process_issue_cover_bad_debt(
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
 
     let insurance_fund = storage::get_insurance_fund(e);
-    let insurance_fund_client = insurance_fund_trait::InsuranceFundClient::new(e, &insurance_fund);
+    let insurance_fund_client = InsuranceFundClient::new(e, &insurance_fund);
 
     let mut borrow_positions_to_remove: Vec<Address> = Vec::new(e);
 

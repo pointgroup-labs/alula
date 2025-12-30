@@ -21,7 +21,7 @@ use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
 use controlled_insurance_fund::ControlledInsuranceFundContractClient;
-use insurance_fund_trait::InsuranceFundClient;
+use insurance_fund_interface::InsuranceFundClient;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,

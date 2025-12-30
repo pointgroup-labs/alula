@@ -1,5 +1,5 @@
 [package]
-name = "farms_interface"
+name = "farms-interface"
 version = "0.0.1"
 edition = { workspace = true }
 publish = false

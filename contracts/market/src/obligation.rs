@@ -1,3 +1,4 @@
+use farms_interface::Delegatee;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Map, contracttype};
 
@@ -10,8 +11,6 @@ use crate::{
     pool::{Pool, PoolFeeConfig},
     storage,
 };
-
-use farms_interface::Delegatee;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[contracttype]

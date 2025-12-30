@@ -1,4 +1,4 @@
-use insurance_fund_trait::CoverageStatus;
+use insurance_fund_interface::CoverageStatus;
 use soroban_sdk::{Address, Env, contracttype, panic_with_error};
 
 use crate::error::ContractError;
