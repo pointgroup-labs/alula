@@ -1,11 +1,9 @@
-<!-- add roadmap / planned features-->
-
 # Alula
 
 [![Stellar](https://img.shields.io/badge/Stellar-000000?logo=stellar&logoColor=white&style=for-the-badge)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-7B68EE?logo=stellar&logoColor=white&style=for-the-badge)](https://soroban.stellar.org)
 [![Rust](https://img.shields.io/badge/Rust-1.90-e64514?logo=rust&logoColor=white&style=for-the-badge)](https://www.rust-lang.org)
-[![Tests Status](https://img.shields.io/github/actions/workflow/status/mfactory-lab/alula/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
+[![Tests Status](https://img.shields.io/github/actions/workflow/status/pointgroup-labs/alula/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
 
 Alula is an institutional-grade RWA money-market protocol on Stellar designed to bring real-world credit on-chain in a policy-aligned way. It combines configurable, segregated lending pools with a yield-optimization layer that keeps liquidity productive even when some pools are underutilized. Built on Stellar’s compliance and settlement stack, Alula enables institutions to originate and fund RWA-backed credit on-chain, while giving liquidity providers transparent, risk-aligned yield in Stellar assets.
 
@@ -20,11 +18,13 @@ Alula is an institutional-grade RWA money-market protocol on Stellar designed to
 - **Cross-pool collateral evaluation**: Collateral in one pool can support borrowing in another, subject to configured rules
 - **Dynamic interest rates**: Dual-kink model responding to utilization (parameterized per pool)
 - **Aggregated oracle**: Median prices from multiple SEP-40 sources, optionally with circuit-breaker behavior (returning no price on large short-window moves)
+- **Farms integration**: Delegated staking for j-token (supply) and d-token (debt) holders with automatic stake sync
+- **Insurance fund**: Bad debt coverage with two-phase claim flow; shortfalls socialized only after fund exhaustion
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/mfactory-lab/alula.git
+git clone https://github.com/pointgroup-labs/alula.git
 cd alula
 make setup && make build && make test
 ```
@@ -33,10 +33,18 @@ make setup && make build && make test
 
 ```
 contracts/
-├── market/                   # Lending, borrowing, liquidations, flash loans
-├── market_manager/           # Factory for deploying markets
-├── aggregated_oracle/        # Median price aggregation from SEP-40 oracles
-└── soroswap_sep_40_adapter/  # AMM price adapter
+├── market/                    # Lending, borrowing, liquidations, flash loans
+├── market_manager/            # Factory for deploying markets
+├── aggregated-oracle/         # Median price aggregation from SEP-40 oracles
+├── controlled_insurance_fund/ # Insurance fund for bad debt coverage
+├── soroswap_sep_40_adapter/   # AMM price adapter
+├── soroswap_router_mock/      # Test mock for swap router
+└── flash_loan_taker_mock/     # Test mock for flash loans
+
+libs/
+├── farms-interface/           # Interface for farms (delegated staking)
+├── insurance-fund-interface/  # Interface for insurance fund
+└── moderc3156/                # ERC-3156 flash loan interface
 ```
 
 ## How It Works
@@ -65,6 +73,10 @@ Markets support a dual-layer fee model:
 
 Accrued fees are distributed via the permissionless distribute method according to configured beneficiaries. Each pool can fund an insurance fund via fee routing to absorb residual losses after liquidations before any shortfall is socialized to lenders.
 
+### Farms Integration
+
+Alula supports delegated staking through an external Farms contract. Pools can be configured with supply farms (rewarding j-token holders) and debt farms (rewarding d-token holders). The Market contract automatically syncs user stakes when positions change, enabling token incentive programs without requiring users to manually stake.
+
 ### Core Operations
 
 | Function                               | Description                                  |
@@ -74,7 +86,9 @@ Accrued fees are distributed via the permissionless distribute method according 
 | `borrow` / `repay`                     | Take and repay loans                         |
 | `liquidate`                            | Liquidate unhealthy positions for a bonus    |
 | `flash_loan`                           | Borrow without collateral (repay in same tx) |
-| `distribute`                           | Distribute accrued fees to beneficiaries     |
+| `distribute_pool_fees`                 | Distribute accrued fees to beneficiaries     |
+
+See [docs/API.md](./docs/API.md) for the complete API reference.
 
 ## Development
 
