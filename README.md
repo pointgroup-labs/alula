@@ -17,7 +17,7 @@ Alula is an institutional-grade RWA money-market protocol on Stellar designed to
 - **Leveraged positions**: Amplify exposure via deposit-with-leverage (flash-loan + swap flow)
 - **Cross-pool collateral evaluation**: Collateral in one pool can support borrowing in another, subject to configured rules
 - **Dynamic interest rates**: Dual-kink model responding to utilization (parameterized per pool)
-- **Aggregated oracle**: Median prices from multiple SEP-40 sources, optionally with circuit-breaker behavior (returning no price on large short-window moves)
+- **Aggregated oracle**: Median prices from multiple SEP-40 sources, with optional circuit-breaker behavior (returning no price on large, short-window price moves)
 - **Farms integration**: Delegated staking for j-token (supply) and d-token (debt) holders with automatic stake sync
 - **Insurance fund**: Bad debt coverage with two-phase claim flow; shortfalls socialized only after fund exhaustion
 
@@ -55,7 +55,7 @@ Alula is a money-market protocol built around per-asset pools inside a Market co
 
 Risk is enforced at the obligation level using oracle-priced valuations. The protocol monitors a position’s Health Factor (weighted collateral value / weighted debt value) and a risk-adjusted Liquidation Health Factor (LHF) derived from per-asset close-LTV and liability-factor parameters.
 
-If LHF < 1, the obligation can be liquidated in small slices: a liquidator repays debt and receives collateral at a bounded discount (liquidation bonus). If a position becomes insolvent, the protocol can enter insolvency handling to reduce bad debt; any residual losses after liquidations are covered first by the pool’s insurance fund, and only then (if needed) socialized across lenders in that pool.
+When LHF < 1, the obligation becomes eligible for liquidation in slices: a liquidator repays debt and receives collateral at a bounded discount (liquidation bonus). If a position becomes insolvent, the protocol can enter insolvency handling to reduce bad debt; any residual losses after liquidations are covered first by the pool’s insurance fund, and only then (if needed) socialized across lenders in that pool.
 
 ### Interest Rates
 
@@ -114,7 +114,7 @@ cargo nextest run test_liquidate --workspace --lib
 
 - Checked arithmetic — no overflows
 - `require_auth()` on all mutations
-- Oracle staleness checks; aggregated oracle can include circuit-breaker behavior (returning no price on large short-window moves)
+- Oracle staleness checks with configurable maximum price age
 - Owned markets support queued config updates; ungoverned markets have immutable configuration
 - Emergency pause controls (market status)
 - Segregated pools / isolated markets to contain risk

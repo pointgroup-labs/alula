@@ -124,7 +124,7 @@ fn repay(user: Address, pool_address: Address, amount: i128) -> Result<(), MCErr
 
 #### `liquidate`
 
-Liquidate an unhealthy position (health factor < 1.0). Liquidator repays debt and receives collateral at a discount.
+Liquidate an unhealthy position (liquidation health factor < 1.0). Liquidator repays debt and receives collateral at a discount.
 
 ```rust
 fn liquidate(
@@ -142,7 +142,7 @@ fn liquidate(
 | ---------------------------- | -------------------- | ---------------------------------- |
 | `liquidator`                 | `Address`            | Address performing liquidation     |
 | `borrower`                   | `Address`            | Address being liquidated           |
-| `borrower_obligation_seed`   | `Option<BytesN<32>>` | Seed for multiply pair obligations |
+| `borrower_obligation_seed`   | `Option<BytesN<32>>` | Seed for Multiply Pair obligations |
 | `borrow_pool_address`        | `Address`            | Pool of debt being repaid          |
 | `collateral_pool_address`    | `Address`            | Pool of collateral being seized    |
 | `repay_amount`               | `i128`               | Amount of debt to repay            |
@@ -154,7 +154,7 @@ fn liquidate(
 
 #### `flash_loan`
 
-Borrow without collateral — must repay within the same transaction. Follows ERC-3156 standard.
+Borrow without collateral — must repay within the same transaction. Follows the ERC-3156 flash loan standard.
 
 ```rust
 fn flash_loan(

@@ -16,16 +16,17 @@ soroban-fixed-point-math = "^1.4.0"
 soroban-sdk = "^23.0.0"
 
 [profile.release]
-opt-level = "z"
+opt-level = "z" # Optimize for size
 overflow-checks = true
 debug = 0
-strip = "symbols"
+strip = "symbols" # Remove debug symbols
 debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
 
-# For more information about this profile see https://soroban.stellar.org/docs/basic-tutorials/logging#cargotoml-profile
+# Release profile with debug assertions for logging
+# See: https://soroban.stellar.org/docs/basic-tutorials/logging#cargotoml-profile
 [profile.release-with-logs]
 inherits = "release"
 debug-assertions = true
