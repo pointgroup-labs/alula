@@ -617,6 +617,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "farms_interface"
+version = "0.0.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "ff"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -932,6 +939,7 @@ name = "market"
 version = "0.0.5"
 dependencies = [
  "enum_dispatch",
+ "farms_interface",
  "insurance-fund-trait",
  "moderc3156",
  "sep-40-oracle",

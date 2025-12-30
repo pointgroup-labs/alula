@@ -1,0 +1,13 @@
+[package]
+name = "farms_interface"
+version = "0.0.1"
+edition = { workspace = true }
+publish = false
+description = "Farms contract client interface for cross-contract calls"
+
+[lib]
+crate-type = ["lib"]
+doctest = true
+
+[dependencies]
+soroban-sdk = { workspace = true }

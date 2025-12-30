@@ -91,6 +91,8 @@ pub enum DataKey {
     DeployerHost,
     MaxPositions,
     MarketStatus,
+    FarmsContract,
+    ConfigUpdate(Address),
     Pool(Address),
     InsuranceFund,
     AllObligations,
@@ -99,7 +101,6 @@ pub enum DataKey {
     EarnObligationSeed,
     MinCollateralValueCents,
     UpdateInQueuePeriod,
-    ConfigUpdate(Address),
     Obligation(ObligationKey),
     MultiplyPair((Address, Address)),
     ProposedAdmin,
@@ -226,6 +227,17 @@ pub fn get_proposed_admin(e: &Env) -> Option<Address> {
 }
 pub fn remove_proposed_admin(e: &Env) {
     e.storage().instance().remove(&DataKey::ProposedAdmin);
+}
+
+// - FarmsContract -
+pub fn set_farms_contract(e: &Env, farms: &Address) {
+    e.storage().instance().set(&DataKey::FarmsContract, farms)
+}
+pub fn get_farms_contract(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::FarmsContract)
+}
+pub fn clear_farms_contract(e: &Env) {
+    e.storage().instance().remove(&DataKey::FarmsContract)
 }
 
 // ---- Pool ----

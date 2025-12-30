@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["contracts/*", "insurance_fund_trait", "moderc3156", "tests", "tests/fuzz"]
+members = ["contracts/*", "moderc3156", "tests", "farms_interface", "insurance_fund_trait","tests/fuzz"]
 
 [workspace.package]
 edition = "2024"
@@ -10,6 +10,7 @@ enum_dispatch = "0.3.13"
 insurance-fund-trait = { path = "insurance_fund_trait" }
 market = { path = "contracts/market/" }
 moderc3156 = { path = "moderc3156" }
+farms_interface = { path = "farms_interface" }
 sep-40-oracle = "^1.3.0"
 soroban-fixed-point-math = "^1.4.0"
 soroban-sdk = "^23.0.0"
