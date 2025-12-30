@@ -41,7 +41,7 @@ fn test_interest_rates() {
     // 0% UR
     let borrow_bps = contract_client.get_pool(&usdc_pool_address).borrow_apr_bps;
     let supply_bps = contract_client.get_pool(&usdc_pool_address).supply_apr_bps;
-    assert_eq!(borrow_bps, 00_01); // WARN: calculations for APY yield 0% due to a precision loss
+    assert_eq!(borrow_bps, 00_01); // NB: calculations for APY yield 0% due to a precision loss
     assert_eq!(supply_bps, 00_00);
 
     // Borrow 50% of the deposited value

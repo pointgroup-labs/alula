@@ -577,58 +577,54 @@ pub trait Market {
     // Returns a list of all multiply pairs registered for the market
     fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair>;
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // Farms Integration
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    // Sets the farms contract address for this market.
+    // Sets the farms contract address for this market
     //
     // # Arguments
-    // * `farms_contract` - Address of the Farms contract
+    // * `farms_contract` - address of the Farms contract
     fn set_farms_contract(e: Env, farms_contract: Address) -> Result<(), MCError>;
 
-    // Clears the farms contract address (disables farm integration).
+    // Clears the farms contract address (disables farm integration)
     fn clear_farms_contract(e: Env) -> Result<(), MCError>;
 
-    // Gets the farms contract address if configured.
+    // Gets the farms contract address if configured
     fn get_farms_contract(e: Env) -> Option<Address>;
 
-    // Sets the supply farm ID for a pool.
+    // Sets the supply farm ID for a pool
     //
     // # Arguments
-    // * `pool_address` - Address of the pool
-    // * `farm_id` - Farm ID for supply incentives (j-token staking)
+    // * `pool_address` - address of the pool
+    // * `farm_id` - farm ID for supply incentives (j-token staking)
     fn set_pool_supply_farm(
         e: Env,
         pool_address: Address,
         farm_id: BytesN<32>,
     ) -> Result<(), MCError>;
 
-    // Sets the debt farm ID for a pool.
+    // Sets the debt farm ID for a pool
     //
     // # Arguments
-    // * `pool_address` - Address of the pool
-    // * `farm_id` - Farm ID for debt incentives (d-token staking)
+    // * `pool_address` - address of the pool
+    // * `farm_id` - farm ID for debt incentives (d-token staking)
     fn set_pool_debt_farm(
         e: Env,
         pool_address: Address,
         farm_id: BytesN<32>,
     ) -> Result<(), MCError>;
 
-    // Clears all farm configuration for a pool.
+    // Clears all farm configuration for a pool
     //
     // # Arguments
     // * `pool_address` - Address of the pool
     fn clear_pool_farms(e: Env, pool_address: Address) -> Result<(), MCError>;
 
-    // Refreshes farm stakes for a user's obligation (permissionless).
+    // Refreshes farm stakes for a user's obligation (permissionless)
     // Syncs all farm stakes for the user's deposit and borrow positions.
     //
     // # Arguments
     // * `user` - User whose farms to refresh
     fn refresh_obligation_farms(e: Env, user: Address) -> Result<(), MCError>;
 
-    // Refreshes farm stakes for a user's earn obligation (permissionless).
+    // Refreshes farm stakes for a user's earn obligation (permissionless)
     //
     // # Arguments
     // * `user` - User whose earn obligation farms to refresh
@@ -665,7 +661,7 @@ pub struct MarketContract;
 
 #[contractimpl]
 impl Market for MarketContract {
-    // WARN: All upgrade possibilities will be removed prior to mainnet deployment
+    // TODO: All upgrade possibilities will be removed prior to mainnet deployment
 
     // Upgrades the lending contract
     //
@@ -1374,21 +1370,21 @@ impl Market for MarketContract {
         pool.get_pool_data(&e)
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // Farms Integration
-    // ═══════════════════════════════════════════════════════════════════════════════
-
     fn set_farms_contract(e: Env, farms_contract: Address) -> Result<(), MCError> {
         require_admin(&e);
+
         storage::set_farms_contract(&e, &farms_contract);
-        events::farms_contract_set(&e, &farms_contract);
+        events::set_farms_contract(&e, &farms_contract);
+
         Ok(())
     }
 
     fn clear_farms_contract(e: Env) -> Result<(), MCError> {
         require_admin(&e);
+
         storage::clear_farms_contract(&e);
-        events::farms_contract_cleared(&e);
+        events::clear_farms_contract(&e);
+
         Ok(())
     }
 
@@ -1402,6 +1398,7 @@ impl Market for MarketContract {
         farm_id: BytesN<32>,
     ) -> Result<(), MCError> {
         require_admin(&e);
+
         farms::set_pool_supply_farm(&e, &pool_address, farm_id)
     }
 
@@ -1411,11 +1408,13 @@ impl Market for MarketContract {
         farm_id: BytesN<32>,
     ) -> Result<(), MCError> {
         require_admin(&e);
+
         farms::set_pool_debt_farm(&e, &pool_address, farm_id)
     }
 
     fn clear_pool_farms(e: Env, pool_address: Address) -> Result<(), MCError> {
         require_admin(&e);
+
         farms::clear_pool_farms(&e, &pool_address)
     }
 
@@ -1429,7 +1428,8 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new(user);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
+        farms::refresh_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
+
         Ok(())
     }
 
@@ -1444,7 +1444,7 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
+        farms::refresh_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
         Ok(())
     }
 
@@ -1464,12 +1464,10 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new_with_seed(user, pair.seed.clone());
         let obligation = Obligation::try_get(&e, &obligation_key)?;
 
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
+        farms::refresh_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
         Ok(())
     }
 
-    // Resets the contract's storage. Useful when the contract's invariants are broken and require
-    // resetting on the testnet without re-deploying the contract
     fn reset_storage(e: Env) {
         require_admin(&e);
 
@@ -1479,6 +1477,7 @@ impl Market for MarketContract {
     }
 }
 
+// TODO: Move all admin/management methods here from the trait
 #[contractimpl]
 impl MarketContract {
     // Constructs the market contract

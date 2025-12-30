@@ -369,6 +369,14 @@ struct PoolFarmsClearedEvent {
     pub pool_address: Address,
 }
 
+#[contractevent]
+struct PoolFarmSetEvent {
+    #[topic]
+    pub pool_address: Address,
+    pub farm_id: BytesN<32>,
+    pub farm_kind: Symbol,
+}
+
 // --- Methods that abstract how events are published ---
 
 pub fn deposit(
@@ -797,20 +805,12 @@ pub fn inconsistent_immediate_insurance_fund_coverage(
 
 // --- Farms Integration Events ---
 
-pub fn farms_contract_set(e: &Env, farms_contract: &Address) {
+pub fn set_farms_contract(e: &Env, farms_contract: &Address) {
     FarmsContractSetEvent { farms_contract: farms_contract.clone() }.publish(e);
 }
 
-pub fn farms_contract_cleared(e: &Env) {
+pub fn clear_farms_contract(e: &Env) {
     FarmsContractClearedEvent {}.publish(e);
-}
-
-#[contractevent]
-struct PoolFarmSetEvent {
-    #[topic]
-    pub pool_address: Address,
-    pub farm_id: BytesN<32>,
-    pub farm_kind: Symbol,
 }
 
 pub fn pool_farm_set(e: &Env, pool_address: &Address, farm_id: &BytesN<32>, is_supply: bool) {

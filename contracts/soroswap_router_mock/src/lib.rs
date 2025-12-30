@@ -22,7 +22,7 @@ const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKO
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-// WARN: This is a plain copied enum, and its errors are not in sync with those in the deployed contract.
+// NB: This is a plain copied enum, and its errors are not in sync with those in the deployed contract.
 // Likely, the Soroswap team will not break the backward compatibility, so this is fine
 pub enum CombinedRouterError {
     RouterNotInitialized = 501,

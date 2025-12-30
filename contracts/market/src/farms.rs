@@ -1,7 +1,7 @@
 //! Farms integration module for delegated staking.
 //!
 //! Handles cross-contract calls to the Farms contract for updating user stakes
-//! when their positions change (deposit, withdraw, borrow, repay, liquidate).
+//! when their positions change (deposit, withdraw, borrow, repay, liquidate)
 
 use farms_interface::FarmsClient;
 use soroban_sdk::{Address, BytesN, Env};
@@ -14,7 +14,7 @@ use crate::{
     storage,
 };
 
-/// Farm kind: supply (j-token) or debt (d-token).
+/// Farm kind: supply (j-token) or debt (d-token)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FarmKind {
     Supply,
@@ -22,7 +22,7 @@ pub enum FarmKind {
 }
 
 /// Syncs a user's stake with the farms contract for a specific pool.
-/// No-op if no farm is configured for the pool/kind.
+/// No-op if no farm is configured for the pool
 pub fn refresh_pool_farm_stake(
     e: &Env,
     farms_contract: &Address,
@@ -32,8 +32,8 @@ pub fn refresh_pool_farm_stake(
     kind: FarmKind,
 ) -> Result<(), MCError> {
     let farm_id = match kind {
-        FarmKind::Supply => pool.farm_supply.as_ref(),
-        FarmKind::Debt => pool.farm_debt.as_ref(),
+        FarmKind::Supply => pool.supply_farm.as_ref(),
+        FarmKind::Debt => pool.debt_farm.as_ref(),
     };
 
     let Some(farm_id) = farm_id else {
@@ -56,8 +56,8 @@ pub fn refresh_pool_farm_stake(
 }
 
 /// Refreshes all farms for all pools in an obligation.
-/// Returns count of (supply_farms, debt_farms) refreshed.
-pub fn refresh_all_obligation_farms(
+/// Returns count of (supply_farms, debt_farms) refreshed
+pub fn refresh_obligation_farms(
     e: &Env,
     farms_contract: &Address,
     obligation: &Obligation,
@@ -68,7 +68,7 @@ pub fn refresh_all_obligation_farms(
 
     for pool_address in obligation.deposits.keys() {
         let pool = Pool::try_get(e, &pool_address)?;
-        if pool.farm_supply.is_some() {
+        if pool.supply_farm.is_some() {
             refresh_pool_farm_stake(
                 e,
                 farms_contract,
@@ -83,7 +83,7 @@ pub fn refresh_all_obligation_farms(
 
     for pool_address in obligation.borrows.keys() {
         let pool = Pool::try_get(e, &pool_address)?;
-        if pool.farm_debt.is_some() {
+        if pool.debt_farm.is_some() {
             refresh_pool_farm_stake(
                 e,
                 farms_contract,
@@ -102,7 +102,7 @@ pub fn refresh_all_obligation_farms(
 }
 
 /// Refreshes a pool's farm stake if farms contract is configured.
-/// No-op otherwise.
+/// No-op otherwise
 pub fn try_refresh_pool_farm(
     e: &Env,
     obligation: &Obligation,
@@ -116,16 +116,19 @@ pub fn try_refresh_pool_farm(
     Ok(())
 }
 
-/// Sets the supply farm ID for a pool.
+/// Sets the supply farm ID for a pool
 pub fn set_pool_supply_farm(
     e: &Env,
     pool_address: &Address,
     farm_id: BytesN<32>,
 ) -> Result<(), MCError> {
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.farm_supply = Some(farm_id.clone());
+
+    pool.supply_farm = Some(farm_id.clone());
     pool.set(e);
+
     events::pool_farm_set(e, pool_address, &farm_id, true);
+
     Ok(())
 }
 
@@ -136,7 +139,7 @@ pub fn set_pool_debt_farm(
     farm_id: BytesN<32>,
 ) -> Result<(), MCError> {
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.farm_debt = Some(farm_id.clone());
+    pool.debt_farm = Some(farm_id.clone());
     pool.set(e);
     events::pool_farm_set(e, pool_address, &farm_id, false);
     Ok(())
@@ -145,8 +148,8 @@ pub fn set_pool_debt_farm(
 /// Clears all farm configuration for a pool.
 pub fn clear_pool_farms(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.farm_supply = None;
-    pool.farm_debt = None;
+    pool.supply_farm = None;
+    pool.debt_farm = None;
     pool.set(e);
     events::pool_farms_cleared(e, pool_address);
     Ok(())

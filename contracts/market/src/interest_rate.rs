@@ -176,7 +176,6 @@ impl Pool {
 
     // Computes the current utilization ratio in basis points (bps)
     pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
-        // WARN: Is this a correct way to count UR now, when we have reserves?
         let total = self.total_supply()?;
 
         if total == 0 {

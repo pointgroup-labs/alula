@@ -542,7 +542,7 @@ impl Obligation {
 
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
-        // WARN: This can potentially create a borrow obligation with 0ed fields
+        // NB: This can potentially create a borrow obligation with 0ed fields
         let mut borrow_position = self
             .borrows
             .get(pool.pool_address.clone())

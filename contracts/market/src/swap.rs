@@ -168,7 +168,6 @@ pub fn swap_exact_tokens_for_tokens(
         &u64::MAX,
     );
 
-    // TODO: What warning\error\event exactly must happen here?
     let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
 
     Ok(received_amount)
