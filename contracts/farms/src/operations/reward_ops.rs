@@ -8,7 +8,7 @@ use crate::{
     operations::farm_ops::{
         calculate_pending_reward, get_current_ts, refresh_global_rewards, update_user_rewards_tally,
     },
-    state::{FarmState, GlobalConfig, RewardScheduleCurve, UserState},
+    state::{Delegatee, FarmState, GlobalConfig, RewardScheduleCurve, UserState},
     storage,
 };
 
@@ -153,6 +153,7 @@ pub fn withdraw_unused_rewards(
 ///
 /// # Arguments
 /// * `e` - The environment
+/// * `delegatee` - The delegatee identifier (for storage key)
 /// * `config` - Global config (for treasury fee)
 /// * `farm` - Mutable reference to the farm state
 /// * `user_state` - Mutable reference to the user state
@@ -162,6 +163,7 @@ pub fn withdraw_unused_rewards(
 /// * `Ok(net_amount)` - The net amount harvested after fees
 pub fn harvest_single(
     e: &Env,
+    delegatee: &Delegatee,
     config: &GlobalConfig,
     farm: &mut FarmState,
     user_state: &mut UserState,
@@ -216,9 +218,9 @@ pub fn harvest_single(
     // Transfer rewards
     let token_client = token::Client::new(e, &reward_info.token);
 
-    // Transfer net amount to user
+    // Transfer net amount to owner
     if net_amount > 0 {
-        token_client.transfer(&reward_info.rewards_vault, &user_state.user, &net_amount);
+        token_client.transfer(&reward_info.rewards_vault, &user_state.owner, &net_amount);
     }
 
     // Transfer fee to treasury
@@ -244,9 +246,9 @@ pub fn harvest_single(
 
     // Persist changes
     storage::set_farm(e, &farm.farm_id, farm);
-    storage::set_user(e, &user_state.user, &farm.farm_id, user_state);
+    storage::set_user(e, delegatee, &farm.farm_id, user_state);
 
-    events::emit_harvest(e, &user_state.user, &farm.farm_id, reward_index, net_amount, fee);
+    events::emit_harvest(e, &user_state.owner, &farm.farm_id, reward_index, net_amount, fee);
 
     Ok(net_amount)
 }
@@ -255,6 +257,7 @@ pub fn harvest_single(
 ///
 /// # Arguments
 /// * `e` - The environment
+/// * `delegatee` - The delegatee identifier (for storage key)
 /// * `config` - Global config
 /// * `farm` - Mutable reference to the farm state
 /// * `user_state` - Mutable reference to the user state
@@ -263,6 +266,7 @@ pub fn harvest_single(
 /// * `Ok(total_harvested)` - Total amount harvested across all reward tokens
 pub fn harvest_all(
     e: &Env,
+    delegatee: &Delegatee,
     config: &GlobalConfig,
     farm: &mut FarmState,
     user_state: &mut UserState,
@@ -270,7 +274,7 @@ pub fn harvest_all(
     let mut total_harvested: i128 = 0;
 
     for i in 0..farm.num_reward_tokens {
-        match harvest_single(e, config, farm, user_state, i) {
+        match harvest_single(e, delegatee, config, farm, user_state, i) {
             Ok(amount) => {
                 total_harvested =
                     total_harvested.checked_add(amount).ok_or(FarmsError::Overflow)?;

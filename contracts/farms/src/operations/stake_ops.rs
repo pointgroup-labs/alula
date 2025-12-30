@@ -5,7 +5,7 @@ use crate::{
     events,
     math::penalty::calculate_early_withdrawal_penalty,
     operations::farm_ops::{get_current_ts, refresh_global_rewards, update_user_rewards_tally},
-    state::{FarmState, UserState},
+    state::{Delegatee, FarmState, UserState},
     storage,
 };
 
@@ -13,6 +13,7 @@ use crate::{
 ///
 /// # Arguments
 /// * `e` - The environment
+/// * `delegatee` - The delegatee identifier (for storage key)
 /// * `farm` - Mutable reference to the farm state
 /// * `user_state` - Mutable reference to the user state
 /// * `amount` - Amount to stake
@@ -21,6 +22,7 @@ use crate::{
 /// * `Ok(())` on success
 pub fn process_stake(
     e: &Env,
+    delegatee: &Delegatee,
     farm: &mut FarmState,
     user_state: &mut UserState,
     amount: i128,
@@ -67,9 +69,9 @@ pub fn process_stake(
 
     // Persist changes
     storage::set_farm(e, &farm.farm_id, farm);
-    storage::set_user(e, &user_state.user, &farm.farm_id, user_state);
+    storage::set_user(e, delegatee, &farm.farm_id, user_state);
 
-    events::emit_stake(e, &user_state.user, &farm.farm_id, amount);
+    events::emit_stake(e, &user_state.owner, &farm.farm_id, amount);
 
     Ok(())
 }
@@ -78,6 +80,7 @@ pub fn process_stake(
 ///
 /// # Arguments
 /// * `e` - The environment
+/// * `delegatee` - The delegatee identifier (for storage key)
 /// * `farm` - Mutable reference to the farm state
 /// * `user_state` - Mutable reference to the user state
 /// * `amount` - Amount to unstake
@@ -86,6 +89,7 @@ pub fn process_stake(
 /// * `Ok(net_amount)` - The net amount after any early withdrawal penalty
 pub fn process_unstake(
     e: &Env,
+    delegatee: &Delegatee,
     farm: &mut FarmState,
     user_state: &mut UserState,
     amount: i128,
@@ -163,9 +167,9 @@ pub fn process_unstake(
 
     // Persist changes
     storage::set_farm(e, &farm.farm_id, farm);
-    storage::set_user(e, &user_state.user, &farm.farm_id, user_state);
+    storage::set_user(e, delegatee, &farm.farm_id, user_state);
 
-    events::emit_unstake(e, &user_state.user, &farm.farm_id, amount, penalty);
+    events::emit_unstake(e, &user_state.owner, &farm.farm_id, amount, penalty);
 
     Ok(net_amount)
 }
@@ -174,6 +178,7 @@ pub fn process_unstake(
 ///
 /// # Arguments
 /// * `e` - The environment
+/// * `delegatee` - The delegatee identifier (for storage key)
 /// * `farm` - Reference to the farm state
 /// * `user_state` - Mutable reference to the user state
 ///
@@ -181,6 +186,7 @@ pub fn process_unstake(
 /// * `Ok(amount)` - The amount available for withdrawal
 pub fn process_withdraw_unstaked(
     e: &Env,
+    delegatee: &Delegatee,
     farm: &FarmState,
     user_state: &mut UserState,
 ) -> Result<i128, FarmsError> {
@@ -203,9 +209,9 @@ pub fn process_withdraw_unstaked(
     user_state.pending_withdrawal_ts = 0;
 
     // Persist changes
-    storage::set_user(e, &user_state.user, &farm.farm_id, user_state);
+    storage::set_user(e, delegatee, &farm.farm_id, user_state);
 
-    events::emit_withdraw_unstaked(e, &user_state.user, &farm.farm_id, amount);
+    events::emit_withdraw_unstaked(e, &user_state.owner, &farm.farm_id, amount);
 
     Ok(amount)
 }
@@ -213,6 +219,7 @@ pub fn process_withdraw_unstaked(
 /// Activates pending deposit stake (after warmup period)
 pub fn activate_pending_stake(
     e: &Env,
+    delegatee: &Delegatee,
     farm: &mut FarmState,
     user_state: &mut UserState,
 ) -> Result<(), FarmsError> {
@@ -242,7 +249,7 @@ pub fn activate_pending_stake(
 
     // Persist changes
     storage::set_farm(e, &farm.farm_id, farm);
-    storage::set_user(e, &user_state.user, &farm.farm_id, user_state);
+    storage::set_user(e, delegatee, &farm.farm_id, user_state);
 
     Ok(())
 }
