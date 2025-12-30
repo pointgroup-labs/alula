@@ -49,8 +49,11 @@ pub fn refresh_pool_farm_stake(
         }
     };
 
-    let farms_client = FarmsClient::new(e, farms_contract);
-    farms_client.set_stake_delegated(&obligation_key.into(), farm_id, &stake);
+    FarmsClient::new(e, farms_contract).set_stake_delegated(
+        &obligation_key.into(),
+        farm_id,
+        &stake,
+    );
 
     Ok(())
 }
@@ -62,10 +65,9 @@ pub fn refresh_all_obligation_farms(
     farms_contract: &Address,
     obligation_key: &ObligationKey,
 ) -> Result<(u32, u32), MCError> {
+    let obligation = Obligation::try_get(e, obligation_key)?;
     let mut num_supply_farms = 0u32;
     let mut num_debt_farms = 0u32;
-
-    let obligation = Obligation::try_get(e, obligation_key)?;
 
     for pool_address in obligation.deposits.keys() {
         let pool = Pool::try_get(e, &pool_address)?;
@@ -117,30 +119,41 @@ pub fn try_refresh_pool_farm(
     Ok(())
 }
 
+/// Sets a farm ID for a pool (supply or debt).
+pub fn set_pool_farm(
+    e: &Env,
+    pool_address: &Address,
+    farm_id: BytesN<32>,
+    kind: FarmKind,
+) -> Result<(), MCError> {
+    let mut pool = Pool::try_get(e, pool_address)?;
+    match kind {
+        FarmKind::Supply => pool.farm_supply = Some(farm_id.clone()),
+        FarmKind::Debt => pool.farm_debt = Some(farm_id.clone()),
+    }
+    pool.set(e);
+    events::pool_farm_set(e, pool_address, &farm_id, kind == FarmKind::Supply);
+    Ok(())
+}
+
 /// Sets the supply farm ID for a pool.
+#[inline]
 pub fn set_pool_supply_farm(
     e: &Env,
     pool_address: &Address,
     farm_id: BytesN<32>,
 ) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(e, pool_address)?;
-    pool.farm_supply = Some(farm_id.clone());
-    pool.set(e);
-    events::pool_farm_set(e, pool_address, &farm_id, true);
-    Ok(())
+    set_pool_farm(e, pool_address, farm_id, FarmKind::Supply)
 }
 
 /// Sets the debt farm ID for a pool.
+#[inline]
 pub fn set_pool_debt_farm(
     e: &Env,
     pool_address: &Address,
     farm_id: BytesN<32>,
 ) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(e, pool_address)?;
-    pool.farm_debt = Some(farm_id.clone());
-    pool.set(e);
-    events::pool_farm_set(e, pool_address, &farm_id, false);
-    Ok(())
+    set_pool_farm(e, pool_address, farm_id, FarmKind::Debt)
 }
 
 /// Clears all farm configuration for a pool.
