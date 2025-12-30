@@ -1,140 +1,284 @@
 #![cfg(test)]
 
-use {
-    crate::{get_borrow_obligation, TestFixture, DEFAULT_DEPOSIT_AMOUNT},
-    soroban_sdk::{testutils::Ledger, Address},
+use market::{constants::*, error::MCError};
+use soroban_sdk::testutils::Ledger;
+
+use crate::{
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_borrow_position,
+    get_obligation_d_tokens_as_tokens, get_obligation_initially_borrowed,
+    get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
 };
 
 #[test]
 fn test_repay() {
-    let TestFixture {
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestFixture::new();
-
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
-    // Deposit gold as a collateral to satisfy the health factor threshold
-    contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(&user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    // Borrow 50% of the deposited value
-    contract_client.borrow(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
-
-    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
-        .unwrap()
-        .borrowed;
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        .unwrap()
-        .total_borrowed;
-
-    assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT / 2);
-    assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT / 2);
-
-    // Repay the half
-    contract_client.repay(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
-
-    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
-        .unwrap()
-        .borrowed;
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        .unwrap()
-        .total_borrowed;
-
-    assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
-    assert_eq!(pool_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
-
-    // Repay the rest
-    contract_client.repay(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4));
-
-    let obligation = contract_client.get_user_obligation(&user);
-    assert!(obligation.borrows.get(usdc_pool_address.clone()).is_none());
-
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        .unwrap()
-        .total_borrowed;
-
-    assert_eq!(pool_borrowed, 0);
-}
-
-#[test]
-fn test_repay_with_interest_accrual() {
-    let TestFixture {
+    let TestMarketFixture {
         e,
         contract_client,
         usdc_pool_address,
         gold_pool_address,
         users,
+        usdc_token_client,
         ..
-    } = TestFixture::new();
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
 
-    let user: Address = users.get(0).unwrap();
-    let user2 = users.get(1).unwrap();
-    // Deposit gold as a collateral to satisfy the health factor threshold
-    contract_client.add_collateral(&user, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT));
-    // Deposit usdc as another user to have a non-empty loan pool
-    contract_client.deposit(&user2, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    // Borrow 50% of the deposited value
-    contract_client.borrow(
-        &user,
-        &usdc_pool_address,
-        &(5 * DEFAULT_DEPOSIT_AMOUNT / 10),
+    contract_client.add_collateral(
+        borrower,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    // Borrow 50% of the available
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+
+    // Repay the half of the debt
+
+    let borrower_balance_before = usdc_token_client.balance(borrower);
+    contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    assert_eq!(
+        borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT / 4
     );
 
-    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
-        .unwrap()
-        .total_borrowed()
-        .unwrap();
-    let pool_borrowed = contract_client
-        .get_pool(&usdc_pool_address)
-        .unwrap()
-        .total_borrowed;
-
-    assert_eq!(obligation_borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
-    assert_eq!(pool_borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
-
-    // Wait for 5 hours to pass by
-    e.ledger().with_mut(|li| li.timestamp = 60 * 60 * 5);
-
-    let borrow_obligation =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address).unwrap();
-
-    assert_eq!(borrow_obligation.borrowed, 5 * DEFAULT_DEPOSIT_AMOUNT / 10);
-    assert!(borrow_obligation.unpaid_interest > 0);
-
-    let left = borrow_obligation.total_borrowed().unwrap();
-
-    contract_client.repay(&user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
-
-    let obligation_borrowed = get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
-        .unwrap()
-        .total_borrowed()
-        .unwrap();
-
-    // Notice interest rate accrual
-    assert_eq!(obligation_borrowed, left - (DEFAULT_DEPOSIT_AMOUNT / 10));
-
-    // Wait another 15 hours to pass by
-    e.ledger().with_mut(|li| li.timestamp = 60 * 60 * 15);
-
-    let obligation_total_borrowed =
-        get_borrow_obligation(&contract_client, &user, &usdc_pool_address)
-            .unwrap()
-            .total_borrowed()
+    let obligation_borrowed =
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
+    let obligation_d_tokens_as_tokens =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
             .unwrap();
 
-    // Notice interest rate accrual
-    assert!(obligation_total_borrowed > left - (DEFAULT_DEPOSIT_AMOUNT / 10));
+    assert_eq!(obligation_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
+    assert_eq!(obligation_d_tokens_as_tokens, DEFAULT_DEPOSIT_AMOUNT / 4);
 
-    // Repay everything
-    contract_client.repay(&user, &usdc_pool_address, &(obligation_total_borrowed));
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
 
-    let obligation = contract_client.get_user_obligation(&user);
-    assert!(obligation.borrows.is_empty());
+    assert_eq!(pool_total_borrowed, DEFAULT_DEPOSIT_AMOUNT / 4);
+    assert_eq!(pool_total_available, (3 * DEFAULT_DEPOSIT_AMOUNT) / 4);
+
+    // Repay the rest
+    contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
+
+    assert_eq!(
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address),
+        Err(MCError::BorrowPositionDoesNotExist)
+    );
+
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+
+    assert_eq!(pool_total_borrowed, 0);
+    assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT);
+}
+
+#[test]
+fn test_repay_zero() {
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.add_collateral(
+        borrower,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+
+    let obligation_before =
+        get_borrow_position(&contract_client, borrower, &usdc_pool_address).unwrap();
+    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_before = contract_client.get_pool(&gold_pool_address);
+
+    contract_client.repay(borrower, &usdc_pool_address, &0, &None);
+
+    let obligation_after =
+        get_borrow_position(&contract_client, borrower, &usdc_pool_address).unwrap();
+    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool_after = contract_client.get_pool(&gold_pool_address);
+
+    assert_eq!(obligation_before, obligation_after);
+    assert_eq!(usdc_pool_before, usdc_pool_after);
+    assert_eq!(gold_pool_before, gold_pool_after);
+}
+
+#[test]
+fn test_repay_with_interest_accrual() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.add_collateral(
+        borrower,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+
+    // -- Move time --
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let unpaid_interest =
+        get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
+
+    contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+
+    let remaining_debt =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
+            .unwrap();
+
+    assert_approx_eq_abs(remaining_debt, unpaid_interest, 10);
+}
+
+#[test]
+fn test_repay_unpaid_interest_only() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.add_collateral(
+        borrower,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+
+    // -- Move time --
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let obligation_unpaid_interest_before =
+        get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
+
+    let borrower_balance_before = usdc_token_client.balance(borrower);
+    contract_client.repay(borrower, &usdc_pool_address, &obligation_unpaid_interest_before, &None);
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    assert_eq!(
+        borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
+        obligation_unpaid_interest_before
+    );
+
+    let obligation_unpaid_interest_after =
+        get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
+
+    assert_approx_eq_abs(obligation_unpaid_interest_after, 0, 1);
+}
+
+#[test]
+fn test_repay_all_with_bigger_than_debt_value() {
+    let TestMarketFixture {
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.add_collateral(
+        borrower,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+
+    let borrower_balance_before = usdc_token_client.balance(borrower);
+    contract_client.repay(
+        borrower,
+        &usdc_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT / 2), // x3 of borrowed amount
+        &None,
+    );
+    let borrower_balance_after = usdc_token_client.balance(borrower);
+
+    assert_eq!(
+        borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
+        DEFAULT_DEPOSIT_AMOUNT / 2
+    );
+
+    assert_eq!(
+        get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address),
+        Err(MCError::BorrowPositionDoesNotExist)
+    );
+
+    let pool_total_available = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let pool_total_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+
+    assert_eq!(pool_total_borrowed, 0);
+    assert_eq!(pool_total_available, (2 * DEFAULT_DEPOSIT_AMOUNT));
+}
+
+#[test]
+#[ignore]
+fn test_consecutive_borrows_can_lead_to_unpaid_interest_become_negative() {
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let borrower_1 = &users[1];
+    let borrower_2 = &users[2];
+    let borrower_3 = &users[3];
+
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(100000000000 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    contract_client.add_collateral(borrower_1, &gold_pool_address, &7777777, &None);
+    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX, &None);
+
+    contract_client.add_collateral(borrower_2, &gold_pool_address, &177777, &None);
+    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX, &None);
+
+    contract_client.add_collateral(borrower_3, &gold_pool_address, &5325523, &None);
+    contract_client.borrow(borrower_3, &usdc_pool_address, &i128::MAX, &None);
+
+    // NB: Consecutive borrows can lead to 'unpaid_interest_becomes_negative' internal error when repaying the first borrow
+    // right away. This is a consequence of generating an amount of dTokens with ceiling rounding to favour the protocol when borrowing
+    assert_eq!(
+        contract_client.try_repay(borrower_1, &usdc_pool_address, &1, &None),
+        Err(Ok(MCError::InternalError))
+    );
 }

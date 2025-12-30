@@ -1,27 +1,53 @@
-#![deny(clippy::absurd_extreme_comparisons)]
+mod bad_debt;
+mod borrow;
+mod deposit;
+mod fees;
+mod fuzz;
+mod initialize;
+mod interest_rates;
+mod leverage;
+mod liquidate;
+mod market_manager;
+mod misc;
+mod oracle;
+mod repay;
+mod requests_batching;
+mod storage_extension;
+mod swap;
+mod update;
+mod withdraw;
 
-use {
-    arbitrary::Unstructured,
-    lending::{
-        constants::{LCError, INDIVIDUAL_BUMP, REFLECTOR_TESTNET_ADDRESS},
-        contract::{LendingContract, LendingContractClient},
-        obligation::{BorrowObligation, DepositObligation},
-        oracle,
+use std::ops::{Add, Sub};
+
+use arbitrary::Unstructured;
+use controlled_insurance_fund::ControlledInsuranceFundContractClient;
+use insurance_fund_interface::InsuranceFundClient;
+use market::{
+    constants::{
+        BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
+        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
     },
-    soroban_sdk::{
-        symbol_short,
-        testutils::{arbitrary::Arbitrary, Address as _, EnvTestConfig, Ledger},
-        token::{self, StellarAssetClient, TokenClient},
-        vec, Address, Env, String, Vec,
-    },
+    contract::{MarketClient, MarketContract, MarketContractClient},
+    error::MCError,
+    math_utils::MathUtils,
+    obligation::{BorrowPosition, DepositPosition},
+    pool::{PoolConfig, PoolFeeConfig},
+    soroswap_router as router,
+};
+use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{
+    Address, Env, Symbol,
+    testutils::{Address as _, Ledger, LedgerInfo, arbitrary::Arbitrary},
+    token::{self, StellarAssetClient, TokenClient},
 };
 
 pub const DEFAULT_DEPOSIT_AMOUNT: i128 = 50_000;
-pub const DEFAULT_HEALTH_FACTOR_THRESHOLD: i128 = 80;
-pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 2;
-pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
-#[allow(unused)]
 pub const DEFAULT_COLLATERAL_AMOUNT: i128 = DEFAULT_DEPOSIT_AMOUNT;
+pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
+pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
+
+const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
@@ -30,133 +56,189 @@ pub enum Token {
     GOLD,
 }
 
-#[allow(unused)]
-pub struct TestFixture<'a> {
+pub struct TestMarketFixture<'a> {
     pub e: Env,
-    pub contract_client: LendingContractClient<'a>,
+    pub contract_client: MarketClient<'a>,
+    pub full_contract_client: MarketContractClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
-
+    pub users: Vec<Address>,
     // Oracle
-    pub oracle_client: oracle::Client<'a>,
-
+    pub oracle_client: MockPriceOracleClient<'a>,
+    pub oracle: Address,
+    // Swap Router
+    pub router_client: router::Client<'a>,
+    pub router_address: Address,
+    // Insurance Fund
+    pub controlled_insurance_fund_client: ControlledInsuranceFundContractClient<'a>,
+    pub insurance_fund_client: InsuranceFundClient<'a>,
+    pub insurance_fund: Address,
     // GOLD
     pub gold_sac: StellarAssetClient<'a>,
     pub gold_token_client: TokenClient<'a>,
     pub gold_token_address: Address,
-    pub gold_admin: Address,
     pub gold_pool_address: Address,
+    pub gold_admin: Address,
     // BTC
     pub btc_sac: StellarAssetClient<'a>,
     pub btc_token_client: TokenClient<'a>,
     pub btc_token_address: Address,
-    pub btc_admin: Address,
     pub btc_pool_address: Address,
+    pub btc_admin: Address,
     // USDC
     pub usdc_sac: StellarAssetClient<'a>,
     pub usdc_token_client: TokenClient<'a>,
     pub usdc_token_address: Address,
-    pub usdc_admin: Address,
     pub usdc_pool_address: Address,
-    pub users: Vec<Address>,
+    pub usdc_admin: Address,
 }
 
-impl Default for TestFixture<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TestFixture<'_> {
+#[allow(clippy::new_without_default)]
+impl TestMarketFixture<'_> {
     pub fn new() -> Self {
-        let e = Env::new_with_config(EnvTestConfig {
-            capture_snapshot_at_drop: false,
-        });
-        e.mock_all_auths();
+        let pool_config = Default::default();
 
-        e.ledger().with_mut(|li| {
-            li.sequence_number = 0;
-            li.max_entry_ttl = INDIVIDUAL_BUMP + 1;
-        });
+        Self::new_with_pool_config(pool_config)
+    }
 
-        let contract_admin = Address::generate(&e);
-        let contract_id = e.register(
-            LendingContract,
-            (
-                contract_admin.clone(),
-                Option::<i128>::Some(DEFAULT_HEALTH_FACTOR_THRESHOLD),
-            ),
-        );
-        let contract_client = LendingContractClient::new(&e, &contract_id);
+    fn new_with_pool_config(pool_config: PoolConfig) -> Self {
+        let e = get_default_env();
+        e.mock_all_auths_allowing_non_root_auth();
+
+        e.ledger().set(LedgerInfo {
+            timestamp: 1590969600, // June 1, 2020
+            protocol_version: 23,
+            sequence_number: 1000,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 500000,
+            min_persistent_entry_ttl: 500000,
+            max_entry_ttl: INDIVIDUAL_BUMP + 1,
+        });
 
         let users = vec![
-            &e,
+            Address::generate(&e),
+            Address::generate(&e),
             Address::generate(&e),
             Address::generate(&e),
             Address::generate(&e),
         ];
 
+        // Configure USDC SAC first, since it's used in the oracle as a base asset
         let usdc_admin = Address::generate(&e);
-        let gold_admin = Address::generate(&e);
-        let btc_admin = Address::generate(&e);
-
-        // GOLD
-        let TestAssetSetup {
-            sac_client: gold_sac,
-            token_client: gold_token_client,
-            token_address: gold_token_address,
-        } = setup_test_asset(&e, &gold_admin, &users);
-        let gold_pool_address = contract_client.initialize_pool(
-            &gold_token_address,
-            &symbol_short!("GOLD"),
-            &None,
-            &None,
-        );
-
-        // BTC
-        let TestAssetSetup {
-            sac_client: btc_sac,
-            token_client: btc_token_client,
-            token_address: btc_token_address,
-        } = setup_test_asset(&e, &btc_admin, &users);
-        let btc_pool_address = contract_client.initialize_pool(
-            &btc_token_address,
-            &symbol_short!("BTC"),
-            &None,
-            &None,
-        );
-
-        // USDC
         let TestAssetSetup {
             sac_client: usdc_sac,
             token_client: usdc_token_client,
             token_address: usdc_token_address,
         } = setup_test_asset(&e, &usdc_admin, &users);
-        let usdc_pool_address = contract_client.initialize_pool(
-            &usdc_token_address,
-            &symbol_short!("USDC"),
-            &None,
-            &None,
+
+        let oracle = Address::from_str(&e, ORACLE_ADDRESS);
+        e.register_at(&oracle, MockPriceOracleWASM, ());
+        let oracle_client = MockPriceOracleClient::new(&e, &oracle);
+
+        let contract_admin = Address::generate(&e);
+
+        let insurance_fund = e.register(
+            controlled_insurance_fund::ControlledInsuranceFundContract,
+            (contract_admin.clone(),),
         );
+        let controlled_insurance_fund_client =
+            controlled_insurance_fund::ControlledInsuranceFundContractClient::new(
+                &e,
+                &insurance_fund,
+            );
+        let insurance_fund_client = InsuranceFundClient::new(&e, &insurance_fund);
 
-        let mock_oracle_address =
-            Address::from_string(&String::from_str(&e, REFLECTOR_TESTNET_ADDRESS));
-        e.register_at(&mock_oracle_address, oracle::WASM, ());
+        // Register Market contract
+        let market_manager_address = Address::generate(&e);
+        let contract_name = soroban_sdk::String::from_str(&e, "market_contract");
+        let market_contract_id = e.register(
+            MarketContract,
+            (
+                contract_name,
+                contract_admin.clone(),
+                oracle.clone(),
+                insurance_fund.clone(),
+                market_manager_address,
+                DEFAULT_MAX_POSITIONS,
+                0i128,
+                DEFAULT_INSOLVENCY_LTV_BPS,
+                Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
+            ),
+        );
+        let contract_client = MarketClient::new(&e, &market_contract_id);
+        let full_contract_client = MarketContractClient::new(&e, &market_contract_id);
 
-        let oracle_client = oracle::Client::new(&e, &mock_oracle_address);
+        controlled_insurance_fund_client.set_market(&market_contract_id);
+
+        contract_client.update_market_status(&0);
+
+        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
+        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
+        let router_client = router::Client::new(&e, &router_address);
+
+        // GOLD
+        let gold_admin = Address::generate(&e);
+        let TestAssetSetup {
+            sac_client: gold_sac,
+            token_client: gold_token_client,
+            token_address: gold_token_address,
+        } = setup_test_asset(&e, &gold_admin, &users);
+        let gold_pool_address =
+            contract_client.initialize_pool(&gold_token_address, &None, &Some(pool_config.clone()));
+
+        // BTC
+        let btc_admin = Address::generate(&e);
+        let TestAssetSetup {
+            sac_client: btc_sac,
+            token_client: btc_token_client,
+            token_address: btc_token_address,
+        } = setup_test_asset(&e, &btc_admin, &users);
+        let btc_pool_address =
+            contract_client.initialize_pool(&btc_token_address, &None, &Some(pool_config.clone()));
+
+        // USDC
+        let usdc_pool_address =
+            contract_client.initialize_pool(&usdc_token_address, &None, &Some(pool_config.clone()));
+
+        contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
+
+        oracle_client.set_data(
+            &contract_admin,
+            &Asset::Other(Symbol::new(&e, "USD")),
+            &soroban_sdk::vec![
+                &e,
+                Asset::Stellar(gold_pool_address.clone()),
+                Asset::Stellar(btc_pool_address.clone()),
+                Asset::Stellar(usdc_pool_address.clone()),
+            ],
+            &14,
+            &123, // NB: Resolution is irrelevant because of using the stable prices
+        );
+        make_oracle_prices_equal(&e, &oracle_client);
 
         Self {
             e,
             contract_client,
-            contract_id,
+            full_contract_client,
+            contract_id: market_contract_id,
             contract_admin,
-            // GOLD
+            // Oracle
             oracle_client,
+            oracle,
+            // Swap router
+            router_client,
+            router_address,
+            // Insurance Fund
+            controlled_insurance_fund_client,
+            insurance_fund_client,
+            insurance_fund,
+            // GOLD
             gold_sac,
             gold_token_client,
             gold_token_address,
-            gold_admin,
             gold_pool_address,
+            gold_admin,
             // BTC
             btc_sac,
             btc_token_client,
@@ -190,292 +272,270 @@ impl TestFixture<'_> {
             Token::GOLD => &self.gold_token_client,
         }
     }
-}
 
-pub struct TestAssetSetup<'a> {
-    pub token_client: TokenClient<'a>,
-    pub token_address: Address,
-    pub sac_client: StellarAssetClient<'a>,
-}
-
-pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> TestAssetSetup<'a> {
-    let token_address = e
-        .register_stellar_asset_contract_v2(admin.clone())
-        .address();
-    let sac_client = StellarAssetClient::new(e, &token_address);
-    let token_client = TokenClient::new(e, &token_address);
-
-    sac_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
-
-    for user in users {
-        sac_client.mint(&user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
+    pub fn get_token_sac(&self, token: Token) -> &StellarAssetClient<'_> {
+        match token {
+            Token::BTC => &self.btc_sac,
+            Token::USDC => &self.usdc_sac,
+            Token::GOLD => &self.gold_sac,
+        }
     }
 
-    TestAssetSetup {
-        token_address,
-        token_client,
-        sac_client,
+    pub fn pass_time(&self, seconds: u64) {
+        self.e.ledger().with_mut(|li| {
+            li.timestamp = li.timestamp.saturating_add(seconds);
+        });
+    }
+
+    pub fn assert_invariants(&self) {
+        let TestMarketFixture {
+            e,
+            contract_client,
+            contract_id,
+            gold_pool_address,
+            btc_pool_address,
+            usdc_pool_address,
+            users,
+            ..
+        } = self;
+
+        let pools = vec![
+            contract_client.get_pool(usdc_pool_address),
+            contract_client.get_pool(btc_pool_address),
+            contract_client.get_pool(gold_pool_address),
+        ];
+        let clients =
+            pools.iter().map(|pool| token::Client::new(e, &pool.token_address)).collect::<Vec<_>>();
+
+        // -- Pool data must be non-negative --
+
+        for pool in &pools {
+            assert!(pool.total_borrowed >= 0);
+            assert!(pool.total_collateral >= 0);
+            assert!(pool.total_j_tokens >= 0);
+            assert!(pool.total_d_tokens >= 0);
+            assert!(pool.total_supply().unwrap() >= 0);
+            assert!(pool.total_available().unwrap() >= 0);
+        }
+
+        // -- Contract's token balances shouldn't be smaller than the corresponding `available` + fees values on pools --
+
+        let token_balances: Vec<i128> =
+            clients.iter().map(|client| client.balance(contract_id)).collect();
+
+        for (pool, &token_balance) in pools.iter().zip(token_balances.iter()) {
+            // Calculate the Total Liabilities of the protocol (User Liquidity + Fees Sum)
+            let expected_minimum_balance = pool
+                .total_available
+                .checked_add(pool.operation_fees_sum)
+                .expect("Overflow in invariant calc");
+
+            assert!(
+                token_balance >= expected_minimum_balance,
+                "INSOLVENCY DETECTED in Pool {:?}: Physical Balance ({}) < Net Available + Fees \
+                 ({})",
+                pool.pool_address,
+                token_balance,
+                expected_minimum_balance
+            );
+        }
+
+        // -- It must be always possible to borrow what's available on the pool --
+
+        let multiply_pairs = contract_client.get_all_multiply_pairs();
+
+        for pool in pools {
+            let (mut j_tokens_obligations_sum, mut d_tokens_obligations_sum) = (0_i128, 0_i128);
+
+            for user in users {
+                if let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) {
+                    if let Some(deposit_position) =
+                        obligation.deposits.get(pool.pool_address.clone())
+                    {
+                        j_tokens_obligations_sum += deposit_position.j_tokens;
+                    }
+
+                    if let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
+                    {
+                        d_tokens_obligations_sum += borrow_position.d_tokens;
+                    }
+                }
+
+                if let Ok(Ok(earn_obligation)) = contract_client.try_get_earn_user_obligation(user)
+                {
+                    if let Some(deposit_position) =
+                        earn_obligation.deposits.get(pool.pool_address.clone())
+                    {
+                        j_tokens_obligations_sum += deposit_position.j_tokens;
+                    }
+
+                    if let Some(borrow_position) =
+                        earn_obligation.borrows.get(pool.pool_address.clone())
+                    {
+                        d_tokens_obligations_sum += borrow_position.d_tokens;
+                    }
+                }
+
+                for mp in &multiply_pairs {
+                    if mp.deposit_pool == pool.pool_address {
+                        if let Ok(Ok(mp_obligation)) = contract_client
+                            .try_get_multiply_pair_obligation(
+                                user,
+                                &mp.deposit_pool,
+                                &mp.borrow_pool,
+                            )
+                            && let Some(deposit_position) =
+                                mp_obligation.deposits.get(pool.pool_address.clone())
+                        {
+                            j_tokens_obligations_sum += deposit_position.j_tokens;
+                        }
+                    } else if mp.borrow_pool == pool.pool_address
+                        && let Ok(Ok(mp_obligation)) = contract_client
+                            .try_get_multiply_pair_obligation(
+                                user,
+                                &mp.deposit_pool,
+                                &mp.borrow_pool,
+                            )
+                        && let Some(borrow_position) =
+                            mp_obligation.borrows.get(pool.pool_address.clone())
+                    {
+                        d_tokens_obligations_sum += borrow_position.d_tokens;
+                    }
+                }
+            }
+
+            contract_client.refresh_pool(&pool.pool_address);
+            let pool = contract_client.get_pool(&pool.pool_address);
+
+            assert_eq!(pool.total_j_tokens, j_tokens_obligations_sum);
+            assert_eq!(pool.total_d_tokens, d_tokens_obligations_sum);
+        }
     }
 }
 
+// ---- Fuzzing suite ----
+
+pub trait RunCommand {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize);
+}
+
+// TODO: Macro?
 #[derive(Arbitrary, Debug)]
 pub enum Command {
     TomRepay(Repay),
     JerryRepay(Repay),
+    ButchRepay(Repay),
+    NibblesRepay(Repay),
 
     TomBorrow(Borrow),
     JerryBorrow(Borrow),
+    ButchBorrow(Borrow),
+    NibblesBorrow(Borrow),
 
     TomDeposit(Deposit),
     JerryDeposit(Deposit),
+    ButchDeposit(Deposit),
+    NibblesDeposit(Deposit),
 
     TomWithdraw(Withdraw),
     JerryWithdraw(Withdraw),
+    ButchWithdraw(Withdraw),
+    NibblesWithdraw(Withdraw),
 
     TomLiquidate(Liquidate),
     JerryLiquidate(Liquidate),
+    ButchLiquidate(Liquidate),
+    NibblesLiquidate(Liquidate),
 
     TomDepositCollateral(DepositCollateral),
     JerryDepositCollateral(DepositCollateral),
+    ButchDepositCollateral(DepositCollateral),
+    NibblesDepositCollateral(DepositCollateral),
 
     TomWithdrawCollateral(WithdrawCollateral),
     JerryWithdrawCollateral(WithdrawCollateral),
-    // PassTime(),
+    ButchWithdrawCollateral(WithdrawCollateral),
+    NibblesWithdrawCollateral(WithdrawCollateral),
+
+    TomDepositWithLeverage(DepositWithLeverage),
+    JerryDepositWithLeverage(DepositWithLeverage),
+    ButchDepositWithLeverage(DepositWithLeverage),
+    NibblesDepositWithLeverage(DepositWithLeverage),
+
+    TomWithdrawFromLeveraged(WithdrawFromLeveraged),
+    JerryWithdrawFromLeveraged(WithdrawFromLeveraged),
+    ButchWithdrawFromLeveraged(WithdrawFromLeveraged),
+    NibblesWithdrawFromLeveraged(WithdrawFromLeveraged),
+
+    AllPassTime(PassTime),
 }
 
 impl Command {
-    pub fn run(&self, test_fixture: &TestFixture) {
-        match self {
-            Command::TomRepay(command) => command.run(test_fixture, 0),
-            Command::TomBorrow(command) => command.run(test_fixture, 0),
-            Command::TomDeposit(command) => command.run(test_fixture, 0),
-            Command::TomWithdraw(command) => command.run(test_fixture, 0),
-            Command::TomLiquidate(command) => command.run(test_fixture, 0),
-            Command::TomDepositCollateral(command) => command.run(test_fixture, 0),
-            Command::TomWithdrawCollateral(command) => command.run(test_fixture, 0),
+    pub fn run(&self, test_fixture: &TestMarketFixture) {
+        use Command::*;
 
-            Command::JerryRepay(command) => command.run(test_fixture, 1),
-            Command::JerryBorrow(command) => command.run(test_fixture, 1),
-            Command::JerryDeposit(command) => command.run(test_fixture, 1),
-            Command::JerryWithdraw(command) => command.run(test_fixture, 1),
-            Command::JerryLiquidate(command) => command.run(test_fixture, 1),
-            Command::JerryDepositCollateral(command) => command.run(test_fixture, 1),
-            Command::JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
+        match self {
+            // Tom
+            TomRepay(command) => command.run(test_fixture, 0),
+            TomBorrow(command) => command.run(test_fixture, 0),
+            TomDeposit(command) => command.run(test_fixture, 0),
+            TomWithdraw(command) => command.run(test_fixture, 0),
+            TomLiquidate(command) => command.run(test_fixture, 0),
+            TomDepositCollateral(command) => command.run(test_fixture, 0),
+            TomWithdrawCollateral(command) => command.run(test_fixture, 0),
+            TomDepositWithLeverage(command) => command.run(test_fixture, 0),
+            TomWithdrawFromLeveraged(command) => command.run(test_fixture, 0),
+            // Jerry
+            JerryRepay(command) => command.run(test_fixture, 1),
+            JerryBorrow(command) => command.run(test_fixture, 1),
+            JerryDeposit(command) => command.run(test_fixture, 1),
+            JerryWithdraw(command) => command.run(test_fixture, 1),
+            JerryLiquidate(command) => command.run(test_fixture, 1),
+            JerryDepositCollateral(command) => command.run(test_fixture, 1),
+            JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
+            JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
+            JerryWithdrawFromLeveraged(command) => command.run(test_fixture, 1),
+            // Butch
+            ButchRepay(command) => command.run(test_fixture, 2),
+            ButchBorrow(command) => command.run(test_fixture, 2),
+            ButchDeposit(command) => command.run(test_fixture, 2),
+            ButchWithdraw(command) => command.run(test_fixture, 2),
+            ButchLiquidate(command) => command.run(test_fixture, 2),
+            ButchDepositCollateral(command) => command.run(test_fixture, 2),
+            ButchWithdrawCollateral(command) => command.run(test_fixture, 2),
+            ButchDepositWithLeverage(command) => command.run(test_fixture, 2),
+            ButchWithdrawFromLeveraged(command) => command.run(test_fixture, 2),
+            // Nibbles
+            NibblesRepay(command) => command.run(test_fixture, 3),
+            NibblesBorrow(command) => command.run(test_fixture, 3),
+            NibblesDeposit(command) => command.run(test_fixture, 3),
+            NibblesWithdraw(command) => command.run(test_fixture, 3),
+            NibblesLiquidate(command) => command.run(test_fixture, 3),
+            NibblesDepositCollateral(command) => command.run(test_fixture, 3),
+            NibblesWithdrawCollateral(command) => command.run(test_fixture, 3),
+            NibblesDepositWithLeverage(command) => command.run(test_fixture, 3),
+            NibblesWithdrawFromLeveraged(command) => command.run(test_fixture, 3),
+            // All
+            AllPassTime(command) => command.run(test_fixture, 0),
         }
     }
 }
 
 #[derive(Arbitrary, Debug)]
 pub struct Amount(
-    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u64::MAX as i128)))] pub i128,
+    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u32::MAX as i128)))] pub i128,
 );
-
-pub fn assert_invariants(fixture: &TestFixture) {
-    let TestFixture {
-        e,
-        contract_client,
-        contract_id,
-        gold_sac,
-        gold_pool_address,
-        gold_token_address,
-        btc_sac,
-        btc_pool_address,
-        btc_token_address,
-        usdc_sac,
-        usdc_pool_address,
-        usdc_token_address,
-        users,
-        ..
-    } = fixture;
-
-    // Get all pools
-    let usdc_pool = contract_client.get_pool(usdc_pool_address).unwrap();
-    let gold_pool = contract_client.get_pool(gold_pool_address).unwrap();
-    let btc_pool = contract_client.get_pool(btc_pool_address).unwrap();
-
-    // Basic non-negative invariants
-    // All data on all pools must be non-negative
-    assert!(
-        usdc_pool.total_shares >= 0,
-        "USDC pool total_supply must be non-negative"
-    );
-    assert!(
-        usdc_pool.total_borrowed >= 0,
-        "USDC pool total_borrowed must be non-negative"
-    );
-    assert!(
-        usdc_pool.total_collateral >= 0,
-        "USDC pool total_collateral must be non-negative"
-    );
-
-    assert!(
-        gold_pool.total_shares >= 0,
-        "GOLD pool total_supply must be non-negative"
-    );
-    assert!(
-        gold_pool.total_borrowed >= 0,
-        "GOLD pool total_borrowed must be non-negative"
-    );
-    assert!(
-        gold_pool.total_collateral >= 0,
-        "GOLD pool total_collateral must be non-negative"
-    );
-
-    assert!(
-        btc_pool.total_shares >= 0,
-        "BTC pool total_supply must be non-negative"
-    );
-    assert!(
-        btc_pool.total_borrowed >= 0,
-        "BTC pool total_borrowed must be non-negative"
-    );
-    assert!(
-        btc_pool.total_collateral >= 0,
-        "BTC pool total_collateral must be non-negative"
-    );
-
-    // Token balance invariants
-    // Contract's token balances should match the total supply and collateral in each pool
-    let usdc_token_client = token::Client::new(e, usdc_token_address);
-    let gold_token_client = token::Client::new(e, gold_token_address);
-    let btc_token_client = token::Client::new(e, btc_token_address);
-
-    let usdc_contract_balance = usdc_token_client.balance(contract_id);
-    let gold_contract_balance = gold_token_client.balance(contract_id);
-    let btc_contract_balance = btc_token_client.balance(contract_id);
-
-    let usdc_expected_balance = usdc_pool.available + usdc_pool.total_collateral;
-    let gold_expected_balance = gold_pool.available + gold_pool.total_collateral;
-    let btc_expected_balance = btc_pool.available + btc_pool.total_collateral;
-
-    assert_eq!(
-        usdc_contract_balance, usdc_expected_balance,
-        "USDC contract balance must match pool totals"
-    );
-    assert_eq!(
-        gold_contract_balance, gold_expected_balance,
-        "GOLD contract balance must match pool totals"
-    );
-    assert_eq!(
-        btc_contract_balance, btc_expected_balance,
-        "BTC contract balance must match pool totals"
-    );
-
-    // Health factor invariants
-    // Check that all users with obligations have a health factor above the threshold
-    for user in users.iter() {
-        let obligation_result = contract_client.try_get_user_obligation(&user);
-        if let Ok(Ok(obligation)) = obligation_result {
-            // If user has an obligation, check that it's healthy
-            let is_healthy =
-                e.as_contract(contract_id, || obligation.is_healthy(e).unwrap_or(true));
-            assert!(is_healthy, "User obligation must be healthy");
-        }
-    }
-
-    // Functional invariants
-    // You can always borrow and repay the available amount
-    let new_borrower = Address::generate(e);
-
-    let collateral_amount = 2 * i128::max(
-        gold_pool.available,
-        i128::max(usdc_pool.available, btc_pool.available),
-    );
-
-    usdc_sac.mint(&new_borrower, &collateral_amount);
-    btc_sac.mint(&new_borrower, &collateral_amount);
-    gold_sac.mint(&new_borrower, &collateral_amount);
-
-    // Test borrowing and repaying for each pool if there are available funds
-    if btc_pool.available > 0 {
-        contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, btc_pool_address, &btc_pool.available);
-
-        // Verify the borrowed amount is reflected in the user's obligation
-        let obligation = contract_client.get_user_obligation(&new_borrower);
-        if let Some(borrow_obligation) = obligation.borrows.get(btc_pool_address.clone()) {
-            assert_eq!(
-                borrow_obligation.borrowed, btc_pool.available,
-                "Borrowed amount must match in user obligation"
-            );
-        }
-
-        contract_client.repay(&new_borrower, btc_pool_address, &btc_pool.available);
-        contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-    }
-
-    if gold_pool.available > 0 {
-        contract_client.add_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, gold_pool_address, &gold_pool.available);
-
-        // Verify the borrowed amount is reflected in the user's obligation
-        let obligation = contract_client.get_user_obligation(&new_borrower);
-        if let Some(borrow_obligation) = obligation.borrows.get(gold_pool_address.clone()) {
-            assert_eq!(
-                borrow_obligation.borrowed, gold_pool.available,
-                "Borrowed amount must match in user obligation"
-            );
-        }
-
-        contract_client.repay(&new_borrower, gold_pool_address, &gold_pool.available);
-        contract_client.remove_collateral(&new_borrower, usdc_pool_address, &collateral_amount);
-    }
-
-    if usdc_pool.available > 0 {
-        contract_client.add_collateral(&new_borrower, gold_pool_address, &collateral_amount);
-        contract_client.borrow(&new_borrower, usdc_pool_address, &usdc_pool.available);
-
-        // Verify the borrowed amount is reflected in the user's obligation
-        let obligation = contract_client.get_user_obligation(&new_borrower);
-        if let Some(borrow_obligation) = obligation.borrows.get(usdc_pool_address.clone()) {
-            assert_eq!(
-                borrow_obligation.borrowed, usdc_pool.available,
-                "Borrowed amount must match in user obligation"
-            );
-        }
-
-        contract_client.repay(&new_borrower, usdc_pool_address, &usdc_pool.available);
-        contract_client.remove_collateral(&new_borrower, gold_pool_address, &collateral_amount);
-    }
-
-    // 6. Interest rate invariants
-    // Verify that interest rates are calculated correctly
-    let usdc_apy = contract_client.get_apy(usdc_pool_address);
-    let gold_apy = contract_client.get_apy(gold_pool_address);
-    let btc_apy = contract_client.get_apy(btc_pool_address);
-
-    // Borrow interest rates should be non-negative
-    assert!(
-        usdc_apy.borrow_bps > 0,
-        "USDC borrow rate must be non-negative"
-    );
-    assert!(
-        gold_apy.borrow_bps > 0,
-        "GOLD borrow rate must be non-negative"
-    );
-    assert!(
-        btc_apy.borrow_bps > 0,
-        "BTC borrow rate must be non-negative"
-    );
-
-    // Borrow rate should be greater than or equal to deposit rate
-    assert!(
-        usdc_apy.borrow_bps >= usdc_apy.supply_bps,
-        "USDC borrow rate must be >= deposit rate"
-    );
-    assert!(
-        gold_apy.borrow_bps >= gold_apy.supply_bps,
-        "GOLD borrow rate must be >= deposit rate"
-    );
-    assert!(
-        btc_apy.borrow_bps >= btc_apy.supply_bps,
-        "BTC borrow rate must be >= deposit rate"
-    );
-}
 
 #[derive(Arbitrary, Debug)]
 pub struct Input {
-    pub commands: [Command; 10],
+    pub commands: [Command; 20],
+}
+
+#[derive(Arbitrary, Debug)]
+pub struct PassTime {
+    // up to 2 years
+    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(2 * 365 * 24 * 60 * 60)))]
+    pub amount: u64,
 }
 
 #[derive(Arbitrary, Debug)]
@@ -517,288 +577,834 @@ pub struct WithdrawCollateral {
 
 #[derive(Arbitrary, Debug)]
 pub struct Liquidate {
-    pub amount: Amount,
     pub token: Token,
+    pub repay_amount: Amount,
     pub collateral_token: Token,
+    pub min_collateral_received_amount: Amount,
 }
 
-impl Borrow {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
-        let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
+#[derive(Arbitrary, Debug)]
+pub struct DepositWithLeverage {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+    pub flash_loan_amount: Amount,
+    pub leverage: u32,
+}
 
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_borrow(&user, &pool_address, &self.amount.0);
+#[derive(Arbitrary, Debug)]
+pub struct WithdrawFromLeveraged {
+    pub amount: Amount,
+    pub deposit_token: Token,
+    pub borrow_token: Token,
+}
+
+impl RunCommand for PassTime {
+    fn run(&self, test_fixture: &TestMarketFixture, _who: usize) {
+        test_fixture.pass_time(self.amount);
     }
 }
 
-impl Deposit {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
+impl RunCommand for Borrow {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
-
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_deposit(&user, &pool_address, &self.amount.0);
-    }
-}
-
-impl DepositCollateral {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
-        let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
-
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_add_collateral(&user, &pool_address, &self.amount.0);
-    }
-}
-
-impl WithdrawCollateral {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
-        let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
-
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_remove_collateral(&user, &pool_address, &self.amount.0);
-    }
-}
-
-impl Withdraw {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
-        let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
-
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_withdraw(&user, &pool_address, &self.amount.0);
-    }
-}
-
-impl Repay {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
-        let pool_address = test_fixture.get_pool_address(self.token);
-        let TestFixture {
-            contract_client,
-            users,
-            ..
-        } = test_fixture;
-
-        let user = users.get(who).unwrap();
-        let _ = contract_client.try_repay(&user, &pool_address, &self.amount.0);
-    }
-}
-
-impl Liquidate {
-    pub fn run(&self, test_fixture: &TestFixture, who: u32) {
-        let pool_address = test_fixture.get_pool_address(self.token);
-        let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
-
-        if pool_address != collateral_pool_address {
-            let TestFixture {
-                contract_client,
-                users,
-                ..
-            } = test_fixture;
-
-            let (liquidator, borrower) = if who == 0 {
-                (users.get(0).unwrap(), users.get(1).unwrap())
-            } else {
-                (users.get(1).unwrap(), users.get(0).unwrap())
-            };
-
-            let _ = contract_client.try_liquidate(
-                &liquidator,
-                &borrower,
-                &pool_address,
-                &collateral_pool_address,
-                &self.amount.0,
-            );
+        let TestMarketFixture { contract_client, users, .. } = test_fixture;
+        let res = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0, &None);
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
         }
     }
 }
 
-#[allow(unused)]
-pub fn get_deposit_obligation(
-    contract_client: &LendingContractClient,
+impl RunCommand for Deposit {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let pool_address = test_fixture.get_pool_address(self.token);
+        let TestMarketFixture { contract_client, users, .. } = test_fixture;
+
+        let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0, &None);
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
+        }
+    }
+}
+
+impl RunCommand for DepositCollateral {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let pool_address = test_fixture.get_pool_address(self.token);
+        let TestMarketFixture { contract_client, users, .. } = test_fixture;
+
+        let res =
+            contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0, &None);
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
+        }
+    }
+}
+
+impl RunCommand for WithdrawCollateral {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let pool_address = test_fixture.get_pool_address(self.token);
+        let TestMarketFixture { contract_client, users, .. } = test_fixture;
+
+        let res = contract_client.try_remove_collateral(
+            &users[who],
+            &pool_address,
+            &self.amount.0,
+            &None,
+        );
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
+        }
+    }
+}
+
+impl RunCommand for Withdraw {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let pool_address = test_fixture.get_pool_address(self.token);
+        let TestMarketFixture { contract_client, users, .. } = test_fixture;
+
+        let res = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0, &None);
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
+        }
+    }
+}
+
+impl RunCommand for Repay {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let pool_address = test_fixture.get_pool_address(self.token);
+        let TestMarketFixture { contract_client, users, .. } = test_fixture;
+
+        let res = contract_client.try_repay(&users[who], &pool_address, &self.amount.0, &None);
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
+        }
+    }
+}
+
+impl RunCommand for Liquidate {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let borrow_pool_address = test_fixture.get_pool_address(self.token);
+        let collateral_pool_address = test_fixture.get_pool_address(self.collateral_token);
+
+        if borrow_pool_address != collateral_pool_address {
+            let TestMarketFixture { contract_client, users, .. } = test_fixture;
+            let (liquidator, borrower) = (&users[who], &users[(who + 1) % users.len()]);
+
+            let res = contract_client.try_liquidate(
+                liquidator,
+                borrower,
+                &None,
+                &borrow_pool_address,
+                &collateral_pool_address,
+                &self.repay_amount.0,
+                &self.min_collateral_received_amount.0,
+            );
+            if matches!(res, Err(Ok(MCError::InternalError))) {
+                panic!("Internal Error");
+            }
+        }
+    }
+}
+
+impl RunCommand for DepositWithLeverage {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        if deposit_pool_address != borrow_pool_address {
+            let TestMarketFixture { contract_client, users, .. } = test_fixture;
+
+            let (flash_liquidity_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
+
+            contract_client.deposit(
+                flash_liquidity_provider,
+                &borrow_pool_address,
+                &self.flash_loan_amount.0,
+                &None,
+            );
+
+            let res = contract_client.try_deposit_with_leverage(
+                lender,
+                &deposit_pool_address,
+                &borrow_pool_address,
+                &false,
+                &self.amount.0,
+                &self.leverage,
+                &None,
+            );
+            if matches!(res, Err(Ok(MCError::InternalError))) {
+                panic!("Internal Error");
+            }
+        }
+    }
+}
+
+impl RunCommand for WithdrawFromLeveraged {
+    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
+        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
+        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
+
+        let TestMarketFixture { contract_client, users, .. } = test_fixture;
+
+        let res = contract_client.try_withdraw_from_leveraged(
+            &users[who],
+            &deposit_pool_address,
+            &borrow_pool_address,
+            &self.amount.0,
+            &None,
+        );
+        if matches!(res, Err(Ok(MCError::InternalError))) {
+            panic!("Internal Error");
+        }
+    }
+}
+
+// ---- Helpers that encapsulate access to inner structures ----
+
+// -- Obligation --
+
+// - Direct accessors -
+pub fn get_obligation_j_tokens(
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<DepositObligation, LCError> {
+) -> Result<i128, MCError> {
+    let deposit_position = get_deposit_position(contract_client, user, pool_address)?;
+
+    Ok(deposit_position.j_tokens)
+}
+
+pub fn get_earn_obligation_j_tokens(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position =
+        get_earn_obligation_deposit_position(contract_client, user, pool_address)?;
+
+    Ok(deposit_position.j_tokens)
+}
+
+pub fn get_multiply_pair_obligation_j_tokens(
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position = get_multiply_pair_deposit_position(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(deposit_position.j_tokens)
+}
+
+pub fn get_obligation_d_tokens(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position = get_borrow_position(contract_client, user, pool_address)?;
+
+    Ok(deposit_position.d_tokens)
+}
+
+pub fn get_earn_obligation_d_tokens(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    // NB: This is expected to always return Err(MCError::BorrowPositionDoesNotExist)
+    let borrow_position = get_earn_obligation_borrow_position(contract_client, user, pool_address)?;
+
+    Ok(borrow_position.d_tokens)
+}
+
+pub fn get_multiply_pair_obligation_d_tokens(
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let borrow_position = get_multiply_pair_borrow_position(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(borrow_position.d_tokens)
+}
+
+pub fn get_obligation_initially_borrowed(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let borrow_position = get_borrow_position(contract_client, user, pool_address)?;
+
+    Ok(borrow_position.originally_borrowed)
+}
+
+pub fn get_multiply_pair_obligation_borrowed(
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let borrow_position = get_multiply_pair_borrow_position(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(borrow_position.originally_borrowed)
+}
+
+pub fn get_obligation_originally_deposited(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position = get_deposit_position(contract_client, user, pool_address)?;
+
+    Ok(deposit_position.originally_deposited)
+}
+
+pub fn get_earn_obligation_deposited(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position =
+        get_earn_obligation_deposit_position(contract_client, user, pool_address)?;
+
+    Ok(deposit_position.originally_deposited)
+}
+
+pub fn get_multiply_pair_obligation_deposited(
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position = get_multiply_pair_deposit_position(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(deposit_position.originally_deposited)
+}
+
+pub fn get_obligation_collateral(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position = get_deposit_position(contract_client, user, pool_address)?;
+
+    Ok(deposit_position.collateral)
+}
+
+pub fn get_multiply_pair_obligation_collateral(
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let deposit_position = get_multiply_pair_deposit_position(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    Ok(deposit_position.collateral)
+}
+
+// - Indirect accessors -
+
+pub fn get_obligation_d_tokens_as_tokens(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let d_tokens = get_obligation_d_tokens(contract_client, user, pool_address)?;
+
+    let deposited_tokens = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
+
+    Ok(deposited_tokens)
+}
+
+pub fn get_obligation_unpaid_interest(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let total_debt = get_obligation_d_tokens_as_tokens(e, contract_client, user, pool_address)?;
+    let initially_borrowed =
+        get_obligation_initially_borrowed(contract_client, user, pool_address)?;
+
+    if total_debt < initially_borrowed {
+        return Err(MCError::InternalError);
+    }
+    let unpaid_interest = total_debt - initially_borrowed;
+
+    Ok(unpaid_interest)
+}
+
+pub fn get_obligation_j_tokens_as_tokens(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let j_tokens = get_obligation_j_tokens(contract_client, user, pool_address)?;
+
+    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
+
+    Ok(deposited_tokens)
+}
+
+pub fn get_obligation_received_interest(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let total_supply = get_obligation_j_tokens_as_tokens(e, contract_client, user, pool_address)?;
+    let initially_deposited =
+        get_obligation_originally_deposited(contract_client, user, pool_address)?;
+
+    if total_supply < initially_deposited {
+        return Err(MCError::InternalError);
+    }
+    let received_interest = total_supply - initially_deposited;
+
+    Ok(received_interest)
+}
+
+pub fn get_earn_obligation_j_tokens_as_tokens(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let j_tokens = get_earn_obligation_j_tokens(contract_client, user, pool_address)?;
+
+    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
+
+    Ok(deposited_tokens)
+}
+
+pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(deposit_pool_address);
+    let j_tokens = get_multiply_pair_obligation_j_tokens(
+        contract_client,
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    )?;
+
+    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
+
+    Ok(deposited_tokens)
+}
+
+pub fn compute_unparameterized_ltv_bps(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+) -> Result<i128, MCError> {
+    let debt_value = compute_user_obligation_debt_value(e, contract_client, user);
+    let collateral_value = compute_user_obligation_collateral_value(e, contract_client, user);
+
+    debt_value.fixed_div_ceil(collateral_value, BPS_FACTOR).map_over_or_underflow()
+}
+
+pub fn compute_user_obligation_debt_value(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+) -> i128 {
+    let obligation = contract_client.get_user_obligation(user);
+
+    e.as_contract(&contract_client.address, || obligation.compute_debt_value(e).unwrap())
+}
+
+pub fn compute_user_obligation_collateral_value(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+) -> i128 {
+    let obligation = contract_client.get_user_obligation(user);
+
+    e.as_contract(&contract_client.address, || obligation.compute_collateral_value(e).unwrap())
+}
+
+pub fn compute_multiply_pair_obligation_debt_value(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> i128 {
+    let obligation = contract_client.get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    );
+
+    e.as_contract(&contract_client.address, || obligation.compute_debt_value(e).unwrap())
+}
+
+pub fn compute_multiply_pair_obligation_collateral_value(
+    e: &Env,
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> i128 {
+    let obligation = contract_client.get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    );
+
+    e.as_contract(&contract_client.address, || obligation.compute_collateral_value(e).unwrap())
+}
+
+// - Inner struct accessors -
+
+pub fn get_deposit_position(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<DepositPosition, MCError> {
     let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
-        return Err(LCError::ObligationDoesNotExist);
+        return Err(MCError::ObligationDoesNotExist);
     };
 
     let deposit = obligation
         .deposits
         .get(pool_address.clone())
-        .ok_or(LCError::DepositDoesNotExist)?;
+        .ok_or(MCError::DepositPositionDoesNotExist)?;
 
     Ok(deposit)
 }
 
-#[allow(unused)]
-pub fn get_borrow_obligation(
-    contract_client: &LendingContractClient,
+pub fn get_earn_obligation_deposit_position(
+    contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
-) -> Result<BorrowObligation, LCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
-        return Err(LCError::ObligationDoesNotExist);
+) -> Result<DepositPosition, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
+        return Err(MCError::ObligationDoesNotExist);
     };
 
-    let borrow = obligation
-        .borrows
+    let deposit = obligation
+        .deposits
         .get(pool_address.clone())
-        .ok_or(LCError::DepositDoesNotExist)?;
+        .ok_or(MCError::DepositPositionDoesNotExist)?;
+
+    Ok(deposit)
+}
+
+pub fn get_multiply_pair_deposit_position(
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<DepositPosition, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    ) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    let deposit = obligation
+        .deposits
+        .get(deposit_pool_address.clone())
+        .ok_or(MCError::DepositPositionDoesNotExist)?;
+
+    Ok(deposit)
+}
+
+pub fn get_borrow_position(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<BorrowPosition, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    let borrow =
+        obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowPositionDoesNotExist)?;
 
     Ok(borrow)
 }
 
-#[cfg(test)]
-mod tests {
-    use {
-        super::*,
-        lending::{
-            constants::{INDIVIDUAL_BUMP, INSTANCE_BUMP, LEDGERS_PER_DAY, SHARED_BUMP},
-            storage::DataKey,
-        },
-        soroban_sdk::testutils::{
-            storage::{Instance, Persistent},
-            Ledger,
-        },
+pub fn get_earn_obligation_borrow_position(
+    contract_client: &MarketClient,
+    user: &Address,
+    pool_address: &Address,
+) -> Result<BorrowPosition, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
+        return Err(MCError::ObligationDoesNotExist);
     };
 
-    #[test]
-    fn test_storage_ttl_extension() {
-        let TestFixture {
-            e,
-            contract_client,
-            contract_id,
-            usdc_pool_address,
-            users,
-            ..
-        } = TestFixture::new();
+    // NB: Expected that this always returns `Err(MCError::BorrowPositionDoesNotExist)`
+    let borrow =
+        obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowPositionDoesNotExist)?;
 
-        let user = users.get(0).unwrap();
-
-        e.as_contract(&contract_id, || {
-            // `TestFixture::new()` extends both instance and a specific's pool shared storage
-            assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP
-            );
-        });
-
-        // Extend individual user's storage
-        contract_client.deposit(&user, &usdc_pool_address, &1);
-
-        e.as_contract(&contract_id, || {
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
-                INDIVIDUAL_BUMP
-            );
-        });
-
-        e.ledger().with_mut(|li| {
-            // TODO: Make all shifts depend on the threshold
-            // and not on the constant amount of ledgers
-            li.sequence_number = 2 * LEDGERS_PER_DAY;
-        });
-
-        e.as_contract(&contract_id, || {
-            assert_eq!(
-                e.storage().instance().get_ttl(),
-                INSTANCE_BUMP - 2 * LEDGERS_PER_DAY
-            );
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP - 2 * LEDGERS_PER_DAY
-            );
-
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
-                INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
-            );
-        });
-
-        // Extend instance storage
-        contract_client.get_global_state();
-
-        e.as_contract(&contract_id, || {
-            // Instance's ttl is bumped
-            assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
-
-            // Others aren't bumped
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP - 2 * LEDGERS_PER_DAY
-            );
-
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
-                INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
-            );
-        });
-
-        // Deposit once more to bump shared persistent token storage
-        contract_client.deposit(&user, &usdc_pool_address, &1);
-
-        e.as_contract(&contract_id, || {
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Pool(usdc_pool_address.clone())),
-                SHARED_BUMP
-            );
-
-            // Individual persistent storage ttl is still the same
-            assert_eq!(
-                e.storage()
-                    .persistent()
-                    .get_ttl(&DataKey::Obligation(user.clone())),
-                INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
-            );
-        });
-
-        // TODO: Add individual storage extension test case
-    }
+    Ok(borrow)
 }
 
-mod borrow;
-mod deposit;
-mod fuzz;
-mod initialize;
-mod interest_rates;
-mod liquidate;
-mod repay;
-mod withdraw;
+pub fn get_multiply_pair_borrow_position(
+    contract_client: &MarketClient,
+    user: &Address,
+    deposit_pool_address: &Address,
+    borrow_pool_address: &Address,
+) -> Result<BorrowPosition, MCError> {
+    let Ok(Ok(obligation)) = contract_client.try_get_multiply_pair_obligation(
+        user,
+        deposit_pool_address,
+        borrow_pool_address,
+    ) else {
+        return Err(MCError::ObligationDoesNotExist);
+    };
+
+    let borrow = obligation
+        .borrows
+        .get(borrow_pool_address.clone())
+        .ok_or(MCError::BorrowPositionDoesNotExist)?;
+
+    Ok(borrow)
+}
+
+// -- Pool --
+
+pub fn get_pool_total_j_tokens(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.total_j_tokens
+}
+
+pub fn get_pool_total_d_tokens(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.total_d_tokens
+}
+
+pub fn get_pool_total_borrowed(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.total_borrowed
+}
+
+pub fn get_pool_total_supply(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+    let total_supply = pool.total_supply()?;
+
+    Ok(total_supply)
+}
+
+pub fn get_pool_total_available(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.total_available
+}
+
+pub fn get_pool_total_collateral(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.total_collateral
+}
+
+pub fn get_pool_operation_fees_sum(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.operation_fees_sum
+}
+
+pub fn get_pool_take_rate_fees_sum(contract_client: &MarketClient, pool_address: &Address) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.take_rate_fees_sum
+}
+
+pub fn get_pool_available_take_rate_fees_sum(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.total_available().unwrap()
+}
+
+pub fn compute_pool_collateral_value(
+    e: &Env,
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    e.as_contract(&contract_client.address, || pool.compute_total_collateral_value(e))
+}
+
+pub fn compute_pool_debt_value(
+    e: &Env,
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> Result<i128, MCError> {
+    let pool = contract_client.get_pool(pool_address);
+
+    e.as_contract(&contract_client.address, || pool.compute_total_debt_value(e))
+}
+
+// - PoolConfig -
+
+pub fn get_pool_fee_config(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> PoolFeeConfig {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.config.fee_config
+}
+
+// ---- MISC ----
+
+pub fn make_oracle_prices_different(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![
+        e,
+        50_00000000000000, // BTC
+        3_00000000000000,  // GOLD
+        1_00000000000000,  // USDC
+    ]);
+}
+
+pub fn make_oracle_prices_equal(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![
+        e,
+        1_00000000000000, // BTC
+        1_00000000000000, // GOLD
+        1_00000000000000, // USDC
+    ]);
+}
+
+pub struct TestAssetSetup<'a> {
+    pub token_client: TokenClient<'a>,
+    pub token_address: Address,
+    pub sac_client: StellarAssetClient<'a>,
+}
+
+pub fn setup_test_asset<'a>(e: &Env, admin: &Address, users: &Vec<Address>) -> TestAssetSetup<'a> {
+    let token_address = e.register_stellar_asset_contract_v2(admin.clone()).address();
+    let sac_client = StellarAssetClient::new(e, &token_address);
+    let token_client = TokenClient::new(e, &token_address);
+
+    sac_client.mint(admin, &DEFAULT_ADMIN_ASSET_MINT_AMOUNT);
+
+    for user in users {
+        sac_client.mint(user, &DEFAULT_USER_ASSET_MINT_AMOUNT);
+    }
+
+    TestAssetSetup { token_address, token_client, sac_client }
+}
+
+pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
+    let contract_name = soroban_sdk::String::from_str(e, "market_contract");
+    let contract_admin = Address::generate(e);
+    let oracle = Address::generate(e);
+    let insurance_fund = Address::generate(e);
+
+    let contract_id = e.register(
+        MarketContract,
+        (
+            contract_name,
+            contract_admin.clone(),
+            oracle,
+            insurance_fund,
+            contract_admin,
+            DEFAULT_MAX_POSITIONS,
+            0i128,
+            DEFAULT_INSOLVENCY_LTV_BPS,
+            if is_owned { Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS) } else { None },
+        ),
+    );
+
+    let client = MarketClient::new(e, &contract_id);
+
+    if is_owned {
+        client.update_market_status(&0);
+    }
+
+    client
+}
+
+pub fn register_random_sac(e: &Env) -> Address {
+    let token_admin = Address::generate(e);
+
+    e.register_stellar_asset_contract_v2(token_admin).address()
+}
+
+pub fn get_default_env() -> Env {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    e
+}
+
+pub fn assert_approx_eq_abs<T>(a: T, b: T, delta: T)
+where
+    T: PartialOrd + Add<Output = T> + Sub<Output = T> + Copy + core::fmt::Debug,
+{
+    assert!(
+        a >= b - delta && a <= b + delta,
+        "assertion failed: `(left != right)` (left: `{:?}`, right: `{:?}`, delta: `{:?}`)",
+        a,
+        b,
+        delta
+    );
+}
+
+/// Asserts that `a` is approximately equal to `b` within a relative error of `delta`
+///
+/// # Arguments
+/// * `delta_bps` - percentage represented in basis points such that 15% is 15_00
+pub fn assert_approx_eq_rel(a: i128, b: i128, delta_bps: i128) {
+    let abs_delta = b.fixed_mul_floor(delta_bps, BPS_FACTOR).unwrap();
+    assert_approx_eq_abs(a, b, abs_delta);
+}
+
+pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
+    amount.checked_sub(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap()).unwrap()
+}
+
+pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
+    amount.checked_add(amount.fixed_mul_ceil(scale_bps, BPS_FACTOR).unwrap()).unwrap()
+}

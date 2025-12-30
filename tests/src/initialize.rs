@@ -1,118 +1,194 @@
 #![cfg(test)]
 
-use {
-    lending::contract::{LendingContract, LendingContractClient},
-    soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env},
+use market::{
+    error::MCError,
+    pool::{PoolConfig, PoolHealthConfig},
 };
+use soroban_sdk::{Address, BytesN, testutils::Address as _};
+
+use crate::{get_default_env, register_random_sac, setup_market_client};
 
 #[test]
 fn test_pool_initialize() {
-    let e = Env::default();
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
 
-    let contract_admin = Address::generate(&e);
-    let contract_id = e.register(
-        LendingContract,
-        (contract_admin.clone(), Option::<i128>::None),
-    );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
+    let token_address = register_random_sac(&e);
 
-    let token_address = Address::generate(&e);
-    let token_ticker = symbol_short!("TCK1");
+    let pool_address_1 = contract_client.initialize_pool(&token_address, &None, &None);
 
-    contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
+    let all_pools = contract_client.get_all_pools();
+    assert_eq!(all_pools.len(), 1);
+    assert_eq!(all_pools.last().unwrap(), pool_address_1);
 
-    // Initialize another pool for the same token with a provided salt
-    contract_client.initialize_pool(
+    let pool_address_2 = contract_client.initialize_pool(
         &token_address,
-        &token_ticker,
         &Some(BytesN::from_array(&e, &[0; 32])),
         &None,
     );
+
+    let all_pools = contract_client.get_all_pools();
+    assert_eq!(all_pools.len(), 2);
+    assert_eq!(all_pools.last().unwrap(), pool_address_2);
+}
+
+#[test]
+fn test_pool_initialize_with_custom_config() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let token_address = register_random_sac(&e);
+
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig { utilization_ratio_limit_bps: 8000, ..Default::default() },
+        ..Default::default()
+    };
+
+    let pool_address =
+        contract_client.initialize_pool(&token_address, &None, &Some(pool_config.clone()));
+
+    let all_pools = contract_client.get_all_pools();
+    assert_eq!(all_pools.len(), 1);
+    assert_eq!(all_pools.last().unwrap(), pool_address);
+
+    let pool = contract_client.get_pool(&pool_address);
+    assert_eq!(pool.config, pool_config);
 }
 
 #[test]
 fn test_pool_initialize_with_different_salt() {
-    let e = Env::default();
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
 
-    let contract_admin = Address::generate(&e);
-    let contract_id = e.register(
-        LendingContract,
-        (contract_admin.clone(), Option::<i128>::None),
-    );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
-
-    let token_address = Address::generate(&e);
-    let token_ticker = symbol_short!("TCK1");
+    let token_address = register_random_sac(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let salt2 = BytesN::from_array(&e, &[1; 32]);
 
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt), &None);
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt2), &None);
+    contract_client.initialize_pool(&token_address, &Some(salt), &None);
+    contract_client.initialize_pool(&token_address, &Some(salt2), &None);
 }
 
 #[test]
 fn test_pool_initialize_non_conflicting() {
-    let e = Env::default();
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
 
-    let contract_admin = Address::generate(&e);
-    let contract_id = e.register(
-        LendingContract,
-        (contract_admin.clone(), Option::<i128>::None),
-    );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
-
-    let token_address = Address::generate(&e);
-    let token_ticker = symbol_short!("TCK1");
-
-    let token_address_2 = Address::generate(&e);
-    let token_ticker_2 = symbol_short!("TCK2");
+    let token_address_1 = register_random_sac(&e);
+    let token_address_2 = register_random_sac(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
 
-    contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt.clone()), &None);
+    let pool_address_1 = contract_client.initialize_pool(&token_address_1, &None, &None);
+    let pool_address_2 =
+        contract_client.initialize_pool(&token_address_1, &Some(salt.clone()), &None);
 
-    contract_client.initialize_pool(&token_address_2, &token_ticker_2, &None, &None);
-    contract_client.initialize_pool(&token_address_2, &token_ticker_2, &Some(salt), &None);
+    let pool_address_3 = contract_client.initialize_pool(&token_address_2, &None, &None);
+    let pool_address_4 = contract_client.initialize_pool(&token_address_2, &Some(salt), &None);
+
+    let all_pools = contract_client.get_all_pools();
+    assert_eq!(
+        all_pools,
+        soroban_sdk::vec![&e, pool_address_1, pool_address_2, pool_address_3, pool_address_4]
+    );
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
 fn test_pool_reinitialize_no_salt() {
-    let e = Env::default();
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
 
-    let contract_admin = Address::generate(&e);
-    let contract_id = e.register(
-        LendingContract,
-        (contract_admin.clone(), Option::<i128>::None),
+    let token_address = register_random_sac(&e);
+
+    contract_client.initialize_pool(&token_address, &None, &None);
+
+    assert_eq!(
+        Err(Ok(MCError::InvalidInitialization)),
+        contract_client.try_initialize_pool(&token_address, &None, &None),
     );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
-
-    let token_address = Address::generate(&e);
-    let token_ticker = symbol_short!("TCK1");
-
-    contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
-    contract_client.initialize_pool(&token_address, &token_ticker, &None, &None);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #1)")]
 fn test_pool_reinitialize_with_salt() {
-    let e = Env::default();
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
 
-    let contract_admin = Address::generate(&e);
-    let contract_id = e.register(
-        LendingContract,
-        (contract_admin.clone(), Option::<i128>::None),
-    );
-    let contract_client = LendingContractClient::new(&e, &contract_id);
-
-    let token_address = Address::generate(&e);
-    let token_ticker = symbol_short!("TCK1");
+    let token_address = register_random_sac(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
 
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt.clone()), &None);
-    contract_client.initialize_pool(&token_address, &token_ticker, &Some(salt), &None);
+    contract_client.initialize_pool(&token_address, &Some(salt.clone()), &None);
+
+    assert_eq!(
+        Err(Ok(MCError::InvalidInitialization)),
+        contract_client.try_initialize_pool(&token_address, &Some(salt), &None),
+    );
+}
+
+#[test]
+fn test_initialize_multiply_pair() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    // Initialize pools first
+    let deposit_token_address = register_random_sac(&e);
+    let borrow_token_address = register_random_sac(&e);
+
+    let deposit_pool_address =
+        contract_client.initialize_pool(&deposit_token_address, &None, &None);
+    let borrow_pool_address = contract_client.initialize_pool(&borrow_token_address, &None, &None);
+
+    // Initialize a multiply pair
+    contract_client.initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address);
+
+    let all_pairs = contract_client.get_all_multiply_pairs();
+    let last_pair = all_pairs.last().unwrap();
+
+    assert_eq!(last_pair.deposit_pool, deposit_pool_address);
+    assert_eq!(last_pair.borrow_pool, borrow_pool_address);
+
+    assert_eq!(
+        contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
+        Err(Ok(MCError::MultiplyPairAlreadyExists))
+    );
+}
+
+#[test]
+fn test_initialize_multiply_pair_with_same_pools_fails() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let deposit_token_address = register_random_sac(&e);
+
+    let deposit_pool_address =
+        contract_client.initialize_pool(&deposit_token_address, &None, &None);
+
+    assert_eq!(
+        contract_client.try_initialize_multiply_pair(&deposit_pool_address, &deposit_pool_address),
+        Err(Ok(MCError::InvalidInitialization))
+    );
+}
+
+#[test]
+fn test_multiply_pair_with_inexistent_pool() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let deposit_pool_address = Address::generate(&e);
+    let borrow_pool_address = Address::generate(&e);
+
+    assert_eq!(
+        contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
+        Err(Ok(MCError::DepositPoolDoesNotExist))
+    );
+
+    let deposit_token_address = register_random_sac(&e);
+
+    let deposit_pool_address =
+        contract_client.initialize_pool(&deposit_token_address, &None, &None);
+
+    assert_eq!(
+        contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
+        Err(Ok(MCError::BorrowPoolDoesNotExist))
+    );
 }

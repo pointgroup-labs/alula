@@ -1,10 +1,16 @@
-# JLend Fuzzing Guidance
+# Alula Fuzzing Guide
 
-This document contains a comprehensive guide on how to fuzz test the JLend DeFi Protocol Soroban source.
+This guide explains how to fuzz test the Alula lending protocol's Soroban smart contracts.
+
+Fuzzing can either be run in the root of the repository via:
+
+```
+make test/fuzz
+```
+
+or via the step-by-step guidance with possible modifications below.
 
 More comprehensive guide on how to fuzz test Soroban smart contracts can be found here: https://developers.stellar.org/docs/build/smart-contracts/example-contracts/fuzzing
-
-## TODO: Add this to Makefile, after fixing `stellar contract build`
 
 ## 1. Install the nightly Rust toolchain. Nightly Rust is required to run cargo-fuzz.
 
@@ -42,4 +48,4 @@ RUST_BACKTRACE=1 cargo +nightly fuzz run --sanitizer=thread fuzz_target
 
 More information about this issue: https://github.com/stellar/rs-soroban-sdk/issues/1056
 
-## 6. Terminate fuzzing with `CTRL + C`
+## 5. Terminate fuzzing with `CTRL + C`

@@ -1,0 +1,18 @@
+[package]
+name = "flash_loan_taker_mock"
+version = "0.0.0"
+edition = { workspace = true }
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+market = { workspace = true }
+moderc3156 = { workspace = true }
+soroban-fixed-point-math = { workspace = true }
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+tests = { path = "../../tests" }

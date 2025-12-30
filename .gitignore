@@ -37,6 +37,7 @@ ehthumbs_vista.db
 target
 .soroban
 .stellar
+package-lock.json
 
 # build output
 dist/
@@ -69,3 +70,6 @@ pids
 
 # contract unit test test-snapshots
 **/test_snapshots/
+
+.claude
+CLAUDE.md

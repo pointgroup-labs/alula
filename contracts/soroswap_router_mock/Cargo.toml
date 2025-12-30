@@ -1,0 +1,16 @@
+[package]
+name = "soroswap_router_mock"
+version = "0.0.1"
+edition = { workspace = true }
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+sep-40-oracle = { workspace = true }
+soroban-fixed-point-math = { workspace = true }
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

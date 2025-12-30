@@ -1,16 +1,25 @@
 [package]
 name = "tests"
 version = "0.1.0"
-edition = "2021"
+edition = { workspace = true }
 
 [lib]
 crate-type = ["rlib", "cdylib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
 arbitrary = { version = "1", features = ["derive"] }
+insurance-fund-interface = { workspace = true }
+sep-40-oracle = { workspace = true, features = ["testutils"] }
+soroban-fixed-point-math = { workspace = true }
+soroban-sdk = { workspace = true, features = ["testutils"] }
 
-[dependencies.lending]
-path = "../contracts/lending"
+[dependencies.controlled_insurance_fund]
+path = "../contracts/controlled_insurance_fund"
+
+[dependencies.market]
+path = "../contracts/market"
 features = ["testutils"]
+
+[dependencies.market_manager]
+path = "../contracts/market_manager"

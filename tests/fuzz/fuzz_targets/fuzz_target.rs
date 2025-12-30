@@ -1,19 +1,15 @@
 #![no_main]
 
-use {
-    libfuzzer_sys::fuzz_target,
-    tests::{assert_invariants, Input, TestFixture},
-};
+use libfuzzer_sys::fuzz_target;
+use tests::{Input, TestMarketFixture, make_oracle_prices_different};
 
 fuzz_target!(|input: Input| {
-    let fixture = TestFixture::new();
-
+    let fixture = TestMarketFixture::new();
     fixture.e.cost_estimate().budget().reset_unlimited();
+    make_oracle_prices_different(&fixture.e, &fixture.oracle_client);
 
-    let commands = input.commands;
-
-    for command in commands {
+    for command in &input.commands {
         command.run(&fixture);
-        assert_invariants(&fixture);
+        fixture.assert_invariants();
     }
 });

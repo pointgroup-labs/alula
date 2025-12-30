@@ -1,338 +1,130 @@
-[![Stellar Portal](https://img.shields.io/badge/STELLAR-grey?logo=stellar&style=for-the-badge)](https://stellar.org/)
-[![GitHub license](https://img.shields.io/badge/license-Apache%202.0-blue.svg?logo=apache&style=for-the-badge)](LICENSE)
-[![Tests Status](https://img.shields.io/github/actions/workflow/status/mfactory-lab/jlend/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
+# Alula
 
-# JLend DeFi Protocol
+[![Stellar](https://img.shields.io/badge/Stellar-000000?logo=stellar&logoColor=white&style=for-the-badge)](https://stellar.org)
+[![Soroban](https://img.shields.io/badge/Soroban-7B68EE?logo=stellar&logoColor=white&style=for-the-badge)](https://soroban.stellar.org)
+[![Rust](https://img.shields.io/badge/Rust-1.90-e64514?logo=rust&logoColor=white&style=for-the-badge)](https://www.rust-lang.org)
+[![Tests Status](https://img.shields.io/github/actions/workflow/status/pointgroup-labs/alula/ci.yml?logo=githubactions&logoColor=white&style=for-the-badge&label=tests)](./.github/workflows/ci.yml)
 
-JLend is a decentralized lending and borrowing protocol built on the [Stellar](https://stellar.org/) blockchain using [Soroban](https://soroban.stellar.org/) smart contracts.
-It enables users to earn yield on deposits and access liquidity through overcollateralized loans with competitive interest rates.
+Alula is an institutional-grade RWA money-market protocol on Stellar designed to bring real-world credit on-chain in a policy-aligned way. It combines configurable, segregated lending pools with a yield-optimization layer that keeps liquidity productive even when some pools are underutilized. Built on Stellar’s compliance and settlement stack, Alula enables institutions to originate and fund RWA-backed credit on-chain, while giving liquidity providers transparent, risk-aligned yield in Stellar assets.
 
-> [!Note]
-> This project is a work in progress and is not yet ready for production use.
-> We are happy to answer questions if they are raised as issues in this GitHub repo.
+> ⚠️ Under active development — not production ready.
 
-## 🌟 Features
+## Features
 
-- **Lending & Borrowing**: Supply assets to earn yield or borrow against collateral
-- **Multiple Asset Support**: Support for various Stellar assets (USDC, BTC, GOLD, etc.)
-- **Dynamic Interest Rates**: Kinked interest rate model based on utilization
-- **Liquidation Protection**: Automated liquidation system to maintain protocol solvency
-- **Overcollateralization**: Secure borrowing with configurable collateral ratios
-- **Real-time Price Feeds**: Integration with Stellar price oracles
+- **Configurable, segregated pools**: Per-asset pools with per-pool parameters (LTV limits, interest-rate model, eligible collateral) and optional permissioning / allow-lists
+- **Lending & borrowing**: Supply assets to earn yield, borrow against collateral
+- **Flash loans**: Uncollateralized loans settled within a single transaction
+- **Leveraged positions**: Amplify exposure via deposit-with-leverage (flash-loan + swap flow)
+- **Cross-pool collateral evaluation**: Collateral in one pool can support borrowing in another, subject to configured rules
+- **Dynamic interest rates**: Dual-kink model responding to utilization (parameterized per pool)
+- **Aggregated oracle**: Median prices from multiple SEP-40 sources, with optional circuit-breaker behavior (returning no price on large, short-window price moves)
+- **Farms integration**: Delegated staking for j-token (supply) and d-token (debt) holders with automatic stake sync
+- **Insurance fund**: Bad debt coverage with two-phase claim flow; shortfalls socialized only after fund exhaustion
 
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Building](#building)
-  - [Testing](#testing)
-- [Usage](#usage)
-  - [Contract Deployment](#contract-deployment)
-  - [Pool Management](#pool-management)
-  - [Lending Operations](#lending-operations)
-- [Protocol Mechanics](#protocol-mechanics)
-  - [Interest Rate Model](#interest-rate-model)
-  - [Health Factor](#health-factor)
-  - [Liquidation Process](#liquidation-process)
-- [Security](#security)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-
-## 🔍 Overview
-
-JLend creates efficient lending markets on Stellar where users can:
-
-- **Supply Assets**: Deposit tokens to earn passive yield from borrower interest payments
-- **Borrow Assets**: Take loans against deposited collateral with competitive rates
-- **Liquidate Positions**: Participate in liquidations to earn liquidation bonuses
-- **Manage Risk**: Monitor health factors and adjust positions to avoid liquidation
-
-The protocol uses a pool-based model where each supported asset has its own lending pool with isolated risk parameters.
-
-## 🏗️ Architecture
-
-The protocol consists of several key components:
-
-```
-├── contracts/
-│ ├── lending/ # Main lending contract
-├── tests/ # Comprehensive test suite
-├── packages/ # TypeScript SDK and utilities
-└── docs/ # Documentation
-```
-
-### Core Contracts
-
-- **LendingContract**: Main protocol logic handling deposits, borrows, and liquidations
-- **Pool**: Individual asset pools with isolated risk parameters
-- **Obligation**: User position tracking (deposits, borrows, collateral)
-- **Oracle Integration**: Price feed integration for asset valuation
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Rust** 1.84.1 or later
-- **Soroban CLI** for contract deployment
-- **Node.js** 18+ for TypeScript utilities
-- **pnpm** package manager
-
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/mfactory-lab/jlend.git && cd jlend
-
-# Install dependencies
-pnpm install
+git clone https://github.com/pointgroup-labs/alula.git
+cd alula
+make setup && make build && make test
 ```
 
-### Building
-
-Build all contracts:
-
-```bash
-make build
-```
-
-Or build specific components:
-
-```bash
-# Build only the lending contract
-cargo build --release --target wasm32-unknown-unknown -p lending
-
-# Build with optimizations
-make build-optimized
-```
-
-### Testing
-
-Run the comprehensive test suite:
-
-```bash
-# Run all tests
-make test
-
-# Run specific test categories
-cargo test -p tests deposit
-cargo test -p tests liquidate
-cargo test -p tests interest_rates
-
-# Run fuzz tests
-cargo test -p tests fuzz
-```
-
-## 📖 Usage
-
-### Contract Deployment
-
-1. **Deploy the lending contract**:
-
-```bash
-soroban contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/lending.wasm \
-  --source YOUR_ACCOUNT \
-  --network testnet
-```
-
-2. **Initialize the contract**:
-
-```bash
-soroban contract invoke \
-  --id CONTRACT_ID \
-  --source YOUR_ACCOUNT \
-  --network testnet \
-  -- __constructor \
-  --admin YOUR_ACCOUNT \
-  --liquidation_threshold_percent 80
-```
-
-### Pool Management
-
-**Initialize a new lending pool**:
-
-```bash
-soroban contract invoke \
-  --id CONTRACT_ID \
-  --source YOUR_ACCOUNT \
-  --network testnet \
-  -- initialize_pool \
-  --token_address USDC_TOKEN_ADDRESS \
-  --token_ticker USDC
-```
-
-**Get pool information**:
-
-```bash
-soroban contract invoke \
-  --id CONTRACT_ID \
-  --network testnet \
-  -- get_pool \
-  --pool_address POOL_ADDRESS
-```
-
-### Lending Operations
-
-**Make a deposit**:
-
-```bash
-soroban contract invoke \
-  --id CONTRACT_ID \
-  --source YOUR_ACCOUNT \
-  --network testnet \
-  -- deposit \
-  --user YOUR_ACCOUNT \
-  --pool_address POOL_ADDRESS \
-  --amount 1000000000  # 100 USDC (7 decimals)
-```
-
-**Borrow against collateral**:
-
-```bash
-soroban contract invoke \
-  --id CONTRACT_ID \
-  --source YOUR_ACCOUNT \
-  --network testnet \
-  -- borrow \
-  --user YOUR_ACCOUNT \
-  --pool_address POOL_ADDRESS \
-  --amount 500000000   # 50 USDC
-```
-
-**Check user position**:
-
-```bash
-soroban contract invoke \
-  --id CONTRACT_ID \
-  --network testnet \
-  -- get_user_obligation \
-  --user USER_ACCOUNT
-```
-
-## ⚙️ Protocol Mechanics
-
-### Interest Rate Model
-
-JLend uses a **kinked interest rate model** with two slopes:
-
-- **Base Rate**: Minimum interest rate applied regardless of utilization
-- **Slope 1**: Interest rate increase below optimal utilization (typically 80%)
-- **Slope 2**: Steeper interest rate increase above optimal utilization
-- **Reserve Factor**: Percentage of interest allocated to protocol reserves
+## Directories
 
 ```
-Interest Rate = Base Rate + Utilization × Slope1 (if Utilization < Optimal)
-Interest Rate = Base Rate + Optimal × Slope1 + (Utilization - Optimal) × Slope2 (if Utilization > Optimal)
+contracts/
+├── market/                    # Lending, borrowing, liquidations, flash loans
+├── market_manager/            # Factory for deploying markets
+├── aggregated-oracle/         # Median price aggregation from SEP-40 oracles
+├── controlled_insurance_fund/ # Insurance fund for bad debt coverage
+├── soroswap_sep_40_adapter/   # AMM price adapter
+├── soroswap_router_mock/      # Test mock for swap router
+└── flash_loan_taker_mock/     # Test mock for flash loans
+
+libs/
+├── farms-interface/           # Interface for farms (delegated staking)
+├── insurance-fund-interface/  # Interface for insurance fund
+└── moderc3156/                # ERC-3156 flash loan interface
 ```
 
-### Health Factor
+## How It Works
 
-The health factor determines the safety of a borrowing position:
-
-```
-Health Factor = (Collateral Value × Liquidation Threshold) / Total Borrowed Value
-```
-
-- **Healthy**: Health Factor > 1.0
-- **Liquidatable**: Health Factor < 1.0
-
-### Liquidation Process
-
-When a position becomes unhealthy (Health Factor < 1.0):
-
-1. **Liquidators** can repay up to the close factor (default 50%) of the debt
-2. **Liquidation Bonus**: Liquidators receive collateral at a discount (default 5%)
-3. **Position Recovery**: Liquidation brings the position back to health
-
-## 🔒 Security
-
-### Audit Status
-
-- [ ] External security audit (planned)
-- [x] Comprehensive test suite with >90% coverage
-- [x] Fuzz testing for edge cases
-- [x] Formal verification of critical functions
+Alula is a money-market protocol built around per-asset pools inside a Market contract. Users supply assets into a pool to earn yield and receive jTokens (supply shares); borrowers take loans and accrue dTokens (debt shares). Share values grow as interest accrues, and all positions are tracked as obligations that summarize a user’s deposits, collateral, and borrows across assets.
 
 ### Risk Management
 
-- **Isolated Pools**: Each asset has separate risk parameters
-- **Overcollateralization**: Minimum 125% collateral ratio
-- **Liquidation Incentives**: Economic incentives for liquidators
-- **Interest Rate Limits**: Maximum interest rates to prevent exploits
+Risk is enforced at the obligation level using oracle-priced valuations. The protocol monitors a position’s Health Factor (weighted collateral value / weighted debt value) and a risk-adjusted Liquidation Health Factor (LHF) derived from per-asset close-LTV and liability-factor parameters.
 
-### Best Practices
+When LHF < 1, the obligation becomes eligible for liquidation in slices: a liquidator repays debt and receives collateral at a bounded discount (liquidation bonus). If a position becomes insolvent, the protocol can enter insolvency handling to reduce bad debt; any residual losses after liquidations are covered first by the pool’s insurance fund, and only then (if needed) socialized across lenders in that pool.
 
-- Use of `checked_*` arithmetic operations to prevent overflows
-- Comprehensive input validation
-- Access control for administrative functions
-- Immutable contract deployment
+### Interest Rates
 
-## 🗺️ Roadmap
+Borrow APR is a configurable dual-kink function of utilization (piecewise-linear). Pools define parameters such as:
 
-### Phase 1 (Current)
+- `BaseAPR`, `APR_k1`, `APR_k2`, `APR_max`
+- `U_k1`, `U_k2`
 
-- [x] Core lending and borrowing functionality
-- [x] Basic liquidation system
-- [x] Interest rate model implementation
-- [x] Comprehensive testing
+### Fees & Insurance Fund
 
-### Phase 2 (Q4 2025)
+Markets support a dual-layer fee model:
 
-- [ ] Advanced liquidation strategies
-- [ ] Flash loan support
-- [ ] Governance token (JLEND) integration
-- [ ] Cross-chain asset support
+- **Take rate (streaming)**: a portion of borrower interest is diverted before reaching lenders; supply APY is shown net of take rate
+- **Origination fee (atomic)**: charged on certain operations (e.g., `borrow`, `flash_loan`), with optional referrer split
 
-### Phase 3 (Q3 2026)
+Accrued fees are distributed via the permissionless distribute method according to configured beneficiaries. Each pool can fund an insurance fund via fee routing to absorb residual losses after liquidations before any shortfall is socialized to lenders.
 
-- [ ] Yield farming rewards
-- [ ] Insurance fund
-- [ ] Advanced risk management tools
-- [ ] Mobile SDK
+### Farms Integration
 
-### Phase 4 (Q4 2026)
+Alula supports delegated staking through an external Farms contract. Pools can be configured with supply farms (rewarding j-token holders) and debt farms (rewarding d-token holders). The Market contract automatically syncs user stakes when positions change, enabling token incentive programs without requiring users to manually stake.
 
-- [ ] Institutional features
-- [ ] Advanced derivatives
-- [ ] Cross-protocol integrations
-- [ ] Layer 2 scaling solutions
+### Core Operations
 
-## 🤝 Contributing
+| Function                               | Description                                  |
+| -------------------------------------- | -------------------------------------------- |
+| `deposit` / `withdraw`                 | Supply assets to earn yield                  |
+| `add_collateral` / `remove_collateral` | Manage collateral backing                    |
+| `borrow` / `repay`                     | Take and repay loans                         |
+| `liquidate`                            | Liquidate unhealthy positions for a bonus    |
+| `flash_loan`                           | Borrow without collateral (repay in same tx) |
+| `distribute_pool_fees`                 | Distribute accrued fees to beneficiaries     |
 
-We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
+See [docs/API.md](./docs/API.md) for the complete API reference.
 
-### Development Setup
+## Development
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/amazing-feature`
-3. Make your changes and add tests
-4. Run the test suite: `make test`
-5. Submit a pull request
+```bash
+make build           # Build contracts
+make build/optimize  # Optimize WASM
+make test            # Run tests
+make test/fuzz       # Fuzz testing
+make lint            # Clippy
+make fmt             # Format
+make cov             # Coverage
+make sdk             # Generate TypeScript SDK
+make ci              # Full CI
+```
 
-### Code Standards
+Run specific test:
 
-- Follow Rust best practices and idioms
-- Maintain test coverage above 90%
-- Document all public APIs
-- Use conventional commit messages
+```bash
+cargo nextest run test_liquidate --workspace --lib
+```
 
-## 📚 Related Projects
+## Security
 
-- [Bland](https://github.com/blend-capital/) - Another Stellar DeFi protocol
-- [Soroban](https://soroban.stellar.org/) - Stellar smart contract platform
-- [Stellar SDK](https://github.com/stellar/js-stellar-sdk) - JavaScript SDK for Stellar
+- Checked arithmetic — no overflows
+- `require_auth()` on all mutations
+- Oracle staleness checks with configurable maximum price age
+- Owned markets support queued config updates; ungoverned markets have immutable configuration
+- Emergency pause controls (market status)
+- Segregated pools / isolated markets to contain risk
+- Liquidations execute in slices (close-factor in health-improving mode)
 
-## 📄 License
+## Contributions
 
-This project is licensed under the [Apache License 2.0](https://opensource.org/licenses/Apache-2.0).
+1. Fork & branch
+2. Make changes
+3. `make ci`
+4. Open PR
 
-## 📞 Support
-
-- **Documentation**: [docs/](./docs/)
-- **Issues**: [GitHub Issues](https://github.com/mfactory-lab/jlend/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/mfactory-lab/jlend/discussions)
-- **Discord**: [Join our community](https://discord.gg/jlend)
+Use [conventional commits](https://www.conventionalcommits.org/).
