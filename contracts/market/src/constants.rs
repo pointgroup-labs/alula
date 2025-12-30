@@ -55,6 +55,8 @@ pub const DEFAULT_KINK1_APR_BPS: i128 = 3_000;
 pub const DEFAULT_KINK2_APR_BPS: i128 = 6_000;
 pub const DEFAULT_MAX_APR_BPS: i128 = 40_000;
 
+// -- Interest Rate reactivity --
+
 pub const DEFAULT_TARGET_UTILIZATION_RATIO_BPS: i128 = 6_500;
 pub const DEFAULT_REACTIVITY_CONSTANT: i128 = BPS_FACTOR; // x1
 pub const MIN_REACTIVITY_CONSTANT: u32 = 0;
