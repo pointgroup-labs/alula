@@ -1,44 +1,50 @@
 // ---- General ----
 
-// Number of basis points (bps) in one percent
-// 1% = 100 bps
+/// Number of basis points (bps) in one percent: 1% = 100 bps
 pub const BPS_IN_PERCENT: i128 = 100;
-// Basis points denominator for fractional calculations
-// 100% = 10_000 bps
+
+/// Basis points denominator for fractional calculations: 100% = 10,000 bps
 pub const BPS_FACTOR: i128 = 10_000;
-// A denominator that is primarily used for compounded accrual calculation when numbers are in
-// fixed point representations are raised to the natural number power. The bigger the denominator,
-// the better the multiplication precision, the better the binary exponentiation precision
+
+/// Denominator for fixed-point compounded interest calculations.
+/// Higher precision (10^18) ensures accurate results when raising to integer powers.
 pub const SCALED_FIXED_POINT_DENOMINATOR: i128 = i128::pow(10, 18);
 
 // ---- Time Units ----
 
-// Seconds in a minute
+/// Seconds in a minute
 pub const SECONDS_PER_MINUTE: u64 = 60;
-// Seconds in an hour
+
+/// Seconds in an hour
 pub const SECONDS_PER_HOUR: u64 = SECONDS_PER_MINUTE * 60;
-// Seconds in a day
+
+/// Seconds in a day
 pub const SECONDS_PER_DAY: u64 = SECONDS_PER_HOUR * 24;
-// Average number of seconds in a year (365.2422 days)
-// Used for interest accrual scaling
+
+/// Average number of seconds in a year (365.2422 days).
+/// Used for interest rate annualization.
 pub const SECONDS_IN_YEAR: u64 = 31_556_926;
 
 // ---- Storage TTL ----
 
-// Average ledger close time on Stellar
+/// Average ledger close time on Stellar (~6 seconds)
 pub const SECONDS_PER_LEDGER: u64 = 6;
-// Number of ledgers in a day
+
+/// Number of ledgers in a day
 pub const LEDGERS_PER_DAY: u32 = (SECONDS_PER_DAY / SECONDS_PER_LEDGER) as u32;
-// Instance storage extension is spread among all users, so it must be cheap and paid regularly
+
+/// Instance storage TTL threshold (~40 days).
+/// Cost is shared among all users, so extensions are frequent and cheap.
 pub const INSTANCE_THRESHOLD: u32 = 40 * LEDGERS_PER_DAY;
 pub const INSTANCE_BUMP: u32 = INSTANCE_THRESHOLD + LEDGERS_PER_DAY;
-// Shared persistent storage extension is spread among all shared resource users, so it must be
-// cheap and paid regularly
+
+/// Shared persistent storage TTL threshold (~50 days).
+/// Cost is shared among resource users, so extensions are frequent and cheap.
 pub const SHARED_THRESHOLD: u32 = 50 * LEDGERS_PER_DAY;
 pub const SHARED_BUMP: u32 = SHARED_THRESHOLD + LEDGERS_PER_DAY;
-// Individual persistent storage extension is usually paid by the data owners. It should neither be
-// paid very often (to reduce extension operation costs) nor very rarely (to minimize archival
-// risk)
+
+/// Individual persistent storage TTL threshold (~160 days).
+/// Paid by data owners; balanced between extension frequency and archival risk.
 pub const INDIVIDUAL_THRESHOLD: u32 = 160 * LEDGERS_PER_DAY;
 pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 
