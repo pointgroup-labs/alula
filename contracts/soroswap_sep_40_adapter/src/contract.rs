@@ -21,7 +21,7 @@ impl SoroswapSep40AdapterContract {
     /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
     ///   new version of the contract
-    // WARN: Ability to upgrade contract must be removed before mainnet deployment
+    // TODO: Ability to upgrade contract must be removed before mainnet deployment
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         require_admin(&e);
 

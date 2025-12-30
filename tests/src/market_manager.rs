@@ -28,6 +28,7 @@ struct ManagerSetup<'a> {
 impl<'a> ManagerSetup<'a> {
     fn new() -> Self {
         let e = get_default_env();
+        e.cost_estimate().budget().reset_unlimited();
         let manager_admin = Address::generate(&e);
         let market_contract_wasm_hash = e.deployer().upload_contract_wasm(market::WASM);
 
@@ -54,6 +55,7 @@ fn test_manager_deploy_markets() {
 
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
+    let insurance_fund = Address::generate(&e);
 
     let salt_1 = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
@@ -62,6 +64,7 @@ fn test_manager_deploy_markets() {
         &market_admin,
         &name_1,
         &oracle,
+        &insurance_fund,
         &2,
         &1,
         &DEFAULT_INSOLVENCY_LTV_BPS,
@@ -79,6 +82,7 @@ fn test_manager_deploy_markets() {
         &market_admin,
         &name_2,
         &oracle,
+        &insurance_fund,
         &2,
         &1,
         &DEFAULT_INSOLVENCY_LTV_BPS,
@@ -97,6 +101,7 @@ fn test_manager_cannot_redeploy_market() {
 
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
+    let insurance_fund = Address::generate(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
@@ -105,6 +110,7 @@ fn test_manager_cannot_redeploy_market() {
         &market_admin,
         &name_1,
         &oracle,
+        &insurance_fund,
         &2,
         &1,
         &DEFAULT_INSOLVENCY_LTV_BPS,
@@ -122,6 +128,7 @@ fn test_manager_cannot_redeploy_market() {
                 &market_admin,
                 &name_2,
                 &oracle,
+                &insurance_fund,
                 &2,
                 &1,
                 &DEFAULT_INSOLVENCY_LTV_BPS,
@@ -137,15 +144,18 @@ fn test_manager_invalid_deploy() {
 
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
+    let insurance_fund = Address::generate(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
+
     assert_eq!(
         manager_client.try_deploy(
             &salt,
             &market_admin,
             &name_1,
             &oracle,
+            &insurance_fund,
             &2,
             &-1,
             &DEFAULT_INSOLVENCY_LTV_BPS,
@@ -160,6 +170,7 @@ fn test_manager_invalid_deploy() {
             &market_admin,
             &name_1,
             &oracle,
+            &insurance_fund,
             &((2 * MAX_RESERVES) + 1),
             &0,
             &DEFAULT_INSOLVENCY_LTV_BPS,
@@ -175,6 +186,7 @@ fn test_manager_invalid_deploy() {
                 &market_admin,
                 &name_1,
                 &oracle,
+                &insurance_fund,
                 &((2 * MAX_RESERVES) - 1),
                 &0,
                 &DEFAULT_INSOLVENCY_LTV_BPS,

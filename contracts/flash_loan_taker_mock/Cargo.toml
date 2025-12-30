@@ -9,8 +9,8 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-market = { path = "../market" }
-moderc3156 = { path = "../../moderc3156" }
+market = { workspace = true }
+moderc3156 = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 

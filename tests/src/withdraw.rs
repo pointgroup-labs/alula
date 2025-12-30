@@ -29,11 +29,11 @@ fn test_withdraw() {
     } = TestMarketFixture::new_with_pool_config(pool_config);
     let creditor = &users[0];
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // Withdraw 50%
     let creditor_balance_before = gold_token_client.balance(creditor);
-    contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
     let creditor_balance_after = gold_token_client.balance(creditor);
 
     assert_eq!(
@@ -58,7 +58,7 @@ fn test_withdraw() {
     assert_eq!(pool_total_available, DEFAULT_DEPOSIT_AMOUNT / 2);
 
     // Withdraw 50% again
-    contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2));
+    contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
 
     assert_eq!(
         get_obligation_originally_deposited(&contract_client, creditor, &gold_pool_address),
@@ -87,6 +87,7 @@ fn test_remove_collateral() {
         collateral_provider,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
     );
 
     // Remove 50%
@@ -95,6 +96,7 @@ fn test_remove_collateral() {
         collateral_provider,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
     );
     let creditor_balance_after = gold_token_client.balance(collateral_provider);
 
@@ -130,6 +132,7 @@ fn test_remove_collateral() {
         collateral_provider,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
     );
 
     assert_eq!(
@@ -161,13 +164,13 @@ fn test_withdraw_zero() {
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let obligation_before =
         get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
     let pool_before = contract_client.get_pool(&gold_pool_address);
 
-    contract_client.withdraw(creditor, &gold_pool_address, &0);
+    contract_client.withdraw(creditor, &gold_pool_address, &0, &None);
 
     let obligation_after =
         get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
@@ -187,13 +190,14 @@ fn test_remove_collateral_zero() {
         collateral_provider,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
     );
 
     let obligation_before =
         get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
     let pool_before = contract_client.get_pool(&gold_pool_address);
 
-    contract_client.remove_collateral(collateral_provider, &gold_pool_address, &0);
+    contract_client.remove_collateral(collateral_provider, &gold_pool_address, &0, &None);
 
     let obligation_after =
         get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
@@ -209,10 +213,10 @@ fn test_withdraw_negative() {
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
 
     assert_eq!(
-        contract_client.try_withdraw(creditor, &gold_pool_address, &-1),
+        contract_client.try_withdraw(creditor, &gold_pool_address, &-1, &None),
         Err(Ok(MCError::NegativeInputAmount))
     );
 }
@@ -227,10 +231,11 @@ fn test_remove_collateral_negative() {
         collateral_provider,
         &gold_pool_address,
         &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
     );
 
     assert_eq!(
-        contract_client.try_remove_collateral(collateral_provider, &gold_pool_address, &-1),
+        contract_client.try_remove_collateral(collateral_provider, &gold_pool_address, &-1, &None),
         Err(Ok(MCError::NegativeInputAmount))
     );
 }
@@ -248,15 +253,15 @@ fn test_withdraw_all_with_i128_max() {
     let creditor_1 = &users[0];
     let creditor_2 = &users[1];
 
-    contract_client.deposit(creditor_1, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT); // NB: A more general case when the creditor has more than 1 deposits
-    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(creditor_1, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None); // NB: A more general case when the creditor has more than 1 deposits
+    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let pool_total_supply_before =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
     let creditor_balance_before = gold_token_client.balance(creditor_1);
 
-    contract_client.withdraw(creditor_1, &gold_pool_address, &i128::MAX);
+    contract_client.withdraw(creditor_1, &gold_pool_address, &i128::MAX, &None);
 
     let pool_total_supply_after =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
@@ -287,15 +292,30 @@ fn test_remove_all_with_i128_max() {
     let creditor_1 = &users[0];
     let creditor_2 = &users[1];
 
-    contract_client.add_collateral(creditor_1, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT); // NB: A more general case when the collateral adder has more than 1 collaterals
-    contract_client.add_collateral(creditor_1, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
-    contract_client.add_collateral(creditor_2, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT);
+    contract_client.add_collateral(
+        creditor_1,
+        &usdc_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    ); // NB: A more general case when the collateral adder has more than 1 collaterals
+    contract_client.add_collateral(
+        creditor_1,
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        creditor_2,
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
 
     let pool_total_collateral_before =
         get_pool_total_collateral(&contract_client, &gold_pool_address);
     let creditor_balance_before = gold_token_client.balance(creditor_1);
 
-    contract_client.remove_collateral(creditor_1, &gold_pool_address, &i128::MAX);
+    contract_client.remove_collateral(creditor_1, &gold_pool_address, &i128::MAX, &None);
 
     let pool_total_collateral_after =
         get_pool_total_collateral(&contract_client, &gold_pool_address);
@@ -323,10 +343,15 @@ fn test_withdraw_exceeds_utilization_cap() {
     let creditor = &users[0];
     let borrower = &users[1];
 
-    contract_client.add_collateral(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
-    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.add_collateral(
+        borrower,
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     // Borrow 10% of USDC
-    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10));
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10), &None);
 
     let pool_borrowed = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
     let pool_total_supply = get_pool_total_supply(&contract_client, &usdc_pool_address).unwrap();
@@ -334,12 +359,18 @@ fn test_withdraw_exceeds_utilization_cap() {
     // Check that the utilization ratio is 10%
     assert_eq!(pool_total_supply / pool_borrowed, 10);
 
-    contract_client.withdraw(creditor, &usdc_pool_address, &(89 * DEFAULT_DEPOSIT_AMOUNT / 100));
+    contract_client.withdraw(
+        creditor,
+        &usdc_pool_address,
+        &(89 * DEFAULT_DEPOSIT_AMOUNT / 100),
+        &None,
+    );
     assert_eq!(
         contract_client.try_withdraw(
             creditor,
             &usdc_pool_address,
-            &(88 * DEFAULT_DEPOSIT_AMOUNT / 100)
+            &(88 * DEFAULT_DEPOSIT_AMOUNT / 100),
+            &None
         ),
         Err(Ok(MCError::NotEnoughPoolFunds))
     );
@@ -360,27 +391,32 @@ fn withdraw_up_to_open_ltv() {
 
     let creditor_balance_1 = gold_token_client.balance(creditor);
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.deposit(liquidity_provider, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &gold_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.borrow(creditor, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2));
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(creditor, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2), &None);
     // Try to withdraw more than default openLTV(70%) allows
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let creditor_balance_2 = gold_token_client.balance(creditor);
     assert!(creditor_balance_1 > creditor_balance_2);
 
     // Repay all debt
-    contract_client.repay(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.repay(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // Withdraw all
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     let creditor_balance_3 = gold_token_client.balance(creditor);
 
     assert_eq!(creditor_balance_1, creditor_balance_3);
     assert_eq!(
-        contract_client.try_withdraw(creditor, &gold_pool_address, &1),
+        contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
 }
@@ -398,10 +434,20 @@ fn remove_collateral_up_to_open_ltv() {
     let collateral_adder = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.add_collateral(collateral_adder, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(
+        collateral_adder,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
-    contract_client.borrow(collateral_adder, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2));
+    contract_client.borrow(
+        collateral_adder,
+        &usdc_pool_address,
+        &((DEFAULT_DEPOSIT_AMOUNT) / 2),
+        &None,
+    );
 
     let obligation_collateral_before =
         get_obligation_collateral(&contract_client, collateral_adder, &gold_pool_address).unwrap();
@@ -412,6 +458,7 @@ fn remove_collateral_up_to_open_ltv() {
         collateral_adder,
         &gold_pool_address,
         &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
     );
     let obligation_collateral_after =
         get_obligation_collateral(&contract_client, collateral_adder, &gold_pool_address).unwrap();
@@ -455,8 +502,13 @@ fn test_withdraw_scarcity_over_limit() {
     let creditor = &users[0];
     let borrower = &users[1];
 
-    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT));
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(
+        borrower,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
     // - Borrow up to utilization ratio cap -
 
@@ -464,7 +516,7 @@ fn test_withdraw_scarcity_over_limit() {
         .fixed_mul_ceil(DEFAULT_UTILIZATION_RATIO_LIMIT_BPS, BPS_FACTOR)
         .unwrap();
 
-    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount);
+    contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
 
     // - Try to withdraw remaining liquidity -
 
@@ -472,14 +524,19 @@ fn test_withdraw_scarcity_over_limit() {
         DEFAULT_DEPOSIT_AMOUNT.fixed_mul_ceil(WITHDRAW_SCARCITY_LIMIT_BPS, BPS_FACTOR).unwrap();
 
     assert_eq!(
-        contract_client.try_withdraw(creditor, &gold_pool_address, &(allowed_withdrawal + 1)),
+        contract_client.try_withdraw(
+            creditor,
+            &gold_pool_address,
+            &(allowed_withdrawal + 1),
+            &None
+        ),
         Err(Ok(MCError::WithdrawScarcityOverLimit))
     );
 
-    contract_client.withdraw(creditor, &gold_pool_address, &allowed_withdrawal);
+    contract_client.withdraw(creditor, &gold_pool_address, &allowed_withdrawal, &None);
 
     assert_eq!(
-        contract_client.try_withdraw(creditor, &gold_pool_address, &1),
+        contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::ScarcityCooldownPeriod))
     );
 
@@ -490,13 +547,13 @@ fn test_withdraw_scarcity_over_limit() {
     });
 
     assert_eq!(
-        contract_client.try_withdraw(creditor, &gold_pool_address, &allowed_withdrawal),
+        contract_client.try_withdraw(creditor, &gold_pool_address, &allowed_withdrawal, &None),
         Err(Ok(MCError::WithdrawScarcityOverLimit)) /* Must fail now, since UR has increased due to a previous withdrawal */
     );
 
     assert!(
         contract_client
-            .try_withdraw(creditor, &gold_pool_address, &(allowed_withdrawal / 10))
+            .try_withdraw(creditor, &gold_pool_address, &(allowed_withdrawal / 10), &None)
             .is_ok()
     );
 }

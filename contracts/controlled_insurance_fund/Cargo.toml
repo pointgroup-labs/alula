@@ -1,0 +1,16 @@
+[package]
+name = "controlled_insurance_fund"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+insurance-fund-trait = { workspace = true }
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

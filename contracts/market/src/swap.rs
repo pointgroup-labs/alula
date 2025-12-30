@@ -12,16 +12,16 @@ use crate::{constants::*, error::MCError, math_utils::MathUtils, soroswap_router
 // TODO: Maybe, create some internal trait for common swap operations and
 //  implement it for different swap providers?
 
-/// Gets the amount that the user must provide to receive a specific amount if a swap is performed
-/// at the current moment
-///
-/// # Arguments
-/// * `token_in` - address of a token that would be taken from the user
-/// * `token_out` - address of a token that would be given to the user
-/// * `amount_out` - an exact amount of `token_in` that would be given to the user
-///
-/// # Returns
-/// Amount of `token_in` that must be provided by the user
+// Gets the amount that the user must provide to receive a specific amount if a swap is performed
+// at the current moment
+//
+// # Arguments
+// * `token_in` - address of a token that would be taken from the user
+// * `token_out` - address of a token that would be given to the user
+// * `amount_out` - an exact amount of `token_in` that would be given to the user
+//
+// # Returns
+// Amount of `token_in` that must be provided by the user
 pub fn get_amount_in(
     e: &Env,
     token_in: &Address,
@@ -39,15 +39,15 @@ pub fn get_amount_in(
     Ok(amount_in)
 }
 
-/// Gets the amount that user would receive if performed a swap at the current moment
-///
-/// # Arguments
-/// * `token_in` - address of a token that would be taken from the user
-/// * `token_out` - address of a token that would be given to the user
-/// * `amount_in` - an exact amount of `token_in` that would be taken from the user
-///
-/// # Returns
-/// Amount of `token_out` that would be given to the user
+// Gets the amount that user would receive if performed a swap at the current moment
+//
+// # Arguments
+// * `token_in` - address of a token that would be taken from the user
+// * `token_out` - address of a token that would be given to the user
+// * `amount_in` - an exact amount of `token_in` that would be taken from the user
+//
+// # Returns
+// Amount of `token_out` that would be given to the user
 pub fn get_amount_out(
     e: &Env,
     token_in: &Address,
@@ -65,18 +65,18 @@ pub fn get_amount_out(
     Ok(amount_out)
 }
 
-/// Swaps user's tokens
-///
-/// # Arguments
-/// * `user` - user that performs a swap
-/// * `token_in` - address of a token that is taken from the user
-/// * `token_out` - address of a token that is given to the user
-/// * `amount_in` - amount of the desired `token_in`
-/// * `amount_out` - exact amount of the `token_out`
-/// * `max_slippage_bps` - basis points percentage of the maximum allowed `amount_in` slippage
-///
-/// # Returns
-/// Taken from user `token_in` amount
+// Swaps user's tokens
+//
+// # Arguments
+// * `user` - user that performs a swap
+// * `token_in` - address of a token that is taken from the user
+// * `token_out` - address of a token that is given to the user
+// * `amount_in` - amount of the desired `token_in`
+// * `amount_out` - exact amount of the `token_out`
+// * `max_slippage_bps` - basis points percentage of the maximum allowed `amount_in` slippage
+//
+// # Returns
+// Taken from user `token_in` amount
 pub fn swap_tokens_for_exact_tokens(
     e: &Env,
     user: &Address,
@@ -125,19 +125,19 @@ pub fn swap_tokens_for_exact_tokens(
     Ok(received_amount)
 }
 
-/// Swaps user's tokens
-///
-/// # Arguments
-/// * `user` - user that performs a swap
-/// * `token_in` - address of a token that is taken from the user
-/// * `token_out` - address of a token that is given to the user
-/// * `amount_in` - exact amount of the `token_in`
-/// * `amount_out` - desired amount of the `token_out`
-/// * `max_slippage_bps` - basis points percentage of the maximum allowed `amount_out` slippage.
-///   [`DEFAULT_MAX_SLIPPAGE_BPS`] if [`None`]
-///
-/// # Returns
-/// Given to user `token_out` amount
+// Swaps user's tokens
+//
+// # Arguments
+// * `user` - user that performs a swap
+// * `token_in` - address of a token that is taken from the user
+// * `token_out` - address of a token that is given to the user
+// * `amount_in` - exact amount of the `token_in`
+// * `amount_out` - desired amount of the `token_out`
+// * `max_slippage_bps` - basis points percentage of the maximum allowed `amount_out` slippage.
+//   [`DEFAULT_MAX_SLIPPAGE_BPS`] if [`None`]
+//
+// # Returns
+// Given to user `token_out` amount
 pub fn swap_exact_tokens_for_tokens(
     e: &Env,
     user: &Address,
@@ -168,19 +168,18 @@ pub fn swap_exact_tokens_for_tokens(
         &u64::MAX,
     );
 
-    // TODO: What warning\error\event exactly must happen here?
     let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
 
     Ok(received_amount)
 }
 
-/// Resolves the max slippage basis points percentage
-///
-/// # Arguments
-/// * `max_slippage_bps` - optional basis points percentage of the maximum allowed slippage
-///
-/// # Returns
-/// Resolved basis points percentage of the maximum allowed slippage
+// Resolves the max slippage basis points percentage
+//
+// # Arguments
+// * `max_slippage_bps` - optional basis points percentage of the maximum allowed slippage
+//
+// # Returns
+// Resolved basis points percentage of the maximum allowed slippage
 fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError> {
     if let Some(slippage) = max_slippage_bps {
         if !(0..=BPS_FACTOR).contains(&slippage) {

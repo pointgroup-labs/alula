@@ -11,7 +11,7 @@ use crate::{
     pool::{Pool, PoolBootstrapPeriod},
 };
 
-/// Compound interest rates represented in basis points
+// Compound interest rates represented in basis points
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[contracttype]
 pub struct AnnualPercentageYields {
@@ -20,8 +20,8 @@ pub struct AnnualPercentageYields {
 }
 
 impl Pool {
-    /// Accrues interest on the pool's total borrowed amount based
-    /// on the time elapsed since the last accrual
+    // Accrues interest on the pool's total borrowed amount based
+    // on the time elapsed since the last accrual
     pub fn accrue_interest(&mut self, e: &Env) -> Result<(), MCError> {
         let current_timestamp = e.ledger().timestamp();
         if current_timestamp < self.last_accrual_timestamp {
@@ -43,9 +43,13 @@ impl Pool {
         }
 
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
-        let current_borrow_apr =
-            self.config.interest_rate_model.compute_borrow_apr(utilization_ratio_bps)?;
-        let accrual_multiplier =
+        let current_borrow_apr = self
+            .config
+            .interest_rate_model
+            .compute_borrow_apr(utilization_ratio_bps)?
+            .fixed_mul_ceil(self.interest_rate_modifier, BPS_FACTOR)
+            .map_over_or_underflow()?;
+        let accrual_multiplier: i128 =
             self.config.accrual_model.compute_multiplier(current_borrow_apr, seconds_passed)?;
 
         let new_total_borrowed = self
@@ -54,26 +58,51 @@ impl Pool {
             .map_over_or_underflow()?;
         let accrued =
             new_total_borrowed.checked_sub(self.total_borrowed).map_over_or_underflow()?;
-        let accrued_to_reserve = accrued
+        let take_rate_accrual_part = accrued
             .fixed_mul_ceil(self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
             .map_over_or_underflow()?;
-        let new_accumulated_reserve_fees = self
-            .accumulated_reserve_fees
-            .checked_add(accrued_to_reserve)
-            .map_over_or_underflow()?;
 
-        self.accumulated_reserve_fees = new_accumulated_reserve_fees;
+        let new_take_rate_fees_sum =
+            self.take_rate_fees_sum.checked_add(take_rate_accrual_part).map_over_or_underflow()?;
+
         self.total_borrowed = new_total_borrowed;
-        self.last_accrual_timestamp = current_timestamp;
+        self.take_rate_fees_sum = new_take_rate_fees_sum;
 
         self.borrow_apr_bps = current_borrow_apr;
         self.supply_apr_bps = current_borrow_apr
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
             .map_over_or_underflow()?
             .fixed_mul_floor(BPS_FACTOR - self.config.fee_config.take_rate_bps as i128, BPS_FACTOR)
-            .map_over_or_underflow()?; // safe
+            .map_over_or_underflow()?;
 
-        // -- Accrue supply APR bootstraps --
+        self.last_accrual_timestamp = current_timestamp;
+
+        // TODO: Verify that all allowed params imply an expected/reasonable behavior
+        let utilization_diff = utilization_ratio_bps
+            .checked_sub(self.target_utilization_ratio_bps)
+            .map_over_or_underflow()?;
+        let utilization_error =
+            (seconds_passed as i128).checked_mul(utilization_diff).map_over_or_underflow()?;
+        let new_interest_rate_modifier = if utilization_diff >= 0 {
+            // Positive diff - modifier decreases
+            let rate_diff = utilization_error
+                .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR * 10)
+                .map_over_or_underflow()?;
+
+            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier - rate_diff)
+        } else {
+            // Negative diff - modifier increases
+            let rate_diff = utilization_error
+                .fixed_mul_ceil(self.config.ir_reactivity_constant as i128, BPS_FACTOR)
+                .map_over_or_underflow()?
+                .checked_neg()
+                .map_over_or_underflow()?;
+            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier + rate_diff)
+        };
+
+        self.interest_rate_modifier = new_interest_rate_modifier;
+
+        // -- Accrue supply APR bootstraps(candidate to be removed) --
 
         let mut updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
         let mut outdated_periods: Vec<(u64, u64)> = svec![e];
@@ -119,8 +148,8 @@ impl Pool {
         Ok(())
     }
 
-    /// Get current annual percentage yields (APY) for borrowing and supplying
-    /// based on the pool's utilization ratio, interest rate model, and accrual model
+    // Get current annual percentage yields (APY) for borrowing and supplying
+    // based on the pool's utilization ratio, interest rate model, and accrual model
     pub fn get_apy(&self) -> Result<AnnualPercentageYields, MCError> {
         let utilization_ratio_bps = self.compute_utilization_ratio_bps()?;
 
@@ -145,9 +174,8 @@ impl Pool {
         Ok(apy)
     }
 
-    /// Computes the current utilization ratio in basis points (bps)
+    // Computes the current utilization ratio in basis points (bps)
     pub fn compute_utilization_ratio_bps(&self) -> Result<i128, MCError> {
-        // WARN: Is this a correct way to count UR now, when we have reserves?
         let total = self.total_supply()?;
 
         if total == 0 {

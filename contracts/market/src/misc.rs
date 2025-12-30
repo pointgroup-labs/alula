@@ -10,8 +10,8 @@ use crate::{
 #[contracttype]
 #[derive(Debug, PartialEq, Eq, Clone)]
 
-/// Represents the pool's plain data with additionally computed info. Intended to be used as a result of simulated read-only
-/// invocations
+// Represents the pool's plain data with additionally computed info. Intended to be used as a result of simulated read-only
+// invocations
 pub struct PoolData {
     pub pool: Pool,
     pub apy: AnnualPercentageYields,
@@ -22,8 +22,8 @@ pub struct PoolData {
     pub oracle_asset_price: i128,
 }
 
-/// Represents the entire market's data(for every pool) with additionally computed info. Intended to be used as a result of simulated read-only
-/// invocations
+// Represents the entire market's data(for every pool) with additionally computed info. Intended to be used as a result of simulated read-only
+// invocations
 #[contracttype]
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct MarketData {
@@ -34,10 +34,10 @@ pub struct MarketData {
     pub oracle_price_decimals: u32,
 }
 
-/// Ensures that the provided amount is non-negative.
+// Ensures that the provided amount is non-negative.
 #[inline(always)]
 pub fn require_nonnegative(amount: i128) -> Result<(), MCError> {
-    if amount < 0 {
+    if amount.is_negative() {
         return Err(MCError::NegativeInputAmount);
     }
 
@@ -55,7 +55,15 @@ pub fn require_owned_and_admin(e: &Env) -> Result<(), MCError> {
     Ok(())
 }
 
-/// Ensures that the caller is the admin of the contract
+#[inline(always)]
+pub fn require_insurance_fund(e: &Env) -> Result<(), MCError> {
+    let fund = storage::get_insurance_fund(e);
+    fund.require_auth();
+
+    Ok(())
+}
+
+// Ensures that the caller is the admin of the contract
 #[inline(always)]
 pub fn require_admin(e: &Env) {
     storage::get_admin(e).require_auth();
@@ -67,7 +75,7 @@ pub fn require_deployer(e: &Env) {
 }
 
 #[inline(always)]
-pub fn require_borrow_allowed(e: &Env) -> Result<(), MCError> {
+pub fn require_borrows_on_market_allowed(e: &Env) -> Result<(), MCError> {
     if !matches!(storage::get_market_status(e), MarketStatus::Active) {
         return Err(MCError::BorrowForbiddenOnMarket);
     }
@@ -76,7 +84,7 @@ pub fn require_borrow_allowed(e: &Env) -> Result<(), MCError> {
 }
 
 #[inline(always)]
-pub fn require_deposit_allowed(e: &Env) -> Result<(), MCError> {
+pub fn require_deposits_on_market_allowed(e: &Env) -> Result<(), MCError> {
     if !matches!(storage::get_market_status(e), MarketStatus::Active | MarketStatus::BorrowFrozen) {
         return Err(MCError::DepositForbiddenOnMarket);
     }
@@ -85,7 +93,7 @@ pub fn require_deposit_allowed(e: &Env) -> Result<(), MCError> {
 }
 
 #[inline(always)]
-pub fn require_not_frozen(e: &Env) -> Result<(), MCError> {
+pub fn require_market_not_frozen(e: &Env) -> Result<(), MCError> {
     if matches!(storage::get_market_status(e), MarketStatus::Frozen) {
         return Err(MCError::MarketIsFrozen);
     }

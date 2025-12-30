@@ -3,22 +3,22 @@ use soroban_sdk::{Address, Bytes, BytesN, Env, Vec, contracttype, xdr::ToXdr};
 
 use crate::{constants::*, error::MCError, math_utils::MathUtils, storage};
 
-/// Used to generate a unique seed for a multiply pair obligation
-/// See [`MultiplyPair::compute_obligation_seed`]
+// Used to generate a unique seed for a multiply pair obligation
+// See [`MultiplyPair::compute_obligation_seed`]
 const MULTIPLY_PAIR_PREFIX: &str = "MP_";
 
 #[contracttype]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct MultiplyPair {
-    /// Address of a pool in a pair for a leveraged deposit
+    // Address of a pool in a pair for a leveraged deposit
     pub deposit_pool: Address,
-    /// Address of a pool in a pair for a leveraged borrow
+    // Address of a pool in a pair for a leveraged borrow
     pub borrow_pool: Address,
-    /// Maximum leverage multiplier based on borrow pool openLTV value. Scaled with
-    /// [`LEVERAGE_SCALE`]
+    // Maximum leverage multiplier based on borrow pool openLTV value. Scaled with
+    // [`LEVERAGE_SCALE`]
     pub max_leverage_multiplier: u32,
-    /// Deterministically computed unique seed per a pair, used to distinguish a user's multiply
-    /// pair obligation from others
+    // Deterministically computed unique seed per a pair, used to distinguish a user's multiply
+    // pair obligation from others
     pub seed: BytesN<32>,
 }
 
@@ -36,7 +36,7 @@ impl MultiplyPair {
             DEFAULT_MAX_SWAP_FEE_BPS,
             borrow_pool_open_ltv_bps,
             deposit_pool_liability_factor_bps,
-            storage::get_min_collateral_value(e),
+            storage::get_min_collateral_value_cents(e),
         );
         let seed = Self::compute_obligation_seed(e, deposit_pool_address, borrow_pool_address);
 
@@ -48,17 +48,17 @@ impl MultiplyPair {
         }
     }
 
-    /// Returns a tuple that can be used as a unique key
+    // Returns a tuple that can be used as a unique key
     pub fn key(&self) -> (Address, Address) {
         (self.deposit_pool.clone(), self.borrow_pool.clone())
     }
 
-    /// Tries to get the multiply pair from the contract's storage
-    ///
-    /// # Returns
-    /// - [`Ok(MultiplyPair)`] if a multiply pair for the given deposit and pools addresses exists
-    ///   in the contract's storage
-    /// - [`Err(MCError::MultiplyPairDoesNotExist)`] otherwise
+    // Tries to get the multiply pair from the contract's storage
+    //
+    // # Returns
+    // - [`Ok(MultiplyPair)`] if a multiply pair for the given deposit and pools addresses exists
+    //   in the contract's storage
+    // - [`Err(MCError::MultiplyPairDoesNotExist)`] otherwise
     pub fn try_get(
         e: &Env,
         deposit_pool_address: &Address,
@@ -68,10 +68,10 @@ impl MultiplyPair {
             .ok_or(MCError::MultiplyPairDoesNotExist)
     }
 
-    /// Registers a multiply pair in the pairs list
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
+    // Registers a multiply pair in the pairs list
+    //
+    // # WARNING
+    // Modifies the contract's storage
     pub fn register(&self, e: &Env) -> u32 {
         storage::register_multiply_pair(e, self.clone())
     }
@@ -92,10 +92,10 @@ impl MultiplyPair {
         storage::multiply_pair_exists(e, deposit_pool_address, borrow_pool_address)
     }
 
-    /// Saves\updates multiply pair in the contract's storage
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
+    // Saves\updates multiply pair in the contract's storage
+    //
+    // # WARNING
+    // Modifies the contract's storage
     pub fn set(&self, e: &Env) {
         storage::set_multiply_pair(e, &self.deposit_pool, &self.borrow_pool, self);
     }
@@ -105,63 +105,60 @@ impl MultiplyPair {
     }
 
     // TODO: Likely 'deposit as margin' will contain a different value, compared to
-    // `borrow as margin` case. Use min?
-    /// Computes the maximum leverage multiplier (for 'borrow as margin' case):
-    /// `max_multiplier = (1 + flash_loan_fee) / ((1 + flash_loan_fee) - (1 - max_swap_fee_bps) *
-    /// openLTV)`. Since flash loan fee and swap fee are a part of the final 'borrow' position,
-    /// accounting them makes maximum multiplier smaller, so this is a must have
-    fn compute_max_leverage_multiplier(
+    // `borrow as margin` case. Use min? Account for `min_collateral`?
+    // Computes the maximum leverage multiplier (simplified, ignoring min_collateral).
+    // Formula: L = K / (K - LTV)
+    // Where K = LiabilityFactor * (1 + FlashLoanFee) * (1 + SwapFee)
+    pub fn compute_max_leverage_multiplier(
         flash_loan_fee_bps: i128,
         max_swap_fee_bps: i128,
         borrow_pool_open_ltv_bps: i128,
-        _deposit_pool_liability_factor_bps: i128, // TODO: start accounting in calculations
-        _min_collateral_value: i128,              // TODO: start accounting in calculations
+        deposit_pool_liability_factor_bps: i128,
+        _min_collateral_value: i128, // TODO: Account in calculations?
     ) -> u32 {
-        // compile-time assertion, hence, no error is returned
         const _: () = assert!((LEVERAGE_SCALE as i128) < BPS_FACTOR, "leverage_scale_is_too_big");
-
         const SCALE: i128 = BPS_FACTOR / (LEVERAGE_SCALE as i128);
 
-        // Numerator: (1 + flash_loan_fee)
-        let numerator_term = BPS_FACTOR + flash_loan_fee_bps;
+        let one_plus_flf = BPS_FACTOR + flash_loan_fee_bps; // safe
+        let one_plus_msf = BPS_FACTOR + max_swap_fee_bps; // safe
 
-        // Denominator term 1: (1 - swap_fee) * openLTV
-        let one_minus_swap_fee = BPS_FACTOR - max_swap_fee_bps; // safe
-        let denominator_term_one = one_minus_swap_fee
-            .fixed_mul_floor(borrow_pool_open_ltv_bps, BPS_FACTOR)
-            .map_over_or_underflow()
-            .unwrap(); // safe
+        let k_num_factor_bps = deposit_pool_liability_factor_bps
+            .fixed_mul_floor(one_plus_flf, BPS_FACTOR)
+            .unwrap()
+            .fixed_mul_floor(one_plus_msf, BPS_FACTOR)
+            .unwrap();
+        let k_denom_factor_bps = deposit_pool_liability_factor_bps
+            .fixed_mul_ceil(one_plus_flf, BPS_FACTOR)
+            .unwrap()
+            .fixed_mul_ceil(one_plus_msf, BPS_FACTOR)
+            .unwrap();
 
-        // Denominator: (1 + flash_loan_fee) - (1 - swap_fee) * openLTV
-        let denominator = numerator_term - denominator_term_one; // safe
-
-        // Full calculation: multiplier = numerator / denominator
-        let max_multiplier_bps = numerator_term
+        let denominator = k_denom_factor_bps - borrow_pool_open_ltv_bps; // safe
+        let max_multiplier_bps = k_num_factor_bps
             .fixed_div_floor(denominator, BPS_FACTOR)
             .map_over_or_underflow()
-            .unwrap(); // safe
+            .unwrap();
 
-        // Scale the result for the final output
-        (max_multiplier_bps / SCALE) as u32 // safe
+        (max_multiplier_bps / SCALE) as u32
     }
 
-    /// # Returns
-    /// - [`Ok(())`] if the provided multiplier is within the valid range
-    /// - [`Err(MCError::InvalidLeverageMultiplier)`] otherwise
+    // # Returns
+    // - [`Ok(())`] if the provided multiplier is within the valid range
+    // - [`Err(MCError::InvalidLeverageInputs)`] otherwise
     pub fn require_valid_leverage_multiplier(
         &self,
         leverage_multiplier: u32,
     ) -> Result<(), MCError> {
         if !(MIN_LEVERAGE_MULTIPLIER..=self.max_leverage_multiplier).contains(&leverage_multiplier)
         {
-            return Err(MCError::InvalidLeverageMultiplier);
+            return Err(MCError::InvalidLeverageInputs);
         }
 
         Ok(())
     }
 
-    /// # Returns
-    /// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
+    // # Returns
+    // [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
     fn compute_obligation_seed(
         e: &Env,
         deposit_pool_address: &Address,

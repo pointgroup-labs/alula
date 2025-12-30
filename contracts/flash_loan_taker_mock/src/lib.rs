@@ -11,10 +11,10 @@ use soroban_sdk::{
 const FAILING_CALL_AMOUNT: i128 = 777;
 
 #[contract]
-pub struct FlashLoanLiquidatorContract;
+pub struct FlashLoanTakerContract;
 
 #[contractimpl]
-impl ModErc3156 for FlashLoanLiquidatorContract {
+impl ModErc3156 for FlashLoanTakerContract {
     fn exec_op(e: Env, caller: Address, token: Address, amount: i128, fee_bps: i128) {
         // In the real-world contract that utilizes flash loans, I believe you'd have to check for a
         // specific caller to forbid other contracts from invoking `exec_op`
@@ -64,7 +64,7 @@ mod test {
     use soroban_sdk::Address;
     use tests::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
-    use super::{FAILING_CALL_AMOUNT, FlashLoanLiquidatorContract};
+    use super::{FAILING_CALL_AMOUNT, FlashLoanTakerContract};
 
     struct FlashLoanTest<'a> {
         test_fixture: TestMarketFixture<'a>,
@@ -75,14 +75,14 @@ mod test {
         fn new() -> Self {
             let test_fixture = TestMarketFixture::new();
             let lender = &test_fixture.users[0];
-            let flash_loan_taker_contract_id =
-                test_fixture.e.register(FlashLoanLiquidatorContract, ());
+            let flash_loan_taker_contract_id = test_fixture.e.register(FlashLoanTakerContract, ());
 
             // Deposit usdc as some lender to have a non-empty loan pool
             test_fixture.contract_client.deposit(
                 lender,
                 &test_fixture.usdc_pool_address,
                 &DEFAULT_DEPOSIT_AMOUNT,
+                &None,
             );
 
             Self { test_fixture, flash_loan_taker_contract_id }
