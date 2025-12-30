@@ -21,7 +21,7 @@
 
 #![no_std]
 
-use soroban_sdk::{contractclient, Address, BytesN, Env};
+use soroban_sdk::{Address, BytesN, Env, contractclient};
 
 /// Farms contract interface for cross-contract calls.
 ///
