@@ -111,7 +111,7 @@ mod tests {
 
     fn create_test_user(env: &Env, last_stake_ts: u64) -> UserState {
         UserState {
-            user: soroban_sdk::Address::generate(env),
+            owner: soroban_sdk::Address::generate(env),
             farm_id: BytesN::from_array(env, &[0u8; 32]),
             active_stake: 1000,
             pending_deposit_stake: 0,
