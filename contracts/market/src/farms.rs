@@ -14,7 +14,7 @@ use crate::{
     storage,
 };
 
-/// Farm kind: supply (j-token) or debt (d-token).
+/// Farm kind: supply (j-token) or debt (d-token)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FarmKind {
     Supply,
@@ -22,7 +22,7 @@ pub enum FarmKind {
 }
 
 /// Syncs a user's stake with the farms contract for a specific pool.
-/// No-op if no farm is configured for the pool/kind.
+/// No-op if no farm is configured for the pool/kind
 pub fn refresh_pool_farm_stake(
     e: &Env,
     farms_contract: &Address,
@@ -59,7 +59,7 @@ pub fn refresh_pool_farm_stake(
 }
 
 /// Refreshes all farms for all pools in an obligation.
-/// Returns count of (supply_farms, debt_farms) refreshed.
+/// Returns count of (supply_farms, debt_farms) refreshed
 pub fn refresh_all_obligation_farms(
     e: &Env,
     farms_contract: &Address,
@@ -105,7 +105,7 @@ pub fn refresh_all_obligation_farms(
 }
 
 /// Refreshes a pool's farm stake if farms contract is configured.
-/// No-op otherwise.
+/// No-op otherwise
 pub fn try_refresh_pool_farm(
     e: &Env,
     obligation: &Obligation,
@@ -119,7 +119,7 @@ pub fn try_refresh_pool_farm(
     Ok(())
 }
 
-/// Sets a farm ID for a pool (supply or debt).
+/// Sets a farm ID for a pool (supply or debt)
 pub fn set_pool_farm(
     e: &Env,
     pool_address: &Address,
@@ -137,7 +137,7 @@ pub fn set_pool_farm(
     Ok(())
 }
 
-/// Sets the supply farm ID for a pool.
+/// Sets the supply farm ID for a pool
 #[inline]
 pub fn set_pool_supply_farm(
     e: &Env,
@@ -147,7 +147,7 @@ pub fn set_pool_supply_farm(
     set_pool_farm(e, pool_address, farm_id, FarmKind::Supply)
 }
 
-/// Sets the debt farm ID for a pool.
+/// Sets the debt farm ID for a pool
 #[inline]
 pub fn set_pool_debt_farm(
     e: &Env,
@@ -157,7 +157,7 @@ pub fn set_pool_debt_farm(
     set_pool_farm(e, pool_address, farm_id, FarmKind::Debt)
 }
 
-/// Clears all farm configuration for a pool.
+/// Clears all farm configuration for a pool
 pub fn clear_pool_farms(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.farm_supply = None;
