@@ -127,12 +127,13 @@ pub fn set_pool_farm(
     kind: FarmKind,
 ) -> Result<(), MCError> {
     let mut pool = Pool::try_get(e, pool_address)?;
+    // Emit event before moving farm_id to avoid clone
+    events::pool_farm_set(e, pool_address, &farm_id, kind == FarmKind::Supply);
     match kind {
-        FarmKind::Supply => pool.farm_supply = Some(farm_id.clone()),
-        FarmKind::Debt => pool.farm_debt = Some(farm_id.clone()),
+        FarmKind::Supply => pool.farm_supply = Some(farm_id),
+        FarmKind::Debt => pool.farm_debt = Some(farm_id),
     }
     pool.set(e);
-    events::pool_farm_set(e, pool_address, &farm_id, kind == FarmKind::Supply);
     Ok(())
 }
 
