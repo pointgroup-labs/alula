@@ -697,8 +697,7 @@ fn test_multiple_reward_tokens() {
         &fixture.reward_token_address,
         &fixture.reward_vault,
     );
-    let idx2 =
-        fixture.farms_client.initialize_reward(&farm_id, &reward_token2, &reward_vault2);
+    let idx2 = fixture.farms_client.initialize_reward(&farm_id, &reward_token2, &reward_vault2);
 
     assert_eq!(idx1, 0);
     assert_eq!(idx2, 1);
@@ -830,10 +829,9 @@ fn test_per_farm_admin_transfer() {
     let new_farm_admin = Address::generate(e);
 
     // Set pending farm admin
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::PendingFarmAdmin(new_farm_admin.clone()),
-    );
+    fixture
+        .farms_client
+        .update_farm_config(&farm_id, &FarmConfigUpdate::PendingFarmAdmin(new_farm_admin.clone()));
 
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert!(farm.pending_farm_admin.is_some());
@@ -858,10 +856,9 @@ fn test_farm_admin_can_update_config() {
 
     // Transfer admin to new address
     let new_farm_admin = Address::generate(e);
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::PendingFarmAdmin(new_farm_admin.clone()),
-    );
+    fixture
+        .farms_client
+        .update_farm_config(&farm_id, &FarmConfigUpdate::PendingFarmAdmin(new_farm_admin.clone()));
     fixture.farms_client.accept_farm_admin(&farm_id);
 
     // New farm admin should be able to update config
@@ -904,10 +901,9 @@ fn test_reward_user_once_airdrop() {
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
     // Enable reward_user_once
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::RewardUserOnceEnabled(true),
-    );
+    fixture
+        .farms_client
+        .update_farm_config(&farm_id, &FarmConfigUpdate::RewardUserOnceEnabled(true));
 
     // Add reward token
     fixture.farms_client.initialize_reward(
@@ -1044,26 +1040,21 @@ fn test_update_farm_config_variants() {
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
     // Test DepositWarmupPeriod
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::DepositWarmupPeriod(3600),
-    );
+    fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::DepositWarmupPeriod(3600));
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.deposit_warmup_period, 3600);
 
     // Test WithdrawalCooldownPeriod
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::WithdrawalCooldownPeriod(7200),
-    );
+    fixture
+        .farms_client
+        .update_farm_config(&farm_id, &FarmConfigUpdate::WithdrawalCooldownPeriod(7200));
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.withdrawal_cooldown_period, 7200);
 
     // Test LockingMode
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::LockingMode(LockingMode::Continuous),
-    );
+    fixture
+        .farms_client
+        .update_farm_config(&farm_id, &FarmConfigUpdate::LockingMode(LockingMode::Continuous));
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.locking_mode, LockingMode::Continuous);
 
@@ -1073,10 +1064,9 @@ fn test_update_farm_config_variants() {
     assert_eq!(farm.locking_duration, 86400);
 
     // Test EarlyWithdrawalPenalty
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::EarlyWithdrawalPenalty(500),
-    );
+    fixture
+        .farms_client
+        .update_farm_config(&farm_id, &FarmConfigUpdate::EarlyWithdrawalPenalty(500));
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.early_withdrawal_penalty_bps, 500);
 
@@ -1087,18 +1077,14 @@ fn test_update_farm_config_variants() {
 
     // Test DelegateAuthority
     let delegate = Address::generate(e);
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::DelegateAuthority(Some(delegate.clone())),
-    );
+    fixture
+        .farms_client
+        .update_farm_config(&farm_id, &FarmConfigUpdate::DelegateAuthority(Some(delegate.clone())));
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert_eq!(farm.delegate_authority.unwrap(), delegate);
 
     // Clear delegate
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::DelegateAuthority(None),
-    );
+    fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::DelegateAuthority(None));
     let farm = fixture.farms_client.get_farm(&farm_id);
     assert!(farm.delegate_authority.is_none());
 }
@@ -1291,10 +1277,7 @@ fn test_withdraw_unstaked_exactly_at_cooldown_end() {
     let fixture = TestFarmsFixture::new();
     let user = &fixture.market_fixture.users[0];
 
-    let farm_config = FarmConfig {
-        withdrawal_cooldown_period: 100,
-        ..Default::default()
-    };
+    let farm_config = FarmConfig { withdrawal_cooldown_period: 100, ..Default::default() };
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
@@ -1316,10 +1299,7 @@ fn test_withdraw_unstaked_one_second_before_cooldown_end() {
     let fixture = TestFarmsFixture::new();
     let user = &fixture.market_fixture.users[0];
 
-    let farm_config = FarmConfig {
-        withdrawal_cooldown_period: 100,
-        ..Default::default()
-    };
+    let farm_config = FarmConfig { withdrawal_cooldown_period: 100, ..Default::default() };
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
@@ -1339,10 +1319,7 @@ fn test_activate_pending_stake_exactly_at_warmup_end() {
     let fixture = TestFarmsFixture::new();
     let user = &fixture.market_fixture.users[0];
 
-    let farm_config = FarmConfig {
-        deposit_warmup_period: 100,
-        ..Default::default()
-    };
+    let farm_config = FarmConfig { deposit_warmup_period: 100, ..Default::default() };
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
@@ -1509,10 +1486,7 @@ fn test_double_unstake_without_withdrawal_fails() {
     let fixture = TestFarmsFixture::new();
     let user = &fixture.market_fixture.users[0];
 
-    let farm_config = FarmConfig {
-        withdrawal_cooldown_period: 100,
-        ..Default::default()
-    };
+    let farm_config = FarmConfig { withdrawal_cooldown_period: 100, ..Default::default() };
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
@@ -1534,10 +1508,7 @@ fn test_stake_on_delegated_farm_fails() {
     let user = &fixture.market_fixture.users[0];
 
     let delegate = Address::generate(e);
-    let farm_config = FarmConfig {
-        delegate_authority: Some(delegate),
-        ..Default::default()
-    };
+    let farm_config = FarmConfig { delegate_authority: Some(delegate), ..Default::default() };
 
     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
 
@@ -1796,7 +1767,10 @@ fn test_very_small_stake_with_large_rewards() {
     let schedule = RewardScheduleCurve {
         points: vec![
             e,
-            RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 1_000_000 },
+            RewardCurvePoint {
+                ts_start: fixture.current_timestamp(),
+                reward_per_time_unit: 1_000_000,
+            },
         ],
     };
     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
@@ -2068,10 +2042,7 @@ fn test_min_claim_duration_prevents_rapid_claims() {
     );
 
     // Set min claim duration of 100 seconds
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::MinClaimDuration(100),
-    );
+    fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::MinClaimDuration(100));
 
     let schedule = RewardScheduleCurve {
         points: vec![
@@ -2120,10 +2091,7 @@ fn test_min_claim_duration_allows_claim_after_duration() {
     );
 
     // Set min claim duration of 100 seconds
-    fixture.farms_client.update_farm_config(
-        &farm_id,
-        &FarmConfigUpdate::MinClaimDuration(100),
-    );
+    fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::MinClaimDuration(100));
 
     let schedule = RewardScheduleCurve {
         points: vec![
@@ -2156,4 +2124,516 @@ fn test_min_claim_duration_allows_claim_after_duration() {
     // Second harvest should succeed
     let second_harvest = fixture.farms_client.harvest(user, &farm_id, &0);
     assert!(second_harvest > 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Market-Farms Integration Tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_market_farms_set_and_get_farms_contract() {
+    let fixture = TestFarmsFixture::new();
+
+    // Initially no farms contract configured
+    let farms_addr = fixture.market_fixture.contract_client.get_farms_contract();
+    assert!(farms_addr.is_none());
+
+    // Set farms contract
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Verify it's set
+    let farms_addr = fixture.market_fixture.contract_client.get_farms_contract();
+    assert!(farms_addr.is_some());
+    assert_eq!(farms_addr.unwrap(), fixture.farms_address);
+}
+
+#[test]
+fn test_market_farms_set_pool_supply_farm() {
+    let fixture = TestFarmsFixture::new();
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated farm with Market as delegate
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Set the farm for USDC pool supply
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &farm_id);
+
+    // Verify pool has the farm configured
+    let pool =
+        fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
+    assert!(pool.farm_supply.is_some());
+    assert_eq!(pool.farm_supply.unwrap(), farm_id);
+    assert!(pool.farm_debt.is_none());
+}
+
+#[test]
+fn test_market_farms_set_pool_debt_farm() {
+    let fixture = TestFarmsFixture::new();
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated farm
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Set the farm for USDC pool debt
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &farm_id);
+
+    // Verify pool has the farm configured
+    let pool =
+        fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
+    assert!(pool.farm_supply.is_none());
+    assert!(pool.farm_debt.is_some());
+    assert_eq!(pool.farm_debt.unwrap(), farm_id);
+}
+
+#[test]
+fn test_market_farms_clear_pool_farms() {
+    let fixture = TestFarmsFixture::new();
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create farms
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+    let debt_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Set both farms
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &debt_farm_id);
+
+    // Verify both are set
+    let pool =
+        fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
+    assert!(pool.farm_supply.is_some());
+    assert!(pool.farm_debt.is_some());
+
+    // Clear farms
+    fixture
+        .market_fixture
+        .contract_client
+        .clear_pool_farms(&fixture.market_fixture.usdc_pool_address);
+
+    // Verify both are cleared
+    let pool =
+        fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
+    assert!(pool.farm_supply.is_none());
+    assert!(pool.farm_debt.is_none());
+}
+
+#[test]
+fn test_market_farms_auto_refresh_on_deposit() {
+    let fixture = TestFarmsFixture::new();
+    let user = &fixture.market_fixture.users[0];
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated supply farm
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Configure pool with supply farm
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
+
+    // User deposits into USDC pool - NO manual refresh_obligation_farms call!
+    let deposit_amount = 1000_0000000i128;
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &deposit_amount,
+    );
+
+    // Get obligation to see j_tokens
+    let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
+    let j_tokens =
+        obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
+
+    // Verify farm stake was AUTOMATICALLY updated (no manual refresh needed)
+    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    assert_eq!(user_state.active_stake, j_tokens);
+
+    let farm = fixture.farms_client.get_farm(&supply_farm_id);
+    assert_eq!(farm.total_staked, j_tokens);
+}
+
+#[test]
+fn test_market_farms_auto_refresh_on_borrow() {
+    let fixture = TestFarmsFixture::new();
+    let user = &fixture.market_fixture.users[0];
+    let lender = &fixture.market_fixture.users[1];
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated debt farm
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let debt_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Configure USDC pool with debt farm
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &debt_farm_id);
+
+    // Lender deposits USDC for liquidity
+    fixture.market_fixture.contract_client.deposit(
+        lender,
+        &fixture.market_fixture.usdc_pool_address,
+        &10000_0000000i128,
+    );
+
+    // User deposits BTC as collateral
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.btc_pool_address,
+        &10_0000000i128,
+    );
+
+    // User borrows USDC - NO manual refresh_obligation_farms call!
+    let borrow_amount = 100_0000000i128;
+    fixture.market_fixture.contract_client.borrow(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &borrow_amount,
+    );
+
+    // Get obligation to check d_tokens
+    let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
+    let d_tokens =
+        obligation.borrows.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().d_tokens;
+
+    // Verify farm stake was AUTOMATICALLY updated
+    let user_state = fixture.farms_client.get_user_state(user, &debt_farm_id);
+    assert_eq!(user_state.active_stake, d_tokens);
+}
+
+#[test]
+fn test_market_farms_refresh_obligation_syncs_supply_stake() {
+    let fixture = TestFarmsFixture::new();
+    let user = &fixture.market_fixture.users[0];
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated supply farm
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Configure pool with supply farm
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
+
+    // User deposits into USDC pool
+    let deposit_amount = 1000_0000000i128; // 1000 with 7 decimals
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &deposit_amount,
+    );
+
+    // Get obligation to see j_tokens
+    let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
+    let deposit_position =
+        obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone());
+    assert!(deposit_position.is_some());
+    let j_tokens = deposit_position.unwrap().j_tokens;
+    assert!(j_tokens > 0);
+
+    // Refresh obligation farms
+    fixture.market_fixture.contract_client.refresh_obligation_farms(user);
+
+    // Verify farm stake was updated
+    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    assert_eq!(user_state.active_stake, j_tokens);
+
+    let farm = fixture.farms_client.get_farm(&supply_farm_id);
+    assert_eq!(farm.total_staked, j_tokens);
+    assert_eq!(farm.num_users, 1);
+}
+
+#[test]
+fn test_market_farms_refresh_after_withdraw_updates_stake() {
+    let fixture = TestFarmsFixture::new();
+    let user = &fixture.market_fixture.users[0];
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated supply farm
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Configure pool with supply farm
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
+
+    // User deposits
+    let deposit_amount = 2000_0000000i128;
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &deposit_amount,
+    );
+
+    // Refresh farms to sync initial stake
+    fixture.market_fixture.contract_client.refresh_obligation_farms(user);
+
+    let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
+    let initial_j_tokens =
+        obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
+
+    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    assert_eq!(user_state.active_stake, initial_j_tokens);
+
+    // User withdraws half
+    let withdraw_amount = 1000_0000000i128;
+    fixture.market_fixture.contract_client.withdraw(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &withdraw_amount,
+    );
+
+    // Refresh farms again
+    fixture.market_fixture.contract_client.refresh_obligation_farms(user);
+
+    // Verify stake was reduced
+    let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
+    let final_j_tokens =
+        obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
+
+    let user_state = fixture.farms_client.get_user_state(user, &supply_farm_id);
+    assert_eq!(user_state.active_stake, final_j_tokens);
+    assert!(final_j_tokens < initial_j_tokens);
+}
+
+#[test]
+fn test_market_farms_refresh_debt_farm_on_borrow() {
+    let fixture = TestFarmsFixture::new();
+    let user = &fixture.market_fixture.users[0];
+    let lender = &fixture.market_fixture.users[1];
+
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated debt farm
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let debt_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Configure USDC pool with debt farm
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &debt_farm_id);
+
+    // Lender deposits USDC so there's liquidity to borrow
+    let lender_deposit_amount = 10000_0000000i128; // 10,000 USDC
+    fixture.market_fixture.contract_client.deposit(
+        lender,
+        &fixture.market_fixture.usdc_pool_address,
+        &lender_deposit_amount,
+    );
+
+    // User deposits BTC as collateral
+    let collateral_amount = 10_0000000i128; // 10 BTC
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.btc_pool_address,
+        &collateral_amount,
+    );
+
+    // User borrows USDC (small amount relative to collateral)
+    let borrow_amount = 100_0000000i128; // 100 USDC
+    fixture.market_fixture.contract_client.borrow(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &borrow_amount,
+    );
+
+    // Refresh farms
+    fixture.market_fixture.contract_client.refresh_obligation_farms(user);
+
+    // Get obligation to check d_tokens
+    let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
+    let borrow_position = obligation.borrows.get(fixture.market_fixture.usdc_pool_address.clone());
+    assert!(borrow_position.is_some());
+    let d_tokens = borrow_position.unwrap().d_tokens;
+    assert!(d_tokens > 0);
+
+    // Verify farm stake
+    let user_state = fixture.farms_client.get_user_state(user, &debt_farm_id);
+    assert_eq!(user_state.active_stake, d_tokens);
+}
+
+#[test]
+fn test_market_farms_no_refresh_if_no_farms_configured() {
+    let fixture = TestFarmsFixture::new();
+    let user = &fixture.market_fixture.users[0];
+
+    // Set farms contract BUT don't configure any pool farms
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // User deposits
+    let deposit_amount = 1000_0000000i128;
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &deposit_amount,
+    );
+
+    // Refresh should succeed (no-op, doesn't error)
+    fixture.market_fixture.contract_client.refresh_obligation_farms(user);
+}
+
+#[test]
+fn test_market_farms_refresh_without_farms_contract_succeeds() {
+    let fixture = TestFarmsFixture::new();
+    let user = &fixture.market_fixture.users[0];
+
+    // DON'T set farms contract
+
+    // User deposits
+    let deposit_amount = 1000_0000000i128;
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &deposit_amount,
+    );
+
+    // Refresh should succeed (no-op when no farms contract)
+    fixture.market_fixture.contract_client.refresh_obligation_farms(user);
+}
+
+#[test]
+fn test_market_farms_clear_farms_contract() {
+    let fixture = TestFarmsFixture::new();
+
+    // Set farms contract
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+    assert!(fixture.market_fixture.contract_client.get_farms_contract().is_some());
+
+    // Clear it
+    fixture.market_fixture.contract_client.clear_farms_contract();
+    assert!(fixture.market_fixture.contract_client.get_farms_contract().is_none());
+}
+
+#[test]
+fn test_market_farms_full_e2e_deposit_refresh_harvest() {
+    let fixture = TestFarmsFixture::new();
+    let e = &fixture.market_fixture.e;
+    let user = &fixture.market_fixture.users[0];
+
+    // === Setup ===
+    // Set farms contract on market
+    fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
+
+    // Create a delegated supply farm with Market as delegate
+    let farm_config = FarmConfig {
+        delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
+        ..Default::default()
+    };
+    let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
+
+    // Add reward token and schedule
+    fixture.farms_client.initialize_reward(
+        &supply_farm_id,
+        &fixture.reward_token_address,
+        &fixture.reward_vault,
+    );
+
+    let schedule = RewardScheduleCurve {
+        points: vec![
+            e,
+            RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 1000 },
+        ],
+    };
+    fixture.farms_client.update_reward_schedule(&supply_farm_id, &0, &schedule);
+
+    fixture.farms_client.add_rewards(
+        &fixture.market_fixture.contract_admin,
+        &supply_farm_id,
+        &0,
+        &10_000_000,
+    );
+
+    // Configure pool with supply farm
+    fixture
+        .market_fixture
+        .contract_client
+        .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
+
+    // === User Action: Deposit ===
+    let deposit_amount = 1000_0000000i128;
+    fixture.market_fixture.contract_client.deposit(
+        user,
+        &fixture.market_fixture.usdc_pool_address,
+        &deposit_amount,
+    );
+
+    // Refresh farms to sync stake
+    fixture.market_fixture.contract_client.refresh_obligation_farms(user);
+
+    // === Time Passes ===
+    fixture.pass_time(100);
+
+    // === Verify Rewards Accrued ===
+    let pending = fixture.farms_client.get_pending_rewards(user, &supply_farm_id);
+    let pending_amount = pending.get(0).unwrap();
+    assert!(pending_amount > 0);
+
+    // === Harvest Rewards ===
+    let initial_balance = fixture.reward_token_client.balance(user);
+    let harvested = fixture.farms_client.harvest(user, &supply_farm_id, &0);
+    let final_balance = fixture.reward_token_client.balance(user);
+
+    assert!(harvested > 0);
+    assert_eq!(final_balance - initial_balance, harvested);
 }
