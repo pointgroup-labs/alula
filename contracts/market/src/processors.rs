@@ -8,7 +8,7 @@ use soroban_sdk::{
 use crate::{
     constants::*,
     error::MCError,
-    events,
+    events, farms,
     math_utils::MathUtils,
     misc::require_nonnegative,
     multiply_pair::MultiplyPair,
@@ -42,6 +42,7 @@ pub fn process_submit_requests_batch<'a>(
             RequestType::RemoveCollateral => {
                 process_remove_collateral(e, obligation_key, &pool_address, amount)?
             }
+            RequestType::RefreshFarms => process_refresh_farms(e, obligation_key)?,
         };
 
         transfers.merge(new_transfers)?;
@@ -129,6 +130,9 @@ pub fn process_initialize_pool(
 
         borrow_apr_bps: 0,
         supply_apr_bps: 0,
+
+        farm_supply: None,
+        farm_debt: None,
     };
 
     pool.set(e);
@@ -231,6 +235,9 @@ pub fn process_deposit<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
+    // Auto-refresh supply farm stake
+    farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Supply)?;
+
     let transfers = RequestTransfers::new_with_user_transfers(
         e,
         obligation_key.user.clone(),
@@ -263,6 +270,9 @@ pub fn process_borrow<'a>(
 
     obligation.set(e, obligation_key);
     pool.set(e);
+
+    // Auto-refresh debt farm stake
+    farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Debt)?;
 
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
@@ -334,6 +344,9 @@ pub fn process_repay<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
+    // Auto-refresh debt farm stake
+    farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Debt)?;
+
     // Since interest accrual happens each second, to sign and to simulate a deterministic transfer
     // from the borrower's account - 2 transfers take place: borrower => contract(original
     // amount), contract => borrower(excess amount). See - <https://discord.com/channels/897514728459468821/1424779244189520145>
@@ -397,6 +410,9 @@ pub fn process_withdraw<'a>(
     let withdraw_result = obligation.withdraw(e, &pool, amount)?;
     pool.withdraw(e, &withdraw_result)?;
 
+    // Auto-refresh supply farm stake before potentially removing obligation
+    farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Supply)?;
+
     if obligation.is_empty() {
         obligation.remove(e, obligation_key);
     } else {
@@ -414,6 +430,32 @@ pub fn process_withdraw<'a>(
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
 
     Ok(transfers)
+}
+
+/// Refreshes all farm stakes for an obligation.
+///
+/// This function syncs the user's farm stakes with their current obligation positions.
+/// It should be called when the user wants to update their farm stakes to claim
+/// the correct amount of rewards.
+///
+/// This is a permissionless operation - anyone can refresh any user's farms.
+pub fn process_refresh_farms<'a>(
+    e: &'a Env,
+    obligation_key: &ObligationKey,
+) -> Result<RequestTransfers<'a>, MCError> {
+    // Check if farms contract is configured
+    let Some(farms_contract) = storage::get_farms_contract(e) else {
+        // No farms configured, return empty transfers
+        return Ok(RequestTransfers::empty(e, obligation_key.user.clone()));
+    };
+
+    // Get the user's obligation if it exists
+    let obligation = Obligation::try_get(e, obligation_key)?;
+
+    // Refresh all farms for this obligation
+    farms::refresh_all_obligation_farms(e, &farms_contract, &obligation, obligation_key)?;
+
+    Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
 }
 
 pub fn process_compute_withdraw_fees(
@@ -885,10 +927,35 @@ pub fn process_liquidate<'a>(
             liquidation_result.j_tokens_seized,
         )?;
         liquidator_obligation.set(e, &liquidator_obligation_key);
+
+        // Auto-refresh liquidator's supply farm stake (they received j-tokens)
+        farms::try_refresh_pool_farm(
+            e,
+            &liquidator_obligation,
+            &liquidator_obligation_key,
+            &collateral_pool,
+            farms::FarmKind::Supply,
+        )?;
     }
 
     borrow_pool.liquidation_repay_debt(e, &liquidation_result)?;
     collateral_pool.liquidation_redeem_collateral(e, &liquidation_result)?;
+
+    // Auto-refresh borrower's farms before potentially removing obligation
+    farms::try_refresh_pool_farm(
+        e,
+        &obligation,
+        borrower_obligation_key,
+        &borrow_pool,
+        farms::FarmKind::Debt,
+    )?;
+    farms::try_refresh_pool_farm(
+        e,
+        &obligation,
+        borrower_obligation_key,
+        &collateral_pool,
+        farms::FarmKind::Supply,
+    )?;
 
     if obligation.is_empty() {
         obligation.remove(e, borrower_obligation_key);

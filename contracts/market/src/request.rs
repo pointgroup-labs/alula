@@ -18,6 +18,7 @@ pub enum RequestType {
     Repay = 3,
     AddCollateral = 4,
     RemoveCollateral = 5,
+    RefreshFarms = 6,
     // TODO: Liquidate, Leverage, Flash Loan ...
 }
 
@@ -34,6 +35,7 @@ impl TryFrom<u32> for RequestType {
             3 => Repay,
             4 => AddCollateral,
             5 => RemoveCollateral,
+            6 => RefreshFarms,
             _ => return Err(MCError::IncorrectRequestType),
         };
 
@@ -62,6 +64,10 @@ impl<'a> RequestTransfers<'a> {
         user_transfers: Map<Address, i128>,
     ) -> Self {
         Self { e, user, user_transfers, market_transfers }
+    }
+
+    pub fn empty(e: &'a Env, user: Address) -> Self {
+        Self { e, user, user_transfers: Map::new(e), market_transfers: Map::new(e) }
     }
 
     pub fn new_with_user_transfers(

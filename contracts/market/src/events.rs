@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Env, String, Symbol, contractevent};
+use soroban_sdk::{Address, BytesN, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -695,6 +695,66 @@ pub fn received_unexpected_swap_amount(
         amount_out,
         expected_amount_in,
         expected_amount_out,
+    }
+    .publish(e);
+}
+
+// --- Farms Integration Events ---
+
+#[contractevent]
+struct FarmsContractSetEvent {
+    #[topic]
+    pub farms_contract: Address,
+}
+
+pub fn farms_contract_set(e: &Env, farms_contract: &Address) {
+    FarmsContractSetEvent { farms_contract: farms_contract.clone() }.publish(e);
+}
+
+#[contractevent]
+struct FarmsContractClearedEvent {}
+
+pub fn farms_contract_cleared(e: &Env) {
+    FarmsContractClearedEvent {}.publish(e);
+}
+
+#[contractevent]
+struct PoolFarmSetEvent {
+    #[topic]
+    pub pool_address: Address,
+    pub farm_id: BytesN<32>,
+    pub farm_kind: Symbol,
+}
+
+pub fn pool_farm_set(e: &Env, pool_address: &Address, farm_id: &BytesN<32>, is_supply: bool) {
+    let farm_kind = if is_supply { Symbol::new(e, "supply") } else { Symbol::new(e, "debt") };
+    PoolFarmSetEvent { pool_address: pool_address.clone(), farm_id: farm_id.clone(), farm_kind }
+        .publish(e);
+}
+
+#[contractevent]
+struct PoolFarmsClearedEvent {
+    #[topic]
+    pub pool_address: Address,
+}
+
+pub fn pool_farms_cleared(e: &Env, pool_address: &Address) {
+    PoolFarmsClearedEvent { pool_address: pool_address.clone() }.publish(e);
+}
+
+#[contractevent]
+struct ObligationFarmsRefreshedEvent {
+    #[topic]
+    pub user: Address,
+    pub num_supply_farms: u32,
+    pub num_debt_farms: u32,
+}
+
+pub fn obligation_farms_refreshed(e: &Env, user: &Address, num_supply: u32, num_debt: u32) {
+    ObligationFarmsRefreshedEvent {
+        user: user.clone(),
+        num_supply_farms: num_supply,
+        num_debt_farms: num_debt,
     }
     .publish(e);
 }
