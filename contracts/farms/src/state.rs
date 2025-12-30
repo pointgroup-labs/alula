@@ -1,3 +1,5 @@
+// Re-export Delegatee from farms_interface to ensure type compatibility
+pub use farms_interface::Delegatee;
 use soroban_sdk::{Address, BytesN, Vec, contracttype};
 
 /// Global configuration for the Farms contract
@@ -167,8 +169,8 @@ pub struct FarmState {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserState {
-    /// User address
-    pub user: Address,
+    /// The owner's address (for rewards and events)
+    pub owner: Address,
     /// Farm this state belongs to
     pub farm_id: BytesN<32>,
 

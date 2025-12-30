@@ -612,6 +612,7 @@ dependencies = [
 name = "farms"
 version = "0.0.1"
 dependencies = [
+ "farms_interface",
  "soroban-fixed-point-math",
  "soroban-sdk",
 ]

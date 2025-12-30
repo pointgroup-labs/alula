@@ -9,6 +9,7 @@ crate-type = ["lib", "cdylib"]
 doctest = true
 
 [dependencies]
+farms_interface = { path = "../../farms_interface" }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 

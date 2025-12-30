@@ -1,6 +1,6 @@
-use soroban_sdk::{Address, BytesN, Env, Vec, contracttype};
+use soroban_sdk::{BytesN, Env, Vec, contracttype};
 
-use crate::state::{FarmState, GlobalConfig, UserState};
+use crate::state::{Delegatee, FarmState, GlobalConfig, UserState};
 
 /// Storage keys for the Farms contract
 #[contracttype]
@@ -10,8 +10,8 @@ pub enum DataKey {
     GlobalConfig,
     /// Farm state by farm_id
     Farm(BytesN<32>),
-    /// User state by (user, farm_id)
-    User(Address, BytesN<32>),
+    /// User state by (delegatee, farm_id)
+    User(Delegatee, BytesN<32>),
     /// List of all farm IDs
     AllFarms,
     /// Counter for generating unique farm IDs
@@ -94,14 +94,14 @@ pub fn increment_farm_counter(e: &Env) -> u64 {
 // Users
 // ═══════════════════════════════════════════════════════════════════════════════
 
-pub fn set_user(e: &Env, user: &Address, farm_id: &BytesN<32>, state: &UserState) {
-    let key = DataKey::User(user.clone(), farm_id.clone());
+pub fn set_user(e: &Env, delegatee: &Delegatee, farm_id: &BytesN<32>, state: &UserState) {
+    let key = DataKey::User(delegatee.clone(), farm_id.clone());
     e.storage().persistent().set(&key, state);
     e.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
 }
 
-pub fn get_user(e: &Env, user: &Address, farm_id: &BytesN<32>) -> Option<UserState> {
-    let key = DataKey::User(user.clone(), farm_id.clone());
+pub fn get_user(e: &Env, delegatee: &Delegatee, farm_id: &BytesN<32>) -> Option<UserState> {
+    let key = DataKey::User(delegatee.clone(), farm_id.clone());
     let state: Option<UserState> = e.storage().persistent().get(&key);
     if state.is_some() {
         e.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
@@ -109,6 +109,6 @@ pub fn get_user(e: &Env, user: &Address, farm_id: &BytesN<32>) -> Option<UserSta
     state
 }
 
-pub fn has_user(e: &Env, user: &Address, farm_id: &BytesN<32>) -> bool {
-    e.storage().persistent().has(&DataKey::User(user.clone(), farm_id.clone()))
+pub fn has_user(e: &Env, delegatee: &Delegatee, farm_id: &BytesN<32>) -> bool {
+    e.storage().persistent().has(&DataKey::User(delegatee.clone(), farm_id.clone()))
 }
