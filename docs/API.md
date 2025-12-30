@@ -552,107 +552,106 @@ fn update_market_status(new_status: u32) -> Result<(), MCError>
 
 ---
 
-### Upgrades (Time-Locked)
+### Upgrades
 
-#### `propose_upgrade`
+#### `upgrade`
 
-Propose a contract upgrade (7-day delay on mainnet).
-
-```rust
-fn propose_upgrade(new_wasm_hash: BytesN<32>) -> Result<(), MCError>
-```
-
----
-
-#### `execute_upgrade`
-
-Execute a proposed upgrade after the timelock expires.
+Upgrade the contract to a new WASM binary (admin only).
 
 ```rust
-fn execute_upgrade() -> Result<(), MCError>
-```
-
----
-
-#### `cancel_upgrade`
-
-Cancel a pending upgrade.
-
-```rust
-fn cancel_upgrade() -> Result<(), MCError>
-```
-
----
-
-#### `get_pending_upgrade`
-
-Get pending upgrade details.
-
-```rust
-fn get_pending_upgrade() -> Option<PendingUpgrade>
-```
-
----
-
-#### `is_upgradable`
-
-Check if contract upgrades are enabled.
-
-```rust
-fn is_upgradable() -> bool
+fn upgrade(new_wasm_hash: BytesN<32>)
 ```
 
 ---
 
 ### Fees
 
-#### `redeem_accumulated_market_fees`
+#### `distribute_pool_fees`
 
-Withdraw accumulated market fees (admin only).
+Distribute accumulated fees for a specific pool to beneficiaries.
 
 ```rust
-fn redeem_accumulated_market_fees(
-    user: Address,
+fn distribute_pool_fees(pool_address: Address) -> Result<(), MCError>
+```
+
+---
+
+#### `distribute_all_pools_fees`
+
+Distribute accumulated fees for all pools to beneficiaries.
+
+```rust
+fn distribute_all_pools_fees() -> Result<(), MCError>
+```
+
+---
+
+#### `set_take_rate_fees_beneficiaries`
+
+Configure beneficiaries for take rate fees.
+
+```rust
+fn set_take_rate_fees_beneficiaries(
     pool_address: Address,
-    amount: i128,
+    beneficiaries: Vec<FeeBeneficiary>,
 ) -> Result<(), MCError>
 ```
 
 ---
 
-#### `redeem_accumulated_host_fees`
+#### `set_operation_fees_beneficiaries`
 
-Withdraw accumulated host fees (deployer only).
+Configure beneficiaries for operation fees (borrow fees, flash loan fees).
 
 ```rust
-fn redeem_accumulated_host_fees(
-    user: Address,
-    pool_address: Address,
-    amount: i128,
-) -> Result<(), MCError>
+fn set_operation_fees_beneficiaries(beneficiaries: Vec<FeeBeneficiary>) -> Result<(), MCError>
 ```
 
 ---
 
 ### Bad Debt
 
-#### `cover_obligation_bad_debt`
+#### `issue_cover_bad_debt`
 
-Cover bad debt from reserves, socialize remainder across lenders.
+Request coverage for bad debt from the insurance fund.
 
 ```rust
-fn cover_obligation_bad_debt(bad_debt_obligation_user: Address) -> Result<(), MCError>
+fn issue_cover_bad_debt(user: Address) -> Result<(), MCError>
 ```
 
 ---
 
-#### `cover_multiply_pair_bad_debt`
+#### `issue_cover_bad_debt_pair`
 
-Cover bad debt for a multiply pair obligation.
+Request coverage for bad debt on a multiply pair obligation.
 
 ```rust
-fn cover_multiply_pair_bad_debt(
-    bad_debt_obligation_user: Address,
+fn issue_cover_bad_debt_pair(
+    user: Address,
+    deposit_pool_address: Address,
+    borrow_pool_address: Address,
+) -> Result<(), MCError>
+```
+
+---
+
+#### `claim_cover_bad_debt_results`
+
+Claim coverage results after insurance fund processes the request.
+
+```rust
+fn claim_cover_bad_debt_results(user: Address) -> Result<(), MCError>
+```
+
+---
+
+#### `claim_cover_bad_debt_result_pair`
+
+Claim coverage results for a multiply pair obligation.
+
+```rust
+fn claim_cover_bad_debt_result_pair(
+    user: Address,
     deposit_pool_address: Address,
     borrow_pool_address: Address,
 ) -> Result<(), MCError>
@@ -662,12 +661,12 @@ fn cover_multiply_pair_bad_debt(
 
 ### Miscellaneous
 
-#### `donate_to_reserve`
+#### `donate`
 
-Donate tokens to a pool's insurance reserve.
+Donate tokens to a pool's reserve.
 
 ```rust
-fn donate_to_reserve(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
+fn donate(user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>
 ```
 
 ---
@@ -683,6 +682,146 @@ fn swap(
     token_out: Address,
     amount_in: i128,
 ) -> Result<i128, MCError>
+```
+
+---
+
+### Farms Integration
+
+#### `set_farms_contract`
+
+Set the farms contract address for delegated staking.
+
+```rust
+fn set_farms_contract(farms_contract: Address) -> Result<(), MCError>
+```
+
+---
+
+#### `clear_farms_contract`
+
+Remove farms contract integration.
+
+```rust
+fn clear_farms_contract() -> Result<(), MCError>
+```
+
+---
+
+#### `get_farms_contract`
+
+Get the configured farms contract address.
+
+```rust
+fn get_farms_contract() -> Option<Address>
+```
+
+---
+
+#### `set_pool_supply_farm`
+
+Configure a supply (j-token) farm for a pool.
+
+```rust
+fn set_pool_supply_farm(pool_address: Address, farm_id: BytesN<32>) -> Result<(), MCError>
+```
+
+---
+
+#### `set_pool_debt_farm`
+
+Configure a debt (d-token) farm for a pool.
+
+```rust
+fn set_pool_debt_farm(pool_address: Address, farm_id: BytesN<32>) -> Result<(), MCError>
+```
+
+---
+
+#### `clear_pool_farms`
+
+Clear all farm configuration for a pool.
+
+```rust
+fn clear_pool_farms(pool_address: Address) -> Result<(), MCError>
+```
+
+---
+
+#### `refresh_obligation_farms`
+
+Sync all farm stakes for a user's standard obligation.
+
+```rust
+fn refresh_obligation_farms(user: Address) -> Result<(), MCError>
+```
+
+---
+
+#### `refresh_earn_obligation_farms`
+
+Sync all farm stakes for a user's Earn obligation.
+
+```rust
+fn refresh_earn_obligation_farms(user: Address) -> Result<(), MCError>
+```
+
+---
+
+#### `refresh_multiply_pair_farms`
+
+Sync all farm stakes for a user's multiply pair obligation.
+
+```rust
+fn refresh_multiply_pair_farms(
+    user: Address,
+    deposit_pool_address: Address,
+    borrow_pool_address: Address,
+) -> Result<(), MCError>
+```
+
+---
+
+### Admin Transfer
+
+#### `propose_new_admin`
+
+Propose a new admin address. The new admin must accept.
+
+```rust
+fn propose_new_admin(new_admin: Address) -> Result<(), MCError>
+```
+
+---
+
+#### `accept_proposed_admin`
+
+Accept the admin role (called by the proposed new admin).
+
+```rust
+fn accept_proposed_admin() -> Result<(), MCError>
+```
+
+---
+
+### Pool Status
+
+#### `update_pool_status`
+
+Update a pool's operational status.
+
+```rust
+fn update_pool_status(pool_address: Address, new_status: u32) -> Result<(), MCError>
+```
+
+---
+
+#### `fund_update_market_status`
+
+Allow the insurance fund to update market status (emergency freeze).
+
+```rust
+fn fund_update_market_status(new_status: u32) -> Result<(), MCError>
 ```
 
 ---
