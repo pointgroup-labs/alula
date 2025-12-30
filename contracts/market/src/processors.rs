@@ -449,11 +449,8 @@ pub fn process_refresh_farms<'a>(
         return Ok(RequestTransfers::empty(e, obligation_key.user.clone()));
     };
 
-    // Get the user's obligation if it exists
-    let obligation = Obligation::try_get(e, obligation_key)?;
-
     // Refresh all farms for this obligation
-    farms::refresh_all_obligation_farms(e, &farms_contract, &obligation, obligation_key)?;
+    farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
 
     Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
 }

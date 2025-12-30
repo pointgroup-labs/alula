@@ -50,7 +50,7 @@ pub fn refresh_pool_farm_stake(
     };
 
     let farms_client = FarmsClient::new(e, farms_contract);
-    farms_client.set_stake_delegated(&obligation_key.user, farm_id, &stake);
+    farms_client.set_stake_delegated(&obligation_key.into(), farm_id, &stake);
 
     Ok(())
 }
@@ -60,11 +60,12 @@ pub fn refresh_pool_farm_stake(
 pub fn refresh_all_obligation_farms(
     e: &Env,
     farms_contract: &Address,
-    obligation: &Obligation,
     obligation_key: &ObligationKey,
 ) -> Result<(u32, u32), MCError> {
     let mut num_supply_farms = 0u32;
     let mut num_debt_farms = 0u32;
+
+    let obligation = Obligation::try_get(e, obligation_key)?;
 
     for pool_address in obligation.deposits.keys() {
         let pool = Pool::try_get(e, &pool_address)?;
@@ -72,7 +73,7 @@ pub fn refresh_all_obligation_farms(
             refresh_pool_farm_stake(
                 e,
                 farms_contract,
-                obligation,
+                &obligation,
                 obligation_key,
                 &pool,
                 FarmKind::Supply,
@@ -87,7 +88,7 @@ pub fn refresh_all_obligation_farms(
             refresh_pool_farm_stake(
                 e,
                 farms_contract,
-                obligation,
+                &obligation,
                 obligation_key,
                 &pool,
                 FarmKind::Debt,

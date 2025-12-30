@@ -1,3 +1,4 @@
+use farms_interface::Delegatee;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
 
@@ -25,6 +26,24 @@ impl ObligationKey {
 
     pub fn new_with_seed(user: Address, seed: BytesN<32>) -> Self {
         Self { user, seed: Some(seed) }
+    }
+}
+
+impl From<ObligationKey> for Delegatee {
+    fn from(obligation_key: ObligationKey) -> Self {
+        match obligation_key.seed {
+            Some(seed) => (obligation_key.user, seed).into(),
+            None => obligation_key.user.into(),
+        }
+    }
+}
+
+impl From<&ObligationKey> for Delegatee {
+    fn from(obligation_key: &ObligationKey) -> Self {
+        match &obligation_key.seed {
+            Some(seed) => (obligation_key.user.clone(), seed.clone()).into(),
+            None => obligation_key.user.clone().into(),
+        }
     }
 }
 
@@ -994,7 +1013,7 @@ impl Obligation {
 
             (collateral_to_sell_to_liquidator, liquidated_amount)
         };
-        let collateral_left = position_collateral_sum - collateral_to_sell_to_liquidator; // safe 
+        let collateral_left = position_collateral_sum - collateral_to_sell_to_liquidator; // safe
         let collateral_value_left =
             collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
 
