@@ -4,12 +4,15 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "pnpm@10.20.0",
+  "packageManager": "pnpm@10.26.2",
   "scripts": {
     "sdk": "pnpm -F {./packages/sdk}",
     "test": "vitest",
     "lint": "eslint --cache .",
     "lint:fix": "pnpm lint --fix"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^14.4.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
@@ -17,8 +20,5 @@
     "eslint": "^9.39.2",
     "eslint-plugin-format": "^1.1.0",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@stellar/stellar-sdk": "^14.4.0"
   }
 }

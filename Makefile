@@ -187,6 +187,7 @@ lint: check ## Run clippy
 
 lint/fix: ## Auto-fix lint issues
 	@cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged
+	@pnpm lint:fix
 
 # Compound targets
 ci:  test lint fmt/check  ## Run full CI pipeline
