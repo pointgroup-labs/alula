@@ -1426,9 +1426,7 @@ impl Market for MarketContract {
         };
 
         let obligation_key = ObligationKey::new(user);
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-
-        farms::refresh_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
+        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
 
         Ok(())
     }
@@ -1442,9 +1440,7 @@ impl Market for MarketContract {
 
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-
-        farms::refresh_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
+        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
         Ok(())
     }
 
@@ -1462,9 +1458,7 @@ impl Market for MarketContract {
 
         let pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user, pair.seed.clone());
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-
-        farms::refresh_obligation_farms(&e, &farms_contract, &obligation, &obligation_key)?;
+        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
         Ok(())
     }
 

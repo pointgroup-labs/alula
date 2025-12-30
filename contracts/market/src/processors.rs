@@ -144,8 +144,8 @@ pub fn process_initialize_pool(
         target_utilization_ratio_bps: DEFAULT_TARGET_UTILIZATION_RATIO_BPS,
         interest_rate_modifier: BPS_FACTOR,
 
-        supply_farm: None,
-        debt_farm: None,
+        farm_supply: None,
+        farm_debt: None,
     };
 
     pool.set(e);
@@ -490,8 +490,7 @@ pub fn process_refresh_farms<'a>(
         return Ok(RequestTransfers::empty(e, obligation_key.user.clone()));
     };
 
-    let obligation = Obligation::try_get(e, obligation_key)?;
-    farms::refresh_obligation_farms(e, &farms_contract, &obligation, obligation_key)?;
+    farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
 
     Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
 }

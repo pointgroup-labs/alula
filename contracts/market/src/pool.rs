@@ -60,9 +60,9 @@ pub struct Pool {
     // Interest rate modifier in basis points
     pub interest_rate_modifier: i128,
     // Farm ID for supply incentives (j-token staking)
-    pub supply_farm: Option<BytesN<32>>,
+    pub farm_supply: Option<BytesN<32>>,
     // Farm ID for debt incentives (d-token staking)
-    pub debt_farm: Option<BytesN<32>>,
+    pub farm_debt: Option<BytesN<32>>,
 }
 
 macro_rules! generate_adjust_method {
