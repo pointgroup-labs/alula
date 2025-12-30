@@ -4,21 +4,6 @@
 //! Use this crate when your contract needs to interact with Farms without depending on
 //! the full implementation.
 //!
-//! # Usage
-//!
-//! ```ignore
-//! use farms_interface::{Delegatee, FarmsClient};
-//!
-//! // Create delegatee from owner address (simple case)
-//! let delegatee = Delegatee::new(owner.clone());
-//!
-//! // Or with seed for multi-obligation tracking
-//! let delegatee = Delegatee::new_with_seed(owner.clone(), obligation_seed);
-//!
-//! let client = FarmsClient::new(&env, &farms_contract_address);
-//! client.set_stake_delegated(&delegatee, &farm_id, &new_stake);
-//! ```
-//!
 //! # Design
 //!
 //! The [`FarmsClient`] is generated from the [`Farms`] trait using Soroban's
@@ -38,16 +23,6 @@ use soroban_sdk::{Address, BytesN, Env, contractclient, contracttype};
 /// Supports multiple stake identities per owner address:
 /// - Simple: just owner address (for contracts where user has single position)
 /// - With seed: owner address + seed (for contracts with multiple obligations per user)
-///
-/// # Example
-///
-/// ```ignore
-/// // Simple case - single position per user
-/// let delegatee = Delegatee::new(owner);
-///
-/// // Multi-obligation case - track each obligation separately
-/// let delegatee = Delegatee::new_with_seed(owner, obligation_seed);
-/// ```
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Delegatee {
@@ -107,10 +82,5 @@ pub trait Farms {
     /// # Authorization
     /// The calling contract must be registered as the `delegate_authority` for this farm.
     /// Calls from unauthorized addresses will fail.
-    ///
-    /// # Example Use Cases
-    /// - Lending protocols: sync stake after deposit, withdraw, borrow, repay
-    /// - AMM integrations: sync stake after add/remove liquidity
-    /// - Staking wrappers: sync stake after any position change
     fn set_stake_delegated(e: Env, delegatee: Delegatee, farm_id: BytesN<32>, new_stake: i128);
 }

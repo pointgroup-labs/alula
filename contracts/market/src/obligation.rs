@@ -30,13 +30,11 @@ impl ObligationKey {
     }
 }
 
-/// Convert ObligationKey to Delegatee for farms integration.
-/// This allows using obligation keys directly with the farms contract.
 impl From<&ObligationKey> for Delegatee {
     fn from(key: &ObligationKey) -> Self {
         match &key.seed {
-            Some(seed) => Delegatee::new_with_seed(key.user.clone(), seed.clone()),
-            None => Delegatee::new(key.user.clone()),
+            Some(seed) => (key.user.clone(), seed.clone()).into(),
+            None => key.user.clone().into(),
         }
     }
 }
