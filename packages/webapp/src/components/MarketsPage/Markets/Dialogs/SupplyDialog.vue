@@ -55,7 +55,7 @@ async function supply() {
     marketsStore.poolActiveAddress = poolData.value?.raw.pool.pool_address
 
     const marketProps = {
-      market: marketsStore.activeMarketFilter,
+      market: marketsStore.selectedMarketName,
       client: marketClient.value!,
       pool_address: poolData.value?.raw.pool.pool_address,
       amount: amount.value,

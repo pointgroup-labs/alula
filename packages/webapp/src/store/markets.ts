@@ -12,13 +12,13 @@ export const useMarketsStore = defineStore('markets', () => {
   })
 
   const {
-    activeMarketFilter,
     activeLeverageMarket,
     activeMarket,
     marketClient,
     selectedMarketPools,
     assetDecimals,
-    selectedMarketAddress,
+    selectedMarketName,
+    selectedPoolAddress,
 
     dialogSupply,
     dialogBorrow,
@@ -104,7 +104,6 @@ export const useMarketsStore = defineStore('markets', () => {
     poolActiveAddress,
 
     activeMarket,
-    activeMarketFilter,
     activeLeverageMarket,
 
     selectedMarketPools,
@@ -115,7 +114,8 @@ export const useMarketsStore = defineStore('markets', () => {
     marketInfoDialog,
     dialogLeverageWithdraw,
 
-    selectedMarketAddress,
+    selectedMarketName,
+    selectedPoolAddress,
 
     activeActionPool,
 

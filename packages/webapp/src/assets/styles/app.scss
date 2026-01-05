@@ -13,6 +13,10 @@ body {
   opacity: 0;
 }
 
+p {
+  margin: 0;
+}
+
 #__nuxt {
   display: flex;
   flex-direction: column;

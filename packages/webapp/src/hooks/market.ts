@@ -24,16 +24,16 @@ export function useMarket(state: MarketsState) {
 
   const clientStore = useClientStore()
 
-  const activeMarketFilter = ref<string>('')
   const activeLeverageMarket = ref<string>('')
 
-  const activeMarket = computed(() => state.markets[activeMarketFilter.value])
+  const selectedMarketName = ref()
+  const selectedPoolAddress = ref()
+
+  const activeMarket = computed(() => state.markets[selectedMarketName.value])
   const marketClient = computed(() => activeMarket.value?.client)
 
   const selectedMarketPools = computed(() => activeMarket.value?.marketState.pools_data ?? [])
   const assetDecimals = computed(() => marketClient.value?.marketSdk.assetDecimals || 7)
-
-  const selectedMarketAddress = ref()
 
   function regenerateMarketClient() {
     const markets = Object.entries(state.markets)
@@ -54,25 +54,13 @@ export function useMarket(state: MarketsState) {
   }, { immediate: true, debounce: 200 })
 
   watch([
-    () => route.path,
-    activeMarketFilter,
-  ], ([_path, marketName]) => {
-    if (_path !== '/') {
-      return
-    }
-    const q = { ...route.query }
-
-    q.market = marketName
-    router.replace({ query: { ...q } })
-  })
-
-  watch([
     dialogSupply,
     dialogBorrow,
     marketInfoDialog,
     dialogLeverage,
   ], ([supply, borrow, infoDialog, leverage]) => {
-    const pool = selectedMarketAddress.value
+    const pool = selectedPoolAddress.value
+    const market = selectedMarketName.value
     const query = { ...route.query }
 
     const map: Record<string, boolean> = {
@@ -90,10 +78,11 @@ export function useMarket(state: MarketsState) {
       if (leverage) {
         query['leverage-market'] = activeLeverageMarket.value
       }
-      router.replace({ query: { ...query, dialog: active, pool } })
+      router.replace({ query: { ...query, dialog: active, pool, market } })
     } else {
       delete query.dialog
       delete query.pool
+      delete query.market
       delete query['collateral-only']
       delete query['leverage-market']
       router.replace({ query })
@@ -104,9 +93,10 @@ export function useMarket(state: MarketsState) {
     const pools = Object.values(markets).flatMap(m => m.marketState.pools_data)
     if (pools?.length > 0) {
       const q = route.query
-      selectedMarketAddress.value = q?.pool
+      selectedPoolAddress.value = q?.pool
+      selectedMarketName.value = q?.market
 
-      if (!pools.some(p => p.pool.pool_address === q?.pool) || !selectedMarketAddress.value) {
+      if (!pools.some(p => p.pool.pool_address === q?.pool) || !selectedPoolAddress.value) {
         stop()
         return
       }
@@ -127,20 +117,14 @@ export function useMarket(state: MarketsState) {
     }
   })
 
-  onMounted(() => {
-    const activeMarketQuery = route.query?.market
-    if (activeMarketQuery) {
-      activeMarketFilter.value = String(activeMarketQuery)
-    }
-  })
   return {
-    activeMarketFilter,
     activeLeverageMarket,
     activeMarket,
     marketClient,
     selectedMarketPools,
     assetDecimals,
-    selectedMarketAddress,
+    selectedMarketName,
+    selectedPoolAddress,
 
     dialogSupply,
     dialogBorrow,

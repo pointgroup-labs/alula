@@ -90,7 +90,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const userTotalDepositInUsd = computed(() => {
-    const obligation = state.obligations[marketsStore.activeMarketFilter]
+    const obligation = state.obligations[marketsStore.selectedMarketName]
     const marketState = activeMarket.value?.marketState
 
     if (!obligation || !marketState) {
@@ -104,7 +104,7 @@ export const useUserStore = defineStore('user', () => {
   })
 
   const userTotalBorrowedInUsd = computed(() => {
-    const obligation = state.obligations[marketsStore.activeMarketFilter]
+    const obligation = state.obligations[marketsStore.selectedMarketName]
     const marketState = activeMarket.value?.marketState
 
     if (!obligation || !marketState) {
@@ -170,6 +170,7 @@ function adaptAbligation(ob?: Obligation): ObligationArray | undefined {
   }
   return {
     positions_count: ob?.positions_count,
+    insurance_fund_requests_ids: ob?.insurance_fund_requests_ids,
     borrows: Array.isArray(ob?.borrows)
       ? ob?.borrows as ObligationArray['borrows']
       : [...ob.borrows.entries()],
