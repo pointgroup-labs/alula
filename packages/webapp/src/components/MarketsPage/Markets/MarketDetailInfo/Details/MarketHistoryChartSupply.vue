@@ -138,7 +138,7 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
   <div class="market-history-chart">
     <div class="history-chart__header">
       <div class="history-chart__header__title">
-        Supply History APR
+        Historical Supply APR
       </div>
       <div class="history-chart__header__badge">
         AVG: 0.14%

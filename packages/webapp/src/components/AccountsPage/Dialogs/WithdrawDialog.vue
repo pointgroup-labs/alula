@@ -113,7 +113,7 @@ const infoTableData = computed(() => {
     value: `${shortenNumber(totalSuppliedBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
-    label: 'Deposited Balance',
+    label: 'Supply Balance',
     value: `${shortenNumber(supplyBalance.value || 0)} ${data?.asset.symbol}`,
   },
   {
@@ -125,7 +125,7 @@ const infoTableData = computed(() => {
     value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0))} ${data?.asset.symbol}`,
   },
   {
-    label: 'Available to Withdraw',
+    label: 'Available for Withdrawal',
     value: `${shortenNumber(availableToWithdraw.value || 0)} ${data?.asset.symbol}`,
   },
   {

@@ -40,7 +40,7 @@ function normalizeAmount(price: number) {
     </template>
     <template v-else>
       <total-card
-        title="Total Collateral"
+        title="Total Supply"
         :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
         bg="linear-gradient(101deg, #00A5FF 3.44%, #004266 95.59%)"
         icon-color="#006CE4"
@@ -58,7 +58,7 @@ function normalizeAmount(price: number) {
     <div class="total-card market-size">
       <div class="total-card__info">
         <div class="total-card__title">
-          Total Market Size
+          Global Market Size
         </div>
         <div class="total-card__body">
           <j-skeleton

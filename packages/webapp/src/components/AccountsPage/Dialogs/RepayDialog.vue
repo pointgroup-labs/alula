@@ -85,7 +85,7 @@ const infoTableData = computed(() => {
     value: truncatePercent(healthFactor.value, 2),
   },
   {
-    label: 'Borrow balance after repay',
+    label: 'Borrow Balance After Repayment',
     value: `${shortenNumber(borrowBalanceAfterRepay)} ${data.asset.symbol}`,
   },
   {
@@ -195,7 +195,7 @@ watch(() => modelValue, async (v) => {
         ]"
       >
         <template #label-right>
-          Repay with Wallet: {{ formatPrice(balance || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
+          Repay from Wallet: {{ formatPrice(balance || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
         </template>
       </input-widget>
 

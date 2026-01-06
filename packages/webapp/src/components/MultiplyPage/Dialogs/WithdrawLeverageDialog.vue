@@ -172,7 +172,7 @@ watchDebounced([
         >
           <!-- Market fee -->
           <div class="dialog-info-table__item">
-            <span>Market Fee</span>
+            <span>Operation Fee</span>
             <span>{{ marketFee }} XLM</span>
           </div>
 

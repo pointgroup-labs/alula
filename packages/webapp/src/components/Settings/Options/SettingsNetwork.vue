@@ -58,7 +58,7 @@ watch(() => rpcStore.network, (val) => {
 
     <div class="networks">
       <div class="network-rpc">
-        Horizon Url
+        Horizon URL
 
         <div class="network-rpc__url">
           {{ horizonRPCUrl }}
@@ -66,7 +66,7 @@ watch(() => rpcStore.network, (val) => {
       </div>
 
       <div class="network-rpc">
-        RPC Url
+        RPC URL
 
         <div class="network-rpc__url">
           {{ sorobanRPCUrl }}

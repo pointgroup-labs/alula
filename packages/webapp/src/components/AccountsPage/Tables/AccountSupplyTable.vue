@@ -202,7 +202,7 @@ watch(selectedPool, (p) => {
         class="no-data"
       >
         <i-app-strongbox-icon />
-        no supplied assets
+        No supplied assets
       </div>
 
       <j-loading-spinner

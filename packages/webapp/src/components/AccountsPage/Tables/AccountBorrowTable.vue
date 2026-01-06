@@ -206,7 +206,7 @@ watch(selectedMarket, (p) => {
         class="no-data"
       >
         <i-app-percentage-square-icon />
-        no borrowed assets
+        No borrowed assets
       </div>
 
       <j-loading-spinner

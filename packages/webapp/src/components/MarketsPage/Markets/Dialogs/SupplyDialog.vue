@@ -155,7 +155,7 @@ watch(dialog, async (v) => {
         <div
           class="dialog-info-table__item"
         >
-          <span>Market Fee</span>
+          <span>Operation Fee</span>
 
           <span>{{ formatPrice(marketFee) }} {{ poolData?.asset.symbol }}</span>
         </div>

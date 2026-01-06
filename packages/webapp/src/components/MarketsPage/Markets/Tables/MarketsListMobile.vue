@@ -21,7 +21,7 @@ function onRowClicked(item: MarketTableItem) {
     v-if="items?.length === 0"
     class="no-table-data"
   >
-    No Pools
+    No pools/positions opened
   </div>
   <table-mobile-card
     v-for="item in items"
@@ -48,7 +48,7 @@ function onRowClicked(item: MarketTableItem) {
       <div class="card-top-info">
         <div class="info-wrapper with-pill">
           <div class="info-wrapper__title text-center">
-            Deposit APY
+            Supply APY
           </div>
           <div class="info-wrapper__value">
             <j-pill-label
@@ -80,7 +80,7 @@ function onRowClicked(item: MarketTableItem) {
     <div class="mobile-card-body">
       <div class="info-wrapper">
         <div class="info-wrapper__title">
-          Total Supply
+          Supply
         </div>
         <div class="info-wrapper__value text-end">
           {{ shortenNumber(item.total_supply) }}
@@ -91,7 +91,7 @@ function onRowClicked(item: MarketTableItem) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title">
-          Total Borrowed
+          Borrow
         </div>
         <div class="info-wrapper__value text-end">
           {{ shortenNumber(item.total_borrowed) }}
@@ -102,7 +102,7 @@ function onRowClicked(item: MarketTableItem) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title">
-          Max LTV
+          Open LTV
         </div>
         <div class="info-wrapper__value text-end">
           {{ item.max_ltv }}
@@ -113,7 +113,7 @@ function onRowClicked(item: MarketTableItem) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title">
-          Util. Rate
+          Util.
         </div>
         <div class="info-wrapper__value text-end">
           {{ item.utilization_rate }}
