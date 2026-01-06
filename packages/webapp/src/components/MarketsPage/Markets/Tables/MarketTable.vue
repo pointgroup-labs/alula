@@ -20,12 +20,12 @@ const {
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
-  { key: 'total_supply', label: 'Total Supply', align: 'right' },
-  { key: 'total_borrowed', label: 'Total Borrow', align: 'right' },
-  { key: 'deposit_apy', label: 'Deposit APY', align: 'center' },
+  { key: 'total_supply', label: 'Supply', align: 'right' },
+  { key: 'total_borrowed', label: 'Borrow', align: 'right' },
+  { key: 'deposit_apy', label: 'Supply APY', align: 'center' },
   { key: 'borrow_apy', label: 'Borrow APY', align: 'center' },
   { key: 'utilization_rate', label: 'Utilization', align: 'right' },
-  { key: 'max_ltv', label: 'Max LTV', align: 'center' },
+  { key: 'max_ltv', label: 'Open LTV', align: 'center' },
   { key: 'action', label: '' },
 ]
 
@@ -183,7 +183,7 @@ provide('selectedMarketDetails', selectedMarketDetails)
           v-show="!loading"
           class="no-data"
         >
-          No Pools
+          No pools/positions opened
         </div>
       </template>
     </BTable>

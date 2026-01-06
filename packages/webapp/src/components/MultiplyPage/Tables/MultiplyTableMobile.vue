@@ -55,7 +55,7 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
     v-if="items?.length === 0"
     class="no-table-data"
   >
-    No Pools
+    No pools/positions opened
   </div>
   <table-mobile-card
     v-for="item in items"
@@ -121,7 +121,7 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          Max APY
+          APY
         </div>
         <div class="info-wrapper__value apy-success">
           {{ truncatePercent(item.maxAPY || 0, 2) }}%

@@ -68,7 +68,7 @@ const utilizationRate = computed(() => {
             class="market-interest-legend__item"
             :style="{ '--legend-color': '#FFD101' }"
           >
-            Pool Utilization Rate
+            Optimal Utilization Rate
           </div>
         </div>
       </dynamic-teleport>

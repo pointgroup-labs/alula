@@ -163,7 +163,7 @@ watch(dialog, async (v) => {
 
         <!-- Pool available -->
         <div class="dialog-info-table__item">
-          <span>Pool available amount to borrow</span>
+          <span>Pool liquidity available</span>
           <span>
             {{ shortenNumber(poolBorrowLimit || 0) }}
           </span>
@@ -171,7 +171,7 @@ watch(dialog, async (v) => {
 
         <!-- User available -->
         <div class="dialog-info-table__item">
-          <span>User available amount to borrow</span>
+          <span>Your borrowing capacity</span>
           <span>
             {{ shortenNumber(availableToBorrow || 0) }}
           </span>
@@ -179,7 +179,7 @@ watch(dialog, async (v) => {
 
         <!-- Max LTV -->
         <div class="dialog-info-table__item">
-          <span>Max LTV</span>
+          <span>Open LTV</span>
           <span>
             {{ maxLtv }}
           </span>
@@ -187,7 +187,7 @@ watch(dialog, async (v) => {
 
         <!-- Liquidation LTV -->
         <div class="dialog-info-table__item">
-          <span>Liquidation LTV</span>
+          <span>Close LTV</span>
           <span>
             {{ truncatePercent(closeLTV || 0, 2) }}%
           </span>
@@ -195,7 +195,7 @@ watch(dialog, async (v) => {
 
         <!-- Liquidation penalty -->
         <div class="dialog-info-table__item">
-          <span>Liq. Penalty</span>
+          <span>Liquidation Penalty</span>
           <span>
             {{ truncatePercent(liquidationPenalty || 0, 2) }}%
           </span>
@@ -203,7 +203,7 @@ watch(dialog, async (v) => {
 
         <!-- Market fee -->
         <div class="dialog-info-table__item">
-          <span>Market Fee</span>
+          <span>Operation Fee</span>
           <span>
             {{ formatPrice(marketFee, 0, 5) }} {{ data?.asset.symbol }}
           </span>

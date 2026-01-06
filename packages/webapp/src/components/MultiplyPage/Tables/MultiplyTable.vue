@@ -27,12 +27,12 @@ const userStore = useUserStore()
 
 const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
-  { key: 'maxAPY', label: 'Max APY', align: 'center' },
+  { key: 'maxAPY', label: 'APY', align: 'center' },
   { key: 'multiplier', label: 'Multiplier', align: 'center' },
   { key: 'market', label: 'Market', align: 'center' },
-  { key: 'liquidity', label: 'Liquidity', align: 'right' },
+  { key: 'liquidity', label: 'Borrow', align: 'right' },
   { key: 'supplied', label: 'Supply', align: 'right' },
-  { key: 'borrowing', label: 'Borrow', align: 'right' },
+  { key: 'borrowing', label: 'Borrow Token', align: 'right' },
   { key: 'action', label: '' },
 ]
 
@@ -203,7 +203,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
           v-show="!isLoading"
           class="no-data"
         >
-          No Pools
+          No pools/positions opened
         </div>
       </template>
     </BTable>

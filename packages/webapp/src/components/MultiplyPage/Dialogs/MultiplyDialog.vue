@@ -250,7 +250,7 @@ watchDebounced([
 
           <!-- Max APY -->
           <div class="dialog-info-table__item">
-            <span>Max APY</span>
+            <span>APY</span>
             <span>{{ truncatePercent(maxAPY, 2) }} %</span>
           </div>
 
@@ -268,7 +268,7 @@ watchDebounced([
 
           <!-- Market fee -->
           <div class="dialog-info-table__item">
-            <span>Market Fee</span>
+            <span>Operation Fee</span>
             <span>{{ formatPrice(marketFee, 0, 5) }} {{ data?.borrowAsset.symbol }}</span>
           </div>
 

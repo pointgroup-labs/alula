@@ -9,7 +9,7 @@ import { ALULA_URL } from '~/config'
         © Copyright 2025 <a
           :href="ALULA_URL"
           target="_blank"
-        >alula.finance</a>. All rights reserved.
+        >Alula Finance</a>. All rights reserved.
       </div>
 
       <nav>

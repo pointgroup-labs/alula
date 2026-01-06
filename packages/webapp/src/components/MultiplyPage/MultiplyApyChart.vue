@@ -185,7 +185,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 <template>
   <div class="multiply-chart">
     <div class="loop-multiply__title">
-      Historical APR
+      Historical APY
 
       <chart-date-filter
         v-model="activeFilter"
@@ -220,8 +220,8 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
       </div>
 
       <div class="loop-multiply__vault-info">
-        Multiply uses one-click looping with a flash loan to boost your yield. Choose a multiplier to set leverage —
-        higher multiplier means higher APY and higher liquidation risk. You can reduce or close the position at any
+        Multiply uses one-click looping with a flash loan to boost your yield. Choose a multiplier to set leverage.
+        Higher multiplier means higher APY and higher liquidation risk. You can reduce or close the position at any
         time.
       </div>
     </div>

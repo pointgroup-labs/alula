@@ -57,7 +57,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
             <span>{{ truncatePercent(borrowCap, 1) }}%</span>
           </div>
           <div class="stats-params__item">
-            Reserve:
+            Take Rate:
             <span>{{ reserve }}%</span>
           </div>
         </div>
