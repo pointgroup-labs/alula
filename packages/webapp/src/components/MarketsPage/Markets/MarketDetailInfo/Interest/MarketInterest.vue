@@ -38,7 +38,7 @@ const utilizationRate = computed(() => {
         <span>{{ utilizationRate }}</span>
       </div>
 
-      <div class="separator-vert" />
+      <!-- <div class="separator-vert" />
 
       <a
         href="#"
@@ -46,9 +46,9 @@ const utilizationRate = computed(() => {
         class="interest-link"
       >
         Rate Strategy <i-app-export-icon />
-      </a>
+      </a> -->
 
-      <div class="separator-vert hide-xs" />
+      <!-- <div class="separator-vert hide-xs" /> -->
     </div>
     <div class="separator" />
 

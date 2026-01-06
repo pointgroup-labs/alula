@@ -28,7 +28,7 @@ const openLTV = computed(() => {
   return truncatePercent(closeLtv || 0, 2)
 })
 
-const liquidationPenalty = computed(() => (Number(pool.value?.config.health_config.liquidation_close_factor_bps) / 100).toFixed(0))
+const liquidationPenalty = computed(() => (Number(pool.value?.config.health_config.max_liquidation_incentive_bps) / 100).toFixed(0))
 
 const isSupplyLimit = computed(() => Number(pool.value?.config.health_config.supply_limit) > 0)
 const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.health_config.supply_limit, marketsStore.assetDecimals)) : 0)

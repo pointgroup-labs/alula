@@ -75,7 +75,7 @@ watch(() => searchAsses, (val) => {
       :visible="!searchAsses ? idx === 0 : !!searchAsses"
     >
       <template #title>
-        {{ capitalize(market.marketName) }}
+        {{ capitalize(market.marketName) }} Market
 
         <div
           v-if="market.assets.length > 0"

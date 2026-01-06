@@ -52,8 +52,12 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
 
   .accordion-header {
     margin: 0;
-    background: linear-gradient(101deg, rgb(0, 165, 255) 3.44%, rgb(0, 66, 102) 95.59%);
+    background: $neutral-5;
     border-radius: $radius-8;
+
+    &:has(button[aria-expanded='true']) {
+      border-radius: $radius-8 $radius-8 0 0;
+    }
   }
   .accordion-body {
     padding: $spacing-16 $spacing-16 0;
@@ -62,7 +66,7 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
 
   .accordion-button {
     cursor: pointer;
-    color: #fff;
+    color: #111;
     font-size: 18px;
     font-style: normal;
     font-weight: 500;
@@ -92,7 +96,6 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
       svg {
         width: 16px;
         height: 16px;
-        filter: invert(1);
 
         @media (max-width: $breakpoint-xs) {
           width: 20px;
@@ -115,8 +118,18 @@ body.body--dark {
       background-color: $neutral-18;
     }
 
+    .accordion-header {
+      background: $neutral-18;
+    }
+
     .accordion-button {
       color: #fff;
+
+      i {
+        svg {
+          filter: invert(1);
+        }
+      }
     }
     .accordion-body {
       color: #fff;

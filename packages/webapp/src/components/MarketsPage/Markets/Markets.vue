@@ -27,8 +27,8 @@ const searchAsses = ref()
     .market-assets {
       display: flex;
       align-items: center;
-      padding: $spacing-4 $spacing-8;
-      background-color: rgb(255 255 255 / 16%);
+      padding: $spacing-4 $spacing-12;
+      background-color: rgba(255, 255, 255, 0.496);
       border-radius: 100px;
       margin-left: auto;
       font-size: 14px;
@@ -57,6 +57,7 @@ const searchAsses = ref()
         display: flex;
         flex-direction: column;
         gap: $spacing-16;
+        padding-bottom: 1rem;
       }
     }
 
@@ -74,6 +75,16 @@ const searchAsses = ref()
   .no-markets-found {
     padding: $spacing-32;
     text-align: center;
+  }
+}
+
+body.body--dark {
+  .markets {
+    .table-wrapper {
+      .market-assets {
+        background-color: rgba(0, 0, 0, 0.259);
+      }
+    }
   }
 }
 </style>
