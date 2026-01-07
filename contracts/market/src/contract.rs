@@ -9,11 +9,6 @@ use crate::{
     constants::*,
     error::MCError,
     events, farms,
-    misc::{
-        MarketData, PoolData, require_admin, require_borrows_on_market_allowed,
-        require_deposits_on_market_allowed, require_insurance_fund, require_market_not_frozen,
-        require_nonnegative, require_owned_and_admin,
-    },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
     oracle,
@@ -21,6 +16,11 @@ use crate::{
     processors::*,
     request::Request,
     storage::{self, GlobalState, MarketStatus, PoolUpdate},
+    utils::{
+        MarketData, PoolData, require_admin, require_borrows_on_market_allowed,
+        require_deposits_on_market_allowed, require_insurance_fund, require_market_not_frozen,
+        require_nonnegative, require_owned_and_admin,
+    },
 };
 
 #[contractclient(name = "MarketClient")]
@@ -652,6 +652,7 @@ pub trait Market {
 
     // Resets the contract's storage. Useful when the contract's invariants are broken and require
     // resetting on the testnet without re-deploying the contract
+    #[cfg(not(feature = "mainnet"))]
     fn reset_storage(e: Env);
 }
 
@@ -1462,6 +1463,7 @@ impl Market for MarketContract {
         Ok(())
     }
 
+    #[cfg(not(feature = "mainnet"))]
     fn reset_storage(e: Env) {
         require_admin(&e);
 

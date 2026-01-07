@@ -4,8 +4,8 @@ use controlled_insurance_fund::storage::DataKey;
 use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
-    misc::{MarketData, PoolData},
     obligation::ObligationKey,
+    utils::{MarketData, PoolData},
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{

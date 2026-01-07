@@ -7,8 +7,8 @@ use crate::{
     error::MCError,
     events,
     interest_rate_model::InterestRate,
-    math_utils::MathUtils,
     pool::{Pool, PoolBootstrapPeriod},
+    utils::MathUtils,
 };
 
 // Compound interest rates represented in basis points
