@@ -857,15 +857,28 @@ pub fn process_withdraw_from_leveraged(
 
     // -- Swap to repay the flash loan --
 
-    let received_amount = swap::swap_tokens_for_exact_tokens(
-        e,
-        &e.current_contract_address(),
-        &deposit_pool.token_address,
-        &borrow_pool.token_address,
-        swap_amount_in,
-        swap_amount_out,
-        Some(0),
-    )?;
+    let received_amount = if is_all_withdrawn {
+        swap::swap_tokens_for_exact_tokens(
+            e,
+            &e.current_contract_address(),
+            &deposit_pool.token_address,
+            &borrow_pool.token_address,
+            swap_amount_in,
+            swap_amount_out,
+            Some(0),
+        )?
+    } else {
+        swap::swap_exact_tokens_for_tokens(
+            e,
+            &e.current_contract_address(),
+            &deposit_pool.token_address,
+            &borrow_pool.token_address,
+            swap_amount_in,
+            swap_amount_out,
+            Some(0),
+        )?
+    };
+
     if received_amount < swap_amount_out {
         events::received_unexpected_swap_amount(
             e,
