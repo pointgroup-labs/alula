@@ -710,3 +710,51 @@ fn transfer_admin() {
         assert_eq!(admin, new_admin);
     });
 }
+
+#[test]
+fn test_updating_positions_amounts_does_not_affect_positions_count() {
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let creditor = &users[0];
+    let debtor = &users[1];
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let creditor_obligation = contract_client.get_user_obligation(creditor);
+    assert_eq!(creditor_obligation.positions_count, 1);
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let creditor_obligation = contract_client.get_user_obligation(creditor);
+    assert_eq!(creditor_obligation.positions_count, 1);
+
+    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.add_collateral(debtor, &gold_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.borrow(debtor, &usdc_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 2);
+
+    contract_client.borrow(debtor, &usdc_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 2);
+
+    contract_client.repay(debtor, &usdc_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 2);
+
+    contract_client.repay(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.remove_collateral(debtor, &gold_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.withdraw(creditor, &usdc_pool_address, &1, &None);
+    let creditor_obligation = contract_client.get_user_obligation(creditor);
+    assert_eq!(creditor_obligation.positions_count, 1);
+}

@@ -513,7 +513,7 @@ impl Obligation {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+            .map_or_else(|| self.try_create_deposit_position(e), Ok)?;
 
         let operation_fees = compute_operation_fees(
             original_amount,
@@ -556,7 +556,7 @@ impl Obligation {
         let mut borrow_position = self
             .borrows
             .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_borrow_position(e)?);
+            .map_or_else(|| self.try_create_borrow_position(e), Ok)?;
 
         let operation_fees = compute_operation_fees(
             real_borrowed_amount,
@@ -595,7 +595,7 @@ impl Obligation {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+            .map_or_else(|| self.try_create_deposit_position(e), Ok)?;
 
         let operation_fees = compute_operation_fees(
             original_amount,
@@ -1137,7 +1137,7 @@ impl Obligation {
         let mut deposit_position = self
             .deposits
             .get(collateral_pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+            .map_or_else(|| self.try_create_deposit_position(e), Ok)?;
 
         deposit_position.adjust_j_tokens(e, j_tokens_amount)?;
         self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);

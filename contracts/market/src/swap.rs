@@ -166,7 +166,7 @@ pub fn swap_exact_tokens_for_tokens(
             context: ContractContext {
                 contract: token_in.clone(),
                 fn_name: Symbol::new(e, "transfer"),
-                args: (e.current_contract_address(), pair, amount_in as i128).into_val(e),
+                args: (e.current_contract_address(), pair, { amount_in }).into_val(e),
             },
             sub_invocations: vec![&e],
         });
