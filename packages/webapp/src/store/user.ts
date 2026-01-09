@@ -134,7 +134,8 @@ export const useUserStore = defineStore('user', () => {
       ...Object.values(markets).flatMap(m =>
         m.marketState.multiply_pairs.map(p =>
           loadUserMultiplyObligation({
-            market: m.marketName,
+            // TODO: remove if market name is unique
+            market: m.marketName.split('_')[0]!,
             depositPoolAddress: p.deposit_pool,
             borrowPoolAddress: p.borrow_pool,
             client: m.client,

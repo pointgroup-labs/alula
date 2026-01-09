@@ -82,7 +82,25 @@ export const useMarketsStore = defineStore('markets', () => {
         }),
       )
 
-      state.markets = Object.fromEntries(marketsWithState.map(c => [c.marketName, c]))
+      type Market = typeof marketsWithState[number]
+
+      const marketsByName: Record<string, Market> = {}
+      const counters: Record<string, number> = {}
+
+      for (const market of marketsWithState) {
+        const base = market.marketName
+
+        const count = counters[base] ?? 0
+        counters[base] = count + 1
+
+        const key = count === 0
+          ? base
+          : `${base}_${count}`
+
+        marketsByName[key] = market
+      }
+
+      state.markets = marketsByName
       console.log('%c[Markets info]', 'color: #FFB726', state.markets)
     } catch (error) {
       console.log(error)
