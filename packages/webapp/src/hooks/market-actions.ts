@@ -94,7 +94,7 @@ export function useMarketActions() {
       toast.create({
         title: `${title} Success`,
         body: 'Transaction sent successfully',
-        modelValue: 30_000,
+        modelValue: 10_000,
         alertProps: { variant: 'success' },
         actions: res?.txHash
           ? [{ label: 'View Transaction', href: generateExplorerLink(String(res.txHash)) }]
