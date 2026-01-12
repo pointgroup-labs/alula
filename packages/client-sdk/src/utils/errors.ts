@@ -65,18 +65,19 @@ export function getErrorMessage(error: unknown): string {
   }
 }
 
-export function parseStellarError(error: unknown): string | undefined {
+export function parseStellarError(error: unknown): string {
   if (!error) {
     return 'Unknown error'
   }
-  const raw = getErrorMessage(error)
-  console.log('%c[raw error]', 'color: #FB4747', error)
 
-  for (const key in errorMap) {
-    if (raw?.includes(key)) {
-      return String(errorMap[key])
+  const raw = getErrorMessage(error)
+  console.log('%c[raw error]', 'color: #FB4747', raw)
+
+  for (const key of Object.keys(errorMap)) {
+    if (raw.includes(key)) {
+      return errorMap[key]
     }
   }
 
-  return String(error)
+  return raw
 }
