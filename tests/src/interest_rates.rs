@@ -2,7 +2,7 @@
 
 use market::{
     constants::*,
-    pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig},
+    pool::{Pool, PoolConfig, PoolFeeConfig, PoolHealthConfig},
 };
 use soroban_sdk::testutils::Ledger;
 
@@ -41,7 +41,7 @@ fn test_interest_rates() {
     // 0% UR
     let borrow_bps = contract_client.get_pool(&usdc_pool_address).borrow_apr_bps;
     let supply_bps = contract_client.get_pool(&usdc_pool_address).supply_apr_bps;
-    assert_eq!(borrow_bps, 00_01); // WARN: calculations for APY yield 0% due to a precision loss
+    assert_eq!(borrow_bps, 00_01); // NB: calculations for APY yield 0% due to a precision loss
     assert_eq!(supply_bps, 00_00);
 
     // Borrow 50% of the deposited value
@@ -110,4 +110,70 @@ fn test_interest_rates_no_take_rate() {
     let rates = contract_client.get_pool_data(&usdc_pool_address).apy;
     assert_eq!(rates.borrow_bps, 535_981);
     assert_eq!(rates.supply_bps, 535_981);
+}
+
+#[test]
+fn test_interest_rate_reactivity() {
+    let pool_config = PoolConfig {
+        health_config: PoolHealthConfig {
+            utilization_ratio_limit_bps: BPS_FACTOR,
+            ..Default::default()
+        },
+        ir_reactivity_constant: MAX_REACTIVITY_CONSTANT,
+        ..Default::default()
+    };
+
+    let TestMarketFixture {
+        e,
+        contract_client,
+        contract_id,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+
+    let debtor = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.add_collateral(
+        debtor,
+        &gold_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    // 80% utilization
+    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT * 8 / 10), &None);
+
+    let initial_modifier = e.as_contract(&contract_id, || {
+        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier
+    });
+
+    assert_eq!(initial_modifier, BPS_FACTOR);
+
+    // -- Move time --
+
+    e.ledger().with_mut(|li| li.timestamp += 100);
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let decreased_modifier = e.as_contract(&contract_id, || {
+        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier
+    });
+
+    assert!(decreased_modifier < initial_modifier);
+
+    contract_client.repay(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT * 4 / 10), &None);
+
+    // -- Move time --
+
+    e.ledger().with_mut(|li| li.timestamp += 100);
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let increased_modifier = e.as_contract(&contract_id, || {
+        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier
+    });
+
+    assert!(increased_modifier > initial_modifier);
 }

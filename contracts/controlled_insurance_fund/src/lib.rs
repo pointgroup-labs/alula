@@ -1,5 +1,5 @@
 #![no_std]
-use insurance_fund_trait::{CoverageStatus, InsuranceFund, IssueRequestResult};
+use insurance_fund_interface::{CoverageStatus, InsuranceFund, IssueRequestResult};
 use soroban_sdk::{Address, Env, contract, contractevent, contractimpl, panic_with_error, token};
 use storage::Request;
 

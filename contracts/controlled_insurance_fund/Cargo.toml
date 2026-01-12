@@ -9,7 +9,7 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-insurance-fund-trait = { workspace = true }
+insurance-fund-interface = { workspace = true }
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]

@@ -1,3 +1,4 @@
+use farms_interface::Delegatee;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Map, contracttype};
 
@@ -5,10 +6,10 @@ use crate::{
     constants::*,
     error::MCError,
     events,
-    math_utils::MathUtils,
     oracle::{self, get_asset_price},
     pool::{Pool, PoolFeeConfig},
     storage,
+    utils::MathUtils,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,32 +29,41 @@ impl ObligationKey {
     }
 }
 
+impl From<&ObligationKey> for Delegatee {
+    fn from(key: &ObligationKey) -> Self {
+        match &key.seed {
+            Some(seed) => (key.user.clone(), seed.clone()).into(),
+            None => key.user.clone().into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[contracttype]
 pub struct Obligation {
-    /// Deposited collateral for the obligation, unique by deposit pool address
+    // Deposited collateral for the obligation, unique by deposit pool address
     pub deposits: Map<Address, DepositPosition>,
-    /// Borrowed liquidity for the obligation, unique by borrow pool address
+    // Borrowed liquidity for the obligation, unique by borrow pool address
     pub borrows: Map<Address, BorrowPosition>,
-    /// Count of non-empty positions
+    // Count of non-empty positions
     pub positions_count: u32,
-    /// Request IDs per pool address that are present only if there are active requests to the Insurance Fund to cover
-    /// bad debt on an obligation
+    // Request IDs per pool address that are present only if there are active requests to the Insurance Fund to cover
+    // bad debt on an obligation
     pub insurance_fund_requests_ids: Map<(Address, u64), ()>,
-    // /// Market value of obligation's collateral
+    // // Market value of obligation's collateral
     // pub collateral_value: i128,
-    // /// Last update to collateral, liquidity, or their market values
+    // // Last update to collateral, liquidity, or their market values
     // pub last_update: u64,
-    // /// Market value of deposits
+    // // Market value of deposits
     // pub borrowed_value: i128,
 }
 
 impl Obligation {
-    /// Creates a new obligation for the specified obligation key
-    ///
-    /// # WARNING
-    /// Modifies the obligation's pools storage data by appending the user's address to the
-    /// obligation's list
+    // Creates a new obligation for the specified obligation key
+    //
+    // # WARNING
+    // Modifies the obligation's pools storage data by appending the user's address to the
+    // obligation's list
     pub fn new(e: &Env, obligation_key: &ObligationKey) -> Self {
         storage::register_obligation(e, obligation_key);
 
@@ -65,8 +75,8 @@ impl Obligation {
         }
     }
 
-    /// Verifies that the new deposit position doesn't exceed the max allowed number of positions and
-    /// creates one
+    // Verifies that the new deposit position doesn't exceed the max allowed number of positions and
+    // creates one
     pub fn try_create_deposit_position(&mut self, e: &Env) -> Result<DepositPosition, MCError> {
         if self.positions_count >= storage::get_max_positions(e) {
             return Err(MCError::TooManyPositions);
@@ -76,8 +86,8 @@ impl Obligation {
         Ok(DepositPosition::default())
     }
 
-    /// Verifies that the new borrow position doesn't exceed the max allowed number of positions and
-    /// creates one
+    // Verifies that the new borrow position doesn't exceed the max allowed number of positions and
+    // creates one
     pub fn try_create_borrow_position(&mut self, e: &Env) -> Result<BorrowPosition, MCError> {
         if self.positions_count >= storage::get_max_positions(e) {
             return Err(MCError::TooManyPositions);
@@ -87,7 +97,7 @@ impl Obligation {
         Ok(BorrowPosition::default())
     }
 
-    /// Removes the deposit position for the obligation
+    // Removes the deposit position for the obligation
     pub fn try_remove_deposit_position(
         &mut self,
         e: &Env,
@@ -104,7 +114,7 @@ impl Obligation {
         Ok(())
     }
 
-    /// Removes the borrow position for the obligation
+    // Removes the borrow position for the obligation
     pub fn try_remove_borrow_position(
         &mut self,
         e: &Env,
@@ -121,47 +131,47 @@ impl Obligation {
         Ok(())
     }
 
-    /// Saves/updates obligation in the contract's storage
-    ///
-    /// # Arguments
-    /// * `user` - obligation's user address. **MUST** equal the original user address
-    /// * `seed` - obligation's user seed. **MUST** equal the original obligation seed
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
+    // Saves/updates obligation in the contract's storage
+    //
+    // # Arguments
+    // * `user` - obligation's user address. **MUST** equal the original user address
+    // * `seed` - obligation's user seed. **MUST** equal the original obligation seed
+    //
+    // # WARNING
+    // Modifies the contract's storage
     pub fn set(&self, e: &Env, obligation_key: &ObligationKey) {
         storage::set_obligation(e, obligation_key, self);
     }
 
-    /// Tries to get the user's obligation from the contract's storage
-    ///
-    /// # Returns
-    /// - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
-    /// - [`Err(MCError::ObligationDoesNotExist)`] otherwise
+    // Tries to get the user's obligation from the contract's storage
+    //
+    // # Returns
+    // - [`Ok(Obligation)`] if a pool with the given address exists in the contract's storage
+    // - [`Err(MCError::ObligationDoesNotExist)`] otherwise
     pub fn try_get(e: &Env, obligation_key: &ObligationKey) -> Result<Self, MCError> {
         storage::get_obligation(e, obligation_key).ok_or(MCError::ObligationDoesNotExist)
     }
 
-    /// # Returns
-    ///
-    /// [`Map<ObligationKey, ()>`] containing all obligation keys in the market
+    // # Returns
+    //
+    // [`Map<ObligationKey, ()>`] containing all obligation keys in the market
     pub fn get_all(e: &Env) -> Map<ObligationKey, ()> {
         storage::get_all_obligations(e)
     }
 
-    /// Removes obligation from the contract's storage
-    ///
-    /// # WARNING
-    /// Modifies the contract's storage
+    // Removes obligation from the contract's storage
+    //
+    // # WARNING
+    // Modifies the contract's storage
     pub fn remove(self, e: &Env, obligation_key: &ObligationKey) {
         storage::remove_obligation(e, obligation_key);
     }
 
-    /// Accrues interest on all obligation-related pools
-    ///
-    /// # WARNING
-    /// Modifies the obligation's pools storage data.
-    /// Also, accruing interest on an obligation should precede pool retrieval
+    // Accrues interest on all obligation-related pools
+    //
+    // # WARNING
+    // Modifies the obligation's pools storage data.
+    // Also, accruing interest on an obligation should precede pool retrieval
     pub fn accrue_interest(&self, e: &Env) -> Result<(), MCError> {
         for borrow_pool_address in self.borrows.keys() {
             accrue_interest_on_pool(e, &borrow_pool_address)?;
@@ -183,14 +193,6 @@ impl Obligation {
     }
 
     // ------ `require_` circuits ------
-
-    pub fn require_does_not_exist(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
-        if storage::obligation_exists(e, obligation_key) {
-            return Err(MCError::ObligationDoesNotExist);
-        }
-
-        Ok(())
-    }
 
     pub fn require_borrow_exists(&self) -> Result<(), MCError> {
         if !self.borrow_exists() {
@@ -229,8 +231,8 @@ impl Obligation {
 
     // ------ Health Factor Removing Computations ------
 
-    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    /// obligation with floor rounding
+    // Computes the current collateral assets summed value(deposit shares + plain collateral) per
+    // obligation with floor rounding
     pub fn compute_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0i128;
         for (pool_address, deposit_position) in self.deposits.iter() {
@@ -252,8 +254,8 @@ impl Obligation {
         Ok(value_sum)
     }
 
-    /// Computes the max healthy amount of the token that can be borrowed and that
-    /// doesn't exceed the `open LTV` parameter on the pool
+    // Computes the max healthy amount of the token that can be borrowed and that
+    // doesn't exceed the `open LTV` parameter on the pool
     pub fn compute_max_healthy_debt_added_amount(
         &self,
         e: &Env,
@@ -266,9 +268,9 @@ impl Obligation {
         )
     }
 
-    /// Computes the max healthy amount of the collateral token(that is used as a deposit or as a
-    /// collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
-    /// parameter on the pool
+    // Computes the max healthy amount of the collateral token(that is used as a deposit or as a
+    // collateral) that can be removed so that the obligation's LTV is equal to the `open LTV`
+    // parameter on the pool
     pub fn compute_max_healthy_collateral_removed_amount(
         &self,
         e: &Env,
@@ -281,9 +283,9 @@ impl Obligation {
         )
     }
 
-    /// Computes the maximum healthy amount of the token that can be additionally added to the debt
-    /// or removed from the collateral, scaled with the corresponding coefficient(`open_ltv_bps` for removed collateral
-    /// or `liability_factor_bps` for added borrow)
+    // Computes the maximum healthy amount of the token that can be additionally added to the debt
+    // or removed from the collateral, scaled with the corresponding coefficient(`open_ltv_bps` for removed collateral
+    // or `liability_factor_bps` for added borrow)
     fn compute_max_health_factor_decreasing_amount(
         &self,
         e: &Env,
@@ -330,8 +332,8 @@ impl Obligation {
         Ok(max_amount)
     }
 
-    /// Computes the current debt assets summed value per
-    /// obligation, scaling each value with the appropriate `liability_factor_bps` value
+    // Computes the current debt assets summed value per
+    // obligation, scaling each value with the appropriate `liability_factor_bps` value
     fn compute_debt_value_scaled_w_liability_factors(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
@@ -355,8 +357,8 @@ impl Obligation {
         Ok(value_sum)
     }
 
-    /// Computes the current debt assets summed value per
-    /// obligation
+    // Computes the current debt assets summed value per
+    // obligation
     pub fn compute_debt_value(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
@@ -376,8 +378,8 @@ impl Obligation {
         Ok(value_sum)
     }
 
-    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    /// obligation, scaling each value with the appropriate `close_ltv_bps` value
+    // Computes the current collateral assets summed value(deposit shares + plain collateral) per
+    // obligation, scaling each value with the appropriate `close_ltv_bps` value
     fn compute_collateral_value_scaled_w_close_ltvs(&self, e: &Env) -> Result<i128, MCError> {
         let mut value_sum = 0_i128;
 
@@ -401,9 +403,9 @@ impl Obligation {
         Ok(value_sum)
     }
 
-    /// Computes the current collateral assets summed value(deposit shares + plain collateral) per
-    /// obligation, scaling each value with the appropriate `open_ltv_bps` value.
-    /// As a second value, it returns the amount of open positions that are used as collateral that can back up borrows
+    // Computes the current collateral assets summed value(deposit shares + plain collateral) per
+    // obligation, scaling each value with the appropriate `open_ltv_bps` value.
+    // As a second value, it returns the amount of open positions that are used as collateral that can back up borrows
     fn compute_collateral_value_scaled_w_open_ltvs(&self, e: &Env) -> Result<(i128, u32), MCError> {
         let mut value_sum = 0i128;
         let mut positions_with_non_zero_close_ltv_count = 0u32;
@@ -430,8 +432,8 @@ impl Obligation {
         Ok((value_sum, positions_with_non_zero_close_ltv_count))
     }
 
-    /// Computes obligation's collateral pool's asset total(collateral + deposit) value scaled
-    /// with provided `scalar_bps` value
+    // Computes obligation's collateral pool's asset total(collateral + deposit) value scaled
+    // with provided `scalar_bps` value
     fn compute_pool_collateral_value_scaled(
         e: &Env,
         pool: &Pool,
@@ -452,8 +454,8 @@ impl Obligation {
         }
     }
 
-    /// Computes obligation's debt pool's asset value scaled
-    /// with provided `scalar_bps` value
+    // Computes obligation's debt pool's asset value scaled
+    // with provided `scalar_bps` value
     fn compute_pool_debt_value_scaled(
         e: &Env,
         pool: &Pool,
@@ -500,7 +502,7 @@ impl Obligation {
 
     // ------ Operations ------
 
-    /// Deposits assets on an obligation per pool
+    // Deposits assets on an obligation per pool
     pub fn deposit(
         &mut self,
         e: &Env,
@@ -511,7 +513,7 @@ impl Obligation {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+            .map_or_else(|| self.try_create_deposit_position(e), Ok)?;
 
         let operation_fees = compute_operation_fees(
             original_amount,
@@ -536,7 +538,7 @@ impl Obligation {
         })
     }
 
-    /// Borrows assets on an obligation
+    // Borrows assets on an obligation
     pub fn borrow(
         &mut self,
         e: &Env,
@@ -550,11 +552,11 @@ impl Obligation {
 
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
-        // WARN: This can potentially create a borrow obligation with 0ed fields
+        // NB: This can potentially create a borrow obligation with 0ed fields
         let mut borrow_position = self
             .borrows
             .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_borrow_position(e)?);
+            .map_or_else(|| self.try_create_borrow_position(e), Ok)?;
 
         let operation_fees = compute_operation_fees(
             real_borrowed_amount,
@@ -582,7 +584,7 @@ impl Obligation {
         })
     }
 
-    /// Adds collateral assets on an obligation per pool
+    // Adds collateral assets on an obligation per pool
     pub fn add_collateral(
         &mut self,
         e: &Env,
@@ -593,7 +595,7 @@ impl Obligation {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+            .map_or_else(|| self.try_create_deposit_position(e), Ok)?;
 
         let operation_fees = compute_operation_fees(
             original_amount,
@@ -611,7 +613,7 @@ impl Obligation {
         Ok(AddCollateralResult { added_collateral, operation_fees })
     }
 
-    /// Withdraws assets from an obligation per pool
+    // Withdraws assets from an obligation per pool
     pub fn withdraw(
         &mut self,
         e: &Env,
@@ -711,7 +713,7 @@ impl Obligation {
         })
     }
 
-    /// Removes collateral assets from an obligation per pool
+    // Removes collateral assets from an obligation per pool
     pub fn remove_collateral(
         &mut self,
         e: &Env,
@@ -760,12 +762,12 @@ impl Obligation {
         })
     }
 
-    /// Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt
-    /// — the real repaid amount is calculated as `min(debt, repaid_amount)`
-    ///
-    /// # Returns
-    /// [`Result::Ok((real_repaid_amount, d_tokens_burnt))`] in success and
-    /// [`Err(MCError)`] in failure
+    // Repays the debt on a specific obligation per pool. Since `repaid_amount` can exceed the debt
+    // — the real repaid amount is calculated as `min(debt, repaid_amount)`
+    //
+    // # Returns
+    // [`Result::Ok((real_repaid_amount, d_tokens_burnt))`] in success and
+    // [`Err(MCError)`] in failure
     pub fn repay(
         &mut self,
         e: &Env,
@@ -860,7 +862,7 @@ impl Obligation {
         })
     }
 
-    /// Liquidates unhealthy borrow
+    // Liquidates unhealthy borrow
     pub fn liquidate(
         &mut self,
         e: &Env,
@@ -1125,7 +1127,7 @@ impl Obligation {
         })
     }
 
-    /// Increases `jTokens` amount for the liquidator's obligation if the plain collateral wasn't sufficient to cover the liquidation
+    // Increases `jTokens` amount for the liquidator's obligation if the plain collateral wasn't sufficient to cover the liquidation
     pub fn liquidation_increase_j_tokens(
         &mut self,
         e: &Env,
@@ -1135,7 +1137,7 @@ impl Obligation {
         let mut deposit_position = self
             .deposits
             .get(collateral_pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+            .map_or_else(|| self.try_create_deposit_position(e), Ok)?;
 
         deposit_position.adjust_j_tokens(e, j_tokens_amount)?;
         self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);
@@ -1173,13 +1175,13 @@ impl Obligation {
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct BorrowPosition {
-    /// Amount of the total debt shares that the obligation contains
+    // Amount of the total debt shares that the obligation contains
     pub d_tokens: i128,
-    /// Originally borrowed token amount. I.e., if the user borrows 100 tokens and 20 tokens
-    /// have been accrued with time as additional debt - this value remains 100. If, after that, the user repays the amount
-    /// that exceeds the debt accrual(like 30) - the value becomes 90. If the user instead borrows 10 tokens, the
-    /// value increases to 110. In any other case, it doesn't change. Its only purpose is to track the amount
-    /// of accrued unpaid interest
+    // Originally borrowed token amount. I.e., if the user borrows 100 tokens and 20 tokens
+    // have been accrued with time as additional debt - this value remains 100. If, after that, the user repays the amount
+    // that exceeds the debt accrual(like 30) - the value becomes 90. If the user instead borrows 10 tokens, the
+    // value increases to 110. In any other case, it doesn't change. Its only purpose is to track the amount
+    // of accrued unpaid interest
     pub originally_borrowed: i128,
 }
 
@@ -1221,18 +1223,18 @@ impl BorrowPosition {
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 #[contracttype]
 pub struct DepositPosition {
-    /// A share of total supplied tokens in the pool that obligation contains
+    // A share of total supplied tokens in the pool that obligation contains
     pub j_tokens: i128,
-    /// Accumulated value of collateral that doesn't accrue interest
+    // Accumulated value of collateral that doesn't accrue interest
     pub collateral: i128,
-    /// Originally deposited token amount. I.e., if the user deposits 100 tokens and 20 tokens
-    /// have been accrued with time - this value remains 100. If, after that, the user withdraws the amount
-    /// that exceeds the accrual(like 30) - the value becomes 90 (same goes for when `j_tokens` are seized
-    /// as collateral by a liquidator. If the user instead deposits 10 tokens, the
-    /// value increases to 110. In any other case, it doesn't change. Its only purpose is to track the amount
-    /// of received supply interest
+    // Originally deposited token amount. I.e., if the user deposits 100 tokens and 20 tokens
+    // have been accrued with time - this value remains 100. If, after that, the user withdraws the amount
+    // that exceeds the accrual(like 30) - the value becomes 90 (same goes for when `j_tokens` are seized
+    // as collateral by a liquidator. If the user instead deposits 10 tokens, the
+    // value increases to 110. In any other case, it doesn't change. Its only purpose is to track the amount
+    // of received supply interest
     pub originally_deposited: i128,
-    /// Timestamp of when the last scarcity withdraw took place
+    // Timestamp of when the last scarcity withdraw took place
     pub last_scarcity_withdraw_ts: u64,
 }
 
@@ -1279,14 +1281,14 @@ impl DepositPosition {
     }
 }
 
-/// Used to generate a unique seed for `Earn` obligation
-/// See [`compute_earn_obligation_seed`]
+// Used to generate a unique seed for `Earn` obligation
+// See [`compute_earn_obligation_seed`]
 const EARN_OBLIGATION_SEED_STR: &str = "EV";
 
-/// Computes 'Earn' seed and caches it if it hasn't been computed yet, or gets it from the storage otherwise
-///
-/// # Returns
-/// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
+// Computes 'Earn' seed and caches it if it hasn't been computed yet, or gets it from the storage otherwise
+//
+// # Returns
+// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
 pub fn get_earn_obligation_seed(e: &Env) -> BytesN<32> {
     if let Some(stored_seed) = storage::get_earn_obligation_seed(e) {
         stored_seed
@@ -1304,11 +1306,11 @@ fn compute_earn_obligation_seed(e: &Env) -> BytesN<32> {
     e.crypto().keccak256(&seed).into()
 }
 
-/// Adjusts a field on the obligation's structs
-///
-/// # Returns
-/// `Ok(new_amount)` if adjusting doesn't lead to a new amount being negative.
-/// `Err(MCError::InternalError)` otherwise
+// Adjusts a field on the obligation's structs
+//
+// # Returns
+// `Ok(new_amount)` if adjusting doesn't lead to a new amount being negative.
+// `Err(MCError::InternalError)` otherwise
 fn adjust_obligation_field(
     e: &Env,
     current_value: i128,
@@ -1325,10 +1327,10 @@ fn adjust_obligation_field(
     Ok(new_amount)
 }
 
-/// Accrues interest on a pool
-///
-/// # WARNING
-/// Modifies the contract's storage
+// Accrues interest on a pool
+//
+// # WARNING
+// Modifies the contract's storage
 fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCError> {
     let mut pool = storage::get_pool(e, pool_address).ok_or(MCError::PoolDoesNotExist)?;
 
@@ -1338,7 +1340,7 @@ fn accrue_interest_on_pool(e: &Env, pool_address: &Address) -> Result<(), MCErro
     Ok(())
 }
 
-/// Computes the operation's one-time fees
+// Computes the operation's one-time fees
 pub fn compute_operation_fees(
     original_amount: i128,
     fee_bps: u32,
@@ -1372,11 +1374,11 @@ pub fn compute_operation_fees(
     Ok(OperationFees { fee_sum, referrer_fee })
 }
 
-/// Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
-/// exceeds utilization ratio limit. E.g., (2% of origination fee + 4.5% of scarcity fee, etc.).
-///
-/// # WARNING
-/// This updates `deposit_position.last_scarcity_withdraw_ts` on `DepositPosition` in case of scarcity withdraw
+// Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
+// exceeds utilization ratio limit. E.g., (2% of origination fee + 4.5% of scarcity fee, etc.).
+//
+// # WARNING
+// This updates `deposit_position.last_scarcity_withdraw_ts` on `DepositPosition` in case of scarcity withdraw
 fn compute_withdraw_scarcity_fee_bps(
     e: &Env,
     pool: &Pool,
@@ -1451,92 +1453,92 @@ fn compute_withdraw_scarcity_fee_bps(
 
 #[contracttype]
 #[derive(Clone)]
-/// Represents operational one-time fees
+// Represents operational one-time fees
 pub struct OperationFees {
-    /// Fee sum
+    // Fee sum
     pub fee_sum: i128,
-    /// Fee, immediately sent to the referrer if one is present
+    // Fee, immediately sent to the referrer if one is present
     pub referrer_fee: Option<i128>,
 }
 
 #[contracttype]
-/// [`Obligation::deposit`] resulting data
+// [`Obligation::deposit`] resulting data
 pub struct DepositResult {
-    /// Amount of `jTokens` to issue that represent the `deposited` amount in the pool
+    // Amount of `jTokens` to issue that represent the `deposited` amount in the pool
     pub j_tokens_to_issue: i128,
-    /// Amount of originally deposited tokens(minus all possible fees)
+    // Amount of originally deposited tokens(minus all possible fees)
     pub deposited: i128,
     pub operation_fees: OperationFees,
 }
 
 #[contracttype]
-/// [`Obligation::borrow`] resulting data
+// [`Obligation::borrow`] resulting data
 pub struct BorrowResult {
-    /// Amount of `dTokens` to issue that represent the `borrower_new_debt` amount in the pool
+    // Amount of `dTokens` to issue that represent the `borrower_new_debt` amount in the pool
     pub d_tokens_to_issue: i128,
-    /// Amount of debt(in tokens) that is added to the borrower's obligation
+    // Amount of debt(in tokens) that is added to the borrower's obligation
     pub borrower_new_debt: i128,
-    /// Amount of tokens to receive by the borrower(`borrower_new_debt` minus all fees)
+    // Amount of tokens to receive by the borrower(`borrower_new_debt` minus all fees)
     pub borrower_to_receive: i128,
     pub operation_fees: OperationFees,
 }
 
 #[contracttype]
-/// [`Obligation::add_collateral`] resulting data
+// [`Obligation::add_collateral`] resulting data
 pub struct AddCollateralResult {
-    /// Amount of tokens added as collateral(minus all possible fees)
+    // Amount of tokens added as collateral(minus all possible fees)
     pub added_collateral: i128,
     pub operation_fees: OperationFees,
 }
 
 #[contracttype]
-/// [`Obligation::withdraw`] resulting data
+// [`Obligation::withdraw`] resulting data
 pub struct WithdrawResult {
-    /// Amount of `jTokens` to burn that represent the `deposit_decreased_amount` amount in the
-    /// pool
+    // Amount of `jTokens` to burn that represent the `deposit_decreased_amount` amount in the
+    // pool
     pub j_tokens_to_burn: i128,
-    /// Amount of the original deposit(in tokens) that is removed from the `DepositPosition`
+    // Amount of the original deposit(in tokens) that is removed from the `DepositPosition`
     pub deposit_decrease: i128,
-    /// Amount of tokens to receive by the withdrawer(`deposit_decreased_amount` minus fees)
+    // Amount of tokens to receive by the withdrawer(`deposit_decreased_amount` minus fees)
     pub withdrawer_to_receive: i128,
     pub operation_fees: OperationFees,
 }
 
 #[contracttype]
 #[derive(Clone)]
-/// [`Obligation::repay`] resulting data
+// [`Obligation::repay`] resulting data
 pub struct RepayResult {
-    /// Amount of `dTokens` to burn that represent the `real_repaid` amount in the pool
+    // Amount of `dTokens` to burn that represent the `real_repaid` amount in the pool
     pub d_tokens_to_burn: i128,
-    /// Amount of the debt that is repaid
+    // Amount of the debt that is repaid
     pub debt_repaid: i128,
-    /// Excess amount given by the borrower that is sent back
+    // Excess amount given by the borrower that is sent back
     pub amount_to_send_back: i128,
     pub operation_fees: OperationFees,
 }
 
 #[contracttype]
-/// [`Obligation::remove_collateral`] resulting data
+// [`Obligation::remove_collateral`] resulting data
 pub struct RemoveCollateralResult {
-    /// Amount of collateral tokens removed
+    // Amount of collateral tokens removed
     pub collateral_decrease: i128,
-    /// Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
+    // Amount of collateral tokens received by the collateral remover(accounting subtracted fees)
     pub collateral_remover_to_receive: i128,
     pub operation_fees: OperationFees,
 }
 
 #[contracttype]
 pub struct LiquidationResult {
-    /// The amount of debt tokens repaid by the liquidator
+    // The amount of debt tokens repaid by the liquidator
     pub debt_repaid: i128,
-    /// The amount of `dTokens` that are burned from the borrower's borrow position
+    // The amount of `dTokens` that are burned from the borrower's borrow position
     pub d_tokens_burned: i128,
-    /// The amount of plain collateral seized from the borrower's obligation and transferred to the liquidator
+    // The amount of plain collateral seized from the borrower's obligation and transferred to the liquidator
     pub plain_collateral_seized: i128,
-    /// The amount of `jTokens` seized from the borrower's obligation and given away to the liquidator's obligation
-    /// in case the borrower's position doesn't contain enough plain collateral to cover the liquidation expenses
+    // The amount of `jTokens` seized from the borrower's obligation and given away to the liquidator's obligation
+    // in case the borrower's position doesn't contain enough plain collateral to cover the liquidation expenses
     pub j_tokens_seized: i128,
-    /// The amount of tokens representing the `j_tokens_seized` computed via ceiling
+    // The amount of tokens representing the `j_tokens_seized` computed via ceiling
     pub tokens_from_j_tokens_seized: i128,
 }
 

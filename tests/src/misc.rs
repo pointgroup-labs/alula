@@ -1,10 +1,11 @@
 #![cfg(test)]
 
+use controlled_insurance_fund::storage::DataKey;
 use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
-    misc::{MarketData, PoolData},
     obligation::ObligationKey,
+    utils::{MarketData, PoolData},
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
@@ -681,4 +682,79 @@ fn test_refresh_multiply_pair_obligation() {
 
     let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
     assert_ne!(usdc_pool_before, usdc_pool_after);
+}
+
+#[test]
+fn transfer_admin() {
+    let TestMarketFixture { e, contract_id, full_contract_client, contract_admin, .. } =
+        TestMarketFixture::new();
+    let new_admin = Address::generate(&e);
+    assert_ne!(new_admin, contract_admin);
+
+    e.as_contract(&contract_id, || {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        assert_eq!(admin, contract_admin);
+    });
+
+    full_contract_client.propose_new_admin(&new_admin);
+
+    e.as_contract(&contract_id, || {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        assert_eq!(admin, contract_admin);
+    });
+
+    full_contract_client.accept_proposed_admin();
+
+    e.as_contract(&contract_id, || {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        assert_eq!(admin, new_admin);
+    });
+}
+
+#[test]
+fn test_updating_positions_amounts_does_not_affect_positions_count() {
+    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let creditor = &users[0];
+    let debtor = &users[1];
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let creditor_obligation = contract_client.get_user_obligation(creditor);
+    assert_eq!(creditor_obligation.positions_count, 1);
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let creditor_obligation = contract_client.get_user_obligation(creditor);
+    assert_eq!(creditor_obligation.positions_count, 1);
+
+    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.add_collateral(debtor, &gold_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.borrow(debtor, &usdc_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 2);
+
+    contract_client.borrow(debtor, &usdc_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 2);
+
+    contract_client.repay(debtor, &usdc_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 2);
+
+    contract_client.repay(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.remove_collateral(debtor, &gold_pool_address, &1, &None);
+    let debtor_obligation = contract_client.get_user_obligation(debtor);
+    assert_eq!(debtor_obligation.positions_count, 1);
+
+    contract_client.withdraw(creditor, &usdc_pool_address, &1, &None);
+    let creditor_obligation = contract_client.get_user_obligation(creditor);
+    assert_eq!(creditor_obligation.positions_count, 1);
 }

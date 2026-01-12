@@ -49,10 +49,14 @@ fn test_partially_socialize_full_bad_debt_loss() {
         users,
         ..
     } = TestMarketFixture::new();
-    // contract_client.update_market(&10, &10);
     let borrower = &users[0];
     let liquidity_provider = &users[1];
     let liquidator = &users[2];
+
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (insurance_fund.clone(), 10_000)],
+    );
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
@@ -110,6 +114,9 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let market_value_diff_before =
         market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
 
+    let j_token_rate_before =
+        contract_client.get_pool_data(&usdc_pool_address).j_token_rate_floor_bps;
+
     // - Cover bad debt -
 
     let debt_amount =
@@ -126,10 +133,6 @@ fn test_partially_socialize_full_bad_debt_loss() {
         &DEFAULT_DEPOSIT_AMOUNT,
     );
 
-    contract_client.set_take_rate_fees_beneficiaries(
-        &usdc_pool_address,
-        &smap![&e, (insurance_fund.clone(), 10_000)],
-    );
     contract_client.distribute_all_pools_fees();
 
     let insurance_fund_balance_after = usdc_token_client.balance(&insurance_fund);
@@ -174,9 +177,11 @@ fn test_partially_socialize_full_bad_debt_loss() {
     let market_value_diff_after =
         market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
 
-    dbg!(market_value_diff_before, market_value_diff_after); // MEGA_WARN. This issue still
-    // persists
+    let j_token_rate_after =
+        contract_client.get_pool_data(&usdc_pool_address).j_token_rate_floor_bps;
+
     assert!(market_value_diff_before > market_value_diff_after);
+    assert!(j_token_rate_before > j_token_rate_after);
 }
 
 // TODO: Add missing test for complete socialization
@@ -198,6 +203,11 @@ fn test_completely_cover_bad_debt() {
     let borrower_2 = &users[1];
     let liquidity_provider = &users[2];
     let liquidator = &users[3];
+
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (insurance_fund.clone(), 10_000)],
+    );
 
     contract_client.add_collateral(
         borrower_1,
@@ -234,11 +244,6 @@ fn test_completely_cover_bad_debt() {
     assert!(total_obligation_debt_value > total_obligation_collateral_value);
 
     // - Verify that reserve can cover it -
-
-    contract_client.set_take_rate_fees_beneficiaries(
-        &usdc_pool_address,
-        &smap![&e, (insurance_fund.clone(), 10_000)],
-    );
     contract_client.distribute_pool_fees(&usdc_pool_address);
 
     let borrower_2_debt_before =

@@ -21,18 +21,18 @@ use std::ops::{Add, Sub};
 
 use arbitrary::Unstructured;
 use controlled_insurance_fund::ControlledInsuranceFundContractClient;
-use insurance_fund_trait::InsuranceFundClient;
+use insurance_fund_interface::InsuranceFundClient;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
         DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
     },
-    contract::{MarketClient, MarketContract},
+    contract::{MarketClient, MarketContract, MarketContractClient},
     error::MCError,
-    math_utils::MathUtils,
     obligation::{BorrowPosition, DepositPosition},
     pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
+    utils::MathUtils,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
@@ -59,6 +59,7 @@ pub enum Token {
 pub struct TestMarketFixture<'a> {
     pub e: Env,
     pub contract_client: MarketClient<'a>,
+    pub full_contract_client: MarketContractClient<'a>,
     pub contract_id: Address,
     pub contract_admin: Address,
     pub users: Vec<Address>,
@@ -166,6 +167,7 @@ impl TestMarketFixture<'_> {
             ),
         );
         let contract_client = MarketClient::new(&e, &market_contract_id);
+        let full_contract_client = MarketContractClient::new(&e, &market_contract_id);
 
         controlled_insurance_fund_client.set_market(&market_contract_id);
 
@@ -218,6 +220,7 @@ impl TestMarketFixture<'_> {
         Self {
             e,
             contract_client,
+            full_contract_client,
             contract_id: market_contract_id,
             contract_admin,
             // Oracle

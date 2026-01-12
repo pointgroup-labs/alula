@@ -148,6 +148,7 @@ fn test_manager_invalid_deploy() {
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
+
     assert_eq!(
         manager_client.try_deploy(
             &salt,

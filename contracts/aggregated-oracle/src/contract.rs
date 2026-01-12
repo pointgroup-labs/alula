@@ -45,7 +45,7 @@ impl AggregatedOracleContract {
     pub fn __constructor(
         e: Env,
         admin: Address,
-        base_asset_symbol: Symbol, // TODO: Use `Asset` before deployment
+        base_asset_symbol: Symbol, /* TODO: Use `Asset` before deployment. Passing enums as arguments doesn't work well with stellar-cli */
         decimals: u32,
         max_age: u64,
         oracles: Vec<OracleConfigInput>,

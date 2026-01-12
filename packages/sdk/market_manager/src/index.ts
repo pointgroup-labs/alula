@@ -66,21 +66,11 @@ export interface Client {
 
   /**
    * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Upgrades the market manager contract
-   *
-   * # Arguments
-   * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
-   * new version of the contract
    */
   upgrade: ({ new_wasm_hash}: { new_wasm_hash: Buffer }, options?: MethodOptions) => Promise<AssembledTransaction<null>>
 
   /**
    * Construct and simulate a upgrade_deployed_markets transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Upgrades all deployed market contracts
-   *
-   * # Arguments
-   * `new_market_contract_wasm_hash` - hash of the WASM binary uploaded to the network that
-   * will be used as a new version of the contract for every deployed market
    */
   upgrade_deployed_markets: ({ new_market_contract_wasm_hash}: { new_market_contract_wasm_hash: Buffer }, options?: MethodOptions) => Promise<AssembledTransaction<null>>
 
@@ -105,16 +95,16 @@ export class Client extends ContractClient {
 
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec(['AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAJAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADmluc3VyYW5jZV9mdW5kAAAAAAATAAAAAAAAAA1tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAObWluX2NvbGxhdGVyYWwAAAAAAAsAAAAAAAAAEmluc29sdmVuY3lfbHR2X2JwcwAAAAAACwAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAD6AAAAAYAAAABAAAD6QAAABMAAAfQAAAACE1NQ0Vycm9y',
-        'AAAAAAAAAAAAAAALZ2V0X21hcmtldHMAAAAAAAAAAAEAAAPsAAAAEwAAA+0AAAAA',
-        'AAAAAAAAAAAAAAAKZ2V0X2NvbmZpZwAAAAAAAAAAAAEAAAfQAAAABkNvbmZpZwAA',
-        'AAAAAAAAANVDb25zdHJ1Y3RzIHRoZSBtYW5hZ2VyIGNvbnRyYWN0CgojIEFyZ3VtZW50cwoqIGBhZG1pbmAgLSBtYW5hZ2VyJ3MgYWRtaW4KKiBgbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaGAgLSBoYXNoIG9mIHRoZSBXQVNNIGJpbmFyeSB1cGxvYWRlZCB0byB0aGUgbmV0d29yaywgdXNlZCBhcyBhCnZlcnNpb24gb2YgdGhlIGRlcGxveWVkIG1hcmtldCBjb250cmFjdCBpbnN0YW5jZXMAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAZbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==',
-        'AAAAAAAAAKhVcGdyYWRlcyB0aGUgbWFya2V0IG1hbmFnZXIgY29udHJhY3QKCiMgQXJndW1lbnRzCiogYG5ld193YXNtX2hhc2hgIC0gaGFzaCBvZiB0aGUgV0FTTSBiaW5hcnkgdXBsb2FkZWQgdG8gdGhlIG5ldHdvcmsgdGhhdCB3aWxsIGJlIHVzZWQgYXMgYQpuZXcgdmVyc2lvbiBvZiB0aGUgY29udHJhY3QAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA',
-        'AAAAAAAAANRVcGdyYWRlcyBhbGwgZGVwbG95ZWQgbWFya2V0IGNvbnRyYWN0cwoKIyBBcmd1bWVudHMKKiBgbmV3X21hcmtldF9jb250cmFjdF93YXNtX2hhc2hgIC0gaGFzaCBvZiB0aGUgV0FTTSBiaW5hcnkgdXBsb2FkZWQgdG8gdGhlIG5ldHdvcmsgdGhhdAp3aWxsIGJlIHVzZWQgYXMgYSBuZXcgdmVyc2lvbiBvZiB0aGUgY29udHJhY3QgZm9yIGV2ZXJ5IGRlcGxveWVkIG1hcmtldAAAABh1cGdyYWRlX2RlcGxveWVkX21hcmtldHMAAAABAAAAAAAAAB1uZXdfbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==',
-        'AAAABAAAAB1NYXJrZXQgTWFuYWdlciBDb250cmFjdCBFcnJvcgAAAAAAAAAAAAAITU1DRXJyb3IAAAADAAAAAAAAABNOZWdhdGl2ZUlucHV0QW1vdW50AAAAAAEAAAAAAAAAE01hcmtldEFscmVhZHlFeGlzdHMAAAAD6AAAAAAAAAASSW52YWxpZE1hcmtldFN0YXRlAAAAAAPp',
-        'AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAAwAAAAAAAAAAAAAABUFkbWluAAAAAAAAAAAAAAAAAAAWTWFya2V0Q29udHJhY3RXYXNtSGFzaAAAAAAAAAAAAAAAAAAKTWFya2V0TGlzdAAA',
-        'AAAAAQAAAAAAAAAAAAAABkNvbmZpZwAAAAAAAgAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAABltYXJrZXRfY29udHJhY3Rfd2FzbV9oYXNoAAAAAAAD7gAAACA=']),
-      options,
+      new ContractSpec([ "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAJAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADmluc3VyYW5jZV9mdW5kAAAAAAATAAAAAAAAAA1tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAObWluX2NvbGxhdGVyYWwAAAAAAAsAAAAAAAAAEmluc29sdmVuY3lfbHR2X2JwcwAAAAAACwAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAD6AAAAAYAAAABAAAD6QAAABMAAAfQAAAACE1NQ0Vycm9y",
+        "AAAAAAAAAAAAAAALZ2V0X21hcmtldHMAAAAAAAAAAAEAAAPsAAAAEwAAA+0AAAAA",
+        "AAAAAAAAAAAAAAAKZ2V0X2NvbmZpZwAAAAAAAAAAAAEAAAfQAAAABkNvbmZpZwAA",
+        "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAZbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",
+        "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA",
+        "AAAAAAAAAAAAAAAYdXBncmFkZV9kZXBsb3llZF9tYXJrZXRzAAAAAQAAAAAAAAAdbmV3X21hcmtldF9jb250cmFjdF93YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAA=",
+        "AAAABAAAAB1NYXJrZXQgTWFuYWdlciBDb250cmFjdCBFcnJvcgAAAAAAAAAAAAAITU1DRXJyb3IAAAADAAAAAAAAABNOZWdhdGl2ZUlucHV0QW1vdW50AAAAAAEAAAAAAAAAE01hcmtldEFscmVhZHlFeGlzdHMAAAAD6AAAAAAAAAASSW52YWxpZE1hcmtldFN0YXRlAAAAAAPp",
+        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAAwAAAAAAAAAAAAAABUFkbWluAAAAAAAAAAAAAAAAAAAWTWFya2V0Q29udHJhY3RXYXNtSGFzaAAAAAAAAAAAAAAAAAAKTWFya2V0TGlzdAAA",
+        "AAAAAQAAAAAAAAAAAAAABkNvbmZpZwAAAAAAAgAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAABltYXJrZXRfY29udHJhY3Rfd2FzbV9oYXNoAAAAAAAD7gAAACA=" ]),
+      options
     )
   }
 

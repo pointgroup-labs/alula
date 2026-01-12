@@ -10,7 +10,8 @@ doctest = true
 
 [dependencies]
 enum_dispatch = { workspace = true }
-insurance-fund-trait = { workspace = true }
+farms-interface = { workspace = true }
+insurance-fund-interface = { workspace = true }
 moderc3156 = { workspace = true }
 sep-40-oracle = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
@@ -22,4 +23,5 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [features]
 deploy = []
+mainnet = []
 testutils = ["soroban-sdk/testutils"]
