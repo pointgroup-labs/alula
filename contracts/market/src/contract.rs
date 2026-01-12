@@ -1571,4 +1571,13 @@ impl MarketContract {
 
         Ok(())
     }
+
+    pub fn collect_dust(e: Env) -> Result<(), MCError> {
+        let admin = storage::get_admin(&e);
+        admin.require_auth();
+
+        storage::extend_instance_storage(&e);
+
+        process_collect_dust(&e, &admin)
+    }
 }

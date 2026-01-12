@@ -758,3 +758,50 @@ fn test_updating_positions_amounts_does_not_affect_positions_count() {
     let creditor_obligation = contract_client.get_user_obligation(creditor);
     assert_eq!(creditor_obligation.positions_count, 1);
 }
+
+#[test]
+fn test_collect_dust() {
+    let TestMarketFixture {
+        contract_admin,
+        contract_id,
+        full_contract_client,
+        usdc_token_client,
+        gold_token_client,
+        btc_token_client,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let donor = &users[0];
+
+    let admin_usdc_balance_pre = usdc_token_client.balance(&contract_admin);
+    let admin_gold_balance_pre = gold_token_client.balance(&contract_admin);
+    let admin_btc_balance_pre = btc_token_client.balance(&contract_admin);
+
+    full_contract_client.collect_dust();
+
+    let admin_usdc_balance_post = usdc_token_client.balance(&contract_admin);
+    let admin_gold_balance_post = gold_token_client.balance(&contract_admin);
+    let admin_btc_balance_post = btc_token_client.balance(&contract_admin);
+
+    assert_eq!(admin_usdc_balance_pre, admin_usdc_balance_post);
+    assert_eq!(admin_gold_balance_pre, admin_gold_balance_post);
+    assert_eq!(admin_btc_balance_pre, admin_btc_balance_post);
+
+    usdc_token_client.transfer(donor, &contract_id, &1);
+    gold_token_client.transfer(donor, &contract_id, &2);
+    btc_token_client.transfer(donor, &contract_id, &3);
+
+    full_contract_client.collect_dust();
+
+    let admin_usdc_balance_post = usdc_token_client.balance(&contract_admin);
+    let admin_gold_balance_post = gold_token_client.balance(&contract_admin);
+    let admin_btc_balance_post = btc_token_client.balance(&contract_admin);
+
+    let usdc_diff = admin_usdc_balance_post - admin_usdc_balance_pre;
+    let gold_diff = admin_gold_balance_post - admin_gold_balance_pre;
+    let btc_diff = admin_btc_balance_post - admin_btc_balance_pre;
+
+    assert_eq!(usdc_diff, 1);
+    assert_eq!(gold_diff, 2);
+    assert_eq!(btc_diff, 3);
+}

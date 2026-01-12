@@ -347,6 +347,12 @@ struct ClaimMismatch {
 struct ReferrerIsUnexpectedlyMissing {}
 
 #[contractevent]
+struct TokenBalanceIsTooLow {
+    minimum_expected_balance: i128,
+    token_balance: i128,
+}
+
+#[contractevent]
 struct ObligationFarmsRefreshedEvent {
     #[topic]
     pub user: Address,
@@ -880,6 +886,10 @@ pub fn insurance_fund_claim_mismatch(
 
 pub fn referrer_is_unexpectedly_missing(e: &Env) {
     ReferrerIsUnexpectedlyMissing {}.publish(e);
+}
+
+pub fn contract_balance_is_too_low(e: &Env, minimum_expected_balance: i128, token_balance: i128) {
+    TokenBalanceIsTooLow { minimum_expected_balance, token_balance }.publish(e);
 }
 
 // --- Helper Functions  ---

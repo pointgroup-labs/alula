@@ -1336,6 +1336,30 @@ pub fn process_swap_exact_tokens(
     Ok(received_amount)
 }
 
+pub fn process_collect_dust(e: &Env, admin: &Address) -> Result<(), MCError> {
+    let pool_addresses = storage::get_all_pools(e);
+
+    for pool_address in pool_addresses {
+        let pool = Pool::try_get(e, &pool_address)?;
+        let token_client = token::Client::new(e, &pool.token_address);
+
+        let pool_available = pool.total_available()?;
+        let token_balance = token_client.balance(&e.current_contract_address());
+
+        if token_balance < pool_available {
+            events::contract_balance_is_too_low(e, pool_available, token_balance);
+
+            return Err(MCError::InternalError);
+        } else if token_balance > pool_available {
+            let excessive = token_balance - pool_available; // safe
+
+            token_client.transfer(&e.current_contract_address(), admin, &excessive);
+        }
+    }
+
+    Ok(())
+}
+
 // ---- Helpers ----
 
 fn compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
