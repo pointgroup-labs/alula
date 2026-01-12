@@ -16,6 +16,7 @@ export function useMarketActions() {
   const userStore = useUserStore()
   const marketsStore = useMarketsStore()
   const connectionStore = useConnectionStore()
+  const recentStore = useRecentActivityStore()
   const marketclient = computed(() => marketsStore.marketClient)
 
   const { generateExplorerLink } = useExplorerLink()
@@ -100,6 +101,7 @@ export function useMarketActions() {
           ? [{ label: 'View Transaction', href: generateExplorerLink(String(res.txHash)) }]
           : [],
       })
+      await recentStore.fetchAndUpdateLastTx()
     } catch (error: any) {
       toast.create({
         title: `${title} Error`,

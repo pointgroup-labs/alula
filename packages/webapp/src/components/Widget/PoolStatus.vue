@@ -31,7 +31,6 @@ watch(() => pool, () => {
   <div class="pool-status">
     <j-tooltip
       v-if="isAllEnabled"
-      class="pool-status__active"
     >
       <j-pill-label
         color="#08b576"
@@ -46,7 +45,6 @@ watch(() => pool, () => {
     </j-tooltip>
     <j-tooltip
       v-else
-      class="pool-status__restricted"
       content-class="pool-status__tip"
     >
       <j-pill-label

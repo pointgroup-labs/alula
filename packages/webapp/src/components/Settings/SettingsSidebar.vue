@@ -33,6 +33,8 @@ function close() {
 
     <faucet-menu />
 
+    <settings-recent-activity />
+
     <logo-with-text />
   </sidebar>
 </template>

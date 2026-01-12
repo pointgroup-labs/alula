@@ -40,9 +40,11 @@ declare global {
   const effectScope: typeof import('vue').effectScope
   const extendRef: typeof import('@vueuse/core').extendRef
   const generateExplorerLink: typeof import('../hooks/explorer-link')['generateExplorerLink']
+  const getActionLabel: typeof import('../store/recent-activity').getActionLabel
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
+  const getTxActionLabel: typeof import('../store/recent-activity').getTxActionLabel
   const h: typeof import('vue').h
   const ignorableWatch: typeof import('@vueuse/core').ignorableWatch
   const inject: typeof import('vue').inject
@@ -247,6 +249,8 @@ declare global {
   const usePreferredReducedTransparency: typeof import('@vueuse/core').usePreferredReducedTransparency
   const usePrevious: typeof import('@vueuse/core').usePrevious
   const useRafFn: typeof import('@vueuse/core').useRafFn
+  const useRecentActivity: typeof import('../store/recent-activity').useRecentActivity
+  const useRecentActivityStore: typeof import('../store/recent-activity').useRecentActivityStore
   const useRefHistory: typeof import('@vueuse/core').useRefHistory
   const useResizeObserver: typeof import('@vueuse/core').useResizeObserver
   const useRpc: typeof import('../store/rpc')['useRpc']
@@ -333,6 +337,9 @@ declare global {
   export type { MarketsState, PoolWithPrice, TableActionType } from '../store/markets'
   import('../store/markets')
   // @ts-ignore
+  export type { RecentActivityState, OperationRecord } from '../store/recent-activity'
+  import('../store/recent-activity')
+  // @ts-ignore
   export type { Network } from '../store/rpc'
   import('../store/rpc')
   // @ts-ignore
@@ -382,6 +389,7 @@ declare module 'vue' {
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly getCurrentWatcher: UnwrapRef<typeof import('vue')['getCurrentWatcher']>
+    readonly getTxActionLabel: UnwrapRef<typeof import('../store/recent-activity')['getTxActionLabel']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly ignorableWatch: UnwrapRef<typeof import('@vueuse/core')['ignorableWatch']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
@@ -582,6 +590,7 @@ declare module 'vue' {
     readonly usePreferredReducedTransparency: UnwrapRef<typeof import('@vueuse/core')['usePreferredReducedTransparency']>
     readonly usePrevious: UnwrapRef<typeof import('@vueuse/core')['usePrevious']>
     readonly useRafFn: UnwrapRef<typeof import('@vueuse/core')['useRafFn']>
+    readonly useRecentActivityStore: UnwrapRef<typeof import('../store/recent-activity')['useRecentActivityStore']>
     readonly useRefHistory: UnwrapRef<typeof import('@vueuse/core')['useRefHistory']>
     readonly useResizeObserver: UnwrapRef<typeof import('@vueuse/core')['useResizeObserver']>
     readonly useRpcStore: UnwrapRef<typeof import('../store/rpc')['useRpcStore']>

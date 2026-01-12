@@ -1,14 +1,9 @@
 <script lang="ts" setup>
-import { RPC_URLS, SOROBAN_RPC_URLS } from '@alula/client-sdk'
-
 const rpcStore = useRpcStore()
 
 const activeNetwork = ref()
 
 const networks = Object.values(Network)
-
-const horizonRPCUrl = computed(() => RPC_URLS[activeNetwork.value] || '-')
-const sorobanRPCUrl = computed(() => SOROBAN_RPC_URLS[activeNetwork.value] || '-')
 
 watch(activeNetwork, (n) => {
   rpcStore.setNetwork(n)
@@ -61,7 +56,7 @@ watch(() => rpcStore.network, (val) => {
         Horizon URL
 
         <div class="network-rpc__url">
-          {{ horizonRPCUrl }}
+          {{ rpcStore.horizonRPCUrl }}
         </div>
       </div>
 
@@ -69,7 +64,7 @@ watch(() => rpcStore.network, (val) => {
         RPC URL
 
         <div class="network-rpc__url">
-          {{ sorobanRPCUrl }}
+          {{ rpcStore.sorobanRPCUrl }}
         </div>
       </div>
     </div>

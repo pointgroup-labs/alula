@@ -1,3 +1,5 @@
+import { RPC_URLS, SOROBAN_RPC_URLS } from '@alula/client-sdk'
+
 export enum Network {
   Public = 'public',
   Testnet = 'testnet',
@@ -24,6 +26,9 @@ export const useRpcStore = defineStore('rpc', () => {
         : Network.Testnet
   })
 
+  const horizonRPCUrl = computed(() => RPC_URLS[String(network.value)] || '-')
+  const sorobanRPCUrl = computed(() => SOROBAN_RPC_URLS[String(network.value)] || '-')
+
   function setNetwork(newNetwork: Network) {
     network.value = newNetwork
   }
@@ -31,5 +36,7 @@ export const useRpcStore = defineStore('rpc', () => {
   return {
     network,
     setNetwork,
+    horizonRPCUrl,
+    sorobanRPCUrl,
   }
 })
