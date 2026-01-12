@@ -15,6 +15,14 @@ $label-variants: (
     background-color: rgba(8, 181, 118, 0.5),
     color: $dark,
   ),
+  outline-success: (
+    border: 1px solid $success,
+    color: $dark,
+  ),
+  outline-warning: (
+    border: 1px solid $warning,
+    color: $dark,
+  ),
 );
 
 $label-sizes: (

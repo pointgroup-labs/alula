@@ -29,6 +29,7 @@ const {
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
+  { key: 'status', label: 'Status', align: 'center' },
   { key: 'total_supply', label: 'Supply', align: 'right' },
   { key: 'total_borrowed', label: 'Borrow', align: 'right' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center' },
@@ -117,7 +118,10 @@ watch(() => searchAsses, (val) => {
               :src="data.item.asset.icon"
               alt=""
             >
-            <div class="market-table__asset__info">
+            <div
+              class="market-table__asset__info"
+              style="gap: 0;"
+            >
               <div class="market-table__asset__info__name">
                 {{ data.item.asset.symbol }}
               </div>
@@ -125,6 +129,12 @@ watch(() => searchAsses, (val) => {
                 {{ data.item.asset.name }}
               </div>
             </div>
+          </div>
+        </template>
+
+        <template #cell(status)="data">
+          <div class="table-cell justify-content-center">
+            <pool-status :pool="data.item.raw.pool" />
           </div>
         </template>
 

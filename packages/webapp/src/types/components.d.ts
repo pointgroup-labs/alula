@@ -78,6 +78,7 @@ declare module 'vue' {
     MultiplyTable: typeof import('./../components/MultiplyPage/Tables/MultiplyTable.vue')['default']
     MultiplyTableMobile: typeof import('./../components/MultiplyPage/Tables/MultiplyTableMobile.vue')['default']
     NotValidAccountWarning: typeof import('./../components/Widget/NotValidAccountWarning.vue')['default']
+    PoolStatus: typeof import('./../components/Widget/PoolStatus.vue')['default']
     RepayDialog: typeof import('./../components/AccountsPage/Dialogs/RepayDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

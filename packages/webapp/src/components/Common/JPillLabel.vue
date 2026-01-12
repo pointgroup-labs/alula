@@ -6,7 +6,7 @@ const {
   color?: string
   bgColor?: string
   label?: string
-  variant?: 'primary' | 'secondary' | 'success' | 'warning'
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'outline-success' | 'outline-warning'
   size?: 'lg' | 'md' | 'sm'
 }>()
 </script>
