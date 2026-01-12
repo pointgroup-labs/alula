@@ -1,5 +1,8 @@
 shellEmulator: true
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  - chokidar
+  - semver
 
 packages:
   - packages/*
