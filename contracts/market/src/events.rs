@@ -185,6 +185,12 @@ struct ProposeNewAdmin {
 #[contractevent]
 struct AcceptAdminProposal {}
 
+#[contractevent]
+struct CollectDust {
+    pool_address: Address,
+    dust_redeemed: i128,
+}
+
 // ----- Internal Error Events -----
 
 #[contractevent]
@@ -627,6 +633,10 @@ pub fn propose_new_admin(e: &Env, new_admin: Address) {
 
 pub fn accept_proposed_admin(e: &Env) {
     AcceptAdminProposal {}.publish(e);
+}
+
+pub fn collect_dust(e: &Env, pool_address: &Address, dust_redeemed: i128) {
+    CollectDust { pool_address: pool_address.clone(), dust_redeemed }.publish(e);
 }
 
 // --- Internal Errors Events ---

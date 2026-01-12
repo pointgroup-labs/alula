@@ -1351,9 +1351,11 @@ pub fn process_collect_dust(e: &Env, admin: &Address) -> Result<(), MCError> {
 
             return Err(MCError::InternalError);
         } else if token_balance > pool_available {
-            let excessive = token_balance - pool_available; // safe
+            let dust = token_balance - pool_available; // safe
 
-            token_client.transfer(&e.current_contract_address(), admin, &excessive);
+            token_client.transfer(&e.current_contract_address(), admin, &dust);
+
+            events::collect_dust(&e, &pool_address, dust);
         }
     }
 
