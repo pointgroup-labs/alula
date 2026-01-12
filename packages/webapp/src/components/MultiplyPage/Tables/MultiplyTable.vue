@@ -12,7 +12,7 @@ const { width } = useWindowSize()
 
 const {
   tableItems,
-  selectedMarketAddress,
+  selectedPoolAddress,
   dialogLeverage,
   dialogLeverageWithdraw,
   markets,
@@ -42,7 +42,7 @@ const filteredData = computed(() => {
 })
 
 async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' | 'withdraw') {
-  selectedMarketAddress.value = item?.pool_address
+  selectedPoolAddress.value = item?.pool_address
   activeLeverageMarket.value = String(item.market)
   action === 'supply' ? dialogLeverage.value = true : dialogLeverageWithdraw.value = true
 }

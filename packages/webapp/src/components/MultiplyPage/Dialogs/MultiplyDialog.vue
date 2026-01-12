@@ -58,28 +58,38 @@ const multiplySymbol = computed(() =>
   getTokenSymbol(String(isDepositMultiply.value ? data?.depositPoolData.pool.token_symbol : data?.borrowPoolData.pool.token_symbol)))
 
 const borrowPoolData = computed(() => data?.borrowPoolData)
-const borrowAvailable = computed(() => borrowPoolData.value ? bigintToNumber(borrowPoolData.value?.total_available_adjusted, data!.assetDecimals) : 0)
-const borrowAvailableInUsd = computed(() => Number(borrowAvailable.value) * Number(data?.borrowPoolPrice || 0))
+const liquidityRemaining = computed(() => {
+  if (!borrowPoolData.value) {
+    return 0
+  }
+  const maxBorrowByUtil = Number(bigintToNumber(borrowPoolData.value.total_supply, data!.assetDecimals))
+    * (Number(borrowPoolData.value.pool.config.health_config.utilization_ratio_limit_bps) / 10_000)
+    - Number(bigintToNumber(borrowPoolData.value.pool.total_borrowed, data!.assetDecimals))
+  return Math.max(0, Math.min(Number(bigintToNumber(borrowPoolData.value?.total_available_adjusted, data!.assetDecimals)), maxBorrowByUtil))
+})
+
+const availableLiquidity = computed(() => {
+  if (!borrowPoolData.value) {
+    return 0
+  }
+  return `${formatPrice(liquidityRemaining.value || 0, 2, 2)} ${borrowPoolData.value.pool.token_symbol}`
+})
+
+const borrowAvailableInUsd = computed(() => Number(liquidityRemaining.value) * Number(data?.borrowPoolPrice || 0))
 
 const marketFee = computed(() => {
   const marketFeeBps = borrowPoolData.value?.pool.config.fee_config.flash_loan_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
 
-const liquidityAvailable = computed(() => {
-  if (!borrowPoolData.value) {
-    return 0
-  }
-  return `${formatPrice(borrowAvailable.value || 0, 2, 2)} ${borrowPoolData.value.pool.token_symbol}`
-})
-
 const maxAPY = computed(() => data?.maxAPY || 0)
 
 const depositPoolPrice = computed(() => isDepositMultiply.value ? data?.price : data?.borrowPoolPrice)
 
-const supplyLimit = computed(() =>
-  calcRemainingMultiplyUSD(borrowAvailableInUsd.value, Number(depositPoolPrice.value || 0), Number(selectedMultiplier.value) || 0),
-)
+const supplyLimit = computed(() => {
+  const sum = calcRemainingMultiplyUSD(borrowAvailableInUsd.value, Number(depositPoolPrice.value || 0), Number(selectedMultiplier.value) || 0)
+  return sum
+})
 
 function swapAsset() {
   isDepositMultiply.value = !isDepositMultiply.value
@@ -245,7 +255,7 @@ watchDebounced([
             class="dialog-info-table__item"
           >
             <span>Liquidity Available</span>
-            <span>{{ liquidityAvailable }}</span>
+            <span>{{ availableLiquidity }}</span>
           </div>
 
           <!-- Max APY -->

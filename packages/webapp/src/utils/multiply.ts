@@ -51,7 +51,7 @@ export function calcRemainingMultiplyUSD(
   if (selectedMultiplier <= 1) {
     return borrowAvailableInUsd
   }
-  return borrowAvailableInUsd / (poolPrice * selectedMultiplier)
+  return borrowAvailableInUsd / (poolPrice * (selectedMultiplier - 1))
 }
 
 export function calculateCurrentMultiplier(
