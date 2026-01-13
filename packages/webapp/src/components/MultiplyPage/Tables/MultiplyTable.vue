@@ -222,15 +222,17 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     </j-loading-spinner>
   </div>
 
-  <multiply-dialog
-    v-model="dialogLeverage"
-    :data="selectedPool"
-  />
+  <client-only>
+    <multiply-dialog
+      v-model="dialogLeverage"
+      :data="selectedPool"
+    />
 
-  <withdraw-leverage-dialog
-    v-model="dialogLeverageWithdraw"
-    :data="selectedPool"
-  />
+    <withdraw-leverage-dialog
+      v-model="dialogLeverageWithdraw"
+      :data="selectedPool"
+    />
+  </client-only>
 </template>
 
 <style lang="scss">
