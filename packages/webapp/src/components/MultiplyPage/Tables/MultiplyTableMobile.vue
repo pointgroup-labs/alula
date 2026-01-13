@@ -55,7 +55,7 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
     v-if="items?.length === 0"
     class="no-table-data"
   >
-    No pools/positions opened
+    No Multiply vaults
   </div>
   <table-mobile-card
     v-for="item in items"

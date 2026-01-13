@@ -203,7 +203,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
           v-show="!isLoading"
           class="no-data"
         >
-          No pools/positions opened
+          No Multiply vaults
         </div>
       </template>
     </BTable>
