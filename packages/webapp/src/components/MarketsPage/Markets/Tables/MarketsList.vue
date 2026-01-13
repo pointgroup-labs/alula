@@ -35,7 +35,7 @@ const fields = [
   { key: 'deposit_apy', label: 'Supply APY', align: 'center' },
   { key: 'borrow_apy', label: 'Borrow APY', align: 'center' },
   { key: 'utilization_rate', label: 'Utilization', align: 'right' },
-  { key: 'max_ltv', label: 'Open LTV', align: 'center' },
+  { key: 'max_ltv', label: 'Open LTV', align: 'right' },
   { key: 'action', label: '' },
 ]
 

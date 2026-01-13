@@ -37,7 +37,7 @@ footer {
 
 nav {
   display: flex;
-  gap: 44px;
+  gap: 24px;
 }
 
 a {
