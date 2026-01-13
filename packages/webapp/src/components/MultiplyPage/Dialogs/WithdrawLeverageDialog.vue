@@ -140,7 +140,7 @@ watchDebounced([
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="multiply-dialog dialog-default"
+    class-name="multiply-dialog multiply-dialog-withdraw dialog-default"
   >
     <template #header>
       <div class="multiply-dialog__title">
@@ -199,52 +199,54 @@ watchDebounced([
 </template>
 
 <style lang="scss">
-.multiply-dialog {
-  &__title {
-    color: $dark;
-    font-size: 20px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 20px;
-  }
-
-  &__body {
-    padding-top: $spacing-16;
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-16;
-  }
-
-  .multiply-dialog-action {
-    display: flex;
-    justify-content: space-between;
-    gap: $spacing-32;
-
-    .action-info {
-      white-space: nowrap;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-
-      span:first-child {
-        color: $neutral-12;
-        font-size: 12px;
-        font-style: normal;
-        font-weight: 500;
-        line-height: 16px;
-      }
-
-      span:last-child {
-        font-size: 20px;
-        font-style: normal;
-        font-weight: 700;
-        line-height: 20px;
-      }
+  .multiply-dialog-withdraw {
+  &.multiply-dialog {
+    &__title {
+      color: $dark;
+      font-size: 20px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 20px;
     }
 
-    .btn {
-      width: 100%;
+    &__body {
+      padding-top: $spacing-16;
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-16;
+    }
+
+    .multiply-dialog-action {
+      display: flex;
+      justify-content: space-between;
+      gap: $spacing-32;
+
+      .action-info {
+        white-space: nowrap;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        span:first-child {
+          color: $neutral-12;
+          font-size: 12px;
+          font-style: normal;
+          font-weight: 500;
+          line-height: 16px;
+        }
+
+        span:last-child {
+          font-size: 20px;
+          font-style: normal;
+          font-weight: 700;
+          line-height: 20px;
+        }
+      }
+
+      .btn {
+        width: 100%;
+      }
     }
   }
 }
