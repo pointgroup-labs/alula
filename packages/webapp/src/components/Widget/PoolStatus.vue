@@ -55,7 +55,7 @@ watch(() => pool, () => {
         Restricted
       </j-pill-label>
       <template #content>
-        There are restrictions in this pool:
+        The following operations are unavailable in this pool:
         <ul>
           <li
             v-for="status in allStatuses"

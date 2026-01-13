@@ -163,7 +163,7 @@ watch(dialog, async (v) => {
 
         <!-- Pool available -->
         <div class="dialog-info-table__item">
-          <span>Pool liquidity available</span>
+          <span>Pool Liquidity Available</span>
           <span>
             {{ shortenNumber(poolBorrowLimit || 0) }}
           </span>
@@ -171,7 +171,7 @@ watch(dialog, async (v) => {
 
         <!-- User available -->
         <div class="dialog-info-table__item">
-          <span>Your borrowing capacity</span>
+          <span>Your Borrowing Capacity</span>
           <span>
             {{ shortenNumber(availableToBorrow || 0) }}
           </span>
