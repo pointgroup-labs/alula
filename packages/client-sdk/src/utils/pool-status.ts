@@ -9,12 +9,12 @@ export enum PoolStatusFlag {
 }
 
 export const POOL_STATUS_RESTRICTED_MESSAGES: Record<keyof PoolStatus, string> = {
-  canDeposit: 'Deposits are disabled',
-  canBorrow: 'Borrowing is unavailable',
-  canWithdraw: 'Withdrawals are disabled',
-  canRepay: 'Repayments are unavailable',
-  canAddCollateral: 'Adding collateral is disabled',
-  canRemoveCollateral: 'Removing collateral is disabled',
+  canDeposit: 'Supplies',
+  canBorrow: 'Borrows',
+  canWithdraw: 'Withdrawals',
+  canRepay: 'Repayments',
+  canAddCollateral: 'Collateral deposits',
+  canRemoveCollateral: 'Collateral withdrawals',
 }
 
 export function hasPoolFlag(flags: number, flag: PoolStatusFlag): boolean {

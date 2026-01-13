@@ -129,7 +129,7 @@ const infoTableData = computed(() => {
     value: `${shortenNumber(availableToWithdraw.value || 0)} ${data?.asset.symbol}`,
   },
   {
-    label: 'Pool Withdraw Limit',
+    label: 'Pool Withdrawal Limit',
     value: `${shortenNumber(poolLimit.value || 0)} ${data?.asset.symbol}`,
   },
   {

@@ -21,7 +21,7 @@ function onRowClicked(item: MarketTableItem) {
     v-if="items?.length === 0"
     class="no-table-data"
   >
-    No pools/positions opened
+    No pools
   </div>
   <table-mobile-card
     v-for="item in items"

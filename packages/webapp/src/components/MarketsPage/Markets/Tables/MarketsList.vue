@@ -235,7 +235,7 @@ watch(() => searchAsses, (val) => {
             v-show="!loading"
             class="no-data"
           >
-            No pools/positions opened
+            No pools
           </div>
         </template>
       </BTable>
