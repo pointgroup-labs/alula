@@ -11,6 +11,10 @@ const {
 
 const { width } = useWindowSize()
 
+const isHasMarkets = defineModel<boolean>('isHasMarkets', {
+  default: true,
+})
+
 const marketActions = useMarketActions()
 
 const {
@@ -55,6 +59,10 @@ provide('selectedMarketDetails', selectedMarketDetails)
 
 watch(() => searchAsses, (val) => {
   search.value = val
+})
+
+watch(filteredMarkets, (val) => {
+  isHasMarkets.value = val.length > 0
 })
 </script>
 
