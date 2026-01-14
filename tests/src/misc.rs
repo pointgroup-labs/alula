@@ -5,12 +5,14 @@ use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
     obligation::ObligationKey,
+    request::{Request, StandardRequest, SwapExactTokensRequest, SwapForExactTokensRequest},
     utils::{MarketData, PoolData},
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, Env,
     testutils::{Address as _, Ledger},
+    vec as svec,
 };
 
 use crate::{
@@ -804,4 +806,55 @@ fn test_collect_dust() {
     assert_eq!(usdc_diff, 1);
     assert_eq!(gold_diff, 2);
     assert_eq!(btc_diff, 3);
+}
+
+#[test]
+fn test_leverage_new_flash_loan() {
+    let TestMarketFixture {
+        e,
+        contract_admin,
+        contract_id,
+        full_contract_client,
+        usdc_token_client,
+        gold_token_client,
+        gold_token_address,
+        usdc_pool_address,
+        btc_token_client,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let user = &users[1];
+
+    full_contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    let usdc_balance_before = usdc_token_client.balance(user);
+    let gold_balance_before = gold_token_client.balance(user);
+
+    let flash_borrow_request = Request::FlashBorrow(StandardRequest {
+        amount: DEFAULT_DEPOSIT_AMOUNT,
+        pool_address: usdc_pool_address.clone(),
+    });
+    let swap_request = Request::SwapExactTokens(SwapExactTokensRequest {
+        user: user.clone(),
+        token_in: usdc_pool_address.clone(),
+        token_out: gold_token_address.clone(),
+        amount_in: DEFAULT_DEPOSIT_AMOUNT,
+        min_amount_out: 1,
+    });
+
+    let requests = svec![&e, flash_borrow_request, swap_request];
+
+    full_contract_client.submit_requests_batch(&user, &None, &requests, &None);
+
+    let usdc_balance_after = usdc_token_client.balance(user);
+    let gold_balance_after = gold_token_client.balance(user);
+
+    std::dbg!(usdc_balance_after - usdc_balance_before);
+    std::dbg!(gold_balance_after - gold_balance_before);
 }

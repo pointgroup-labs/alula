@@ -223,16 +223,17 @@ impl<'a> RequestTransfers<'a> {
         }
 
         if let Some(StandardRequest { amount, pool_address }) = self.flash_borrow_request {
-            let token_address = Pool::try_get(e, &pool_address)
-                .map_err(|_| {
-                    events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+            let mut pool = Pool::try_get(&e, &pool_address).map_err(|_| {
+                events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
-                    MCError::InternalError
-                })?
-                .token_address;
-            let token_client = token::Client::new(e, &token_address);
+                MCError::InternalError
+            })?;
+            let token_client = token::Client::new(e, &pool.token_address);
 
             token_client.transfer(&self.user, &e.current_contract_address(), &amount);
+            pool.adjust_total_available(e, amount)?;
+
+            pool.set(&e);
         }
 
         Ok(())

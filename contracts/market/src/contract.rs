@@ -654,6 +654,14 @@ pub trait Market {
     // resetting on the testnet without re-deploying the contract
     #[cfg(not(feature = "mainnet"))]
     fn reset_storage(e: Env);
+
+    fn submit_requests_batch(
+        e: Env,
+        user: Address,
+        seed: Option<BytesN<32>>,
+        requests: Vec<Request>,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError>;
 }
 
 #[contract]
@@ -1470,6 +1478,25 @@ impl Market for MarketContract {
         storage::remove_all_pools(&e);
         storage::remove_all_multiply_pairs(&e);
     }
+
+    fn submit_requests_batch(
+        e: Env,
+        user: Address,
+        seed: Option<BytesN<32>>,
+        requests: Vec<Request>,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError> {
+        user.require_auth();
+
+        let obligation_key = if let Some(seed) = seed {
+            ObligationKey::new_with_seed(user, seed)
+        } else {
+            ObligationKey::new(user.clone())
+        };
+
+        process_submit_requests_batch(&e, &requests, &obligation_key, &referrer)?
+            .execute_transfers(&e)
+    }
 }
 
 // TODO: Move all admin/management methods here from the trait
@@ -1578,24 +1605,5 @@ impl MarketContract {
         storage::extend_instance_storage(&e);
 
         process_collect_dust(&e, &admin)
-    }
-
-    pub fn submit_requests_batch(
-        e: Env,
-        user: Address,
-        seed: Option<BytesN<32>>,
-        requests: Vec<Request>,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError> {
-        user.require_auth();
-
-        let obligation_key = if let Some(seed) = seed {
-            ObligationKey::new_with_seed(user, seed)
-        } else {
-            ObligationKey::new(user.clone())
-        };
-
-        process_submit_requests_batch(&e, &requests, &obligation_key, &referrer)?
-            .execute_transfers(&e)
     }
 }
