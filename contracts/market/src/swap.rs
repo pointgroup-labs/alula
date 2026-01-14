@@ -125,6 +125,52 @@ pub fn swap_tokens_for_exact_tokens(
     Ok(received_amount)
 }
 
+pub fn swap_exact_tokens(
+    e: &Env,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in: i128,
+    amount_out_min: i128,
+) -> Result<i128, MCError> {
+    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let path = vec![e, token_in.clone(), token_out.clone()];
+
+    let swap_amounts = router_client.swap_exact_tokens_for_tokens(
+        &amount_in,
+        &amount_out_min,
+        &path,
+        user,
+        &u64::MAX,
+    );
+    let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
+
+    Ok(received_amount)
+}
+
+pub fn swap_for_exact_tokens(
+    e: &Env,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in_max: i128,
+    amount_out: i128,
+) -> Result<i128, MCError> {
+    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let path = vec![e, token_in.clone(), token_out.clone()];
+
+    let swap_amounts = router_client.swap_tokens_for_exact_tokens(
+        &amount_out,
+        &amount_in_max,
+        &path,
+        user,
+        &u64::MAX,
+    );
+    let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
+
+    Ok(received_amount)
+}
+
 // Swaps user's tokens
 //
 // # Arguments

@@ -26,12 +26,12 @@ use crate::{
 #[contractclient(name = "MarketClient")]
 pub trait Market {
     // Submits a request batch
-    fn submit_requests_batch(
-        e: Env,
-        user: Address,
-        requests: Vec<Request>,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError>;
+    // fn submit_requests_batch(
+    //     e: Env,
+    //     user: Address,
+    //     requests: Vec<Request>,
+    //     referrer: Option<Address>,
+    // ) -> Result<(), MCError>;
 
     // Gets the contract's global state
     fn get_global_state(e: Env) -> GlobalState;
@@ -422,13 +422,13 @@ pub trait Market {
     // * `token_in` - address of a token that would be taken from the user
     // * `token_out` - address of a token that would be given to the user
     // * `amount` - exact amount of the `token_in`
-    fn swap(
-        e: Env,
-        user: Address,
-        token_in: Address,
-        token_out: Address,
-        amount_in: i128,
-    ) -> Result<i128, MCError>;
+    // fn swap(
+    //     e: Env,
+    //     user: Address,
+    //     token_in: Address,
+    //     token_out: Address,
+    //     amount_in: i128,
+    // ) -> Result<i128, MCError>;
 
     // Donates tokens to `total_available` on a pool
     //
@@ -676,19 +676,18 @@ impl Market for MarketContract {
     }
 
     // TODO: Re-design this to include liquidations and leveraged operations
-    fn submit_requests_batch(
-        e: Env,
-        user: Address,
-        requests: Vec<Request>,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError> {
-        user.require_auth();
+    // fn submit_requests_batch(
+    //     e: Env,
+    //     user: Address,
+    //     requests: Vec<Request>,
+    //     referrer: Option<Address>,
+    // ) -> Result<(), MCError> {
+    //     user.require_auth();
 
-        let obligation_key = ObligationKey::new(user.clone());
+    //     let obligation_key = ObligationKey::new(user.clone());
 
-        process_submit_requests_batch(&e, &user, &requests, &obligation_key, &referrer)?
-            .execute_transfers(&e)
-    }
+    //     todo!()
+    // }
 
     fn get_global_state(e: Env) -> GlobalState {
         process_get_global_state(&e)
@@ -924,19 +923,19 @@ impl Market for MarketContract {
         process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
-    fn swap(
-        e: Env,
-        user: Address,
-        token_in: Address,
-        token_out: Address,
-        amount_in: i128,
-    ) -> Result<i128, MCError> {
-        user.require_auth();
-        require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+    // fn swap(
+    //     e: Env,
+    //     user: Address,
+    //     token_in: Address,
+    //     token_out: Address,
+    //     amount_in: i128,
+    // ) -> Result<i128, MCError> {
+    //     user.require_auth();
+    //     require_market_not_frozen(&e)?;
+    //     storage::extend_instance_storage(&e);
 
-        process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
-    }
+    //     process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
+    // }
 
     fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
         user.require_auth();
@@ -1579,5 +1578,24 @@ impl MarketContract {
         storage::extend_instance_storage(&e);
 
         process_collect_dust(&e, &admin)
+    }
+
+    pub fn submit_requests_batch(
+        e: Env,
+        user: Address,
+        seed: Option<BytesN<32>>,
+        requests: Vec<Request>,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError> {
+        user.require_auth();
+
+        let obligation_key = if let Some(seed) = seed {
+            ObligationKey::new_with_seed(user, seed)
+        } else {
+            ObligationKey::new(user.clone())
+        };
+
+        process_submit_requests_batch(&e, &requests, &obligation_key, &referrer)?
+            .execute_transfers(&e)
     }
 }

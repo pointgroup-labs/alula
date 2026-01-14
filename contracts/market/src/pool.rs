@@ -460,7 +460,7 @@ impl Pool {
     // ---- `require_` circuits ----
 
     pub fn require_total_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available {
+        if required > self.total_available()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -485,6 +485,14 @@ impl Pool {
 
     pub fn require_borrow_enabled(&self) -> Result<(), MCError> {
         if !self.config.status.is_borrow_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
+        }
+
+        Ok(())
+    }
+
+    pub fn require_flash_borrow_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.is_flash_borrow_enabled() {
             return Err(MCError::OperationForbiddenOnPool);
         }
 
@@ -899,6 +907,10 @@ impl PoolStatus {
 
     pub fn is_borrow_enabled(&self) -> bool {
         (self.flags & POOL_STATUS_BORROW_ENABLED) > 0
+    }
+
+    pub fn is_flash_borrow_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_FLASH_BORROW_ENABLED) > 0
     }
 
     pub fn is_withdraw_enabled(&self) -> bool {

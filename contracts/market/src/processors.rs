@@ -13,7 +13,10 @@ use crate::{
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
-    request::{Request, RequestTransfers, RequestType},
+    request::{
+        Request, RequestTransfers, StandardRequest, SwapExactTokensRequest,
+        SwapForExactTokensRequest,
+    },
     storage::{self, GlobalState},
     swap,
     utils::{MathUtils, require_nonnegative},
@@ -21,39 +24,80 @@ use crate::{
 
 pub fn process_submit_requests_batch<'a>(
     e: &'a Env,
-    user: &'a Address,
     requests: &Vec<Request>,
     obligation_key: &'a ObligationKey,
     referrer: &'a Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    let mut transfers =
-        RequestTransfers::new(e, user.clone(), smap![&e], smap![&e], referrer.clone());
+    let mut transfers = RequestTransfers::new(
+        e,
+        obligation_key.user.clone(),
+        smap![&e],
+        smap![&e],
+        referrer.clone(),
+    );
 
     for request in requests {
-        let Request { request_type, pool_address, amount } = request;
-        let request_type = RequestType::try_from(request_type)?;
+        let new_transfers = match request {
+            Request::Deposit(StandardRequest { amount, pool_address }) => {
+                process_deposit(e, obligation_key, &pool_address, amount, referrer)
+            }
+            Request::Borrow(StandardRequest { amount, pool_address }) => {
+                process_borrow(e, obligation_key, &pool_address, amount, referrer)
+            }
+            Request::Withdraw(StandardRequest { amount, pool_address }) => {
+                process_withdraw(e, obligation_key, &pool_address, amount, referrer)
+            }
+            Request::Repay(StandardRequest { amount, pool_address }) => {
+                process_repay(e, obligation_key, &pool_address, amount, referrer)
+            }
+            Request::AddCollateral(StandardRequest { amount, pool_address }) => {
+                process_add_collateral(e, obligation_key, &pool_address, amount, referrer)
+            }
+            Request::RemoveCollateral(StandardRequest { amount, pool_address }) => {
+                process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)
+            }
+            Request::FlashBorrow(request) => process_flash_borrow(e, &obligation_key.user, request),
+            Request::SwapExactTokens(SwapExactTokensRequest {
+                user,
+                token_in,
+                token_out,
+                amount_in,
+                min_amount_out,
+            }) => {
+                process_swap_exact_tokens(
+                    e,
+                    &user,
+                    &token_in,
+                    &token_out,
+                    amount_in,
+                    min_amount_out,
+                )?;
 
-        let new_transfers = match request_type {
-            RequestType::Deposit => {
-                process_deposit(e, obligation_key, &pool_address, amount, referrer)?
+                Ok(RequestTransfers::empty(e, user))
             }
-            RequestType::Borrow => {
-                process_borrow(e, obligation_key, &pool_address, amount, referrer)?
+            Request::SwapForExactTokens(SwapForExactTokensRequest {
+                user,
+                token_in,
+                token_out,
+                max_amount_in,
+                amount_out,
+            }) => {
+                process_swap_for_exact_tokens(
+                    e,
+                    &user,
+                    &token_in,
+                    &token_out,
+                    max_amount_in,
+                    amount_out,
+                )?;
+
+                Ok(RequestTransfers::empty(e, user))
             }
-            RequestType::Withdraw => {
-                process_withdraw(e, obligation_key, &pool_address, amount, referrer)?
+            Request::ModErc3156FlashLoan(_moderc3165_request) => {
+                todo!()
             }
-            RequestType::Repay => {
-                process_repay(e, obligation_key, &pool_address, amount, referrer)?
-            }
-            RequestType::AddCollateral => {
-                process_add_collateral(e, obligation_key, &pool_address, amount, referrer)?
-            }
-            RequestType::RemoveCollateral => {
-                process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)?
-            }
-            RequestType::RefreshFarms => process_refresh_farms(e, obligation_key)?,
-        };
+            Request::Liquidate(_liquidate_request) => todo!(),
+        }?;
 
         transfers.merge(new_transfers)?;
     }
@@ -431,6 +475,27 @@ pub fn process_remove_collateral<'a>(
     events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
 
     Ok(transfers)
+}
+
+pub fn process_flash_borrow<'a>(
+    e: &'a Env,
+    user: &Address,
+    request: StandardRequest,
+) -> Result<RequestTransfers<'a>, MCError> {
+    let StandardRequest { amount, pool_address } = &request;
+
+    require_nonnegative(*amount)?;
+
+    let mut pool = Pool::try_get(e, &pool_address)?;
+    pool.require_flash_borrow_enabled()?;
+    pool.require_total_available(*amount)?;
+
+    pool.adjust_total_available(e, amount.checked_neg().map_over_or_underflow()?)?;
+
+    let token_client = token::Client::new(e, &pool.token_address);
+    token_client.transfer(&e.current_contract_address(), user, &amount);
+
+    Ok(RequestTransfers::new_with_flash_borrow_request(e, user.clone(), request))
 }
 
 pub fn process_withdraw<'a>(
@@ -1321,17 +1386,33 @@ pub fn process_swap_exact_tokens(
     token_in: &Address,
     token_out: &Address,
     amount_in: i128,
+    min_amount_out: i128,
 ) -> Result<i128, MCError> {
     require_nonnegative(amount_in)?;
 
-    // Since `amount_out` is calculated within the call, there's no price slippage
-    let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;
+    let received_amount =
+        swap::swap_exact_tokens(e, user, token_in, token_out, amount_in, min_amount_out)?;
 
-    let received_amount = swap::swap_exact_tokens_for_tokens(
-        e, user, token_in, token_out, amount_in, amount_out, None,
-    )?;
+    // events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
 
-    events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
+    Ok(received_amount)
+}
+
+pub fn process_swap_for_exact_tokens(
+    e: &Env,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    max_amount_in: i128,
+    amount_out: i128,
+) -> Result<i128, MCError> {
+    require_nonnegative(max_amount_in)?;
+    require_nonnegative(amount_out)?;
+
+    let received_amount =
+        swap::swap_for_exact_tokens(e, user, token_in, token_out, max_amount_in, amount_out)?;
+
+    // events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
 
     Ok(received_amount)
 }
@@ -1355,7 +1436,7 @@ pub fn process_collect_dust(e: &Env, admin: &Address) -> Result<(), MCError> {
 
             token_client.transfer(&e.current_contract_address(), admin, &dust);
 
-            events::collect_dust(&e, &pool_address, dust);
+            events::collect_dust(e, &pool_address, dust);
         }
     }
 
