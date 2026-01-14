@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { shortenNumber } from '~/utils'
 
 const {
   items,
@@ -13,7 +14,7 @@ const emits = defineEmits(['dialogHandler', 'onRowClicked'])
 const market = useMarketActions()
 
 function onRowClicked(item: MarketTableItem) {
-  emits('onRowClicked', item)
+  emits('onRowClicked', item.market, item)
 }
 </script>
 
@@ -28,7 +29,6 @@ function onRowClicked(item: MarketTableItem) {
     v-for="item in items"
     v-else
     :key="item.pool_address"
-    @click="onRowClicked(item)"
   >
     <div class="mobile-card-top">
       <div class="card-asset">
@@ -46,7 +46,9 @@ function onRowClicked(item: MarketTableItem) {
         </div>
       </div>
 
-      <div class="card-top-info">
+      <div
+        class="card-top-info"
+      >
         <div class="info-wrapper with-pill">
           <div class="info-wrapper__title text-center">
             Supply APY
@@ -73,6 +75,18 @@ function onRowClicked(item: MarketTableItem) {
             />
           </div>
         </div>
+        <div
+          class="info-wrapper"
+          style="gap: 6px; margin-left: 4px;"
+          @click="onRowClicked(item)"
+        >
+          <div class="info-wrapper__title text-center">
+            Info
+          </div>
+          <div class="info-wrapper__value">
+            <i-app-info-circle :color="isDark ? '#fff' : '#111'" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -82,7 +96,7 @@ function onRowClicked(item: MarketTableItem) {
           Supply
         </div>
         <div class="info-wrapper__value text-end">
-          {{ shortenNumber(item.total_supply) }}
+          {{ shortenNumber(item?.total_supply) }}
         </div>
       </div>
 
@@ -93,7 +107,7 @@ function onRowClicked(item: MarketTableItem) {
           Borrow
         </div>
         <div class="info-wrapper__value text-end">
-          {{ shortenNumber(item.total_borrowed) }}
+          {{ shortenNumber(item?.total_borrowed) }}
         </div>
       </div>
 
