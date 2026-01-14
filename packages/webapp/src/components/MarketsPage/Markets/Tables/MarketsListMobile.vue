@@ -76,7 +76,7 @@ function onRowClicked(item: MarketTableItem) {
           </div>
         </div>
         <div
-          class="info-wrapper"
+          class="info-wrapper with-pill"
           style="gap: 6px; margin-left: 4px;"
           @click="onRowClicked(item)"
         >

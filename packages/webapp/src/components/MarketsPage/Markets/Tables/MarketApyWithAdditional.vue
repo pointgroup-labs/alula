@@ -61,13 +61,13 @@ const apyWithAdittional = computed(() => {
         </div>
         <div class="separator" />
         <div class="additional-tip__value">
-          <span>Additional APY: </span> {{ truncatePercent(additionalApy, 2) }}%
+          Additional APY: <span :style="{ color: isDeposit ? '#08b576' : 'rgb(255, 165, 0)' }">{{ truncatePercent(additionalApy, 2) }}% </span>
         </div>
         <div class="additional-tip__value">
-          <span>{{ isDeposit ? 'Deposit' : 'Borrow' }} APY: </span> {{ poolApy }}
+          {{ isDeposit ? 'Deposit' : 'Borrow' }} APY:<span>{{ poolApy }}</span>
         </div>
         <div class="additional-tip__value">
-          <span>Total APY: </span> {{ truncatePercent(apyWithAdittional, 2) }}%
+          Total APY:  <span>{{ truncatePercent(apyWithAdittional, 2) }}% </span>
         </div>
       </div>
     </template>
@@ -100,14 +100,14 @@ const apyWithAdittional = computed(() => {
   &__value {
     width: 100%;
     display: flex;
-    font-weight: 600;
-    font-size: 14px;
     justify-content: space-between;
     padding: 2px 0;
+    font-weight: 500;
+    font-size: 12px;
 
     span {
-      font-weight: 500;
-      font-size: 12px;
+      font-weight: 600;
+      font-size: 14px;
     }
   }
 }
