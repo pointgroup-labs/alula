@@ -5,6 +5,7 @@ const {
   items,
 } = defineProps<{
   items: MarketTableItem[]
+  additionalMarketsData: any
 }>()
 
 const emits = defineEmits(['dialogHandler', 'onRowClicked'])
@@ -51,13 +52,12 @@ function onRowClicked(item: MarketTableItem) {
             Supply APY
           </div>
           <div class="info-wrapper__value">
-            <j-pill-label
-              color="#111"
-              variant="success"
-              size="sm"
-            >
-              {{ item.deposit_apy }}
-            </j-pill-label>
+            <market-apy-with-additional
+              :pool-data="item"
+              :additional-markets-data="additionalMarketsData"
+              :is-deposit="true"
+              style="height: 24px; font-size: 12px;"
+            />
           </div>
         </div>
         <div class="info-wrapper with-pill">
@@ -65,13 +65,12 @@ function onRowClicked(item: MarketTableItem) {
             Borrow APY
           </div>
           <div class="info-wrapper__value">
-            <j-pill-label
-              color="#111"
-              variant="warning"
-              size="sm"
-            >
-              {{ item.borrow_apy }}
-            </j-pill-label>
+            <market-apy-with-additional
+              :pool-data="item"
+              :additional-markets-data="additionalMarketsData"
+              :is-deposit="false"
+              style="height: 24px; font-size: 12px;"
+            />
           </div>
         </div>
       </div>
@@ -105,7 +104,7 @@ function onRowClicked(item: MarketTableItem) {
           Open LTV
         </div>
         <div class="info-wrapper__value text-end">
-          {{ item.max_ltv }}
+          {{ item.open_ltv }}
         </div>
       </div>
 

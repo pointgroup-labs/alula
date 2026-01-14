@@ -46,7 +46,6 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>) {
     return marketAvailableInUsd > userAvailable ? maxAvailableAssets : Math.floor(maxAvailableAssets)
   })
 
-  const maxLtv = computed(() => poolData.value?.max_ltv || 0)
   const closeLTV = computed(() => Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 100)
 
   const liquidationPenalty = computed(() => Number(poolData.value?.raw.pool.config.health_config.liquidation_close_factor_bps || 0) / 100)
@@ -80,7 +79,6 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>) {
     txFee,
     poolBorrowLimit,
     availableToBorrow,
-    maxLtv,
     closeLTV,
     liquidationPenalty,
     isCanBorrow,

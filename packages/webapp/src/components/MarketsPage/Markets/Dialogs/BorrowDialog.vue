@@ -24,7 +24,6 @@ const {
   txFee,
   poolBorrowLimit,
   availableToBorrow,
-  maxLtv,
   closeLTV,
   liquidationPenalty,
   isCanBorrow,
@@ -181,7 +180,7 @@ watch(dialog, async (v) => {
         <div class="dialog-info-table__item">
           <span>Open LTV</span>
           <span>
-            {{ maxLtv }}
+            {{ poolData?.open_ltv }}
           </span>
         </div>
 

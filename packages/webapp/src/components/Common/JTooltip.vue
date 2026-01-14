@@ -112,13 +112,13 @@ watchEffect(() => {
 </style>
 
 <style lang="scss">
-$tooltip-bg-color: white !default;
-$tooltip-dark-bg-color: $dark !default;
-$tooltip-padding-y: 12px !default;
-$tooltip-padding-x: 12px !default;
-$tooltip-border-radius: 12px !default;
-$tooltip-border-color: #ebebeb !default;
-$tooltip-dark-border-color: $neutral-18 !default;
+$tooltip-bg-color: $neutral-3;
+$tooltip-dark-bg-color: $dark;
+$tooltip-padding-y: 12px;
+$tooltip-padding-x: 12px;
+$tooltip-border-radius: 12px;
+$tooltip-border-color: $neutral-7;
+$tooltip-dark-border-color: $neutral-18;
 
 .tooltip-content {
   background-color: $tooltip-bg-color;

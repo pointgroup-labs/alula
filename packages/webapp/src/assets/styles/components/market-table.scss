@@ -15,6 +15,18 @@
     }
   }
 
+  th {
+    &.status {
+      width: 140px;
+    }
+    &.action {
+      width: 260px;
+    }
+    &.apy {
+      width: 124px;
+    }
+  }
+
   tbody {
     tr {
       height: 80px;

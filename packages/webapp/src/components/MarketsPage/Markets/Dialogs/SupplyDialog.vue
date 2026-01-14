@@ -151,13 +151,29 @@ watch(dialog, async (v) => {
           </a>
         </div>
 
+        <!-- Open LTV  -->
+        <div
+          class="dialog-info-table__item"
+        >
+          <span>Open LTV </span>
+          <span>{{ poolData.open_ltv }}</span>
+        </div>
+
+        <!-- Util Rate -->
+        <div
+          class="dialog-info-table__item"
+        >
+          <span>Utilization Rate</span>
+          <span>{{ poolData.utilization_rate }}</span>
+        </div>
+
         <!-- Market Fee -->
         <div
           class="dialog-info-table__item"
         >
           <span>Operation Fee</span>
 
-          <span>{{ formatPrice(marketFee) }} {{ poolData?.asset.symbol }}</span>
+          <span>{{ formatPrice(marketFee) }} XLM</span>
         </div>
 
         <!-- Transaction Fee -->

@@ -23,7 +23,7 @@ export function useMarketTable() {
         const depositApy = d.apy.supply_bps / 100
         const borrowApy = d.apy.borrow_bps / 100
         const utilRate = Number(pool.total_borrowed) / Number((pool.total_available + pool.total_borrowed)) * 100
-        const maxLTV = Number(pool.config.health_config.open_ltv_bps) / 100
+        const openLtv = Number(pool.config.health_config.open_ltv_bps) / 100
         const supply_limit = Number(bigintToNumber(pool.config.health_config.supply_limit, assetDecimals)) || 0
         const price = Number(bigintToNumber(d.oracle_asset_price, oraclePriceDecimals)) || 0
         const available = Number(bigintToNumber(d.total_available_adjusted, assetDecimals))
@@ -37,7 +37,7 @@ export function useMarketTable() {
           deposit_apy: `${truncatePercent(depositApy || 0, 2)}%`,
           borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
           utilization_rate: `${truncatePercent(utilRate || 0, 2)}%`,
-          max_ltv: `${truncatePercent(maxLTV || 0, 2)}%`,
+          open_ltv: `${truncatePercent(openLtv || 0, 2)}%`,
           action: 'Supply',
           price,
           supply_limit,

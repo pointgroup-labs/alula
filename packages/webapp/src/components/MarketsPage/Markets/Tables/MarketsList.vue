@@ -31,16 +31,18 @@ const {
   selectedMarketDetails,
 } = useMarketTable()
 
+const { additionalMarketsData, generateMockAdditionalData } = useAdditionalApy()
+
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
-  { key: 'status', label: 'Status', align: 'center' },
+  { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
   { key: 'total_supply', label: 'Supply', align: 'right' },
   { key: 'total_borrowed', label: 'Borrow', align: 'right' },
-  { key: 'deposit_apy', label: 'Supply APY', align: 'center' },
-  { key: 'borrow_apy', label: 'Borrow APY', align: 'center' },
-  { key: 'utilization_rate', label: 'Utilization', align: 'right' },
-  { key: 'max_ltv', label: 'Open LTV', align: 'right' },
-  { key: 'action', label: '' },
+  { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
+  { key: 'borrow_apy', label: 'Borrow APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
+  // { key: 'utilization_rate', label: 'Utilization', align: 'right' },
+  // { key: 'max_ltv', label: 'Open LTV', align: 'right' },
+  { key: 'action', label: '', thClass: 'action', tdClass: 'action' },
 ]
 
 async function supplyDialogHandler(marketName: string, item: MarketTableItem, action: 'supply' | 'borrow') {
@@ -63,7 +65,11 @@ watch(() => searchAsses, (val) => {
 
 watch(filteredMarkets, (val) => {
   isHasMarkets.value = val.length > 0
-})
+  if (additionalMarketsData.value.length > 0) {
+    return
+  }
+  generateMockAdditionalData(marketWithTableItems.value)
+}, { immediate: true })
 </script>
 
 <template>
@@ -175,30 +181,24 @@ watch(filteredMarkets, (val) => {
         </template>
 
         <template #cell(deposit_apy)="data">
-          <div class="table-cell justify-content-center">
-            <j-pill-label
-              color="#111"
-              variant="success"
-              size="sm"
-            >
-              {{ data.item.deposit_apy }}
-            </j-pill-label>
-          </div>
+          <market-apy-with-additional
+            :pool-data="data.item"
+            :additional-markets-data="additionalMarketsData"
+            :is-deposit="true"
+          />
         </template>
 
         <template #cell(borrow_apy)="data">
           <div class="table-cell justify-content-center">
-            <j-pill-label
-              color="#111"
-              variant="warning"
-              size="sm"
-            >
-              {{ data.item.borrow_apy }}
-            </j-pill-label>
+            <market-apy-with-additional
+              :pool-data="data.item"
+              :additional-markets-data="additionalMarketsData"
+              :is-deposit="false"
+            />
           </div>
         </template>
 
-        <template #cell(utilization_rate)="data">
+        <!-- <template #cell(utilization_rate)="data">
           <div class="table-cell justify-content-end">
             {{ data.item.utilization_rate }}
           </div>
@@ -206,9 +206,9 @@ watch(filteredMarkets, (val) => {
 
         <template #cell(max_ltv)="data">
           <div class="table-cell justify-content-end">
-            {{ data.item.max_ltv }}
+            {{ data.item.open_ltv }}
           </div>
-        </template>
+        </template> -->
 
         <template #cell(action)="data">
           <div class="table-cell justify-content-end market-table__action">
@@ -251,6 +251,7 @@ watch(filteredMarkets, (val) => {
       <markets-list-mobile
         v-else
         :items="market.tableItems"
+        :additional-markets-data="additionalMarketsData"
         @dialog-handler="(e: any) => supplyDialogHandler(market.marketName, e.item, e.action)"
         @on-row-clicked="onRowClicked"
       />

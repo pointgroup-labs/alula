@@ -15,7 +15,7 @@ export type MarketTableItem = {
   deposit_apy: string
   borrow_apy: string
   utilization_rate: string
-  max_ltv: string
+  open_ltv: string
   action: string
   price: number
   available: number
