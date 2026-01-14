@@ -181,11 +181,13 @@ watch(filteredMarkets, (val) => {
         </template>
 
         <template #cell(deposit_apy)="data">
-          <market-apy-with-additional
-            :pool-data="data.item"
-            :additional-markets-data="additionalMarketsData"
-            :is-deposit="true"
-          />
+          <div class="table-cell justify-content-center flex">
+            <market-apy-with-additional
+              :pool-data="data.item"
+              :additional-markets-data="additionalMarketsData"
+              :is-deposit="true"
+            />
+          </div>
         </template>
 
         <template #cell(borrow_apy)="data">

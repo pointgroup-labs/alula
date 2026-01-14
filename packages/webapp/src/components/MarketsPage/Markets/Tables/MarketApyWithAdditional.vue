@@ -1,3 +1,11 @@
+/**
+ * APY display component with optional additional incentives.
+ *
+ * - If `additionalMarketsData` contains incentive data for the current pool,
+ *   the component shows a highlighted APY with a lightning icon.
+ *   This value represents the **total APY**, including base pool APY
+ *   and additional incentives.
+ */
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 
@@ -7,7 +15,7 @@ const {
   isDeposit = true,
 } = defineProps<{
   poolData?: MarketTableItem
-  additionalMarketsData: any
+  additionalMarketsData?: any
   isDeposit?: boolean
 }>()
 
@@ -15,7 +23,7 @@ const additionalData = computed(() => {
   if (!poolData) {
     return null
   }
-  const market = additionalMarketsData.find((item: any) => item.marketName === poolData.market)
+  const market = additionalMarketsData?.find((item: any) => item.marketName === poolData.market)
   const data = market?.data?.[poolData.pool_address]
   if (!data) {
     return null
@@ -41,40 +49,37 @@ const apyWithAdittional = computed(() => {
 </script>
 
 <template>
-  <div class="table-cell justify-content-center flex">
-    <lighting-apy
-      v-if="additionalData"
-      :label="`${truncatePercent(apyWithAdittional, 2)}%`"
-      :variant="isDeposit ? 'deposit' : 'borrow'"
-    >
-      <template #tip>
-        <div class="additional-tip">
-          <div class="additional-tip__title">
-            This position earns additional incentives:
-          </div>
-          <div class="separator" />
-          <div class="additional-tip__value">
-            <span>Additional APY: </span> {{ truncatePercent(additionalApy, 2) }}%
-          </div>
-          <div class="additional-tip__value">
-            <span>{{ isDeposit ? 'Deposit' : 'Borrow' }} APY: </span> {{ poolApy }}
-          </div>
-          <div class="additional-tip__value">
-            <span>Total APY: </span> {{ truncatePercent(apyWithAdittional, 2) }}%
-          </div>
+  <lighting-apy
+    v-if="additionalData"
+    :label="`${truncatePercent(apyWithAdittional, 2)}%`"
+    :variant="isDeposit ? 'deposit' : 'borrow'"
+  >
+    <template #tip>
+      <div class="additional-tip">
+        <div class="additional-tip__title">
+          This position earns additional incentives:
         </div>
-      </template>
-    </lighting-apy>
-    <j-pill-label
-      v-else
-      color="#111"
-      :variant="isDeposit ? 'success' : 'warning'"
-      size="sm"
-    >
-      {{ poolApy }}
-    </j-pill-label>
-
-  </div>
+        <div class="separator" />
+        <div class="additional-tip__value">
+          <span>Additional APY: </span> {{ truncatePercent(additionalApy, 2) }}%
+        </div>
+        <div class="additional-tip__value">
+          <span>{{ isDeposit ? 'Deposit' : 'Borrow' }} APY: </span> {{ poolApy }}
+        </div>
+        <div class="additional-tip__value">
+          <span>Total APY: </span> {{ truncatePercent(apyWithAdittional, 2) }}%
+        </div>
+      </div>
+    </template>
+  </lighting-apy>
+  <j-pill-label
+    v-else
+    color="#111"
+    :variant="isDeposit ? 'success' : 'warning'"
+    size="sm"
+  >
+    {{ poolApy }}
+  </j-pill-label>
 </template>
 
 <style lang="scss">
