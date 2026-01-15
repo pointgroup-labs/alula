@@ -21,6 +21,7 @@ export function useMarketTable() {
         const pool = d.pool
         const total_supply = Number(bigintToNumber(d.total_supply, assetDecimals)) || 0
         const total_borrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals)) || 0
+        const total_collateral = Number(bigintToNumber(pool.total_collateral, assetDecimals)) || 0
         const depositApy = d.apy.supply_bps / 100
         const borrowApy = d.apy.borrow_bps / 100
         const utilRate = Number(pool.total_borrowed) / Number((pool.total_available + pool.total_borrowed)) * 100
@@ -30,7 +31,7 @@ export function useMarketTable() {
         const available = Number(bigintToNumber(d.total_available_adjusted, assetDecimals))
         const asset = getFullTokenData(pool.token_symbol)
         assets.push(asset)
-        marketSize += total_supply * price
+        marketSize += (total_supply + total_collateral) * price
         return {
           raw: d,
           asset,
