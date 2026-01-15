@@ -63,6 +63,12 @@ const searchAsses = ref()
       }
     }
 
+    .market-size {
+      @media (max-width: $breakpoint-xs) {
+        display: none;
+      }
+    }
+
     .accordion-body {
       @media (max-width: $breakpoint-sm) {
         display: flex;

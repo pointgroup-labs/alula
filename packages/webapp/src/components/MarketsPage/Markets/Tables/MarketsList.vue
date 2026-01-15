@@ -94,8 +94,7 @@ watch(filteredMarkets, (val) => {
 
         <div class="market-info-wrapper">
           <div
-            v-if="market.assets.length > 0"
-            class="market-info-pill"
+            class="market-info-pill market-size"
           >
             <p>Market Size</p>
 
