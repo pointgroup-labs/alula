@@ -1,6 +1,7 @@
 #![no_std]
 
-use soroban_sdk::{Address, Env, contract, contractimpl};
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{Address, Env, contract, contractimpl, vec};
 
 use crate::market::{Request, StandardRequest, SwapExactTokensRequest};
 
@@ -10,37 +11,84 @@ mod market {
     contractimport!(file = "../../wasms/deploy/market.wasm");
 }
 
+const XLM_ADDR: &str = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+const USDC_ADDR: &str = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
+
+const MARKET_ADDR: &str = "CDKKJYAG6TLTCBXK77ZUZLSJ2VNJ65B4WL7NFMH4KNKS2WRKXXT4Y7IB";
+const ROUTER_ADDR: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD";
+
+const LEVERAGE_SCALE: i128 = 100;
+
 #[contract]
 pub struct Contract;
 
 #[contractimpl]
 impl Contract {
-    pub fn poc(e: Env, user: &Address) {
-        let market_address: Address =
-            Address::from_str(&e, "CDKKJYAG6TLTCBXK77ZUZLSJ2VNJ65B4WL7NFMH4KNKS2WRKXXT4Y7IB");
-        let xlm_address: Address =
-            Address::from_str(&e, "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC");
-        let usdc_address: Address =
-            Address::from_str(&e, "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA");
-
+    pub fn poc(e: &Env, user: &Address, amount: i128, leverage_multiplier: i128) {
         user.require_auth();
 
-        let market_client = market::Client::new(&e, &market_address);
+        let (xlm, usdc, market) = (
+            Address::from_str(e, XLM_ADDR),
+            Address::from_str(e, USDC_ADDR),
+            Address::from_str(e, MARKET_ADDR),
+        );
 
-        let flash_borrow_request = Request::FlashBorrow(StandardRequest {
-            amount: 10_000,
-            pool_address: usdc_address.clone(),
-        });
-        let swap_request = Request::SwapExactTokens(SwapExactTokensRequest {
-            user: user.clone(),
-            token_in: usdc_address,
-            token_out: xlm_address,
-            amount_in: 10_000,
-            min_amount_out: 1,
-        });
+        let market_client = market::Client::new(e, &market);
+        let leverage_multiplier_minus_1 = leverage_multiplier.checked_sub(LEVERAGE_SCALE).unwrap();
 
-        let requests = soroban_sdk::vec![&e, flash_borrow_request, swap_request];
+        let flash_borrow_amount =
+            amount.fixed_mul_floor(leverage_multiplier_minus_1, LEVERAGE_SCALE).unwrap();
 
-        market_client.submit_requests_batch(&user, &None, &requests, &None);
+        // NB: Can check slippage here
+        let amount_to_deposit = get_amount_out(&e, &usdc, &xlm, amount + flash_borrow_amount) - 10;
+
+        let requests = soroban_sdk::vec![
+            e,
+            Request::FlashBorrow(StandardRequest {
+                amount: flash_borrow_amount,
+                pool_address: usdc.clone(),
+            }),
+            Request::SwapExactTokens(SwapExactTokensRequest {
+                user: user.clone(),
+                token_in: usdc.clone(),
+                token_out: xlm.clone(),
+                amount_in: amount + flash_borrow_amount,
+                min_amount_out: 1,
+            }),
+            Request::Deposit(StandardRequest {
+                amount: amount_to_deposit,
+                pool_address: xlm.clone(),
+            }),
+            Request::Borrow(StandardRequest { amount: flash_borrow_amount, pool_address: usdc }),
+        ];
+
+        market_client.submit_requests_batch(user, &None, &requests, &None);
     }
+}
+
+// Gets the amount that user would receive if performed a swap at the current moment
+//
+// # Arguments
+// * `token_in` - address of a token that would be taken from the user
+// * `token_out` - address of a token that would be given to the user
+// * `amount_in` - an exact amount of `token_in` that would be taken from the user
+//
+// # Returns
+// Amount of `token_out` that would be given to the user
+pub fn get_amount_out(e: &Env, token_in: &Address, token_out: &Address, amount_in: i128) -> i128 {
+    let path = vec![&e, token_in.clone(), token_out.clone()];
+    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDR));
+
+    let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
+    let amount_out = amounts_out.last().unwrap();
+
+    amount_out
+}
+
+mod router {
+    #![allow(clippy::too_many_arguments)]
+
+    use soroban_sdk::contractimport;
+
+    contractimport!(file = "../../wasms/downloads/soroswap-router.wasm");
 }
