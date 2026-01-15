@@ -135,7 +135,7 @@ watch(dialog, async (v) => {
           class="dialog-info-table__item"
         >
           <span>Supply Limit</span>
-          <span>{{ limitLabel }}</span>
+          <span>{{ limitLabel }} {{ limitLabel !== '-' ? poolData?.asset.symbol : '' }}</span>
         </div>
 
         <!-- Contract Address -->
