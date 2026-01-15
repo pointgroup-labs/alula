@@ -80,8 +80,8 @@ const poolLimit = computed(() => {
   if (!data) {
     return 0
   }
-  const totalSupply = data.raw.total_available_adjusted + data.raw.pool.total_collateral
-  return Math.max(Number(bigintToNumber(totalSupply, data.assetDecimals)), 0)
+  const limit = collateralOnly.value ? data.raw.pool.total_collateral : data.raw.total_available_adjusted
+  return Math.max(Number(bigintToNumber(limit, data.assetDecimals)), 0)
 })
 
 const availableToWithdraw = computed(() => {
