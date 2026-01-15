@@ -30,13 +30,18 @@ const searchAsses = ref()
     flex-direction: column;
     gap: $spacing-12;
 
-    .market-assets {
+    .market-info-wrapper {
+      display: flex;
+      gap: $spacing-16;
+      margin-left: auto;
+    }
+
+    .market-info-pill {
       display: flex;
       align-items: center;
       padding: $spacing-4 $spacing-12;
       background-color: rgba(255, 255, 255, 0.496);
       border-radius: 100px;
-      margin-left: auto;
       font-size: 14px;
 
       p {
@@ -70,7 +75,7 @@ const searchAsses = ref()
     .j-accordion .accordion-button {
       height: 60px;
 
-      &:has(.market-assets) {
+      &:has(.market-info-wrapper) {
         i {
           margin-left: 12px;
         }
@@ -87,7 +92,7 @@ const searchAsses = ref()
 body.body--dark {
   .markets {
     .table-wrapper {
-      .market-assets {
+      .market-info-pill {
         background-color: rgba(0, 0, 0, 0.259);
       }
     }

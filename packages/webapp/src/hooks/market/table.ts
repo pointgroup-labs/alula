@@ -8,7 +8,7 @@ export function useMarketTable() {
   const loading = computed(() => marketsStore.state.loading)
   const activeMarket = computed(() => marketsStore.activeMarket)
 
-  const marketWithTableItems = computed<{ marketName: string, assets: TableAsset['asset'][], tableItems: MarketTableItem[] }[]>(() => {
+  const marketWithTableItems = computed<MarketWithTableItems[]>(() => {
     const markets = Object.entries(marketsStore.state.markets)
     const preparedTableData = []
     for (const [marketName, data] of markets) {
@@ -16,6 +16,7 @@ export function useMarketTable() {
       const oraclePriceDecimals = data?.marketState.oracle_price_decimals ?? 0
       const poolsData = data?.marketState?.pools_data ?? []
       const assets: TableAsset['asset'][] = []
+      let marketSize = 0
       const tableItems = poolsData?.map((d) => {
         const pool = d.pool
         const total_supply = Number(bigintToNumber(d.total_supply, assetDecimals)) || 0
@@ -29,6 +30,7 @@ export function useMarketTable() {
         const available = Number(bigintToNumber(d.total_available_adjusted, assetDecimals))
         const asset = getFullTokenData(pool.token_symbol)
         assets.push(asset)
+        marketSize += total_supply * price
         return {
           raw: d,
           asset,
@@ -51,6 +53,7 @@ export function useMarketTable() {
       preparedTableData.push({
         marketName,
         assets,
+        marketSize,
         tableItems,
       })
     }
@@ -89,4 +92,11 @@ export function useMarketTable() {
     selectedPoolAddress,
     selectedMarketDetails,
   }
+}
+
+export type MarketWithTableItems = {
+  marketName: string
+  assets: TableAsset['asset'][]
+  tableItems: MarketTableItem[]
+  marketSize: number
 }

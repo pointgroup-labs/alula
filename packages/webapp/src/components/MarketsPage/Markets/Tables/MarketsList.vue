@@ -92,19 +92,30 @@ watch(filteredMarkets, (val) => {
       <template #title>
         {{ capitalize(market.marketName) }} Market
 
-        <div
-          v-if="market.assets.length > 0"
-          class="market-assets"
-        >
-          <p>Assets</p>
-
-          <img
-            v-for="asset in market.assets.slice(0, 2)"
-            :key="asset.icon"
-            :src="asset.icon"
-            alt="market asset"
+        <div class="market-info-wrapper">
+          <div
+            v-if="market.assets.length > 0"
+            class="market-info-pill"
           >
-          <span v-if="market.assets.length > 2">+{{ market.assets.length - 2 }}</span>
+            <p>Market Size</p>
+
+            ${{ shortenNumber(market.marketSize) }}
+          </div>
+
+          <div
+            v-if="market.assets.length > 0"
+            class="market-info-pill"
+          >
+            <p>Assets</p>
+
+            <img
+              v-for="asset in market.assets.slice(0, 2)"
+              :key="asset.icon"
+              :src="asset.icon"
+              alt="market asset"
+            >
+            <span v-if="market.assets.length > 2">+{{ market.assets.length - 2 }}</span>
+          </div>
         </div>
       </template>
 

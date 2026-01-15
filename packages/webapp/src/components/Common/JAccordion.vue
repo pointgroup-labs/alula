@@ -119,7 +119,7 @@ body.body--dark {
     }
 
     .accordion-header {
-      background: $neutral-18;
+      background: $neutral-16;
     }
 
     .accordion-button {

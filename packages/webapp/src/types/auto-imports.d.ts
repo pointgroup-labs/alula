@@ -335,6 +335,9 @@ declare global {
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
+  export type { MarketWithTableItems } from '../hooks/market/table'
+  import('../hooks/market/table')
+  // @ts-ignore
   export type { MarketsState, PoolWithPrice, TableActionType } from '../store/markets'
   import('../store/markets')
   // @ts-ignore
