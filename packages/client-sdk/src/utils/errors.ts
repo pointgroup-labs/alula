@@ -34,6 +34,7 @@ const errorMap: Record<string, string> = {
   BorrowLimitExceeded: 'Borrow limit exceeded for this pool.',
   NegativeCollateralAddition: 'The collateral addition amount is negative and not permitted.',
   NegativeCollateralRemoval: 'The collateral removal amount is negative and not allowed.',
+  OperationForbiddenOnPool: 'This operation is not available because the pool has active restrictions. Please check the pool status for details.',
 }
 
 function extractContractErrorIndex(input: string): string | null {
