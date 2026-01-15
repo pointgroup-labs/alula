@@ -25,6 +25,19 @@
     &.apy {
       width: 124px;
     }
+    &.supply {
+      width: 120px;
+    }
+    &.borrow {
+      width: 138px;
+      padding-right: 28px;
+    }
+  }
+
+  td {
+    &.borrow {
+      padding-right: 28px;
+    }
   }
 
   tbody {

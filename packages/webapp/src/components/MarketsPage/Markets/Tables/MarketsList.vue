@@ -36,8 +36,8 @@ const { additionalMarketsData, generateMockAdditionalData } = useAdditionalApy()
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   // { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
-  { key: 'total_supply', label: 'Supply', align: 'right' },
-  { key: 'total_borrowed', label: 'Borrow', align: 'right' },
+  { key: 'total_supply', label: 'Supply', align: 'right', thClass: 'supply', tdClass: 'supply' },
+  { key: 'total_borrowed', label: 'Borrow', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
   { key: 'borrow_apy', label: 'Borrow APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
   // { key: 'utilization_rate', label: 'Utilization', align: 'right' },

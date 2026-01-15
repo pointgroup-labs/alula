@@ -34,7 +34,7 @@ watch(() => pool, () => {
       content-class="pool-status__tip"
     >
       <j-pill-label
-        color="#ffb726"
+        color="rgb(213 160 52)"
         variant="outline-warning"
         size="sm"
       >
@@ -57,11 +57,15 @@ watch(() => pool, () => {
 <style lang="scss">
 .pool-status {
   position: absolute;
-  top: -16px;
-  left: 22px;
+  top: -12px;
+  left: 12px;
 
   .j-pill-label {
     padding: 0 8px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 14px;
+    background-color: #fff;
   }
 }
 
@@ -71,6 +75,14 @@ watch(() => pool, () => {
   ul {
     padding: 0 0 0 18px;
     margin: 0;
+  }
+}
+
+body.body--dark {
+  .pool-status {
+    .j-pill-label {
+      background-color: #000;
+    }
   }
 }
 </style>
