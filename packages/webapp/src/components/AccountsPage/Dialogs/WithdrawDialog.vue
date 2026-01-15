@@ -80,7 +80,8 @@ const poolLimit = computed(() => {
   if (!data) {
     return 0
   }
-  return Math.max(Number(bigintToNumber(data.raw.total_available_adjusted, data.assetDecimals)), 0)
+  const totalSupply = data.raw.total_available_adjusted + data.raw.pool.total_collateral
+  return Math.max(Number(bigintToNumber(totalSupply, data.assetDecimals)), 0)
 })
 
 const availableToWithdraw = computed(() => {
@@ -199,7 +200,7 @@ watchDebounced(amount, async (a) => {
     return
   }
   const feeData = await activeMarket.value?.client.marketSdk.simulateWithdraw(publicKey.value, data!.pool_address, a)
-  const feeSum = feeData?.computed_fees?.fee_sum
+  const feeSum = feeData?.operation_fees?.fee_sum
   poolFee.value = feeSum && data?.assetDecimals ? Number(bigintToNumber(feeSum, data.assetDecimals)) : 0
 }, { debounce: 500 })
 
