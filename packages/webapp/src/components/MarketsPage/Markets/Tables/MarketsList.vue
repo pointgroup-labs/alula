@@ -35,7 +35,7 @@ const { additionalMarketsData, generateMockAdditionalData } = useAdditionalApy()
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
-  { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
+  // { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
   { key: 'total_supply', label: 'Supply', align: 'right' },
   { key: 'total_borrowed', label: 'Borrow', align: 'right' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
@@ -143,14 +143,16 @@ watch(filteredMarkets, (val) => {
                 {{ data.item.asset.name }}
               </div>
             </div>
-          </div>
-        </template>
 
-        <template #cell(status)="data">
-          <div class="table-cell justify-content-center">
             <pool-status :pool="data.item.raw.pool" />
           </div>
         </template>
+
+        <!-- <template #cell(status)="data">
+          <div class="table-cell justify-content-center">
+            <pool-status :pool="data.item.raw.pool" />
+          </div>
+        </template> -->
 
         <template #cell(total_supply)="data">
           <div class="table-cell justify-content-end">

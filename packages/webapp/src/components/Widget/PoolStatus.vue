@@ -8,7 +8,7 @@ const { pool } = defineProps<{
 
 const allStatuses = ref<string[]>([])
 
-const isAllEnabled = computed(() => allStatuses.value.length === 0)
+const isRestricted = computed(() => allStatuses.value.length > 0)
 
 watch(() => pool, () => {
   allStatuses.value = []
@@ -30,21 +30,7 @@ watch(() => pool, () => {
 <template>
   <div class="pool-status">
     <j-tooltip
-      v-if="isAllEnabled"
-    >
-      <j-pill-label
-        color="#08b576"
-        variant="outline-success"
-        size="sm"
-      >
-        Active
-      </j-pill-label>
-      <template #content>
-        All pool operations are available without restrictions.
-      </template>
-    </j-tooltip>
-    <j-tooltip
-      v-else
+      v-if="isRestricted"
       content-class="pool-status__tip"
     >
       <j-pill-label
@@ -69,6 +55,16 @@ watch(() => pool, () => {
 </template>
 
 <style lang="scss">
+.pool-status {
+  position: absolute;
+  top: -16px;
+  left: 22px;
+
+  .j-pill-label {
+    padding: 0 8px;
+  }
+}
+
 .pool-status__tip {
   text-align: left;
 
