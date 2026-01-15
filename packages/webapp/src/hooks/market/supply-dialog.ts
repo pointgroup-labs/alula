@@ -34,7 +34,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>) {
     return wallet.getAssetBalance(String(asset_issuer))
   })
 
-  const isSupplyLimited = computed(() => poolData.value?.supply_limit && poolData.value?.supply_limit > 0)
+  const isSupplyLimited = computed(() => poolData.value?.supply_limit && !collateralOnly.value && poolData.value?.supply_limit > 0)
   const supplyLimit = computed(() => isSupplyLimited.value ? Math.max(Number(poolData.value?.supply_limit) - Number(poolData.value?.total_supply), 0) : 0)
   const limitLabel = computed(() => isSupplyLimited.value ? formatPrice(Number(supplyLimit.value), 2, 2) : '-')
 
