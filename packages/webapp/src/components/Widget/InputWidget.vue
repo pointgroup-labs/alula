@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { Size } from 'bootstrap-vue-next'
 import Decimal from 'decimal.js'
-import { focusInput, formatPrice, getZeroCountAfterDecimal, parseFormattedPrice } from '~/utils'
+import { formatPrice, getZeroCountAfterDecimal, parseFormattedPrice } from '~/utils'
 
 const {
   balance,
@@ -81,7 +81,8 @@ function handleClick(e: any) {
   if (target.closest('.j-input__label') || target.closest('.j-input__desc')) {
     return
   }
-  focusInput('.j-input')
+  const current = e.currentTarget
+  current.querySelector('input')?.focus()
 }
 
 const forceValidation = ref(false)
