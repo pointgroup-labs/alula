@@ -6,7 +6,7 @@ on:
   push:
     branches:
       - dev
-      # - stage
+      - webapp
       # - main
     paths:
       - packages/webapp/nuxt.config.ts
