@@ -7,14 +7,14 @@ const {
   isProgress = false,
   limit = 0,
 }
-= defineProps<{
-  color?: string
-  cap?: number
-  limit?: number
-  progress: number | string
-  isProgress?: boolean
-  detailsColor?: string
-}>()
+  = defineProps<{
+    color?: string
+    cap?: number
+    limit?: number
+    progress: number | string
+    isProgress?: boolean
+    detailsColor?: string
+  }>()
 
 const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '-')
 </script>

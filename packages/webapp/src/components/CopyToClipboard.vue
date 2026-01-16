@@ -7,11 +7,11 @@ const {
   text = '',
   entity = '',
 }
-= defineProps<{
-  color?: string
-  text?: string
-  entity?: string
-}>()
+  = defineProps<{
+    color?: string
+    text?: string
+    entity?: string
+  }>()
 
 const toast = useToast()
 

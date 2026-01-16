@@ -1,4 +1,4 @@
-export const getRuntimeConfig = () => {
+export function getRuntimeConfig() {
   // @ts-expect-error...
   return globalThis.__NUXT__?.config.public ?? {}
 }

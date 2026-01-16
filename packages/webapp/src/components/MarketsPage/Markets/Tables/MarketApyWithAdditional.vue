@@ -70,7 +70,7 @@ const apyWithAdittional = computed(() => {
         <div class="additional-tip__value">
           {{ isDeposit ? 'Lending' : 'Borrow' }} APY:<span>{{ poolApy }}</span>
         </div>
-        
+
         <div class="separator" />
 
         <div class="additional-tip__value">
