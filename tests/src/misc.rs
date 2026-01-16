@@ -779,7 +779,7 @@ fn test_collect_dust() {
     let admin_gold_balance_pre = gold_token_client.balance(&contract_admin);
     let admin_btc_balance_pre = btc_token_client.balance(&contract_admin);
 
-    full_contract_client.collect_dust();
+    full_contract_client.collect_dust_from_pools();
 
     let admin_usdc_balance_post = usdc_token_client.balance(&contract_admin);
     let admin_gold_balance_post = gold_token_client.balance(&contract_admin);
@@ -793,7 +793,7 @@ fn test_collect_dust() {
     gold_token_client.transfer(donor, &contract_id, &2);
     btc_token_client.transfer(donor, &contract_id, &3);
 
-    full_contract_client.collect_dust();
+    full_contract_client.collect_dust_from_pools();
 
     let admin_usdc_balance_post = usdc_token_client.balance(&contract_admin);
     let admin_gold_balance_post = gold_token_client.balance(&contract_admin);
@@ -841,7 +841,6 @@ fn test_leverage_new_flash_loan() {
         pool_address: usdc_pool_address.clone(),
     });
     let swap_request = Request::SwapExactTokens(SwapExactTokensRequest {
-        user: user.clone(),
         token_in: usdc_pool_address.clone(),
         token_out: gold_token_address.clone(),
         amount_in: DEFAULT_DEPOSIT_AMOUNT,

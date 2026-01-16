@@ -1,13 +1,17 @@
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     Address, BytesN, Env, Map, contracttype, map as smap,
     token::{self, TokenClient},
 };
 
-use crate::{error::MCError, events, pool::Pool, utils::MathUtils};
+use crate::{
+    constants::BPS_FACTOR, error::MCError, events, obligation::ObligationKey, pool::Pool,
+    utils::MathUtils,
+};
 
 #[contracttype]
 pub struct StandardRequest {
-    // Should we keep 'user' here
+    // Should we keep 'user' here?
     pub amount: i128,
     pub pool_address: Address,
 }
@@ -21,7 +25,6 @@ pub struct ModErc3156FlashLoanRequest {
 
 #[contracttype]
 pub struct SwapExactTokensRequest {
-    pub user: Address,
     pub token_in: Address,
     pub token_out: Address,
     pub amount_in: i128,
@@ -30,7 +33,6 @@ pub struct SwapExactTokensRequest {
 
 #[contracttype]
 pub struct SwapForExactTokensRequest {
-    pub user: Address,
     pub token_in: Address,
     pub token_out: Address,
     pub max_amount_in: i128,
@@ -39,8 +41,11 @@ pub struct SwapForExactTokensRequest {
 
 #[contracttype]
 pub struct LiquidateRequest {
-    pub amount: i128,
-    pub seed: Option<BytesN<32>>,
+    pub borrower_obligation_key: ObligationKey,
+    pub borrow_pool_address: Address,
+    pub collateral_pool_address: Address,
+    pub repay_amount: i128,
+    pub min_demanded_collateral_amount: i128,
 }
 
 #[contracttype]
@@ -230,8 +235,14 @@ impl<'a> RequestTransfers<'a> {
             })?;
             let token_client = token::Client::new(e, &pool.token_address);
 
-            token_client.transfer(&self.user, &e.current_contract_address(), &amount);
+            let flash_loan_fee = amount
+                .fixed_mul_ceil(pool.config.fee_config.flash_loan_fee_bps as i128, BPS_FACTOR)
+                .map_over_or_underflow()?;
+            let repay_amount = amount.checked_add(flash_loan_fee).map_over_or_underflow()?;
+
+            token_client.transfer(&self.user, &e.current_contract_address(), &repay_amount);
             pool.adjust_total_available(e, amount)?;
+            pool.adjust_operation_fees_sum(e, flash_loan_fee)?;
 
             pool.set(&e);
         }

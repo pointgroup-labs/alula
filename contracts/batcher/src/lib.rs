@@ -8,7 +8,7 @@ use crate::market::{Request, StandardRequest, SwapExactTokensRequest};
 mod market {
     use soroban_sdk::contractimport;
 
-    contractimport!(file = "../../wasms/deploy/market.wasm");
+    contractimport!(file = "../../wasms/deploy_optimized/market.optimized.wasm");
 }
 
 const XLM_ADDR: &str = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
@@ -49,7 +49,6 @@ impl Contract {
                 pool_address: usdc.clone(),
             }),
             Request::SwapExactTokens(SwapExactTokensRequest {
-                user: user.clone(),
                 token_in: usdc.clone(),
                 token_out: xlm.clone(),
                 amount_in: amount + flash_borrow_amount,

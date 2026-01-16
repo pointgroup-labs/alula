@@ -25,14 +25,6 @@ use crate::{
 
 #[contractclient(name = "MarketClient")]
 pub trait Market {
-    // Submits a request batch
-    // fn submit_requests_batch(
-    //     e: Env,
-    //     user: Address,
-    //     requests: Vec<Request>,
-    //     referrer: Option<Address>,
-    // ) -> Result<(), MCError>;
-
     // Gets the contract's global state
     fn get_global_state(e: Env) -> GlobalState;
 
@@ -414,22 +406,6 @@ pub trait Market {
 
     // -- TO BE REMOVED --
 
-    // Swap tokens via a swap provider contract. This guarantees a swap
-    // and is agnostic to the possible price slippage
-    //
-    // # Arguments
-    // * `user` - user which deposits a token
-    // * `token_in` - address of a token that would be taken from the user
-    // * `token_out` - address of a token that would be given to the user
-    // * `amount` - exact amount of the `token_in`
-    // fn swap(
-    //     e: Env,
-    //     user: Address,
-    //     token_in: Address,
-    //     token_out: Address,
-    //     amount_in: i128,
-    // ) -> Result<i128, MCError>;
-
     // Donates tokens to `total_available` on a pool
     //
     // # Arguments
@@ -655,6 +631,7 @@ pub trait Market {
     #[cfg(not(feature = "mainnet"))]
     fn reset_storage(e: Env);
 
+    // Submits a request batch
     fn submit_requests_batch(
         e: Env,
         user: Address,
@@ -931,20 +908,6 @@ impl Market for MarketContract {
         process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
-    // fn swap(
-    //     e: Env,
-    //     user: Address,
-    //     token_in: Address,
-    //     token_out: Address,
-    //     amount_in: i128,
-    // ) -> Result<i128, MCError> {
-    //     user.require_auth();
-    //     require_market_not_frozen(&e)?;
-    //     storage::extend_instance_storage(&e);
-
-    //     process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
-    // }
-
     fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
         user.require_auth();
         require_nonnegative(amount)?;
@@ -1112,7 +1075,7 @@ impl Market for MarketContract {
         require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
-        process_flash_loan(&e, &contract, &pool_address, amount)
+        process_moderc3156_flash_loan(&e, &contract, &pool_address, amount)
     }
 
     fn deposit_with_leverage(
@@ -1598,12 +1561,49 @@ impl MarketContract {
         Ok(())
     }
 
-    pub fn collect_dust(e: Env) -> Result<(), MCError> {
+    pub fn collect_dust_from_pools(e: Env) -> Result<(), MCError> {
         let admin = storage::get_admin(&e);
         admin.require_auth();
-
         storage::extend_instance_storage(&e);
 
         process_collect_dust(&e, &admin)
+    }
+
+    pub fn collect_excessive_token(e: Env, token: Address) -> Result<(), MCError> {
+        let admin = storage::get_admin(&e);
+        admin.require_auth();
+        storage::extend_instance_storage(&e);
+
+        process_collect_excessive_token(&e, &admin, &token)?; // TODO: Add tests
+
+        Ok(())
+    }
+
+    fn swap_exact_tokens(
+        e: Env,
+        user: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_in: i128,
+        min_amount_out: i128,
+    ) -> Result<i128, MCError> {
+        user.require_auth();
+        storage::extend_instance_storage(&e);
+
+        process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in, min_amount_out)
+    }
+
+    fn swap_for_exact_tokens(
+        e: Env,
+        user: Address,
+        token_in: Address,
+        token_out: Address,
+        max_amount_in: i128,
+        amount_out: i128,
+    ) -> Result<i128, MCError> {
+        user.require_auth();
+        storage::extend_instance_storage(&e);
+
+        process_swap_for_exact_tokens(&e, &user, &token_in, &token_out, max_amount_in, amount_out)
     }
 }

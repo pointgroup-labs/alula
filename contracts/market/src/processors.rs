@@ -14,8 +14,8 @@ use crate::{
     obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
     request::{
-        Request, RequestTransfers, StandardRequest, SwapExactTokensRequest,
-        SwapForExactTokensRequest,
+        LiquidateRequest, ModErc3156FlashLoanRequest, Request, RequestTransfers, StandardRequest,
+        SwapExactTokensRequest, SwapForExactTokensRequest,
     },
     storage::{self, GlobalState},
     swap,
@@ -58,7 +58,6 @@ pub fn process_submit_requests_batch<'a>(
             }
             Request::FlashBorrow(request) => process_flash_borrow(e, &obligation_key.user, request),
             Request::SwapExactTokens(SwapExactTokensRequest {
-                user,
                 token_in,
                 token_out,
                 amount_in,
@@ -66,17 +65,16 @@ pub fn process_submit_requests_batch<'a>(
             }) => {
                 process_swap_exact_tokens(
                     e,
-                    &user,
+                    &obligation_key.user,
                     &token_in,
                     &token_out,
                     amount_in,
                     min_amount_out,
                 )?;
 
-                Ok(RequestTransfers::empty(e, user))
+                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
             }
             Request::SwapForExactTokens(SwapForExactTokensRequest {
-                user,
                 token_in,
                 token_out,
                 max_amount_in,
@@ -84,19 +82,43 @@ pub fn process_submit_requests_batch<'a>(
             }) => {
                 process_swap_for_exact_tokens(
                     e,
-                    &user,
+                    &obligation_key.user,
                     &token_in,
                     &token_out,
                     max_amount_in,
                     amount_out,
                 )?;
 
-                Ok(RequestTransfers::empty(e, user))
+                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
             }
-            Request::ModErc3156FlashLoan(_moderc3165_request) => {
-                todo!()
+            Request::ModErc3156FlashLoan(ModErc3156FlashLoanRequest {
+                amount,
+                contract,
+                pool_address,
+            }) => {
+                process_moderc3156_flash_loan(e, &contract, &pool_address, amount)?;
+
+                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
             }
-            Request::Liquidate(_liquidate_request) => todo!(),
+            Request::Liquidate(LiquidateRequest {
+                borrower_obligation_key,
+                borrow_pool_address,
+                collateral_pool_address,
+                repay_amount,
+                min_demanded_collateral_amount,
+            }) => {
+                let _ = process_liquidate(
+                    e,
+                    &obligation_key.user,
+                    &borrower_obligation_key,
+                    &borrow_pool_address,
+                    &collateral_pool_address,
+                    repay_amount,
+                    min_demanded_collateral_amount,
+                )?;
+
+                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
+            }
         }?;
 
         transfers.merge(new_transfers)?;
@@ -575,7 +597,7 @@ pub fn process_simulate_withdraw(
     Ok(withdraw_result)
 }
 
-pub fn process_flash_loan(
+pub fn process_moderc3156_flash_loan(
     e: &Env,
     contract: &Address,
     pool_address: &Address,
@@ -1421,7 +1443,11 @@ pub fn process_collect_dust(e: &Env, admin: &Address) -> Result<(), MCError> {
     let pool_addresses = storage::get_all_pools(e);
 
     for pool_address in pool_addresses {
-        let pool = Pool::try_get(e, &pool_address)?;
+        let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+            events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+            MCError::InternalError
+        })?;
         let token_client = token::Client::new(e, &pool.token_address);
 
         let pool_available = pool.total_available()?;
@@ -1439,6 +1465,34 @@ pub fn process_collect_dust(e: &Env, admin: &Address) -> Result<(), MCError> {
             events::collect_dust(e, &pool_address, dust);
         }
     }
+
+    Ok(())
+}
+
+pub fn process_collect_excessive_token(
+    e: &Env,
+    admin: &Address,
+    token: &Address,
+) -> Result<(), MCError> {
+    let pool_addresses = storage::get_all_pools(e);
+
+    for pool_address in pool_addresses {
+        let pool = Pool::try_get(e, &pool_address).map_err(|_| {
+            events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
+
+            MCError::InternalError
+        })?;
+
+        if *token == pool.token_address {
+            // TODO: Error + event
+            return Err(MCError::InternalError);
+        }
+    }
+
+    let token_client = token::TokenClient::new(e, token);
+    let balance = token_client.balance(&e.current_contract_address());
+
+    token_client.transfer(&e.current_contract_address(), admin, &balance);
 
     Ok(())
 }
