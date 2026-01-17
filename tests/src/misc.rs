@@ -5,7 +5,7 @@ use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
     obligation::ObligationKey,
-    request::{Request, StandardRequest, SwapExactTokensRequest, SwapForExactTokensRequest},
+    request::{Request, StandardRequest, SwapExactTokensRequest},
     utils::{MarketData, PoolData},
 };
 use soroban_fixed_point_math::FixedPoint;
@@ -811,12 +811,12 @@ fn test_collect_dust() {
 #[test]
 fn test_collect_excessive_tokens() {
     let TestMarketFixture {
-        contract_admin,
-        contract_id,
-        full_contract_client,
-        usdc_token_client,
-        gold_token_client,
-        btc_token_client,
+        
+        
+        
+        
+        
+        
         users,
         ..
     } = TestMarketFixture::new();
@@ -827,14 +827,14 @@ fn test_collect_excessive_tokens() {
 fn test_leverage_new_flash_loan() {
     let TestMarketFixture {
         e,
-        contract_admin,
-        contract_id,
+        
+        
         full_contract_client,
         usdc_token_client,
         gold_token_client,
         gold_token_address,
         usdc_pool_address,
-        btc_token_client,
+        
         users,
         ..
     } = TestMarketFixture::new();
@@ -864,7 +864,7 @@ fn test_leverage_new_flash_loan() {
 
     let requests = svec![&e, flash_borrow_request, swap_request];
 
-    full_contract_client.submit_requests_batch(&user, &None, &requests, &None);
+    full_contract_client.submit_requests_batch(user, &None, &requests, &None);
 
     let usdc_balance_after = usdc_token_client.balance(user);
     let gold_balance_after = gold_token_client.balance(user);

@@ -232,7 +232,7 @@ impl<'a> RequestTransfers<'a> {
         }
 
         if let Some(StandardRequest { amount, pool_address }) = self.flash_borrow_request {
-            let mut pool = Pool::try_get(&e, &pool_address).map_err(|_| {
+            let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
                 events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
                 MCError::InternalError
@@ -244,11 +244,11 @@ impl<'a> RequestTransfers<'a> {
                 .map_over_or_underflow()?;
             let repay_amount = amount.checked_add(flash_loan_fee).map_over_or_underflow()?;
 
-            token_client.transfer(&self.user, &e.current_contract_address(), &repay_amount);
+            token_client.transfer(&self.user, e.current_contract_address(), &repay_amount);
             pool.adjust_total_available(e, amount)?;
             pool.adjust_operation_fees_sum(e, flash_loan_fee)?;
 
-            pool.set(&e);
+            pool.set(e);
         }
 
         Ok(())

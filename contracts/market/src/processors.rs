@@ -508,14 +508,14 @@ pub fn process_flash_borrow<'a>(
 
     require_nonnegative(*amount)?;
 
-    let mut pool = Pool::try_get(e, &pool_address)?;
+    let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_flash_borrow_enabled()?;
     pool.require_total_available(*amount)?;
 
     pool.adjust_total_available(e, amount.checked_neg().map_over_or_underflow()?)?;
 
     let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer(&e.current_contract_address(), user, &amount);
+    token_client.transfer(&e.current_contract_address(), user, amount);
 
     Ok(RequestTransfers::new_with_flash_borrow_request(e, user.clone(), request))
 }

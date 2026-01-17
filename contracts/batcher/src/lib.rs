@@ -40,7 +40,7 @@ impl Contract {
             amount.fixed_mul_floor(leverage_multiplier_minus_1, LEVERAGE_SCALE).unwrap();
 
         // NB: Can check slippage here
-        let amount_to_deposit = get_amount_out(&e, &usdc, &xlm, amount + flash_borrow_amount) - 10;
+        let amount_to_deposit = get_amount_out(e, &usdc, &xlm, amount + flash_borrow_amount) - 10;
 
         let requests = soroban_sdk::vec![
             e,
@@ -79,9 +79,9 @@ pub fn get_amount_out(e: &Env, token_in: &Address, token_out: &Address, amount_i
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDR));
 
     let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
-    let amount_out = amounts_out.last().unwrap();
+    
 
-    amount_out
+    amounts_out.last().unwrap()
 }
 
 mod router {

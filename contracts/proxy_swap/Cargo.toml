@@ -10,6 +10,7 @@ doctest = false
 
 [dependencies]
 enum_dispatch.workspace = true
+
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]
