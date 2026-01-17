@@ -31,6 +31,11 @@ const {
   selectedMarketDetails,
 } = useMarketTable()
 
+const {
+  opened,
+  isOpened,
+  toggleOpen } = useAccordionMarketsHandler('accordion-markets')
+
 const { additionalMarketsData, generateMockAdditionalData } = useAdditionalApy()
 
 const fields = [
@@ -70,6 +75,13 @@ watch(filteredMarkets, (val) => {
   }
   generateMockAdditionalData(marketWithTableItems.value)
 }, { immediate: true })
+
+const stop = watch(additionalMarketsData, () => {
+  if (opened.value.length === 0 && additionalMarketsData.value.length > 0) {
+    toggleOpen(filteredMarkets.value[0]!.marketName)
+    stop()
+  }
+})
 </script>
 
 <template>
@@ -85,9 +97,10 @@ watch(filteredMarkets, (val) => {
     class="table-wrapper"
   >
     <j-accordion
-      v-for="(market, idx) in filteredMarkets"
+      v-for="(market) in filteredMarkets"
       :key="market.marketName"
-      :visible="!searchAsses ? idx === 0 : !!searchAsses"
+      :visible="!searchAsses ? isOpened(market.marketName) : !!searchAsses"
+      @toggle="toggleOpen(market.marketName)"
     >
       <template #title>
         {{ capitalize(market.marketName) }} Market

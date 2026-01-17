@@ -14,6 +14,8 @@ const {
   activeIcon?: string
 }>()
 
+const emit = defineEmits(['toggle'])
+
 const slot = useSlots()
 const show = ref(false)
 
@@ -28,6 +30,7 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
     <b-accordion-item
       v-model="show"
       :visible="visible"
+      @toggle="emit('toggle', $event)"
     >
       <template #title>
         <slot

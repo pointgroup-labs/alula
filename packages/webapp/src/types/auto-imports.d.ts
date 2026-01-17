@@ -122,6 +122,12 @@ declare global {
   const unref: typeof import('vue').unref
   const unrefElement: typeof import('@vueuse/core').unrefElement
   const until: typeof import('@vueuse/core').until
+  const useAcco: typeof import('../hooks/accortion-handler').useAcco
+  const useAccor: typeof import('../hooks/accortion-handler').useAccor
+  const useAccordion: typeof import('../hooks/accortion-handler').useAccordion
+  const useAccordionHandler: typeof import('../hooks/accortion-handler').useAccordionHandler
+  const useAccordionMarketsHandler: typeof import('../hooks/accortion-handler').useAccordionMarketsHandler
+  const useAccou: typeof import('../hooks/accortion-handler').useAccou
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
   const useAdditionalApy: typeof import('../hooks/additional-apy').useAdditionalApy
   const useAnimate: typeof import('@vueuse/core').useAnimate
@@ -471,6 +477,7 @@ declare module 'vue' {
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly unrefElement: UnwrapRef<typeof import('@vueuse/core')['unrefElement']>
     readonly until: UnwrapRef<typeof import('@vueuse/core')['until']>
+    readonly useAccordionMarketsHandler: UnwrapRef<typeof import('../hooks/accortion-handler')['useAccordionMarketsHandler']>
     readonly useActiveElement: UnwrapRef<typeof import('@vueuse/core')['useActiveElement']>
     readonly useAdditionalApy: UnwrapRef<typeof import('../hooks/additional-apy')['useAdditionalApy']>
     readonly useAnimate: UnwrapRef<typeof import('@vueuse/core')['useAnimate']>
