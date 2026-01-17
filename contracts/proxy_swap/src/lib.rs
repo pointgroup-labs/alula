@@ -30,6 +30,8 @@ impl ProxySwapContract {
         min_amount_out: i128,
     ) -> Result<i128, PSCError> {
         to.require_auth();
+        extend_instance_storage(&e);
+
         let provider: SwapProvider = try_map_address_to_swap_provider(&e, swap_provider)?;
 
         provider.swap_exact(&e, &to, &token_in, &token_out, amount_in, min_amount_out)
@@ -45,6 +47,8 @@ impl ProxySwapContract {
         amount_out: i128,
     ) -> Result<i128, PSCError> {
         to.require_auth();
+        extend_instance_storage(&e);
+
         let provider: SwapProvider = try_map_address_to_swap_provider(&e, swap_provider)?;
 
         provider.swap_for_exact(&e, &to, &token_in, &token_out, max_amount_in, amount_out)
@@ -62,4 +66,9 @@ fn try_map_address_to_swap_provider(e: &Env, address: Address) -> Result<SwapPro
     };
 
     Ok(provider)
+}
+
+// Instance bumper
+pub fn extend_instance_storage(e: &Env) {
+    e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }
