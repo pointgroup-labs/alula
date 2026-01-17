@@ -29,8 +29,6 @@ pub trait Market {
     fn submit_requests_batch(
         e: Env,
         obligation_key: ObligationKey,
-        // user: Address,
-        // seed: Option<BytesN<32>>,
         requests: Vec<Request>,
         referrer: Option<Address>,
     ) -> Result<(), MCError>;
@@ -211,7 +209,6 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn withdraw(
         e: Env,
-        // user: Address,
         obligation_key: ObligationKey,
         pool_address: Address,
         amount: i128,
@@ -233,7 +230,6 @@ pub trait Market {
     // [`WithdrawResult`] with simulated withdrawal data
     fn simulate_withdraw(
         e: Env,
-        // user: Address,
         obligation_key: ObligationKey,
         pool_address: Address,
         amount: i128,
@@ -270,7 +266,6 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn borrow(
         e: Env,
-        // user: Address,
         obligation_key: ObligationKey,
         pool_address: Address,
         amount: i128,
@@ -288,7 +283,6 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn add_collateral(
         e: Env,
-        // user: Address,
         obligation_key: ObligationKey,
         pool_address: Address,
         amount: i128,
@@ -307,7 +301,6 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn remove_collateral(
         e: Env,
-        // user: Address,
         obligation_key: ObligationKey,
         pool_address: Address,
         amount: i128,
@@ -325,7 +318,6 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn repay(
         e: Env,
-        // user: Address,
         obligation_key: ObligationKey,
         pool_address: Address,
         amount: i128,
@@ -349,7 +341,6 @@ pub trait Market {
         e: Env,
         liquidator: Address,
         borrower_obligation_key: ObligationKey,
-        // borrower_obligation_seed: Option<BytesN<32>>,
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         repay_amount: i128,
@@ -409,11 +400,7 @@ pub trait Market {
     //
     // # Arguments
     // * `user` - user that has open `cover bad debt` requests
-    fn claim_cover_bad_debt_results(
-        e: Env,
-        // user: Address,
-        obligation_key: ObligationKey,
-    ) -> Result<(), MCError>;
+    fn claim_cover_bad_debt_results(e: Env, obligation_key: ObligationKey) -> Result<(), MCError>;
 
     // Claims `cover bad debt` request's result for the user's multiply pair obligation from the Insurance Fund if it exists
     //
@@ -450,18 +437,10 @@ pub trait Market {
     //
     // # Arguments
     // * `user` - user which obligation is returned
-    fn get_user_obligation(
-        e: Env,
-        // user: Address,
-        obligation_key: ObligationKey,
-    ) -> Result<Obligation, MCError>;
+    fn get_user_obligation(e: Env, obligation_key: ObligationKey) -> Result<Obligation, MCError>;
 
     // Accrues interest on all pools to whose obligation has open positions
-    fn refresh_obligation(
-        e: Env,
-        // user: Address,
-        obligation_key: ObligationKey,
-    ) -> Result<(), MCError>;
+    fn refresh_obligation(e: Env, obligation_key: ObligationKey) -> Result<(), MCError>;
 
     // Accrues interest on all pools to whose multiply pair obligation has open positions
     fn refresh_multiply_pair_obligation(
@@ -573,11 +552,7 @@ pub trait Market {
     //
     // # Arguments
     // * `user` - User whose farms to refresh
-    fn refresh_obligation_farms(
-        e: Env,
-        // user: Address,
-        obligation_key: ObligationKey,
-    ) -> Result<(), MCError>;
+    fn refresh_obligation_farms(e: Env, obligation_key: ObligationKey) -> Result<(), MCError>;
 
     // Refreshes farm stakes for a user's multiply pair obligation (permissionless).
     //
