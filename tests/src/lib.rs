@@ -117,11 +117,11 @@ impl TestMarketFixture<'_> {
         });
 
         let users = vec![
-            Address::generate(&e),
-            Address::generate(&e),
-            Address::generate(&e),
-            Address::generate(&e),
-            Address::generate(&e),
+            ObligationKey::new(&e, Address::generate(&e)),
+            ObligationKey::new(&e, Address::generate(&e)),
+            ObligationKey::new(&e, Address::generate(&e)),
+            ObligationKey::new(&e, Address::generate(&e)),
+            ObligationKey::new(&e, Address::generate(&e)),
         ];
 
         // Configure USDC SAC first, since it's used in the oracle as a base asset

@@ -218,7 +218,7 @@ pub trait Market {
     // Simulates withdrawal of the deposited tokens from the loan pool to the user
     //
     // # Arguments
-    // * `obligation_key` - key of an obligation that's affected by the operation
+    // * `obligation_key` - key of an obligation that's affected by the 'withdraw' operation
     // * `pool_address` - address of a pool from which the withdrawal happens
     // * `amount` - desired amount of tokens to withdraw.
     //   The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
@@ -328,8 +328,7 @@ pub trait Market {
     //
     // # Arguments
     // * `liquidator` - agent that liquidates the borrower's position
-    // * `borrower` - the borrower whose position is being liquidated
-    // * `borrower_obligation_seed` - the borrower obligation's seed(if any)
+    // * `borrower_obligation_key` - key of an obligation that's liquidated
     // * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
     //       liquidator
     // * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
@@ -929,7 +928,7 @@ impl Market for MarketContract {
         caller.require_auth();
         require_market_not_frozen(&e)?;
 
-        // TODO: Add what's missing in the standard?
+        // TODO: Add what's missing from the standard?
         // https://eips.ethereum.org/EIPS/eip-3156
         process_erc3156_flash_loan(&e, &contract, &pool_address, amount)
     }
@@ -1269,8 +1268,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         obligation_key.require_auth();
 
-        process_submit_requests_batch(&e, &requests, &obligation_key, &referrer)?
-            .execute_transfers(&e)
+        process_submit_requests_batch(&e, &requests, &obligation_key, &referrer)
     }
 }
 
@@ -1378,7 +1376,7 @@ impl MarketContract {
         let admin = storage::get_admin(&e);
         admin.require_auth();
 
-        process_collect_dust(&e, &admin)
+        process_collect_excessive_tokens_from_pools(&e, &admin)
     }
 
     pub fn collect_non_pool_excessive_token(e: Env, token: Address) -> Result<(), MCError> {
@@ -1391,7 +1389,6 @@ impl MarketContract {
         Ok(())
     }
 
-    #[allow(unused)]
     fn swap_exact_tokens(
         e: Env,
         user: Address,
@@ -1406,7 +1403,6 @@ impl MarketContract {
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in, min_amount_out)
     }
 
-    #[allow(unused)]
     fn swap_for_exact_tokens(
         e: Env,
         user: Address,

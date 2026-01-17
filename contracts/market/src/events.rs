@@ -186,9 +186,15 @@ struct ProposeNewAdmin {
 struct AcceptAdminProposal {}
 
 #[contractevent]
-struct CollectDust {
+struct CollectPoolExcessiveToken {
     pool_address: Address,
-    dust_redeemed: i128,
+    collected_amount: i128,
+}
+
+#[contractevent]
+struct CollectExcessiveToken {
+    token_address: Address,
+    collected_amount: i128,
 }
 
 // ----- Internal Error Events -----
@@ -635,8 +641,12 @@ pub fn accept_proposed_admin(e: &Env) {
     AcceptAdminProposal {}.publish(e);
 }
 
-pub fn collect_dust(e: &Env, pool_address: &Address, dust_redeemed: i128) {
-    CollectDust { pool_address: pool_address.clone(), dust_redeemed }.publish(e);
+pub fn collect_excessive_pool_token(e: &Env, pool_address: &Address, collected_amount: i128) {
+    CollectPoolExcessiveToken { pool_address: pool_address.clone(), collected_amount }.publish(e);
+}
+
+pub fn collect_excessive_token(e: &Env, token_address: &Address, collected_amount: i128) {
+    CollectExcessiveToken { token_address: token_address.clone(), collected_amount }.publish(e);
 }
 
 // --- Internal Errors Events ---

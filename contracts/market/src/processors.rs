@@ -27,36 +27,36 @@ pub fn process_submit_requests_batch<'a>(
     requests: &Vec<Request>,
     obligation_key: &'a ObligationKey,
     referrer: &'a Option<Address>,
-) -> Result<RequestTransfers<'a>, MCError> {
-    let mut transfers = RequestTransfers::new(
-        e,
-        obligation_key.user.clone(),
-        smap![&e],
-        smap![&e],
-        referrer.clone(),
-    );
-
+) -> Result<(), MCError> {
     for request in requests {
-        let new_transfers = match request {
+        match request {
             Request::Deposit(StandardRequest { amount, pool_address }) => {
-                process_deposit(e, obligation_key, &pool_address, amount, referrer)
+                process_deposit(e, obligation_key, &pool_address, amount, referrer)?
+                    .execute_transfers(e)?;
             }
             Request::Borrow(StandardRequest { amount, pool_address }) => {
-                process_borrow(e, obligation_key, &pool_address, amount, referrer)
+                process_borrow(e, obligation_key, &pool_address, amount, referrer)?
+                    .execute_transfers(e)?;
             }
             Request::Withdraw(StandardRequest { amount, pool_address }) => {
-                process_withdraw(e, obligation_key, &pool_address, amount, referrer)
+                process_withdraw(e, obligation_key, &pool_address, amount, referrer)?
+                    .execute_transfers(e)?;
             }
             Request::Repay(StandardRequest { amount, pool_address }) => {
-                process_repay(e, obligation_key, &pool_address, amount, referrer)
+                process_repay(e, obligation_key, &pool_address, amount, referrer)?
+                    .execute_transfers(e)?;
             }
             Request::AddCollateral(StandardRequest { amount, pool_address }) => {
-                process_add_collateral(e, obligation_key, &pool_address, amount, referrer)
+                process_add_collateral(e, obligation_key, &pool_address, amount, referrer)?
+                    .execute_transfers(e)?;
             }
             Request::RemoveCollateral(StandardRequest { amount, pool_address }) => {
-                process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)
+                process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)?
+                    .execute_transfers(e)?;
             }
-            Request::FlashBorrow(request) => process_flash_borrow(e, &obligation_key.user, request),
+            Request::FlashBorrow(request) => {
+                process_flash_borrow(e, &obligation_key.user, request)?;
+            }
             Request::SwapExactTokens(SwapExactTokensRequest {
                 token_in,
                 token_out,
@@ -71,8 +71,6 @@ pub fn process_submit_requests_batch<'a>(
                     amount_in,
                     min_amount_out,
                 )?;
-
-                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
             }
             Request::SwapForExactTokens(SwapForExactTokensRequest {
                 token_in,
@@ -88,8 +86,6 @@ pub fn process_submit_requests_batch<'a>(
                     max_amount_in,
                     amount_out,
                 )?;
-
-                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
             }
             Request::ModErc3156FlashLoan(ModErc3156FlashLoanRequest {
                 amount,
@@ -97,8 +93,6 @@ pub fn process_submit_requests_batch<'a>(
                 pool_address,
             }) => {
                 process_erc3156_flash_loan(e, &contract, &pool_address, amount)?;
-
-                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
             }
             Request::Liquidate(LiquidateRequest {
                 borrower_obligation_key,
@@ -107,7 +101,7 @@ pub fn process_submit_requests_batch<'a>(
                 repay_amount,
                 min_demanded_collateral_amount,
             }) => {
-                let _ = process_liquidate(
+                process_liquidate(
                     e,
                     &obligation_key.user,
                     &borrower_obligation_key,
@@ -115,16 +109,13 @@ pub fn process_submit_requests_batch<'a>(
                     &collateral_pool_address,
                     repay_amount,
                     min_demanded_collateral_amount,
-                )?;
-
-                Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
+                )?
+                .execute_transfers(e)?;
             }
-        }?;
-
-        transfers.merge(new_transfers)?;
+        }
     }
 
-    Ok(transfers)
+    Ok(())
 }
 
 pub fn process_get_global_state(e: &Env) -> GlobalState {
@@ -1439,7 +1430,10 @@ pub fn process_swap_for_exact_tokens(
     Ok(received_amount)
 }
 
-pub fn process_collect_dust(e: &Env, admin: &Address) -> Result<(), MCError> {
+pub fn process_collect_excessive_tokens_from_pools(
+    e: &Env,
+    admin: &Address,
+) -> Result<(), MCError> {
     let pool_addresses = storage::get_all_pools(e);
 
     for pool_address in pool_addresses {
@@ -1458,11 +1452,10 @@ pub fn process_collect_dust(e: &Env, admin: &Address) -> Result<(), MCError> {
 
             return Err(MCError::InternalError);
         } else if token_balance > pool_available {
-            let dust = token_balance - pool_available; // safe
+            let excessive_amount = token_balance - pool_available; // safe
+            token_client.transfer(&e.current_contract_address(), admin, &excessive_amount);
 
-            token_client.transfer(&e.current_contract_address(), admin, &dust);
-
-            events::collect_dust(e, &pool_address, dust);
+            events::collect_excessive_pool_token(e, &pool_address, excessive_amount);
         }
     }
 
@@ -1484,7 +1477,7 @@ pub fn process_collect_excessive_token(
         })?;
 
         if *token == pool.token_address {
-            // TODO: Error + event
+            // TODO: Error + event about not allowing to reduce pool's available size
             return Err(MCError::InternalError);
         }
     }

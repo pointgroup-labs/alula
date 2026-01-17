@@ -3,6 +3,7 @@
 use market::{
     constants::BPS_FACTOR,
     error::MCError,
+    obligation::ObligationKey,
     pool::{PoolConfig, PoolHealthConfig},
 };
 use soroban_sdk::{
@@ -19,7 +20,7 @@ use crate::{
 
 struct LiquidationTest {
     fixture: TestMarketFixture<'static>,
-    borrower: Address,
+    borrower: ObligationKey,
     liquidator: Address,
     borrow_pool_address: Address,
     collateral_pool_address: Address,
