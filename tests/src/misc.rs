@@ -810,31 +810,21 @@ fn test_collect_dust() {
 
 #[test]
 fn test_collect_excessive_tokens() {
-    let TestMarketFixture {
-        
-        
-        
-        
-        
-        
-        users,
-        ..
-    } = TestMarketFixture::new();
-    let donor = &users[0];
+    let TestMarketFixture { users, .. } = TestMarketFixture::new();
+    let _donor = &users[0];
 }
 
 #[test]
 fn test_leverage_new_flash_loan() {
     let TestMarketFixture {
         e,
-        
-        
+
         full_contract_client,
         usdc_token_client,
         gold_token_client,
         gold_token_address,
         usdc_pool_address,
-        
+
         users,
         ..
     } = TestMarketFixture::new();

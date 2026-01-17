@@ -201,6 +201,7 @@ pub trait Market {
     // * `leverage_multiplier` - leverage multiplier, where the last two digits represent decimal
     //   places (e.g., 700 for x7.00, 255 for x2.55, etc.)
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
+    #[allow(clippy::too_many_arguments)]
     fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -208,8 +209,6 @@ pub trait Market {
         borrow_pool_address: Address,
         deposit_as_margin: bool,
         amount: i128,
-        // TODO: swap_aggregator_address: Address? This requires standardization
-        // TODO: Account for slippage
         leverage_multiplier: u32,
         referrer: Option<Address>,
     ) -> Result<(), MCError>;
@@ -386,6 +385,7 @@ pub trait Market {
     //       a discount
     // * `repay_amount` - amount of repaid tokens
     // * `demanded_collateral_amount` - min amount of collateral that liquidator finds sufficient for the amount of debt repaid
+    #[allow(clippy::too_many_arguments)]
     fn liquidate(
         e: Env,
         liquidator: Address,
@@ -405,7 +405,7 @@ pub trait Market {
     // * `caller` - flash loan caller
     // * `pool_address` - address of a pool from which the flash loan happens
     // * `amount` - amount of lent tokens
-    fn flash_loan(
+    fn erc3156_flash_loan(
         e: Env,
         contract: Address,
         caller: Address,
@@ -960,6 +960,7 @@ impl Market for MarketContract {
         process_repay(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn liquidate(
         e: Env,
         liquidator: Address,
@@ -1050,7 +1051,7 @@ impl Market for MarketContract {
             .execute_transfers(&e)
     }
 
-    fn flash_loan(
+    fn erc3156_flash_loan(
         e: Env,
         contract: Address,
         caller: Address,
@@ -1061,9 +1062,12 @@ impl Market for MarketContract {
         require_market_not_frozen(&e)?;
         storage::extend_instance_storage(&e);
 
-        process_moderc3156_flash_loan(&e, &contract, &pool_address, amount)
+        // TODO: Add what's missing in the standard?
+        // https://eips.ethereum.org/EIPS/eip-3156
+        process_erc3156_flash_loan(&e, &contract, &pool_address, amount)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn deposit_with_leverage(
         e: Env,
         user: Address,
@@ -1565,6 +1569,7 @@ impl MarketContract {
         Ok(())
     }
 
+    #[allow(unused)]
     fn swap_exact_tokens(
         e: Env,
         user: Address,
@@ -1579,6 +1584,7 @@ impl MarketContract {
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in, min_amount_out)
     }
 
+    #[allow(unused)]
     fn swap_for_exact_tokens(
         e: Env,
         user: Address,

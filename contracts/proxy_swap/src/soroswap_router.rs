@@ -2,6 +2,7 @@ use soroban_sdk::{Address, Env, vec};
 
 use crate::{error::PSCError, swap_trait::Swap};
 
+#[allow(clippy::module_inception)]
 mod soroswap_router {
     #![allow(clippy::too_many_arguments)] // Omitting Soroswap's clippy warnings
 

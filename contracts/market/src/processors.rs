@@ -96,7 +96,7 @@ pub fn process_submit_requests_batch<'a>(
                 contract,
                 pool_address,
             }) => {
-                process_moderc3156_flash_loan(e, &contract, &pool_address, amount)?;
+                process_erc3156_flash_loan(e, &contract, &pool_address, amount)?;
 
                 Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
             }
@@ -597,7 +597,7 @@ pub fn process_simulate_withdraw(
     Ok(withdraw_result)
 }
 
-pub fn process_moderc3156_flash_loan(
+pub fn process_erc3156_flash_loan(
     e: &Env,
     contract: &Address,
     pool_address: &Address,
