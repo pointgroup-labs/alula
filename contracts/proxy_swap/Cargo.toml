@@ -1,7 +1,7 @@
 [package]
-name = "batcher"
+name = "proxy_swap"
 version = "0.0.0"
-edition = "2024"
+edition = "2021"
 publish = false
 
 [lib]
@@ -9,7 +9,7 @@ crate-type = ["lib", "cdylib"]
 doctest = false
 
 [dependencies]
-soroban-fixed-point-math = { workspace = true }
+enum_dispatch.workspace = true
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]

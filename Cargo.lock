@@ -1098,6 +1098,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "proxy_swap"
+version = "0.0.0"
+dependencies = [
+ "enum_dispatch",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"

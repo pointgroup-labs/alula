@@ -779,7 +779,7 @@ fn test_collect_dust() {
     let admin_gold_balance_pre = gold_token_client.balance(&contract_admin);
     let admin_btc_balance_pre = btc_token_client.balance(&contract_admin);
 
-    full_contract_client.collect_dust_from_pools();
+    full_contract_client.collect_pools_excessive_tokens();
 
     let admin_usdc_balance_post = usdc_token_client.balance(&contract_admin);
     let admin_gold_balance_post = gold_token_client.balance(&contract_admin);
@@ -793,7 +793,7 @@ fn test_collect_dust() {
     gold_token_client.transfer(donor, &contract_id, &2);
     btc_token_client.transfer(donor, &contract_id, &3);
 
-    full_contract_client.collect_dust_from_pools();
+    full_contract_client.collect_pools_excessive_tokens();
 
     let admin_usdc_balance_post = usdc_token_client.balance(&contract_admin);
     let admin_gold_balance_post = gold_token_client.balance(&contract_admin);
@@ -806,6 +806,21 @@ fn test_collect_dust() {
     assert_eq!(usdc_diff, 1);
     assert_eq!(gold_diff, 2);
     assert_eq!(btc_diff, 3);
+}
+
+#[test]
+fn test_collect_excessive_tokens() {
+    let TestMarketFixture {
+        contract_admin,
+        contract_id,
+        full_contract_client,
+        usdc_token_client,
+        gold_token_client,
+        btc_token_client,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let donor = &users[0];
 }
 
 #[test]

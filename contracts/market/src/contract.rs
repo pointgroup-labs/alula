@@ -25,6 +25,15 @@ use crate::{
 
 #[contractclient(name = "MarketClient")]
 pub trait Market {
+    // Submits a request batch
+    fn submit_requests_batch(
+        e: Env,
+        user: Address,
+        seed: Option<BytesN<32>>,
+        requests: Vec<Request>,
+        referrer: Option<Address>,
+    ) -> Result<(), MCError>;
+
     // Gets the contract's global state
     fn get_global_state(e: Env) -> GlobalState;
 
@@ -630,15 +639,6 @@ pub trait Market {
     // resetting on the testnet without re-deploying the contract
     #[cfg(not(feature = "mainnet"))]
     fn reset_storage(e: Env);
-
-    // Submits a request batch
-    fn submit_requests_batch(
-        e: Env,
-        user: Address,
-        seed: Option<BytesN<32>>,
-        requests: Vec<Request>,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError>;
 }
 
 #[contract]
@@ -659,20 +659,6 @@ impl Market for MarketContract {
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
-
-    // TODO: Re-design this to include liquidations and leveraged operations
-    // fn submit_requests_batch(
-    //     e: Env,
-    //     user: Address,
-    //     requests: Vec<Request>,
-    //     referrer: Option<Address>,
-    // ) -> Result<(), MCError> {
-    //     user.require_auth();
-
-    //     let obligation_key = ObligationKey::new(user.clone());
-
-    //     todo!()
-    // }
 
     fn get_global_state(e: Env) -> GlobalState {
         process_get_global_state(&e)
@@ -1451,7 +1437,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
 
-        let obligation_key = if let Some(seed) = seed {
+        let obligation_key: ObligationKey = if let Some(seed) = seed {
             ObligationKey::new_with_seed(user, seed)
         } else {
             ObligationKey::new(user.clone())
@@ -1561,7 +1547,7 @@ impl MarketContract {
         Ok(())
     }
 
-    pub fn collect_dust_from_pools(e: Env) -> Result<(), MCError> {
+    pub fn collect_pools_excessive_tokens(e: Env) -> Result<(), MCError> {
         let admin = storage::get_admin(&e);
         admin.require_auth();
         storage::extend_instance_storage(&e);
@@ -1569,7 +1555,7 @@ impl MarketContract {
         process_collect_dust(&e, &admin)
     }
 
-    pub fn collect_excessive_token(e: Env, token: Address) -> Result<(), MCError> {
+    pub fn collect_non_pool_excessive_token(e: Env, token: Address) -> Result<(), MCError> {
         let admin = storage::get_admin(&e);
         admin.require_auth();
         storage::extend_instance_storage(&e);

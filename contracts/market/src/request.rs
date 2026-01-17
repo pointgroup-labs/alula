@@ -25,6 +25,7 @@ pub struct ModErc3156FlashLoanRequest {
 
 #[contracttype]
 pub struct SwapExactTokensRequest {
+    // address DEX
     pub token_in: Address,
     pub token_out: Address,
     pub amount_in: i128,
@@ -65,11 +66,14 @@ pub enum Request {
     ModErc3156FlashLoan(ModErc3156FlashLoanRequest),
 }
 
+// Or, we can even pass these `RequestTransfers` directly
+// to the `process_..` somehow..
+
 pub struct RequestTransfers<'a> {
     pub e: &'a Env,
     pub user: Address,
-    pub market_transfers: Map<Address, i128>,
-    pub user_transfers: Map<Address, i128>,
+    pub market_transfers: Map<Address, i128>, // Option
+    pub user_transfers: Map<Address, i128>,   // Option
     pub referrer: Option<Address>,
     pub referrer_fee_transfers: Option<Map<Address, i128>>,
     // Records if flash repay must be made
