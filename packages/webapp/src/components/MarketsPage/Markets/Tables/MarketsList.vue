@@ -4,9 +4,9 @@ import { capitalize } from 'vue'
 import { amountToUsdWithShort, formatPrice, shortenNumber } from '~/utils'
 
 const {
-  searchAsses,
+  searchAsset,
 } = defineProps<{
-  searchAsses?: string
+  searchAsset?: string
 }>()
 
 const { width } = useWindowSize()
@@ -64,7 +64,7 @@ function onRowClicked(marketName: string, item: MarketTableItem) {
 
 provide('selectedMarketDetails', selectedMarketDetails)
 
-watch(() => searchAsses, (val) => {
+watch(() => searchAsset, (val) => {
   search.value = val
 })
 
@@ -99,7 +99,7 @@ const stop = watch(additionalMarketsData, () => {
     <j-accordion
       v-for="(market) in filteredMarkets"
       :key="market.marketName"
-      :visible="!searchAsses ? isOpened(market.marketName) : !!searchAsses"
+      :visible="!searchAsset ? isOpened(market.marketName) : !!searchAsset"
       @toggle="toggleOpen(market.marketName)"
     >
       <template #title>
