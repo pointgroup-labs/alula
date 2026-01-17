@@ -4,4 +4,5 @@ use soroban_sdk::contracterror;
 pub enum PSCError {
     InternalError = 0,
     UnregisteredProviderAddress = 1,
+    DependencyContractError = 2,
 }

@@ -22,35 +22,36 @@ pub struct ProxySwapContract;
 impl ProxySwapContract {
     pub fn swap_exact(
         e: Env,
-        user: Address,
+        to: Address,
         swap_provider: Address,
         token_in: Address,
         token_out: Address,
         amount_in: i128,
         min_amount_out: i128,
     ) -> Result<i128, PSCError> {
-        user.require_auth();
+        to.require_auth();
         let provider: SwapProvider = try_map_address_to_swap_provider(&e, swap_provider)?;
 
-        provider.swap_exact(&e, &token_in, &token_out, amount_in, min_amount_out)
+        provider.swap_exact(&e, &to, &token_in, &token_out, amount_in, min_amount_out)
     }
 
     pub fn swap_for_exact(
         e: Env,
-        user: Address,
+        to: Address,
         swap_provider: Address,
         token_in: Address,
         token_out: Address,
         max_amount_in: i128,
         amount_out: i128,
     ) -> Result<i128, PSCError> {
-        user.require_auth();
+        to.require_auth();
         let provider: SwapProvider = try_map_address_to_swap_provider(&e, swap_provider)?;
 
-        provider.swap_for_exact(&e, &token_in, &token_out, max_amount_in, amount_out)
+        provider.swap_for_exact(&e, &to, &token_in, &token_out, max_amount_in, amount_out)
     }
 }
 
+// NB: Maybe, using 'enum_dispatch' is overkill and simple enum with 'match' is enough
 fn try_map_address_to_swap_provider(e: &Env, address: Address) -> Result<SwapProvider, PSCError> {
     let provider = if address == Address::from_str(e, SOROSWAP_ROUTER) {
         SwapProvider::SoroswapRouter(SoroswapRouter(address))

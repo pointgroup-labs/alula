@@ -1,7 +1,7 @@
 [package]
 name = "proxy_swap"
-version = "0.0.0"
-edition = "2021"
+version = "0.0.1"
+edition = { workspace = true }
 publish = false
 
 [lib]
@@ -14,3 +14,6 @@ soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+
+[features]
+deploy = []

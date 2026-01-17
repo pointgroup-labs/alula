@@ -1,6 +1,6 @@
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Map, contracttype, map as smap,
+    Address, Env, Map, contracttype, map as smap,
     token::{self, TokenClient},
 };
 

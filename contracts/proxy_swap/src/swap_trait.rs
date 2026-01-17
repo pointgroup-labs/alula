@@ -8,6 +8,7 @@ pub trait Swap {
     fn swap_exact(
         &self,
         e: &Env,
+        user: &Address,
         token_in: &Address,
         token_out: &Address,
         amount_in: i128,
@@ -17,6 +18,7 @@ pub trait Swap {
     fn swap_for_exact(
         &self,
         e: &Env,
+        user: &Address,
         token_in: &Address,
         token_out: &Address,
         max_amount_in: i128,
