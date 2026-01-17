@@ -156,7 +156,7 @@ pub trait Market {
     // Deposits tokens into the loan pool
     //
     // # Arguments
-    // * `user` - user that deposits a token
+    // * `obligation_key` - key of an obligation that's affected by the operation
     // * `pool_address` - address of a pool to which the deposit happens
     // * `amount` - amount of tokens which are going to be deposited
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
@@ -200,7 +200,7 @@ pub trait Market {
     // Withdraws deposited tokens from the loan pool to the user
     //
     // # Arguments
-    // * `user` - user which withdraws deposited tokens
+    // * `obligation_key` - key of an obligation that's affected by the operation
     // * `pool_address` - address of a pool from which the withdrawal happens
     // * `amount` - desired amount of tokens to withdraw.
     //   The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
@@ -218,7 +218,7 @@ pub trait Market {
     // Simulates withdrawal of the deposited tokens from the loan pool to the user
     //
     // # Arguments
-    // * `user` - user which withdraws deposited tokens
+    // * `obligation_key` - key of an obligation that's affected by the operation
     // * `pool_address` - address of a pool from which the withdrawal happens
     // * `amount` - desired amount of tokens to withdraw.
     //   The actual amount withdrawn is capped to maintain the position's LTV at its Open LTV on the
@@ -260,7 +260,7 @@ pub trait Market {
     // Borrows tokens from the loan pool
     //
     // # Arguments
-    // * `user` - user which borrows a token
+    // * `obligation_key` - key of an obligation that's affected by the operation
     // * `pool_address` - address of a pool from which the borrow happens
     // * `amount` - amount of tokens which are going to be borrowed
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
@@ -277,7 +277,7 @@ pub trait Market {
     // cost of not accruing an interest rate
     //
     // # Arguments
-    // * `user` - user that adds collateral
+    // * `obligation_key` - key of an obligation that's affected by the operation
     // * `pool_address` - address of a pool to which the collateral is being added
     // * `amount` - amount of tokens which are being added as a collateral
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
@@ -292,7 +292,7 @@ pub trait Market {
     // Removes collateral tokens from the loan pool to the user
     //
     // # Arguments
-    // * `user` - user which withdraws collateral tokens
+    // * `obligation_key` - key of an obligation that's affected by the operation
     // * `pool_address` - address of a pool from which the withdrawal happens
     // * `amount` - desired amount of collateral tokens to remove.
     //   The actual amount removed is capped to maintain the position's LTV at its Open LTV on the
@@ -310,7 +310,7 @@ pub trait Market {
     // Repays borrowed tokens
     //
     // # Arguments
-    // * `user` - user which repays borrowed tokens
+    // * `obligation_key` - key of an obligation that's affected by the operation
     // * `pool_address` - address of a pool from which the borrow happened
     // * `amount` - provided amount of tokens to repay. If this amount exceeds the total debt, only
     //   the outstanding debt will be repaid.
@@ -376,12 +376,8 @@ pub trait Market {
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
     // # Arguments
-    // * `user` - user that has a bad debt
-    fn issue_cover_bad_debt(
-        e: Env,
-        /*user: Address*/
-        obligation_key: ObligationKey,
-    ) -> Result<(), MCError>;
+    // * `obligation_key` - key of an obligation that's affected by the operation
+    fn issue_cover_bad_debt(e: Env, obligation_key: ObligationKey) -> Result<(), MCError>;
 
     // Issues `cover bad debt` requests on a bad debt borrow position on the user's multiply pair obligation to the Insurance Fund contract
     //
@@ -399,7 +395,7 @@ pub trait Market {
     // Claims `cover bad debt` requests results for the user's obligation from the Insurance Fund if they exist
     //
     // # Arguments
-    // * `user` - user that has open `cover bad debt` requests
+    // * `obligation_key` - key of an obligation that's affected by the operation
     fn claim_cover_bad_debt_results(e: Env, obligation_key: ObligationKey) -> Result<(), MCError>;
 
     // Claims `cover bad debt` request's result for the user's multiply pair obligation from the Insurance Fund if it exists
@@ -436,7 +432,7 @@ pub trait Market {
     // Returns the user's obligation which includes data about all of their deposits and borrows
     //
     // # Arguments
-    // * `user` - user which obligation is returned
+    // * `obligation_key` - key of an obligation that's affected by the operation
     fn get_user_obligation(e: Env, obligation_key: ObligationKey) -> Result<Obligation, MCError>;
 
     // Accrues interest on all pools to whose obligation has open positions
@@ -551,15 +547,15 @@ pub trait Market {
     // Syncs all farm stakes for the user's deposit and borrow positions.
     //
     // # Arguments
-    // * `user` - User whose farms to refresh
+    // * `obligation_key` - key of an obligation that's affected by the operation
     fn refresh_obligation_farms(e: Env, obligation_key: ObligationKey) -> Result<(), MCError>;
 
     // Refreshes farm stakes for a user's multiply pair obligation (permissionless).
     //
     // # Arguments
-    // * `user` - User whose multiply pair farms to refresh
-    // * `deposit_pool_address` - Deposit pool of the multiply pair
-    // * `borrow_pool_address` - Borrow pool of the multiply pair
+    // * `user` - user whose multiply pair farms to refresh
+    // * `deposit_pool_address` - deposit pool of the multiply pair
+    // * `borrow_pool_address` - borrow pool of the multiply pair
     fn refresh_multiply_pair_farms(
         e: Env,
         user: Address,
