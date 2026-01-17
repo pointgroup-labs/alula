@@ -11,6 +11,13 @@ mod market {
     contractimport!(file = "../../wasms/deploy_optimized/market.optimized.wasm");
 }
 
+mod router {
+    #![allow(clippy::too_many_arguments)]
+    use soroban_sdk::contractimport;
+
+    contractimport!(file = "../../wasms/downloads/soroswap-router.wasm");
+}
+
 const XLM_ADDR: &str = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 const USDC_ADDR: &str = "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA";
 
@@ -24,7 +31,12 @@ pub struct Contract;
 
 #[contractimpl]
 impl Contract {
-    pub fn poc(e: &Env, user: &Address, amount: i128, leverage_multiplier: i128) {
+    pub fn multiply_borrow_as_margin_poc(
+        e: &Env,
+        user: &Address,
+        amount: i128,
+        leverage_multiplier: i128,
+    ) {
         user.require_auth();
 
         let (xlm, usdc, market) = (
@@ -65,15 +77,6 @@ impl Contract {
     }
 }
 
-// Gets the amount that user would receive if performed a swap at the current moment
-//
-// # Arguments
-// * `token_in` - address of a token that would be taken from the user
-// * `token_out` - address of a token that would be given to the user
-// * `amount_in` - an exact amount of `token_in` that would be taken from the user
-//
-// # Returns
-// Amount of `token_out` that would be given to the user
 pub fn get_amount_out(e: &Env, token_in: &Address, token_out: &Address, amount_in: i128) -> i128 {
     let path = vec![&e, token_in.clone(), token_out.clone()];
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDR));
@@ -81,12 +84,4 @@ pub fn get_amount_out(e: &Env, token_in: &Address, token_out: &Address, amount_i
     let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
 
     amounts_out.last().unwrap()
-}
-
-mod router {
-    #![allow(clippy::too_many_arguments)]
-
-    use soroban_sdk::contractimport;
-
-    contractimport!(file = "../../wasms/downloads/soroswap-router.wasm");
 }
