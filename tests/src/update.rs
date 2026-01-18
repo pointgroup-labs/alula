@@ -97,8 +97,8 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
         e, contract_client, gold_pool_address, users, usdc_pool_address, ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
-    let liquidity_provider = &users[0];
-    let creditor = &users[1];
+    let liquidity_provider = &users[2];
+    let creditor = &users[3];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
@@ -254,8 +254,8 @@ fn test_update_pool_status_instantaneously_in_owned_markets() {
         ..
     } = TestMarketFixture::new();
     let borrower = &users[0];
-    let liquidity_provider = &users[0];
-    let creditor = &users[1];
+    let liquidity_provider = &users[1];
+    let creditor = &users[2];
 
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
