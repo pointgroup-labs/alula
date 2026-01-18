@@ -15,29 +15,29 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[contracttype]
 pub struct ObligationKey {
-    pub user: Address,
+    pub address: Address,
     pub seed: Option<BytesN<32>>,
 }
 
 impl ObligationKey {
-    pub fn new(user: Address) -> Self {
-        Self { user, seed: None }
+    pub fn new(address: Address) -> Self {
+        Self { address, seed: None }
     }
 
-    pub fn new_with_seed(user: Address, seed: BytesN<32>) -> Self {
-        Self { user, seed: Some(seed) }
+    pub fn new_with_seed(address: Address, seed: BytesN<32>) -> Self {
+        Self { address, seed: Some(seed) }
     }
 
     pub fn require_auth(&self) {
-        self.user.require_auth();
+        self.address.require_auth();
     }
 }
 
 impl From<&ObligationKey> for Delegatee {
     fn from(key: &ObligationKey) -> Self {
         match &key.seed {
-            Some(seed) => (key.user.clone(), seed.clone()).into(),
-            None => key.user.clone().into(),
+            Some(seed) => (key.address.clone(), seed.clone()).into(),
+            None => key.address.clone().into(),
         }
     }
 }

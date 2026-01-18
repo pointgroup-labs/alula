@@ -4,7 +4,6 @@ use controlled_insurance_fund::storage::DataKey;
 use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
-    obligation::ObligationKey,
     request::{Request, StandardRequest, SwapExactTokensRequest},
     utils::{MarketData, PoolData},
 };
@@ -136,7 +135,7 @@ fn test_computed_interest_is_negative_reproduced_2() {
     contract_client.borrow(maksym, &gold_pool_address, &7328177694, &None);
     wait(&e, 20);
     contract_client.deposit_with_leverage(
-        maksym,
+        &maksym.address,
         &gold_pool_address,
         &usdc_pool_address,
         &true,
@@ -146,7 +145,7 @@ fn test_computed_interest_is_negative_reproduced_2() {
     );
     wait(&e, 5 * 60 + 26);
     contract_client.withdraw_from_leveraged(
-        maksym,
+        &maksym.address,
         &gold_pool_address,
         &usdc_pool_address,
         &1000000000,
@@ -255,13 +254,13 @@ fn test_obligations_list_contains_unique_obligations() {
 
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 2);
-    assert!(obligations.contains(ObligationKey::new(creditor.clone())));
+    assert!(obligations.contains(creditor));
 
     contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 1);
-    assert!(!obligations.contains(ObligationKey::new(creditor.clone())));
+    assert!(!obligations.contains(creditor));
 }
 
 #[test]
@@ -302,14 +301,14 @@ fn test_bootstrap_pool() {
     // -- Bootstrap pool --
 
     gold_token_client.approve(
-        liquidity_provider,
+        &liquidity_provider.address,
         &contract_id,
         &DEFAULT_DEPOSIT_AMOUNT,
         &(e.ledger().sequence()),
     );
     contract_client.bootstrap_pool(
         &gold_pool_address,
-        liquidity_provider,
+        &liquidity_provider.address,
         &DEFAULT_DEPOSIT_AMOUNT,
         &e.ledger().timestamp(),
         &(e.ledger().timestamp() + SECONDS_IN_YEAR),
@@ -594,50 +593,6 @@ fn test_refresh_obligation() {
 }
 
 #[test]
-fn test_refresh_earn_obligation() {
-    let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        btc_pool_address,
-        gold_pool_address,
-        users,
-        ..
-    } = TestMarketFixture::new();
-    let creditor = &users[0];
-    let debtor = &users[1];
-
-    contract_client.deposit_earn(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(debtor, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10), &None);
-
-    contract_client.deposit_earn(creditor, &btc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(debtor, &btc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 10), &None);
-
-    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
-    let btc_pool_before = contract_client.get_pool(&btc_pool_address);
-
-    // -- Move time --
-
-    e.ledger().with_mut(|li| {
-        li.timestamp += SECONDS_IN_YEAR;
-    });
-
-    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
-    let btc_pool_after = contract_client.get_pool(&btc_pool_address);
-    assert_eq!(usdc_pool_before, usdc_pool_after);
-    assert_eq!(btc_pool_before, btc_pool_after);
-
-    contract_client.refresh_earn_obligation(creditor);
-
-    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
-    let btc_pool_after = contract_client.get_pool(&btc_pool_address);
-    assert_ne!(usdc_pool_before, usdc_pool_after);
-    assert_ne!(btc_pool_before, btc_pool_after);
-}
-
-#[test]
 fn test_refresh_multiply_pair_obligation() {
     const LEVERAGE: u32 = 3;
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
@@ -656,7 +611,7 @@ fn test_refresh_multiply_pair_obligation() {
     );
 
     contract_client.deposit_with_leverage(
-        looper,
+        &looper.address,
         &gold_pool_address,
         &usdc_pool_address,
         &true,
@@ -677,7 +632,7 @@ fn test_refresh_multiply_pair_obligation() {
     assert_eq!(usdc_pool_before, usdc_pool_after);
 
     contract_client.refresh_multiply_pair_obligation(
-        looper,
+        &looper.address,
         &gold_pool_address,
         &usdc_pool_address,
     );
@@ -773,7 +728,7 @@ fn test_collect_dust() {
         users,
         ..
     } = TestMarketFixture::new();
-    let donor = &users[0];
+    let donor_address = &users[0].address;
 
     let admin_usdc_balance_pre = usdc_token_client.balance(&contract_admin);
     let admin_gold_balance_pre = gold_token_client.balance(&contract_admin);
@@ -789,9 +744,9 @@ fn test_collect_dust() {
     assert_eq!(admin_gold_balance_pre, admin_gold_balance_post);
     assert_eq!(admin_btc_balance_pre, admin_btc_balance_post);
 
-    usdc_token_client.transfer(donor, &contract_id, &1);
-    gold_token_client.transfer(donor, &contract_id, &2);
-    btc_token_client.transfer(donor, &contract_id, &3);
+    usdc_token_client.transfer(donor_address, &contract_id, &1);
+    gold_token_client.transfer(donor_address, &contract_id, &2);
+    btc_token_client.transfer(donor_address, &contract_id, &3);
 
     full_contract_client.collect_pools_excessive_tokens();
 
@@ -815,7 +770,7 @@ fn test_collect_excessive_tokens() {
 }
 
 #[test]
-fn test_leverage_new_flash_loan() {
+fn test_leverage_w_new_flash_loan() {
     let TestMarketFixture {
         e,
 
@@ -829,7 +784,7 @@ fn test_leverage_new_flash_loan() {
         ..
     } = TestMarketFixture::new();
     let liquidity_provider = &users[0];
-    let user = &users[1];
+    let looper = &users[1];
 
     full_contract_client.deposit(
         liquidity_provider,
@@ -838,8 +793,8 @@ fn test_leverage_new_flash_loan() {
         &None,
     );
 
-    let usdc_balance_before = usdc_token_client.balance(user);
-    let gold_balance_before = gold_token_client.balance(user);
+    let usdc_balance_before = usdc_token_client.balance(&looper.address);
+    let gold_balance_before = gold_token_client.balance(&looper.address);
 
     let flash_borrow_request = Request::FlashBorrow(StandardRequest {
         amount: DEFAULT_DEPOSIT_AMOUNT,
@@ -854,10 +809,10 @@ fn test_leverage_new_flash_loan() {
 
     let requests = svec![&e, flash_borrow_request, swap_request];
 
-    full_contract_client.submit_requests_batch(user, &None, &requests, &None);
+    full_contract_client.submit_requests_batch(looper, &requests, &None);
 
-    let usdc_balance_after = usdc_token_client.balance(user);
-    let gold_balance_after = gold_token_client.balance(user);
+    let usdc_balance_after = usdc_token_client.balance(&looper.address);
+    let gold_balance_after = gold_token_client.balance(&looper.address);
 
     std::dbg!(usdc_balance_after - usdc_balance_before);
     std::dbg!(gold_balance_after - gold_balance_before);

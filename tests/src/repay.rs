@@ -36,9 +36,9 @@ fn test_repay() {
 
     // Repay the half of the debt
 
-    let borrower_balance_before = usdc_token_client.balance(borrower);
+    let borrower_balance_before = usdc_token_client.balance(&borrower.address);
     contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
-    let borrower_balance_after = usdc_token_client.balance(borrower);
+    let borrower_balance_after = usdc_token_client.balance(&borrower.address);
 
     assert_eq!(
         borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
@@ -180,9 +180,9 @@ fn test_repay_unpaid_interest_only() {
     let obligation_unpaid_interest_before =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
 
-    let borrower_balance_before = usdc_token_client.balance(borrower);
+    let borrower_balance_before = usdc_token_client.balance(&borrower.address);
     contract_client.repay(borrower, &usdc_pool_address, &obligation_unpaid_interest_before, &None);
-    let borrower_balance_after = usdc_token_client.balance(borrower);
+    let borrower_balance_after = usdc_token_client.balance(&borrower.address);
 
     assert_eq!(
         borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),
@@ -223,14 +223,14 @@ fn test_repay_all_with_bigger_than_debt_value() {
 
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
 
-    let borrower_balance_before = usdc_token_client.balance(borrower);
+    let borrower_balance_before = usdc_token_client.balance(&borrower.address);
     contract_client.repay(
         borrower,
         &usdc_pool_address,
         &(3 * DEFAULT_DEPOSIT_AMOUNT / 2), // x3 of borrowed amount
         &None,
     );
-    let borrower_balance_after = usdc_token_client.balance(borrower);
+    let borrower_balance_after = usdc_token_client.balance(&borrower.address);
 
     assert_eq!(
         borrower_balance_before.checked_sub(borrower_balance_after).unwrap(),

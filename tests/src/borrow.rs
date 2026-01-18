@@ -38,9 +38,9 @@ fn test_borrow() {
         &None,
     );
 
-    let borrower_balance_before = usdc_token_client.balance(borrower);
+    let borrower_balance_before = usdc_token_client.balance(&borrower.address);
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    let borrower_balance_after = usdc_token_client.balance(borrower);
+    let borrower_balance_after = usdc_token_client.balance(&borrower.address);
 
     let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
 
@@ -165,9 +165,9 @@ fn test_borrow_exceeds_utilization_cap() {
     contract_client.deposit(borrower, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    let borrower_balance_before = usdc_token_client.balance(borrower);
+    let borrower_balance_before = usdc_token_client.balance(&borrower.address);
     contract_client.borrow(borrower, &usdc_pool_address, &BORROW_AMOUNT, &None);
-    let borrower_balance_after = usdc_token_client.balance(borrower);
+    let borrower_balance_after = usdc_token_client.balance(&borrower.address);
 
     let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
 
@@ -246,9 +246,9 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    let borrower_balance_before = usdc_token_client.balance(borrower);
+    let borrower_balance_before = usdc_token_client.balance(&borrower.address);
     contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    let borrower_balance_after = usdc_token_client.balance(borrower);
+    let borrower_balance_after = usdc_token_client.balance(&borrower.address);
 
     let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
 

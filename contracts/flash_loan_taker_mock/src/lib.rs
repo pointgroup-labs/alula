@@ -93,12 +93,13 @@ mod test {
     fn test_flash_loan_zero() {
         let FlashLoanTest { test_fixture, flash_loan_taker_contract_id, .. } = FlashLoanTest::new();
         let caller = &test_fixture.users[1];
+
         let gold_pool_before =
             test_fixture.contract_client.get_pool(&test_fixture.gold_pool_address);
 
         test_fixture.contract_client.erc3156_flash_loan(
             &flash_loan_taker_contract_id,
-            caller,
+            &caller.address,
             &test_fixture.usdc_pool_address,
             &0,
         );
@@ -117,7 +118,7 @@ mod test {
 
         test_fixture.contract_client.erc3156_flash_loan(
             &flash_loan_taker_contract_id,
-            caller,
+            &caller.address,
             &test_fixture.usdc_pool_address,
             &DEFAULT_DEPOSIT_AMOUNT,
         );
@@ -133,7 +134,7 @@ mod test {
                 .contract_client
                 .try_erc3156_flash_loan(
                     &flash_loan_taker_contract_id,
-                    caller,
+                    &caller.address,
                     &test_fixture.usdc_pool_address,
                     &FAILING_CALL_AMOUNT,
                 )
@@ -149,7 +150,7 @@ mod test {
         assert_eq!(
             test_fixture.contract_client.try_erc3156_flash_loan(
                 &flash_loan_taker_contract_id,
-                caller,
+                &caller.address,
                 &test_fixture.usdc_pool_address,
                 &(DEFAULT_DEPOSIT_AMOUNT + 1)
             ),

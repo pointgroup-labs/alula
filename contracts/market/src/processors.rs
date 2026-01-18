@@ -55,7 +55,7 @@ pub fn process_submit_requests_batch<'a>(
                     .execute_transfers(e)?;
             }
             Request::FlashBorrow(request) => {
-                process_flash_borrow(e, &obligation_key.user, request)?;
+                process_flash_borrow(e, &obligation_key.address, request)?;
             }
             Request::SwapExactTokens(SwapExactTokensRequest {
                 token_in,
@@ -65,7 +65,7 @@ pub fn process_submit_requests_batch<'a>(
             }) => {
                 process_swap_exact_tokens(
                     e,
-                    &obligation_key.user,
+                    &obligation_key.address,
                     &token_in,
                     &token_out,
                     amount_in,
@@ -80,7 +80,7 @@ pub fn process_submit_requests_batch<'a>(
             }) => {
                 process_swap_for_exact_tokens(
                     e,
-                    &obligation_key.user,
+                    &obligation_key.address,
                     &token_in,
                     &token_out,
                     max_amount_in,
@@ -103,7 +103,7 @@ pub fn process_submit_requests_batch<'a>(
             }) => {
                 process_liquidate(
                     e,
-                    &obligation_key.user,
+                    &obligation_key.address,
                     &borrower_obligation_key,
                     &borrow_pool_address,
                     &collateral_pool_address,
@@ -315,7 +315,7 @@ pub fn process_deposit<'a>(
 
     let transfers = RequestTransfers::new_with_user_transfers(
         e,
-        obligation_key.user.clone(),
+        obligation_key.address.clone(),
         smap![&e, (pool.token_address, amount)],
         referrer.clone(),
     );
@@ -354,7 +354,7 @@ pub fn process_borrow<'a>(
 
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
-        obligation_key.user.clone(),
+        obligation_key.address.clone(),
         smap![&e, (pool.token_address, borrow_result.borrower_to_receive)],
         referrer.clone(),
     );
@@ -390,7 +390,7 @@ pub fn process_add_collateral<'a>(
 
     let transfers = RequestTransfers::new_with_user_transfers(
         e,
-        obligation_key.user.clone(),
+        obligation_key.address.clone(),
         smap![&e, (pool.token_address, amount)],
         referrer.clone(),
     );
@@ -440,7 +440,7 @@ pub fn process_repay<'a>(
     let market_transfers = smap![e, (pool.token_address, repay_result.amount_to_send_back)];
     let transfers = RequestTransfers::new(
         e,
-        obligation_key.user.clone(),
+        obligation_key.address.clone(),
         market_transfers,
         user_transfers,
         referrer.clone(),
@@ -480,7 +480,7 @@ pub fn process_remove_collateral<'a>(
 
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
-        obligation_key.user.clone(),
+        obligation_key.address.clone(),
         smap![e, (pool.token_address, remove_collateral_result.collateral_remover_to_receive)],
         referrer.clone(),
     );
@@ -543,7 +543,7 @@ pub fn process_withdraw<'a>(
 
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
-        obligation_key.user.clone(),
+        obligation_key.address.clone(),
         smap![e, (pool.token_address, withdraw_result.withdrawer_to_receive)],
         referrer.clone(),
     );
@@ -564,12 +564,12 @@ pub fn process_refresh_farms<'a>(
 ) -> Result<RequestTransfers<'a>, MCError> {
     let Some(farms_contract) = storage::get_farms_contract(e) else {
         // No farms configured, return empty transfers
-        return Ok(RequestTransfers::empty(e, obligation_key.user.clone()));
+        return Ok(RequestTransfers::empty(e, obligation_key.address.clone()));
     };
 
     farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
 
-    Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
+    Ok(RequestTransfers::empty(e, obligation_key.address.clone()))
 }
 
 pub fn process_simulate_withdraw(
@@ -716,7 +716,7 @@ pub fn process_deposit_with_leverage(
     let flash_borrowed_token_client = token::Client::new(e, &borrow_pool.token_address);
     flash_borrowed_token_client.transfer(
         &e.current_contract_address(),
-        &obligation_key.user,
+        &obligation_key.address,
         &flash_borrow_amount,
     );
 
@@ -728,7 +728,7 @@ pub fn process_deposit_with_leverage(
 
     let received_amount = swap::swap_exact_tokens_for_tokens(
         e,
-        &obligation_key.user,
+        &obligation_key.address,
         &borrow_pool.token_address,
         &deposit_pool.token_address,
         swap_amount_in,
@@ -738,7 +738,7 @@ pub fn process_deposit_with_leverage(
     if received_amount < swap_amount_out {
         events::received_unexpected_swap_amount(
             e,
-            &obligation_key.user,
+            &obligation_key.address,
             &borrow_pool.token_address,
             &deposit_pool.token_address,
             swap_amount_in,
@@ -773,7 +773,7 @@ pub fn process_deposit_with_leverage(
     if flash_repay_amount > max_healthy_borrow_amount {
         events::leverage_borrow_exceeds_borrowing_capacity(
             e,
-            &obligation_key.user,
+            &obligation_key.address,
             flash_borrow_amount,
             flash_repay_amount,
             max_healthy_borrow_amount,
@@ -858,7 +858,7 @@ pub fn process_withdraw_from_leveraged(
     let max_withdrawable_to_user_wallet_amount =
         compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
             e,
-            &obligation_key.user,
+            &obligation_key.address,
             &deposit_pool.token_address,
             &borrow_pool.token_address,
             deposited_tokens,
@@ -960,7 +960,7 @@ pub fn process_withdraw_from_leveraged(
     if received_amount < swap_amount_out {
         events::received_unexpected_swap_amount(
             e,
-            &obligation_key.user,
+            &obligation_key.address,
             &borrow_pool.token_address,
             &deposit_pool.token_address,
             swap_amount_in,
@@ -1019,7 +1019,8 @@ pub fn process_liquidate<'a>(
     require_nonnegative(repay_amount)?;
     require_nonnegative(min_demanded_collateral_amount)?;
 
-    if borrow_pool_address == collateral_pool_address || liquidator == &borrower_obligation_key.user
+    if borrow_pool_address == collateral_pool_address
+        || liquidator == &borrower_obligation_key.address
     {
         return Err(MCError::InvalidLiquidationInputs);
     }

@@ -32,9 +32,9 @@ fn test_withdraw() {
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     // Withdraw 50%
-    let creditor_balance_before = gold_token_client.balance(creditor);
+    let creditor_balance_before = gold_token_client.balance(&creditor.address);
     contract_client.withdraw(creditor, &gold_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
-    let creditor_balance_after = gold_token_client.balance(creditor);
+    let creditor_balance_after = gold_token_client.balance(&creditor.address);
 
     assert_eq!(
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap(),
@@ -91,14 +91,14 @@ fn test_remove_collateral() {
     );
 
     // Remove 50%
-    let creditor_balance_before = gold_token_client.balance(collateral_provider);
+    let creditor_balance_before = gold_token_client.balance(&collateral_provider.address);
     contract_client.remove_collateral(
         collateral_provider,
         &gold_pool_address,
         &(DEFAULT_DEPOSIT_AMOUNT / 2),
         &None,
     );
-    let creditor_balance_after = gold_token_client.balance(collateral_provider);
+    let creditor_balance_after = gold_token_client.balance(&collateral_provider.address);
 
     assert_eq!(
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap(),
@@ -259,13 +259,13 @@ fn test_withdraw_all_with_i128_max() {
 
     let pool_total_supply_before =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let creditor_balance_before = gold_token_client.balance(creditor_1);
+    let creditor_balance_before = gold_token_client.balance(&creditor_1.address);
 
     contract_client.withdraw(creditor_1, &gold_pool_address, &i128::MAX, &None);
 
     let pool_total_supply_after =
         get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
-    let creditor_balance_after = gold_token_client.balance(creditor_1);
+    let creditor_balance_after = gold_token_client.balance(&creditor_1.address);
 
     assert_eq!(
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap(),
@@ -313,13 +313,13 @@ fn test_remove_all_with_i128_max() {
 
     let pool_total_collateral_before =
         get_pool_total_collateral(&contract_client, &gold_pool_address);
-    let creditor_balance_before = gold_token_client.balance(creditor_1);
+    let creditor_balance_before = gold_token_client.balance(&creditor_1.address);
 
     contract_client.remove_collateral(creditor_1, &gold_pool_address, &i128::MAX, &None);
 
     let pool_total_collateral_after =
         get_pool_total_collateral(&contract_client, &gold_pool_address);
-    let creditor_balance_after = gold_token_client.balance(creditor_1);
+    let creditor_balance_after = gold_token_client.balance(&creditor_1.address);
 
     assert_eq!(
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap(),
@@ -389,7 +389,7 @@ fn withdraw_up_to_open_ltv() {
     let creditor = &users[0];
     let liquidity_provider = &users[1];
 
-    let creditor_balance_1 = gold_token_client.balance(creditor);
+    let creditor_balance_1 = gold_token_client.balance(&creditor.address);
 
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(
@@ -404,7 +404,7 @@ fn withdraw_up_to_open_ltv() {
     // Try to withdraw more than default openLTV(70%) allows
     contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    let creditor_balance_2 = gold_token_client.balance(creditor);
+    let creditor_balance_2 = gold_token_client.balance(&creditor.address);
     assert!(creditor_balance_1 > creditor_balance_2);
 
     // Repay all debt
@@ -412,7 +412,7 @@ fn withdraw_up_to_open_ltv() {
 
     // Withdraw all
     contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    let creditor_balance_3 = gold_token_client.balance(creditor);
+    let creditor_balance_3 = gold_token_client.balance(&creditor.address);
 
     assert_eq!(creditor_balance_1, creditor_balance_3);
     assert_eq!(
@@ -451,7 +451,7 @@ fn remove_collateral_up_to_open_ltv() {
 
     let obligation_collateral_before =
         get_obligation_collateral(&contract_client, collateral_adder, &gold_pool_address).unwrap();
-    let creditor_balance_before = gold_token_client.balance(collateral_adder);
+    let creditor_balance_before = gold_token_client.balance(&collateral_adder.address);
 
     // Try to remove more than default openLTV(70%) allows
     contract_client.remove_collateral(
@@ -462,7 +462,7 @@ fn remove_collateral_up_to_open_ltv() {
     );
     let obligation_collateral_after =
         get_obligation_collateral(&contract_client, collateral_adder, &gold_pool_address).unwrap();
-    let creditor_balance_after = gold_token_client.balance(collateral_adder);
+    let creditor_balance_after = gold_token_client.balance(&collateral_adder.address);
 
     assert_approx_eq_rel(
         creditor_balance_after.checked_sub(creditor_balance_before).unwrap(),

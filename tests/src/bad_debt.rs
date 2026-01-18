@@ -67,9 +67,8 @@ fn test_partially_socialize_full_bad_debt_loss() {
     // Verify obligation is still healthy
     assert_eq!(
         contract_client.try_liquidate(
-            liquidator,
+            &liquidator.address,
             borrower,
-            &None,
             &usdc_pool_address,
             &gold_pool_address,
             &1,
@@ -124,9 +123,8 @@ fn test_partially_socialize_full_bad_debt_loss() {
             .unwrap();
 
     contract_client.liquidate(
-        liquidator,
+        &liquidator.address,
         borrower,
-        &None,
         &usdc_pool_address,
         &gold_pool_address,
         &debt_amount.fixed_mul_ceil(98, 100).unwrap(),
@@ -253,9 +251,8 @@ fn test_completely_cover_bad_debt() {
     assert!(borrower_2_debt_before < insurance_fund_balance);
 
     contract_client.liquidate(
-        liquidator,
+        &liquidator.address,
         borrower_2,
-        &None,
         &usdc_pool_address,
         &gold_pool_address,
         &borrower_2_debt_before.fixed_mul_ceil(98, 100).unwrap(),
@@ -312,7 +309,7 @@ fn test_donate() {
     assert_eq!(reserve_before, 0);
 
     let donation_amount = 1_000_000_000;
-    contract_client.donate(donor, &usdc_pool_address, &donation_amount);
+    contract_client.donate(&donor.address, &usdc_pool_address, &donation_amount);
 
     let reserve_after = contract_client.get_pool(&usdc_pool_address).total_available;
     assert_eq!(reserve_after, donation_amount);

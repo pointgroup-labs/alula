@@ -367,7 +367,7 @@ struct TokenBalanceIsTooLow {
 #[contractevent]
 struct ObligationFarmsRefreshedEvent {
     #[topic]
-    pub user: Address,
+    pub obligation_key: ObligationKey,
     pub num_supply_farms: u32,
     pub num_debt_farms: u32,
 }
@@ -849,9 +849,14 @@ pub fn pool_farms_cleared(e: &Env, pool_address: &Address) {
     PoolFarmsClearedEvent { pool_address: pool_address.clone() }.publish(e);
 }
 
-pub fn obligation_farms_refreshed(e: &Env, user: &Address, num_supply: u32, num_debt: u32) {
+pub fn obligation_farms_refreshed(
+    e: &Env,
+    obligation_key: &ObligationKey,
+    num_supply: u32,
+    num_debt: u32,
+) {
     ObligationFarmsRefreshedEvent {
-        user: user.clone(),
+        obligation_key: obligation_key.clone(),
         num_supply_farms: num_supply,
         num_debt_farms: num_debt,
     }

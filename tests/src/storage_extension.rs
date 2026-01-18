@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::{constants::*, obligation::ObligationKey, storage::DataKey};
+use market::{constants::*, storage::DataKey};
 use soroban_sdk::testutils::{
     Ledger,
     storage::{Instance, Persistent},
@@ -14,7 +14,6 @@ fn test_storage_ttl_extension() {
         TestMarketFixture::new();
 
     let user = &users[0];
-    let obligation_key = ObligationKey::new(user.clone());
 
     e.as_contract(&contract_id, || {
         assert_eq!(e.storage().instance().get_ttl(), INSTANCE_BUMP);
@@ -29,7 +28,7 @@ fn test_storage_ttl_extension() {
 
     e.as_contract(&contract_id, || {
         assert_eq!(
-            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(user.clone())),
             INDIVIDUAL_BUMP
         );
     });
@@ -46,7 +45,7 @@ fn test_storage_ttl_extension() {
         );
 
         assert_eq!(
-            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(user.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -65,7 +64,7 @@ fn test_storage_ttl_extension() {
         );
 
         assert_eq!(
-            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(user.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -82,7 +81,7 @@ fn test_storage_ttl_extension() {
         // Individual persistent storage TTL is still the same, since it has
         // more ledgers between threshold and bump
         assert_eq!(
-            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(user.clone())),
             INDIVIDUAL_BUMP - 2 * LEDGERS_PER_DAY
         );
     });
@@ -93,7 +92,7 @@ fn test_storage_ttl_extension() {
 
     e.as_contract(&contract_id, || {
         assert_eq!(
-            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(user.clone())),
             INDIVIDUAL_BUMP - 22 * LEDGERS_PER_DAY
         );
     });
@@ -103,7 +102,7 @@ fn test_storage_ttl_extension() {
 
     e.as_contract(&contract_id, || {
         assert_eq!(
-            e.storage().persistent().get_ttl(&DataKey::Obligation(obligation_key.clone())),
+            e.storage().persistent().get_ttl(&DataKey::Obligation(user.clone())),
             INDIVIDUAL_BUMP
         );
     });

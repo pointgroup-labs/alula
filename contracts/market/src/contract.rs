@@ -1389,6 +1389,7 @@ impl MarketContract {
         Ok(())
     }
 
+    #[allow(unused)]
     fn swap_exact_tokens(
         e: Env,
         user: Address,
@@ -1403,6 +1404,7 @@ impl MarketContract {
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in, min_amount_out)
     }
 
+    #[allow(unused)]
     fn swap_for_exact_tokens(
         e: Env,
         user: Address,
