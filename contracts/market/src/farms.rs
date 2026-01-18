@@ -99,7 +99,7 @@ pub fn refresh_all_obligation_farms(
         }
     }
 
-    events::obligation_farms_refreshed(e, &obligation_key, num_supply_farms, num_debt_farms);
+    events::obligation_farms_refreshed(e, obligation_key, num_supply_farms, num_debt_farms);
 
     Ok((num_supply_farms, num_debt_farms))
 }
