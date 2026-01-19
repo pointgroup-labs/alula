@@ -36,7 +36,7 @@ impl ProxySwapMockContract {
         let diff = min_amount_out.fixed_mul_ceil(diff_bps, BPS_FACTOR).unwrap();
         let amount_out = min_amount_out - diff;
 
-        burn_and_mint_tokens(&e, &token_in, &token_out, amount_in, amount_out, &to);
+        burn_and_mint_tokens(&e, token_in, token_out, amount_in, amount_out, to);
 
         min_amount_out
     }

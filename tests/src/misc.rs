@@ -15,9 +15,9 @@ use soroban_sdk::{
 };
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
-    assert_approx_eq_rel, get_obligation_d_tokens, get_obligation_j_tokens,
-    get_obligation_received_interest,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestAssetSetup, TestMarketFixture,
+    assert_approx_eq_abs, assert_approx_eq_rel, get_obligation_d_tokens, get_obligation_j_tokens,
+    get_obligation_received_interest, setup_test_asset,
 };
 
 fn wait(e: &Env, am: u64) {
@@ -717,7 +717,7 @@ fn test_updating_positions_amounts_does_not_affect_positions_count() {
 }
 
 #[test]
-fn test_collect_dust() {
+fn test_collect_pool_excessive_tokens() {
     let TestMarketFixture {
         contract_admin,
         contract_id,
@@ -765,8 +765,31 @@ fn test_collect_dust() {
 
 #[test]
 fn test_collect_excessive_tokens() {
-    let TestMarketFixture { users, .. } = TestMarketFixture::new();
-    let _donor = &users[0];
+    let TestMarketFixture { e, users, full_contract_client, contract_id, contract_admin, .. } =
+        TestMarketFixture::new();
+
+    let TestAssetSetup {
+        token_client: xlm_token_client,
+        token_address: xlm_token_address,
+        sac_client: xlm_sac_client,
+    } = setup_test_asset(&e, &contract_admin, &users);
+
+    let donor = Address::generate(&e);
+    xlm_sac_client.mint(&donor, &DEFAULT_DEPOSIT_AMOUNT);
+    xlm_token_client.transfer(&donor, &contract_id, &DEFAULT_DEPOSIT_AMOUNT);
+
+    let admin_balance_before = xlm_token_client.balance(&contract_admin);
+    let market_balance_before = xlm_token_client.balance(&contract_id);
+
+    full_contract_client.collect_non_pool_excessive_token(&xlm_token_address);
+
+    let admin_balance_after = xlm_token_client.balance(&contract_admin);
+    let market_balance_after = xlm_token_client.balance(&contract_id);
+    let admin_balance_diff = admin_balance_after.checked_sub(admin_balance_before).unwrap();
+
+    assert_eq!(admin_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(market_balance_before, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(market_balance_after, 0);
 }
 
 #[test]
@@ -815,7 +838,4 @@ fn test_leverage_w_new_flash_loan() {
     let requests = svec![&e, flash_borrow_request, swap_request];
 
     full_contract_client.submit_requests_batch(looper, &requests, &None);
-
-    let usdc_balance_after = usdc_token_client.balance(&looper.address);
-    let gold_balance_after = gold_token_client.balance(&looper.address);
 }

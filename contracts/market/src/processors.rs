@@ -107,8 +107,9 @@ pub fn process_submit_requests_batch<'a>(
             Request::FlashBorrow(standard_request) => {
                 transfers.execute_transfers(e)?;
 
-                let new = process_flash_borrow(e, &obligation_key.address, standard_request)?;
-                transfers.merge(new)?;
+                let new_transfers =
+                    process_flash_borrow(e, &obligation_key.address, standard_request)?;
+                transfers = new_transfers;
             }
             Request::SwapExactTokens(SwapExactTokensRequest {
                 swap_provider,
@@ -1581,8 +1582,23 @@ pub fn process_collect_excessive_token(
         })?;
 
         if *token == pool.token_address {
-            // TODO: Error + event about not allowing to reduce pool's available size
-            return Err(MCError::InternalError);
+            let token_client = token::Client::new(e, &pool.token_address);
+
+            let pool_available = pool.total_available()?;
+            let token_balance = token_client.balance(&e.current_contract_address());
+
+            if token_balance < pool_available {
+                events::contract_balance_is_too_low(e, pool_available, token_balance);
+
+                return Err(MCError::InternalError);
+            } else if token_balance > pool_available {
+                let excessive_amount = token_balance - pool_available; // safe
+                token_client.transfer(&e.current_contract_address(), admin, &excessive_amount);
+
+                events::collect_excessive_pool_token(e, &pool_address, excessive_amount);
+            }
+
+            break;
         }
     }
 
