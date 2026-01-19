@@ -7,7 +7,7 @@ use soroban_sdk::{
     vec,
 };
 
-use crate::{constants::*, error::MCError, soroswap_router as router, utils::MathUtils};
+use crate::{constants::*, error::MCError, utils::MathUtils};
 
 // TODO: Maybe, create some internal trait for common swap operations and
 //  implement it for different swap providers?
@@ -29,7 +29,7 @@ pub fn get_amount_in(
     amount_out: i128,
 ) -> Result<i128, MCError> {
     let path = vec![&e, token_in.clone(), token_out.clone()];
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let router_client = soroswap_router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amounts_in = router_client.router_get_amounts_in(&amount_out, &path);
     let Some(amount_in) = amounts_in.first() else {
@@ -55,7 +55,7 @@ pub fn get_amount_out(
     amount_in: i128,
 ) -> Result<i128, MCError> {
     let path = vec![&e, token_in.clone(), token_out.clone()];
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let router_client = soroswap_router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
     let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
     let Some(amount_out) = amounts_out.last() else {
@@ -88,7 +88,7 @@ pub fn swap_tokens_for_exact_tokens(
 ) -> Result<i128, MCError> {
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
     let router_address = Address::from_str(e, ROUTER_ADDRESS);
-    let router_client = router::Client::new(e, &router_address);
+    let router_client = soroswap_router::Client::new(e, &router_address);
     let pair = router_client.router_pair_for(token_in, token_out);
 
     let amount_in_max = amount_in
@@ -148,7 +148,7 @@ pub fn swap_exact_tokens_for_tokens(
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let router_client = soroswap_router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
     let pair = router_client.router_pair_for(token_in, token_out);
 
     let amount_out_min = amount_out
@@ -204,11 +204,13 @@ fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError>
     }
 }
 
+pub mod soroswap_router;
+
 // --- Proxy Swap ---
 
 const PROXY_SWAP_ADDR: &str = "CATHBF3ELJQD7WUVMJVY4XCHIO57QCQ2WF7OFVB2M4WSGZTLSGHRR6ZY";
 
-mod proxy_swap {
+pub mod proxy_swap {
     use soroban_sdk::contractimport;
 
     #[cfg(feature = "deploy")]

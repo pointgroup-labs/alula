@@ -31,7 +31,8 @@ use market::{
     error::MCError,
     obligation::{BorrowPosition, DepositPosition, ObligationKey},
     pool::{PoolConfig, PoolFeeConfig},
-    soroswap_router as router,
+    swap::proxy_swap,
+    swap::soroswap_router,
     utils::MathUtils,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
@@ -48,6 +49,7 @@ pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
+const PROXY_SWAP_ADDR: &str = "CATHBF3ELJQD7WUVMJVY4XCHIO57QCQ2WF7OFVB2M4WSGZTLSGHRR6ZY";
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
@@ -67,8 +69,11 @@ pub struct TestMarketFixture<'a> {
     pub oracle_client: MockPriceOracleClient<'a>,
     pub oracle: Address,
     // Swap Router
-    pub router_client: router::Client<'a>,
+    pub router_client: soroswap_router::Client<'a>,
     pub router_address: Address,
+    // Proxy Swap
+    pub proxy_swap_client: proxy_swap::Client<'a>,
+    pub proxy_swap_address: Address,
     // Insurance Fund
     pub controlled_insurance_fund_client: ControlledInsuranceFundContractClient<'a>,
     pub insurance_fund_client: InsuranceFundClient<'a>,
@@ -173,9 +178,15 @@ impl TestMarketFixture<'_> {
 
         contract_client.update_market_status(&0);
 
+        // Mock Soroswap Router
         let router_address = Address::from_str(&e, ROUTER_ADDRESS);
-        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
-        let router_client = router::Client::new(&e, &router_address);
+        e.register_at(&router_address, soroswap_router::WASM, (usdc_token_address.clone(),));
+        let router_client = soroswap_router::Client::new(&e, &router_address);
+
+        // Mock Proxy Swap
+        let proxy_swap_address = Address::from_str(&e, PROXY_SWAP_ADDR);
+        e.register_at(&proxy_swap_address, proxy_swap::WASM, ());
+        let proxy_swap_client = proxy_swap::Client::new(&e, &proxy_swap_address);
 
         // GOLD
         let gold_admin = Address::generate(&e);
@@ -229,6 +240,9 @@ impl TestMarketFixture<'_> {
             // Swap router
             router_client,
             router_address,
+            // Proxy swap
+            proxy_swap_client,
+            proxy_swap_address,
             // Insurance Fund
             controlled_insurance_fund_client,
             insurance_fund_client,

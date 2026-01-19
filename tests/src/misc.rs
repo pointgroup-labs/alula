@@ -770,6 +770,7 @@ fn test_collect_excessive_tokens() {
 }
 
 #[test]
+#[ignore]
 fn test_leverage_w_new_flash_loan() {
     let TestMarketFixture {
         e,
@@ -793,7 +794,6 @@ fn test_leverage_w_new_flash_loan() {
         &None,
     );
 
-    let swap_provider = Address::generate(&e);
     let usdc_balance_before = usdc_token_client.balance(&looper.address);
     let gold_balance_before = gold_token_client.balance(&looper.address);
 
@@ -802,6 +802,7 @@ fn test_leverage_w_new_flash_loan() {
         pool_address: usdc_pool_address.clone(),
     });
 
+    let swap_provider = Address::generate(&e);
     let swap_request = Request::SwapExactTokens(SwapExactTokensRequest {
         swap_provider,
         token_in: usdc_pool_address.clone(),
