@@ -1389,8 +1389,7 @@ impl MarketContract {
         Ok(())
     }
 
-    #[allow(unused)]
-    fn proxy_swap_exact_tokens(
+    pub fn proxy_swap_exact_tokens(
         e: Env,
         swap_provider: Address,
         user: Address,
@@ -1413,8 +1412,7 @@ impl MarketContract {
         )
     }
 
-    #[allow(unused)]
-    fn proxy_swap_for_exact_tokens(
+    pub fn proxy_swap_for_exact_tokens(
         e: Env,
         swap_provider: Address,
         user: Address,

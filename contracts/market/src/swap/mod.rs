@@ -9,8 +9,7 @@ use soroban_sdk::{
 
 use crate::{constants::*, error::MCError, utils::MathUtils};
 
-// TODO: Maybe, create some internal trait for common swap operations and
-//  implement it for different swap providers?
+pub mod soroswap_router;
 
 // Gets the amount that the user must provide to receive a specific amount if a swap is performed
 // at the current moment
@@ -204,21 +203,11 @@ fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError>
     }
 }
 
-pub mod soroswap_router;
-
 // --- Proxy Swap ---
 
+pub mod proxy_swap;
+
 const PROXY_SWAP_ADDR: &str = "CATHBF3ELJQD7WUVMJVY4XCHIO57QCQ2WF7OFVB2M4WSGZTLSGHRR6ZY";
-
-pub mod proxy_swap {
-    use soroban_sdk::contractimport;
-
-    #[cfg(feature = "deploy")]
-    contractimport!(file = "../../wasms/deploy_optimized/proxy_swap.optimized.wasm");
-
-    #[cfg(not(feature = "deploy"))]
-    contractimport!(file = "../../wasms/mocks/proxy_swap_mock.wasm");
-}
 
 pub fn proxy_swap_exact_tokens(
     e: &Env,
@@ -229,9 +218,10 @@ pub fn proxy_swap_exact_tokens(
     amount_in: i128,
     min_amount_out: i128,
 ) -> Result<i128, MCError> {
-    let proxy_swap_contract = proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
+    let proxy_swap_contract_client =
+        proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
 
-    Ok(proxy_swap_contract.swap_exact(
+    Ok(proxy_swap_contract_client.swap_exact(
         user,
         swap_provider,
         token_in,
@@ -250,9 +240,10 @@ pub fn proxy_swap_for_exact_tokens(
     amount_in_max: i128,
     amount_out: i128,
 ) -> Result<i128, MCError> {
-    let proxy_swap_contract = proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
+    let proxy_swap_contract_client =
+        proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
 
-    Ok(proxy_swap_contract.swap_for_exact(
+    Ok(proxy_swap_contract_client.swap_for_exact(
         user,
         swap_provider,
         token_in,

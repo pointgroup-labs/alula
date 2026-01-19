@@ -1,9 +1,37 @@
-// #![cfg(test)]
+#![cfg(test)]
 
-// use market::swap;
-// use soroban_sdk::vec as svec;
+use market::swap;
 
-// use crate::{TestMarketFixture, assert_approx_eq_rel, make_oracle_prices_different};
+use crate::{TestMarketFixture, assert_approx_eq_rel, make_oracle_prices_different};
+
+#[test]
+fn test_swap_exact() {
+    const AMOUNT_OUT: i128 = 5_000;
+    const DELTA_BPS: i128 = 5; // 0.05 %
+
+    let TestMarketFixture { e, gold_token_address, usdc_token_address, oracle_client, .. } =
+        TestMarketFixture::new();
+
+    make_oracle_prices_different(&e, &oracle_client);
+
+    let gold_usdc_amount_in =
+        swap::get_amount_in(&e, &gold_token_address, &usdc_token_address, AMOUNT_OUT).unwrap();
+    let gold_usdc_amount_out =
+        swap::get_amount_out(&e, &gold_token_address, &usdc_token_address, gold_usdc_amount_in)
+            .unwrap();
+
+    let usdc_gold_amount_in =
+        swap::get_amount_in(&e, &usdc_token_address, &gold_token_address, AMOUNT_OUT).unwrap();
+    let usdc_gold_amount_out =
+        swap::get_amount_out(&e, &usdc_token_address, &gold_token_address, usdc_gold_amount_in)
+            .unwrap();
+
+    assert_approx_eq_rel(gold_usdc_amount_out, AMOUNT_OUT, DELTA_BPS);
+    assert_approx_eq_rel(usdc_gold_amount_out, AMOUNT_OUT, DELTA_BPS);
+}
+
+#[test]
+fn test_swap_for_exact() {}
 
 // #[test]
 // fn test_swap_equal_prices() {
@@ -12,6 +40,7 @@
 //     let TestMarketFixture {
 //         e,
 //         contract_client,
+//         full_contract_client,
 //         users,
 //         usdc_pool_address,
 //         usdc_token_client,
@@ -23,19 +52,26 @@
 //     } = TestMarketFixture::new();
 
 //     let user = &users[0];
+//     let swap_provider = Address::generate(&e);
 
-//     let user_btc_balance_before = btc_token_client.balance(user);
-//     let user_usdc_balance_before = usdc_token_client.balance(user);
+//     let user_btc_balance_before = btc_token_client.balance(&user.address);
+//     let user_usdc_balance_before = usdc_token_client.balance(&user.address);
 
 //     let amount_out =
 //         swap::get_amount_out(&e, &btc_token_address, &usdc_token_address, AMOUNT_IN).unwrap();
-//     let received_amount =
-//         contract_client.swap(user, &btc_pool_address, &usdc_pool_address, &AMOUNT_IN);
+//     let received_amount = full_contract_client.proxy_swap_exact_tokens(
+//         &swap_provider,
+//         &user.address,
+//         &btc_pool_address,
+//         &usdc_pool_address,
+//         &AMOUNT_IN,
+//         &AMOUNT_IN,
+//     );
 
 //     assert_eq!(received_amount, amount_out);
 
-//     let user_btc_balance_after = btc_token_client.balance(user);
-//     let user_usdc_balance_after = usdc_token_client.balance(user);
+//     let user_btc_balance_after = btc_token_client.balance(&user.address);
+//     let user_usdc_balance_after = usdc_token_client.balance(&user.address);
 
 //     let btc_balance_diff = user_btc_balance_after - user_btc_balance_before;
 //     let usdc_balance_diff = user_usdc_balance_after - user_usdc_balance_before;

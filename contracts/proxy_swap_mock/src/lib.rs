@@ -34,11 +34,11 @@ impl ProxySwapMockContract {
         // let diff_bps: i128 = e.storage().instance().get(&DataKey::DiffBps).unwrap_or(0);
 
         // let diff = min_amount_out.fixed_mul_ceil(diff_bps, BPS_FACTOR).unwrap();
-        let amount_out = min_amount_out;
+        
 
         // burn_and_mint_tokens(&e, &token_in, &token_out, amount_in, amount_out, &to);
 
-        amount_out
+        min_amount_out
     }
 
     pub fn swap_for_exact(
@@ -55,7 +55,7 @@ impl ProxySwapMockContract {
         let diff = max_amount_in.fixed_mul_ceil(diff_bps, BPS_FACTOR).unwrap();
         let amount_in = max_amount_in - diff; // safe
 
-        burn_and_mint_tokens(&e, &token_in, &token_out, amount_in, amount_out, &to);
+        burn_and_mint_tokens(&e, token_in, token_out, amount_in, amount_out, to);
 
         amount_in
     }

@@ -770,7 +770,6 @@ fn test_collect_excessive_tokens() {
 }
 
 #[test]
-#[ignore]
 fn test_leverage_w_new_flash_loan() {
     let TestMarketFixture {
         e,
@@ -817,7 +816,4 @@ fn test_leverage_w_new_flash_loan() {
 
     let usdc_balance_after = usdc_token_client.balance(&looper.address);
     let gold_balance_after = gold_token_client.balance(&looper.address);
-
-    std::dbg!(usdc_balance_after - usdc_balance_before);
-    std::dbg!(gold_balance_after - gold_balance_before);
 }
