@@ -1520,7 +1520,7 @@ pub fn process_proxy_swap_for_exact_tokens(
         amount_out,
     )?;
 
-    events::swap_for_exact(
+    events::proxy_swap_for_exact(
         e,
         swap_provider,
         user,

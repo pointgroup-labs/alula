@@ -206,7 +206,7 @@ fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError>
 // --- Proxy Swap ---
 
 pub mod proxy_swap;
-
+// TODO: Make it configurable per market
 const PROXY_SWAP_ADDR: &str = "CATHBF3ELJQD7WUVMJVY4XCHIO57QCQ2WF7OFVB2M4WSGZTLSGHRR6ZY";
 
 pub fn proxy_swap_exact_tokens(
@@ -218,12 +218,22 @@ pub fn proxy_swap_exact_tokens(
     amount_in: i128,
     min_amount_out: i128,
 ) -> Result<i128, MCError> {
-    let proxy_swap_contract_client =
-        proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
+    let proxy_addr = Address::from_str(e, PROXY_SWAP_ADDR);
+
+    let proxy_swap_contract_client = proxy_swap::Client::new(e, &proxy_addr);
+
+    let token_in_client = soroban_sdk::token::Client::new(e, token_in);
+    let token_out_client = soroban_sdk::token::Client::new(e, token_out);
+
+    let user_in = token_in_client.balance(user);
+    let proxy_in = token_in_client.balance(&proxy_addr);
+
+    let user_out = token_out_client.balance(user);
+    let proxy_out = token_out_client.balance(&proxy_addr);
 
     Ok(proxy_swap_contract_client.swap_exact(
-        user,
         swap_provider,
+        user,
         token_in,
         token_out,
         &amount_in,
@@ -244,8 +254,8 @@ pub fn proxy_swap_for_exact_tokens(
         proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
 
     Ok(proxy_swap_contract_client.swap_for_exact(
-        user,
         swap_provider,
+        user,
         token_in,
         token_out,
         &amount_in_max,

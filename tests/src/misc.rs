@@ -773,6 +773,7 @@ fn test_collect_excessive_tokens() {
 fn test_leverage_w_new_flash_loan() {
     let TestMarketFixture {
         e,
+        contract_id,
 
         full_contract_client,
         usdc_token_client,
@@ -789,12 +790,13 @@ fn test_leverage_w_new_flash_loan() {
     full_contract_client.deposit(
         liquidity_provider,
         &usdc_pool_address,
-        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &(1000 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
 
-    let usdc_balance_before = usdc_token_client.balance(&looper.address);
-    let gold_balance_before = gold_token_client.balance(&looper.address);
+    let usdc_balance = usdc_token_client.balance(&contract_id);
+    let looper_balance = usdc_token_client.balance(&looper.address);
+    std::dbg!(usdc_balance, looper_balance);
 
     let flash_borrow_request = Request::FlashBorrow(StandardRequest {
         amount: DEFAULT_DEPOSIT_AMOUNT,
@@ -807,7 +809,7 @@ fn test_leverage_w_new_flash_loan() {
         token_in: usdc_pool_address.clone(),
         token_out: gold_token_address.clone(),
         amount_in: DEFAULT_DEPOSIT_AMOUNT,
-        min_amount_out: 1,
+        min_amount_out: 10,
     });
 
     let requests = svec![&e, flash_borrow_request, swap_request];

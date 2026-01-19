@@ -506,7 +506,7 @@ pub fn proxy_swap_exact(
     .publish(e);
 }
 
-pub fn swap_for_exact(
+pub fn proxy_swap_for_exact(
     e: &Env,
     swap_provider: &Address,
     user: &Address,
