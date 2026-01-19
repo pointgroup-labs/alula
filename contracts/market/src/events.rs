@@ -11,7 +11,7 @@ use crate::{
 // --- Contract's Methods Events ---
 
 #[contractevent]
-struct InitializePoolEvent {
+struct InitializePool {
     #[topic]
     token_address: Address,
     #[topic]
@@ -21,7 +21,7 @@ struct InitializePoolEvent {
 }
 
 #[contractevent]
-struct InitializeMultiplyPairEvent {
+struct InitializeMultiplyPair {
     #[topic]
     deposit_pool_address: Address,
     #[topic]
@@ -49,7 +49,7 @@ struct ApplyPoolConfigUpdate {
 }
 
 #[contractevent]
-struct BootstrapPoolEvent {
+struct BootstrapPool {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -59,7 +59,7 @@ struct BootstrapPoolEvent {
 }
 
 #[contractevent]
-struct DepositEvent {
+struct Deposit {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -69,7 +69,7 @@ struct DepositEvent {
 
 // TODO: TO BE REMOVED
 #[contractevent]
-struct SwapEvent {
+struct SwapExact {
     #[topic]
     user: Address,
     #[topic]
@@ -77,12 +77,25 @@ struct SwapEvent {
     #[topic]
     token_out: Address,
     amount_in: i128,
-    amount_out: i128,
+    min_amount_out: i128,
     received_amount: i128,
 }
 
 #[contractevent]
-struct BorrowEvent {
+struct SwapForExact {
+    #[topic]
+    user: Address,
+    #[topic]
+    token_in: Address,
+    #[topic]
+    token_out: Address,
+    max_amount_in: i128,
+    amount_out: i128,
+    sent_amount: i128,
+}
+
+#[contractevent]
+struct Borrow {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -91,7 +104,7 @@ struct BorrowEvent {
 }
 
 #[contractevent]
-struct AddCollateralEvent {
+struct AddCollateral {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -100,7 +113,7 @@ struct AddCollateralEvent {
 }
 
 #[contractevent]
-struct RepayEvent {
+struct Repay {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -109,7 +122,7 @@ struct RepayEvent {
 }
 
 #[contractevent]
-struct LiquidateEvent {
+struct Liquidate {
     #[topic]
     liquidator: Address,
     #[topic]
@@ -122,7 +135,7 @@ struct LiquidateEvent {
 }
 
 #[contractevent]
-struct RemoveCollateralEvent {
+struct RemoveCollateral {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -131,7 +144,7 @@ struct RemoveCollateralEvent {
 }
 
 #[contractevent]
-struct WithdrawEvent {
+struct Withdraw {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -140,7 +153,7 @@ struct WithdrawEvent {
 }
 
 #[contractevent]
-struct FlashLoanEvent {
+struct FlashLoan {
     #[topic]
     contract: Address,
     #[topic]
@@ -150,7 +163,7 @@ struct FlashLoanEvent {
 }
 
 #[contractevent]
-struct DepositWithLeverageEvent {
+struct DepositWithLeverage {
     #[topic]
     obligation_key: ObligationKey,
     #[topic]
@@ -164,7 +177,7 @@ struct DepositWithLeverageEvent {
 }
 
 #[contractevent]
-struct WithdrawFromLeveragedEvent {
+struct WithdrawFromLeveraged {
     #[topic]
     obligation_key: ObligationKey,
     #[topic]
@@ -195,6 +208,13 @@ struct CollectPoolExcessiveToken {
 struct CollectExcessiveToken {
     token_address: Address,
     collected_amount: i128,
+}
+
+#[contractevent]
+struct FlashBorrow {
+    pool_address: Address,
+    user: Address,
+    amount: i128,
 }
 
 // ----- Internal Error Events -----
@@ -365,7 +385,7 @@ struct TokenBalanceIsTooLow {
 }
 
 #[contractevent]
-struct ObligationFarmsRefreshedEvent {
+struct ObligationFarmsRefreshed {
     #[topic]
     pub obligation_key: ObligationKey,
     pub num_supply_farms: u32,
@@ -373,22 +393,22 @@ struct ObligationFarmsRefreshedEvent {
 }
 
 #[contractevent]
-struct FarmsContractSetEvent {
+struct FarmsContractSet {
     #[topic]
     pub farms_contract: Address,
 }
 
 #[contractevent]
-struct FarmsContractClearedEvent {}
+struct FarmsContractCleared {}
 
 #[contractevent]
-struct PoolFarmsClearedEvent {
+struct PoolFarmsCleared {
     #[topic]
     pub pool_address: Address,
 }
 
 #[contractevent]
-struct PoolFarmSetEvent {
+struct PoolFarmSet {
     #[topic]
     pub pool_address: Address,
     pub farm_id: BytesN<32>,
@@ -403,7 +423,7 @@ pub fn deposit(
     obligation_key: &ObligationKey,
     deposit_result: DepositResult,
 ) {
-    DepositEvent {
+    Deposit {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
         deposit_result,
@@ -417,7 +437,7 @@ pub fn initialize_pool(
     pool_address: &Address,
     token_symbol: &String,
 ) {
-    InitializePoolEvent {
+    InitializePool {
         token_address: token_address.clone(),
         pool_address: pool_address.clone(),
         token_symbol: token_symbol.clone(),
@@ -430,7 +450,7 @@ pub fn initialize_multiply_pair(
     deposit_pool_address: &Address,
     borrow_pool_address: &Address,
 ) {
-    InitializeMultiplyPairEvent {
+    InitializeMultiplyPair {
         deposit_pool_address: deposit_pool_address.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
     }
@@ -456,31 +476,46 @@ pub fn bootstrap_pool(
     amount: i128,
     period: (u64, u64),
 ) {
-    BootstrapPoolEvent {
-        pool_address: pool_address.clone(),
-        sponsor: sponsor.clone(),
-        amount,
-        period,
-    }
-    .publish(e);
+    BootstrapPool { pool_address: pool_address.clone(), sponsor: sponsor.clone(), amount, period }
+        .publish(e);
 }
 
-pub fn swap(
+pub fn swap_exact(
     e: &Env,
     user: &Address,
     token_in: &Address,
     token_out: &Address,
     amount_in: i128,
-    amount_out: i128,
+    min_amount_out: i128,
     received_amount: i128,
 ) {
-    SwapEvent {
+    SwapExact {
         user: user.clone(),
         token_in: token_in.clone(),
         token_out: token_out.clone(),
         amount_in,
-        amount_out,
+        min_amount_out,
         received_amount,
+    }
+    .publish(e);
+}
+
+pub fn swap_for_exact(
+    e: &Env,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    max_amount_in: i128,
+    amount_out: i128,
+    sent_amount: i128,
+) {
+    SwapForExact {
+        user: user.clone(),
+        token_in: token_in.clone(),
+        token_out: token_out.clone(),
+        max_amount_in,
+        amount_out,
+        sent_amount,
     }
     .publish(e);
 }
@@ -491,7 +526,7 @@ pub fn borrow(
     obligation_key: &ObligationKey,
     borrow_result: BorrowResult,
 ) {
-    BorrowEvent {
+    Borrow {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
         borrow_result,
@@ -505,7 +540,7 @@ pub fn add_collateral(
     obligation_key: &ObligationKey,
     add_collateral_result: AddCollateralResult,
 ) {
-    AddCollateralEvent {
+    AddCollateral {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
         add_collateral_result,
@@ -519,7 +554,7 @@ pub fn repay(
     obligation_key: &ObligationKey,
     repay_result: RepayResult,
 ) {
-    RepayEvent {
+    Repay {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
         repay_result,
@@ -536,7 +571,7 @@ pub fn liquidate(
     collateral_pool_address: &Address,
     liquidation_result: LiquidationResult,
 ) {
-    LiquidateEvent {
+    Liquidate {
         liquidator: liquidator.clone(),
         borrower_obligation_key: borrower_obligation_key.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
@@ -552,7 +587,7 @@ pub fn remove_collateral(
     obligation_key: &ObligationKey,
     remove_collateral_result: RemoveCollateralResult,
 ) {
-    RemoveCollateralEvent {
+    RemoveCollateral {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
         remove_collateral_result,
@@ -566,7 +601,7 @@ pub fn withdraw(
     obligation_key: &ObligationKey,
     withdraw_result: WithdrawResult,
 ) {
-    WithdrawEvent {
+    Withdraw {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
         withdraw_result,
@@ -581,13 +616,8 @@ pub fn flash_loan(
     amount: i128,
     fees_paid: i128,
 ) {
-    FlashLoanEvent {
-        contract: contract.clone(),
-        pool_address: pool_address.clone(),
-        amount,
-        fees_paid,
-    }
-    .publish(e);
+    FlashLoan { contract: contract.clone(), pool_address: pool_address.clone(), amount, fees_paid }
+        .publish(e);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -601,7 +631,7 @@ pub fn deposit_with_leverage(
     total_deposited_amount: i128,
     total_borrowed_amount: i128,
 ) {
-    DepositWithLeverageEvent {
+    DepositWithLeverage {
         obligation_key: obligation_key.clone(),
         deposit_pool_address: deposit_pool_address.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
@@ -622,7 +652,7 @@ pub fn withdraw_from_leveraged(
     deposit_reduced_amount: i128,
     borrow_reduced_amount: i128,
 ) {
-    WithdrawFromLeveragedEvent {
+    WithdrawFromLeveraged {
         obligation_key: obligation_key.clone(),
         deposit_pool_address: deposit_pool_address.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
@@ -647,6 +677,10 @@ pub fn collect_excessive_pool_token(e: &Env, pool_address: &Address, collected_a
 
 pub fn collect_excessive_token(e: &Env, token_address: &Address, collected_amount: i128) {
     CollectExcessiveToken { token_address: token_address.clone(), collected_amount }.publish(e);
+}
+
+pub fn flash_borrow(e: &Env, user: &Address, pool_address: &Address, amount: i128) {
+    FlashBorrow { user: user.clone(), pool_address: pool_address.clone(), amount }.publish(e);
 }
 
 // --- Internal Errors Events ---
@@ -832,21 +866,21 @@ pub fn inconsistent_immediate_insurance_fund_coverage(
 // --- Farms Integration Events ---
 
 pub fn set_farms_contract(e: &Env, farms_contract: &Address) {
-    FarmsContractSetEvent { farms_contract: farms_contract.clone() }.publish(e);
+    FarmsContractSet { farms_contract: farms_contract.clone() }.publish(e);
 }
 
 pub fn clear_farms_contract(e: &Env) {
-    FarmsContractClearedEvent {}.publish(e);
+    FarmsContractCleared {}.publish(e);
 }
 
 pub fn pool_farm_set(e: &Env, pool_address: &Address, farm_id: &BytesN<32>, is_supply: bool) {
     let farm_kind = if is_supply { Symbol::new(e, "supply") } else { Symbol::new(e, "debt") };
-    PoolFarmSetEvent { pool_address: pool_address.clone(), farm_id: farm_id.clone(), farm_kind }
+    PoolFarmSet { pool_address: pool_address.clone(), farm_id: farm_id.clone(), farm_kind }
         .publish(e);
 }
 
 pub fn pool_farms_cleared(e: &Env, pool_address: &Address) {
-    PoolFarmsClearedEvent { pool_address: pool_address.clone() }.publish(e);
+    PoolFarmsCleared { pool_address: pool_address.clone() }.publish(e);
 }
 
 pub fn obligation_farms_refreshed(
@@ -855,7 +889,7 @@ pub fn obligation_farms_refreshed(
     num_supply: u32,
     num_debt: u32,
 ) {
-    ObligationFarmsRefreshedEvent {
+    ObligationFarmsRefreshed {
         obligation_key: obligation_key.clone(),
         num_supply_farms: num_supply,
         num_debt_farms: num_debt,
@@ -920,11 +954,11 @@ pub fn contract_balance_is_too_low(e: &Env, minimum_expected_balance: i128, toke
 // --- Helper Functions  ---
 
 #[contractevent]
-struct DbgEvent {
+struct Dbg {
     #[topic]
     pub symbol: Symbol,
 }
 
 pub fn dbg(e: &Env, symbol: Symbol) {
-    DbgEvent { symbol }.publish(e);
+    Dbg { symbol }.publish(e);
 }

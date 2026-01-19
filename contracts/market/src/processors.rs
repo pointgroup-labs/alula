@@ -135,7 +135,7 @@ pub fn process_submit_requests_batch<'a>(
             }) => {
                 transfers.execute_transfers(e)?;
 
-                process_swap_exact_tokens(
+                process_swap_for_exact_tokens(
                     e,
                     &obligation_key.address,
                     &token_in,
@@ -569,6 +569,8 @@ pub fn process_flash_borrow<'a>(
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), user, amount);
+
+    events::flash_borrow(e, user, pool_address, *amount);
 
     Ok(RequestTransfers::new_with_flash_borrow_request(e, user.clone(), request))
 }
@@ -1465,11 +1467,12 @@ pub fn process_swap_exact_tokens(
     min_amount_out: i128,
 ) -> Result<i128, MCError> {
     require_nonnegative(amount_in)?;
+    require_nonnegative(min_amount_out)?;
 
     let received_amount =
         swap::swap_exact_tokens(e, user, token_in, token_out, amount_in, min_amount_out)?;
 
-    // events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
+    events::swap_exact(e, user, token_in, token_out, amount_in, min_amount_out, received_amount);
 
     Ok(received_amount)
 }
@@ -1488,7 +1491,15 @@ pub fn process_swap_for_exact_tokens(
     let received_amount =
         swap::swap_for_exact_tokens(e, user, token_in, token_out, max_amount_in, amount_out)?;
 
-    // events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
+    events::swap_for_exact(
+        e,
+        user,
+        token_in,
+        token_out,
+        max_amount_in,
+        amount_out,
+        received_amount,
+    );
 
     Ok(received_amount)
 }
