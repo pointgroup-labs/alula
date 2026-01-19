@@ -28,34 +28,87 @@ pub fn process_submit_requests_batch<'a>(
     obligation_key: &'a ObligationKey,
     referrer: &'a Option<Address>,
 ) -> Result<(), MCError> {
+    let mut transfers = RequestTransfers::new(
+        e,
+        obligation_key.address.clone(),
+        smap![&e],
+        smap![&e],
+        referrer.clone(),
+    );
+
     for request in requests {
         match request {
-            Request::Deposit(StandardRequest { amount, pool_address }) => {
-                process_deposit(e, obligation_key, &pool_address, amount, referrer)?
-                    .execute_transfers(e)?;
+            Request::Deposit(standard_request) => {
+                let new_transfers = process_deposit(
+                    e,
+                    obligation_key,
+                    &standard_request.pool_address,
+                    standard_request.amount,
+                    referrer,
+                )?;
+
+                transfers.merge(new_transfers)?;
             }
-            Request::Borrow(StandardRequest { amount, pool_address }) => {
-                process_borrow(e, obligation_key, &pool_address, amount, referrer)?
-                    .execute_transfers(e)?;
+            Request::Borrow(standard_request) => {
+                let new_transfers = process_borrow(
+                    e,
+                    obligation_key,
+                    &standard_request.pool_address,
+                    standard_request.amount,
+                    referrer,
+                )?;
+
+                transfers.merge(new_transfers)?;
             }
-            Request::Withdraw(StandardRequest { amount, pool_address }) => {
-                process_withdraw(e, obligation_key, &pool_address, amount, referrer)?
-                    .execute_transfers(e)?;
+            Request::Withdraw(standard_request) => {
+                let new_transfers = process_withdraw(
+                    e,
+                    obligation_key,
+                    &standard_request.pool_address,
+                    standard_request.amount,
+                    referrer,
+                )?;
+
+                transfers.merge(new_transfers)?;
             }
-            Request::Repay(StandardRequest { amount, pool_address }) => {
-                process_repay(e, obligation_key, &pool_address, amount, referrer)?
-                    .execute_transfers(e)?;
+            Request::Repay(standard_request) => {
+                let new_transfers = process_repay(
+                    e,
+                    obligation_key,
+                    &standard_request.pool_address,
+                    standard_request.amount,
+                    referrer,
+                )?;
+
+                transfers.merge(new_transfers)?;
             }
-            Request::AddCollateral(StandardRequest { amount, pool_address }) => {
-                process_add_collateral(e, obligation_key, &pool_address, amount, referrer)?
-                    .execute_transfers(e)?;
+            Request::AddCollateral(standard_request) => {
+                let new_transfers = process_add_collateral(
+                    e,
+                    obligation_key,
+                    &standard_request.pool_address,
+                    standard_request.amount,
+                    referrer,
+                )?;
+
+                transfers.merge(new_transfers)?;
             }
-            Request::RemoveCollateral(StandardRequest { amount, pool_address }) => {
-                process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)?
-                    .execute_transfers(e)?;
+            Request::RemoveCollateral(standard_request) => {
+                let new_transfers = process_remove_collateral(
+                    e,
+                    obligation_key,
+                    &standard_request.pool_address,
+                    standard_request.amount,
+                    referrer,
+                )?;
+
+                transfers.merge(new_transfers)?;
             }
-            Request::FlashBorrow(request) => {
-                process_flash_borrow(e, &obligation_key.address, request)?;
+            Request::FlashBorrow(standard_request) => {
+                transfers.execute_transfers(e)?;
+
+                let new = process_flash_borrow(e, &obligation_key.address, standard_request)?;
+                transfers.merge(new)?;
             }
             Request::SwapExactTokens(SwapExactTokensRequest {
                 token_in,
@@ -63,6 +116,8 @@ pub fn process_submit_requests_batch<'a>(
                 amount_in,
                 min_amount_out,
             }) => {
+                transfers.execute_transfers(e)?;
+
                 process_swap_exact_tokens(
                     e,
                     &obligation_key.address,
@@ -78,7 +133,9 @@ pub fn process_submit_requests_batch<'a>(
                 max_amount_in,
                 amount_out,
             }) => {
-                process_swap_for_exact_tokens(
+                transfers.execute_transfers(e)?;
+
+                process_swap_exact_tokens(
                     e,
                     &obligation_key.address,
                     &token_in,
@@ -87,13 +144,6 @@ pub fn process_submit_requests_batch<'a>(
                     amount_out,
                 )?;
             }
-            Request::ModErc3156FlashLoan(ModErc3156FlashLoanRequest {
-                amount,
-                contract,
-                pool_address,
-            }) => {
-                process_erc3156_flash_loan(e, &contract, &pool_address, amount)?;
-            }
             Request::Liquidate(LiquidateRequest {
                 borrower_obligation_key,
                 borrow_pool_address,
@@ -101,6 +151,8 @@ pub fn process_submit_requests_batch<'a>(
                 repay_amount,
                 min_demanded_collateral_amount,
             }) => {
+                transfers.execute_transfers(e)?;
+
                 process_liquidate(
                     e,
                     &obligation_key.address,
@@ -109,11 +161,21 @@ pub fn process_submit_requests_batch<'a>(
                     &collateral_pool_address,
                     repay_amount,
                     min_demanded_collateral_amount,
-                )?
-                .execute_transfers(e)?;
+                )?;
             }
-        }
+            Request::ModErc3156FlashLoan(ModErc3156FlashLoanRequest {
+                amount,
+                contract,
+                pool_address,
+            }) => {
+                transfers.execute_transfers(e)?;
+
+                process_erc3156_flash_loan(e, &contract, &pool_address, amount)?;
+            }
+        };
     }
+
+    transfers.execute_transfers_final(e)?;
 
     Ok(())
 }

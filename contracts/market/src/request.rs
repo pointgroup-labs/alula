@@ -168,21 +168,21 @@ impl<'a> RequestTransfers<'a> {
     }
 
     pub fn merge(&mut self, other: RequestTransfers<'a>) -> Result<(), MCError> {
-        // 1. Merge Market Transfers (Market -> User)
+        // Merge Market Transfers (Market -> User)
         for (token_address, amount) in other.market_transfers.iter() {
             let old = self.market_transfers.get(token_address.clone()).unwrap_or(0);
             let new = old.checked_add(amount).map_over_or_underflow()?;
             self.market_transfers.set(token_address, new);
         }
 
-        // 2. Merge User Transfers (User -> Market)
+        // Merge User Transfers (User -> Market)
         for (token_address, amount) in other.user_transfers.iter() {
             let old = self.user_transfers.get(token_address.clone()).unwrap_or(0);
             let new = old.checked_add(amount).map_over_or_underflow()?;
             self.user_transfers.set(token_address, new);
         }
 
-        // 3. Merge Referrer Fees (Market -> Referrer)
+        // Merge Referrer Fees (Market -> Referrer)
         if let Some(other_fees) = other.referrer_fee_transfers {
             let my_fees: &mut Map<Address, i128> =
                 self.referrer_fee_transfers.get_or_insert_with(|| Map::new(self.e));
@@ -205,31 +205,8 @@ impl<'a> RequestTransfers<'a> {
         Ok(())
     }
 
-    pub fn execute_transfers(self, e: &Env) -> Result<(), MCError> {
-        // TODO: Will re-using token clients here improve the performance?
-
-        for (token_address, amount) in self.user_transfers {
-            let token_client = TokenClient::new(self.e, &token_address);
-            token_client.transfer(&self.user, self.e.current_contract_address(), &amount);
-        }
-
-        for (token_address, amount) in self.market_transfers {
-            let token_client = TokenClient::new(self.e, &token_address);
-            token_client.transfer(&self.e.current_contract_address(), &self.user, &amount);
-        }
-
-        if let Some(referrer_fee_transfers) = self.referrer_fee_transfers {
-            let referrer = self.referrer.ok_or_else(|| {
-                events::referrer_is_unexpectedly_missing(e);
-
-                MCError::InternalError
-            })?;
-
-            for (token_address, amount) in referrer_fee_transfers {
-                let token_client = TokenClient::new(self.e, &token_address);
-                token_client.transfer(&self.e.current_contract_address(), &referrer, &amount);
-            }
-        }
+    pub fn execute_transfers_final(mut self, e: &Env) -> Result<(), MCError> {
+        self.execute_transfers(e)?;
 
         if let Some(StandardRequest { amount, pool_address }) = self.flash_borrow_request {
             let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
@@ -250,6 +227,37 @@ impl<'a> RequestTransfers<'a> {
 
             pool.set(e);
         }
+
+        Ok(())
+    }
+
+    pub fn execute_transfers(&mut self, e: &Env) -> Result<(), MCError> {
+        for (token_address, amount) in self.user_transfers.iter() {
+            let token_client = TokenClient::new(self.e, &token_address);
+            token_client.transfer(&self.user, self.e.current_contract_address(), &amount);
+        }
+
+        for (token_address, amount) in self.market_transfers.iter() {
+            let token_client = TokenClient::new(self.e, &token_address);
+            token_client.transfer(&self.e.current_contract_address(), &self.user, &amount);
+        }
+
+        if let Some(referrer_fee_transfers) = &self.referrer_fee_transfers {
+            let referrer = self.referrer.as_ref().ok_or_else(|| {
+                events::referrer_is_unexpectedly_missing(e);
+
+                MCError::InternalError
+            })?;
+
+            for (token_address, amount) in referrer_fee_transfers.iter() {
+                let token_client = TokenClient::new(self.e, &token_address);
+                token_client.transfer(&self.e.current_contract_address(), referrer, &amount);
+            }
+        }
+
+        self.market_transfers = smap![e];
+        self.user_transfers = smap![e];
+        self.referrer_fee_transfers = None;
 
         Ok(())
     }
