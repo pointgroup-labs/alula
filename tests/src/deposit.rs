@@ -232,8 +232,10 @@ fn test_deposit_multiple_shareholders() {
     assert!(obligation_2_j_tokens_as_tokens > DEFAULT_DEPOSIT_AMOUNT / 2);
 }
 
-#[test]
-fn test_earn_deposit_is_isolated() { // TODO: Rename to deposit with seed
+// TODO: Will be rewritten with earn obligations
+
+// #[test]
+// fn test_earn_deposit_is_isolated() { // TODO: Rename to deposit with seed
     // + verify that deposits with different seeds ARE indeed isolated
 
     // let TestMarketFixture {

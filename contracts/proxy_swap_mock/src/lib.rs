@@ -34,7 +34,7 @@ impl ProxySwapMockContract {
         let diff_bps: i128 = e.storage().instance().get(&DataKey::DiffBps).unwrap_or(0);
 
         let diff = min_amount_out.fixed_mul_ceil(diff_bps, BPS_FACTOR).unwrap();
-        let amount_out = min_amount_out - diff;
+        let amount_out = min_amount_out - diff; // safe
 
         burn_and_mint_tokens(&e, token_in, token_out, amount_in, amount_out, to);
 

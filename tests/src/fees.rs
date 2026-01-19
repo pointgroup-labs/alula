@@ -536,6 +536,8 @@ fn test_simulate_withdraw_scarcity_fee() {
     assert_eq!(market_fees_diff, simulated_withdraw_result.operation_fees.fee_sum);
 }
 
+// TODO: To be rewritten
+
 // #[test]
 // fn test_simulate_withdraw_earn_scarcity_fee() {
 //     let TestMarketFixture {

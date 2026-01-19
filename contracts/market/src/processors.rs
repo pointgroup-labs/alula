@@ -1511,7 +1511,7 @@ pub fn process_proxy_swap_for_exact_tokens(
     require_nonnegative(max_amount_in)?;
     require_nonnegative(amount_out)?;
 
-    let received_amount = swap::proxy_swap_for_exact_tokens(
+    let sent_amount = swap::proxy_swap_for_exact_tokens(
         e,
         swap_provider,
         user,
@@ -1529,10 +1529,10 @@ pub fn process_proxy_swap_for_exact_tokens(
         token_out,
         max_amount_in,
         amount_out,
-        received_amount,
+        sent_amount,
     );
 
-    Ok(received_amount)
+    Ok(sent_amount)
 }
 
 pub fn process_collect_excessive_tokens_from_pools(
@@ -1598,7 +1598,7 @@ pub fn process_collect_excessive_token(
                 events::collect_excessive_pool_token(e, &pool_address, excessive_amount);
             }
 
-            break;
+            return Ok(());
         }
     }
 
