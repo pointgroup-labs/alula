@@ -1231,6 +1231,9 @@ pub struct DepositPosition {
     pub j_tokens: i128,
     // Accumulated value of collateral that doesn't accrue interest
     pub collateral: i128,
+
+    pub earn_j_tokens: i128,
+
     // Originally deposited token amount. I.e., if the user deposits 100 tokens and 20 tokens
     // have been accrued with time - this value remains 100. If, after that, the user withdraws the amount
     // that exceeds the accrual(like 30) - the value becomes 90 (same goes for when `j_tokens` are seized

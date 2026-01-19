@@ -25,7 +25,7 @@ pub struct ModErc3156FlashLoanRequest {
 
 #[contracttype]
 pub struct SwapExactTokensRequest {
-    // address DEX
+    pub swap_provider: Address,
     pub token_in: Address,
     pub token_out: Address,
     pub amount_in: i128,
@@ -34,6 +34,7 @@ pub struct SwapExactTokensRequest {
 
 #[contracttype]
 pub struct SwapForExactTokensRequest {
+    pub swap_provider: Address,
     pub token_in: Address,
     pub token_out: Address,
     pub max_amount_in: i128,

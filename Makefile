@@ -11,9 +11,9 @@ DEPLOY_OPTIMIZED_DIR  := $(WASM_DIR)/deploy_optimized
 DOWNLOADS_DIR         := $(WASM_DIR)/downloads
 
 # Contracts
-CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund
-DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund
-MOCK_CONTRACTS        := soroswap_router_mock flash_loan_taker_mock
+CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund proxy_swap
+DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund proxy_swap
+MOCK_CONTRACTS        := soroswap_router_mock flash_loan_taker_mock proxy_swap_mock
 
 # External dependencies
 SOROSWAP_BASE_URL     := https://github.com/soroswap/core/releases/download
@@ -106,8 +106,10 @@ build/prepare:
 
 build: build/prepare ## Build all contracts
 	$(call build_contract,soroswap_router_mock,$(MOCKS_DIR))
+	$(call build_contract,proxy_swap_mock,$(MOCKS_DIR))
 	$(call build_contract,soroswap_sep_40_adapter,$(WASM_DIR))
 	$(call build_contract,controlled_insurance_fund,$(WASM_DIR))
+	$(call build_contract,proxy_swap,$(WASM_DIR))
 	$(call build_contract,aggregated_oracle,$(WASM_DIR))
 	$(call build_contract,market,$(WASM_DIR))
 	$(call build_contract,market_manager,$(WASM_DIR))
@@ -117,6 +119,7 @@ build: build/prepare ## Build all contracts
 build/deploy: build/prepare ## Build for deployment
 	$(call build_contract,soroswap_sep_40_adapter,$(DEPLOY_DIR))
 	$(call build_contract,controlled_insurance_fund,$(DEPLOY_DIR))
+	$(call build_contract,proxy_swap,$(DEPLOY_DIR))
 	$(call build_contract,aggregated_oracle,$(DEPLOY_DIR))
 	$(call build_contract,market,$(DEPLOY_DIR),--features deploy)
 	$(call build_contract,market_manager,$(DEPLOY_DIR),--features deploy)
@@ -125,6 +128,7 @@ build/deploy: build/prepare ## Build for deployment
 build/optimize: build/deploy ## Build + optimize for production
 	$(call optimize_contract,soroswap_sep_40_adapter)
 	$(call optimize_contract,controlled_insurance_fund)
+	$(call optimize_contract,proxy_swap)
 	$(call optimize_contract,aggregated_oracle)
 	$(call optimize_contract,market)
 	$(call optimize_contract,market_manager)
@@ -205,6 +209,9 @@ sdk: build/optimize ## Generate TypeScript SDK
 	@stellar contract bindings typescript --overwrite \
 		--wasm "$(DEPLOY_OPTIMIZED_DIR)/market_manager.optimized.wasm" \
 		--output-dir ./packages/sdk/market_manager --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/proxy_swap.optimized.wasm" \
+		--output-dir ./packages/sdk/proxy_swap --network "$(NETWORK)"
 	$(call success,"SDK generated")
 
 # ══════════════════════════════════════════════════════════════════════════════

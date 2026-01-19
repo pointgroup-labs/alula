@@ -1390,8 +1390,9 @@ impl MarketContract {
     }
 
     #[allow(unused)]
-    fn swap_exact_tokens(
+    fn proxy_swap_exact_tokens(
         e: Env,
+        swap_provider: Address,
         user: Address,
         token_in: Address,
         token_out: Address,
@@ -1401,12 +1402,21 @@ impl MarketContract {
         storage::extend_instance_storage(&e);
         user.require_auth();
 
-        process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in, min_amount_out)
+        process_proxy_swap_exact_tokens(
+            &e,
+            &swap_provider,
+            &user,
+            &token_in,
+            &token_out,
+            amount_in,
+            min_amount_out,
+        )
     }
 
     #[allow(unused)]
-    fn swap_for_exact_tokens(
+    fn proxy_swap_for_exact_tokens(
         e: Env,
+        swap_provider: Address,
         user: Address,
         token_in: Address,
         token_out: Address,
@@ -1416,6 +1426,14 @@ impl MarketContract {
         storage::extend_instance_storage(&e);
         user.require_auth();
 
-        process_swap_for_exact_tokens(&e, &user, &token_in, &token_out, max_amount_in, amount_out)
+        process_proxy_swap_for_exact_tokens(
+            &e,
+            &swap_provider,
+            &user,
+            &token_in,
+            &token_out,
+            max_amount_in,
+            amount_out,
+        )
     }
 }

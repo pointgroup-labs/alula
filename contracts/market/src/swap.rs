@@ -125,52 +125,6 @@ pub fn swap_tokens_for_exact_tokens(
     Ok(received_amount)
 }
 
-pub fn swap_exact_tokens(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
-    amount_out_min: i128,
-) -> Result<i128, MCError> {
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
-    let path = vec![e, token_in.clone(), token_out.clone()];
-
-    let swap_amounts = router_client.swap_exact_tokens_for_tokens(
-        &amount_in,
-        &amount_out_min,
-        &path,
-        user,
-        &u64::MAX,
-    );
-    let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
-
-    Ok(received_amount)
-}
-
-pub fn swap_for_exact_tokens(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in_max: i128,
-    amount_out: i128,
-) -> Result<i128, MCError> {
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
-    let path = vec![e, token_in.clone(), token_out.clone()];
-
-    let swap_amounts = router_client.swap_tokens_for_exact_tokens(
-        &amount_out,
-        &amount_in_max,
-        &path,
-        user,
-        &u64::MAX,
-    );
-    let received_amount = swap_amounts.last().ok_or(MCError::DependencyContractError)?;
-
-    Ok(received_amount)
-}
-
 // Swaps user's tokens
 //
 // # Arguments
@@ -248,4 +202,60 @@ fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError>
     } else {
         Ok(DEFAULT_MAX_SLIPPAGE_BPS)
     }
+}
+
+// --- Proxy Swap ---
+
+const PROXY_SWAP_ADDR: &str = "CATHBF3ELJQD7WUVMJVY4XCHIO57QCQ2WF7OFVB2M4WSGZTLSGHRR6ZY";
+
+mod proxy_swap {
+    use soroban_sdk::contractimport;
+
+    #[cfg(feature = "deploy")]
+    contractimport!(file = "../../wasms/deploy_optimized/proxy_swap.optimized.wasm");
+
+    #[cfg(not(feature = "deploy"))]
+    contractimport!(file = "../../wasms/mocks/proxy_swap_mock.wasm");
+}
+
+pub fn proxy_swap_exact_tokens(
+    e: &Env,
+    swap_provider: &Address,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in: i128,
+    min_amount_out: i128,
+) -> Result<i128, MCError> {
+    let proxy_swap_contract = proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
+
+    Ok(proxy_swap_contract.swap_exact(
+        user,
+        swap_provider,
+        token_in,
+        token_out,
+        &amount_in,
+        &min_amount_out,
+    ))
+}
+
+pub fn proxy_swap_for_exact_tokens(
+    e: &Env,
+    swap_provider: &Address,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in_max: i128,
+    amount_out: i128,
+) -> Result<i128, MCError> {
+    let proxy_swap_contract = proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
+
+    Ok(proxy_swap_contract.swap_for_exact(
+        user,
+        swap_provider,
+        token_in,
+        token_out,
+        &amount_in_max,
+        &amount_out,
+    ))
 }

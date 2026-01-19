@@ -69,7 +69,9 @@ struct Deposit {
 
 // TODO: TO BE REMOVED
 #[contractevent]
-struct SwapExact {
+struct ProxySwapExact {
+    #[topic]
+    swap_provider: Address,
     #[topic]
     user: Address,
     #[topic]
@@ -82,7 +84,9 @@ struct SwapExact {
 }
 
 #[contractevent]
-struct SwapForExact {
+struct ProxySwapForExact {
+    #[topic]
+    swap_provider: Address,
     #[topic]
     user: Address,
     #[topic]
@@ -480,8 +484,9 @@ pub fn bootstrap_pool(
         .publish(e);
 }
 
-pub fn swap_exact(
+pub fn proxy_swap_exact(
     e: &Env,
+    swap_provider: &Address,
     user: &Address,
     token_in: &Address,
     token_out: &Address,
@@ -489,7 +494,8 @@ pub fn swap_exact(
     min_amount_out: i128,
     received_amount: i128,
 ) {
-    SwapExact {
+    ProxySwapExact {
+        swap_provider: swap_provider.clone(),
         user: user.clone(),
         token_in: token_in.clone(),
         token_out: token_out.clone(),
@@ -502,6 +508,7 @@ pub fn swap_exact(
 
 pub fn swap_for_exact(
     e: &Env,
+    swap_provider: &Address,
     user: &Address,
     token_in: &Address,
     token_out: &Address,
@@ -509,7 +516,8 @@ pub fn swap_for_exact(
     amount_out: i128,
     sent_amount: i128,
 ) {
-    SwapForExact {
+    ProxySwapForExact {
+        swap_provider: swap_provider.clone(),
         user: user.clone(),
         token_in: token_in.clone(),
         token_out: token_out.clone(),
