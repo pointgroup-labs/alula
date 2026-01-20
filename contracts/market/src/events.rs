@@ -484,6 +484,7 @@ pub fn bootstrap_pool(
         .publish(e);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn proxy_swap_exact(
     e: &Env,
     swap_provider: &Address,
@@ -506,6 +507,7 @@ pub fn proxy_swap_exact(
     .publish(e);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn proxy_swap_for_exact(
     e: &Env,
     swap_provider: &Address,

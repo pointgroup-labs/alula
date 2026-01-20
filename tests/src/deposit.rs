@@ -232,56 +232,56 @@ fn test_deposit_multiple_shareholders() {
     assert!(obligation_2_j_tokens_as_tokens > DEFAULT_DEPOSIT_AMOUNT / 2);
 }
 
-// TODO: Will be rewritten with earn obligations
+// TODO: These tests will be rewritten with a new way to store earn obligations
 
 // #[test]
 // fn test_earn_deposit_is_isolated() { // TODO: Rename to deposit with seed
-    // + verify that deposits with different seeds ARE indeed isolated
+// + verify that deposits with different seeds ARE indeed isolated
 
-    // let TestMarketFixture {
-    //     contract_client,
-    //     gold_pool_address,
-    //     users,
-    //     gold_token_client,
-    //     usdc_pool_address,
-    //     ..
-    // } = TestMarketFixture::new();
-    // let creditor = &users[0];
-    // let liquidity_provider = &users[0];
+// let TestMarketFixture {
+//     contract_client,
+//     gold_pool_address,
+//     users,
+//     gold_token_client,
+//     usdc_pool_address,
+//     ..
+// } = TestMarketFixture::new();
+// let creditor = &users[0];
+// let liquidity_provider = &users[0];
 
-    // contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+// contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    // assert_eq!(
-    //     contract_client.try_borrow(creditor, &usdc_pool_address, &1, &None),
-    //     Err(Ok(MCError::ObligationDoesNotExist))
-    // );
+// assert_eq!(
+//     contract_client.try_borrow(creditor, &usdc_pool_address, &1, &None),
+//     Err(Ok(MCError::ObligationDoesNotExist))
+// );
 
-    // // Deposit as a liquidity provider to ignore withdrawal scarcity fees
-    // contract_client.deposit_earn(
-    //     liquidity_provider,
-    //     &gold_pool_address,
-    //     &DEFAULT_DEPOSIT_AMOUNT,
-    //     &None,
-    // );
-    // contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+// // Deposit as a liquidity provider to ignore withdrawal scarcity fees
+// contract_client.deposit_earn(
+//     liquidity_provider,
+//     &gold_pool_address,
+//     &DEFAULT_DEPOSIT_AMOUNT,
+//     &None,
+// );
+// contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    // // - Try withdraw all -
+// // - Try withdraw all -
 
-    // let creditor_balance_before = gold_token_client.balance(creditor);
-    // contract_client.withdraw(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
-    // let creditor_balance_after = gold_token_client.balance(creditor);
+// let creditor_balance_before = gold_token_client.balance(creditor);
+// contract_client.withdraw(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+// let creditor_balance_after = gold_token_client.balance(creditor);
 
-    // let creditor_balance_diff =
-    //     creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
-    // assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
+// let creditor_balance_diff =
+//     creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+// assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
 
-    // // - Withdraw from the earn obligation -
+// // - Withdraw from the earn obligation -
 
-    // let creditor_balance_before = gold_token_client.balance(creditor);
-    // contract_client.withdraw_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    // let creditor_balance_after = gold_token_client.balance(creditor);
+// let creditor_balance_before = gold_token_client.balance(creditor);
+// contract_client.withdraw_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+// let creditor_balance_after = gold_token_client.balance(creditor);
 
-    // let creditor_balance_diff =
-    //     creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
-    // assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
-}
+// let creditor_balance_diff =
+//     creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+// assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
+// }

@@ -800,7 +800,6 @@ fn test_leverage_w_new_flash_loan() {
 
         full_contract_client,
         usdc_token_client,
-        gold_token_client,
         gold_token_address,
         usdc_pool_address,
 
@@ -838,4 +837,20 @@ fn test_leverage_w_new_flash_loan() {
     let requests = svec![&e, flash_borrow_request, swap_request];
 
     full_contract_client.submit_requests_batch(looper, &requests, &None);
+}
+
+#[test]
+fn test_approve() {
+    let TestMarketFixture { e, users, usdc_token_client, .. } = TestMarketFixture::new();
+
+    let new_user = Address::generate(&e);
+
+    let donor = &users[0];
+    let new_guy = &users[1];
+
+    usdc_token_client.approve(&donor.address, &new_user, &100, &(e.ledger().sequence() + 100));
+
+    // usdc_token_client.transfer(&new_user, &donor.address, &50);
+
+    usdc_token_client.transfer_from(&new_user, &donor.address, &new_guy.address, &100);
 }

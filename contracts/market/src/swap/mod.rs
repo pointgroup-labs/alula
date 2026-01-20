@@ -221,9 +221,6 @@ pub fn proxy_swap_exact_tokens(
     let proxy_addr = Address::from_str(e, PROXY_SWAP_ADDR);
     let proxy_swap_contract_client = proxy_swap::Client::new(e, &proxy_addr);
 
-    let token_in_client = soroban_sdk::token::Client::new(e, token_in);
-    let token_out_client = soroban_sdk::token::Client::new(e, token_out);
-
     Ok(proxy_swap_contract_client.swap_exact(
         swap_provider,
         user,

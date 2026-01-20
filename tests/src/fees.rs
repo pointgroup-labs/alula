@@ -536,7 +536,7 @@ fn test_simulate_withdraw_scarcity_fee() {
     assert_eq!(market_fees_diff, simulated_withdraw_result.operation_fees.fee_sum);
 }
 
-// TODO: To be rewritten
+// TODO: WIll be rewritten with new earn obligations
 
 // #[test]
 // fn test_simulate_withdraw_earn_scarcity_fee() {
