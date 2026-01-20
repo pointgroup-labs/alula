@@ -1384,7 +1384,7 @@ impl MarketContract {
         let admin = storage::get_admin(&e);
         admin.require_auth();
 
-        process_collect_excessive_token(&e, &admin, &token)?; // TODO: Add tests
+        process_collect_excessive_token(&e, &admin, &token)?;
 
         Ok(())
     }
