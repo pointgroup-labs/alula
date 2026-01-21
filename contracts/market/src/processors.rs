@@ -14,8 +14,8 @@ use crate::{
     obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
     request::{
-        LiquidateRequest, ModErc3156FlashLoanRequest, Request, RequestTransfers, StandardRequest,
-        SwapExactTokensRequest, SwapForExactTokensRequest,
+        LiquidateRequest, ModErc3156FlashLoanRequest, ProxySwapExactRequest,
+        ProxySwapForExactRequest, Request, RequestTransfers, StandardRequest,
     },
     storage::{self, GlobalState},
     swap,
@@ -114,7 +114,7 @@ pub fn process_submit_requests_batch<'a>(
                     process_flash_borrow(e, &obligation_key.address, standard_request)?;
                 transfers = new_transfers;
             }
-            Request::SwapExactTokens(SwapExactTokensRequest {
+            Request::ProxySwapExact(ProxySwapExactRequest {
                 swap_provider,
                 token_in,
                 token_out,
@@ -133,7 +133,7 @@ pub fn process_submit_requests_batch<'a>(
                     min_amount_out,
                 )?;
             }
-            Request::SwapForExactTokens(SwapForExactTokensRequest {
+            Request::ProxySwapForExact(ProxySwapForExactRequest {
                 swap_provider,
                 token_in,
                 token_out,
@@ -1471,6 +1471,34 @@ pub fn process_distribute_all_pools_fees(e: &Env) -> Result<(), MCError> {
     }
 
     Ok(())
+}
+
+pub fn process_proxy_get_amount_out(
+    e: &Env,
+    swap_provider: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in: i128,
+) -> Result<i128, MCError> {
+    require_nonnegative(amount_in)?;
+
+    let amount_out = swap::proxy_get_amount_out(e, swap_provider, token_in, token_out, amount_in)?;
+
+    Ok(amount_out)
+}
+
+pub fn process_proxy_get_amount_in(
+    e: &Env,
+    swap_provider: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_out: i128,
+) -> Result<i128, MCError> {
+    require_nonnegative(amount_out)?;
+
+    let amount_out = swap::proxy_get_amount_in(e, swap_provider, token_in, token_out, amount_out)?;
+
+    Ok(amount_out)
 }
 
 pub fn process_proxy_swap_exact_tokens(

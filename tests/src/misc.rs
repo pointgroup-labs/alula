@@ -4,7 +4,7 @@ use controlled_insurance_fund::storage::DataKey;
 use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, SECONDS_IN_YEAR},
     error::MCError,
-    request::{Request, StandardRequest, SwapExactTokensRequest},
+    request::{ProxySwapExactRequest, Request, StandardRequest},
     utils::{MarketData, PoolData},
 };
 use soroban_fixed_point_math::FixedPoint;
@@ -826,7 +826,7 @@ fn test_leverage_w_new_flash_loan() {
     });
 
     let swap_provider = Address::generate(&e);
-    let swap_request = Request::SwapExactTokens(SwapExactTokensRequest {
+    let swap_request = Request::ProxySwapExact(ProxySwapExactRequest {
         swap_provider,
         token_in: usdc_pool_address.clone(),
         token_out: gold_token_address.clone(),

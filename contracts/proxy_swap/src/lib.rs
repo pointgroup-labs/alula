@@ -20,6 +20,30 @@ pub struct ProxySwapContract;
 
 #[contractimpl]
 impl ProxySwapContract {
+    pub fn get_amount_out(
+        e: Env,
+        swap_provider: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_in: i128,
+    ) -> Result<i128, PSCError> {
+        let provider: SwapProvider = try_map_address_to_swap_provider(&e, swap_provider)?;
+
+        provider.get_amount_out(&e, &token_in, &token_out, amount_in)
+    }
+
+    pub fn get_amount_in(
+        e: Env,
+        swap_provider: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_out: i128,
+    ) -> Result<i128, PSCError> {
+        let provider: SwapProvider = try_map_address_to_swap_provider(&e, swap_provider)?;
+
+        provider.get_amount_in(&e, &token_in, &token_out, amount_out)
+    }
+
     pub fn swap_exact(
         e: Env,
         to: Address,

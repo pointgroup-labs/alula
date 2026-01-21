@@ -5,6 +5,22 @@ use crate::{SoroswapRouter, aqua_router::AquaRouter, error::PSCError};
 
 #[enum_dispatch]
 pub trait Swap {
+    fn get_amount_out(
+        &self,
+        e: &Env,
+        token_in: &Address,
+        token_out: &Address,
+        amount_in: i128,
+    ) -> Result<i128, PSCError>;
+
+    fn get_amount_in(
+        &self,
+        e: &Env,
+        token_in: &Address,
+        token_out: &Address,
+        amount_out: i128,
+    ) -> Result<i128, PSCError>;
+
     fn swap_exact(
         &self,
         e: &Env,
