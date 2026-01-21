@@ -1,6 +1,6 @@
 # How to Reduce or Close a Multiply Position
 
-Withdrawing reduces your exposure by unwinding part (or all) of the loop, which lowers both your collateral in the vault and the debt used to maintain it. A full withdrawal closes the position by unwinding the loop completely.
+Withdrawing from a Multiply position reduces the size of your position. Depending on the vault’s configuration, the protocol may reduce your collateral and debt proportionally to maintain your leverage ratio. A full withdrawal closes the position.
 
 {% stepper %}
 {% step %}
