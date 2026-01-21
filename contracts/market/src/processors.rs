@@ -19,7 +19,10 @@ use crate::{
     },
     storage::{self, GlobalState},
     swap,
-    utils::{MathUtils, require_nonnegative},
+    utils::{
+        MathUtils, require_borrows_on_market_allowed, require_deposits_on_market_allowed,
+        require_market_not_frozen, require_nonnegative,
+    },
 };
 
 pub fn process_submit_requests_batch<'a>(
@@ -318,6 +321,7 @@ pub fn process_bootstrap_pool(
     end_period: u64,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
+    require_market_not_frozen(e)?;
 
     let current_timestamp = e.ledger().timestamp();
     if start_period < current_timestamp || start_period >= end_period {
@@ -351,6 +355,7 @@ pub fn process_deposit<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
+    require_deposits_on_market_allowed(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_deposit_enabled()?;
@@ -400,6 +405,8 @@ pub fn process_borrow<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
+    require_borrows_on_market_allowed(e)?;
+    obligation_key.require_borrow_allowing_seed()?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -439,6 +446,7 @@ pub fn process_add_collateral<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
+    require_market_not_frozen(e)?;
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
@@ -709,6 +717,7 @@ pub fn process_deposit_with_leverage(
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
+    obligation_key.require_borrow_allowing_seed()?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
@@ -883,6 +892,7 @@ pub fn process_withdraw_from_leveraged(
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
+    obligation_key.require_borrow_allowing_seed()?;
 
     let (mut deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, &pair.deposit_pool).map_err(|_| {

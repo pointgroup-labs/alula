@@ -31,8 +31,7 @@ use market::{
     error::MCError,
     obligation::{BorrowPosition, DepositPosition, ObligationKey},
     pool::{PoolConfig, PoolFeeConfig},
-    swap::proxy_swap,
-    swap::soroswap_router,
+    swap::{proxy_swap, soroswap_router},
     utils::MathUtils,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};

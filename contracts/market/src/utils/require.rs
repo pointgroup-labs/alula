@@ -15,16 +15,6 @@ pub fn require_nonnegative(amount: i128) -> Result<(), MCError> {
     Ok(())
 }
 
-/// Ensures that the provided amount is strictly positive (greater than zero).
-#[inline(always)]
-pub fn require_positive(amount: i128) -> Result<(), MCError> {
-    if amount <= 0 {
-        return Err(MCError::NegativeInputAmount);
-    }
-
-    Ok(())
-}
-
 #[inline(always)]
 pub fn require_owned_and_admin(e: &Env) -> Result<(), MCError> {
     require_admin(e);

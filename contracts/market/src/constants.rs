@@ -157,3 +157,5 @@ pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
 
 // TODO: Change this to VIRTUAL_OFFSET as OpenZeppelin suggests
 pub const INITIAL_SHARES_AMOUNT: i128 = 10_i128.pow(5);
+
+pub const BORROW_PROHIBITING_SEED: [u8; 32] = [0; 32];

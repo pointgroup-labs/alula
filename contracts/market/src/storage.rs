@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
+use soroban_sdk::{Address, Env, Map, String, Vec, contracttype};
 
 use crate::{
     constants::*,
@@ -98,7 +98,6 @@ pub enum DataKey {
     AllObligations,
     InsolvencyLtvBps,
     AllMultiplyPairs,
-    EarnObligationSeed,
     MinCollateralValueCents,
     UpdateInQueuePeriod,
     Obligation(ObligationKey),
@@ -208,14 +207,6 @@ pub fn set_deployer(e: &Env, address: &Address) {
 }
 pub fn get_deployer(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::DeployerHost).expect("Deployer must be set")
-}
-
-// - EarnObligationSeed -
-pub fn set_earn_obligation_seed(e: &Env, seed: &BytesN<32>) {
-    e.storage().instance().set(&DataKey::EarnObligationSeed, &seed)
-}
-pub fn get_earn_obligation_seed(e: &Env) -> Option<BytesN<32>> {
-    e.storage().instance().get(&DataKey::EarnObligationSeed)
 }
 
 // - ProposedAdmin -

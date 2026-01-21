@@ -40,6 +40,7 @@ pub enum MCError {
     ScarcityCooldownPeriod = 204,
     BorrowPositionForAssetExists = 205,
     DepositPositionForAssetExists = 206,
+    BorrowProhibitingObligation = 207,
 
     // Balance and limit errors (400-499)
     PoolSupplyLimitExceeded = 400,

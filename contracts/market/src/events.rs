@@ -419,7 +419,7 @@ struct PoolFarmSet {
     pub farm_kind: Symbol,
 }
 
-// --- Methods that abstract how events are published ---
+// --- Methods that abstract away how events are published ---
 
 pub fn deposit(
     e: &Env,

@@ -1,6 +1,6 @@
 use farms_interface::Delegatee;
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Bytes, BytesN, Env, Map, contracttype};
+use soroban_sdk::{Address, BytesN, Env, Map, contracttype};
 
 use crate::{
     constants::*,
@@ -28,8 +28,22 @@ impl ObligationKey {
         Self { address, seed: Some(seed) }
     }
 
+    pub fn set_seed(&mut self, seed: BytesN<32>) {
+        self.seed = Some(seed);
+    }
+
     pub fn require_auth(&self) {
         self.address.require_auth();
+    }
+
+    pub fn require_borrow_allowing_seed(&self) -> Result<(), MCError> {
+        if let Some(seed) = &self.seed
+            && seed.to_array() == BORROW_PROHIBITING_SEED
+        {
+            return Err(MCError::BorrowProhibitingObligation);
+        }
+
+        Ok(())
     }
 }
 
@@ -1285,31 +1299,6 @@ impl DepositPosition {
     }
 }
 
-// Used to generate a unique seed for `Earn` obligation
-// See [`compute_earn_obligation_seed`]
-const EARN_OBLIGATION_SEED_STR: &str = "EV";
-
-// Computes 'Earn' seed and caches it if it hasn't been computed yet, or gets it from the storage otherwise
-//
-// # Returns
-// [`BytesN<32>`] bytes used as an obligation seed to distinguish unique users' obligations
-pub fn get_earn_obligation_seed(e: &Env) -> BytesN<32> {
-    if let Some(stored_seed) = storage::get_earn_obligation_seed(e) {
-        stored_seed
-    } else {
-        let computed_seed = compute_earn_obligation_seed(e);
-        storage::set_earn_obligation_seed(e, &computed_seed);
-
-        computed_seed
-    }
-}
-
-fn compute_earn_obligation_seed(e: &Env) -> BytesN<32> {
-    let mut seed = Bytes::new(e);
-    seed.extend_from_slice(EARN_OBLIGATION_SEED_STR.as_bytes());
-    e.crypto().keccak256(&seed).into()
-}
-
 // Adjusts a field on the obligation's structs
 //
 // # Returns
@@ -1560,29 +1549,4 @@ pub fn compute_min_collateral_threshold_scaled(e: &Env) -> Result<i128, MCError>
         .map_over_or_underflow()?;
 
     Ok(threshold)
-}
-#[cfg(test)]
-mod tests {
-    use soroban_sdk::{BytesN, Env};
-
-    use super::*;
-
-    #[test]
-    fn test_computes_earn_obligation_seed_with_valid_address() {
-        let e = Env::default();
-
-        let seed = compute_earn_obligation_seed(&e);
-
-        assert_ne!(seed, BytesN::from_array(&e, &[0; 32]));
-    }
-
-    #[test]
-    fn test_computes_different_seeds_for_different_addresses() {
-        let e = Env::default();
-
-        let seed_1 = compute_earn_obligation_seed(&e);
-        let seed_2 = compute_earn_obligation_seed(&e);
-
-        assert_eq!(seed_1, seed_2);
-    }
 }
