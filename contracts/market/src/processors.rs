@@ -1504,9 +1504,9 @@ pub fn process_proxy_get_amount_in(
 ) -> Result<i128, MCError> {
     require_nonnegative(amount_out)?;
 
-    let amount_out = swap::proxy_get_amount_in(e, swap_provider, token_in, token_out, amount_out)?;
+    let amount_in = swap::proxy_get_amount_in(e, swap_provider, token_in, token_out, amount_out)?;
 
-    Ok(amount_out)
+    Ok(amount_in)
 }
 
 pub fn process_proxy_swap_exact_tokens(

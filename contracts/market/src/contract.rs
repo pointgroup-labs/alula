@@ -1270,6 +1270,7 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         obligation_key.require_auth();
+        require_market_not_frozen(&e)?; // TODO: Do we miss any other such things?
 
         process_submit_requests_batch(&e, &requests, &obligation_key, &referrer)
     }
