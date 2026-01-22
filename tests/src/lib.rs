@@ -897,7 +897,7 @@ pub fn get_multiply_pair_obligation_collateral(
 
 pub fn get_obligation_d_tokens_as_tokens(
     e: &Env,
-    contract_client: &MarketClient,
+    contract_client: &MarketClient, // TODO: What about 'full_contract_client'?
     user: &ObligationKey,
     pool_address: &Address,
 ) -> Result<i128, MCError> {

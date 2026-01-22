@@ -3,15 +3,18 @@
 use market::{
     constants::{BPS_FACTOR, LEVERAGE_SCALE, MIN_LEVERAGE_MULTIPLIER},
     pool::{PoolConfig, PoolHealthConfig},
+    request::{ProxySwapExactRequest, Request, StandardRequest},
     swap,
 };
 use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{Address, testutils::Address as _};
 
 use crate::{
     DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture, assert_approx_eq_abs,
     get_amount_scaled_down, get_amount_scaled_up, get_borrow_position, get_deposit_position,
     get_multiply_pair_obligation_borrowed, get_multiply_pair_obligation_j_tokens_as_tokens,
-    get_pool_total_borrowed, get_pool_total_supply,
+    get_obligation_d_tokens_as_tokens, get_obligation_j_tokens_as_tokens, get_pool_total_borrowed,
+    get_pool_total_supply,
 };
 
 // ---- Deposit with leverage ----
@@ -646,4 +649,84 @@ fn test_withdraw_negative() {
     );
 }
 
-// TODO: Bring the flash loan test here
+#[test]
+fn test_deposit_borrow_as_margin_batch() {
+    const LEVERAGE: u32 = 3;
+    const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
+
+    let TestMarketFixture {
+        e,
+        full_contract_client,
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        usdc_token_address,
+        gold_token_address,
+        ..
+    } = TestMarketFixture::new();
+    let looper = &users[0];
+    let liquidity_provider = &users[1];
+    let swap_provider = Address::generate(&e);
+
+    full_contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    let leverage_multiplier_minus_1 = LEVERAGE_MULTIPLIER.checked_sub(LEVERAGE_SCALE).unwrap();
+
+    let flash_borrow_amount = DEFAULT_DEPOSIT_AMOUNT
+        .fixed_mul_floor(leverage_multiplier_minus_1 as i128, LEVERAGE_SCALE as i128)
+        .unwrap();
+
+    // NB: Can check slippage here
+    let amount_to_deposit = full_contract_client.proxy_get_amount_out(
+        &swap_provider,
+        &usdc_token_address,
+        &gold_token_address,
+        &(DEFAULT_DEPOSIT_AMOUNT + flash_borrow_amount),
+    );
+
+    let requests = soroban_sdk::vec![
+        &e,
+        Request::FlashBorrow(StandardRequest {
+            amount: flash_borrow_amount,
+            pool_address: usdc_pool_address.clone(),
+        }),
+        Request::ProxySwapExact(ProxySwapExactRequest {
+            swap_provider: swap_provider.clone(),
+            token_in: usdc_token_address.clone(),
+            token_out: gold_token_address.clone(),
+            amount_in: DEFAULT_DEPOSIT_AMOUNT + flash_borrow_amount,
+            min_amount_out: 1,
+        }),
+        Request::Deposit(StandardRequest {
+            amount: amount_to_deposit,
+            pool_address: gold_pool_address.clone()
+        }),
+        Request::Borrow(StandardRequest {
+            amount: flash_borrow_amount,
+            pool_address: usdc_pool_address.clone()
+        }),
+    ];
+
+    assert_eq!(
+        full_contract_client.try_get_user_obligation(looper),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
+
+    full_contract_client.submit_requests_batch(looper, &requests, &None);
+
+    let deposited =
+        get_obligation_j_tokens_as_tokens(&e, &contract_client, looper, &gold_pool_address)
+            .unwrap();
+    let borrowed =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, looper, &usdc_pool_address)
+            .unwrap();
+
+    assert_eq!(deposited, DEFAULT_DEPOSIT_AMOUNT * (LEVERAGE as i128));
+    assert_eq!(borrowed, DEFAULT_DEPOSIT_AMOUNT * ((LEVERAGE - 1) as i128));
+}

@@ -44,7 +44,7 @@ impl Swap for SoroswapRouter {
         let path = vec![e, token_in.clone(), token_out.clone()];
 
         let amounts_in = router_client.router_get_amounts_in(&amount_out, &path);
-        let amount_in = amounts_in.last().ok_or(PSCError::DependencyContractError)?;
+        let amount_in = amounts_in.first().ok_or(PSCError::DependencyContractError)?;
 
         Ok(amount_in)
     }
