@@ -1,6 +1,6 @@
 import type { MarketTableItem } from '~/types/table'
 
-export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>) {
+export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isCalcFee: boolean = true) {
   const router = useRouter()
   const route = useRoute()
 
@@ -45,44 +45,48 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>) {
     return checkIsCanUsePool(borrowObligations, poolData.value?.raw.pool.pool_address)
   })
 
-  watchDebounced([
-    poolData,
-    reloadFee,
-    publicKey,
-  ], async ([d, _r]) => {
-    try {
-      isLoadingFee.value = true
+  const attentionText = 'You cannot deposit funds into a pool where you have an active loan. Please repay your loan before depositing funds.'
 
-      if (!d || !publicKey.value || !marketClient.value) {
-        return
+  if (isCalcFee) {
+    watchDebounced([
+      poolData,
+      reloadFee,
+      publicKey,
+    ], async ([d, _r]) => {
+      try {
+        isLoadingFee.value = true
+
+        if (!d || !publicKey.value || !marketClient.value) {
+          return
+        }
+
+        const tx = await marketClient.value.marketSdk.depositTx(
+          publicKey.value,
+          d?.raw.pool.pool_address || '',
+          0,
+        )
+        txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
+      } finally {
+        isLoadingFee.value = false
       }
+    }, { immediate: true, debounce: 300 })
 
-      const tx = await marketClient.value.marketSdk.depositTx(
-        publicKey.value,
-        d?.raw.pool.pool_address || '',
-        0,
-      )
-      txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
-    } finally {
-      isLoadingFee.value = false
-    }
-  }, { immediate: true, debounce: 300 })
+    watchDebounced(collateralOnly, (c) => {
+      const query = { ...route.query }
+      if (c) {
+        query['collateral-only'] = 'true'
+      } else {
+        delete query['collateral-only']
+      }
+      router.replace({ query })
+    }, { debounce: 100 })
 
-  watchDebounced(collateralOnly, (c) => {
-    const query = { ...route.query }
-    if (c) {
-      query['collateral-only'] = 'true'
-    } else {
-      delete query['collateral-only']
-    }
-    router.replace({ query })
-  }, { debounce: 100 })
-
-  watch(() => route.query, (q) => {
-    if (q['collateral-only']) {
-      collateralOnly.value = true
-    }
-  }, { immediate: true, once: true })
+    watch(() => route.query, (q) => {
+      if (q['collateral-only']) {
+        collateralOnly.value = true
+      }
+    }, { immediate: true, once: true })
+  }
 
   return {
     balance,
@@ -96,5 +100,6 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>) {
     contractAddress,
     isLoading,
     isCanSupply,
+    attentionText,
   }
 }

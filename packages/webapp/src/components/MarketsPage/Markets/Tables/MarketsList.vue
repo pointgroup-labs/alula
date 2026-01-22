@@ -17,18 +17,18 @@ const isHasMarkets = defineModel<boolean>('isHasMarkets', {
 
 const marketActions = useMarketActions()
 
+const router = useRouter()
+
 const {
   loading,
   search,
   marketWithTableItems,
   filteredMarkets,
-  infoDialog,
   dialogSupply,
   dialogBorrow,
   selectedMarketName,
   selectedPool,
   selectedPoolAddress,
-  selectedMarketDetails,
 } = useMarketTable()
 
 const {
@@ -37,6 +37,8 @@ const {
   toggleOpen } = useAccordionMarketsHandler('accordion-markets')
 
 const { additionalMarketsData, generateMockAdditionalData } = useAdditionalApy()
+
+const marketsStore = useMarketsStore()
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
@@ -50,19 +52,17 @@ const fields = [
   { key: 'action', label: '', thClass: 'action', tdClass: 'action' },
 ]
 
-async function supplyDialogHandler(marketName: string, item: MarketTableItem, action: 'supply' | 'borrow') {
+async function dialogHandler(marketName: string, item: MarketTableItem, action: 'supply' | 'borrow') {
   selectedMarketName.value = marketName
   selectedPoolAddress.value = item?.pool_address
   action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
 }
 
 function onRowClicked(marketName: string, item: MarketTableItem) {
-  selectedMarketName.value = marketName
-  selectedPoolAddress.value = item.pool_address
-  infoDialog.value = true
+  const marketAddress = marketsStore.state.markets[marketName]?.address
+  const poolAddress = item.pool_address
+  router.push(`/lend/${marketAddress}/${poolAddress}`)
 }
-
-provide('selectedMarketDetails', selectedMarketDetails)
 
 watch(() => searchAsset, (val) => {
   search.value = val
@@ -245,7 +245,7 @@ const stop = watch(additionalMarketsData, () => {
               icon-right
               :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
-              @click="supplyDialogHandler(market.marketName, data.item, 'supply')"
+              @click="dialogHandler(market.marketName, data.item, 'supply')"
             >
               Supply
             </j-btn>
@@ -256,7 +256,7 @@ const stop = watch(additionalMarketsData, () => {
               variant="accent"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
-              @click="supplyDialogHandler(market.marketName, data.item, 'borrow')"
+              @click="dialogHandler(market.marketName, data.item, 'borrow')"
             >
               Borrow
             </j-btn>
@@ -279,7 +279,7 @@ const stop = watch(additionalMarketsData, () => {
         v-else
         :items="market.tableItems"
         :additional-markets-data="additionalMarketsData"
-        @dialog-handler="(e: any) => supplyDialogHandler(market.marketName, e.item, e.action)"
+        @dialog-handler="(e: any) => dialogHandler(market.marketName, e.item, e.action)"
         @on-row-clicked="onRowClicked"
       />
     </j-accordion>
@@ -301,6 +301,4 @@ const stop = watch(additionalMarketsData, () => {
     v-model="dialogBorrow"
     :data="selectedPool"
   />
-
-  <market-info-dialog v-model="infoDialog" />
 </template>

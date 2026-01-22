@@ -1,6 +1,6 @@
 import type { MarketTableItem } from '~/types/table'
 
-export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>) {
+export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isCalcFee: boolean = true) {
   const wallet = useWallet()
   const publicKey = computed(() => wallet.publicKey)
 
@@ -55,21 +55,28 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>) {
     return checkIsCanUsePool(depositObligations, poolData.value?.raw.pool.pool_address)
   })
 
-  watchDebounced([
-    poolData,
-    reloadFee,
-    publicKey,
-  ], async ([d, _r]) => {
-    if (!d || !publicKey.value || !marketClient.value) {
-      return
-    }
-    const tx = await marketClient.value?.marketSdk.borrowTx(
-      publicKey.value,
-      d?.raw.pool.pool_address || '',
-      0,
-    )
-    txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
-  }, { immediate: true, debounce: 300 })
+  const attentionText = computed(() =>
+    isCanBorrow.value
+      ? 'Parameter changes via governance can alter your account health factor and risk of liquidation.'
+      : 'You cannot open a loan in the same pool where you have a deposit.')
+
+  if (isCalcFee) {
+    watchDebounced([
+      poolData,
+      reloadFee,
+      publicKey,
+    ], async ([d, _r]) => {
+      if (!d || !publicKey.value || !marketClient.value) {
+        return
+      }
+      const tx = await marketClient.value?.marketSdk.borrowTx(
+        publicKey.value,
+        d?.raw.pool.pool_address || '',
+        0,
+      )
+      txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
+    }, { immediate: true, debounce: 300 })
+  }
 
   return {
     marketClient,
@@ -82,5 +89,6 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>) {
     closeLTV,
     liquidationPenalty,
     isCanBorrow,
+    attentionText,
   }
 }

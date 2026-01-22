@@ -12,7 +12,7 @@ const searchAsset = ref()
     />
     <markets-list
       v-model:is-has-markets="isHasMarkets"
-      :search-asses="searchAsset"
+      :search-asset="searchAsset"
     />
     <div
       v-if="searchAsset && isMarkets && !isHasMarkets"

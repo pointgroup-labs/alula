@@ -32,6 +32,7 @@ const {
   contractAddress,
   isLoading,
   isCanSupply,
+  attentionText,
 } = useSupplyDialog(poolData)
 
 const marketFee = computed(() => {
@@ -192,7 +193,7 @@ watch(dialog, async (v) => {
 
       <warning-block
         v-if="!isCanSupply"
-        text="You cannot deposit funds into a pool where you have an active loan."
+        :text="attentionText"
         :is-warning="!isCanSupply"
       />
 
@@ -216,7 +217,7 @@ watch(dialog, async (v) => {
           variant="primary"
           :loading="isLoading"
           :pool="poolData?.raw.pool"
-          :disabled="!isCanSupply"
+          :disabled="!isCanSupply || amount >= balance"
           @click-handler="supply"
         >
           Supply {{ poolData?.asset.symbol }}

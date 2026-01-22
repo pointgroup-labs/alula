@@ -77,7 +77,6 @@ export function useMarketTable() {
   const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')
   const selectedMarket = computed(() => marketWithTableItems.value.find(m => m.marketName === selectedMarketName.value))
   const selectedPool = computed(() => selectedMarket.value?.tableItems.find(p => p.pool_address === selectedPoolAddress.value))
-  const selectedMarketDetails = computed(() => selectedMarket.value?.tableItems.find(item => item.pool_address === selectedPoolAddress.value))
 
   return {
     search,
@@ -91,7 +90,6 @@ export function useMarketTable() {
     selectedMarketName,
     selectedPool,
     selectedPoolAddress,
-    selectedMarketDetails,
   }
 }
 

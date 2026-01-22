@@ -27,6 +27,7 @@ const {
   closeLTV,
   liquidationPenalty,
   isCanBorrow,
+  attentionText,
 } = useBorrowDialog(poolData)
 
 const amount = toRef(market, 'borrowAmount')
@@ -55,11 +56,6 @@ const marketFee = computed(() => {
   const marketFeeBps = poolData.value?.raw.pool.config.fee_config.borrow_fee_bps
   return calcFee(Number(amount.value || 0), marketFeeBps || 0)
 })
-
-const attentionText = computed(() =>
-  isCanBorrow.value
-    ? 'Parameter changes via governance can alter your account health factor and risk of liquidation.'
-    : 'You cannot open a loan in the same pool where you have a deposit.')
 
 async function borrow() {
   if (!publicKey.value || !poolData.value?.raw.pool.pool_address) {
@@ -241,7 +237,7 @@ watch(dialog, async (v) => {
           variant="accent"
           :loading="isLoading"
           :pool="data?.raw.pool"
-          :disabled="!agree || !isCanBorrow"
+          :disabled="!agree || !isCanBorrow || amount > availableToBorrow"
           @click-handler="borrow"
         >
           Borrow {{ data?.asset.symbol }}

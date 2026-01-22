@@ -9,7 +9,7 @@ import { isDark } from '~/hooks/theme'
 
 const { width } = useWindowSize()
 
-const route = useRoute()
+// const route = useRoute()
 const logo = computed(() => width.value >= 1024 ? (isDark.value ? logoDark : logoLight) : logoMobile)
 
 const tabs = [{
@@ -33,12 +33,12 @@ provide('navTabs', tabs)
 
 const activeTab = ref()
 
-watch(() => route.path, (p) => {
-  const tabIdx = tabs.findIndex(t => t?.route === p)
-  if (tabIdx !== -1) {
-    activeTab.value = tabs[tabIdx]
-  }
-}, { immediate: true, once: true })
+// watch(() => route.path, (p) => {
+// const tabIdx = tabs.findIndex(t => t?.route === p)
+// if (tabIdx !== -1) {
+//   activeTab.value = tabs[tabIdx]
+// }
+// }, { immediate: true, once: true })
 </script>
 
 <template>
@@ -61,7 +61,7 @@ watch(() => route.path, (p) => {
           :key="tab.label"
           :to="tab.route"
           class="nav-link"
-          :class="{ 'nav-link--active': activeTab.route === tab.route }"
+          :class="{ 'nav-link--active': activeTab?.route === tab?.route }"
           @click="activeTab = tab"
         >
           {{ tab.label }}
