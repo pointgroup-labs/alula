@@ -772,7 +772,6 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         require_admin(&e);
-        require_market_not_frozen(&e)?;
 
         process_bootstrap_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
     }
@@ -786,7 +785,6 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         obligation_key.require_auth();
-        require_deposits_on_market_allowed(&e)?;
 
         process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?
             .execute_transfers(&e)
@@ -801,7 +799,6 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
         obligation_key.require_auth();
-        require_borrows_on_market_allowed(&e)?;
 
         process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
@@ -914,6 +911,10 @@ impl Market for MarketContract {
         amount: i128,
         referrer: Option<Address>,
     ) -> Result<WithdrawResult, MCError> {
+        storage::extend_instance_storage(&e);
+        obligation_key.require_auth();
+
+        require_market_not_frozen(&e)?;
         process_simulate_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)
     }
 
@@ -1030,12 +1031,14 @@ impl Market for MarketContract {
 
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
+        require_admin(&e);
 
         process_distribute_pool_fees(&e, &pool_address)
     }
 
     fn distribute_all_pools_fees(e: Env) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
+        require_admin(&e);
 
         process_distribute_all_pools_fees(&e)
     }
@@ -1267,6 +1270,7 @@ impl Market for MarketContract {
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         obligation_key.require_auth();
+        require_market_not_frozen(&e)?; // TODO: Do we miss any other such things?
 
         process_submit_requests_batch(&e, &requests, &obligation_key, &referrer)
     }
@@ -1389,7 +1393,31 @@ impl MarketContract {
         Ok(())
     }
 
-    pub fn proxy_swap_exact_tokens(
+    pub fn proxy_get_amount_in(
+        e: Env,
+        swap_provider: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_out: i128,
+    ) -> Result<i128, MCError> {
+        storage::extend_instance_storage(&e);
+
+        process_proxy_get_amount_in(&e, &swap_provider, &token_in, &token_out, amount_out)
+    }
+
+    pub fn proxy_get_amount_out(
+        e: Env,
+        swap_provider: Address,
+        token_in: Address,
+        token_out: Address,
+        amount_in: i128,
+    ) -> Result<i128, MCError> {
+        storage::extend_instance_storage(&e);
+
+        process_proxy_get_amount_out(&e, &swap_provider, &token_in, &token_out, amount_in)
+    }
+
+    pub fn proxy_swap_exact(
         e: Env,
         swap_provider: Address,
         user: Address,
@@ -1412,7 +1440,7 @@ impl MarketContract {
         )
     }
 
-    pub fn proxy_swap_for_exact_tokens(
+    pub fn proxy_swap_for_exact(
         e: Env,
         swap_provider: Address,
         user: Address,

@@ -209,6 +209,32 @@ pub mod proxy_swap;
 // TODO: Make it configurable per market
 const PROXY_SWAP_ADDR: &str = "CATHBF3ELJQD7WUVMJVY4XCHIO57QCQ2WF7OFVB2M4WSGZTLSGHRR6ZY";
 
+pub fn proxy_get_amount_out(
+    e: &Env,
+    swap_provider: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in: i128,
+) -> Result<i128, MCError> {
+    let proxy_swap_contract_client =
+        proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
+
+    Ok(proxy_swap_contract_client.get_amount_out(swap_provider, token_in, token_out, &amount_in))
+}
+
+pub fn proxy_get_amount_in(
+    e: &Env,
+    swap_provider: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_out: i128,
+) -> Result<i128, MCError> {
+    let proxy_swap_contract_client =
+        proxy_swap::Client::new(e, &Address::from_str(e, PROXY_SWAP_ADDR));
+
+    Ok(proxy_swap_contract_client.get_amount_in(swap_provider, token_in, token_out, &amount_out))
+}
+
 pub fn proxy_swap_exact_tokens(
     e: &Env,
     swap_provider: &Address,

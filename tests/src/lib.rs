@@ -31,8 +31,7 @@ use market::{
     error::MCError,
     obligation::{BorrowPosition, DepositPosition, ObligationKey},
     pool::{PoolConfig, PoolFeeConfig},
-    swap::proxy_swap,
-    swap::soroswap_router,
+    swap::{proxy_swap, soroswap_router},
     utils::MathUtils,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
@@ -898,7 +897,7 @@ pub fn get_multiply_pair_obligation_collateral(
 
 pub fn get_obligation_d_tokens_as_tokens(
     e: &Env,
-    contract_client: &MarketClient,
+    contract_client: &MarketClient, // TODO: What about 'full_contract_client'?
     user: &ObligationKey,
     pool_address: &Address,
 ) -> Result<i128, MCError> {

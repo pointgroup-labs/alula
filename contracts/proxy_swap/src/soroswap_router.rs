@@ -17,6 +17,38 @@ mod soroswap_router {
 pub struct SoroswapRouter(pub Address);
 
 impl Swap for SoroswapRouter {
+    fn get_amount_out(
+        &self,
+        e: &Env,
+        token_in: &Address,
+        token_out: &Address,
+        amount_in: i128,
+    ) -> Result<i128, PSCError> {
+        let router_client = soroswap_router::Client::new(e, &self.0);
+        let path = vec![e, token_in.clone(), token_out.clone()];
+
+        let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
+        let amount_out = amounts_out.last().ok_or(PSCError::DependencyContractError)?;
+
+        Ok(amount_out)
+    }
+
+    fn get_amount_in(
+        &self,
+        e: &Env,
+        token_in: &Address,
+        token_out: &Address,
+        amount_out: i128,
+    ) -> Result<i128, PSCError> {
+        let router_client = soroswap_router::Client::new(e, &self.0);
+        let path = vec![e, token_in.clone(), token_out.clone()];
+
+        let amounts_in = router_client.router_get_amounts_in(&amount_out, &path);
+        let amount_in = amounts_in.first().ok_or(PSCError::DependencyContractError)?;
+
+        Ok(amount_in)
+    }
+
     fn swap_exact(
         &self,
         e: &Env,

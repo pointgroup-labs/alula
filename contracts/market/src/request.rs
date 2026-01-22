@@ -24,7 +24,7 @@ pub struct ModErc3156FlashLoanRequest {
 }
 
 #[contracttype]
-pub struct SwapExactTokensRequest {
+pub struct ProxySwapExactRequest {
     pub swap_provider: Address,
     pub token_in: Address,
     pub token_out: Address,
@@ -33,7 +33,7 @@ pub struct SwapExactTokensRequest {
 }
 
 #[contracttype]
-pub struct SwapForExactTokensRequest {
+pub struct ProxySwapForExactRequest {
     pub swap_provider: Address,
     pub token_in: Address,
     pub token_out: Address,
@@ -60,8 +60,8 @@ pub enum Request {
     RemoveCollateral(StandardRequest),
 
     FlashBorrow(StandardRequest),
-    SwapExactTokens(SwapExactTokensRequest),
-    SwapForExactTokens(SwapForExactTokensRequest),
+    ProxySwapExact(ProxySwapExactRequest),
+    ProxySwapForExact(ProxySwapForExactRequest),
 
     Liquidate(LiquidateRequest),
     ModErc3156FlashLoan(ModErc3156FlashLoanRequest),

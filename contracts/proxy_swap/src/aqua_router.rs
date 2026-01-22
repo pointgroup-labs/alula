@@ -6,6 +6,26 @@ use crate::{error::PSCError, swap_trait::Swap};
 pub struct AquaRouter(pub Address);
 
 impl Swap for AquaRouter {
+    fn get_amount_out(
+        &self,
+        _e: &Env,
+        _token_in: &Address,
+        _token_out: &Address,
+        _amount_in: i128,
+    ) -> Result<i128, PSCError> {
+        todo!()
+    }
+
+    fn get_amount_in(
+        &self,
+        _e: &Env,
+        _token_in: &Address,
+        _token_out: &Address,
+        _amount_out: i128,
+    ) -> Result<i128, PSCError> {
+        todo!()
+    }
+
     fn swap_exact(
         &self,
         _e: &Env,

@@ -6,7 +6,7 @@ use market::{
     pool::{PoolConfig, PoolHealthConfig},
 };
 use soroban_sdk::{
-    Address,
+    Address, BytesN,
     testutils::{Address as _, Ledger},
 };
 
@@ -232,56 +232,63 @@ fn test_deposit_multiple_shareholders() {
     assert!(obligation_2_j_tokens_as_tokens > DEFAULT_DEPOSIT_AMOUNT / 2);
 }
 
-// TODO: These tests will be rewritten with a new way to store earn obligations
+#[test]
+fn test_earn_deposit_is_isolated() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        gold_pool_address,
+        users,
+        gold_token_client,
+        usdc_pool_address,
+        ..
+    } = TestMarketFixture::new();
+    let borrow_prohibiting_seed_bytes = BytesN::<32>::from_array(&e, &BORROW_PROHIBITING_SEED);
 
-// #[test]
-// fn test_earn_deposit_is_isolated() { // TODO: Rename to deposit with seed
-// + verify that deposits with different seeds ARE indeed isolated
+    let mut creditor_earn_obligation = users[0].clone();
+    creditor_earn_obligation.set_seed(borrow_prohibiting_seed_bytes);
 
-// let TestMarketFixture {
-//     contract_client,
-//     gold_pool_address,
-//     users,
-//     gold_token_client,
-//     usdc_pool_address,
-//     ..
-// } = TestMarketFixture::new();
-// let creditor = &users[0];
-// let liquidity_provider = &users[0];
+    let creditor = &users[0];
+    let liquidity_provider = &users[1];
 
-// contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &creditor_earn_obligation,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
-// assert_eq!(
-//     contract_client.try_borrow(creditor, &usdc_pool_address, &1, &None),
-//     Err(Ok(MCError::ObligationDoesNotExist))
-// );
+    assert_eq!(
+        contract_client.try_borrow(&creditor_earn_obligation, &usdc_pool_address, &1, &None),
+        Err(Ok(MCError::BorrowProhibitingObligation))
+    );
 
-// // Deposit as a liquidity provider to ignore withdrawal scarcity fees
-// contract_client.deposit_earn(
-//     liquidity_provider,
-//     &gold_pool_address,
-//     &DEFAULT_DEPOSIT_AMOUNT,
-//     &None,
-// );
-// contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    // Deposit as a liquidity provider to ignore withdrawal scarcity fees
+    contract_client.deposit(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-// // - Try withdraw all -
+    // - Try withdraw all -
 
-// let creditor_balance_before = gold_token_client.balance(creditor);
-// contract_client.withdraw(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
-// let creditor_balance_after = gold_token_client.balance(creditor);
+    let creditor_balance_before = gold_token_client.balance(&creditor.address);
+    contract_client.withdraw(creditor, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    let creditor_balance_after = gold_token_client.balance(&creditor.address);
 
-// let creditor_balance_diff =
-//     creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
-// assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
+    let creditor_balance_diff =
+        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+    assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
 
-// // - Withdraw from the earn obligation -
+    // - Withdraw from the earn obligation -
 
-// let creditor_balance_before = gold_token_client.balance(creditor);
-// contract_client.withdraw_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-// let creditor_balance_after = gold_token_client.balance(creditor);
+    let creditor_balance_before = gold_token_client.balance(&creditor.address);
+    contract_client.withdraw(
+        &creditor_earn_obligation,
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    let creditor_balance_after = gold_token_client.balance(&creditor.address);
 
-// let creditor_balance_diff =
-//     creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
-// assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
-// }
+    let creditor_balance_diff =
+        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+    assert_eq!(creditor_balance_diff, DEFAULT_DEPOSIT_AMOUNT);
+}

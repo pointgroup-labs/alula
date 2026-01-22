@@ -14,12 +14,15 @@ use crate::{
     obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
     request::{
-        LiquidateRequest, ModErc3156FlashLoanRequest, Request, RequestTransfers, StandardRequest,
-        SwapExactTokensRequest, SwapForExactTokensRequest,
+        LiquidateRequest, ModErc3156FlashLoanRequest, ProxySwapExactRequest,
+        ProxySwapForExactRequest, Request, RequestTransfers, StandardRequest,
     },
     storage::{self, GlobalState},
     swap,
-    utils::{MathUtils, require_nonnegative},
+    utils::{
+        MathUtils, require_borrows_on_market_allowed, require_deposits_on_market_allowed,
+        require_market_not_frozen, require_nonnegative,
+    },
 };
 
 pub fn process_submit_requests_batch<'a>(
@@ -111,7 +114,7 @@ pub fn process_submit_requests_batch<'a>(
                     process_flash_borrow(e, &obligation_key.address, standard_request)?;
                 transfers = new_transfers;
             }
-            Request::SwapExactTokens(SwapExactTokensRequest {
+            Request::ProxySwapExact(ProxySwapExactRequest {
                 swap_provider,
                 token_in,
                 token_out,
@@ -130,7 +133,7 @@ pub fn process_submit_requests_batch<'a>(
                     min_amount_out,
                 )?;
             }
-            Request::SwapForExactTokens(SwapForExactTokensRequest {
+            Request::ProxySwapForExact(ProxySwapForExactRequest {
                 swap_provider,
                 token_in,
                 token_out,
@@ -318,6 +321,7 @@ pub fn process_bootstrap_pool(
     end_period: u64,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
+    require_market_not_frozen(e)?;
 
     let current_timestamp = e.ledger().timestamp();
     if start_period < current_timestamp || start_period >= end_period {
@@ -351,6 +355,7 @@ pub fn process_deposit<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
+    require_deposits_on_market_allowed(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_deposit_enabled()?;
@@ -400,6 +405,8 @@ pub fn process_borrow<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
+    require_borrows_on_market_allowed(e)?;
+    obligation_key.require_borrow_allowing_seed()?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -439,6 +446,7 @@ pub fn process_add_collateral<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
+    require_market_not_frozen(e)?;
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
@@ -479,6 +487,14 @@ pub fn process_repay<'a>(
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
+
+    if let Some(seed) = &obligation_key.seed
+        && seed.to_array() == BORROW_PROHIBITING_SEED
+    {
+        events::repaying_in_a_borrow_prohibiting_obligation(e, obligation_key);
+
+        return Err(MCError::InternalError);
+    }
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_repay_enabled()?;
@@ -709,6 +725,7 @@ pub fn process_deposit_with_leverage(
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
+    obligation_key.require_borrow_allowing_seed()?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
@@ -883,6 +900,7 @@ pub fn process_withdraw_from_leveraged(
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
     require_nonnegative(amount)?;
+    obligation_key.require_borrow_allowing_seed()?;
 
     let (mut deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, &pair.deposit_pool).map_err(|_| {
@@ -1461,6 +1479,34 @@ pub fn process_distribute_all_pools_fees(e: &Env) -> Result<(), MCError> {
     }
 
     Ok(())
+}
+
+pub fn process_proxy_get_amount_out(
+    e: &Env,
+    swap_provider: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_in: i128,
+) -> Result<i128, MCError> {
+    require_nonnegative(amount_in)?;
+
+    let amount_out = swap::proxy_get_amount_out(e, swap_provider, token_in, token_out, amount_in)?;
+
+    Ok(amount_out)
+}
+
+pub fn process_proxy_get_amount_in(
+    e: &Env,
+    swap_provider: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    amount_out: i128,
+) -> Result<i128, MCError> {
+    require_nonnegative(amount_out)?;
+
+    let amount_in = swap::proxy_get_amount_in(e, swap_provider, token_in, token_out, amount_out)?;
+
+    Ok(amount_in)
 }
 
 pub fn process_proxy_swap_exact_tokens(
