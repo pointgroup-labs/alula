@@ -1439,7 +1439,7 @@ impl MarketContract {
         )
     }
 
-    pub fn proxy_swap_for(
+    pub fn proxy_swap_for_exact(
         e: Env,
         swap_provider: Address,
         user: Address,

@@ -1,9 +1,11 @@
 #![cfg(test)]
 
 use market::swap;
-use soroban_sdk::vec as svec;
+use soroban_sdk::{Address, testutils::Address as _, vec as svec};
 
-use crate::{TestMarketFixture, assert_approx_eq_rel, make_oracle_prices_different};
+use crate::{
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_rel, make_oracle_prices_different,
+};
 
 #[test]
 fn test_swap_exact() {
@@ -97,4 +99,94 @@ fn test_get_amount_in() {
 
     assert_approx_eq_rel(gold_usdc_amount_out, AMOUNT_OUT, DELTA_BPS);
     assert_approx_eq_rel(usdc_gold_amount_out, AMOUNT_OUT, DELTA_BPS);
+}
+
+// --- Proxy Swap ---
+
+#[test]
+fn test_proxy_swap_exact() {
+    let TestMarketFixture {
+        e,
+        full_contract_client,
+        usdc_token_address,
+        usdc_token_client,
+        gold_token_address,
+        gold_token_client,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+
+    let swap_provider = Address::generate(&e);
+    let amount_out = full_contract_client.proxy_get_amount_out(
+        &swap_provider,
+        &usdc_token_address,
+        &gold_token_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
+
+    let usdc_balance_before = usdc_token_client.balance(&user.address);
+    let gold_balance_before = gold_token_client.balance(&user.address);
+
+    full_contract_client.proxy_swap_exact(
+        &swap_provider,
+        &user.address,
+        &usdc_token_address,
+        &gold_token_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &amount_out,
+    );
+
+    let usdc_balance_after = usdc_token_client.balance(&user.address);
+    let gold_balance_after = gold_token_client.balance(&user.address);
+
+    let usdc_diff = usdc_balance_after.checked_sub(usdc_balance_before).unwrap();
+    let gold_diff = gold_balance_after.checked_sub(gold_balance_before).unwrap();
+
+    assert_eq!(usdc_diff, -DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(gold_diff, DEFAULT_DEPOSIT_AMOUNT);
+}
+
+#[test]
+fn test_proxy_swap_for_exact() {
+    let TestMarketFixture {
+        e,
+        full_contract_client,
+        usdc_token_address,
+        usdc_token_client,
+        gold_token_address,
+        gold_token_client,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+
+    let swap_provider = Address::generate(&e);
+    let amount_in = full_contract_client.proxy_get_amount_out(
+        &swap_provider,
+        &usdc_token_address,
+        &gold_token_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
+
+    let usdc_balance_before = usdc_token_client.balance(&user.address);
+    let gold_balance_before = gold_token_client.balance(&user.address);
+
+    full_contract_client.proxy_swap_for_exact(
+        &swap_provider,
+        &user.address,
+        &usdc_token_address,
+        &gold_token_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &amount_in,
+    );
+
+    let usdc_balance_after = usdc_token_client.balance(&user.address);
+    let gold_balance_after = gold_token_client.balance(&user.address);
+
+    let usdc_diff = usdc_balance_after.checked_sub(usdc_balance_before).unwrap();
+    let gold_diff = gold_balance_after.checked_sub(gold_balance_before).unwrap();
+
+    assert_eq!(usdc_diff, -DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(gold_diff, DEFAULT_DEPOSIT_AMOUNT);
 }

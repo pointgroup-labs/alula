@@ -389,6 +389,12 @@ struct TokenBalanceIsTooLow {
 }
 
 #[contractevent]
+struct BorrowProhibitingRepay {
+    #[topic]
+    obligation_key: ObligationKey,
+}
+
+#[contractevent]
 struct ObligationFarmsRefreshed {
     #[topic]
     pub obligation_key: ObligationKey,
@@ -959,6 +965,10 @@ pub fn referrer_is_unexpectedly_missing(e: &Env) {
 
 pub fn contract_balance_is_too_low(e: &Env, minimum_expected_balance: i128, token_balance: i128) {
     TokenBalanceIsTooLow { minimum_expected_balance, token_balance }.publish(e);
+}
+
+pub fn repaying_in_a_borrow_prohibiting_obligation(e: &Env, obligation_key: &ObligationKey) {
+    BorrowProhibitingRepay { obligation_key: obligation_key.clone() }.publish(e);
 }
 
 // --- Helper Functions  ---

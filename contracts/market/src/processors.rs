@@ -488,6 +488,14 @@ pub fn process_repay<'a>(
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
     obligation.accrue_interest(e)?;
 
+    if let Some(seed) = &obligation_key.seed
+        && seed.to_array() == BORROW_PROHIBITING_SEED
+    {
+        events::repaying_in_a_borrow_prohibiting_obligation(e, obligation_key);
+
+        return Err(MCError::InternalError);
+    }
+
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_repay_enabled()?;
 

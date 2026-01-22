@@ -13,6 +13,9 @@ enum DataKey {
     DiffBps,
 }
 
+// TODO: Start tracking oracle prices in 'proxy_swap'
+// make_oracle_prices_different(&e, &oracle_client);
+
 #[contract]
 struct ProxySwapMockContract;
 
