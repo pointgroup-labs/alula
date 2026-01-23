@@ -6,17 +6,22 @@ const {
   color = '#006CE4',
   isProgress = false,
   limit = 0,
+  symbol,
 }
   = defineProps<{
-    color?: string
-    cap?: number
-    limit?: number
     progress: number | string
     isProgress?: boolean
     detailsColor?: string
+    color?: string
+    cap?: number
+    limit?: number
+    symbol?: string
   }>()
 
 const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '-')
+const poolLimitText = computed(() => {
+  return limit ? `Pool limit is ${formatPrice(limit)} ${symbol}` : 'Pool limit not set'
+})
 </script>
 
 <template>
@@ -47,6 +52,10 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '-')
       </div>
       <div class="market-limit">
         Limit :   {{ limitData }}
+        <info-tooltip
+          :text="poolLimitText"
+          :size="12"
+        />
       </div>
     </div>
   </div>
@@ -56,12 +65,14 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '-')
 .market-progress__wrapper {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: $spacing-8;
 }
 .market-progress {
   height: 60px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: $spacing-12;
 
   @media (max-width: $breakpoint-xs) {
@@ -75,15 +86,6 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '-')
     font-style: normal;
     font-weight: 500;
     line-height: 12px;
-  }
-
-  &:not(.j-circular-progress) {
-    & {
-      justify-content: flex-end;
-    }
-    .market-progress__info {
-      align-items: flex-end;
-    }
   }
 
   &__info {
@@ -132,6 +134,13 @@ const limitData = computed(() => limit > 0 ? shortenNumber(limit) : '-')
 
     .market-cap {
       color: var(--color, $dark);
+      display: flex;
+      align-items: center;
+    }
+    .market-limit {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
   }
 }

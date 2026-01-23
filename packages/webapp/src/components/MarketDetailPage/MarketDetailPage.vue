@@ -1,6 +1,9 @@
 <script lang="ts" setup>
 const route = useRoute()
 
+const marketAddress = route.params?.market as string
+const poolAddress = route.params?.pool as string
+
 const marketsStore = useMarketsStore()
 const loading = computed(() => marketsStore.state.loading)
 
@@ -12,8 +15,16 @@ const {
   dialogBorrow,
 } = useMarketTable()
 
-const marketAddress = route.params?.market as string
-const poolAddress = route.params?.pool as string
+const marketTabs = [{
+  label: 'Market Overview',
+  value: 'overview',
+},
+{
+  label: 'Info & Risk',
+  value: 'info',
+}]
+
+const activeTab = ref(marketTabs[0])
 
 async function dialogHandler(marketName: string, poolAddress: string, action: 'supply' | 'borrow') {
   selectedMarketName.value = marketName
@@ -32,12 +43,15 @@ watch(() => marketsStore.state.markets, (storeMarkets) => {
   selectedMarketName.value = market?.[0]
   selectedPoolAddress.value = pool?.pool.pool_address
 }, { immediate: true })
+
+provide('selectedPool', selectedPool)
+provide('selectedMarketDetails', selectedPool)
 </script>
 
 <template>
   <main>
     <div class="market-detail-page container">
-      <market-detail-top :pool-data="selectedPool" />
+      <market-detail-top />
 
       <j-loading-spinner
         v-if="loading"
@@ -47,10 +61,21 @@ watch(() => marketsStore.state.markets, (storeMarkets) => {
       </j-loading-spinner>
 
       <template v-else-if="selectedPool && !loading">
-        <market-detail-actions
-          :pool-data="selectedPool"
-          @dialog-handler="dialogHandler"
-        />
+        <div class="market-detail-header">
+          <j-line-tab
+            v-model="activeTab"
+            :tabs="marketTabs"
+          />
+          <market-detail-actions @dialog-handler="dialogHandler" />
+        </div>
+
+        <market-overview v-if="activeTab?.value === 'overview'" />
+        <div
+          v-else
+          class="market-info"
+        >
+          info
+        </div>
       </template>
 
       <div
@@ -61,13 +86,18 @@ watch(() => marketsStore.state.markets, (storeMarkets) => {
       </div>
 
       <supply-dialog
-        v-model="dialogSupply"
+        v-model="dialogBorrow"
         :data="selectedPool"
       />
 
       <borrow-dialog
         v-model="dialogBorrow"
         :data="selectedPool"
+      />
+
+      <market-info-dialog
+        v-if="dialogSupply"
+        v-model="dialogSupply"
       />
     </div>
   </main>
@@ -78,6 +108,13 @@ watch(() => marketsStore.state.markets, (storeMarkets) => {
   display: flex;
   flex-direction: column;
   gap: $spacing-32;
+
+  .market-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid $neutral-5;
+  }
 
   .no-data {
     padding: $spacing-32;

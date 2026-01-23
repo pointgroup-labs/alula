@@ -2,14 +2,10 @@
 import type { MarketTableItem } from '~/types/table'
 import { capitalize } from 'vue'
 
-const {
-  poolData,
-} = defineProps<{
-  poolData?: MarketTableItem
-}>()
+const poolData = inject<Ref<MarketTableItem>>('selectedPool')
 
-const asset = computed(() => poolData?.asset)
-const price = computed(() => poolData?.price ?? 0)
+const asset = computed(() => poolData?.value?.asset)
+const price = computed(() => poolData?.value?.price ?? 0)
 </script>
 
 <template>

@@ -1,15 +1,11 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 
-const props = defineProps<{
-  poolData?: MarketTableItem
-}>()
-
 const emits = defineEmits(['dialogHandler'])
 
 const marketActions = useMarketActions()
 
-const poolData = toRef(props, 'poolData')
+const poolData = inject<Ref<MarketTableItem>>('selectedPool')
 
 const {
   availableToBorrow,
@@ -24,8 +20,8 @@ const {
 } = useSupplyDialog(poolData, false)
 
 async function supplyDialogHandler(action: 'supply' | 'borrow') {
-  const marketName = poolData.value?.market ?? ''
-  const poolAddress = poolData.value?.pool_address ?? ''
+  const marketName = poolData?.value?.market ?? ''
+  const poolAddress = poolData?.value?.pool_address ?? ''
   emits('dialogHandler', marketName, poolAddress, action)
 }
 </script>
@@ -42,12 +38,11 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
           :class="{ 'action-stats__value--danger': !isCanSupply }"
         >
           {{ formatPrice(balance, 2, 5) }} {{ poolData?.asset.symbol }}
-          <j-tooltip v-if="!isCanSupply">
-            <i-app-info-circle />
-            <template #content>
-              {{ supplyAttentionText }}
-            </template>
-          </j-tooltip>
+          <info-tooltip
+            v-if="!isCanSupply"
+            :text="supplyAttentionText"
+            icon-color="#fb4747"
+          />
         </div>
       </div>
 
@@ -74,12 +69,11 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
           :class="{ 'action-stats__value--danger': !isCanBorrow }"
         >
           {{ formatPrice(availableToBorrow, 2, 5) }} {{ poolData?.asset.symbol }}
-          <j-tooltip v-if="!isCanBorrow">
-            <i-app-info-circle />
-            <template #content>
-              {{ attentionText }}
-            </template>
-          </j-tooltip>
+          <info-tooltip
+            v-if="!isCanBorrow"
+            :text="attentionText"
+            icon-color="#fb4747"
+          />
         </div>
       </div>
 
@@ -100,9 +94,10 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
 
 <style lang="scss">
 .market-detail-actions {
-  margin-left: auto;
   display: flex;
+  justify-content: flex-end;
   gap: $spacing-32;
+  padding-bottom: $spacing-12;
 
   .action-wrapper {
     position: relative;
