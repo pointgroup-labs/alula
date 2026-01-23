@@ -268,7 +268,6 @@ export default defineNuxtConfig({
   },
 
   app: {
-    // @ts-expect-error...
     trailingSlash: 'remove',
 
     // remove prefetch from all nuxt-link
