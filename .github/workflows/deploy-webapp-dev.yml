@@ -50,7 +50,7 @@ jobs:
           NODE_OPTIONS: --max_old_space_size=4096
         run: |
           pnpm run build:staging:ssg
-          cp dist/index.html dist/404.html && touch dist/.nojekyll
+          touch dist/.nojekyll
         working-directory: ${{ env.WORKDIR }}
 
       - name: Setup Pages
