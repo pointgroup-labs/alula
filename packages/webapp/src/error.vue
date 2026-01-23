@@ -8,8 +8,6 @@ const is404 = computed(() =>
   || String(props.error.statusMessage).includes('Page Not Found'),
 )
 
-const goBack = () => clearError({ redirect: '/' })
-
 onMounted(() => {
   if (import.meta.client) {
     nextTick(() => {
@@ -37,14 +35,15 @@ onMounted(() => {
         </p>
       </template>
 
-      <j-btn
-        variant="secondary"
-        size="md"
-        class="home-page-btn"
-        @click="goBack"
-      >
-        Home Page
-      </j-btn>
+      <nuxt-link to="/">
+        <j-btn
+          variant="secondary"
+          size="md"
+          class="home-page-btn"
+        >
+          Home Page
+        </j-btn>
+      </nuxt-link>
     </div>
   </div>
 </template>
