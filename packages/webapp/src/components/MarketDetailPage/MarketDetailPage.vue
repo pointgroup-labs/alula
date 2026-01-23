@@ -86,7 +86,7 @@ provide('selectedMarketDetails', selectedPool)
       </div>
 
       <supply-dialog
-        v-model="dialogBorrow"
+        v-model="dialogSupply"
         :data="selectedPool"
       />
 
@@ -95,10 +95,10 @@ provide('selectedMarketDetails', selectedPool)
         :data="selectedPool"
       />
 
-      <market-info-dialog
+      <!-- <market-info-dialog
         v-if="dialogSupply"
         v-model="dialogSupply"
-      />
+      /> -->
     </div>
   </main>
 </template>
