@@ -212,6 +212,7 @@ export default defineNuxtConfig({
       clientsClaim: true,
       globPatterns: ['**/*.{js,css,webp,png,svg,gif,ico,html,json,txt}'],
       maximumFileSizeToCacheInBytes: 5_000_000,
+      navigateFallback: null,
       // runtimeCaching: [
       //   {
       //     urlPattern: /^https:\/\/www\.googletagmanager\.com\/gtm\.js/,
