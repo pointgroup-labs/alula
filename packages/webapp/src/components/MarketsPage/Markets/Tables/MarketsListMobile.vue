@@ -81,10 +81,10 @@ function onRowClicked(item: MarketTableItem) {
           @click="onRowClicked(item)"
         >
           <div class="info-wrapper__title text-center">
-            Info
+            Details
           </div>
-          <div class="info-wrapper__value">
-            <i-app-info-circle :color="isDark ? '#fff' : '#111'" />
+          <div class="info-wrapper__value text-center">
+            <i-app-export-icon :color="isDark ? '#fff' : '#111'" />
           </div>
         </div>
       </div>
