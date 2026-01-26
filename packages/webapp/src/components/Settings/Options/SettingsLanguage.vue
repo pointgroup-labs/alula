@@ -120,7 +120,7 @@ function handleLanguage(lang: string) {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .setting-item.language {
     .language-selected-lang {
       color: $neutral-12;

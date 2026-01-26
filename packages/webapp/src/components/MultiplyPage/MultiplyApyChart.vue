@@ -321,7 +321,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .loop-multiply__vault-title {
     color: #fff;
   }

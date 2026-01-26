@@ -91,7 +91,4 @@ function close() {
     }
   }
 }
-
-body.body--dark {
-}
 </style>

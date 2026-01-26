@@ -95,7 +95,7 @@ function normalizeAmount(price: number) {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .market-size {
     .total-card__info {
       color: $neutral-5;

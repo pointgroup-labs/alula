@@ -50,7 +50,7 @@
   }
 }
 
-body.body--dark {
+.theme-dark {
   .market-info-card {
     border-color: $neutral-18;
     box-shadow: inset 0px 0px 7px 0px $neutral-18;

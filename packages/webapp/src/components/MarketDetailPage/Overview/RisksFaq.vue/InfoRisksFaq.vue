@@ -162,64 +162,91 @@
   </div>
 </template>
 
-<style scoped>
+<style lang="scss">
 .info-risks-faq {
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  .risk-content {
+    padding: 16px 0;
+    line-height: 1.6;
+
+    p {
+      margin-bottom: 12px;
+      color: #333;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    strong {
+      color: #111;
+      font-weight: 600;
+    }
+
+    ul {
+      margin: 8px 0 16px 0;
+      padding-left: 20px;
+
+      li {
+        margin-bottom: 6px;
+        color: #555;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+  }
+
+  .warning {
+    background: #fef3cd;
+    border-left: 4px solid #ffc107;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .info {
+    background: #e7f3ff;
+    border-left: 4px solid #0066cc;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+  }
+
+  .warning strong,
+  .info strong {
+    color: inherit;
+  }
 }
 
-.risk-content {
-  padding: 16px 0;
-  line-height: 1.6;
-}
+.theme-dark {
+  .info-risks-faq {
+    p {
+      color: $neutral-7;
+    }
 
-.risk-content p {
-  margin-bottom: 12px;
-  color: #333;
-}
+    strong {
+      color: #fff;
+    }
 
-.risk-content p:last-child {
-  margin-bottom: 0;
-}
+    ul {
+      li {
+        color: $neutral-7;
+      }
+    }
 
-.risk-content strong {
-  color: #111;
-  font-weight: 600;
-}
+    .info,
+    .warning {
+      color: $dark;
 
-.risk-content ul {
-  margin: 8px 0 16px 0;
-  padding-left: 20px;
-}
-
-.risk-content li {
-  margin-bottom: 6px;
-  color: #555;
-}
-
-.risk-content li:last-child {
-  margin-bottom: 0;
-}
-
-.warning {
-  background: #fef3cd;
-  border-left: 4px solid #ffc107;
-  padding: 12px 16px;
-  border-radius: 4px;
-  margin: 16px 0;
-}
-
-.info {
-  background: #e7f3ff;
-  border-left: 4px solid #0066cc;
-  padding: 12px 16px;
-  border-radius: 4px;
-  margin: 16px 0;
-}
-
-.warning strong,
-.info strong {
-  color: inherit;
+      strong {
+        color: inherit;
+      }
+    }
+  }
 }
 </style>

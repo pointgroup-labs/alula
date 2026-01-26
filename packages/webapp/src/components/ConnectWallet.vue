@@ -93,7 +93,7 @@ function copy() {
   }
 }
 
-body.body--dark {
+.theme-dark{
   .wallet-popover__item {
     color: #fff;
     &:hover {

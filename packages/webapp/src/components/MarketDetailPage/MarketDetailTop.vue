@@ -98,4 +98,14 @@ const price = computed(() => poolData?.value?.price ?? 0)
     }
   }
 }
+
+.theme-dark {
+  .market-details-top {
+    .market-pills {
+      .market-pill {
+        border-color: $neutral-18;
+      }
+    }
+  }
+}
 </style>

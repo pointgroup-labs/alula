@@ -41,7 +41,7 @@ const isValidAccount = computed(() => store.isValidAccount && !!walletStore.publ
   }
 }
 
-body.body--dark {
+.theme-dark {
   .not-valid-account-warning {
     background-color: #ffbb0042;
 

@@ -224,7 +224,7 @@ $multiplier-color: #c7c7c7;
   }
 }
 
-body.body--dark {
+.theme-dark {
   .loan-ltv-value__multiplier__value {
     background-color: $success;
     color: $dark;

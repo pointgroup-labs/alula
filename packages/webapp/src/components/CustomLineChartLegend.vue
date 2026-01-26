@@ -125,7 +125,7 @@ function getLabelWidth(idx: number) {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .chart-legend__label {
     background-color: $dark;
     color: $neutral-3;

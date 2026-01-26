@@ -2,9 +2,9 @@ import { useToggle } from '@vueuse/core'
 import Cookies from 'js-cookie'
 
 export const isDark = useDark({
-  selector: 'body',
-  valueDark: 'body--dark',
-  valueLight: 'body--light',
+  selector: 'html',
+  valueDark: 'theme-dark',
+  valueLight: 'theme-light',
   disableTransition: false,
 })
 export const toggleDark = useToggle(isDark)

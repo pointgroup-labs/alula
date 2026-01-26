@@ -214,7 +214,7 @@ $toast-variants: (
   }
 }
 
-body.body--dark {
+.theme-dark {
   .j-toast:not(.toast-alert) {
     &.toast--info {
       background-color: $neutral-18;

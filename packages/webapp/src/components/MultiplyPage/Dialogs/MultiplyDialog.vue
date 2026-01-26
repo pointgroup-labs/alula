@@ -467,7 +467,7 @@ watchDebounced([
   }
 }
 
-body.body--dark {
+.theme-dark {
   .multiply-dialog {
     .j-input__prepend .popover {
       .popover-borrow-asset {

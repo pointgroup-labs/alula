@@ -68,7 +68,7 @@ const activeFilter = computed({
   }
 }
 
-body.body--dark {
+.theme-dark {
   .chart-date-filters {
     background-color: $neutral-18;
 

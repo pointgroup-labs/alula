@@ -49,7 +49,7 @@ const {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .warning-block {
     background-color: $neutral-18;
     color: $neutral-12;

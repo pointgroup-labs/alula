@@ -39,4 +39,10 @@ const {
     height: 20px;
   }
 }
+
+.theme-dark .back-btn {
+  background-color: $neutral-16;
+  border-color: $neutral-16;
+  color: #c4c5c7;
+}
 </style>

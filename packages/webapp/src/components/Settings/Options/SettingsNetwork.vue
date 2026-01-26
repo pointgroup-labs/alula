@@ -138,7 +138,7 @@ watch(() => rpcStore.network, (val) => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .setting-item.network {
     .select-network__item {
       color: #fff;

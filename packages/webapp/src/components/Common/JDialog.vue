@@ -89,7 +89,7 @@ const dialog = defineModel({
   }
 }
 
-// body.body--dark {
+// .theme-dark{
 //   .j-dialog {
 //     .modal-body {
 //       color: #fff;

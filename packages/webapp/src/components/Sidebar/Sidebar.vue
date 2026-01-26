@@ -141,7 +141,7 @@ onMounted(() => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .sidebar-wrapper {
     background-color: $dark;
     color: #fff;

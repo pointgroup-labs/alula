@@ -367,7 +367,7 @@ onMounted(() => {
   }
 }
 
-// body.body--dark {
+// .theme-dark {
 //   .dropdown-menu-options {
 //     background-color: $dark-bg;
 //     border: 1px solid $neutral-16;

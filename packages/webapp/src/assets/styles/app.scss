@@ -127,9 +127,14 @@ body:has(stellar-wallets-modal) {
   }
 }
 
-body.body--dark {
+.theme-dark {
   background-color: $dark;
   color: #fff;
+
+  body {
+    background-color: $dark;
+    color: #fff;
+  }
 
   .card {
     background-color: $neutral-18;

@@ -102,7 +102,7 @@ onMounted(() => {
   cursor: pointer;
 }
 
-body.body--dark {
+.theme-dark {
   .popover {
     background-color: $dark;
     border: 1px solid $neutral-18;

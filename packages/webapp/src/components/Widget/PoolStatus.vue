@@ -78,7 +78,7 @@ watch(() => pool, () => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .pool-status {
     .j-pill-label {
       background-color: #000;

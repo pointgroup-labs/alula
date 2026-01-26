@@ -292,7 +292,7 @@ watch(dialog, async (v) => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .supply-dialog {
     .j-input .j-input__label {
       color: $neutral-12;

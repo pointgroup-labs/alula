@@ -161,7 +161,7 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .market-detail-actions {
     .action-stats__value:not(.action-stats__value--danger) {
       color: #fff;

@@ -271,7 +271,7 @@ watch(selectedPool, (p) => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .account-card {
     &__title {
       color: #fff;

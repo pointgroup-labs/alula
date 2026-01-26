@@ -46,7 +46,7 @@ provide('isSidebar', isSettingsSidebar)
   }
 }
 
-body.body--dark {
+.theme-dark {
   .settings-btn {
     background-color: $neutral-16 !important;
     border-color: $neutral-16 !important;

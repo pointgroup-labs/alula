@@ -81,7 +81,7 @@ function select(label: ButtonOpt) {
   }
 }
 
-// body.body--dark {
+// .theme-dark {
 //   .j-btn-group {
 //     background-color: $dark;
 

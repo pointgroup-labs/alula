@@ -159,7 +159,7 @@ $tooltip-dark-border-color: $neutral-18;
   }
 }
 
-body.body--dark {
+.theme-dark {
   .tooltip-content {
     background-color: $tooltip-dark-bg-color;
     border-color: $tooltip-dark-border-color;

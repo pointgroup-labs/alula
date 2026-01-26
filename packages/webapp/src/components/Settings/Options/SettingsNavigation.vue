@@ -67,7 +67,7 @@ function isActiveRoute(tab: Record<string, string>) {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .setting-item.navigation {
     .navigation-item {
       color: $neutral-12;

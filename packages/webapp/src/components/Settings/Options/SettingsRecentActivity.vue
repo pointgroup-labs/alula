@@ -224,7 +224,7 @@ function formatDate(iso: string) {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .tx-history-list__action svg {
     color: #fff;
   }

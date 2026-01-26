@@ -187,7 +187,7 @@ watch(() => balance, () => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .input-widget {
     .input-group {
       background-color: $dark;

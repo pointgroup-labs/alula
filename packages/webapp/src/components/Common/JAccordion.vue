@@ -113,7 +113,7 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
   }
 }
 
-body.body--dark {
+.theme-dark{
   .j-accordion {
     border-color: #fff;
 

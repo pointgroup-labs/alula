@@ -95,7 +95,7 @@ const searchAsset = ref()
   }
 }
 
-body.body--dark {
+.theme-dark {
   .markets {
     .table-wrapper {
       .market-info-pill {

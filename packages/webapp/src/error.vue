@@ -66,7 +66,7 @@ onMounted(() => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .page-404 {
     color: $neutral-16;
     .home-page-btn {

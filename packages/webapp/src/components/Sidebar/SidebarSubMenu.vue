@@ -106,7 +106,7 @@ function close() {
   transform: translateX(var(--sidebar-translate));
 }
 
-body.body--dark {
+.theme-dark {
   .sidebar-sub-menu {
     background-color: $dark;
 

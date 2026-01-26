@@ -119,7 +119,7 @@ header {
   }
 }
 
-body.body--dark {
+.theme-dark {
   header {
     background-color: $dark;
 

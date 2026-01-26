@@ -226,7 +226,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   }
 }
 
-body.body--dark {
+.theme-dark {
   .market-history-chart {
     .history-chart {
       &__header {
