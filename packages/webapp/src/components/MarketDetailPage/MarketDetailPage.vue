@@ -94,31 +94,6 @@ provide('selectedMarketDetails', selectedPool)
         v-model="dialogBorrow"
         :data="selectedPool"
       />
-
-      <!-- <market-info-dialog
-        v-if="dialogSupply"
-        v-model="dialogSupply"
-      /> -->
     </div>
   </main>
 </template>
-
-<style lang="scss">
-.market-detail-page {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-32;
-
-  .market-detail-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    border-bottom: 1px solid $neutral-5;
-  }
-
-  .no-data {
-    padding: $spacing-32;
-    margin: 0 auto;
-  }
-}
-</style>

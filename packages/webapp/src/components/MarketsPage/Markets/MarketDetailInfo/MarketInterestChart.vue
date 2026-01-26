@@ -222,15 +222,15 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
       :chart-data="chartData"
       :chart-options="chartOptions"
       :max-ticks-limit="6"
-      chart-height="115px"
+      chart-height="260px"
     />
   </div>
 </template>
 
 <style lang="scss">
 .market-interest-chart {
-  height: 115px;
-  width: 424px;
+  height: 260px;
+  width: 100%;
 
   @media (max-width: $breakpoint-xs) {
     width: 100%;

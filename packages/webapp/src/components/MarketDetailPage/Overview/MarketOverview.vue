@@ -5,21 +5,9 @@
     <div class="overview-wrapper">
       <general-stats />
       <supply-overview />
+      <borrow-overview />
+      <info-overview />
     </div>
 
   </div>
 </template>
-
-<style lang="scss">
-.market-overview {
-  display: flex;
-  gap: $spacing-16;
-
-  .overview-wrapper {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-32;
-  }
-}
-</style>

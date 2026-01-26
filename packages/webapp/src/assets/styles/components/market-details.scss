@@ -1,0 +1,157 @@
+.market-detail-page {
+  display: flex !important;
+  flex-direction: column;
+  gap: $spacing-32;
+
+  .stat-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px #0001;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .market-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid $neutral-5;
+  }
+
+  .market-overview {
+    display: flex;
+    gap: $spacing-16;
+
+    .overview-wrapper {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-64;
+    }
+
+    section {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-32;
+
+      &:last-child {
+        padding-bottom: 240px;
+      }
+    }
+  }
+
+  .market-stats-cards {
+    display: flex;
+    gap: 24px;
+
+    @media (max-width: 900px) {
+      flex-direction: column;
+    }
+
+    .market-progress__wrapper {
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .stat-card {
+      min-width: 330px;
+      width: 330px;
+    }
+
+    .stat-title {
+      font-size: 16px;
+      color: #888;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      svg {
+        flex-shrink: 0;
+      }
+    }
+
+    .stat-sub {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+
+      &:not(:last-child) {
+        margin-bottom: 12px;
+      }
+
+      &__title {
+        font-size: 14px;
+        color: #666;
+        line-height: 20px;
+      }
+
+      &__value {
+        font-size: 20px;
+        line-height: 20px;
+        font-weight: 700;
+        color: #000;
+
+        &.positive {
+          color: #1dbf73;
+        }
+
+        &.warning {
+          color: #ff9800;
+        }
+      }
+    }
+
+    &.penalty {
+      .info-icon {
+        color: $warning;
+      }
+    }
+
+    .market-progress__wrapper {
+      margin-top: auto;
+    }
+
+    .market-progress {
+      width: 100%;
+    }
+  }
+
+  .cards-list {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $spacing-12;
+
+    .market-info-card {
+      flex: 1;
+    }
+  }
+
+  .market-model-card {
+    width: 100%;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    span {
+      width: 19px;
+      height: 6px;
+      background-color: var(--drop-color, 'gray');
+      border-radius: 4px;
+    }
+  }
+
+  .market-history-chart {
+    width: 100%;
+  }
+
+  .no-data {
+    padding: $spacing-32;
+    margin: 0 auto;
+  }
+}

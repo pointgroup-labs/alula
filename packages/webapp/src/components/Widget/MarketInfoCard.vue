@@ -16,13 +16,22 @@
   justify-content: center;
   align-items: center;
   padding: 16px 24px;
-  border: 1px solid #212c42;
+  border: 1px solid #212c421a;
+  box-shadow: inset 0px 0px 7px 0px #212c421a;
   border-radius: 12px;
   font-weight: 500;
+  height: fit-content;
 
   .info-label {
     font-size: 22px;
     line-height: 32px;
+
+    &.positive {
+      color: $success;
+    }
+    &.warning {
+      color: $warning;
+    }
   }
 
   .info-value {
@@ -31,6 +40,13 @@
     display: flex;
     align-items: center;
     gap: 4px;
+
+    &.positive {
+      color: $success;
+    }
+    &.warning {
+      color: $warning;
+    }
   }
 }
 </style>

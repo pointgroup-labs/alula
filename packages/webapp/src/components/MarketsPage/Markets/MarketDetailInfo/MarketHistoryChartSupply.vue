@@ -53,9 +53,9 @@ watch([
   chartData.value.datasets = [
     {
       type: 'line',
-      borderColor: '#FFD101',
-      backgroundColor: '#FFD101',
-      label: 'Borrow APR',
+      borderColor: isDark.value ? '#006CE4' : '#4dbef1',
+      backgroundColor: isDark.value ? '#006CE4' : '#4dbef1',
+      label: 'Supply APR',
       data: filteredData?.map((item) => {
         maxY.value = Math.max(maxY.value, item.value)
         return item.value
@@ -64,7 +64,7 @@ watch([
   ]
 }, { immediate: true })
 
-const chartOptions = computed<ChartOptions<'line'>>(() => {
+const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -138,7 +138,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   <div class="market-history-chart">
     <div class="history-chart__header">
       <div class="history-chart__header__title">
-        Historical Borrow APR
+        Historical Supply APR
       </div>
       <div class="history-chart__header__badge">
         AVG: 0.14%
@@ -156,7 +156,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         :chart-data="chartData"
         :chart-options="chartOptions"
         :max-ticks-limit="6"
-        chart-height="196px"
+        chart-height="260px"
       />
     </div>
   </div>
@@ -189,51 +189,20 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         padding: $spacing-4 $spacing-12;
         border-radius: $spacing-4;
         background-color: $neutral-2;
-
-        @media (max-width: $breakpoint-xs) {
-          display: none;
-        }
-      }
-
-      &__filters {
-        width: fit-content;
-        margin-left: auto;
-        border-radius: $spacing-4;
-
-        .btn {
-          width: fit-content;
-          padding: $spacing-4 $spacing-8;
-          border-radius: $spacing-4;
-
-          .btn-content {
-            font-size: 11px;
-            font-style: normal;
-            font-weight: 500;
-            line-height: 12px;
-          }
-        }
-        .btn-primary {
-          background-color: $neutral-3;
-          color: $dark;
-          border-color: transparent;
-        }
       }
     }
 
     &__chart {
-      height: 196px;
+      height: 260px;
     }
   }
 }
 
 body.body--dark {
   .market-history-chart {
-    .history-chart {
-      &__header {
-        &__title {
-          color: $neutral-9;
-        }
-      }
+    .history-chart__header__badge {
+      background: $neutral-18;
+      color: $neutral-9;
     }
   }
 }

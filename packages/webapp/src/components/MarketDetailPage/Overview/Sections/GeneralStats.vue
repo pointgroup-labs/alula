@@ -11,7 +11,6 @@ const {
 <template>
   <section
     id="stats"
-    class="market-general-stats"
   >
     <div class="stat-cards">
       <!-- Supplied -->

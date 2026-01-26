@@ -3,7 +3,7 @@ const sections = [
   { id: 'stats', label: 'General Stats' },
   { id: 'supply', label: 'Supply Overview' },
   { id: 'borrow', label: 'Borrow Overview' },
-  { id: 'utilization', label: 'Utilization Ratio' },
+  { id: 'info', label: 'Market Info' },
 ]
 
 const scrollTo = (id: string) => {
@@ -13,7 +13,7 @@ const scrollTo = (id: string) => {
   const y
     = el.getBoundingClientRect().top
       + window.pageYOffset
-      - 20
+      - 40
 
   window.scrollTo({
     top: y,
@@ -23,7 +23,7 @@ const scrollTo = (id: string) => {
 
 const activeSection = ref<string>('stats')
 
-const headerOffset = 220
+const headerOffset = 120
 
 const onScroll = () => {
   const y = window.scrollY + headerOffset + 1

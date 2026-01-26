@@ -18,6 +18,7 @@ const {
     <j-btn
       size="sm"
       class="back-btn"
+      variant="secondary"
     >
       <i-app-line-arrow-right
         v-if="withIcon"

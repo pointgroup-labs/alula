@@ -30,7 +30,7 @@ const poolLimitText = computed(() => {
       <j-circular-progress
         v-if="isProgress"
         :progress="Number(progress)"
-        :width="60"
+        :width="70"
         :stroke-width="25"
         :stroke-bg="isDark ? '#262729' : '#EAECF0'"
         :stroke-color="color"
@@ -69,11 +69,11 @@ const poolLimitText = computed(() => {
   gap: $spacing-8;
 }
 .market-progress {
-  height: 60px;
+  height: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: $spacing-12;
+  gap: $spacing-24;
 
   @media (max-width: $breakpoint-xs) {
     height: auto;
@@ -99,7 +99,7 @@ const poolLimitText = computed(() => {
     }
 
     &__title {
-      font-size: 12px;
+      font-size: 14px;
       font-style: normal;
       font-weight: 700;
       line-height: 16px;
@@ -109,25 +109,25 @@ const poolLimitText = computed(() => {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      font-size: 11px;
+      font-size: 13px;
       font-style: normal;
       font-weight: 500;
-      line-height: 12px;
+      line-height: 14px;
 
       span {
         color: $neutral-9;
         font-size: 10px;
         font-weight: 500;
-        line-height: 12px;
+        line-height: 14px;
       }
     }
   }
 
   &__details {
-    font-size: 11px;
+    font-size: 13px;
     font-style: normal;
     font-weight: 500;
-    line-height: 12px;
+    line-height: 14px;
     display: flex;
     gap: $spacing-8;
     justify-content: space-between;

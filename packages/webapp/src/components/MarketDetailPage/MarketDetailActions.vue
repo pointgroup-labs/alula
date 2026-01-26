@@ -148,9 +148,7 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
         color: $danger;
       }
 
-      [class*='tooltip'] {
-        display: flex;
-        align-items: center;
+      .info-tooltip {
         margin-left: 8px;
       }
     }
