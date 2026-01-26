@@ -13,8 +13,12 @@ import { ALULA_URL } from '~/config'
       </div>
 
       <nav>
-        <a href="#">Terms of Use</a>
-        <a href="#">Privacy Policy</a>
+        <nuxt-link to="/terms">
+          Terms of Use
+        </nuxt-link>
+        <nuxt-link to="/policy">
+          Privacy Policy
+        </nuxt-link>
       </nav>
     </div>
   </footer>

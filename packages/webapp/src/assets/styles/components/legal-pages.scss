@@ -1,0 +1,136 @@
+// Legal Pages Shared Styles (Terms, Privacy Policy, etc.)
+.legal-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  line-height: 1.6;
+  color: #333;
+
+  @media (max-width: $breakpoint-xs) {
+    padding: 20px 16px;
+  }
+
+  .legal-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #111;
+
+    @media (max-width: $breakpoint-xs) {
+      font-size: 2rem;
+    }
+  }
+
+  .last-updated {
+    color: #666;
+    font-style: italic;
+    margin-bottom: 40px;
+    border-bottom: 1px solid $neutral-3;
+    padding-bottom: 20px;
+  }
+
+  .legal-section {
+    margin-bottom: 32px;
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #222;
+      border-left: 4px solid $primary;
+      padding-left: 16px;
+
+      @media (max-width: $breakpoint-xs) {
+        font-size: 1.3rem;
+      }
+    }
+
+    p {
+      margin-bottom: 16px;
+
+      @media (max-width: $breakpoint-xs) {
+        text-align: justify;
+      }
+    }
+
+    ul {
+      margin: 16px 0;
+      padding-left: 24px;
+
+      li {
+        margin-bottom: 8px;
+      }
+    }
+
+    strong {
+      font-weight: 600;
+      color: #111;
+    }
+
+    &.acknowledgment {
+      background: #f8f9fa;
+      border: 2px solid $primary;
+      border-radius: 8px;
+      padding: 24px;
+      margin-top: 40px;
+
+      .section-title {
+        border-left: none;
+        padding-left: 0;
+        color: $primary;
+      }
+    }
+
+    &.highlight {
+      background: #f0f8ff;
+      border-left: 4px solid $primary;
+      padding: 20px;
+      margin: 24px 0;
+      border-radius: 4px;
+    }
+
+    &.warning {
+      background: #fffbf0;
+      border-left: 4px solid #ffa500;
+      padding: 20px;
+      margin: 24px 0;
+      border-radius: 4px;
+
+      .section-title {
+        border-left: none;
+        padding-left: 0;
+        color: #ffa500;
+      }
+    }
+  }
+}
+
+.theme-dark {
+  .legal-content {
+    color: #fff;
+
+    .legal-title {
+      color: #fff;
+    }
+
+    .last-updated {
+      border-color: $neutral-6;
+    }
+
+    .legal-section {
+      &.highlight,
+      &.acknowledgment,
+      &.warning {
+        background-color: $neutral-18;
+      }
+
+      .section-title {
+        color: $neutral-3;
+      }
+
+      strong {
+        color: $neutral-12;
+      }
+    }
+  }
+}
