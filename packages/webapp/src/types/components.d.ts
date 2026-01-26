@@ -50,6 +50,8 @@ declare module 'vue' {
     IAppWarningColor: typeof import('~icons/app/warning-color')['default']
     InfoCard: typeof import('../components/Widget/MarketInfoCard.vue')['default']
     InfoOverview: typeof import('./../components/MarketDetailPage/Overview/Sections/InfoOverview.vue')['default']
+    InfoRisks: typeof import('../components/MarketDetailPage/Overview/RisksFaq.vue/InfoRisksFaq.vue')['default']
+    InfoRisksFaq: typeof import('./../components/MarketDetailPage/Overview/RisksFaq.vue/InfoRisksFaq.vue')['default']
     InfoTooltip: typeof import('./../components/Widget/InfoTooltip.vue')['default']
     InputWidget: typeof import('./../components/Widget/InputWidget.vue')['default']
     JAccordion: typeof import('./../components/Common/JAccordion.vue')['default']

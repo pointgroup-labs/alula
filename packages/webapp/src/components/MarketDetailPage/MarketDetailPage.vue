@@ -70,12 +70,7 @@ provide('selectedMarketDetails', selectedPool)
         </div>
 
         <market-overview v-if="activeTab?.value === 'overview'" />
-        <div
-          v-else
-          class="market-info"
-        >
-          info
-        </div>
+        <info-risks-faq v-else />
       </template>
 
       <div

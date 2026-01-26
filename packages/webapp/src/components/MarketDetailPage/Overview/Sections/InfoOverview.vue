@@ -29,7 +29,6 @@ const detailCardsData = computed(() => {
     ? formatDateToDMY(new Date(Number(pool.value.last_accrual_timestamp) * 1000))
     : '-'
 
-    console.log(lastAccrual)
   const poolAddressShort = pool.value?.pool_address
     ? `${pool.value.pool_address.slice(0, 6)}...${pool.value.pool_address.slice(-4)}`
     : '-'

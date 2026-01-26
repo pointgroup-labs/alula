@@ -55,7 +55,7 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
 
   .accordion-header {
     margin: 0;
-    background: $neutral-5;
+    background: $neutral-3;
     border-radius: $radius-8;
 
     &:has(button[aria-expanded='true']) {
@@ -63,7 +63,7 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
     }
   }
   .accordion-body {
-    padding: $spacing-16 $spacing-16 0;
+    padding: $spacing-16;
     overflow: auto;
   }
 
