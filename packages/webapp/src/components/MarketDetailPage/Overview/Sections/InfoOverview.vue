@@ -141,30 +141,10 @@ const detailCardsData = computed(() => {
   </section>
 </template>
 
-<style scoped>
-.market-info-details {
-  width: 100%;
-}
-
-.info-row {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-}
-
-.info-row:last-child {
-  margin-bottom: 0;
-}
-
-.info-row .info-label {
-  color: #888;
-  font-weight: 500;
-}
-
-.info-row .info-value {
-  color: #333;
-  font-weight: 600;
+<style lang="scss" scoped>
+.cards-list {
+  @media (max-width: $breakpoint-xs) {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

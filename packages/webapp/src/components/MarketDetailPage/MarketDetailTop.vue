@@ -63,6 +63,10 @@ const price = computed(() => poolData?.value?.price ?? 0)
   align-items: center;
   gap: $spacing-16;
 
+  @media (max-width: $breakpoint-xs) {
+    flex-wrap: wrap;
+  }
+
   .asset-data {
     display: flex;
     align-items: center;
@@ -81,6 +85,10 @@ const price = computed(() => poolData?.value?.price ?? 0)
     align-items: center;
     gap: $spacing-8;
     margin-left: auto;
+
+    @media (max-width: $breakpoint-xs) {
+      margin: 0 auto;
+    }
 
     .market-pill {
       padding: $spacing-4 $spacing-12;

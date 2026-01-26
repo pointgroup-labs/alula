@@ -74,13 +74,18 @@ onBeforeUnmount(() => {
 
 <style lang="scss">
 .overview-navigation {
-  width: 240px;
+  min-width: 200px;
+  max-width: 240px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   height: fit-content;
   position: sticky;
   top: 20px;
+
+  @media (max-width: $breakpoint-sm) {
+    display: none;
+  }
 
   &__item {
     height: 46px;

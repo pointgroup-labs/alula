@@ -148,7 +148,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
         },
         font: { size: isMobile.value ? 8 : 12 },
       },
-      grid: { color: '#DFE0E2', drawBorder: false },
+      grid: { color: isDark.value ? '#2F2F2F' : '#DFE0E2', drawBorder: false },
       border: { display: false, dash: [2, 2] },
     },
   },

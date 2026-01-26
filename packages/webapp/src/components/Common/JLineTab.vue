@@ -33,6 +33,10 @@ watchEffect(() => {
   gap: $spacing-12;
   font-weight: 500;
 
+  @media (max-width: $breakpoint-sm) {
+    justify-content: center;
+  }
+
   .overview-tab {
     padding: 0 $spacing-6 $spacing-12;
     border-bottom: 2px solid transparent;

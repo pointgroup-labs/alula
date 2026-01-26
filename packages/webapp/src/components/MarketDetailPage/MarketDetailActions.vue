@@ -99,6 +99,12 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
   gap: $spacing-32;
   padding-bottom: $spacing-12;
 
+  @media (max-width: $breakpoint-xs) {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: $spacing-16;
+  }
+
   .action-wrapper {
     position: relative;
     display: flex;
@@ -150,6 +156,22 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
 
       .info-tooltip {
         margin-left: 8px;
+      }
+    }
+  }
+}
+
+body.body--dark {
+  .market-detail-actions {
+    .action-stats__value:not(.action-stats__value--danger) {
+      color: #fff;
+    }
+
+    .action-wrapper {
+      &:first-child {
+        &::after {
+          background-color: $neutral-18;
+        }
       }
     }
   }

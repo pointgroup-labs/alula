@@ -19,6 +19,12 @@
     justify-content: space-between;
     align-items: flex-end;
     border-bottom: 1px solid $neutral-5;
+
+    @media (max-width: $breakpoint-sm) {
+      align-items: normal;
+      flex-direction: column-reverse;
+      gap: $spacing-24;
+    }
   }
 
   .market-overview {
@@ -26,6 +32,7 @@
     gap: $spacing-16;
 
     .overview-wrapper {
+      min-width: 0;
       width: 100%;
       display: flex;
       flex-direction: column;
@@ -47,7 +54,7 @@
     display: flex;
     gap: 24px;
 
-    @media (max-width: 900px) {
+    @media (max-width: $breakpoint-sm) {
       flex-direction: column;
     }
 
@@ -59,6 +66,10 @@
     .stat-card {
       min-width: 330px;
       width: 330px;
+
+      @media (max-width: $breakpoint-sm) {
+        width: 100%;
+      }
     }
 
     .stat-title {
@@ -125,6 +136,11 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: $spacing-12;
+    overflow-x: auto;
+
+    @media (max-width: $breakpoint-xs) {
+      grid-template-columns: 1fr 1fr;
+    }
 
     .market-info-card {
       flex: 1;
@@ -146,6 +162,32 @@
     }
   }
 
+  .market-info-details {
+    width: 100%;
+  }
+
+  .info-row {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-label {
+      color: #888;
+      font-weight: 500;
+    }
+
+    .info-value {
+      color: #333;
+      font-weight: 600;
+    }
+  }
+
   .market-history-chart {
     width: 100%;
   }
@@ -153,5 +195,24 @@
   .no-data {
     padding: $spacing-32;
     margin: 0 auto;
+  }
+}
+
+body.body--dark {
+  .market-detail-page {
+    .market-detail-header {
+      border-color: $neutral-18;
+    }
+
+    .stat-card {
+      background-color: transparent;
+      border: 1px solid $neutral-18;
+    }
+
+    .info-row {
+      .info-value {
+        color: $neutral-9;
+      }
+    }
   }
 }

@@ -41,10 +41,10 @@ const poolLimitText = computed(() => {
       <slot />
     </div>
 
-    <div class="separator hide-xs" />
+    <div class="separator" />
 
     <div
-      class="market-progress__details hide-xs"
+      class="market-progress__details"
       :style="{ '--color': detailsColor }"
     >
       <div class="market-cap">
@@ -75,12 +75,6 @@ const poolLimitText = computed(() => {
   justify-content: center;
   gap: $spacing-24;
 
-  @media (max-width: $breakpoint-xs) {
-    height: auto;
-    flex-wrap: wrap;
-    justify-content: flex-start !important;
-  }
-
   .j-circular-progress {
     font-size: 10px;
     font-style: normal;
@@ -92,11 +86,6 @@ const poolLimitText = computed(() => {
     display: flex;
     flex-direction: column;
     gap: $spacing-8;
-
-    @media (max-width: $breakpoint-xs) {
-      width: calc(100% - 72px);
-      align-items: flex-start !important;
-    }
 
     &__title {
       font-size: 14px;
