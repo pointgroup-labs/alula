@@ -4,7 +4,7 @@ import type { MarketTableItem } from '~/types/table'
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
 
 const {
-  availableToBorrow,
+  poolBorrowLimit,
 } = useBorrowDialog(selectedPool, false)
 </script>
 
@@ -55,7 +55,7 @@ const {
       <j-tooltip>
         <market-info-card>
           <div class="info-label">
-            {{ shortenNumber(availableToBorrow ?? 0) }} {{ selectedPool?.asset?.symbol }}
+            {{ shortenNumber(poolBorrowLimit ?? 0) }} {{ selectedPool?.asset?.symbol }}
           </div>
           <div class="info-value">
             <img
@@ -67,7 +67,7 @@ const {
           </div>
         </market-info-card>
         <template #content>
-          {{ formatPrice(availableToBorrow ?? 0) }} {{ selectedPool?.asset?.symbol }}
+          {{ formatPrice(poolBorrowLimit ?? 0) }} {{ selectedPool?.asset?.symbol }}
         </template>
       </j-tooltip>
 

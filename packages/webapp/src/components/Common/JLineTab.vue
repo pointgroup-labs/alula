@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 const { tabs = [] } = defineProps<{
   tabs?: { label: string, value: string }[]
+  activeColor?: string
 }>()
 
 const activeTab = defineModel<{ label: string, value: string }>()
@@ -13,12 +14,13 @@ watchEffect(() => {
 </script>
 
 <template>
-  <div class="market-overview-tabs">
+  <div class="j-line-tabs">
     <div
       v-for="tab in tabs"
       :key="tab.label"
       class="overview-tab"
       :class="{ 'overview-tab--active': activeTab?.value === tab?.value }"
+      :style="{ '--active-tab-color': activeColor }"
       @click="activeTab = tab"
     >
       {{ tab.label }}
@@ -27,7 +29,7 @@ watchEffect(() => {
 </template>
 
 <style lang="scss">
-.market-overview-tabs {
+.j-line-tabs {
   display: flex;
   align-items: flex-end;
   gap: $spacing-12;
@@ -44,7 +46,7 @@ watchEffect(() => {
     cursor: pointer;
 
     &--active {
-      border-color: $primary;
+      border-color: var(--active-tab-color, $purple);
     }
   }
 }

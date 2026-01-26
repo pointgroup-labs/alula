@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
     border-radius: 12px;
 
     &.active {
-      background: #5c6cff;
+      background: $purple;
       color: white;
     }
   }
