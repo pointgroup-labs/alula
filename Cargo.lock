@@ -618,6 +618,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "farms_2"
+version = "0.0.1"
+dependencies = [
+ "farms_interface",
+ "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "farms_interface"
 version = "0.0.1"
 dependencies = [
