@@ -12,6 +12,10 @@ pub enum FCError {
     TokenIsAlreadyAReward = 13,
     InvalidRewardScheduleCurve = 14,
     RewardDoesNotExistOnFarm = 15,
-    DelegatedAuthorityIsNotSetForFarm = 16,
+    DelegatedFarm = 16,
+    NotDelegatedFarm = 19,
     FarmIsFrozen = 17,
+    UserDoesNotExist = 18,
+    InvalidTreasuryFeeBps = 19,
+    MaxAllowedFarmsReached = 20,
 }

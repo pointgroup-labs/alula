@@ -53,6 +53,7 @@ pub fn fixed_mul_ceil(x: i128, y: i128, denominator: i128) -> Result<i128, Farms
 /// * `Result<i128, FarmsError>` - The result or error
 #[inline]
 pub fn fixed_div_floor(x: i128, denominator: i128, y: i128) -> Result<i128, FarmsError> {
+    // We can start using smth like this in the market codebase
     if y == 0 {
         return Err(FarmsError::DivisionByZero);
     }

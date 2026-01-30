@@ -72,8 +72,8 @@ pub fn get_last_prices(e: &Env, token_address: &Address) -> Vec<i128> {
 /// and updates the cache with it
 fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig) -> Option<i128> {
     let current_timestamp = e.ledger().timestamp();
-    let mut oracle_cache =
-        storage::get_oracle_price_data_cache(e, &oracle_config.address).unwrap_or(Map::new(e));
+    let mut oracle_cache = storage::get_oracle_price_data_cache(e, &oracle_config.address)
+        .unwrap_or_else(|| Map::new(e));
 
     if let Some(lastprice) = oracle_cache.get(token_address.clone())
         && lastprice.timestamp + (oracle_config.resolution as u64) > current_timestamp

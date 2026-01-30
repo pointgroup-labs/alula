@@ -21,6 +21,7 @@ use crate::{
 /// # Returns
 /// * `Ok((net_amount, penalty_amount))` - The net amount user receives and penalty deducted
 pub fn calculate_early_withdrawal_penalty(
+    // We have both lockup and cooldown periods.. interesting...
     farm: &FarmState,
     user: &UserState,
     current_ts: u64,

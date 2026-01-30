@@ -1,14 +1,22 @@
-use soroban_sdk::{Address, Env, contracttype};
+use farms_interface::Delegatee;
+use soroban_sdk::{Address, Env, Map, contracttype};
 
-use crate::state::{Farm, RewardInfo};
+use crate::{
+    constants::MAX_ALLOWED_FARMS,
+    error::FCError,
+    state::{Farm, RewardInfo, User},
+};
 
 #[contracttype]
 pub enum DataKey {
     Admin,
+    TreasuryFeeBps,
     ProposedAdmin,
     FarmsCounter,
-    Farm(u64),                // farm_id
+    Farm(u64), // farm_id
+    AllFarms,
     RewardInfo(u64, Address), // (farm_id, reward_token_address)
+    User(Delegatee),          // TODO: FarmingKey and FarmingPosition?
 }
 
 // Admin
@@ -19,6 +27,14 @@ pub fn set_admin(e: &Env, admin: &Address) {
     e.storage().instance().set(&DataKey::Admin, admin)
 }
 
+// TreasuryFeeBps
+pub fn get_treasury_fee_bps(e: &Env) -> Option<i128> {
+    e.storage().instance().get(&DataKey::TreasuryFeeBps)
+}
+pub fn set_treasury_fee_bps(e: &Env, treasury_fee_bps: i128) {
+    e.storage().instance().set(&DataKey::TreasuryFeeBps, &treasury_fee_bps)
+}
+
 // ProposedAdmin
 pub fn get_proposed_admin(e: &Env) -> Option<Address> {
     e.storage().instance().get(&DataKey::ProposedAdmin)
@@ -26,7 +42,7 @@ pub fn get_proposed_admin(e: &Env) -> Option<Address> {
 pub fn set_proposed_admin(e: &Env, proposed_admin: &Address) {
     e.storage().instance().set(&DataKey::ProposedAdmin, proposed_admin)
 }
-pub fn reset_proposed_admin(e: &Env) {
+pub fn remove_proposed_admin(e: &Env) {
     // Check if fails when isn't set
     e.storage().instance().remove(&DataKey::ProposedAdmin); // safe?
 }
@@ -48,6 +64,48 @@ pub fn set_farm(e: &Env, farm: &Farm) {
     e.storage().persistent().set(&DataKey::Farm(farm.id), farm)
 }
 
+// AllFarms
+pub fn get_all_farms(e: &Env) -> Option<Map<u64, ()>> {
+    let data_key = DataKey::AllFarms;
+
+    let res = e.storage().persistent().get(&data_key);
+    if res.is_some() {
+        extend_persistent(e, &data_key);
+    }
+
+    res
+}
+pub fn register_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
+    let mut all_farms_set = get_all_farms(e).unwrap_or_else(|| Map::new(&e));
+
+    let all_farms_len = all_farms_set.len();
+    if all_farms_len > MAX_ALLOWED_FARMS {
+        return Err(FCError::InternalError);
+    } else if all_farms_len == MAX_ALLOWED_FARMS {
+        return Err(FCError::MaxAllowedFarmsReached);
+    }
+
+    if all_farms_set.contains_key(farm_id) {
+        return Err(FCError::InternalError);
+    }
+
+    all_farms_set.set(farm_id, ());
+    e.storage().persistent().set(&DataKey::AllFarms, &all_farms_set);
+
+    Ok(())
+}
+pub fn unregister_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
+    let mut all_farms_set = get_all_farms(e).ok_or(FCError::InternalError)?;
+    if all_farms_set.is_empty() || !all_farms_set.contains_key(farm_id) {
+        return Err(FCError::InternalError);
+    }
+
+    all_farms_set.remove(farm_id);
+    e.storage().persistent().set(&DataKey::AllFarms, &all_farms_set);
+
+    Ok(())
+}
+
 // Farm
 pub fn get_reward_info(e: &Env, farm_id: u64, reward_token: &Address) -> Option<RewardInfo> {
     let data_key = DataKey::RewardInfo(farm_id, reward_token.clone());
@@ -57,6 +115,17 @@ pub fn get_reward_info(e: &Env, farm_id: u64, reward_token: &Address) -> Option<
 }
 pub fn set_reward_info(e: &Env, farm_id: u64, reward_token: &Address, reward_info: &RewardInfo) {
     e.storage().persistent().set(&DataKey::RewardInfo(farm_id, reward_token.clone()), reward_info);
+}
+
+// User
+pub fn get_user(e: &Env, delegatee: &Delegatee) -> Option<User> {
+    let data_key = DataKey::User(delegatee.clone());
+    extend_persistent(e, &data_key);
+
+    e.storage().persistent().get(&data_key)
+}
+pub fn set_user(e: &Env, delegatee: &Delegatee, user: &User) {
+    e.storage().persistent().set(&DataKey::User(delegatee.clone()), user);
 }
 
 // -- TTL --

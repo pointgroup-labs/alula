@@ -68,11 +68,15 @@ pub fn get_farm(e: &Env, farm_id: &BytesN<32>) -> Option<FarmState> {
     farm
 }
 
+// Farm has an ID
+// We can store these IDS inside the HashSet or what?
+
 pub fn get_all_farms(e: &Env) -> Vec<BytesN<32>> {
     e.storage().persistent().get(&DataKey::AllFarms).unwrap_or_else(|| Vec::new(e))
 }
 
 pub fn register_farm(e: &Env, farm_id: &BytesN<32>) {
+    // Maybe, we do need this after all
     let key = DataKey::AllFarms;
     let mut farms = get_all_farms(e);
     farms.push_back(farm_id.clone());

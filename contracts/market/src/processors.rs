@@ -225,8 +225,8 @@ pub fn process_deposit<'a>(
         }
     }
 
-    let mut obligation =
-        Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+    let mut obligation = Obligation::try_get(e, obligation_key)
+        .unwrap_or_else(|| Obligation::new(e, obligation_key));
     obligation.require_no_borrow_position_exists(pool_address)?;
 
     let deposit_result = obligation.deposit(e, &pool, amount)?;
@@ -293,8 +293,8 @@ pub fn process_add_collateral<'a>(
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_nonnegative(amount)?;
 
-    let mut obligation =
-        Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
+    let mut obligation = Obligation::try_get(e, obligation_key)
+        .unwrap_or_else(|| Obligation::new(e, obligation_key));
     obligation.require_no_borrow_position_exists(pool_address)?;
     obligation.accrue_interest(e)?;
 
@@ -916,7 +916,7 @@ pub fn process_liquidate<'a>(
 
         let liquidator_obligation_key = ObligationKey::new(liquidator.clone());
         let mut liquidator_obligation = Obligation::try_get(e, &liquidator_obligation_key)
-            .unwrap_or(Obligation::new(e, &liquidator_obligation_key));
+            .unwrap_or_else(|| Obligation::new(e, &liquidator_obligation_key));
 
         liquidator_obligation.liquidation_increase_j_tokens(
             e,

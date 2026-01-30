@@ -40,6 +40,7 @@ pub enum LockingMode {
     Continuous = 1,
     /// Global expiry - all stakes unlock at a fixed timestamp
     WithExpiry = 2,
+    // TODO: Some other?
 }
 
 /// Reward distribution type
@@ -51,10 +52,15 @@ pub enum RewardType {
     /// reward = (user_stake / total_staked) × rewards_issued
     #[default]
     Proportional = 0,
+    // Yup, but what to do when somebody 'add_rewards's?
     /// Constant - same reward amount per user regardless of stake
-    /// reward = rewards_per_second × total_staked (multiplied by user count effect)
+    /// reward = rewards_per_second × total_staked (multiplied by user count)
     /// Useful for participation-based incentives
     Constant = 1,
+    // So, we are about to accrue a 'per second' rewards
+
+    // This has few issues when talking about the fixed point arithmetic, so must sure that BTC and FOGO both
+    // make sense in this scenario
 }
 
 /// A point on the reward emission curve
@@ -130,7 +136,7 @@ pub struct FarmState {
     /// Time unit for calculations
     pub time_unit: TimeUnit,
     /// Delay before new stakes become active (warmup)
-    pub deposit_warmup_period: u64,
+    pub deposit_warmup_period: u64, // This is also the case for the delegated stake, right?
     /// Delay after unstake before withdrawal (cooldown)
     pub withdrawal_cooldown_period: u64,
 
@@ -160,7 +166,7 @@ pub struct FarmState {
     /// Current slashed amount from early withdrawals (available for admin to withdraw)
     pub slashed_amount_current: i128,
     /// Cumulative slashed amount (for tracking purposes)
-    pub slashed_amount_cumulative: i128,
+    pub slashed_amount_cumulative: i128, // Shouldn't this be per reserve?
     /// Address to receive slashed amounts
     pub slashed_amount_spill_address: Address,
 }
@@ -170,15 +176,15 @@ pub struct FarmState {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UserState {
     /// The owner's address (for rewards and events)
-    pub owner: Address,
+    pub owner: Address, // Owner?
     /// Farm this state belongs to
-    pub farm_id: BytesN<32>,
+    pub farm_id: BytesN<32>, // By the way, how do we represent this relation?
 
     /// Active stake currently earning rewards
     pub active_stake: i128,
 
     /// Stake in warmup period (not yet active)
-    pub pending_deposit_stake: i128,
+    pub pending_deposit_stake: i128, // Who will refresh this?
     /// When pending deposit was initiated
     pub pending_deposit_ts: u64,
 
@@ -211,9 +217,9 @@ pub struct FarmConfig {
     pub deposit_warmup_period: u64,
     pub withdrawal_cooldown_period: u64,
     pub locking_mode: LockingMode,
-    pub locking_start_ts: u64,
-    pub locking_duration: u64,
-    pub early_withdrawal_penalty_bps: i128,
+    pub locking_start_ts: u64, // Should this coincide with the first
+    pub locking_duration: u64, // and the last point on the curve?
+    pub early_withdrawal_penalty_bps: i128, // Also, I don't think this must apply to the delegated stake scenario
     pub deposit_cap: i128,
 }
 

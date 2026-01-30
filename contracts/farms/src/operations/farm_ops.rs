@@ -18,7 +18,7 @@ pub fn get_current_ts(e: &Env, farm: &FarmState) -> u64 {
 
 /// Refreshes global rewards for a farm, updating reward_per_share for all reward tokens.
 ///
-/// This is the core of the Reward Per Share (RPS) algorithm:
+/// This is the core of the Reward Per Share (RPS) algorithm: // щось інтересне ....
 /// 1. Calculate time elapsed since last issuance
 /// 2. For each reward token, calculate new rewards based on the schedule curve
 /// 3. Update reward_per_share: rps += new_rewards / total_staked
@@ -32,6 +32,7 @@ pub fn get_current_ts(e: &Env, farm: &FarmState) -> u64 {
 pub fn refresh_global_rewards(e: &Env, farm: &mut FarmState) -> Result<(), FarmsError> {
     let current_ts = get_current_ts(e, farm);
 
+    // Just refresh rewards, I guess....
     for i in 0..farm.reward_infos.len() {
         let mut reward_info = farm.reward_infos.get(i).ok_or(FarmsError::InternalError)?;
 

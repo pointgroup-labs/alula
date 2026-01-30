@@ -102,7 +102,7 @@ impl MarketManager for MarketManagerContract {
     fn get_markets(e: Env) -> Map<Address, ()> {
         extend_instance_storage(&e);
 
-        storage::get_markets(&e).unwrap_or(Map::new(&e))
+        storage::get_markets(&e).unwrap_or_else(|| Map::new(&e))
     }
 
     fn get_config(e: Env) -> Config {

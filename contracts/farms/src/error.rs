@@ -62,9 +62,9 @@ pub enum FarmsError {
     /// Insufficient rewards available
     InsufficientRewards = 60,
     /// No rewards to harvest
-    NoRewardsToHarvest = 61,
+    NoRewardsToHarvest = 61, // Should we even add this?
     /// Insufficient slashed amount available
-    InsufficientSlashedAmount = 62,
+    InsufficientSlashedAmount = 62, // Slashing when you withdraw early
 
     // Validation Errors (70-79)
     /// Invalid amount (zero or negative)

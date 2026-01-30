@@ -19,10 +19,12 @@ impl RewardScheduleCurve {
     /// Total rewards to emit in the time period
     pub fn calculate_rewards(&self, from_ts: u64, to_ts: u64) -> Result<i128, FarmsError> {
         if from_ts >= to_ts {
+            // Shouldn't even be allowed here?
             return Ok(0);
         }
 
         if self.points.is_empty() {
+            // why to have it?
             return Ok(0);
         }
 
@@ -45,13 +47,18 @@ impl RewardScheduleCurve {
             let overlap_start = from_ts.max(point.ts_start);
             let overlap_end = to_ts.min(segment_end);
 
+            // Is this even correct?
+
+            // Can't you have something like this?
+
             if overlap_start < overlap_end {
-                let duration = (overlap_end - overlap_start) as i128;
+                let duration = (overlap_end - overlap_start) as i128; // You've overlapped with a segment...
                 let segment_rewards =
-                    duration.checked_mul(point.reward_per_time_unit).ok_or(FarmsError::Overflow)?;
+                    duration.checked_mul(point.reward_per_time_unit).ok_or(FarmsError::Overflow)?; // You are aware about
+                // the reward per time unit here.... But this depends on the amount of your shares, doesn't it?
                 total_rewards =
                     total_rewards.checked_add(segment_rewards).ok_or(FarmsError::Overflow)?;
-            }
+            } // I am not sure if this is correct here...
         }
 
         Ok(total_rewards)
@@ -68,7 +75,7 @@ impl RewardScheduleCurve {
         for i in 0..self.points.len() {
             if let Some(point) = self.points.get(i) {
                 if point.ts_start <= ts {
-                    rate = point.reward_per_time_unit;
+                    rate = point.reward_per_time_unit; // We have this, but we can increase it, right?
                 } else {
                     break;
                 }
