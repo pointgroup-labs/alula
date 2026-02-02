@@ -45,11 +45,18 @@ export function getZeroCountAfterDecimal(value: number | string): number {
 }
 
 // format number with decimals 99.9842 => 99.98
-export function truncatePercent(value: number, dec = 2): string {
-  const [intPart, decimalPart = ''] = value.toString().split('.')
-  return dec === 2
-    ? `${value.toFixed(2)}`
-    : `${intPart}.${decimalPart.slice(0, dec)}`
+export function truncatePercent(
+  value: number | string,
+  dec = 2,
+): string {
+  try {
+    return new Decimal(value)
+      .toDecimalPlaces(dec, Decimal.ROUND_DOWN)
+      .toFixed(dec)
+  }
+  catch {
+    return '0'
+  }
 }
 
 export function bigintToNumber(
