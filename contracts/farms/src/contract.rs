@@ -62,6 +62,10 @@ pub trait Farms {
         update: FarmConfigUpdate,
     ) -> Result<(), FarmsError>;
 
+    // Freezing disables staking-only, right?
+
+    // Should we allow freezing for the non-delegated farm?
+
     /// Freezes a farm (disables staking)
     fn freeze_farm(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError>;
 
@@ -71,6 +75,8 @@ pub trait Farms {
     // ═══════════════════════════════════════════════════════════════════════════════
     // Admin: Rewards
     // ═══════════════════════════════════════════════════════════════════════════════
+
+    // When do we start making sure that rewards are applying
 
     /// Initializes a new reward token for a farm
     fn initialize_reward(
@@ -89,6 +95,8 @@ pub trait Farms {
         amount: i128,
     ) -> Result<(), FarmsError>;
 
+    // Should we update this only once?
+
     /// Updates the reward emission schedule
     fn update_reward_schedule(
         e: Env,
@@ -96,6 +104,8 @@ pub trait Farms {
         reward_index: u32,
         schedule: RewardScheduleCurve,
     ) -> Result<(), FarmsError>;
+
+    // Rewards can be unused if no-one had a desire to stake
 
     /// Withdraws unused rewards from a farm
     fn withdraw_unused_rewards(
@@ -105,6 +115,8 @@ pub trait Farms {
         amount: i128,
         recipient: Address,
     ) -> Result<(), FarmsError>;
+
+    // Non-delegated farms allow for slashing
 
     /// Withdraws slashed amounts from early withdrawal penalties
     ///
@@ -117,6 +129,9 @@ pub trait Farms {
     ///
     /// Two-step farm admin transfer: set pending via update_farm_config, then accept
     fn accept_farm_admin(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError>;
+
+    // This must credit from the balance of the reward..
+    // From which part of the curve, though?
 
     /// Awards a one-time reward directly to a delegatee (airdrop/bonus)
     ///
@@ -146,9 +161,15 @@ pub trait Farms {
     // User Operations
     // ═══════════════════════════════════════════════════════════════════════════════
 
+    // This is lame, I say.
+
     /// Initializes user state for a farm (must be called before staking)
     fn initialize_user(e: Env, delegatee: Delegatee, farm_id: BytesN<32>)
     -> Result<(), FarmsError>;
+
+    // This makes sense
+
+    // Rewards are accumulated and so on...
 
     /// Refreshes user state (activates pending stakes, updates rewards)
     fn refresh_user_state(
@@ -214,12 +235,19 @@ pub trait Farms {
         amount: i128,
     ) -> Result<i128, FarmsError>;
 
+    // There's a cooldown.
+
+    // What to do with sequential unstakes?
+    // Which cooldown date must be set then?
+
     /// Withdraws unstaked tokens after cooldown period
     fn withdraw_unstaked(
         e: Env,
         delegatee: Delegatee,
         farm_id: BytesN<32>,
     ) -> Result<i128, FarmsError>;
+
+    // Simply decreases the accumulated rewards for a user
 
     /// Harvests rewards for a specific reward token
     fn harvest(
@@ -278,7 +306,7 @@ impl Farms for FarmsContract {
         };
 
         storage::set_global_config(&e, &config);
-        events::emit_initialized(&e, &admin);
+        events::emit_initialized(&e, &admin); // No
 
         Ok(())
     }
@@ -290,10 +318,12 @@ impl Farms for FarmsContract {
 
         match update {
             GlobalConfigUpdate::TreasuryVault(vault) => {
+                // No
                 config.treasury_vault = vault;
             }
             GlobalConfigUpdate::TreasuryFeeBps(fee_bps) => {
                 if !(0..=MAX_TREASURY_FEE_BPS).contains(&fee_bps) {
+                    // MAX_TREASURY_FEE
                     return Err(FarmsError::InvalidConfig);
                 }
                 config.treasury_fee_bps = fee_bps;
@@ -341,13 +371,14 @@ impl Farms for FarmsContract {
         let farm_id = generate_farm_id(&e, counter);
 
         let farm = FarmState {
-            farm_id: farm_id.clone(),
-            farm_admin: None,
+            farm_id: farm_id.clone(), // I make it u64
+            farm_admin: None,         // Setting it right away, right?
             pending_farm_admin: None,
             delegate_authority: config.delegate_authority,
-            total_staked: 0,
-            num_users: 0,
-            time_unit: config.time_unit,
+            total_staked: 0,             // Good
+            num_users: 0,                // g
+            time_unit: config.time_unit, // bs.
+            // Why does Kamino distinguish this?
             deposit_warmup_period: config.deposit_warmup_period,
             withdrawal_cooldown_period: config.withdrawal_cooldown_period,
             locking_mode: config.locking_mode,
@@ -355,14 +386,14 @@ impl Farms for FarmsContract {
             locking_duration: config.locking_duration,
             early_withdrawal_penalty_bps: config.early_withdrawal_penalty_bps,
             deposit_cap: config.deposit_cap,
-            reward_infos: vec![&e],
+            reward_infos: vec![&e], // our fellows
             num_reward_tokens: 0,
             is_frozen: false,
             is_reward_user_once_enabled: false,
             slashed_amount_current: 0,
             slashed_amount_cumulative: 0,
             // Slashed amounts go to treasury by default
-            slashed_amount_spill_address: global_config.treasury_vault.clone(),
+            slashed_amount_spill_address: global_config.treasury_vault.clone(), // bs
         };
 
         storage::set_farm(&e, &farm_id, &farm);
@@ -372,6 +403,11 @@ impl Farms for FarmsContract {
 
         Ok(farm_id)
     }
+
+    // Okay, for now I don't want to update anything
+    // If farm is started - it's immutable
+
+    // Also, I'd prefer to reward somebody once directly for now
 
     fn update_farm_config(
         e: Env,
@@ -385,6 +421,7 @@ impl Farms for FarmsContract {
 
         // Require farm admin or global admin authorization
         require_farm_admin(&e, &global_config, &farm)?;
+        // Can this happen during the reward distribution process???
 
         match update {
             FarmConfigUpdate::DepositWarmupPeriod(period) => {
@@ -394,14 +431,16 @@ impl Farms for FarmsContract {
                 farm.withdrawal_cooldown_period = period;
             }
             FarmConfigUpdate::LockingMode(mode) => {
-                farm.locking_mode = mode;
+                farm.locking_mode = mode; // Shouldn't be updated
             }
             FarmConfigUpdate::LockingStartTs(ts) => {
-                farm.locking_start_ts = ts;
+                farm.locking_start_ts = ts; // Shouldn't be updated?
             }
             FarmConfigUpdate::LockingDuration(duration) => {
-                farm.locking_duration = duration;
+                farm.locking_duration = duration; // No
             }
+
+            // Yeah, let's not update the farm if it's started, no?
             FarmConfigUpdate::EarlyWithdrawalPenalty(penalty_bps) => {
                 use crate::constants::MAX_EARLY_WITHDRAWAL_PENALTY_BPS;
                 if !(0..=MAX_EARLY_WITHDRAWAL_PENALTY_BPS).contains(&penalty_bps) {
@@ -413,6 +452,8 @@ impl Farms for FarmsContract {
                 farm.deposit_cap = cap;
             }
             FarmConfigUpdate::MinClaimDuration(duration) => {
+                // Why to prohibit this?
+
                 // Update min_claim_duration for all reward tokens
                 for i in 0..farm.reward_infos.len() {
                     if let Some(mut info) = farm.reward_infos.get(i) {
@@ -425,12 +466,14 @@ impl Farms for FarmsContract {
                 farm.delegate_authority = authority;
             }
             FarmConfigUpdate::SlashedAmountSpillAddress(address) => {
+                // BS
                 farm.slashed_amount_spill_address = address;
             }
             FarmConfigUpdate::PendingFarmAdmin(new_admin) => {
                 farm.pending_farm_admin = Some(new_admin);
             }
             FarmConfigUpdate::RewardUserOnceEnabled(enabled) => {
+                // Meh
                 // reward_user_once requires a delegated farm
                 if enabled && farm.delegate_authority.is_none() {
                     return Err(FarmsError::NotDelegateAuthority);
@@ -438,6 +481,7 @@ impl Farms for FarmsContract {
                 farm.is_reward_user_once_enabled = enabled;
             }
             FarmConfigUpdate::RewardType(reward_index, reward_type) => {
+                // Meh
                 if reward_index >= farm.reward_infos.len() {
                     return Err(FarmsError::RewardNotFound);
                 }
@@ -453,6 +497,9 @@ impl Farms for FarmsContract {
 
         Ok(())
     }
+
+    // Freezing must only disable staking but nothing else
+    // Why would you freeze a farm, though?
 
     fn freeze_farm(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError> {
         storage::extend_instance_storage(&e);
@@ -499,6 +546,9 @@ impl Farms for FarmsContract {
 
         let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
 
+        // Why would we have this constraint here???
+
+        // Well, you'd like to refresh all of your farm's positions in one go, no?
         if farm.num_reward_tokens >= MAX_REWARD_TOKENS {
             return Err(FarmsError::MaxRewardTokensReached);
         }
@@ -507,10 +557,23 @@ impl Farms for FarmsContract {
         for i in 0..farm.reward_infos.len() {
             if let Some(info) = farm.reward_infos.get(i)
                 && info.token == reward_token
+            // One reward per token max.. Does this have any sense, though?
+            // I guess so...
+
+            // I assume, it's always possible to merge 2 rewards of the same token
+            // into one
+
+            // I think, `add_reserve` must be applicable to either current distribution segment
+            // (the remaining) or to one in the future
             {
                 return Err(FarmsError::RewardTokenAlreadyExists);
             }
         }
+
+        // By the way, we must somehow make constant distribution possible
+        // so, the distribution must not care about the amount of the stake?
+
+        // But this is only after a certain point, I guess....
 
         let reward_info = farm_ops::initialize_reward_info(&e, &reward_token, &rewards_vault);
         let index = farm.reward_infos.len();
@@ -627,7 +690,6 @@ impl Farms for FarmsContract {
         storage::extend_instance_storage(&e);
 
         let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-
         // Must be a delegated farm with reward_user_once enabled
         if !farm.is_reward_user_once_enabled {
             return Err(FarmsError::RewardUserOnceDisabled);
@@ -734,6 +796,9 @@ impl Farms for FarmsContract {
 
         // Refresh global rewards (updates reward_per_share for all tokens)
         farm_ops::refresh_global_rewards(&e, &mut farm)?;
+
+        // This doesn't update the user state.
+        // I claim it must
 
         // Try to activate pending stake if warmup complete
         if user_state.pending_deposit_stake > 0 {

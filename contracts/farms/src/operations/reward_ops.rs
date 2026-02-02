@@ -44,6 +44,8 @@ pub fn add_rewards(
     let token_client = token::Client::new(e, &reward_info.token);
     token_client.transfer(funder, &reward_info.rewards_vault, &amount);
 
+    // But how are they distributed?
+
     // Update available rewards
     reward_info.rewards_available =
         reward_info.rewards_available.checked_add(amount).ok_or(FarmsError::Overflow)?;
@@ -75,17 +77,17 @@ pub fn update_reward_schedule(
     schedule: RewardScheduleCurve,
 ) -> Result<(), FarmsError> {
     // Validate schedule
-    schedule.validate()?;
+    schedule.validate()?; // How do we validate this...
 
     if reward_index >= farm.reward_infos.len() {
         return Err(FarmsError::RewardNotFound);
     }
 
-    // Refresh rewards with old schedule first
-    refresh_global_rewards(e, farm)?;
+    refresh_global_rewards(e, farm)?; // So, this 
+    // increases the accumulative reward per share value
 
     let mut reward_info = farm.reward_infos.get(reward_index).ok_or(FarmsError::InternalError)?;
-    reward_info.reward_schedule = schedule;
+    reward_info.reward_schedule = schedule; // I don't like the idea of updating the schedule here...
     farm.reward_infos.set(reward_index, reward_info);
 
     // Persist changes
@@ -128,6 +130,7 @@ pub fn withdraw_unused_rewards(
     let mut reward_info = farm.reward_infos.get(reward_index).ok_or(FarmsError::InternalError)?;
 
     if amount > reward_info.rewards_available {
+        // Simply decreases the available....
         return Err(FarmsError::InsufficientRewards);
     }
 
@@ -162,6 +165,7 @@ pub fn withdraw_unused_rewards(
 /// # Returns
 /// * `Ok(net_amount)` - The net amount harvested after fees
 pub fn harvest_single(
+    // Shouldn't this just decrease the pending?
     e: &Env,
     delegatee: &Delegatee,
     config: &GlobalConfig,
@@ -198,6 +202,8 @@ pub fn harvest_single(
         user_tally,
     )?;
 
+    // This pending must be added to the issued, right?
+
     let unclaimed = user_state.rewards_unclaimed.get(reward_index).unwrap_or(0);
     let total_pending = pending_from_rps.checked_add(unclaimed).ok_or(FarmsError::Overflow)?;
 
@@ -230,19 +236,19 @@ pub fn harvest_single(
 
     // Update reward info
     let mut reward_info = farm.reward_infos.get(reward_index).ok_or(FarmsError::InternalError)?;
-    reward_info.rewards_issued_unclaimed =
+    reward_info.rewards_issued_unclaimed = // this is fine, because of refresh previously
         reward_info.rewards_issued_unclaimed.checked_sub(total_pending).unwrap_or(0); // Use unwrap_or(0) as safety
 
     // Update tally
-    let new_tally =
+    let new_tally = // stake is unchanged
         update_user_rewards_tally(user_state.active_stake, reward_info.reward_per_share_scaled);
 
     farm.reward_infos.set(reward_index, reward_info);
 
     // Update user state
-    user_state.rewards_unclaimed.set(reward_index, 0);
+    user_state.rewards_unclaimed.set(reward_index, 0); // must be this per `User`
     user_state.last_claim_ts.set(reward_index, current_ts);
-    user_state.rewards_tally_scaled.set(reward_index, new_tally);
+    user_state.rewards_tally_scaled.set(reward_index, new_tally); // for now we can make it per reward
 
     // Persist changes
     storage::set_farm(e, &farm.farm_id, farm);
@@ -298,6 +304,7 @@ pub fn harvest_all(
 /// # Returns
 /// * Vector of pending reward amounts
 pub fn get_pending_rewards_with_env(
+    //with env?
     e: &Env,
     farm: &FarmState,
     user_state: &UserState,

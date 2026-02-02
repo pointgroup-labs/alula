@@ -18,6 +18,8 @@ impl RewardScheduleCurve {
     /// # Returns
     /// Total rewards to emit in the time period
     pub fn calculate_rewards(&self, from_ts: u64, to_ts: u64) -> Result<i128, FarmsError> {
+        // this value we divide by the total staked
+
         if from_ts >= to_ts {
             // Shouldn't even be allowed here?
             return Ok(0);
@@ -54,6 +56,10 @@ impl RewardScheduleCurve {
             if overlap_start < overlap_end {
                 let duration = (overlap_end - overlap_start) as i128; // You've overlapped with a segment...
                 let segment_rewards =
+                // point contains a reward per time unit... What if we don't have enough rewards?
+
+                // Well, this is easier to think about, at least...
+
                     duration.checked_mul(point.reward_per_time_unit).ok_or(FarmsError::Overflow)?; // You are aware about
                 // the reward per time unit here.... But this depends on the amount of your shares, doesn't it?
                 total_rewards =
@@ -97,8 +103,10 @@ impl RewardScheduleCurve {
         for i in 0..self.points.len() {
             if let Some(point) = self.points.get(i) {
                 if i > 0 && point.ts_start <= last_ts {
+                    // Must be strictly increasing here...
                     return Err(FarmsError::InvalidRewardSchedule);
                 }
+                // sick
                 if point.reward_per_time_unit < 0 {
                     return Err(FarmsError::InvalidRewardSchedule);
                 }

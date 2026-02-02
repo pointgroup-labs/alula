@@ -209,14 +209,17 @@ pub struct UserState {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FarmConfig {
+    // farm represents a single staking place... right?
     /// Delegate authority address (optional)
     /// When Some: only this address can update stakes via set_stake_delegated (push model)
     /// When None: users can call stake()/unstake() directly
     pub delegate_authority: Option<Address>,
     pub time_unit: TimeUnit,
-    pub deposit_warmup_period: u64,
-    pub withdrawal_cooldown_period: u64,
-    pub locking_mode: LockingMode,
+    pub deposit_warmup_period: u64, // what to do with multiple deposits when warmup still takes place?
+    // Allow only one? Keep the list, maybe?
+    pub withdrawal_cooldown_period: u64, // Keep the list here as well??
+    pub locking_mode: LockingMode,       // by the way, this is a thing...
+
     pub locking_start_ts: u64, // Should this coincide with the first
     pub locking_duration: u64, // and the last point on the curve?
     pub early_withdrawal_penalty_bps: i128, // Also, I don't think this must apply to the delegated stake scenario
@@ -260,9 +263,9 @@ pub enum FarmConfigUpdate {
     /// Update the locking mode
     LockingMode(LockingMode),
     /// Update the locking start timestamp (for WithExpiry mode)
-    LockingStartTs(u64),
+    LockingStartTs(u64), // not config
     /// Update the lock duration
-    LockingDuration(u64),
+    LockingDuration(u64), // config?
     /// Update the early withdrawal penalty in basis points (max 10000 = 100%)
     EarlyWithdrawalPenalty(i128),
     /// Update the deposit cap (0 = unlimited)

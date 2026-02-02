@@ -29,6 +29,7 @@ pub fn get_current_ts(e: &Env, farm: &FarmState) -> u64 {
 ///
 /// # Returns
 /// * `Ok(())` on success
+
 pub fn refresh_global_rewards(e: &Env, farm: &mut FarmState) -> Result<(), FarmsError> {
     let current_ts = get_current_ts(e, farm);
 
@@ -38,6 +39,7 @@ pub fn refresh_global_rewards(e: &Env, farm: &mut FarmState) -> Result<(), Farms
 
         let rewards_to_issue = calculate_rewards_to_issue(farm, &reward_info, current_ts)?;
 
+        // 0 if not enough of available...
         if rewards_to_issue > 0 {
             // Update reward_per_share (scaled)
             // reward_per_share += (rewards_to_issue * SCALE_FACTOR) / total_staked
@@ -56,10 +58,12 @@ pub fn refresh_global_rewards(e: &Env, farm: &mut FarmState) -> Result<(), Farms
                 .rewards_available
                 .checked_sub(rewards_to_issue)
                 .ok_or(FarmsError::Underflow)?;
+
             reward_info.rewards_issued_unclaimed = reward_info
                 .rewards_issued_unclaimed
                 .checked_add(rewards_to_issue)
                 .ok_or(FarmsError::Overflow)?;
+
             reward_info.rewards_issued_cumulative = reward_info
                 .rewards_issued_cumulative
                 .checked_add(rewards_to_issue)
@@ -68,12 +72,15 @@ pub fn refresh_global_rewards(e: &Env, farm: &mut FarmState) -> Result<(), Farms
             events::emit_rewards_accrued(e, &farm.farm_id, i, rewards_to_issue);
         }
 
-        reward_info.last_issuance_ts = current_ts;
+        reward_info.last_issuance_ts = current_ts; // Нащо це?
         farm.reward_infos.set(i, reward_info);
     }
 
     Ok(())
 }
+
+// This takes into the account current tally
+// current stake and current accumulated reward per share
 
 /// Calculates rewards to issue for a single reward token
 fn calculate_rewards_to_issue(
@@ -90,11 +97,11 @@ fn calculate_rewards_to_issue(
         return Ok(0);
     }
 
-    // Calculate rewards based on the emission curve
+    // Calculate rewards based on the emission curve | this is needed to recalculate the debt only, right?
     let rewards_from_curve = reward_info.reward_schedule.calculate_rewards(from_ts, current_ts)?;
 
     // Cap at available rewards
-    let rewards_to_issue = rewards_from_curve.min(reward_info.rewards_available);
+    let rewards_to_issue = rewards_from_curve.min(reward_info.rewards_available); // damn, boy
 
     Ok(rewards_to_issue)
 }
@@ -113,13 +120,13 @@ pub fn initialize_reward_info(
         token: reward_token.clone(),
         rewards_vault: rewards_vault.clone(),
         rewards_available: 0,
-        reward_schedule: RewardScheduleCurve { points: vec![e] },
+        reward_schedule: RewardScheduleCurve { points: vec![e] }, // empty?
         last_issuance_ts: 0,
         reward_per_share_scaled: 0,
         rewards_issued_unclaimed: 0,
         rewards_issued_cumulative: 0,
         min_claim_duration: 0,
-        reward_type: RewardType::Proportional,
+        reward_type: RewardType::Proportional, // by default proportional
     }
 }
 
@@ -169,8 +176,8 @@ pub fn calculate_pending_reward(
 /// Called after claiming or when stake changes
 pub fn update_user_rewards_tally(user_stake: i128, reward_per_share_scaled: i128) -> i128 {
     // tally = user_stake * reward_per_share_scaled (keeps scaled)
-    user_stake.saturating_mul(reward_per_share_scaled)
-}
+    user_stake.saturating_mul(reward_per_share_scaled) // yep, it's just a debt re-calculated
+} // Can we think this way??/
 
 #[cfg(test)]
 mod tests {

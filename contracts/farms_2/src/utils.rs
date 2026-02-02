@@ -1,5 +1,4 @@
-use core::cmp::{Ord, Ordering};
-use soroban_sdk::{Bytes, BytesN, Env, crypto::Hash, xdr::ToXdr};
+use soroban_sdk::Env;
 
 use crate::{error::FCError, storage};
 

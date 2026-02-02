@@ -46,10 +46,10 @@ pub fn process_stake(
     }
 
     // Refresh global rewards first
-    refresh_global_rewards(e, farm)?;
+    refresh_global_rewards(e, farm)?; // Since this is a new point
 
     // Refresh user's pending rewards before changing stake
-    refresh_user_rewards(farm, user_state)?;
+    refresh_user_rewards(farm, user_state)?; // Since we must accumulate all of the pending 
 
     let current_ts = get_current_ts(e, farm);
 
@@ -58,10 +58,10 @@ pub fn process_stake(
         // If there's already pending stake, add to it and reset timer
         user_state.pending_deposit_stake =
             user_state.pending_deposit_stake.checked_add(amount).ok_or(FarmsError::Overflow)?;
-        user_state.pending_deposit_ts = current_ts;
+        user_state.pending_deposit_ts = current_ts; // Okay, they reset the timer.. Fine for them...
     } else {
         // Immediate stake
-        activate_stake(farm, user_state, amount)?;
+        activate_stake(farm, user_state, amount)?; // stake is increased, the debts are renewed
     }
 
     // Update last stake timestamp for locking
@@ -112,10 +112,10 @@ pub fn process_unstake(
     }
 
     // Refresh global rewards first
-    refresh_global_rewards(e, farm)?;
+    refresh_global_rewards(e, farm)?; // A new point in stake/unstake business
 
     // Refresh user's pending rewards before changing stake
-    refresh_user_rewards(farm, user_state)?;
+    refresh_user_rewards(farm, user_state)?; // Accumulated pending
 
     let current_ts = get_current_ts(e, farm);
 
@@ -146,6 +146,7 @@ pub fn process_unstake(
             && user_state.rewards_tally_scaled.get(i).is_some()
         {
             let new_tally = update_user_rewards_tally(
+                // Tally is updated
                 user_state.active_stake,
                 reward_info.reward_per_share_scaled,
             );
@@ -239,7 +240,11 @@ pub fn activate_pending_stake(
 
     // Refresh global rewards before activation so reward_per_share is up-to-date
     // This ensures the user's tally is set correctly for the current rps
-    refresh_global_rewards(e, farm)?;
+    refresh_global_rewards(e, farm)?; // A new pont
+
+    // Shouldn't we update the user here? His debt must be re-calculated
+
+    // His
 
     let amount = user_state.pending_deposit_stake;
     user_state.pending_deposit_stake = 0;

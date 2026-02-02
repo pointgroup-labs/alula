@@ -1,4 +1,4 @@
-use farms_interface::Delegatee;
+use farms_interface::FarmingKey;
 use soroban_sdk::{Address, Env, Map, contracttype};
 
 use crate::{
@@ -10,13 +10,13 @@ use crate::{
 #[contracttype]
 pub enum DataKey {
     Admin,
-    TreasuryFeeBps,
-    ProposedAdmin,
-    FarmsCounter,
-    Farm(u64), // farm_id
     AllFarms,
+    Farm(u64), // farm_id
+    FarmsCounter,
+    ProposedAdmin,
+    TreasuryFeeBps,
+    User(u64, FarmingKey),    // (farm_id, farming_key)
     RewardInfo(u64, Address), // (farm_id, reward_token_address)
-    User(Delegatee),          // TODO: FarmingKey and FarmingPosition?
 }
 
 // Admin
@@ -118,14 +118,14 @@ pub fn set_reward_info(e: &Env, farm_id: u64, reward_token: &Address, reward_inf
 }
 
 // User
-pub fn get_user(e: &Env, delegatee: &Delegatee) -> Option<User> {
-    let data_key = DataKey::User(delegatee.clone());
+pub fn get_user(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Option<User> {
+    let data_key = DataKey::User(farm_id, farming_key.clone());
     extend_persistent(e, &data_key);
 
     e.storage().persistent().get(&data_key)
 }
-pub fn set_user(e: &Env, delegatee: &Delegatee, user: &User) {
-    e.storage().persistent().set(&DataKey::User(delegatee.clone()), user);
+pub fn set_user(e: &Env, farm_id: u64, farming_key: &FarmingKey, user: &User) {
+    e.storage().persistent().set(&DataKey::User(farm_id, farming_key.clone()), user);
 }
 
 // -- TTL --
