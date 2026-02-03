@@ -46,10 +46,10 @@ const price = computed(() => poolData?.value?.price ?? 0)
           class="market-pill"
           style="text-transform: capitalize;"
         >
-          Price  {{ price < 1000 ? formatPrice(price, 2, 6) : shortenNumber(price) }}
+          Price  {{ price < 1000 ? formatCompactUSD(price, 2, 5) : formatCompactUSD(price) }}
         </div>
         <template #content>
-          Pool Price: {{ formatPrice(price, 2, 6) }}
+          Pool Price: {{ formatCompactUSD(price, 2, 6) }}
         </template>
       </j-tooltip>
 

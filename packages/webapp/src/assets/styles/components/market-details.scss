@@ -142,7 +142,7 @@
       grid-template-columns: 1fr 1fr;
     }
 
-    .market-info-card {
+    .market-info-detail-card {
       flex: 1;
     }
   }
@@ -192,13 +192,17 @@
     width: 100%;
   }
 
+  a {
+    color: #111;
+  }
+
   .no-data {
     padding: $spacing-32;
     margin: 0 auto;
   }
 }
 
-.theme-dark{
+.theme-dark {
   .market-detail-page {
     .market-detail-header {
       border-color: $neutral-18;
@@ -213,6 +217,10 @@
       .info-value {
         color: $neutral-9;
       }
+    }
+
+    a {
+      color: #fff;
     }
   }
 }

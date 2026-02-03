@@ -30,8 +30,8 @@ const fields = [
   { key: 'maxAPY', label: 'APY', align: 'center' },
   { key: 'multiplier', label: 'Multiplier', align: 'center' },
   { key: 'market', label: 'Market', align: 'center' },
-  { key: 'liquidity', label: 'Borrow', align: 'right' },
   { key: 'supplied', label: 'Supply', align: 'right' },
+  { key: 'liquidity', label: 'Borrow', align: 'right' },
   { key: 'borrowing', label: 'Borrow Token', align: 'right' },
   { key: 'action', label: '' },
 ]

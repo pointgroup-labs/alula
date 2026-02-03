@@ -15,7 +15,7 @@ const {
     <div class="stat-cards">
       <!-- Supplied -->
       <j-tooltip>
-        <market-info-card>
+        <market-info-detail-card>
           <div class="info-label">
             {{ shortenNumber(selectedPool?.total_supply ?? 0) }} {{ selectedPool?.asset?.symbol }}
           </div>
@@ -26,7 +26,7 @@ const {
               class="token-icon"
             >  Supplied
           </div>
-        </market-info-card>
+        </market-info-detail-card>
         <template #content>
           {{ formatPrice(selectedPool?.total_supply ?? 0) }} {{ selectedPool?.asset?.symbol }}
         </template>
@@ -34,7 +34,7 @@ const {
 
       <!-- Borrowed -->
       <j-tooltip>
-        <market-info-card>
+        <market-info-detail-card>
           <div class="info-label">
             {{ shortenNumber(selectedPool?.total_borrowed ?? 0) }} {{ selectedPool?.asset?.symbol }}
           </div>
@@ -45,7 +45,7 @@ const {
               class="token-icon"
             >  Borrowed
           </div>
-        </market-info-card>
+        </market-info-detail-card>
         <template #content>
           {{ formatPrice(selectedPool?.total_borrowed ?? 0) }} {{ selectedPool?.asset?.symbol }}
         </template>
@@ -53,7 +53,7 @@ const {
 
       <!-- Liquidity -->
       <j-tooltip>
-        <market-info-card>
+        <market-info-detail-card>
           <div class="info-label">
             {{ shortenNumber(poolBorrowLimit ?? 0) }} {{ selectedPool?.asset?.symbol }}
           </div>
@@ -65,31 +65,31 @@ const {
             >
             Liquidity
           </div>
-        </market-info-card>
+        </market-info-detail-card>
         <template #content>
           {{ formatPrice(poolBorrowLimit ?? 0) }} {{ selectedPool?.asset?.symbol }}
         </template>
       </j-tooltip>
 
       <!-- Supply APY -->
-      <market-info-card>
+      <market-info-detail-card>
         <div class="info-label positive">
           {{ selectedPool?.deposit_apy }}
         </div>
         <div class="info-value">
           Supply APY
         </div>
-      </market-info-card>
+      </market-info-detail-card>
 
       <!-- Borrow APY -->
-      <market-info-card>
+      <market-info-detail-card>
         <div class="info-label warning">
           {{ selectedPool?.borrow_apy }}
         </div>
         <div class="info-value">
           Borrow APY
         </div>
-      </market-info-card>
+      </market-info-detail-card>
     </div>
   </section>
 </template>
@@ -143,7 +143,7 @@ section#stats {
       }
     }
 
-    .market-info-card {
+    .market-info-detail-card {
       flex: 1;
     }
 

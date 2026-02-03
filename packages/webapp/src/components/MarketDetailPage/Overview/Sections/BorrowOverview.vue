@@ -102,7 +102,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
               Total Borrow
             </div>
             <div class="market-progress__info__data">
-              {{ shortenNumber(totalBorrowed) }} / {{ shortenNumber(totalSupplied) }}
+              {{ shortenNumber(totalBorrowed ?? 0) }} / {{ shortenNumber(totalSupplied ?? 0) }}
 
               <span>${{ shortenNumber(Number(totalBorrowedUsd)) }} / ${{ shortenNumber(Number(totalSuppliedUsd)) }}</span>
             </div>
@@ -110,47 +110,47 @@ const progress = computed(() => borrowCap.value.toFixed(2))
         </market-progress>
       </div>
       <div class="cards-list">
-        <market-info-card>
+        <market-info-detail-card>
           <div class="info-value">
             Util. Rate
           </div>
           <div class="info-label">
             {{ detailCardsData.utilRate }}
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Take Rate
           </div>
           <div class="info-label">
             {{ reserve }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Borrow APY
           </div>
           <div class="info-label warning">
             {{ detailCardsData.borrowAPY }}
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Util. Rate Limit
           </div>
           <div class="info-label">
             {{ detailCardsData.utilRatioLimit }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Withdraw Fee
           </div>
           <div class="info-label">
             {{ detailCardsData.withdrawFee }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             View contract
           </div>
@@ -160,10 +160,10 @@ const progress = computed(() => borrowCap.value.toFixed(2))
               target="_blank"
               class="market-penalty"
             >
-              <i-app-export-icon color="#111" />
+              <i-app-export-icon class="export-icon" />
             </a>
           </div>
-        </market-info-card>
+        </market-info-detail-card>
       </div>
     </div>
   </section>

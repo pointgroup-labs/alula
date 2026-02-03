@@ -24,6 +24,17 @@ export function formatPrice(price: number | string, minDigits = 0, maxDigits = 1
   return longPriceFormatter.format(Number(price))
 }
 
+export function formatCompactUSD(num: number, minDigits = 0, maxDigits = 1) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    compactDisplay: 'short',
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits,
+  }).format(num)
+}
+
 export function shortenNumber(num: number | string, digits = 2): string {
   const formatter = new Intl.NumberFormat('en', {
     notation: 'compact',
@@ -53,8 +64,7 @@ export function truncatePercent(
     return new Decimal(value)
       .toDecimalPlaces(dec, Decimal.ROUND_DOWN)
       .toFixed(dec)
-  }
-  catch {
+  } catch {
     return '0'
   }
 }

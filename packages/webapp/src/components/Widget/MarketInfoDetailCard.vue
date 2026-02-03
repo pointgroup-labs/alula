@@ -3,13 +3,13 @@
 </script>
 
 <template>
-  <div class="market-info-card">
+  <div class="market-info-detail-card">
     <slot />
   </div>
 </template>
 
 <style lang="scss">
-.market-info-card {
+.market-info-detail-card {
   display: flex;
   flex-direction: column;
   text-wrap: nowrap;
@@ -51,7 +51,7 @@
 }
 
 .theme-dark {
-  .market-info-card {
+  .market-info-detail-card {
     border-color: $neutral-18;
     box-shadow: inset 0px 0px 7px 0px $neutral-18;
   }

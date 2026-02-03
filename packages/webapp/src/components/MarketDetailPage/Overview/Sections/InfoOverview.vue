@@ -88,54 +88,54 @@ const detailCardsData = computed(() => {
       </div>
 
       <div class="cards-list">
-        <market-info-card>
+        <market-info-detail-card>
           <div class="info-value">
             Accrual Model
           </div>
           <div class="info-label">
             {{ detailCardsData.accrualModel }}
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Interest Rate Model
           </div>
           <div class="info-label">
             {{ detailCardsData.interestRateModel }}
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Liquidation Close Factor
           </div>
           <div class="info-label">
             {{ detailCardsData.liquidationCloseFactor }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Max Liquidation Incentive
           </div>
           <div class="info-label">
             {{ detailCardsData.maxLiquidationIncentive }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Insolvency LTV
           </div>
           <div class="info-label">
             {{ detailCardsData.insolvencyLTV }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Target Utilization Rate
           </div>
           <div class="info-label">
             {{ detailCardsData.targetUtilizationRate }}%
           </div>
-        </market-info-card>
+        </market-info-detail-card>
       </div>
     </div>
   </section>

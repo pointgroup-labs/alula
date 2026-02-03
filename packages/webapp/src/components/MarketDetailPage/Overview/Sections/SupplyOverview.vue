@@ -33,7 +33,7 @@ const detailCardsData = computed(() => {
     openLTV: truncatePercent(openLTV || 0, 2),
     depositFee: truncatePercent(depositFee || 0, 2),
     repayFee: truncatePercent(repayFee || 0, 2),
-    price: `$${formatPrice(price, 2, 2)}`,
+    price: formatCompactUSD(price, 2, 2),
   }
 })
 
@@ -99,54 +99,54 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
         </market-progress>
       </div>
       <div class="cards-list">
-        <market-info-card>
+        <market-info-detail-card>
           <div class="info-value">
             Open LTV
           </div>
           <div class="info-label">
             {{ detailCardsData.openLTV }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Close LTV
           </div>
           <div class="info-label">
             {{ detailCardsData.closeLTV }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Supply APY
           </div>
           <div class="info-label positive">
             {{ detailCardsData.depositApy }}
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Deposit Fee
           </div>
           <div class="info-label">
             {{ detailCardsData.depositFee }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Rapay Fee
           </div>
           <div class="info-label">
             {{ detailCardsData.repayFee }}%
           </div>
-        </market-info-card>
-        <market-info-card>
+        </market-info-detail-card>
+        <market-info-detail-card>
           <div class="info-value">
             Price
           </div>
           <div class="info-label">
             {{ detailCardsData.price }}
           </div>
-        </market-info-card>
+        </market-info-detail-card>
       </div>
     </div>
   </section>
