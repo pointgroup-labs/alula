@@ -4,7 +4,8 @@ use soroban_sdk::{Address, Env, Map, contracttype};
 use crate::{
     constants::MAX_ALLOWED_FARMS,
     error::FCError,
-    state::{Farm, RewardInfo, User},
+    state::{Farm, FarmingPosition, RewardInfo},
+    utils::MathUtils,
 };
 
 #[contracttype]
@@ -15,8 +16,8 @@ pub enum DataKey {
     FarmsCounter,
     ProposedAdmin,
     TreasuryFeeBps,
-    User(u64, FarmingKey),    // (farm_id, farming_key)
-    RewardInfo(u64, Address), // (farm_id, reward_token_address)
+    RewardInfo(u64, Address),         // (farm_id, reward_token_address)
+    FarmingPosition(u64, FarmingKey), // (farm_id, farming_key)
 }
 
 // Admin
@@ -51,9 +52,13 @@ pub fn remove_proposed_admin(e: &Env) {
 pub fn get_farms_counter(e: &Env) -> Option<u64> {
     e.storage().instance().get(&DataKey::FarmsCounter)
 }
-pub fn increment_farms_counter(e: &Env) {
+pub fn increment_farms_counter(e: &Env) -> Result<(), FCError> {
     let counter = get_farms_counter(e).unwrap_or(0);
-    e.storage().instance().set(&DataKey::FarmsCounter, &counter.checked_add(1).unwrap()); // TODO map unwrap
+    e.storage()
+        .instance()
+        .set(&DataKey::FarmsCounter, &counter.checked_add(1).map_over_or_underflow()?);
+
+    Ok(())
 }
 
 // Farm
@@ -117,15 +122,15 @@ pub fn set_reward_info(e: &Env, farm_id: u64, reward_token: &Address, reward_inf
     e.storage().persistent().set(&DataKey::RewardInfo(farm_id, reward_token.clone()), reward_info);
 }
 
-// User
-pub fn get_user(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Option<User> {
-    let data_key = DataKey::User(farm_id, farming_key.clone());
+// FarmingPosition
+pub fn get_user(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Option<FarmingPosition> {
+    let data_key = DataKey::FarmingPosition(farm_id, farming_key.clone());
     extend_persistent(e, &data_key);
 
     e.storage().persistent().get(&data_key)
 }
-pub fn set_user(e: &Env, farm_id: u64, farming_key: &FarmingKey, user: &User) {
-    e.storage().persistent().set(&DataKey::User(farm_id, farming_key.clone()), user);
+pub fn set_user(e: &Env, farm_id: u64, farming_key: &FarmingKey, user: &FarmingPosition) {
+    e.storage().persistent().set(&DataKey::FarmingPosition(farm_id, farming_key.clone()), user);
 }
 
 // -- TTL --

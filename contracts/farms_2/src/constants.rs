@@ -12,3 +12,5 @@ pub const MAX_LOCKING_DURATION: u64 = 365 * 24 * 60 * 60;
 pub const MAX_HARVEST_DELAY: u64 = 24 * 60 * 60;
 
 pub const SCALE_FACTOR: i128 = 10_i128.pow(18);
+
+pub const MAX_CURVE_POINTS: u32 = 20;

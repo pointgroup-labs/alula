@@ -62,10 +62,6 @@ pub trait Farms {
         update: FarmConfigUpdate,
     ) -> Result<(), FarmsError>;
 
-    // Freezing disables staking-only, right?
-
-    // Should we allow freezing for the non-delegated farm?
-
     /// Freezes a farm (disables staking)
     fn freeze_farm(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError>;
 
@@ -374,7 +370,7 @@ impl Farms for FarmsContract {
             farm_id: farm_id.clone(), // I make it u64
             farm_admin: None,         // Setting it right away, right?
             pending_farm_admin: None,
-            delegate_authority: config.delegate_authority,
+            delegate_authority: config.delegation_type,
             total_staked: 0,             // Good
             num_users: 0,                // g
             time_unit: config.time_unit, // bs.
@@ -403,11 +399,6 @@ impl Farms for FarmsContract {
 
         Ok(farm_id)
     }
-
-    // Okay, for now I don't want to update anything
-    // If farm is started - it's immutable
-
-    // Also, I'd prefer to reward somebody once directly for now
 
     fn update_farm_config(
         e: Env,

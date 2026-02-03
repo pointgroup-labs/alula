@@ -1,4 +1,4 @@
-use farms_interface::Delegatee;
+use farms_interface::FarmingKey;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
 
@@ -29,7 +29,7 @@ impl ObligationKey {
     }
 }
 
-impl From<ObligationKey> for Delegatee {
+impl From<ObligationKey> for FarmingKey {
     fn from(obligation_key: ObligationKey) -> Self {
         match obligation_key.seed {
             Some(seed) => (obligation_key.user, seed).into(),
@@ -38,7 +38,7 @@ impl From<ObligationKey> for Delegatee {
     }
 }
 
-impl From<&ObligationKey> for Delegatee {
+impl From<&ObligationKey> for FarmingKey {
     fn from(obligation_key: &ObligationKey) -> Self {
         match &obligation_key.seed {
             Some(seed) => (obligation_key.user.clone(), seed.clone()).into(),
@@ -618,7 +618,7 @@ impl Obligation {
         let mut deposit_position = self
             .deposits
             .get(pool.pool_address.clone())
-            .unwrap_or_else(self.try_create_deposit_position(e)?);
+            .unwrap_or_else(|| self.try_create_deposit_position(e)?);
 
         let computed_fees = compute_fees(
             original_amount,

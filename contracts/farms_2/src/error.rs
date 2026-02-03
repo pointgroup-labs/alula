@@ -6,8 +6,12 @@ pub enum FCError {
     // Common
     InternalError = 0,
     NegativeInputAmount = 1,
+    OverOrUnderflow = 2,
+
     // Farms
-    FarmDoesNotExist = 10,
+    InvalidConfigUpdate = 10,
+
+    FarmDoesNotExist = 1001,
     ProposedAdminDoesNotExist = 11,
     MaxFarmNumRewardsReached = 12,
     TokenIsAlreadyAReward = 13,
@@ -21,7 +25,6 @@ pub enum FCError {
     InvalidTreasuryFeeBps = 21,
     InvalidFarmConfigUpdate = 22,
     RewardIsNotSet = 23,
-    InvalidConfigUpdate = 25,
     ProposedFarmAdminDoesNotExist = 26,
     RewardUserOnceDisabled = 27,
     WarmupNotComplete = 28,
@@ -33,4 +36,10 @@ pub enum FCError {
     InsufficientPendingWithdrawal = 32,
 
     CooldownNotComplete = 33,
+    ClaimTooSoon = 34,
+
+    NoRewardsToHarvest = 35,
+
+    InsufficientAvailableRewards = 36,
+    InsufficientCurrentSlashedAmount = 37,
 }

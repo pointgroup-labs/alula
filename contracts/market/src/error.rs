@@ -6,17 +6,19 @@ pub enum MCError {
     // Core errors (0-99)
     InternalError = 0,
     NegativeInputAmount = 1,
-    DependencyContractError = 2,
-    MarketIsNotOwned = 3,
-    BorrowForbiddenOnMarket = 4,
-    DepositForbiddenOnMarket = 5,
-    MarketIsFrozen = 6,
-    InvalidMarketUpdate = 7,
-    InvalidMarketStatusUpdate = 8,
-    IncorrectRequestType = 9,
-    OverOrUnderflow = 10,
-    TooManyPositions = 11,
-    MinCollateralValueIsNotMet = 12,
+    OverOrUnderflow = 2,
+
+    // Core Market errors
+    DependencyContractError = 10,
+    MarketIsNotOwned = 11,
+    BorrowForbiddenOnMarket = 12,
+    DepositForbiddenOnMarket = 13,
+    MarketIsFrozen = 14,
+    InvalidMarketUpdate = 15,
+    InvalidMarketStatusUpdate = 16,
+    IncorrectRequestType = 17,
+    TooManyPositions = 18,
+    MinCollateralValueIsNotMet = 19,
 
     // Pool-related errors (100-199)
     PoolAlreadyExists = 100,

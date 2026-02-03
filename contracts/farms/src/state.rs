@@ -1,5 +1,5 @@
 // Re-export Delegatee from farms_interface to ensure type compatibility
-pub use farms_interface::Delegatee;
+pub use farms_interface::FarmingKey;
 use soroban_sdk::{Address, BytesN, Vec, contracttype};
 
 /// Global configuration for the Farms contract

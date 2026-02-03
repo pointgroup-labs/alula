@@ -1,18 +1,24 @@
-use soroban_sdk::{Address, BytesN, Env, contractevent};
+use crate::state::{Farm, FarmConfig};
+use soroban_sdk::{Address, Env, contractevent};
 
-use crate::state::Farm;
+// -- Event structs --
 
 #[contractevent]
 struct InitializeFarm {
     #[topic]
-    farm_id: u64,
+    id: u64,
     #[topic]
-    farm_admin: Address,
-    farm: Farm,
+    admin: Address,
+    farm_config: FarmConfig,
 }
 
-// -- Functions --
+// -- Emitting functions --
 
 pub fn initialize_farm(e: &Env, farm: Farm) {
-    InitializeFarm { farm_id: farm.id, farm_admin: farm.config.admin.clone(), farm }.publish(e);
+    InitializeFarm {
+        id: farm.id,
+        admin: farm.config.admin.clone(),
+        farm_config: farm.config.clone(),
+    }
+    .publish(e);
 }

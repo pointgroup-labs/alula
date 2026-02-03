@@ -49,22 +49,13 @@ impl RewardScheduleCurve {
             let overlap_start = from_ts.max(point.ts_start);
             let overlap_end = to_ts.min(segment_end);
 
-            // Is this even correct?
-
-            // Can't you have something like this?
-
             if overlap_start < overlap_end {
-                let duration = (overlap_end - overlap_start) as i128; // You've overlapped with a segment...
+                let duration = (overlap_end - overlap_start) as i128; // secs
                 let segment_rewards =
-                // point contains a reward per time unit... What if we don't have enough rewards?
-
-                // Well, this is easier to think about, at least...
-
-                    duration.checked_mul(point.reward_per_time_unit).ok_or(FarmsError::Overflow)?; // You are aware about
-                // the reward per time unit here.... But this depends on the amount of your shares, doesn't it?
+                    duration.checked_mul(point.reward_per_time_unit).ok_or(FarmsError::Overflow)?;
                 total_rewards =
                     total_rewards.checked_add(segment_rewards).ok_or(FarmsError::Overflow)?;
-            } // I am not sure if this is correct here...
+            }
         }
 
         Ok(total_rewards)
