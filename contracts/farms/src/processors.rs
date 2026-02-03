@@ -4,25 +4,10 @@ use soroban_sdk::{Address, Env, Vec, vec as svec};
 use crate::{
     constants::{BPS_FACTOR, SCALE_FACTOR},
     error::FCError,
+    math::penalty::calculate_early_withdrawal_penalty,
     state::{Delegation, Farm, FarmingPosition, RewardInfo},
     utils::MathUtils,
 };
-
-pub fn withdraw_unused(
-    e: &Env,
-    amount: i128,
-    farm: &mut Farm,
-    reward_info: &mut RewardInfo,
-) -> Result<(), FCError> {
-    farm.refresh_rewards(e)?;
-
-    if amount > reward_info.rewards_available {
-        return Err(FCError::InsufficientAvailableRewards);
-    }
-    reward_info.rewards_available -= amount; // safe 
-
-    Ok(())
-}
 
 pub fn stake(
     e: &Env,
@@ -207,96 +192,6 @@ pub fn harvest_all(
     Ok(res)
 }
 
-pub fn calculate_pending_reward(
-    user_stake: i128,
-    reward_per_share_scaled: i128,
-    user_rewards_tally_scaled: i128,
-) -> Result<i128, FCError> {
-    if user_stake == 0 {
-        return Ok(0);
-    }
-
-    let entitled_scaled =
-        user_stake.checked_mul(reward_per_share_scaled).map_over_or_underflow()?;
-    let pending_scaled = entitled_scaled.saturating_sub(user_rewards_tally_scaled);
-
-    let pending = pending_scaled.checked_div(SCALE_FACTOR).map_over_or_underflow()?;
-
-    Ok(pending.max(0)) // is this fine, though?
-}
-
-/// Calculates the amount of reward token to issue in total
-pub fn calculate_rewards_to_issue(
-    farm: &Farm,
-    reward_info: &RewardInfo,
-    current_ts: u64,
-) -> Result<i128, FCError> {
-    if farm.total_staked == 0 {
-        return Ok(0);
-    }
-
-    let from_ts = reward_info.last_issuance_ts;
-    if from_ts >= current_ts {
-        return Ok(0); // TODO: Internal Error??
-    }
-
-    let rewards_from_curve =
-        reward_info.reward_schedule_curve.calculate_rewards(from_ts, current_ts)?;
-    let rewards_to_issue = rewards_from_curve.min(reward_info.rewards_available);
-
-    Ok(rewards_to_issue)
-}
-
-// TODO: Move to math
-pub fn calculate_early_withdrawal_penalty(
-    farm: &Farm,
-    farming_position: &FarmingPosition,
-    amount: i128,
-    current_ts: u64,
-) -> Result<(i128, i128), FCError> {
-    let Delegation::NonDelegated(delegation_config) = &farm.config.delegation else {
-        return Err(FCError::DelegatedFarm);
-    };
-
-    if delegation_config.early_withdrawal_penalty_bps == 0 || farm.config.locking_duration == 0 {
-        return Ok((amount, 0));
-    }
-
-    use crate::state::LockingMode;
-    let (_, lock_end) = match farm.config.locking_mode {
-        LockingMode::None => return Ok((amount, 0)),
-        LockingMode::Continuous => {
-            let start = farming_position.last_stake_ts;
-            let end = start.checked_add(farm.config.locking_duration).map_over_or_underflow()?;
-
-            (start, end)
-        }
-        LockingMode::WithExpiry => {
-            let start = farm.locking_start;
-            let end = start.checked_add(farm.config.locking_duration).map_over_or_underflow()?;
-
-            (start, end)
-        }
-    };
-    if current_ts >= lock_end {
-        return Ok((amount, 0));
-    }
-
-    let time_remaining = lock_end - current_ts; // safe
-    let total_duration = farm.config.locking_duration;
-
-    let effective_penalty_bps = delegation_config
-        .early_withdrawal_penalty_bps
-        .fixed_mul_ceil(time_remaining as i128, total_duration as i128)
-        .map_over_or_underflow()?;
-    let penalty =
-        amount.fixed_mul_ceil(effective_penalty_bps, BPS_FACTOR).map_over_or_underflow()?;
-
-    let net = amount - penalty; // safe
-
-    Ok((net, penalty))
-}
-
 /// Activates pending deposit stake (after warmup period)
 pub fn activate_pending_stake(
     e: &Env,
@@ -375,6 +270,22 @@ pub fn set_stake_delegated(
     Ok(())
 }
 
+pub fn withdraw_unused(
+    e: &Env,
+    amount: i128,
+    farm: &mut Farm,
+    reward_info: &mut RewardInfo,
+) -> Result<(), FCError> {
+    farm.refresh_rewards(e)?;
+
+    if amount > reward_info.rewards_available {
+        return Err(FCError::InsufficientAvailableRewards);
+    }
+    reward_info.rewards_available -= amount; // safe 
+
+    Ok(())
+}
+
 fn activate_stake(
     e: &Env,
     farm: &mut Farm,
@@ -401,4 +312,44 @@ fn activate_stake(
     }
 
     Ok(())
+}
+
+pub fn calculate_pending_reward(
+    user_stake: i128,
+    reward_per_share_scaled: i128,
+    user_rewards_tally_scaled: i128,
+) -> Result<i128, FCError> {
+    if user_stake == 0 {
+        return Ok(0);
+    }
+
+    let entitled_scaled =
+        user_stake.checked_mul(reward_per_share_scaled).map_over_or_underflow()?;
+    let pending_scaled = entitled_scaled.saturating_sub(user_rewards_tally_scaled);
+
+    let pending = pending_scaled.checked_div(SCALE_FACTOR).map_over_or_underflow()?;
+
+    Ok(pending.max(0)) // is this fine, though?
+}
+
+/// Calculates the amount of reward token to issue in total
+pub fn calculate_rewards_to_issue(
+    farm: &Farm,
+    reward_info: &RewardInfo,
+    current_ts: u64,
+) -> Result<i128, FCError> {
+    if farm.total_staked == 0 {
+        return Ok(0);
+    }
+
+    let from_ts = reward_info.last_issuance_ts;
+    if from_ts >= current_ts {
+        return Ok(0); // TODO: Internal Error??
+    }
+
+    let rewards_from_curve =
+        reward_info.reward_schedule_curve.calculate_rewards(from_ts, current_ts)?;
+    let rewards_to_issue = rewards_from_curve.min(reward_info.rewards_available);
+
+    Ok(rewards_to_issue)
 }

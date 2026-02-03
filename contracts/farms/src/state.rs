@@ -45,8 +45,12 @@ impl Farm {
         storage::get_farm(e, farm_id).ok_or(FCError::FarmDoesNotExist)
     }
 
-    pub fn token(&self) -> Address {
-        self.config.token.clone()
+    pub fn set(self, e: &Env) {
+        storage::set_farm(e, &self);
+    }
+
+    pub fn require_admin(&self) {
+        self.config.admin.require_auth();
     }
 
     pub fn require_not_frozen(&self) -> Result<(), FCError> {
@@ -95,18 +99,6 @@ impl Farm {
         }
 
         Ok(())
-    }
-
-    // pub fn require_reward_token_exists(&self, reward_token: &Address) -> Result<(), FCError> {
-    //     if !self.rewards.contains_key(reward_token) {
-    //         return Err(FCError::RewardDoesNotExistOnFarm);
-    //     }
-
-    //     Ok(())
-    // }
-
-    pub fn set(self, e: &Env) {
-        storage::set_farm(e, &self);
     }
 
     pub fn update_common_config(
@@ -216,37 +208,6 @@ impl Farm {
         Ok(())
     }
 
-    pub fn require_admin(&self) {
-        self.config.admin.require_auth();
-    }
-
-    pub fn accept_admin(&mut self) -> Result<(), FCError> {
-        let Some(proposed_farm_admin) = self.config.proposed_admin.clone() else {
-            return Err(FCError::ProposedFarmAdminDoesNotExist);
-        };
-        proposed_farm_admin.require_auth();
-
-        self.config.admin = proposed_farm_admin;
-        self.config.proposed_admin = None;
-
-        Ok(())
-    }
-
-    pub fn propose_admin(&mut self, admin: &Address) {
-        self.config.proposed_admin = Some(admin.clone());
-    }
-
-    fn require_can_initialize_reward(&self, reward_token: &Address) -> Result<(), FCError> {
-        if self.rewards.len() >= MAX_FARM_NUM_REWARDS {
-            return Err(FCError::MaxFarmNumRewardsReached);
-        }
-        if self.rewards.contains_key(reward_token.clone()) {
-            return Err(FCError::TokenIsAlreadyAReward);
-        }
-
-        Ok(())
-    }
-
     pub fn try_initialize_reward(
         &mut self,
         e: &Env,
@@ -257,6 +218,17 @@ impl Farm {
 
         let reward_info = RewardInfo::new(e);
         reward_info.set(e, self.id, reward_token);
+
+        Ok(())
+    }
+
+    fn require_can_initialize_reward(&self, reward_token: &Address) -> Result<(), FCError> {
+        if self.rewards.len() >= MAX_FARM_NUM_REWARDS {
+            return Err(FCError::MaxFarmNumRewardsReached);
+        }
+        if self.rewards.contains_key(reward_token.clone()) {
+            return Err(FCError::TokenIsAlreadyAReward);
+        }
 
         Ok(())
     }
@@ -281,6 +253,26 @@ impl Farm {
         reward_info.set(e, self.id, reward_token);
 
         Ok(())
+    }
+
+    pub fn accept_admin(&mut self) -> Result<(), FCError> {
+        let Some(proposed_farm_admin) = self.config.proposed_admin.clone() else {
+            return Err(FCError::ProposedFarmAdminDoesNotExist);
+        };
+        proposed_farm_admin.require_auth();
+
+        self.config.admin = proposed_farm_admin;
+        self.config.proposed_admin = None;
+
+        Ok(())
+    }
+
+    pub fn propose_admin(&mut self, admin: &Address) {
+        self.config.proposed_admin = Some(admin.clone());
+    }
+
+    pub fn token(&self) -> Address {
+        self.config.token.clone()
     }
 }
 
@@ -391,6 +383,14 @@ impl RewardInfo {
         }
     }
 
+    pub fn try_get(e: &Env, farm_id: u64, reward_token: &Address) -> Result<Self, FCError> {
+        storage::get_reward_info(e, farm_id, reward_token).ok_or(FCError::RewardDoesNotExistOnFarm)
+    }
+
+    pub fn set(self, e: &Env, farm_id: u64, reward_token: &Address) {
+        storage::set_reward_info(e, farm_id, reward_token, &self);
+    }
+
     pub fn reward_once(&mut self, amount: i128) -> Result<(), FCError> {
         if amount < self.rewards_available {
             return Err(FCError::InsufficientAvailableRewards);
@@ -403,14 +403,6 @@ impl RewardInfo {
         self.rewards_available -= amount; //safe
 
         Ok(())
-    }
-
-    pub fn try_get(e: &Env, farm_id: u64, reward_token: &Address) -> Result<Self, FCError> {
-        storage::get_reward_info(e, farm_id, reward_token).ok_or(FCError::RewardDoesNotExistOnFarm)
-    }
-
-    pub fn set(self, e: &Env, farm_id: u64, reward_token: &Address) {
-        storage::set_reward_info(e, farm_id, reward_token, &self);
     }
 
     pub fn try_set_reward_schedule_curve(
@@ -432,20 +424,16 @@ impl RewardInfo {
 pub struct FarmingPosition {
     pub active_stake: i128,
 
-    pub pending_deposit_stake: i128,
     pub pending_deposit_ts: u64,
+    pub pending_deposit_stake: i128,
 
-    pub pending_withdrawal_stake: i128,
     pub pending_withdrawal_ts: u64,
-
-    // This all goes per reward token, ok
-
-    // See MasterChef algorithm
+    pub pending_withdrawal_stake: i128,
     pub rewards_tallies: Map<Address, i128>,
     pub rewards_unclaimed: Map<Address, i128>,
 
-    pub last_claim_ts: Map<Address, u64>,
     pub last_stake_ts: u64,
+    pub last_claim_ts: Map<Address, u64>,
 
     pending_rewards_unclaimed: Map<Address, i128>,
 }
@@ -454,16 +442,24 @@ impl FarmingPosition {
     pub fn new(e: &Env) -> Self {
         Self {
             active_stake: 0,
-            pending_deposit_stake: 0,
-            pending_deposit_ts: 0,
-            pending_withdrawal_stake: 0,
-            pending_withdrawal_ts: 0,
-            rewards_unclaimed: smap![e],
-            last_claim_ts: smap![e],
             last_stake_ts: 0,
+            pending_deposit_ts: 0,
+            last_claim_ts: smap![e],
+            pending_withdrawal_ts: 0,
+            pending_deposit_stake: 0,
             rewards_tallies: smap![e],
+            rewards_unclaimed: smap![e],
+            pending_withdrawal_stake: 0,
             pending_rewards_unclaimed: smap![e],
         }
+    }
+
+    pub fn try_get(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Result<Self, FCError> {
+        storage::get_user(e, farm_id, farming_key).ok_or(FCError::FarmingPositionDoesNotExist)
+    }
+
+    pub fn set(self, e: &Env, farm_id: u64, farming_key: &FarmingKey) {
+        storage::set_user(e, farm_id, farming_key, &self);
     }
 
     pub fn withdraw_unstaked(&mut self, e: &Env, farm: &Farm) -> Result<i128, FCError> {
@@ -497,10 +493,6 @@ impl FarmingPosition {
         let new_unclaimed = current_unclaimed.checked_add(amount).unwrap();
 
         self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
-    }
-
-    pub fn try_get(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Result<Self, FCError> {
-        storage::get_user(e, farm_id, farming_key).ok_or(FCError::FarmingPositionDoesNotExist)
     }
 
     pub fn stake(&mut self, e: &Env, farm: &mut Farm, amount: i128) -> Result<(), FCError> {
@@ -585,10 +577,6 @@ impl FarmingPosition {
             .unwrap();
 
         Ok(pending_increased)
-    }
-
-    pub fn set(self, e: &Env, farm_id: u64, farming_key: &FarmingKey) {
-        storage::set_user(e, farm_id, farming_key, &self);
     }
 }
 
