@@ -310,7 +310,7 @@ watchDebounced([
         </div>
       </div>
 
-      <div class="d-flex flex-column">
+      <div class="d-flex flex-column multiply-chart-with-vault">
         <multiply-apy-chart />
 
         <div class="loop-multiply__vault hide-xs">
@@ -443,6 +443,14 @@ watchDebounced([
           }
         }
       }
+    }
+  }
+
+  .multiply-chart-with-vault {
+    width: 500px;
+
+    @media (max-width: $breakpoint-sm) {
+      width: 100%;
     }
   }
 

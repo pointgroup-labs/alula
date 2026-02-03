@@ -218,14 +218,10 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
 <style lang="scss">
 .multiply-chart {
-  width: 500px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: $spacing-16;
-
-  @media (max-width: $breakpoint-sm) {
-    width: 100%;
-  }
 
   .loop-multiply__legend {
     display: flex;
