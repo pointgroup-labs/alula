@@ -291,14 +291,14 @@ impl Farms for FarmsContract {
         storage::extend_instance(&e);
         utils::require_admin(&e);
 
-        let farm = Farm::new(&e, farm_config);
+        let farm = Farm::new(&e, farm_config.clone());
         let farm_id = farm.id;
 
         storage::increment_farms_counter(&e)?;
         storage::register_farm(&e, farm_id)?;
         storage::set_farm(&e, &farm);
 
-        events::initialize_farm(&e, farm);
+        events::initialize_farm(&e, farm_id, farm_config);
 
         Ok(farm_id)
     }
@@ -316,6 +316,8 @@ impl Farms for FarmsContract {
         farm.update_common_config(&config_update)?;
         farm.set(&e);
 
+        events::update_common_farm_config(&e, farm_id, config_update);
+
         Ok(())
     }
 
@@ -331,6 +333,8 @@ impl Farms for FarmsContract {
 
         farm.update_delegated_config(&config_update)?;
         farm.set(&e);
+
+        events::update_delegated_farm_config(&e, farm_id, config_update);
 
         Ok(())
     }
@@ -348,6 +352,8 @@ impl Farms for FarmsContract {
         farm.update_non_delegated_config(&config_update)?;
         farm.set(&e);
 
+        events::update_non_delegated_farm_config(&e, farm_id, config_update);
+
         Ok(())
     }
 
@@ -359,6 +365,8 @@ impl Farms for FarmsContract {
 
         farm.is_frozen = true;
         farm.set(&e);
+
+        events::freeze_farm(&e, farm_id);
 
         Ok(())
     }
@@ -372,6 +380,8 @@ impl Farms for FarmsContract {
         farm.is_frozen = false;
         farm.set(&e);
 
+        events::unfreeze_farm(&e, farm_id);
+
         Ok(())
     }
 
@@ -383,6 +393,8 @@ impl Farms for FarmsContract {
 
         farm.try_initialize_reward(&e, &reward_token)?;
         farm.set(&e);
+
+        events::initialize_reward(&e, farm_id, reward_token);
 
         Ok(())
     }
@@ -409,6 +421,8 @@ impl Farms for FarmsContract {
             &amount,
         );
 
+        events::add_rewards(&e, farm_id, funder, reward_token, amount);
+
         Ok(())
     }
 
@@ -430,6 +444,8 @@ impl Farms for FarmsContract {
 
         farm.set(&e);
         reward_info.set(&e, farm_id, &reward_token);
+
+        events::update_rewards_schedule(&e, farm_id, reward_token, schedule);
 
         Ok(())
     }
@@ -459,6 +475,8 @@ impl Farms for FarmsContract {
             &amount,
         );
 
+        events::withdraw_unused(&e, farm_id, recipient, reward_token, amount);
+
         Ok(())
     }
 
@@ -484,6 +502,8 @@ impl Farms for FarmsContract {
             &amount,
         );
 
+        events::withdraw_slashed(&e, farm_id, recipient, amount);
+
         Ok(())
     }
 
@@ -496,6 +516,8 @@ impl Farms for FarmsContract {
         farm.propose_admin(&proposed_admin);
         farm.set(&e);
 
+        events::propose_farm_admin(&e, farm_id, proposed_admin);
+
         Ok(())
     }
 
@@ -506,6 +528,8 @@ impl Farms for FarmsContract {
         farm.accept_admin()?;
 
         farm.set(&e);
+
+        events::accept_farm_admin(&e, farm_id);
 
         Ok(())
     }
@@ -533,6 +557,8 @@ impl Farms for FarmsContract {
         farming_position.set(&e, farm_id, &farming_key);
         reward_info.set(&e, farm_id, &reward_token);
 
+        events::reward_once(&e, farm_id, farming_key, reward_token, amount);
+
         Ok(())
     }
 
@@ -550,6 +576,8 @@ impl Farms for FarmsContract {
 
         farm.set(&e);
         farming_position.set(&e, farm_id, &farming_key);
+
+        events::refresh_farming_position(&e, farm_id, farming_key);
 
         Ok(())
     }
@@ -585,6 +613,8 @@ impl Farms for FarmsContract {
         farm.set(&e);
         farming_position.set(&e, farm_id, &farming_key);
 
+        events::set_stake_delegated(&e, farm_id, farming_key, new_stake);
+
         Ok(())
     }
 
@@ -602,6 +632,8 @@ impl Farms for FarmsContract {
         farm.set(&e);
         farming_position.set(&e, farm_id, &farming_key);
 
+        events::stake(&e, farm_id, farming_key, amount);
+
         Ok(())
     }
 
@@ -617,6 +649,8 @@ impl Farms for FarmsContract {
 
         farm.set(&e);
         farming_position.set(&e, farm_id, &farming_key);
+
+        events::unstake(&e, farm_id, farming_key, amount);
 
         Ok(())
     }
@@ -638,6 +672,8 @@ impl Farms for FarmsContract {
             &farming_key.owner,
             &withdrawn_amount,
         );
+
+        events::withdraw_unstaked(&e, farm_id, farming_key);
 
         Ok(withdrawn_amount)
     }
@@ -672,6 +708,8 @@ impl Farms for FarmsContract {
             &harvested_amount,
         );
 
+        events::harvest(&e, farm_id, farming_key, reward_token);
+
         Ok(harvested_amount)
     }
 
@@ -694,6 +732,8 @@ impl Farms for FarmsContract {
                 &harvested_amount,
             );
         }
+
+        events::harvest_all(&e, farm_id, farming_key);
 
         Ok(())
     }
