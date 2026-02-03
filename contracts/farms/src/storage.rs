@@ -12,12 +12,12 @@ use crate::{
 pub enum DataKey {
     Admin,
     AllFarms,
-    Farm(u64), // farm_id
+    Farm(u64),
     FarmsCounter,
     ProposedAdmin,
     TreasuryFeeBps,
-    RewardInfo(u64, Address),         // (farm_id, reward_token_address)
-    FarmingPosition(u64, FarmingKey), // (farm_id, farming_key)
+    RewardInfo(u64, Address),
+    FarmingPosition(u64, FarmingKey),
 }
 
 // Admin
@@ -28,7 +28,9 @@ pub fn set_admin(e: &Env, admin: &Address) {
     e.storage().instance().set(&DataKey::Admin, admin)
 }
 
+// TODO: Start using
 // TreasuryFeeBps
+#[allow(unused)]
 pub fn get_treasury_fee_bps(e: &Env) -> Option<i128> {
     e.storage().instance().get(&DataKey::TreasuryFeeBps)
 }
@@ -87,7 +89,7 @@ pub fn register_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
     if all_farms_len > MAX_ALLOWED_FARMS {
         return Err(FCError::InternalError);
     } else if all_farms_len == MAX_ALLOWED_FARMS {
-        return Err(FCError::MaxAllowedFarmsReached);
+        return Err(FCError::MaxFarmNumRewardsReached);
     }
 
     if all_farms_set.contains_key(farm_id) {
@@ -95,17 +97,6 @@ pub fn register_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
     }
 
     all_farms_set.set(farm_id, ());
-    e.storage().persistent().set(&DataKey::AllFarms, &all_farms_set);
-
-    Ok(())
-}
-pub fn unregister_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
-    let mut all_farms_set = get_all_farms(e).ok_or(FCError::InternalError)?;
-    if all_farms_set.is_empty() || !all_farms_set.contains_key(farm_id) {
-        return Err(FCError::InternalError);
-    }
-
-    all_farms_set.remove(farm_id);
     e.storage().persistent().set(&DataKey::AllFarms, &all_farms_set);
 
     Ok(())

@@ -257,6 +257,7 @@ pub fn calculate_early_withdrawal_penalty(
     let Delegation::NonDelegated(delegation_config) = &farm.config.delegation else {
         return Err(FCError::DelegatedFarm);
     };
+
     if delegation_config.early_withdrawal_penalty_bps == 0 || farm.config.locking_duration == 0 {
         return Ok((amount, 0));
     }

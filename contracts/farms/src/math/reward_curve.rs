@@ -1,5 +1,5 @@
 use crate::{constants::*, error::FCError, utils::MathUtils};
-use soroban_sdk::{Env, Vec, contracttype};
+use soroban_sdk::{Vec, contracttype};
 
 #[contracttype]
 #[derive(Clone)]
@@ -16,7 +16,7 @@ pub struct RewardScheduleCurve {
 }
 
 impl RewardScheduleCurve {
-    pub fn require_valid(&self, e: &Env) -> Result<(), FCError> {
+    pub fn require_valid(&self) -> Result<(), FCError> {
         if self.points.is_empty() || self.points.len() > MAX_CURVE_POINTS {
             return Err(FCError::InvalidRewardScheduleCurve);
         }

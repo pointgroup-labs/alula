@@ -49,9 +49,17 @@ impl Farm {
         self.config.token.clone()
     }
 
+    pub fn require_not_frozen(&self) -> Result<(), FCError> {
+        if self.is_frozen {
+            return Err(FCError::FarmIsFrozen);
+        }
+
+        Ok(())
+    }
+
     pub fn require_can_reward_once(&self) -> Result<(), FCError> {
         if !self.config.is_reward_once_enabled {
-            return Err(FCError::RewardUserOnceDisabled);
+            return Err(FCError::RewardUserOnceIsDisabled);
         }
 
         Ok(())
@@ -174,7 +182,7 @@ impl Farm {
                 config.locking_mode = *mode;
             }
             NonDelegatedFarmConfigUpdate::DepositWarmupPeriod(period) => {
-                if !(0..=MAX_WITHDRAWAL_COOLDOWN_PERIOD).contains(period) {
+                if !(0..=MAX_DEPOSIT_WARMUP_PERIOD).contains(period) {
                     return Err(FCError::InvalidFarmConfigUpdate);
                 }
 
@@ -411,54 +419,12 @@ impl RewardInfo {
         farm: &mut Farm,
         curve: &RewardScheduleCurve,
     ) -> Result<(), FCError> {
-        curve.require_valid(e)?;
+        curve.require_valid()?;
 
         farm.refresh_rewards(e)?;
         self.reward_schedule_curve = curve.clone();
 
         Ok(())
-    }
-
-    fn refresh(&mut self, e: &Env, farm: &Farm) -> Result<(), FCError> {
-        // let rewards_to_issue = self.calculate_rewards_to_issue(&e, farm_id)?;
-
-        todo!()
-    }
-
-    fn calculate_rewards_to_issue(&self, e: &Env, farm_id: u64) -> Result<i128, FCError> {
-        let current_ts = e.ledger().timestamp();
-        let farm = Farm::try_get(e, farm_id).unwrap(); // TODO: Event
-
-        if farm.total_staked == 0 {
-            return Ok(0);
-        }
-
-        let from_ts = self.last_issuance_ts;
-        if from_ts >= current_ts {
-            return Ok(0);
-        }
-        let rewards_from_curve =
-            self.reward_schedule_curve.calculate_rewards(from_ts, current_ts)?;
-
-        Ok(rewards_from_curve.min(self.rewards_available))
-    }
-
-    // pub fn require_valid(&self, e: &Env) -> Result<(), FCError> {
-    //     // let Self {
-    //     //     available: _, rewards_per_share: _, min_claim_duration: _, reward_schedule, ..
-    //     // } = &self;
-
-    //     reward_schedule.require_valid(e)?;
-
-    //     Ok(())
-    // }
-
-    pub fn increase_accum_reward_per_share_sc(&mut self, stake_diff: i128) -> Result<(), FCError> {
-        // Oh, yeah. That's why they have this 'refresh functionality'
-
-        // Do something with the curve, right?
-
-        todo!()
     }
 }
 
@@ -534,14 +500,11 @@ impl FarmingPosition {
     }
 
     pub fn try_get(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Result<Self, FCError> {
-        storage::get_user(e, farm_id, farming_key).ok_or(FCError::UserDoesNotExist)
+        storage::get_user(e, farm_id, farming_key).ok_or(FCError::FarmingPositionDoesNotExist)
     }
 
     pub fn stake(&mut self, e: &Env, farm: &mut Farm, amount: i128) -> Result<(), FCError> {
         // TODO: Min STAKE amount
-        // if amount < farm.config.de
-
-        // TODO: Farm is frozen check
 
         if farm.config.deposit_cap > 0 {
             let new_total = farm.total_staked.checked_add(amount).unwrap();
@@ -581,10 +544,9 @@ impl FarmingPosition {
 
     pub fn refresh_rewards(&mut self, e: &Env, farm: &Farm) -> Result<(), FCError> {
         for reward_token in farm.rewards.keys() {
-            let reward_info =
-                RewardInfo::try_get(e, farm.id, &reward_token).map_err(|_| {
-                    FCError::InternalError // TODO: Event
-                })?;
+            let reward_info = RewardInfo::try_get(e, farm.id, &reward_token).map_err(|_| {
+                FCError::InternalError // TODO: Event
+            })?;
 
             let pending = self.calculate_pending_reward(&reward_token, &reward_info)?;
 
@@ -605,29 +567,6 @@ impl FarmingPosition {
         Ok(())
     }
 
-    fn adjust_pending(&mut self, reward_token: &Address, diff: i128) -> Result<(), FCError> {
-        let old_pending = self.pending_rewards_unclaimed.get(reward_token.clone()).unwrap();
-        let new_pending = old_pending.checked_add(diff).unwrap();
-
-        self.pending_rewards_unclaimed.set(reward_token.clone(), new_pending);
-
-        Ok(())
-    }
-
-    fn refresh_stake(
-        &mut self,
-        reward_token: &Address,
-        reward_info: &RewardInfo,
-        stake_diff: i128,
-    ) -> Result<(), FCError> {
-        let new_stake = self.active_stake.checked_add(stake_diff).unwrap();
-
-        todo!()
-
-        // let new_debt = new_stake.fixed_mul_
-    }
-
-    // So, refresh makes sense if you want to increase your pending...
     fn calculate_pending_reward(
         &self,
         reward_token: &Address,

@@ -76,7 +76,7 @@ pub trait Farms {
         config_update: NonDelegatedFarmConfigUpdate,
     ) -> Result<(), FCError>;
 
-    /// Freezes the farm(disables staking)
+    /// zes the farm(disables staking)
     fn freeze_farm(e: Env, farm_id: u64) -> Result<(), FCError>;
 
     /// Unfreezes the farm
@@ -266,7 +266,7 @@ impl Farms for FarmsContract {
         storage::extend_instance(&e);
 
         let proposed_admin =
-            storage::get_proposed_admin(&e).ok_or(FCError::ProposedAdminDoesNotExist)?;
+            storage::get_proposed_admin(&e).ok_or(FCError::ProposedFarmAdminDoesNotExist)?;
         proposed_admin.require_auth();
 
         storage::remove_proposed_admin(&e);
@@ -564,6 +564,7 @@ impl Farms for FarmsContract {
         require_nonnegative(new_stake)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
+        farm.require_not_frozen()?;
 
         let mut is_new_user = false;
         let mut farming_position = FarmingPosition::try_get(&e, farm_id, &farming_key)
@@ -593,6 +594,7 @@ impl Farms for FarmsContract {
         utils::require_nonnegative(amount)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
+        farm.require_not_frozen()?;
         let mut farming_position = FarmingPosition::try_get(&e, farm_id, &farming_key)?;
 
         processors::stake(&e, &mut farm, &mut farming_position, amount)?;
