@@ -4,6 +4,7 @@ export function useMultiplyTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
 
+  const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
   const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')
   const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
   const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
@@ -57,7 +58,6 @@ export function useMultiplyTable() {
     return res
   })
 
-  const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
   const selectedPool = computed(() =>
     tableItems.value.find(item => item.pool_address === selectedPoolAddress.value
       && activeLeverageMarket.value === item.market))

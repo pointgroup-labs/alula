@@ -2,6 +2,7 @@
 import type { MultiplyTableItem } from '~/types/table'
 import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
+import { VAULT_INFO } from '~/config/vault'
 import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, truncatePercent } from '~/utils'
 
 const {
@@ -309,7 +310,19 @@ watchDebounced([
         </div>
       </div>
 
-      <multiply-apy-chart />
+      <div class="d-flex flex-column">
+        <multiply-apy-chart />
+
+        <div class="loop-multiply__vault hide-xs">
+          <div class="loop-multiply__vault-title">
+            {{ VAULT_INFO.title }}
+          </div>
+
+          <div class="loop-multiply__vault-info">
+            {{ VAULT_INFO.shortDesciption }}
+          </div>
+        </div>
+      </div>
     </div>
   </j-dialog>
 </template>
@@ -430,6 +443,29 @@ watchDebounced([
           }
         }
       }
+    }
+  }
+
+  .loop-multiply__vault {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-10;
+    margin-top: auto;
+
+    &-title {
+      color: $dark;
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 16px;
+    }
+
+    &-info {
+      color: $neutral-16;
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 400;
+      line-height: 16px;
     }
   }
 

@@ -10,6 +10,8 @@ const {
 
 const { width } = useWindowSize()
 
+const router = useRouter()
+
 const {
   tableItems,
   selectedPoolAddress,
@@ -23,6 +25,7 @@ const {
 
 const market = useMarketActions()
 
+const marketsStore = useMarketsStore()
 const userStore = useUserStore()
 
 const fields = [
@@ -55,6 +58,15 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     market,
   )
 }
+
+function onRowClicked(data: MultiplyTableItem) {
+  const marketAddress = marketsStore.state.markets[String(data.market)]?.address
+  const poolAddress = data.pool_address
+  if (!marketAddress || !poolAddress) {
+    return
+  }
+  router.push(`/multiply/${marketAddress}/${poolAddress}`)
+}
 </script>
 
 <template>
@@ -74,6 +86,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       :items="filteredData"
       responsive
       class="market-table multiply-table"
+      @row-clicked="onRowClicked"
     >
       <template
         v-for="field in fields"
@@ -238,7 +251,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 <style lang="scss">
 .multiply-table {
   tbody tr {
-    cursor: default;
+    cursor: pointer;
   }
 
   .cell-apy {

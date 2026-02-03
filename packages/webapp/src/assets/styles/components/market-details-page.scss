@@ -3,15 +3,74 @@
   flex-direction: column;
   gap: $spacing-32;
 
+  h2 {
+    font-weight: 500;
+    margin-bottom: $spacing-24;
+  }
+
   .stat-card {
-    background: #fff;
     border-radius: 16px;
-    box-shadow: 0 2px 12px #0001;
     padding: 24px 32px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     min-width: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(249, 250, 251, 0.98) 100%);
+    border: 1px solid rgba(33, 44, 66, 0.08);
+    box-shadow:
+      0px 2px 8px rgba(33, 44, 66, 0.04),
+      0px 8px 24px rgba(33, 44, 66, 0.06),
+      inset 0px 1px 0px rgba(255, 255, 255, 0.6);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:hover {
+      box-shadow:
+        0px 4px 12px rgba(33, 44, 66, 0.08),
+        0px 12px 32px rgba(33, 44, 66, 0.1),
+        inset 0px 1px 0px rgba(255, 255, 255, 0.8);
+      border-color: rgba(92, 108, 255, 0.3);
+    }
+  }
+
+  .market-details-top {
+    display: flex;
+    align-items: center;
+    gap: $spacing-16;
+
+    @media (max-width: $breakpoint-xs) {
+      flex-wrap: wrap;
+    }
+
+    .asset-data {
+      display: flex;
+      align-items: center;
+      gap: $spacing-6;
+      font-size: 22px;
+      font-weight: 500;
+
+      img {
+        width: 38px;
+        height: 38px;
+      }
+    }
+
+    .market-pills {
+      display: flex;
+      align-items: center;
+      gap: $spacing-8;
+      margin-left: auto;
+
+      @media (max-width: $breakpoint-xs) {
+        margin: 0 auto;
+      }
+
+      .market-pill {
+        padding: $spacing-4 $spacing-12;
+        border: 1px solid;
+        border-radius: 100px;
+        font-size: 14px;
+      }
+    }
   }
 
   .market-detail-header {
@@ -136,7 +195,6 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: $spacing-12;
-    overflow-x: auto;
 
     @media (max-width: $breakpoint-xs) {
       grid-template-columns: 1fr 1fr;
@@ -204,13 +262,32 @@
 
 .theme-dark {
   .market-detail-page {
+    .market-pills {
+      .market-pill {
+        border-color: $neutral-18;
+      }
+    }
+
     .market-detail-header {
       border-color: $neutral-18;
     }
 
     .stat-card {
-      background-color: transparent;
-      border: 1px solid $neutral-18;
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+      border-color: rgba(148, 163, 184, 0.1);
+      box-shadow:
+        0px 2px 8px rgba(0, 0, 0, 0.2),
+        0px 8px 24px rgba(0, 0, 0, 0.3),
+        inset 0px 1px 0px rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+
+      &:hover {
+        box-shadow:
+          0px 4px 12px rgba(0, 0, 0, 0.3),
+          0px 12px 32px rgba(99, 102, 241, 0.15),
+          inset 0px 1px 0px rgba(255, 255, 255, 0.1);
+        border-color: rgba(92, 108, 255, 0.3);
+      }
     }
 
     .info-row {

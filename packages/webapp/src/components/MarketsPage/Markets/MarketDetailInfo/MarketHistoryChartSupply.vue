@@ -198,7 +198,7 @@ const chartOptions = computed<ChartOptions<'bar' | 'line'>>(() => {
   }
 }
 
-.theme-dark{
+.theme-dark {
   .market-history-chart {
     .history-chart__header__badge {
       background: $neutral-18;

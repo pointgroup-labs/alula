@@ -8,50 +8,47 @@ const marketsStore = useMarketsStore()
 const loading = computed(() => marketsStore.state.loading)
 
 const {
-  selectedMarketName,
   selectedPoolAddress,
   selectedPool,
-  dialogSupply,
-  dialogBorrow,
-} = useMarketTable()
+  activeLeverageMarket,
+} = useMultiplyTable()
 
 const marketTabs = [{
-  label: 'Market Overview',
+  label: 'Overview',
   value: 'overview',
 },
 {
-  label: 'Info & Risk',
+  label: 'My Positions',
+  value: 'position',
+},
+{
+  label: 'Info & FAQs',
   value: 'info',
 }]
 
 const activeTab = ref(marketTabs[0])
 
-async function dialogHandler(marketName: string, poolAddress: string, action: 'supply' | 'borrow') {
-  selectedMarketName.value = marketName
-  selectedPoolAddress.value = poolAddress
-  action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
-}
-
 watch(() => marketsStore.state.markets, (storeMarkets) => {
   if (!storeMarkets || Object.keys(storeMarkets).length === 0) {
     return
   }
-  const markets = Object.entries(storeMarkets)
-  const market = markets.find(([, data]) => data.address === marketAddress)
-  const pool = market?.[1]?.marketState?.pools_data?.find(p => p.pool.pool_address === poolAddress)
 
-  selectedMarketName.value = market?.[0]
-  selectedPoolAddress.value = pool?.pool.pool_address
+  const markets = Object.entries(storeMarkets)
+  const marketName = markets.find(([, data]) => data.address === marketAddress)?.[0]
+
+  if (marketName && poolAddress) {
+    activeLeverageMarket.value = marketName
+    selectedPoolAddress.value = poolAddress
+  }
 }, { immediate: true })
 
 provide('selectedPool', selectedPool)
-provide('selectedMarketDetails', selectedPool)
 </script>
 
 <template>
   <main>
     <div class="market-detail-page container">
-      <market-detail-top />
+      <multiply-detail-top />
 
       <j-loading-spinner
         v-if="loading"
@@ -66,11 +63,11 @@ provide('selectedMarketDetails', selectedPool)
             v-model="activeTab"
             :tabs="marketTabs"
           />
-          <market-detail-actions @dialog-handler="dialogHandler" />
         </div>
 
-        <market-overview v-if="activeTab?.value === 'overview'" />
-        <info-risks-faq v-else />
+        <multiply-overview v-if="activeTab?.value === 'overview'" />
+        <!-- <market-overview v-if="activeTab?.value === 'overview'" />
+        <info-risks-faq v-else /> -->
       </template>
 
       <div
@@ -80,15 +77,6 @@ provide('selectedMarketDetails', selectedPool)
         Market or Pool not found
       </div>
 
-      <supply-dialog
-        v-model="dialogSupply"
-        :data="selectedPool"
-      />
-
-      <borrow-dialog
-        v-model="dialogBorrow"
-        :data="selectedPool"
-      />
     </div>
   </main>
 </template>

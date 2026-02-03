@@ -213,18 +213,6 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         {{ key }}x
       </div>
     </div>
-
-    <div class="loop-multiply__vault hide-xs">
-      <div class="loop-multiply__vault-title">
-        Vault Info
-      </div>
-
-      <div class="loop-multiply__vault-info">
-        Multiply uses one-click looping with a flash loan to boost your yield. Choose a multiplier to set leverage.
-        Higher multiplier means higher APY and higher liquidation risk. You can reduce or close the position at any
-        time.
-      </div>
-    </div>
   </div>
 </template>
 
@@ -296,29 +284,6 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
 .loop-multiply__chart {
   height: 196px;
-}
-
-.loop-multiply__vault {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-10;
-  margin-top: auto;
-
-  &-title {
-    color: $dark;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: 16px;
-  }
-
-  &-info {
-    color: $neutral-16;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 16px;
-  }
 }
 
 .theme-dark {

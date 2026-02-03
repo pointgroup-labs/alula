@@ -18,6 +18,7 @@ const {
         <market-info-detail-card>
           <div class="info-label">
             {{ shortenNumber(selectedPool?.total_supply ?? 0) }} {{ selectedPool?.asset?.symbol }}
+            <i-app-info-circle class="info-icon" />
           </div>
           <div class="info-value">
             <img
@@ -37,6 +38,7 @@ const {
         <market-info-detail-card>
           <div class="info-label">
             {{ shortenNumber(selectedPool?.total_borrowed ?? 0) }} {{ selectedPool?.asset?.symbol }}
+            <i-app-info-circle class="info-icon" />
           </div>
           <div class="info-value">
             <img
@@ -56,6 +58,7 @@ const {
         <market-info-detail-card>
           <div class="info-label">
             {{ shortenNumber(poolBorrowLimit ?? 0) }} {{ selectedPool?.asset?.symbol }}
+            <i-app-info-circle class="info-icon" />
           </div>
           <div class="info-value">
             <img
@@ -151,15 +154,6 @@ section#stats {
       width: 16px;
       height: 16px;
       object-fit: contain;
-    }
-
-    .info-label {
-      &.positive {
-        color: $success;
-      }
-      &.warning {
-        color: $warning;
-      }
     }
   }
 }
