@@ -538,7 +538,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<DepositResult, MCError> {
         let mut deposit_position = match self.deposits.get(pool.pool_address.clone()) {
-            Some(pos) => pos.clone(),
+            Some(pos) => pos,
             None => self.try_create_deposit_position(e)?,
         };
 
@@ -579,7 +579,7 @@ impl Obligation {
 
         // WARN: This can potentially create a borrow obligation with 0ed fields
         let mut borrow_position = match self.borrows.get(pool.pool_address.clone()) {
-            Some(pos) => pos.clone(),
+            Some(pos) => pos,
             None => self.try_create_borrow_position(e)?,
         };
 
@@ -616,7 +616,7 @@ impl Obligation {
         original_amount: i128,
     ) -> Result<AddCollateralResult, MCError> {
         let mut deposit_position = match self.deposits.get(pool.pool_address.clone()) {
-            Some(pos) => pos.clone(),
+            Some(pos) => pos,
             None => self.try_create_deposit_position(e)?,
         };
 
@@ -1150,7 +1150,7 @@ impl Obligation {
         j_tokens_amount: i128,
     ) -> Result<(), MCError> {
         let mut deposit_position = match self.deposits.get(collateral_pool.pool_address.clone()) {
-            Some(pos) => pos.clone(),
+            Some(pos) => pos,
             None => self.try_create_deposit_position(e)?,
         };
 

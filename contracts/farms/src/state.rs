@@ -1,6 +1,6 @@
 use farms_interface::FarmingKey;
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Env, Map, Vec, contractimpl, contracttype, map as smap, vec as svec};
+use soroban_sdk::{Address, Env, Map, Vec, contracttype, map as smap, vec as svec};
 
 use crate::{
     constants::*,
@@ -247,7 +247,7 @@ impl Farm {
         self.require_can_initialize_reward(reward_token)?;
         self.rewards.set(reward_token.clone(), ());
 
-        let reward_info = RewardInfo::new(&e);
+        let reward_info = RewardInfo::new(e);
         reward_info.set(e, self.id, reward_token);
 
         Ok(())
@@ -392,17 +392,17 @@ impl RewardInfo {
             self.rewards_issued_unclaimed.checked_add(amount).map_over_or_underflow()?;
         self.rewards_issued_cumulative =
             self.rewards_issued_cumulative.checked_add(amount).map_over_or_underflow()?;
-        self.rewards_available = self.rewards_available - amount; //safe
+        self.rewards_available -= amount; //safe
 
         Ok(())
     }
 
     pub fn try_get(e: &Env, farm_id: u64, reward_token: &Address) -> Result<Self, FCError> {
-        storage::get_reward_info(e, farm_id, &reward_token).ok_or(FCError::RewardDoesNotExistOnFarm)
+        storage::get_reward_info(e, farm_id, reward_token).ok_or(FCError::RewardDoesNotExistOnFarm)
     }
 
     pub fn set(self, e: &Env, farm_id: u64, reward_token: &Address) {
-        storage::set_reward_info(e, farm_id, &reward_token, &self);
+        storage::set_reward_info(e, farm_id, reward_token, &self);
     }
 
     pub fn try_set_reward_schedule_curve(
@@ -550,7 +550,7 @@ impl FarmingPosition {
             }
         }
 
-        self.refresh_rewards(&e, farm)?;
+        self.refresh_rewards(e, farm)?;
         Ok(())
     }
 
@@ -581,8 +581,8 @@ impl FarmingPosition {
 
     pub fn refresh_rewards(&mut self, e: &Env, farm: &Farm) -> Result<(), FCError> {
         for reward_token in farm.rewards.keys() {
-            let mut reward_info =
-                RewardInfo::try_get(&e, farm.id, &reward_token).map_err(|_| {
+            let reward_info =
+                RewardInfo::try_get(e, farm.id, &reward_token).map_err(|_| {
                     FCError::InternalError // TODO: Event
                 })?;
 

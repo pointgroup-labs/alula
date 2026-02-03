@@ -1,11 +1,9 @@
-use farms_interface::FarmingKey;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Env, Vec, vec as svec};
 
 use crate::{
     constants::{BPS_FACTOR, SCALE_FACTOR},
     error::FCError,
-    events,
     state::{Delegation, Farm, FarmingPosition, RewardInfo},
     utils::MathUtils,
 };
@@ -21,7 +19,7 @@ pub fn withdraw_unused(
     if amount > reward_info.rewards_available {
         return Err(FCError::InsufficientAvailableRewards);
     }
-    reward_info.rewards_available = reward_info.rewards_available - amount; // safe 
+    reward_info.rewards_available -= amount; // safe 
 
     Ok(())
 }
@@ -98,7 +96,7 @@ pub fn unstake(
     farming_position.active_stake =
         farming_position.active_stake.checked_sub(amount).map_over_or_underflow()?;
     if farming_position.active_stake == 0 {
-        farm.num_users = farm.num_users - 1; // safe?
+        farm.num_users -= 1; // safe?
     }
 
     for reward_token in farm.rewards.keys() {
@@ -304,7 +302,7 @@ pub fn activate_pending_stake(
     farm: &mut Farm,
     farming_position: &mut FarmingPosition,
 ) -> Result<(), FCError> {
-    farm.refresh_rewards(&e)?;
+    farm.refresh_rewards(e)?;
 
     if farming_position.pending_deposit_stake == 0 {
         return Ok(());
@@ -339,8 +337,8 @@ pub fn set_stake_delegated(
     is_new_user: bool,
     farming_position: &mut FarmingPosition,
 ) -> Result<(), FCError> {
-    farm.refresh_rewards(&e)?;
-    farming_position.refresh_rewards(&e, &farm)?;
+    farm.refresh_rewards(e)?;
+    farming_position.refresh_rewards(e, farm)?;
 
     if new_stake == farming_position.active_stake {
         return Ok(());
@@ -357,17 +355,15 @@ pub fn set_stake_delegated(
         }
 
         farming_position.last_stake_ts = e.ledger().timestamp();
-    } else {
-        if new_stake == 0 && !is_new_user {
-            farm.num_users = farm.num_users - 1; // safe?
-        }
+    } else if new_stake == 0 && !is_new_user {
+        farm.num_users -= 1; // safe?
     }
 
     farm.total_staked = farm.total_staked.checked_add(diff).map_over_or_underflow()?; // safe?
     farming_position.active_stake = new_stake;
 
     for reward_token in farm.rewards.keys() {
-        let reward_info = RewardInfo::try_get(&e, farm.id, &reward_token)?;
+        let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
 
         let new_tally = new_stake
             .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
@@ -400,7 +396,7 @@ fn activate_stake(
     }
 
     if farming_position.active_stake == amount {
-        farm.num_users = farm.num_users - 1; // WARN: safe?
+        farm.num_users -= 1; // WARN: safe?
     }
 
     Ok(())

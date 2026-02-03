@@ -81,7 +81,7 @@ pub fn get_all_farms(e: &Env) -> Option<Map<u64, ()>> {
     res
 }
 pub fn register_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
-    let mut all_farms_set = get_all_farms(e).unwrap_or_else(|| Map::new(&e));
+    let mut all_farms_set = get_all_farms(e).unwrap_or_else(|| Map::new(e));
 
     let all_farms_len = all_farms_set.len();
     if all_farms_len > MAX_ALLOWED_FARMS {

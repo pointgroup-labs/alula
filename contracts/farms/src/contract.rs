@@ -405,7 +405,7 @@ impl Farms for FarmsContract {
 
         token::Client::new(&e, &reward_token).transfer(
             &funder,
-            &e.current_contract_address(),
+            e.current_contract_address(),
             &amount,
         );
 
