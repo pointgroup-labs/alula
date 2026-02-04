@@ -161,7 +161,7 @@ function openWithdrawDialog() {
     >
       <div class="empty-state-card">
         <div class="empty-icon">
-          <!-- <i-app-chart-line /> -->
+          <i-app-chart-square-icon />
         </div>
         <h3>No Active Position</h3>
         <p>You don't have any multiply position yet.</p>
@@ -507,7 +507,7 @@ section#multiply-position {
 
       .pair-icons {
         position: relative;
-        width: 52px;
+        width: 60px;
         height: 38px;
 
         .icon-primary,

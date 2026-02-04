@@ -32,6 +32,8 @@ declare module 'vue' {
     IAppArrowRight: typeof import('~icons/app/arrow-right')['default']
     IAppArrowUp: typeof import('~icons/app/arrow-up')['default']
     IAppChartLine: typeof import('~icons/app/chart-line')['default']
+    IAppChartSq: typeof import('~icons/app/chart-sq')['default']
+    IAppChartSquareIcon: typeof import('~icons/app/chart-square-icon')['default']
     IAppCopy: typeof import('~icons/app/copy')['default']
     IAppCrossIcon: typeof import('~icons/app/cross-icon')['default']
     IAppDisconnectIcon: typeof import('~icons/app/disconnect-icon')['default']
