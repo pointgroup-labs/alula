@@ -1,5 +1,3 @@
-<script lang="ts" setup></script>
-
 <template>
   <section id="multiply-history-chart">
     <h2>History Data</h2>

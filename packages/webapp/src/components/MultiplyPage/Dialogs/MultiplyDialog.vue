@@ -88,7 +88,13 @@ const maxAPY = computed(() => data?.maxAPY || 0)
 const depositPoolPrice = computed(() => isDepositMultiply.value ? data?.price : data?.borrowPoolPrice)
 
 const supplyLimit = computed(() => {
-  const sum = calcRemainingMultiplyUSD(borrowAvailableInUsd.value, Number(depositPoolPrice.value || 0), Number(selectedMultiplier.value) || 0)
+  const flashLoanFeeBps = borrowPoolData.value?.pool.config.fee_config.flash_loan_fee_bps || 0
+  const sum = calcRemainingMultiplyUSD(
+    borrowAvailableInUsd.value,
+    Number(depositPoolPrice.value || 0),
+    Number(selectedMultiplier.value) || 0,
+    flashLoanFeeBps,
+  )
   return sum
 })
 
@@ -212,37 +218,26 @@ watchDebounced([
             Wallet: {{ balance }} {{ depositAsset?.name }}
           </template>
           <template #prepend>
-            <j-popover
-              position="bottom"
-              :teleport-to-body="false"
-              close-popup
-            >
-              <div
-                class="popover-borrow-asset"
-                @click="swapAsset"
-              >
-                <img
-                  :src="borrowAsset?.icon"
-                  :alt="`${borrowAsset?.name} icon`"
+            <j-select-popover>
+              <template #menu>
+                <div
+                  class="popover-borrow-asset"
+                  @click="swapAsset"
                 >
-                {{ borrowAsset?.name }}
-              </div>
-              <template #target="{ active }">
-                <j-tooltip>
                   <img
-                    :src="depositAsset?.icon"
-                    :alt="`${depositAsset?.name} icon`"
+                    :src="borrowAsset?.icon"
+                    :alt="`${borrowAsset?.name} icon`"
                   >
-                  <i-app-arrow-up
-                    class="arrow-icon"
-                    :class="{ 'arrow-icon--active': active }"
-                  />
-                  <template #content>
-                    Change multiply asset to {{ borrowAsset?.name }}
-                  </template>
-                </j-tooltip>
+                  {{ borrowAsset?.name }}
+                </div>
               </template>
-            </j-popover>
+              <template #target>
+                <img
+                  :src="depositAsset?.icon"
+                  :alt="`${depositAsset?.name} icon`"
+                >
+              </template>
+            </j-select-popover>
           </template>
         </input-widget>
 
@@ -341,38 +336,6 @@ watchDebounced([
   .j-input__prepend {
     width: 40px;
     min-width: 40px;
-
-    .popover {
-      &-body {
-        padding: $spacing-12;
-      }
-
-      .popover-borrow-asset {
-        display: flex;
-        align-items: center;
-        gap: $spacing-6;
-        cursor: pointer;
-      }
-    }
-
-    .popover-target {
-      & > div {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        cursor: pointer;
-      }
-    }
-
-    .arrow-icon {
-      width: 18px;
-      height: 18px;
-      transform: rotate(180deg);
-
-      &--active {
-        transform: rotate(0deg);
-      }
-    }
 
     img {
       width: 32px;

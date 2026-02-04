@@ -30,7 +30,7 @@ export function useMultiplyTable() {
         const supplied = depositPoolData && depositPoolData.pool.total_available ? Number(bigintToNumber(depositPoolData.pool.total_available, assetDecimals)) : 0
         const liquidity
           = borrowPoolData && borrowPoolData.total_available_adjusted
-            ? Number(bigintToNumber(borrowPoolData.total_available_adjusted/*  + borrowPoolData.total_borrowed + borrowPoolData.total_collateral */, assetDecimals))
+            ? Number(bigintToNumber(borrowPoolData.total_available_adjusted, assetDecimals))
             : 0
         const depositPoolPrice = Number(bigintToNumber(depositPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
         const borrowPoolPrice = Number(bigintToNumber(borrowPoolData.oracle_asset_price, oraclePriceDecimals)) || 0

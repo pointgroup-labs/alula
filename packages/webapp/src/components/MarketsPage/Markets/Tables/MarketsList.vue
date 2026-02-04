@@ -43,6 +43,7 @@ const marketsStore = useMarketsStore()
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   // { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
+  { key: 'price', label: 'Price', align: 'right', thClass: 'price', tdClass: 'price' },
   { key: 'total_supply', label: 'Supply', align: 'right', thClass: 'supply', tdClass: 'supply' },
   { key: 'total_borrowed', label: 'Borrow', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
@@ -176,6 +177,17 @@ const stop = watch(additionalMarketsData, () => {
             <pool-status :pool="data.item.raw.pool" />
           </div>
         </template> -->
+
+        <template #cell(price)="data">
+          <div class="table-cell justify-content-end">
+            <j-tooltip>
+              {{ formatCompactUSD(data.item.price, 2, 2) }}
+              <template #content>
+                {{ formatPrice(data.item.price) }}
+              </template>
+            </j-tooltip>
+          </div>
+        </template>
 
         <template #cell(total_supply)="data">
           <div class="table-cell justify-content-end">

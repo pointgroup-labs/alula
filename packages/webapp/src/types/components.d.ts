@@ -63,6 +63,7 @@ declare module 'vue' {
     JPillLabel: typeof import('./../components/Common/JPillLabel.vue')['default']
     JPopover: typeof import('./../components/Common/JPopover.vue')['default']
     JSelect: typeof import('./../components/Common/JSelect.vue')['default']
+    JSelectPopover: typeof import('./../components/Common/JSelectPopover.vue')['default']
     JSkeleton: typeof import('./../components/Common/JSkeleton.vue')['default']
     JToggle: typeof import('./../components/Common/JToggle.vue')['default']
     JTooltip: typeof import('./../components/Common/JTooltip.vue')['default']

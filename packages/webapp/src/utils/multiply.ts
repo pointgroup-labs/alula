@@ -38,20 +38,42 @@ export function calculateMaxMultiplierFromBps(ltvByBps: number): number {
 
 /**
  * Calculate the remaining amount of asset that can be supplied to a pool based on the provided parameters.
+ * This function calculates the maximum deposit amount (in tokens) considering:
+ * - Available borrow liquidity in USD
+ * - Deposit token price
+ * - Leverage multiplier
+ * - Flash loan fee
+ * 
+ * Formula (simplified, assuming 1:1 swap):
+ * maxDeposit = borrowAvailableInUsd / (depositTokenPrice * (multiplier - 1) * (1 + flashLoanFee))
+ * 
  * @param borrowAvailableInUsd - The amount of asset that can be borrowed in USD
- * @param poolPrice - The price of the asset in the pool
- * @param selectedMultiplier - The multiplier to use for the calculation
- * @returns The remaining amount of asset that can be supplied in USD
+ * @param depositTokenPrice - The price of the deposit token in USD
+ * @param selectedMultiplier - The multiplier to use for the calculation (e.g., 2.5)
+ * @param flashLoanFeeBps - Flash loan fee in basis points (e.g., 50 = 0.5%)
+ * @returns The maximum amount of deposit tokens that can be supplied
  */
 export function calcRemainingMultiplyUSD(
   borrowAvailableInUsd: number,
-  poolPrice: number,
+  depositTokenPrice: number,
   selectedMultiplier: number,
+  flashLoanFeeBps: number = 0,
 ): number {
   if (selectedMultiplier <= 1) {
-    return borrowAvailableInUsd
+    // If multiplier is 1 or less, no leverage is used
+    return Infinity
   }
-  return borrowAvailableInUsd / (poolPrice * (selectedMultiplier - 1))
+  
+  // Calculate flash loan fee multiplier (1 + fee)
+  const flashLoanFeeMultiplier = 1 + (flashLoanFeeBps / 10_000)
+  
+  // Calculate max deposit considering:
+  // - User deposits D tokens
+  // - Contract borrows D * (M - 1) * depositTokenPrice in USD
+  // - With flash loan fee: D * (M - 1) * depositTokenPrice * (1 + fee)
+  // - Available borrow in USD must be >= D * (M - 1) * depositTokenPrice * (1 + fee)
+  // - Therefore: D <= borrowAvailableInUsd / ((M - 1) * depositTokenPrice * (1 + fee))
+  return borrowAvailableInUsd / (depositTokenPrice * (selectedMultiplier - 1) * flashLoanFeeMultiplier)
 }
 
 export function calculateCurrentMultiplier(

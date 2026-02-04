@@ -34,7 +34,7 @@ const fields = [
   { key: 'multiplier', label: 'Multiplier', align: 'center' },
   { key: 'market', label: 'Market', align: 'center' },
   { key: 'supplied', label: 'Supply', align: 'right' },
-  { key: 'liquidity', label: 'Borrow', align: 'right' },
+  { key: 'liquidity', label: 'Liquidity', align: 'right' },
   { key: 'borrowing', label: 'Borrow Token', align: 'right' },
   { key: 'action', label: '' },
 ]

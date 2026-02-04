@@ -29,8 +29,6 @@ const apyClass = computed(() => {
       return 'default'
   }
 })
-
-console.log(poolData?.value)
 </script>
 
 <template>
