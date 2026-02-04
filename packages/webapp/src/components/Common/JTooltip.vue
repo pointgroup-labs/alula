@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { arrow, autoUpdate, flip, offset as Offset, shift, useFloating } from '@floating-ui/vue'
-import { onClickOutside } from '@vueuse/core'
+import { onClickOutside, useWindowSize } from '@vueuse/core'
 import { ref, watchEffect } from 'vue'
 
 const {
   offset = 4,
   isArrow = true,
-  closeDelay = 150,
+  closeDelay = 200,
 } = defineProps<{
   offset?: number
   tooltipClass?: string
@@ -19,28 +19,22 @@ const slots = defineSlots()
 
 const { width } = useWindowSize()
 
-const reference = ref(null)
-const floating = ref(null)
-const floatingArrow = ref(null)
+const reference = ref<HTMLElement | null>(null)
+const floating = ref<HTMLElement | null>(null)
+const floatingArrow = ref<HTMLElement | null>(null)
+
 const isVisible = ref(false)
-const closeTimer = ref<NodeJS.Timeout | null>(null)
+const closeTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
 const { floatingStyles, middlewareData, placement, update } = useFloating(reference, floating, {
   middleware: [
     arrow({ element: floatingArrow }),
     Offset(offset),
     flip(),
-    shift(),
+    shift({ padding: 8 }),
   ],
   placement: 'top',
 })
-
-const toggleVisible = () => {
-  if (width.value > 650) {
-    return
-  }
-  isVisible.value = true
-}
 
 const clearCloseTimer = () => {
   if (closeTimer.value) {
@@ -67,14 +61,25 @@ const handleMouseLeave = () => {
   }
 }
 
-watchEffect(() => {
-  if (isVisible.value && reference.value && floating.value) {
-    autoUpdate(reference.value, floating.value, update)
+const toggleVisible = () => {
+  if (width.value > 650) {
+    return
   }
-  if (width.value <= 650) {
-    onClickOutside(reference, () => {
+  isVisible.value = true
+  clearCloseTimer()
+}
+
+watchEffect((onCleanup) => {
+  if (isVisible.value && reference.value && floating.value) {
+    const cleanup = autoUpdate(reference.value, floating.value, update)
+    onCleanup(cleanup)
+  }
+
+  if (width.value <= 650 && reference.value) {
+    const stop = onClickOutside(reference, () => {
       isVisible.value = false
     })
+    onCleanup(stop)
   }
 })
 
@@ -118,6 +123,7 @@ const getArrowSide = () => {
         v-if="slots?.content"
         name="content"
       />
+
       <div
         v-if="isArrow"
         ref="floatingArrow"
