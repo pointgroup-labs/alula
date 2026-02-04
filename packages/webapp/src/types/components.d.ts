@@ -93,7 +93,7 @@ declare module 'vue' {
     MultiplyDetailsPage: typeof import('./../components/MultiplyDetailsPage/MultiplyDetailsPage.vue')['default']
     MultiplyDetailTop: typeof import('./../components/MultiplyDetailsPage/MultiplyDetailTop.vue')['default']
     MultiplyDialog: typeof import('./../components/MultiplyPage/Dialogs/MultiplyDialog.vue')['default']
-    MultiplyForm: typeof import('./../components/MultiplyDetailsPage/Form/MultiplyForm.vue')['default']
+    MultiplyForm: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplyForm.vue')['default']
     MultiplyHistoryChart: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplyHistoryChart.vue')['default']
     MultiplyOverview: typeof import('./../components/MultiplyDetailsPage/Overview/MultiplyOverview.vue')['default']
     MultiplyPage: typeof import('./../components/MultiplyPage/MultiplyPage.vue')['default']

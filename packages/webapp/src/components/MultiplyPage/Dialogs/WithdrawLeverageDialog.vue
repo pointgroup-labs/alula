@@ -83,6 +83,7 @@ async function withdrawLeverage() {
     await market.withdrawLeverage({
       ...marketProps,
       action: async () => {
+        dialog.value = false
         await Promise.allSettled([
           userStore.updateUserMultiplyObligation({
             market: activeMarket.value!.marketState.global_state.name,
