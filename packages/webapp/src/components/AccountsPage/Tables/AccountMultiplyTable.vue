@@ -16,7 +16,7 @@ const userStore = useUserStore()
 
 const market = useMarketActions()
 
-const selectedMarketAddress = toRef(marketsStore, 'selectedMarketAddress')
+const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')
 const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
 
 const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
@@ -98,7 +98,7 @@ const tableItems = computed<MultiplyAccountTableItem[]>(() => {
 
 const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
 const selectedPool = computed(() =>
-  tableItems.value.find(item => item.pool_address === selectedMarketAddress.value
+  tableItems.value.find(item => item.pool_address === selectedPoolAddress.value
     && activeLeverageMarket.value === item.market))
 
 const filteredData = computed(() => {
@@ -107,7 +107,7 @@ const filteredData = computed(() => {
 })
 
 async function multiplyDialogHandler(item: MultiplyAccountTableItem) {
-  selectedMarketAddress.value = item?.pool_address
+  selectedPoolAddress.value = item?.pool_address
   activeLeverageMarket.value = String(item.market)
   dialogLeverageWithdraw.value = true
 }
@@ -138,7 +138,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       :fields="fields"
       :items="filteredData"
       responsive
-      class="market-table multiply-table"
+      class="market-table multiply-table multiply-table-accounts"
     >
       <template
         v-for="field in fields"
@@ -245,9 +245,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         </div>
       </template>
 
-      <template
-        #empty
-      >
+      <template #empty>
         <div
           v-show="!isLoading"
           class="no-data"
@@ -279,11 +277,13 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 </template>
 
 <style lang="scss">
-.multiply-table {
+.multiply-table-accounts {
   tbody tr {
     cursor: default;
   }
+}
 
+.multiply-table {
   .cell-apy {
     color: $success;
     font-size: 14px;

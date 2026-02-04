@@ -6,11 +6,13 @@ import { ref, watchEffect } from 'vue'
 const {
   offset = 4,
   isArrow = true,
+  closeDelay = 150,
 } = defineProps<{
   offset?: number
   tooltipClass?: string
   contentClass?: string
   isArrow?: boolean
+  closeDelay?: number
 }>()
 
 const slots = defineSlots()
@@ -21,6 +23,7 @@ const reference = ref(null)
 const floating = ref(null)
 const floatingArrow = ref(null)
 const isVisible = ref(false)
+const closeTimer = ref<NodeJS.Timeout | null>(null)
 
 const { floatingStyles, middlewareData, placement, update } = useFloating(reference, floating, {
   middleware: [
@@ -37,6 +40,31 @@ const toggleVisible = () => {
     return
   }
   isVisible.value = true
+}
+
+const clearCloseTimer = () => {
+  if (closeTimer.value) {
+    clearTimeout(closeTimer.value)
+    closeTimer.value = null
+  }
+}
+
+const scheduleClose = () => {
+  clearCloseTimer()
+  closeTimer.value = setTimeout(() => {
+    isVisible.value = false
+  }, closeDelay)
+}
+
+const handleMouseEnter = () => {
+  clearCloseTimer()
+  isVisible.value = true
+}
+
+const handleMouseLeave = () => {
+  if (width.value > 650) {
+    scheduleClose()
+  }
 }
 
 watchEffect(() => {
@@ -63,8 +91,8 @@ const getArrowSide = () => {
   <div
     ref="reference"
     :class="[$style.tooltip, tooltipClass]"
-    @mouseenter="isVisible = true"
-    @mouseleave="isVisible = false"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
     @click="toggleVisible"
   >
     <slot />
@@ -83,6 +111,8 @@ const getArrowSide = () => {
         opacity: isVisible ? 1 : 0,
         zIndex: 9999,
       }"
+      @mouseenter="clearCloseTimer"
+      @mouseleave="handleMouseLeave"
     >
       <slot
         v-if="slots?.content"
