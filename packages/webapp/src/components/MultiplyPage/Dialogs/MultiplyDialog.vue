@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import type { MultiplyTableItem } from '~/types/table'
-import { calcFee } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { VAULT_INFO } from '~/config/vault'
-import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice, truncatePercent } from '~/utils'
+import { formatPrice, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -11,139 +10,34 @@ const {
   data?: MultiplyTableItem
 }>()
 
-const userStore = useUserStore()
-const marketsStore = useMarketsStore()
-const market = useMarketActions()
+const dataRef = ref(data)
+
+const {
+  reloadFee,
+  depositAsset,
+  borrowAsset,
+  amount,
+  balance,
+  selectedMultiplier,
+
+  txFee,
+  availableLiquidity,
+  supplyLimit,
+  maxAPY,
+
+  maxMultiply,
+  percentFromMaxMultiply,
+
+  multiplySymbol,
+  marketFee,
+
+  swapAsset,
+  leverage,
+} = useLeverage(dataRef)
 
 const dialog = defineModel<boolean>({ default: false })
 
-const isDepositMultiply = ref(true)
-
-const reloadFee = ref(false)
-
-const amount = toRef(market, 'depositAmount')
-
-const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
-
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
-
-const multiplyAssets = computed(() => [data?.asset, data?.borrowAsset])
-
-const depositAsset = computed(() => multiplyAssets.value[isDepositMultiply.value ? 0 : 1])
-const borrowAsset = computed(() => multiplyAssets.value[isDepositMultiply.value ? 1 : 0])
-
-const balance = computed(() => {
-  if (!data) {
-    return 0
-  }
-  const currentPool = isDepositMultiply.value ? data.depositPoolData.pool : data.borrowPoolData.pool
-  const poolAsset = currentPool.token_symbol
-  if (poolAsset === 'native') {
-    return wallet.nativeBalance
-  }
-  const [, asset_issuer] = destructurePoolAsset(currentPool.name)
-  return wallet.getAssetBalance(String(asset_issuer))
-})
-
-const percentFromMaxMultiply = ref(90)
-
-const maxMultiply = computed(() => data?.multiplier || 0)
-const selectedMultiplier = computed(() => {
-  return Number((percentFromMaxMultiply.value / 100) * maxMultiply.value).toFixed(2)
-})
-
-const txFee = ref(0)
-
-const multiplySymbol = computed(() =>
-  getTokenSymbol(String(isDepositMultiply.value ? data?.depositPoolData.pool.token_symbol : data?.borrowPoolData.pool.token_symbol)))
-
-const borrowPoolData = computed(() => data?.borrowPoolData)
-const liquidityRemaining = computed(() => {
-  if (!borrowPoolData.value) {
-    return 0
-  }
-  const maxBorrowByUtil = Number(bigintToNumber(borrowPoolData.value.total_supply, data!.assetDecimals))
-    * (Number(borrowPoolData.value.pool.config.health_config.utilization_ratio_limit_bps) / 10_000)
-    - Number(bigintToNumber(borrowPoolData.value.pool.total_borrowed, data!.assetDecimals))
-  return Math.max(0, Math.min(Number(bigintToNumber(borrowPoolData.value?.total_available_adjusted, data!.assetDecimals)), maxBorrowByUtil))
-})
-
-const availableLiquidity = computed(() => {
-  if (!borrowPoolData.value) {
-    return 0
-  }
-  return `${formatPrice(liquidityRemaining.value || 0, 2, 2)} ${borrowPoolData.value.pool.token_symbol}`
-})
-
-const borrowAvailableInUsd = computed(() => Number(liquidityRemaining.value) * Number(data?.borrowPoolPrice || 0))
-
-const marketFee = computed(() => {
-  const marketFeeBps = borrowPoolData.value?.pool.config.fee_config.flash_loan_fee_bps
-  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
-})
-
-const maxAPY = computed(() => data?.maxAPY || 0)
-
-const depositPoolPrice = computed(() => isDepositMultiply.value ? data?.price : data?.borrowPoolPrice)
-
-const supplyLimit = computed(() => {
-  const flashLoanFeeBps = borrowPoolData.value?.pool.config.fee_config.flash_loan_fee_bps || 0
-  const sum = calcRemainingMultiplyUSD(
-    borrowAvailableInUsd.value,
-    Number(depositPoolPrice.value || 0),
-    Number(selectedMultiplier.value) || 0,
-    flashLoanFeeBps,
-  )
-  return sum
-})
-
-function swapAsset() {
-  isDepositMultiply.value = !isDepositMultiply.value
-}
-
-async function leverage() {
-  if (!publicKey.value || !data?.depositPoolData.pool.pool_address) {
-    return
-  }
-  if (!amount.value || amount.value <= 0 || amount.value > balance.value) {
-    focusInput('.multiply-dialog')
-    return
-  }
-
-  const deposit_pool_address = data?.depositPoolData.pool.pool_address
-  const borrow_pool_address = data?.borrowPoolData.pool.pool_address
-  const asset_code = isDepositMultiply.value ? data?.asset.symbol : data?.borrowAsset.symbol
-  if (!deposit_pool_address || !borrow_pool_address) {
-    return
-  }
-
-  const marketProps = {
-    client: activeMarket.value!.client,
-    market: activeMarket.value!.marketState.global_state.name,
-    deposit_pool_address,
-    borrow_pool_address,
-    deposit_as_margin: isDepositMultiply.value,
-    amount: amount.value,
-    leverage_multiplier: Number(selectedMultiplier.value),
-    asset_code,
-  }
-
-  await market.leverage({
-    ...marketProps,
-    action: async () => {
-      await Promise.allSettled([
-        userStore.updateUserMultiplyObligation({
-          market: activeMarket.value!.marketState.global_state.name,
-          client: activeMarket.value!.client,
-          depositPoolAddress: deposit_pool_address,
-          borrowPoolAddress: borrow_pool_address,
-        }),
-        marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client),
-      ])
-    },
-  })
-}
+const market = useMarketActions()
 
 let interval: string | number | NodeJS.Timeout | undefined
 
@@ -163,25 +57,6 @@ watch(dialog, async (v) => {
     })
   }, RELOAD_FEE_INTERVAL)
 })
-
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([data]) => {
-  if (!data || !publicKey.value) {
-    return
-  }
-  const tx = await activeMarket.value?.client.marketSdk.leverageTx(
-    publicKey.value,
-    data?.depositPoolData.pool.pool_address || '',
-    data?.borrowPoolData.pool.pool_address || '',
-    isDepositMultiply.value,
-    1,
-    2,
-  )
-  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) || 0
-}, { immediate: true, debounce: 300 })
 </script>
 
 <template>
