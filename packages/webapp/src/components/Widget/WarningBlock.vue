@@ -13,7 +13,7 @@ const {
   <div class="warning-block">
     <i-app-warning-color class="warning-icon" />
     <div :class="[`warning-text--${isWarning ? 'warning' : 'default'}`]">
-      <span>{{ title }}</span>: {{ text }}
+      <span>{{ title }}:</span> {{ text }}
     </div>
   </div>
 </template>

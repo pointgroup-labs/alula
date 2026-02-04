@@ -18,7 +18,7 @@ const marketTabs = [{
   value: 'overview',
 },
 {
-  label: 'My Positions',
+  label: 'My Position',
   value: 'position',
 },
 {
@@ -66,6 +66,7 @@ provide('selectedPool', selectedPool)
         </div>
 
         <multiply-overview v-if="activeTab?.value === 'overview'" />
+        <multiply-position v-else-if="activeTab?.value === 'position'" />
         <!-- <market-overview v-if="activeTab?.value === 'overview'" />
         <info-risks-faq v-else /> -->
       </template>

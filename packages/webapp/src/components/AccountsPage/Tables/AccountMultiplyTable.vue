@@ -277,13 +277,12 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 </template>
 
 <style lang="scss">
-.multiply-table-accounts {
-  tbody tr {
-    cursor: default;
-  }
-}
-
 .multiply-table {
+  &.multiply-table-accounts {
+    tbody tr {
+      cursor: default;
+    }
+  }
   .cell-apy {
     color: $success;
     font-size: 14px;
