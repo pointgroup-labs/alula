@@ -9,10 +9,10 @@ export const DEFAULT_DECIMALS = {
   oracleDecimals: DEFAULT_ORACLE_DECIMALS,
 }
 
-export type DecimalsConfig = {
+export type DecimalsConfig = Readonly<{
   assetDecimals: number
   oracleDecimals: number
-}
+}>
 
 export async function loadMarketDecimals(
   client: Client,
