@@ -1,80 +1,61 @@
-import type { RPCcluster } from '../types'
+import { Client } from '@alula/market-sdk'
 import { cacheManager } from '../utils'
 
+export const DEFAULT_ASSET_DECIMALS = 7
+export const DEFAULT_ORACLE_DECIMALS = 14
+
+export const DEFAULT_DECIMALS = {
+  assetDecimals: DEFAULT_ASSET_DECIMALS,
+  oracleDecimals: DEFAULT_ORACLE_DECIMALS,
+}
+
+export type DecimalsConfig = {
+  assetDecimals: number
+  oracleDecimals: number
+}
+
+export async function loadMarketDecimals(
+  client: Client,
+  contractId?: string,
+): Promise<DecimalsConfig> {
+  if (!contractId) {
+    return DEFAULT_DECIMALS
+  }
+
+  const [assetDecimals, oracleDecimals] = await Promise.all([
+    fetchAssetDecimals({ fetchFn: async () => (await client.get_asset_decimals()).result, contractId }),
+    fetchOracleDecimals({ fetchFn: async () => (await client.get_oracle_price_decimals()).result, contractId }),
+  ])
+
+  return {
+    assetDecimals,
+    oracleDecimals,
+  }
+}
+
+export async function fetchAssetDecimals(props: {
+  fetchFn: () => Promise<number>
+  contractId?: string
+}): Promise<number> {
+  if (!props.contractId) {
+    return 7
+  }
+  const { fetchFn } = props
+  const key = cacheManager.key(props.contractId, 'decimals:asset')
+  return await cacheManager.getOrSet<number>(key, fetchFn)
+}
+
 /**
- * Decimals configuration manager
+ * Fetch and cache oracle decimals from contract
  */
-export class DecimalsConfig {
-  private assetDecimals: number = 7
-  private oracleDecimals: number = 14
-  private rpc: RPCcluster
-  private contractId?: string
-
-  constructor(rpc: RPCcluster, contractId?: string) {
-    this.rpc = rpc
-    this.contractId = contractId
+export async function fetchOracleDecimals(props: {
+  fetchFn: () => Promise<number>
+  contractId?: string
+}): Promise<number> {
+  if (!props.contractId) {
+    return 14
   }
-
-  /**
-   * Get asset decimals
-   */
-  getAssetDecimals(): number {
-    return this.assetDecimals
-  }
-
-  /**
-   * Get oracle decimals
-   */
-  getOracleDecimals(): number {
-    return this.oracleDecimals
-  }
-
-  /**
-   * Set asset decimals
-   */
-  setAssetDecimals(decimals: number): void {
-    this.assetDecimals = decimals
-  }
-
-  /**
-   * Set oracle decimals
-   */
-  setOracleDecimals(decimals: number): void {
-    this.oracleDecimals = decimals
-  }
-
-  /**
-   * Fetch and cache asset decimals from contract
-   */
-  async fetchAssetDecimals(fetchFn: () => Promise<number>): Promise<void> {
-    if (!this.contractId) {
-      return
-    }
-    const key = cacheManager.key(this.rpc, this.contractId, 'decimals:asset')
-    this.assetDecimals = await cacheManager.getOrSet<number>(key, fetchFn)
-  }
-
-  /**
-   * Fetch and cache oracle decimals from contract
-   */
-  async fetchOracleDecimals(fetchFn: () => Promise<number>): Promise<void> {
-    if (!this.contractId) {
-      return
-    }
-    const key = cacheManager.key(this.rpc, this.contractId, 'decimals:oracle')
-    this.oracleDecimals = await cacheManager.getOrSet<number>(key, fetchFn)
-  }
-
-  /**
-   * Fetch both decimals in parallel
-   */
-  async fetchAll(
-    assetFetchFn: () => Promise<number>,
-    oracleFetchFn: () => Promise<number>,
-  ): Promise<void> {
-    await Promise.all([
-      this.fetchAssetDecimals(assetFetchFn),
-      this.fetchOracleDecimals(oracleFetchFn),
-    ])
-  }
+  const { fetchFn } = props
+  const key = cacheManager.key(props.contractId, 'decimals:oracle')
+  return await cacheManager.getOrSet<number>(key, fetchFn)
 }

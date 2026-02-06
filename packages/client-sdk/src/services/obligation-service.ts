@@ -1,8 +1,7 @@
-import type { MultiplyPair, Obligation } from '@alula/market-sdk'
+import type { Obligation } from '@alula/market-sdk'
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
 import { BaseClient } from '../core/base-client'
-import { bindOwnMethods, hidePrivate } from '../utils'
 
 /**
  * Market service configuration
@@ -28,9 +27,6 @@ export class ObligationService extends BaseClient {
       contractId: config.contractId || '',
       networkPassphrase: this.networkPassphrase,
     })
-
-    hidePrivate(this, 'client')
-    bindOwnMethods(this)
   }
 
   /**

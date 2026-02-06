@@ -67,7 +67,7 @@ export class StellarClient {
       contractId: config.marketContractId,
     }
 
-    const decimals = market.getDecimalsConfig()
+    const decimals = market.decimals
 
     this.lending = new LendingService({ ...context, decimals })
     this.borrowing = new BorrowingService({ ...context, decimals })

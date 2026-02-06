@@ -3,7 +3,7 @@ import { Client } from '@alula/market-sdk'
 import { DecimalsConfig } from '../config/decimals'
 import { BaseClient } from '../core/base-client'
 import { TransactionHelper } from '../core/transaction-builder'
-import { amountToBigInt, bindOwnMethods, hidePrivate } from '../utils'
+import { amountToBigInt } from '../utils'
 
 /**
  * Lending service configuration
@@ -35,16 +35,13 @@ export class LendingService extends BaseClient {
 
     this.txHelper = new TransactionHelper(config.rpc, this.sorobanServer)
     this.decimals = config.decimals
-
-    hidePrivate(this, 'client')
-    bindOwnMethods(this)
   }
 
   /**
    * Build deposit transaction
    */
   async buildDepositTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
     return await this.client.deposit({
       user,
       pool_address: poolAddress,
@@ -57,7 +54,7 @@ export class LendingService extends BaseClient {
    * Build withdraw transaction
    */
   async buildWithdrawTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
     return await this.client.withdraw({
       user,
       pool_address: poolAddress,
@@ -70,7 +67,7 @@ export class LendingService extends BaseClient {
    * Build add collateral transaction
    */
   async buildAddCollateralTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
     return await this.client.add_collateral({
       user,
       pool_address: poolAddress,
@@ -83,7 +80,7 @@ export class LendingService extends BaseClient {
    * Build remove collateral transaction
    */
   async buildRemoveCollateralTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
     return await this.client.remove_collateral({
       user,
       pool_address: poolAddress,
@@ -148,6 +145,6 @@ export class LendingService extends BaseClient {
    * Get transaction fee
    */
   getTransactionFee(tx: any): number {
-    return this.txHelper.getTransactionFee(tx, this.decimals.getAssetDecimals())
+    return this.txHelper.getTransactionFee(tx, this.decimals.assetDecimals)
   }
 }

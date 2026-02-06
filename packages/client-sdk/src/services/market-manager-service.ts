@@ -2,7 +2,6 @@ import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-manager-sdk'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
 import { BaseClient } from '../core/base-client'
-import { bindOwnMethods, hidePrivate } from '../utils'
 
 /**
  * Market manager service configuration
@@ -29,9 +28,6 @@ export class MarketManagerService extends BaseClient {
       contractId,
       networkPassphrase: this.networkPassphrase,
     })
-
-    hidePrivate(this, 'client')
-    bindOwnMethods(this)
   }
 
   /**

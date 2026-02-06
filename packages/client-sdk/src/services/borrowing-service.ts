@@ -3,7 +3,7 @@ import { Client } from '@alula/market-sdk'
 import { DecimalsConfig } from '../config/decimals'
 import { BaseClient } from '../core/base-client'
 import { TransactionHelper } from '../core/transaction-builder'
-import { amountToBigInt, bindOwnMethods, hidePrivate } from '../utils'
+import { amountToBigInt } from '../utils'
 
 /**
  * Borrowing service configuration
@@ -35,16 +35,13 @@ export class BorrowingService extends BaseClient {
 
     this.txHelper = new TransactionHelper(config.rpc, this.sorobanServer)
     this.decimals = config.decimals
-
-    hidePrivate(this, 'client')
-    bindOwnMethods(this)
   }
 
   /**
    * Build borrow transaction
    */
   async buildBorrowTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
     return await this.client.borrow({
       user,
       pool_address: poolAddress,
@@ -57,7 +54,7 @@ export class BorrowingService extends BaseClient {
    * Build repay transaction
    */
   async buildRepayTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
     return await this.client.repay({
       user,
       pool_address: poolAddress,
@@ -96,6 +93,6 @@ export class BorrowingService extends BaseClient {
    * Get transaction fee
    */
   getTransactionFee(tx: any): number {
-    return this.txHelper.getTransactionFee(tx, this.decimals.getAssetDecimals())
+    return this.txHelper.getTransactionFee(tx, this.decimals.assetDecimals)
   }
 }

@@ -3,7 +3,7 @@ import { Client } from '@alula/market-sdk'
 import { DecimalsConfig } from '../config/decimals'
 import { BaseClient } from '../core/base-client'
 import { TransactionHelper } from '../core/transaction-builder'
-import { amountToBigInt, bindOwnMethods, hidePrivate } from '../utils'
+import { amountToBigInt } from '../utils'
 
 /**
  * Leverage service configuration
@@ -57,9 +57,6 @@ export class LeverageService extends BaseClient {
 
     this.txHelper = new TransactionHelper(config.rpc, this.sorobanServer)
     this.decimals = config.decimals
-
-    hidePrivate(this, 'client')
-    bindOwnMethods(this)
   }
 
   /**
@@ -67,7 +64,7 @@ export class LeverageService extends BaseClient {
    */
   async buildLeverageTx(params: LeverageParams) {
     const multiplier = Number(params.leverageMultiplier * 100).toFixed(0)
-    const amountInBigInt = amountToBigInt(String(params.amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(params.amount), this.decimals.assetDecimals)
 
     return await this.client.deposit_with_leverage({
       user: params.user,
@@ -84,7 +81,7 @@ export class LeverageService extends BaseClient {
    * Build withdraw leverage transaction
    */
   async buildWithdrawLeverageTx(params: WithdrawLeverageParams) {
-    const amountInBigInt = amountToBigInt(String(params.amount), this.decimals.getAssetDecimals())
+    const amountInBigInt = amountToBigInt(String(params.amount), this.decimals.assetDecimals)
 
     return await this.client.withdraw_from_leveraged({
       user: params.user,
@@ -143,6 +140,6 @@ export class LeverageService extends BaseClient {
    * Get transaction fee
    */
   getTransactionFee(tx: any): number {
-    return this.txHelper.getTransactionFee(tx, this.decimals.getAssetDecimals())
+    return this.txHelper.getTransactionFee(tx, this.decimals.assetDecimals)
   }
 }
