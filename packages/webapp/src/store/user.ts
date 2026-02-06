@@ -20,7 +20,7 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserObligation(market: string, client: StellarClient) {
     try {
       loading.value = true
-      const obligations = await client.marketSdk.getUserObligation(wallet.publicKey)
+      const obligations = await client.obligation.getUserObligation(wallet.publicKey)
       state.obligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
@@ -37,7 +37,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       loading.value = true
       const { client, market, depositPoolAddress, borrowPoolAddress } = props
-      const obligations = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      const obligations = await client.obligation.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
       state.multiplyObligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market Multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
     } finally {
@@ -51,7 +51,7 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      const obligation = await client.marketSdk.getUserObligation(wallet.publicKey)
+      const obligation = await client.obligation.getUserObligation(wallet.publicKey)
       state.obligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Obligation]`, 'color: #FFB726', state.obligations[market])
@@ -79,7 +79,7 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      const obligation = await client.marketSdk.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      const obligation = await client.obligation.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
       state.multiplyObligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Leverage Obligation]`, 'color: #FFB726', state.multiplyObligations[market])

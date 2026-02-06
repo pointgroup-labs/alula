@@ -69,12 +69,12 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isC
       if (!d || !publicKey.value || !marketClient.value) {
         return
       }
-      const tx = await marketClient.value?.marketSdk.borrowTx(
+      const tx = await marketClient.value?.borrowing.buildBorrowTx(
         publicKey.value,
         d?.raw.pool.pool_address || '',
         0,
       )
-      txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
+      txFee.value = marketClient.value.borrowing.getTransactionFee(tx)
     }, { immediate: true, debounce: 300 })
   }
 

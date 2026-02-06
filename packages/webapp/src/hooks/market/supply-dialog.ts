@@ -60,12 +60,12 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isC
           return
         }
 
-        const tx = await marketClient.value.marketSdk.depositTx(
+        const tx = await marketClient.value.lending.buildDepositTx(
           publicKey.value,
           d?.raw.pool.pool_address || '',
           0,
         )
-        txFee.value = marketClient.value.marketSdk.getTransactionFee(tx)
+        txFee.value = marketClient.value.lending.getTransactionFee(tx)
       } finally {
         isLoadingFee.value = false
       }

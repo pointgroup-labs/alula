@@ -199,7 +199,7 @@ watchDebounced(amount, async (a) => {
     poolFee.value = 0
     return
   }
-  const feeData = await activeMarket.value?.client.marketSdk.simulateWithdraw(publicKey.value, data!.pool_address, a)
+  const feeData = await activeMarket.value?.client.market.simulateWithdraw(publicKey.value, data!.pool_address, a)
   const feeSum = feeData?.operation_fees?.fee_sum
   poolFee.value = feeSum && data?.assetDecimals ? Number(bigintToNumber(feeSum, data.assetDecimals)) : 0
 }, { debounce: 500 })
@@ -219,12 +219,12 @@ watchDebounced([
     return
   }
 
-  const tx = await activeMarket.value?.client.marketSdk.withdrawTx(
+  const tx = await activeMarket.value?.client.lending.buildWithdrawTx(
     publicKey.value,
     d?.pool_address || '',
     0,
   )
-  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
+  txFee.value = activeMarket.value?.client.lending.getTransactionFee(tx) ?? 0
 }, { immediate: true, debounce: 300 })
 
 watch(collateralBalance, (b) => {

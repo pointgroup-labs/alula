@@ -1,7 +1,7 @@
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-manager-sdk'
-import { BaseClient } from '../core/base-client'
 import { CONTRACT_ID, SOROBAN_CONTRACT_ID } from '../constants'
+import { BaseClient } from '../core/base-client'
 import { bindOwnMethods, hidePrivate } from '../utils'
 
 /**

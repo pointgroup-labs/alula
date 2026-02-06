@@ -145,15 +145,16 @@ export function useLeverage(data: MaybeRef<MultiplyTableItem | undefined>) {
     if (!data || !publicKey.value) {
       return
     }
-    const tx = await activeMarket.value?.client.marketSdk.leverageTx(
-      publicKey.value,
-      data?.depositPoolData.pool.pool_address || '',
-      data?.borrowPoolData.pool.pool_address || '',
-      isDepositMultiply.value,
-      1,
-      2,
+    const tx = await activeMarket.value?.client.leverage.buildLeverageTx({
+      user: publicKey.value,
+      depositPoolAddress: data?.depositPoolData.pool.pool_address || '',
+      borrowPoolAddress: data?.borrowPoolData.pool.pool_address || '',
+      depositAsMargin: isDepositMultiply.value,
+      amount: 1,
+      leverageMultiplier: 2,
+    },
     )
-    txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) || 0
+    txFee.value = activeMarket.value?.client.lending.getTransactionFee(tx) || 0
   }, { immediate: true, debounce: 300 })
   return {
     reloadFee,

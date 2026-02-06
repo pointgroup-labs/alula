@@ -86,34 +86,10 @@ export class MarketService extends BaseClient {
   }
 
   /**
-   * Get user obligation
-   */
-  async getUserObligation(user: string): Promise<Obligation> {
-    const result = await this.client.get_user_obligation({ user })
-    return this.unwrapOk(result.result)
-  }
-
-  /**
    * Get multiply pair (leverage pair)
    */
   async getMultiplyPair(depositPoolAddress: string, borrowPoolAddress: string): Promise<MultiplyPair> {
     const result = await this.client.get_multiply_pair({
-      deposit_pool_address: depositPoolAddress,
-      borrow_pool_address: borrowPoolAddress,
-    })
-    return this.unwrapOk(result.result)
-  }
-
-  /**
-   * Get user multiply pair obligation
-   */
-  async getUserMultiplyObligation(
-    user: string,
-    depositPoolAddress: string,
-    borrowPoolAddress: string,
-  ): Promise<Obligation> {
-    const result = await this.client.get_multiply_pair_obligation({
-      user,
       deposit_pool_address: depositPoolAddress,
       borrow_pool_address: borrowPoolAddress,
     })

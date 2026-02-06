@@ -41,7 +41,7 @@ export function useMarketActions() {
       if (!wallet.publicKey) {
         return
       }
-      const res = await marketclient.value!.addTrustlineTx(wallet.publicKey, asset, issuer, connectionStore.kit)
+      const res = await marketclient.value!.wallet.addTrustline(wallet.publicKey, asset, issuer, connectionStore.kit)
       await wallet.loadBalances()
       return res
     } catch (error) {
@@ -149,7 +149,7 @@ export function useMarketActions() {
       type: 'deposit',
       title: 'Deposit',
       body: `Sending transaction to deposit ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.depositToLending(pk, pool_address, amount, kit.value),
+      exec: () => client!.lending.deposit(pk, pool_address, amount, kit.value),
       reset: () => (depositAmount.value = undefined),
     })
   }
@@ -183,7 +183,7 @@ export function useMarketActions() {
       type: 'borrow',
       title: 'Borrow',
       body: `Sending transaction to borrow ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.borrowLendingAsset(pk, pool_address, amount, kit.value),
+      exec: () => client!.borrowing.borrow(pk, pool_address, amount, kit.value),
       reset: () => (borrowAmount.value = undefined),
     })
   }
@@ -220,7 +220,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.withdrawDeposit(pk, pool_address, increasedAmount, kit.value),
+      exec: () => client!.lending.withdraw(pk, pool_address, increasedAmount, kit.value),
       reset: () => (withdrawAmount.value = undefined),
     })
   }
@@ -258,7 +258,7 @@ export function useMarketActions() {
       type: 'repay',
       title: 'Repay',
       body: `Sending transaction to repay ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.repayBorrow(pk, pool_address, increasedAmount, kit.value),
+      exec: () => client!.borrowing.repay(pk, pool_address, increasedAmount, kit.value),
       reset: () => (repayAmount.value = undefined),
     })
   }
@@ -293,7 +293,7 @@ export function useMarketActions() {
       type: 'deposit',
       title: 'Add Collateral',
       body: `Sending transaction to add collateral ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.addCollateral(pk, pool_address, amount, kit.value),
+      exec: () => client!.lending.addCollateral(pk, pool_address, amount, kit.value),
       reset: () => (depositAmount.value = undefined),
     })
   }
@@ -327,7 +327,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw Collateral',
       body: `Sending transaction to withdraw collateral ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.marketSdk.removeCollateral(pk, pool_address, amount, kit.value),
+      exec: () => client!.lending.removeCollateral(pk, pool_address, amount, kit.value),
       reset: () => (withdrawAmount.value = undefined),
     })
   }
@@ -361,13 +361,15 @@ export function useMarketActions() {
       body: `Sending transaction to leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
       withObligation: false,
       action: props.action,
-      exec: () => client!.marketSdk.leverage(
-        pk,
-        deposit_pool_address,
-        borrow_pool_address,
-        deposit_as_margin,
-        amount,
-        leverage_multiplier,
+      exec: () => client!.leverage.depositWithLeverage(
+        {
+          user: pk,
+          depositPoolAddress: deposit_pool_address,
+          borrowPoolAddress: borrow_pool_address,
+          depositAsMargin: deposit_as_margin,
+          amount,
+          leverageMultiplier: leverage_multiplier,
+        },
         kit.value),
       reset: () => (depositAmount.value = undefined),
     })
@@ -402,11 +404,13 @@ export function useMarketActions() {
       body: `Sending transaction to Withdraw leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
       withObligation: false,
       action: props.action,
-      exec: () => client!.marketSdk.withdrawLeverage(
-        pk,
-        deposit_pool_address,
-        borrow_pool_address,
-        increasedAmount,
+      exec: () => client!.leverage.withdrawFromLeveraged(
+        {
+          user: pk,
+          depositPoolAddress: deposit_pool_address,
+          borrowPoolAddress: borrow_pool_address,
+          amount: increasedAmount,
+        },
         connectionStore.kit),
       reset: () => (withdrawAmount.value = undefined),
     })

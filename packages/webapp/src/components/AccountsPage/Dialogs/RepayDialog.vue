@@ -141,12 +141,12 @@ watchDebounced([
     return
   }
 
-  const tx = await activeMarket.value?.client.marketSdk.repayTx(
+  const tx = await activeMarket.value?.client.borrowing.buildRepayTx(
     publicKey.value,
     d?.pool_address || '',
     0,
   )
-  txFee.value = activeMarket.value?.client.marketSdk.getTransactionFee(tx) ?? 0
+  txFee.value = activeMarket.value?.client.borrowing.getTransactionFee(tx) ?? 0
 }, { immediate: true, debounce: 300 })
 
 watch(() => modelValue, async (v) => {
