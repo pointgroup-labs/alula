@@ -95,7 +95,7 @@ export class LeverageService extends BaseClient {
   /**
    * Open leveraged position
    */
-  async openPosition(params: LeverageParams, kit: any, options?: { debug?: boolean }) {
+  async openPosition(params: LeverageParams, kit: any, options = { debug: true }) {
     if (options?.debug) {
       console.log('%c[Leverage]', 'color: #00ff00', params)
     }
@@ -112,7 +112,7 @@ export class LeverageService extends BaseClient {
   /**
    * Close leveraged position
    */
-  async closePosition(params: WithdrawLeverageParams, kit: any, options?: { debug?: boolean }) {
+  async closePosition(params: WithdrawLeverageParams, kit: any, options = { debug: true }) {
     const tx = await this.buildWithdrawLeverageTx(params)
 
     if (options?.debug) {
@@ -125,14 +125,14 @@ export class LeverageService extends BaseClient {
   /**
    * Deposit with leverage (alias for openPosition)
    */
-  async depositWithLeverage(params: LeverageParams, kit: any, options?: { debug?: boolean }) {
+  async depositWithLeverage(params: LeverageParams, kit: any, options = { debug: true }) {
     return this.openPosition(params, kit, options)
   }
 
   /**
    * Withdraw from leveraged position (alias for closePosition)
    */
-  async withdrawFromLeveraged(params: WithdrawLeverageParams, kit: any, options?: { debug?: boolean }) {
+  async withdrawFromLeveraged(params: WithdrawLeverageParams, kit: any, options = { debug: true }) {
     return this.closePosition(params, kit, options)
   }
 

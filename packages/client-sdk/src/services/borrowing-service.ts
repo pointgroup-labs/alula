@@ -66,7 +66,7 @@ export class BorrowingService extends BaseClient {
   /**
    * Borrow from pool
    */
-  async borrow(user: string, poolAddress: string, amount: number, kit: any, options?: { debug?: boolean }) {
+  async borrow(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
     const tx = await this.buildBorrowTx(user, poolAddress, amount)
 
     if (options?.debug) {
@@ -79,7 +79,7 @@ export class BorrowingService extends BaseClient {
   /**
    * Repay borrowed amount
    */
-  async repay(user: string, poolAddress: string, amount: number, kit: any, options?: { debug?: boolean }) {
+  async repay(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
     const tx = await this.buildRepayTx(user, poolAddress, amount)
 
     if (options?.debug) {

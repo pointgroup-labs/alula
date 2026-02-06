@@ -92,7 +92,7 @@ export class LendingService extends BaseClient {
   /**
    * Deposit to lending pool
    */
-  async deposit(user: string, poolAddress: string, amount: number, kit: any, options?: { debug?: boolean }) {
+  async deposit(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
     const tx = await this.buildDepositTx(user, poolAddress, amount)
 
     if (options?.debug) {
@@ -105,7 +105,7 @@ export class LendingService extends BaseClient {
   /**
    * Add collateral to pool
    */
-  async addCollateral(user: string, poolAddress: string, amount: number, kit: any, options?: { debug?: boolean }) {
+  async addCollateral(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
     const tx = await this.buildAddCollateralTx(user, poolAddress, amount)
 
     if (options?.debug) {
@@ -118,7 +118,7 @@ export class LendingService extends BaseClient {
   /**
    * Remove collateral from pool
    */
-  async removeCollateral(user: string, poolAddress: string, amount: number, kit: any, options?: { debug?: boolean }) {
+  async removeCollateral(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
     const tx = await this.buildRemoveCollateralTx(user, poolAddress, amount)
 
     if (options?.debug) {
@@ -131,7 +131,7 @@ export class LendingService extends BaseClient {
   /**
    * Withdraw from lending pool
    */
-  async withdraw(user: string, poolAddress: string, amount: number, kit: any, options?: { debug?: boolean }) {
+  async withdraw(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
     const tx = await this.buildWithdrawTx(user, poolAddress, amount)
 
     if (options?.debug) {

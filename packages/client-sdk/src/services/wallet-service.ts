@@ -73,7 +73,7 @@ export class WalletService extends BaseClient {
     assetCode: string,
     assetIssuer: string,
     kit: any,
-    options?: { debug?: boolean },
+    options = { debug: true },
   ) {
     const transaction = await this.buildAddTrustlineTx(publicKey, assetCode, assetIssuer)
 
