@@ -38,7 +38,7 @@ export async function fetchAssetDecimals(props: {
   contractId?: string
 }): Promise<number> {
   if (!props.contractId) {
-    return 7
+    return DEFAULT_ASSET_DECIMALS
   }
   const { fetchFn } = props
   const key = cacheManager.key(props.contractId, 'decimals:asset')
@@ -53,7 +53,7 @@ export async function fetchOracleDecimals(props: {
   contractId?: string
 }): Promise<number> {
   if (!props.contractId) {
-    return 14
+    return DEFAULT_ORACLE_DECIMALS
   }
   const { fetchFn } = props
   const key = cacheManager.key(props.contractId, 'decimals:oracle')
