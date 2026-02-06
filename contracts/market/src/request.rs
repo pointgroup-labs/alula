@@ -1,6 +1,6 @@
 use soroban_sdk::{Address, Env, Map, contracttype, map as smap, token::TokenClient};
 
-use crate::{error::MCError, events, math_utils::MathUtils};
+use crate::{error::MCError, events, utils::MathUtils};
 
 // A request from the submission batch
 #[contracttype]

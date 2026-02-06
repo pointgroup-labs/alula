@@ -7,7 +7,7 @@ use soroban_sdk::{
     vec,
 };
 
-use crate::{constants::*, error::MCError, math_utils::MathUtils, soroswap_router as router};
+use crate::{constants::*, error::MCError, soroswap_router as router, utils::MathUtils};
 
 // TODO: Maybe, create some internal trait for common swap operations and
 //  implement it for different swap providers?
@@ -149,6 +149,7 @@ pub fn swap_exact_tokens_for_tokens(
 ) -> Result<i128, MCError> {
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let pair = router_client.router_pair_for(token_in, token_out);
 
     let amount_out_min = amount_out
         .checked_sub(
@@ -159,6 +160,18 @@ pub fn swap_exact_tokens_for_tokens(
     let path = vec![e, token_in.clone(), token_out.clone()];
 
     // TODO: For now we can only swap tokens with a direct path
+
+    if user == &e.current_contract_address() {
+        let auth_entry = InvokerContractAuthEntry::Contract(SubContractInvocation {
+            context: ContractContext {
+                contract: token_in.clone(),
+                fn_name: Symbol::new(e, "transfer"),
+                args: (e.current_contract_address(), pair, { amount_in }).into_val(e),
+            },
+            sub_invocations: vec![&e],
+        });
+        e.authorize_as_current_contract(soroban_sdk::vec![e, auth_entry]);
+    }
 
     let swap_amounts = router_client.swap_exact_tokens_for_tokens(
         &amount_in,

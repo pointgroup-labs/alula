@@ -7,14 +7,13 @@ use crate::{
     error::MCError,
     events,
     interest_rate_model::InterestRateModel,
-    math_utils::MathUtils,
-    misc::PoolData,
     obligation::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, OperationFees,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     oracle::{self, get_asset_price},
     storage::{self, PoolUpdate},
+    utils::{MathUtils, PoolData},
 };
 
 #[contracttype]

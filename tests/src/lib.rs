@@ -29,10 +29,10 @@ use market::{
     },
     contract::{MarketClient, MarketContract, MarketContractClient},
     error::MCError,
-    math_utils::MathUtils,
     obligation::{BorrowPosition, DepositPosition},
     pool::{PoolConfig, PoolFeeConfig},
     soroswap_router as router,
+    utils::MathUtils,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;

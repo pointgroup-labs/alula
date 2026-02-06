@@ -5,8 +5,8 @@ use soroban_sdk::{Address, Env};
 use crate::{
     constants::*,
     error::MCError,
-    misc::require_nonnegative,
     storage::{self},
+    utils::require_nonnegative,
 };
 
 // Fetches the latest price for a given asset from the oracle contract.
@@ -33,8 +33,7 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
 
     // Validate price is not too old and not from the future
     let now = e.ledger().timestamp();
-    let age = now.saturating_sub(price_data.timestamp);
-    if age > MAX_ORACLE_PRICE_AGE_SECONDS || price_data.timestamp > now {
+    if price_data.timestamp > now || now - price_data.timestamp > MAX_ORACLE_PRICE_AGE_SECONDS {
         return Err(MCError::OracleStalePrice);
     }
 
