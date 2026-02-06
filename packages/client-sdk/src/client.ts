@@ -55,56 +55,52 @@ export class StellarClient {
   public readonly wallet: WalletService
   public readonly marketManager: MarketManagerService
 
-  constructor(config: StellarClientConfig) {
+  private constructor(
+    config: StellarClientConfig,
+    market: MarketService,
+  ) {
     this.rpc = config.rpc
     this.publicKey = config.publicKey
+    this.market = market
+
     const context = {
       rpc: config.rpc,
       publicKey: config.publicKey,
       contractId: config.marketContractId,
     }
 
-    // Initialize market service first to get decimals config
-    this.market = new MarketService(context)
+    const decimals = market.getDecimalsConfig()
 
-    const decimals = this.market.getDecimalsConfig()
-
-    // Initialize all other services with shared decimals config
     this.lending = new LendingService({ ...context, decimals })
-
     this.borrowing = new BorrowingService({ ...context, decimals })
-
     this.leverage = new LeverageService({ ...context, decimals })
-
     this.wallet = new WalletService(context)
-
     this.obligation = new ObligationService(context)
-
     this.marketManager = new MarketManagerService(context)
+  }
+
+  static async create(config: StellarClientConfig): Promise<StellarClient> {
+    const market = await MarketService.create({
+      rpc: config.rpc,
+      publicKey: config.publicKey,
+      contractId: config.marketContractId,
+    })
+
+    return new StellarClient(config, market)
   }
 
   /**
    * Create client from address (factory method)
    */
-  static fromAddress(address: string, rpc: RPCcluster, marketContractId?: string): StellarClient {
-    return new StellarClient({
+  static async fromAddress(
+    address: string,
+    rpc: RPCcluster,
+    marketContractId?: string,
+  ) {
+    return StellarClient.create({
       publicKey: address,
       rpc,
       marketContractId,
     })
-  }
-
-  /**
-   * Get available markets
-   */
-  async getAvailableMarkets() {
-    return this.marketManager.getMarketList()
-  }
-
-  /**
-   * Get user wallet balances
-   */
-  async getBalances() {
-    return this.wallet.getBalances(this.publicKey)
   }
 }

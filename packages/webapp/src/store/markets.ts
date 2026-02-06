@@ -27,8 +27,6 @@ export const useMarketsStore = defineStore('markets', () => {
     marketInfoDialog,
 
     activeActionPool,
-
-    loadPoolData,
   } = useMarket(state)
 
   const clientStore = useClientStore()
@@ -71,7 +69,7 @@ export const useMarketsStore = defineStore('markets', () => {
 
       const marketsWithState = await Promise.all(
         state.marketsList.map(async (address) => {
-          const client = clientStore.initClient(address)
+          const client = await clientStore.initClient(address)
           const marketState = await client?.market.getMarketData() as MarketData
           return {
             client,
@@ -109,7 +107,10 @@ export const useMarketsStore = defineStore('markets', () => {
     }
   }
 
-  watch(network, async () => {
+  watch([network, alulaClient], async ([n, c]) => {
+    if (!n || !c) {
+      return
+    }
     await loadMarketsData()
   })
 
@@ -160,3 +161,12 @@ export type PoolWithPrice = {
 } & Pool
 
 export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage'
+
+async function loadPoolData(address: string, client: any) {
+  try {
+    const poolData = await client.market.getPoolData(address)
+    return poolData
+  } catch (error) {
+    console.log(error)
+  }
+}

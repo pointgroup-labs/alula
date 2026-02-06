@@ -33,12 +33,12 @@ export function useMarket(state: MarketsState) {
   const marketClient = computed(() => activeMarket.value?.client)
 
   const selectedMarketPools = computed(() => activeMarket.value?.marketState.pools_data ?? [])
-  const assetDecimals = computed(() => marketClient.value?.marketSdk.assetDecimals || 7)
+  const assetDecimals = computed(() => marketClient.value?.market.getDecimalsConfig().getAssetDecimals() || 7)
 
-  function regenerateMarketClient() {
+  async function regenerateMarketClient() {
     const markets = Object.entries(state.markets)
     for (const [name, market] of markets) {
-      market.client = clientStore.initClient(market.address)
+      market.client = await clientStore.initClient(market.address)
       state.markets[name] = market
     }
   }
@@ -133,16 +133,5 @@ export function useMarket(state: MarketsState) {
     marketInfoDialog,
 
     activeActionPool,
-
-    loadPoolData,
-  }
-}
-
-async function loadPoolData(address: string, client: any) {
-  try {
-    const poolData = await client.marketSdk.getPoolData(address)
-    return poolData
-  } catch (error) {
-    console.log(error)
   }
 }

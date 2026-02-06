@@ -1,4 +1,4 @@
-import type { MultiplyPair, Obligation, Pool, WithdrawResult } from '@alula/market-sdk'
+import type { MultiplyPair, Pool, WithdrawResult } from '@alula/market-sdk'
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
 import { DecimalsConfig } from '../config/decimals'
@@ -18,40 +18,46 @@ export interface MarketServiceConfig {
  * Service for market data operations (pools, prices, obligations)
  */
 export class MarketService extends BaseClient {
-  private client: Client
+  private client!: Client
   private decimals: DecimalsConfig
+  private decimalsReady: Promise<void> = Promise.resolve()
 
-  constructor(config: MarketServiceConfig) {
+  private constructor(config: MarketServiceConfig) {
     super(config)
 
     this.client = new Client({
       publicKey: config.publicKey,
       rpcUrl: this.getSorobanRpcUrl(),
-      contractId: config.contractId || '',
+      contractId: config.contractId,
       networkPassphrase: this.networkPassphrase,
     })
 
     this.decimals = new DecimalsConfig(config.rpc, config.contractId)
-
-    // Initialize decimals if contract is provided
-    if (config.contractId) {
-      this.initializeDecimals().catch(() => {})
-    }
 
     hidePrivate(this, 'client')
     bindOwnMethods(this)
   }
 
   /**
-   * Get decimals config
+   * ✅ async factory
    */
+  static async create(config: MarketServiceConfig): Promise<MarketService> {
+    const service = new MarketService(config)
+
+    service.decimalsReady = service.initializeDecimals()
+    await service.decimalsReady
+
+    return service
+  }
+
+  private async ensureReady() {
+    await this.decimalsReady
+  }
+
   getDecimalsConfig(): DecimalsConfig {
     return this.decimals
   }
 
-  /**
-   * Initialize decimals from contract
-   */
   private async initializeDecimals(): Promise<void> {
     await this.decimals.fetchAll(
       async () => (await this.client.get_asset_decimals()).result,
@@ -59,78 +65,82 @@ export class MarketService extends BaseClient {
     )
   }
 
-  /**
-   * Get market data
-   */
   async getMarketData() {
+    await this.ensureReady()
     const result = await this.client.get_market_data()
     return this.unwrapOk(result.result)
   }
 
-  /**
-   * Get pool data
-   */
   async getPoolData(poolAddress: string): Promise<Pool> {
+    await this.ensureReady()
     const result = await this.client.get_pool_data({ pool_address: poolAddress })
     return this.unwrapOk(result.result)
   }
 
-  /**
-   * Get pool asset oracle price
-   */
   async getPoolAssetOraclePrice(poolAddress: string): Promise<number> {
-    const result = await this.client.get_pool_asset_oracle_price({ pool_address: poolAddress })
+    await this.ensureReady()
+
+    const result = await this.client.get_pool_asset_oracle_price({
+      pool_address: poolAddress,
+    })
+
     const priceInBigInt: bigint = this.unwrapOk(result.result)
-    const normalizedPrice = bigintToNumber(priceInBigInt, this.decimals.getOracleDecimals())
-    return Number(normalizedPrice) || 0
+    return Number(
+      bigintToNumber(priceInBigInt, this.decimals.getOracleDecimals()),
+    ) || 0
   }
 
-  /**
-   * Get multiply pair (leverage pair)
-   */
-  async getMultiplyPair(depositPoolAddress: string, borrowPoolAddress: string): Promise<MultiplyPair> {
+  async getMultiplyPair(
+    depositPoolAddress: string,
+    borrowPoolAddress: string,
+  ): Promise<MultiplyPair> {
+    await this.ensureReady()
+
     const result = await this.client.get_multiply_pair({
       deposit_pool_address: depositPoolAddress,
       borrow_pool_address: borrowPoolAddress,
     })
+
     return this.unwrapOk(result.result)
   }
 
-  /**
-   * Simulate withdraw operation
-   */
-  async simulateWithdraw(user: string, poolAddress: string, amount: string | number): Promise<WithdrawResult> {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.getAssetDecimals())
+  async simulateWithdraw(
+    user: string,
+    poolAddress: string,
+    amount: string | number,
+  ): Promise<WithdrawResult> {
+    await this.ensureReady()
+
+    const amountInBigInt = amountToBigInt(
+      String(amount),
+      this.decimals.getAssetDecimals(),
+    )
+
     const result = await this.client.simulate_withdraw({
       user,
       pool_address: poolAddress,
       amount: amountInBigInt,
       referrer: null,
     })
+
     return this.unwrapOk(result.result)
   }
 
-  /**
-   * Get all pools
-   * @deprecated This method will be removed in future versions
-   */
+  /** @deprecated */
   async getAllPools() {
+    await this.ensureReady()
     return (await this.client.get_all_pools()).result
   }
 
-  /**
-   * Get all multiply pairs (leverage pools)
-   * @deprecated This method will be removed in future versions
-   */
+  /** @deprecated */
   async getAllMultiplyPairs() {
+    await this.ensureReady()
     return (await this.client.get_all_multiply_pairs()).result
   }
 
-  /**
-   * Get pool info
-   * @deprecated Use getPoolData instead
-   */
+  /** @deprecated */
   async getPoolInfo(poolAddress: string): Promise<Pool> {
+    await this.ensureReady()
     const result = await this.client.get_pool({ pool_address: poolAddress })
     return this.unwrapOk(result.result)
   }

@@ -13,12 +13,12 @@ export const useClientStore = defineStore('client', () => {
 
   const isValidAccount = ref(false)
 
-  const alulaClient = computed(() => initClient())
+  const alulaClient = computedAsync(async () => await initClient())
 
-  function initClient(marketAddress?: string) {
+  async function initClient(marketAddress?: string) {
     const pubkey = isValidAccount.value ? publicKey.value : undefined
     return import.meta.client && network.value
-      ? StellarClient.fromAddress(pubkey, network.value as RPCcluster, marketAddress)
+      ? await StellarClient.fromAddress(pubkey, network.value as RPCcluster, marketAddress)
       : {} as StellarClient
   }
   return {

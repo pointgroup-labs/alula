@@ -15,8 +15,8 @@ export const useWallet = defineStore('wallet', () => {
   }
 
   async function loadBalances() {
-    balances.value = await alulaClient.value?.getBalances()
-    console.log('%c[Wallet Balances]', 'color: #FFB726', balances.value)
+    balances.value = await alulaClient.value?.wallet.getBalances()
+    console.log('%c[Wallet Balances]', 'color: #5c6cff', balances.value)
   }
 
   function getAssetBalance(asset_issuer?: string) {
