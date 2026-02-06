@@ -30,8 +30,6 @@ export class MarketService extends BaseClient {
     this.client = client
 
     this.decimals = decimals
-
-    // console.log('%cdecimals', 'color: #00ff00', this.decimals)
   }
 
   /**
@@ -50,16 +48,33 @@ export class MarketService extends BaseClient {
     return new MarketService(config, client, decimals)
   }
 
+  /**
+   * Fetches market data from the contract
+   *
+   * @return A Promise of type MarketData containing the current market data
+   */
   async getMarketData() {
     const result = await this.client.get_market_data()
     return this.unwrapOk(result.result)
   }
 
+  /**
+   * Fetches pool data from the contract
+   *
+   * @param poolAddress - pool address
+   * @return A Promise of type Pool containing the current pool data
+   */
   async getPoolData(poolAddress: string): Promise<Pool> {
     const result = await this.client.get_pool_data({ pool_address: poolAddress })
     return this.unwrapOk(result.result)
   }
 
+  /**
+   * Fetches the current asset price from the oracle contract for a given pool.
+   *
+   * @param poolAddress - pool address
+   * @return A Promise of type number containing the current asset price from the oracle contract
+   */
   async getPoolAssetOraclePrice(poolAddress: string): Promise<number> {
     const result = await this.client.get_pool_asset_oracle_price({
       pool_address: poolAddress,
@@ -71,19 +86,42 @@ export class MarketService extends BaseClient {
     ) || 0
   }
 
+  /**
+   * Retrieves all pools registered on the market contract
+   *
+   * @return A Promise of type Array<Pool> containing all registered pools
+   */
   async getAllPools() {
     return (await this.client.get_all_pools()).result
   }
 
+  /**
+   * Retrieves all multiply pairs registered on the market contract
+   *
+   * @return A Promise of type Array<MultiplyPair> containing all registered multiply pairs
+   */
   async getAllMultiplyPairs() {
     return (await this.client.get_all_multiply_pairs()).result
   }
 
+  /**
+   * Retrieves pool data from the contract for a given pool address.
+   *
+   * @param poolAddress - pool address
+   * @return A Promise of type Pool containing the current pool data
+   */
   async getPoolInfo(poolAddress: string): Promise<Pool> {
     const result = await this.client.get_pool({ pool_address: poolAddress })
     return this.unwrapOk(result.result)
   }
 
+  /**
+   * Retrieves a multiply pair configuration by its deposit and borrow pool addresses
+   * 
+   * @param depositPoolAddress - deposit pool address
+   * @param borrowPoolAddress - borrow pool address
+   * @return A Promise of type MultiplyPair containing the multiply pair configuration
+   */
   async getMultiplyPair(
     depositPoolAddress: string,
     borrowPoolAddress: string,
@@ -96,6 +134,14 @@ export class MarketService extends BaseClient {
     return this.unwrapOk(result.result)
   }
 
+  /**
+   * Simulates a withdrawal from a lending pool
+   * 
+   * @param user - user address
+   * @param poolAddress - pool address
+   * @param amount - amount to withdraw (string or number)
+   * @return A Promise of type WithdrawResult containing the simulated withdrawal result
+   */
   async simulateWithdraw(
     user: string,
     poolAddress: string,

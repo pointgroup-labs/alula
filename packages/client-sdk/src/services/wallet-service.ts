@@ -101,20 +101,6 @@ export class WalletService extends BaseClient {
   }
 
   /**
-   * Check if trustline exists for asset
-   */
-  async hasTrustline(publicKey: string, assetCode: string, assetIssuer: string): Promise<boolean> {
-    const balances = await this.getBalances(publicKey)
-    if (!balances) { return false }
-
-    return balances.some((balance) => {
-      if (balance.asset_type === 'native') { return false }
-      const creditBalance = balance as Horizon.HorizonApi.BalanceLineAsset
-      return creditBalance.asset_code === assetCode && creditBalance.asset_issuer === assetIssuer
-    })
-  }
-
-  /**
    * Get balance for specific asset
    */
   async getAssetBalance(publicKey: string, assetCode: string, assetIssuer?: string): Promise<string | null> {
