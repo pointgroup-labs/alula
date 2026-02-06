@@ -104,7 +104,7 @@ async function repay() {
   if (!data) {
     return
   }
-  if (!amount.value || amount.value <= 0) {
+  if (!amount.value || amount.value <= 0 || amount.value > Number(balance.value)) {
     focusInput('.repay-dialog__input')
     return
   }

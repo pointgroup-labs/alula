@@ -14,6 +14,7 @@ const {
   isTrust?: boolean
   loading?: boolean
   variant?: 'primary' | 'accent'
+  disabled?: boolean
 } & BButtonProps>()
 
 const emit = defineEmits(['clickHandler', 'closeModal'])
@@ -23,6 +24,9 @@ const { generateExplorerLink } = useExplorerLink()
 
 const txLoading = ref(false)
 const isLoading = computed(() => txLoading.value || loading)
+
+const connection = useConnectionStore()
+const isConnectionLoading = computed(() => connection.loading)
 
 const wallet = useWallet()
 const publicKey = computed(() => wallet.publicKey)
@@ -93,8 +97,9 @@ async function emitClickHandler() {
 <template>
   <j-btn
     :variant="variant"
-    :loading="isLoading"
+    :loading="isLoading || isConnectionLoading"
     v-bind="props"
+    :disabled="!publicKey ? false : disabled"
     pill
     @click="emitClickHandler"
   >

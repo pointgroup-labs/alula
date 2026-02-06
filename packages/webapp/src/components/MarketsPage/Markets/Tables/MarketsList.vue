@@ -172,12 +172,6 @@ const stop = watch(additionalMarketsData, () => {
           </div>
         </template>
 
-        <!-- <template #cell(status)="data">
-          <div class="table-cell justify-content-center">
-            <pool-status :pool="data.item.raw.pool" />
-          </div>
-        </template> -->
-
         <template #cell(price)="data">
           <div class="table-cell justify-content-end">
             <j-tooltip>

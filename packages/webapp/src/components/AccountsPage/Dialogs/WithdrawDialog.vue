@@ -147,7 +147,7 @@ async function withdraw() {
   if (!data) {
     return
   }
-  if (!amount.value || amount.value <= 0) {
+  if (!amount.value || amount.value <= 0 || amount.value > availableToWithdrawWithPoolLimit.value) {
     focusInput('.withdraw-dialog__input')
     return
   }
