@@ -11,8 +11,6 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const network = computed(() => rpcStore.network)
 
-  const alulaClient = computed(() => clientStore.alulaClient)
-
   const selectedWalletId = useLocalStorage('selectedWalletId', '', { initOnMounted: true })
 
   const { publicKey, balances } = toRefs(walletStore)
@@ -113,7 +111,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
   function disconnect() {
     kit.value.disconnect()
-    alulaClient.value?.reset()
+    // alulaClient.value?.reset()
     publicKey.value = undefined
     balances.value = undefined
     selectedWalletId.value = ''

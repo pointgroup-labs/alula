@@ -56,7 +56,7 @@ export const useMarketsStore = defineStore('markets', () => {
   }
 
   async function getMarketsList() {
-    const map = await alulaClient.value?.marketManagerSdk.getMarketList()
+    const map = await alulaClient.value?.marketManager.getMarketList()
     state.marketsList = [...map]?.map(([address]) => address)
     console.log('%c[Markets Addresses]', 'color: #FFB726', state.marketsList)
   }
@@ -72,7 +72,7 @@ export const useMarketsStore = defineStore('markets', () => {
       const marketsWithState = await Promise.all(
         state.marketsList.map(async (address) => {
           const client = clientStore.initClient(address)
-          const marketState = await client?.marketSdk.getMarketData() as MarketData
+          const marketState = await client?.market.getMarketData() as MarketData
           return {
             client,
             marketState,

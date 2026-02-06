@@ -17,7 +17,7 @@ const loading = ref(false)
 
 async function faucet() {
   try {
-    if (alulaClient.value?.marketSdk?.rpc !== 'testnet') {
+    if (alulaClient.value?.rpc !== 'testnet') {
       return
     }
     loading.value = true
