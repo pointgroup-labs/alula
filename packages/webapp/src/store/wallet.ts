@@ -15,7 +15,13 @@ export const useWallet = defineStore('wallet', () => {
   }
 
   async function loadBalances() {
-    balances.value = await alulaClient.value?.wallet.getBalances()
+    if (!publicKey.value || !alulaClient.value) {
+      return
+    }
+
+    // Set publicKey in wallet service before getting balances
+    alulaClient.value.wallet.setPublicKey(publicKey.value)
+    balances.value = await alulaClient.value.wallet.getBalances()
     console.log('%c[Wallet Balances]', 'color: #5c6cff', balances.value)
   }
 

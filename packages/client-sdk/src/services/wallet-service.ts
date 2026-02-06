@@ -22,6 +22,20 @@ export class WalletService extends BaseClient {
   }
 
   /**
+   * Set public key after wallet connection
+   */
+  setPublicKey(publicKey: string) {
+    this.publicKey = publicKey
+  }
+
+  /**
+   * Check if wallet is connected
+   */
+  hasWallet(): boolean {
+    return !!this.publicKey
+  }
+
+  /**
    * Get wallet balances
    */
   async getBalances(publicKey?: string): Promise<Horizon.HorizonApi.BalanceLine[] | undefined> {

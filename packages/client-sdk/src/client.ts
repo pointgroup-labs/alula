@@ -11,7 +11,7 @@ import { WalletService } from './services/wallet-service'
  * Main client configuration
  */
 export interface StellarClientConfig {
-  publicKey: string
+  publicKey?: string
   rpc: RPCcluster
   marketContractId?: string
 }
@@ -46,7 +46,6 @@ export interface StellarClientConfig {
  */
 export class StellarClient {
   public readonly rpc: RPCcluster
-  public readonly publicKey: string
   public readonly market: MarketService
   public readonly obligation: ObligationService
   public readonly lending: LendingService
@@ -60,7 +59,6 @@ export class StellarClient {
     market: MarketService,
   ) {
     this.rpc = config.rpc
-    this.publicKey = config.publicKey
     this.market = market
 
     const context = {
@@ -93,7 +91,7 @@ export class StellarClient {
    * Create client from address (factory method)
    */
   static async fromAddress(
-    address: string,
+    address: string | undefined,
     rpc: RPCcluster,
     marketContractId?: string,
   ) {

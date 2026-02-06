@@ -107,12 +107,11 @@ export const useMarketsStore = defineStore('markets', () => {
     }
   }
 
-  watch([network, alulaClient], async ([n, c]) => {
-    if (!n || !c) {
-      return
+  watch([network, alulaClient], async () => {
+    if (Object.keys(state.markets).length === 0 && alulaClient.value) {
+      await loadMarketsData()
     }
-    await loadMarketsData()
-  })
+  }, {})
 
   return {
     state,
