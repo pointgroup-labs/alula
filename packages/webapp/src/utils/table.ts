@@ -49,3 +49,7 @@ export function checkIsCanUsePool(
 
   return true
 }
+
+export function maxDecimalsForShortenNumber(value?: number) {
+  return !value || value > 1 ? 2 : 7
+}

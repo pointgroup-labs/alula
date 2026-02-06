@@ -35,12 +35,12 @@ export function formatCompactUSD(num: number, minDigits = 0, maxDigits = 1) {
   }).format(num)
 }
 
-export function shortenNumber(num: number | string, digits = 2): string {
+export function shortenNumber(num: number | string, minDigits = 2, maxDigits = 2): string {
   const formatter = new Intl.NumberFormat('en', {
     notation: 'compact',
     compactDisplay: 'short',
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits,
   })
   return formatter.format(Number(num))
 }

@@ -111,27 +111,27 @@ const infoTableData = computed(() => {
   },
   {
     label: 'Total Supply',
-    value: `${shortenNumber(totalSuppliedBalance.value || 0)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(totalSuppliedBalance.value || 0, 2, maxDecimalsForShortenNumber(totalSuppliedBalance.value))} ${data?.asset.symbol}`,
   },
   {
     label: 'Supply Balance',
-    value: `${shortenNumber(supplyBalance.value || 0)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(supplyBalance.value || 0, 2, maxDecimalsForShortenNumber(supplyBalance.value))} ${data?.asset.symbol}`,
   },
   {
     label: 'Collateral Balance',
-    value: `${shortenNumber(collateralBalance.value || 0)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(collateralBalance.value || 0, 2, maxDecimalsForShortenNumber(collateralBalance.value))} ${data?.asset.symbol}`,
   },
   {
     label: 'Remaining Supply',
-    value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0))} ${data?.asset.symbol}`,
+    value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0), 2, maxDecimalsForShortenNumber(remainingBalance.value))} ${data?.asset.symbol}`,
   },
   {
     label: 'Available for Withdrawal',
-    value: `${shortenNumber(availableToWithdraw.value || 0)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(availableToWithdraw.value || 0, 2, maxDecimalsForShortenNumber(availableToWithdraw.value))} ${data?.asset.symbol}`,
   },
   {
     label: 'Pool Withdrawal Limit',
-    value: `${shortenNumber(poolLimit.value || 0)} ${data?.asset.symbol}`,
+    value: `${shortenNumber(poolLimit.value || 0, 2, maxDecimalsForShortenNumber(poolLimit.value))} ${data?.asset.symbol}`,
   },
   {
     label: 'Pool Fee',
@@ -168,6 +168,8 @@ async function withdraw() {
     collateralOnly.value
       ? await market.removeCollateral(marketProps)
       : await market.withdraw({ ...marketProps, limit: supplyBalance.value })
+
+    dialog.value = false
   } finally {
     loading.value = false
     isValidate.value = true

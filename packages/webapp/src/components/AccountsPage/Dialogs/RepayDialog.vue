@@ -78,15 +78,21 @@ const infoTableData = computed(() => {
   if (!data) {
     return []
   }
-  const borrowBalanceAfterRepay = Math.max(Number(data?.debt) - amount.value || 0, 0)
+  const debt = Number(data?.debt ?? 0)
+  const borrowBalanceAfterRepay = Math.max(Number(debt) - amount.value || 0, 0)
   return [{
     name: 'healthFactor',
     label: 'Health Factor',
     value: truncatePercent(healthFactor.value, 2),
   },
   {
-    label: 'Borrow Balance After Repayment',
-    value: `${shortenNumber(borrowBalanceAfterRepay)} ${data.asset.symbol}`,
+    name: 'debt',
+    label: 'Debt',
+    value: `${shortenNumber(data?.debt || 0, 2, maxDecimalsForShortenNumber(debt))} ${data?.asset.symbol}`,
+  },
+  {
+    label: 'Debt Balance After Repayment',
+    value: `${shortenNumber(borrowBalanceAfterRepay, 2, maxDecimalsForShortenNumber(borrowBalanceAfterRepay))} ${data.asset.symbol}`,
   },
   {
     label: 'Transaction Fee',
@@ -118,6 +124,8 @@ async function repay() {
     }
 
     await market.repay(marketProps)
+
+    dialog.value = false
   } finally {
     loading.value = false
     isValidate.value = true
