@@ -10,7 +10,7 @@ const {
   data?: MultiplyTableItem
 }>()
 
-const dataRef = ref(data)
+const computedData = computed(() => data)
 
 const {
   reloadFee,
@@ -33,7 +33,7 @@ const {
 
   swapAsset,
   leverage,
-} = useLeverage(dataRef)
+} = useLeverage(computedData)
 
 const dialog = defineModel<boolean>({ default: false })
 
@@ -351,6 +351,9 @@ watch(dialog, async (v) => {
 
 .theme-dark {
   .multiply-dialog {
+    &__title {
+      color: #fff;
+    }
     .j-input__prepend .popover {
       .popover-borrow-asset {
         color: #fff;

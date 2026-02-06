@@ -127,14 +127,16 @@ watchDebounced([
   if (!data || !publicKey.value || !dialog.value) {
     return
   }
-  const tx = await activeMarket.value!.client.marketSdk.withdrawLeverageTx(
-    publicKey.value,
-    data?.depositPoolData.pool.pool_address || '',
-    data?.borrowPoolData.pool.pool_address || '',
-    1,
+  const tx = await activeMarket.value!.client.leverage.buildWithdrawLeverageTx(
+    {
+      user: publicKey.value,
+      depositPoolAddress: data?.depositPoolData.pool.pool_address || '',
+      borrowPoolAddress: data?.borrowPoolData.pool.pool_address || '',
+      amount: 1,
+    },
   )
 
-  txFee.value = activeMarket.value!.client.marketSdk.getTransactionFee(tx)
+  txFee.value = activeMarket.value!.client.leverage.getTransactionFee(tx)
 }, { immediate: true, debounce: 300 })
 </script>
 

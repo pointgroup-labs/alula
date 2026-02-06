@@ -70,6 +70,7 @@ async function addTrust() {
       },
 
     })
+    throw error
   } finally {
     txLoading.value = false
   }

@@ -1,5 +1,6 @@
 import type { StellarClient } from '@alula/client-sdk'
 import type { TableActionType } from '~/store/markets'
+import { TRANSACTION_TIMEOUT } from '~/config'
 import { destructurePoolAsset } from '~/utils'
 
 function parseAsset(asset_data?: string, asset_code_from_param?: string) {
@@ -83,7 +84,7 @@ export function useMarketActions() {
       noProgress: false,
     })
     try {
-      const res = await exec()
+      const res = await withTimeoutAbort(exec(), TRANSACTION_TIMEOUT)
       opts?.reset?.()
       await reloadData({
         pool_address: pool,
