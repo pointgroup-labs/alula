@@ -71,5 +71,10 @@ pids
 # contract unit test test-snapshots
 **/test_snapshots/
 
+# Claude
 .claude
 CLAUDE.md
+
+# Vitepress docs
+packages/docs/.vitepress/cache/
+packages/docs/.vitepress/dist/
