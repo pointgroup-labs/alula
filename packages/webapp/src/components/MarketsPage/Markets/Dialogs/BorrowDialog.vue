@@ -79,6 +79,8 @@ async function borrow() {
     }
 
     await market.borrow(marketProps)
+
+    marketsStore.dialogBorrow = false
   } finally {
     marketsStore.poolActiveAddress = undefined
   }

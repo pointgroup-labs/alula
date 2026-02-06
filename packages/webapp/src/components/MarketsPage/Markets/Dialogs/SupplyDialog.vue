@@ -65,6 +65,8 @@ async function supply() {
     collateralOnly.value
       ? await market.addCollateral(marketProps)
       : await market.deposit(marketProps)
+
+    marketsStore.dialogSupply = false
   } finally {
     marketsStore.poolActiveAddress = undefined
   }
