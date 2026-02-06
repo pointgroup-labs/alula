@@ -1,4 +1,5 @@
 import type { RPCcluster } from './types'
+import { ObligationService } from './services'
 import { BorrowingService } from './services/borrowing-service'
 import { LendingService } from './services/lending-service'
 import { LeverageService } from './services/leverage-service'
@@ -47,6 +48,7 @@ export class StellarClient {
   public readonly rpc: RPCcluster
   public readonly publicKey: string
   public readonly market: MarketService
+  public readonly obligation: ObligationService
   public readonly lending: LendingService
   public readonly borrowing: BorrowingService
   public readonly leverage: LeverageService
@@ -56,47 +58,29 @@ export class StellarClient {
   constructor(config: StellarClientConfig) {
     this.rpc = config.rpc
     this.publicKey = config.publicKey
-
-    // Initialize market service first to get decimals config
-    this.market = new MarketService({
+    const context = {
       rpc: config.rpc,
       publicKey: config.publicKey,
       contractId: config.marketContractId,
-    })
+    }
+
+    // Initialize market service first to get decimals config
+    this.market = new MarketService(context)
 
     const decimals = this.market.getDecimalsConfig()
 
     // Initialize all other services with shared decimals config
-    this.lending = new LendingService({
-      rpc: config.rpc,
-      publicKey: config.publicKey,
-      contractId: config.marketContractId,
-      decimals,
-    })
+    this.lending = new LendingService({ ...context, decimals })
 
-    this.borrowing = new BorrowingService({
-      rpc: config.rpc,
-      publicKey: config.publicKey,
-      contractId: config.marketContractId,
-      decimals,
-    })
+    this.borrowing = new BorrowingService({ ...context, decimals })
 
-    this.leverage = new LeverageService({
-      rpc: config.rpc,
-      publicKey: config.publicKey,
-      contractId: config.marketContractId,
-      decimals,
-    })
+    this.leverage = new LeverageService({ ...context, decimals })
 
-    this.wallet = new WalletService({
-      rpc: config.rpc,
-      publicKey: config.publicKey,
-    })
+    this.wallet = new WalletService(context)
 
-    this.marketManager = new MarketManagerService({
-      rpc: config.rpc,
-      publicKey: config.publicKey,
-    })
+    this.obligation = new ObligationService(context)
+
+    this.marketManager = new MarketManagerService(context)
   }
 
   /**
