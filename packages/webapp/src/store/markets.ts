@@ -111,7 +111,7 @@ export const useMarketsStore = defineStore('markets', () => {
     if (import.meta.env.SSR) {
       return
     }
-    if (Object.keys(state.markets).length === 0 && alulaClient.value) {
+    if (Object.keys(state.markets).length === 0 && alulaClient.value?.market) {
       await loadMarketsData()
     }
   }, {})
