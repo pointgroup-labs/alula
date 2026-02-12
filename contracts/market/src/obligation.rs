@@ -639,7 +639,11 @@ impl Obligation {
         let is_all_withdrawn = deposit_decrease == all_deposit;
 
         let withdraw_scarcity_fee_bps =
-            compute_withdraw_scarcity_fee_bps(e, pool, deposit_decrease, &mut deposit_position)?;
+            compute_withdraw_scarcity_fee_bps(e, pool, deposit_decrease, &deposit_position)?;
+        if withdraw_scarcity_fee_bps > 0 {
+            deposit_position.last_scarcity_withdraw_ts = e.ledger().timestamp();
+        }
+
         let withdraw_fee_bps = pool
             .config
             .fee_config
@@ -1375,15 +1379,12 @@ pub fn compute_operation_fees(
 }
 
 // Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
-// exceeds utilization ratio limit. E.g., (2% of origination fee + 4.5% of scarcity fee, etc.).
-//
-// # WARNING
-// This updates `deposit_position.last_scarcity_withdraw_ts` on `DepositPosition` in case of scarcity withdraw
+// exceeds utilization ratio limit. E.g., (2% of origination fee + 4.5% of scarcity fee, etc.)
 fn compute_withdraw_scarcity_fee_bps(
     e: &Env,
     pool: &Pool,
     deposit_decrease: i128,
-    deposit_position: &mut DepositPosition,
+    deposit_position: &DepositPosition,
 ) -> Result<u32, MCError> {
     let pool_total_supply = pool.total_supply()?;
     if pool_total_supply == 0 {
@@ -1403,6 +1404,10 @@ fn compute_withdraw_scarcity_fee_bps(
                 .map_over_or_underflow()?
         }
     };
+
+    if new_utilization_ratio_bps == BPS_FACTOR {
+        return Ok(pool.config.fee_config.withdraw_max_scarcity_fee_bps);
+    }
 
     let utilization_ratio_diff_bps = if new_utilization_ratio_bps
         > pool.config.health_config.utilization_ratio_limit_bps
@@ -1438,15 +1443,20 @@ fn compute_withdraw_scarcity_fee_bps(
         {
             return Err(MCError::ScarcityCooldownPeriod);
         }
-        deposit_position.last_scarcity_withdraw_ts = current_timestamp;
 
         new_utilization_ratio_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
     } else {
-        0
+        return Ok(0);
     };
+
+    let max_utilization_ratio_diff_bps =
+        BPS_FACTOR - pool.config.health_config.utilization_ratio_limit_bps; // safe
     let fee = utilization_ratio_diff_bps
-        .fixed_mul_ceil(pool.config.fee_config.withdraw_scarcity_fee_sc_bps as i128, BPS_FACTOR)
-        .map_over_or_underflow()? as u32;
+        .fixed_mul_ceil(
+            pool.config.fee_config.withdraw_max_scarcity_fee_bps as i128,
+            max_utilization_ratio_diff_bps,
+        )
+        .unwrap() as u32; // safe
 
     Ok(fee)
 }

@@ -1265,6 +1265,15 @@ pub fn get_pool_available_take_rate_fees_sum(
     pool.total_available().unwrap()
 }
 
+pub fn get_pool_utilization_ratio_bps(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.compute_utilization_ratio_bps().unwrap()
+}
+
 pub fn compute_pool_collateral_value(
     e: &Env,
     contract_client: &MarketClient,

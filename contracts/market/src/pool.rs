@@ -758,9 +758,9 @@ pub struct PoolFeeConfig {
 
     pub deposit_fee_bps: u32,
     pub withdraw_fee_bps: u32,
-    // Additional scalar (in basis points) used for the additional withdrawal fee when the utilization ratio
-    // exceeds `utilization_ratio_limit_bps`
-    pub withdraw_scarcity_fee_sc_bps: u32,
+    // Maximum value of a fee in basis points (accumulating linearly from `0`) in case the utilization ratio
+    // on the pool exceeds the `utilization_ratio_limit_bps` after the withdrawal
+    pub withdraw_max_scarcity_fee_bps: u32,
     pub add_collateral_fee_bps: u32,
     pub remove_collateral_fee_bps: u32,
     pub repay_fee_bps: u32,
@@ -784,7 +784,7 @@ impl Default for PoolFeeConfig {
 
             deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
             withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
-            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
+            withdraw_max_scarcity_fee_bps: DEFAULT_MAX_WITHDRAW_SCARCITY_FEE_BPS,
             add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
             remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
             repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
@@ -804,6 +804,7 @@ impl PoolFeeConfig {
             flash_loan_fee_bps,
             deposit_fee_bps,
             withdraw_fee_bps,
+            withdraw_max_scarcity_fee_bps,
             add_collateral_fee_bps,
             remove_collateral_fee_bps,
             repay_fee_bps,
@@ -827,6 +828,12 @@ impl PoolFeeConfig {
             if fee as i128 > BPS_FACTOR {
                 return Err("Individual fees must not exceed 100%");
             }
+        }
+
+        if *withdraw_max_scarcity_fee_bps as i128 > BPS_FACTOR // NB: to prevent overflow
+            || (*withdraw_max_scarcity_fee_bps + *withdraw_fee_bps) as i128 > BPS_FACTOR
+        {
+            return Err("Max scarcity fee, summed with the withdrawal fee, must not exceed 100%");
         }
 
         if *take_rate_bps as i128 > BPS_FACTOR {
