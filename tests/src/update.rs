@@ -372,8 +372,8 @@ fn test_update_market_config() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
 
-    const MAX_POSITIONS: u32 = 2 * MAX_RESERVES;
-    const MIN_COLLATERAL_VALUE_CENTS: i128 = 10 * 10i128.pow(7);
+    const MAX_POSITIONS: u32 = MAX_RESERVES;
+    const MIN_COLLATERAL_VALUE_CENTS: i128 = 10;
 
     assert_eq!(
         contract_client.try_update_market(&(MAX_POSITIONS + 1), &0),
@@ -381,7 +381,7 @@ fn test_update_market_config() {
     );
     assert_eq!(
         contract_client.try_update_market(&(MAX_POSITIONS), &-1),
-        Err(Ok(MCError::InvalidMarketUpdate))
+        Err(Ok(MCError::NegativeInputAmount))
     );
     assert_eq!(
         contract_client.try_update_market(&(1), &MIN_COLLATERAL_VALUE_CENTS),

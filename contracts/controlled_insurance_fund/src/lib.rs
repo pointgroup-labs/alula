@@ -20,7 +20,7 @@ impl ControlledInsuranceFundContract {
     pub fn set_market(e: Env, market: Address) {
         // TODO: This must be a one-time lock or something like that
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::set_market(&e, market);
     }
@@ -28,7 +28,7 @@ impl ControlledInsuranceFundContract {
     /// # Returns
     /// Request with given `request_id` if exists
     pub fn get_request(e: &Env, request_id: u64) -> Option<Request> {
-        storage::extend_instance_storage(e);
+        storage::extend_instance(e);
 
         storage::get_request(e, request_id)
     }
@@ -106,12 +106,12 @@ impl ControlledInsuranceFundContract {
 impl InsuranceFund for ControlledInsuranceFundContract {
     fn add_reserves(e: Env, _token: Address, _amount: i128) {
         require_market(&e); // NB: Only validation for this token-balance driven implementation
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
     }
 
     fn request_coverage(e: Env, token: Address, amount: i128) -> IssueRequestResult {
         require_market(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let request = Request::new(token, amount);
         let request_id = storage::set_request(&e, request);
@@ -120,7 +120,7 @@ impl InsuranceFund for ControlledInsuranceFundContract {
     }
 
     fn get_status(e: Env, request_id: u64) -> Option<CoverageStatus> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         let request = storage::get_request(&e, request_id)?;
 
         Some(request.status)
@@ -129,7 +129,7 @@ impl InsuranceFund for ControlledInsuranceFundContract {
     fn claim_coverage(e: Env, request_id: u64) -> i128 {
         let market = storage::get_market(&e);
         market.require_auth();
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let Some(request) = storage::get_request(&e, request_id) else {
             panic_with_error!(&e, ContractError::RequestDoesNotExist);

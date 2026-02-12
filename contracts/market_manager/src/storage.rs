@@ -62,6 +62,6 @@ pub fn get_markets(e: &Env) -> Option<Map<Address, ()>> {
 }
 
 /// Instance storage bumper
-pub fn extend_instance_storage(e: &Env) {
+pub fn extend_instance(e: &Env) {
     e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }

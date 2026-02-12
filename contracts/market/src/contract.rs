@@ -699,11 +699,10 @@ impl Market for MarketContract {
         new_min_collateral_value_cents: i128,
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        require_nonnegative(new_min_collateral_value_cents)?;
+        storage::extend_instance(&e);
 
-        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions)
-            || new_min_collateral_value_cents.is_negative()
-        {
+        if !(2..=MAX_RESERVES).contains(&new_max_positions) {
             return Err(MCError::InvalidMarketUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);
@@ -714,7 +713,7 @@ impl Market for MarketContract {
 
     fn update_market_status(e: Env, new_status: u32) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let new_status = MarketStatus::try_from(new_status)?;
         storage::set_market_status(&e, &new_status);
@@ -724,12 +723,12 @@ impl Market for MarketContract {
 
     fn fund_update_market_status(e: Env, new_status: u32) -> Result<(), MCError> {
         require_insurance_fund(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let old_status = storage::get_market_status(&e);
         let new_status = MarketStatus::try_from(new_status)?;
         if old_status.is_admin_protected() || new_status.is_admin_protected() {
-            return Err(MCError::InvalidMarketStatusUpdate);
+            return Err(MCError::InvalidMarketUpdate);
         }
 
         storage::set_market_status(&e, &new_status);
@@ -744,7 +743,7 @@ impl Market for MarketContract {
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError> {
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_initialize_pool(&e, &token_address, &salt, &pool_config)
     }
@@ -755,7 +754,7 @@ impl Market for MarketContract {
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_initialize_multiply_pair(&e, &deposit_pool_address, &borrow_pool_address)
     }
@@ -766,7 +765,7 @@ impl Market for MarketContract {
         new_pool_config: PoolConfig,
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         new_pool_config.validate()?;
 
@@ -780,7 +779,7 @@ impl Market for MarketContract {
 
     fn cancel_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let pool = Pool::try_get(&e, &pool_address)?;
         pool.remove_pool_config_update(&e)?;
@@ -792,7 +791,7 @@ impl Market for MarketContract {
 
     fn apply_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.apply_pool_config_update(&e)?;
@@ -867,7 +866,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         require_admin(&e);
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_bootstrap_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
     }
@@ -881,7 +880,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -898,7 +897,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let earn_seed: BytesN<32> = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
@@ -916,7 +915,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_borrows_on_market_allowed(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -932,7 +931,7 @@ impl Market for MarketContract {
     ) -> Result<i128, MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
     }
@@ -940,7 +939,7 @@ impl Market for MarketContract {
     fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
         user.require_auth();
         require_nonnegative(amount)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.accrue_interest(&e)?;
@@ -962,7 +961,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -979,7 +978,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -996,7 +995,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -1013,7 +1012,7 @@ impl Market for MarketContract {
         repay_amount: i128,
         min_demanded_collateral_amount: i128,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         liquidator.require_auth();
         require_market_not_frozen(&e)?;
 
@@ -1042,7 +1041,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -1084,7 +1083,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
@@ -1102,7 +1101,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         caller.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_flash_loan(&e, &contract, &pool_address, amount)
     }
@@ -1117,7 +1116,7 @@ impl Market for MarketContract {
         leverage_multiplier: u32,
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
         require_borrows_on_market_allowed(&e)?;
@@ -1150,7 +1149,7 @@ impl Market for MarketContract {
         amount: i128,
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
         require_borrows_on_market_allowed(&e)?;
@@ -1162,7 +1161,7 @@ impl Market for MarketContract {
     }
 
     fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         let obligation_key = ObligationKey::new(user);
 
         process_issue_cover_bad_debt(&e, &obligation_key)
@@ -1174,7 +1173,7 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
@@ -1183,7 +1182,7 @@ impl Market for MarketContract {
     }
 
     fn claim_cover_bad_debt_results(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         let obligation_key = ObligationKey::new(user);
 
         process_claim_cover_bad_debt_results(&e, &obligation_key)
@@ -1195,7 +1194,7 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
@@ -1204,13 +1203,13 @@ impl Market for MarketContract {
     }
 
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_distribute_pool_fees(&e, &pool_address)
     }
 
     fn distribute_all_pools_fees(e: Env) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_distribute_all_pools_fees(&e)
     }
@@ -1238,7 +1237,7 @@ impl Market for MarketContract {
     }
 
     fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user.clone());
         let obligation = Obligation::try_get(&e, &obligation_key)?;
@@ -1248,7 +1247,7 @@ impl Market for MarketContract {
     }
 
     fn refresh_earn_obligation(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key =
             ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
@@ -1264,7 +1263,7 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new_with_seed(
             user.clone(),
@@ -1277,7 +1276,7 @@ impl Market for MarketContract {
     }
 
     fn refresh_pool(e: Env, pool_address: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.accrue_interest(&e)?;
@@ -1419,7 +1418,7 @@ impl Market for MarketContract {
     }
 
     fn refresh_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let Some(farms_contract) = storage::get_farms_contract(&e) else {
             return Ok(()); // No farms configured
@@ -1432,7 +1431,7 @@ impl Market for MarketContract {
     }
 
     fn refresh_earn_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let Some(farms_contract) = storage::get_farms_contract(&e) else {
             return Ok(()); // No farms configured
@@ -1450,7 +1449,7 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let Some(farms_contract) = storage::get_farms_contract(&e) else {
             return Ok(()); // No farms configured
@@ -1499,6 +1498,14 @@ impl MarketContract {
         insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<(), MCError> {
+        require_nonnegative(min_collateral_value_cents)?;
+
+        if !(2..=MAX_RESERVES).contains(&max_positions)
+            || !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps)
+        {
+            return Err(MCError::InvalidMarketConfig);
+        }
+
         let market_status = if update_in_queue_period.is_some() {
             // Owned markets begin in a frozen state
             MarketStatus::Frozen
@@ -1546,7 +1553,7 @@ impl MarketContract {
     // * `new_admin` - proposed admin
     pub fn propose_new_admin(e: Env, new_admin: Address) -> Result<(), MCError> {
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::set_proposed_admin(&e, &new_admin);
 
@@ -1557,7 +1564,7 @@ impl MarketContract {
 
     // Accepts the proposal to become a new admin
     pub fn accept_proposed_admin(e: Env) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let proposed_admin = storage::get_proposed_admin(&e).ok_or(MCError::InvalidMarketUpdate)?;
         proposed_admin.require_auth();

@@ -619,10 +619,6 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    pub fn operation_fees_sum(&self) -> i128 {
-        self.operation_fees_sum
-    }
-
     pub fn total_available(&self) -> Result<i128, MCError> {
         Ok(i128::max(
             self.total_available.checked_sub(self.take_rate_fees_sum).map_over_or_underflow()?,

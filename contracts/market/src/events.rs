@@ -710,20 +710,6 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     PoolInconsistentTotalShares { total_shares, individual_shares }.publish(e);
 }
 
-// Emitted when the total shares in a pool are found to be less than the total tokens amount
-pub fn pool_total_shares_smaller_than_total_tokens(
-    e: &Env,
-    total_shares: i128,
-    total_tokens: i128,
-) {
-    PoolInconsistentTotalTokens { total_shares, total_tokens }.publish(e);
-}
-
-// Emitted when pool state becomes generally inconsistent
-pub fn pool_contains_inconsistent_state(e: &Env, pool: &Pool) {
-    PoolContainsInconsistentState { pool: pool.clone() }.publish(e);
-}
-
 // Emitted when obligation unexpectedly becomes empty
 pub fn obligation_is_unexpectedly_empty(
     e: &Env,
@@ -880,16 +866,4 @@ pub fn insurance_fund_claim_mismatch(
 
 pub fn referrer_is_unexpectedly_missing(e: &Env) {
     ReferrerIsUnexpectedlyMissing {}.publish(e);
-}
-
-// --- Helper Functions  ---
-
-#[contractevent]
-struct DbgEvent {
-    #[topic]
-    pub symbol: Symbol,
-}
-
-pub fn dbg(e: &Env, symbol: Symbol) {
-    DbgEvent { symbol }.publish(e);
 }

@@ -2,9 +2,8 @@
 use soroban_sdk::{Address, BytesN, Env, Map, String, contract, contractclient, contractimpl};
 
 use crate::{
-    constants::MAX_RESERVES,
     error::MMCError,
-    storage::{self, Config, extend_instance_storage},
+    storage::{self, Config, extend_instance},
 };
 
 // --- TODO: Remove this before deployment ---
@@ -70,15 +69,11 @@ impl MarketManager for MarketManagerContract {
         oracle: Address,
         insurance_fund: Address,
         max_positions: u32,
-        min_collateral: i128,
+        min_collateral_value_cents: i128,
         insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<Address, MMCError> {
-        extend_instance_storage(&e);
-
-        if !(2..=(2 * MAX_RESERVES)).contains(&max_positions) || min_collateral.is_negative() {
-            return Err(MMCError::InvalidMarketState);
-        }
+        extend_instance(&e);
 
         let Config { admin, market_contract_wasm_hash } = storage::get_config(&e);
         admin.require_auth();
@@ -92,7 +87,7 @@ impl MarketManager for MarketManagerContract {
                 insurance_fund,
                 e.current_contract_address(),
                 max_positions,
-                min_collateral,
+                min_collateral_value_cents,
                 insolvency_ltv_bps,
                 update_in_queue_period,
             ),
@@ -104,13 +99,13 @@ impl MarketManager for MarketManagerContract {
     }
 
     fn get_markets(e: Env) -> Map<Address, ()> {
-        extend_instance_storage(&e);
+        extend_instance(&e);
 
         storage::get_markets(&e).unwrap_or(Map::new(&e))
     }
 
     fn get_config(e: Env) -> Config {
-        extend_instance_storage(&e);
+        extend_instance(&e);
 
         storage::get_config(&e)
     }
@@ -166,13 +161,4 @@ impl MarketManagerContract {
 #[inline(always)] // TODO: to be removed
 fn require_admin(e: &Env) {
     storage::get_admin(e).require_auth();
-}
-
-#[inline(always)]
-pub fn require_nonnegative(amount: i128) -> Result<(), MMCError> {
-    if amount.is_negative() {
-        return Err(MMCError::NegativeInputAmount);
-    }
-
-    Ok(())
 }

@@ -70,11 +70,6 @@ pub fn require_admin(e: &Env) {
 }
 
 #[inline(always)]
-pub fn require_deployer(e: &Env) {
-    storage::get_deployer(e).require_auth();
-}
-
-#[inline(always)]
 pub fn require_borrows_on_market_allowed(e: &Env) -> Result<(), MCError> {
     if !matches!(storage::get_market_status(e), MarketStatus::Active) {
         return Err(MCError::BorrowForbiddenOnMarket);

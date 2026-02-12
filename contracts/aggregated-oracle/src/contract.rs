@@ -1,15 +1,14 @@
-use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
-use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{
-    Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
-};
-
 use crate::{
     computations::compute_median,
     constants::BPS_FACTOR,
     error::AOCError,
     events,
     storage::{self, OracleConfig, OracleConfigInput},
+};
+use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{
+    Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
 };
 
 /// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price
@@ -72,7 +71,7 @@ impl AggregatedOracleContract {
         storage::set_base_asset(&e, base_asset);
         register_oracles(&e, oracles, max_age);
 
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
     }
 
     /// Gives away the admin role
@@ -109,7 +108,7 @@ impl AggregatedOracleContract {
         max_dev_bps: u32,
         max_dev_consecutive_diff_secs: u64,
     ) -> Result<(), AOCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         require_admin(&e);
 
         storage::add_asset(&e, ticker, token_address, max_dev_bps, max_dev_consecutive_diff_secs)?;
@@ -119,7 +118,7 @@ impl AggregatedOracleContract {
 
     /// Returns the list of all aggregated oracles configurations
     pub fn get_oracles(e: Env) -> Vec<OracleConfig> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_oracles(&e)
     }
@@ -135,7 +134,7 @@ impl AggregatedOracleContract {
 #[contractimpl]
 impl AggregatedPriceFeedTrait for AggregatedOracleContract {
     fn base(e: Env) -> Asset {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_base_asset(&e)
     }
@@ -143,18 +142,20 @@ impl AggregatedPriceFeedTrait for AggregatedOracleContract {
     /// # Important:
     /// Returns a list of registered assets as [`Asset::Stellar`] variants
     fn assets(e: Env) -> Vec<Asset> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_assets(&e)
     }
 
     fn decimals(e: Env) -> u32 {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::get_decimals(&e)
     }
 
     fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
+        storage::extend_instance(&e);
+
         process_lastprice(&e, &asset)
     }
 }
@@ -191,7 +192,7 @@ fn require_admin(e: &Env) {
 }
 
 fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
-    storage::extend_instance_storage(e);
+    storage::extend_instance(e);
 
     let Asset::Stellar(token_address) = asset else {
         // Oracle supports only assets existing as tokens on the Stellar ledger
