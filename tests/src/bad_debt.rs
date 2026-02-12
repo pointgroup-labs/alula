@@ -301,19 +301,3 @@ fn test_completely_cover_bad_debt() {
     assert_eq!(pool_available_diff, borrower_2_new_debt); // complete coverage took place
     assert_eq!(pool_borrowed_diff, borrower_2_new_debt);
 }
-
-#[test]
-fn test_donate() {
-    let TestMarketFixture { contract_client, usdc_pool_address, users, .. } =
-        TestMarketFixture::new();
-    let donor = &users[0];
-
-    let reserve_before = contract_client.get_pool(&usdc_pool_address).total_available;
-    assert_eq!(reserve_before, 0);
-
-    let donation_amount = 1_000_000_000;
-    contract_client.donate(donor, &usdc_pool_address, &donation_amount);
-
-    let reserve_after = contract_client.get_pool(&usdc_pool_address).total_available;
-    assert_eq!(reserve_after, donation_amount);
-}

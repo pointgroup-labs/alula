@@ -1,8 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
-    Address, BytesN, Env, Map, String, Vec, contract, contractclient, contractimpl, token,
-    vec as svec,
+    Address, BytesN, Env, Map, String, Vec, contract, contractclient, contractimpl, vec as svec,
 };
 
 use crate::{
@@ -429,14 +428,6 @@ pub trait Market {
         token_out: Address,
         amount_in: i128,
     ) -> Result<i128, MCError>;
-
-    // Donates tokens to `total_available` on a pool
-    //
-    // # Arguments
-    // * `user` - user that donates tokens
-    // * `pool_address` - address of a pool to whose reserve the donation takes place
-    // * `amount` - donation amount
-    fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
 
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
@@ -935,23 +926,6 @@ impl Market for MarketContract {
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
     }
-
-    fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
-        user.require_auth();
-        require_nonnegative(amount)?;
-        storage::extend_instance(&e);
-
-        let mut pool = Pool::try_get(&e, &pool_address)?;
-        pool.accrue_interest(&e)?;
-        pool.adjust_total_available(&e, amount)?;
-        pool.set(&e);
-
-        let token_client = token::Client::new(&e, &pool.token_address);
-        token_client.transfer(&user, e.current_contract_address(), &amount);
-
-        Ok(())
-    }
-
     fn add_collateral(
         e: Env,
         user: Address,
