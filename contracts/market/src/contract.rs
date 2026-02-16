@@ -640,10 +640,6 @@ pub trait Market {
     // * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     //   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>);
-
-    // Resets the contract's storage. Useful when the contract's invariants are broken and require
-    // resetting on the testnet without re-deploying the contract
-    fn reset_storage(e: Env);
 }
 
 #[contract]
@@ -1433,14 +1429,6 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new_with_seed(user, pair.seed.clone());
         farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
         Ok(())
-    }
-
-    fn reset_storage(e: Env) {
-        require_admin(&e);
-
-        storage::remove_all_obligations(&e);
-        storage::remove_all_pools(&e);
-        storage::remove_all_multiply_pairs(&e);
     }
 }
 
