@@ -6,6 +6,7 @@ use crate::{constants::*, error::AOCError};
 #[contracttype]
 pub enum DataKey {
     Admin,
+    ProposedAdmin,
     MaxAge,
     Decimals,
     BaseAsset,
@@ -29,11 +30,21 @@ pub struct AssetData {
 
 // ---- Storage Setters & Getters ----
 
-pub fn set_admin(e: &Env, admin: Address) {
+pub fn set_admin(e: &Env, admin: &Address) {
     e.storage().instance().set(&DataKey::Admin, &admin);
 }
 pub fn get_admin(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Admin).expect("Admin must've been set")
+}
+
+pub fn set_proposed_admin(e: &Env, proposed_admin: &Address) {
+    e.storage().instance().set(&DataKey::ProposedAdmin, &proposed_admin);
+}
+pub fn get_proposed_admin(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::ProposedAdmin)
+}
+pub fn remove_proposed_admin(e: &Env) {
+    e.storage().instance().remove(&DataKey::ProposedAdmin);
 }
 
 pub fn set_max_age(e: &Env, max_age: u64) {

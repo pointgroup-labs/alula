@@ -132,7 +132,6 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
     };
 
     let max_age = storage::get_max_age(e);
-
     if current_timestamp < price_data.timestamp
         || (current_timestamp - price_data.timestamp) > max_age
     {
@@ -154,6 +153,8 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
                 price_data: price_data.clone(),
             }
             .publish(e);
+
+            return None;
         }
 
         let protocol_decimals = storage::get_decimals(e);

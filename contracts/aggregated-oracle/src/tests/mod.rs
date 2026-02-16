@@ -20,7 +20,7 @@ use std::vec::Vec;
 
 #[test]
 fn test_median_price_with_odd_number_of_reported_prices() {
-    let TestFixture { e, oracle_clients, oracle_config_inputs, aggregated_oracle_client, .. } =
+    let TestFixture { e, oracle_clients, oracle_config_inputs, contract_client, .. } =
         TestFixture::new();
 
     // Set XLM prices on the mock oracles: [100, 200, 300]
@@ -46,9 +46,9 @@ fn test_median_price_with_odd_number_of_reported_prices() {
         oracle_client.set_price(&asset, &price, &timestamp);
     }
 
-    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
+    contract_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
 
-    let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
+    let lastprice = contract_client.lastprice(&xlm_asset_stellar).unwrap();
 
     assert_eq!(lastprice.price, 200 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
     assert_eq!(lastprice.timestamp, e.ledger().timestamp());
@@ -56,7 +56,7 @@ fn test_median_price_with_odd_number_of_reported_prices() {
 
 #[test]
 fn test_median_price_with_even_number_of_reported_prices() {
-    let TestFixture { e, oracle_clients, oracle_config_inputs, aggregated_oracle_client, .. } =
+    let TestFixture { e, oracle_clients, oracle_config_inputs, contract_client, .. } =
         TestFixture::new();
 
     let xlm_address = Address::generate(&e);
@@ -88,9 +88,9 @@ fn test_median_price_with_even_number_of_reported_prices() {
     let expired_timestamp = e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE - 1;
     oracle_clients[0].set_price(&asset, &new_price, &expired_timestamp);
 
-    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
+    contract_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
 
-    let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
+    let lastprice = contract_client.lastprice(&xlm_asset_stellar).unwrap();
 
     assert_eq!(
         lastprice.price,
@@ -101,7 +101,7 @@ fn test_median_price_with_even_number_of_reported_prices() {
 
 #[test]
 fn test_median_price_with_all_expired_prices() {
-    let TestFixture { e, oracle_clients, aggregated_oracle_client, oracle_config_inputs, .. } =
+    let TestFixture { e, oracle_clients, contract_client, oracle_config_inputs, .. } =
         TestFixture::new();
 
     let xlm_address = Address::generate(&e);
@@ -124,9 +124,9 @@ fn test_median_price_with_all_expired_prices() {
 
         oracle_client.set_price(&asset, &price, &expired_timestamp);
     }
-    aggregated_oracle_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
+    contract_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
 
-    let lastprice = aggregated_oracle_client.lastprice(&xlm_asset_stellar);
+    let lastprice = contract_client.lastprice(&xlm_asset_stellar);
 
     assert!(lastprice.is_none());
 }
@@ -137,12 +137,7 @@ fn test_max_deviation_check() {
     const MAX_DEV_CONSECUTIVE_DIFF_SECS: u64 = 10000; // NB: Must exceed the resolution on the oracles to notice the effect
 
     let TestFixture {
-        e,
-        oracle_clients,
-        aggregated_oracle_client,
-        oracle_config_inputs,
-        aggregated_oracle_address,
-        ..
+        e, oracle_clients, contract_client, oracle_config_inputs, contract_id, ..
     } = TestFixture::new();
 
     // -- Set prices on oracles --
@@ -153,7 +148,7 @@ fn test_max_deviation_check() {
     let xlm_asset_other = Asset::Other(xlm_ticker.clone());
     let xlm_asset_stellar = Asset::Stellar(xlm_address.clone());
 
-    aggregated_oracle_client.add_asset(
+    contract_client.add_asset(
         &xlm_ticker,
         &xlm_address,
         &MAX_DEV_BPS,
@@ -176,7 +171,7 @@ fn test_max_deviation_check() {
 
     // -- Check that the price is calculated when no previous lastprice is recorded in the contract's storage --
 
-    e.as_contract(&aggregated_oracle_address, || {
+    e.as_contract(&contract_id, || {
         assert!(
             e.storage()
                 .instance()
@@ -199,14 +194,14 @@ fn test_max_deviation_check() {
         }
     });
 
-    let lastprice_1 = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
+    let lastprice_1 = contract_client.lastprice(&xlm_asset_stellar).unwrap();
 
     assert_eq!(lastprice_1.price, 200 * 10_i128.pow(AGGREGATED_ORACLE_DECIMALS));
     assert_eq!(lastprice_1.timestamp, e.ledger().timestamp());
 
     // -- Verify that the previous lastprice is set --
 
-    e.as_contract(&aggregated_oracle_address, || {
+    e.as_contract(&contract_id, || {
         let previous_median = e
             .storage()
             .instance()
@@ -257,11 +252,11 @@ fn test_max_deviation_check() {
 
     assert!(e.events().all().is_empty());
 
-    assert!(aggregated_oracle_client.lastprice(&xlm_asset_stellar).is_none());
+    assert!(contract_client.lastprice(&xlm_asset_stellar).is_none());
 
     let events = e.events().all();
     let (contract_address, topics, _data) = events.get(0).unwrap();
-    assert_eq!(contract_address, aggregated_oracle_address);
+    assert_eq!(contract_address, contract_id);
     let first_topic_symbol = Symbol::from_val(&e, &topics.get(0).unwrap());
     assert_eq!(first_topic_symbol, Symbol::new(&e, "price_deviation_exceeds_max"));
 
@@ -286,7 +281,7 @@ fn test_max_deviation_check() {
         oracle_client.set_price(&asset, &price_with_deviation, &timestamp);
     }
 
-    let lastprice_2 = aggregated_oracle_client.lastprice(&xlm_asset_stellar).unwrap();
+    let lastprice_2 = contract_client.lastprice(&xlm_asset_stellar).unwrap();
 
     assert_eq!(
         lastprice_1.price
@@ -316,11 +311,11 @@ fn test_max_deviation_check() {
 
     assert_eq!(e.events().all().len(), 0);
 
-    assert!(aggregated_oracle_client.lastprice(&xlm_asset_stellar).is_none());
+    assert!(contract_client.lastprice(&xlm_asset_stellar).is_none());
 
     let events = e.events().all();
     let (contract_address, topics, _data) = events.get(0).unwrap();
-    assert_eq!(contract_address, aggregated_oracle_address);
+    assert_eq!(contract_address, contract_id);
     let first_topic_symbol = Symbol::from_val(&e, &topics.get(0).unwrap());
     assert_eq!(first_topic_symbol, Symbol::new(&e, "price_deviation_exceeds_max"));
 
@@ -347,16 +342,124 @@ fn test_max_deviation_check() {
         oracle_client.set_price(&asset, &obviously_deviated_price, &timestamp);
     }
 
-    assert!(aggregated_oracle_client.lastprice(&xlm_asset_stellar).is_some());
+    assert!(contract_client.lastprice(&xlm_asset_stellar).is_some());
+}
+
+#[test]
+fn test_non_positive_oracle_price_is_excluded_from_the_median() {
+    const MAX_DEV_BPS: u32 = 100; // 10%
+    const MAX_DEV_CONSECUTIVE_DIFF_SECS: u64 = 10000;
+    const ORACLE_POSITIVE_PRICE: i128 = 100;
+
+    let TestFixture {
+        e, oracle_clients, contract_client, oracle_config_inputs, contract_id, ..
+    } = TestFixture::new();
+
+    // -- Set prices on oracles --
+
+    let xlm_address = Address::generate(&e);
+    let xlm_ticker = Symbol::new(&e, "XLM");
+
+    let xlm_asset_other = Asset::Other(xlm_ticker.clone());
+    let xlm_asset_stellar = Asset::Stellar(xlm_address.clone());
+
+    contract_client.add_asset(
+        &xlm_ticker,
+        &xlm_address,
+        &MAX_DEV_BPS,
+        &MAX_DEV_CONSECUTIVE_DIFF_SECS,
+    );
+
+    let get_client_and_asset = |idx| {
+        let oracle_asset = if oracle_config_inputs.get(idx).unwrap().is_stellar_data_based {
+            xlm_asset_stellar.clone()
+        } else {
+            xlm_asset_other.clone()
+        };
+
+        (&oracle_clients[idx as usize], oracle_asset)
+    };
+
+    let (good_oracle_client, good_oracle_asset) = get_client_and_asset(0);
+    let (bad_oracle_client, bad_oracle_asset) = get_client_and_asset(1);
+
+    // - Verify zero price is excluded -
+
+    good_oracle_client.set_price(
+        &good_oracle_asset,
+        &(100 * i128::pow(10, ORACLES_DECIMALS)),
+        &e.ledger().timestamp(),
+    );
+    bad_oracle_client.set_price(&bad_oracle_asset, &0, &e.ledger().timestamp());
+
+    let lastprice_1 = contract_client.lastprice(&xlm_asset_stellar).unwrap();
+    assert_eq!(lastprice_1.price, 100 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
+
+    // - Verify negative price is excluded -
+
+    bad_oracle_client.set_price(&bad_oracle_asset, &-1, &e.ledger().timestamp());
+
+    let lastprice_1 = contract_client.lastprice(&xlm_asset_stellar).unwrap();
+    assert_eq!(lastprice_1.price, 100 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
+
+    // - Verify positive prices are included -
+
+    bad_oracle_client.set_price(
+        &bad_oracle_asset,
+        &(98 * i128::pow(10, ORACLES_DECIMALS)),
+        &e.ledger().timestamp(),
+    );
+
+    let lastprice_2 = contract_client.lastprice(&xlm_asset_stellar).unwrap();
+    assert_eq!(lastprice_2.price, 99 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
+}
+
+#[test]
+fn test_propose_new_admin_and_accept() {
+    let TestFixture {
+        e,
+        oracle_clients,
+        contract_client,
+        oracle_config_inputs,
+        contract_id,
+        contract_admin,
+        ..
+    } = TestFixture::new();
+    let proposed_admin = Address::generate(&e);
+
+    e.as_contract(&contract_id, || {
+        assert!(e.storage().instance().get::<_, Address>(&DataKey::ProposedAdmin).is_none());
+    });
+
+    contract_client.propose_new_admin(&proposed_admin);
+
+    e.as_contract(&contract_id, || {
+        let stored_proposed_admin =
+            e.storage().instance().get::<_, Address>(&DataKey::ProposedAdmin).unwrap();
+
+        assert_eq!(stored_proposed_admin, proposed_admin);
+        assert_ne!(stored_proposed_admin, contract_admin);
+    });
+
+    contract_client.accept_proposed_admin();
+
+    e.as_contract(&contract_id, || {
+        let contract_admin = e.storage().instance().get::<_, Address>(&DataKey::Admin).unwrap();
+        assert_eq!(contract_admin, proposed_admin);
+
+        assert!(e.storage().instance().get::<_, Address>(&DataKey::ProposedAdmin).is_none());
+    });
 }
 
 // ---- Helpers -----
+
 struct TestFixture<'a> {
     e: Env,
+    contract_admin: Address,
     oracle_clients: Vec<MockOracleContractClient<'a>>,
     oracle_config_inputs: SVec<OracleConfigInput>,
-    aggregated_oracle_address: Address,
-    aggregated_oracle_client: AggregatedOracleContractClient<'a>,
+    contract_id: Address,
+    contract_client: AggregatedOracleContractClient<'a>,
 }
 
 const ORACLES_DECIMALS: u32 = 7;
@@ -381,15 +484,15 @@ impl<'a> TestFixture<'a> {
 
         // -- Deploy the aggregated oracle contract --
 
-        let admin = Address::generate(&e);
+        let contract_admin = Address::generate(&e);
 
         let oracle_config_inputs =
             svec![&e, oracle_1_config_input, oracle_2_config_input, oracle_3_config_input];
 
-        let (aggregated_oracle_address, aggregated_oracle_client) = deploy_aggregated_oracle(
+        let (contract_id, contract_client) = deploy_aggregated_oracle(
             &e,
-            &admin,
-            &Symbol::new(&e, "USD"),
+            &contract_admin,
+            &Asset::Other(symbol_short!("USD")),
             AGGREGATED_ORACLE_DECIMALS,
             AGGREGATED_ORACLE_MAX_AGE,
             oracle_config_inputs.clone(),
@@ -399,10 +502,11 @@ impl<'a> TestFixture<'a> {
 
         TestFixture {
             e,
+            contract_admin,
             oracle_clients,
             oracle_config_inputs,
-            aggregated_oracle_address,
-            aggregated_oracle_client,
+            contract_id,
+            contract_client,
         }
     }
 }
@@ -411,14 +515,14 @@ impl<'a> TestFixture<'a> {
 fn deploy_aggregated_oracle<'a>(
     e: &Env,
     admin: &Address,
-    base_asset_symbol: &Symbol,
+    base_asset: &Asset,
     decimals: u32,
     max_age: u64,
     oracles: SVec<OracleConfigInput>,
 ) -> (Address, AggregatedOracleContractClient<'a>) {
     let address = e.register(
         AggregatedOracleContract,
-        (admin, base_asset_symbol.clone(), decimals, max_age, oracles),
+        (admin, base_asset.clone(), decimals, max_age, oracles),
     );
     let client = AggregatedOracleContractClient::new(e, &address);
 

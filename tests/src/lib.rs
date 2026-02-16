@@ -1325,6 +1325,14 @@ pub fn make_oracle_prices_equal(e: &Env, oracle_client: &MockPriceOracleClient) 
     ]);
 }
 
+pub fn make_oracle_prices_zero(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![e, 0, 0, 0,]);
+}
+
+pub fn make_oracle_prices_negative(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![e, -1, -1, -1,]);
+}
+
 pub struct TestAssetSetup<'a> {
     pub token_client: TokenClient<'a>,
     pub token_address: Address,

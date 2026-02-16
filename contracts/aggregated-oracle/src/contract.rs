@@ -45,13 +45,11 @@ impl AggregatedOracleContract {
     pub fn __constructor(
         e: Env,
         admin: Address,
-        base_asset_symbol: Symbol, /* TODO: Use `Asset` before deployment. Passing enums as arguments doesn't work well with stellar-cli */
+        base_asset: Asset,
         decimals: u32,
         max_age: u64,
         oracles: Vec<OracleConfigInput>,
     ) {
-        let base_asset = Asset::Other(base_asset_symbol);
-
         const MIN_MAX_AGE: u64 = 360;
         const MAX_MAX_AGE: u64 = 3_600;
 
@@ -66,7 +64,7 @@ impl AggregatedOracleContract {
             panic_with_error!(e, AOCError::InvalidOraclesAmount);
         }
 
-        storage::set_admin(&e, admin);
+        storage::set_admin(&e, &admin);
         storage::set_decimals(&e, decimals);
         storage::set_max_age(&e, max_age);
         storage::set_base_asset(&e, base_asset);
@@ -75,11 +73,28 @@ impl AggregatedOracleContract {
         storage::extend_instance(&e);
     }
 
-    /// Gives away the admin role
-    pub fn give_away_admin(e: Env, new_admin: Address) {
+    /// Proposes a new oracle's admin
+    pub fn propose_new_admin(e: Env, proposed_admin: Address) -> Result<(), AOCError> {
         require_admin(&e);
+        storage::extend_instance(&e);
 
-        storage::set_admin(&e, new_admin);
+        storage::set_proposed_admin(&e, &proposed_admin);
+
+        Ok(())
+    }
+
+    // Accepts the proposal to become a new admin
+    pub fn accept_proposed_admin(e: Env) -> Result<(), AOCError> {
+        storage::extend_instance(&e);
+
+        let proposed_admin =
+            storage::get_proposed_admin(&e).ok_or(AOCError::ProposedAdminIsNotSet)?;
+        proposed_admin.require_auth();
+
+        storage::set_admin(&e, &proposed_admin);
+        storage::remove_proposed_admin(&e);
+
+        Ok(())
     }
 
     // NB: The ability to update the contract must be removed before the mainnet deployment
@@ -122,13 +137,6 @@ impl AggregatedOracleContract {
         storage::extend_instance(&e);
 
         storage::get_oracles(&e)
-    }
-
-    // TODO: Remove before deployment..
-    pub fn address_lastprice(e: Env, asset_address: Address) -> Option<PriceData> {
-        let stellar_asset = Asset::Stellar(asset_address);
-
-        process_lastprice(&e, &stellar_asset)
     }
 }
 
@@ -206,10 +214,8 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
         return None;
     }
 
-    let price: i128 = compute_median(e, token_address)?;
-
     let current_timestamp = e.ledger().timestamp();
-
+    let price: i128 = compute_median(e, token_address)?;
     let res_lastprice = PriceData { price, timestamp: current_timestamp };
 
     if let Some(previous_median_lastprice) =

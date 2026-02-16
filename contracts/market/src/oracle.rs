@@ -5,7 +5,6 @@ use soroban_sdk::{Address, Env};
 use crate::{
     constants::*,
     error::MCError,
-    misc::require_nonnegative,
     storage::{self},
 };
 
@@ -28,8 +27,9 @@ pub fn get_asset_price(e: &Env, token_address: &Address) -> Result<i128, MCError
 
     let price_data =
         oracle_contract.lastprice(&asset).ok_or(MCError::OracleDoesNotKnowAssetPrice)?;
-
-    require_nonnegative(price_data.price)?;
+    if price_data.price <= 0 {
+        return Err(MCError::NonPositiveOraclePrice);
+    }
 
     // Validate price is not too old and not from the future
     let now = e.ledger().timestamp();

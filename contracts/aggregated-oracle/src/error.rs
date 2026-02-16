@@ -3,10 +3,11 @@ use soroban_sdk::contracterror;
 #[derive(Debug)]
 #[contracterror]
 pub enum AOCError {
-    // Core errors (0-9)
-    InvalidMaxAge = 0,
-    InvalidOraclesAmount = 2,
-    AssetAlreadyRegistered = 3,
-    NonUniqueOraclesWhileDeploying = 4,
-    InvalidOracleConfig = 5,
+    // Aggregated oracle's errors (1000-1100)
+    InvalidMaxAge = 1000,
+    InvalidOraclesAmount = 1001,
+    AssetAlreadyRegistered = 1002,
+    NonUniqueOraclesWhileDeploying = 1003,
+    InvalidOracleConfig = 1004,
+    ProposedAdminIsNotSet = 1005,
 }

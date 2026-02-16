@@ -48,6 +48,7 @@ pub enum MCError {
     // Oracle-related errors (500-599)
     OracleDoesNotKnowAssetPrice = 500,
     OracleStalePrice = 501,
+    NonPositiveOraclePrice = 502,
 
     // Health factor and liquidation errors (600-699)
     InvalidLiquidationInputs = 600,
