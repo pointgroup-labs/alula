@@ -1,14 +1,15 @@
+use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{
+    Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
+};
+
 use crate::{
     computations::compute_median,
     constants::BPS_FACTOR,
     error::AOCError,
     events,
     storage::{self, OracleConfig, OracleConfigInput},
-};
-use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
-use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{
-    Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
 };
 
 /// Trait that contains a subset of [`sep_40_oracle::PriceFeedTrait`] behavior, reasonable for price

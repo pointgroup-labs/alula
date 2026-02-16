@@ -96,6 +96,8 @@ impl ControlledInsuranceFundContract {
     /// enough to proceed safely and update its status accordingly. Owned market admins can always overwrite
     /// this behavior
     pub fn update_market_status(e: Env, new_status: u32) {
+        require_admin(&e);
+
         let market = storage::get_market(&e);
         let market_client = market::MarketPartialClient::new(&e, &market);
         market_client.fund_update_market_status(&new_status);
