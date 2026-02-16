@@ -21,39 +21,46 @@ pub enum DataKey {
 }
 
 // Admin
+
 pub fn get_admin(e: &Env) -> Option<Address> {
     e.storage().instance().get(&DataKey::Admin)
 }
+
 pub fn set_admin(e: &Env, admin: &Address) {
     e.storage().instance().set(&DataKey::Admin, admin)
 }
 
-// TODO: Start using
 // TreasuryFeeBps
-#[allow(unused)]
-pub fn get_treasury_fee_bps(e: &Env) -> Option<i128> {
-    e.storage().instance().get(&DataKey::TreasuryFeeBps)
+
+#[allow(dead_code)]
+pub fn get_treasury_fee_bps(e: &Env) -> i128 {
+    e.storage().instance().get(&DataKey::TreasuryFeeBps).unwrap_or(0)
 }
+
 pub fn set_treasury_fee_bps(e: &Env, treasury_fee_bps: i128) {
     e.storage().instance().set(&DataKey::TreasuryFeeBps, &treasury_fee_bps)
 }
 
 // ProposedAdmin
+
 pub fn get_proposed_admin(e: &Env) -> Option<Address> {
     e.storage().instance().get(&DataKey::ProposedAdmin)
 }
+
 pub fn set_proposed_admin(e: &Env, proposed_admin: &Address) {
     e.storage().instance().set(&DataKey::ProposedAdmin, proposed_admin)
 }
+
 pub fn remove_proposed_admin(e: &Env) {
-    // Check if fails when isn't set
-    e.storage().instance().remove(&DataKey::ProposedAdmin); // safe?
+    e.storage().instance().remove(&DataKey::ProposedAdmin);
 }
 
 // FarmsCounter
+
 pub fn get_farms_counter(e: &Env) -> Option<u64> {
     e.storage().instance().get(&DataKey::FarmsCounter)
 }
+
 pub fn increment_farms_counter(e: &Env) -> Result<(), FCError> {
     let counter = get_farms_counter(e).unwrap_or(0);
     e.storage()
@@ -64,32 +71,38 @@ pub fn increment_farms_counter(e: &Env) -> Result<(), FCError> {
 }
 
 // Farm
+
 pub fn get_farm(e: &Env, farm_id: u64) -> Option<Farm> {
-    e.storage().persistent().get(&DataKey::Farm(farm_id))
+    let data_key = DataKey::Farm(farm_id);
+    let result = e.storage().persistent().get(&data_key);
+    if result.is_some() {
+        extend_persistent(e, &data_key);
+    }
+    result
 }
+
 pub fn set_farm(e: &Env, farm: &Farm) {
-    e.storage().persistent().set(&DataKey::Farm(farm.id), farm)
+    let data_key = DataKey::Farm(farm.id);
+    e.storage().persistent().set(&data_key, farm);
+    extend_persistent(e, &data_key);
 }
 
 // AllFarms
+
 pub fn get_all_farms(e: &Env) -> Option<Map<u64, ()>> {
     let data_key = DataKey::AllFarms;
-
-    let res = e.storage().persistent().get(&data_key);
-    if res.is_some() {
+    let result = e.storage().persistent().get(&data_key);
+    if result.is_some() {
         extend_persistent(e, &data_key);
     }
-
-    res
+    result
 }
+
 pub fn register_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
     let mut all_farms_set = get_all_farms(e).unwrap_or_else(|| Map::new(e));
 
-    let all_farms_len = all_farms_set.len();
-    if all_farms_len > MAX_ALLOWED_FARMS {
-        return Err(FCError::InternalError);
-    } else if all_farms_len == MAX_ALLOWED_FARMS {
-        return Err(FCError::MaxFarmNumRewardsReached);
+    if all_farms_set.len() >= MAX_ALLOWED_FARMS {
+        return Err(FCError::MaxAllowedFarmsReached);
     }
 
     if all_farms_set.contains_key(farm_id) {
@@ -97,31 +110,45 @@ pub fn register_farm(e: &Env, farm_id: u64) -> Result<(), FCError> {
     }
 
     all_farms_set.set(farm_id, ());
-    e.storage().persistent().set(&DataKey::AllFarms, &all_farms_set);
+    let data_key = DataKey::AllFarms;
+    e.storage().persistent().set(&data_key, &all_farms_set);
+    extend_persistent(e, &data_key);
 
     Ok(())
 }
 
-// Farm
+// RewardInfo
+
 pub fn get_reward_info(e: &Env, farm_id: u64, reward_token: &Address) -> Option<RewardInfo> {
     let data_key = DataKey::RewardInfo(farm_id, reward_token.clone());
-    extend_persistent(e, &data_key);
-
-    e.storage().persistent().get(&data_key)
+    let result = e.storage().persistent().get(&data_key);
+    if result.is_some() {
+        extend_persistent(e, &data_key);
+    }
+    result
 }
+
 pub fn set_reward_info(e: &Env, farm_id: u64, reward_token: &Address, reward_info: &RewardInfo) {
-    e.storage().persistent().set(&DataKey::RewardInfo(farm_id, reward_token.clone()), reward_info);
+    let data_key = DataKey::RewardInfo(farm_id, reward_token.clone());
+    e.storage().persistent().set(&data_key, reward_info);
+    extend_persistent(e, &data_key);
 }
 
 // FarmingPosition
+
 pub fn get_user(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Option<FarmingPosition> {
     let data_key = DataKey::FarmingPosition(farm_id, farming_key.clone());
-    extend_persistent(e, &data_key);
-
-    e.storage().persistent().get(&data_key)
+    let result = e.storage().persistent().get(&data_key);
+    if result.is_some() {
+        extend_persistent(e, &data_key);
+    }
+    result
 }
+
 pub fn set_user(e: &Env, farm_id: u64, farming_key: &FarmingKey, user: &FarmingPosition) {
-    e.storage().persistent().set(&DataKey::FarmingPosition(farm_id, farming_key.clone()), user);
+    let data_key = DataKey::FarmingPosition(farm_id, farming_key.clone());
+    e.storage().persistent().set(&data_key, user);
+    extend_persistent(e, &data_key);
 }
 
 // -- TTL --

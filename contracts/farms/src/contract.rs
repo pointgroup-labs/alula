@@ -14,7 +14,7 @@ use crate::{
         GlobalConfig, NonDelegatedFarmConfigUpdate, RewardInfo,
     },
     storage,
-    utils::{self, require_admin, require_nonnegative},
+    utils::{require_admin, require_nonnegative, transfer_in},
 };
 
 #[contractclient(name = "FarmsClient")]
@@ -76,7 +76,7 @@ pub trait Farms {
         config_update: NonDelegatedFarmConfigUpdate,
     ) -> Result<(), FCError>;
 
-    /// zes the farm(disables staking)
+    /// Freezes the farm (disables staking)
     fn freeze_farm(e: Env, farm_id: u64) -> Result<(), FCError>;
 
     /// Unfreezes the farm
@@ -124,6 +124,15 @@ pub trait Farms {
         farm_id: u64,
         amount: i128,
         recipient: Address,
+    ) -> Result<(), FCError>;
+
+    /// Withdraws accumulated treasury fees for a reward token
+    fn withdraw_treasury_fees(
+        e: Env,
+        farm_id: u64,
+        amount: i128,
+        recipient: Address,
+        reward_token: Address,
     ) -> Result<(), FCError>;
 
     /// Proposes a new farm admin. Must be called for a new admin to accept
@@ -266,7 +275,7 @@ impl Farms for FarmsContract {
         storage::extend_instance(&e);
 
         let proposed_admin =
-            storage::get_proposed_admin(&e).ok_or(FCError::ProposedFarmAdminDoesNotExist)?;
+            storage::get_proposed_admin(&e).ok_or(FCError::ProposedAdminDoesNotExist)?;
         proposed_admin.require_auth();
 
         storage::remove_proposed_admin(&e);
@@ -277,7 +286,7 @@ impl Farms for FarmsContract {
 
     fn update_treasury_fee(e: Env, new_fee_bps: i128) -> Result<(), FCError> {
         storage::extend_instance(&e);
-        utils::require_admin(&e);
+        require_admin(&e);
 
         if !(0..=MAX_TREASURY_FEE_BPS).contains(&new_fee_bps) {
             return Err(FCError::InvalidConfigUpdate);
@@ -289,7 +298,8 @@ impl Farms for FarmsContract {
 
     fn initialize_farm(e: Env, farm_config: FarmConfig) -> Result<u64, FCError> {
         storage::extend_instance(&e);
-        utils::require_admin(&e);
+        require_admin(&e);
+        farm_config.require_valid()?;
 
         let farm = Farm::new(&e, farm_config.clone());
         let farm_id = farm.id;
@@ -408,18 +418,13 @@ impl Farms for FarmsContract {
     ) -> Result<(), FCError> {
         storage::extend_instance(&e);
         funder.require_auth();
-        utils::require_nonnegative(amount)?;
+        require_nonnegative(amount)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
         farm.try_add_reward(&e, &reward_token, amount)?;
-
         farm.set(&e);
 
-        token::Client::new(&e, &reward_token).transfer(
-            &funder,
-            e.current_contract_address(),
-            &amount,
-        );
+        transfer_in(&e, &reward_token, &funder, amount)?;
 
         events::add_rewards(&e, farm_id, funder, reward_token, amount);
 
@@ -440,7 +445,7 @@ impl Farms for FarmsContract {
         farm.require_admin();
 
         let mut reward_info = RewardInfo::try_get(&e, farm_id, &reward_token)?;
-        reward_info.try_set_reward_schedule_curve(&e, &mut farm, &schedule)?;
+        reward_info.try_set_reward_schedule_curve(&e, &mut farm, &reward_token, &schedule)?;
 
         farm.set(&e);
         reward_info.set(&e, farm_id, &reward_token);
@@ -458,13 +463,13 @@ impl Farms for FarmsContract {
         reward_token: Address,
     ) -> Result<(), FCError> {
         storage::extend_instance(&e);
-        utils::require_nonnegative(amount)?;
+        require_nonnegative(amount)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
         farm.require_admin();
         let mut reward_info = RewardInfo::try_get(&e, farm_id, &reward_token)?;
 
-        processors::withdraw_unused(&e, amount, &mut farm, &mut reward_info)?;
+        processors::withdraw_unused(&e, amount, &mut farm, &reward_token, &mut reward_info)?;
 
         farm.set(&e);
         reward_info.set(&e, farm_id, &reward_token);
@@ -487,8 +492,8 @@ impl Farms for FarmsContract {
         recipient: Address,
     ) -> Result<(), FCError> {
         storage::extend_instance(&e);
-        utils::require_admin(&e);
-        utils::require_nonnegative(amount)?;
+        require_admin(&e);
+        require_nonnegative(amount)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
         let farm_token = farm.token();
@@ -503,6 +508,38 @@ impl Farms for FarmsContract {
         );
 
         events::withdraw_slashed(&e, farm_id, recipient, amount);
+
+        Ok(())
+    }
+
+    fn withdraw_treasury_fees(
+        e: Env,
+        farm_id: u64,
+        amount: i128,
+        recipient: Address,
+        reward_token: Address,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        require_admin(&e);
+        require_nonnegative(amount)?;
+
+        let _farm = Farm::try_get(&e, farm_id)?;
+        let mut reward_info = RewardInfo::try_get(&e, farm_id, &reward_token)?;
+
+        if amount > reward_info.accumulated_treasury_fees {
+            return Err(FCError::InsufficientTreasuryFees);
+        }
+
+        reward_info.accumulated_treasury_fees -= amount; // safe
+        reward_info.set(&e, farm_id, &reward_token);
+
+        token::Client::new(&e, &reward_token).transfer(
+            &e.current_contract_address(),
+            &recipient,
+            &amount,
+        );
+
+        events::withdraw_treasury_fees(&e, farm_id, recipient, reward_token, amount);
 
         Ok(())
     }
@@ -526,7 +563,6 @@ impl Farms for FarmsContract {
 
         let mut farm = Farm::try_get(&e, farm_id)?;
         farm.accept_admin()?;
-
         farm.set(&e);
 
         events::accept_farm_admin(&e, farm_id);
@@ -542,13 +578,13 @@ impl Farms for FarmsContract {
         farming_key: FarmingKey,
     ) -> Result<(), FCError> {
         storage::extend_instance(&e);
-        utils::require_nonnegative(amount)?;
+        require_nonnegative(amount)?;
 
         let farm = Farm::try_get(&e, farm_id)?;
+        farm.require_admin();
         farm.require_can_reward_once()?;
 
-        let mut farming_position: FarmingPosition =
-            FarmingPosition::try_get(&e, farm_id, &farming_key)?;
+        let mut farming_position = FarmingPosition::try_get(&e, farm_id, &farming_key)?;
         let mut reward_info = RewardInfo::try_get(&e, farm_id, &reward_token)?;
 
         reward_info.reward_once(amount)?;
@@ -592,13 +628,13 @@ impl Farms for FarmsContract {
         require_nonnegative(new_stake)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
+        farm.require_delegate_authority()?;
         farm.require_not_frozen()?;
 
         let mut is_new_user = false;
         let mut farming_position = FarmingPosition::try_get(&e, farm_id, &farming_key)
             .unwrap_or_else(|_| {
                 is_new_user = true;
-
                 FarmingPosition::new(&e)
             });
 
@@ -621,16 +657,20 @@ impl Farms for FarmsContract {
     fn stake(e: Env, farming_key: FarmingKey, farm_id: u64, amount: i128) -> Result<(), FCError> {
         storage::extend_instance(&e);
         farming_key.owner.require_auth();
-        utils::require_nonnegative(amount)?;
+        require_nonnegative(amount)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
         farm.require_not_frozen()?;
-        let mut farming_position = FarmingPosition::try_get(&e, farm_id, &farming_key)?;
+        let farm_token = farm.token();
+        let mut farming_position = FarmingPosition::try_get(&e, farm_id, &farming_key)
+            .unwrap_or_else(|_| FarmingPosition::new(&e));
 
         processors::stake(&e, &mut farm, &mut farming_position, amount)?;
 
         farm.set(&e);
         farming_position.set(&e, farm_id, &farming_key);
+
+        transfer_in(&e, &farm_token, &farming_key.owner, amount)?;
 
         events::stake(&e, farm_id, farming_key, amount);
 
@@ -640,7 +680,7 @@ impl Farms for FarmsContract {
     fn unstake(e: Env, farm_id: u64, amount: i128, farming_key: FarmingKey) -> Result<(), FCError> {
         storage::extend_instance(&e);
         farming_key.owner.require_auth();
-        utils::require_nonnegative(amount)?;
+        require_nonnegative(amount)?;
 
         let mut farm = Farm::try_get(&e, farm_id)?;
         let mut farming_position = FarmingPosition::try_get(&e, farm_id, &farming_key)?;
@@ -700,6 +740,7 @@ impl Farms for FarmsContract {
         )?;
 
         farm.set(&e);
+        reward_info.set(&e, farm_id, &reward_token);
         farming_position.set(&e, farm_id, &farming_key);
 
         token::Client::new(&e, &reward_token).transfer(
@@ -725,8 +766,8 @@ impl Farms for FarmsContract {
         farm.set(&e);
         farming_position.set(&e, farm_id, &farming_key);
 
-        for (token, harvested_amount) in harvest_results {
-            token::Client::new(&e, &token).transfer(
+        for (reward_token, harvested_amount) in harvest_results {
+            token::Client::new(&e, &reward_token).transfer(
                 &e.current_contract_address(),
                 &farming_key.owner,
                 &harvested_amount,

@@ -1,4 +1,5 @@
 use soroban_sdk::contracterror;
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -33,5 +34,8 @@ pub enum FCError {
     InsufficientCurrentSlashedAmount = 31,
     InvalidAmount = 32,
     InvalidConfig = 33,
-    ProposedFarmAdminDoesNotExist = 34,
+    ProposedAdminDoesNotExist = 34,
+    MaxAllowedFarmsReached = 35,
+    InsufficientTreasuryFees = 36,
+    TransferAmountMismatch = 37,
 }

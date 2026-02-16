@@ -47,15 +47,29 @@ impl RewardScheduleCurve {
         }
 
         let mut total_rewards = 0_i128;
-        for (p_a, p_b) in self.points.iter().zip(self.points.iter().skip(1)) {
-            let segment_end = p_b.ts_start;
+        let len = self.points.len();
 
-            let (overlap_start, overlap_end) = (from_ts.max(p_a.ts_start), to_ts.min(segment_end));
+        for i in 0..len {
+            let point = self.points.get(i).unwrap();
+            if point.ts_start >= to_ts {
+                break;
+            }
+
+            let segment_end = if i + 1 < len {
+                self.points.get(i + 1).unwrap().ts_start
+            } else {
+                to_ts
+            };
+
+            let overlap_start = from_ts.max(point.ts_start);
+            let overlap_end = to_ts.min(segment_end);
+
             if overlap_start < overlap_end {
-                let duration = (overlap_end - overlap_start) as i128; // safe
+                let duration = (overlap_end - overlap_start) as i128;
                 let duration_rewards =
-                    duration.checked_mul(p_a.reward_per_time_unit).map_over_or_underflow()?;
-                total_rewards = total_rewards.checked_add(duration_rewards).unwrap();
+                    duration.checked_mul(point.reward_per_time_unit).map_over_or_underflow()?;
+                total_rewards =
+                    total_rewards.checked_add(duration_rewards).map_over_or_underflow()?;
             }
         }
 

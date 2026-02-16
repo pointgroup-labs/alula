@@ -53,11 +53,18 @@ impl Farm {
         self.config.admin.require_auth();
     }
 
+    pub fn require_delegate_authority(&self) -> Result<(), FCError> {
+        let Delegation::Delegated(config) = &self.config.delegation else {
+            return Err(FCError::NotDelegatedFarm);
+        };
+        config.delegate_authority.require_auth();
+        Ok(())
+    }
+
     pub fn require_not_frozen(&self) -> Result<(), FCError> {
         if self.is_frozen {
             return Err(FCError::FarmIsFrozen);
         }
-
         Ok(())
     }
 
@@ -65,7 +72,6 @@ impl Farm {
         if !self.config.is_reward_once_enabled {
             return Err(FCError::RewardUserOnceIsDisabled);
         }
-
         Ok(())
     }
 
@@ -73,25 +79,34 @@ impl Farm {
         let current_ts = e.ledger().timestamp();
 
         for reward_token in self.rewards.keys() {
-            let mut reward_info = RewardInfo::try_get(e, self.id, &reward_token)?; // TODO: internal error
+            let mut reward_info = RewardInfo::try_get(e, self.id, &reward_token)?;
 
             let rewards_to_issue =
                 processors::calculate_rewards_to_issue(self, &reward_info, current_ts)?;
 
             if rewards_to_issue.is_positive() {
                 if self.total_staked.is_positive() {
-                    let rps_delta =
-                        rewards_to_issue.fixed_div_floor(self.total_staked, SCALE_FACTOR).unwrap();
-                    reward_info.accum_rewards_per_share_sc =
-                        reward_info.accum_rewards_per_share_sc.checked_add(rps_delta).unwrap();
+                    let rps_delta = rewards_to_issue
+                        .fixed_div_floor(self.total_staked, SCALE_FACTOR)
+                        .map_over_or_underflow()?;
+                    reward_info.accum_rewards_per_share_sc = reward_info
+                        .accum_rewards_per_share_sc
+                        .checked_add(rps_delta)
+                        .map_over_or_underflow()?;
                 }
 
-                reward_info.rewards_available =
-                    reward_info.rewards_available.checked_sub(rewards_to_issue).unwrap();
-                reward_info.rewards_issued_unclaimed =
-                    reward_info.rewards_issued_unclaimed.checked_add(rewards_to_issue).unwrap();
-                reward_info.rewards_issued_cumulative =
-                    reward_info.rewards_issued_cumulative.checked_add(rewards_to_issue).unwrap();
+                reward_info.rewards_available = reward_info
+                    .rewards_available
+                    .checked_sub(rewards_to_issue)
+                    .map_over_or_underflow()?;
+                reward_info.rewards_issued_unclaimed = reward_info
+                    .rewards_issued_unclaimed
+                    .checked_add(rewards_to_issue)
+                    .map_over_or_underflow()?;
+                reward_info.rewards_issued_cumulative = reward_info
+                    .rewards_issued_cumulative
+                    .checked_add(rewards_to_issue)
+                    .map_over_or_underflow()?;
             }
 
             reward_info.last_issuance_ts = current_ts;
@@ -108,14 +123,12 @@ impl Farm {
         match config_update {
             CommonFarmConfigUpdate::DepositCap(cap) => {
                 require_nonnegative(*cap)?;
-
                 self.config.deposit_cap = *cap;
             }
             CommonFarmConfigUpdate::MinHarvestDelay(delay) => {
                 if !(0..=MAX_HARVEST_DELAY).contains(delay) {
                     return Err(FCError::InvalidFarmConfigUpdate);
                 }
-
                 self.config.min_harvest_delay = *delay;
             }
         }
@@ -148,50 +161,43 @@ impl Farm {
             return Err(FCError::DelegatedFarm);
         };
 
-        // TODO: Maybe, there are more cases when updating non-delegated farm works well.
-        // with some stake already locked in
-        let some_stake_locked = self.total_staked != 0;
+        let has_active_stakes = self.total_staked != 0;
+
         match config_update {
             NonDelegatedFarmConfigUpdate::LockingTs(ts) => {
-                if some_stake_locked {
+                if has_active_stakes {
                     return Err(FCError::InvalidFarmConfigUpdate);
                 }
-
                 config.locking_ts = *ts;
             }
             NonDelegatedFarmConfigUpdate::LockingDuration(duration) => {
-                if some_stake_locked || *duration > MAX_LOCKING_DURATION {
+                if has_active_stakes || *duration > MAX_LOCKING_DURATION {
                     return Err(FCError::InvalidFarmConfigUpdate);
                 }
-
                 config.locking_duration = *duration;
             }
             NonDelegatedFarmConfigUpdate::LockingMode(mode) => {
-                if some_stake_locked {
-                    return Err(FCError::InvalidConfigUpdate);
+                if has_active_stakes {
+                    return Err(FCError::InvalidFarmConfigUpdate);
                 }
-
                 config.locking_mode = *mode;
             }
             NonDelegatedFarmConfigUpdate::DepositWarmupPeriod(period) => {
                 if !(0..=MAX_DEPOSIT_WARMUP_PERIOD).contains(period) {
                     return Err(FCError::InvalidFarmConfigUpdate);
                 }
-
                 config.deposit_warmup_period = *period;
             }
             NonDelegatedFarmConfigUpdate::EarlyWithdrawalPenaltyBps(penalty_bps) => {
-                if some_stake_locked || !(0..=BPS_FACTOR).contains(penalty_bps) {
+                if has_active_stakes || !(0..=BPS_FACTOR).contains(penalty_bps) {
                     return Err(FCError::InvalidFarmConfigUpdate);
                 }
-
                 config.early_withdrawal_penalty_bps = *penalty_bps;
             }
             NonDelegatedFarmConfigUpdate::WithdrawalCooldownPeriod(period) => {
-                if some_stake_locked || !(0..=MAX_WITHDRAWAL_COOLDOWN_PERIOD).contains(period) {
+                if has_active_stakes || !(0..=MAX_WITHDRAWAL_COOLDOWN_PERIOD).contains(period) {
                     return Err(FCError::InvalidFarmConfigUpdate);
                 }
-
                 config.withdrawal_cooldown_period = *period;
             }
         }
@@ -200,10 +206,10 @@ impl Farm {
     }
 
     pub fn try_withdraw_slashed(&mut self, amount: i128) -> Result<(), FCError> {
-        if amount < self.current_slashed_amount {
+        if amount > self.current_slashed_amount {
             return Err(FCError::InsufficientCurrentSlashedAmount);
         }
-        self.current_slashed_amount = self.cumulative_slashed_amount - amount; // safe
+        self.current_slashed_amount -= amount; // safe
 
         Ok(())
     }
@@ -229,7 +235,6 @@ impl Farm {
         if self.rewards.contains_key(reward_token.clone()) {
             return Err(FCError::TokenIsAlreadyAReward);
         }
-
         Ok(())
     }
 
@@ -243,10 +248,7 @@ impl Farm {
             return Err(FCError::RewardDoesNotExistOnFarm);
         }
 
-        let mut reward_info = RewardInfo::try_get(e, self.id, reward_token).map_err(|_| {
-            // TODO: Event?
-            FCError::InternalError
-        })?;
+        let mut reward_info = RewardInfo::try_get(e, self.id, reward_token)?;
 
         reward_info.rewards_available =
             reward_info.rewards_available.checked_add(amount).map_over_or_underflow()?;
@@ -257,7 +259,7 @@ impl Farm {
 
     pub fn accept_admin(&mut self) -> Result<(), FCError> {
         let Some(proposed_farm_admin) = self.config.proposed_admin.clone() else {
-            return Err(FCError::ProposedFarmAdminDoesNotExist);
+            return Err(FCError::ProposedAdminDoesNotExist);
         };
         proposed_farm_admin.require_auth();
 
@@ -273,6 +275,13 @@ impl Farm {
 
     pub fn token(&self) -> Address {
         self.config.token.clone()
+    }
+
+    pub fn non_delegated_config(&self) -> Result<&NonDelegatedFarmConfig, FCError> {
+        let Delegation::NonDelegated(config) = &self.config.delegation else {
+            return Err(FCError::NotDelegatedFarm);
+        };
+        Ok(config)
     }
 }
 
@@ -291,6 +300,31 @@ pub struct FarmConfig {
     pub is_reward_once_enabled: bool,
     pub proposed_admin: Option<Address>,
     pub withdrawal_cooldown_period: u64,
+}
+
+impl FarmConfig {
+    pub fn require_valid(&self) -> Result<(), FCError> {
+        if !(0..=MAX_TREASURY_FEE_BPS).contains(&self.treasury_fee_bps) {
+            return Err(FCError::InvalidConfig);
+        }
+
+        if let Delegation::NonDelegated(nd) = &self.delegation {
+            if !(0..=BPS_FACTOR).contains(&nd.early_withdrawal_penalty_bps) {
+                return Err(FCError::InvalidConfig);
+            }
+            if nd.locking_duration > MAX_LOCKING_DURATION {
+                return Err(FCError::InvalidConfig);
+            }
+            if nd.deposit_warmup_period > MAX_DEPOSIT_WARMUP_PERIOD {
+                return Err(FCError::InvalidConfig);
+            }
+            if nd.withdrawal_cooldown_period > MAX_WITHDRAWAL_COOLDOWN_PERIOD {
+                return Err(FCError::InvalidConfig);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[contracttype]
@@ -365,6 +399,7 @@ pub struct RewardInfo {
     pub rewards_issued_cumulative: i128,
     pub cumulative_issued_rewards: i128,
     pub accum_rewards_per_share_sc: i128,
+    pub accumulated_treasury_fees: i128,
     pub reward_schedule_curve: RewardScheduleCurve,
 }
 
@@ -378,6 +413,7 @@ impl RewardInfo {
             cumulative_issued_rewards: 0,
             rewards_issued_cumulative: 0,
             accum_rewards_per_share_sc: 0,
+            accumulated_treasury_fees: 0,
             reward_type: RewardType::Proportional,
             reward_schedule_curve: RewardScheduleCurve { points: svec![e] },
         }
@@ -392,7 +428,7 @@ impl RewardInfo {
     }
 
     pub fn reward_once(&mut self, amount: i128) -> Result<(), FCError> {
-        if amount < self.rewards_available {
+        if amount > self.rewards_available {
             return Err(FCError::InsufficientAvailableRewards);
         }
 
@@ -409,11 +445,13 @@ impl RewardInfo {
         &mut self,
         e: &Env,
         farm: &mut Farm,
+        reward_token: &Address,
         curve: &RewardScheduleCurve,
     ) -> Result<(), FCError> {
         curve.require_valid()?;
 
         farm.refresh_rewards(e)?;
+        *self = RewardInfo::try_get(e, farm.id, reward_token)?;
         self.reward_schedule_curve = curve.clone();
 
         Ok(())
@@ -475,7 +513,7 @@ impl FarmingPosition {
         let cooldown_end = self
             .pending_withdrawal_ts
             .checked_add(delegation_config.withdrawal_cooldown_period)
-            .unwrap();
+            .map_over_or_underflow()?;
 
         if current_ts < cooldown_end {
             return Err(FCError::CooldownNotComplete);
@@ -483,30 +521,15 @@ impl FarmingPosition {
 
         let amount = self.pending_withdrawal_stake;
         self.pending_withdrawal_stake = 0;
-        self.pending_withdrawal_ts = 0; // WARN: Is this fine?
+        self.pending_withdrawal_ts = 0;
 
         Ok(amount)
     }
 
     pub fn reward_once(&mut self, reward_token: &Address, amount: i128) {
-        let current_unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap();
-        let new_unclaimed = current_unclaimed.checked_add(amount).unwrap();
-
+        let current_unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
+        let new_unclaimed = current_unclaimed.saturating_add(amount);
         self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
-    }
-
-    pub fn stake(&mut self, e: &Env, farm: &mut Farm, amount: i128) -> Result<(), FCError> {
-        // TODO: Min STAKE amount
-
-        if farm.config.deposit_cap > 0 {
-            let new_total = farm.total_staked.checked_add(amount).unwrap();
-            if new_total > farm.config.deposit_cap {
-                return Err(FCError::InternalError); // TODO Error
-            }
-        }
-
-        self.refresh_rewards(e, farm)?;
-        Ok(())
     }
 
     pub fn get_pending_rewards(
@@ -518,7 +541,8 @@ impl FarmingPosition {
 
         for reward_token in farm.rewards.keys() {
             let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
-            let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap();
+            let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
+
             let pending_from_rps = calculate_pending_reward(
                 self.active_stake,
                 reward_info.accum_rewards_per_share_sc,
@@ -526,7 +550,7 @@ impl FarmingPosition {
             )?;
 
             let unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
-            let total = pending_from_rps.checked_add(unclaimed).unwrap();
+            let total = pending_from_rps.checked_add(unclaimed).map_over_or_underflow()?;
 
             res.push_back((reward_token, total));
         }
@@ -536,47 +560,32 @@ impl FarmingPosition {
 
     pub fn refresh_rewards(&mut self, e: &Env, farm: &Farm) -> Result<(), FCError> {
         for reward_token in farm.rewards.keys() {
-            let reward_info = RewardInfo::try_get(e, farm.id, &reward_token).map_err(|_| {
-                FCError::InternalError // TODO: Event
-            })?;
+            let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
 
-            let pending = self.calculate_pending_reward(&reward_token, &reward_info)?;
+            let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
+            let pending = calculate_pending_reward(
+                self.active_stake,
+                reward_info.accum_rewards_per_share_sc,
+                user_tally,
+            )?;
 
-            if pending.is_positive() {
+            if pending > 0 {
                 let current_unclaimed =
                     self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
-                let new_unclaimed = current_unclaimed.checked_add(pending).unwrap();
+                let new_unclaimed =
+                    current_unclaimed.checked_add(pending).map_over_or_underflow()?;
 
                 self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
-                let new_tally = self
-                    .active_stake
-                    .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
-                    .unwrap();
-                self.rewards_tallies.set(reward_token, new_tally);
             }
+
+            let new_tally = self
+                .active_stake
+                .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
+                .map_over_or_underflow()?;
+            self.rewards_tallies.set(reward_token, new_tally);
         }
 
         Ok(())
-    }
-
-    fn calculate_pending_reward(
-        &self,
-        reward_token: &Address,
-        reward_info: &RewardInfo,
-    ) -> Result<i128, FCError> {
-        if self.active_stake == 0 {
-            return Ok(0);
-        }
-
-        let unadjusted_reward = self
-            .active_stake
-            .fixed_mul_floor(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
-            .unwrap();
-        let pending_increased = unadjusted_reward
-            .checked_sub(self.rewards_tallies.get(reward_token.clone()).unwrap())
-            .unwrap();
-
-        Ok(pending_increased)
     }
 }
 

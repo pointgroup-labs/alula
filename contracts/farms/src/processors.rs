@@ -64,6 +64,8 @@ pub fn unstake(
         return Err(FCError::PendingWithdrawalExists);
     }
 
+    farm.non_delegated_config()?;
+
     farm.refresh_rewards(e)?;
     farming_position.refresh_rewards(e, farm)?;
 
@@ -80,26 +82,18 @@ pub fn unstake(
 
     farming_position.active_stake =
         farming_position.active_stake.checked_sub(amount).map_over_or_underflow()?;
+
     if farming_position.active_stake == 0 {
-        farm.num_users -= 1; // safe?
+        farm.num_users = farm.num_users.saturating_sub(1);
     }
 
-    for reward_token in farm.rewards.keys() {
-        let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
-        let new_tally = farming_position
-            .active_stake
-            .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
-            .map_over_or_underflow()?;
-        farming_position.rewards_tallies.set(reward_token.clone(), new_tally);
-    }
+    update_tallies(e, farm, farming_position)?;
 
     farm.total_staked = farm.total_staked.checked_sub(amount).map_over_or_underflow()?;
 
-    if farm.config.withdrawal_cooldown_period > 0 {
-        farming_position.pending_withdrawal_stake =
-            farming_position.pending_withdrawal_stake.checked_add(net).map_over_or_underflow()?;
-        farming_position.pending_withdrawal_ts = current_ts;
-    }
+    farming_position.pending_withdrawal_stake =
+        farming_position.pending_withdrawal_stake.checked_add(net).map_over_or_underflow()?;
+    farming_position.pending_withdrawal_ts = current_ts;
 
     Ok(())
 }
@@ -116,6 +110,8 @@ pub fn harvest(
     }
 
     farm.refresh_rewards(e)?;
+    *reward_info = RewardInfo::try_get(e, farm.id, reward_token)?;
+
     let current_ts = e.ledger().timestamp();
     let last_claim = farming_position.last_claim_ts.get(reward_token.clone()).unwrap_or(0);
 
@@ -128,30 +124,28 @@ pub fn harvest(
     }
 
     let user_tally = farming_position.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
+
     let pending_from_rps = calculate_pending_reward(
         farming_position.active_stake,
         reward_info.accum_rewards_per_share_sc,
         user_tally,
     )?;
 
-    let unclaimed = farming_position
-        .rewards_unclaimed
-        .get(reward_token.clone())
-        .ok_or(FCError::InternalError)?; // TODO: Event?
+    let unclaimed = farming_position.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
     let total_pending = pending_from_rps.checked_add(unclaimed).map_over_or_underflow()?;
 
     if total_pending == 0 {
         return Err(FCError::NoRewardsToHarvest);
     }
 
-    let fee = if farm.config.treasury_fee_bps.is_positive() {
+    let fee = if farm.config.treasury_fee_bps > 0 {
         total_pending
             .fixed_mul_ceil(farm.config.treasury_fee_bps, BPS_FACTOR)
             .map_over_or_underflow()?
     } else {
         0
     };
-    let net = total_pending - fee; // safe
+    let net = total_pending.checked_sub(fee).map_over_or_underflow()?;
 
     let new_tally = farming_position
         .active_stake
@@ -159,7 +153,14 @@ pub fn harvest(
         .map_over_or_underflow()?;
 
     reward_info.rewards_issued_unclaimed =
-        reward_info.rewards_issued_unclaimed.checked_add(total_pending).map_over_or_underflow()?;
+        reward_info.rewards_issued_unclaimed.checked_sub(total_pending).map_over_or_underflow()?;
+
+    if fee > 0 {
+        reward_info.accumulated_treasury_fees = reward_info
+            .accumulated_treasury_fees
+            .checked_add(fee)
+            .map_over_or_underflow()?;
+    }
 
     farming_position.rewards_tallies.set(reward_token.clone(), new_tally);
     farming_position.last_claim_ts.set(reward_token.clone(), current_ts);
@@ -192,7 +193,6 @@ pub fn harvest_all(
     Ok(res)
 }
 
-/// Activates pending deposit stake (after warmup period)
 pub fn activate_pending_stake(
     e: &Env,
     farm: &mut Farm,
@@ -203,24 +203,26 @@ pub fn activate_pending_stake(
     if farming_position.pending_deposit_stake == 0 {
         return Ok(());
     }
+
     let Delegation::NonDelegated(delegation_config) = &farm.config.delegation else {
         return Err(FCError::DelegatedFarm);
     };
 
     let current_ts = e.ledger().timestamp();
-
     let warmup_end = farming_position
         .pending_deposit_ts
         .checked_add(delegation_config.deposit_warmup_period)
         .map_over_or_underflow()?;
+
     if current_ts < warmup_end {
         return Err(FCError::WarmupNotComplete);
     }
 
     let amount = farming_position.pending_deposit_stake;
     farming_position.pending_deposit_stake = 0;
-    farming_position.pending_deposit_ts = 0; // TODO: Is this ok?
+    farming_position.pending_deposit_ts = 0;
 
+    farming_position.refresh_rewards(e, farm)?;
     activate_stake(e, farm, farming_position, amount)?;
 
     Ok(())
@@ -241,31 +243,28 @@ pub fn set_stake_delegated(
     }
 
     let diff = new_stake.checked_sub(farming_position.active_stake).map_over_or_underflow()?;
-    if diff.is_positive() {
-        if farm.config.deposit_cap.is_positive() {
-            let new_total = farm.total_staked.checked_add(diff).map_over_or_underflow()?;
 
+    if diff > 0 {
+        if farm.config.deposit_cap > 0 {
+            let new_total = farm.total_staked.checked_add(diff).map_over_or_underflow()?;
             if new_total > farm.config.deposit_cap {
                 return Err(FCError::DepositCapExceeded);
             }
         }
 
+        if is_new_user || farming_position.active_stake == 0 {
+            farm.num_users = farm.num_users.saturating_add(1);
+        }
+
         farming_position.last_stake_ts = e.ledger().timestamp();
-    } else if new_stake == 0 && !is_new_user {
-        farm.num_users -= 1; // safe?
+    } else if new_stake == 0 {
+        farm.num_users = farm.num_users.saturating_sub(1);
     }
 
-    farm.total_staked = farm.total_staked.checked_add(diff).map_over_or_underflow()?; // safe?
+    farm.total_staked = farm.total_staked.checked_add(diff).map_over_or_underflow()?;
     farming_position.active_stake = new_stake;
 
-    for reward_token in farm.rewards.keys() {
-        let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
-
-        let new_tally = new_stake
-            .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
-            .map_over_or_underflow()?;
-        farming_position.rewards_tallies.set(reward_token, new_tally);
-    }
+    update_tallies(e, farm, farming_position)?;
 
     Ok(())
 }
@@ -274,14 +273,17 @@ pub fn withdraw_unused(
     e: &Env,
     amount: i128,
     farm: &mut Farm,
+    reward_token: &Address,
     reward_info: &mut RewardInfo,
 ) -> Result<(), FCError> {
     farm.refresh_rewards(e)?;
+    *reward_info = RewardInfo::try_get(e, farm.id, reward_token)?;
 
     if amount > reward_info.rewards_available {
         return Err(FCError::InsufficientAvailableRewards);
     }
-    reward_info.rewards_available -= amount; // safe 
+    reward_info.rewards_available =
+        reward_info.rewards_available.checked_sub(amount).map_over_or_underflow()?;
 
     Ok(())
 }
@@ -292,47 +294,55 @@ fn activate_stake(
     farming_position: &mut FarmingPosition,
     amount: i128,
 ) -> Result<(), FCError> {
+    let is_first_stake = farming_position.active_stake == 0;
+
     farming_position.active_stake =
         farming_position.active_stake.checked_add(amount).map_over_or_underflow()?;
     farm.total_staked = farm.total_staked.checked_add(amount).map_over_or_underflow()?;
 
+    update_tallies(e, farm, farming_position)?;
+
+    if is_first_stake {
+        farm.num_users = farm.num_users.saturating_add(1);
+    }
+
+    Ok(())
+}
+
+fn update_tallies(
+    e: &Env,
+    farm: &Farm,
+    farming_position: &mut FarmingPosition,
+) -> Result<(), FCError> {
     for reward_token in farm.rewards.keys() {
         let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
-
-        // TODO: 'ceil' or 'floor'?
         let new_tally = farming_position
             .active_stake
             .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
             .map_over_or_underflow()?;
-        farming_position.rewards_tallies.set(reward_token.clone(), new_tally);
+        farming_position.rewards_tallies.set(reward_token, new_tally);
     }
-
-    if farming_position.active_stake == amount {
-        farm.num_users -= 1; // WARN: safe?
-    }
-
     Ok(())
 }
 
 pub fn calculate_pending_reward(
     user_stake: i128,
     reward_per_share_scaled: i128,
-    user_rewards_tally_scaled: i128,
+    user_tally: i128,
 ) -> Result<i128, FCError> {
     if user_stake == 0 {
         return Ok(0);
     }
 
-    let entitled_scaled =
-        user_stake.checked_mul(reward_per_share_scaled).map_over_or_underflow()?;
-    let pending_scaled = entitled_scaled.saturating_sub(user_rewards_tally_scaled);
+    let entitled = user_stake
+        .fixed_mul_floor(reward_per_share_scaled, SCALE_FACTOR)
+        .map_over_or_underflow()?;
 
-    let pending = pending_scaled.checked_div(SCALE_FACTOR).map_over_or_underflow()?;
+    let pending = entitled.saturating_sub(user_tally);
 
-    Ok(pending.max(0)) // is this fine, though?
+    Ok(pending.max(0))
 }
 
-/// Calculates the amount of reward token to issue in total
 pub fn calculate_rewards_to_issue(
     farm: &Farm,
     reward_info: &RewardInfo,
@@ -344,7 +354,7 @@ pub fn calculate_rewards_to_issue(
 
     let from_ts = reward_info.last_issuance_ts;
     if from_ts >= current_ts {
-        return Ok(0); // TODO: Internal Error??
+        return Ok(0);
     }
 
     let rewards_from_curve =

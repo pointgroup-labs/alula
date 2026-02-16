@@ -3,55 +3,58 @@ use soroban_fixed_point_math::FixedPoint;
 use crate::{
     constants::BPS_FACTOR,
     error::FCError,
-    state::{Delegation, Farm, FarmingPosition},
+    state::{Delegation, Farm, FarmingPosition, LockingMode},
     utils::MathUtils,
 };
 
+/// Calculates the early withdrawal penalty using linear decay.
+///
+/// Penalty decreases linearly from full penalty at lock start to zero at lock end.
+/// Formula: `effective_penalty_bps = penalty_bps × time_remaining / total_duration`
+///
+/// Rounding uses ceil (protocol-favorable) to prevent dust-amount penalty evasion.
 pub fn calculate_early_withdrawal_penalty(
     farm: &Farm,
     farming_position: &FarmingPosition,
     amount: i128,
     current_ts: u64,
 ) -> Result<(i128, i128), FCError> {
-    let Delegation::NonDelegated(delegation_config) = &farm.config.delegation else {
+    let Delegation::NonDelegated(cfg) = &farm.config.delegation else {
         return Err(FCError::DelegatedFarm);
     };
 
-    if delegation_config.early_withdrawal_penalty_bps == 0 || farm.config.locking_duration == 0 {
+    if cfg.early_withdrawal_penalty_bps == 0 || cfg.locking_duration == 0 {
         return Ok((amount, 0));
     }
 
-    use crate::state::LockingMode;
-    let (_, lock_end) = match farm.config.locking_mode {
+    let lock_start = match cfg.locking_mode {
         LockingMode::None => return Ok((amount, 0)),
-        LockingMode::Continuous => {
-            let start = farming_position.last_stake_ts;
-            let end = start.checked_add(farm.config.locking_duration).map_over_or_underflow()?;
-
-            (start, end)
-        }
-        LockingMode::WithExpiry => {
-            let start = farm.locking_start;
-            let end = start.checked_add(farm.config.locking_duration).map_over_or_underflow()?;
-
-            (start, end)
-        }
+        LockingMode::Continuous => farming_position.last_stake_ts,
+        LockingMode::WithExpiry => cfg.locking_ts,
     };
+
+    let lock_end = lock_start.checked_add(cfg.locking_duration).map_over_or_underflow()?;
+
     if current_ts >= lock_end {
         return Ok((amount, 0));
     }
 
-    let time_remaining = lock_end - current_ts; // safe
-    let total_duration = farm.config.locking_duration;
+    if current_ts < lock_start {
+        return Ok((amount, 0));
+    }
 
-    let effective_penalty_bps = delegation_config
+    let time_remaining = lock_end - current_ts;
+    let total_duration = cfg.locking_duration;
+
+    let effective_penalty_bps = cfg
         .early_withdrawal_penalty_bps
         .fixed_mul_ceil(time_remaining as i128, total_duration as i128)
         .map_over_or_underflow()?;
+
     let penalty =
         amount.fixed_mul_ceil(effective_penalty_bps, BPS_FACTOR).map_over_or_underflow()?;
 
-    let net = amount - penalty; // safe
+    let net_amount = amount.checked_sub(penalty).map_over_or_underflow()?;
 
-    Ok((net, penalty))
+    Ok((net_amount, penalty))
 }

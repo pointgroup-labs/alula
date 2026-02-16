@@ -1,4 +1,4 @@
-use soroban_sdk::Env;
+use soroban_sdk::{Address, Env, token};
 
 use crate::{error::FCError, storage};
 
@@ -23,5 +23,25 @@ pub fn require_nonnegative(value: i128) -> Result<(), FCError> {
         return Err(FCError::NegativeInputAmount);
     }
 
+    Ok(())
+}
+
+/// Transfers `amount` of `token` from `from` into the contract, then verifies
+/// the contract's balance increased by exactly `amount`.
+///
+/// Rejects fee-on-transfer or rebasing tokens that would cause internal
+/// bookkeeping to diverge from actual token holdings.
+pub fn transfer_in(
+    e: &Env,
+    token: &Address,
+    from: &Address,
+    amount: i128,
+) -> Result<(), FCError> {
+    let client = token::Client::new(e, token);
+    let balance_before = client.balance(&e.current_contract_address());
+    client.transfer(from, e.current_contract_address(), &amount);
+    if client.balance(&e.current_contract_address()) - balance_before != amount {
+        return Err(FCError::TransferAmountMismatch);
+    }
     Ok(())
 }

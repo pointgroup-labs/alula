@@ -290,3 +290,24 @@ pub fn harvest(e: &Env, farm_id: u64, farming_key: FarmingKey, reward_token: Add
 pub fn harvest_all(e: &Env, farm_id: u64, farming_key: FarmingKey) {
     HarvestAll { farm_id, farming_key }.publish(e);
 }
+
+#[contractevent]
+struct WithdrawTreasuryFees {
+    #[topic]
+    farm_id: u64,
+    #[topic]
+    recipient: Address,
+    #[topic]
+    reward_token: Address,
+    amount: i128,
+}
+
+pub fn withdraw_treasury_fees(
+    e: &Env,
+    farm_id: u64,
+    recipient: Address,
+    reward_token: Address,
+    amount: i128,
+) {
+    WithdrawTreasuryFees { farm_id, recipient, reward_token, amount }.publish(e);
+}
