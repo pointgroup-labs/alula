@@ -6,7 +6,7 @@ use crate::{
     constants::*,
     error::FCError,
     math::reward_curve::RewardScheduleCurve,
-    processors::{self, calculate_pending_reward},
+    processors::{self, calculate_pending_reward, effective_stake},
     storage,
     utils::{MathUtils, require_nonnegative},
 };
@@ -85,9 +85,14 @@ impl Farm {
                 processors::calculate_rewards_to_issue(self, &reward_info, current_ts)?;
 
             if rewards_to_issue.is_positive() {
-                if self.total_staked.is_positive() {
+                let denominator = match reward_info.reward_type {
+                    RewardType::Proportional => self.total_staked,
+                    RewardType::Constant => self.num_users as i128,
+                };
+
+                if denominator > 0 {
                     let rps_delta = rewards_to_issue
-                        .fixed_div_floor(self.total_staked, SCALE_FACTOR)
+                        .fixed_div_floor(denominator, SCALE_FACTOR)
                         .map_over_or_underflow()?;
                     reward_info.accum_rewards_per_share_sc = reward_info
                         .accum_rewards_per_share_sc
@@ -218,11 +223,12 @@ impl Farm {
         &mut self,
         e: &Env,
         reward_token: &Address,
+        reward_type: RewardType,
     ) -> Result<(), FCError> {
         self.require_can_initialize_reward(reward_token)?;
         self.rewards.set(reward_token.clone(), ());
 
-        let reward_info = RewardInfo::new(e);
+        let reward_info = RewardInfo::new(e, reward_type);
         reward_info.set(e, self.id, reward_token);
 
         Ok(())
@@ -409,7 +415,7 @@ pub struct RewardInfo {
 }
 
 impl RewardInfo {
-    pub fn new(e: &Env) -> Self {
+    pub fn new(e: &Env, reward_type: RewardType) -> Self {
         Self {
             last_issuance_ts: 0,
             rewards_available: 0,
@@ -419,7 +425,7 @@ impl RewardInfo {
             rewards_issued_cumulative: 0,
             accum_rewards_per_share_sc: 0,
             accumulated_treasury_fees: 0,
-            reward_type: RewardType::Proportional,
+            reward_type,
             reward_schedule_curve: RewardScheduleCurve { points: svec![e] },
         }
     }
@@ -554,8 +560,9 @@ impl FarmingPosition {
             let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
             let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
 
+            let stake = effective_stake(self.active_stake, reward_info.reward_type);
             let pending_from_rps = calculate_pending_reward(
-                self.active_stake,
+                stake,
                 reward_info.accum_rewards_per_share_sc,
                 user_tally,
             )?;
@@ -573,9 +580,10 @@ impl FarmingPosition {
         for reward_token in farm.rewards.keys() {
             let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
 
+            let stake = effective_stake(self.active_stake, reward_info.reward_type);
             let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
             let pending = calculate_pending_reward(
-                self.active_stake,
+                stake,
                 reward_info.accum_rewards_per_share_sc,
                 user_tally,
             )?;
@@ -589,8 +597,7 @@ impl FarmingPosition {
                 self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
             }
 
-            let new_tally = self
-                .active_stake
+            let new_tally = stake
                 .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
                 .map_over_or_underflow()?;
             self.rewards_tallies.set(reward_token, new_tally);

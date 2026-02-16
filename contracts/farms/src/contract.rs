@@ -11,7 +11,7 @@ use crate::{
     processors,
     state::{
         CommonFarmConfigUpdate, DelegatedFarmConfigUpdate, Farm, FarmConfig, FarmingPosition,
-        GlobalConfig, NonDelegatedFarmConfigUpdate, RewardInfo,
+        GlobalConfig, NonDelegatedFarmConfigUpdate, RewardInfo, RewardType,
     },
     storage,
     utils::{require_admin, require_nonnegative, transfer_in},
@@ -89,7 +89,13 @@ pub trait Farms {
     /// # Arguments
     /// * `farm_id` - farm's ID
     /// * `reward_token` - new reward token
-    fn initialize_reward(e: Env, farm_id: u64, reward_token: Address) -> Result<(), FCError>;
+    /// * `reward_type` - distribution mode (Proportional or Constant)
+    fn initialize_reward(
+        e: Env,
+        farm_id: u64,
+        reward_token: Address,
+        reward_type: RewardType,
+    ) -> Result<(), FCError>;
 
     /// Adds rewards to an existing reward's available pool
     fn add_rewards(
@@ -394,16 +400,16 @@ impl Farms for FarmsContract {
         Ok(())
     }
 
-    fn initialize_reward(e: Env, farm_id: u64, reward_token: Address) -> Result<(), FCError> {
+    fn initialize_reward(e: Env, farm_id: u64, reward_token: Address, reward_type: RewardType) -> Result<(), FCError> {
         storage::extend_instance(&e);
 
         let mut farm = Farm::try_get(&e, farm_id)?;
         farm.require_admin();
 
-        farm.try_initialize_reward(&e, &reward_token)?;
+        farm.try_initialize_reward(&e, &reward_token, reward_type)?;
         farm.set(&e);
 
-        events::initialize_reward(&e, farm_id, reward_token);
+        events::initialize_reward(&e, farm_id, reward_token, reward_type);
 
         Ok(())
     }

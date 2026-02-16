@@ -1,6 +1,6 @@
 use crate::{
     CommonFarmConfigUpdate, DelegatedFarmConfigUpdate, NonDelegatedFarmConfigUpdate,
-    math::reward_curve::RewardScheduleCurve, state::FarmConfig,
+    math::reward_curve::RewardScheduleCurve, state::{FarmConfig, RewardType},
 };
 use farms_interface::FarmingKey;
 use soroban_sdk::{Address, Env, contractevent};
@@ -52,6 +52,7 @@ struct InitializeReward {
     #[topic]
     farm_id: u64,
     reward_token: Address,
+    reward_type: RewardType,
 }
 
 #[contractevent]
@@ -214,8 +215,8 @@ pub fn unfreeze_farm(e: &Env, farm_id: u64) {
     UnfreezeFarm { farm_id }.publish(e);
 }
 
-pub fn initialize_reward(e: &Env, farm_id: u64, reward_token: Address) {
-    InitializeReward { farm_id, reward_token }.publish(e);
+pub fn initialize_reward(e: &Env, farm_id: u64, reward_token: Address, reward_type: RewardType) {
+    InitializeReward { farm_id, reward_token, reward_type }.publish(e);
 }
 
 pub fn add_rewards(e: &Env, farm_id: u64, funder: Address, reward_token: Address, amount: i128) {

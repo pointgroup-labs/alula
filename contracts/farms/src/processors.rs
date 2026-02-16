@@ -5,7 +5,7 @@ use crate::{
     constants::{BPS_FACTOR, SCALE_FACTOR},
     error::FCError,
     math::penalty::calculate_early_withdrawal_penalty,
-    state::{Delegation, Farm, FarmingPosition, RewardInfo},
+    state::{Delegation, Farm, FarmingPosition, RewardInfo, RewardType},
     utils::MathUtils,
 };
 
@@ -125,8 +125,9 @@ pub fn harvest(
 
     let user_tally = farming_position.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
 
+    let stake = effective_stake(farming_position.active_stake, reward_info.reward_type);
     let pending_from_rps = calculate_pending_reward(
-        farming_position.active_stake,
+        stake,
         reward_info.accum_rewards_per_share_sc,
         user_tally,
     )?;
@@ -147,8 +148,7 @@ pub fn harvest(
     };
     let net = total_pending.checked_sub(fee).map_over_or_underflow()?;
 
-    let new_tally = farming_position
-        .active_stake
+    let new_tally = stake
         .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
         .map_over_or_underflow()?;
 
@@ -316,8 +316,8 @@ fn update_tallies(
 ) -> Result<(), FCError> {
     for reward_token in farm.rewards.keys() {
         let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
-        let new_tally = farming_position
-            .active_stake
+        let stake = effective_stake(farming_position.active_stake, reward_info.reward_type);
+        let new_tally = stake
             .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
             .map_over_or_underflow()?;
         farming_position.rewards_tallies.set(reward_token, new_tally);
@@ -362,4 +362,11 @@ pub fn calculate_rewards_to_issue(
     let rewards_to_issue = rewards_from_curve.min(reward_info.rewards_available);
 
     Ok(rewards_to_issue)
+}
+
+pub fn effective_stake(active_stake: i128, reward_type: RewardType) -> i128 {
+    match reward_type {
+        RewardType::Proportional => active_stake,
+        RewardType::Constant => i128::from(active_stake > 0),
+    }
 }
