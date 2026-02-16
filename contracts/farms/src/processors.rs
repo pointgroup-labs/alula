@@ -115,9 +115,9 @@ pub fn harvest(
     let current_ts = e.ledger().timestamp();
     let last_claim = farming_position.last_claim_ts.get(reward_token.clone()).unwrap_or(0);
 
-    if reward_info.min_claim_duration > 0 {
+    if farm.config.min_harvest_delay > 0 {
         let next_claim_ts =
-            last_claim.checked_add(reward_info.min_claim_duration).map_over_or_underflow()?;
+            last_claim.checked_add(farm.config.min_harvest_delay).map_over_or_underflow()?;
         if current_ts < next_claim_ts {
             return Err(FCError::ClaimTooSoon);
         }

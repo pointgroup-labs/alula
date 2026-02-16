@@ -251,7 +251,6 @@ pub trait Farms {
 
 #[contract]
 struct FarmsContract;
-// TODO: Add events
 
 #[contractimpl]
 impl Farms for FarmsContract {
@@ -431,8 +430,6 @@ impl Farms for FarmsContract {
         Ok(())
     }
 
-    // TODO: Implement constant distribution as well
-
     fn update_reward_schedule(
         e: Env,
         farm_id: u64,
@@ -588,7 +585,7 @@ impl Farms for FarmsContract {
         let mut reward_info = RewardInfo::try_get(&e, farm_id, &reward_token)?;
 
         reward_info.reward_once(amount)?;
-        farming_position.reward_once(&reward_token, amount);
+        farming_position.reward_once(&reward_token, amount)?;
 
         farming_position.set(&e, farm_id, &farming_key);
         reward_info.set(&e, farm_id, &reward_token);

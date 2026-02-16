@@ -31,6 +31,8 @@ pub fn set_admin(e: &Env, admin: &Address) {
 }
 
 // TreasuryFeeBps
+// Note: this global value is stored but not read by harvest.
+// Each farm uses its own `FarmConfig.treasury_fee_bps` set at initialization.
 
 #[allow(dead_code)]
 pub fn get_treasury_fee_bps(e: &Env) -> i128 {

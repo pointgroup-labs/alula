@@ -291,14 +291,17 @@ pub struct FarmConfig {
     pub token: Address,
     pub admin: Address,
     pub deposit_cap: i128,
+    /// Deprecated: use `NonDelegatedFarmConfig.locking_duration` instead.
     pub locking_duration: u64,
     pub treasury_fee_bps: i128,
     pub min_harvest_delay: u64,
     pub min_stake_amount: i128,
     pub delegation: Delegation,
+    /// Deprecated: use `NonDelegatedFarmConfig.locking_mode` instead.
     pub locking_mode: LockingMode,
     pub is_reward_once_enabled: bool,
     pub proposed_admin: Option<Address>,
+    /// Deprecated: use `NonDelegatedFarmConfig.withdrawal_cooldown_period` instead.
     pub withdrawal_cooldown_period: u64,
 }
 
@@ -392,11 +395,13 @@ pub enum RewardType {
 #[contracttype]
 pub struct RewardInfo {
     pub last_issuance_ts: u64,
+    /// Deprecated: harvest uses `FarmConfig.min_harvest_delay` instead.
     pub min_claim_duration: u64,
     pub rewards_available: i128,
     pub reward_type: RewardType,
     pub rewards_issued_unclaimed: i128,
     pub rewards_issued_cumulative: i128,
+    /// Deprecated: use `rewards_issued_cumulative` instead.
     pub cumulative_issued_rewards: i128,
     pub accum_rewards_per_share_sc: i128,
     pub accumulated_treasury_fees: i128,
@@ -473,6 +478,7 @@ pub struct FarmingPosition {
     pub last_stake_ts: u64,
     pub last_claim_ts: Map<Address, u64>,
 
+    /// Deprecated: unused, kept for storage compatibility.
     pending_rewards_unclaimed: Map<Address, i128>,
 }
 
@@ -526,10 +532,15 @@ impl FarmingPosition {
         Ok(amount)
     }
 
-    pub fn reward_once(&mut self, reward_token: &Address, amount: i128) {
+    pub fn reward_once(
+        &mut self,
+        reward_token: &Address,
+        amount: i128,
+    ) -> Result<(), FCError> {
         let current_unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
-        let new_unclaimed = current_unclaimed.saturating_add(amount);
+        let new_unclaimed = current_unclaimed.checked_add(amount).map_over_or_underflow()?;
         self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
+        Ok(())
     }
 
     pub fn get_pending_rewards(
