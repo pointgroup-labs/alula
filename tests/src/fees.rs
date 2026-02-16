@@ -1093,4 +1093,77 @@ fn test_distribute_take_rate_fees() {
     assert_eq!(fees_after, 0);
 }
 
+#[test]
+fn test_distribute_pool_fees_transfers_tokens_but_keeps_total_available_unchanged() {
+    // Set borrow_fee_bps to 0 to avoid operation fees interfering with this test
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { borrow_fee_bps: 0, ..Default::default() },
+        ..Default::default()
+    };
+
+    let TestMarketFixture {
+        e,
+        contract_id,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    // Provide collateral and liquidity so interest can accrue and take rate fees can accumulate
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    // Configure take rate fee beneficiaries so the distribution actually transfers tokens out
+    let beneficiary_1 = Address::generate(&e);
+    let beneficiary_2 = Address::generate(&e);
+    contract_client.set_take_rate_fees_beneficiaries(
+        &usdc_pool_address,
+        &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7_000)],
+    );
+
+    // Accrue interest to accumulate take rate fees
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    assert!(fees_before > 0);
+
+    let pool_before = contract_client.get_pool(&usdc_pool_address);
+    let total_available_before = pool_before.total_available;
+
+    let market_balance_before = usdc_token_client.balance(&contract_id);
+
+    // Anyone can call this entry point, it will distribute the accumulated take rate fees
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let pool_after = contract_client.get_pool(&usdc_pool_address);
+    let total_available_after = pool_after.total_available;
+
+    let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    assert_eq!(fees_after, 0);
+
+    let market_balance_after = usdc_token_client.balance(&contract_id);
+    let market_balance_diff = market_balance_before.checked_sub(market_balance_after).unwrap();
+
+    // Confirm real token transfer happened
+    assert_approx_eq_abs(market_balance_diff, fees_before, 1);
+
+    // Confirm pool accounting reflects the token outflow
+    assert_eq!(total_available_after, total_available_before.checked_sub(fees_before).unwrap());
+}
+
 // TODO: Add test for `distribute_pool_fees`

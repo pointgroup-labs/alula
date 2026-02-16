@@ -137,7 +137,7 @@ build/optimize: build/deploy ## Build + optimize for production
 # ══════════════════════════════════════════════════════════════════════════════
 
 test: build ## Run tests
-	@cargo nextest run --locked --workspace --lib
+	@cargo nextest run --locked --workspace --lib --no-fail-fast
 
 test/watch: build ## Run tests in watch mode
 	@cargo watch -x 'nextest run --workspace --lib'

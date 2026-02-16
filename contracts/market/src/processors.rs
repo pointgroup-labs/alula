@@ -1263,6 +1263,10 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
                 }
             }
         }
+        pool.adjust_total_available(
+            e,
+            pool.take_rate_fees_sum.checked_neg().map_over_or_underflow()?,
+        )?;
         pool.take_rate_fees_sum = 0;
     }
 
