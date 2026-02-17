@@ -9,14 +9,14 @@ use market::{
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env,
+    Address, Env, map as smap,
     testutils::{Address as _, Ledger},
 };
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     assert_approx_eq_rel, get_obligation_d_tokens, get_obligation_j_tokens,
-    get_obligation_received_interest,
+    get_obligation_received_interest, get_obligation_unpaid_interest,
 };
 
 fn wait(e: &Env, am: u64) {
@@ -634,7 +634,7 @@ fn test_refresh_multiply_pair_obligation() {
 }
 
 #[test]
-fn transfer_admin() {
+fn test_transfer_admin() {
     let TestMarketFixture { e, contract_id, full_contract_client, contract_admin, .. } =
         TestMarketFixture::new();
     let new_admin = Address::generate(&e);
@@ -658,4 +658,68 @@ fn transfer_admin() {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         assert_eq!(admin, new_admin);
     });
+}
+
+#[test]
+fn test_require_available_accounts_for_take_rate_fees() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let borrower = &users[1];
+    let beneficiary = users[2].clone();
+
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
+
+    contract_client
+        .set_take_rate_fees_beneficiaries(&usdc_pool_address, &smap![&e, (beneficiary, 10_000)]);
+
+    // - Move time -
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+
+    contract_client.refresh_obligation(borrower);
+    let usdc_pool_data = contract_client.get_pool_data(&usdc_pool_address);
+
+    // - Verify that the interest rate has accrued and take rate fees are accounted for -
+
+    let unpaid_interest =
+        get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
+    let take_rate_fees_sum = usdc_pool_data.pool.take_rate_fees_sum;
+
+    assert!(unpaid_interest > 0);
+    assert!(take_rate_fees_sum > 0);
+
+    assert_approx_eq_abs(unpaid_interest / 10, take_rate_fees_sum, 1);
+
+    // - Verify that the interest rate has accrued and that the rate fees are accounted for -
+
+    let (total_available, total_available_adjusted) =
+        (usdc_pool_data.pool.total_available, usdc_pool_data.total_available_adjusted);
+    assert_eq!(total_available, total_available_adjusted.checked_add(take_rate_fees_sum).unwrap());
+
+    let flash_loan_callback = Address::generate(&e);
+
+    assert_ne!(
+        contract_client.try_flash_loan(
+            &flash_loan_callback,
+            borrower,
+            &usdc_pool_address,
+            &total_available_adjusted
+        ),
+        Err(Ok(MCError::NotEnoughPoolFunds))
+    );
+    assert_eq!(
+        contract_client.try_flash_loan(
+            &flash_loan_callback,
+            borrower,
+            &usdc_pool_address,
+            &(total_available_adjusted + 1)
+        ),
+        Err(Ok(MCError::NotEnoughPoolFunds))
+    );
 }

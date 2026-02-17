@@ -461,7 +461,7 @@ impl Pool {
     // ---- `require_` circuits ----
 
     pub fn require_total_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available {
+        if required > self.total_available()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
