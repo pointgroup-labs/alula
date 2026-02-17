@@ -1025,11 +1025,8 @@ pub fn process_liquidate<'a>(
     Ok(transfers)
 }
 
-pub fn process_issue_cover_bad_debt(
-    e: &Env,
-    obligation_key: &ObligationKey,
-) -> Result<(), MCError> {
-    let mut obligation = Obligation::try_get(e, obligation_key)?;
+pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> Result<(), MCError> {
+    let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
     obligation.require_borrow_exists()?;
     obligation.require_no_liquidatable_collateral_exists(e)?;
@@ -1148,6 +1145,8 @@ pub fn process_issue_cover_bad_debt(
         obligation.set(e, obligation_key);
     }
 
+    events::issue_cover_bad_debt(e, obligation_key);
+
     Ok(())
 }
 
@@ -1229,6 +1228,8 @@ pub fn process_claim_cover_bad_debt_results(
         obligation.set(e, obligation_key);
     }
 
+    events::claim_cover_bad_debt_results(e, obligation_key);
+
     Ok(())
 }
 
@@ -1294,6 +1295,7 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
 
     pool.set(e);
 
+    events::distribute_pool_fees(e, pool_address);
     // TODO: Add `skim_fees` endpoint that allows admin to receive any excessive fees
 
     Ok(())
@@ -1326,6 +1328,15 @@ pub fn process_swap_exact_tokens(
     events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
 
     Ok(received_amount)
+}
+
+pub fn process_refresh_obligation(e: &Env, obligation_key: ObligationKey) -> Result<(), MCError> {
+    let obligation = Obligation::try_get(e, &obligation_key)?;
+    obligation.accrue_interest(e)?;
+
+    events::refresh_obligation(e, obligation_key);
+
+    Ok(())
 }
 
 // ---- Helpers ----

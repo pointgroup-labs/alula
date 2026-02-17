@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, String, Symbol, contractevent};
+use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -6,6 +6,7 @@ use crate::{
         ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     pool::{Pool, PoolConfig},
+    storage::MarketStatus,
 };
 
 // --- Contract's Methods Events ---
@@ -180,6 +181,66 @@ struct WithdrawFromLeveragedEvent {
 struct ProposeNewAdmin {
     #[topic]
     new_admin: Address,
+}
+
+#[contractevent]
+struct UpdateMarket {
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+}
+
+#[contractevent]
+struct UpdateMarketStatus {
+    new_status: MarketStatus,
+}
+
+#[contractevent]
+struct FundUpdateMarketStatus {
+    new_status: MarketStatus,
+}
+
+#[contractevent]
+struct SetTakeRateBeneficiaries {
+    #[topic]
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+}
+
+#[contractevent]
+struct SetOperationFeesBeneficiaries {
+    #[topic]
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+}
+
+#[contractevent]
+struct IssueCoverBadDebt {
+    #[topic]
+    obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct ClaimCoverBadDebtResults {
+    #[topic]
+    obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct DistributePoolFees {
+    #[topic]
+    pool_address: Address,
+}
+
+#[contractevent]
+struct RefreshObligation {
+    #[topic]
+    obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct RefreshPool {
+    #[topic]
+    pool_address: Address,
 }
 
 #[contractevent]
@@ -613,6 +674,54 @@ pub fn withdraw_from_leveraged(
         borrow_reduced_amount,
     }
     .publish(e);
+}
+
+pub fn update_market(e: &Env, new_max_positions: u32, new_min_collateral_value_cents: i128) {
+    UpdateMarket { new_max_positions, new_min_collateral_value_cents }.publish(e);
+}
+
+pub fn update_market_status(e: &Env, new_status: MarketStatus) {
+    UpdateMarketStatus { new_status }.publish(e);
+}
+
+pub fn fund_update_market_status(e: &Env, new_status: MarketStatus) {
+    FundUpdateMarketStatus { new_status }.publish(e);
+}
+
+pub fn set_take_rate_fees_beneficiaries(
+    e: &Env,
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+) {
+    SetTakeRateBeneficiaries { pool_address, beneficiaries }.publish(e);
+}
+
+pub fn set_operation_fees_beneficiaries(
+    e: &Env,
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+) {
+    SetOperationFeesBeneficiaries { pool_address, beneficiaries }.publish(e);
+}
+
+pub fn issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) {
+    IssueCoverBadDebt { obligation_key }.publish(e);
+}
+
+pub fn claim_cover_bad_debt_results(e: &Env, obligation_key: ObligationKey) {
+    ClaimCoverBadDebtResults { obligation_key }.publish(e);
+}
+
+pub fn distribute_pool_fees(e: &Env, pool_address: Address) {
+    DistributePoolFees { pool_address }.publish(e);
+}
+
+pub fn refresh_obligation(e: &Env, obligation_key: ObligationKey) {
+    RefreshObligation { obligation_key }.publish(e);
+}
+
+pub fn refresh_pool(e: &Env, pool_address: Address) {
+    RefreshPool { pool_address }.publish(e);
 }
 
 pub fn propose_new_admin(e: &Env, new_admin: Address) {

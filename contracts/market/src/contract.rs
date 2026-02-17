@@ -695,6 +695,8 @@ impl Market for MarketContract {
         storage::set_max_positions(&e, new_max_positions);
         storage::set_min_collateral_value_cents(&e, new_min_collateral_value_cents);
 
+        events::update_market(&e, new_max_positions, new_min_collateral_value_cents);
+
         Ok(())
     }
 
@@ -703,7 +705,9 @@ impl Market for MarketContract {
         storage::extend_instance(&e);
 
         let new_status = MarketStatus::try_from(new_status)?;
+
         storage::set_market_status(&e, &new_status);
+        events::update_market_status(&e, new_status);
 
         Ok(())
     }
@@ -719,6 +723,7 @@ impl Market for MarketContract {
         }
 
         storage::set_market_status(&e, &new_status);
+        events::fund_update_market_status(&e, new_status);
 
         Ok(())
     }
@@ -812,11 +817,13 @@ impl Market for MarketContract {
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
 
         let mut new_config = pool.config;
-        new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries);
+        new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries.clone());
         new_config.validate()?;
 
         pool.config = new_config;
         pool.set(&e);
+
+        events::set_take_rate_fees_beneficiaries(&e, pool_address, beneficiaries);
 
         Ok(())
     }
@@ -834,11 +841,13 @@ impl Market for MarketContract {
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
         let mut new_config = pool.config;
 
-        new_config.fee_config.operation_fee_beneficiaries = Some(beneficiaries);
+        new_config.fee_config.operation_fee_beneficiaries = Some(beneficiaries.clone());
         new_config.validate()?; // TODO: Validate only fee_config?
 
         pool.config = new_config;
         pool.set(&e);
+
+        events::set_operation_fees_beneficiaries(&e, pool_address, beneficiaries);
 
         Ok(())
     }
@@ -922,6 +931,7 @@ impl Market for MarketContract {
 
         process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
     }
+
     fn add_collateral(
         e: Env,
         user: Address,
@@ -1134,7 +1144,7 @@ impl Market for MarketContract {
         storage::extend_instance(&e);
         let obligation_key = ObligationKey::new(user);
 
-        process_issue_cover_bad_debt(&e, &obligation_key)
+        process_issue_cover_bad_debt(&e, obligation_key)
     }
 
     fn issue_cover_bad_debt_pair(
@@ -1148,7 +1158,7 @@ impl Market for MarketContract {
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
 
-        process_issue_cover_bad_debt(&e, &obligation_key)
+        process_issue_cover_bad_debt(&e, obligation_key)
     }
 
     fn claim_cover_bad_debt_results(e: Env, user: Address) -> Result<(), MCError> {
@@ -1210,8 +1220,7 @@ impl Market for MarketContract {
         storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user.clone());
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-        obligation.accrue_interest(&e)?;
+        process_refresh_obligation(&e, obligation_key)?;
 
         Ok(())
     }
@@ -1221,8 +1230,7 @@ impl Market for MarketContract {
 
         let obligation_key =
             ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-        obligation.accrue_interest(&e)?;
+        process_refresh_obligation(&e, obligation_key)?;
 
         Ok(())
     }
@@ -1239,8 +1247,7 @@ impl Market for MarketContract {
             user.clone(),
             MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed,
         );
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-        obligation.accrue_interest(&e)?;
+        process_refresh_obligation(&e, obligation_key)?;
 
         Ok(())
     }
@@ -1251,6 +1258,8 @@ impl Market for MarketContract {
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.accrue_interest(&e)?;
         pool.set(&e);
+
+        events::refresh_pool(&e, pool_address);
 
         Ok(())
     }
