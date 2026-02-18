@@ -402,7 +402,7 @@ fn test_update_market_config() {
 }
 
 #[test]
-fn test_anyone_can_freeze_market_via_controlled_insurance_fund() {
+fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
     use controlled_insurance_fund::{
         ControlledInsuranceFundContract, ControlledInsuranceFundContractClient,
     };
@@ -422,6 +422,7 @@ fn test_anyone_can_freeze_market_via_controlled_insurance_fund() {
     // Market dependencies required by constructor
     let oracle = Address::generate(&e);
     let deployer = Address::generate(&e);
+    let swap_provider = Address::generate(&e);
 
     // Deploy ControlledInsuranceFund
     let cif_addr = e.register(ControlledInsuranceFundContract, (&fund_admin,));
@@ -440,6 +441,7 @@ fn test_anyone_can_freeze_market_via_controlled_insurance_fund() {
             &name,
             &market_admin,
             &oracle,
+            &swap_provider,
             &cif_addr,
             &deployer,
             &max_positions,

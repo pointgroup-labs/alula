@@ -16,6 +16,8 @@ pub struct GlobalState {
     pub is_owned: bool,
     pub admin: Address,
     pub oracle: Address,
+    pub swap_provider: Address,
+    pub insurance_fund: Address,
     pub deployer: Address,
     pub max_positions: u32,
     pub insolvency_ltv_bps: i128,
@@ -94,6 +96,7 @@ pub enum DataKey {
     FarmsContract,
     ConfigUpdate(Address),
     Pool(Address),
+    SwapProvider,
     InsuranceFund,
     AllObligations,
     InsolvencyLtvBps,
@@ -131,6 +134,14 @@ pub fn set_oracle(e: &Env, oracle: &Address) {
 }
 pub fn get_oracle(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
+}
+
+// - SwapProvider -
+pub fn set_swap_provider(e: &Env, swap_provider: &Address) {
+    e.storage().instance().set(&DataKey::SwapProvider, &swap_provider)
+}
+pub fn get_swap_provider(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::SwapProvider).expect("SwapProvider must be set")
 }
 
 // - InsuranceFund -

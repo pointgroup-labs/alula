@@ -139,10 +139,6 @@ pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 // Maximum acceptable oracle price age in seconds
 pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Relies on 'Reflector' resolution being 5 minutes
 
-// ---- Dependency Contract Addresses ----
-
-pub const ROUTER_ADDRESS: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD";
-
 // ---- MISC ----
 
 pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;

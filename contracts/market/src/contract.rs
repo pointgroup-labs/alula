@@ -35,6 +35,12 @@ pub trait Market {
     // Gets the contract's global state
     fn get_global_state(e: Env) -> GlobalState;
 
+    // Updates the swap provider contract address
+    //
+    // # Arguments
+    // * `new_swap_provider` - updated swap provider address
+    fn update_swap_provider(e: Env, new_swap_provider: Address);
+
     // Updates the owned market's parameters
     //
     // # Arguments
@@ -660,6 +666,12 @@ impl Market for MarketContract {
 
     fn get_global_state(e: Env) -> GlobalState {
         process_get_global_state(&e)
+    }
+
+    fn update_swap_provider(e: Env, new_swap_provider: Address) {
+        require_admin(&e);
+
+        storage::set_swap_provider(&e, &new_swap_provider);
     }
 
     fn update_market(
@@ -1418,6 +1430,7 @@ impl MarketContract {
     // * `admin` - market's administrator
     // * `name` - market's name(not necessarily unique)
     // * `oracle` - SEP-40 compliant oracle's contract address
+    // * `swap_provider` - AMM DEX or any other integrated swap provider
     // * `insurance_fund` - `Insurance Fund` trait compliant contract's address
     // * `deployer` - address of a deployer contract
     // * `max_positions` - max allowed number of positions in an obligation
@@ -1430,6 +1443,7 @@ impl MarketContract {
         name: String,
         admin: Address,
         oracle: Address,
+        swap_provider: Address,
         insurance_fund: Address,
         deployer: Address,
         max_positions: u32,
@@ -1457,6 +1471,7 @@ impl MarketContract {
         storage::set_oracle(&e, &oracle);
         storage::set_deployer(&e, &deployer);
         storage::set_market_status(&e, &market_status);
+        storage::set_swap_provider(&e, &swap_provider);
         storage::set_insurance_fund(&e, &insurance_fund);
         storage::set_max_positions(&e, max_positions);
         storage::set_update_in_queue_period(&e, update_in_queue_period);

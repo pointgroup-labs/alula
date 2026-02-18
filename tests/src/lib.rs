@@ -25,7 +25,7 @@ use insurance_fund_interface::InsuranceFundClient;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
-        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
+        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP,
     },
     contract::{MarketClient, MarketContract, MarketContractClient},
     error::MCError,
@@ -48,6 +48,7 @@ pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
+const ROUTER_ADDRESS: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD"; // Soroswap router
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
@@ -138,6 +139,10 @@ impl TestMarketFixture<'_> {
 
         let contract_admin = Address::generate(&e);
 
+        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
+        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
+        let router_client = router::Client::new(&e, &router_address);
+
         let insurance_fund = e.register(
             controlled_insurance_fund::ControlledInsuranceFundContract,
             (contract_admin.clone(),),
@@ -158,6 +163,7 @@ impl TestMarketFixture<'_> {
                 contract_name,
                 contract_admin.clone(),
                 oracle.clone(),
+                router_address.clone(),
                 insurance_fund.clone(),
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
@@ -170,12 +176,7 @@ impl TestMarketFixture<'_> {
         let full_contract_client = MarketContractClient::new(&e, &market_contract_id);
 
         controlled_insurance_fund_client.set_market(&market_contract_id);
-
         contract_client.update_market_status(&0);
-
-        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
-        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
-        let router_client = router::Client::new(&e, &router_address);
 
         // GOLD
         let gold_admin = Address::generate(&e);
@@ -1358,6 +1359,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
     let insurance_fund = Address::generate(e);
+    let router_address = Address::generate(e);
 
     let contract_id = e.register(
         MarketContract,
@@ -1365,6 +1367,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             contract_name,
             contract_admin.clone(),
             oracle,
+            router_address,
             insurance_fund,
             contract_admin,
             DEFAULT_MAX_POSITIONS,

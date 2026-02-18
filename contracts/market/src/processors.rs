@@ -67,6 +67,8 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
     let name = storage::get_name(e);
     let admin = storage::get_admin(e);
     let oracle = storage::get_oracle(e);
+    let swap_provider = storage::get_swap_provider(e);
+    let insurance_fund = storage::get_insurance_fund(e);
     let deployer = storage::get_deployer(e);
     let status = storage::get_market_status(e) as u32;
     let is_owned = update_in_queue_period.is_some();
@@ -77,11 +79,13 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
     GlobalState {
         name,
         admin,
-        oracle,
         status,
+        oracle,
         deployer,
         is_owned,
         max_positions,
+        swap_provider,
+        insurance_fund,
         insolvency_ltv_bps,
         min_collateral_value_cents,
         update_in_queue_period,
