@@ -30,7 +30,6 @@ pub enum MCError {
     PoolDoesNotHaveQueuedInConfigUpdate = 108,
     PoolConfigUpdateIsNotYetApplicable = 109,
     OperationForbiddenOnPool = 110,
-    InvalidBootstrapPeriod = 111,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,

@@ -45,8 +45,6 @@ pub struct Pool {
     pub config: PoolConfig,
     // The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    // Remaining supply bootstrap amounts that are distributed evenly among specified periods
-    pub bootstrap_periods: Map<(u64, u64), PoolBootstrapPeriod>,
     // Borrow annual percentage rate in basis points
     pub borrow_apr_bps: i128,
     // Supply annual percentage rate in basis points
@@ -96,17 +94,6 @@ impl Pool {
 
         self.operation_fees_sum =
             self.operation_fees_sum.checked_add(net_protocol_fees).map_over_or_underflow()?;
-
-        Ok(())
-    }
-
-    // Bootstraps the pool by distributing additional rewards to suppliers
-    pub fn bootstrap(&mut self, amount: i128, period: (u64, u64)) -> Result<(), MCError> {
-        if self.bootstrap_periods.get(period).is_some() {
-            return Err(MCError::InvalidBootstrapPeriod);
-        }
-
-        self.bootstrap_periods.set(period, PoolBootstrapPeriod::new(amount));
 
         Ok(())
     }
@@ -1059,21 +1046,6 @@ impl PoolHealthConfig {
         }
 
         Ok(())
-    }
-}
-
-#[contracttype]
-#[derive(Debug, Clone)]
-pub struct PoolBootstrapPeriod {
-    // Total provided bootstrap amount
-    pub total_amount: i128,
-    // Remaining bootstrap amount
-    pub remaining_amount: i128,
-}
-
-impl PoolBootstrapPeriod {
-    pub fn new(total_amount: i128) -> Self {
-        Self { total_amount, remaining_amount: total_amount }
     }
 }
 

@@ -147,17 +147,6 @@ pub trait Market {
         beneficiaries: Map<Address, u32>,
     ) -> Result<(), MCError>;
 
-    // Incentivizes a pool's supply with a donated asset amount for a defined period of time. Useful for bootstrapping pools
-    // after deployment
-    fn bootstrap_pool(
-        e: Env,
-        pool_address: Address,
-        sponsor: Address,
-        amount: i128,
-        start_period: u64,
-        end_period: u64,
-    ) -> Result<(), MCError>;
-
     // Deposits tokens into the loan pool
     //
     // # Arguments
@@ -844,21 +833,6 @@ impl Market for MarketContract {
         events::set_operation_fees_beneficiaries(&e, pool_address, beneficiaries);
 
         Ok(())
-    }
-
-    fn bootstrap_pool(
-        e: Env,
-        pool_address: Address,
-        sponsor: Address,
-        amount: i128,
-        start_period: u64,
-        end_period: u64,
-    ) -> Result<(), MCError> {
-        require_admin(&e);
-        require_market_not_frozen(&e)?;
-        storage::extend_instance(&e);
-
-        process_bootstrap_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
     }
 
     fn deposit(

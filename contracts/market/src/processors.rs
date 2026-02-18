@@ -2,7 +2,7 @@ use insurance_fund_interface::{CoverageStatus, InsuranceFundClient, IssueRequest
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Map, Vec, map as smap,
+    Address, BytesN, Env, Vec, map as smap,
     token::{self, TokenClient},
 };
 
@@ -140,8 +140,6 @@ pub fn process_initialize_pool(
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
 
-        bootstrap_periods: Map::new(e),
-
         borrow_apr_bps: 0,
         supply_apr_bps: 0,
 
@@ -186,40 +184,6 @@ pub fn process_initialize_multiply_pair(
     pair.register(e);
 
     events::initialize_multiply_pair(e, deposit_pool_address, borrow_pool_address);
-
-    Ok(())
-}
-
-pub fn process_bootstrap_pool(
-    e: &Env,
-    pool_address: &Address,
-    sponsor: &Address,
-    amount: i128,
-    start_period: u64,
-    end_period: u64,
-) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
-
-    let current_timestamp = e.ledger().timestamp();
-    if start_period < current_timestamp || start_period >= end_period {
-        return Err(MCError::InvalidBootstrapPeriod);
-    }
-    let period = (start_period, end_period);
-
-    let mut pool = Pool::try_get(e, pool_address)?;
-
-    pool.bootstrap(amount, period)?;
-    pool.set(e);
-
-    let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer_from(
-        &e.current_contract_address(),
-        sponsor,
-        &e.current_contract_address(),
-        &amount,
-    );
-
-    events::bootstrap_pool(e, pool_address, sponsor, amount, period);
 
     Ok(())
 }

@@ -50,16 +50,6 @@ struct ApplyPoolConfigUpdate {
 }
 
 #[contractevent]
-struct BootstrapPoolEvent {
-    #[topic]
-    pool_address: Address,
-    #[topic]
-    sponsor: Address,
-    amount: i128,
-    period: (u64, u64),
-}
-
-#[contractevent]
 struct DepositEvent {
     #[topic]
     pool_address: Address,
@@ -490,22 +480,6 @@ pub fn cancel_pool_config_update(e: &Env, pool_address: Address) {
 
 pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
     ApplyPoolConfigUpdate { pool_address }.publish(e);
-}
-
-pub fn bootstrap_pool(
-    e: &Env,
-    pool_address: &Address,
-    sponsor: &Address,
-    amount: i128,
-    period: (u64, u64),
-) {
-    BootstrapPoolEvent {
-        pool_address: pool_address.clone(),
-        sponsor: sponsor.clone(),
-        amount,
-        period,
-    }
-    .publish(e);
 }
 
 pub fn swap(
