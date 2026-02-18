@@ -884,18 +884,13 @@ pub fn received_unexpected_swap_amount(
 
 pub fn inconsistent_immediate_insurance_fund_coverage(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     balance_diff: i128,
     debt_amount: i128,
 ) {
-    InconsistentImmediateCoverage {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        balance_diff,
-        debt_amount,
-    }
-    .publish(e)
+    InconsistentImmediateCoverage { obligation_key, pool_address, balance_diff, debt_amount }
+        .publish(e)
 }
 
 // --- Farms Integration Events ---
@@ -929,48 +924,32 @@ pub fn obligation_farms_refreshed(e: &Env, user: &Address, num_supply: u32, num_
 
 pub fn insurance_fund_missing_request(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     request_id: u64,
 ) {
-    InsuranceFundMissingRequest {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        request_id,
-    }
-    .publish(e);
+    InsuranceFundMissingRequest { obligation_key, pool_address, request_id }.publish(e);
 }
 
 pub fn insurance_fund_duplicate_request_id(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     request_id: u64,
 ) {
-    DuplicateRequestId {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        request_id,
-    }
-    .publish(e);
+    DuplicateRequestId { obligation_key, pool_address, request_id }.publish(e);
 }
 
 pub fn insurance_fund_claim_mismatch(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     request_id: u64,
     approved_amount: i128,
     actual_received: i128,
 ) {
-    ClaimMismatch {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        request_id,
-        approved_amount,
-        actual_received,
-    }
-    .publish(e);
+    ClaimMismatch { obligation_key, pool_address, request_id, approved_amount, actual_received }
+        .publish(e);
 }
 
 pub fn referrer_is_unexpectedly_missing(e: &Env) {

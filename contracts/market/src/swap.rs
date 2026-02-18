@@ -28,6 +28,10 @@ pub fn get_amount_in(
     token_out: &Address,
     amount_out: i128,
 ) -> Result<i128, MCError> {
+    if token_in == token_out {
+        return Err(MCError::SwappingIdenticalTokens);
+    }
+
     let path = vec![&e, token_in.clone(), token_out.clone()];
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
@@ -54,6 +58,10 @@ pub fn get_amount_out(
     token_out: &Address,
     amount_in: i128,
 ) -> Result<i128, MCError> {
+    if token_in == token_out {
+        return Err(MCError::SwappingIdenticalTokens);
+    }
+
     let path = vec![&e, token_in.clone(), token_out.clone()];
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 
@@ -86,6 +94,10 @@ pub fn swap_tokens_for_exact_tokens(
     amount_out: i128,
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
+    if token_in == token_out {
+        return Err(MCError::SwappingIdenticalTokens);
+    }
+
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
     let router_address = Address::from_str(e, ROUTER_ADDRESS);
     let router_client = router::Client::new(e, &router_address);
@@ -147,6 +159,10 @@ pub fn swap_exact_tokens_for_tokens(
     amount_out: i128,
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
+    if token_in == token_out {
+        return Err(MCError::SwappingIdenticalTokens);
+    }
+
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
     let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
 

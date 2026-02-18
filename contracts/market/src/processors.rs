@@ -1059,7 +1059,7 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
                     events::insurance_fund_duplicate_request_id(
                         e,
                         obligation_key,
-                        &pool_address,
+                        pool_address,
                         request_id,
                     );
 
@@ -1077,7 +1077,7 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
                     events::inconsistent_immediate_insurance_fund_coverage(
                         e,
                         obligation_key,
-                        &pool_address,
+                        pool_address,
                         actual_received,
                         covered_amount,
                     );
@@ -1140,9 +1140,9 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
     }
 
     if obligation.is_empty() {
-        obligation.remove(e, obligation_key);
+        obligation.remove(e, &obligation_key);
     } else {
-        obligation.set(e, obligation_key);
+        obligation.set(e, &obligation_key);
     }
 
     events::issue_cover_bad_debt(e, obligation_key);
@@ -1152,9 +1152,9 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
 
 pub fn process_claim_cover_bad_debt_results(
     e: &Env,
-    obligation_key: &ObligationKey,
+    obligation_key: ObligationKey,
 ) -> Result<(), MCError> {
-    let mut obligation = Obligation::try_get(e, obligation_key)?;
+    let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let insurance_fund = storage::get_insurance_fund(e);
@@ -1170,7 +1170,12 @@ pub fn process_claim_cover_bad_debt_results(
         })?;
 
         let request_status = insurance_fund_client.get_status(&request_id).ok_or_else(|| {
-            events::insurance_fund_missing_request(e, obligation_key, &pool_address, request_id);
+            events::insurance_fund_missing_request(
+                e,
+                obligation_key.clone(),
+                pool_address.clone(),
+                request_id,
+            );
             MCError::DependencyContractError
         })?;
 
@@ -1187,7 +1192,7 @@ pub fn process_claim_cover_bad_debt_results(
                 events::insurance_fund_claim_mismatch(
                     e,
                     obligation_key,
-                    &pool_address,
+                    pool_address,
                     request_id,
                     approved_amount,
                     actual_received,
@@ -1223,9 +1228,9 @@ pub fn process_claim_cover_bad_debt_results(
     }
 
     if obligation.is_empty() {
-        obligation.remove(e, obligation_key);
+        obligation.remove(e, &obligation_key);
     } else {
-        obligation.set(e, obligation_key);
+        obligation.set(e, &obligation_key);
     }
 
     events::claim_cover_bad_debt_results(e, obligation_key);
@@ -1233,8 +1238,8 @@ pub fn process_claim_cover_bad_debt_results(
     Ok(())
 }
 
-pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(e, pool_address)?;
+pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<(), MCError> {
+    let mut pool = Pool::try_get(e, &pool_address)?;
     let insurance_fund_addr = storage::get_insurance_fund(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -1303,31 +1308,10 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
 
 pub fn process_distribute_all_pools_fees(e: &Env) -> Result<(), MCError> {
     for pool_address in Pool::get_all(e) {
-        process_distribute_pool_fees(e, &pool_address)?;
+        process_distribute_pool_fees(e, pool_address)?;
     }
 
     Ok(())
-}
-
-pub fn process_swap_exact_tokens(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
-) -> Result<i128, MCError> {
-    require_nonnegative(amount_in)?;
-
-    // Since `amount_out` is calculated within the call, there's no price slippage
-    let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;
-
-    let received_amount = swap::swap_exact_tokens_for_tokens(
-        e, user, token_in, token_out, amount_in, amount_out, None,
-    )?;
-
-    events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
-
-    Ok(received_amount)
 }
 
 pub fn process_refresh_obligation(e: &Env, obligation_key: ObligationKey) -> Result<(), MCError> {

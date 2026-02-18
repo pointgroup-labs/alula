@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::swap;
+use market::{error::MCError, swap};
 use soroban_sdk::vec as svec;
 
 use crate::{TestMarketFixture, assert_approx_eq_rel, make_oracle_prices_different};
@@ -11,12 +11,9 @@ fn test_swap_equal_prices() {
 
     let TestMarketFixture {
         e,
-        contract_client,
         users,
-        usdc_pool_address,
         usdc_token_client,
         usdc_token_address,
-        btc_pool_address,
         btc_token_client,
         btc_token_address,
         ..
@@ -29,8 +26,16 @@ fn test_swap_equal_prices() {
 
     let amount_out =
         swap::get_amount_out(&e, &btc_token_address, &usdc_token_address, AMOUNT_IN).unwrap();
-    let received_amount =
-        contract_client.swap(user, &btc_pool_address, &usdc_pool_address, &AMOUNT_IN);
+    let received_amount = swap::swap_exact_tokens_for_tokens(
+        &e,
+        user,
+        &btc_token_address,
+        &usdc_token_address,
+        AMOUNT_IN,
+        amount_out,
+        None,
+    )
+    .unwrap();
 
     assert_eq!(received_amount, amount_out);
 
@@ -55,12 +60,9 @@ fn test_swap_different_prices() {
 
     let TestMarketFixture {
         e,
-        contract_client,
         users,
-        usdc_pool_address,
         usdc_token_client,
         usdc_token_address,
-        gold_pool_address,
         gold_token_client,
         gold_token_address,
         oracle_client,
@@ -76,8 +78,16 @@ fn test_swap_different_prices() {
 
     let amount_out =
         swap::get_amount_out(&e, &gold_token_address, &usdc_token_address, AMOUNT_IN).unwrap();
-    let received_amount =
-        contract_client.swap(user, &gold_pool_address, &usdc_pool_address, &AMOUNT_IN);
+    let received_amount = swap::swap_exact_tokens_for_tokens(
+        &e,
+        user,
+        &gold_token_address,
+        &usdc_token_address,
+        AMOUNT_IN,
+        amount_out,
+        None,
+    )
+    .unwrap();
 
     assert_eq!(received_amount, amount_out);
 
@@ -162,4 +172,47 @@ fn test_get_amount_in() {
 
     assert_approx_eq_rel(gold_usdc_amount_out, AMOUNT_OUT, DELTA_BPS);
     assert_approx_eq_rel(usdc_gold_amount_out, AMOUNT_OUT, DELTA_BPS);
+}
+
+#[test]
+fn test_swap_operations_fail_for_identical_tokens() {
+    const AMOUNT_IN: i128 = 100_000;
+
+    let TestMarketFixture { e, users, usdc_token_address, .. } = TestMarketFixture::new();
+
+    let user = &users[0];
+
+    assert_eq!(
+        swap::get_amount_in(&e, &usdc_token_address, &usdc_token_address, AMOUNT_IN),
+        Err(MCError::SwappingIdenticalTokens)
+    );
+    assert_eq!(
+        swap::get_amount_out(&e, &usdc_token_address, &usdc_token_address, AMOUNT_IN),
+        Err(MCError::SwappingIdenticalTokens)
+    );
+
+    assert_eq!(
+        swap::swap_exact_tokens_for_tokens(
+            &e,
+            user,
+            &usdc_token_address,
+            &usdc_token_address,
+            AMOUNT_IN,
+            AMOUNT_IN,
+            None,
+        ),
+        Err(MCError::SwappingIdenticalTokens)
+    );
+    assert_eq!(
+        swap::swap_tokens_for_exact_tokens(
+            &e,
+            user,
+            &usdc_token_address,
+            &usdc_token_address,
+            AMOUNT_IN,
+            AMOUNT_IN,
+            None,
+        ),
+        Err(MCError::SwappingIdenticalTokens)
+    );
 }

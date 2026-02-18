@@ -411,24 +411,6 @@ pub trait Market {
         amount: i128,
     ) -> Result<(), MCError>;
 
-    // -- TO BE REMOVED --
-
-    // Swap tokens via a swap provider contract. This guarantees a swap
-    // and is agnostic to the possible price slippage
-    //
-    // # Arguments
-    // * `user` - user which deposits a token
-    // * `token_in` - address of a token that would be taken from the user
-    // * `token_out` - address of a token that would be given to the user
-    // * `amount` - exact amount of the `token_in`
-    fn swap(
-        e: Env,
-        user: Address,
-        token_in: Address,
-        token_out: Address,
-        amount_in: i128,
-    ) -> Result<i128, MCError>;
-
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
     // # Arguments
@@ -812,7 +794,7 @@ impl Market for MarketContract {
         require_admin(&e);
 
         // NB: Distribute pool fees for valid fees tracking afterwards
-        process_distribute_pool_fees(&e, &pool_address)?;
+        process_distribute_pool_fees(&e, pool_address.clone())?;
 
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
 
@@ -836,7 +818,7 @@ impl Market for MarketContract {
         require_admin(&e);
 
         // NB: Distribute pool fees for valid fees tracking afterwards
-        process_distribute_pool_fees(&e, &pool_address)?;
+        process_distribute_pool_fees(&e, pool_address.clone())?;
 
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
         let mut new_config = pool.config;
@@ -916,20 +898,6 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new(user);
 
         process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
-    }
-
-    fn swap(
-        e: Env,
-        user: Address,
-        token_in: Address,
-        token_out: Address,
-        amount_in: i128,
-    ) -> Result<i128, MCError> {
-        user.require_auth();
-        require_market_not_frozen(&e)?;
-        storage::extend_instance(&e);
-
-        process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
     }
 
     fn add_collateral(
@@ -1165,7 +1133,7 @@ impl Market for MarketContract {
         storage::extend_instance(&e);
         let obligation_key = ObligationKey::new(user);
 
-        process_claim_cover_bad_debt_results(&e, &obligation_key)
+        process_claim_cover_bad_debt_results(&e, obligation_key)
     }
 
     fn claim_cover_bad_debt_result_pair(
@@ -1179,13 +1147,13 @@ impl Market for MarketContract {
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
 
-        process_claim_cover_bad_debt_results(&e, &obligation_key)
+        process_claim_cover_bad_debt_results(&e, obligation_key)
     }
 
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError> {
         storage::extend_instance(&e);
 
-        process_distribute_pool_fees(&e, &pool_address)
+        process_distribute_pool_fees(&e, pool_address)
     }
 
     fn distribute_all_pools_fees(e: Env) -> Result<(), MCError> {

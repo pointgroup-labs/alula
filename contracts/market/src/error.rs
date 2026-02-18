@@ -65,4 +65,5 @@ pub enum MCError {
     MultiplyPairDoesNotExist = 703,
     LeveragePositionContainsBadDebt = 704,
     InconsistentDepositWithLeverage = 705,
+    SwappingIdenticalTokens = 706,
 }
