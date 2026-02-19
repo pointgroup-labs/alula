@@ -1078,7 +1078,8 @@ impl Obligation {
             let unpaid_interest = position_debt
                 .checked_sub(borrow_position.originally_borrowed)
                 .map_over_or_underflow()?;
-            let new_originally_borrowed = if unpaid_interest.is_negative() {
+
+            if unpaid_interest.is_negative() {
                 events::computed_interest_is_negative(
                     e,
                     &borrow_pool.pool_address,
@@ -1087,8 +1088,10 @@ impl Obligation {
                     unpaid_interest,
                 );
 
-                return Err(MCError::InternalError);
-            } else if liquidated_amount > unpaid_interest {
+                // return Err(MCError::InternalError); // For similar reasons as in the 'repay' flow
+            }
+
+            let new_originally_borrowed = if liquidated_amount > unpaid_interest {
                 let new_total_d_tokens = borrow_pool.total_d_tokens - d_tokens_to_burn; // safe
                 let new_total_borrowed = borrow_pool.total_borrowed - liquidated_amount; // safe
                 let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
