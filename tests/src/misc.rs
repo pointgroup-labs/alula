@@ -14,7 +14,8 @@ use soroban_sdk::{
 };
 
 use crate::{
-    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_obligation_d_tokens, get_obligation_j_tokens, get_obligation_unpaid_interest,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
+    get_obligation_d_tokens, get_obligation_j_tokens, get_obligation_unpaid_interest,
 };
 
 fn wait(e: &Env, am: u64) {

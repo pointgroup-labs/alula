@@ -5,8 +5,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{map as smap, testutils::Ledger};
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_pool_collateral_value,
-    compute_pool_debt_value, compute_user_obligation_collateral_value,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_user_obligation_collateral_value,
     compute_user_obligation_debt_value, get_obligation_d_tokens_as_tokens,
     get_pool_total_available, get_pool_total_borrowed, get_pool_total_d_tokens,
     get_pool_total_j_tokens,
@@ -90,33 +89,6 @@ fn test_partially_socialize_full_bad_debt_loss() {
 
     // - Verify bad debt exists -
 
-    let total_obligation_collateral_value =
-        compute_user_obligation_collateral_value(&e, &contract_client, borrower);
-    let total_obligation_debt_value =
-        compute_user_obligation_debt_value(&e, &contract_client, borrower);
-
-    assert!(total_obligation_debt_value > total_obligation_collateral_value);
-
-    let gold_pool_collateral_value =
-        compute_pool_collateral_value(&e, &contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_collateral_value =
-        compute_pool_collateral_value(&e, &contract_client, &usdc_pool_address).unwrap();
-
-    let gold_pool_debt_value =
-        compute_pool_debt_value(&e, &contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_debt_value =
-        compute_pool_debt_value(&e, &contract_client, &usdc_pool_address).unwrap();
-
-    let market_debt_value_sum = gold_pool_debt_value.checked_add(usdc_pool_debt_value).unwrap();
-    let market_collateral_value_sum =
-        gold_pool_collateral_value.checked_add(usdc_pool_collateral_value).unwrap();
-
-    let market_value_diff_before =
-        market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
-
-    let j_token_rate_before =
-        contract_client.get_pool_data(&usdc_pool_address).j_token_rate_floor_bps;
-
     // - Cover bad debt -
 
     let debt_amount =
@@ -129,28 +101,46 @@ fn test_partially_socialize_full_bad_debt_loss() {
         &None,
         &usdc_pool_address,
         &gold_pool_address,
-        &debt_amount.fixed_mul_ceil(98, 100).unwrap(),
+        &debt_amount.fixed_mul_ceil(90, 100).unwrap(),
         &DEFAULT_DEPOSIT_AMOUNT,
     );
+
+    let remaining_debt =
+        get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
+            .unwrap();
+    assert_eq!(remaining_debt, debt_amount.fixed_mul_ceil(10, 100).unwrap());
+
+    let total_obligation_collateral_value =
+        compute_user_obligation_collateral_value(&e, &contract_client, borrower);
+    let total_obligation_debt_value =
+        compute_user_obligation_debt_value(&e, &contract_client, borrower);
+
+    assert!(total_obligation_debt_value > total_obligation_collateral_value);
+    assert_eq!(total_obligation_collateral_value, 0); // i.e. bad debt
 
     contract_client.distribute_all_pools_fees();
 
     let insurance_fund_balance_after = usdc_token_client.balance(&insurance_fund);
     assert!(insurance_fund_balance_after > 0);
+    assert!(insurance_fund_balance_after < remaining_debt); // partial coverage
 
-    let pool_j_tokens_before = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
+    let pool_data_before = contract_client.get_pool_data(&usdc_pool_address);
+
+    let j_token_rate_before = pool_data_before.j_token_rate_floor_bps;
+    let pool_total_available_before = pool_data_before.pool.total_available;
+    assert_eq!(pool_data_before.pool.take_rate_fees_sum, 0);
+
+    // - Partially cover bad debt -
 
     contract_client.issue_cover_bad_debt(borrower);
     controlled_insurance_fund_client.mark_ready(&0, &insurance_fund_balance_after);
     contract_client.claim_cover_bad_debt_results(borrower);
 
-    let pool_borrowed_after = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
-    let pool_d_tokens_after = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
-    let pool_j_tokens_after = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
+    let pool_data_after = contract_client.get_pool_data(&usdc_pool_address);
 
-    assert_eq!(pool_d_tokens_after, 0);
-    assert_eq!(pool_borrowed_after, 0);
-    assert_eq!(pool_j_tokens_after, pool_j_tokens_before);
+    let j_token_rate_after = pool_data_after.j_token_rate_floor_bps;
+    let pool_debt_after = pool_data_after.pool.total_borrowed;
+    let pool_total_available_after = pool_data_after.pool.total_available;
 
     // - Verify obligation no longer exists -
 
@@ -158,29 +148,14 @@ fn test_partially_socialize_full_bad_debt_loss() {
         contract_client.try_get_user_obligation(borrower),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
+    // - Verify that partial bad debt coverage took place -
 
-    // - Verify that market became healthier -
-    let gold_pool_collateral_value =
-        compute_pool_collateral_value(&e, &contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_collateral_value =
-        compute_pool_collateral_value(&e, &contract_client, &usdc_pool_address).unwrap();
+    assert_eq!(pool_debt_after, 0);
+    assert_eq!(
+        pool_total_available_after,
+        pool_total_available_before.checked_add(insurance_fund_balance_after).unwrap()
+    );
 
-    let gold_pool_debt_value =
-        compute_pool_debt_value(&e, &contract_client, &gold_pool_address).unwrap();
-    let usdc_pool_debt_value =
-        compute_pool_debt_value(&e, &contract_client, &usdc_pool_address).unwrap();
-
-    let market_debt_value_sum = gold_pool_debt_value.checked_add(usdc_pool_debt_value).unwrap();
-    let market_collateral_value_sum =
-        gold_pool_collateral_value.checked_add(usdc_pool_collateral_value).unwrap();
-
-    let market_value_diff_after =
-        market_collateral_value_sum.checked_sub(market_debt_value_sum).unwrap();
-
-    let j_token_rate_after =
-        contract_client.get_pool_data(&usdc_pool_address).j_token_rate_floor_bps;
-
-    assert!(market_value_diff_before > market_value_diff_after);
     assert!(j_token_rate_before > j_token_rate_after);
 }
 

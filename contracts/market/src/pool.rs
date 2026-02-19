@@ -194,6 +194,7 @@ impl Pool {
         e: &Env,
         liquidation_result: &LiquidationResult,
     ) -> Result<(), MCError> {
+        self.adjust_total_available(e, liquidation_result.debt_repaid)?;
         self.adjust_total_borrowed(
             e,
             liquidation_result.debt_repaid.checked_neg().map_over_or_underflow()?,

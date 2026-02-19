@@ -14,7 +14,7 @@ use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_unparameterized_ltv_bps,
     get_obligation_collateral, get_obligation_d_tokens_as_tokens,
     get_obligation_initially_borrowed, get_obligation_j_tokens_as_tokens,
-    get_obligation_unpaid_interest,
+    get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
 };
 
 struct LiquidationTest {
@@ -767,4 +767,43 @@ fn test_liquidate_unpaid_interest_only() {
     assert_eq!(new_unpaid_interest, 0);
     assert_eq!(new_initially_borrowed, new_debt);
     assert_eq!(initially_borrowed_before, initially_borrowed_after);
+}
+
+#[test]
+fn test_liquidation_increases_borrow_pool_total_available() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
+
+    let pool_available_before =
+        get_pool_total_available(&test.fixture.contract_client, &test.borrow_pool_address);
+    let pool_borrowed_before =
+        get_pool_total_borrowed(&test.fixture.contract_client, &test.borrow_pool_address);
+
+    let liquidation_amount = test.max_liquidation_amount();
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &1,
+    );
+
+    let pool_available_after =
+        get_pool_total_available(&test.fixture.contract_client, &test.borrow_pool_address);
+    let pool_borrowed_after =
+        get_pool_total_borrowed(&test.fixture.contract_client, &test.borrow_pool_address);
+
+    assert_eq!(
+        pool_available_after,
+        pool_available_before + liquidation_amount,
+        "Repaid debt must flow into total_available"
+    );
+    assert_eq!(
+        pool_borrowed_after,
+        pool_borrowed_before - liquidation_amount,
+        "Repaid debt must reduce total_borrowed"
+    );
 }
