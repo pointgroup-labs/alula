@@ -28,39 +28,12 @@ const searchAsset = ref()
   .table-wrapper {
     display: flex;
     flex-direction: column;
-    gap: $spacing-12;
+    gap: $spacing-16;
 
     .market-info-wrapper {
       display: flex;
       gap: $spacing-16;
       margin-left: auto;
-    }
-
-    .market-info-pill {
-      display: flex;
-      align-items: center;
-      padding: $spacing-4 $spacing-12;
-      background-color: rgba(255, 255, 255, 0.496);
-      border-radius: 100px;
-      font-size: 14px;
-
-      p {
-        padding-right: 4px;
-      }
-
-      span {
-        font-size: 12px;
-      }
-
-      img {
-        width: 20px;
-        height: 20px;
-        object-fit: contain;
-
-        & + img {
-          margin-left: -10px;
-        }
-      }
     }
 
     .market-size {
@@ -69,22 +42,29 @@ const searchAsset = ref()
       }
     }
 
-    .accordion-body {
-      @media (max-width: $breakpoint-sm) {
-        display: flex;
-        flex-direction: column;
-        gap: $spacing-16;
-        padding-bottom: 1rem;
+    .j-accordion {
+      .accordion-button {
+        height: 54px;
+      }
+
+      .accordion-body {
+        padding: $spacing-12 0 $spacing-24;
       }
     }
 
-    .j-accordion .accordion-button {
-      height: 60px;
+    tr {
+      th:first-child {
+        padding-left: 32px;
+      }
+      th:last-child {
+        padding-left: 32px;
+      }
 
-      &:has(.market-info-wrapper) {
-        i {
-          margin-left: 12px;
-        }
+      td:first-child {
+        padding-left: 24px;
+      }
+      td:last-child {
+        padding-right: 24px;
       }
     }
   }
@@ -92,16 +72,7 @@ const searchAsset = ref()
   .no-markets-found {
     padding: $spacing-32;
     text-align: center;
-  }
-}
-
-.theme-dark {
-  .markets {
-    .table-wrapper {
-      .market-info-pill {
-        background-color: rgba(0, 0, 0, 0.259);
-      }
-    }
+    color: $text-secondary;
   }
 }
 </style>

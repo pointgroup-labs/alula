@@ -6,8 +6,8 @@ const search = defineModel({ default: undefined })
   <div class="market-search">
     <j-input
       v-model="search"
-      placeholder="Search assets..."
-      size="sm"
+      placeholder="Search"
+      size="md"
     >
       <template #prepend>
         <i-app-search-icon class="search-icon" />
@@ -18,41 +18,47 @@ const search = defineModel({ default: undefined })
 
 <style lang="scss">
 .market-search {
-  width: 300px;
+  width: 326px;
   margin-left: auto;
-  margin-bottom: 12px;
+  margin-bottom: 24px;
 
   @media (max-width: $breakpoint-xs) {
     width: 100%;
   }
 
-  .input-group {
-    gap: $spacing-8;
-    border-color: $neutral-7;
-  }
+  .j-input {
+    .input-group {
+      height: 52px;
+      gap: $spacing-8;
+      border: none;
+      background-color: $surface-neutral-08;
+      padding: $spacing-8 $spacing-12;
+    }
 
-  .j-input__prepend {
-    min-width: 16px;
-    width: 16px;
-    display: flex;
-    align-items: center;
-  }
+    .j-input__prepend {
+      min-width: 24px;
+      width: 24px;
+      display: flex;
+      align-items: center;
+    }
 
-  input::placeholder {
-    opacity: 0.7;
-  }
+    input {
+      color: $text-secondary;
+      font-size: 20px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 20px;
+    }
 
-  .search-icon {
-    width: 16px;
-    height: 16px;
-  }
-}
+    input::placeholder {
+      color: rgba(255, 255, 255, 0.40);
+    }
 
-body.body--dark .market-search {
-  .input-group {
-    border-color: $neutral-16;
-    &:has(input:focus) {
-      border-color: $neutral-7;
+    .search-icon {
+      min-width: 24px;
+      width: 24px;
+      min-height: 24px;
+      height: 24px;
     }
   }
 }

@@ -34,6 +34,18 @@
     &.j-input--error {
       // border-color: $negative;
     }
+
+    input {
+      font-size: 24px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 24px;
+      color: $text-secondary;
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+    }
   }
 
   .input-group-lg {
@@ -145,27 +157,5 @@
     transition:
       opacity 0.3s ease,
       transform 0.3s ease;
-  }
-}
-
-.theme-dark {
-  .j-input {
-    .input-group {
-      &:not(.j-input--error) {
-        // border-color: $neutral-800;
-      }
-    }
-
-    .j-input__label {
-      // color: $neutral-400;
-    }
-
-    input {
-      color: #fff;
-
-      &::placeholder {
-        color: darken(#fff, 10%);
-      }
-    }
   }
 }

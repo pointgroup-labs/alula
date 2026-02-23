@@ -6,14 +6,14 @@ import { clickElement, destructurePoolAsset, shortenAddress } from '~/utils'
 
 const {
   loading = false,
-  variant = 'primary',
+  variant = 'blue',
   pool,
   ...props
 } = defineProps<{
   pool?: Pool
   isTrust?: boolean
   loading?: boolean
-  variant?: 'primary' | 'accent'
+  variant?: 'blue' | 'accent'
   disabled?: boolean
 } & BButtonProps>()
 
@@ -96,11 +96,10 @@ async function emitClickHandler() {
 
 <template>
   <j-btn
-    :variant="variant"
+    :variant="publicKey ? variant : 'light'"
     :loading="isLoading || isConnectionLoading"
     v-bind="props"
     :disabled="!publicKey ? false : disabled"
-    pill
     @click="emitClickHandler"
   >
     <template v-if="!publicKey">

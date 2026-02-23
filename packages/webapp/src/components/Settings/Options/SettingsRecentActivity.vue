@@ -39,7 +39,7 @@ function formatDate(iso: string) {
       />
     </div>
 
-    <div class="history-preview">
+    <!-- <div class="history-preview">
       <div
         v-if="records.length > 0"
         class="tx-history-list"
@@ -49,19 +49,16 @@ function formatDate(iso: string) {
           :key="record.transaction_hash"
           class="tx-history-list__item"
         >
-          <!-- Explorer icon -->
           <img
             :src="stellarExpertLogo"
             alt="stellar expert"
             class="stellar-expert-logo"
           >
 
-          <!-- Main content -->
           <div class="tx-history-list__content">
             <div class="tx-history-list__title">
               {{ getTxActionLabel(record) }}
 
-              <!-- Status -->
               <i-app-success-circle v-if="record.transaction_successful" />
               <i-app-error-circle v-else />
             </div>
@@ -70,7 +67,6 @@ function formatDate(iso: string) {
             </div>
           </div>
 
-          <!-- External link -->
           <a
             :href="generateExplorerLink(record.transaction_hash)"
             target="_blank"
@@ -81,7 +77,7 @@ function formatDate(iso: string) {
           </a>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
 
   <sidebar-sub-menu
@@ -164,7 +160,7 @@ function formatDate(iso: string) {
     height: 20px;
 
     path {
-      stroke: $neutral-6;
+      stroke: $text-primary;
     }
   }
 }
@@ -172,8 +168,8 @@ function formatDate(iso: string) {
 .tx-history-list {
   display: flex;
   flex-direction: column;
-  gap: $spacing-12;
-  padding: $spacing-12 0 $spacing-20 0;
+  gap: $spacing-24;
+  padding: 0 0 $spacing-20 0;
 
   &__item {
     padding: 0;
@@ -204,11 +200,15 @@ function formatDate(iso: string) {
 
   &__meta {
     font-size: 12px;
-    color: $neutral-6;
+    color: $text-secondary;
   }
 
   &__action {
     margin-left: auto;
+
+    svg path {
+      stroke: $text-primary;
+    }
   }
 
   .stellar-expert-logo {
@@ -221,12 +221,7 @@ function formatDate(iso: string) {
   .no-recent-activity {
     text-align: center;
     padding: $spacing-20 0;
-  }
-}
-
-.theme-dark {
-  .tx-history-list__action svg {
-    color: #fff;
+    color: $text-secondary;
   }
 }
 </style>

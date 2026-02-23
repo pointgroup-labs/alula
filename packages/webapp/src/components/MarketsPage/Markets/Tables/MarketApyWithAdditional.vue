@@ -64,7 +64,7 @@ const apyWithAdittional = computed(() => {
           :key="data.additional_apy"
           class="additional-tip__value"
         >
-          {{ data.token_symbol }} REWARDS: <span :style="{ color: isDeposit ? '#08b576' : 'rgb(255, 165, 0)' }">
+          {{ data.token_symbol }} REWARDS: <span :style="{ color: isDeposit ? '#00c950' : '#f0b100' }">
             {{ truncatePercent(data.additional_apy, 2) }}% </span>
         </div>
         <div class="additional-tip__value">
@@ -81,7 +81,6 @@ const apyWithAdittional = computed(() => {
   </lighting-apy>
   <j-pill-label
     v-else
-    color="#111"
     :variant="isDeposit ? 'success' : 'warning'"
     size="sm"
   >
@@ -96,11 +95,12 @@ const apyWithAdittional = computed(() => {
   gap: 4px;
 
   .separator {
-    margin: 4px 0 8px;
+    margin: 12px 0;
+    background-color: $surface-neutral-10;
   }
 
   &__title {
-    font-weight: 500;
+    font-weight: 700;
     font-size: 12px;
   }
 
@@ -109,11 +109,11 @@ const apyWithAdittional = computed(() => {
     display: flex;
     justify-content: space-between;
     padding: 2px 0;
-    font-weight: 500;
+    font-weight: 400;
     font-size: 12px;
 
     span {
-      font-weight: 600;
+      font-weight: 700;
       font-size: 14px;
     }
   }

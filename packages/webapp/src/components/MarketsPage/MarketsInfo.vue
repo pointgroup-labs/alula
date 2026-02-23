@@ -31,10 +31,10 @@ function normalizeAmount(price: number) {
 </script>
 
 <template>
-  <div class="market-info">
+  <div class="markets-info">
     <template v-if="loading">
       <market-info-skeleton
-        v-for="i in 2"
+        v-for="i in 3"
         :key="i"
       />
     </template>
@@ -53,53 +53,22 @@ function normalizeAmount(price: number) {
         :icon="borrowingIcon"
         icon-color="#FFD101"
       />
+         <total-card
+        title="Global Market Size"
+        :body="`$${marketSize}`"
+        color="#111"
+        bg="#ffd101"
+        :icon="borrowingIcon"
+        icon-color="#FFD101"
+      />
     </template>
-
-    <div class="total-card market-size">
-      <div class="total-card__info">
-        <div class="total-card__title">
-          Global Market Size
-        </div>
-        <div class="total-card__body">
-          <j-skeleton
-            v-if="loading"
-            height="28"
-            style="border-radius: 6px;"
-            full-width
-          />
-          <template v-else>
-            ${{ marketSize }}
-          </template>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <style lang="scss">
-.market-info {
-  display: flex;
-  align-items: center;
+.markets-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: $spacing-24;
-
-  .market-size {
-    color: $dark;
-    background-color: transparent;
-    justify-content: flex-end;
-    margin-left: auto;
-    text-align: right;
-
-    &::before {
-      display: none;
-    }
-  }
-}
-
-.theme-dark {
-  .market-size {
-    .total-card__info {
-      color: $neutral-5;
-    }
-  }
 }
 </style>

@@ -59,6 +59,8 @@ export const useMarketsStore = defineStore('markets', () => {
     console.log('%c[Markets Addresses]', 'color: #FFB726', state.marketsList)
   }
 
+  const debouncedMarketFn = useDebounceFn(loadMarketsData, 100)
+
   async function loadMarketsData() {
     try {
       state.loading = true
@@ -107,12 +109,16 @@ export const useMarketsStore = defineStore('markets', () => {
     }
   }
 
-  watch([network, alulaClient], async () => {
+  watch([network, alulaClient], async ([nextNetwork, _nextClient], [prevNetwork, _prevClient]) => {
     if (import.meta.env.SSR) {
       return
     }
+    if (nextNetwork !== prevNetwork) {
+      state.markets = {}
+      state.marketsList = []
+    }
     if (Object.keys(state.markets).length === 0 && alulaClient.value?.market) {
-      await loadMarketsData()
+      debouncedMarketFn()
     }
   }, {})
 

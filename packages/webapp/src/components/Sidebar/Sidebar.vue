@@ -41,31 +41,30 @@ onMounted(() => {
           class="sidebar-bg"
           @click="close"
         />
-        <transition name="fade">
-          <div
-            v-show="isSidebar"
-            class="sidebar-wrapper"
-            :style="{
-              '--sidebar-translate': position === 'left' ? '-100%' : '100%',
-              '--sidebar-x': position === 'left' ? 'initial' : '0',
-            }"
-          >
-            <div class="sidebar-header">
-              <div class="sidebar-header__title">
-                {{ title }}
-              </div>
-
-              <div
-                class="btn-close"
-                @click="close"
-              />
+        <div
+          v-show="isSidebar"
+          id="sidebar-root"
+          class="sidebar-wrapper"
+          :style="{
+            '--sidebar-translate': position === 'left' ? '-100%' : '100%',
+            '--sidebar-x': position === 'left' ? 'initial' : '0',
+          }"
+        >
+          <div class="sidebar-header">
+            <div class="sidebar-header__title">
+              {{ title }}
             </div>
 
-            <div class="sidebar-body">
-              <slot />
-            </div>
+            <div
+              class="btn-close"
+              @click="close"
+            />
           </div>
-        </transition>
+
+          <div class="sidebar-body">
+            <slot />
+          </div>
+        </div>
       </aside>
     </transition>
   </teleport>
@@ -74,7 +73,7 @@ onMounted(() => {
 <style lang="scss">
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.1s ease;
 }
 .fade-enter-from,
 .fade-leave-to {
@@ -97,20 +96,24 @@ onMounted(() => {
 .sidebar-bg {
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.44);
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(6.4px);
 }
 
 .sidebar-wrapper {
   width: 400px;
-  padding: $spacing-40;
-  background-color: #fff;
+  padding: $spacing-32 $spacing-24;
   position: absolute;
   right: var(--sidebar-x);
   top: 0;
   bottom: 0;
-  transition: 0.2s ease;
+  transition: 0.1s ease;
   color: $dark;
   overflow-y: auto;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  background: $surface-neutral-04;
+  box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(125px);
 
   &:has(.sidebar-sub-menu) {
     overflow: hidden;
@@ -128,27 +131,19 @@ onMounted(() => {
   align-items: center;
 
   &__title {
-    font-size: 24px;
+    color: #fff;
+    font-size: 32px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 700;
+    line-height: 28px;
   }
 
   .btn-close {
     width: 24px;
     height: 24px;
-    background-color: $dark;
+    background: #fff;
     mask-size: 22px;
-  }
-}
-
-.theme-dark {
-  .sidebar-wrapper {
-    background-color: $dark;
-    color: #fff;
-
-    .btn-close {
-      background: #fff;
-    }
+    opacity: 1;
   }
 }
 </style>

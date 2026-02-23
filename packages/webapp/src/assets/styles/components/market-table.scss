@@ -1,12 +1,13 @@
 .market-table {
   margin-bottom: 0 !important;
   th {
-    color: $neutral-6;
-    font-size: 14px;
+    color: $text-secondary;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 400;
-    line-height: 20px;
-    border-bottom: 1px solid $neutral-13;
+    font-weight: 500;
+    line-height: 16px;
+    background-color: transparent;
+    border-bottom: 1px solid $surface-neutral-04;
 
     span {
       width: 100%;
@@ -36,19 +37,18 @@
   }
 
   td {
-    &.borrow {
-      padding-right: 28px;
-    }
+    background-color: transparent;
+    color: $text-primary;
   }
 
   tbody {
     tr {
-      height: 80px;
+      height: 54px;
       cursor: pointer;
 
       &:hover {
         td {
-          background: $neutral-2;
+          background: $surface-neutral-08;
         }
       }
     }
@@ -86,11 +86,17 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    color: $text-primary;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 20px;
 
     span {
-      color: $neutral-6;
+      color: $text-secondary;
       font-size: 12px;
-      font-weight: 500;
+      font-style: normal;
+      font-weight: 400;
       line-height: 16px;
     }
   }
@@ -102,8 +108,8 @@
     gap: $spacing-8;
 
     img {
-      width: 40px;
-      height: 40px;
+      width: 32px;
+      height: 32px;
       object-fit: contain;
     }
 
@@ -112,26 +118,32 @@
       flex-direction: column;
       gap: 2px;
       font-style: normal;
+      text-align: left;
 
       &__name {
-        font-size: 18px;
+        color: $text-primary;
+        font-size: 16px;
+        font-style: normal;
         font-weight: 500;
         line-height: 20px;
-        text-align: left;
       }
 
       &__symbol {
-        color: $neutral-6;
+        color: $text-secondary;
         font-size: 12px;
-        font-weight: 500;
+        font-style: normal;
+        font-weight: 400;
         line-height: 16px;
-        text-align: left;
       }
     }
   }
 
   &__action {
     gap: $spacing-8;
+
+    .btn {
+      font-family: $font-Inter !important;
+    }
   }
 
   .no-data {
@@ -147,39 +159,4 @@
   justify-content: center;
   padding: $spacing-16;
   font-size: 14px;
-}
-
-.theme-dark {
-  .market-table {
-    th {
-      background: $neutral-18;
-      color: $neutral-9;
-      border-color: $neutral-12;
-    }
-
-    tr {
-      &:hover {
-        td {
-          background: rgba(17, 17, 17, 0.562);
-        }
-      }
-    }
-
-    td {
-      background: $neutral-18;
-      color: #fff;
-    }
-
-    .market-table__asset__info__symbol {
-      color: $neutral-7;
-    }
-
-    .with-price span {
-      color: $neutral-7;
-    }
-  }
-
-  .no-table-data {
-    color: $neutral-7;
-  }
 }

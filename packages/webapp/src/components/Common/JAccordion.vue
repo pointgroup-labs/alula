@@ -1,25 +1,18 @@
 <script lang="ts" setup>
-import arrowDown from '~/assets/img/icons/accordion-arrow-down.svg?raw'
-import arrowUp from '~/assets/img/icons/accordion-arrow-up.svg?raw'
+import chevronDown from '~/assets/img/icons/chevron-down.svg?raw'
 
 const {
   flush = true,
-  icon = arrowDown,
-  activeIcon = arrowUp,
 } = defineProps<{
   flush?: boolean // true - disabled default border
   visible?: boolean // true - default open accordion item
   title?: string
-  icon?: string
-  activeIcon?: string
 }>()
 
 const emit = defineEmits(['toggle'])
 
 const slot = useSlots()
 const show = ref(false)
-
-const accordionIcon = computed(() => show.value ? activeIcon : icon)
 </script>
 
 <template>
@@ -33,6 +26,7 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
       @toggle="emit('toggle', $event)"
     >
       <template #title>
+        <i v-html="chevronDown" />
         <slot
           v-if="slot?.title"
           name="title"
@@ -40,7 +34,6 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
         <template v-else>
           {{ title }}
         </template>
-        <i v-html="accordionIcon" />
       </template>
       <slot />
     </b-accordion-item>
@@ -49,19 +42,22 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
 
 <style lang="scss">
 .j-accordion {
+  --bs-accordion-bg: rgba(255, 255, 255, 0.04);
+  color: #fff;
+
   .accordion-item {
-    border-radius: $radius-8;
+    border-radius: 12px;
   }
 
   .accordion-header {
     margin: 0;
-    background: $neutral-3;
-    border-radius: $radius-8;
+    border-radius: 12px;
 
     &:has(button[aria-expanded='true']) {
-      border-radius: $radius-8 $radius-8 0 0;
+      border-radius: 12px 12px 0 0;
     }
   }
+
   .accordion-body {
     padding: $spacing-16;
     overflow: auto;
@@ -69,12 +65,12 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
 
   .accordion-button {
     cursor: pointer;
-    color: #111;
+    color: $text-primary;
     font-size: 18px;
     font-style: normal;
     font-weight: 500;
     line-height: normal;
-    padding: $spacing-16;
+    padding: $spacing-12 $spacing-16;
     background-color: transparent;
 
     font-family: $font-family-base;
@@ -90,19 +86,34 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
     &:not(.collapsed) {
       background-color: transparent;
       box-shadow: none;
+
+      i {
+        svg {
+          transform: rotate(0);
+
+          path {
+            stroke: #fff;
+          }
+        }
+      }
     }
+
     i {
       display: flex;
       align-items: center;
-      margin-left: auto;
+      width: 24px;
+      height: 24px;
+      padding: 6px 5px;
+      margin-right: 8px;
 
       svg {
-        width: 16px;
-        height: 16px;
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+        transition: transform 0.1s ease;
 
-        @media (max-width: $breakpoint-xs) {
-          width: 20px;
-          height: 20px;
+        path {
+          stroke: $surface-neutral-30;
         }
       }
     }
@@ -110,33 +121,6 @@ const accordionIcon = computed(() => show.value ? activeIcon : icon)
 
   .collapsing {
     transition: 0.1s ease;
-  }
-}
-
-.theme-dark{
-  .j-accordion {
-    border-color: #fff;
-
-    .accordion-item {
-      background-color: $neutral-18;
-    }
-
-    .accordion-header {
-      background: $neutral-16;
-    }
-
-    .accordion-button {
-      color: #fff;
-
-      i {
-        svg {
-          filter: invert(1);
-        }
-      }
-    }
-    .accordion-body {
-      color: #fff;
-    }
   }
 }
 </style>

@@ -106,6 +106,11 @@ watch(dialog, async (v) => {
         >
         <span>Supply {{ poolData?.asset.symbol }}</span>
       </div>
+
+      <div class="dialog-balance">
+        <div class="dialog-balance__label">Balance:</div>
+        <div class="dialog-balance__value">{{ shortenNumber(balance) }} {{ poolData?.asset.symbol }}</div>
+      </div>
     </template>
 
     <div class="supply-dialog__body">
@@ -123,11 +128,7 @@ watch(dialog, async (v) => {
             return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
           },
         ]"
-      >
-        <template #label-right>
-          Balance: {{ balance }} {{ poolData?.asset.symbol }}
-        </template>
-      </input-widget>
+      />
 
       <div
         v-if="poolData"
@@ -191,6 +192,8 @@ watch(dialog, async (v) => {
           />
           <span v-else>{{ txFee }} XLM</span>
         </div>
+
+        <div class="separator" />
       </div>
 
       <warning-block
@@ -199,24 +202,24 @@ watch(dialog, async (v) => {
         :is-warning="!isCanSupply"
       />
 
-      <j-toggle
-        v-model="collateralOnly"
-        size="small"
-        :disabled="!isCanSupply"
-      >
-        <template #append>
-          Collateral Only
-        </template>
-      </j-toggle>
+      <div class="extra-info">
+        <div class="extra-info__label">Collateral Only</div>
+
+        <j-toggle
+          v-model="collateralOnly"
+          size="small"
+          :disabled="!isCanSupply"
+        />
+      </div>
+
+      <div class="extra-info">
+        <div class="extra-info__label">Supply APY</div>
+        <div class="extra-info__value">{{ poolData?.deposit_apy }}</div>
+      </div>
 
       <div class="supply-dialog-action">
-        <div class="action-info">
-          <span>Supply APY</span>
-          <span>{{ poolData?.deposit_apy }}</span>
-        </div>
-
         <market-dialog-action-btn
-          variant="primary"
+          variant="blue"
           :loading="isLoading"
           :pool="poolData?.raw.pool"
           :disabled="!isCanSupply || amount >= balance"
@@ -231,33 +234,62 @@ watch(dialog, async (v) => {
 
 <style lang="scss">
 .supply-dialog {
+  .modal-header {
+    padding: $spacing-16 $spacing-12 $spacing-16 $spacing-24;
+    border-bottom: 1px solid $surface-neutral-10;
+  }
+
+  .modal-content {
+    max-width: 442px;
+  }
+
   &__title {
     display: flex;
     align-items: center;
     gap: $spacing-8;
     font-size: 20px;
     font-style: normal;
-    font-weight: 400;
+    font-weight: 700;
     line-height: 20px;
 
     img {
-      width: 40px;
-      height: 40px;
+      width: 32px;
+      height: 32px;
       object-fit: contain;
       border-radius: 50%;
     }
   }
 
   &__body {
-    padding-top: $spacing-16;
+    padding: $spacing-16 $spacing-24 $spacing-24;
     display: flex;
     flex-direction: column;
     gap: $spacing-16;
   }
 
-  .j-toggle__label {
-    font-size: 14px;
-    user-select: none;
+  .extra-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    &__label {
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 16px;
+    }
+
+    &__value {
+      font-family: $font-Inter;
+      font-size: 24px;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 36px;
+    }
+  }
+
+  .j-input__label {
+    display: none;
   }
 
   .supply-dialog-action {

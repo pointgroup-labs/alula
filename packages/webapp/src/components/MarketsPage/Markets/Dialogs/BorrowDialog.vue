@@ -62,7 +62,7 @@ async function borrow() {
     return
   }
   if (!amount.value || amount.value <= 0) {
-    focusInput('.borrow-dialog')
+    focusInput('.borrow-input')
     return
   }
 
@@ -110,7 +110,7 @@ watch(dialog, async (v) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="supply-dialog borrow-dialog dialog-default"
+    class-name="supply-dialog dialog-default"
   >
     <template #header>
       <div class="supply-dialog__title">
@@ -120,11 +120,17 @@ watch(dialog, async (v) => {
         >
         <span>Borrow {{ data?.asset.symbol }}</span>
       </div>
+
+      <div class="dialog-balance">
+        <div class="dialog-balance__label">Available:</div>
+        <div class="dialog-balance__value">{{ shortenNumber(availableToBorrow) }} {{ data?.asset.symbol }}</div>
+      </div>
     </template>
 
     <div class="supply-dialog__body">
       <input-widget
         v-model="amount"
+        class="borrow-input"
         :balance="availableToBorrow"
         :fee="POOL_REMAINING_BALANCE"
         :rules="[
@@ -132,11 +138,7 @@ watch(dialog, async (v) => {
             return v && Number(v) < availableToBorrow || 'Borrow limit exceeded'
           },
         ]"
-      >
-        <template #label-right>
-          Available: {{ formatPrice(availableToBorrow, 0, 7) }} {{ data?.asset.symbol }}
-        </template>
-      </input-widget>
+      />
 
       <div
         v-if="data"
@@ -213,6 +215,8 @@ watch(dialog, async (v) => {
             {{ txFee }}
           </span>
         </div>
+
+        <div class="separator" />
       </div>
 
       <warning-block
@@ -220,20 +224,23 @@ watch(dialog, async (v) => {
         :is-warning="!isCanBorrow"
       />
 
-      <div class="supply-agree">
+      <div class="extra-info">
         <j-checkbox
           v-model="agree"
           :disabled="!isCanBorrow"
         >
-          I acknowledge the risks involved.
+          <div class="extra-info__label">
+            I acknowledge the risks involved.
+          </div>
         </j-checkbox>
       </div>
 
+      <div class="extra-info">
+        <div class="extra-info__label">Borrow APY</div>
+        <div class="extra-info__value">{{ data?.borrow_apy }}</div>
+      </div>
+
       <div class="supply-dialog-action">
-        <div class="action-info">
-          <span>Borrow APY</span>
-          <span>{{ data?.borrow_apy }}</span>
-        </div>
 
         <market-dialog-action-btn
           variant="accent"
@@ -248,17 +255,3 @@ watch(dialog, async (v) => {
     </div>
   </j-dialog>
 </template>
-
-<style lang="scss">
-.borrow-dialog {
-  .supply-agree {
-    font-size: 11px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 12px;
-    display: flex;
-    align-items: center;
-    gap: $spacing-8;
-  }
-}
-</style>

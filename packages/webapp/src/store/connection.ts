@@ -101,6 +101,9 @@ export const useConnectionStore = defineStore('connection', () => {
         loading.value = false
       },
     })
+    requestAnimationFrame(() => {
+      styleWalletModal()
+    })
   }
 
   async function validateAccount(address: string) {
@@ -163,3 +166,36 @@ export const useConnectionStore = defineStore('connection', () => {
 
   }
 })
+
+function styleWalletModal() {
+  const modal = document.querySelector('stellar-wallets-modal')
+  const root = modal?.shadowRoot
+  if (!root) { return }
+
+  const style = document.createElement('style')
+  style.textContent = `
+    .backdrop {
+      background: rgba(0, 0, 0, 0.1) !important;
+      backdrop-filter: blur(6.4px);
+    }
+    .dialog-modal  {
+      background: transparent !important
+    }
+    .dialog-modal-body__help {
+      background-color: rgba(255, 255, 255, 0.04) !important;
+      backdrop-filter: blur(30px);
+    }
+    .dialog-modal-body__wallets,
+    .dialog-modal-body {
+      background-color: rgba(255, 255, 255, 0.04) !important;
+      backdrop-filter: blur(30px);
+    }
+    .wallets-header__button svg {
+      fill: #fff !important;
+      width: 16px;
+      height: 16px
+    }
+  `
+
+  root.append(style)
+}

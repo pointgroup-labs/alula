@@ -21,9 +21,24 @@ $neutral-18: #262729;
 $success-50: #08b57680;
 $warning-50: #e49c0b80;
 
+$surface-neutral-04: rgba(255, 255, 255, 0.04);
+$surface-neutral-08: rgba(255, 255, 255, 0.08);
+$surface-neutral-10: rgba(255, 255, 255, 0.1);
+$surface-neutral-12: rgba(255, 255, 255, 0.12);
+$surface-neutral-20: rgba(255, 255, 255, 0.2);
+$surface-neutral-30: rgba(255, 255, 255, 0.3);
+$surface-neutral-60: rgba(255, 255, 255, 0.6);
+
 $dark: #111;
 
+//text colors
+$text-primary: #f5f5f5;
+$text-secondary: rgba(255, 255, 255, 0.6);
+$text-success: #00c950;
+$text-warning: #f0b100;
+
 $font-family-base: 'NTSomic', serif;
+$font-Inter: 'Inter', sans-serif;
 
 // spacing
 $spacing-4: 4px;

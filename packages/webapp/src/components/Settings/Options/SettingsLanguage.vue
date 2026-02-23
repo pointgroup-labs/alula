@@ -78,7 +78,7 @@ function handleLanguage(lang: string) {
   cursor: pointer;
 
   .language-selected-lang {
-    color: $neutral-6;
+    color: $text-primary;
     font-size: 16px;
     font-style: normal;
     font-weight: 400;
@@ -91,14 +91,14 @@ function handleLanguage(lang: string) {
     i {
       display: flex;
       align-items: center;
-      color: $neutral-6;
+      color: $text-primary;
 
       svg {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
 
         path {
-          stroke: $neutral-6;
+          stroke: $text-primary;
         }
       }
     }
@@ -116,22 +116,6 @@ function handleLanguage(lang: string) {
 
     &.active {
       font-weight: 500;
-    }
-  }
-}
-
-.theme-dark {
-  .setting-item.language {
-    .language-selected-lang {
-      color: $neutral-12;
-
-      i {
-        svg {
-          path {
-            stroke: $neutral-12;
-          }
-        }
-      }
     }
   }
 }

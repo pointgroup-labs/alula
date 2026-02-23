@@ -9,7 +9,7 @@ import { isDark } from '~/hooks/theme'
 
 const { width } = useWindowSize()
 
-// const route = useRoute()
+const route = useRoute()
 const logo = computed(() => width.value >= 1024 ? (isDark.value ? logoDark : logoLight) : logoMobile)
 
 const tabs = [{
@@ -33,12 +33,16 @@ provide('navTabs', tabs)
 
 const activeTab = ref()
 
-// watch(() => route.path, (p) => {
-// const tabIdx = tabs.findIndex(t => t?.route === p)
-// if (tabIdx !== -1) {
-//   activeTab.value = tabs[tabIdx]
-// }
-// }, { immediate: true, once: true })
+watch(() => route.path, (p) => {
+  if (p === '/' || p.includes('lend')) {
+    activeTab.value = tabs[0]
+    return
+  }
+  const tab = tabs.slice(1).find(t => p.includes(t.route))
+  if (tab) {
+    activeTab.value = tab
+  }
+}, { immediate: true, once: true })
 </script>
 
 <template>
@@ -69,7 +73,7 @@ const activeTab = ref()
       </nav>
 
       <div class="header-actions">
-        <connect-wallet :size="width > 650 ? 'lg' : 'md'" />
+        <connect-wallet size="md" />
         <app-settings />
       </div>
     </div>
@@ -78,36 +82,37 @@ const activeTab = ref()
 
 <style lang="scss">
 header {
-  background-color: #fff;
-
   .header-wrapper {
     padding-top: $spacing-16;
     padding-bottom: $spacing-16;
     display: flex;
-    align-items: center;
-    gap: $spacing-24;
+    align-items: stretch;
+    gap: 56px;
+  }
+
+  .app-logo {
+    width: 120px;
+    height: 52px;
   }
 
   .header-nav {
     display: flex;
+    align-items: flex-end;
+    gap: $spacing-16;
 
     .nav-link {
-      margin: $spacing-12 $spacing-16;
-      padding: $spacing-8 $spacing-20;
-      border-radius: $spacing-32;
+      height: 42px;
+      padding: $spacing-12 $spacing-16;
+      border-radius: 10px;
+      color: $text-secondary;
+      font-family: $font-family-base;
       font-size: 16px;
       font-style: normal;
-      font-weight: 700;
-      line-height: normal;
+      font-weight: 500;
+      line-height: 20px;
+      display: flex;
+      align-items: center;
       cursor: pointer;
-
-      &--active {
-        background-color: $neutral-13;
-      }
-
-      &:hover {
-        background-color: $neutral-2;
-      }
     }
   }
 
@@ -121,15 +126,14 @@ header {
 
 .theme-dark {
   header {
-    background-color: $dark;
-
     .nav-link {
-      &:hover {
-        background-color: $neutral-18;
+      &--active {
+        color: $text-primary;
+        background: $surface-neutral-04;
       }
 
-      &--active {
-        background-color: $neutral-16;
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.06);
       }
     }
   }

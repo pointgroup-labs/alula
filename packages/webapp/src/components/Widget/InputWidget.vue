@@ -146,7 +146,7 @@ watch(() => balance, () => {
     <template #append>
       <j-btn
         :disabled="!wallet.publicKey"
-        variant="accent"
+        variant="light"
         size="sm"
         class="j-input__btn"
         @click="max"
@@ -171,7 +171,7 @@ watch(() => balance, () => {
   }
 
   .input-group {
-    background-color: $neutral-2;
+    background-color: $surface-neutral-08;
     border-radius: $spacing-12;
     border: none;
   }
@@ -184,19 +184,6 @@ watch(() => balance, () => {
     .btn-content {
       transform: none;
     }
-  }
-}
-
-.theme-dark {
-  .input-widget {
-    .input-group {
-      background-color: $dark;
-      border: 1px solid $neutral-16;
-    }
-  }
-
-  .j-input__btn {
-    color: $dark;
   }
 }
 </style>

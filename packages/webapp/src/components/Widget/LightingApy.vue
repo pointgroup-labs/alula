@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 const {
-  iconColor,
   labelColor,
   variant = 'deposit',
   isLighting = true,
@@ -14,15 +13,15 @@ const {
 
 const slots = defineSlots()
 
-const iconColorByVatiant = computed(() => iconColor ?? (variant === 'deposit' ? 'rgb(255, 165, 0)' : 'rgb(135, 132, 247)'))
-const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' ? '#08b576' : 'rgb(255, 165, 0)'))
+const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' ? '#00C950' : '#F0B100'))
 </script>
 
 <template>
   <div :class="$style['lighting-apy']">
     <i-app-lighting-icon
       v-if="isLighting"
-      :color="iconColorByVatiant"
+      color="#F8CB14"
+      :class="$style['lighting-icon']"
     />
     <template v-if="slots?.tip">
       <j-tooltip>
@@ -50,10 +49,22 @@ const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' 
   gap: 4px;
 }
 
+.lighting-icon {
+  width: 10px;
+  margin-bottom: -2px;
+}
+
 .lighting-label {
-  text-decoration: underline dashed;
-  text-decoration-thickness: 1px;
-  text-decoration-color: currentColor;
-  text-underline-offset: 4px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 100%;
+  letter-spacing: -0.312px;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-skip-ink: auto;
+  text-decoration-thickness: 10.5%;
+  text-underline-offset: 21.5%;
+  text-underline-position: from-font;
 }
 </style>

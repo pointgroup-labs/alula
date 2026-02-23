@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 const {
-  color = '#262729',
+  color = 'rgba(255, 255, 255, 0.3)',
   borderWidth = '2px',
   width = '30px',
 } = defineProps<{

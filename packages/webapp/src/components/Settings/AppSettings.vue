@@ -7,9 +7,8 @@ provide('isSidebar', isSettingsSidebar)
 
 <template>
   <j-btn
-    rounded
-    variant="secondary"
-    :size="width > 650 ? 'lg' : 'md'"
+    variant="ghost"
+    size="md"
     class="settings-btn"
     aria-haspopup="dialog"
     :aria-expanded="isSettingsSidebar"
@@ -40,22 +39,13 @@ provide('isSidebar', isSettingsSidebar)
 
 <style lang="scss">
 .settings-btn {
+  padding: 8px;
+  color: #fff;
   cursor: pointer;
+
   .settings-icon {
-    margin-top: 2px;
-  }
-}
-
-.theme-dark {
-  .settings-btn {
-    background-color: $neutral-16 !important;
-    border-color: $neutral-16 !important;
-
-    .settings-icon {
-      path {
-        color: #c4c5c7;
-      }
-    }
+    width: 22px;
+    height: 22px;
   }
 }
 </style>

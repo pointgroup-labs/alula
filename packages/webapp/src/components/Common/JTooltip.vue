@@ -5,7 +5,7 @@ import { ref, watchEffect } from 'vue'
 
 const {
   offset = 4,
-  isArrow = true,
+  // isArrow = true,
   closeDelay = 200,
 } = defineProps<{
   offset?: number
@@ -26,7 +26,7 @@ const floatingArrow = ref<HTMLElement | null>(null)
 const isVisible = ref(false)
 const closeTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const { floatingStyles, middlewareData, placement, update } = useFloating(reference, floating, {
+const { floatingStyles, /*  middlewareData, *//*  placement, */ update } = useFloating(reference, floating, {
   middleware: [
     arrow({ element: floatingArrow }),
     Offset(offset),
@@ -83,13 +83,13 @@ watchEffect((onCleanup) => {
   }
 })
 
-const getArrowSide = () => {
-  if (placement.value.startsWith('top')) { return 'bottom' }
-  if (placement.value.startsWith('bottom')) { return 'top' }
-  if (placement.value.startsWith('left')) { return 'right' }
-  if (placement.value.startsWith('right')) { return 'left' }
-  return 'top'
-}
+// const getArrowSide = () => {
+//   if (placement.value.startsWith('top')) { return 'bottom' }
+//   if (placement.value.startsWith('bottom')) { return 'top' }
+//   if (placement.value.startsWith('left')) { return 'right' }
+//   if (placement.value.startsWith('right')) { return 'left' }
+//   return 'top'
+// }
 </script>
 
 <template>
@@ -124,7 +124,7 @@ const getArrowSide = () => {
         name="content"
       />
 
-      <div
+      <!-- <div
         v-if="isArrow"
         ref="floatingArrow"
         class="tooltip-content__arrow"
@@ -138,7 +138,7 @@ const getArrowSide = () => {
           top: middlewareData.arrow?.y != null ? `${middlewareData.arrow.y}px` : '',
           [getArrowSide()]: '-4px',
         }"
-      />
+      /> -->
     </div>
   </teleport>
 </template>
@@ -151,26 +151,27 @@ const getArrowSide = () => {
 </style>
 
 <style lang="scss">
-$tooltip-bg-color: $neutral-3;
+$tooltip-bg-color: $surface-neutral-12;
 $tooltip-dark-bg-color: $dark;
 $tooltip-padding-y: 12px;
 $tooltip-padding-x: 12px;
 $tooltip-border-radius: 12px;
-$tooltip-border-color: $neutral-7;
-$tooltip-dark-border-color: $neutral-18;
+$tooltip-border-color: $surface-neutral-10;
 
 .tooltip-content {
   background-color: $tooltip-bg-color;
   padding: $tooltip-padding-y $tooltip-padding-x;
   border-radius: $tooltip-border-radius;
   border: 1px solid $tooltip-border-color;
-  color: $dark;
+  color: $text-primary;
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
   line-height: 16px;
   max-width: 300px;
   word-break: break-word;
+  box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(25px);
 
   &__arrow {
     background: $tooltip-bg-color;
@@ -191,19 +192,6 @@ $tooltip-dark-border-color: $neutral-18;
 
     &[data-side='right'] {
       border-width: 1px 1px 0 0;
-    }
-  }
-}
-
-.theme-dark {
-  .tooltip-content {
-    background-color: $tooltip-dark-bg-color;
-    border-color: $tooltip-dark-border-color;
-    color: #fff;
-
-    &__arrow {
-      background-color: $tooltip-dark-bg-color;
-      border-color: $tooltip-dark-border-color;
     }
   }
 }

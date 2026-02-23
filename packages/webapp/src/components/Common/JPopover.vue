@@ -102,10 +102,17 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.popover-body {
+  padding: 12px;
+}
+
 .theme-dark {
   .popover {
-    background-color: $dark;
-    border: 1px solid $neutral-18;
+    border-radius: 12px;
+    border: 1px solid $surface-neutral-10;
+    background: $surface-neutral-12;
+    box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(25px);
   }
 }
 </style>

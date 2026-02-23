@@ -43,7 +43,7 @@ const marketsStore = useMarketsStore()
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   // { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
-  { key: 'price', label: 'Price', align: 'right', thClass: 'price', tdClass: 'price' },
+  // { key: 'price', label: 'Price', align: 'right', thClass: 'price', tdClass: 'price' },
   { key: 'total_supply', label: 'Supply', align: 'right', thClass: 'supply', tdClass: 'supply' },
   { key: 'total_borrowed', label: 'Borrow', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
@@ -94,7 +94,7 @@ const stop = watch(additionalMarketsData, () => {
     />
   </div>
   <div
-    v-else
+    v-else-if="marketWithTableItems.length > 0"
     class="table-wrapper"
   >
     <j-accordion
@@ -107,19 +107,14 @@ const stop = watch(additionalMarketsData, () => {
         {{ capitalize(market.marketName) }} Market
 
         <div class="market-info-wrapper">
-          <div
-            class="market-info-pill market-size"
-          >
-            <p>Market Size</p>
+          <market-info-pill>
+            <span data-name="title">Market Size: </span>
 
-            ${{ shortenNumber(market.marketSize) }}
-          </div>
+            <span>${{ shortenNumber(market.marketSize) }}</span>
+          </market-info-pill>
 
-          <div
-            v-if="market.assets.length > 0"
-            class="market-info-pill"
-          >
-            <p>Assets</p>
+          <market-info-pill v-if="market.assets.length > 0">
+            <span data-name="title">Assets </span>
 
             <img
               v-for="asset in market.assets.slice(0, 2)"
@@ -128,7 +123,7 @@ const stop = watch(additionalMarketsData, () => {
               alt="market asset"
             >
             <span v-if="market.assets.length > 2">+{{ market.assets.length - 2 }}</span>
-          </div>
+          </market-info-pill>
         </div>
       </template>
 
@@ -246,9 +241,8 @@ const stop = watch(additionalMarketsData, () => {
         <template #cell(action)="data">
           <div class="table-cell justify-content-end market-table__action">
             <j-btn
-              size="md"
-              pill
-              icon-right
+              size="xs"
+              variant="blue"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'supply')"
@@ -256,9 +250,7 @@ const stop = watch(additionalMarketsData, () => {
               Supply
             </j-btn>
             <j-btn
-              size="md"
-              pill
-              icon-right
+              size="xs"
               variant="accent"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
@@ -269,9 +261,7 @@ const stop = watch(additionalMarketsData, () => {
           </div>
         </template>
 
-        <template
-          #empty
-        >
+        <template #empty>
           <div
             v-show="!loading"
             class="no-data"
@@ -296,6 +286,13 @@ const stop = watch(additionalMarketsData, () => {
     >
       Loading...
     </j-loading-spinner>
+  </div>
+
+  <div
+    v-else
+    class="no-table-data"
+  >
+    No markets
   </div>
 
   <supply-dialog

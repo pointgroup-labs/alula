@@ -43,6 +43,13 @@ h2 {
   overflow: hidden;
 }
 
+.page-container {
+  padding-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
 .container {
   width: 100%;
   max-width: 1224px;
@@ -89,12 +96,11 @@ h2 {
 
 .dialog-default {
   .modal-dialog {
-    min-width: 350px !important;
-    width: 350px !important;
+    min-width: 442px;
 
     @media (max-width: $breakpoint-xs) {
-      width: 100% !important;
-      min-width: 100% !important;
+      width: 100%;
+      min-width: 100%;
     }
   }
 }
@@ -132,23 +138,11 @@ body:has(stellar-wallets-modal) {
   color: #fff;
 
   body {
-    background-color: $dark;
     color: #fff;
+    background: linear-gradient(180deg, #002e40 0%, #021f2b 54%, #02151c 100%);
   }
 
   .card {
-    background-color: $neutral-18;
-  }
-
-  .modal {
-    .modal-content {
-      background-color: $dark;
-      color: #fff;
-    }
-  }
-
-  .separator,
-  .separator-vert {
     background-color: $neutral-18;
   }
 

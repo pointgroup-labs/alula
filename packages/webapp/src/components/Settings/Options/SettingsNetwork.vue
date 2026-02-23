@@ -42,7 +42,8 @@ watch(() => rpcStore.network, (val) => {
         <template #target="{ active }">
           <div class="select-network__btn">
             {{ activeNetwork }}
-            <i-app-arrow-up
+
+            <i-app-chevron-down
               class="arrow-icon"
               :class="{ 'arrow-icon--active': active }"
             />
@@ -80,34 +81,43 @@ watch(() => rpcStore.network, (val) => {
 
   .select-network {
     &__btn {
-      border: 1px solid $neutral-16;
+      color: #fff;
       text-transform: capitalize;
+      border-radius: 4px;
+      background: $surface-neutral-08;
       padding: $spacing-6 $spacing-12;
-      border-radius: $spacing-6;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       cursor: pointer;
     }
 
     &__menu {
       .popover-body {
-        padding: 0;
+        padding-left: 0;
+        padding-right: 0;
       }
     }
 
     &__item {
+      color: $text-primary;
       text-transform: capitalize;
       padding: $spacing-8 $spacing-24;
       cursor: pointer;
 
       &:hover {
-        background-color: $neutral-5;
+        background-color: $surface-neutral-12;
       }
     }
 
     .arrow-icon {
-      transform: rotate(180deg);
+      width: 12px;
+      color: $surface-neutral-60;
+      transform: rotate(0deg);
+      margin-bottom: -2px;
 
       &--active {
-        transform: rotate(0deg);
+        transform: rotate(180deg);
       }
     }
   }
@@ -115,8 +125,8 @@ watch(() => rpcStore.network, (val) => {
   .networks {
     display: flex;
     flex-direction: column;
-    gap: $spacing-12;
-    padding-top: $spacing-12;
+    gap: $spacing-24;
+    padding-top: $spacing-24;
   }
 
   .network-rpc {
@@ -127,29 +137,14 @@ watch(() => rpcStore.network, (val) => {
     display: flex;
     flex-direction: column;
     gap: $spacing-4;
+    color: $text-primary;
 
     &__url {
       font-size: 15px;
       font-style: normal;
       font-weight: 400;
       line-height: 20px;
-      color: $neutral-16;
-    }
-  }
-}
-
-.theme-dark {
-  .setting-item.network {
-    .select-network__item {
-      color: #fff;
-
-      &:hover {
-        background-color: $neutral-18;
-      }
-    }
-
-    .network-rpc__url {
-      color: $neutral-12;
+      color: $text-secondary;
     }
   }
 }

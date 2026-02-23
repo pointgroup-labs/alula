@@ -19,28 +19,30 @@ function close() {
 </script>
 
 <template>
-  <transition name="slide">
-    <div
-      v-if="isSubMenu"
-      class="sidebar-sub-menu"
-      :style="{
-        '--sidebar-translate': position === 'left' ? '-100%' : '100%',
-        '--sidebar-x': position === 'left' ? 'initial' : '0',
-      }"
-    >
+  <Teleport to="body">
+    <transition name="slide">
       <div
-        class="sidebar-sub-menu__title"
-        @click="close"
+        v-if="isSubMenu"
+        class="sidebar-sub-menu"
+        :style="{
+          '--sidebar-translate': position === 'left' ? '-100%' : '100%',
+          '--sidebar-x': position === 'left' ? 'initial' : '0',
+        }"
       >
-        <i v-html="arrowLeft" />
-        {{ title }}
-      </div>
+        <div
+          class="sidebar-sub-menu__title"
+          @click="close"
+        >
+          <i v-html="arrowLeft" />
+          {{ title }}
+        </div>
 
-      <div class="sidebar-sub-menu__body">
-        <slot />
+        <div class="sidebar-sub-menu__body">
+          <slot />
+        </div>
       </div>
-    </div>
-  </transition>
+    </transition>
+  </Teleport>
 </template>
 
 <style lang="scss">
@@ -50,11 +52,14 @@ function close() {
   width: 400px;
   right: 0;
   bottom: 0;
-  background: #fff;
   transition: transform 0.1s ease-in-out;
-  padding: $spacing-40;
-  z-index: 1;
+  padding: 32px 24px;
+  z-index: 101;
   overflow: hidden;
+  border-left: 1px solid $surface-neutral-10;
+  background: $surface-neutral-04;
+  box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(125px);
 
   @media (max-width: $breakpoint-xs) {
     padding: $spacing-24;
@@ -66,11 +71,10 @@ function close() {
     display: flex;
     align-items: center;
     gap: $spacing-12;
-    // border-bottom: 1px solid $secondary;
-    font-size: 24px;
+    font-size: 32px;
     font-style: normal;
-    font-weight: 500;
-    line-height: 24px;
+    font-weight: 700;
+    line-height: 28px;
     cursor: pointer;
 
     i {
@@ -78,14 +82,19 @@ function close() {
       align-items: center;
 
       svg {
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
+
+        path {
+          stroke: $text-primary;
+        }
       }
     }
   }
 
   &__body {
     height: 100%;
+    padding-top: 24px;
     overflow: auto;
   }
 }
@@ -104,27 +113,5 @@ function close() {
 
 .slide-leave-to {
   transform: translateX(var(--sidebar-translate));
-}
-
-.theme-dark {
-  .sidebar-sub-menu {
-    background-color: $dark;
-
-    &__title {
-      // border-color: $neutral-9;
-
-      i svg {
-        filter: invert(1);
-      }
-    }
-
-    .languages-list__item {
-      // color: $neutral-4;
-
-      &.active {
-        color: #fff;
-      }
-    }
-  }
 }
 </style>

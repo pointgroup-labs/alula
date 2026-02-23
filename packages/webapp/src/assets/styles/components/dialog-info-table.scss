@@ -1,6 +1,7 @@
 .dialog-info-table {
   display: flex;
   flex-direction: column;
+  gap: 12px;
 
   &__item {
     display: grid;
@@ -8,29 +9,29 @@
     justify-content: space-between;
     font-size: 12px;
     font-style: normal;
-    font-weight: 500;
-    line-height: 12px;
-
-    &:nth-child(even) {
-      background-color: $neutral-2;
-    }
+    font-weight: 400;
+    line-height: 16px;
+    color: $text-secondary;
 
     span {
-      padding: $spacing-6 $spacing-16;
-
       &:nth-child(2) {
+        color: $text-primary;
         text-align: right;
       }
     }
 
     a {
-      padding: $spacing-6 $spacing-16;
-      color: $dark;
-      text-decoration: none;
+      color: $text-primary;
       display: flex;
       align-items: center;
       justify-content: flex-end;
       gap: $spacing-8;
+      text-decoration-line: underline;
+      text-decoration-style: dotted;
+      text-decoration-skip-ink: auto;
+      text-decoration-thickness: 10%;
+      text-underline-offset: 18%;
+      text-underline-position: from-font;
 
       svg {
         width: 12px;
@@ -38,17 +39,9 @@
       }
     }
   }
-}
 
-.theme-dark {
-  .dialog-info-table {
-    &__item {
-      a {
-        color: #fff;
-      }
-      &:nth-child(even) {
-        background-color: $neutral-18;
-      }
-    }
+  .separator {
+    background: $surface-neutral-10;
+    margin: 8px 0;
   }
 }

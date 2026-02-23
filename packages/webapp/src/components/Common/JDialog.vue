@@ -39,17 +39,54 @@ const dialog = defineModel({
 <style lang="scss">
 .j-dialog {
   .modal-content {
-    padding: $spacing-24;
+    padding: 0;
     border-radius: $spacing-16;
+    border: 1px solid $surface-neutral-20;
+    background: $surface-neutral-10;
+    box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(30px);
+    color: #fff;
   }
 
   .modal-header {
     padding: 0;
     border: none;
 
+    &:not(:has(.dialog-balance)) {
+      .close-icon {
+        margin-left: auto;
+      }
+    }
+
     .close-icon {
-      margin-left: auto;
+      width: 28px;
+      height: 28px;
+      padding: 4px;
+      margin-left: 16px;
       cursor: pointer;
+    }
+
+    .dialog-balance {
+      margin-left: auto;
+      font-family: $font-Inter;
+
+      &__label {
+        color: #9ca3af;
+        text-align: right;
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 16.5px;
+      }
+
+      &__value {
+        color: #fff;
+        text-align: right;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 18px;
+      }
     }
   }
   .modal-body {
@@ -87,6 +124,12 @@ const dialog = defineModel({
     transform: translateY(2px);
     opacity: 1;
   }
+}
+
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(6.4px);
+  opacity: 1 !important;
 }
 
 // .theme-dark{

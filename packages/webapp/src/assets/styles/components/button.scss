@@ -1,22 +1,61 @@
+$btn-variants: (
+  ghost: (
+    bg: $surface-neutral-04,
+    color: #fff,
+    hover: rgba(255, 255, 255, 0.06),
+  ),
+
+  accent: (
+    bg: rgba(242, 176, 26, 0.4),
+    color: #fff,
+    hover: rgba(242, 176, 26, 0.6),
+  ),
+
+  blue: (
+    bg: rgba(0, 144, 255, 0.4),
+    color: #fff,
+    hover: rgba(0, 144, 255, 0.6),
+  ),
+);
+
+$btn-size: (
+  xs: (
+    padding: 7px $spacing-20,
+    font-size: 12px,
+    font-weight: 700,
+    line-height: 100%,
+    border-radius: 4px,
+  ),
+);
+
 .btn {
   position: relative;
   width: fit-content;
   height: fit-content;
+  font-family: $font-family-base !important;
 
   &:active {
     border-color: transparent !important;
   }
 
-  &.btn-accent {
-    background: $accent !important;
-    color: $dark !important;
+  @each $name, $variant in $btn-variants {
+    &.btn-#{$name} {
+      --bs-btn-disabled-bg: #{map-get($variant, bg)};
 
-    &[aria-pressed='false'] {
-      border-color: transparent !important;
+      background: map-get($variant, bg);
+      color: map-get($variant, color);
+
+      &:hover {
+        background: map-get($variant, hover);
+      }
     }
+  }
 
-    &:hover {
-      background: darken($accent, 2%) !important;
+  @each $size, $styles in $btn-size {
+    &.btn-#{$size} {
+      @each $prop, $value in $styles {
+        #{$prop}: #{$value};
+      }
     }
   }
 
@@ -92,7 +131,7 @@
 
   .btn-content {
     line-height: normal;
-    font-weight: 600;
+    font-weight: 500;
     display: flex;
     align-items: center;
     justify-content: center;

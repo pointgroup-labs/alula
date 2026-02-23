@@ -27,6 +27,7 @@ function disconnect() {
         <copy-to-clipboard
           :text="publicKey"
           entity="address"
+          color="#fff"
         />
         <j-tooltip>
           <i-app-disconnect-icon
@@ -54,10 +55,15 @@ function disconnect() {
   }
 
   .wallet-info {
+    color: $text-primary;
     height: 46.22px;
     display: flex;
     flex-direction: column;
     gap: $spacing-4;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 20px;
 
     &__details {
       font-size: 16px;
@@ -75,23 +81,11 @@ function disconnect() {
     }
 
     &__name {
-      color: $neutral-6;
+      color: $text-secondary;
       font-size: 12px;
       font-style: normal;
       font-weight: 400;
       line-height: 16px;
-    }
-  }
-}
-
-.theme-dark{
-  .setting-item.connect {
-    .wallet-info__name {
-      color: $neutral-6;
-    }
-
-    .disconnect-icon {
-      color: $neutral-12;
     }
   }
 }

@@ -1,5 +1,5 @@
 import { useToggle } from '@vueuse/core'
-import Cookies from 'js-cookie'
+// import Cookies from 'js-cookie'
 
 export const isDark = useDark({
   selector: 'html',
@@ -8,19 +8,23 @@ export const isDark = useDark({
   disableTransition: false,
 })
 export const toggleDark = useToggle(isDark)
-export const preferredDark = usePreferredDark()
 
-const config = getRuntimeConfig()
+/**
+ * Default dark theme! You can remove this.
+ */
+isDark.value = true
 
-const DOMAIN = config.COOKIE_DOMAIN as string
+// const config = getRuntimeConfig()
 
-const cookieName = 'cookie-theme'
-const themeCookie = Cookies.get(cookieName)
+// const DOMAIN = config.COOKIE_DOMAIN as string
 
-if (themeCookie) {
-  isDark.value = themeCookie === 'dark'
-}
+// const cookieName = 'cookie-theme'
+// const themeCookie = Cookies.get(cookieName)
 
-watch(isDark, (value) => {
-  Cookies.set(cookieName, value ? 'dark' : 'light', { domain: DOMAIN })
-}, { immediate: true })
+// if (themeCookie) {
+//   isDark.value = themeCookie === 'dark'
+// }
+
+// watch(isDark, (value) => {
+//   Cookies.set(cookieName, value ? 'dark' : 'light', { domain: DOMAIN })
+// }, { immediate: true })

@@ -30,12 +30,10 @@ function close() {
     <settings-language />
     <settings-theme />
     <settings-network />
+    <settings-recent-activity />
 
     <faucet-menu />
 
-    <settings-recent-activity />
-
-    <logo-with-text />
   </sidebar>
 </template>
 
@@ -50,6 +48,7 @@ function close() {
   }
 
   .setting-item__title {
+    color: $text-primary;
     font-size: 16px;
     font-style: normal;
     font-weight: 700;

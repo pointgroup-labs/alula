@@ -20,17 +20,18 @@ const {
 
 <style lang="scss">
 .warning-block {
-  padding: $spacing-16;
-  border-radius: $spacing-8;
-  background-color: $neutral-2;
+  padding: 10px $spacing-16;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: $spacing-8;
-  color: $neutral-6;
-  font-size: 11px;
+  color: #fff;
+  font-size: 12px;
   font-style: normal;
-  font-weight: 500;
-  line-height: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  border-radius: 5px;
+  border: 1px solid $warning;
+  background: rgba(228, 156, 11, 0.15);
 
   .warning-text {
     &--warning {
@@ -43,16 +44,9 @@ const {
   }
 
   .warning-icon {
-    min-width: 16px;
-    width: 16px;
-    height: 16px;
-  }
-}
-
-.theme-dark {
-  .warning-block {
-    background-color: $neutral-18;
-    color: $neutral-12;
+    min-width: 24px;
+    width: 24px;
+    height: 24px;
   }
 }
 </style>

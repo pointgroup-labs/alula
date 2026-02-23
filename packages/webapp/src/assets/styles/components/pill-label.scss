@@ -8,12 +8,12 @@ $label-variants: (
     color: $dark,
   ),
   warning: (
-    background-color: rgba(228, 156, 11, 0.5),
-    color: $dark,
+    background-color: rgba(240, 177, 0, 0.1),
+    color: $text-warning,
   ),
   success: (
-    background-color: rgba(8, 181, 118, 0.5),
-    color: $dark,
+    background-color: rgba(0, 201, 80, 0.1),
+    color: $text-success,
   ),
   outline-success: (
     border: 1px solid $success,
@@ -43,11 +43,12 @@ $label-sizes: (
 
 .j-pill-label {
   width: fit-content;
-  padding: $spacing-4 $spacing-14;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 20px;
-  border-radius: 50px;
+  padding: $spacing-4 $spacing-8;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 16px;
+  border-radius: 100px;
 
   @each $name, $zises in $label-sizes {
     &.j-pill-label--#{$name} {
@@ -63,15 +64,5 @@ $label-sizes: (
         #{$prop}: #{$value};
       }
     }
-  }
-}
-
-.theme-dark {
-  .j-pill-label--success {
-    background: $success;
-  }
-
-  .j-pill-label--warning {
-    background: $warning;
   }
 }

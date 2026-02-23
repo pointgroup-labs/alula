@@ -3,7 +3,7 @@ import type { BButtonProps } from 'bootstrap-vue-next'
 import { shortenAddress } from '~/utils'
 
 const {
-  size = 'lg',
+  size = 'md',
 } = defineProps<{
 } & BButtonProps>()
 
@@ -35,9 +35,9 @@ function copy() {
   <j-btn
     v-if="!publicKey"
     :loading="loading"
-    pill
     :size="size"
     class="connect-wallet"
+    variant="light"
     @click="connectWallet"
   >
     Connect Wallet
@@ -63,9 +63,9 @@ function copy() {
     <template #target>
       <j-btn
         :loading="loading"
-        pill
         :size="size"
         class="connect-wallet"
+        variant="ghost"
       >
         {{ shortenAddress(publicKey) }}
       </j-btn>
@@ -81,23 +81,15 @@ function copy() {
   }
 
   &__item {
-    cursor: pointer;
+    color: #fff;
     padding: $spacing-8 $spacing-16;
     display: flex;
     align-items: center;
     gap: $spacing-8;
+    cursor: pointer;
 
     &:hover {
-      background-color: $neutral-5;
-    }
-  }
-}
-
-.theme-dark{
-  .wallet-popover__item {
-    color: #fff;
-    &:hover {
-      background-color: $neutral-18;
+      background-color: $surface-neutral-12;
     }
   }
 }
