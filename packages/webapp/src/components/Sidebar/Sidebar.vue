@@ -185,6 +185,7 @@ onMounted(() => {
   @media (max-width: $breakpoint-xs) {
     padding: $spacing-24;
     width: 100vw;
+    box-shadow: none;
   }
 }
 

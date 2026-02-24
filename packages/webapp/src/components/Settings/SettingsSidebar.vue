@@ -44,7 +44,7 @@ function close() {
         Options
       </div>
       <settings-language />
-      <settings-theme />
+      <!-- <settings-theme /> -->
     </div>
 
     <div class="settings-sidebar__options">
@@ -86,36 +86,8 @@ function close() {
     margin: auto 0 0 auto;
   }
 
-  .market-info {
-    gap: $spacing-12;
-
-    .market-size {
-      display: none;
-    }
-
-    .total-card {
-      padding: $spacing-16;
-      width: 100%;
-      height: auto;
-
-      &:before {
-        display: none;
-      }
-
-      &__title {
-        font-size: 12px;
-        line-height: 16px;
-      }
-
-      &__body {
-        font-size: 20px;
-        line-height: 20px;
-      }
-
-      &__icon {
-        display: none;
-      }
-    }
+  .markets-info {
+    grid-template-columns: 1fr;
   }
 
   .settings-sidebar__options {

@@ -85,7 +85,6 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
           </div>
           <div class="info-wrapper__value">
             <j-pill-label
-              color="#111"
               variant="success"
               size="sm"
             >
@@ -132,8 +131,7 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
     <div class="mobile-card-footer">
       <j-btn
         size="sm"
-        pill
-        icon-right
+        variant="blue"
         :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'supply' })"
@@ -144,8 +142,6 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
         v-if="isUserHaveMultiply(item.pool_address, String(item.market))"
         size="sm"
         variant="accent"
-        pill
-        icon-right
         :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'withdraw' })"

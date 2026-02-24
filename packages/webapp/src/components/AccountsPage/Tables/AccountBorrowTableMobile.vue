@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { BorrowCardTableItem } from '~/types/table'
+import { shortenNumber } from '~/utils'
 
 const {
   items,
@@ -40,7 +41,6 @@ const market = useMarketActions()
           </div>
           <div class="info-wrapper__value">
             <j-pill-label
-              color="#111"
               variant="warning"
               size="sm"
             >
@@ -66,8 +66,7 @@ const market = useMarketActions()
 
     <div class="mobile-card-footer">
       <j-btn
-        pill
-        variant="success"
+        variant="accent"
         size="sm"
         :disabled="market.isDisabled(item.pool_address, 'withdraw', item.market!)"
         :loading="market.isLoading(item.pool_address, 'withdraw', item.market!)"

@@ -36,7 +36,7 @@ function isActiveRoute(tab: Record<string, string>) {
   .navigation-item {
     padding: $spacing-16;
     border-radius: $spacing-8;
-    color: $dark;
+    color: $text-primary;
     font-size: 16px;
     font-style: normal;
     font-weight: 500;
@@ -47,7 +47,7 @@ function isActiveRoute(tab: Record<string, string>) {
     gap: $spacing-16;
 
     &--active {
-      background-color: $neutral-2;
+      background-color: $surface-neutral-08;
     }
 
     i {
@@ -57,28 +57,12 @@ function isActiveRoute(tab: Record<string, string>) {
       align-items: center;
       justify-content: center;
       border-radius: $spacing-8;
-      background-color: $neutral-3;
+      background-color: $surface-neutral-80;
+      color: $dark;
 
       svg {
         width: 20px;
         height: 20px;
-      }
-    }
-  }
-}
-
-.theme-dark {
-  .setting-item.navigation {
-    .navigation-item {
-      color: $neutral-12;
-
-      &--active {
-        background-color: $neutral-18;
-      }
-
-      i {
-        background-color: $neutral-16;
-        color: #fff;
       }
     }
   }

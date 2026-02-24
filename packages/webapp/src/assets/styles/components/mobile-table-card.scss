@@ -5,9 +5,13 @@
   align-items: flex-start;
   align-self: stretch;
   gap: $spacing-16;
-  border-radius: 20px;
-  border: 1px solid $neutral-3;
-  background: #fff;
+  background: transparent;
+  color: $text-primary;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $surface-neutral-20;
+    padding: $spacing-16 $spacing-16 $spacing-24;
+  }
 
   .mobile-card-top {
     width: 100%;
@@ -40,7 +44,7 @@
         }
 
         &__symbol {
-          color: $neutral-6;
+          color: $text-secondary;
           font-size: 11px;
           font-style: normal;
           font-weight: 500;
@@ -81,7 +85,7 @@
     gap: 2px;
 
     &__title {
-      color: $neutral-6;
+      color: $text-secondary;
       font-size: 10px;
       font-style: normal;
       font-weight: 500;
@@ -100,30 +104,7 @@
     gap: 5px;
 
     .info-wrapper__title {
-      color: $dark;
-    }
-  }
-}
-
-.theme-dark {
-  .table-mobile-card {
-    background-color: $dark;
-    border-color: $dark;
-
-    .card-asset__info__name {
-      color: #fff;
-    }
-
-    .card-asset__info__symbol {
-      color: $neutral-9;
-    }
-
-    .info-wrapper__title {
-      color: $neutral-9;
-    }
-
-    .info-wrapper__value {
-      color: #fff;
+      color: $text-secondary;
     }
   }
 }

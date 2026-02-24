@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
+import { shortenNumber } from '~/utils'
 
 const {
   items,
@@ -40,7 +41,6 @@ const market = useMarketActions()
           </div>
           <div class="info-wrapper__value">
             <j-pill-label
-              color="#111"
               variant="success"
               size="sm"
             >
@@ -67,9 +67,7 @@ const market = useMarketActions()
       class="mobile-card-footer"
     >
       <j-btn
-        pill
-        variant="dark"
-        :class="isDark ? 'dark-theme-btn' : ''"
+        variant="success"
         size="sm"
         :disabled="market.isDisabled(item.pool_address, 'withdraw', item.market!)"
         :loading="market.isLoading(item.pool_address, 'withdraw', item.market!)"
@@ -85,9 +83,5 @@ const market = useMarketActions()
 .mobile-card-body {
   justify-content: center;
   gap: $spacing-16;
-}
-
-.dark-theme-btn {
-  background-color: $neutral-18;
 }
 </style>

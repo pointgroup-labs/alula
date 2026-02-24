@@ -30,10 +30,18 @@ const searchAsset = ref()
     flex-direction: column;
     gap: $spacing-16;
 
+    @media (max-width: $breakpoint-xs) {
+      gap: 32px;
+    }
+
     .market-info-wrapper {
       display: flex;
       gap: $spacing-16;
       margin-left: auto;
+
+      @media (max-width: $breakpoint-xs) {
+        display: none;
+      }
     }
 
     .market-size {

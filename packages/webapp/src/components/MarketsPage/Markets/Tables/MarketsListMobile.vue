@@ -137,8 +137,7 @@ function onRowClicked(item: MarketTableItem) {
     <div class="mobile-card-footer">
       <j-btn
         size="sm"
-        pill
-        icon-right
+        variant="blue"
         :disabled="market.isDisabled(item.pool_address, 'deposit', item.market!)"
         :loading="market.isLoading(item.pool_address, 'deposit', item.market!)"
         @click.stop="emits('dialogHandler', { item, action: 'supply' })"
@@ -147,8 +146,6 @@ function onRowClicked(item: MarketTableItem) {
       </j-btn>
       <j-btn
         size="sm"
-        pill
-        icon-right
         variant="accent"
         :disabled="market.isDisabled(item.pool_address, 'borrow', item.market!)"
         :loading="market.isLoading(item.pool_address, 'borrow', item.market!)"
