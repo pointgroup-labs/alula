@@ -53,7 +53,7 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
 <template>
   <div
     v-if="items?.length === 0"
-    class="no-table-data"
+    class="no-data"
   >
     No Multiply vaults
   </div>
@@ -159,5 +159,14 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
 <style lang="scss" scoped>
 .apy-success {
   color: $success;
+}
+
+.no-data {
+  color: $text-secondary;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  text-align: center;
 }
 </style>

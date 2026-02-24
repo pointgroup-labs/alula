@@ -158,5 +158,10 @@
   align-items: center;
   justify-content: center;
   padding: $spacing-16;
-  font-size: 14px;
+  color: $text-secondary;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  text-align: center;
 }

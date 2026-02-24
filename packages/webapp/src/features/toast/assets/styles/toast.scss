@@ -126,9 +126,12 @@ $toast-variants: (
   width: 344px;
   background-color: #fff;
   margin-bottom: 6px;
+  border: 1px solid $surface-neutral-10;
   box-shadow:
-    0px 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0px 4px 6px -2px rgba(0, 0, 0, 0.05);
+    0 8px 64px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 3px 0px rgb(255 255 255 / 14%);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
 
   .toast-body {
     width: 100%;
@@ -184,16 +187,16 @@ $toast-variants: (
         font-style: normal;
         font-weight: 500;
         line-height: 16px;
-        background-color: $neutral-18;
+        background-color: rgb(1 41 56 / 89%);
         color: #fff;
-        border-radius: 50px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
 
         &:hover,
         &:active {
-          background-color: lighten($neutral-18, 10%);
+          background-color: lighten(rgb(1 41 56 / 89%), 10%);
           color: #fff;
         }
       }
@@ -203,37 +206,13 @@ $toast-variants: (
       display: flex;
       align-items: center;
       gap: 10px;
-      color: $neutral-16;
+      color: #fff;
       text-decoration: none;
       font-size: 14px;
       font-style: normal;
       font-weight: 500;
       line-height: 16px;
       white-space: nowrap;
-    }
-  }
-}
-
-.theme-dark {
-  .j-toast:not(.toast-alert) {
-    &.toast--info {
-      background-color: $neutral-18;
-      color: #fff;
-    }
-  }
-  .toast-alert {
-    background-color: $neutral-18;
-    box-shadow:
-      0 10px 15px -3px rgba(0, 0, 0, 0.1),
-      0 4px 6px -2px rgba(0, 0, 0, 0.05);
-
-    .alert-content__actions .btn {
-      background-color: $neutral-3;
-      color: $dark;
-    }
-
-    .alert-content a {
-      color: $neutral-3;
     }
   }
 }

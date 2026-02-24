@@ -290,5 +290,14 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       color: $danger;
     }
   }
+
+  .no-data {
+    color: $text-secondary;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 16px;
+    text-align: center;
+  }
 }
 </style>

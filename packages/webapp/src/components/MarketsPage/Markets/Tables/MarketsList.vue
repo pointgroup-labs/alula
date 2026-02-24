@@ -290,7 +290,7 @@ const stop = watch(additionalMarketsData, () => {
 
   <div
     v-else
-    class="no-table-data"
+    class="no-data"
   >
     No markets
   </div>

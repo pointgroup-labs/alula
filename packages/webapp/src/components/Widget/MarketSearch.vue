@@ -28,7 +28,7 @@ const search = defineModel({ default: undefined })
 
   .j-input {
     .input-group {
-      height: 52px;
+      height: 42px;
       gap: $spacing-8;
       border: none;
       background-color: $surface-neutral-08;
@@ -36,18 +36,18 @@ const search = defineModel({ default: undefined })
     }
 
     .j-input__prepend {
-      min-width: 24px;
-      width: 24px;
+      min-width: 20px;
+      width: 20px;
       display: flex;
       align-items: center;
     }
 
     input {
       color: $text-secondary;
-      font-size: 20px;
+      font-size: 16px;
       font-style: normal;
       font-weight: 500;
-      line-height: 20px;
+      line-height: 16px;
     }
 
     input::placeholder {
@@ -55,10 +55,10 @@ const search = defineModel({ default: undefined })
     }
 
     .search-icon {
-      min-width: 24px;
-      width: 24px;
-      min-height: 24px;
-      height: 24px;
+      min-width: 20px;
+      width: 20px;
+      min-height: 20px;
+      height: 20px;
     }
   }
 }
