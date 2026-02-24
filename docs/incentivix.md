@@ -1,14 +1,14 @@
-# Farms — Staking & Yield Farming Primitive for Soroban
+# Incentivix — Incentives Platform for Stellar
 
-A general-purpose, open-source staking and yield farming contract for the Stellar/Soroban ecosystem. Any project can deploy standalone farms for any Stellar token — no custom development required.
+An open-source incentives platform for Stellar protocols and fintechs. Projects define what actions earn rewards (liquidity provisioning, lending, staking, referrals, trading, and more) and Incentivix handles the reward logic, distribution, and tracking automatically. Powered by a composable, audited Soroban smart contract that any project can deploy and integrate without custom development.
 
-## Why Soroban Needs This
+## Why Stellar Needs This
 
-Every DeFi protocol needs a way to distribute rewards to users — whether it's incentivizing liquidity, distributing governance tokens, sharing protocol revenue, or running airdrops. Today, each Soroban project must build this infrastructure from scratch, leading to fragmented, unaudited, and inconsistent implementations.
+Every Stellar protocol needs a way to run incentive programs — whether it's incentivizing liquidity, rewarding borrowers, distributing governance tokens, or sharing protocol revenue. Today, each project must build this infrastructure from scratch, leading to fragmented, unaudited, and inconsistent implementations.
 
-Farms solves this by providing a single, audited, composable primitive that any protocol can plug into. Instead of every team spending months building and securing their own staking logic, they deploy a farm instance in minutes and focus on what makes their protocol unique.
+Incentivix solves this by providing a single, audited, composable primitive that any protocol can plug into. Instead of every team spending months building and securing their own reward logic, they launch an incentive program in minutes and focus on what makes their protocol unique.
 
-This is the kind of shared infrastructure that accelerates ecosystem growth — one contract, used by many protocols, creating a consistent experience for users across the Stellar network.
+This is the kind of shared infrastructure that accelerates ecosystem growth — one platform, used by many protocols, creating a consistent experience for users across the Stellar network.
 
 ## What Builders Can Do With It
 
@@ -16,7 +16,7 @@ This is the kind of shared infrastructure that accelerates ecosystem growth — 
 
 Incentivize liquidity provision with configurable lockups:
 
-1. Deploy a farm with the LP token as the staked asset
+1. Deploy a program with the LP token as the staked asset
 2. Configure locking (e.g., 30-day lock with 50% early withdrawal penalty)
 3. Fund with governance tokens on a 6-month emission schedule
 4. Users stake LP tokens and earn rewards proportionally
@@ -25,16 +25,16 @@ Incentivize liquidity provision with configurable lockups:
 
 Reward depositors and borrowers without building reward logic into the lending contract:
 
-1. Deploy a **supply farm** per pool — reward users for providing liquidity
-2. Deploy a **debt farm** per pool (optional) — incentivize borrowing in specific markets
-3. On every deposit, withdraw, borrow, repay, or liquidation, the lending contract syncs the user's updated position to the farm
-4. Users claim rewards directly from the farm
+1. Deploy a **supply program** per pool — reward users for providing liquidity
+2. Deploy a **debt program** per pool (optional) — incentivize borrowing in specific markets
+3. On every deposit, withdraw, borrow, repay, or liquidation, the lending contract syncs the user's updated position to the program
+4. Users claim rewards directly from the program
 
 ### Revenue Sharing / Real Yield
 
 Distribute protocol revenue to token holders:
 
-1. Deploy a farm with the protocol's governance or utility token
+1. Deploy a program with the protocol's governance or utility token
 2. Initialize a stablecoin (e.g., USDC) as the reward token
 3. Periodically fund the reward pool from protocol revenue
 4. Set an emission schedule that distributes funded amounts over the desired period
@@ -44,7 +44,7 @@ Distribute protocol revenue to token holders:
 
 Incentivize long-term token holding with a natural vesting curve:
 
-1. Deploy a farm with the governance token
+1. Deploy a program with the governance token
 2. Configure a 1-year lock with 100% early withdrawal penalty (effective cliff)
 3. Distribute additional governance tokens as rewards
 4. The linear penalty decay creates a smooth vesting schedule — early exit forfeits proportionally
@@ -53,8 +53,8 @@ Incentivize long-term token holding with a natural vesting curve:
 
 Two or more protocols can co-incentivize a shared user base:
 
-1. Deploy a single farm with a shared staking token
-2. Each protocol registers their own reward token on the same farm
+1. Deploy a single program with a shared staking token
+2. Each protocol registers their own reward token on the same program
 3. Each protocol independently funds and schedules their emissions
 4. Users stake once and earn rewards from all participating protocols simultaneously
 
@@ -62,7 +62,7 @@ Two or more protocols can co-incentivize a shared user base:
 
 Distribute tokens to qualifying holders with precision:
 
-1. Deploy a farm with direct reward credits enabled
+1. Deploy a program with direct reward credits enabled
 2. Users stake a qualifying token
 3. Admin credits specific amounts to eligible users
 4. Users harvest at their convenience
@@ -71,7 +71,7 @@ Distribute tokens to qualifying holders with precision:
 
 Allocate new token launches to committed stakers:
 
-1. Deploy a farm with a qualifying token (e.g., the platform's native token)
+1. Deploy a program with a qualifying token (e.g., the platform's native token)
 2. Configure locking with a deadline matching the launch date
 3. Fund and schedule emissions to distribute allocation proportionally
 4. Stakers earn launch tokens while locked — early exit forfeits allocation via penalty
@@ -80,7 +80,7 @@ Allocate new token launches to committed stakers:
 
 Distribute yield from tokenized real-world assets — bonds, real estate, commodities, or treasury bills:
 
-1. Deploy a delegated farm with the RWA token as the staked asset
+1. Deploy a delegated program with the RWA token as the staked asset
 2. The issuing platform acts as delegate authority, syncing holder balances and enforcing compliance (KYC/AML) before allowing positions
 3. Initialize a stablecoin as the reward token to represent yield (e.g., bond coupon payments)
 4. Fund the reward pool from real-world revenue and schedule emissions to match payment periods (monthly, quarterly)
@@ -92,24 +92,24 @@ Distribute yield from tokenized real-world assets — bonds, real estate, commod
 
 Reward users for transaction activity on payment corridors:
 
-1. Deploy a delegated farm — the payment platform acts as delegate authority
-2. The platform syncs a user's cumulative transaction volume (or rolling balance) as their farm stake
+1. Deploy a delegated program — the payment platform acts as delegate authority
+2. The platform syncs a user's cumulative transaction volume (or rolling balance) as their program stake
 3. Initialize reward tokens to incentivize corridor usage (e.g., platform tokens or cashback in stablecoins)
 4. Higher-volume users earn proportionally more rewards, driving liquidity to target corridors
 
 ## How It Works
 
-Each deployed contract instance manages a single farm. Deploy multiple instances for multiple farms.
+Each deployed contract instance manages a single incentive program. Deploy multiple instances for multiple programs.
 
 ### Two Staking Modes
 
-**Non-Delegated** — users directly deposit and withdraw tokens from the farm contract. Supports the full lifecycle: deposit warmup, withdrawal cooldown, and locking with early withdrawal penalties. Best for standalone staking pools, LP farming, and governance locking.
+**Non-Delegated** — users directly deposit and withdraw tokens from the program contract. Supports the full lifecycle: deposit warmup, withdrawal cooldown, and locking with early withdrawal penalties. Best for standalone staking pools, LP incentive programs, and governance locking.
 
-**Delegated** — an external contract (the "delegate authority") manages user stakes. The delegate syncs stake amounts with positions tracked in the integrating protocol. No warmup, cooldown, or penalties apply — the integrating protocol handles position lifecycle. Supports two authorities per farm for multi-contract architectures. Best for lending protocols, AMMs, vaults, or any system where positions are managed by another contract.
+**Delegated** — an external contract (the "delegate authority") manages user stakes. The delegate syncs stake amounts with positions tracked in the integrating protocol. No warmup, cooldown, or penalties apply — the integrating protocol handles position lifecycle. Supports two authorities per program for multi-contract architectures. Best for lending protocols, AMMs, vaults, or any system where positions are managed by another contract.
 
 ### Multi-Reward System
 
-Each farm supports up to 10 independent reward tokens, each with its own funding pool, emission schedule, and accumulator. A single farm can distribute governance tokens, stablecoins, and partner tokens simultaneously.
+Each program supports up to 10 independent reward tokens, each with its own funding pool, emission schedule, and accumulator. A single program can distribute governance tokens, stablecoins, and partner tokens simultaneously.
 
 Rewards are distributed via a **rewards-per-share accumulator** — a constant-time algorithm that fairly distributes emissions proportional to each user's stake, regardless of the number of participants. O(1) per operation — no loops, no snapshots, no scaling bottlenecks.
 
@@ -144,7 +144,7 @@ Users are identified by an owner address and an optional seed. Simple mode (owne
 
 ### Oracle Integration
 
-Farms optionally integrate with SEP-40 price oracles to enforce deposit caps in USD terms rather than token terms. Oracle prices are validated for staleness and zero/negative values. This prevents deposit caps from becoming meaningless during price volatility.
+Programs optionally integrate with SEP-40 price oracles to enforce deposit caps in USD terms rather than token terms. Oracle prices are validated for staleness and zero/negative values. This prevents deposit caps from becoming meaningless during price volatility.
 
 ### Treasury Fees
 
@@ -156,29 +156,29 @@ When enabled, the admin can credit rewards directly to specific users, bypassing
 
 ## Admin Operations
 
-### Farm Setup
+### Program Setup
 
-1. Deploy farm contract with configuration
+1. Deploy the program contract with configuration
 2. Register reward token(s) with distribution mode
 3. Fund the reward pool(s)
 4. Set emission schedule(s)
-5. Unfreeze the farm to start accepting stakes
+5. Unfreeze the program to start accepting stakes
 
 ### Configuration
 
-The admin can update farm parameters at any time: deposit cap, minimum stake amount, harvest delay, treasury fee, oracle, harvest permissions, and direct reward credits.
+The admin can update program parameters at any time: deposit cap, minimum stake amount, harvest delay, treasury fee, oracle, harvest permissions, and direct reward credits.
 
-For non-delegated farms, locking parameters can only be changed when there are no active stakes. For delegated farms, the delegate authority can be changed at any time.
+For non-delegated programs, locking parameters can only be changed when there are no active stakes. For delegated programs, the delegate authority can be changed at any time.
 
 ### Lifecycle
 
-- **Freeze/Unfreeze** — frozen farms reject new stakes but allow unstaking, harvesting, and withdrawals. Farms start frozen at deployment to allow setup before going live.
+- **Freeze/Unfreeze** — frozen programs reject new stakes but allow unstaking, harvesting, and withdrawals. Programs start frozen at deployment to allow setup before going live.
 - **Upgrade** — admin can upgrade the contract to a new version.
 - **Two-step admin transfer** — safe admin key rotation via propose/accept pattern prevents accidental key loss.
 
 ### Reward Management
 
-- Register new reward tokens (up to 10 per farm)
+- Register new reward tokens (up to 10 per program)
 - Anyone can fund an initialized reward pool
 - Admin sets and updates the emission schedule
 - Admin recovers unissued reward tokens, accumulated treasury fees, or early withdrawal penalty amounts
@@ -187,7 +187,7 @@ For non-delegated farms, locking parameters can only be changed when there are n
 
 Users and frontends can inspect state without submitting transactions:
 
-- **Farm state** — total staked, number of users, configuration, reward token list, frozen status
+- **Program state** — total staked, number of users, configuration, reward token list, frozen status
 - **Position state** — active stake, pending deposits, pending withdrawals, reward tallies
 - **Pending rewards** — simulates reward accrual and returns claimable amounts per reward token (after treasury fee deduction) without modifying state
 
@@ -195,7 +195,7 @@ Users and frontends can inspect state without submitting transactions:
 
 | Parameter                  | Max Value |
 | -------------------------- | --------- |
-| Reward tokens per farm     | 10        |
+| Reward tokens per program  | 10        |
 | Emission schedule segments | 20        |
 | Treasury fee               | 20%       |
 | Harvest delay              | 1 day     |
@@ -212,10 +212,10 @@ Users and frontends can inspect state without submitting transactions:
 - Fee-on-transfer tokens are detected and rejected
 - Oracle prices are validated for staleness, zero values, and negative values
 - Two-step admin transfer prevents accidental admin key loss
-- Farms start frozen — no user interaction until admin explicitly unfreezes
+- Programs start frozen — no user interaction until admin explicitly unfreezes
 
 ## Open Source
 
-Farms is released as a public good for the Stellar ecosystem. Any project can deploy, integrate, and build on top of it. A lightweight interface crate is provided for cross-contract integration without importing the full implementation, keeping integrating contracts lean.
+Incentivix is released as a public good for the Stellar ecosystem. Any project can deploy, integrate, and build on top of it. A lightweight interface crate is provided for cross-contract integration without importing the full implementation, keeping integrating contracts lean.
 
 The contract is designed to be a shared standard — the more protocols that adopt it, the more consistent the user experience across the Stellar network, and the less duplicated security-critical code in the ecosystem.
