@@ -13,12 +13,10 @@ use crate::{
 
 #[contracttype]
 pub struct Farm {
-    pub id: u64,
     pub num_users: u64,
     pub is_frozen: bool,
     pub total_staked: i128,
     pub config: FarmConfig,
-    pub locking_start: u64,
     pub rewards: Map<Address, ()>,
     pub current_slashed_amount: i128,
     pub cumulative_slashed_amount: i128,
@@ -26,23 +24,19 @@ pub struct Farm {
 
 impl Farm {
     pub fn new(e: &Env, config: FarmConfig) -> Self {
-        let id = storage::get_farms_counter(e).unwrap_or(0);
-
         Self {
-            id,
             config,
             num_users: 0,
             total_staked: 0,
             is_frozen: true,
-            locking_start: 0,
             rewards: smap![e],
             current_slashed_amount: 0,
             cumulative_slashed_amount: 0,
         }
     }
 
-    pub fn try_get(e: &Env, farm_id: u64) -> Result<Farm, FCError> {
-        storage::get_farm(e, farm_id).ok_or(FCError::FarmDoesNotExist)
+    pub fn try_get(e: &Env) -> Result<Farm, FCError> {
+        storage::get_farm(e).ok_or(FCError::FarmDoesNotExist)
     }
 
     pub fn set(self, e: &Env) {
@@ -53,12 +47,20 @@ impl Farm {
         self.config.admin.require_auth();
     }
 
-    pub fn require_delegate_authority(&self) -> Result<(), FCError> {
+    pub fn require_delegate_authority(&self, caller: &Address) -> Result<(), FCError> {
         let Delegation::Delegated(config) = &self.config.delegation else {
             return Err(FCError::NotDelegatedFarm);
         };
-        config.delegate_authority.require_auth();
-        Ok(())
+        caller.require_auth();
+        if caller == &config.delegate_authority {
+            return Ok(());
+        }
+        if let Some(ref second) = config.second_delegate_authority
+            && caller == second
+        {
+            return Ok(());
+        }
+        Err(FCError::UnauthorizedCaller)
     }
 
     pub fn require_not_frozen(&self) -> Result<(), FCError> {
@@ -79,7 +81,7 @@ impl Farm {
         let current_ts = e.ledger().timestamp();
 
         for reward_token in self.rewards.keys() {
-            let mut reward_info = RewardInfo::try_get(e, self.id, &reward_token)?;
+            let mut reward_info = RewardInfo::try_get(e, &reward_token)?;
 
             let rewards_to_issue =
                 processors::calculate_rewards_to_issue(self, &reward_info, current_ts)?;
@@ -115,10 +117,44 @@ impl Farm {
             }
 
             reward_info.last_issuance_ts = current_ts;
-            reward_info.set(e, self.id, &reward_token);
+            reward_info.set(e, &reward_token);
         }
 
         Ok(())
+    }
+
+    /// Computes a snapshot of each reward's accumulated RPS as if `refresh_rewards`
+    /// had been called, but without persisting any changes to storage.
+    pub fn simulate_refresh_rewards(&self, e: &Env) -> Result<Map<Address, i128>, FCError> {
+        let current_ts = e.ledger().timestamp();
+        let mut rps_snapshot: Map<Address, i128> = smap![e];
+
+        for reward_token in self.rewards.keys() {
+            let reward_info = RewardInfo::try_get(e, &reward_token)?;
+
+            let rewards_to_issue =
+                processors::calculate_rewards_to_issue(self, &reward_info, current_ts)?;
+
+            let mut accum_rps = reward_info.accum_rewards_per_share_sc;
+
+            if rewards_to_issue.is_positive() {
+                let denominator = match reward_info.reward_type {
+                    RewardType::Proportional => self.total_staked,
+                    RewardType::Constant => self.num_users as i128,
+                };
+
+                if denominator > 0 {
+                    let rps_delta = rewards_to_issue
+                        .fixed_div_floor(denominator, SCALE_FACTOR)
+                        .map_over_or_underflow()?;
+                    accum_rps = accum_rps.checked_add(rps_delta).map_over_or_underflow()?;
+                }
+            }
+
+            rps_snapshot.set(reward_token, accum_rps);
+        }
+
+        Ok(rps_snapshot)
     }
 
     pub fn update_common_config(
@@ -136,6 +172,31 @@ impl Farm {
                 }
                 self.config.min_harvest_delay = *delay;
             }
+            CommonFarmConfigUpdate::IsHarvestPermissionless(enabled) => {
+                self.config.is_harvest_permissionless = *enabled;
+            }
+            CommonFarmConfigUpdate::SetOracle(oracle) => {
+                if oracle.oracle_max_age == 0 {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                self.config.oracle = OptionalOracle::Some(oracle.clone());
+            }
+            CommonFarmConfigUpdate::ClearOracle => {
+                self.config.oracle = OptionalOracle::None;
+            }
+            CommonFarmConfigUpdate::MinStakeAmount(amount) => {
+                require_nonnegative(*amount)?;
+                self.config.min_stake_amount = *amount;
+            }
+            CommonFarmConfigUpdate::TreasuryFeeBps(bps) => {
+                if !(0..=MAX_TREASURY_FEE_BPS).contains(bps) {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                self.config.treasury_fee_bps = *bps;
+            }
+            CommonFarmConfigUpdate::IsRewardOnceEnabled(enabled) => {
+                self.config.is_reward_once_enabled = *enabled;
+            }
         }
 
         Ok(())
@@ -152,6 +213,9 @@ impl Farm {
         match config_update {
             DelegatedFarmConfigUpdate::DelegateAuthority(address) => {
                 delegation_config.delegate_authority = address.clone();
+            }
+            DelegatedFarmConfigUpdate::SecondDelegateAuthority(address) => {
+                delegation_config.second_delegate_authority = address.clone();
             }
         }
 
@@ -214,7 +278,8 @@ impl Farm {
         if amount > self.current_slashed_amount {
             return Err(FCError::InsufficientCurrentSlashedAmount);
         }
-        self.current_slashed_amount -= amount; // safe
+        self.current_slashed_amount =
+            self.current_slashed_amount.checked_sub(amount).map_over_or_underflow()?;
 
         Ok(())
     }
@@ -229,7 +294,7 @@ impl Farm {
         self.rewards.set(reward_token.clone(), ());
 
         let reward_info = RewardInfo::new(e, reward_type);
-        reward_info.set(e, self.id, reward_token);
+        reward_info.set(e, reward_token);
 
         Ok(())
     }
@@ -254,11 +319,11 @@ impl Farm {
             return Err(FCError::RewardDoesNotExistOnFarm);
         }
 
-        let mut reward_info = RewardInfo::try_get(e, self.id, reward_token)?;
+        let mut reward_info = RewardInfo::try_get(e, reward_token)?;
 
         reward_info.rewards_available =
             reward_info.rewards_available.checked_add(amount).map_over_or_underflow()?;
-        reward_info.set(e, self.id, reward_token);
+        reward_info.set(e, reward_token);
 
         Ok(())
     }
@@ -293,27 +358,61 @@ impl Farm {
 
 #[contracttype]
 #[derive(Clone)]
+pub struct OracleConfig {
+    pub oracle_address: Address,
+    pub oracle_max_age: u64,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub enum OptionalOracle {
+    None,
+    Some(OracleConfig),
+}
+
+impl OptionalOracle {
+    pub fn as_ref(&self) -> Option<&OracleConfig> {
+        match self {
+            OptionalOracle::None => None,
+            OptionalOracle::Some(config) => Some(config),
+        }
+    }
+}
+
+#[contracttype]
+#[derive(Clone)]
 pub struct FarmConfig {
     pub token: Address,
     pub admin: Address,
     pub deposit_cap: i128,
-    /// Deprecated: use `NonDelegatedFarmConfig.locking_duration` instead.
-    pub locking_duration: u64,
     pub treasury_fee_bps: i128,
     pub min_harvest_delay: u64,
     pub min_stake_amount: i128,
     pub delegation: Delegation,
-    /// Deprecated: use `NonDelegatedFarmConfig.locking_mode` instead.
-    pub locking_mode: LockingMode,
     pub is_reward_once_enabled: bool,
+    pub is_harvest_permissionless: bool,
     pub proposed_admin: Option<Address>,
-    /// Deprecated: use `NonDelegatedFarmConfig.withdrawal_cooldown_period` instead.
-    pub withdrawal_cooldown_period: u64,
+    pub oracle: OptionalOracle,
 }
 
 impl FarmConfig {
     pub fn require_valid(&self) -> Result<(), FCError> {
         if !(0..=MAX_TREASURY_FEE_BPS).contains(&self.treasury_fee_bps) {
+            return Err(FCError::InvalidConfig);
+        }
+        if self.min_stake_amount < 0 {
+            return Err(FCError::InvalidConfig);
+        }
+        if self.deposit_cap < 0 {
+            return Err(FCError::InvalidConfig);
+        }
+        if self.min_harvest_delay > MAX_HARVEST_DELAY {
+            return Err(FCError::InvalidConfig);
+        }
+
+        if let OptionalOracle::Some(ref oracle) = self.oracle
+            && oracle.oracle_max_age == 0
+        {
             return Err(FCError::InvalidConfig);
         }
 
@@ -346,6 +445,7 @@ pub enum Delegation {
 #[contracttype]
 pub enum DelegatedFarmConfigUpdate {
     DelegateAuthority(Address),
+    SecondDelegateAuthority(Option<Address>),
 }
 
 #[contracttype]
@@ -362,12 +462,19 @@ pub enum NonDelegatedFarmConfigUpdate {
 pub enum CommonFarmConfigUpdate {
     DepositCap(i128),
     MinHarvestDelay(u64),
+    IsHarvestPermissionless(bool),
+    SetOracle(OracleConfig),
+    ClearOracle,
+    MinStakeAmount(i128),
+    TreasuryFeeBps(i128),
+    IsRewardOnceEnabled(bool),
 }
 
 #[contracttype]
 #[derive(Clone)]
 pub struct DelegatedFarmConfig {
     pub delegate_authority: Address,
+    pub second_delegate_authority: Option<Address>,
 }
 
 #[contracttype]
@@ -401,14 +508,10 @@ pub enum RewardType {
 #[contracttype]
 pub struct RewardInfo {
     pub last_issuance_ts: u64,
-    /// Deprecated: harvest uses `FarmConfig.min_harvest_delay` instead.
-    pub min_claim_duration: u64,
     pub rewards_available: i128,
     pub reward_type: RewardType,
     pub rewards_issued_unclaimed: i128,
     pub rewards_issued_cumulative: i128,
-    /// Deprecated: use `rewards_issued_cumulative` instead.
-    pub cumulative_issued_rewards: i128,
     pub accum_rewards_per_share_sc: i128,
     pub accumulated_treasury_fees: i128,
     pub reward_schedule_curve: RewardScheduleCurve,
@@ -419,9 +522,7 @@ impl RewardInfo {
         Self {
             last_issuance_ts: 0,
             rewards_available: 0,
-            min_claim_duration: 0,
             rewards_issued_unclaimed: 0,
-            cumulative_issued_rewards: 0,
             rewards_issued_cumulative: 0,
             accum_rewards_per_share_sc: 0,
             accumulated_treasury_fees: 0,
@@ -430,12 +531,12 @@ impl RewardInfo {
         }
     }
 
-    pub fn try_get(e: &Env, farm_id: u64, reward_token: &Address) -> Result<Self, FCError> {
-        storage::get_reward_info(e, farm_id, reward_token).ok_or(FCError::RewardDoesNotExistOnFarm)
+    pub fn try_get(e: &Env, reward_token: &Address) -> Result<Self, FCError> {
+        storage::get_reward_info(e, reward_token).ok_or(FCError::RewardDoesNotExistOnFarm)
     }
 
-    pub fn set(self, e: &Env, farm_id: u64, reward_token: &Address) {
-        storage::set_reward_info(e, farm_id, reward_token, &self);
+    pub fn set(self, e: &Env, reward_token: &Address) {
+        storage::set_reward_info(e, reward_token, &self);
     }
 
     pub fn reward_once(&mut self, amount: i128) -> Result<(), FCError> {
@@ -447,7 +548,8 @@ impl RewardInfo {
             self.rewards_issued_unclaimed.checked_add(amount).map_over_or_underflow()?;
         self.rewards_issued_cumulative =
             self.rewards_issued_cumulative.checked_add(amount).map_over_or_underflow()?;
-        self.rewards_available -= amount; //safe
+        self.rewards_available =
+            self.rewards_available.checked_sub(amount).map_over_or_underflow()?;
 
         Ok(())
     }
@@ -462,8 +564,9 @@ impl RewardInfo {
         curve.require_valid()?;
 
         farm.refresh_rewards(e)?;
-        *self = RewardInfo::try_get(e, farm.id, reward_token)?;
+        *self = RewardInfo::try_get(e, reward_token)?;
         self.reward_schedule_curve = curve.clone();
+        self.last_issuance_ts = e.ledger().timestamp();
 
         Ok(())
     }
@@ -483,9 +586,6 @@ pub struct FarmingPosition {
 
     pub last_stake_ts: u64,
     pub last_claim_ts: Map<Address, u64>,
-
-    /// Deprecated: unused, kept for storage compatibility.
-    pending_rewards_unclaimed: Map<Address, i128>,
 }
 
 impl FarmingPosition {
@@ -500,16 +600,15 @@ impl FarmingPosition {
             rewards_tallies: smap![e],
             rewards_unclaimed: smap![e],
             pending_withdrawal_stake: 0,
-            pending_rewards_unclaimed: smap![e],
         }
     }
 
-    pub fn try_get(e: &Env, farm_id: u64, farming_key: &FarmingKey) -> Result<Self, FCError> {
-        storage::get_user(e, farm_id, farming_key).ok_or(FCError::FarmingPositionDoesNotExist)
+    pub fn try_get(e: &Env, farming_key: &FarmingKey) -> Result<Self, FCError> {
+        storage::get_user(e, farming_key).ok_or(FCError::FarmingPositionDoesNotExist)
     }
 
-    pub fn set(self, e: &Env, farm_id: u64, farming_key: &FarmingKey) {
-        storage::set_user(e, farm_id, farming_key, &self);
+    pub fn set(self, e: &Env, farming_key: &FarmingKey) {
+        storage::set_user(e, farming_key, &self);
     }
 
     pub fn withdraw_unstaked(&mut self, e: &Env, farm: &Farm) -> Result<i128, FCError> {
@@ -538,11 +637,7 @@ impl FarmingPosition {
         Ok(amount)
     }
 
-    pub fn reward_once(
-        &mut self,
-        reward_token: &Address,
-        amount: i128,
-    ) -> Result<(), FCError> {
+    pub fn reward_once(&mut self, reward_token: &Address, amount: i128) -> Result<(), FCError> {
         let current_unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
         let new_unclaimed = current_unclaimed.checked_add(amount).map_over_or_underflow()?;
         self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
@@ -553,24 +648,34 @@ impl FarmingPosition {
         &self,
         e: &Env,
         farm: &Farm,
+        rps_snapshot: &Map<Address, i128>,
     ) -> Result<Vec<(Address, i128)>, FCError> {
         let mut res = svec![e];
 
         for reward_token in farm.rewards.keys() {
-            let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
+            let reward_info = RewardInfo::try_get(e, &reward_token)?;
             let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
 
+            let accum_rps = rps_snapshot
+                .get(reward_token.clone())
+                .unwrap_or(reward_info.accum_rewards_per_share_sc);
+
             let stake = effective_stake(self.active_stake, reward_info.reward_type);
-            let pending_from_rps = calculate_pending_reward(
-                stake,
-                reward_info.accum_rewards_per_share_sc,
-                user_tally,
-            )?;
+            let pending_from_rps = calculate_pending_reward(stake, accum_rps, user_tally)?;
 
             let unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
             let total = pending_from_rps.checked_add(unclaimed).map_over_or_underflow()?;
 
-            res.push_back((reward_token, total));
+            let net = if farm.config.treasury_fee_bps > 0 && total > 0 {
+                let fee = total
+                    .fixed_mul_ceil(farm.config.treasury_fee_bps, BPS_FACTOR)
+                    .map_over_or_underflow()?;
+                total.checked_sub(fee).map_over_or_underflow()?
+            } else {
+                total
+            };
+
+            res.push_back((reward_token, net));
         }
 
         Ok(res)
@@ -578,7 +683,7 @@ impl FarmingPosition {
 
     pub fn refresh_rewards(&mut self, e: &Env, farm: &Farm) -> Result<(), FCError> {
         for reward_token in farm.rewards.keys() {
-            let reward_info = RewardInfo::try_get(e, farm.id, &reward_token)?;
+            let reward_info = RewardInfo::try_get(e, &reward_token)?;
 
             let stake = effective_stake(self.active_stake, reward_info.reward_type);
             let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
@@ -605,10 +710,4 @@ impl FarmingPosition {
 
         Ok(())
     }
-}
-
-#[contracttype]
-pub struct GlobalConfig {
-    pub admin: Address,
-    pub proposed_admin: Option<Address>,
 }

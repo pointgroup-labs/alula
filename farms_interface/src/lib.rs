@@ -16,7 +16,7 @@
 //! let farming_key = FarmingKey::new_with_seed(owner.clone(), obligation_seed);
 //!
 //! let client = FarmsClient::new(&env, &farms_contract_address);
-//! client.set_stake_delegated(&farming_key, &farm_id, &new_stake);
+//! client.set_stake_delegated(&farming_key, &new_stake);
 //! ```
 //!
 //! # Design
@@ -100,17 +100,17 @@ pub trait Farms {
     /// to sync a farming_key's stake whenever their position changes
     ///
     /// # Arguments
+    /// * `caller` - The address invoking the function (must be the delegate authority)
     /// * `farming_key` - The farming_key identifier (owner address + optional seed)
-    /// * `farm_id` - The unique identifier of the farm (32-byte hash)
     /// * `new_stake` - The new total stake amount (replaces previous stake)
     ///
     /// # Authorization
-    /// The calling contract must be registered as the `delegate_authority` for this farm.
-    /// Calls from unauthorized addresses will fail
+    /// The `caller` must be registered as the `delegate_authority` (or `second_delegate_authority`)
+    /// for this farm. Calls from unauthorized addresses will fail
     ///
     /// # Example Use Cases
     /// - Lending protocols: sync stake after deposit, withdraw, borrow, repay
     /// - AMM integrations: sync stake after add/remove liquidity
     /// - Staking wrappers: sync stake after any position change
-    fn set_stake_delegated(e: Env, farming_key: FarmingKey, farm_id: BytesN<32>, new_stake: i128);
+    fn set_stake_delegated(e: Env, caller: Address, farming_key: FarmingKey, new_stake: i128);
 }

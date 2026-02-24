@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
+use soroban_sdk::{Address, Env, Map, String, Vec, contracttype};
 
 use crate::{
     accrual::AccrualModel,
@@ -57,10 +57,10 @@ pub struct Pool {
     pub borrow_apr_bps: i128,
     /// Supply annual percentage rate in basis points
     pub supply_apr_bps: i128,
-    /// Farm ID for supply incentives (j-token staking)
-    pub farm_supply: Option<BytesN<32>>,
-    /// Farm ID for debt incentives (d-token staking)
-    pub farm_debt: Option<BytesN<32>>,
+    /// Farm address for supply incentives (j-token staking)
+    pub farm_supply: Option<Address>,
+    /// Farm address for debt incentives (d-token staking)
+    pub farm_debt: Option<Address>,
 }
 
 macro_rules! generate_adjust_method {

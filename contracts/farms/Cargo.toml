@@ -10,10 +10,12 @@ doctest = true
 
 [dependencies]
 farms_interface = { path = "../../farms_interface" }
+sep-40-oracle = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]
+sep-40-oracle = { workspace = true, features = ["testutils"] }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [features]

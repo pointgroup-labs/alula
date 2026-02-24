@@ -443,14 +443,7 @@ pub fn process_refresh_farms<'a>(
     e: &'a Env,
     obligation_key: &ObligationKey,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    // Check if farms contract is configured
-    let Some(farms_contract) = storage::get_farms_contract(e) else {
-        // No farms configured, return empty transfers
-        return Ok(RequestTransfers::empty(e, obligation_key.user.clone()));
-    };
-
-    // Refresh all farms for this obligation
-    farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
+    farms::refresh_all_obligation_farms(e, obligation_key)?;
 
     Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
 }

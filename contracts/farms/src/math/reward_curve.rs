@@ -1,5 +1,6 @@
-use crate::{constants::*, error::FCError, utils::MathUtils};
 use soroban_sdk::{Vec, contracttype};
+
+use crate::{constants::*, error::FCError, utils::MathUtils};
 
 #[contracttype]
 #[derive(Clone)]
@@ -19,6 +20,12 @@ impl RewardScheduleCurve {
     pub fn require_valid(&self) -> Result<(), FCError> {
         if self.points.is_empty() || self.points.len() > MAX_CURVE_POINTS {
             return Err(FCError::InvalidRewardScheduleCurve);
+        }
+
+        for point in self.points.iter() {
+            if point.reward_per_time_unit < 0 {
+                return Err(FCError::InvalidRewardScheduleCurve);
+            }
         }
 
         for (p_current, p_next) in self.points.iter().zip(self.points.iter().skip(1)) {
@@ -55,11 +62,8 @@ impl RewardScheduleCurve {
                 break;
             }
 
-            let segment_end = if i + 1 < len {
-                self.points.get(i + 1).unwrap().ts_start
-            } else {
-                to_ts
-            };
+            let segment_end =
+                if i + 1 < len { self.points.get(i + 1).unwrap().ts_start } else { to_ts };
 
             let overlap_start = from_ts.max(point.ts_start);
             let overlap_end = to_ts.min(segment_end);

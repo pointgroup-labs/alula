@@ -613,6 +613,7 @@ name = "farms"
 version = "0.1.0"
 dependencies = [
  "farms_interface",
+ "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk",
 ]

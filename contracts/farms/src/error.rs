@@ -4,14 +4,11 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum FCError {
-    // Common
     InternalError = 0,
     NegativeInputAmount = 1,
     OverOrUnderflow = 2,
 
-    // Farms
     InvalidRewardScheduleCurve = 10,
-    InvalidConfigUpdate = 11,
     InvalidFarmConfigUpdate = 12,
     FarmDoesNotExist = 13,
     FarmingPositionDoesNotExist = 14,
@@ -35,7 +32,10 @@ pub enum FCError {
     InvalidAmount = 32,
     InvalidConfig = 33,
     ProposedAdminDoesNotExist = 34,
-    MaxAllowedFarmsReached = 35,
-    InsufficientTreasuryFees = 36,
-    TransferAmountMismatch = 37,
+    InsufficientTreasuryFees = 35,
+    TransferAmountMismatch = 36,
+    OraclePriceUnavailable = 37,
+    OraclePriceStale = 38,
+    UnauthorizedCaller = 39,
+    NoPendingDeposit = 40,
 }

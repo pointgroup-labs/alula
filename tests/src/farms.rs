@@ -1,2652 +1,1500 @@
-// //! Integration tests for the Farms contract
-// //!
-// //! Tests cover:
-// //! - Farm initialization
-// //! - Reward token setup
-// //! - Stake/unstake operations
-// //! - Reward harvesting
-// //! - Warmup/cooldown periods
-// //! - Early withdrawal penalties
-// //! - Delegated stake updates (push model)
-// //! - Edge cases and error conditions
-
-// #![cfg(test)]
-
-// use farms::{
-//     CommonFarmConfigUpdate, FarmingKey, FarmsClient, FarmsContract, LockingMode, RewardCurvePoint,
-//     RewardScheduleCurve, state::FarmConfig,
-// };
-// use soroban_sdk::{
-//     Address, IntoVal,
-//     testutils::Address as _,
-//     token::{StellarAssetClient, TokenClient},
-//     vec,
-// };
-
-// use crate::TestMarketFixture;
-
-// /// Creates a test fixture that includes both Market and Farms contracts
-// pub struct TestFarmsFixture<'a> {
-//     pub market_fixture: TestMarketFixture<'a>,
-//     pub farms_client: FarmsClient<'a>,
-//     pub farms_address: Address,
-//     pub reward_token_client: TokenClient<'a>,
-//     pub reward_token_address: Address,
-//     pub reward_vault: Address,
-// }
-
-// impl<'a> TestFarmsFixture<'a> {
-//     pub fn new() -> Self {
-//         let market_fixture = TestMarketFixture::new();
-//         let e = &market_fixture.e;
-
-//         // Register Farms contract (constructor now takes: admin, treasury_vault)
-//         let farms_address = e.register(
-//             FarmsContract,
-//             (
-//                 &market_fixture.contract_admin,
-//                 &market_fixture.contract_admin, // Treasury vault = admin for simplicity
-//             ),
-//         );
-//         let farms_client = FarmsClient::new(e, &farms_address);
-
-//         // Create a reward token (using USDC for simplicity)
-//         let reward_admin = Address::generate(e);
-//         let reward_token_address =
-//             e.register_stellar_asset_contract_v2(reward_admin.clone()).address();
-//         let reward_sac = StellarAssetClient::new(e, &reward_token_address);
-//         let reward_token_client = TokenClient::new(e, &reward_token_address);
-
-//         // Create a reward vault
-//         let reward_vault = Address::generate(e);
-
-//         // Mint reward tokens to admin for distribution
-//         reward_sac.mint(&market_fixture.contract_admin, &1_000_000_000_000);
-//         reward_sac.mint(&reward_vault, &1_000_000_000_000);
-
-//         Self {
-//             market_fixture,
-//             farms_client,
-//             farms_address,
-//             reward_token_client,
-//             reward_token_address,
-//             reward_vault,
-//         }
-//     }
-
-//     pub fn pass_time(&self, seconds: u64) {
-//         self.market_fixture.pass_time(seconds);
-//     }
-
-//     pub fn current_timestamp(&self) -> u64 {
-//         self.market_fixture.e.ledger().timestamp()
-//     }
-
-//     /// Helper to create a FarmingKey from an Address (reduces boilerplate in tests)
-//     pub fn farming_key(&self, user: &Address) -> FarmingKey {
-//         FarmingKey::from(user.clone())
-//     }
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Initialization Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_farms_initialization() {
-//     let fixture = TestFarmsFixture::new();
-
-//     let config = fixture.farms_client.get_global_config();
-
-//     assert_eq!(config.admin, fixture.market_fixture.contract_admin);
-//     assert_eq!(config.treasury_fee_bps, 0);
-// }
-
-// #[test]
-// fn test_create_farm_for_pool() {
-//     let fixture = TestFarmsFixture::new();
-//     let _e = &fixture.market_fixture.e;
-
-//     let farm_config = FarmConfig {
-//         delegate_authority: None,
-//         time_unit: TimeUnit::Seconds,
-//         deposit_warmup_period: 0,
-//         withdrawal_cooldown_period: 0,
-//         locking_mode: LockingMode::None,
-//         locking_start_ts: 0,
-//         locking_duration: 0,
-//         early_withdrawal_penalty_bps: 0,
-//         deposit_cap: 0,
-//     };
-
-//     // Create a farm
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Verify farm was created
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.total_staked, 0);
-//     assert_eq!(farm.num_users, 0);
-//     assert!(!farm.is_frozen);
-//     assert!(farm.delegate_authority.is_none());
-// }
-
-// #[test]
-// fn test_initialize_reward_token() {
-//     let fixture = TestFarmsFixture::new();
-
-//     let farm_config = FarmConfig::default();
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Add a reward token
-//     let reward_index = fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     assert_eq!(reward_index, 0);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_reward_tokens, 1);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Staking Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_stake_and_unstake() {
-//     let fixture = TestFarmsFixture::new();
-//     let _e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create farm
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Initialize user
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-
-//     // Stake
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 1000);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.total_staked, 1000);
-
-//     // Unstake
-//     let net_amount = fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &500);
-//     assert_eq!(net_amount, 500); // No penalty
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 500);
-// }
-
-// #[test]
-// fn test_stake_with_warmup() {
-//     let fixture = TestFarmsFixture::new();
-//     let _e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create farm with 1 hour warmup
-//     let farm_config = FarmConfig {
-//         deposit_warmup_period: 3600, // 1 hour
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Stake should be pending
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 0);
-//     assert_eq!(user_state.pending_deposit_stake, 1000);
-
-//     // Pass warmup time
-//     fixture.pass_time(3601);
-
-//     // Refresh to activate pending stake
-//     fixture.farms_client.refresh_user_state(&fixture.farming_key(user), &farm_id);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 1000);
-//     assert_eq!(user_state.pending_deposit_stake, 0);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Reward Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_reward_accrual_and_harvest() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create farm
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Add reward token
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Set reward schedule: 100 tokens per second starting now
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 100 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     // Fund rewards
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     // User stakes
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Pass 100 seconds
-//     fixture.pass_time(100);
-
-//     // Check pending rewards (should be ~10,000 = 100 * 100 seconds)
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     assert!(!pending.is_empty());
-
-//     // Harvest
-//     let initial_balance = fixture.reward_token_client.balance(user);
-//     let harvested = fixture.farms_client.harvest(&fixture.farming_key(user), &farm_id, &0);
-//     let final_balance = fixture.reward_token_client.balance(user);
-
-//     assert!(harvested > 0);
-//     assert_eq!(final_balance - initial_balance, harvested);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Penalty Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_early_withdrawal_penalty() {
-//     let fixture = TestFarmsFixture::new();
-//     let _e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create farm with continuous locking and 10% penalty
-//     let farm_config = FarmConfig {
-//         locking_mode: LockingMode::Continuous,
-//         locking_duration: 86400,            // 1 day
-//         early_withdrawal_penalty_bps: 1000, // 10%
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Unstake immediately (should incur 10% penalty)
-//     let net_amount = fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1000);
-//     assert_eq!(net_amount, 900); // 1000 - 10% = 900
-// }
-
-// #[test]
-// fn test_no_penalty_after_lock_expires() {
-//     let fixture = TestFarmsFixture::new();
-//     let _e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig {
-//         locking_mode: LockingMode::Continuous,
-//         locking_duration: 3600,             // 1 hour
-//         early_withdrawal_penalty_bps: 1000, // 10%
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Pass lock duration
-//     fixture.pass_time(3601);
-
-//     // Unstake after lock expires (no penalty)
-//     let net_amount = fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1000);
-//     assert_eq!(net_amount, 1000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Admin Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_freeze_and_unfreeze_farm() {
-//     let fixture = TestFarmsFixture::new();
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Freeze
-//     fixture.farms_client.freeze_farm(&farm_id);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert!(farm.is_frozen);
-
-//     // Unfreeze
-//     fixture.farms_client.unfreeze_farm(&farm_id);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert!(!farm.is_frozen);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Delegated Stake Tests (Push Model)
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_delegated_farm_with_set_stake() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create a delegated farm with Market as the delegate authority
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Verify delegate is set
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert!(farm.delegate_authority.is_some());
-//     assert_eq!(farm.delegate_authority.clone().unwrap(), fixture.market_fixture.contract_id);
-
-//     // Mock the Market contract calling set_stake_delegated
-//     // In real usage, the Market would call this after a deposit
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Verify user state was updated (auto-initialized)
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 1000);
-
-//     // Verify farm total was updated
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.total_staked, 1000);
-//     assert_eq!(farm.num_users, 1);
-// }
-
-// #[test]
-// fn test_delegated_farm_stake_increase_and_decrease() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create a delegated farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Initial stake
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 1000);
-
-//     // Increase stake (e.g., user deposited more)
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1500i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1500);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 1500);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.total_staked, 1500);
-
-//     // Decrease stake (e.g., user withdrew)
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 500i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &500);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 500);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.total_staked, 500);
-// }
-
-// #[test]
-// fn test_delegated_farm_user_count_tracking() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create a delegated farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // First stake should increment user count
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-
-//     // Full unstake should decrement user count
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 0i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &0);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 0);
-// }
-
-// #[test]
-// fn test_delegated_farm_deposit_cap() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create a delegated farm with deposit cap
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         deposit_cap: 500, // Cap at 500
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Stake within cap should succeed
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 400i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &400);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.total_staked, 400);
-
-//     // Stake exceeding cap should fail
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 600i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-
-//     let result =
-//         fixture.farms_client.try_set_stake_delegated(&fixture.farming_key(user), &farm_id, &600);
-//     assert!(result.is_err());
-// }
-
-// #[test]
-// fn test_delegated_farm_frozen_rejects_stake() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create a delegated farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Freeze the farm
-//     fixture.farms_client.freeze_farm(&farm_id);
-
-//     // Attempt to stake on frozen farm should fail
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-
-//     let result =
-//         fixture.farms_client.try_set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-//     assert!(result.is_err());
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Cooldown Period Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_unstake_with_cooldown() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create farm with 1 hour cooldown
-//     let farm_config = FarmConfig {
-//         withdrawal_cooldown_period: 3600, // 1 hour
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Unstake - should move to pending
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &500);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 500);
-//     assert_eq!(user_state.pending_withdrawal_stake, 500);
-
-//     // Attempt withdraw before cooldown should fail
-//     let result = fixture.farms_client.try_withdraw_unstaked(&fixture.farming_key(user), &farm_id);
-//     assert!(result.is_err());
-
-//     // Pass cooldown time
-//     fixture.pass_time(3601);
-
-//     // Withdraw should succeed now
-//     let withdrawn = fixture.farms_client.withdraw_unstaked(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(withdrawn, 500);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.pending_withdrawal_stake, 0);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Multiple Reward Tokens Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_multiple_reward_tokens() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create farm
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Create second reward token
-//     let reward_admin2 = Address::generate(e);
-//     let reward_token2 = e.register_stellar_asset_contract_v2(reward_admin2.clone()).address();
-//     let reward_sac2 = StellarAssetClient::new(e, &reward_token2);
-//     let reward_vault2 = Address::generate(e);
-//     reward_sac2.mint(&fixture.market_fixture.contract_admin, &1_000_000_000);
-//     reward_sac2.mint(&reward_vault2, &1_000_000_000);
-
-//     // Add two reward tokens
-//     let idx1 = fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-//     let idx2 = fixture.farms_client.initialize_reward(&farm_id, &reward_token2, &reward_vault2);
-
-//     assert_eq!(idx1, 0);
-//     assert_eq!(idx2, 1);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_reward_tokens, 2);
-
-//     // Set schedules for both
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 100 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-//     fixture.farms_client.update_reward_schedule(&farm_id, &1, &schedule);
-
-//     // Fund both
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &1,
-//         &1_000_000,
-//     );
-
-//     // User stakes and earns from both
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     fixture.pass_time(100);
-
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(pending.len(), 2);
-//     assert!(pending.get(0).unwrap() > 0);
-//     assert!(pending.get(1).unwrap() > 0);
-// }
-
-// #[test]
-// fn test_harvest_all() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create farm with reward
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 100 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     fixture.pass_time(100);
-
-//     let initial_balance = fixture.reward_token_client.balance(user);
-//     let total_harvested = fixture.farms_client.harvest_all(&fixture.farming_key(user), &farm_id);
-//     let final_balance = fixture.reward_token_client.balance(user);
-
-//     assert!(total_harvested > 0);
-//     assert_eq!(final_balance - initial_balance, total_harvested);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Linear Penalty Decay Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_linear_penalty_decay_halfway() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // 10% max penalty, 1000 second lock
-//     let farm_config = FarmConfig {
-//         locking_mode: LockingMode::Continuous,
-//         locking_duration: 1000,
-//         early_withdrawal_penalty_bps: 1000, // 10%
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Pass 500 seconds (halfway) - should have 5% penalty
-//     fixture.pass_time(500);
-
-//     let net_amount = fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1000);
-//     // 5% of 1000 = 50, so net = 950
-//     assert_eq!(net_amount, 950);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Per-Farm Admin Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_per_farm_admin_transfer() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Create a new farm admin
-//     let new_farm_admin = Address::generate(e);
-
-//     // Set pending farm admin
-//     fixture
-//         .farms_client
-//         .update_farm_config(&farm_id, &FarmConfigUpdate::PendingFarmAdmin(new_farm_admin.clone()));
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert!(farm.pending_farm_admin.is_some());
-//     assert_eq!(farm.pending_farm_admin.clone().unwrap(), new_farm_admin);
-
-//     // Accept farm admin
-//     fixture.farms_client.accept_farm_admin(&farm_id);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert!(farm.farm_admin.is_some());
-//     assert_eq!(farm.farm_admin.clone().unwrap(), new_farm_admin);
-//     assert!(farm.pending_farm_admin.is_none());
-// }
-
-// #[test]
-// fn test_farm_admin_can_update_config() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Transfer admin to new address
-//     let new_farm_admin = Address::generate(e);
-//     fixture
-//         .farms_client
-//         .update_farm_config(&farm_id, &FarmConfigUpdate::PendingFarmAdmin(new_farm_admin.clone()));
-//     fixture.farms_client.accept_farm_admin(&farm_id);
-
-//     // New farm admin should be able to update config
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &new_farm_admin,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "update_farm_config",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 farm_id.clone().into_val(e),
-//                 FarmConfigUpdate::DepositCap(5000i128).into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-
-//     fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::DepositCap(5000));
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.deposit_cap, 5000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Reward User Once (Airdrop) Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_reward_user_once_airdrop() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create delegated farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Enable reward_user_once
-//     fixture
-//         .farms_client
-//         .update_farm_config(&farm_id, &FarmConfigUpdate::RewardUserOnceEnabled(true));
-
-//     // Add reward token
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Fund rewards
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     // Initialize user (via delegated stake)
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Airdrop reward to user via delegate
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "reward_user_once",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 0u32.into_val(e),
-//                 500i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.reward_user_once(&fixture.farming_key(user), &farm_id, &0, &500);
-
-//     // Check user has pending rewards
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     assert!(pending.get(0).unwrap() >= 500); // At least the airdrop amount
-
-//     // Harvest - use mock_all_auths_allowing_non_root_auth to auto-approve all authorization
-//     // This is needed because the vault's transfer auth isn't rooted in the harvest call
-//     e.mock_all_auths_allowing_non_root_auth();
-//     let initial_balance = fixture.reward_token_client.balance(user);
-//     let harvested = fixture.farms_client.harvest(&fixture.farming_key(user), &farm_id, &0);
-//     let final_balance = fixture.reward_token_client.balance(user);
-
-//     assert!(harvested >= 500);
-//     assert_eq!(final_balance - initial_balance, harvested);
-// }
-
-// #[test]
-// fn test_reward_user_once_disabled_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create delegated farm (but don't enable reward_user_once)
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Initialize user
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Attempt airdrop should fail
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "reward_user_once",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 0u32.into_val(e),
-//                 500i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-
-//     let result =
-//         fixture.farms_client.try_reward_user_once(&fixture.farming_key(user), &farm_id, &0, &500);
-//     assert!(result.is_err());
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Update Farm Config Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_update_farm_config_variants() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Test DepositWarmupPeriod
-//     fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::DepositWarmupPeriod(3600));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.deposit_warmup_period, 3600);
-
-//     // Test WithdrawalCooldownPeriod
-//     fixture
-//         .farms_client
-//         .update_farm_config(&farm_id, &FarmConfigUpdate::WithdrawalCooldownPeriod(7200));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.withdrawal_cooldown_period, 7200);
-
-//     // Test LockingMode
-//     fixture
-//         .farms_client
-//         .update_farm_config(&farm_id, &FarmConfigUpdate::LockingMode(LockingMode::Continuous));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.locking_mode, LockingMode::Continuous);
-
-//     // Test LockingDuration
-//     fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::LockingDuration(86400));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.locking_duration, 86400);
-
-//     // Test EarlyWithdrawalPenalty
-//     fixture
-//         .farms_client
-//         .update_farm_config(&farm_id, &FarmConfigUpdate::EarlyWithdrawalPenalty(500));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.early_withdrawal_penalty_bps, 500);
-
-//     // Test DepositCap
-//     fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::DepositCap(1_000_000));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.deposit_cap, 1_000_000);
-
-//     // Test DelegateAuthority
-//     let delegate = Address::generate(e);
-//     fixture
-//         .farms_client
-//         .update_farm_config(&farm_id, &FarmConfigUpdate::DelegateAuthority(Some(delegate.clone())));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.delegate_authority.unwrap(), delegate);
-
-//     // Clear delegate
-//     fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::DelegateAuthority(None));
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert!(farm.delegate_authority.is_none());
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Withdraw Slashed Amount Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_withdraw_slashed_amount() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Create locked farm
-//     let farm_config = FarmConfig {
-//         locking_mode: LockingMode::Continuous,
-//         locking_duration: 86400,
-//         early_withdrawal_penalty_bps: 1000, // 10%
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Unstake immediately to generate slashed amount
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.slashed_amount_current, 100); // 10% of 1000
-//     assert_eq!(farm.slashed_amount_cumulative, 100);
-
-//     // Admin withdraws slashed amount
-//     fixture.farms_client.withdraw_slashed_amount(&farm_id, &50);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.slashed_amount_current, 50);
-//     assert_eq!(farm.slashed_amount_cumulative, 100); // Cumulative unchanged
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Global Admin Transfer Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_global_admin_two_step_transfer() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-
-//     let new_admin = Address::generate(e);
-
-//     // Set pending admin
-//     fixture.farms_client.set_pending_admin(&new_admin);
-
-//     let config = fixture.farms_client.get_global_config();
-//     assert!(config.pending_admin.is_some());
-//     assert_eq!(config.pending_admin.unwrap(), new_admin);
-
-//     // Accept admin
-//     fixture.farms_client.accept_admin();
-
-//     let config = fixture.farms_client.get_global_config();
-//     assert_eq!(config.admin, new_admin);
-//     assert!(config.pending_admin.is_none());
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Zero/Boundary Values
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_stake_minimum_amount() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-
-//     // Stake minimum amount (1)
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.active_stake, 1);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.total_staked, 1);
-//     assert_eq!(farm.num_users, 1);
-// }
-
-// #[test]
-// #[should_panic(expected = "#70")] // InvalidAmount
-// fn test_stake_zero_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-
-//     // Attempt to stake 0 should fail
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &0);
-// }
-
-// #[test]
-// fn test_harvest_with_zero_pending_rewards() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // User stakes but no rewards were funded
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     fixture.pass_time(100);
-
-//     // Harvest should fail with NoRewardsToHarvest (no schedule, no rewards)
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(pending.get(0).unwrap(), 0);
-// }
-
-// #[test]
-// fn test_rewards_accrue_with_empty_farm_then_user_joins() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Set reward schedule BEFORE anyone stakes
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 100 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     // Fund rewards
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     // Let 100 seconds pass with NO stakers - rewards should NOT be issued
-//     fixture.pass_time(100);
-
-//     // Now user joins
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Let another 100 seconds pass
-//     fixture.pass_time(100);
-
-//     // User should only get rewards from the time they staked (100 seconds * 100 = 10,000)
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     let pending_amount = pending.get(0).unwrap();
-
-//     // Should be approximately 10,000 (not 20,000)
-//     assert!(pending_amount > 0);
-//     assert!(pending_amount <= 10_000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Timing Boundaries
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_withdraw_unstaked_exactly_at_cooldown_end() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig { withdrawal_cooldown_period: 100, ..Default::default() };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Advance exactly to cooldown end
-//     fixture.pass_time(100);
-
-//     // Should succeed exactly at boundary
-//     let withdrawn = fixture.farms_client.withdraw_unstaked(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(withdrawn, 1000);
-// }
-
-// #[test]
-// #[should_panic(expected = "#51")] // CooldownNotComplete
-// fn test_withdraw_unstaked_one_second_before_cooldown_end() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig { withdrawal_cooldown_period: 100, ..Default::default() };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Advance to 1 second before cooldown end
-//     fixture.pass_time(99);
-
-//     // Should fail
-//     fixture.farms_client.withdraw_unstaked(&fixture.farming_key(user), &farm_id);
-// }
-
-// #[test]
-// fn test_activate_pending_stake_exactly_at_warmup_end() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig { deposit_warmup_period: 100, ..Default::default() };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.pending_deposit_stake, 1000);
-//     assert_eq!(user_state.active_stake, 0);
-
-//     // Advance exactly to warmup end
-//     fixture.pass_time(100);
-
-//     // Refresh should activate pending stake
-//     fixture.farms_client.refresh_user_state(&fixture.farming_key(user), &farm_id);
-
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(user_state.pending_deposit_stake, 0);
-//     assert_eq!(user_state.active_stake, 1000);
-// }
-
-// #[test]
-// fn test_penalty_exactly_at_lock_expiry() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig {
-//         locking_mode: LockingMode::Continuous,
-//         locking_duration: 100,
-//         early_withdrawal_penalty_bps: 1000, // 10%
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Advance exactly to lock expiry
-//     fixture.pass_time(100);
-
-//     // Unstake should have no penalty
-//     let net_amount = fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1000);
-//     assert_eq!(net_amount, 1000);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.slashed_amount_current, 0);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - User Count Tracking
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_user_count_multiple_stake_unstake_cycles() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-
-//     // First stake
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &500);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-
-//     // Stake more (should not increment)
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &500);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-
-//     // Partial unstake (should not decrement)
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &500);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-
-//     // Full unstake (should decrement)
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &500);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 0);
-
-//     // Re-stake (should increment again)
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-// }
-
-// #[test]
-// fn test_multiple_users_count() {
-//     let fixture = TestFarmsFixture::new();
-//     let user1 = &fixture.market_fixture.users[0];
-//     let user2 = &fixture.market_fixture.users[1];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user1), &farm_id);
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user2), &farm_id);
-
-//     fixture.farms_client.stake(&fixture.farming_key(user1), &farm_id, &1000);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-//     assert_eq!(farm.total_staked, 1000);
-
-//     fixture.farms_client.stake(&fixture.farming_key(user2), &farm_id, &2000);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 2);
-//     assert_eq!(farm.total_staked, 3000);
-
-//     // User1 fully unstakes
-//     fixture.farms_client.unstake(&fixture.farming_key(user1), &farm_id, &1000);
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-//     assert_eq!(farm.total_staked, 2000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Error Conditions
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// #[should_panic(expected = "#20")] // UserAlreadyExists
-// fn test_double_user_initialization_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id); // Should fail
-// }
-
-// #[test]
-// #[should_panic(expected = "#10")] // FarmNotFound
-// fn test_stake_to_nonexistent_farm_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let fake_farm_id = soroban_sdk::BytesN::from_array(e, &[42u8; 32]);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &fake_farm_id, &1000);
-// }
-
-// #[test]
-// #[should_panic(expected = "#40")] // InsufficientStake
-// fn test_unstake_more_than_staked_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &1500); // Should fail
-// }
-
-// #[test]
-// #[should_panic(expected = "#42")] // PendingWithdrawalExists
-// fn test_double_unstake_without_withdrawal_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig { withdrawal_cooldown_period: 100, ..Default::default() };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // First unstake goes to pending
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &500);
-
-//     // Second unstake should fail (must withdraw first)
-//     fixture.farms_client.unstake(&fixture.farming_key(user), &farm_id, &500);
-// }
-
-// #[test]
-// #[should_panic(expected = "#32")] // FarmIsDelegated
-// fn test_stake_on_delegated_farm_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let delegate = Address::generate(e);
-//     let farm_config = FarmConfig { delegate_authority: Some(delegate), ..Default::default() };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Try to stake directly on delegated farm
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-// }
-
-// #[test]
-// #[should_panic(expected = "#33")] // NotDelegateAuthority
-// fn test_set_stake_delegated_on_non_delegated_farm_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Non-delegated farm
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Try to use set_stake_delegated
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-// }
-
-// #[test]
-// #[should_panic(expected = "#34")] // MaxRewardTokensReached
-// fn test_initialize_more_than_max_reward_tokens_fails() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Try to add 11 reward tokens (max is 10)
-//     for i in 0..11 {
-//         let reward_admin = Address::generate(e);
-//         let reward_token_address =
-//             e.register_stellar_asset_contract_v2(reward_admin.clone()).address();
-//         let reward_vault = Address::generate(e);
-
-//         fixture.farms_client.initialize_reward(&farm_id, &reward_token_address, &reward_vault);
-
-//         // 11th should fail
-//         if i == 10 {
-//             panic!("Should have failed before reaching this point");
-//         }
-//     }
-// }
-
-// #[test]
-// #[should_panic(expected = "#21")] // RewardTokenAlreadyExists
-// fn test_initialize_duplicate_reward_token_fails() {
-//     let fixture = TestFarmsFixture::new();
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Try to add same token again
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Reward Curve Edge Cases
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_reward_schedule_starting_in_future() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Schedule starts 100 seconds in the future
-//     let future_start = fixture.current_timestamp() + 100;
-//     let schedule = RewardScheduleCurve {
-//         points: vec![e, RewardCurvePoint { ts_start: future_start, reward_per_time_unit: 100 }],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Wait 50 seconds (still before schedule starts)
-//     fixture.pass_time(50);
-
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     assert_eq!(pending.get(0).unwrap(), 0); // No rewards yet
-
-//     // Wait another 100 seconds (50 seconds into reward period)
-//     fixture.pass_time(100);
-
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     let pending_amount = pending.get(0).unwrap();
-//     // Should have ~50 seconds * 100 = 5000 rewards
-//     assert!(pending_amount > 0);
-// }
-
-// #[test]
-// fn test_reward_schedule_rate_drops_to_zero() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Schedule: 100/s for first 100s, then 0
-//     let now = fixture.current_timestamp();
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: now, reward_per_time_unit: 100 },
-//             RewardCurvePoint { ts_start: now + 100, reward_per_time_unit: 0 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     // Wait 200 seconds (100 in reward period, 100 after)
-//     fixture.pass_time(200);
-
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     let pending_amount = pending.get(0).unwrap();
-
-//     // Should only have 10,000 rewards (100 seconds * 100)
-//     assert_eq!(pending_amount, 10_000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Precision and Rounding
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_proportional_rewards_with_unequal_stakes() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user1 = &fixture.market_fixture.users[0];
-//     let user2 = &fixture.market_fixture.users[1];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 1000 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &10_000_000,
-//     );
-
-//     // User1: 25%, User2: 75%
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user1), &farm_id);
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user2), &farm_id);
-
-//     fixture.farms_client.stake(&fixture.farming_key(user1), &farm_id, &1000);
-//     fixture.farms_client.stake(&fixture.farming_key(user2), &farm_id, &3000);
-
-//     fixture.pass_time(100);
-
-//     let pending1 = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user1), &farm_id);
-//     let pending2 = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user2), &farm_id);
-
-//     let rewards1 = pending1.get(0).unwrap();
-//     let rewards2 = pending2.get(0).unwrap();
-
-//     // Total rewards: 100 seconds * 1000 = 100,000
-//     // User1 should get ~25,000, User2 should get ~75,000
-//     // Allow for some rounding differences
-//     assert!((24_000..=26_000).contains(&rewards1));
-//     assert!((74_000..=76_000).contains(&rewards2));
-//     assert!(rewards1 + rewards2 <= 100_000);
-// }
-
-// #[test]
-// fn test_very_small_stake_with_large_rewards() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Large reward rate but within available tokens
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint {
-//                 ts_start: fixture.current_timestamp(),
-//                 reward_per_time_unit: 1_000_000,
-//             },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &500_000_000,
-//     );
-
-//     // Very small stake
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1);
-
-//     fixture.pass_time(100);
-
-//     // User should get all the rewards (only staker)
-//     let pending = fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &farm_id);
-//     let pending_amount = pending.get(0).unwrap();
-
-//     // 100 seconds * 1,000,000 = 100,000,000
-//     assert_eq!(pending_amount, 100_000_000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - WithExpiry Locking Mode
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_with_expiry_lock_all_users_same_unlock() {
-//     let fixture = TestFarmsFixture::new();
-//     let user1 = &fixture.market_fixture.users[0];
-//     let user2 = &fixture.market_fixture.users[1];
-
-//     let now = fixture.current_timestamp();
-
-//     // Global lock ends at now + 1000
-//     let farm_config = FarmConfig {
-//         locking_mode: LockingMode::WithExpiry,
-//         locking_start_ts: now,
-//         locking_duration: 1000,
-//         early_withdrawal_penalty_bps: 1000,
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user1), &farm_id);
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user2), &farm_id);
-
-//     // User1 stakes immediately
-//     fixture.farms_client.stake(&fixture.farming_key(user1), &farm_id, &1000);
-
-//     // User2 stakes 500 seconds later
-//     fixture.pass_time(500);
-//     fixture.farms_client.stake(&fixture.farming_key(user2), &farm_id, &1000);
-
-//     // User2 unstakes immediately after staking (500s into lock, 500s remaining)
-//     let net_amount2 = fixture.farms_client.unstake(&fixture.farming_key(user2), &farm_id, &1000);
-//     // Penalty should be 5% (50% of 10% max penalty due to linear decay)
-//     assert_eq!(net_amount2, 950);
-
-//     // Wait for lock to expire
-//     fixture.pass_time(500);
-
-//     // User1 can now unstake without penalty
-//     let net_amount1 = fixture.farms_client.unstake(&fixture.farming_key(user1), &farm_id, &1000);
-//     assert_eq!(net_amount1, 1000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Delegated Farm Edge Cases
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_delegated_farm_set_stake_to_same_value() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Initial stake
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let farm_before = fixture.farms_client.get_farm(&farm_id);
-
-//     // Set to same value (no-op)
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let farm_after = fixture.farms_client.get_farm(&farm_id);
-
-//     // State should be unchanged
-//     assert_eq!(farm_before.total_staked, farm_after.total_staked);
-//     assert_eq!(farm_before.num_users, farm_after.num_users);
-// }
-
-// #[test]
-// fn test_delegated_farm_set_stake_to_zero_removes_user() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Initial stake
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 1000i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &1000);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 1);
-
-//     // Set to zero
-//     e.mock_auths(&[soroban_sdk::testutils::MockAuth {
-//         address: &fixture.market_fixture.contract_id,
-//         invoke: &soroban_sdk::testutils::MockAuthInvoke {
-//             contract: &fixture.farms_address,
-//             fn_name: "set_stake_delegated",
-//             args: soroban_sdk::vec![
-//                 e,
-//                 fixture.farming_key(user).into_val(e),
-//                 farm_id.clone().into_val(e),
-//                 0i128.into_val(e)
-//             ],
-//             sub_invokes: &[],
-//         },
-//     }]);
-//     fixture.farms_client.set_stake_delegated(&fixture.farming_key(user), &farm_id, &0);
-
-//     let farm = fixture.farms_client.get_farm(&farm_id);
-//     assert_eq!(farm.num_users, 0);
-//     assert_eq!(farm.total_staked, 0);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Treasury Fee
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_treasury_fee_on_harvest() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Update global config with 5% treasury fee
-//     fixture.farms_client.update_global_config(&farms::GlobalConfigUpdate::TreasuryFeeBps(500));
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 1000 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     fixture.pass_time(100);
-
-//     // Harvest
-//     let initial_user_balance = fixture.reward_token_client.balance(user);
-//     let initial_treasury_balance =
-//         fixture.reward_token_client.balance(&fixture.market_fixture.contract_admin);
-
-//     e.mock_all_auths_allowing_non_root_auth();
-//     let harvested = fixture.farms_client.harvest(&fixture.farming_key(user), &farm_id, &0);
-
-//     let final_user_balance = fixture.reward_token_client.balance(user);
-//     let final_treasury_balance =
-//         fixture.reward_token_client.balance(&fixture.market_fixture.contract_admin);
-
-//     // 100 seconds * 1000 = 100,000 total rewards
-//     // 5% fee = 5,000 to treasury, 95,000 to user
-//     let user_received = final_user_balance - initial_user_balance;
-//     let treasury_received = final_treasury_balance - initial_treasury_balance;
-
-//     assert_eq!(harvested, user_received);
-//     assert_eq!(user_received, 95_000);
-//     assert_eq!(treasury_received, 5_000);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Edge Case Tests - Min Claim Duration
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// #[should_panic(expected = "#52")] // ClaimTooSoon
-// fn test_min_claim_duration_prevents_rapid_claims() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Set min claim duration of 100 seconds
-//     fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::MinClaimDuration(100));
-
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 1000 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     fixture.pass_time(50);
-
-//     // First harvest
-//     e.mock_all_auths_allowing_non_root_auth();
-//     fixture.farms_client.harvest(&fixture.farming_key(user), &farm_id, &0);
-
-//     // Wait only 50 seconds (less than 100)
-//     fixture.pass_time(50);
-
-//     // Second harvest should fail
-//     fixture.farms_client.harvest(&fixture.farming_key(user), &farm_id, &0);
-// }
-
-// #[test]
-// fn test_min_claim_duration_allows_claim_after_duration() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     let farm_config = FarmConfig::default();
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     fixture.farms_client.initialize_reward(
-//         &farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     // Set min claim duration of 100 seconds
-//     fixture.farms_client.update_farm_config(&farm_id, &FarmConfigUpdate::MinClaimDuration(100));
-
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 1000 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &farm_id,
-//         &0,
-//         &1_000_000,
-//     );
-
-//     fixture.farms_client.initialize_user(&fixture.farming_key(user), &farm_id);
-//     fixture.farms_client.stake(&fixture.farming_key(user), &farm_id, &1000);
-
-//     fixture.pass_time(100);
-
-//     // First harvest
-//     e.mock_all_auths_allowing_non_root_auth();
-//     let first_harvest = fixture.farms_client.harvest(&fixture.farming_key(user), &farm_id, &0);
-//     assert!(first_harvest > 0);
-
-//     // Wait 100 seconds (exactly min duration)
-//     fixture.pass_time(100);
-
-//     // Second harvest should succeed
-//     let second_harvest = fixture.farms_client.harvest(&fixture.farming_key(user), &farm_id, &0);
-//     assert!(second_harvest > 0);
-// }
-
-// // ═══════════════════════════════════════════════════════════════════════════════
-// // Market-Farms Integration Tests
-// // ═══════════════════════════════════════════════════════════════════════════════
-
-// #[test]
-// fn test_market_farms_set_and_get_farms_contract() {
-//     let fixture = TestFarmsFixture::new();
-
-//     // Initially no farms contract configured
-//     let farms_addr = fixture.market_fixture.contract_client.get_farms_contract();
-//     assert!(farms_addr.is_none());
-
-//     // Set farms contract
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Verify it's set
-//     let farms_addr = fixture.market_fixture.contract_client.get_farms_contract();
-//     assert!(farms_addr.is_some());
-//     assert_eq!(farms_addr.unwrap(), fixture.farms_address);
-// }
-
-// #[test]
-// fn test_market_farms_set_pool_supply_farm() {
-//     let fixture = TestFarmsFixture::new();
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated farm with Market as delegate
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Set the farm for USDC pool supply
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &farm_id);
-
-//     // Verify pool has the farm configured
-//     let pool =
-//         fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
-//     assert!(pool.farm_supply.is_some());
-//     assert_eq!(pool.farm_supply.unwrap(), farm_id);
-//     assert!(pool.farm_debt.is_none());
-// }
-
-// #[test]
-// fn test_market_farms_set_pool_debt_farm() {
-//     let fixture = TestFarmsFixture::new();
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Set the farm for USDC pool debt
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &farm_id);
-
-//     // Verify pool has the farm configured
-//     let pool =
-//         fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
-//     assert!(pool.farm_supply.is_none());
-//     assert!(pool.farm_debt.is_some());
-//     assert_eq!(pool.farm_debt.unwrap(), farm_id);
-// }
-
-// #[test]
-// fn test_market_farms_clear_pool_farms() {
-//     let fixture = TestFarmsFixture::new();
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create farms
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-//     let debt_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Set both farms
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &debt_farm_id);
-
-//     // Verify both are set
-//     let pool =
-//         fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
-//     assert!(pool.farm_supply.is_some());
-//     assert!(pool.farm_debt.is_some());
-
-//     // Clear farms
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .clear_pool_farms(&fixture.market_fixture.usdc_pool_address);
-
-//     // Verify both are cleared
-//     let pool =
-//         fixture.market_fixture.contract_client.get_pool(&fixture.market_fixture.usdc_pool_address);
-//     assert!(pool.farm_supply.is_none());
-//     assert!(pool.farm_debt.is_none());
-// }
-
-// #[test]
-// fn test_market_farms_auto_refresh_on_deposit() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated supply farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Configure pool with supply farm
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
-
-//     // User deposits into USDC pool - NO manual refresh_obligation_farms call!
-//     let deposit_amount = 1000_0000000i128;
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &deposit_amount,
-//     );
-
-//     // Get obligation to see j_tokens
-//     let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
-//     let j_tokens =
-//         obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
-
-//     // Verify farm stake was AUTOMATICALLY updated (no manual refresh needed)
-//     let user_state =
-//         fixture.farms_client.get_user_state(&fixture.farming_key(user), &supply_farm_id);
-//     assert_eq!(user_state.active_stake, j_tokens);
-
-//     let farm = fixture.farms_client.get_farm(&supply_farm_id);
-//     assert_eq!(farm.total_staked, j_tokens);
-// }
-
-// #[test]
-// fn test_market_farms_auto_refresh_on_borrow() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-//     let lender = &fixture.market_fixture.users[1];
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated debt farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let debt_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Configure USDC pool with debt farm
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &debt_farm_id);
-
-//     // Lender deposits USDC for liquidity
-//     fixture.market_fixture.contract_client.deposit(
-//         lender,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &10000_0000000i128,
-//     );
-
-//     // User deposits BTC as collateral
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.btc_pool_address,
-//         &10_0000000i128,
-//     );
-
-//     // User borrows USDC - NO manual refresh_obligation_farms call!
-//     let borrow_amount = 100_0000000i128;
-//     fixture.market_fixture.contract_client.borrow(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &borrow_amount,
-//     );
-
-//     // Get obligation to check d_tokens
-//     let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
-//     let d_tokens =
-//         obligation.borrows.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().d_tokens;
-
-//     // Verify farm stake was AUTOMATICALLY updated
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &debt_farm_id);
-//     assert_eq!(user_state.active_stake, d_tokens);
-// }
-
-// #[test]
-// fn test_market_farms_refresh_obligation_syncs_supply_stake() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated supply farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Configure pool with supply farm
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
-
-//     // User deposits into USDC pool
-//     let deposit_amount = 1000_0000000i128; // 1000 with 7 decimals
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &deposit_amount,
-//     );
-
-//     // Get obligation to see j_tokens
-//     let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
-//     let deposit_position =
-//         obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone());
-//     assert!(deposit_position.is_some());
-//     let j_tokens = deposit_position.unwrap().j_tokens;
-//     assert!(j_tokens > 0);
-
-//     // Refresh obligation farms
-//     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
-
-//     // Verify farm stake was updated
-//     let user_state =
-//         fixture.farms_client.get_user_state(&fixture.farming_key(user), &supply_farm_id);
-//     assert_eq!(user_state.active_stake, j_tokens);
-
-//     let farm = fixture.farms_client.get_farm(&supply_farm_id);
-//     assert_eq!(farm.total_staked, j_tokens);
-//     assert_eq!(farm.num_users, 1);
-// }
-
-// #[test]
-// fn test_market_farms_refresh_after_withdraw_updates_stake() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated supply farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Configure pool with supply farm
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
-
-//     // User deposits
-//     let deposit_amount = 2000_0000000i128;
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &deposit_amount,
-//     );
-
-//     // Refresh farms to sync initial stake
-//     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
-
-//     let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
-//     let initial_j_tokens =
-//         obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
-
-//     let user_state =
-//         fixture.farms_client.get_user_state(&fixture.farming_key(user), &supply_farm_id);
-//     assert_eq!(user_state.active_stake, initial_j_tokens);
-
-//     // User withdraws half
-//     let withdraw_amount = 1000_0000000i128;
-//     fixture.market_fixture.contract_client.withdraw(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &withdraw_amount,
-//     );
-
-//     // Refresh farms again
-//     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
-
-//     // Verify stake was reduced
-//     let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
-//     let final_j_tokens =
-//         obligation.deposits.get(fixture.market_fixture.usdc_pool_address.clone()).unwrap().j_tokens;
-
-//     let user_state =
-//         fixture.farms_client.get_user_state(&fixture.farming_key(user), &supply_farm_id);
-//     assert_eq!(user_state.active_stake, final_j_tokens);
-//     assert!(final_j_tokens < initial_j_tokens);
-// }
-
-// #[test]
-// fn test_market_farms_refresh_debt_farm_on_borrow() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-//     let lender = &fixture.market_fixture.users[1];
-
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated debt farm
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let debt_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Configure USDC pool with debt farm
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_debt_farm(&fixture.market_fixture.usdc_pool_address, &debt_farm_id);
-
-//     // Lender deposits USDC so there's liquidity to borrow
-//     let lender_deposit_amount = 10000_0000000i128; // 10,000 USDC
-//     fixture.market_fixture.contract_client.deposit(
-//         lender,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &lender_deposit_amount,
-//     );
-
-//     // User deposits BTC as collateral
-//     let collateral_amount = 10_0000000i128; // 10 BTC
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.btc_pool_address,
-//         &collateral_amount,
-//     );
-
-//     // User borrows USDC (small amount relative to collateral)
-//     let borrow_amount = 100_0000000i128; // 100 USDC
-//     fixture.market_fixture.contract_client.borrow(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &borrow_amount,
-//     );
-
-//     // Refresh farms
-//     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
-
-//     // Get obligation to check d_tokens
-//     let obligation = fixture.market_fixture.contract_client.get_user_obligation(user);
-//     let borrow_position = obligation.borrows.get(fixture.market_fixture.usdc_pool_address.clone());
-//     assert!(borrow_position.is_some());
-//     let d_tokens = borrow_position.unwrap().d_tokens;
-//     assert!(d_tokens > 0);
-
-//     // Verify farm stake
-//     let user_state = fixture.farms_client.get_user_state(&fixture.farming_key(user), &debt_farm_id);
-//     assert_eq!(user_state.active_stake, d_tokens);
-// }
-
-// #[test]
-// fn test_market_farms_no_refresh_if_no_farms_configured() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // Set farms contract BUT don't configure any pool farms
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // User deposits
-//     let deposit_amount = 1000_0000000i128;
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &deposit_amount,
-//     );
-
-//     // Refresh should succeed (no-op, doesn't error)
-//     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
-// }
-
-// #[test]
-// fn test_market_farms_refresh_without_farms_contract_succeeds() {
-//     let fixture = TestFarmsFixture::new();
-//     let user = &fixture.market_fixture.users[0];
-
-//     // DON'T set farms contract
-
-//     // User deposits
-//     let deposit_amount = 1000_0000000i128;
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &deposit_amount,
-//     );
-
-//     // Refresh should succeed (no-op when no farms contract)
-//     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
-// }
-
-// #[test]
-// fn test_market_farms_clear_farms_contract() {
-//     let fixture = TestFarmsFixture::new();
-
-//     // Set farms contract
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-//     assert!(fixture.market_fixture.contract_client.get_farms_contract().is_some());
-
-//     // Clear it
-//     fixture.market_fixture.contract_client.clear_farms_contract();
-//     assert!(fixture.market_fixture.contract_client.get_farms_contract().is_none());
-// }
-
-// #[test]
-// fn test_market_farms_full_e2e_deposit_refresh_harvest() {
-//     let fixture = TestFarmsFixture::new();
-//     let e = &fixture.market_fixture.e;
-//     let user = &fixture.market_fixture.users[0];
-
-//     // === Setup ===
-//     // Set farms contract on market
-//     fixture.market_fixture.contract_client.set_farms_contract(&fixture.farms_address);
-
-//     // Create a delegated supply farm with Market as delegate
-//     let farm_config = FarmConfig {
-//         delegate_authority: Some(fixture.market_fixture.contract_id.clone()),
-//         ..Default::default()
-//     };
-//     let supply_farm_id = fixture.farms_client.initialize_farm(&farm_config);
-
-//     // Add reward token and schedule
-//     fixture.farms_client.initialize_reward(
-//         &supply_farm_id,
-//         &fixture.reward_token_address,
-//         &fixture.reward_vault,
-//     );
-
-//     let schedule = RewardScheduleCurve {
-//         points: vec![
-//             e,
-//             RewardCurvePoint { ts_start: fixture.current_timestamp(), reward_per_time_unit: 1000 },
-//         ],
-//     };
-//     fixture.farms_client.update_reward_schedule(&supply_farm_id, &0, &schedule);
-
-//     fixture.farms_client.add_rewards(
-//         &fixture.market_fixture.contract_admin,
-//         &supply_farm_id,
-//         &0,
-//         &10_000_000,
-//     );
-
-//     // Configure pool with supply farm
-//     fixture
-//         .market_fixture
-//         .contract_client
-//         .set_pool_supply_farm(&fixture.market_fixture.usdc_pool_address, &supply_farm_id);
-
-//     // === User Action: Deposit ===
-//     let deposit_amount = 1000_0000000i128;
-//     fixture.market_fixture.contract_client.deposit(
-//         user,
-//         &fixture.market_fixture.usdc_pool_address,
-//         &deposit_amount,
-//     );
-
-//     // Refresh farms to sync stake
-//     fixture.market_fixture.contract_client.refresh_obligation_farms(user);
-
-//     // === Time Passes ===
-//     fixture.pass_time(100);
-
-//     // === Verify Rewards Accrued ===
-//     let pending =
-//         fixture.farms_client.get_pending_rewards(&fixture.farming_key(user), &supply_farm_id);
-//     let pending_amount = pending.get(0).unwrap();
-//     assert!(pending_amount > 0);
-
-//     // === Harvest Rewards ===
-//     let initial_balance = fixture.reward_token_client.balance(user);
-//     let harvested = fixture.farms_client.harvest(&fixture.farming_key(user), &supply_farm_id, &0);
-//     let final_balance = fixture.reward_token_client.balance(user);
-
-//     assert!(harvested > 0);
-//     assert_eq!(final_balance - initial_balance, harvested);
-// }
+#![cfg(test)]
+#![allow(clippy::inconsistent_digit_grouping)]
+
+use farms::{
+    DelegatedFarmConfig, Delegation, FarmConfig, FarmingKey, FarmsClient, FarmsContract,
+    LockingMode, NonDelegatedFarmConfig, OptionalOracle, OracleConfig, RewardCurvePoint,
+    RewardScheduleCurve, RewardType,
+};
+use soroban_sdk::{
+    Address, Env,
+    testutils::{Address as _, Ledger, LedgerInfo},
+    token::{StellarAssetClient, TokenClient},
+    vec,
+};
+
+const MINT_AMOUNT: i128 = 1_000_000_0000000;
+
+struct TestFarmsSetup<'a> {
+    e: Env,
+    admin: Address,
+    stake_token: Address,
+    stake_token_client: TokenClient<'a>,
+    reward_token: Address,
+    reward_token_client: TokenClient<'a>,
+    users: [Address; 3],
+}
+
+impl TestFarmsSetup<'_> {
+    fn new() -> Self {
+        let e = Env::default();
+        e.mock_all_auths_allowing_non_root_auth();
+        e.ledger().set(LedgerInfo {
+            timestamp: 1_000_000,
+            protocol_version: 23,
+            sequence_number: 1000,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 500_000,
+            min_persistent_entry_ttl: 500_000,
+            max_entry_ttl: 500_001,
+        });
+
+        let admin = Address::generate(&e);
+
+        let stake_admin = Address::generate(&e);
+        let stake_token = e.register_stellar_asset_contract_v2(stake_admin.clone()).address();
+        let stake_sac = StellarAssetClient::new(&e, &stake_token);
+        let stake_token_client = TokenClient::new(&e, &stake_token);
+
+        let reward_admin = Address::generate(&e);
+        let reward_token = e.register_stellar_asset_contract_v2(reward_admin.clone()).address();
+        let reward_sac = StellarAssetClient::new(&e, &reward_token);
+        let reward_token_client = TokenClient::new(&e, &reward_token);
+
+        let users = [Address::generate(&e), Address::generate(&e), Address::generate(&e)];
+
+        for user in &users {
+            stake_sac.mint(user, &MINT_AMOUNT);
+        }
+        stake_sac.mint(&admin, &MINT_AMOUNT);
+        reward_sac.mint(&admin, &MINT_AMOUNT);
+
+        Self { e, admin, stake_token, stake_token_client, reward_token, reward_token_client, users }
+    }
+
+    fn deploy_farm(&self, config: FarmConfig) -> FarmsClient<'_> {
+        let address = self.e.register(FarmsContract, (config,));
+        FarmsClient::new(&self.e, &address)
+    }
+
+    fn pass_time(&self, seconds: u64) {
+        self.e.ledger().with_mut(|li| {
+            li.timestamp = li.timestamp.saturating_add(seconds);
+        });
+    }
+
+    fn current_ts(&self) -> u64 {
+        self.e.ledger().timestamp()
+    }
+
+    fn fk(&self, user: &Address) -> FarmingKey {
+        FarmingKey::new(user.clone())
+    }
+
+    fn default_non_delegated_config(&self) -> FarmConfig {
+        FarmConfig {
+            token: self.stake_token.clone(),
+            admin: self.admin.clone(),
+            deposit_cap: 0,
+            treasury_fee_bps: 0,
+            min_harvest_delay: 0,
+            min_stake_amount: 0,
+            delegation: Delegation::NonDelegated(NonDelegatedFarmConfig {
+                locking_ts: 0,
+                locking_duration: 0,
+                locking_mode: LockingMode::None,
+                deposit_warmup_period: 0,
+                withdrawal_cooldown_period: 0,
+                early_withdrawal_penalty_bps: 0,
+            }),
+            is_reward_once_enabled: false,
+            is_harvest_permissionless: false,
+            proposed_admin: None,
+            oracle: OptionalOracle::None,
+        }
+    }
+
+    fn default_delegated_config(&self, delegate: &Address) -> FarmConfig {
+        FarmConfig {
+            token: self.stake_token.clone(),
+            admin: self.admin.clone(),
+            deposit_cap: 0,
+            treasury_fee_bps: 0,
+            min_harvest_delay: 0,
+            min_stake_amount: 0,
+            delegation: Delegation::Delegated(DelegatedFarmConfig {
+                delegate_authority: delegate.clone(),
+                second_delegate_authority: None,
+            }),
+            is_reward_once_enabled: false,
+            is_harvest_permissionless: false,
+            proposed_admin: None,
+            oracle: OptionalOracle::None,
+        }
+    }
+
+    fn setup_rewards(&self, client: &FarmsClient<'_>) {
+        client.initialize_reward(&self.reward_token, &RewardType::Proportional);
+
+        client.add_rewards(&(100_000_0000000_i128), &self.admin, &self.reward_token);
+
+        let schedule = RewardScheduleCurve {
+            points: vec![
+                &self.e,
+                RewardCurvePoint { ts_start: self.current_ts(), reward_per_time_unit: 1_0000000 },
+            ],
+        };
+        client.update_reward_schedule(&self.reward_token, &schedule);
+    }
+
+    fn create_farm_with_rewards(&self, config: FarmConfig) -> FarmsClient<'_> {
+        let client = self.deploy_farm(config);
+        client.unfreeze_farm();
+        self.setup_rewards(&client);
+        client
+    }
+}
+
+#[test]
+fn test_initialize_farm() {
+    let s = TestFarmsSetup::new();
+    let config = s.default_non_delegated_config();
+
+    let client = s.deploy_farm(config);
+    let farm = client.get_farm();
+
+    assert_eq!(farm.total_staked, 0);
+    assert_eq!(farm.num_users, 0);
+    assert!(farm.is_frozen);
+    assert_eq!(farm.config.token, s.stake_token);
+    assert_eq!(farm.config.admin, s.admin);
+}
+
+#[test]
+fn test_initialize_delegated_farm() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let config = s.default_delegated_config(&delegate);
+
+    let client = s.deploy_farm(config);
+    let farm = client.get_farm();
+
+    assert!(matches!(farm.config.delegation, Delegation::Delegated(_)));
+    assert!(farm.is_frozen);
+}
+
+#[test]
+fn test_freeze_and_unfreeze() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+
+    assert!(client.get_farm().is_frozen);
+
+    client.unfreeze_farm();
+    assert!(!client.get_farm().is_frozen);
+
+    client.freeze_farm();
+    assert!(client.get_farm().is_frozen);
+}
+
+#[test]
+fn test_stake_on_frozen_farm_fails() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+
+    let user = &s.users[0];
+    let result = client.try_stake(&s.fk(user), &100_0000000);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_stake_basic() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    let amount = 100_0000000_i128;
+
+    let balance_before = s.stake_token_client.balance(user);
+    client.stake(&fk, &amount);
+    let balance_after = s.stake_token_client.balance(user);
+
+    assert_eq!(balance_before - balance_after, amount);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, amount);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.total_staked, amount);
+    assert_eq!(farm.num_users, 1);
+}
+
+#[test]
+fn test_stake_zero_fails() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let result = client.try_stake(&s.fk(&s.users[0]), &0);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_stake_below_min_amount_fails() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.min_stake_amount = 100;
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let result = client.try_stake(&s.fk(&s.users[0]), &50);
+    assert!(result.is_err());
+
+    client.stake(&s.fk(&s.users[0]), &100);
+    let pos = client.get_farming_position(&s.fk(&s.users[0]));
+    assert_eq!(pos.active_stake, 100);
+}
+
+#[test]
+fn test_deposit_cap() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.deposit_cap = 200_0000000;
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    client.stake(&s.fk(&s.users[0]), &150_0000000);
+
+    let result = client.try_stake(&s.fk(&s.users[1]), &100_0000000);
+    assert!(result.is_err());
+
+    client.stake(&s.fk(&s.users[1]), &50_0000000);
+    let farm = client.get_farm();
+    assert_eq!(farm.total_staked, 200_0000000);
+}
+
+#[test]
+fn test_unstake_basic() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &1000_0000000);
+
+    client.unstake(&500_0000000, &fk);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, 500_0000000);
+    assert_eq!(pos.pending_withdrawal_stake, 500_0000000);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.total_staked, 500_0000000);
+
+    let balance_before = s.stake_token_client.balance(user);
+    let withdrawn = client.withdraw_unstaked(&fk);
+    let balance_after = s.stake_token_client.balance(user);
+
+    assert_eq!(withdrawn, 500_0000000);
+    assert_eq!(balance_after - balance_before, 500_0000000);
+}
+
+#[test]
+fn test_unstake_full_withdrawal_below_min() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.min_stake_amount = 100_0000000;
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+
+    let result = client.try_unstake(&50_0000000, &fk);
+    assert!(result.is_err());
+
+    client.unstake(&100_0000000, &fk);
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, 0);
+    assert_eq!(pos.pending_withdrawal_stake, 100_0000000);
+}
+
+#[test]
+fn test_unstake_insufficient_stake_fails() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+
+    let result = client.try_unstake(&200_0000000, &fk);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_pending_withdrawal_blocks_second_unstake() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &1000_0000000);
+    client.unstake(&300_0000000, &fk);
+
+    let result = client.try_unstake(&300_0000000, &fk);
+    assert!(result.is_err());
+
+    client.withdraw_unstaked(&fk);
+    client.unstake(&300_0000000, &fk);
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, 400_0000000);
+}
+
+#[test]
+fn test_unstake_with_cooldown() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.withdrawal_cooldown_period = 3600;
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &1000_0000000);
+    client.unstake(&500_0000000, &fk);
+
+    let result = client.try_withdraw_unstaked(&fk);
+    assert!(result.is_err());
+
+    s.pass_time(3601);
+
+    let withdrawn = client.withdraw_unstaked(&fk);
+    assert_eq!(withdrawn, 500_0000000);
+}
+
+#[test]
+fn test_early_withdrawal_penalty_continuous() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.locking_mode = LockingMode::Continuous;
+        nd.locking_duration = 1000;
+        nd.early_withdrawal_penalty_bps = 1000; // 10%
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &1000_0000000);
+
+    client.unstake(&1000_0000000, &fk);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.pending_withdrawal_stake, 900_0000000);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.current_slashed_amount, 100_0000000);
+}
+
+#[test]
+fn test_penalty_decay_halfway() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.locking_mode = LockingMode::Continuous;
+        nd.locking_duration = 1000;
+        nd.early_withdrawal_penalty_bps = 1000; // 10%
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &1000_0000000);
+
+    s.pass_time(500);
+    client.unstake(&1000_0000000, &fk);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.pending_withdrawal_stake, 950_0000000);
+}
+
+#[test]
+fn test_no_penalty_after_lock_expires() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.locking_mode = LockingMode::Continuous;
+        nd.locking_duration = 1000;
+        nd.early_withdrawal_penalty_bps = 1000;
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &1000_0000000);
+
+    s.pass_time(1001);
+    client.unstake(&1000_0000000, &fk);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.pending_withdrawal_stake, 1000_0000000);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.current_slashed_amount, 0);
+}
+
+#[test]
+fn test_warmup_period() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.deposit_warmup_period = 3600;
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, 0);
+    assert_eq!(pos.pending_deposit_stake, 100_0000000);
+
+    s.pass_time(1800);
+    let result = client.try_refresh_farming_position(&fk);
+    assert!(result.is_err());
+
+    s.pass_time(1801);
+    client.refresh_farming_position(&fk);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, 100_0000000);
+    assert_eq!(pos.pending_deposit_stake, 0);
+}
+
+#[test]
+fn test_reward_accrual_and_harvest() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+
+    s.pass_time(100);
+
+    let pending = client.get_pending_rewards(&fk);
+    assert_eq!(pending.len(), 1);
+    let (token, amount) = pending.get(0).unwrap();
+    assert_eq!(token, s.reward_token);
+    assert_eq!(amount, 100_0000000);
+
+    let balance_before = s.reward_token_client.balance(user);
+    let harvested = client.harvest(&s.reward_token, &fk);
+    let balance_after = s.reward_token_client.balance(user);
+
+    assert_eq!(harvested, 100_0000000);
+    assert_eq!(balance_after - balance_before, 100_0000000);
+
+    let result = client.try_harvest(&s.reward_token, &fk);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_harvest_with_treasury_fee() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.treasury_fee_bps = 1000; // 10%
+
+    let client = s.create_farm_with_rewards(config);
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    let harvested = client.harvest(&s.reward_token, &fk);
+    assert_eq!(harvested, 90_0000000);
+}
+
+#[test]
+fn test_harvest_all() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    let balance_before = s.reward_token_client.balance(user);
+    client.harvest_all(&fk);
+    let balance_after = s.reward_token_client.balance(user);
+
+    assert_eq!(balance_after - balance_before, 100_0000000);
+}
+
+#[test]
+fn test_multiple_stakers_proportional() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let fk0 = s.fk(&s.users[0]);
+    let fk1 = s.fk(&s.users[1]);
+
+    client.stake(&fk0, &300_0000000);
+    client.stake(&fk1, &100_0000000);
+
+    s.pass_time(100);
+
+    let h0 = client.harvest(&s.reward_token, &fk0);
+    let h1 = client.harvest(&s.reward_token, &fk1);
+
+    assert_eq!(h0, 75_0000000);
+    assert_eq!(h1, 25_0000000);
+}
+
+#[test]
+fn test_min_harvest_delay() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.min_harvest_delay = 600;
+
+    let client = s.create_farm_with_rewards(config);
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    client.harvest(&s.reward_token, &fk);
+
+    s.pass_time(100);
+    let result = client.try_harvest(&s.reward_token, &fk);
+    assert!(result.is_err());
+
+    s.pass_time(500);
+    let h = client.harvest(&s.reward_token, &fk);
+    assert!(h > 0);
+}
+
+#[test]
+fn test_delegated_set_stake() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let config = s.default_delegated_config(&delegate);
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.set_stake_delegated(&delegate, &fk, &1000_0000000);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, 1000_0000000);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.total_staked, 1000_0000000);
+    assert_eq!(farm.num_users, 1);
+
+    client.set_stake_delegated(&delegate, &fk, &1500_0000000);
+    assert_eq!(client.get_farm().total_staked, 1500_0000000);
+
+    client.set_stake_delegated(&delegate, &fk, &500_0000000);
+    assert_eq!(client.get_farm().total_staked, 500_0000000);
+
+    client.set_stake_delegated(&delegate, &fk, &0);
+    let farm = client.get_farm();
+    assert_eq!(farm.total_staked, 0);
+    assert_eq!(farm.num_users, 0);
+}
+
+#[test]
+fn test_delegated_deposit_cap() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let mut config = s.default_delegated_config(&delegate);
+    config.deposit_cap = 500_0000000;
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.set_stake_delegated(&delegate, &fk, &400_0000000);
+
+    let result = client.try_set_stake_delegated(&delegate, &fk, &600_0000000);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_delegated_frozen_farm_rejects() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let config = s.default_delegated_config(&delegate);
+    let client = s.deploy_farm(config);
+
+    let result = client.try_set_stake_delegated(&delegate, &s.fk(&s.users[0]), &100_0000000);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_delegated_user_count_tracking() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let config = s.default_delegated_config(&delegate);
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk0 = s.fk(&s.users[0]);
+    let fk1 = s.fk(&s.users[1]);
+
+    client.set_stake_delegated(&delegate, &fk0, &100_0000000);
+    assert_eq!(client.get_farm().num_users, 1);
+
+    client.set_stake_delegated(&delegate, &fk1, &200_0000000);
+    assert_eq!(client.get_farm().num_users, 2);
+
+    client.set_stake_delegated(&delegate, &fk0, &300_0000000);
+    assert_eq!(client.get_farm().num_users, 2);
+
+    client.set_stake_delegated(&delegate, &fk0, &0);
+    assert_eq!(client.get_farm().num_users, 1);
+
+    client.set_stake_delegated(&delegate, &fk1, &0);
+    assert_eq!(client.get_farm().num_users, 0);
+}
+
+#[test]
+fn test_non_delegated_rejects_set_stake_delegated() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let caller = Address::generate(&s.e);
+    let result = client.try_set_stake_delegated(&caller, &s.fk(&s.users[0]), &100_0000000);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_propose_accept_admin() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+
+    let new_admin = Address::generate(&s.e);
+    client.propose_admin(&new_admin);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.config.proposed_admin, Some(new_admin.clone()));
+
+    client.accept_admin();
+
+    let farm = client.get_farm();
+    assert_eq!(farm.config.admin, new_admin);
+    assert!(farm.config.proposed_admin.is_none());
+}
+
+#[test]
+fn test_withdraw_unused_rewards() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let recipient = Address::generate(&s.e);
+    let withdraw_amount = 1000_0000000_i128;
+
+    let balance_before = s.reward_token_client.balance(&recipient);
+    client.withdraw_unused(&withdraw_amount, &recipient, &s.reward_token);
+    let balance_after = s.reward_token_client.balance(&recipient);
+
+    assert_eq!(balance_after - balance_before, withdraw_amount);
+}
+
+#[test]
+fn test_withdraw_slashed() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.locking_mode = LockingMode::Continuous;
+        nd.locking_duration = 1000;
+        nd.early_withdrawal_penalty_bps = 1000; // 10%
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &1000_0000000);
+
+    client.unstake(&1000_0000000, &fk);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.current_slashed_amount, 100_0000000);
+
+    let recipient = Address::generate(&s.e);
+    let balance_before = s.stake_token_client.balance(&recipient);
+    client.withdraw_slashed(&100_0000000, &recipient);
+    let balance_after = s.stake_token_client.balance(&recipient);
+
+    assert_eq!(balance_after - balance_before, 100_0000000);
+
+    let farm = client.get_farm();
+    assert_eq!(farm.current_slashed_amount, 0);
+}
+
+#[test]
+fn test_withdraw_treasury_fees() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.treasury_fee_bps = 1000; // 10%
+
+    let client = s.create_farm_with_rewards(config);
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    client.harvest(&s.reward_token, &fk);
+
+    let recipient = Address::generate(&s.e);
+    let balance_before = s.reward_token_client.balance(&recipient);
+    client.withdraw_treasury_fees(&10_0000000, &recipient, &s.reward_token);
+    let balance_after = s.reward_token_client.balance(&recipient);
+
+    assert_eq!(balance_after - balance_before, 10_0000000);
+}
+
+#[test]
+fn test_reward_once() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let mut config = s.default_delegated_config(&delegate);
+    config.is_reward_once_enabled = true;
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    client.initialize_reward(&s.reward_token, &RewardType::Proportional);
+    client.add_rewards(&10_000_0000000, &s.admin, &s.reward_token);
+
+    let fk = s.fk(&s.users[0]);
+    client.set_stake_delegated(&delegate, &fk, &100_0000000);
+
+    client.reward_once(&500_0000000, &s.reward_token, &fk);
+
+    let pending = client.get_pending_rewards(&fk);
+    let (_, amount) = pending.get(0).unwrap();
+    assert!(amount >= 500_0000000);
+
+    let harvested = client.harvest(&s.reward_token, &fk);
+    assert!(harvested >= 500_0000000);
+}
+
+#[test]
+fn test_reward_once_disabled_fails() {
+    let s = TestFarmsSetup::new();
+    let config = s.default_non_delegated_config();
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    client.initialize_reward(&s.reward_token, &RewardType::Proportional);
+    client.add_rewards(&10_000_0000000, &s.admin, &s.reward_token);
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+
+    let result = client.try_reward_once(&500_0000000, &s.reward_token, &fk);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_constant_reward_type() {
+    let s = TestFarmsSetup::new();
+    let config = s.default_non_delegated_config();
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    client.initialize_reward(&s.reward_token, &RewardType::Constant);
+    client.add_rewards(&100_000_0000000, &s.admin, &s.reward_token);
+
+    let schedule = RewardScheduleCurve {
+        points: vec![
+            &s.e,
+            RewardCurvePoint { ts_start: s.current_ts(), reward_per_time_unit: 2_0000000 },
+        ],
+    };
+    client.update_reward_schedule(&s.reward_token, &schedule);
+
+    let fk0 = s.fk(&s.users[0]);
+    let fk1 = s.fk(&s.users[1]);
+
+    client.stake(&fk0, &100_0000000);
+    client.stake(&fk1, &900_0000000);
+
+    s.pass_time(100);
+
+    let h0 = client.harvest(&s.reward_token, &fk0);
+    let h1 = client.harvest(&s.reward_token, &fk1);
+
+    assert_eq!(h0, h1);
+    assert_eq!(h0, 100_0000000);
+}
+
+#[test]
+fn test_pending_rewards_query_is_readonly() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    let farm_before = client.get_farm();
+
+    let pending1 = client.get_pending_rewards(&fk);
+    let pending2 = client.get_pending_rewards(&fk);
+
+    let (_, a1) = pending1.get(0).unwrap();
+    let (_, a2) = pending2.get(0).unwrap();
+    assert_eq!(a1, a2);
+    assert_eq!(a1, 100_0000000);
+
+    let farm_after = client.get_farm();
+    assert_eq!(farm_before.total_staked, farm_after.total_staked);
+    assert_eq!(farm_before.num_users, farm_after.num_users);
+
+    let harvested = client.harvest(&s.reward_token, &fk);
+    assert_eq!(harvested, 100_0000000);
+}
+
+#[test]
+fn test_num_users_tracks_correctly_through_stake_unstake() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let fk0 = s.fk(&s.users[0]);
+    let fk1 = s.fk(&s.users[1]);
+
+    client.stake(&fk0, &100_0000000);
+    assert_eq!(client.get_farm().num_users, 1);
+
+    client.stake(&fk1, &100_0000000);
+    assert_eq!(client.get_farm().num_users, 2);
+
+    client.stake(&fk0, &50_0000000);
+    assert_eq!(client.get_farm().num_users, 2);
+
+    client.unstake(&150_0000000, &fk0);
+    assert_eq!(client.get_farm().num_users, 1);
+
+    client.unstake(&100_0000000, &fk1);
+    assert_eq!(client.get_farm().num_users, 0);
+}
+
+#[test]
+fn test_reward_schedule_with_decreasing_rate() {
+    let s = TestFarmsSetup::new();
+    let config = s.default_non_delegated_config();
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    client.initialize_reward(&s.reward_token, &RewardType::Proportional);
+    client.add_rewards(&100_000_0000000, &s.admin, &s.reward_token);
+
+    let now = s.current_ts();
+    let schedule = RewardScheduleCurve {
+        points: vec![
+            &s.e,
+            RewardCurvePoint { ts_start: now, reward_per_time_unit: 2_0000000 },
+            RewardCurvePoint { ts_start: now + 100, reward_per_time_unit: 1_0000000 },
+        ],
+    };
+    client.update_reward_schedule(&s.reward_token, &schedule);
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+
+    s.pass_time(200);
+
+    let harvested = client.harvest(&s.reward_token, &fk);
+    assert_eq!(harvested, 300_0000000);
+}
+
+#[test]
+fn test_reward_limited_by_available_balance() {
+    let s = TestFarmsSetup::new();
+    let config = s.default_non_delegated_config();
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    client.initialize_reward(&s.reward_token, &RewardType::Proportional);
+
+    client.add_rewards(&50_0000000, &s.admin, &s.reward_token);
+
+    let schedule = RewardScheduleCurve {
+        points: vec![
+            &s.e,
+            RewardCurvePoint { ts_start: s.current_ts(), reward_per_time_unit: 1_0000000 },
+        ],
+    };
+    client.update_reward_schedule(&s.reward_token, &schedule);
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+
+    s.pass_time(100);
+
+    let harvested = client.harvest(&s.reward_token, &fk);
+    assert_eq!(harvested, 50_0000000);
+}
+
+#[test]
+fn test_initialize_reward_max_limit() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+
+    for _ in 0..10 {
+        let admin = Address::generate(&s.e);
+        let token = s.e.register_stellar_asset_contract_v2(admin).address();
+        client.initialize_reward(&token, &RewardType::Proportional);
+    }
+
+    let admin = Address::generate(&s.e);
+    let token = s.e.register_stellar_asset_contract_v2(admin).address();
+    let result = client.try_initialize_reward(&token, &RewardType::Proportional);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_duplicate_reward_token_fails() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+
+    client.initialize_reward(&s.reward_token, &RewardType::Proportional);
+
+    let result = client.try_initialize_reward(&s.reward_token, &RewardType::Proportional);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_staker_joining_late_gets_only_future_rewards() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let fk0 = s.fk(&s.users[0]);
+    client.stake(&fk0, &100_0000000);
+
+    s.pass_time(100);
+
+    let fk1 = s.fk(&s.users[1]);
+    client.stake(&fk1, &100_0000000);
+
+    s.pass_time(100);
+
+    let h0 = client.harvest(&s.reward_token, &fk0);
+    let h1 = client.harvest(&s.reward_token, &fk1);
+
+    assert_eq!(h0, 150_0000000);
+    assert_eq!(h1, 50_0000000);
+}
+
+#[test]
+fn test_locking_with_expiry_mode() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    let lock_start = s.current_ts();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.locking_mode = LockingMode::WithExpiry;
+        nd.locking_ts = lock_start;
+        nd.locking_duration = 500;
+        nd.early_withdrawal_penalty_bps = 1000; // 10%
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+
+    client.stake(&fk, &1000_0000000);
+
+    s.pass_time(250);
+    client.unstake(&1000_0000000, &fk);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.pending_withdrawal_stake, 950_0000000);
+}
+
+#[test]
+fn test_withdraw_unused_exceeds_available_fails() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let result = client.try_withdraw_unused(&999_999_0000000, &s.admin, &s.reward_token);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_withdraw_slashed_exceeds_available_fails() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let result = client.try_withdraw_slashed(&100_0000000, &s.admin);
+    assert!(result.is_err());
+}
+
+fn auth_addrs(e: &Env) -> std::vec::Vec<Address> {
+    e.auths().into_iter().map(|(addr, _)| addr).collect()
+}
+
+#[test]
+fn test_stake_requires_owner_auth() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(user), "stake must require farming_key.owner auth");
+}
+
+#[test]
+fn test_unstake_requires_owner_auth() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    client.unstake(&100_0000000, &fk);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(user), "unstake must require farming_key.owner auth");
+}
+
+#[test]
+fn test_harvest_requires_owner_auth() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    client.harvest(&s.reward_token, &fk);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(user), "harvest must require farming_key.owner auth");
+}
+
+#[test]
+fn test_harvest_all_requires_owner_auth() {
+    let s = TestFarmsSetup::new();
+    let client = s.create_farm_with_rewards(s.default_non_delegated_config());
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    client.harvest_all(&fk);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(user), "harvest_all must require farming_key.owner auth");
+}
+
+#[test]
+fn test_withdraw_unstaked_requires_owner_auth() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    client.unstake(&100_0000000, &fk);
+    client.withdraw_unstaked(&fk);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(user), "withdraw_unstaked must require farming_key.owner auth");
+}
+
+#[test]
+fn test_refresh_farming_position_requires_owner_auth() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.deposit_warmup_period = 100;
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(200);
+
+    client.refresh_farming_position(&fk);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(user), "refresh_farming_position must require farming_key.owner auth");
+}
+
+#[test]
+fn test_set_stake_delegated_requires_delegate_auth() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let config = s.default_delegated_config(&delegate);
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.set_stake_delegated(&delegate, &fk, &1000_0000000);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(&delegate), "set_stake_delegated must require delegate_authority auth");
+    assert!(!addrs.contains(&s.users[0]), "set_stake_delegated must NOT require user auth");
+}
+
+#[test]
+fn test_freeze_farm_requires_farm_admin_auth() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    client.freeze_farm();
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(&s.admin), "freeze_farm must require farm admin auth");
+}
+
+#[test]
+fn test_withdraw_slashed_requires_farm_admin_auth() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    if let Delegation::NonDelegated(ref mut nd) = config.delegation {
+        nd.locking_mode = LockingMode::Continuous;
+        nd.locking_duration = 1000;
+        nd.early_withdrawal_penalty_bps = 1000;
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &1000_0000000);
+    client.unstake(&1000_0000000, &fk);
+
+    let recipient = Address::generate(&s.e);
+    client.withdraw_slashed(&100_0000000, &recipient);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(&s.admin), "withdraw_slashed must require farm admin auth");
+}
+
+#[test]
+fn test_withdraw_treasury_fees_uses_farm_admin_not_global_admin() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.treasury_fee_bps = 1000;
+
+    let client = s.create_farm_with_rewards(config);
+
+    let new_farm_admin = Address::generate(&s.e);
+    client.propose_admin(&new_farm_admin);
+    client.accept_admin();
+
+    let fk = s.fk(&s.users[0]);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+    client.harvest(&s.reward_token, &fk);
+
+    let recipient = Address::generate(&s.e);
+    client.withdraw_treasury_fees(&10_0000000, &recipient, &s.reward_token);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(&new_farm_admin), "withdraw_treasury_fees must require farm admin auth");
+    assert!(!addrs.contains(&s.admin), "withdraw_treasury_fees must NOT use global admin");
+}
+
+#[test]
+fn test_add_rewards_requires_funder_auth() {
+    let s = TestFarmsSetup::new();
+    let client = s.deploy_farm(s.default_non_delegated_config());
+    client.unfreeze_farm();
+
+    client.initialize_reward(&s.reward_token, &RewardType::Proportional);
+
+    client.add_rewards(&1000_0000000, &s.admin, &s.reward_token);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(&s.admin), "add_rewards must require funder auth");
+}
+
+#[test]
+fn test_permissionless_harvest_enabled() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.is_harvest_permissionless = true;
+
+    let client = s.create_farm_with_rewards(config);
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    let balance_before = s.reward_token_client.balance(user);
+    let harvested = client.harvest(&s.reward_token, &fk);
+    let balance_after = s.reward_token_client.balance(user);
+
+    assert_eq!(harvested, 100_0000000);
+    assert_eq!(balance_after - balance_before, 100_0000000);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(!addrs.contains(user), "permissionless harvest must NOT require owner auth");
+}
+
+#[test]
+fn test_permissionless_harvest_disabled_requires_auth() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.is_harvest_permissionless = false;
+
+    let client = s.create_farm_with_rewards(config);
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    client.harvest(&s.reward_token, &fk);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(addrs.contains(user), "non-permissionless harvest must require owner auth");
+}
+
+#[test]
+fn test_permissionless_harvest_all_enabled() {
+    let s = TestFarmsSetup::new();
+    let mut config = s.default_non_delegated_config();
+    config.is_harvest_permissionless = true;
+
+    let client = s.create_farm_with_rewards(config);
+
+    let user = &s.users[0];
+    let fk = s.fk(user);
+    client.stake(&fk, &100_0000000);
+    s.pass_time(100);
+
+    let balance_before = s.reward_token_client.balance(user);
+    client.harvest_all(&fk);
+    let balance_after = s.reward_token_client.balance(user);
+
+    assert_eq!(balance_after - balance_before, 100_0000000);
+
+    let addrs = auth_addrs(&s.e);
+    assert!(!addrs.contains(user), "permissionless harvest_all must NOT require owner auth");
+}
+
+#[test]
+fn test_second_delegate_authority_can_set_stake() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let second_delegate = Address::generate(&s.e);
+    let mut config = s.default_delegated_config(&delegate);
+    if let Delegation::Delegated(ref mut d) = config.delegation {
+        d.second_delegate_authority = Some(second_delegate.clone());
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let fk = s.fk(&s.users[0]);
+
+    client.set_stake_delegated(&delegate, &fk, &100_0000000);
+    assert_eq!(client.get_farming_position(&fk).active_stake, 100_0000000);
+
+    client.set_stake_delegated(&second_delegate, &fk, &200_0000000);
+    assert_eq!(client.get_farming_position(&fk).active_stake, 200_0000000);
+}
+
+#[test]
+fn test_unauthorized_caller_rejected_for_set_stake_delegated() {
+    let s = TestFarmsSetup::new();
+    let delegate = Address::generate(&s.e);
+    let second_delegate = Address::generate(&s.e);
+    let mut config = s.default_delegated_config(&delegate);
+    if let Delegation::Delegated(ref mut d) = config.delegation {
+        d.second_delegate_authority = Some(second_delegate.clone());
+    }
+
+    let client = s.deploy_farm(config);
+    client.unfreeze_farm();
+
+    let unauthorized = Address::generate(&s.e);
+    let fk = s.fk(&s.users[0]);
+
+    let result = client.try_set_stake_delegated(&unauthorized, &fk, &100_0000000);
+    assert!(result.is_err());
+}
+
+mod mock_oracle {
+    use sep_40_oracle::{Asset, PriceData, PriceFeedTrait};
+    use soroban_sdk::{Env, Map, Vec, contract, contractimpl, contracttype};
+
+    #[contracttype]
+    pub enum DataKey {
+        Prices,
+        Decimals,
+    }
+
+    #[contract]
+    pub struct MockOracleContract;
+
+    #[contractimpl]
+    impl MockOracleContract {
+        pub fn __constructor(e: Env, decimals: u32) {
+            e.storage().instance().set(&DataKey::Decimals, &decimals);
+        }
+
+        pub fn set_price(e: Env, asset: Asset, price: i128, timestamp: u64) {
+            let mut prices: Map<Asset, PriceData> =
+                e.storage().instance().get(&DataKey::Prices).unwrap_or_else(|| Map::new(&e));
+            prices.set(asset, PriceData { price, timestamp });
+            e.storage().instance().set(&DataKey::Prices, &prices);
+        }
+    }
+
+    #[contractimpl]
+    impl PriceFeedTrait for MockOracleContract {
+        fn base(_e: Env) -> Asset {
+            Asset::Other(soroban_sdk::Symbol::new(&_e, "USD"))
+        }
+
+        fn assets(e: Env) -> Vec<Asset> {
+            let prices: Map<Asset, PriceData> =
+                e.storage().instance().get(&DataKey::Prices).unwrap_or_else(|| Map::new(&e));
+            prices.keys()
+        }
+
+        fn decimals(e: Env) -> u32 {
+            e.storage().instance().get(&DataKey::Decimals).unwrap()
+        }
+
+        fn lastprice(e: Env, asset: Asset) -> Option<PriceData> {
+            let prices: Map<Asset, PriceData> =
+                e.storage().instance().get(&DataKey::Prices).unwrap_or_else(|| Map::new(&e));
+            prices.get(asset)
+        }
+
+        fn resolution(_e: Env) -> u32 {
+            300
+        }
+
+        fn price(_e: Env, _asset: Asset, _timestamp: u64) -> Option<PriceData> {
+            unimplemented!()
+        }
+
+        fn prices(_e: Env, _asset: Asset, _records: u32) -> Option<Vec<PriceData>> {
+            unimplemented!()
+        }
+    }
+}
+
+#[test]
+fn test_oracle_deposit_cap_under_limit() {
+    let s = TestFarmsSetup::new();
+
+    let oracle_address = s.e.register(mock_oracle::MockOracleContract, (14_u32,));
+    let oracle_client = mock_oracle::MockOracleContractClient::new(&s.e, &oracle_address);
+
+    let price = 2_00000000000000_i128; // $2.00 with 14 decimals
+    oracle_client.set_price(
+        &sep_40_oracle::Asset::Stellar(s.stake_token.clone()),
+        &price,
+        &s.current_ts(),
+    );
+
+    let mut config = s.default_non_delegated_config();
+    config.deposit_cap = 500_0000000; // $500 USD (token has 7 decimals, price/10^oracle_decimals normalizes)
+    config.oracle = OptionalOracle::Some(OracleConfig {
+        oracle_address: oracle_address.clone(),
+        oracle_max_age: 3600,
+    });
+
+    let client = s.create_farm_with_rewards(config);
+
+    let fk = s.fk(&s.users[0]);
+    // 200 tokens * $2 = $400 USD, under $500 cap
+    client.stake(&fk, &200_0000000);
+
+    let pos = client.get_farming_position(&fk);
+    assert_eq!(pos.active_stake, 200_0000000);
+}
+
+#[test]
+fn test_oracle_deposit_cap_exceeded() {
+    let s = TestFarmsSetup::new();
+
+    let oracle_address = s.e.register(mock_oracle::MockOracleContract, (14_u32,));
+    let oracle_client = mock_oracle::MockOracleContractClient::new(&s.e, &oracle_address);
+
+    let price = 2_00000000000000_i128; // $2.00 with 14 decimals
+    oracle_client.set_price(
+        &sep_40_oracle::Asset::Stellar(s.stake_token.clone()),
+        &price,
+        &s.current_ts(),
+    );
+
+    let mut config = s.default_non_delegated_config();
+    config.deposit_cap = 500_0000000; // $500 USD
+    config.oracle = OptionalOracle::Some(OracleConfig {
+        oracle_address: oracle_address.clone(),
+        oracle_max_age: 3600,
+    });
+
+    let client = s.create_farm_with_rewards(config);
+
+    let fk = s.fk(&s.users[0]);
+    // 300 tokens * $2 = $600 USD, exceeds $500 cap
+    let result = client.try_stake(&fk, &300_0000000);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_oracle_stale_price_rejected() {
+    let s = TestFarmsSetup::new();
+
+    let oracle_address = s.e.register(mock_oracle::MockOracleContract, (14_u32,));
+    let oracle_client = mock_oracle::MockOracleContractClient::new(&s.e, &oracle_address);
+
+    let stale_ts = s.current_ts().saturating_sub(7200);
+    let price = 2_00000000000000_i128;
+    oracle_client.set_price(
+        &sep_40_oracle::Asset::Stellar(s.stake_token.clone()),
+        &price,
+        &stale_ts,
+    );
+
+    let mut config = s.default_non_delegated_config();
+    config.deposit_cap = 500_0000000;
+    config.oracle = OptionalOracle::Some(OracleConfig {
+        oracle_address: oracle_address.clone(),
+        oracle_max_age: 3600,
+    });
+
+    let client = s.create_farm_with_rewards(config);
+
+    let fk = s.fk(&s.users[0]);
+    let result = client.try_stake(&fk, &100_0000000);
+    assert!(result.is_err());
+}
