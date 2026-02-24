@@ -181,19 +181,30 @@ function styleWalletModal() {
     .dialog-modal  {
       background: transparent !important
     }
+      .dialog-modal-body {
+      background-color: transparent !important;
+      }
     .dialog-modal-body__help {
       background-color: rgba(255, 255, 255, 0.04) !important;
       backdrop-filter: blur(30px);
     }
-    .dialog-modal-body__wallets,
-    .dialog-modal-body {
-      background-color: rgba(255, 255, 255, 0.04) !important;
+    .dialog-modal-body__wallets {
+      background-color: rgba(255, 255, 255, 0.10) !important;
       backdrop-filter: blur(30px);
     }
     .wallets-header__button svg {
       fill: #fff !important;
       width: 16px;
       height: 16px
+    }
+    small.not-available {
+      border-radius: 16px !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      background: rgba(255, 255, 255, 0.04) !important;
+    }
+    .dialog-text,
+    .dialog-text-solid {
+      color: #f5f5f5 !important;
     }
   `
 
