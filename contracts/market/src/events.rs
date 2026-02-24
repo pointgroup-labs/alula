@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, String, Symbol, contractevent};
+use soroban_sdk::{Address, Env, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -702,33 +702,17 @@ pub fn received_unexpected_swap_amount(
 // --- Farms Integration Events ---
 
 #[contractevent]
-struct FarmsContractSetEvent {
-    #[topic]
-    pub farms_contract: Address,
-}
-
-pub fn farms_contract_set(e: &Env, farms_contract: &Address) {
-    FarmsContractSetEvent { farms_contract: farms_contract.clone() }.publish(e);
-}
-
-#[contractevent]
-struct FarmsContractClearedEvent {}
-
-pub fn farms_contract_cleared(e: &Env) {
-    FarmsContractClearedEvent {}.publish(e);
-}
-
-#[contractevent]
 struct PoolFarmSetEvent {
     #[topic]
     pub pool_address: Address,
-    pub farm_id: BytesN<32>,
+    #[topic]
+    pub farm: Address,
     pub farm_kind: Symbol,
 }
 
-pub fn pool_farm_set(e: &Env, pool_address: &Address, farm_id: &BytesN<32>, is_supply: bool) {
+pub fn pool_farm_set(e: &Env, pool_address: &Address, farm: &Address, is_supply: bool) {
     let farm_kind = if is_supply { Symbol::new(e, "supply") } else { Symbol::new(e, "debt") };
-    PoolFarmSetEvent { pool_address: pool_address.clone(), farm_id: farm_id.clone(), farm_kind }
+    PoolFarmSetEvent { pool_address: pool_address.clone(), farm: farm.clone(), farm_kind }
         .publish(e);
 }
 

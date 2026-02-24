@@ -532,39 +532,19 @@ pub trait Market {
     // Farms Integration
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    /// Sets the farms contract address for this market.
-    ///
-    /// # Arguments
-    /// * `farms_contract` - Address of the Farms contract
-    fn set_farms_contract(e: Env, farms_contract: Address) -> Result<(), MCError>;
-
-    /// Clears the farms contract address (disables farm integration).
-    fn clear_farms_contract(e: Env) -> Result<(), MCError>;
-
-    /// Gets the farms contract address if configured.
-    fn get_farms_contract(e: Env) -> Option<Address>;
-
-    /// Sets the supply farm ID for a pool.
+    /// Sets the supply farm address for a pool.
     ///
     /// # Arguments
     /// * `pool_address` - Address of the pool
-    /// * `farm_id` - Farm ID for supply incentives (j-token staking)
-    fn set_pool_supply_farm(
-        e: Env,
-        pool_address: Address,
-        farm_id: BytesN<32>,
-    ) -> Result<(), MCError>;
+    /// * `farm` - Farm contract address for supply incentives (j-token staking)
+    fn set_pool_supply_farm(e: Env, pool_address: Address, farm: Address) -> Result<(), MCError>;
 
-    /// Sets the debt farm ID for a pool.
+    /// Sets the debt farm address for a pool.
     ///
     /// # Arguments
     /// * `pool_address` - Address of the pool
-    /// * `farm_id` - Farm ID for debt incentives (d-token staking)
-    fn set_pool_debt_farm(
-        e: Env,
-        pool_address: Address,
-        farm_id: BytesN<32>,
-    ) -> Result<(), MCError>;
+    /// * `farm` - Farm contract address for debt incentives (d-token staking)
+    fn set_pool_debt_farm(e: Env, pool_address: Address, farm: Address) -> Result<(), MCError>;
 
     /// Clears all farm configuration for a pool.
     ///
@@ -1262,40 +1242,14 @@ impl Market for MarketContract {
     // Farms Integration
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    fn set_farms_contract(e: Env, farms_contract: Address) -> Result<(), MCError> {
+    fn set_pool_supply_farm(e: Env, pool_address: Address, farm: Address) -> Result<(), MCError> {
         require_admin(&e);
-        storage::set_farms_contract(&e, &farms_contract);
-        events::farms_contract_set(&e, &farms_contract);
-        Ok(())
+        farms::set_pool_supply_farm(&e, &pool_address, &farm)
     }
 
-    fn clear_farms_contract(e: Env) -> Result<(), MCError> {
+    fn set_pool_debt_farm(e: Env, pool_address: Address, farm: Address) -> Result<(), MCError> {
         require_admin(&e);
-        storage::clear_farms_contract(&e);
-        events::farms_contract_cleared(&e);
-        Ok(())
-    }
-
-    fn get_farms_contract(e: Env) -> Option<Address> {
-        storage::get_farms_contract(&e)
-    }
-
-    fn set_pool_supply_farm(
-        e: Env,
-        pool_address: Address,
-        farm_id: BytesN<32>,
-    ) -> Result<(), MCError> {
-        require_admin(&e);
-        farms::set_pool_supply_farm(&e, &pool_address, farm_id)
-    }
-
-    fn set_pool_debt_farm(
-        e: Env,
-        pool_address: Address,
-        farm_id: BytesN<32>,
-    ) -> Result<(), MCError> {
-        require_admin(&e);
-        farms::set_pool_debt_farm(&e, &pool_address, farm_id)
+        farms::set_pool_debt_farm(&e, &pool_address, &farm)
     }
 
     fn clear_pool_farms(e: Env, pool_address: Address) -> Result<(), MCError> {
@@ -1306,27 +1260,19 @@ impl Market for MarketContract {
     fn refresh_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
 
-        let Some(farms_contract) = storage::get_farms_contract(&e) else {
-            return Ok(()); // No farms configured
-        };
-
         let obligation_key = ObligationKey::new(user);
 
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
+        farms::refresh_all_obligation_farms(&e, &obligation_key)?;
         Ok(())
     }
 
     fn refresh_earn_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
 
-        let Some(farms_contract) = storage::get_farms_contract(&e) else {
-            return Ok(()); // No farms configured
-        };
-
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
 
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
+        farms::refresh_all_obligation_farms(&e, &obligation_key)?;
         Ok(())
     }
 
@@ -1338,14 +1284,10 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         storage::extend_instance_storage(&e);
 
-        let Some(farms_contract) = storage::get_farms_contract(&e) else {
-            return Ok(()); // No farms configured
-        };
-
         let pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
         let obligation_key = ObligationKey::new_with_seed(user, pair.seed.clone());
 
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
+        farms::refresh_all_obligation_farms(&e, &obligation_key)?;
         Ok(())
     }
 

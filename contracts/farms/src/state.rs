@@ -1,276 +1,713 @@
-// Re-export Delegatee from farms_interface to ensure type compatibility
-pub use farms_interface::Delegatee;
-use soroban_sdk::{Address, BytesN, Vec, contracttype};
+use farms_interface::FarmingKey;
+use soroban_fixed_point_math::FixedPoint;
+use soroban_sdk::{Address, Env, Map, Vec, contracttype, map as smap, vec as svec};
 
-/// Global configuration for the Farms contract
+use crate::{
+    constants::*,
+    error::FCError,
+    math::reward_curve::RewardScheduleCurve,
+    processors::{self, calculate_pending_reward, effective_stake},
+    storage,
+    utils::{MathUtils, require_nonnegative},
+};
+
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GlobalConfig {
-    /// Administrator address
-    pub admin: Address,
-    /// Treasury vault authority for fee collection
-    pub treasury_vault: Address,
-    /// Fee taken from rewards in basis points
-    pub treasury_fee_bps: i128,
-    /// Pending admin for two-step admin transfer
-    pub pending_admin: Option<Address>,
-}
-
-/// Time unit for reward calculations
-#[contracttype]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
-#[repr(u32)]
-pub enum TimeUnit {
-    /// Use ledger timestamps (seconds)
-    #[default]
-    Seconds = 0,
-    /// Use ledger sequence numbers
-    Slot = 1,
-}
-
-/// Locking mode for farm stakes
-#[contracttype]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
-#[repr(u32)]
-pub enum LockingMode {
-    /// No locking - users can unstake freely
-    #[default]
-    None = 0,
-    /// Continuous locking - lock duration restarts from user's last stake
-    Continuous = 1,
-    /// Global expiry - all stakes unlock at a fixed timestamp
-    WithExpiry = 2,
-}
-
-/// Reward distribution type
-#[contracttype]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
-#[repr(u32)]
-pub enum RewardType {
-    /// Proportional - rewards distributed proportionally to stake (default)
-    /// reward = (user_stake / total_staked) × rewards_issued
-    #[default]
-    Proportional = 0,
-    /// Constant - same reward amount per user regardless of stake
-    /// reward = rewards_per_second × total_staked (multiplied by user count effect)
-    /// Useful for participation-based incentives
-    Constant = 1,
-}
-
-/// A point on the reward emission curve
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RewardCurvePoint {
-    /// Timestamp when this rate starts
-    pub ts_start: u64,
-    /// Reward amount per time unit
-    pub reward_per_time_unit: i128,
-}
-
-/// Reward emission schedule defined as a curve
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RewardScheduleCurve {
-    /// Points defining the curve (up to MAX_CURVE_POINTS)
-    pub points: Vec<RewardCurvePoint>,
-}
-
-/// Information about a single reward token for a farm
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RewardInfo {
-    /// Reward token address
-    pub token: Address,
-    /// Vault holding reward tokens
-    pub rewards_vault: Address,
-    /// Remaining rewards available for distribution
-    pub rewards_available: i128,
-
-    /// Reward distribution type (Proportional or Constant)
-    pub reward_type: RewardType,
-    /// Emission schedule
-    pub reward_schedule: RewardScheduleCurve,
-    /// Last timestamp when rewards were issued
-    pub last_issuance_ts: u64,
-
-    /// Accumulated reward per share (scaled by SCALE_FACTOR)
-    pub reward_per_share_scaled: i128,
-    /// Total rewards issued but not yet claimed
-    pub rewards_issued_unclaimed: i128,
-    /// Total rewards issued cumulatively
-    pub rewards_issued_cumulative: i128,
-
-    /// Minimum duration between claims (to prevent spam)
-    pub min_claim_duration: u64,
-}
-
-/// Farm state
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FarmState {
-    /// Unique farm identifier
-    pub farm_id: BytesN<32>,
-
-    /// Farm-specific admin (if None, global admin controls this farm)
-    /// Allows delegation of farm management to a separate address
-    pub farm_admin: Option<Address>,
-    /// Pending farm admin for two-step transfer
-    pub pending_farm_admin: Option<Address>,
-
-    /// Delegate authority - contract authorized to update stakes via set_stake_delegated
-    /// When Some: only this address can update stakes (push model from Market/AMM)
-    /// When None: users can call stake()/unstake() directly (pull model)
-    pub delegate_authority: Option<Address>,
-
-    /// Total staked amount across all users
-    pub total_staked: i128,
-    /// Number of users with active stakes
+pub struct Farm {
     pub num_users: u64,
-
-    /// Time unit for calculations
-    pub time_unit: TimeUnit,
-    /// Delay before new stakes become active (warmup)
-    pub deposit_warmup_period: u64,
-    /// Delay after unstake before withdrawal (cooldown)
-    pub withdrawal_cooldown_period: u64,
-
-    /// Locking mode
-    pub locking_mode: LockingMode,
-    /// When locking started (for WithExpiry mode)
-    pub locking_start_ts: u64,
-    /// Lock duration
-    pub locking_duration: u64,
-    /// Penalty for early withdrawal in basis points (max penalty, decays linearly)
-    pub early_withdrawal_penalty_bps: i128,
-
-    /// Maximum total stake allowed (0 = unlimited)
-    pub deposit_cap: i128,
-
-    /// Reward configurations (up to MAX_REWARD_TOKENS)
-    pub reward_infos: Vec<RewardInfo>,
-    /// Number of active reward tokens
-    pub num_reward_tokens: u32,
-
-    /// Whether the farm is frozen
     pub is_frozen: bool,
-
-    /// Whether reward_user_once is enabled (for airdrops via delegate)
-    pub is_reward_user_once_enabled: bool,
-
-    /// Current slashed amount from early withdrawals (available for admin to withdraw)
-    pub slashed_amount_current: i128,
-    /// Cumulative slashed amount (for tracking purposes)
-    pub slashed_amount_cumulative: i128,
-    /// Address to receive slashed amounts
-    pub slashed_amount_spill_address: Address,
+    pub total_staked: i128,
+    pub config: FarmConfig,
+    pub rewards: Map<Address, ()>,
+    pub current_slashed_amount: i128,
+    pub cumulative_slashed_amount: i128,
 }
 
-/// User state for a specific farm
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct UserState {
-    /// The owner's address (for rewards and events)
-    pub owner: Address,
-    /// Farm this state belongs to
-    pub farm_id: BytesN<32>,
-
-    /// Active stake currently earning rewards
-    pub active_stake: i128,
-
-    /// Stake in warmup period (not yet active)
-    pub pending_deposit_stake: i128,
-    /// When pending deposit was initiated
-    pub pending_deposit_ts: u64,
-
-    /// Stake in cooldown period (unstaked, waiting for withdrawal)
-    pub pending_withdrawal_stake: i128,
-    /// When pending withdrawal was initiated
-    pub pending_withdrawal_ts: u64,
-
-    /// Rewards tally per reward token (for RPS calculation)
-    /// user_reward = (reward_per_share * stake) - rewards_tally
-    pub rewards_tally_scaled: Vec<i128>,
-    /// Unclaimed rewards per reward token
-    pub rewards_unclaimed: Vec<i128>,
-    /// Last claim timestamp per reward token
-    pub last_claim_ts: Vec<u64>,
-
-    /// Timestamp of user's last stake (for continuous locking)
-    pub last_stake_ts: u64,
-}
-
-/// Configuration for initializing a new farm
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FarmConfig {
-    /// Delegate authority address (optional)
-    /// When Some: only this address can update stakes via set_stake_delegated (push model)
-    /// When None: users can call stake()/unstake() directly
-    pub delegate_authority: Option<Address>,
-    pub time_unit: TimeUnit,
-    pub deposit_warmup_period: u64,
-    pub withdrawal_cooldown_period: u64,
-    pub locking_mode: LockingMode,
-    pub locking_start_ts: u64,
-    pub locking_duration: u64,
-    pub early_withdrawal_penalty_bps: i128,
-    pub deposit_cap: i128,
-}
-
-impl Default for FarmConfig {
-    fn default() -> Self {
+impl Farm {
+    pub fn new(e: &Env, config: FarmConfig) -> Self {
         Self {
-            delegate_authority: None,
-            time_unit: TimeUnit::Seconds,
-            deposit_warmup_period: 0,
-            withdrawal_cooldown_period: 0,
-            locking_mode: LockingMode::None,
-            locking_start_ts: 0,
-            locking_duration: 0,
-            early_withdrawal_penalty_bps: 0,
-            deposit_cap: 0,
+            config,
+            num_users: 0,
+            total_staked: 0,
+            is_frozen: true,
+            rewards: smap![e],
+            current_slashed_amount: 0,
+            cumulative_slashed_amount: 0,
+        }
+    }
+
+    pub fn try_get(e: &Env) -> Result<Farm, FCError> {
+        storage::get_farm(e).ok_or(FCError::FarmDoesNotExist)
+    }
+
+    pub fn set(self, e: &Env) {
+        storage::set_farm(e, &self);
+    }
+
+    pub fn require_admin(&self) {
+        self.config.admin.require_auth();
+    }
+
+    pub fn require_delegate_authority(&self, caller: &Address) -> Result<(), FCError> {
+        let Delegation::Delegated(config) = &self.config.delegation else {
+            return Err(FCError::NotDelegatedFarm);
+        };
+        caller.require_auth();
+        if caller == &config.delegate_authority {
+            return Ok(());
+        }
+        if let Some(ref second) = config.second_delegate_authority
+            && caller == second
+        {
+            return Ok(());
+        }
+        Err(FCError::UnauthorizedCaller)
+    }
+
+    pub fn require_not_frozen(&self) -> Result<(), FCError> {
+        if self.is_frozen {
+            return Err(FCError::FarmIsFrozen);
+        }
+        Ok(())
+    }
+
+    pub fn require_can_reward_once(&self) -> Result<(), FCError> {
+        if !self.config.is_reward_once_enabled {
+            return Err(FCError::RewardUserOnceIsDisabled);
+        }
+        Ok(())
+    }
+
+    pub fn refresh_rewards(&mut self, e: &Env) -> Result<(), FCError> {
+        let current_ts = e.ledger().timestamp();
+
+        for reward_token in self.rewards.keys() {
+            let mut reward_info = RewardInfo::try_get(e, &reward_token)?;
+
+            let rewards_to_issue =
+                processors::calculate_rewards_to_issue(self, &reward_info, current_ts)?;
+
+            if rewards_to_issue.is_positive() {
+                let denominator = match reward_info.reward_type {
+                    RewardType::Proportional => self.total_staked,
+                    RewardType::Constant => self.num_users as i128,
+                };
+
+                if denominator > 0 {
+                    let rps_delta = rewards_to_issue
+                        .fixed_div_floor(denominator, SCALE_FACTOR)
+                        .map_over_or_underflow()?;
+                    reward_info.accum_rewards_per_share_sc = reward_info
+                        .accum_rewards_per_share_sc
+                        .checked_add(rps_delta)
+                        .map_over_or_underflow()?;
+                }
+
+                reward_info.rewards_available = reward_info
+                    .rewards_available
+                    .checked_sub(rewards_to_issue)
+                    .map_over_or_underflow()?;
+                reward_info.rewards_issued_unclaimed = reward_info
+                    .rewards_issued_unclaimed
+                    .checked_add(rewards_to_issue)
+                    .map_over_or_underflow()?;
+                reward_info.rewards_issued_cumulative = reward_info
+                    .rewards_issued_cumulative
+                    .checked_add(rewards_to_issue)
+                    .map_over_or_underflow()?;
+            }
+
+            reward_info.last_issuance_ts = current_ts;
+            reward_info.set(e, &reward_token);
+        }
+
+        Ok(())
+    }
+
+    /// Computes a snapshot of each reward's accumulated RPS as if `refresh_rewards`
+    /// had been called, but without persisting any changes to storage.
+    pub fn simulate_refresh_rewards(&self, e: &Env) -> Result<Map<Address, i128>, FCError> {
+        let current_ts = e.ledger().timestamp();
+        let mut rps_snapshot: Map<Address, i128> = smap![e];
+
+        for reward_token in self.rewards.keys() {
+            let reward_info = RewardInfo::try_get(e, &reward_token)?;
+
+            let rewards_to_issue =
+                processors::calculate_rewards_to_issue(self, &reward_info, current_ts)?;
+
+            let mut accum_rps = reward_info.accum_rewards_per_share_sc;
+
+            if rewards_to_issue.is_positive() {
+                let denominator = match reward_info.reward_type {
+                    RewardType::Proportional => self.total_staked,
+                    RewardType::Constant => self.num_users as i128,
+                };
+
+                if denominator > 0 {
+                    let rps_delta = rewards_to_issue
+                        .fixed_div_floor(denominator, SCALE_FACTOR)
+                        .map_over_or_underflow()?;
+                    accum_rps = accum_rps.checked_add(rps_delta).map_over_or_underflow()?;
+                }
+            }
+
+            rps_snapshot.set(reward_token, accum_rps);
+        }
+
+        Ok(rps_snapshot)
+    }
+
+    pub fn update_common_config(
+        &mut self,
+        config_update: &CommonFarmConfigUpdate,
+    ) -> Result<(), FCError> {
+        match config_update {
+            CommonFarmConfigUpdate::DepositCap(cap) => {
+                require_nonnegative(*cap)?;
+                self.config.deposit_cap = *cap;
+            }
+            CommonFarmConfigUpdate::MinHarvestDelay(delay) => {
+                if !(0..=MAX_HARVEST_DELAY).contains(delay) {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                self.config.min_harvest_delay = *delay;
+            }
+            CommonFarmConfigUpdate::IsHarvestPermissionless(enabled) => {
+                self.config.is_harvest_permissionless = *enabled;
+            }
+            CommonFarmConfigUpdate::SetOracle(oracle) => {
+                if oracle.oracle_max_age == 0 {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                self.config.oracle = OptionalOracle::Some(oracle.clone());
+            }
+            CommonFarmConfigUpdate::ClearOracle => {
+                self.config.oracle = OptionalOracle::None;
+            }
+            CommonFarmConfigUpdate::MinStakeAmount(amount) => {
+                require_nonnegative(*amount)?;
+                self.config.min_stake_amount = *amount;
+            }
+            CommonFarmConfigUpdate::TreasuryFeeBps(bps) => {
+                if !(0..=MAX_TREASURY_FEE_BPS).contains(bps) {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                self.config.treasury_fee_bps = *bps;
+            }
+            CommonFarmConfigUpdate::IsRewardOnceEnabled(enabled) => {
+                self.config.is_reward_once_enabled = *enabled;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn update_delegated_config(
+        &mut self,
+        config_update: &DelegatedFarmConfigUpdate,
+    ) -> Result<(), FCError> {
+        let Delegation::Delegated(delegation_config) = &mut self.config.delegation else {
+            return Err(FCError::NotDelegatedFarm);
+        };
+
+        match config_update {
+            DelegatedFarmConfigUpdate::DelegateAuthority(address) => {
+                delegation_config.delegate_authority = address.clone();
+            }
+            DelegatedFarmConfigUpdate::SecondDelegateAuthority(address) => {
+                delegation_config.second_delegate_authority = address.clone();
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn update_non_delegated_config(
+        &mut self,
+        config_update: &NonDelegatedFarmConfigUpdate,
+    ) -> Result<(), FCError> {
+        let Delegation::NonDelegated(config) = &mut self.config.delegation else {
+            return Err(FCError::DelegatedFarm);
+        };
+
+        let has_active_stakes = self.total_staked != 0;
+
+        match config_update {
+            NonDelegatedFarmConfigUpdate::LockingTs(ts) => {
+                if has_active_stakes {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                config.locking_ts = *ts;
+            }
+            NonDelegatedFarmConfigUpdate::LockingDuration(duration) => {
+                if has_active_stakes || *duration > MAX_LOCKING_DURATION {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                config.locking_duration = *duration;
+            }
+            NonDelegatedFarmConfigUpdate::LockingMode(mode) => {
+                if has_active_stakes {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                config.locking_mode = *mode;
+            }
+            NonDelegatedFarmConfigUpdate::DepositWarmupPeriod(period) => {
+                if !(0..=MAX_DEPOSIT_WARMUP_PERIOD).contains(period) {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                config.deposit_warmup_period = *period;
+            }
+            NonDelegatedFarmConfigUpdate::EarlyWithdrawalPenaltyBps(penalty_bps) => {
+                if has_active_stakes || !(0..=BPS_FACTOR).contains(penalty_bps) {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                config.early_withdrawal_penalty_bps = *penalty_bps;
+            }
+            NonDelegatedFarmConfigUpdate::WithdrawalCooldownPeriod(period) => {
+                if has_active_stakes || !(0..=MAX_WITHDRAWAL_COOLDOWN_PERIOD).contains(period) {
+                    return Err(FCError::InvalidFarmConfigUpdate);
+                }
+                config.withdrawal_cooldown_period = *period;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn try_withdraw_slashed(&mut self, amount: i128) -> Result<(), FCError> {
+        if amount > self.current_slashed_amount {
+            return Err(FCError::InsufficientCurrentSlashedAmount);
+        }
+        self.current_slashed_amount =
+            self.current_slashed_amount.checked_sub(amount).map_over_or_underflow()?;
+
+        Ok(())
+    }
+
+    pub fn try_initialize_reward(
+        &mut self,
+        e: &Env,
+        reward_token: &Address,
+        reward_type: RewardType,
+    ) -> Result<(), FCError> {
+        self.require_can_initialize_reward(reward_token)?;
+        self.rewards.set(reward_token.clone(), ());
+
+        let reward_info = RewardInfo::new(e, reward_type);
+        reward_info.set(e, reward_token);
+
+        Ok(())
+    }
+
+    fn require_can_initialize_reward(&self, reward_token: &Address) -> Result<(), FCError> {
+        if self.rewards.len() >= MAX_FARM_NUM_REWARDS {
+            return Err(FCError::MaxFarmNumRewardsReached);
+        }
+        if self.rewards.contains_key(reward_token.clone()) {
+            return Err(FCError::TokenIsAlreadyAReward);
+        }
+        Ok(())
+    }
+
+    pub fn try_add_reward(
+        &mut self,
+        e: &Env,
+        reward_token: &Address,
+        amount: i128,
+    ) -> Result<(), FCError> {
+        if !self.rewards.contains_key(reward_token.clone()) {
+            return Err(FCError::RewardDoesNotExistOnFarm);
+        }
+
+        let mut reward_info = RewardInfo::try_get(e, reward_token)?;
+
+        reward_info.rewards_available =
+            reward_info.rewards_available.checked_add(amount).map_over_or_underflow()?;
+        reward_info.set(e, reward_token);
+
+        Ok(())
+    }
+
+    pub fn accept_admin(&mut self) -> Result<(), FCError> {
+        let Some(proposed_farm_admin) = self.config.proposed_admin.clone() else {
+            return Err(FCError::ProposedAdminDoesNotExist);
+        };
+        proposed_farm_admin.require_auth();
+
+        self.config.admin = proposed_farm_admin;
+        self.config.proposed_admin = None;
+
+        Ok(())
+    }
+
+    pub fn propose_admin(&mut self, admin: &Address) {
+        self.config.proposed_admin = Some(admin.clone());
+    }
+
+    pub fn token(&self) -> Address {
+        self.config.token.clone()
+    }
+
+    pub fn non_delegated_config(&self) -> Result<&NonDelegatedFarmConfig, FCError> {
+        let Delegation::NonDelegated(config) = &self.config.delegation else {
+            return Err(FCError::NotDelegatedFarm);
+        };
+        Ok(config)
+    }
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct OracleConfig {
+    pub oracle_address: Address,
+    pub oracle_max_age: u64,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub enum OptionalOracle {
+    None,
+    Some(OracleConfig),
+}
+
+impl OptionalOracle {
+    pub fn as_ref(&self) -> Option<&OracleConfig> {
+        match self {
+            OptionalOracle::None => None,
+            OptionalOracle::Some(config) => Some(config),
         }
     }
 }
 
-/// Global configuration update - each variant carries its typed value
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum GlobalConfigUpdate {
-    /// Update the treasury vault address
-    TreasuryVault(Address),
-    /// Update the treasury fee in basis points (max 1000 = 10%)
-    TreasuryFeeBps(i128),
+#[derive(Clone)]
+pub struct FarmConfig {
+    pub token: Address,
+    pub admin: Address,
+    pub deposit_cap: i128,
+    pub treasury_fee_bps: i128,
+    pub min_harvest_delay: u64,
+    pub min_stake_amount: i128,
+    pub delegation: Delegation,
+    pub is_reward_once_enabled: bool,
+    pub is_harvest_permissionless: bool,
+    pub proposed_admin: Option<Address>,
+    pub oracle: OptionalOracle,
 }
 
-/// Farm configuration update - each variant carries its typed value
+impl FarmConfig {
+    pub fn require_valid(&self) -> Result<(), FCError> {
+        if !(0..=MAX_TREASURY_FEE_BPS).contains(&self.treasury_fee_bps) {
+            return Err(FCError::InvalidConfig);
+        }
+        if self.min_stake_amount < 0 {
+            return Err(FCError::InvalidConfig);
+        }
+        if self.deposit_cap < 0 {
+            return Err(FCError::InvalidConfig);
+        }
+        if self.min_harvest_delay > MAX_HARVEST_DELAY {
+            return Err(FCError::InvalidConfig);
+        }
+
+        if let OptionalOracle::Some(ref oracle) = self.oracle
+            && oracle.oracle_max_age == 0
+        {
+            return Err(FCError::InvalidConfig);
+        }
+
+        if let Delegation::NonDelegated(nd) = &self.delegation {
+            if !(0..=BPS_FACTOR).contains(&nd.early_withdrawal_penalty_bps) {
+                return Err(FCError::InvalidConfig);
+            }
+            if nd.locking_duration > MAX_LOCKING_DURATION {
+                return Err(FCError::InvalidConfig);
+            }
+            if nd.deposit_warmup_period > MAX_DEPOSIT_WARMUP_PERIOD {
+                return Err(FCError::InvalidConfig);
+            }
+            if nd.withdrawal_cooldown_period > MAX_WITHDRAWAL_COOLDOWN_PERIOD {
+                return Err(FCError::InvalidConfig);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum FarmConfigUpdate {
-    /// Update the deposit warmup period (seconds or slots)
-    DepositWarmupPeriod(u64),
-    /// Update the withdrawal cooldown period (seconds or slots)
-    WithdrawalCooldownPeriod(u64),
-    /// Update the locking mode
-    LockingMode(LockingMode),
-    /// Update the locking start timestamp (for WithExpiry mode)
-    LockingStartTs(u64),
-    /// Update the lock duration
+#[derive(Clone)]
+pub enum Delegation {
+    Delegated(DelegatedFarmConfig),
+    NonDelegated(NonDelegatedFarmConfig),
+}
+
+#[contracttype]
+pub enum DelegatedFarmConfigUpdate {
+    DelegateAuthority(Address),
+    SecondDelegateAuthority(Option<Address>),
+}
+
+#[contracttype]
+pub enum NonDelegatedFarmConfigUpdate {
+    LockingTs(u64),
     LockingDuration(u64),
-    /// Update the early withdrawal penalty in basis points (max 10000 = 100%)
-    EarlyWithdrawalPenalty(i128),
-    /// Update the deposit cap (0 = unlimited)
+    LockingMode(LockingMode),
+    DepositWarmupPeriod(u64),
+    WithdrawalCooldownPeriod(u64),
+    EarlyWithdrawalPenaltyBps(i128),
+}
+
+#[contracttype]
+pub enum CommonFarmConfigUpdate {
     DepositCap(i128),
-    /// Update the minimum claim duration for all reward tokens
-    MinClaimDuration(u64),
-    /// Update or clear the delegate authority (None = enable direct staking)
-    DelegateAuthority(Option<Address>),
-    /// Update the slashed amount spill address
-    SlashedAmountSpillAddress(Address),
-    /// Set pending farm admin (for two-step transfer)
-    PendingFarmAdmin(Address),
-    /// Enable/disable reward_user_once feature (requires delegated farm)
-    RewardUserOnceEnabled(bool),
-    /// Update reward type for a specific reward token (reward_index, RewardType)
-    RewardType(u32, RewardType),
+    MinHarvestDelay(u64),
+    IsHarvestPermissionless(bool),
+    SetOracle(OracleConfig),
+    ClearOracle,
+    MinStakeAmount(i128),
+    TreasuryFeeBps(i128),
+    IsRewardOnceEnabled(bool),
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct DelegatedFarmConfig {
+    pub delegate_authority: Address,
+    pub second_delegate_authority: Option<Address>,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct NonDelegatedFarmConfig {
+    pub locking_ts: u64,
+    pub locking_duration: u64,
+    pub locking_mode: LockingMode,
+    pub deposit_warmup_period: u64,
+    pub withdrawal_cooldown_period: u64,
+    pub early_withdrawal_penalty_bps: i128,
+}
+
+#[contracttype]
+#[derive(Default, Copy, Clone)]
+pub enum LockingMode {
+    #[default]
+    None,
+    Continuous,
+    WithExpiry,
+}
+
+#[contracttype]
+#[derive(Default, Copy, Clone)]
+pub enum RewardType {
+    #[default]
+    Proportional,
+    Constant,
+}
+
+#[contracttype]
+pub struct RewardInfo {
+    pub last_issuance_ts: u64,
+    pub rewards_available: i128,
+    pub reward_type: RewardType,
+    pub rewards_issued_unclaimed: i128,
+    pub rewards_issued_cumulative: i128,
+    pub accum_rewards_per_share_sc: i128,
+    pub accumulated_treasury_fees: i128,
+    pub reward_schedule_curve: RewardScheduleCurve,
+}
+
+impl RewardInfo {
+    pub fn new(e: &Env, reward_type: RewardType) -> Self {
+        Self {
+            last_issuance_ts: 0,
+            rewards_available: 0,
+            rewards_issued_unclaimed: 0,
+            rewards_issued_cumulative: 0,
+            accum_rewards_per_share_sc: 0,
+            accumulated_treasury_fees: 0,
+            reward_type,
+            reward_schedule_curve: RewardScheduleCurve { points: svec![e] },
+        }
+    }
+
+    pub fn try_get(e: &Env, reward_token: &Address) -> Result<Self, FCError> {
+        storage::get_reward_info(e, reward_token).ok_or(FCError::RewardDoesNotExistOnFarm)
+    }
+
+    pub fn set(self, e: &Env, reward_token: &Address) {
+        storage::set_reward_info(e, reward_token, &self);
+    }
+
+    pub fn reward_once(&mut self, amount: i128) -> Result<(), FCError> {
+        if amount > self.rewards_available {
+            return Err(FCError::InsufficientAvailableRewards);
+        }
+
+        self.rewards_issued_unclaimed =
+            self.rewards_issued_unclaimed.checked_add(amount).map_over_or_underflow()?;
+        self.rewards_issued_cumulative =
+            self.rewards_issued_cumulative.checked_add(amount).map_over_or_underflow()?;
+        self.rewards_available =
+            self.rewards_available.checked_sub(amount).map_over_or_underflow()?;
+
+        Ok(())
+    }
+
+    pub fn try_set_reward_schedule_curve(
+        &mut self,
+        e: &Env,
+        farm: &mut Farm,
+        reward_token: &Address,
+        curve: &RewardScheduleCurve,
+    ) -> Result<(), FCError> {
+        curve.require_valid()?;
+
+        farm.refresh_rewards(e)?;
+        *self = RewardInfo::try_get(e, reward_token)?;
+        self.reward_schedule_curve = curve.clone();
+        self.last_issuance_ts = e.ledger().timestamp();
+
+        Ok(())
+    }
+}
+
+#[contracttype]
+pub struct FarmingPosition {
+    pub active_stake: i128,
+
+    pub pending_deposit_ts: u64,
+    pub pending_deposit_stake: i128,
+
+    pub pending_withdrawal_ts: u64,
+    pub pending_withdrawal_stake: i128,
+    pub rewards_tallies: Map<Address, i128>,
+    pub rewards_unclaimed: Map<Address, i128>,
+
+    pub last_stake_ts: u64,
+    pub last_claim_ts: Map<Address, u64>,
+}
+
+impl FarmingPosition {
+    pub fn new(e: &Env) -> Self {
+        Self {
+            active_stake: 0,
+            last_stake_ts: 0,
+            pending_deposit_ts: 0,
+            last_claim_ts: smap![e],
+            pending_withdrawal_ts: 0,
+            pending_deposit_stake: 0,
+            rewards_tallies: smap![e],
+            rewards_unclaimed: smap![e],
+            pending_withdrawal_stake: 0,
+        }
+    }
+
+    pub fn try_get(e: &Env, farming_key: &FarmingKey) -> Result<Self, FCError> {
+        storage::get_user(e, farming_key).ok_or(FCError::FarmingPositionDoesNotExist)
+    }
+
+    pub fn set(self, e: &Env, farming_key: &FarmingKey) {
+        storage::set_user(e, farming_key, &self);
+    }
+
+    pub fn withdraw_unstaked(&mut self, e: &Env, farm: &Farm) -> Result<i128, FCError> {
+        if self.pending_withdrawal_stake == 0 {
+            return Err(FCError::InsufficientPendingWithdrawal);
+        }
+
+        let Delegation::NonDelegated(delegation_config) = &farm.config.delegation else {
+            return Err(FCError::DelegatedFarm);
+        };
+
+        let current_ts = e.ledger().timestamp();
+        let cooldown_end = self
+            .pending_withdrawal_ts
+            .checked_add(delegation_config.withdrawal_cooldown_period)
+            .map_over_or_underflow()?;
+
+        if current_ts < cooldown_end {
+            return Err(FCError::CooldownNotComplete);
+        }
+
+        let amount = self.pending_withdrawal_stake;
+        self.pending_withdrawal_stake = 0;
+        self.pending_withdrawal_ts = 0;
+
+        Ok(amount)
+    }
+
+    pub fn reward_once(&mut self, reward_token: &Address, amount: i128) -> Result<(), FCError> {
+        let current_unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
+        let new_unclaimed = current_unclaimed.checked_add(amount).map_over_or_underflow()?;
+        self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
+        Ok(())
+    }
+
+    pub fn get_pending_rewards(
+        &self,
+        e: &Env,
+        farm: &Farm,
+        rps_snapshot: &Map<Address, i128>,
+    ) -> Result<Vec<(Address, i128)>, FCError> {
+        let mut res = svec![e];
+
+        for reward_token in farm.rewards.keys() {
+            let reward_info = RewardInfo::try_get(e, &reward_token)?;
+            let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
+
+            let accum_rps = rps_snapshot
+                .get(reward_token.clone())
+                .unwrap_or(reward_info.accum_rewards_per_share_sc);
+
+            let stake = effective_stake(self.active_stake, reward_info.reward_type);
+            let pending_from_rps = calculate_pending_reward(stake, accum_rps, user_tally)?;
+
+            let unclaimed = self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
+            let total = pending_from_rps.checked_add(unclaimed).map_over_or_underflow()?;
+
+            let net = if farm.config.treasury_fee_bps > 0 && total > 0 {
+                let fee = total
+                    .fixed_mul_ceil(farm.config.treasury_fee_bps, BPS_FACTOR)
+                    .map_over_or_underflow()?;
+                total.checked_sub(fee).map_over_or_underflow()?
+            } else {
+                total
+            };
+
+            res.push_back((reward_token, net));
+        }
+
+        Ok(res)
+    }
+
+    pub fn refresh_rewards(&mut self, e: &Env, farm: &Farm) -> Result<(), FCError> {
+        for reward_token in farm.rewards.keys() {
+            let reward_info = RewardInfo::try_get(e, &reward_token)?;
+
+            let stake = effective_stake(self.active_stake, reward_info.reward_type);
+            let user_tally = self.rewards_tallies.get(reward_token.clone()).unwrap_or(0);
+            let pending = calculate_pending_reward(
+                stake,
+                reward_info.accum_rewards_per_share_sc,
+                user_tally,
+            )?;
+
+            if pending > 0 {
+                let current_unclaimed =
+                    self.rewards_unclaimed.get(reward_token.clone()).unwrap_or(0);
+                let new_unclaimed =
+                    current_unclaimed.checked_add(pending).map_over_or_underflow()?;
+
+                self.rewards_unclaimed.set(reward_token.clone(), new_unclaimed);
+            }
+
+            let new_tally = stake
+                .fixed_mul_ceil(reward_info.accum_rewards_per_share_sc, SCALE_FACTOR)
+                .map_over_or_underflow()?;
+            self.rewards_tallies.set(reward_token, new_tally);
+        }
+
+        Ok(())
+    }
 }

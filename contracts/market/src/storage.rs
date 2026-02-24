@@ -75,7 +75,6 @@ pub enum DataKey {
     AllObligations,
     AllMultiplyPairs,
     MarketStatus,
-    FarmsContract,
     ConfigUpdate(Address),
     Pool(Address),
     Obligation(ObligationKey),
@@ -187,16 +186,6 @@ pub fn get_earn_obligation_seed(e: &Env) -> Option<BytesN<32>> {
     e.storage().instance().get(&DataKey::EarnObligationSeed)
 }
 
-// - FarmsContract -
-pub fn set_farms_contract(e: &Env, farms: &Address) {
-    e.storage().instance().set(&DataKey::FarmsContract, farms)
-}
-pub fn get_farms_contract(e: &Env) -> Option<Address> {
-    e.storage().instance().get(&DataKey::FarmsContract)
-}
-pub fn clear_farms_contract(e: &Env) {
-    e.storage().instance().remove(&DataKey::FarmsContract)
-}
 // ---- Pool ----
 
 /// Gets all pools stored in the contract

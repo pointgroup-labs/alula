@@ -1,4 +1,4 @@
-use farms_interface::Delegatee;
+use farms_interface::FarmingKey;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Address, Bytes, BytesN, Env, Map, Vec, contracttype};
 
@@ -29,7 +29,7 @@ impl ObligationKey {
     }
 }
 
-impl From<ObligationKey> for Delegatee {
+impl From<ObligationKey> for FarmingKey {
     fn from(obligation_key: ObligationKey) -> Self {
         match obligation_key.seed {
             Some(seed) => (obligation_key.user, seed).into(),
@@ -38,7 +38,7 @@ impl From<ObligationKey> for Delegatee {
     }
 }
 
-impl From<&ObligationKey> for Delegatee {
+impl From<&ObligationKey> for FarmingKey {
     fn from(obligation_key: &ObligationKey) -> Self {
         match &obligation_key.seed {
             Some(seed) => (obligation_key.user.clone(), seed.clone()).into(),
@@ -537,10 +537,10 @@ impl Obligation {
         pool: &Pool,
         original_amount: i128,
     ) -> Result<DepositResult, MCError> {
-        let mut deposit_position = self
-            .deposits
-            .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+        let mut deposit_position = match self.deposits.get(pool.pool_address.clone()) {
+            Some(pos) => pos,
+            None => self.try_create_deposit_position(e)?,
+        };
 
         let computed_fees = compute_fees(
             original_amount,
@@ -578,10 +578,10 @@ impl Obligation {
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
         // WARN: This can potentially create a borrow obligation with 0ed fields
-        let mut borrow_position = self
-            .borrows
-            .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_borrow_position(e)?);
+        let mut borrow_position = match self.borrows.get(pool.pool_address.clone()) {
+            Some(pos) => pos,
+            None => self.try_create_borrow_position(e)?,
+        };
 
         let computed_fees = compute_fees(
             real_borrowed_amount,
@@ -615,10 +615,10 @@ impl Obligation {
         pool: &Pool,
         original_amount: i128,
     ) -> Result<AddCollateralResult, MCError> {
-        let mut deposit_position = self
-            .deposits
-            .get(pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+        let mut deposit_position = match self.deposits.get(pool.pool_address.clone()) {
+            Some(pos) => pos,
+            None => self.try_create_deposit_position(e)?,
+        };
 
         let computed_fees = compute_fees(
             original_amount,
@@ -1149,10 +1149,10 @@ impl Obligation {
         collateral_pool: &Pool,
         j_tokens_amount: i128,
     ) -> Result<(), MCError> {
-        let mut deposit_position = self
-            .deposits
-            .get(collateral_pool.pool_address.clone())
-            .unwrap_or(self.try_create_deposit_position(e)?);
+        let mut deposit_position = match self.deposits.get(collateral_pool.pool_address.clone()) {
+            Some(pos) => pos,
+            None => self.try_create_deposit_position(e)?,
+        };
 
         deposit_position.adjust_j_tokens(e, j_tokens_amount)?;
         self.deposits.set(collateral_pool.pool_address.clone(), deposit_position);

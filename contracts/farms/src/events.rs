@@ -1,288 +1,227 @@
-use soroban_sdk::{Address, BytesN, Env, contractevent};
+use farms_interface::FarmingKey;
+use soroban_sdk::{Address, Env, contractevent};
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Event Definitions
-// ═══════════════════════════════════════════════════════════════════════════════
-
-#[contractevent]
-struct InitializedEvent {
-    #[topic]
-    pub admin: Address,
-}
+use crate::{
+    CommonFarmConfigUpdate, DelegatedFarmConfigUpdate, NonDelegatedFarmConfigUpdate,
+    math::reward_curve::RewardScheduleCurve, state::RewardType,
+};
 
 #[contractevent]
-struct PendingAdminSetEvent {
-    #[topic]
-    pub new_pending_admin: Address,
+struct UpdateCommonFarmConfig {
+    config_update: CommonFarmConfigUpdate,
 }
 
 #[contractevent]
-struct AdminAcceptedEvent {
-    #[topic]
-    pub new_admin: Address,
+struct UpdateDelegatedFarmConfig {
+    config_update: DelegatedFarmConfigUpdate,
 }
 
 #[contractevent]
-struct FarmCreatedEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
+struct UpdateNonDelegatedFarmConfig {
+    config_update: NonDelegatedFarmConfigUpdate,
 }
 
 #[contractevent]
-struct FarmFrozenEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
+struct FreezeFarm {}
+
+#[contractevent]
+struct UnfreezeFarm {}
+
+#[contractevent]
+struct InitializeReward {
+    reward_token: Address,
+    reward_type: RewardType,
 }
 
 #[contractevent]
-struct FarmUnfrozenEvent {
+struct AddRewards {
     #[topic]
-    pub farm_id: BytesN<32>,
-}
-
-#[contractevent]
-struct FarmConfigUpdatedEvent {
+    funder: Address,
     #[topic]
-    pub farm_id: BytesN<32>,
-}
-
-#[contractevent]
-struct RewardInitializedEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
-    #[topic]
-    pub reward_token: Address,
-    pub index: u32,
-}
-
-#[contractevent]
-struct RewardsAddedEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub reward_index: u32,
-    pub amount: i128,
-}
-
-#[contractevent]
-struct RewardScheduleUpdatedEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub reward_index: u32,
-}
-
-#[contractevent]
-struct RewardsWithdrawnEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub reward_index: u32,
-    pub amount: i128,
-}
-
-#[contractevent]
-struct UserInitializedEvent {
-    #[topic]
-    pub user: Address,
-    #[topic]
-    pub farm_id: BytesN<32>,
-}
-
-#[contractevent]
-struct StakeEvent {
-    #[topic]
-    pub user: Address,
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub amount: i128,
-}
-
-#[contractevent]
-struct UnstakeEvent {
-    #[topic]
-    pub user: Address,
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub amount: i128,
-    pub penalty: i128,
-}
-
-#[contractevent]
-struct WithdrawUnstakedEvent {
-    #[topic]
-    pub user: Address,
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub amount: i128,
-}
-
-#[contractevent]
-struct HarvestEvent {
-    #[topic]
-    pub user: Address,
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub reward_index: u32,
-    pub amount: i128,
-    pub fee: i128,
-}
-
-#[contractevent]
-struct StakeDelegatedEvent {
-    #[topic]
-    pub user: Address,
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub old_stake: i128,
-    pub new_stake: i128,
-}
-
-#[contractevent]
-struct RewardsAccruedEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub reward_index: u32,
-    pub amount: i128,
-}
-
-#[contractevent]
-struct SlashedAmountWithdrawnEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
-    #[topic]
-    pub recipient: Address,
-    pub amount: i128,
-}
-
-#[contractevent]
-struct FarmAdminAcceptedEvent {
-    #[topic]
-    pub farm_id: BytesN<32>,
-    #[topic]
-    pub new_admin: Address,
-}
-
-#[contractevent]
-struct RewardUserOnceEvent {
-    #[topic]
-    pub user: Address,
-    #[topic]
-    pub farm_id: BytesN<32>,
-    pub reward_index: u32,
-    pub amount: i128,
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Event Publishing Functions
-// ═══════════════════════════════════════════════════════════════════════════════
-
-pub fn emit_initialized(e: &Env, admin: &Address) {
-    InitializedEvent { admin: admin.clone() }.publish(e);
-}
-
-pub fn emit_pending_admin_set(e: &Env, new_pending_admin: &Address) {
-    PendingAdminSetEvent { new_pending_admin: new_pending_admin.clone() }.publish(e);
-}
-
-pub fn emit_admin_accepted(e: &Env, new_admin: &Address) {
-    AdminAcceptedEvent { new_admin: new_admin.clone() }.publish(e);
-}
-
-pub fn emit_farm_created(e: &Env, farm_id: &BytesN<32>) {
-    FarmCreatedEvent { farm_id: farm_id.clone() }.publish(e);
-}
-
-pub fn emit_farm_frozen(e: &Env, farm_id: &BytesN<32>) {
-    FarmFrozenEvent { farm_id: farm_id.clone() }.publish(e);
-}
-
-pub fn emit_farm_unfrozen(e: &Env, farm_id: &BytesN<32>) {
-    FarmUnfrozenEvent { farm_id: farm_id.clone() }.publish(e);
-}
-
-pub fn emit_farm_config_updated(e: &Env, farm_id: &BytesN<32>) {
-    FarmConfigUpdatedEvent { farm_id: farm_id.clone() }.publish(e);
-}
-
-pub fn emit_reward_initialized(e: &Env, farm_id: &BytesN<32>, reward_token: &Address, index: u32) {
-    RewardInitializedEvent { farm_id: farm_id.clone(), reward_token: reward_token.clone(), index }
-        .publish(e);
-}
-
-pub fn emit_rewards_added(e: &Env, farm_id: &BytesN<32>, reward_index: u32, amount: i128) {
-    RewardsAddedEvent { farm_id: farm_id.clone(), reward_index, amount }.publish(e);
-}
-
-pub fn emit_reward_schedule_updated(e: &Env, farm_id: &BytesN<32>, reward_index: u32) {
-    RewardScheduleUpdatedEvent { farm_id: farm_id.clone(), reward_index }.publish(e);
-}
-
-pub fn emit_rewards_withdrawn(e: &Env, farm_id: &BytesN<32>, reward_index: u32, amount: i128) {
-    RewardsWithdrawnEvent { farm_id: farm_id.clone(), reward_index, amount }.publish(e);
-}
-
-pub fn emit_user_initialized(e: &Env, user: &Address, farm_id: &BytesN<32>) {
-    UserInitializedEvent { user: user.clone(), farm_id: farm_id.clone() }.publish(e);
-}
-
-pub fn emit_stake(e: &Env, user: &Address, farm_id: &BytesN<32>, amount: i128) {
-    StakeEvent { user: user.clone(), farm_id: farm_id.clone(), amount }.publish(e);
-}
-
-pub fn emit_unstake(e: &Env, user: &Address, farm_id: &BytesN<32>, amount: i128, penalty: i128) {
-    UnstakeEvent { user: user.clone(), farm_id: farm_id.clone(), amount, penalty }.publish(e);
-}
-
-pub fn emit_withdraw_unstaked(e: &Env, user: &Address, farm_id: &BytesN<32>, amount: i128) {
-    WithdrawUnstakedEvent { user: user.clone(), farm_id: farm_id.clone(), amount }.publish(e);
-}
-
-pub fn emit_harvest(
-    e: &Env,
-    user: &Address,
-    farm_id: &BytesN<32>,
-    reward_index: u32,
+    reward_token: Address,
     amount: i128,
-    fee: i128,
-) {
-    HarvestEvent { user: user.clone(), farm_id: farm_id.clone(), reward_index, amount, fee }
-        .publish(e);
 }
 
-pub fn emit_stake_delegated(
-    e: &Env,
-    user: &Address,
-    farm_id: &BytesN<32>,
-    old_stake: i128,
+#[contractevent]
+struct UpdateRewardsSchedule {
+    #[topic]
+    reward_token: Address,
+    schedule: RewardScheduleCurve,
+}
+
+#[contractevent]
+struct WithdrawUnused {
+    #[topic]
+    recipient: Address,
+    #[topic]
+    reward_token: Address,
+    amount: i128,
+}
+
+#[contractevent]
+struct WithdrawSlashed {
+    #[topic]
+    recipient: Address,
+    amount: i128,
+}
+
+#[contractevent]
+struct ProposeAdmin {
+    #[topic]
+    proposed_admin: Address,
+}
+
+#[contractevent]
+struct AcceptAdmin {}
+
+#[contractevent]
+struct RewardOnce {
+    #[topic]
+    farming_key: FarmingKey,
+    #[topic]
+    reward_token: Address,
+    amount: i128,
+}
+
+#[contractevent]
+struct CancelPendingDeposit {
+    #[topic]
+    farming_key: FarmingKey,
+    amount: i128,
+}
+
+#[contractevent]
+struct RefreshFarmingPosition {
+    #[topic]
+    farming_key: FarmingKey,
+}
+
+#[contractevent]
+struct SetStakeDelegated {
+    #[topic]
+    farming_key: FarmingKey,
     new_stake: i128,
-) {
-    StakeDelegatedEvent { user: user.clone(), farm_id: farm_id.clone(), old_stake, new_stake }
-        .publish(e);
 }
 
-pub fn emit_rewards_accrued(e: &Env, farm_id: &BytesN<32>, reward_index: u32, amount: i128) {
-    RewardsAccruedEvent { farm_id: farm_id.clone(), reward_index, amount }.publish(e);
-}
-
-pub fn emit_slashed_amount_withdrawn(
-    e: &Env,
-    farm_id: &BytesN<32>,
-    recipient: &Address,
+#[contractevent]
+struct Stake {
+    #[topic]
+    farming_key: FarmingKey,
     amount: i128,
-) {
-    SlashedAmountWithdrawnEvent { farm_id: farm_id.clone(), recipient: recipient.clone(), amount }
-        .publish(e);
 }
 
-pub fn emit_farm_admin_accepted(e: &Env, farm_id: &BytesN<32>, new_admin: &Address) {
-    FarmAdminAcceptedEvent { farm_id: farm_id.clone(), new_admin: new_admin.clone() }.publish(e);
-}
-
-pub fn emit_reward_user_once(
-    e: &Env,
-    user: &Address,
-    farm_id: &BytesN<32>,
-    reward_index: u32,
+#[contractevent]
+struct Unstake {
+    #[topic]
+    farming_key: FarmingKey,
     amount: i128,
-) {
-    RewardUserOnceEvent { user: user.clone(), farm_id: farm_id.clone(), reward_index, amount }
-        .publish(e);
+}
+
+#[contractevent]
+struct WithdrawUnstaked {
+    #[topic]
+    farming_key: FarmingKey,
+    amount: i128,
+}
+
+#[contractevent]
+struct Harvest {
+    #[topic]
+    farming_key: FarmingKey,
+    #[topic]
+    reward_token: Address,
+    amount: i128,
+}
+
+#[contractevent]
+struct WithdrawTreasuryFees {
+    #[topic]
+    recipient: Address,
+    #[topic]
+    reward_token: Address,
+    amount: i128,
+}
+
+pub fn update_common_farm_config(e: &Env, config_update: CommonFarmConfigUpdate) {
+    UpdateCommonFarmConfig { config_update }.publish(e);
+}
+
+pub fn update_delegated_farm_config(e: &Env, config_update: DelegatedFarmConfigUpdate) {
+    UpdateDelegatedFarmConfig { config_update }.publish(e);
+}
+
+pub fn update_non_delegated_farm_config(e: &Env, config_update: NonDelegatedFarmConfigUpdate) {
+    UpdateNonDelegatedFarmConfig { config_update }.publish(e);
+}
+
+pub fn freeze_farm(e: &Env) {
+    FreezeFarm {}.publish(e);
+}
+
+pub fn unfreeze_farm(e: &Env) {
+    UnfreezeFarm {}.publish(e);
+}
+
+pub fn initialize_reward(e: &Env, reward_token: Address, reward_type: RewardType) {
+    InitializeReward { reward_token, reward_type }.publish(e);
+}
+
+pub fn add_rewards(e: &Env, funder: Address, reward_token: Address, amount: i128) {
+    AddRewards { funder, reward_token, amount }.publish(e);
+}
+
+pub fn update_rewards_schedule(e: &Env, reward_token: Address, schedule: RewardScheduleCurve) {
+    UpdateRewardsSchedule { reward_token, schedule }.publish(e);
+}
+
+pub fn withdraw_unused(e: &Env, recipient: Address, reward_token: Address, amount: i128) {
+    WithdrawUnused { recipient, reward_token, amount }.publish(e);
+}
+
+pub fn withdraw_slashed(e: &Env, recipient: Address, amount: i128) {
+    WithdrawSlashed { recipient, amount }.publish(e);
+}
+
+pub fn propose_admin(e: &Env, proposed_admin: Address) {
+    ProposeAdmin { proposed_admin }.publish(e);
+}
+
+pub fn accept_admin(e: &Env) {
+    AcceptAdmin {}.publish(e);
+}
+
+pub fn reward_once(e: &Env, farming_key: FarmingKey, reward_token: Address, amount: i128) {
+    RewardOnce { farming_key, reward_token, amount }.publish(e);
+}
+
+pub fn cancel_pending_deposit(e: &Env, farming_key: FarmingKey, amount: i128) {
+    CancelPendingDeposit { farming_key, amount }.publish(e);
+}
+
+pub fn refresh_farming_position(e: &Env, farming_key: FarmingKey) {
+    RefreshFarmingPosition { farming_key }.publish(e);
+}
+
+pub fn set_stake_delegated(e: &Env, farming_key: FarmingKey, new_stake: i128) {
+    SetStakeDelegated { farming_key, new_stake }.publish(e);
+}
+
+pub fn stake(e: &Env, farming_key: FarmingKey, amount: i128) {
+    Stake { farming_key, amount }.publish(e);
+}
+
+pub fn unstake(e: &Env, farming_key: FarmingKey, amount: i128) {
+    Unstake { farming_key, amount }.publish(e);
+}
+
+pub fn withdraw_unstaked(e: &Env, farming_key: FarmingKey, amount: i128) {
+    WithdrawUnstaked { farming_key, amount }.publish(e);
+}
+
+pub fn harvest(e: &Env, farming_key: FarmingKey, reward_token: Address, amount: i128) {
+    Harvest { farming_key, reward_token, amount }.publish(e);
+}
+
+pub fn withdraw_treasury_fees(e: &Env, recipient: Address, reward_token: Address, amount: i128) {
+    WithdrawTreasuryFees { recipient, reward_token, amount }.publish(e);
 }

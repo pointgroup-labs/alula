@@ -1,20 +1,15 @@
-/// Basis points factor (100% = 10000 bps)
+pub const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
+
+pub const MAX_CURVE_POINTS: u32 = 20;
+pub const MAX_FARM_NUM_REWARDS: u32 = 10;
+pub const MAX_TREASURY_FEE_BPS: i128 = 2_000; // 20%
+pub const MAX_HARVEST_DELAY: u64 = SECONDS_PER_DAY;
+pub const MAX_DEPOSIT_WARMUP_PERIOD: u64 = SECONDS_PER_DAY;
+pub const MAX_LOCKING_DURATION: u64 = 365 * SECONDS_PER_DAY;
+pub const MAX_WITHDRAWAL_COOLDOWN_PERIOD: u64 = SECONDS_PER_DAY;
+
+/// 100% in basis points
 pub const BPS_FACTOR: i128 = 10_000;
 
-/// Scale factor for reward per share calculations (10^18 for precision)
-pub const SCALE_FACTOR: i128 = 1_000_000_000_000_000_000; // 10^18
-
-/// Maximum number of reward tokens per farm
-pub const MAX_REWARD_TOKENS: u32 = 10;
-
-/// Maximum number of points in a reward curve
-pub const MAX_CURVE_POINTS: u32 = 20;
-
-/// Maximum early withdrawal penalty (50%)
-pub const MAX_EARLY_WITHDRAWAL_PENALTY_BPS: i128 = 5_000;
-
-/// Maximum treasury fee (10%)
-pub const MAX_TREASURY_FEE_BPS: i128 = 1_000;
-
-/// Minimum stake amount to prevent dust attacks
-pub const MIN_STAKE_AMOUNT: i128 = 1;
+/// Fixed-point scaling factor for rewards-per-share accumulator (18 decimals)
+pub const SCALE_FACTOR: i128 = 10_i128.pow(18);

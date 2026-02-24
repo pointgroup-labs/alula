@@ -1,263 +1,119 @@
-#![allow(clippy::too_many_arguments)]
-
-use soroban_sdk::{
-    Address, BytesN, Env, Vec, contract, contractclient, contractimpl, vec, xdr::ToXdr,
-};
+use farms_interface::FarmingKey;
+use soroban_sdk::{Address, BytesN, Env, Vec, contract, contractclient, contractimpl, token};
 
 use crate::{
-    constants::{MAX_REWARD_TOKENS, MAX_TREASURY_FEE_BPS},
-    error::FarmsError,
+    error::FCError,
     events,
-    operations::{farm_ops, reward_ops, stake_ops},
+    math::reward_curve::RewardScheduleCurve,
+    processors,
     state::{
-        Delegatee, FarmConfig, FarmConfigUpdate, FarmState, GlobalConfig, GlobalConfigUpdate,
-        RewardScheduleCurve, UserState,
+        CommonFarmConfigUpdate, DelegatedFarmConfigUpdate, Farm, FarmConfig, FarmingPosition,
+        NonDelegatedFarmConfigUpdate, RewardInfo, RewardType,
     },
     storage,
+    utils::{MathUtils, require_nonnegative, require_positive, transfer_in},
 };
 
 #[contractclient(name = "FarmsClient")]
 pub trait Farms {
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // Initialization
-    // ═══════════════════════════════════════════════════════════════════════════════
+    fn __constructor(e: Env, config: FarmConfig);
 
-    /// Initializes the Farms contract
-    ///
-    /// # Arguments
-    /// * `admin` - Administrator address
-    /// * `treasury_vault` - Treasury vault for collecting fees
-    fn __constructor(e: Env, admin: Address, treasury_vault: Address) -> Result<(), FarmsError>;
+    fn propose_admin(e: Env, proposed_admin: Address) -> Result<(), FCError>;
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // Admin: Global Config
-    // ═══════════════════════════════════════════════════════════════════════════════
+    fn accept_admin(e: Env) -> Result<(), FCError>;
 
-    /// Updates global configuration
-    fn update_global_config(e: Env, update: GlobalConfigUpdate) -> Result<(), FarmsError>;
+    fn upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), FCError>;
 
-    /// Sets a pending admin for two-step admin transfer
-    fn set_pending_admin(e: Env, new_admin: Address) -> Result<(), FarmsError>;
-
-    /// Accepts admin role (must be called by pending admin)
-    fn accept_admin(e: Env) -> Result<(), FarmsError>;
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // Admin: Farm Management
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    /// Initializes a new farm
-    ///
-    /// # Arguments
-    /// * `config` - Farm configuration
-    ///
-    /// # Returns
-    /// * The new farm's unique ID
-    fn initialize_farm(e: Env, config: FarmConfig) -> Result<BytesN<32>, FarmsError>;
-
-    /// Updates farm configuration
-    fn update_farm_config(
+    fn update_common_farm_config(
         e: Env,
-        farm_id: BytesN<32>,
-        update: FarmConfigUpdate,
-    ) -> Result<(), FarmsError>;
+        config_update: CommonFarmConfigUpdate,
+    ) -> Result<(), FCError>;
 
-    /// Freezes a farm (disables staking)
-    fn freeze_farm(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError>;
+    fn update_delegated_farm_config(
+        e: Env,
+        config_update: DelegatedFarmConfigUpdate,
+    ) -> Result<(), FCError>;
 
-    /// Unfreezes a farm
-    fn unfreeze_farm(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError>;
+    fn update_non_delegated_farm_config(
+        e: Env,
+        config_update: NonDelegatedFarmConfigUpdate,
+    ) -> Result<(), FCError>;
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // Admin: Rewards
-    // ═══════════════════════════════════════════════════════════════════════════════
+    fn freeze_farm(e: Env) -> Result<(), FCError>;
 
-    /// Initializes a new reward token for a farm
+    fn unfreeze_farm(e: Env) -> Result<(), FCError>;
+
     fn initialize_reward(
         e: Env,
-        farm_id: BytesN<32>,
         reward_token: Address,
-        rewards_vault: Address,
-    ) -> Result<u32, FarmsError>;
+        reward_type: RewardType,
+    ) -> Result<(), FCError>;
 
-    /// Adds rewards to a farm's reward pool
     fn add_rewards(
         e: Env,
-        funder: Address,
-        farm_id: BytesN<32>,
-        reward_index: u32,
         amount: i128,
-    ) -> Result<(), FarmsError>;
+        funder: Address,
+        reward_token: Address,
+    ) -> Result<(), FCError>;
 
-    /// Updates the reward emission schedule
     fn update_reward_schedule(
         e: Env,
-        farm_id: BytesN<32>,
-        reward_index: u32,
+        reward_token: Address,
         schedule: RewardScheduleCurve,
-    ) -> Result<(), FarmsError>;
+    ) -> Result<(), FCError>;
 
-    /// Withdraws unused rewards from a farm
-    fn withdraw_unused_rewards(
+    fn withdraw_unused(
         e: Env,
-        farm_id: BytesN<32>,
-        reward_index: u32,
         amount: i128,
         recipient: Address,
-    ) -> Result<(), FarmsError>;
+        reward_token: Address,
+    ) -> Result<(), FCError>;
 
-    /// Withdraws slashed amounts from early withdrawal penalties
-    ///
-    /// Slashed amounts accumulate when users exit locked positions early.
-    /// Admin can withdraw these to the configured spill address.
-    fn withdraw_slashed_amount(e: Env, farm_id: BytesN<32>, amount: i128)
-    -> Result<(), FarmsError>;
+    fn withdraw_slashed(e: Env, amount: i128, recipient: Address) -> Result<(), FCError>;
 
-    /// Accepts farm admin role (must be called by pending farm admin)
-    ///
-    /// Two-step farm admin transfer: set pending via update_farm_config, then accept
-    fn accept_farm_admin(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError>;
-
-    /// Awards a one-time reward directly to a delegatee (airdrop/bonus)
-    ///
-    /// This bypasses the normal RPS calculation and directly credits rewards
-    /// to a specific delegatee. Only callable by delegate authority when
-    /// `is_reward_user_once_enabled` is true.
-    ///
-    /// # Arguments
-    /// * `delegatee` - Delegatee to receive the reward
-    /// * `farm_id` - Farm ID
-    /// * `reward_index` - Which reward token to use
-    /// * `amount` - Amount to credit to the delegatee
-    ///
-    /// # Use Cases
-    /// - Airdrops to specific users
-    /// - Bonus rewards for special events
-    /// - Retroactive reward corrections
-    fn reward_user_once(
+    fn withdraw_treasury_fees(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        reward_index: u32,
         amount: i128,
-    ) -> Result<(), FarmsError>;
+        recipient: Address,
+        reward_token: Address,
+    ) -> Result<(), FCError>;
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // User Operations
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    /// Initializes user state for a farm (must be called before staking)
-    fn initialize_user(e: Env, delegatee: Delegatee, farm_id: BytesN<32>)
-    -> Result<(), FarmsError>;
-
-    /// Refreshes user state (activates pending stakes, updates rewards)
-    fn refresh_user_state(
+    fn reward_once(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<(), FarmsError>;
+        amount: i128,
+        reward_token: Address,
+        farming_key: FarmingKey,
+    ) -> Result<(), FCError>;
 
-    /// Sets a delegatee's stake (delegated mode - called by delegate authority)
-    ///
-    /// This is the core push-model function. The delegate authority (e.g., Market contract)
-    /// calls this to update a delegatee's stake whenever their position changes (deposit, withdraw,
-    /// borrow, repay).
-    ///
-    /// # Arguments
-    /// * `delegatee` - Delegatee identifier (owner address + optional seed for obligation tracking)
-    /// * `farm_id` - Farm to update stake for
-    /// * `new_stake` - The delegatee's new total stake amount
-    ///
-    /// # Authorization
-    /// * Only the farm's delegate_authority can call this function
-    /// * Fails with `NotDelegateAuthority` if called by any other address
-    ///
-    /// # Use Cases
-    /// - Lending protocols: Call after deposit/withdraw/borrow/repay with obligation seed
-    /// - AMM integrations: Call after add/remove liquidity
-    /// - Any system that tracks user positions externally
+    fn refresh_farming_position(e: Env, farming_key: FarmingKey) -> Result<(), FCError>;
+
+    fn cancel_pending_deposit(e: Env, farming_key: FarmingKey) -> Result<i128, FCError>;
+
     fn set_stake_delegated(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
+        caller: Address,
+        farming_key: FarmingKey,
         new_stake: i128,
-    ) -> Result<(), FarmsError>;
+    ) -> Result<(), FCError>;
 
-    /// Directly stakes an amount in the farm (non-delegated mode)
-    ///
-    /// Only works on farms without a delegate_authority set.
-    /// Updates the user's stake by the specified amount.
-    ///
-    /// # Errors
-    /// * `FarmIsDelegated` - If the farm has a delegate_authority set
-    fn stake(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        amount: i128,
-    ) -> Result<(), FarmsError>;
+    fn stake(e: Env, farming_key: FarmingKey, amount: i128) -> Result<(), FCError>;
 
-    /// Directly unstakes an amount from the farm (non-delegated mode)
-    ///
-    /// Only works on farms without a delegate_authority set.
-    /// If locking is enabled, early withdrawal penalties may apply.
-    ///
-    /// # Errors
-    /// * `FarmIsDelegated` - If the farm has a delegate_authority set
-    ///
-    /// # Returns
-    /// * The net amount after any early withdrawal penalty
-    fn unstake(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        amount: i128,
-    ) -> Result<i128, FarmsError>;
+    fn unstake(e: Env, amount: i128, farming_key: FarmingKey) -> Result<(), FCError>;
 
-    /// Withdraws unstaked tokens after cooldown period
-    fn withdraw_unstaked(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<i128, FarmsError>;
+    fn withdraw_unstaked(e: Env, farming_key: FarmingKey) -> Result<i128, FCError>;
 
-    /// Harvests rewards for a specific reward token
-    fn harvest(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        reward_index: u32,
-    ) -> Result<i128, FarmsError>;
+    fn harvest(e: Env, reward_token: Address, farming_key: FarmingKey) -> Result<i128, FCError>;
 
-    /// Harvests all available rewards
-    fn harvest_all(e: Env, delegatee: Delegatee, farm_id: BytesN<32>) -> Result<i128, FarmsError>;
+    fn harvest_all(e: Env, farming_key: FarmingKey) -> Result<(), FCError>;
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // Queries
-    // ═══════════════════════════════════════════════════════════════════════════════
+    fn get_farm(e: Env) -> Result<Farm, FCError>;
 
-    /// Gets the global configuration
-    fn get_global_config(e: Env) -> Result<GlobalConfig, FarmsError>;
+    fn get_farming_position(e: Env, farming_key: FarmingKey) -> Result<FarmingPosition, FCError>;
 
-    /// Gets a farm by its ID
-    fn get_farm(e: Env, farm_id: BytesN<32>) -> Result<FarmState, FarmsError>;
-
-    /// Gets all farms
-    fn get_all_farms(e: Env) -> Vec<BytesN<32>>;
-
-    /// Gets user state for a farm
-    fn get_user_state(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<UserState, FarmsError>;
-
-    /// Gets pending rewards for a user
     fn get_pending_rewards(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<Vec<i128>, FarmsError>;
+        farming_key: FarmingKey,
+    ) -> Result<Vec<(Address, i128)>, FCError>;
 }
 
 #[contract]
@@ -265,794 +121,526 @@ pub struct FarmsContract;
 
 #[contractimpl]
 impl Farms for FarmsContract {
-    fn __constructor(e: Env, admin: Address, treasury_vault: Address) -> Result<(), FarmsError> {
-        if storage::has_global_config(&e) {
-            return Err(FarmsError::AlreadyInitialized);
-        }
+    fn __constructor(e: Env, config: FarmConfig) {
+        config.require_valid().expect("Invalid farm config");
+        let farm = Farm::new(&e, config);
+        farm.set(&e);
+    }
 
-        let config = GlobalConfig {
-            admin: admin.clone(),
-            treasury_vault,
-            treasury_fee_bps: 0,
-            pending_admin: None,
-        };
+    fn propose_admin(e: Env, proposed_admin: Address) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        storage::set_global_config(&e, &config);
-        events::emit_initialized(&e, &admin);
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
+
+        farm.propose_admin(&proposed_admin);
+        farm.set(&e);
+
+        events::propose_admin(&e, proposed_admin);
 
         Ok(())
     }
 
-    fn update_global_config(e: Env, update: GlobalConfigUpdate) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let mut config = require_initialized(&e)?;
-        require_admin(&e, &config)?;
+    fn accept_admin(e: Env) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        match update {
-            GlobalConfigUpdate::TreasuryVault(vault) => {
-                config.treasury_vault = vault;
-            }
-            GlobalConfigUpdate::TreasuryFeeBps(fee_bps) => {
-                if !(0..=MAX_TREASURY_FEE_BPS).contains(&fee_bps) {
-                    return Err(FarmsError::InvalidConfig);
-                }
-                config.treasury_fee_bps = fee_bps;
-            }
-        }
+        let mut farm = Farm::try_get(&e)?;
+        farm.accept_admin()?;
+        farm.set(&e);
 
-        storage::set_global_config(&e, &config);
+        events::accept_admin(&e);
+
         Ok(())
     }
 
-    fn set_pending_admin(e: Env, new_admin: Address) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let mut config = require_initialized(&e)?;
-        require_admin(&e, &config)?;
+    fn upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        config.pending_admin = Some(new_admin.clone());
-        storage::set_global_config(&e, &config);
+        let farm = Farm::try_get(&e)?;
+        farm.require_admin();
 
-        events::emit_pending_admin_set(&e, &new_admin);
+        e.deployer().update_current_contract_wasm(new_wasm_hash);
+
         Ok(())
     }
 
-    fn accept_admin(e: Env) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let mut config = require_initialized(&e)?;
-
-        let pending = config.pending_admin.ok_or(FarmsError::NoPendingAdmin)?;
-        pending.require_auth();
-
-        config.admin = pending.clone();
-        config.pending_admin = None;
-        storage::set_global_config(&e, &config);
-
-        events::emit_admin_accepted(&e, &pending);
-        Ok(())
-    }
-
-    fn initialize_farm(e: Env, config: FarmConfig) -> Result<BytesN<32>, FarmsError> {
-        storage::extend_instance_storage(&e);
-        let global_config = require_initialized(&e)?;
-        require_admin(&e, &global_config)?;
-
-        // Generate unique farm ID
-        let counter = storage::increment_farm_counter(&e);
-        let farm_id = generate_farm_id(&e, counter);
-
-        let farm = FarmState {
-            farm_id: farm_id.clone(),
-            farm_admin: None,
-            pending_farm_admin: None,
-            delegate_authority: config.delegate_authority,
-            total_staked: 0,
-            num_users: 0,
-            time_unit: config.time_unit,
-            deposit_warmup_period: config.deposit_warmup_period,
-            withdrawal_cooldown_period: config.withdrawal_cooldown_period,
-            locking_mode: config.locking_mode,
-            locking_start_ts: config.locking_start_ts,
-            locking_duration: config.locking_duration,
-            early_withdrawal_penalty_bps: config.early_withdrawal_penalty_bps,
-            deposit_cap: config.deposit_cap,
-            reward_infos: vec![&e],
-            num_reward_tokens: 0,
-            is_frozen: false,
-            is_reward_user_once_enabled: false,
-            slashed_amount_current: 0,
-            slashed_amount_cumulative: 0,
-            // Slashed amounts go to treasury by default
-            slashed_amount_spill_address: global_config.treasury_vault.clone(),
-        };
-
-        storage::set_farm(&e, &farm_id, &farm);
-        storage::register_farm(&e, &farm_id);
-
-        events::emit_farm_created(&e, &farm_id);
-
-        Ok(farm_id)
-    }
-
-    fn update_farm_config(
+    fn update_common_farm_config(
         e: Env,
-        farm_id: BytesN<32>,
-        update: FarmConfigUpdate,
-    ) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let global_config = require_initialized(&e)?;
+        config_update: CommonFarmConfigUpdate,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
 
-        // Require farm admin or global admin authorization
-        require_farm_admin(&e, &global_config, &farm)?;
+        farm.update_common_config(&config_update)?;
+        farm.set(&e);
 
-        match update {
-            FarmConfigUpdate::DepositWarmupPeriod(period) => {
-                farm.deposit_warmup_period = period;
-            }
-            FarmConfigUpdate::WithdrawalCooldownPeriod(period) => {
-                farm.withdrawal_cooldown_period = period;
-            }
-            FarmConfigUpdate::LockingMode(mode) => {
-                farm.locking_mode = mode;
-            }
-            FarmConfigUpdate::LockingStartTs(ts) => {
-                farm.locking_start_ts = ts;
-            }
-            FarmConfigUpdate::LockingDuration(duration) => {
-                farm.locking_duration = duration;
-            }
-            FarmConfigUpdate::EarlyWithdrawalPenalty(penalty_bps) => {
-                use crate::constants::MAX_EARLY_WITHDRAWAL_PENALTY_BPS;
-                if !(0..=MAX_EARLY_WITHDRAWAL_PENALTY_BPS).contains(&penalty_bps) {
-                    return Err(FarmsError::InvalidConfig);
-                }
-                farm.early_withdrawal_penalty_bps = penalty_bps;
-            }
-            FarmConfigUpdate::DepositCap(cap) => {
-                farm.deposit_cap = cap;
-            }
-            FarmConfigUpdate::MinClaimDuration(duration) => {
-                // Update min_claim_duration for all reward tokens
-                for i in 0..farm.reward_infos.len() {
-                    if let Some(mut info) = farm.reward_infos.get(i) {
-                        info.min_claim_duration = duration;
-                        farm.reward_infos.set(i, info);
-                    }
-                }
-            }
-            FarmConfigUpdate::DelegateAuthority(authority) => {
-                farm.delegate_authority = authority;
-            }
-            FarmConfigUpdate::SlashedAmountSpillAddress(address) => {
-                farm.slashed_amount_spill_address = address;
-            }
-            FarmConfigUpdate::PendingFarmAdmin(new_admin) => {
-                farm.pending_farm_admin = Some(new_admin);
-            }
-            FarmConfigUpdate::RewardUserOnceEnabled(enabled) => {
-                // reward_user_once requires a delegated farm
-                if enabled && farm.delegate_authority.is_none() {
-                    return Err(FarmsError::NotDelegateAuthority);
-                }
-                farm.is_reward_user_once_enabled = enabled;
-            }
-            FarmConfigUpdate::RewardType(reward_index, reward_type) => {
-                if reward_index >= farm.reward_infos.len() {
-                    return Err(FarmsError::RewardNotFound);
-                }
-                let mut reward_info =
-                    farm.reward_infos.get(reward_index).ok_or(FarmsError::InternalError)?;
-                reward_info.reward_type = reward_type;
-                farm.reward_infos.set(reward_index, reward_info);
-            }
-        }
-
-        storage::set_farm(&e, &farm_id, &farm);
-        events::emit_farm_config_updated(&e, &farm_id);
+        events::update_common_farm_config(&e, config_update);
 
         Ok(())
     }
 
-    fn freeze_farm(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let global_config = require_initialized(&e)?;
+    fn update_delegated_farm_config(
+        e: Env,
+        config_update: DelegatedFarmConfigUpdate,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        let farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        require_farm_admin(&e, &global_config, &farm)?;
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
 
-        let mut farm = farm;
+        farm.update_delegated_config(&config_update)?;
+        farm.set(&e);
+
+        events::update_delegated_farm_config(&e, config_update);
+
+        Ok(())
+    }
+
+    fn update_non_delegated_farm_config(
+        e: Env,
+        config_update: NonDelegatedFarmConfigUpdate,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
+
+        farm.update_non_delegated_config(&config_update)?;
+        farm.set(&e);
+
+        events::update_non_delegated_farm_config(&e, config_update);
+
+        Ok(())
+    }
+
+    fn freeze_farm(e: Env) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
+
         farm.is_frozen = true;
-        storage::set_farm(&e, &farm_id, &farm);
+        farm.set(&e);
 
-        events::emit_farm_frozen(&e, &farm_id);
+        events::freeze_farm(&e);
+
         Ok(())
     }
 
-    fn unfreeze_farm(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let global_config = require_initialized(&e)?;
+    fn unfreeze_farm(e: Env) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        let farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        require_farm_admin(&e, &global_config, &farm)?;
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
 
-        let mut farm = farm;
-        if !farm.is_frozen {
-            return Err(FarmsError::FarmNotFrozen);
-        }
         farm.is_frozen = false;
-        storage::set_farm(&e, &farm_id, &farm);
+        farm.set(&e);
 
-        events::emit_farm_unfrozen(&e, &farm_id);
+        events::unfreeze_farm(&e);
+
         Ok(())
     }
 
     fn initialize_reward(
         e: Env,
-        farm_id: BytesN<32>,
         reward_token: Address,
-        rewards_vault: Address,
-    ) -> Result<u32, FarmsError> {
-        storage::extend_instance_storage(&e);
-        let config = require_initialized(&e)?;
-        require_admin(&e, &config)?;
+        reward_type: RewardType,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
 
-        if farm.num_reward_tokens >= MAX_REWARD_TOKENS {
-            return Err(FarmsError::MaxRewardTokensReached);
-        }
+        farm.try_initialize_reward(&e, &reward_token, reward_type)?;
+        farm.set(&e);
 
-        // Check if reward token already exists
-        for i in 0..farm.reward_infos.len() {
-            if let Some(info) = farm.reward_infos.get(i)
-                && info.token == reward_token
-            {
-                return Err(FarmsError::RewardTokenAlreadyExists);
-            }
-        }
+        events::initialize_reward(&e, reward_token, reward_type);
 
-        let reward_info = farm_ops::initialize_reward_info(&e, &reward_token, &rewards_vault);
-        let index = farm.reward_infos.len();
-        farm.reward_infos.push_back(reward_info);
-        farm.num_reward_tokens += 1;
-
-        storage::set_farm(&e, &farm_id, &farm);
-        events::emit_reward_initialized(&e, &farm_id, &reward_token, index);
-
-        Ok(index)
+        Ok(())
     }
 
     fn add_rewards(
         e: Env,
-        funder: Address,
-        farm_id: BytesN<32>,
-        reward_index: u32,
         amount: i128,
-    ) -> Result<(), FarmsError> {
+        funder: Address,
+        reward_token: Address,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
         funder.require_auth();
-        storage::extend_instance_storage(&e);
+        if amount <= 0 {
+            return Err(FCError::InvalidAmount);
+        }
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        reward_ops::add_rewards(&e, &mut farm, reward_index, amount, &funder)
+        let mut farm = Farm::try_get(&e)?;
+        farm.try_add_reward(&e, &reward_token, amount)?;
+        farm.set(&e);
+
+        transfer_in(&e, &reward_token, &funder, amount)?;
+
+        events::add_rewards(&e, funder, reward_token, amount);
+
+        Ok(())
     }
 
     fn update_reward_schedule(
         e: Env,
-        farm_id: BytesN<32>,
-        reward_index: u32,
+        reward_token: Address,
         schedule: RewardScheduleCurve,
-    ) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let config = require_initialized(&e)?;
-        require_admin(&e, &config)?;
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        reward_ops::update_reward_schedule(&e, &mut farm, reward_index, schedule)
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
+
+        let mut reward_info = RewardInfo::try_get(&e, &reward_token)?;
+        reward_info.try_set_reward_schedule_curve(&e, &mut farm, &reward_token, &schedule)?;
+
+        farm.set(&e);
+        reward_info.set(&e, &reward_token);
+
+        events::update_rewards_schedule(&e, reward_token, schedule);
+
+        Ok(())
     }
 
-    fn withdraw_unused_rewards(
+    fn withdraw_unused(
         e: Env,
-        farm_id: BytesN<32>,
-        reward_index: u32,
         amount: i128,
         recipient: Address,
-    ) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let config = require_initialized(&e)?;
-        require_admin(&e, &config)?;
+        reward_token: Address,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        require_positive(amount)?;
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        reward_ops::withdraw_unused_rewards(&e, &mut farm, reward_index, amount, &recipient)
-    }
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
+        let mut reward_info = RewardInfo::try_get(&e, &reward_token)?;
 
-    fn withdraw_slashed_amount(
-        e: Env,
-        farm_id: BytesN<32>,
-        amount: i128,
-    ) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        let config = require_initialized(&e)?;
-        require_admin(&e, &config)?;
+        processors::withdraw_unused(&e, amount, &mut farm, &reward_token, &mut reward_info)?;
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        farm.set(&e);
+        reward_info.set(&e, &reward_token);
 
-        if amount <= 0 {
-            return Err(FarmsError::InvalidAmount);
-        }
-
-        if farm.slashed_amount_current < amount {
-            return Err(FarmsError::InsufficientSlashedAmount);
-        }
-
-        // Reduce tracked slashed amount
-        farm.slashed_amount_current =
-            farm.slashed_amount_current.checked_sub(amount).ok_or(FarmsError::Underflow)?;
-
-        storage::set_farm(&e, &farm_id, &farm);
-        events::emit_slashed_amount_withdrawn(
-            &e,
-            &farm_id,
-            &farm.slashed_amount_spill_address,
-            amount,
+        token::Client::new(&e, &reward_token).transfer(
+            &e.current_contract_address(),
+            &recipient,
+            &amount,
         );
 
+        events::withdraw_unused(&e, recipient, reward_token, amount);
+
         Ok(())
     }
 
-    fn accept_farm_admin(e: Env, farm_id: BytesN<32>) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
-        require_initialized(&e)?;
+    fn withdraw_slashed(e: Env, amount: i128, recipient: Address) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        require_positive(amount)?;
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
+        let farm_token = farm.token();
 
-        let pending = farm.pending_farm_admin.clone().ok_or(FarmsError::NoPendingAdmin)?;
-        pending.require_auth();
+        farm.try_withdraw_slashed(amount)?;
+        farm.set(&e);
 
-        farm.farm_admin = Some(pending.clone());
-        farm.pending_farm_admin = None;
-        storage::set_farm(&e, &farm_id, &farm);
+        token::Client::new(&e, &farm_token).transfer(
+            &e.current_contract_address(),
+            &recipient,
+            &amount,
+        );
 
-        events::emit_farm_admin_accepted(&e, &farm_id, &pending);
+        events::withdraw_slashed(&e, recipient, amount);
+
         Ok(())
     }
 
-    fn reward_user_once(
+    fn withdraw_treasury_fees(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        reward_index: u32,
         amount: i128,
-    ) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
+        recipient: Address,
+        reward_token: Address,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        require_positive(amount)?;
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        let farm = Farm::try_get(&e)?;
+        farm.require_admin();
+        let mut reward_info = RewardInfo::try_get(&e, &reward_token)?;
 
-        // Must be a delegated farm with reward_user_once enabled
-        if !farm.is_reward_user_once_enabled {
-            return Err(FarmsError::RewardUserOnceDisabled);
+        if amount > reward_info.accumulated_treasury_fees {
+            return Err(FCError::InsufficientTreasuryFees);
         }
 
-        // Only delegate authority can call this
-        let delegate = farm.delegate_authority.as_ref().ok_or(FarmsError::NotDelegateAuthority)?;
-        delegate.require_auth();
+        reward_info.accumulated_treasury_fees =
+            reward_info.accumulated_treasury_fees.checked_sub(amount).map_over_or_underflow()?;
+        reward_info.set(&e, &reward_token);
 
-        // Validate inputs
-        if amount <= 0 {
-            return Err(FarmsError::InvalidAmount);
-        }
+        token::Client::new(&e, &reward_token).transfer(
+            &e.current_contract_address(),
+            &recipient,
+            &amount,
+        );
 
-        if reward_index >= farm.reward_infos.len() {
-            return Err(FarmsError::RewardNotFound);
-        }
-
-        let mut user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
-
-        // Update reward info - credit to issued unclaimed
-        let mut reward_info =
-            farm.reward_infos.get(reward_index).ok_or(FarmsError::InternalError)?;
-        reward_info.rewards_issued_unclaimed =
-            reward_info.rewards_issued_unclaimed.checked_add(amount).ok_or(FarmsError::Overflow)?;
-        reward_info.rewards_issued_cumulative = reward_info
-            .rewards_issued_cumulative
-            .checked_add(amount)
-            .ok_or(FarmsError::Overflow)?;
-        farm.reward_infos.set(reward_index, reward_info);
-
-        // Credit to user's unclaimed rewards
-        let current_unclaimed = user_state.rewards_unclaimed.get(reward_index).unwrap_or(0);
-        user_state
-            .rewards_unclaimed
-            .set(reward_index, current_unclaimed.checked_add(amount).ok_or(FarmsError::Overflow)?);
-
-        // Save states
-        storage::set_farm(&e, &farm_id, &farm);
-        storage::set_user(&e, &delegatee, &farm_id, &user_state);
-
-        events::emit_reward_user_once(&e, &delegatee.owner, &farm_id, reward_index, amount);
+        events::withdraw_treasury_fees(&e, recipient, reward_token, amount);
 
         Ok(())
     }
 
-    fn initialize_user(
+    fn reward_once(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<(), FarmsError> {
-        delegatee.owner.require_auth();
-        storage::extend_instance_storage(&e);
+        amount: i128,
+        reward_token: Address,
+        farming_key: FarmingKey,
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        require_positive(amount)?;
 
-        if storage::has_user(&e, &delegatee, &farm_id) {
-            return Err(FarmsError::UserAlreadyExists);
-        }
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_admin();
+        farm.require_can_reward_once()?;
 
-        let farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        farm.refresh_rewards(&e)?;
 
-        // Initialize user with empty rewards vectors matching farm's reward tokens
-        let num_rewards = farm.num_reward_tokens as u32;
-        let mut rewards_tally = vec![&e];
-        let mut rewards_unclaimed = vec![&e];
-        let mut last_claim_ts = vec![&e];
+        let mut farming_position = FarmingPosition::try_get(&e, &farming_key)?;
+        let mut reward_info = RewardInfo::try_get(&e, &reward_token)?;
 
-        for _ in 0..num_rewards {
-            rewards_tally.push_back(0i128);
-            rewards_unclaimed.push_back(0i128);
-            last_claim_ts.push_back(0u64);
-        }
+        reward_info.reward_once(amount)?;
+        farming_position.reward_once(&reward_token, amount)?;
 
-        let user_state = UserState {
-            owner: delegatee.owner.clone(),
-            farm_id: farm_id.clone(),
-            active_stake: 0,
-            pending_deposit_stake: 0,
-            pending_deposit_ts: 0,
-            pending_withdrawal_stake: 0,
-            pending_withdrawal_ts: 0,
-            rewards_tally_scaled: rewards_tally,
-            rewards_unclaimed,
-            last_claim_ts,
-            last_stake_ts: 0,
-        };
+        farm.set(&e);
+        farming_position.set(&e, &farming_key);
+        reward_info.set(&e, &reward_token);
 
-        storage::set_user(&e, &delegatee, &farm_id, &user_state);
-        events::emit_user_initialized(&e, &delegatee.owner, &farm_id);
+        events::reward_once(&e, farming_key, reward_token, amount);
 
         Ok(())
     }
 
-    fn refresh_user_state(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
+    fn refresh_farming_position(e: Env, farming_key: FarmingKey) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        farming_key.owner.require_auth();
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        let mut user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_not_frozen()?;
+        let mut farming_position = FarmingPosition::try_get(&e, &farming_key)?;
 
-        // Refresh global rewards (updates reward_per_share for all tokens)
-        farm_ops::refresh_global_rewards(&e, &mut farm)?;
+        processors::activate_pending_stake(&e, &mut farm, &mut farming_position)?;
 
-        // Try to activate pending stake if warmup complete
-        if user_state.pending_deposit_stake > 0 {
-            let _ = stake_ops::activate_pending_stake(&e, &delegatee, &mut farm, &mut user_state);
-        }
+        farm.set(&e);
+        farming_position.set(&e, &farming_key);
 
-        // CRITICAL: Save farm state after refresh_global_rewards updated it
-        storage::set_farm(&e, &farm_id, &farm);
-        // Also save user state in case pending stake was activated
-        storage::set_user(&e, &delegatee, &farm_id, &user_state);
+        events::refresh_farming_position(&e, farming_key);
 
         Ok(())
+    }
+
+    fn cancel_pending_deposit(e: Env, farming_key: FarmingKey) -> Result<i128, FCError> {
+        storage::extend_instance(&e);
+        farming_key.owner.require_auth();
+
+        let farm = Farm::try_get(&e)?;
+        let farm_token = farm.token();
+        let mut farming_position = FarmingPosition::try_get(&e, &farming_key)?;
+
+        let refund = processors::cancel_pending_deposit(&mut farming_position)?;
+
+        farming_position.set(&e, &farming_key);
+
+        token::Client::new(&e, &farm_token).transfer(
+            &e.current_contract_address(),
+            &farming_key.owner,
+            &refund,
+        );
+
+        events::cancel_pending_deposit(&e, farming_key, refund);
+
+        Ok(refund)
     }
 
     fn set_stake_delegated(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
+        caller: Address,
+        farming_key: FarmingKey,
         new_stake: i128,
-    ) -> Result<(), FarmsError> {
-        storage::extend_instance_storage(&e);
+    ) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        require_nonnegative(new_stake)?;
 
-        // Validate new_stake is non-negative
-        if new_stake < 0 {
-            return Err(FarmsError::InvalidAmount);
-        }
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_delegate_authority(&caller)?;
+        farm.require_not_frozen()?;
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        let mut is_new_user = false;
+        let mut farming_position =
+            FarmingPosition::try_get(&e, &farming_key).unwrap_or_else(|_| {
+                is_new_user = true;
+                FarmingPosition::new(&e)
+            });
 
-        // Verify caller is the delegate authority
-        let delegate = farm.delegate_authority.as_ref().ok_or(FarmsError::NotDelegateAuthority)?;
-        delegate.require_auth();
+        processors::set_stake_delegated(
+            &e,
+            new_stake,
+            &mut farm,
+            is_new_user,
+            &mut farming_position,
+        )?;
 
-        // Check farm is not frozen (delegated farms shouldn't update stakes when frozen)
-        if farm.is_frozen {
-            return Err(FarmsError::FarmFrozen);
-        }
+        farm.set(&e);
+        farming_position.set(&e, &farming_key);
 
-        // Get or auto-initialize user state
-        let is_new_user = storage::get_user(&e, &delegatee, &farm_id).is_none();
-        let mut user_state = if is_new_user {
-            // Auto-initialize user for delegated farms
-            let num_rewards = farm.num_reward_tokens as u32;
-            let mut rewards_tally = soroban_sdk::vec![&e];
-            let mut rewards_unclaimed = soroban_sdk::vec![&e];
-            let mut last_claim_ts = soroban_sdk::vec![&e];
-
-            for _ in 0..num_rewards {
-                rewards_tally.push_back(0i128);
-                rewards_unclaimed.push_back(0i128);
-                last_claim_ts.push_back(0u64);
-            }
-
-            UserState {
-                owner: delegatee.owner.clone(),
-                farm_id: farm_id.clone(),
-                active_stake: 0,
-                pending_deposit_stake: 0,
-                pending_deposit_ts: 0,
-                pending_withdrawal_stake: 0,
-                pending_withdrawal_ts: 0,
-                rewards_tally_scaled: rewards_tally,
-                rewards_unclaimed,
-                last_claim_ts,
-                last_stake_ts: 0,
-            }
-        } else {
-            storage::get_user(&e, &delegatee, &farm_id).unwrap()
-        };
-
-        // Refresh global rewards first
-        farm_ops::refresh_global_rewards(&e, &mut farm)?;
-
-        // Refresh user rewards before changing stake
-        stake_ops::refresh_user_rewards(&farm, &mut user_state)?;
-
-        // Calculate the stake difference
-        let current_stake = user_state.active_stake;
-
-        // Early return if no change (but still save to update reward timestamps)
-        if current_stake == new_stake {
-            // Save states to persist reward refresh updates
-            storage::set_farm(&e, &farm_id, &farm);
-            storage::set_user(&e, &delegatee, &farm_id, &user_state);
-            return Ok(());
-        }
-
-        // Calculate delta (can be positive or negative)
-        let delta = new_stake.checked_sub(current_stake).ok_or(FarmsError::Overflow)?;
-
-        if delta > 0 {
-            // Stake is increasing - check deposit cap
-            if farm.deposit_cap > 0 {
-                let new_total = farm.total_staked.checked_add(delta).ok_or(FarmsError::Overflow)?;
-                if new_total > farm.deposit_cap {
-                    return Err(FarmsError::DepositCapExceeded);
-                }
-            }
-
-            farm.total_staked = farm.total_staked.checked_add(delta).ok_or(FarmsError::Overflow)?;
-
-            // Increment user count if this is first stake
-            if current_stake == 0 {
-                farm.num_users = farm.num_users.saturating_add(1);
-            }
-
-            // Update last stake timestamp only on increases (for locking calculation)
-            user_state.last_stake_ts = e.ledger().timestamp();
-        } else {
-            // Stake is decreasing (delta < 0)
-            farm.total_staked = farm
-                .total_staked
-                .checked_add(delta) // delta is negative, so this subtracts
-                .ok_or(FarmsError::Underflow)?;
-
-            // Decrement user count if user has fully unstaked
-            if new_stake == 0 && !is_new_user {
-                farm.num_users = farm.num_users.saturating_sub(1);
-            }
-        }
-
-        // Update user's stake
-        user_state.active_stake = new_stake;
-
-        // Update user's reward tally to match new stake
-        // tally = new_stake × reward_per_share_scaled
-        for i in 0..farm.reward_infos.len() {
-            if let Some(reward_info) = farm.reward_infos.get(i) {
-                let new_tally = new_stake.saturating_mul(reward_info.reward_per_share_scaled);
-                user_state.rewards_tally_scaled.set(i, new_tally);
-            }
-        }
-
-        // Save updated states
-        storage::set_farm(&e, &farm_id, &farm);
-        storage::set_user(&e, &delegatee, &farm_id, &user_state);
-
-        events::emit_stake_delegated(&e, &delegatee.owner, &farm_id, current_stake, new_stake);
+        events::set_stake_delegated(&e, farming_key, new_stake);
 
         Ok(())
     }
 
-    fn stake(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        amount: i128,
-    ) -> Result<(), FarmsError> {
-        delegatee.owner.require_auth();
-        storage::extend_instance_storage(&e);
+    fn stake(e: Env, farming_key: FarmingKey, amount: i128) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        farming_key.owner.require_auth();
+        require_nonnegative(amount)?;
 
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
+        let mut farm = Farm::try_get(&e)?;
+        farm.require_not_frozen()?;
+        let farm_token = farm.token();
+        let mut farming_position =
+            FarmingPosition::try_get(&e, &farming_key).unwrap_or_else(|_| FarmingPosition::new(&e));
 
-        // Ensure farm is not delegated
-        if farm.delegate_authority.is_some() {
-            return Err(FarmsError::FarmIsDelegated);
+        processors::stake(&e, &mut farm, &mut farming_position, amount)?;
+
+        farm.set(&e);
+        farming_position.set(&e, &farming_key);
+
+        transfer_in(&e, &farm_token, &farming_key.owner, amount)?;
+
+        events::stake(&e, farming_key, amount);
+
+        Ok(())
+    }
+
+    fn unstake(e: Env, amount: i128, farming_key: FarmingKey) -> Result<(), FCError> {
+        storage::extend_instance(&e);
+        farming_key.owner.require_auth();
+        require_nonnegative(amount)?;
+
+        let mut farm = Farm::try_get(&e)?;
+        let mut farming_position = FarmingPosition::try_get(&e, &farming_key)?;
+
+        processors::unstake(&e, &mut farm, &mut farming_position, amount)?;
+
+        farm.set(&e);
+        farming_position.set(&e, &farming_key);
+
+        events::unstake(&e, farming_key, amount);
+
+        Ok(())
+    }
+
+    fn withdraw_unstaked(e: Env, farming_key: FarmingKey) -> Result<i128, FCError> {
+        storage::extend_instance(&e);
+        farming_key.owner.require_auth();
+
+        let farm = Farm::try_get(&e)?;
+        let mut farming_position = FarmingPosition::try_get(&e, &farming_key)?;
+
+        let farm_token = farm.token();
+        let withdrawn_amount = farming_position.withdraw_unstaked(&e, &farm)?;
+
+        farming_position.set(&e, &farming_key);
+
+        token::Client::new(&e, &farm_token).transfer(
+            &e.current_contract_address(),
+            &farming_key.owner,
+            &withdrawn_amount,
+        );
+
+        events::withdraw_unstaked(&e, farming_key, withdrawn_amount);
+
+        Ok(withdrawn_amount)
+    }
+
+    fn harvest(e: Env, reward_token: Address, farming_key: FarmingKey) -> Result<i128, FCError> {
+        storage::extend_instance(&e);
+
+        let mut farm = Farm::try_get(&e)?;
+        if !farm.config.is_harvest_permissionless {
+            farming_key.owner.require_auth();
         }
+        let mut reward_info = RewardInfo::try_get(&e, &reward_token)?;
+        let mut farming_position = FarmingPosition::try_get(&e, &farming_key)?;
 
-        let mut user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
-
-        stake_ops::process_stake(&e, &delegatee, &mut farm, &mut user_state, amount)
-    }
-
-    fn unstake(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        amount: i128,
-    ) -> Result<i128, FarmsError> {
-        delegatee.owner.require_auth();
-        storage::extend_instance_storage(&e);
-
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-
-        // Ensure farm is not delegated - users cannot unstake directly from delegated farms
-        if farm.delegate_authority.is_some() {
-            return Err(FarmsError::FarmIsDelegated);
-        }
-
-        let mut user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
-
-        stake_ops::process_unstake(&e, &delegatee, &mut farm, &mut user_state, amount)
-    }
-
-    fn withdraw_unstaked(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<i128, FarmsError> {
-        delegatee.owner.require_auth();
-        storage::extend_instance_storage(&e);
-
-        let farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        let mut user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
-
-        stake_ops::process_withdraw_unstaked(&e, &delegatee, &farm, &mut user_state)
-    }
-
-    fn harvest(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-        reward_index: u32,
-    ) -> Result<i128, FarmsError> {
-        delegatee.owner.require_auth();
-        storage::extend_instance_storage(&e);
-
-        let config = require_initialized(&e)?;
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        let mut user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
-
-        reward_ops::harvest_single(
+        let harvested_amount = processors::harvest(
             &e,
-            &delegatee,
-            &config,
             &mut farm,
-            &mut user_state,
-            reward_index,
-        )
+            &reward_token,
+            &mut reward_info,
+            &mut farming_position,
+        )?;
+
+        farm.set(&e);
+        reward_info.set(&e, &reward_token);
+        farming_position.set(&e, &farming_key);
+
+        token::Client::new(&e, &reward_token).transfer(
+            &e.current_contract_address(),
+            &farming_key.owner,
+            &harvested_amount,
+        );
+
+        events::harvest(&e, farming_key, reward_token, harvested_amount);
+
+        Ok(harvested_amount)
     }
 
-    fn harvest_all(e: Env, delegatee: Delegatee, farm_id: BytesN<32>) -> Result<i128, FarmsError> {
-        delegatee.owner.require_auth();
-        storage::extend_instance_storage(&e);
+    fn harvest_all(e: Env, farming_key: FarmingKey) -> Result<(), FCError> {
+        storage::extend_instance(&e);
 
-        let config = require_initialized(&e)?;
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        let mut user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
+        let mut farm = Farm::try_get(&e)?;
+        if !farm.config.is_harvest_permissionless {
+            farming_key.owner.require_auth();
+        }
+        let mut farming_position = FarmingPosition::try_get(&e, &farming_key)?;
 
-        reward_ops::harvest_all(&e, &delegatee, &config, &mut farm, &mut user_state)
+        let harvest_results = processors::harvest_all(&e, &mut farm, &mut farming_position)?;
+
+        farm.set(&e);
+        farming_position.set(&e, &farming_key);
+
+        for (reward_token, harvested_amount) in harvest_results {
+            token::Client::new(&e, &reward_token).transfer(
+                &e.current_contract_address(),
+                &farming_key.owner,
+                &harvested_amount,
+            );
+
+            events::harvest(&e, farming_key.clone(), reward_token, harvested_amount);
+        }
+
+        Ok(())
     }
 
-    fn get_global_config(e: Env) -> Result<GlobalConfig, FarmsError> {
-        storage::get_global_config(&e).ok_or(FarmsError::NotInitialized)
+    fn get_farm(e: Env) -> Result<Farm, FCError> {
+        storage::extend_instance(&e);
+
+        Farm::try_get(&e)
     }
 
-    fn get_farm(e: Env, farm_id: BytesN<32>) -> Result<FarmState, FarmsError> {
-        storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)
-    }
+    fn get_farming_position(e: Env, farming_key: FarmingKey) -> Result<FarmingPosition, FCError> {
+        storage::extend_instance(&e);
 
-    fn get_all_farms(e: Env) -> Vec<BytesN<32>> {
-        storage::get_all_farms(&e)
-    }
-
-    fn get_user_state(
-        e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<UserState, FarmsError> {
-        storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)
+        FarmingPosition::try_get(&e, &farming_key)
     }
 
     fn get_pending_rewards(
         e: Env,
-        delegatee: Delegatee,
-        farm_id: BytesN<32>,
-    ) -> Result<Vec<i128>, FarmsError> {
-        // Clone farm state for simulation - we don't persist changes
-        let mut farm = storage::get_farm(&e, &farm_id).ok_or(FarmsError::FarmNotFound)?;
-        let user_state =
-            storage::get_user(&e, &delegatee, &farm_id).ok_or(FarmsError::UserNotFound)?;
+        farming_key: FarmingKey,
+    ) -> Result<Vec<(Address, i128)>, FCError> {
+        storage::extend_instance(&e);
 
-        // Simulate refresh to get accurate pending rewards
-        // This updates reward_per_share_scaled in-memory but doesn't persist
-        farm_ops::refresh_global_rewards(&e, &mut farm)?;
+        let farm = Farm::try_get(&e)?;
+        let farming_position = FarmingPosition::try_get(&e, &farming_key)?;
+        let rps_snapshot = farm.simulate_refresh_rewards(&e)?;
 
-        reward_ops::get_pending_rewards_with_env(&e, &farm, &user_state)
+        farming_position.get_pending_rewards(&e, &farm, &rps_snapshot)
     }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Helper Functions
-// ═══════════════════════════════════════════════════════════════════════════════
-
-fn require_initialized(e: &Env) -> Result<GlobalConfig, FarmsError> {
-    storage::get_global_config(e).ok_or(FarmsError::NotInitialized)
-}
-
-fn require_admin(_e: &Env, config: &GlobalConfig) -> Result<(), FarmsError> {
-    config.admin.require_auth();
-    Ok(())
-}
-
-/// Requires farm admin or global admin authorization.
-/// If the farm has a `farm_admin` set, that address must authorize.
-/// Otherwise, the global admin must authorize.
-fn require_farm_admin(
-    _e: &Env,
-    global_config: &GlobalConfig,
-    farm: &FarmState,
-) -> Result<(), FarmsError> {
-    if let Some(farm_admin) = &farm.farm_admin {
-        farm_admin.require_auth();
-    } else {
-        global_config.admin.require_auth();
-    }
-    Ok(())
-}
-
-fn generate_farm_id(e: &Env, counter: u64) -> BytesN<32> {
-    use soroban_sdk::crypto::Hash;
-
-    // Create a unique hash from contract address and counter
-    let mut preimage = soroban_sdk::Bytes::new(e);
-    preimage.extend_from_array(&counter.to_be_bytes());
-
-    // Add current contract address XDR bytes
-    let addr_xdr = e.current_contract_address().to_xdr(e);
-    for i in 0..addr_xdr.len() {
-        if let Some(byte) = addr_xdr.get(i) {
-            preimage.push_back(byte);
-        }
-    }
-
-    let hash: Hash<32> = e.crypto().sha256(&preimage);
-    hash.into()
 }

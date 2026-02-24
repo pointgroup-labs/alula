@@ -45,7 +45,7 @@ pub fn get_config(e: &Env) -> Config {
 
 pub fn register_market(e: &Env, market_address: &Address) -> Result<(), MMCError> {
     let mut markets: Map<Address, ()> =
-        e.storage().instance().get(&DataKey::MarketList).unwrap_or(Map::new(e));
+        e.storage().instance().get(&DataKey::MarketList).unwrap_or_else(|| Map::new(e));
 
     if markets.contains_key(market_address.clone()) {
         return Err(MMCError::MarketAlreadyExists);
