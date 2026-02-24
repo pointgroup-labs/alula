@@ -169,7 +169,7 @@ watch(dialog, async (v) => {
 
         <div class="multiply-dialog-action">
           <market-dialog-action-btn
-            variant="primary"
+            variant="blue"
             :loading="market.isLoading(String(data?.pool_address), 'leverage', String(data?.market))"
             :pool="data?.depositPoolData.pool"
             :disabled="Number(selectedMultiplier) < 1"
@@ -220,6 +220,10 @@ watch(dialog, async (v) => {
     }
   }
 
+  .j-input__label {
+    color: $text-secondary;
+  }
+
   &__title {
     color: $dark;
     font-size: 20px;
@@ -229,7 +233,7 @@ watch(dialog, async (v) => {
   }
 
   &__body {
-    padding-top: $spacing-16;
+    padding: $spacing-16 $spacing-24 $spacing-24;
     display: flex;
     flex-direction: row;
     gap: 48px;
@@ -299,7 +303,7 @@ watch(dialog, async (v) => {
     margin-top: auto;
 
     &-title {
-      color: $dark;
+      color: $text-primary;
       font-size: 12px;
       font-style: normal;
       font-weight: 700;
@@ -307,7 +311,7 @@ watch(dialog, async (v) => {
     }
 
     &-info {
-      color: $neutral-16;
+      color: $text-secondary;
       font-size: 12px;
       font-style: normal;
       font-weight: 400;

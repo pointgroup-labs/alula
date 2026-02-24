@@ -2,7 +2,7 @@
 import type { BorrowCardTableItem } from '~/types/table'
 import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { focusInput, formatPrice, shortenNumber, truncatePercent } from '~/utils'
+import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -178,19 +178,24 @@ watch(() => modelValue, async (v) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="account-dialog dialog-default"
+    class-name="dialog-default"
   >
     <template #header>
-      <div class="account-dialog__title">
+      <div class="dialog-default__title">
         <img
           :src="data?.asset.icon"
           :alt="`${data?.asset.symbol} icon`"
         >
         <span>Repay {{ data?.asset.symbol }}</span>
       </div>
+
+      <div class="dialog-balance">
+        <div class="dialog-balance__label">Balance:</div>
+        <div class="dialog-balance__value">{{ shortenNumber(balance) }} {{ data?.asset.symbol }}</div>
+      </div>
     </template>
 
-    <div class="account-dialog__body">
+    <div class="dialog-default__body">
       <input-widget
         v-model="amount"
         class="repay-dialog__input"
@@ -201,17 +206,13 @@ watch(() => modelValue, async (v) => {
             return !isValidate || (v && Number(v) < balance) || 'Insufficient balance'
           },
         ]"
-      >
-        <template #label-right>
-          Repay from Wallet: {{ formatPrice(balance || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
-        </template>
-      </input-widget>
+      />
 
-      <div class="account-info-table">
+      <div class="dialog-info-table">
         <div
           v-for="item in infoTableData"
           :key="item.label"
-          class="account-info-table__item"
+          class="dialog-info-table__item"
         >
           <span>{{ item?.label }}</span>
           <span>
@@ -228,12 +229,11 @@ watch(() => modelValue, async (v) => {
         </div>
       </div>
 
-      <div class="account-dialog-action">
+      <div class="dialog-default__action">
         <j-btn
           :loading="loading"
-          variant="success"
+          variant="accent"
           size="md"
-          pill
           @click="repay"
         >
           Repay {{ data?.asset.symbol }}

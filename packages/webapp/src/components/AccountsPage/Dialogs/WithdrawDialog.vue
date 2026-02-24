@@ -2,7 +2,7 @@
 import type { SuppliedCardTableItem } from '~/types/table'
 import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { focusInput, formatPrice, shortenNumber, truncatePercent } from '~/utils'
+import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   data,
@@ -239,19 +239,24 @@ watch(collateralBalance, (b) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="account-dialog dialog-default"
+    class-name=" dialog-default"
   >
     <template #header>
-      <div class="account-dialog__title">
+      <div class="dialog-default__title">
         <img
           :src="data?.asset.icon"
           :alt="`${data?.asset.symbol} icon`"
         >
         <span>Withdraw {{ data?.asset.symbol }}</span>
       </div>
+
+      <div class="dialog-balance">
+        <div class="dialog-balance__label">Amount:</div>
+        <div class="dialog-balance__value">{{ shortenNumber(availableToWithdrawWithPoolLimit) }} {{ data?.asset.symbol }}</div>
+      </div>
     </template>
 
-    <div class="account-dialog__body">
+    <div class="dialog-default__body">
       <input-widget
         v-model="amount"
         :balance="availableToWithdrawWithPoolLimit"
@@ -261,23 +266,18 @@ watch(collateralBalance, (b) => {
             return !isValidate || (v && Number(v) <= availableToWithdrawWithPoolLimit) || 'Withdraw limit exceeded'
           },
         ]"
-      >
-        <template #label-right>
-          Amount: {{ formatPrice(availableToWithdrawWithPoolLimit || 0, 0, market.assetDecimals.value) }} {{ data?.asset.symbol }}
-        </template>
-      </input-widget>
+      />
 
-      <div class="account-info-table">
+      <div class="dialog-info-table">
         <div
           v-for="item in infoTableData"
           :key="item.label"
-          class="account-info-table__item"
+          class="dialog-info-table__item"
         >
           <span>{{ item?.label }}</span>
           <span>
             <template v-if="item?.name === 'healthFactor' && loading">
               <j-loading-spinner
-                :color="isDark ? '#fff' : '#111'"
                 width="10px"
                 style="padding: 0; width: 14px; margin-left: auto"
               />
@@ -287,6 +287,8 @@ watch(collateralBalance, (b) => {
             </template>
           </span>
         </div>
+
+        <div class="separator" />
       </div>
 
       <j-toggle
@@ -298,12 +300,11 @@ watch(collateralBalance, (b) => {
         </template>
       </j-toggle>
 
-      <div class="account-dialog-action">
+      <div class="dialog-default__action">
         <j-btn
           :loading="loading"
-          variant="dark"
+          variant="success"
           size="md"
-          pill
           @click="withdraw"
         >
           Withdraw {{ data?.asset.symbol }}

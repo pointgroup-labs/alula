@@ -60,7 +60,7 @@ const options = computed<ChartOptions<'bar'>>(() => {
     ticks: {
       ...chartOptions?.scales?.x?.ticks,
       display: true,
-      color: useCustomLabels ? 'transparent' : '#4E4E4E',
+      color: useCustomLabels ? 'transparent' : 'rgba(255, 255, 255, 0.6)',
       maxTicksLimit: width.value > 1024 ? maxTicksLimit : 6,
       font: {
         size: useCustomLabels ? 1 : 11,

@@ -126,7 +126,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
         min: Math.floor(minY.value),
         ticks: {
           stepSize: 1,
-          color: isDark.value ? '#5B5B5B' : '#111',
+          color: 'rgba(255, 255, 255, 0.6)',
           callback: (value, _index, _ticks) => {
             if (_index === _ticks.length - 1) {
               return 'APY'
@@ -138,7 +138,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
           },
         },
         grid: {
-          color: isDark.value ? '#2F2F2F' : '#EBEBEB',
+          color: 'rgba(255, 255, 255, 0.6)',
           drawBorder: false,
         },
         border: {
@@ -229,10 +229,10 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   }
 
   .loop-legend-item {
+    color: $text-secondary;
     display: flex;
     align-items: center;
     gap: $spacing-4;
-    color: $dark;
     font-size: 11px;
     font-style: normal;
     font-weight: 500;
@@ -269,7 +269,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 }
 
 .loop-multiply__title {
-  color: $dark;
+  color: $text-primary;
   font-size: 12px;
   font-style: normal;
   font-weight: 700;
@@ -280,19 +280,5 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
 
 .loop-multiply__chart {
   height: 196px;
-}
-
-.theme-dark {
-  .loop-multiply__vault-title {
-    color: #fff;
-  }
-
-  .loop-multiply__vault-info {
-    color: $neutral-7;
-  }
-
-  .loop-multiply__title {
-    color: #fff;
-  }
 }
 </style>

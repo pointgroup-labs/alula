@@ -99,7 +99,7 @@ watch(dialog, async (v) => {
     class-name="supply-dialog dialog-default"
   >
     <template #header>
-      <div class="supply-dialog__title">
+      <div class="dialog-default__title">
         <img
           :src="poolData?.asset.icon"
           :alt="`${poolData?.asset.symbol} icon`"
@@ -113,13 +113,13 @@ watch(dialog, async (v) => {
       </div>
     </template>
 
-    <div class="supply-dialog__body">
+    <div class="dialog-default__body">
       <input-widget
         v-model="amount"
         :balance="balance"
         :limit="Number(supplyLimit) || 0"
         :fee="POOL_REMAINING_BALANCE + txFee + reserveAmount"
-        class="supply-dialog__input"
+        class="dialog-default__input"
         :rules="[
           (v) => {
             return v && Number(v) < balance || 'Insufficient balance'
@@ -217,7 +217,7 @@ watch(dialog, async (v) => {
         <div class="extra-info__value">{{ poolData?.deposit_apy }}</div>
       </div>
 
-      <div class="supply-dialog-action">
+      <div class="dialog-default__action">
         <market-dialog-action-btn
           variant="blue"
           :loading="isLoading"
@@ -234,37 +234,8 @@ watch(dialog, async (v) => {
 
 <style lang="scss">
 .supply-dialog {
-  .modal-header {
-    padding: $spacing-16 $spacing-12 $spacing-16 $spacing-24;
-    border-bottom: 1px solid $surface-neutral-10;
-  }
-
   .modal-content {
     max-width: 442px;
-  }
-
-  &__title {
-    display: flex;
-    align-items: center;
-    gap: $spacing-8;
-    font-size: 20px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: 20px;
-
-    img {
-      width: 32px;
-      height: 32px;
-      object-fit: contain;
-      border-radius: 50%;
-    }
-  }
-
-  &__body {
-    padding: $spacing-16 $spacing-24 $spacing-24;
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-16;
   }
 
   .extra-info {
@@ -290,47 +261,6 @@ watch(dialog, async (v) => {
 
   .j-input__label {
     display: none;
-  }
-
-  .supply-dialog-action {
-    display: flex;
-    justify-content: space-between;
-    gap: $spacing-32;
-
-    .action-info {
-      white-space: nowrap;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-
-      span:first-child {
-        color: $neutral-12;
-        font-size: 12px;
-        font-style: normal;
-        font-weight: 500;
-        line-height: 16px;
-      }
-
-      span:last-child {
-        font-size: 20px;
-        font-style: normal;
-        font-weight: 700;
-        line-height: 20px;
-      }
-    }
-
-    .btn {
-      width: 100%;
-    }
-  }
-}
-
-.theme-dark {
-  .supply-dialog {
-    .j-input .j-input__label {
-      color: $neutral-12;
-    }
   }
 }
 </style>

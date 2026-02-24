@@ -113,7 +113,7 @@ watch(dialog, async (v) => {
     class-name="supply-dialog dialog-default"
   >
     <template #header>
-      <div class="supply-dialog__title">
+      <div class="dialog-default__title">
         <img
           :src="data?.asset.icon"
           :alt="`${data?.asset.symbol} icon`"
@@ -127,7 +127,7 @@ watch(dialog, async (v) => {
       </div>
     </template>
 
-    <div class="supply-dialog__body">
+    <div class="dialog-default__body">
       <input-widget
         v-model="amount"
         class="borrow-input"
@@ -240,8 +240,7 @@ watch(dialog, async (v) => {
         <div class="extra-info__value">{{ data?.borrow_apy }}</div>
       </div>
 
-      <div class="supply-dialog-action">
-
+      <div class="dialog-default__action">
         <market-dialog-action-btn
           variant="accent"
           :loading="isLoading"

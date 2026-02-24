@@ -41,6 +41,7 @@ const activeFilter = computed({
   width: fit-content;
   margin-left: auto;
   border-radius: $spacing-4;
+  background-color: $surface-neutral-10;
 
   .btn {
     width: fit-content;
@@ -54,42 +55,28 @@ const activeFilter = computed({
       line-height: 12px;
     }
   }
-  .btn-primary {
-    background-color: $neutral-3;
+  .btn-secondary {
+    background-color: $surface-neutral-60;
     color: $dark;
     border-color: transparent;
 
     &:hover,
     &.active {
-      background-color: $neutral-3;
-      border-color: $neutral-3;
+      background-color: $surface-neutral-60;
+      border-color: $surface-neutral-60;
       color: $dark;
     }
   }
-}
+  .btn-primary {
+    background-color: $surface-neutral-80;
+    color: $dark;
+    border-color: transparent;
 
-.theme-dark {
-  .chart-date-filters {
-    background-color: $neutral-18;
-
-    .btn {
-      color: $neutral-9;
-    }
-
-    .btn-primary {
-      background-color: $dark;
-
-      &:hover {
-        border-color: $dark;
-      }
-    }
-
-    .btn-secondary {
-      background-color: $neutral-18;
-
-      &:hover {
-        border-color: $neutral-18;
-      }
+    &:hover,
+    &.active {
+      background-color: $surface-neutral-80;
+      border-color: $surface-neutral-80;
+      color: $dark;
     }
   }
 }
