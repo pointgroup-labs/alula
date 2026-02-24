@@ -3,19 +3,7 @@ import arrowRight from '~/assets/img/icons/arrow-right.svg?raw'
 
 const { locales, locale, setLocale } = useI18n() as any
 
-const subMenu = ref(false)
-
-const isSidebar = inject<Ref<boolean>>('isSidebar')
-
-function menuHandler() {
-  subMenu.value = !subMenu.value
-}
-
-watch(() => isSidebar?.value, (val) => {
-  if (!val) {
-    subMenu.value = false
-  }
-}, { immediate: true })
+const pop = inject<() => void>('sidebarPop')
 
 const labels = {
   en: 'English',
@@ -33,29 +21,25 @@ const keys = Object.keys(labels)
 const languages = computed(() => keys.filter(key => locales.value.some((l: Record<string, string>) => l.code === key)))
 const currentLanguage = computed(() => locale.value)
 
-function handleLanguage(lang: string) {
-  setLocale(lang)
+async function handleLanguage(lang: string) {
+  await setLocale(lang)
+  pop?.()
 }
 </script>
 
 <template>
-  <div
-    class="setting-item language"
-    @click="menuHandler"
-  >
-    <div class="setting-item__title">
-      {{ $t('common.language') }}
-    </div>
-    <div class="language-selected-lang">
-      {{ labels[String(currentLanguage) || 'en'] }} <i v-html="arrowRight" />
-    </div>
-  </div>
+  <sidebar-panel :title="$t('common.language')">
+    <template #trigger>
+      <div class="setting-item language">
+        <div class="setting-item__title">
+          {{ $t('common.language') }}
+        </div>
+        <div class="language-selected-lang">
+          {{ labels[String(currentLanguage) || 'en'] }} <i v-html="arrowRight" />
+        </div>
+      </div>
+    </template>
 
-  <sidebar-sub-menu
-    :is-sub-menu="subMenu"
-    :title="$t('common.language')"
-    @close="menuHandler"
-  >
     <div class="languages-list">
       <div
         v-for="lang in languages"
@@ -67,7 +51,7 @@ function handleLanguage(lang: string) {
         {{ labels[lang] }}
       </div>
     </div>
-  </sidebar-sub-menu>
+  </sidebar-panel>
 </template>
 
 <style lang="scss">
@@ -107,15 +91,12 @@ function handleLanguage(lang: string) {
 
 .languages-list {
   &__item {
+    color: $text-primary;
     padding: $spacing-12 0;
     cursor: pointer;
 
-    &:first-child {
-      padding-top: $spacing-24;
-    }
-
     &.active {
-      font-weight: 500;
+      font-weight: 700;
     }
   }
 }

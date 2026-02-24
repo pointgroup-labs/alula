@@ -26,11 +26,11 @@ function close() {
       v-if="isShowMobileElements"
       @close="close"
     />
-    <market-info v-if="isShowMobileElements" />
+    <markets-info v-if="isShowMobileElements" />
     <settings-language />
     <settings-theme />
     <settings-network />
-    <settings-recent-activity />
+    <settings-recent-activity v-if="isSidebar" />
 
     <faucet-menu />
 

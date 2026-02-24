@@ -1,6 +1,14 @@
 <script lang="ts" setup>
+import arrowLeft from '~/assets/img/icons/arrow-left.svg?raw'
+
+type PanelView = {
+  title: string
+  render: () => any
+}
+
 const {
   isSidebar,
+  title,
   position = 'right',
 } = defineProps<{
   isSidebar: boolean
@@ -11,13 +19,37 @@ const {
 
 const emit = defineEmits(['close'])
 
+// ─── Navigation stack ────────────────────────────────────────────────────────
+const views = ref<PanelView[]>([])
+const slideDir = ref<1 | -1>(1)
+
+provide('sidebarPush', (view: PanelView) => {
+  slideDir.value = 1
+  views.value.push(view)
+})
+
+provide('sidebarPop', () => {
+  slideDir.value = -1
+  views.value.pop()
+})
+
+const activeView = computed(() => views.value.at(-1) ?? null)
+const headerTitle = computed(() => activeView.value?.title ?? title)
+
+function back() {
+  slideDir.value = -1
+  views.value.pop()
+}
+
 function close() {
+  views.value = []
   emit('close')
 }
 
 let body: HTMLElement | null
 
 watch(() => isSidebar, (val) => {
+  if (!val) { views.value = [] }
   body?.classList.toggle('body--no-scroll', val)
 })
 
@@ -32,7 +64,7 @@ onMounted(() => {
   <teleport to="body">
     <transition name="fade">
       <aside
-        v-show="isSidebar"
+        v-if="isSidebar"
         class="sidebar"
         :class="className"
         role="dialog"
@@ -42,7 +74,7 @@ onMounted(() => {
           @click="close"
         />
         <div
-          v-show="isSidebar"
+          v-if="isSidebar"
           id="sidebar-root"
           class="sidebar-wrapper"
           :style="{
@@ -51,8 +83,17 @@ onMounted(() => {
           }"
         >
           <div class="sidebar-header">
-            <div class="sidebar-header__title">
-              {{ title }}
+            <div
+              class="sidebar-header__title"
+              :class="{ 'sidebar-header__title--back': activeView }"
+              @click="activeView ? back() : undefined"
+            >
+              <i
+                v-if="activeView"
+                class="sidebar-header__back-icon"
+                v-html="arrowLeft"
+              />
+              {{ headerTitle }}
             </div>
 
             <div
@@ -61,8 +102,29 @@ onMounted(() => {
             />
           </div>
 
-          <div class="sidebar-body">
-            <slot />
+          <div
+            class="sidebar-body"
+            :style="{ '--slide-dir': slideDir }"
+          >
+            <transition
+              name="slide-panel"
+              mode="out-in"
+            >
+              <div
+                v-if="activeView"
+                :key="views.length"
+                class="sidebar-panel-view"
+              >
+                <component :is="activeView.render" />
+              </div>
+              <div
+                v-else
+                key="sidebar-root-view"
+                class="sidebar-panel-view"
+              >
+                <slot />
+              </div>
+            </transition>
           </div>
         </div>
       </aside>
@@ -91,13 +153,14 @@ onMounted(() => {
   left: 0;
   bottom: 0;
   z-index: 100;
+  contain: layout paint style;
 }
 
 .sidebar-bg {
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(6.4px);
+  backdrop-filter: blur(6px);
 }
 
 .sidebar-wrapper {
@@ -110,14 +173,14 @@ onMounted(() => {
   transition: 0.1s ease;
   color: $dark;
   overflow-y: auto;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
   background: $surface-neutral-04;
-  box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(125px);
-
-  &:has(.sidebar-sub-menu) {
-    overflow: hidden;
-  }
+  box-shadow:
+    0 8px 64px 0 rgba(0, 0, 0, 0.4),
+    inset 12px 0 20px -12px rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  transform: translateZ(0);
+  will-change: transform;
 
   @media (max-width: $breakpoint-xs) {
     padding: $spacing-24;
@@ -136,6 +199,28 @@ onMounted(() => {
     font-style: normal;
     font-weight: 700;
     line-height: 28px;
+
+    &--back {
+      display: flex;
+      align-items: center;
+      gap: $spacing-12;
+      cursor: pointer;
+      user-select: none;
+    }
+  }
+
+  &__back-icon {
+    display: flex;
+    align-items: center;
+
+    svg {
+      width: 22px;
+      height: 22px;
+
+      path {
+        stroke: #fff;
+      }
+    }
   }
 
   .btn-close {
@@ -144,6 +229,31 @@ onMounted(() => {
     background: #fff;
     mask-size: 22px;
     opacity: 1;
+    flex-shrink: 0;
   }
+}
+
+.sidebar-panel-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.slide-panel-enter-active,
+.slide-panel-leave-active {
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.slide-panel-enter-from {
+  transform: translateX(calc(32px * var(--slide-dir)));
+  opacity: 0;
+}
+
+.slide-panel-leave-to {
+  transform: translateX(calc(-32px * var(--slide-dir)));
+  opacity: 0;
 }
 </style>

@@ -11,7 +11,7 @@ watch(activeNetwork, (n) => {
 
 watch(() => rpcStore.network, (val) => {
   activeNetwork.value = val
-}, { once: true })
+}, { once: true, immediate: true })
 </script>
 
 <template>

@@ -16,6 +16,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 export default defineNuxtConfig({
+  // @ts-expect-error...
   srcDir: 'src/',
   dir: {
     public: resolve(__dirname, 'public'),
@@ -172,13 +173,17 @@ export default defineNuxtConfig({
     strategy: 'no_prefix',
     defaultLocale: 'en',
     lazy: true,
-    alwaysRedirect: false,
-    skipSettingLocaleOnNavigate: true,
-    langDir: resolve(__dirname, 'src/locales'),
+    langDir: '../src/locales',
     locales: [
       { code: 'en', name: 'English', file: 'en.json' },
       { code: 'ua', name: 'Ukraine', file: 'ua.json' },
     ],
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_locale',
+      alwaysRedirect: false,
+      fallbackLocale: 'en',
+    },
   },
 
   runtimeConfig: {

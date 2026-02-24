@@ -121,6 +121,7 @@ declare module 'vue' {
     SettingsSidebar: typeof import('./../components/Settings/SettingsSidebar.vue')['default']
     SettingsTheme: typeof import('./../components/Settings/Options/SettingsTheme.vue')['default']
     Sidebar: typeof import('./../components/Sidebar/Sidebar.vue')['default']
+    SidebarPanel: typeof import('./../components/Sidebar/SidebarPanel.vue')['default']
     SidebarSubMenu: typeof import('./../components/Sidebar/SidebarSubMenu.vue')['default']
     SupplyDialog: typeof import('./../components/MarketsPage/Markets/Dialogs/SupplyDialog.vue')['default']
     SupplyOverview: typeof import('./../components/MarketDetailPage/Overview/Sections/SupplyOverview.vue')['default']

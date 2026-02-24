@@ -5,12 +5,7 @@ import stellarExpertLogo from '~/assets/img/stellar-expert-logo.webp'
 const recentStore = useRecentActivityStore()
 const records = computed(() => recentStore.state.records)
 
-const subMenu = ref(false)
 const { generateExplorerLink } = useExplorerLink()
-
-function menuHandler() {
-  subMenu.value = !subMenu.value
-}
 
 function formatDate(iso: string) {
   const date = new Date(iso)
@@ -24,68 +19,21 @@ function formatDate(iso: string) {
 </script>
 
 <template>
-  <div
-    class="setting-item history"
-    @click="menuHandler"
-  >
-    <div class="history-label">
-      <div class="setting-item__title">
-        Recent activity
-      </div>
-
-      <i
-        class="arrow-right"
-        v-html="arrowRight"
-      />
-    </div>
-
-    <!-- <div class="history-preview">
-      <div
-        v-if="records.length > 0"
-        class="tx-history-list"
-      >
-        <div
-          v-for="record in records[0] ? records.slice(0, 3) : []"
-          :key="record.transaction_hash"
-          class="tx-history-list__item"
-        >
-          <img
-            :src="stellarExpertLogo"
-            alt="stellar expert"
-            class="stellar-expert-logo"
-          >
-
-          <div class="tx-history-list__content">
-            <div class="tx-history-list__title">
-              {{ getTxActionLabel(record) }}
-
-              <i-app-success-circle v-if="record.transaction_successful" />
-              <i-app-error-circle v-else />
-            </div>
-            <div class="tx-history-list__meta">
-              {{ formatDate(record.created_at) }}
-            </div>
+  <sidebar-panel title="Recent activity">
+    <template #trigger>
+      <div class="setting-item history">
+        <div class="history-label">
+          <div class="setting-item__title">
+            Recent activity
           </div>
-
-          <a
-            :href="generateExplorerLink(record.transaction_hash)"
-            target="_blank"
-            class="tx-history-list__action"
-            @click.stop
-          >
-            <i-app-export-icon color="#111" />
-          </a>
+          <i
+            class="arrow-right"
+            v-html="arrowRight"
+          />
         </div>
       </div>
-    </div> -->
-  </div>
+    </template>
 
-  <sidebar-sub-menu
-    :is-sub-menu="subMenu"
-    title="Recent activity"
-    class="renect-activity-submenu"
-    @close="menuHandler"
-  >
     <div
       v-if="records.length > 0"
       class="tx-history-list"
@@ -133,7 +81,7 @@ function formatDate(iso: string) {
     >
       No recent activity
     </div>
-  </sidebar-sub-menu>
+  </sidebar-panel>
 </template>
 
 <style lang="scss">
@@ -187,6 +135,7 @@ function formatDate(iso: string) {
   }
 
   &__title {
+    color: $text-primary;
     font-weight: 500;
     display: flex;
     align-items: center;
@@ -217,11 +166,9 @@ function formatDate(iso: string) {
     object-fit: contain;
   }
 }
-.renect-activity-submenu {
-  .no-recent-activity {
-    text-align: center;
-    padding: $spacing-20 0;
-    color: $text-secondary;
-  }
+.no-recent-activity {
+  text-align: center;
+  padding: $spacing-20 0;
+  color: $text-secondary;
 }
 </style>
