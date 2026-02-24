@@ -27,6 +27,8 @@
     "@alula/market-sdk": "link:../sdk/market",
     "@bootstrap-vue-next/nuxt": "^0.30.5",
     "@creit.tech/stellar-wallets-kit": "^1.9.5",
+    "@dicebear/collection": "^9.3.2",
+    "@dicebear/core": "^9.3.2",
     "@floating-ui/vue": "^1.1.9",
     "@gtm-support/vue-gtm": "^3.1.0",
     "@pinia/nuxt": "^0.11.3",

@@ -21,16 +21,39 @@ function close() {
     class-name="settings-sidebar"
     @close="close"
   >
-    <settings-connect />
-    <settings-navigation
+    <div class="settings-sidebar__options">
+      <settings-connect />
+    </div>
+
+    <div
       v-if="isShowMobileElements"
-      @close="close"
-    />
-    <markets-info v-if="isShowMobileElements" />
-    <settings-language />
-    <settings-theme />
-    <settings-network />
-    <settings-recent-activity v-if="isSidebar" />
+      class="settings-sidebar__options"
+    >
+      <div class="option-title">
+        Navigations
+      </div>
+      <settings-navigation
+        @close="close"
+      />
+
+      <markets-info />
+    </div>
+
+    <div class="settings-sidebar__options">
+      <div class="option-title">
+        Options
+      </div>
+      <settings-language />
+      <settings-theme />
+    </div>
+
+    <div class="settings-sidebar__options">
+      <div class="option-title">
+        Network
+      </div>
+      <settings-network />
+      <settings-recent-activity />
+    </div>
 
     <faucet-menu />
 
@@ -39,6 +62,10 @@ function close() {
 
 <style lang="scss">
 .settings-sidebar {
+  .sidebar-panel-view {
+    gap: 24px;
+  }
+
   .sidebar-body {
     min-height: calc(100% - 36px);
     display: flex;
@@ -51,7 +78,7 @@ function close() {
     color: $text-primary;
     font-size: 16px;
     font-style: normal;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 20px;
   }
 
@@ -65,6 +92,7 @@ function close() {
     .market-size {
       display: none;
     }
+
     .total-card {
       padding: $spacing-16;
       width: 100%;
@@ -87,6 +115,31 @@ function close() {
       &__icon {
         display: none;
       }
+    }
+  }
+
+  .settings-sidebar__options {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+
+    &:not(:last-child) {
+      &::after {
+        content: '';
+        width: calc(100% + 48px);
+        margin-left: -24px;
+        height: 1px;
+        background-color: $surface-neutral-08;
+        display: block;
+      }
+    }
+
+    .option-title {
+      color: rgba(216, 232, 238, 0.8);
+      font-size: 22px;
+      margin-bottom: -10px;
+      font-weight: 700;
     }
   }
 }

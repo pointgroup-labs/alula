@@ -67,7 +67,7 @@ function copy() {
         class="connect-wallet"
         variant="ghost"
       >
-        {{ shortenAddress(publicKey) }}
+        <address-icon :address="publicKey" /> {{ shortenAddress(publicKey) }}
       </j-btn>
     </template>
   </j-popover>

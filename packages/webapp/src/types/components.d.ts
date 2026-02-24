@@ -14,6 +14,7 @@ declare module 'vue' {
     AccountPage: typeof import('./../components/AccountsPage/AccountPage.vue')['default']
     AccountSupplyTable: typeof import('./../components/AccountsPage/Tables/AccountSupplyTable.vue')['default']
     AccountSupplyTableMobile: typeof import('./../components/AccountsPage/Tables/AccountSupplyTableMobile.vue')['default']
+    AddressIcon: typeof import('./../components/Widget/AddressIcon.vue')['default']
     AppFooter: typeof import('./../components/AppFooter.vue')['default']
     AppHeader: typeof import('./../components/AppHeader.vue')['default']
     AppSettings: typeof import('./../components/Settings/AppSettings.vue')['default']
