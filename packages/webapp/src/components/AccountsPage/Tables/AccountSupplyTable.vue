@@ -165,7 +165,6 @@ watch(selectedPool, (p) => {
           <template #cell(supply_apy)="data">
             <div class="table-cell justify-content-center">
               <j-pill-label
-                color="#111"
                 variant="success"
                 size="sm"
               >
@@ -177,9 +176,8 @@ watch(selectedPool, (p) => {
           <template #cell(action)="data">
             <div class="table-cell justify-content-center">
               <j-btn
-                pill
-                variant="dark"
-                size="md"
+                variant="success"
+                size="xs"
                 :disabled="market.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
                 @click="withdrawDialogHandler(data.item)"

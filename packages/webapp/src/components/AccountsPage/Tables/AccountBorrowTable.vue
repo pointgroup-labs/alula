@@ -167,9 +167,8 @@ watch(selectedMarket, (p) => {
           <template #cell(borrow_apy)="data">
             <div class="table-cell justify-content-center">
               <j-pill-label
-                color="#111"
                 variant="warning"
-                size="md"
+                size="sm"
               >
                 {{ data.item.borrow_apy }}
               </j-pill-label>
@@ -179,10 +178,8 @@ watch(selectedMarket, (p) => {
           <template #cell(action)="data">
             <div class="table-cell justify-content-center">
               <j-btn
-                pill
-                variant="success"
-                icon-right
-                size="md"
+                variant="accent"
+                size="xs"
                 class="repay-btn"
                 :disabled="market.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'repay', data.item.market!)"

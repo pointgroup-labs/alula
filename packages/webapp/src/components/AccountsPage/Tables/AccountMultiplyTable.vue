@@ -182,7 +182,6 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       <template #cell(multiplier)="data">
         <div class="table-cell justify-content-center">
           <j-pill-label
-            color="#111"
             size="sm"
             variant="success"
           >
@@ -232,10 +231,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         <div class="table-cell justify-content-end market-table__action">
           <j-btn
             v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
-            size="md"
+            size="xs"
             variant="accent"
-            pill
-            icon-right
             :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             @click="multiplyDialogHandler(data.item)"

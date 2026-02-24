@@ -130,7 +130,6 @@ function onRowClicked(data: MultiplyTableItem) {
       <template #cell(multiplier)="data">
         <div class="table-cell justify-content-center">
           <j-pill-label
-            color="#111"
             size="sm"
             variant="success"
           >
@@ -185,21 +184,18 @@ function onRowClicked(data: MultiplyTableItem) {
       <template #cell(action)="data">
         <div class="table-cell justify-content-end market-table__action">
           <j-btn
-            size="md"
-            pill
-            icon-right
+            size="xs"
             :loading="market.isLoading(data.item.pool_address, 'leverage', data.item.market!)"
             :disabled="market.isDisabled(data.item.pool_address, 'leverage', data.item.market!)"
+            variant="blue"
             @click="multiplyDialogHandler(data.item, 'supply')"
           >
             Multiply
           </j-btn>
           <j-btn
             v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
-            size="md"
+            size="xs"
             variant="accent"
-            pill
-            icon-right
             :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             @click="multiplyDialogHandler(data.item, 'withdraw')"

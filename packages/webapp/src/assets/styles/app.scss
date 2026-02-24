@@ -62,7 +62,7 @@ h2 {
 .card {
   padding: $spacing-24;
   border-radius: $spacing-16;
-  background-color: #fff;
+  background-color: rgba(255, 255, 255, 0.04);
   box-shadow: none;
   border: none;
 }
@@ -140,10 +140,6 @@ body:has(stellar-wallets-modal) {
   body {
     color: #fff;
     background: linear-gradient(180deg, #002e40 0%, #021f2b 54%, #02151c 100%);
-  }
-
-  .card {
-    background-color: $neutral-18;
   }
 
   .table-wrapper {
