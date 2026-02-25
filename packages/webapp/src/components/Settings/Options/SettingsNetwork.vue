@@ -144,7 +144,7 @@ watch(() => rpcStore.network, (val) => {
       font-style: normal;
       font-weight: 400;
       line-height: 20px;
-      color: $text-secondary;
+      color: $muted-foreground;
     }
   }
 }

@@ -75,7 +75,7 @@ function close() {
   }
 
   .setting-item__title {
-    color: $text-primary;
+    color: $foreground;
     font-size: 16px;
     font-style: normal;
     font-weight: 500;
@@ -108,7 +108,7 @@ function close() {
     }
 
     .option-title {
-      color: rgba(216, 232, 238, 0.8);
+      color: rgba(232, 237, 245, 0.8);
       font-size: 22px;
       margin-bottom: -10px;
       font-weight: 700;
