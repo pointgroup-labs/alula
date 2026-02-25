@@ -120,6 +120,7 @@ pub fn process_initialize_pool(
     let token_client = TokenClient::new(e, token_address);
     let name = token_client.name();
     let token_symbol = token_client.symbol();
+    let token_decimals = token_client.decimals();
 
     events::initialize_pool(e, token_address, &pool_address, &token_symbol);
 
@@ -137,6 +138,7 @@ pub fn process_initialize_pool(
         config: pool_config,
         pool_address: pool_address.clone(),
         token_symbol,
+        token_decimals,
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
 
@@ -904,6 +906,7 @@ pub fn process_liquidate<'a>(
 
     let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
+
     obligation.accrue_interest(e)?;
 
     let (mut borrow_pool, mut collateral_pool) = (
@@ -920,6 +923,7 @@ pub fn process_liquidate<'a>(
         repay_amount,
         min_demanded_collateral_amount,
     )?;
+
     if liquidation_result.j_tokens_seized.is_positive() {
         // In case the liquidated obligation's plain collateral wasn't sufficient to cover the liquidation,
         // borrower's jTokens are transferred to the liquidator as a part of the incentive

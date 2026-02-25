@@ -13,7 +13,7 @@ use crate::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, OperationFees,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    oracle::{self, get_asset_price},
+    oracle,
     storage::{self, PoolUpdate},
 };
 
@@ -26,6 +26,8 @@ pub struct Pool {
     pub token_address: Address,
     // The token symbol of the associated asset
     pub token_symbol: String,
+    // Number of decimals used for fixed-point representation of the asset amount
+    pub token_decimals: u32,
     // The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
     // The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
@@ -694,19 +696,13 @@ impl Pool {
         let collateral_sum =
             deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
 
-        self.get_assets_value(e, collateral_sum)
+        oracle::get_asset_value_floor(e, collateral_sum, &self.token_address, self.token_decimals)
     }
 
     pub fn compute_total_debt_value(&self, e: &Env) -> Result<i128, MCError> {
         let debt = self.total_debt()?;
 
-        self.get_assets_value(e, debt)
-    }
-
-    fn get_assets_value(&self, e: &Env, amount: i128) -> Result<i128, MCError> {
-        let price = get_asset_price(e, &self.token_address)?;
-
-        price.checked_mul(amount).map_over_or_underflow()
+        oracle::get_asset_value_ceil(e, debt, &self.token_address, self.token_decimals)
     }
 
     // Refreshes the pool with the contract's storage data

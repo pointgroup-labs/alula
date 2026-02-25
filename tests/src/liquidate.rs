@@ -478,7 +478,7 @@ fn test_liquidate_deposit_successful() {
     let debt_before = test.debt();
     let deposit_before = test.total_supplied();
     let liquidation_amount = test.liquidation_amount_from_percentage(10);
-    let collateral_amount = test.liquidation_amount_from_percentage(10);
+    let min_demanded_collateral = test.collateral();
 
     assert_eq!(
         test.fixture.contract_client.try_get_user_obligation(&test.liquidator),
@@ -492,7 +492,7 @@ fn test_liquidate_deposit_successful() {
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
-        &collateral_amount,
+        &min_demanded_collateral,
     );
 
     let debt_after = test.debt();
@@ -512,7 +512,7 @@ fn test_liquidate_deposit_successful() {
         deposit_before,
         deposit_after
     );
-    assert!(collateral_amount <= liquidator_j_tokens_tokens);
+    assert!(min_demanded_collateral <= liquidator_j_tokens_tokens);
 }
 
 #[test]

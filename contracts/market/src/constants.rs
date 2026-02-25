@@ -6,6 +6,9 @@ pub const BPS_IN_PERCENT: i128 = 100;
 /// Basis points denominator for fractional calculations: 100% = 10,000 bps
 pub const BPS_FACTOR: i128 = 10_000;
 
+/// Denominator for fractional calculations with 9 decimal places
+pub const SCALAR_9: i128 = i128::pow(10, 9);
+
 /// Denominator for fixed-point compounded interest calculations.
 /// Higher precision (10^18) ensures accurate results when raising to integer powers.
 pub const SCALED_FIXED_POINT_DENOMINATOR: i128 = i128::pow(10, 18);
