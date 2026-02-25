@@ -2,7 +2,13 @@
   margin-bottom: 0 !important;
 
   .row-danger {
-    background-color: rgba(247, 65, 93, 0.025);
+    background: linear-gradient(
+      90deg,
+      rgba(255, 70, 90, 0.04) 0%,
+      rgba(255, 70, 90, 0.04) 45%,
+      rgba(255, 70, 90, 0.04) 90%,
+      transparent 100%
+    );
   }
 
   th {
