@@ -234,8 +234,8 @@ const stop = watch(additionalMarketsData, () => {
           <div class="table-cell justify-content-center">
             <j-circular-progress
               :progress="data.item.utilization_rate_percent ?? 0"
-              :width="16"
-              :stroke-width="20"
+              :width="18"
+              :stroke-width="30"
               stroke-bg="#262729"
               :stroke-color="utilRateColor(data.item.utilization_rate_percent ?? 0)"
               background="transparent"
@@ -247,7 +247,10 @@ const stop = watch(additionalMarketsData, () => {
         </template>
 
         <template #cell(deposit_apy)="data">
-          <div class="table-cell justify-content-center flex">
+          <div
+            class="table-cell justify-content-center flex"
+            style="opacity: .8;"
+          >
             <market-apy-with-additional
               :pool-data="data.item"
               :additional-markets-data="additionalMarketsData"
@@ -257,7 +260,10 @@ const stop = watch(additionalMarketsData, () => {
         </template>
 
         <template #cell(borrow_apy)="data">
-          <div class="table-cell justify-content-center">
+          <div
+            class="table-cell justify-content-center"
+            style="opacity: .8;"
+          >
             <market-apy-with-additional
               :pool-data="data.item"
               :additional-markets-data="additionalMarketsData"
