@@ -27,11 +27,12 @@ import { ALULA_URL } from '~/config'
 <style scoped lang="scss">
 footer {
   padding: 40px 0;
-  color: $neutral-6;
+  color: $muted-foreground;
   font-size: 12px;
   font-style: normal;
   font-weight: 500;
   line-height: 16px;
+  border-top: 1px solid $border-color;
 }
 
 .container {
@@ -46,6 +47,6 @@ nav {
 
 a {
   text-decoration: none;
-  color: $neutral-6;
+  color: $muted-foreground;
 }
 </style>

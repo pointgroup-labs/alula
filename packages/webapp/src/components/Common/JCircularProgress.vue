@@ -7,6 +7,7 @@ const {
   width = 70,
   background = '#fff',
   color = '#111',
+  withProgress = true,
 } = defineProps<{
   strokeWidth?: number
   strokeColor?: string
@@ -15,6 +16,7 @@ const {
   background?: string
   color?: string
   progress?: number
+  withProgress?: boolean
 }>()
 
 const current = ref(0)
@@ -42,6 +44,7 @@ watch(() => progress, () => {
       height: `${width}px` }"
   >
     <div
+      v-if="withProgress"
       class="progress-data"
       :style="{ '--stroke-width': `${strokeWidth}px`,
                 'background': background,

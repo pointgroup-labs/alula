@@ -56,7 +56,7 @@ const searchAsset = ref()
       }
 
       .accordion-body {
-        padding: $spacing-12 0 $spacing-24;
+        padding: $spacing-12 0 0;
       }
     }
 

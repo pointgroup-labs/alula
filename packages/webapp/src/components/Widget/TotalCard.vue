@@ -16,7 +16,7 @@ defineProps<{
       {{ title }}
     </div>
     <div
-      class="total-card__body"
+      class="total-card__body text-num"
     >
       {{ body }}
     </div>
@@ -25,17 +25,17 @@ defineProps<{
 
 <style lang="scss">
 .total-card {
-  height: 120px;
   border-radius: 12px;
-  background: $surface-neutral-04;
-  padding: $spacing-24;
+  background-color: $card-bg;
+  padding: $spacing-16 $spacing-20;
+  border: 1px solid $border-color;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 
   &__title {
-    color: $text-secondary;
-    font-size: 14px;
+    color: $muted-foreground;
+    font-size: 0.75rem;
     font-style: normal;
     font-weight: 500;
     line-height: 16px;
@@ -43,9 +43,9 @@ defineProps<{
 
   &__body {
     color: $text-primary;
-    font-size: 32px;
+    font-size: 1.5rem;
     font-style: normal;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 28px;
   }
 }

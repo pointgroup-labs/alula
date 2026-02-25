@@ -44,10 +44,11 @@ const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   // { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
   // { key: 'price', label: 'Price', align: 'right', thClass: 'price', tdClass: 'price' },
-  { key: 'total_supply', label: 'Supply', align: 'right', thClass: 'supply', tdClass: 'supply' },
-  { key: 'total_borrowed', label: 'Borrow', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
+  { key: 'total_supply', label: 'Supplied', align: 'right', thClass: 'supply', tdClass: 'supply' },
+  { key: 'total_borrowed', label: 'Borrowed', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
+  { key: 'utilization_rate', label: 'Utilization', align: 'center', thClass: 'utilization', tdClass: 'utilization' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
-  { key: 'borrow_apy', label: 'Borrow APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
+  { key: 'borrow_apy', label: 'Borrow rate', align: 'center', thClass: 'apy', tdClass: 'apy' },
   // { key: 'utilization_rate', label: 'Utilization', align: 'right' },
   // { key: 'max_ltv', label: 'Open LTV', align: 'right' },
   { key: 'action', label: '', thClass: 'action', tdClass: 'action' },
@@ -63,6 +64,28 @@ function onRowClicked(marketName: string, item: MarketTableItem) {
   const marketAddress = marketsStore.state.markets[marketName]?.address
   const poolAddress = item.pool_address
   router.push(`/lend/${marketAddress}/${poolAddress}`)
+}
+
+function utilRateColor(value?: number) {
+  if (!value) {
+    return 'transparent'
+  }
+  switch (true) {
+    case value >= 80: return '#f43f5e'
+    case value >= 60: return '#f59e0b'
+    default: return 'rgb(0, 201, 80)'
+  }
+}
+
+function rowClass(item: any): any {
+  if (!item) {
+    return
+  }
+  const util = item.utilization_rate_percent ?? 0
+  if (util >= 80) {
+    return 'row-danger'
+  }
+  return ''
 }
 
 watch(() => searchAsset, (val) => {
@@ -135,6 +158,7 @@ const stop = watch(additionalMarketsData, () => {
         :items="market.tableItems"
         responsive
         class="market-table"
+        :tbody-tr-class="rowClass"
         @row-clicked="(e) => onRowClicked(market.marketName, e)"
       >
         <template
@@ -161,9 +185,9 @@ const stop = watch(additionalMarketsData, () => {
               <div class="market-table__asset__info__symbol">
                 {{ data.item.asset.name }}
               </div>
-            </div>
 
-            <pool-status :pool="data.item.raw.pool" />
+              <pool-status :pool="data.item.raw.pool" />
+            </div>
           </div>
         </template>
 
@@ -206,6 +230,22 @@ const stop = watch(additionalMarketsData, () => {
           </div>
         </template>
 
+        <template #cell(utilization_rate)="data">
+          <div class="table-cell justify-content-center">
+            <j-circular-progress
+              :progress="data.item.utilization_rate_percent ?? 0"
+              :width="16"
+              :stroke-width="20"
+              stroke-bg="#262729"
+              :stroke-color="utilRateColor(data.item.utilization_rate_percent ?? 0)"
+              background="transparent"
+              color="#fff"
+              :with-progress="false"
+            />
+            {{ data.item.utilization_rate }}
+          </div>
+        </template>
+
         <template #cell(deposit_apy)="data">
           <div class="table-cell justify-content-center flex">
             <market-apy-with-additional
@@ -242,7 +282,8 @@ const stop = watch(additionalMarketsData, () => {
           <div class="table-cell justify-content-end market-table__action">
             <j-btn
               size="xs"
-              variant="blue"
+              variant="outline-blue"
+              pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'supply')"
@@ -251,7 +292,8 @@ const stop = watch(additionalMarketsData, () => {
             </j-btn>
             <j-btn
               size="xs"
-              variant="accent"
+              variant="outline-accent"
+              pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'borrow')"

@@ -7,10 +7,14 @@ body {
   margin: 0;
   font-family: $font-family-base;
   background-color: $neutral-2;
+  color: #fff;
+  // background: linear-gradient(180deg, #002e40 0%, #021f2b 54%, #02151c 100%);
 }
 
 body {
-  opacity: 0;
+  background:
+    radial-gradient(700px circle at 50% 28%, rgba(34, 211, 238, 0.035), transparent 70%),
+    radial-gradient(600px circle at 50% 78%, rgba(245, 158, 11, 0.025), transparent 70%), #0a0e17;
 }
 
 p {
@@ -44,10 +48,10 @@ h2 {
 }
 
 .page-container {
-  padding-top: 40px;
+  padding-top: 24px;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 24px;
 }
 
 .container {
@@ -65,6 +69,10 @@ h2 {
   background-color: rgba(255, 255, 255, 0.04);
   box-shadow: none;
   border: none;
+}
+
+.text-num {
+  font-family: $font-JetBrainsMono;
 }
 
 .separator {
@@ -193,11 +201,6 @@ body:has(stellar-wallets-modal) {
 .theme-dark {
   background-color: $dark;
   color: #fff;
-
-  body {
-    color: #fff;
-    background: linear-gradient(180deg, #002e40 0%, #021f2b 54%, #02151c 100%);
-  }
 
   .table-wrapper {
     .loading-spinner {

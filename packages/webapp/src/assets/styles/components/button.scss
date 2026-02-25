@@ -2,7 +2,8 @@ $btn-variants: (
   ghost: (
     bg: $surface-neutral-04,
     color: #fff,
-    hover: rgba(255, 255, 255, 0.06),
+    outline: 1px solid rgba(107, 122, 148, 0.2),
+    hoverBg: rgba(255, 255, 255, 0.06),
   ),
 
   accent: (
@@ -16,11 +17,29 @@ $btn-variants: (
     color: #fff,
     hover: rgba(0, 144, 255, 0.6),
   ),
+
+  outline-blue: (
+    bg: transparent,
+    color: rgba(232, 237, 245, 0.7),
+    outline: 1px solid rgba(0, 211, 238, 0.1),
+    hoverBg: rgba(0, 211, 238, 0.1),
+    hoverColor: $supply,
+    hoverBorder: rgba(0, 211, 238, 0.4),
+  ),
+
+  outline-accent: (
+    bg: transparent,
+    color: rgba(232, 237, 245, 0.7),
+    outline: 1px solid rgba(242, 176, 26, 0.1),
+    hoverBg: rgba(252, 157, 16, 0.1),
+    hoverColor: $borrow,
+    hoverBorder: rgba(242, 176, 26, 0.4),
+  ),
 );
 
 $btn-size: (
   xs: (
-    padding: 7px $spacing-20,
+    padding: 8px 16px,
     font-size: 12px,
     font-weight: 700,
     line-height: 100%,
@@ -44,9 +63,12 @@ $btn-size: (
 
       background: map-get($variant, bg);
       color: map-get($variant, color);
+      outline: map-get($variant, outline);
 
       &:hover {
-        background: map-get($variant, hover);
+        background: map-get($variant, hoverBg);
+        color: map-get($variant, hoverColor);
+        border-color: map-get($variant, hoverBorder);
       }
     }
   }

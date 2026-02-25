@@ -42,11 +42,14 @@ const show = ref(false)
 
 <style lang="scss">
 .j-accordion {
-  --bs-accordion-bg: rgba(255, 255, 255, 0.04);
+  // --bs-accordion-bg: rgba(255, 255, 255, 0.04);
+  --bs-accordion-bg: #{$card-bg};
   color: #fff;
+  border: 1px solid $border-color;
+  border-radius: 12px;
 
   .accordion-item {
-    border-radius: 12px;
+    // border-radius: 12px;
   }
 
   .accordion-header {
@@ -55,6 +58,7 @@ const show = ref(false)
 
     &:has(button[aria-expanded='true']) {
       border-radius: 12px 12px 0 0;
+      border-bottom: 1px solid $border-color;
     }
   }
 
@@ -66,7 +70,7 @@ const show = ref(false)
   .accordion-button {
     cursor: pointer;
     color: $text-primary;
-    font-size: 18px;
+    font-size: $text-sm;
     font-style: normal;
     font-weight: 500;
     line-height: normal;
@@ -101,8 +105,8 @@ const show = ref(false)
     i {
       display: flex;
       align-items: center;
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       padding: 6px 5px;
       margin-right: 8px;
 

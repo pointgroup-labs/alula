@@ -44,8 +44,8 @@ provide('isSidebar', isSettingsSidebar)
   cursor: pointer;
 
   .settings-icon {
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
   }
 }
 </style>

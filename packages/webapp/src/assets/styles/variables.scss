@@ -32,14 +32,31 @@ $surface-neutral-80: rgba(255, 255, 255, 0.8);
 
 $dark: #111;
 
+// new vars
+$border: #1e293b;
+$border-color: color-mix(in oklab, $border 40%, transparent);
+$card: #111827;
+$card-bg: color-mix(in oklab, $card 30%, transparent);
+$muted-foreground: #6b7a94;
+$foreground: #e8edf5;
+
+$supply: #22d3ee;
+$borrow: #f59e0b;
+$red: #f43f5e;
+
+$text-sm: 0.875rem;
+$text-xs: 0.75rem;
+
 //text colors
 $text-primary: #f5f5f5;
 $text-secondary: rgba(255, 255, 255, 0.6);
 $text-success: #00c950;
 $text-warning: #f0b100;
 
-$font-family-base: 'NTSomic', serif;
+// $font-family-base: 'NTSomic', serif;
+$font-family-base: 'Inter', sans-serif;
 $font-Inter: 'Inter', sans-serif;
+$font-JetBrainsMono: 'JetBrainsMono', monospace;
 
 // spacing
 $spacing-4: 4px;

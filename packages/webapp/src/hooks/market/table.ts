@@ -40,6 +40,7 @@ export function useMarketTable() {
           deposit_apy: `${truncatePercent(depositApy || 0, 2)}%`,
           borrow_apy: `${truncatePercent(borrowApy || 0, 2)}%`,
           utilization_rate: `${truncatePercent(utilRate || 0, 2)}%`,
+          utilization_rate_percent: utilRate,
           open_ltv: `${truncatePercent(openLtv || 0, 2)}%`,
           action: 'Supply',
           price,

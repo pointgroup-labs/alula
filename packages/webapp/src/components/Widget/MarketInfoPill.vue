@@ -13,26 +13,25 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: $spacing-6 $spacing-16;
-  background-color: transparent;
-  border-radius: 17px;
+  padding: $spacing-6 $spacing-12;
+  background-color: rgba(26, 34, 54, 0.4);
+  border-radius: 0.75rem;
   border: 1px solid $surface-neutral-10;
-  font-size: 12px;
+  font-family: $font-JetBrainsMono;
+  font-size: $text-xs;
   font-style: normal;
-  font-weight: 500;
-  line-height: 16px;
 
   span {
-    color: $text-primary;
+    color: $foreground;
 
     &[data-name='title'] {
-      color: $text-secondary;
+      color: $muted-foreground;
     }
   }
 
   img {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     object-fit: contain;
 
     & + img {

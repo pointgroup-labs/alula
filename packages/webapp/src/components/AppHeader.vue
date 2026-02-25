@@ -73,7 +73,7 @@ watch(() => route.path, (p) => {
       </nav>
 
       <div class="header-actions">
-        <connect-wallet size="md" />
+        <connect-wallet size="sm" />
         <app-settings />
       </div>
     </div>
@@ -82,6 +82,8 @@ watch(() => route.path, (p) => {
 
 <style lang="scss">
 header {
+  border-bottom: 1px solid $border-color;
+
   .header-wrapper {
     padding-top: $spacing-16;
     padding-bottom: $spacing-16;
@@ -91,8 +93,8 @@ header {
   }
 
   .app-logo {
-    width: 120px;
-    height: 52px;
+    width: 80px;
+    height: 42px;
   }
 
   .header-nav {
@@ -101,15 +103,13 @@ header {
     gap: $spacing-16;
 
     .nav-link {
-      height: 42px;
-      padding: $spacing-12 $spacing-16;
+      height: 32px;
+      padding: $spacing-6 $spacing-12;
       border-radius: 10px;
-      color: $text-secondary;
+      color: $muted-foreground;
       font-family: $font-family-base;
-      font-size: 16px;
+      font-size: 13px;
       font-style: normal;
-      font-weight: 500;
-      line-height: 20px;
       display: flex;
       align-items: center;
       cursor: pointer;
@@ -128,7 +128,7 @@ header {
   header {
     .nav-link {
       &--active {
-        color: $text-primary;
+        color: $foreground;
         background: $surface-neutral-04;
       }
 

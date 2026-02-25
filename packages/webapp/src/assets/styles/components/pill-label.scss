@@ -11,6 +11,14 @@ $label-variants: (
     background-color: rgba(240, 177, 0, 0.1),
     color: $text-warning,
   ),
+  supply: (
+    background-color: lab(77.4225% -36.0465 -25.8871/0.1),
+    color: $supply,
+  ),
+  borrow: (
+    background-color: lab(72.7914% 26.933 75.4338/0.1),
+    color: $borrow,
+  ),
   success: (
     background-color: rgba(0, 201, 80, 0.1),
     color: $text-success,
@@ -43,10 +51,10 @@ $label-sizes: (
 
 .j-pill-label {
   width: fit-content;
-  padding: $spacing-4 $spacing-8;
+  padding: 2px 10px;
+  font-family: $font-JetBrainsMono;
   font-size: 12px;
   font-style: normal;
-  font-weight: 500;
   line-height: 16px;
   border-radius: 100px;
 

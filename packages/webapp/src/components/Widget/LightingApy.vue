@@ -13,14 +13,14 @@ const {
 
 const slots = defineSlots()
 
-const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' ? '#00C950' : '#F0B100'))
+const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' ? '#22d3ee' : '#f59e0b'))
 </script>
 
 <template>
   <div :class="$style['lighting-apy']">
     <i-app-lighting-icon
       v-if="isLighting"
-      color="#F8CB14"
+      :color="labelColorByVatiant"
       :class="$style['lighting-icon']"
     />
     <template v-if="slots?.tip">
@@ -42,7 +42,7 @@ const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' 
   </div>
 </template>
 
-<style module>
+<style module lang="scss">
 .lighting-apy {
   display: flex;
   align-items: center;
@@ -55,6 +55,7 @@ const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' 
 }
 
 .lighting-label {
+  font-family: $font-JetBrainsMono;
   font-size: 12px;
   font-style: normal;
   font-weight: 700;

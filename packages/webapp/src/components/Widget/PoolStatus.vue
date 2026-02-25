@@ -57,8 +57,8 @@ watch(() => pool, () => {
 <style lang="scss">
 .pool-status {
   position: absolute;
-  top: -12px;
-  left: 12px;
+  top: -4px;
+  left: 114%;
 
   .j-pill-label {
     padding: 0 8px;
