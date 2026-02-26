@@ -1,9 +1,10 @@
 $btn-variants: (
   ghost: (
-    bg: $surface-neutral-04,
+    bg: color-mix(in oklab, $new-secondary 40%, transparent),
     color: #fff,
     outline: 1px solid rgba(107, 122, 148, 0.2),
-    hoverBg: rgba(255, 255, 255, 0.06),
+    hoverBg: color-mix(in oklab, $new-secondary 60%, transparent),
+    focusOutline: 1px solid rgba(107, 122, 148, 0.2),
   ),
 
   accent: (
@@ -24,7 +25,7 @@ $btn-variants: (
     outline: 1px solid rgba(0, 211, 238, 0.1),
     hoverBg: rgba(0, 211, 238, 0.1),
     hoverColor: $supply,
-    hoverBorder: rgba(0, 211, 238, 0.4),
+    focusOutline: rgba(0, 211, 238, 0.4),
   ),
 
   outline-accent: (
@@ -33,7 +34,7 @@ $btn-variants: (
     outline: 1px solid rgba(242, 176, 26, 0.1),
     hoverBg: rgba(252, 157, 16, 0.1),
     hoverColor: $borrow,
-    hoverBorder: rgba(242, 176, 26, 0.4),
+    focusOutline: rgba(242, 176, 26, 0.4),
   ),
 );
 
@@ -68,7 +69,10 @@ $btn-size: (
       &:hover {
         background: map-get($variant, hoverBg);
         color: map-get($variant, hoverColor);
-        border-color: map-get($variant, hoverBorder);
+      }
+
+      &:focus {
+        outline: map-get($variant, focusOutline);
       }
     }
   }

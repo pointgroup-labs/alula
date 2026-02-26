@@ -16,9 +16,9 @@ const {
     :to="to"
   >
     <j-btn
-      size="sm"
+      size="xs"
       class="back-btn"
-      variant="secondary"
+      variant="ghost"
     >
       <i-app-line-arrow-right
         v-if="withIcon"
@@ -31,18 +31,14 @@ const {
 <style scoped lang="scss">
 .back-btn {
   padding: 0;
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background-color: transparent;
 
   :deep(svg) {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
   }
-}
-
-.theme-dark .back-btn {
-  background-color: $neutral-16;
-  border-color: $neutral-16;
-  color: #c4c5c7;
 }
 </style>

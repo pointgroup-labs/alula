@@ -3,32 +3,30 @@
   flex-direction: column;
   gap: $spacing-32;
 
-  h2 {
-    font-weight: 500;
-    margin-bottom: $spacing-24;
+  h3 {
+    margin: 0;
   }
 
   .stat-card {
-    border-radius: 16px;
-    padding: 24px 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    min-width: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(249, 250, 251, 0.98) 100%);
-    border: 1px solid rgba(33, 44, 66, 0.08);
-    box-shadow:
-      0px 2px 8px rgba(33, 44, 66, 0.04),
-      0px 8px 24px rgba(33, 44, 66, 0.06),
-      inset 0px 1px 0px rgba(255, 255, 255, 0.6);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: $card-bg;
+    border: 1px solid $border-color;
+    border-radius: 14px;
 
-    &:hover {
-      box-shadow:
-        0px 4px 12px rgba(33, 44, 66, 0.08),
-        0px 12px 32px rgba(33, 44, 66, 0.1),
-        inset 0px 1px 0px rgba(255, 255, 255, 0.8);
-      border-color: rgba(92, 108, 255, 0.3);
+    &__header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid $border-color;
+      padding: 14px 20px;
+
+      .title {
+        font-size: 14px;
+        color: $foreground;
+      }
+    }
+
+    &__body {
+      padding: 16px;
     }
   }
 
@@ -45,30 +43,87 @@
       display: flex;
       align-items: center;
       gap: $spacing-6;
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 500;
 
       img {
         width: 38px;
         height: 38px;
       }
+
+      &__coin {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+
+        span[data='symbol'] {
+          color: $muted-foreground;
+          font-size: 12px;
+          opacity: 0.8;
+        }
+      }
     }
 
     .market-pills {
       display: flex;
       align-items: center;
-      gap: $spacing-8;
-      margin-left: auto;
+      flex-direction: column;
+      gap: 2px;
 
-      @media (max-width: $breakpoint-xs) {
-        margin: 0 auto;
+      .market-name {
+        padding: 2px 8px;
+        font-size: 10px;
+        color: $muted-foreground;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+        text-transform: uppercase;
+        background-color: color-mix(in oklab, $new-secondary 60%, transparent);
+        border-radius: 50px;
       }
 
-      .market-pill {
-        padding: $spacing-4 $spacing-12;
-        border: 1px solid;
-        border-radius: 100px;
-        font-size: 14px;
+      .market-price {
+        color: color-mix(in oklab, $foreground 80%, transparent);
+        font-family: $font-JetBrainsMono;
+        font-size: 12px;
+      }
+    }
+
+    .pool-metrics {
+      display: flex;
+      align-items: stretch;
+      gap: 24px;
+      margin-left: auto;
+
+      &__item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        span:nth-child(1) {
+          font-size: 10px;
+          color: $muted-foreground;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        span:nth-child(2) {
+          font-family: $font-JetBrainsMono;
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 30px;
+        }
+
+        .supply {
+          color: $supply;
+        }
+
+        .borrow {
+          color: $borrow;
+        }
+
+        .separator-vert {
+          background-color: $border-color;
+        }
       }
     }
   }
@@ -95,7 +150,12 @@
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: $spacing-64;
+      gap: $spacing-24;
+    }
+
+    .supply-card {
+      position: sticky;
+      top: 20px;
     }
 
     section {
@@ -109,195 +169,8 @@
     }
   }
 
-  .market-stats-cards {
-    display: flex;
-    gap: 24px;
-
-    @media (max-width: $breakpoint-sm) {
-      flex-direction: column;
-    }
-
-    .market-progress__wrapper {
-      width: 100%;
-      margin: 0 auto;
-    }
-
-    .stat-card {
-      min-width: 330px;
-      width: 330px;
-
-      @media (max-width: $breakpoint-sm) {
-        width: 100%;
-      }
-    }
-
-    .stat-title {
-      font-size: 16px;
-      color: #888;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      svg {
-        flex-shrink: 0;
-      }
-    }
-
-    .stat-sub {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-
-      &:not(:last-child) {
-        margin-bottom: 12px;
-      }
-
-      &__title {
-        font-size: 14px;
-        color: #666;
-        line-height: 20px;
-      }
-
-      &__value {
-        font-size: 20px;
-        line-height: 20px;
-        font-weight: 700;
-        color: #000;
-
-        &.positive {
-          color: #1dbf73;
-        }
-
-        &.warning {
-          color: #ff9800;
-        }
-      }
-    }
-
-    &.penalty {
-      .info-icon {
-        color: $warning;
-      }
-    }
-
-    .market-progress__wrapper {
-      margin-top: auto;
-    }
-
-    .market-progress {
-      width: 100%;
-    }
-  }
-
-  .cards-list {
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: $spacing-12;
-
-    @media (max-width: $breakpoint-xs) {
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .market-info-detail-card {
-      flex: 1;
-    }
-  }
-
-  .market-model-card {
-    width: 100%;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    span {
-      width: 19px;
-      height: 6px;
-      background-color: var(--drop-color, 'gray');
-      border-radius: 4px;
-    }
-  }
-
-  .market-info-details {
-    width: 100%;
-  }
-
-  .info-row {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-
-    .info-label {
-      color: #888;
-      font-weight: 500;
-    }
-
-    .info-value {
-      color: #333;
-      font-weight: 600;
-    }
-  }
-
-  .market-history-chart {
-    width: 100%;
-  }
-
-  a {
-    color: #111;
-  }
-
   .no-data {
     padding: $spacing-32;
     margin: 0 auto;
-  }
-}
-
-.theme-dark {
-  .market-detail-page {
-    .market-pills {
-      .market-pill {
-        border-color: $neutral-18;
-      }
-    }
-
-    .market-detail-header {
-      border-color: $neutral-18;
-    }
-
-    .stat-card {
-      background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
-      border-color: rgba(148, 163, 184, 0.1);
-      box-shadow:
-        0px 2px 8px rgba(0, 0, 0, 0.2),
-        0px 8px 24px rgba(0, 0, 0, 0.3),
-        inset 0px 1px 0px rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(12px);
-
-      &:hover {
-        box-shadow:
-          0px 4px 12px rgba(0, 0, 0, 0.3),
-          0px 12px 32px rgba(99, 102, 241, 0.15),
-          inset 0px 1px 0px rgba(255, 255, 255, 0.1);
-        border-color: rgba(92, 108, 255, 0.3);
-      }
-    }
-
-    .info-row {
-      .info-value {
-        color: $neutral-9;
-      }
-    }
-
-    a {
-      color: #fff;
-    }
   }
 }

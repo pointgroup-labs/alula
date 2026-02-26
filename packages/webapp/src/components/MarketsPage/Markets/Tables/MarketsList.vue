@@ -46,7 +46,7 @@ const fields = [
   // { key: 'price', label: 'Price', align: 'right', thClass: 'price', tdClass: 'price' },
   { key: 'total_supply', label: 'Supplied', align: 'right', thClass: 'supply', tdClass: 'supply' },
   { key: 'total_borrowed', label: 'Borrowed', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
-  { key: 'utilization_rate', label: 'Utilization', align: 'center', thClass: 'utilization', tdClass: 'utilization' },
+  { key: 'utilization_rate', label: 'Utilization', align: 'right', thClass: 'utilization', tdClass: 'utilization' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
   { key: 'borrow_apy', label: 'Borrow rate', align: 'center', thClass: 'apy', tdClass: 'apy' },
   // { key: 'utilization_rate', label: 'Utilization', align: 'right' },
@@ -231,7 +231,7 @@ const stop = watch(additionalMarketsData, () => {
         </template>
 
         <template #cell(utilization_rate)="data">
-          <div class="table-cell justify-content-center">
+          <div class="table-cell justify-content-end">
             <j-circular-progress
               :progress="data.item.utilization_rate_percent ?? 0"
               :width="18"

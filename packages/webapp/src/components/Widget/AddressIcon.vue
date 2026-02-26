@@ -12,7 +12,6 @@ async function render() {
     seed: props.address,
     backgroundColor: ['0b1020', '111827'],
   }).toString()
-  console.log(avatar.value)
 }
 
 watch(() => props.address, (address) => {

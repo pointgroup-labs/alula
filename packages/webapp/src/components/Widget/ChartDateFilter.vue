@@ -27,7 +27,7 @@ const activeFilter = computed({
   >
     <template #default="{ label, isActive, select }">
       <j-btn
-        :variant="isActive ? 'primary' : 'secondary'"
+        :variant="isActive ? 'ghost' : 'outline-ghost'"
         @click="select"
       >
         {{ label }}
@@ -41,42 +41,27 @@ const activeFilter = computed({
   width: fit-content;
   margin-left: auto;
   border-radius: $spacing-4;
-  background-color: $surface-neutral-10;
+  background-color: color-mix(in oklab, $new-secondary 40%, transparent);
 
   .btn {
     width: fit-content;
     padding: $spacing-4 $spacing-8;
     border-radius: $spacing-4;
+    color: $muted-foreground;
+
+    &-ghost {
+      color: $foreground;
+    }
+
+    &:hover {
+      color: $foreground;
+    }
 
     .btn-content {
       font-size: 11px;
       font-style: normal;
       font-weight: 500;
       line-height: 12px;
-    }
-  }
-  .btn-secondary {
-    background-color: $surface-neutral-60;
-    color: $dark;
-    border-color: transparent;
-
-    &:hover,
-    &.active {
-      background-color: $surface-neutral-60;
-      border-color: $surface-neutral-60;
-      color: $dark;
-    }
-  }
-  .btn-primary {
-    background-color: $surface-neutral-80;
-    color: $dark;
-    border-color: transparent;
-
-    &:hover,
-    &.active {
-      background-color: $surface-neutral-80;
-      border-color: $surface-neutral-80;
-      color: $dark;
     }
   }
 }

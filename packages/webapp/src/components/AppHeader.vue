@@ -83,6 +83,7 @@ watch(() => route.path, (p) => {
 <style lang="scss">
 header {
   border-bottom: 1px solid $border-color;
+  z-index: 1;
 
   .header-wrapper {
     padding-top: $spacing-16;

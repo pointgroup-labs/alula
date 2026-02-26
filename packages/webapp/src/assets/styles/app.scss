@@ -13,9 +13,20 @@ body {
 
 body {
   opacity: 0;
+  background: #0a0e17;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
   background:
     radial-gradient(800px circle at 50% 22%, rgba(34, 211, 238, 0.05), transparent 70%),
     radial-gradient(600px circle at 50% 78%, rgba(245, 158, 11, 0.045), transparent 70%), #0a0e17;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 p {
@@ -34,6 +45,7 @@ main {
   flex-direction: column;
   gap: $spacing-24;
   padding: $spacing-24 0;
+  z-index: 1;
 }
 
 h2 {

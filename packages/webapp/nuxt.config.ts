@@ -76,6 +76,7 @@ export default defineNuxtConfig({
         // },
         customCollections: {
           app: FileSystemIconLoader('./src/assets/img/icons'),
+          metrics: FileSystemIconLoader('./src/assets/img/metrics'),
         },
         // iconCustomizer(collection, icon, props) {
         //   if (collection === 'app') {
@@ -87,7 +88,7 @@ export default defineNuxtConfig({
         dirs: ['components'],
         resolvers: [
           IconsResolver({
-            customCollections: ['app'],
+            customCollections: ['app', 'metrics'],
           }),
         ],
         dts: 'types/components.d.ts',

@@ -11,26 +11,7 @@ const {
   selectedMarketName,
   selectedPoolAddress,
   selectedPool,
-  dialogSupply,
-  dialogBorrow,
 } = useMarketTable()
-
-const marketTabs = [{
-  label: 'Market Overview',
-  value: 'overview',
-},
-{
-  label: 'Info & Risk',
-  value: 'info',
-}]
-
-const activeTab = ref(marketTabs[0])
-
-async function dialogHandler(marketName: string, poolAddress: string, action: 'supply' | 'borrow') {
-  selectedMarketName.value = marketName
-  selectedPoolAddress.value = poolAddress
-  action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
-}
 
 watch(() => marketsStore.state.markets, (storeMarkets) => {
   if (!storeMarkets || Object.keys(storeMarkets).length === 0) {
@@ -45,13 +26,12 @@ watch(() => marketsStore.state.markets, (storeMarkets) => {
 }, { immediate: true })
 
 provide('selectedPool', selectedPool)
-provide('selectedMarketDetails', selectedPool)
 </script>
 
 <template>
   <main>
     <div class="market-detail-page container">
-      <market-detail-top />
+      <pool-detail-top />
 
       <j-loading-spinner
         v-if="loading"
@@ -61,16 +41,7 @@ provide('selectedMarketDetails', selectedPool)
       </j-loading-spinner>
 
       <template v-else-if="selectedPool && !loading">
-        <div class="market-detail-header">
-          <j-line-tab
-            v-model="activeTab"
-            :tabs="marketTabs"
-          />
-          <market-detail-actions @dialog-handler="dialogHandler" />
-        </div>
-
-        <market-overview v-if="activeTab?.value === 'overview'" />
-        <info-risks-faq v-else />
+        <pool-overview />
       </template>
 
       <div
@@ -79,16 +50,6 @@ provide('selectedMarketDetails', selectedPool)
       >
         Market or Pool not found
       </div>
-
-      <supply-dialog
-        v-model="dialogSupply"
-        :data="selectedPool"
-      />
-
-      <borrow-dialog
-        v-model="dialogBorrow"
-        :data="selectedPool"
-      />
     </div>
   </main>
 </template>

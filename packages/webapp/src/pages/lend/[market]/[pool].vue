@@ -1,3 +1,3 @@
 <template>
-  <market-detail-page />
+  <pool-detail-page />
 </template>
