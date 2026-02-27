@@ -40,5 +40,9 @@ const {
     width: 16px;
     height: 16px;
   }
+
+  &:hover {
+    color: $foreground;
+  }
 }
 </style>

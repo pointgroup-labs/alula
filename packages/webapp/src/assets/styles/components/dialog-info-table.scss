@@ -11,17 +11,18 @@
     font-style: normal;
     font-weight: 400;
     line-height: 16px;
-    color: $text-secondary;
+    color: $muted-foreground;
 
     span {
       &:nth-child(2) {
-        color: $text-primary;
+        color: $foreground;
         text-align: right;
+        font-family: $font-JetBrainsMono;
       }
     }
 
     a {
-      color: $text-primary;
+      color: $foreground;
       display: flex;
       align-items: center;
       justify-content: flex-end;

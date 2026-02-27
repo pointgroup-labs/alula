@@ -120,11 +120,6 @@ watch(dialog, async (v) => {
         >
         <span>Borrow {{ data?.asset.symbol }}</span>
       </div>
-
-      <div class="dialog-balance">
-        <div class="dialog-balance__label">Available:</div>
-        <div class="dialog-balance__value">{{ shortenNumber(availableToBorrow) }} {{ data?.asset.symbol }}</div>
-      </div>
     </template>
 
     <div class="dialog-default__body">
@@ -133,16 +128,18 @@ watch(dialog, async (v) => {
         class="borrow-input"
         :balance="availableToBorrow"
         :fee="POOL_REMAINING_BALANCE"
+        label-left="Available"
+        :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${data?.asset.symbol}`"
         :rules="[
           (v: any) => {
-            return v && Number(v) < availableToBorrow || 'Borrow limit exceeded'
+            return Number(v) < availableToBorrow || 'Borrow limit exceeded'
           },
         ]"
       />
 
       <div
         v-if="data"
-        class="dialog-info-table"
+        class="dialog-info-table mt-3"
       >
         <!-- Health Factor -->
         <div class="dialog-info-table__item">
@@ -243,6 +240,7 @@ watch(dialog, async (v) => {
       <div class="dialog-default__action">
         <market-dialog-action-btn
           variant="accent"
+          pill
           :loading="isLoading"
           :pool="data?.raw.pool"
           :disabled="!agree || !isCanBorrow || amount > availableToBorrow"

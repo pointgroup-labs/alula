@@ -50,7 +50,7 @@ async function supply() {
       return
     }
     if (!amount.value || amount.value <= 0) {
-      focusInput('.supply-dialog__input')
+      focusInput('.supply-dialog .dialog-default__input')
       return
     }
     marketsStore.poolActiveAddress = poolData.value?.raw.pool.pool_address
@@ -106,11 +106,6 @@ watch(dialog, async (v) => {
         >
         <span>Supply {{ poolData?.asset.symbol }}</span>
       </div>
-
-      <div class="dialog-balance">
-        <div class="dialog-balance__label">Balance:</div>
-        <div class="dialog-balance__value">{{ shortenNumber(balance) }} {{ poolData?.asset.symbol }}</div>
-      </div>
     </template>
 
     <div class="dialog-default__body">
@@ -121,6 +116,8 @@ watch(dialog, async (v) => {
         :fee="POOL_REMAINING_BALANCE + txFee + reserveAmount"
         :price="poolData?.price"
         class="dialog-default__input"
+        label-left="Balance"
+        :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${poolData?.asset.symbol}`"
         :rules="[
           (v) => {
             return Number(v) < balance || 'Insufficient balance'
@@ -133,7 +130,7 @@ watch(dialog, async (v) => {
 
       <div
         v-if="poolData"
-        class="dialog-info-table"
+        class="dialog-info-table mt-3"
       >
         <!-- Supply Limit -->
         <div
@@ -221,6 +218,7 @@ watch(dialog, async (v) => {
       <div class="dialog-default__action">
         <market-dialog-action-btn
           variant="blue"
+          pill
           :loading="isLoading"
           :pool="poolData?.raw.pool"
           :disabled="!isCanSupply || amount >= balance"

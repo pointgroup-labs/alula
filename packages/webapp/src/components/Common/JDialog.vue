@@ -41,7 +41,7 @@ const dialog = defineModel({
   .modal-content {
     padding: 0;
     border-radius: $spacing-16;
-    border: 1px solid $surface-neutral-20;
+    border: 1px solid $border-color;
     background: transparent;
     box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
     color: #fff;
@@ -53,7 +53,7 @@ const dialog = defineModel({
       position: absolute;
       inset: 0;
       border-radius: inherit;
-      background: $surface-neutral-10;
+      background: rgba(10, 14, 23, 0.4);
       backdrop-filter: blur(30px);
       -webkit-backdrop-filter: blur(30px);
       z-index: -1;
@@ -62,7 +62,7 @@ const dialog = defineModel({
 
   .modal-header {
     padding: $spacing-16 $spacing-12 $spacing-16 $spacing-24;
-    border-bottom: 1px solid $surface-neutral-10;
+    border-bottom: 1px solid rgba(10, 14, 23, 0.4);
 
     &:not(:has(.dialog-balance)) {
       .close-icon {

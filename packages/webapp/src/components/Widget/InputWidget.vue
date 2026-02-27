@@ -17,6 +17,7 @@ const {
   modelValue,
   error,
   rules,
+  variant = '',
 } = defineProps<{
   size?: Size
   balance: number
@@ -34,11 +35,13 @@ const {
   rules?: Array<(val: string | number) => true | string>
   modelValue?: string | number
   error?: string
+  variant?: 'supply' | 'borrow'
 }>()
 
 const emit = defineEmits(['update:modelValue', 'maxHandler'])
 
 const slot = defineSlots()
+const { publicKey } = useWallet()
 
 const { assetDecimals } = useMarketActions()
 
@@ -52,7 +55,7 @@ const val = computed({
 })
 
 const ruleError = computed(() => {
-  if (!rules?.length) {
+  if (!rules?.length || !publicKey) {
     return ''
   }
   for (const rule of rules) {
@@ -125,7 +128,10 @@ const inputDesc = computed(() => {
 
     <div
       class="input-block"
-      :class="{ active: val && Number(val) > 0, error: displayError }"
+      :class="[
+        variant,
+        { active: val && Number(val) > 0, error: displayError },
+      ]"
     >
       <div class="input-block__top">
         <template v-if="icon || slot.prepend">
@@ -182,6 +188,16 @@ const inputDesc = computed(() => {
   display: flex;
   flex-direction: column;
 
+  --background-color: rgba(0, 211, 238, 0.03);
+  --border-color: rgba(0, 211, 238, 0.3);
+  --color: #22d3ee;
+
+  .borrow {
+    --background-color: rgba(252, 157, 16, 0.03);
+    --border-color: rgba(252, 157, 16, 0.3);
+    --color: #f59e0b;
+  }
+
   &__label {
     display: flex;
     align-items: center;
@@ -201,13 +217,6 @@ const inputDesc = computed(() => {
     font-size: 12px;
   }
 
-  .info-card {
-    background-color: color-mix(in oklab, $new-secondary 30%, transparent);
-    border: 1px solid $border-color;
-    border-radius: 14px;
-    transition: border-color 0.2s ease;
-  }
-
   .input-block {
     padding: 0;
     background-color: color-mix(in oklab, $new-secondary 30%, transparent);
@@ -216,8 +225,8 @@ const inputDesc = computed(() => {
     transition: border-color 0.2s ease;
 
     &.active {
-      background-color: rgba(0, 211, 238, 0.03);
-      border-color: rgba(0, 211, 238, 0.3);
+      background-color: var(--background-color);
+      border-color: var(--border-color);
     }
 
     &.error {
@@ -288,7 +297,7 @@ const inputDesc = computed(() => {
       }
 
       &.active {
-        color: $supply;
+        color: var(--color);
         background-color: rgba(0, 211, 238, 0.15);
       }
     }

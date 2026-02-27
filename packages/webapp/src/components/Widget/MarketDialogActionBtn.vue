@@ -96,7 +96,7 @@ async function emitClickHandler() {
 
 <template>
   <j-btn
-    :variant="publicKey ? variant : 'light'"
+    :variant="publicKey ? variant : 'ghost'"
     :loading="isLoading || isConnectionLoading"
     v-bind="props"
     :disabled="!publicKey ? false : disabled"
@@ -115,13 +115,24 @@ async function emitClickHandler() {
 
 <style lang="scss">
 .market-action-btn {
+  --bs-btn-active-color: #000;
+  width: 100%;
+
   &.btn-blue {
-    width: 100%;
     background-color: $supply;
     color: $dark;
 
     &:hover {
       background-color: lighten($supply, 10%);
+    }
+  }
+
+  &.btn-accent {
+    background-color: $borrow;
+    color: $dark;
+
+    &:hover {
+      background-color: lighten($borrow, 10%);
     }
   }
 
