@@ -40,14 +40,17 @@ watch(() => rpcStore.network, (val) => {
           </div>
         </div>
         <template #target="{ active }">
-          <div class="select-network__btn">
+          <j-btn
+            size="md"
+            variant="ghost"
+          >
             {{ activeNetwork }}
 
             <i-app-chevron-down
               class="arrow-icon"
               :class="{ 'arrow-icon--active': active }"
             />
-          </div>
+          </j-btn>
         </template>
       </j-popover>
     </div>
@@ -80,16 +83,8 @@ watch(() => rpcStore.network, (val) => {
   }
 
   .select-network {
-    &__btn {
-      color: #fff;
+    .btn {
       text-transform: capitalize;
-      border-radius: 4px;
-      background: $surface-neutral-08;
-      padding: $spacing-6 $spacing-12;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
     }
 
     &__menu {
@@ -106,7 +101,7 @@ watch(() => rpcStore.network, (val) => {
       cursor: pointer;
 
       &:hover {
-        background-color: $surface-neutral-12;
+        background-color: color-mix(in oklab, $card 60%, transparent);
       }
     }
 

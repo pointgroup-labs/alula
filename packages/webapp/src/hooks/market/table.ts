@@ -71,7 +71,10 @@ export function useMarketTable() {
 
   const filteredMarkets = computed(() =>
     search.value
-      ? sortedMarkets.value.filter(market => market.assets.some(asset => asset.symbol?.toLowerCase().includes(search.value?.toLowerCase())))
+      ? sortedMarkets.value.filter((market) => {
+          return market.marketName.toLowerCase().includes(search.value?.toLowerCase())
+            || market.assets.some(asset => asset.symbol?.toLowerCase().includes(search.value?.toLowerCase()))
+        })
       : sortedMarkets.value)
 
   const selectedMarketName = toRef(marketsStore, 'selectedMarketName')

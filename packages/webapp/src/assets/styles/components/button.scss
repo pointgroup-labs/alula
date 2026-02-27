@@ -4,6 +4,7 @@ $btn-variants: (
     color: #fff,
     outline: 1px solid rgba(107, 122, 148, 0.2),
     hoverBg: color-mix(in oklab, $new-secondary 60%, transparent),
+    hoverColor: #fff,
     focusOutline: 1px solid rgba(107, 122, 148, 0.2),
   ),
 
@@ -11,6 +12,7 @@ $btn-variants: (
     bg: rgba(242, 176, 26, 0.4),
     color: #fff,
     hoverBg: rgba(242, 176, 26, 0.6),
+    focusBg: rgba(242, 176, 26, 0.6),
   ),
 
   blue: (
@@ -36,6 +38,15 @@ $btn-variants: (
     hoverColor: $borrow,
     focusOutline: 1px solid rgba(242, 176, 26, 0.4),
   ),
+
+  outline-success: (
+    bg: transparent,
+    color: rgba(232, 237, 245, 0.7),
+    outline: 1px solid rgba(16, 185, 129, 0.1),
+    hoverBg: rgba(0, 201, 80, 0.1),
+    hoverColor: #00c950,
+    focusOutline: 1px solid rgba(0, 201, 80, 0.4),
+  ),
 );
 
 $btn-size: (
@@ -53,6 +64,7 @@ $btn-size: (
   width: fit-content;
   height: fit-content;
   font-family: $font-family-base !important;
+  border: none !important;
 
   &:active {
     border-color: transparent !important;
@@ -69,10 +81,13 @@ $btn-size: (
       &:hover {
         background: map-get($variant, hoverBg);
         color: map-get($variant, hoverColor);
+        outline: map-get($variant, focusOutline);
       }
 
-      &:focus {
+      &:focus,
+      &:active {
         outline: map-get($variant, focusOutline);
+        background-color: map-get($variant, focusBg) !important;
       }
     }
   }

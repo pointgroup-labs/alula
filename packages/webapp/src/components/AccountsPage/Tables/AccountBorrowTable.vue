@@ -167,7 +167,7 @@ watch(selectedMarket, (p) => {
           <template #cell(borrow_apy)="data">
             <div class="table-cell justify-content-center">
               <j-pill-label
-                variant="warning"
+                variant="borrow"
                 size="sm"
               >
                 {{ data.item.borrow_apy }}
@@ -178,9 +178,10 @@ watch(selectedMarket, (p) => {
           <template #cell(action)="data">
             <div class="table-cell justify-content-center">
               <j-btn
-                variant="accent"
+                variant="outline-accent"
                 size="xs"
                 class="repay-btn"
+                pill
                 :disabled="market.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'repay', data.item.market!)"
                 @click="withdrawDialogHandler(data.item)"
@@ -226,7 +227,7 @@ watch(selectedMarket, (p) => {
 <style lang="scss">
 .account-card {
   .table-cell__dept {
-    color: $warning;
+    color: $borrow;
   }
 }
 </style>

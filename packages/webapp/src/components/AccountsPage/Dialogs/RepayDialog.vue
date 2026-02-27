@@ -188,11 +188,6 @@ watch(() => modelValue, async (v) => {
         >
         <span>Repay {{ data?.asset.symbol }}</span>
       </div>
-
-      <div class="dialog-balance">
-        <div class="dialog-balance__label">Balance:</div>
-        <div class="dialog-balance__value">{{ shortenNumber(balance) }} {{ data?.asset.symbol }}</div>
-      </div>
     </template>
 
     <div class="dialog-default__body">
@@ -201,9 +196,12 @@ watch(() => modelValue, async (v) => {
         class="repay-dialog__input"
         :balance="balance"
         :limit="Number(data?.debt) || 0"
+        label-left="Balance"
+        variant="borrow"
+        :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${data?.asset.symbol}`"
         :rules="[
           (v) => {
-            return !isValidate || (v && Number(v) < balance) || 'Insufficient balance'
+            return !isValidate || Number(v) < balance || 'Insufficient balance'
           },
         ]"
       />
@@ -227,13 +225,16 @@ watch(() => modelValue, async (v) => {
             </template>
           </span>
         </div>
+
+        <div class="separator" />
       </div>
 
       <div class="dialog-default__action">
         <j-btn
           :loading="loading"
           variant="accent"
-          size="md"
+          size="lg"
+          pill
           @click="repay"
         >
           Repay {{ data?.asset.symbol }}

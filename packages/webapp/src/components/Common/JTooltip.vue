@@ -151,12 +151,11 @@ watchEffect((onCleanup) => {
 </style>
 
 <style lang="scss">
-$tooltip-bg-color: $surface-neutral-12;
-$tooltip-dark-bg-color: $dark;
+$tooltip-bg-color: $popover-bg;
 $tooltip-padding-y: 12px;
 $tooltip-padding-x: 12px;
 $tooltip-border-radius: 12px;
-$tooltip-border-color: $surface-neutral-10;
+$tooltip-border-color: $border-color;
 
 .tooltip-content {
   background-color: $tooltip-bg-color;
@@ -171,7 +170,7 @@ $tooltip-border-color: $surface-neutral-10;
   max-width: 300px;
   word-break: break-word;
   box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(25px);
+  backdrop-filter: blur(6px);
 
   &__arrow {
     background: $tooltip-bg-color;

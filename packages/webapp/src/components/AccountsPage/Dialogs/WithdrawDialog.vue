@@ -249,11 +249,6 @@ watch(collateralBalance, (b) => {
         >
         <span>Withdraw {{ data?.asset.symbol }}</span>
       </div>
-
-      <div class="dialog-balance">
-        <div class="dialog-balance__label">Amount:</div>
-        <div class="dialog-balance__value">{{ shortenNumber(availableToWithdrawWithPoolLimit) }} {{ data?.asset.symbol }}</div>
-      </div>
     </template>
 
     <div class="dialog-default__body">
@@ -261,9 +256,12 @@ watch(collateralBalance, (b) => {
         v-model="amount"
         :balance="availableToWithdrawWithPoolLimit"
         class="withdraw-dialog__input"
+        :price="data?.price"
+        label-left="Amount"
+        :label-right="`${formatPrice(availableToWithdrawWithPoolLimit ?? 0, 0, 4)} ${data?.asset.symbol}`"
         :rules="[
           (v) => {
-            return !isValidate || (v && Number(v) <= availableToWithdrawWithPoolLimit) || 'Withdraw limit exceeded'
+            return !isValidate || Number(v) <= availableToWithdrawWithPoolLimit || 'Withdraw limit exceeded'
           },
         ]"
       />
@@ -304,8 +302,9 @@ watch(collateralBalance, (b) => {
         <j-btn
           :loading="loading"
           variant="success"
-          size="md"
+          size="lg"
           @click="withdraw"
+          pill
         >
           Withdraw {{ data?.asset.symbol }}
         </j-btn>
