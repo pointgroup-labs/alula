@@ -10,13 +10,13 @@ $btn-variants: (
   accent: (
     bg: rgba(242, 176, 26, 0.4),
     color: #fff,
-    hover: rgba(242, 176, 26, 0.6),
+    hoverBg: rgba(242, 176, 26, 0.6),
   ),
 
   blue: (
     bg: rgba(0, 144, 255, 0.4),
     color: #fff,
-    hover: rgba(0, 144, 255, 0.6),
+    hoverBg: rgba(0, 144, 255, 0.6),
   ),
 
   outline-blue: (
@@ -25,7 +25,7 @@ $btn-variants: (
     outline: 1px solid rgba(0, 211, 238, 0.1),
     hoverBg: rgba(0, 211, 238, 0.1),
     hoverColor: $supply,
-    focusOutline: rgba(0, 211, 238, 0.4),
+    focusOutline: 1px solid rgba(0, 211, 238, 0.4),
   ),
 
   outline-accent: (
@@ -34,7 +34,7 @@ $btn-variants: (
     outline: 1px solid rgba(242, 176, 26, 0.1),
     hoverBg: rgba(252, 157, 16, 0.1),
     hoverColor: $borrow,
-    focusOutline: rgba(242, 176, 26, 0.4),
+    focusOutline: 1px solid rgba(242, 176, 26, 0.4),
   ),
 );
 

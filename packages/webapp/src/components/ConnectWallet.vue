@@ -37,7 +37,7 @@ function copy() {
     :loading="loading"
     :size="size"
     class="connect-wallet"
-    variant="light"
+    variant="ghost"
     @click="connectWallet"
   >
     Connect Wallet
@@ -65,7 +65,7 @@ function copy() {
         :loading="loading"
         :size="size"
         class="connect-wallet"
-        variant="ghost"
+        variant="outline-blue"
       >
         <address-icon :address="publicKey" /> {{ shortenAddress(publicKey) }}
       </j-btn>
@@ -89,7 +89,7 @@ function copy() {
     cursor: pointer;
 
     &:hover {
-      background-color: $surface-neutral-12;
+      background-color: color-mix(in oklab, $card 60%, transparent);
     }
   }
 }
