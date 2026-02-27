@@ -74,7 +74,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
         class="pool-card-pill"
         :style="{ '--color': '#f43f5e', '--background-color': 'rgb(244 63 94 / 10%)' }"
       >
-        APY 662.09%
+        APY {{ selectedPool.borrow_apy }}
       </div>
     </div>
 

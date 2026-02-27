@@ -63,7 +63,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
         class="pool-card-pill"
         :style="{ '--color': '#10b981', '--background-color': 'rgb(16 185 129 / 10%)' }"
       >
-        APY 662.09%
+        APY {{ selectedPool.deposit_apy }}
       </div>
     </div>
 
