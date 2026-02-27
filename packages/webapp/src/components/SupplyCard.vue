@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 import { calcFee } from '@alula/client-sdk/src/utils'
-import Decimal from 'decimal.js'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
 
@@ -46,7 +45,7 @@ async function supply() {
       return
     }
     if (!amount.value || amount.value <= 0) {
-      focusInput('.supply-dialog__input')
+      focusInput('.input-wrapper')
       return
     }
     marketsStore.poolActiveAddress = selectedPool?.value?.raw.pool.pool_address
@@ -68,23 +67,6 @@ async function supply() {
   }
 }
 
-const receiveAmountInUSD = computed(() => {
-  if (!amount.value || !selectedPool?.value?.price) {
-    return 0
-  }
-  return amount.value * selectedPool?.value?.price
-})
-
-const inputErrors = computed(() => {
-  if (amount.value > balance.value) {
-    return 'Insufficient balance'
-  }
-  if (supplyLimit.value > 0 && amount.value > supplyLimit.value) {
-    return 'Pool supply limit'
-  }
-  return ''
-})
-
 const debouncedFn = useDebounceFn((amount: number, apy: number, price: number) => calculateRewardsEarnings(amount, apy, price), 500)
 
 function calculateRewardsEarnings(
@@ -97,8 +79,8 @@ function calculateRewardsEarnings(
   const daily = deposit * dailyRate * price
   const yearly = deposit * apy * price
   return {
-    daily,
-    yearly,
+    daily: daily.toFixed(daily > 1 ? 2 : 4),
+    yearly: yearly.toFixed(yearly > 1 ? 2 : 4),
   }
 }
 
@@ -130,36 +112,6 @@ const options = computed(() => {
     }
   }) ?? []
 })
-
-const selectedAmount = ref<string | null>(null)
-
-const amountActions = ['25%', '50%', '75%', 'max']
-
-function handleAmount(percent: string | null) {
-  if (!percent) {
-    return
-  }
-
-  selectedAmount.value = percent
-  amount.value = max(percent.replace('%', ''))
-}
-
-function max(percent?: string | number) {
-  const b = new Decimal(balance.value)
-  const f = new Decimal(POOL_REMAINING_BALANCE + txFee.value + reserveAmount.value)
-  const result = b.minus(f).toNumber()
-  const maxVal = Math.max(Math.min(result, supplyLimit.value || balance.value), 0) || 0
-  const decimals = String(maxVal).includes('e') ? getZeroCountAfterDecimal(maxVal) : null
-  let maxAmount = decimals ? maxVal.toFixed(decimals) : String(maxVal)
-  const [, dec] = maxAmount.toString().split('.')
-  if (!decimals && dec && dec.length > market.assetDecimals.value) {
-    maxAmount = truncatePercent(Number(maxAmount), market.assetDecimals.value)
-  }
-  if (percent && percent !== 'max') {
-    return Number(maxAmount) * (Number(percent) / 100)
-  }
-  return maxAmount
-}
 
 watch(selectedOption, (opt) => {
   if (!opt) {
@@ -195,76 +147,24 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
 
     <div class="supply-card__body">
       <div class="input-wrapper">
-        <div class="wallet-balance">
-          <div class="wallet-balance__label">You Supply</div>
-          <div class="wallet-balance__value">{{ formatPrice(balance, 2, 5) }} {{ selectedPool?.asset.symbol }}</div>
-        </div>
-
-        <div
-          class="input-block info-card"
-          :class="{ active: amount && amount > 0, error: inputErrors }"
-        >
-          <div class="input-block__top">
-            <j-select
-              v-model="selectedOption"
-              :options="options"
-            >
-              <template #label>
-                <img
-                  :src="selectedOption?.icon"
-                  alt="asset icon"
-                  style="width: 24px; height: 24px; margin-right: 2px;"
-                >
-                {{ selectedOption?.label }}
-              </template>
-
-              <template #option="{ option }">
-                <img
-                  v-if="option?.icon"
-                  :src="option?.icon"
-                  alt="asset icon"
-                  style="width: 24px; height: 24px; margin-right: 2px;"
-                >
-                {{ option.label }}
-              </template>
-            </j-select>
-
-            <j-input
-              v-model="amount"
-              size="sm"
-              placeholder="0.00"
-              only-numbers
-              @keyup="selectedAmount = null"
-            />
-          </div>
-          <div class="input-block__btns">
-            <div class="select-amount">
-              <span
-                v-for="value in amountActions"
-                :key="value"
-                :class="{ active: value === selectedAmount }"
-                @click="handleAmount(value)"
-              >{{ value }}</span>
-            </div>
-            <div class="amount-to-dollar">
-              ${{ formatPrice(receiveAmountInUSD, 2, 2) }}
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-if="inputErrors"
-          class="input-errors"
-        >
-          {{ inputErrors }}
-        </div>
+        <input-widget
+          v-model="amount"
+          :balance="balance"
+          :limit="Number(supplyLimit) || 0"
+          :fee="POOL_REMAINING_BALANCE + txFee + reserveAmount"
+          :price="selectedPool?.price"
+          label-left="You Supply"
+          :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${selectedPool?.asset.symbol}`"
+          :rules="[
+            (v) => {
+              return Number(v) < balance || 'Insufficient balance'
+            },
+            (v) => {
+              return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
+            },
+          ]"
+        />
       </div>
-
-      <warning-block
-        v-if="!isCanSupply"
-        :text="attentionText"
-        :is-warning="!isCanSupply"
-      />
 
       <div class="collateral mt-3">
         <div class="collateral-label">Collateral Only</div>
@@ -371,6 +271,13 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
         </div>
       </div>
 
+      <warning-block
+        v-if="!isCanSupply"
+        :text="attentionText"
+        :is-warning="!isCanSupply"
+        class="mt-3"
+      />
+
       <div class="supply-card__action mt-3">
         <market-dialog-action-btn
           variant="blue"
@@ -420,97 +327,6 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
       &__value {
         font-family: $font-JetBrainsMono;
       }
-    }
-
-    .input-block {
-      padding: 0;
-
-      &.active {
-        background-color: rgba(0, 211, 238, 0.03);
-        border-color: rgba(0, 211, 238, 0.3);
-      }
-
-      &.error {
-        background-color: rgb(244 63 94 / 10%);
-        border-color: #f43f5e;
-      }
-
-      &__top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 16px;
-
-        .input-group {
-          border: none !important;
-        }
-
-        .input-wrapper {
-          height: 100%;
-        }
-
-        input {
-          height: 100%;
-          text-align: right;
-          font-family: $font-JetBrainsMono;
-          font-weight: 500;
-          font-size: 1.4rem;
-          color: $foreground;
-
-          &::placeholder {
-            color: $muted-foreground;
-            opacity: 0.5;
-          }
-        }
-      }
-
-      &__btns {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 16px 12px;
-      }
-
-      .select-amount {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-        font-size: 12px;
-        color: $muted-foreground;
-
-        span {
-          padding: 4px 10px;
-          font-size: 11px;
-          text-transform: uppercase;
-          border-radius: 6px;
-          color: $muted-foreground;
-          background-color: color-mix(in oklab, $new-secondary 60%, transparent);
-          transition: all 0.1s ease;
-          cursor: pointer;
-
-          &:hover {
-            color: $foreground;
-          }
-
-          &.active {
-            color: $supply;
-            background-color: rgba(0, 211, 238, 0.15);
-          }
-        }
-      }
-
-      .amount-to-dollar {
-        font-size: 12px;
-        font-family: $font-JetBrainsMono;
-        color: $muted-foreground;
-      }
-    }
-
-    .input-errors {
-      color: #f43f5e;
-      margin: 8px 0 12px;
-      font-size: 12px;
     }
   }
 

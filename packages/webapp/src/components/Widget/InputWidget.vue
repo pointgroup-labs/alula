@@ -1,18 +1,22 @@
 <script lang="ts" setup>
 import type { Size } from 'bootstrap-vue-next'
 import Decimal from 'decimal.js'
+import { POOL_REMAINING_BALANCE } from '~/config'
 import { formatPrice, getZeroCountAfterDecimal, parseFormattedPrice } from '~/utils'
 
 const {
   balance,
   price,
-  size = 'lg',
+  size = 'md',
   disabled,
   readonly = false,
   fee = 0,
+  reserveAmount = 0,
   format = false,
   limit,
   modelValue,
+  error,
+  rules,
 } = defineProps<{
   size?: Size
   balance: number
@@ -25,9 +29,11 @@ const {
   icon?: string
   readonly?: boolean
   fee?: number
+  reserveAmount?: number
   format?: boolean
   rules?: Array<(val: string | number) => true | string>
   modelValue?: string | number
+  error?: string
 }>()
 
 const emit = defineEmits(['update:modelValue', 'maxHandler'])
@@ -35,8 +41,6 @@ const emit = defineEmits(['update:modelValue', 'maxHandler'])
 const slot = defineSlots()
 
 const { assetDecimals } = useMarketActions()
-
-const wallet = useWallet()
 
 const val = computed({
   get() {
@@ -46,11 +50,28 @@ const val = computed({
     emit('update:modelValue', val)
   },
 })
-const resetValidation = ref(false)
 
-function max() {
+const ruleError = computed(() => {
+  if (!rules?.length) {
+    return ''
+  }
+  for (const rule of rules) {
+    const result = rule(val.value)
+    if (result !== true) {
+      return result
+    }
+  }
+  return ''
+})
+
+const displayError = computed(() => error || ruleError.value)
+
+const amountActions = ['25%', '50%', '75%', 'max']
+const selectedAmount = ref<string | null>(null)
+
+function max(percent?: string | number) {
   const b = new Decimal(balance)
-  const f = new Decimal(fee)
+  const f = new Decimal(POOL_REMAINING_BALANCE + fee + reserveAmount)
   const result = b.minus(f).toNumber()
   const maxVal = Math.max(Math.min(result, limit || balance), 0) || 0
   const decimals = String(maxVal).includes('e') ? getZeroCountAfterDecimal(maxVal) : null
@@ -59,131 +80,227 @@ function max() {
   if (!decimals && dec && dec.length > assetDecimals.value) {
     maxAmount = truncatePercent(Number(maxAmount), assetDecimals.value)
   }
-  val.value = maxAmount
-  resetValidation.value = true
-  nextTick(() => {
-    resetValidation.value = false
-    emit('maxHandler', val.value)
-  })
+  if (percent && percent !== 'max') {
+    return Number(maxAmount) * (Number(percent) / 100)
+  }
+  return maxAmount
+}
+
+function handleAmount(percent: string | null) {
+  if (!percent) { return }
+  selectedAmount.value = percent
+  const result = max(percent.replace('%', ''))
+  val.value = String(result)
+  emit('maxHandler', val.value)
 }
 
 const inputDesc = computed(() => {
-  if (!val.value || !price) {
+  if (!price) {
     return
   }
   const stakedSol = format ? parseFormattedPrice(val.value) : Number(val.value)
   const solToUsd = stakedSol * Number(price)
   return `$${formatPrice(solToUsd, 2, 2)}`
 })
-
-function handleClick(e: any) {
-  const target = e.target
-  if (target.closest('.j-input__label') || target.closest('.j-input__desc')) {
-    return
-  }
-  const current = e.currentTarget
-  current.querySelector('input')?.focus()
-}
-
-const forceValidation = ref(false)
-
-watch(() => balance, () => {
-  forceValidation.value = true
-  nextTick(() => {
-    forceValidation.value = false
-  })
-})
 </script>
 
 <template>
-  <j-input
-    v-model="val"
-    class="input-widget"
-    :size="size"
-    placeholder="0.00"
-    only-numbers
-    :force-validation="forceValidation"
-    :reset-validation="resetValidation"
-    :disabled="disabled"
-    :readonly="readonly"
-    :rules="rules"
-    @click="handleClick"
-  >
-    <template #label>
-      <span>{{ labelLeft }}</span>
+  <div class="input-widget">
+    <div
+      v-if="labelLeft || labelRight || slot['label-right']"
+      class="input-widget__label"
+    >
+      <span class="input-widget__label-left">{{ labelLeft }}</span>
       <slot
         v-if="slot['label-right']"
         name="label-right"
       />
       <span
         v-else
-        class="balance"
+        class="input-widget__label-right"
       >
         {{ labelRight }}
       </span>
-    </template>
-    <template #description>
-      <div class="price-label">
-        {{ inputDesc }}
-      </div>
-    </template>
+    </div>
 
-    <template
-      v-if="icon || slot.prepend"
-      #prepend
+    <div
+      class="input-block"
+      :class="{ active: val && Number(val) > 0, error: displayError }"
     >
-      <img
-        v-if="icon"
-        :src="icon"
-        alt="token icon"
-        class="j-input__icon"
-      >
-      <slot
-        v-else
-        name="prepend"
-      />
-    </template>
-    <template #append>
-      <j-btn
-        :disabled="!wallet.publicKey"
-        variant="light"
-        size="sm"
-        class="j-input__btn"
-        @click="max"
-      >
-        MAX
-      </j-btn>
-    </template>
-  </j-input>
+      <div class="input-block__top">
+        <template v-if="icon || slot.prepend">
+          <img
+            v-if="icon"
+            :src="icon"
+            alt="token icon"
+            class="input-block__icon"
+          >
+          <slot
+            v-else
+            name="prepend"
+          />
+        </template>
+        <j-input
+          v-model="val"
+          :size="size"
+          placeholder="0.00"
+          only-numbers
+          :disabled="disabled"
+          :readonly="readonly"
+          @keypress="selectedAmount = null"
+        />
+      </div>
+      <div class="input-block__btns">
+        <div class="select-amount">
+          <span
+            v-for="value in amountActions"
+            :key="value"
+            :class="{ active: value === selectedAmount }"
+            @click="handleAmount(value)"
+          >{{ value }}</span>
+        </div>
+        <div
+          v-if="inputDesc"
+          class="amount-to-dollar"
+        >
+          {{ inputDesc }}
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="displayError"
+      class="input-widget__error"
+    >
+      {{ displayError }}
+    </div>
+  </div>
 </template>
 
 <style lang="scss">
 .input-widget {
-  .balance {
-    font-size: 14px;
-    margin-left: 16px;
-    opacity: 0.8;
+  display: flex;
+  flex-direction: column;
+
+  &__label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: $muted-foreground;
+    margin-bottom: 8px;
   }
 
-  .price-label {
-    height: 14px;
-    text-align: right;
+  &__label-right {
+    font-family: $font-JetBrainsMono;
   }
 
-  .input-group {
-    background-color: $surface-neutral-08;
-    border-radius: $spacing-12;
-    border: none;
+  &__error {
+    color: #f43f5e;
+    margin: 8px 0 0;
+    font-size: 12px;
   }
 
-  .j-input__btn {
-    border-radius: 4px;
-    width: max-content;
-    text-transform: uppercase;
+  .info-card {
+    background-color: color-mix(in oklab, $new-secondary 30%, transparent);
+    border: 1px solid $border-color;
+    border-radius: 14px;
+    transition: border-color 0.2s ease;
+  }
 
-    .btn-content {
-      transform: none;
+  .input-block {
+    padding: 0;
+    background-color: color-mix(in oklab, $new-secondary 30%, transparent);
+    border: 1px solid $border-color;
+    border-radius: 14px;
+    transition: border-color 0.2s ease;
+
+    &.active {
+      background-color: rgba(0, 211, 238, 0.03);
+      border-color: rgba(0, 211, 238, 0.3);
     }
+
+    &.error {
+      background-color: rgb(244 63 94 / 10%);
+      border-color: #f43f5e;
+    }
+
+    &__top {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      gap: 8px;
+
+      .input-group {
+        border: none !important;
+        background: transparent;
+      }
+
+      input {
+        height: 100%;
+        text-align: right;
+        font-family: $font-JetBrainsMono;
+        font-weight: 500;
+        font-size: 1.4rem;
+        color: $foreground;
+
+        &::placeholder {
+          color: $muted-foreground;
+          opacity: 0.5;
+        }
+      }
+    }
+
+    &__btns {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px 12px;
+    }
+
+    &__icon {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+  }
+
+  .select-amount {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 12px;
+    color: $muted-foreground;
+
+    span {
+      padding: 4px 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      border-radius: 6px;
+      color: $muted-foreground;
+      background-color: color-mix(in oklab, $new-secondary 60%, transparent);
+      transition: all 0.1s ease;
+      cursor: pointer;
+
+      &:hover {
+        color: $foreground;
+      }
+
+      &.active {
+        color: $supply;
+        background-color: rgba(0, 211, 238, 0.15);
+      }
+    }
+  }
+
+  .amount-to-dollar {
+    font-size: 12px;
+    font-family: $font-JetBrainsMono;
+    color: $muted-foreground;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 16px;
   }
 }
 </style>

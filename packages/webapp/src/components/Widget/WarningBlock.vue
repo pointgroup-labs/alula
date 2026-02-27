@@ -24,12 +24,12 @@ const {
   display: flex;
   align-items: center;
   gap: $spacing-8;
-  color: #fff;
+  color: $foreground;
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
   line-height: 16px;
-  border-radius: 5px;
+  border-radius: 14px;
   border: 1px solid $warning;
   background: rgba(228, 156, 11, 0.15);
 

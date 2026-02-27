@@ -119,10 +119,11 @@ watch(dialog, async (v) => {
         :balance="balance"
         :limit="Number(supplyLimit) || 0"
         :fee="POOL_REMAINING_BALANCE + txFee + reserveAmount"
+        :price="poolData?.price"
         class="dialog-default__input"
         :rules="[
           (v) => {
-            return v && Number(v) < balance || 'Insufficient balance'
+            return Number(v) < balance || 'Insufficient balance'
           },
           (v) => {
             return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
