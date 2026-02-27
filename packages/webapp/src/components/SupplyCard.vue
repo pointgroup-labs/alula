@@ -3,35 +3,30 @@ import type { MarketTableItem } from '~/types/table'
 import { calcFee } from '@alula/client-sdk/src/utils'
 import Decimal from 'decimal.js'
 import { POOL_REMAINING_BALANCE } from '~/config'
-import { /* focusInput, */ formatPrice } from '~/utils'
+import { focusInput, formatPrice } from '~/utils'
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
 
-// const dialog = defineModel({ default: false })
-
 const route = useRoute()
 const router = useRouter()
-
-const { generateExplorerLink } = useExplorerLink()
 
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
 const amount = toRef(market, 'depositAmount')
 
-// const wallet = useWallet()
-// const publicKey = computed(() => wallet.publicKey)
+const wallet = useWallet()
+const publicKey = computed(() => wallet.publicKey)
 
 const {
-//   marketClient,
+  marketClient,
   collateralOnly,
   balance,
   txFee,
-//   reloadFee,
   isLoadingFee,
   supplyLimit,
   limitLabel,
-  contractAddress,
+  isLoading,
   isCanSupply,
   attentionText,
 } = useSupplyDialog(selectedPool)
@@ -45,53 +40,33 @@ const marketFee = computed(() => {
 
 const reserveAmount = computed(() => selectedPool?.value?.raw.pool.token_symbol === 'native' ? 2 : 0)
 
-// async function supply() {
-//   try {
-//     if (!publicKey.value || !selectedPool?.value?.raw.pool.pool_address) {
-//       return
-//     }
-//     if (!amount.value || amount.value <= 0) {
-//       focusInput('.supply-dialog__input')
-//       return
-//     }
-//     marketsStore.poolActiveAddress = selectedPool?.value?.raw.pool.pool_address
+async function supply() {
+  try {
+    if (!publicKey.value || !selectedPool?.value?.raw.pool.pool_address) {
+      return
+    }
+    if (!amount.value || amount.value <= 0) {
+      focusInput('.supply-dialog__input')
+      return
+    }
+    marketsStore.poolActiveAddress = selectedPool?.value?.raw.pool.pool_address
 
-//     const marketProps = {
-//       market: marketsStore.selectedMarketName,
-//       client: marketClient.value!,
-//       pool_address: selectedPool?.value?.raw.pool.pool_address,
-//       amount: amount.value,
-//       asset_data: selectedPool?.value?.raw.pool.name,
-//     }
-//     collateralOnly.value
-//       ? await market.addCollateral(marketProps)
-//       : await market.deposit(marketProps)
+    const marketProps = {
+      market: marketsStore.selectedMarketName,
+      client: marketClient.value!,
+      pool_address: selectedPool?.value?.raw.pool.pool_address,
+      amount: amount.value,
+      asset_data: selectedPool?.value?.raw.pool.name,
+    }
+    collateralOnly.value
+      ? await market.addCollateral(marketProps)
+      : await market.deposit(marketProps)
 
-//     marketsStore.dialogSupply = false
-//   } finally {
-//     marketsStore.poolActiveAddress = undefined
-//   }
-// }
-
-// let interval: string | number | NodeJS.Timeout | undefined
-
-// watch(dialog, async (v) => {
-//   clearInterval(interval)
-//   if (!v) {
-//     setTimeout(() => {
-//       amount.value = 0
-//     }, CLEAR_DIALOG_TIMEOUT)
-//     collateralOnly.value = false
-//     return
-//   }
-
-//   interval = setInterval(() => {
-//     reloadFee.value = true
-//     nextTick(() => {
-//       reloadFee.value = false
-//     })
-//   }, RELOAD_FEE_INTERVAL)
-// })
+    marketsStore.dialogSupply = false
+  } finally {
+    marketsStore.poolActiveAddress = undefined
+  }
+}
 
 const receiveAmountInUSD = computed(() => {
   if (!amount.value || !selectedPool?.value?.price) {
@@ -108,6 +83,39 @@ const inputErrors = computed(() => {
     return 'Pool supply limit'
   }
   return ''
+})
+
+const debouncedFn = useDebounceFn((amount: number, apy: number, price: number) => calculateRewardsEarnings(amount, apy, price), 500)
+
+function calculateRewardsEarnings(
+  deposit: number,
+  apyPercent: number,
+  price: number,
+) {
+  const apy = apyPercent / 100
+  const dailyRate = (1 + apy) ** (1 / 365) - 1
+  const daily = deposit * dailyRate * price
+  const yearly = deposit * apy * price
+  return {
+    daily,
+    yearly,
+  }
+}
+
+const rewardsEarnings = computedAsync(async () => {
+  if (!amount.value || amount.value === 0) {
+    return {
+      daily: 0,
+      yearly: 0,
+    }
+  }
+  const apyRaw = selectedPool?.value?.deposit_apy ?? '0'
+  const apy = Number(apyRaw.replace('%', ''))
+  const price = selectedPool?.value.price ?? 0
+  return debouncedFn(
+    Number(amount.value),
+    apy,
+    price)
 })
 
 const selectedOption = ref()
@@ -183,9 +191,7 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
 </script>
 
 <template>
-  <div
-    class="supply-card"
-  >
+  <div class="supply-card">
 
     <div class="supply-card__body">
       <div class="input-wrapper">
@@ -254,81 +260,13 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
         </div>
       </div>
 
-  
-
-      <div
-        v-if="amount > 0 && selectedPool"
-        class="dialog-info-table"
-      >
-        <!-- Supply Limit -->
-        <div
-          class="dialog-info-table__item"
-        >
-          <span>Supply Limit</span>
-          <span>{{ limitLabel }} {{ limitLabel !== '-' ? selectedPool?.asset.symbol : '' }}</span>
-        </div>
-
-        <!-- Contract Address -->
-        <div
-          class="dialog-info-table__item"
-        >
-          <span>Contract</span>
-          <a
-            :href="generateExplorerLink(String(contractAddress), 'contract')"
-            target="_blank"
-          >{{ shortenAddress(String(contractAddress), 5) }}
-            <i-app-export-icon />
-          </a>
-        </div>
-
-        <!-- Open LTV  -->
-        <div
-          class="dialog-info-table__item"
-        >
-          <span>Open LTV </span>
-          <span>{{ selectedPool?.open_ltv }}</span>
-        </div>
-
-        <!-- Util Rate -->
-        <div
-          class="dialog-info-table__item"
-        >
-          <span>Utilization Rate</span>
-          <span>{{ selectedPool?.utilization_rate }}</span>
-        </div>
-
-        <!-- Market Fee -->
-        <div
-          class="dialog-info-table__item"
-        >
-          <span>Operation Fee</span>
-
-          <span>{{ formatPrice(marketFee) }} XLM</span>
-        </div>
-
-        <!-- Transaction Fee -->
-        <div
-          class="dialog-info-table__item"
-        >
-          <span>Transaction Fee</span>
-          <j-loading-spinner
-            v-if="isLoadingFee"
-            width="14px"
-            style="margin:0 20px 0 auto;"
-          />
-          <span v-else>{{ txFee }} XLM</span>
-        </div>
-
-        <div class="separator" />
-      </div>
-
       <warning-block
         v-if="!isCanSupply"
         :text="attentionText"
         :is-warning="!isCanSupply"
       />
 
-      <div class="collateral">
+      <div class="collateral mt-3">
         <div class="collateral-label">Collateral Only</div>
 
         <j-toggle
@@ -338,25 +276,112 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
         />
       </div>
 
-          <div class="info-card">
-        wef
+      <div class="info-card mt-3 info-supply">
+        <div class="info-supply__header">
+          <div class="info-title">
+            Supply APY
+          </div>
+          <div class="info-apy">
+            {{ selectedPool?.deposit_apy }}
+          </div>
+        </div>
+        <div class="info-supply__body">
+          <div class="info-detail">
+            <div class="info-detail__title">
+              Daily
+            </div>
+            <div class="info-detail__value">
+              {{ rewardsEarnings?.daily ? `$${formatPrice(rewardsEarnings?.daily)}` : '--' }}
+            </div>
+          </div>
+          <div class="info-detail">
+            <div class="info-detail__title">
+              Est. Earnings / yr
+            </div>
+            <div class="info-detail__value">
+              {{ rewardsEarnings?.yearly ? `$${formatPrice(rewardsEarnings?.yearly)}` : '--' }}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- <div class="extra-info">
-        <div class="extra-info__label">Supply APY</div>
-        <div class="extra-info__value">{{ selectedPool?.deposit_apy }}</div>
-      </div> -->
+      <div
+        v-if="amount && amount > 0 && selectedPool"
+        class="info-card mt-3 info-summary"
+      >
+        <div class="info-summary__header">
+          Transaction Summary
+        </div>
 
-      <div class="supply-card__action">
-        <!-- <market-dialog-action-btn
+        <div class="summary-list">
+          <!-- Supply Limit -->
+          <div class="summary-list__item">
+            <div class="label">
+              Supply Limit
+            </div>
+            <div class="value">
+              {{ limitLabel }} {{ limitLabel !== '-' ? selectedPool?.asset.symbol : '' }}
+            </div>
+          </div>
+
+          <!-- Open LTV -->
+          <div class="summary-list__item">
+            <div class="label">
+              Open LTV
+            </div>
+            <div class="value">
+              {{ selectedPool?.open_ltv }}
+            </div>
+          </div>
+
+          <!-- Utilization Rate -->
+          <div class="summary-list__item">
+            <div class="label">
+              Utilization Rate
+            </div>
+            <div class="value">
+              {{ selectedPool?.utilization_rate }}
+            </div>
+          </div>
+
+          <!-- Operation Fee -->
+          <div class="summary-list__item">
+            <div class="label">
+              Operation Fee
+            </div>
+            <div class="value">
+              {{ formatPrice(marketFee) }} XLM
+            </div>
+          </div>
+
+          <!-- Transaction Fee -->
+          <div class="summary-list__item">
+            <div class="label">
+              Transaction Fee
+            </div>
+            <div class="value">
+              <j-loading-spinner
+                v-if="isLoadingFee"
+                width="14px"
+                style="margin:0 20px 0 auto;"
+              />
+              <span v-else>{{ txFee }} XLM</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="supply-card__action mt-3">
+        <market-dialog-action-btn
           variant="blue"
           :loading="isLoading"
-          :pool="poolData?.raw.pool"
+          :pool="selectedPool?.raw.pool"
           :disabled="!isCanSupply || amount >= balance"
+          pill
           @click-handler="supply"
         >
-          Supply {{ poolData?.asset.symbol }}
-        </market-dialog-action-btn> -->
+          <i-metrics-complete class="complete-icon" /> Supply {{ selectedPool?.asset.symbol }}
+        </market-dialog-action-btn>
       </div>
     </div>
   </div>
@@ -377,6 +402,7 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
     border: 1px solid $border-color;
     border-radius: 14px;
     transition: border-color 0.2s ease;
+    padding: 16px;
   }
 
   .input-wrapper {
@@ -397,6 +423,8 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
     }
 
     .input-block {
+      padding: 0;
+
       &.active {
         background-color: rgba(0, 211, 238, 0.03);
         border-color: rgba(0, 211, 238, 0.3);
@@ -490,9 +518,113 @@ stopRef.stop = watch(() => selectedPool?.value, (val) => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 12px;
     font-size: 14px;
     color: $muted-foreground;
+  }
+
+  .info-supply {
+    background-color: rgba(0, 211, 238, 0.04);
+    border-color: rgba(0, 211, 238, 0.1);
+
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+
+      .info-title {
+        font-size: 12px;
+        color: $muted-foreground;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        &::before {
+          content: '';
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background-color: #22d3ee;
+          display: block;
+        }
+      }
+
+      .info-apy {
+        color: #22d3ee;
+        font-family: $font-JetBrainsMono;
+        font-weight: 700;
+        font-size: 20px;
+      }
+    }
+
+    &__body {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+
+      .info-detail {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        overflow: hidden;
+
+        &__title {
+          font-size: 10px;
+          text-transform: uppercase;
+          color: $muted-foreground;
+          opacity: 0.7;
+        }
+
+        &__value {
+          width: 100%;
+          font-family: $font-JetBrainsMono;
+          font-size: 14px;
+          font-weight: 600;
+          color: $foreground;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+  }
+
+  .info-summary {
+    padding: 0;
+
+    &__header {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: $muted-foreground;
+      padding: 10px 16px;
+      border-bottom: 1px solid $border-color;
+    }
+
+    .summary-list {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      &__item {
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+        color: $foreground;
+
+        .label {
+          color: $muted-foreground;
+        }
+
+        .value {
+          font-family: $font-JetBrainsMono;
+          opacity: 0.8;
+        }
+      }
+    }
   }
 }
 </style>

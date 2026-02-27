@@ -100,6 +100,7 @@ async function emitClickHandler() {
     :loading="isLoading || isConnectionLoading"
     v-bind="props"
     :disabled="!publicKey ? false : disabled"
+    class="market-action-btn"
     @click="emitClickHandler"
   >
     <template v-if="!publicKey">
@@ -111,3 +112,22 @@ async function emitClickHandler() {
     </template>
   </j-btn>
 </template>
+
+<style lang="scss">
+.market-action-btn {
+  &.btn-blue {
+    width: 100%;
+    background-color: $supply;
+    color: $dark;
+
+    &:hover {
+      background-color: lighten($supply, 10%);
+    }
+  }
+
+  .complete-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+</style>
