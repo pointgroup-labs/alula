@@ -259,6 +259,7 @@ watch(collateralBalance, (b) => {
         :price="data?.price"
         label-left="Amount"
         :label-right="`${formatPrice(availableToWithdrawWithPoolLimit ?? 0, 0, 4)} ${data?.asset.symbol}`"
+        :reset="dialog"
         :rules="[
           (v) => {
             return !isValidate || Number(v) <= availableToWithdrawWithPoolLimit || 'Withdraw limit exceeded'
@@ -303,8 +304,8 @@ watch(collateralBalance, (b) => {
           :loading="loading"
           variant="success"
           size="lg"
-          @click="withdraw"
           pill
+          @click="withdraw"
         >
           Withdraw {{ data?.asset.symbol }}
         </j-btn>

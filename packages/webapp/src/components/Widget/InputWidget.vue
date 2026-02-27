@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import type { Size } from 'bootstrap-vue-next'
 import Decimal from 'decimal.js'
-import { POOL_REMAINING_BALANCE } from '~/config'
 import { formatPrice, getZeroCountAfterDecimal, parseFormattedPrice } from '~/utils'
 
 const {
@@ -11,13 +10,13 @@ const {
   disabled,
   readonly = false,
   fee = 0,
-  reserveAmount = 0,
   format = false,
   limit,
   modelValue,
   error,
   rules,
   variant = '',
+  reset = false,
 } = defineProps<{
   size?: Size
   balance: number
@@ -30,12 +29,12 @@ const {
   icon?: string
   readonly?: boolean
   fee?: number
-  reserveAmount?: number
   format?: boolean
   rules?: Array<(val: string | number) => true | string>
   modelValue?: string | number
   error?: string
   variant?: 'supply' | 'borrow'
+  reset?: boolean
 }>()
 
 const emit = defineEmits(['update:modelValue', 'maxHandler'])
@@ -74,7 +73,7 @@ const selectedAmount = ref<string | null>(null)
 
 function max(percent?: string | number) {
   const b = new Decimal(balance)
-  const f = new Decimal(POOL_REMAINING_BALANCE + fee + reserveAmount)
+  const f = new Decimal(fee)
   const result = b.minus(f).toNumber()
   const maxVal = Math.max(Math.min(result, limit || balance), 0) || 0
   const decimals = String(maxVal).includes('e') ? getZeroCountAfterDecimal(maxVal) : null
@@ -104,6 +103,11 @@ const inputDesc = computed(() => {
   const stakedSol = format ? parseFormattedPrice(val.value) : Number(val.value)
   const solToUsd = stakedSol * Number(price)
   return `$${formatPrice(solToUsd, 2, 2)}`
+})
+
+watch(() => reset, () => {
+  val.value = ''
+  selectedAmount.value = null
 })
 </script>
 

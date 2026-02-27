@@ -118,6 +118,7 @@ watch(dialog, async (v) => {
         class="dialog-default__input"
         label-left="Balance"
         :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${poolData?.asset.symbol}`"
+        :reset="dialog"
         :rules="[
           (v) => {
             return Number(v) < balance || 'Insufficient balance'
@@ -219,6 +220,7 @@ watch(dialog, async (v) => {
         <market-dialog-action-btn
           variant="blue"
           pill
+          size="lg"
           :loading="isLoading"
           :pool="poolData?.raw.pool"
           :disabled="!isCanSupply || amount >= balance"

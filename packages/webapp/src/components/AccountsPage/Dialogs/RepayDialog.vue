@@ -199,9 +199,11 @@ watch(() => modelValue, async (v) => {
         label-left="Balance"
         variant="borrow"
         :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${data?.asset.symbol}`"
+        :reset="dialog"
+        :price="Number(data?.price ?? 0)"
         :rules="[
           (v) => {
-            return !isValidate || Number(v) < balance || 'Insufficient balance'
+            return !isValidate || Number(v) <= balance || 'Insufficient balance'
           },
         ]"
       />

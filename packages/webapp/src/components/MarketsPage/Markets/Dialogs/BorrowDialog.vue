@@ -130,6 +130,8 @@ watch(dialog, async (v) => {
         :fee="POOL_REMAINING_BALANCE"
         label-left="Available"
         :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${data?.asset.symbol}`"
+        :price="poolData?.price"
+        :reset="dialog"
         :rules="[
           (v: any) => {
             return Number(v) < availableToBorrow || 'Borrow limit exceeded'
@@ -241,6 +243,7 @@ watch(dialog, async (v) => {
         <market-dialog-action-btn
           variant="accent"
           pill
+          size="lg"
           :loading="isLoading"
           :pool="data?.raw.pool"
           :disabled="!agree || !isCanBorrow || amount > availableToBorrow"
