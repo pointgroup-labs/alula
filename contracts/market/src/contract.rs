@@ -72,13 +72,10 @@ pub trait Market {
     // # Arguments
     // * `token_address` - address of a corresponding Soroban Asset Contract
     // * `token_ticker` - symbol which represents a pool's token ticker
-    // * `salt` - optional salt data, which, when provided, is used along with `token_address` to
-    //   derive a deterministic pool address
     // * `pool_config` - optional `PoolConfig` data. If not provided, a default pool config is used
     fn initialize_pool(
         e: Env,
         token_address: Address,
-        salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError>;
 
@@ -714,13 +711,12 @@ impl Market for MarketContract {
     fn initialize_pool(
         e: Env,
         token_address: Address,
-        salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError> {
         require_admin(&e);
         storage::extend_instance(&e);
 
-        process_initialize_pool(&e, &token_address, &salt, &pool_config)
+        process_initialize_pool(&e, &token_address, &pool_config)
     }
 
     fn initialize_multiply_pair(

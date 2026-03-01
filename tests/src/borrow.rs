@@ -433,8 +433,8 @@ fn test_borrow_w_different_token_decimals() {
     let market = MarketClient::new(&e, &market_id);
     market.update_market_status(&0);
 
-    let collateral_pool = market.initialize_pool(&collateral_asset.token_address, &None, &None);
-    let borrowed_pool = market.initialize_pool(&borrowed_token_address, &None, &None);
+    let collateral_pool = market.initialize_pool(&collateral_asset.token_address, &None);
+    let borrowed_pool = market.initialize_pool(&borrowed_token_address, &None);
 
     // Oracle feeds prices for pool addresses (not token addresses)
     oracle_client.set_data(

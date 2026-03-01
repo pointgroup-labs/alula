@@ -186,7 +186,7 @@ impl TestMarketFixture<'_> {
             token_address: gold_token_address,
         } = setup_test_asset(&e, &gold_admin, &users);
         let gold_pool_address =
-            contract_client.initialize_pool(&gold_token_address, &None, &Some(pool_config.clone()));
+            contract_client.initialize_pool(&gold_token_address, &Some(pool_config.clone()));
 
         // BTC
         let btc_admin = Address::generate(&e);
@@ -196,11 +196,11 @@ impl TestMarketFixture<'_> {
             token_address: btc_token_address,
         } = setup_test_asset(&e, &btc_admin, &users);
         let btc_pool_address =
-            contract_client.initialize_pool(&btc_token_address, &None, &Some(pool_config.clone()));
+            contract_client.initialize_pool(&btc_token_address, &Some(pool_config.clone()));
 
         // USDC
         let usdc_pool_address =
-            contract_client.initialize_pool(&usdc_token_address, &None, &Some(pool_config.clone()));
+            contract_client.initialize_pool(&usdc_token_address, &Some(pool_config.clone()));
 
         contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
 

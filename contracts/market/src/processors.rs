@@ -2,7 +2,7 @@ use insurance_fund_interface::{CoverageStatus, InsuranceFundClient, IssueRequest
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Vec, map as smap,
+    Address, Env, Vec, map as smap,
     token::{self, TokenClient},
 };
 
@@ -94,14 +94,10 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
 pub fn process_initialize_pool(
     e: &Env,
     token_address: &Address,
-    salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
 ) -> Result<Address, MCError> {
-    let pool_address: Address = if let Some(salt) = salt {
-        e.deployer().with_address(token_address.clone(), salt.clone()).deployed_address()
-    } else {
-        token_address.clone()
-    };
+    // NB: We can remove either `pool_address` or `token_address` from the `Pool` struct later
+    let pool_address: Address = token_address.clone();
 
     Pool::require_does_not_exist(e, &pool_address)?;
 
