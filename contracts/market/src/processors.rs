@@ -28,7 +28,7 @@ pub fn process_submit_requests_batch<'a>(
     referrer: &'a Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     let mut transfers =
-        RequestTransfers::new(e, user.clone(), smap![&e], smap![&e], referrer.clone());
+        RequestTransfers::new(e, user.clone(), referrer.clone(), smap![&e], smap![&e], smap![&e]);
 
     for request in requests {
         let Request { request_type, pool_address, amount } = request;
@@ -53,7 +53,6 @@ pub fn process_submit_requests_batch<'a>(
             RequestType::RemoveCollateral => {
                 process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)?
             }
-            RequestType::RefreshFarms => process_refresh_farms(e, obligation_key)?,
         };
 
         transfers.merge(new_transfers)?;
@@ -227,11 +226,18 @@ pub fn process_deposit<'a>(
     // Auto-refresh supply farm stake
     farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Supply)?;
 
+    let user_transfers = smap![&e, (pool.token_address.clone(), amount)];
+
+    let referrer_fee = deposit_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_user_transfers(
         e,
         obligation_key.user.clone(),
-        smap![&e, (pool.token_address, amount)],
         referrer.clone(),
+        user_transfers,
+        referrer_fee_transfers,
     );
 
     events::deposit(e, pool_address, obligation_key, deposit_result);
@@ -266,11 +272,19 @@ pub fn process_borrow<'a>(
     // Auto-refresh debt farm stake
     farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Debt)?;
 
+    let market_transfers =
+        smap![&e, (pool.token_address.clone(), borrow_result.borrower_to_receive)];
+
+    let referrer_fee = borrow_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
         obligation_key.user.clone(),
-        smap![&e, (pool.token_address, borrow_result.borrower_to_receive)],
         referrer.clone(),
+        market_transfers,
+        referrer_fee_transfers,
     );
 
     events::borrow(e, pool_address, obligation_key, borrow_result);
@@ -302,11 +316,18 @@ pub fn process_add_collateral<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
+    let user_transfers = smap![&e, (pool.token_address.clone(), amount)];
+
+    let referrer_fee = add_collateral_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_user_transfers(
         e,
         obligation_key.user.clone(),
-        smap![&e, (pool.token_address, amount)],
         referrer.clone(),
+        user_transfers,
+        referrer_fee_transfers,
     );
 
     events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
@@ -351,13 +372,19 @@ pub fn process_repay<'a>(
     // from the borrower's account - 2 transfers take place: borrower => contract(original
     // amount), contract => borrower(excess amount). See - <https://discord.com/channels/897514728459468821/1424779244189520145>
     let user_transfers = smap![e, (pool.token_address.clone(), amount)];
-    let market_transfers = smap![e, (pool.token_address, repay_result.amount_to_send_back)];
+    let market_transfers = smap![e, (pool.token_address.clone(), repay_result.amount_to_send_back)];
+
+    let referrer_fee = repay_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new(
         e,
         obligation_key.user.clone(),
+        referrer.clone(),
         market_transfers,
         user_transfers,
-        referrer.clone(),
+        referrer_fee_transfers,
     );
 
     events::repay(e, pool_address, obligation_key, repay_result);
@@ -392,11 +419,21 @@ pub fn process_remove_collateral<'a>(
         obligation.set(e, obligation_key);
     }
 
+    let market_transfers = smap![
+        e,
+        (pool.token_address.clone(), remove_collateral_result.collateral_remover_to_receive)
+    ];
+
+    let referrer_fee = remove_collateral_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
         obligation_key.user.clone(),
-        smap![e, (pool.token_address, remove_collateral_result.collateral_remover_to_receive)],
         referrer.clone(),
+        market_transfers,
+        referrer_fee_transfers,
     );
 
     events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
@@ -434,11 +471,19 @@ pub fn process_withdraw<'a>(
 
     pool.set(e);
 
+    let market_transfers =
+        smap![e, (pool.token_address.clone(), withdraw_result.withdrawer_to_receive)];
+
+    let referrer_fee = withdraw_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
         obligation_key.user.clone(),
-        smap![e, (pool.token_address, withdraw_result.withdrawer_to_receive)],
         referrer.clone(),
+        market_transfers,
+        referrer_fee_transfers,
     );
 
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
@@ -451,18 +496,12 @@ pub fn process_withdraw<'a>(
 // This function syncs the user's farm stakes with their current obligation positions.
 // It should be called when the user wants to update their farm stakes to claim
 // the correct amount of rewards
-pub fn process_refresh_farms<'a>(
-    e: &'a Env,
-    obligation_key: &ObligationKey,
-) -> Result<RequestTransfers<'a>, MCError> {
-    let Some(farms_contract) = storage::get_farms_contract(e) else {
-        // No farms configured, return empty transfers
-        return Ok(RequestTransfers::empty(e, obligation_key.user.clone()));
+pub fn process_refresh_farms(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
+    if let Some(farms_contract) = storage::get_farms_contract(e) {
+        farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
     };
 
-    farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
-
-    Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
+    Ok(())
 }
 
 pub fn process_simulate_withdraw(
@@ -982,8 +1021,15 @@ pub fn process_liquidate<'a>(
         e,
         (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized)
     ];
-    let transfers =
-        RequestTransfers::new(e, liquidator.clone(), market_transfers, user_transfers, None);
+
+    let transfers = RequestTransfers::new(
+        e,
+        liquidator.clone(),
+        None,
+        market_transfers,
+        user_transfers,
+        smap![e],
+    );
 
     events::liquidate(
         e,

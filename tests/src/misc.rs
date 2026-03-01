@@ -613,3 +613,54 @@ fn test_require_available_accounts_for_take_rate_fees() {
         Err(Ok(MCError::NotEnoughPoolFunds))
     );
 }
+
+#[test]
+fn test_referrer_fee_is_charged_and_referrer_receives_it() {
+    use soroban_sdk::{Address, Map};
+
+    let TestMarketFixture {
+        e, contract_client, gold_pool_address, users, gold_token_client, ..
+    } = TestMarketFixture::new();
+
+    let depositor = &users[0];
+    let referrer = Address::generate(&e);
+
+    // Configure fees: 20% deposit fee, referrer share 50%
+    let pool_before = contract_client.get_pool(&gold_pool_address);
+    let mut new_cfg = pool_before.config.clone();
+
+    let deposit_fee_bps: u32 = 2_000;
+    new_cfg.fee_config.deposit_fee_bps = deposit_fee_bps;
+
+    let mut referrers: Map<Address, u32> = Map::new(&e);
+    referrers.set(referrer.clone(), 5_000);
+    new_cfg.fee_config.referrers = Some(referrers);
+
+    contract_client.queue_in_pool_config_update(&gold_pool_address, &new_cfg);
+
+    // Advance time so the queued config becomes eligible to apply
+    let gs = contract_client.get_global_state();
+    if let Some(period) = gs.update_in_queue_period
+        && period > 0
+    {
+        e.ledger().with_mut(|li| li.timestamp += period + 1);
+    }
+    contract_client.apply_pool_config_update(&gold_pool_address);
+
+    // Sanity: config applied
+    let pool_after_cfg = contract_client.get_pool(&gold_pool_address);
+    assert_eq!(pool_after_cfg.config.fee_config.deposit_fee_bps, deposit_fee_bps);
+
+    let ref_before = gold_token_client.balance(&referrer);
+
+    let amount: i128 = 1_000_000;
+    contract_client.deposit(depositor, &gold_pool_address, &amount, &Some(referrer.clone()));
+
+    // Sanity: referrer fee expected to be nonzero (otherwise test is meaningless)
+    let total_fee = (amount * deposit_fee_bps as i128) / BPS_FACTOR;
+    let expected_referrer_fee = total_fee / 2;
+    assert!(expected_referrer_fee > 0);
+
+    let ref_after = gold_token_client.balance(&referrer);
+    assert_eq!(ref_after.checked_sub(ref_before).unwrap(), expected_referrer_fee);
+}

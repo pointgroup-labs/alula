@@ -1364,7 +1364,7 @@ pub fn compute_operation_fees(
     pool_fee_config: &PoolFeeConfig,
 ) -> Result<OperationFees, MCError> {
     if fee_bps == 0 || original_amount == 0 {
-        return Ok(OperationFees { fee_sum: 0, referrer_fee: None });
+        return Ok(OperationFees { fee_sum: 0, referrer_fee: 0 });
     }
 
     // -- Calculate Total Fee --
@@ -1374,17 +1374,14 @@ pub fn compute_operation_fees(
 
     // -- Calculate the Referrer Split --
 
-    let mut referrer_fee = None;
-    if let Some(referrer_addr) = referrer
+    let referrer_fee = if let Some(referrer_addr) = referrer
         && let Some(referrers_map) = &pool_fee_config.referrers
         && let Some(referrer_share_bps) = referrers_map.get(referrer_addr.clone())
         && referrer_share_bps != 0
     {
-        referrer_fee = Some(
-            fee_sum
-                .fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR)
-                .map_over_or_underflow()?,
-        );
+        fee_sum.fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR).map_over_or_underflow()?
+    } else {
+        0
     };
 
     Ok(OperationFees { fee_sum, referrer_fee })
@@ -1480,7 +1477,7 @@ pub struct OperationFees {
     // Fee sum
     pub fee_sum: i128,
     // Fee, immediately sent to the referrer if one is present
-    pub referrer_fee: Option<i128>,
+    pub referrer_fee: i128,
 }
 
 #[contracttype]

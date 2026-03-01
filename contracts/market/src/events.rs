@@ -398,6 +398,14 @@ struct ClaimMismatch {
 struct ReferrerIsUnexpectedlyMissing {}
 
 #[contractevent]
+struct ReferrerFeeExceedsOpsFees {
+    #[topic]
+    pool_address: Address,
+    operation_fees_sum: i128,
+    referrer_fee: i128,
+}
+
+#[contractevent]
 struct ObligationFarmsRefreshedEvent {
     #[topic]
     pub user: Address,
@@ -928,4 +936,13 @@ pub fn insurance_fund_claim_mismatch(
 
 pub fn referrer_is_unexpectedly_missing(e: &Env) {
     ReferrerIsUnexpectedlyMissing {}.publish(e);
+}
+
+pub fn referrer_fee_exceeds_operation_fees_sum(
+    e: &Env,
+    pool_address: Address,
+    operation_fees_sum: i128,
+    referrer_fee: i128,
+) {
+    ReferrerFeeExceedsOpsFees { pool_address, operation_fees_sum, referrer_fee }.publish(e);
 }

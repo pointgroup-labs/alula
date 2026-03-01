@@ -89,10 +89,20 @@ impl Pool {
 
     fn adjust_accumulated_fees_with_computed_per_operation(
         &mut self,
+        e: &Env,
         fees: &OperationFees,
     ) -> Result<(), MCError> {
-        let referrer_fees = fees.referrer_fee.unwrap_or(0);
-        let net_protocol_fees = fees.fee_sum - referrer_fees;
+        if fees.fee_sum < fees.referrer_fee {
+            events::referrer_fee_exceeds_operation_fees_sum(
+                e,
+                self.pool_address.clone(),
+                fees.fee_sum,
+                fees.referrer_fee,
+            );
+
+            return Err(MCError::InternalError);
+        }
+        let net_protocol_fees = fees.fee_sum - fees.referrer_fee; // safe
 
         self.operation_fees_sum =
             self.operation_fees_sum.checked_add(net_protocol_fees).map_over_or_underflow()?;
@@ -105,7 +115,10 @@ impl Pool {
         self.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
         self.adjust_total_available(e, deposit_result.deposited)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&deposit_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &deposit_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -121,7 +134,10 @@ impl Pool {
             withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&withdraw_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &withdraw_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -135,7 +151,7 @@ impl Pool {
             borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&borrow_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &borrow_result.operation_fees)?;
 
         Ok(())
     }
@@ -149,6 +165,7 @@ impl Pool {
         self.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
             &add_collateral_result.operation_fees,
         )?;
 
@@ -167,7 +184,7 @@ impl Pool {
         )?;
         self.adjust_total_available(e, repay_result.debt_repaid)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&repay_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &repay_result.operation_fees)?;
 
         Ok(())
     }
@@ -184,6 +201,7 @@ impl Pool {
         )?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
             &remove_collateral_result.operation_fees,
         )?;
 
