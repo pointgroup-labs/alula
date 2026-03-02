@@ -406,6 +406,22 @@ struct ReferrerFeeExceedsOpsFees {
 }
 
 #[contractevent]
+struct NonPositiveDTokensBorrow {
+    #[topic]
+    pool_address: Address,
+    minted_d_tokens_amount: i128,
+    real_borrowed_amount: i128,
+}
+
+#[contractevent]
+struct NonPositiveJTokensWithdraw {
+    #[topic]
+    pool_address: Address,
+    burned_j_tokens_amount: i128,
+    deposit_decrease: i128,
+}
+
+#[contractevent]
 struct ObligationFarmsRefreshedEvent {
     #[topic]
     pub user: Address,
@@ -945,4 +961,24 @@ pub fn referrer_fee_exceeds_operation_fees_sum(
     referrer_fee: i128,
 ) {
     ReferrerFeeExceedsOpsFees { pool_address, operation_fees_sum, referrer_fee }.publish(e);
+}
+
+pub fn minting_non_positive_d_tokens_on_borrow(
+    e: &Env,
+    pool_address: Address,
+    minted_d_tokens_amount: i128,
+    real_borrowed_amount: i128,
+) {
+    NonPositiveDTokensBorrow { pool_address, minted_d_tokens_amount, real_borrowed_amount }
+        .publish(e);
+}
+
+pub fn burning_non_positive_j_tokens_on_withdraw(
+    e: &Env,
+    pool_address: Address,
+    burned_j_tokens_amount: i128,
+    deposit_decrease: i128,
+) {
+    NonPositiveJTokensWithdraw { pool_address, burned_j_tokens_amount, deposit_decrease }
+        .publish(e);
 }

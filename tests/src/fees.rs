@@ -623,7 +623,12 @@ fn test_simulate_withdraw_scarcity_fee() {
     );
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.add_collateral(
+        borrower,
+        &usdc_pool_address,
+        &(10 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
+    );
     contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
 
     let creditor_balance_before = gold_token_client.balance(creditor);
@@ -672,7 +677,12 @@ fn test_simulate_withdraw_earn_scarcity_fee() {
     );
 
     contract_client.deposit_earn(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.add_collateral(
+        borrower,
+        &usdc_pool_address,
+        &(10 * DEFAULT_COLLATERAL_AMOUNT),
+        &None,
+    );
     contract_client.borrow(borrower, &gold_pool_address, &borrow_amount, &None);
 
     let creditor_balance_before = gold_token_client.balance(creditor);
@@ -813,7 +823,7 @@ fn test_distribute_all_pools_fees() {
     );
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(debtor, &usdc_pool_address, &i128::MAX, &None);
 
     let gold_pool_operation_fees =
         get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
@@ -831,6 +841,7 @@ fn test_distribute_all_pools_fees() {
     let gold_market_balance_after = gold_token_client.balance(&contract_id);
     let usdc_market_balance_after = usdc_token_client.balance(&contract_id);
 
+    // No beneficiaries are set, so the operation fees stay on the market's balance
     assert_eq!(gold_market_balance_after, gold_market_balance_before);
     assert_eq!(usdc_market_balance_after, usdc_market_balance_before);
 
@@ -871,7 +882,7 @@ fn test_distribute_all_pools_fees() {
     );
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(debtor, &usdc_pool_address, &i128::MAX, &None);
 
     // -- Verify that fees are distributed --
 

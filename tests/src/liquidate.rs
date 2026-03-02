@@ -1,10 +1,6 @@
 #![cfg(test)]
 
-use market::{
-    constants::BPS_FACTOR,
-    error::MCError,
-    pool::{PoolConfig, PoolHealthConfig},
-};
+use market::{constants::BPS_FACTOR, error::MCError};
 use soroban_sdk::{
     Address,
     testutils::{Address as _, Ledger},
@@ -61,14 +57,7 @@ impl LiquidationTest {
 
     /// Creates a risky position closer to liquidation threshold
     fn risky() -> Self {
-        let pool_config = PoolConfig {
-            health_config: PoolHealthConfig {
-                liability_factor_bps: (BPS_FACTOR * 11) / 10,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let fixture = TestMarketFixture::new_with_pool_config(pool_config);
+        let fixture = TestMarketFixture::new();
         let (borrow_pool_address, collateral_pool_address) =
             (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
 
@@ -278,29 +267,20 @@ fn test_liquidate_zero() {
     let test = LiquidationTest::risky();
     test.wait_n_years(3);
 
-    let borrow_pool_before = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_before =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_before = test.debt();
-
-    test.fixture.contract_client.liquidate(
-        &test.liquidator,
-        &test.borrower,
-        &None,
-        &test.borrow_pool_address,
-        &test.collateral_pool_address,
-        &0,
-        &0,
+    assert!(
+        test.fixture
+            .contract_client
+            .try_liquidate(
+                &test.liquidator,
+                &test.borrower,
+                &None,
+                &test.borrow_pool_address,
+                &test.collateral_pool_address,
+                &0,
+                &0,
+            )
+            .is_err()
     );
-
-    let borrow_pool_after = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_after =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_after = test.debt();
-
-    assert_eq!(debt_before, debt_after);
-    assert_eq!(borrow_pool_before, borrow_pool_after);
-    assert_eq!(collateral_pool_before, collateral_pool_after);
 }
 
 #[test]

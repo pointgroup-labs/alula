@@ -530,6 +530,9 @@ impl Obligation {
             original_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (j_tokens_to_issue, new_originally_deposited) =
             pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
+        if j_tokens_to_issue <= 0 {
+            return Err(MCError::NonPositiveSharesAmount);
+        }
 
         deposit_position.adjust_originally_deposited(e, new_originally_deposited)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
@@ -553,7 +556,17 @@ impl Obligation {
     ) -> Result<BorrowResult, MCError> {
         let max_healthy_borrow_added_amount =
             self.compute_max_healthy_debt_added_amount(e, pool)?;
-        let real_borrowed_amount = i128::min(max_healthy_borrow_added_amount, original_amount);
+
+        let real_borrowed_amount = if original_amount == i128::MAX {
+            // `[i128::MAX]` indicates capped borrow
+            max_healthy_borrow_added_amount
+        } else {
+            if original_amount > max_healthy_borrow_added_amount {
+                return Err(MCError::UnhealthyOperation);
+            }
+
+            original_amount
+        };
 
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
@@ -575,6 +588,16 @@ impl Obligation {
             real_borrowed_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (d_tokens_to_issue, new_originally_borrowed) =
             pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
+        if d_tokens_to_issue <= 0 {
+            events::minting_non_positive_d_tokens_on_borrow(
+                e,
+                pool.pool_address.clone(),
+                d_tokens_to_issue,
+                real_borrowed_amount,
+            );
+
+            return Err(MCError::InternalError);
+        }
 
         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
         borrow_position.adjust_originally_borrowed(e, new_originally_borrowed)?;
@@ -630,17 +653,23 @@ impl Obligation {
             self.deposits.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
 
         let all_deposit = pool.compute_tokens_from_j_tokens_floor(e, deposit_position.j_tokens)?;
-        let deposit_decrease = if self.borrow_exists() {
-            let max_healthy_withdrawn_amount =
-                self.compute_max_healthy_collateral_removed_amount(e, pool)?;
+        let amount_capped_to_deposit = all_deposit.min(provided_amount);
 
-            all_deposit.min(max_healthy_withdrawn_amount).min(provided_amount)
+        let deposit_decrease = if self.borrow_exists() {
+            let max_healthy = self.compute_max_healthy_collateral_removed_amount(e, pool)?;
+
+            if provided_amount == i128::MAX {
+                max_healthy
+            } else if amount_capped_to_deposit > max_healthy {
+                return Err(MCError::UnhealthyOperation);
+            } else {
+                amount_capped_to_deposit
+            }
         } else {
-            all_deposit.min(provided_amount)
+            amount_capped_to_deposit
         };
-        if deposit_decrease > pool.total_available()? {
-            return Err(MCError::NotEnoughPoolFunds);
-        }
+        pool.require_total_available(deposit_decrease)?;
+
         let is_all_withdrawn = deposit_decrease == all_deposit;
 
         let withdraw_scarcity_fee_bps =
@@ -670,6 +699,16 @@ impl Obligation {
             // TODO: Is this `min` redundant?
             pool.compute_j_tokens_from_tokens_ceil(deposit_decrease)?.min(deposit_position.j_tokens)
         };
+        if j_tokens_to_burn <= 0 {
+            events::burning_non_positive_j_tokens_on_withdraw(
+                e,
+                pool.pool_address.clone(),
+                j_tokens_to_burn,
+                deposit_decrease,
+            );
+
+            return Err(MCError::InternalError);
+        }
 
         let all_deposit_ceil =
             pool.compute_tokens_from_j_tokens_ceil(e, deposit_position.j_tokens)?;
@@ -819,6 +858,9 @@ impl Obligation {
         } else {
             pool.compute_d_tokens_from_tokens_floor(debt_decrease_in_tokens)?
         };
+        if d_tokens_to_burn <= 0 {
+            return Err(MCError::NonPositiveSharesAmount);
+        }
 
         let unpaid_interest =
             all_debt.checked_sub(borrow_position.originally_borrowed).map_over_or_underflow()?;
@@ -1114,6 +1156,10 @@ impl Obligation {
 
             (d_tokens_to_burn, new_originally_borrowed)
         };
+
+        if d_tokens_to_burn <= 0 {
+            return Err(MCError::NonPositiveSharesAmount);
+        }
 
         borrow_position
             .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;

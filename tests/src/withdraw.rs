@@ -166,18 +166,10 @@ fn test_withdraw_zero() {
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    let obligation_before =
-        get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-
-    contract_client.withdraw(creditor, &gold_pool_address, &0, &None);
-
-    let obligation_after =
-        get_deposit_position(&contract_client, creditor, &gold_pool_address).unwrap();
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(obligation_before, obligation_after);
-    assert_eq!(pool_before, pool_after);
+    assert_eq!(
+        contract_client.try_withdraw(creditor, &gold_pool_address, &0, &None),
+        Err(Ok(MCError::InternalError))
+    );
 }
 
 #[test]
@@ -401,8 +393,15 @@ fn withdraw_up_to_open_ltv() {
 
     contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.borrow(creditor, &usdc_pool_address, &((DEFAULT_DEPOSIT_AMOUNT) / 2), &None);
-    // Try to withdraw more than default openLTV(70%) allows
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    // Withdraw exceeding the healthy limit should fail
+    assert_eq!(
+        contract_client.try_withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None),
+        Err(Ok(MCError::UnhealthyOperation))
+    );
+
+    // Withdraw max healthy amount (capped via i128::MAX)
+    contract_client.withdraw(creditor, &gold_pool_address, &i128::MAX, &None);
 
     let creditor_balance_2 = gold_token_client.balance(creditor);
     assert!(creditor_balance_1 > creditor_balance_2);
@@ -410,8 +409,8 @@ fn withdraw_up_to_open_ltv() {
     // Repay all debt
     contract_client.repay(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    // Withdraw all
-    contract_client.withdraw(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    // Withdraw all remaining
+    contract_client.withdraw(creditor, &gold_pool_address, &i128::MAX, &None);
     let creditor_balance_3 = gold_token_client.balance(creditor);
 
     assert_eq!(creditor_balance_1, creditor_balance_3);
@@ -419,6 +418,69 @@ fn withdraw_up_to_open_ltv() {
         contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
+}
+
+#[test]
+fn test_withdraw_capping_behavior() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        gold_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    // -- No borrow: amount > all_deposit silently caps --
+
+    let balance_before = gold_token_client.balance(user);
+    contract_client.withdraw(user, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    let received = gold_token_client.balance(user).checked_sub(balance_before).unwrap();
+
+    assert_eq!(received, DEFAULT_DEPOSIT_AMOUNT);
+    assert_eq!(
+        contract_client.try_withdraw(user, &gold_pool_address, &1, &None),
+        Err(Ok(MCError::ObligationDoesNotExist))
+    );
+
+    // -- With borrow: amount ≤ all_deposit but > max_healthy errors --
+
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
+
+    let healthy_withdraw = DEFAULT_DEPOSIT_AMOUNT / 4;
+    contract_client.withdraw(user, &gold_pool_address, &healthy_withdraw, &None);
+
+    assert_eq!(
+        contract_client.try_withdraw(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None),
+        Err(Ok(MCError::UnhealthyOperation))
+    );
+
+    // -- With borrow: amount > all_deposit still checks health --
+
+    assert_eq!(
+        contract_client.try_withdraw(
+            user,
+            &gold_pool_address,
+            &(10 * DEFAULT_DEPOSIT_AMOUNT),
+            &None
+        ),
+        Err(Ok(MCError::UnhealthyOperation))
+    );
+
+    // -- With borrow: i128::MAX caps to max_healthy --
+
+    let balance_before = gold_token_client.balance(user);
+    contract_client.withdraw(user, &gold_pool_address, &i128::MAX, &None);
+    let received = gold_token_client.balance(user).checked_sub(balance_before).unwrap();
+
+    assert!(received > 0);
+    assert!(received < DEFAULT_DEPOSIT_AMOUNT);
 }
 
 #[test]
@@ -574,7 +636,7 @@ fn test_simulate_withdraw_accrues_interest() {
 
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.borrow(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(user, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
 
     e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR);
 

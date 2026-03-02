@@ -199,11 +199,7 @@ fn test_borrow_zero() {
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    let pool_before = contract_client.get_pool(&usdc_pool_address);
-    contract_client.borrow(borrower, &usdc_pool_address, &0, &None);
-    let pool_after = contract_client.get_pool(&usdc_pool_address);
-
-    assert_eq!(pool_before, pool_after);
+    assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &0, &None).is_err());
 }
 
 #[test]
@@ -254,7 +250,7 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
     let borrower_balance_after = usdc_token_client.balance(borrower);
 
     let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
@@ -266,7 +262,7 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
                 .unwrap()
     );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
 
     let obligation_borrowed =
         get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();

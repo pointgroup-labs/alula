@@ -17,6 +17,7 @@ pub enum MCError {
     OverOrUnderflow = 10,
     TooManyPositions = 11,
     MinCollateralValueIsNotMet = 12,
+    NonPositiveSharesAmount = 13,
 
     // Pool-related errors (100-199)
     InvalidInitialization = 100,
@@ -39,6 +40,7 @@ pub enum MCError {
     ScarcityCooldownPeriod = 204,
     BorrowPositionForAssetExists = 205,
     DepositPositionForAssetExists = 206,
+    UnhealthyOperation = 207,
 
     // Balance and limit errors (400-499)
     PoolSupplyLimitExceeded = 400,
@@ -59,10 +61,9 @@ pub enum MCError {
 
     // Leverage and swap errors (700-799)
     InvalidLeverageInputs = 700,
-    InvalidSwapSlippage = 701,
+    InvalidSwap = 701,
     MultiplyPairAlreadyExists = 702,
     MultiplyPairDoesNotExist = 703,
     LeveragePositionContainsBadDebt = 704,
     InconsistentDepositWithLeverage = 705,
-    SwappingIdenticalTokens = 706,
 }

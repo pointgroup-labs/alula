@@ -31,7 +31,7 @@ pub fn get_amount_in(
     amount_out: i128,
 ) -> Result<i128, MCError> {
     if token_in == token_out {
-        return Err(MCError::SwappingIdenticalTokens);
+        return Err(MCError::InvalidSwap);
     }
 
     let path = vec![&e, token_in.clone(), token_out.clone()];
@@ -62,7 +62,7 @@ pub fn get_amount_out(
     amount_in: i128,
 ) -> Result<i128, MCError> {
     if token_in == token_out {
-        return Err(MCError::SwappingIdenticalTokens);
+        return Err(MCError::InvalidSwap);
     }
 
     let path = vec![&e, token_in.clone(), token_out.clone()];
@@ -99,7 +99,7 @@ pub fn swap_tokens_for_exact_tokens(
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
     if token_in == token_out {
-        return Err(MCError::SwappingIdenticalTokens);
+        return Err(MCError::InvalidSwap);
     }
 
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
@@ -164,7 +164,7 @@ pub fn swap_exact_tokens_for_tokens(
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
     if token_in == token_out {
-        return Err(MCError::SwappingIdenticalTokens);
+        return Err(MCError::InvalidSwap);
     }
 
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
@@ -204,7 +204,7 @@ pub fn swap_exact_tokens_for_tokens(
 fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError> {
     if let Some(slippage) = max_slippage_bps {
         if !(0..=BPS_FACTOR).contains(&slippage) {
-            return Err(MCError::InvalidSwapSlippage);
+            return Err(MCError::InvalidSwap);
         }
         Ok(slippage)
     } else {

@@ -173,12 +173,12 @@ fn test_complex_batching() {
     let borrow_r = Request {
         request_type: RequestType::Borrow.into(),
         pool_address: usdc_pool_address.clone(),
-        amount: DEFAULT_DEPOSIT_AMOUNT,
+        amount: DEFAULT_DEPOSIT_AMOUNT / 2,
     };
     let repay_r = Request {
         request_type: RequestType::Repay.into(),
         pool_address: usdc_pool_address.clone(),
-        amount: DEFAULT_DEPOSIT_AMOUNT,
+        amount: DEFAULT_DEPOSIT_AMOUNT / 2,
     };
     let remove_collateral_r = Request {
         request_type: RequestType::RemoveCollateral.into(),

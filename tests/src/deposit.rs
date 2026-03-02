@@ -52,16 +52,12 @@ fn test_deposit() {
 }
 
 #[test]
-fn test_deposit_zero() {
-    let TestMarketFixture { contract_client, usdc_token_address, gold_pool_address, users, .. } =
+fn test_deposit_zero_is_prohibited() {
+    let TestMarketFixture { contract_client, usdc_token_address, users, .. } =
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-    contract_client.deposit(creditor, &usdc_token_address, &0, &None);
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(pool_after, pool_before);
+    assert!(contract_client.try_deposit(creditor, &usdc_token_address, &0, &None).is_err());
 }
 
 #[test]

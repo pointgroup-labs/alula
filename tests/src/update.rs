@@ -314,7 +314,7 @@ fn test_update_market_status() {
 
     assert!(contract_client.try_deposit(creditor, &gold_pool_address, &100, &None).is_ok());
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None).is_ok());
-    assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &100, &None).is_ok());
+    assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &50, &None).is_ok());
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
     contract_client.update_market_status(&(MarketStatus::BorrowFrozen as u32));

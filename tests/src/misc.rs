@@ -59,6 +59,7 @@ fn test_computed_interest_is_negative_reproduced() {
     wait(&e, 60 * 2 + 5);
     contract_client.deposit(k2, &usdc_pool_address, &1000000000, &None);
     wait(&e, 35);
+    contract_client.add_collateral(k1, &gold_pool_address, &1000000, &None);
     contract_client.borrow(k1, &usdc_pool_address, &77367249, &None);
     wait(&e, 27 * 60);
     contract_client.deposit(k1, &gold_pool_address, &120000000, &None);
@@ -77,7 +78,7 @@ fn test_computed_interest_is_negative_reproduced() {
     wait(&e, 20);
     contract_client.deposit(k1, &gold_pool_address, &1000000000, &None);
     wait(&e, (3 * 60) + 25);
-    contract_client.withdraw(k1, &gold_pool_address, &4819579912, &None);
+    contract_client.withdraw(k1, &gold_pool_address, &i128::MAX, &None);
     wait(&e, (28 * 60) + 42);
     contract_client.deposit(k1, &gold_pool_address, &23330000000, &None);
     wait(&e, (4 * 60) + 15);
@@ -124,9 +125,9 @@ fn test_computed_interest_is_negative_reproduced_2() {
     wait(&e, 20);
     contract_client.withdraw(maksym, &gold_pool_address, &10500000000, &None);
     wait(&e, 25);
-    contract_client.deposit(maksym, &usdc_pool_address, &10000000000, &None);
+    contract_client.deposit(maksym, &usdc_pool_address, &21000000000, &None);
     wait(&e, 50);
-    contract_client.deposit(k1, &gold_pool_address, &10000000000i128, &None);
+    contract_client.deposit(k1, &gold_pool_address, &20000000000i128, &None);
     wait(&e, 60);
     contract_client.borrow(maksym, &gold_pool_address, &6979216852i128, &None);
     wait(&e, 20);
@@ -285,7 +286,7 @@ fn test_unable_to_borrow_and_deposit_the_same_asset() {
 
     contract_client.deposit(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(user_2, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(user_2, &gold_pool_address, &i128::MAX, &None);
     assert_eq!(
         contract_client.try_deposit(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None),
         Err(Ok(MCError::BorrowPositionForAssetExists))

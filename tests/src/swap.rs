@@ -204,11 +204,11 @@ fn test_swap_operations_fail_for_identical_tokens() {
     e.as_contract(&contract_id, || {
         assert_eq!(
             swap::get_amount_in(&e, &usdc_token_address, &usdc_token_address, AMOUNT_IN),
-            Err(MCError::SwappingIdenticalTokens)
+            Err(MCError::InvalidSwap)
         );
         assert_eq!(
             swap::get_amount_out(&e, &usdc_token_address, &usdc_token_address, AMOUNT_IN),
-            Err(MCError::SwappingIdenticalTokens)
+            Err(MCError::InvalidSwap)
         );
 
         assert_eq!(
@@ -221,7 +221,7 @@ fn test_swap_operations_fail_for_identical_tokens() {
                 AMOUNT_IN,
                 None,
             ),
-            Err(MCError::SwappingIdenticalTokens)
+            Err(MCError::InvalidSwap)
         );
         assert_eq!(
             swap::swap_tokens_for_exact_tokens(
@@ -233,7 +233,7 @@ fn test_swap_operations_fail_for_identical_tokens() {
                 AMOUNT_IN,
                 None,
             ),
-            Err(MCError::SwappingIdenticalTokens)
+            Err(MCError::InvalidSwap)
         );
     });
 }

@@ -4,7 +4,7 @@ use market::{constants::*, error::MCError};
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs, get_borrow_position,
+    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     get_obligation_d_tokens_as_tokens, get_obligation_initially_borrowed,
     get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
 };
@@ -89,24 +89,9 @@ fn test_repay_zero() {
         &None,
     );
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
 
-    let obligation_before =
-        get_borrow_position(&contract_client, borrower, &usdc_pool_address).unwrap();
-    let usdc_pool_before = contract_client.get_pool(&usdc_pool_address);
-    let gold_pool_before = contract_client.get_pool(&gold_pool_address);
-
-    contract_client.repay(borrower, &usdc_pool_address, &0, &None);
-
-    let obligation_after =
-        get_borrow_position(&contract_client, borrower, &usdc_pool_address).unwrap();
-    let usdc_pool_after = contract_client.get_pool(&usdc_pool_address);
-    let gold_pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(obligation_before, obligation_after);
-    assert_eq!(usdc_pool_before, usdc_pool_after);
-    assert_eq!(gold_pool_before, gold_pool_after);
+    assert!(contract_client.try_repay(borrower, &usdc_pool_address, &0, &None).is_err());
 }
 
 #[test]

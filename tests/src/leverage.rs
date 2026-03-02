@@ -17,7 +17,7 @@ use crate::{
 // ---- Deposit with leverage ----
 
 #[test]
-fn test_deposit_zero() {
+fn test_deposit_zero_is_prohibited() {
     const LEVERAGE: u32 = 3; // x3 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
@@ -34,24 +34,19 @@ fn test_deposit_zero() {
         &None,
     );
 
-    let gold_pool_before = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_before = contract_client.get_pool(&gold_pool_address);
-
-    contract_client.deposit_with_leverage(
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-        &false,
-        &0,
-        &LEVERAGE_MULTIPLIER,
-        &None,
+    assert!(
+        contract_client
+            .try_deposit_with_leverage(
+                looper,
+                &gold_pool_address,
+                &usdc_pool_address,
+                &false,
+                &0,
+                &LEVERAGE_MULTIPLIER,
+                &None,
+            )
+            .is_err()
     );
-
-    let gold_pool_after = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(gold_pool_before, gold_pool_after);
-    assert_eq!(usdc_pool_before, usdc_pool_after);
 }
 
 #[test]
@@ -609,33 +604,11 @@ fn test_withdraw_zero() {
         &None,
     );
 
-    let gold_pool_before = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_before = contract_client.get_pool(&gold_pool_address);
-    let obligation_before = contract_client.get_multiply_pair_obligation(
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
+    assert!(
+        contract_client
+            .try_withdraw_from_leveraged(looper, &gold_pool_address, &usdc_pool_address, &0, &None,)
+            .is_err()
     );
-
-    contract_client.withdraw_from_leveraged(
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-        &0,
-        &None,
-    );
-
-    let gold_pool_after = contract_client.get_pool(&gold_pool_address);
-    let usdc_pool_after = contract_client.get_pool(&gold_pool_address);
-    let obligation_after = contract_client.get_multiply_pair_obligation(
-        looper,
-        &gold_pool_address,
-        &usdc_pool_address,
-    );
-
-    assert_eq!(gold_pool_before, gold_pool_after);
-    assert_eq!(usdc_pool_before, usdc_pool_after);
-    assert_eq!(obligation_before, obligation_after);
 }
 
 #[test]
