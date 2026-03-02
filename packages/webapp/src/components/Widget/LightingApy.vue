@@ -13,7 +13,7 @@ const {
 
 const slots = defineSlots()
 
-const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' ? '#22d3ee' : '#f59e0b'))
+const labelColorByVatiant = computed(() => labelColor ?? (variant === 'deposit' ? '#22d3ee' : '#6366F1'))
 </script>
 
 <template>

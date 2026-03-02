@@ -127,7 +127,7 @@ onUnmounted(() => {
           <div :style="{ '--color': '#22d3ee' }">
             Supply APY: <span>{{ option.apy.supply }}%</span>
           </div>
-          <div :style="{ '--color': '#f59e0b' }">
+          <div :style="{ '--color': '#6366F1' }">
             Borrow APY: <span>{{ option.apy.borrow }}%</span>
           </div>
         </div>

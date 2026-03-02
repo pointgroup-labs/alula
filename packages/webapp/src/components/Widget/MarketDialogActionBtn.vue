@@ -128,11 +128,11 @@ async function emitClickHandler() {
   }
 
   &.btn-accent {
-    background-color: $borrow;
-    color: $dark;
+    background-color: $purple;
+    color: $foreground;
 
     &:hover {
-      background-color: lighten($borrow, 10%);
+      background-color: lighten($purple, 10%);
     }
   }
 

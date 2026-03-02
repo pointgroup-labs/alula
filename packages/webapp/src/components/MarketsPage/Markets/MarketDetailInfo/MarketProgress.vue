@@ -8,7 +8,10 @@ const {
     progress: number | string
     isProgress?: boolean
     color?: string
+    isInfinity?: boolean
   }>()
+
+const slot = useSlots()
 </script>
 
 <template>
@@ -23,7 +26,14 @@ const {
         stroke-bg="#262729"
         background="transparent"
         :color="color"
-      />
+      >
+        <template
+          v-if="slot?.progress"
+          #progress
+        >
+          <slot name="progress" />
+        </template>
+      </j-circular-progress>
 
       <slot />
     </div>

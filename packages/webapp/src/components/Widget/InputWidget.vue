@@ -197,9 +197,9 @@ watch(() => reset, () => {
   --color: #22d3ee;
 
   .borrow {
-    --background-color: rgba(252, 157, 16, 0.03);
-    --border-color: rgba(252, 157, 16, 0.3);
-    --color: #f59e0b;
+    --background-color: rgba(99, 102, 241, 0.05);
+    --border-color: rgba(99, 102, 241, 0.3);
+    --color: #6366f1;
   }
 
   &__label {

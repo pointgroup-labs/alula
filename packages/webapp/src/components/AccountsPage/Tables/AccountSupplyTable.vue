@@ -18,10 +18,9 @@ const isHasObligations = computed(() => Object.keys(userStore.state.obligations)
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
-  { key: 'balance', label: 'Balance', align: 'right' },
-  { key: 'market', label: 'Market', align: 'center' },
+  { key: 'balance', label: 'Supply', align: 'right' },
   { key: 'supply_apy', label: 'Supply APY', align: 'center' },
-  { key: 'action', label: '' },
+  { key: 'action', label: '', thClass: 'profile-action', tdClass: 'profile-action' },
 ]
 
 const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
@@ -135,8 +134,11 @@ watch(selectedPool, (p) => {
                 <div class="market-table__asset__info__name">
                   {{ data.item.asset.symbol }}
                 </div>
-                <div class="market-table__asset__info__symbol">
-                  {{ data.item.asset.name }}
+                <div
+                  class="market-table__asset__info__symbol"
+                  style="text-transform: capitalize;"
+                >
+                  {{ data.item.market }}
                 </div>
               </div>
             </div>
@@ -154,15 +156,6 @@ watch(selectedPool, (p) => {
             </j-tooltip>
           </template>
 
-          <template #cell(market)="data">
-            <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
-              <span>{{ data.item.market }}</span>
-              <template #content>
-                {{ data.item.market }}
-              </template>
-            </j-tooltip>
-          </template>
-
           <template #cell(supply_apy)="data">
             <div class="table-cell justify-content-center">
               <j-pill-label
@@ -175,7 +168,7 @@ watch(selectedPool, (p) => {
           </template>
 
           <template #cell(action)="data">
-            <div class="table-cell justify-content-center">
+            <div class="table-cell justify-content-end">
               <j-btn
                 variant="outline-success"
                 pill
@@ -261,6 +254,10 @@ watch(selectedPool, (p) => {
 .account-table {
   tbody tr {
     cursor: default;
+  }
+
+  .profile-action {
+    width: 100px;
   }
 }
 

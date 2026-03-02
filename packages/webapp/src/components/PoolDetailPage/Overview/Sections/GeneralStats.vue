@@ -38,7 +38,7 @@ const poolData = computed(() => {
       <!-- Borrow -->
       <div class="stat-card stat-card--small">
         <div class="stat-title">
-          <i-metrics-trend-down style="color: #f59e0b;" /> Total borrowed
+          <i-metrics-trend-down style="color: #6366F1;" /> Total borrowed
         </div>
         <div class="stat-value">
           <span>{{ shortenNumber(poolData.borrowed) }}</span> {{ poolData.assetSymbol }}

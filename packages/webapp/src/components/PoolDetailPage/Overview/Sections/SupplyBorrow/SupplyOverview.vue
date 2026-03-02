@@ -82,6 +82,10 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
             <span>/ {{ isSupplyLimit ? shortenNumber(supplyLimit) : '-' }}</span>
           </div>
         </div>
+
+        <template #progress>
+          {{ isSupplyLimit ? progress : '&infin;' }}
+        </template>
       </market-progress>
 
       <div class="detail-list">

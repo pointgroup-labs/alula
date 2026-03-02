@@ -247,7 +247,7 @@ watch(selectedMarket, (p) => {
   --hf-success: #{$success};
 
   .table-cell__dept {
-    color: $borrow;
+    color: $purple;
   }
 
   .hf-indicator {

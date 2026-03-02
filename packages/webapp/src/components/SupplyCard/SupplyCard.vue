@@ -78,9 +78,14 @@ function dialogHandler() {
       cursor: pointer;
       transition: all 0.2s ease;
 
-      &:not(.active) {
+      &--supply {
         &:hover {
-          color: $foreground;
+          color: $supply;
+        }
+      }
+      &--borrow {
+        &:hover {
+          color: $purple;
         }
       }
 
@@ -91,8 +96,8 @@ function dialogHandler() {
         }
 
         &.nav-tab--borrow {
-          color: $borrow;
-          background-color: rgba(252, 157, 16, 0.15);
+          color: $purple;
+          background-color: rgba(99, 102, 241, 0.15);
         }
       }
     }

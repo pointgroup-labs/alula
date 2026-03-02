@@ -62,7 +62,7 @@ let chart: ECharts | null = null
 
 const option = computed<EChartsOption>(() => {
   const supply = '#22d3ee'
-  const borrow = '#F59E0B'
+  const borrow = '#6366F1'
 
   const gridLine = 'rgba(120, 160, 200, 0.18)'
   const axisText = 'rgba(180, 200, 220, 0.55)'
@@ -231,7 +231,7 @@ onMounted(async () => {
 
           <div
             class="current-metrics-data__item"
-            :style="{ '--color': '#f59e0b' }"
+            :style="{ '--color': '#6366F1' }"
           >
             <div class="label">
               Borrow

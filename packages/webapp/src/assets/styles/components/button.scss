@@ -47,6 +47,15 @@ $btn-variants: (
     hoverColor: #00c950,
     focusOutline: 1px solid rgba(0, 201, 80, 0.4),
   ),
+
+  outline-purple: (
+    bg: transparent,
+    color: rgba(232, 237, 245, 0.7),
+    outline: 1px solid rgba(99, 102, 241, 0.1),
+    hoverBg: rgba(99, 102, 241, 0.1),
+    hoverColor: $purple,
+    focusOutline: 1px solid rgba(99, 102, 241, 0.4),
+  )
 );
 
 $btn-size: (

@@ -72,7 +72,7 @@ function utilRateColor(value?: number) {
   }
   switch (true) {
     case value >= 80: return '#f43f5e'
-    case value >= 60: return '#f59e0b'
+    case value >= 60: return '#6366F1'
     default: return 'rgb(0, 201, 80)'
   }
 }
@@ -298,7 +298,7 @@ const stop = watch(additionalMarketsData, () => {
             </j-btn>
             <j-btn
               size="xs"
-              variant="outline-accent"
+              variant="outline-purple"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"

@@ -16,8 +16,8 @@ $label-variants: (
     color: $supply,
   ),
   borrow: (
-    background-color: lab(72.7914% 26.933 75.4338/0.1),
-    color: $borrow,
+    background-color: rgba(99, 102, 241, 0.1),
+    color: $purple,
   ),
   success: (
     background-color: rgba(0, 201, 80, 0.1),

@@ -19,6 +19,8 @@ const {
   withProgress?: boolean
 }>()
 
+const slot = useSlots()
+
 const current = ref(0)
 const firstLoad = ref(true)
 
@@ -50,7 +52,13 @@ watch(() => progress, () => {
                 'background': background,
                 'color': color }"
     >
-      {{ progress }}%
+      <slot
+        v-if="slot?.progress"
+        name="progress"
+      />
+      <template v-else>
+        {{ progress }}%
+      </template>
     </div>
     <svg
       width="250"
