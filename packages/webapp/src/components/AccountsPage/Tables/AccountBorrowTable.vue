@@ -154,15 +154,12 @@ watch(selectedMarket, (p) => {
           </template>
 
           <template #cell(debt)="data">
-            <j-tooltip tooltip-class="table-cell table-cell__dept justify-content-end with-price">
+            <div class="table-cell table-cell__dept justify-content-end with-price">
               {{
                 Number(data.item.debt) > 1000 ? shortenNumber(Number(data.item.debt)) : Number(data.item.debt).toFixed(5)
               }}
               <span>${{ data.item.debtUsd }}</span>
-              <template #content>
-                {{ formatPrice(data.item.debt) }}
-              </template>
-            </j-tooltip>
+            </div>
           </template>
 
           <template #cell(borrow_apy)="data">

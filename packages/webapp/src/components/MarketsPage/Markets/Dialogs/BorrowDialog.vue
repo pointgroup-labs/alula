@@ -344,7 +344,7 @@ watch(dialog, async (v) => {
         <div class="extra-info__value">{{ data?.borrow_apy }}</div>
       </div>
 
-      <div class="dialog-default__action">
+      <div class="dialog-default__action mt-2">
         <market-dialog-action-btn
           variant="accent"
           pill

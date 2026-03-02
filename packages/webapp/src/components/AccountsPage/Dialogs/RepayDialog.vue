@@ -285,7 +285,7 @@ watch(() => modelValue, async (v) => {
         <div class="separator" />
       </div> -->
 
-      <div class="dialog-default__action">
+      <div class="dialog-default__action mt-2">
         <j-btn
           :loading="loading"
           variant="accent"

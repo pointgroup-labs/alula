@@ -421,7 +421,7 @@ watch(collateralBalance, (b) => {
         </template>
       </j-toggle>
 
-      <div class="dialog-default__action">
+      <div class="dialog-default__action mt-2">
         <j-btn
           :loading="loading"
           variant="success"

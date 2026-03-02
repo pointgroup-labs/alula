@@ -145,15 +145,12 @@ watch(selectedPool, (p) => {
           </template>
 
           <template #cell(balance)="data">
-            <j-tooltip tooltip-class="table-cell justify-content-end with-price">
+            <div class="table-cell justify-content-end with-price">
               {{
                 Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5)
               }}
               <span>${{ data.item.balanceUsd }}</span>
-              <template #content>
-                {{ formatPrice(data.item.balance) }}
-              </template>
-            </j-tooltip>
+            </div>
           </template>
 
           <template #cell(supply_apy)="data">
