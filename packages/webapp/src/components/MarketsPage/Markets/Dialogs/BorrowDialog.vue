@@ -130,13 +130,14 @@ watch(dialog, async (v) => {
     <div class="dialog-default__body">
       <input-widget
         v-model="amount"
-        class="borrow-input"
+        class="borrow-input mb-2"
         :balance="availableToBorrow"
         :fee="POOL_REMAINING_BALANCE"
         label-left="Available"
         :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${data?.asset.symbol}`"
         :price="poolData?.price"
         :reset="dialog"
+        variant="borrow"
         :rules="[
           (v: any) => {
             return Number(v) < availableToBorrow || 'Borrow limit exceeded'
@@ -144,12 +145,110 @@ watch(dialog, async (v) => {
         ]"
       />
 
-      <div
+      <template v-if="data">
+        <!-- Pool info -->
+        <div
+          class="dialog-info-card dialog-info-card--borrow"
+        >
+          <div class="dialog-info-card__title">
+            Pool Info / Health
+          </div>
+
+          <div class="dialog-info-card__body">
+            <!-- Pool available -->
+            <div class="dialog-info-card__item">
+              <span class="label">Pool Liquidity Available</span>
+              <span class="value">
+                {{ shortenNumber(poolBorrowLimit || 0) }}
+              </span>
+            </div>
+
+            <!-- Open LTV -->
+            <div class="dialog-info-card__item">
+              <span class="label">Open LTV</span>
+              <span class="value"> {{ poolData?.open_ltv }}</span>
+            </div>
+
+            <!-- Close LTV -->
+            <div class="dialog-info-card__item">
+              <span class="label">Close LTV</span>
+              <span class="value">{{ truncatePercent(closeLTV || 0, 2) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Liquidity -->
+        <div
+          class="dialog-info-card dialog-info-card--borrow"
+        >
+          <div class="dialog-info-card__title">
+            Health
+          </div>
+
+          <div class="dialog-info-card__body">
+            <!-- Health Factor -->
+            <div class="dialog-info-card__item">
+              <span class="label">Health Factor</span>
+              <span class="value">
+                <template v-if="isLoading">
+                  <j-loading-spinner
+                    width="14px"
+                    style="padding: 0; width: 14px; margin-left: auto"
+                  />
+                </template>
+                <template v-else>
+                  {{ truncatePercent(healthFactor) }}
+                </template>
+              </span>
+            </div>
+
+            <!-- Borrowing Capacity -->
+            <div class="dialog-info-card__item">
+              <span class="label">Borrowing Capacity</span>
+              <span class="value">{{ truncatePercent(liquidationPenalty || 0, 2) }}%</span>
+            </div>
+
+            <!-- Liquidation Penalty -->
+            <div class="dialog-info-card__item">
+              <span class="label">Liquidation Penalty</span>
+              <span class="value">{{ truncatePercent(liquidationPenalty || 0, 2) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fees -->
+        <div
+          class="dialog-info-card dialog-info-card--borrow"
+        >
+          <div class="dialog-info-card__title">
+            Fees
+          </div>
+
+          <div class="dialog-info-card__body">
+            <!-- Operation Fee -->
+            <div class="dialog-info-card__item">
+              <span class="label">Operation Fee</span>
+              <span class="value">
+                {{ formatPrice(marketFee, 0, 5) }} {{ data?.asset.symbol }}
+              </span>
+            </div>
+
+            <!-- Transaction Fee -->
+            <div class="dialog-info-card__item">
+              <span class="label">Transaction Fee</span>
+              <span class="value">{{ txFee }}</span>
+            </div>
+
+          </div>
+        </div>
+      </template>
+
+      <!-- <div
         v-if="data"
         class="dialog-info-table mt-3"
-      >
-        <!-- Health Factor -->
-        <div class="dialog-info-table__item">
+      > -->
+      <!-- Health Factor -->
+      <!-- <div class="dialog-info-table__item">
           <span>Health Factor</span>
           <span>
             <template v-if="isLoading">
@@ -162,66 +261,66 @@ watch(dialog, async (v) => {
               {{ truncatePercent(healthFactor) }}
             </template>
           </span>
-        </div>
+        </div> -->
 
-        <!-- Pool available -->
-        <div class="dialog-info-table__item">
+      <!-- Pool available -->
+      <!-- <div class="dialog-info-table__item">
           <span>Pool Liquidity Available</span>
           <span>
             {{ shortenNumber(poolBorrowLimit || 0) }}
           </span>
-        </div>
+        </div> -->
 
-        <!-- User available -->
-        <div class="dialog-info-table__item">
+      <!-- User available -->
+      <!-- <div class="dialog-info-table__item">
           <span>Your Borrowing Capacity</span>
           <span>
             {{ shortenNumber(availableToBorrow || 0) }}
           </span>
-        </div>
+        </div> -->
 
-        <!-- Max LTV -->
-        <div class="dialog-info-table__item">
+      <!-- Max LTV -->
+      <!-- <div class="dialog-info-table__item">
           <span>Open LTV</span>
           <span>
             {{ poolData?.open_ltv }}
           </span>
-        </div>
+        </div> -->
 
-        <!-- Liquidation LTV -->
-        <div class="dialog-info-table__item">
+      <!-- Liquidation LTV -->
+      <!-- <div class="dialog-info-table__item">
           <span>Close LTV</span>
           <span>
             {{ truncatePercent(closeLTV || 0, 2) }}%
           </span>
-        </div>
+        </div> -->
 
-        <!-- Liquidation penalty -->
-        <div class="dialog-info-table__item">
+      <!-- Liquidation penalty -->
+      <!-- <div class="dialog-info-table__item">
           <span>Liquidation Penalty</span>
           <span>
             {{ truncatePercent(liquidationPenalty || 0, 2) }}%
           </span>
-        </div>
+        </div> -->
 
-        <!-- Market fee -->
-        <div class="dialog-info-table__item">
+      <!-- Market fee -->
+      <!-- <div class="dialog-info-table__item">
           <span>Operation Fee</span>
           <span>
             {{ formatPrice(marketFee, 0, 5) }} {{ data?.asset.symbol }}
           </span>
-        </div>
+        </div> -->
 
-        <!-- Tx fee -->
-        <div class="dialog-info-table__item">
+      <!-- Tx fee -->
+      <!-- <div class="dialog-info-table__item">
           <span>Transaction Fee</span>
           <span>
             {{ txFee }}
           </span>
-        </div>
+        </div> -->
 
-        <div class="separator" />
-      </div>
+      <!-- <div class="separator" /> -->
+      <!-- </div> -->
 
       <warning-block
         :text="attentionText"
@@ -232,6 +331,7 @@ watch(dialog, async (v) => {
         <j-checkbox
           v-model="agree"
           :disabled="!isCanBorrow"
+          color="#6366F1"
         >
           <div class="extra-info__label">
             I acknowledge the risks involved.

@@ -46,3 +46,63 @@
     margin: 8px 0;
   }
 }
+
+.dialog-info-card {
+  padding: $spacing-12;
+  border-radius: $spacing-16;
+  border: 1px solid $border-color;
+  box-shadow: none;
+
+  --background-color: rgba(0, 211, 238, 0.03);
+  --border-color: rgba(0, 211, 238, 0.3);
+
+  &--borrow {
+    --background-color: rgba(99, 102, 241, 0.05);
+    --border-color: rgba(99, 102, 241, 0.3);
+  }
+
+  &--success {
+    --background-color: rgba(0, 201, 80, 0.03);
+    --border-color: rgba(0, 201, 80, 0.3);
+  }
+
+  background-color: var(--background-color);
+  border-color: var(--border-color);
+
+  &__title {
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 20px;
+    color: $foreground;
+  }
+
+  &__body {
+    display: flex;
+    justify-content: space-between;
+    gap: $spacing-12;
+    margin-top: 8px;
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .label {
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 400;
+      line-height: 16px;
+      color: $muted-foreground;
+    }
+
+    .value {
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 20px;
+      color: $foreground;
+    }
+  }
+}

@@ -8,7 +8,7 @@ const props = defineProps<{ data?: MarketTableItem }>()
 
 const dialog = defineModel({ default: false })
 
-const { generateExplorerLink } = useExplorerLink()
+// const { generateExplorerLink } = useExplorerLink()
 
 const marketsStore = useMarketsStore()
 const market = useMarketActions()
@@ -29,7 +29,7 @@ const {
   isLoadingFee,
   supplyLimit,
   limitLabel,
-  contractAddress,
+  // contractAddress,
   isLoading,
   isCanSupply,
   attentionText,
@@ -115,7 +115,7 @@ watch(dialog, async (v) => {
         :limit="Number(supplyLimit) || 0"
         :fee="POOL_REMAINING_BALANCE + txFee + reserveAmount"
         :price="poolData?.price"
-        class="dialog-default__input"
+        class="dialog-default__input mb-2"
         label-left="Balance"
         :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${poolData?.asset.symbol}`"
         :reset="dialog"
@@ -129,20 +129,80 @@ watch(dialog, async (v) => {
         ]"
       />
 
-      <div
+      <template v-if="poolData">
+        <!-- Pool Info -->
+        <div
+          class="dialog-info-card"
+        >
+          <div class="dialog-info-card__title">
+            Pool Info
+          </div>
+
+          <div class="dialog-info-card__body">
+            <!-- Supply Limit -->
+            <div class="dialog-info-card__item">
+              <span class="label">Supply Limit</span>
+              <span class="value">{{ limitLabel }} {{ limitLabel !== '-' ? poolData?.asset.symbol : '' }}</span>
+            </div>
+
+            <!-- Open LTV -->
+            <div class="dialog-info-card__item">
+              <span class="label">Open LTV</span>
+              <span class="value">{{ poolData.open_ltv }}</span>
+            </div>
+
+            <!-- Utilization -->
+            <div class="dialog-info-card__item">
+              <span class="label">Util. Rate</span>
+              <span class="value">{{ poolData.utilization_rate }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fees -->
+        <div
+          class="dialog-info-card"
+        >
+          <div class="dialog-info-card__title">
+            Fees
+          </div>
+
+          <div class="dialog-info-card__body">
+            <!-- Operation Fee -->
+            <div class="dialog-info-card__item">
+              <span class="label">Operation Fee</span>
+              <span class="value">{{ formatPrice(marketFee) }} XLM</span>
+            </div>
+
+            <!-- Transaction Fee -->
+            <div class="dialog-info-card__item">
+              <span class="label">Transaction Fee</span>
+              <span class="value">
+                <j-loading-spinner
+                  v-if="isLoadingFee"
+                  width="14px"
+                  style="margin:0 20px 0 auto;"
+                />
+                <span v-else>{{ txFee }} XLM</span></span>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- <div
         v-if="poolData"
         class="dialog-info-table mt-3"
-      >
-        <!-- Supply Limit -->
-        <div
+      > -->
+      <!-- Supply Limit -->
+      <!-- <div
           class="dialog-info-table__item"
         >
           <span>Supply Limit</span>
           <span>{{ limitLabel }} {{ limitLabel !== '-' ? poolData?.asset.symbol : '' }}</span>
-        </div>
+        </div> -->
 
-        <!-- Contract Address -->
-        <div
+      <!-- Contract Address -->
+      <!-- <div
           class="dialog-info-table__item"
         >
           <span>Contract</span>
@@ -152,35 +212,35 @@ watch(dialog, async (v) => {
           >{{ shortenAddress(String(contractAddress), 5) }}
             <i-app-export-icon />
           </a>
-        </div>
+        </div> -->
 
-        <!-- Open LTV  -->
-        <div
+      <!-- Open LTV  -->
+      <!-- <div
           class="dialog-info-table__item"
         >
           <span>Open LTV </span>
           <span>{{ poolData.open_ltv }}</span>
-        </div>
+        </div> -->
 
-        <!-- Util Rate -->
-        <div
+      <!-- Util Rate -->
+      <!-- <div
           class="dialog-info-table__item"
         >
           <span>Utilization Rate</span>
           <span>{{ poolData.utilization_rate }}</span>
-        </div>
+        </div> -->
 
-        <!-- Market Fee -->
-        <div
+      <!-- Market Fee -->
+      <!-- <div
           class="dialog-info-table__item"
         >
           <span>Operation Fee</span>
 
           <span>{{ formatPrice(marketFee) }} XLM</span>
-        </div>
+        </div> -->
 
-        <!-- Transaction Fee -->
-        <div
+      <!-- Transaction Fee -->
+      <!-- <div
           class="dialog-info-table__item"
         >
           <span>Transaction Fee</span>
@@ -193,7 +253,7 @@ watch(dialog, async (v) => {
         </div>
 
         <div class="separator" />
-      </div>
+      </div> -->
 
       <warning-block
         v-if="!isCanSupply"
@@ -201,13 +261,14 @@ watch(dialog, async (v) => {
         :is-warning="!isCanSupply"
       />
 
-      <div class="extra-info">
+      <div class="extra-info mt-2">
         <div class="extra-info__label">Collateral Only</div>
 
         <j-toggle
           v-model="collateralOnly"
           size="small"
           :disabled="!isCanSupply"
+          color="#22d3ee"
         />
       </div>
 

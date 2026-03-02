@@ -36,7 +36,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isC
 
   const isSupplyLimited = computed(() => poolData.value?.supply_limit && !collateralOnly.value && poolData.value?.supply_limit > 0)
   const supplyLimit = computed(() => isSupplyLimited.value ? Math.max(Number(poolData.value?.supply_limit) - Number(poolData.value?.total_supply), 0) : 0)
-  const limitLabel = computed(() => isSupplyLimited.value ? formatPrice(Number(supplyLimit.value), 2, 2) : '-')
+  const limitLabel = computed(() => isSupplyLimited.value ? shortenNumber(Number(supplyLimit.value), 2, 2) : '-')
 
   const contractAddress = computed(() => poolData.value?.raw.pool.pool_address || '')
 

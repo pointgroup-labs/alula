@@ -201,7 +201,7 @@ watch(selectedMarket, (p) => {
           <template #cell(action)="data">
             <div class="table-cell justify-content-center">
               <j-btn
-                variant="outline-accent"
+                variant="outline-purple"
                 size="xs"
                 class="repay-btn"
                 pill

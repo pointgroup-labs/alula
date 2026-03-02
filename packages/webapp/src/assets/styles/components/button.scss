@@ -8,6 +8,10 @@ $btn-variants: (
     focusOutline: 1px solid rgba(107, 122, 148, 0.2),
   ),
 
+  success: (
+    color: $dark,
+  ),
+
   accent: (
     bg: rgba(242, 176, 26, 0.4),
     color: #fff,
@@ -55,7 +59,7 @@ $btn-variants: (
     hoverBg: rgba(99, 102, 241, 0.1),
     hoverColor: $purple,
     focusOutline: 1px solid rgba(99, 102, 241, 0.4),
-  )
+  ),
 );
 
 $btn-size: (

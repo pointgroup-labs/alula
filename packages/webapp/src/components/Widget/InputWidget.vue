@@ -33,7 +33,7 @@ const {
   rules?: Array<(val: string | number) => true | string>
   modelValue?: string | number
   error?: string
-  variant?: 'supply' | 'borrow'
+  variant?: 'supply' | 'borrow' | 'success'
   reset?: boolean
 }>()
 
@@ -157,7 +157,7 @@ watch(() => reset, () => {
           only-numbers
           :disabled="disabled"
           :readonly="readonly"
-          @keypress="selectedAmount = null"
+          @input="selectedAmount = null"
         />
       </div>
       <div class="input-block__btns">
@@ -200,6 +200,12 @@ watch(() => reset, () => {
     --background-color: rgba(99, 102, 241, 0.05);
     --border-color: rgba(99, 102, 241, 0.3);
     --color: #6366f1;
+  }
+
+  .success {
+    --background-color: rgba(0, 201, 80, 0.03);
+    --border-color: rgba(0, 201, 80, 0.3);
+    --color: #00c950;
   }
 
   &__label {

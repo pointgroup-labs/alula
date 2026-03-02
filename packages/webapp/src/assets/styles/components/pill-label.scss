@@ -9,7 +9,7 @@ $label-variants: (
   ),
   warning: (
     background-color: rgba(240, 177, 0, 0.1),
-    color: $text-warning,
+    color: $warning,
   ),
   supply: (
     background-color: lab(77.4225% -36.0465 -25.8871/0.1),
@@ -21,7 +21,7 @@ $label-variants: (
   ),
   success: (
     background-color: rgba(0, 201, 80, 0.1),
-    color: $text-success,
+    color: $success,
   ),
   outline-success: (
     border: 1px solid $success,

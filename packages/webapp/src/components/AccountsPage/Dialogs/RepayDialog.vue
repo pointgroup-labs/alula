@@ -74,28 +74,28 @@ const healthFactor = computed(() => {
 
 const infoTableData = computed(() => {
   if (!data) {
-    return []
+    return {}
   }
   const debt = Number(data?.debt ?? 0)
   const borrowBalanceAfterRepay = Math.max(Number(debt) - amount.value || 0, 0)
-  return [{
-    name: 'healthFactor',
-    label: 'Health Factor',
-    value: truncatePercent(healthFactor.value, 2),
-  },
-  {
-    name: 'debt',
-    label: 'Debt',
-    value: `${shortenNumber(data?.debt || 0, 2, maxDecimalsForShortenNumber(debt))} ${data?.asset.symbol}`,
-  },
-  {
-    label: 'Debt Balance After Repayment',
-    value: `${shortenNumber(borrowBalanceAfterRepay, 2, maxDecimalsForShortenNumber(borrowBalanceAfterRepay))} ${data.asset.symbol}`,
-  },
-  {
-    label: 'Transaction Fee',
-    value: `${txFee.value} XLM`,
-  }]
+  return {
+    healthFactor: {
+      label: 'Health Factor',
+      value: truncatePercent(healthFactor.value, 2),
+    },
+    debt: {
+      label: 'Debt',
+      value: `${shortenNumber(data?.debt || 0, 2, maxDecimalsForShortenNumber(debt))} ${data?.asset.symbol}`,
+    },
+    debtBalanceAfterRepayment: {
+      label: 'Debt Balance After Repayment',
+      value: `${shortenNumber(borrowBalanceAfterRepay, 2, maxDecimalsForShortenNumber(borrowBalanceAfterRepay))} ${data.asset.symbol}`,
+    },
+    txFee: {
+      label: 'Transaction Fee',
+      value: `${txFee.value} XLM`,
+    },
+  }
 })
 
 async function repay() {
@@ -191,7 +191,7 @@ watch(() => modelValue, async (v) => {
     <div class="dialog-default__body">
       <input-widget
         v-model="amount"
-        class="repay-dialog__input"
+        class="repay-dialog__input mb-2"
         :balance="balance"
         :limit="Number(data?.debt) || 0"
         label-left="Balance"
@@ -206,7 +206,63 @@ watch(() => modelValue, async (v) => {
         ]"
       />
 
-      <div class="dialog-info-table">
+      <template v-if="Object.keys(infoTableData).length > 0">
+        <!-- Balances -->
+        <div
+          class="dialog-info-card dialog-info-card--borrow"
+        >
+          <div class="dialog-info-card__title">
+            Balances / Health
+          </div>
+
+          <div class="dialog-info-card__body">
+            <!-- Health -->
+            <div class="dialog-info-card__item">
+              <span class="label">{{ infoTableData.healthFactor?.label }}</span>
+              <span class="value">
+                {{ infoTableData.healthFactor?.value }}
+              </span>
+            </div>
+
+            <!-- Debt -->
+            <div class="dialog-info-card__item">
+              <span class="label">{{ infoTableData.debt?.label }}</span>
+              <span class="value">
+                {{ infoTableData.debt?.value }}
+              </span>
+            </div>
+
+            <!-- Debt -->
+            <div class="dialog-info-card__item">
+              <span class="label">{{ infoTableData.debtBalanceAfterRepayment?.label }}</span>
+              <span class="value">
+                {{ infoTableData.debtBalanceAfterRepayment?.value }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fee -->
+        <div
+          class="dialog-info-card dialog-info-card--borrow"
+        >
+          <div class="dialog-info-card__title">
+            Fees
+          </div>
+
+          <div class="dialog-info-card__body">
+            <!-- TxFee -->
+            <div class="dialog-info-card__item">
+              <span class="label">{{ infoTableData.txFee?.label }}</span>
+              <span class="value">
+                {{ infoTableData.txFee?.value }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- <div class="dialog-info-table">
         <div
           v-for="item in infoTableData"
           :key="item.label"
@@ -227,7 +283,7 @@ watch(() => modelValue, async (v) => {
         </div>
 
         <div class="separator" />
-      </div>
+      </div> -->
 
       <div class="dialog-default__action">
         <j-btn
