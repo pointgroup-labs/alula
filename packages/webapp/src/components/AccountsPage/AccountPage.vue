@@ -5,13 +5,13 @@
       <div class="separator-vert" />
       <account-borrow-table />
     </div>
-
+    <!--
     <div class="account-multiply__cards card">
       <div class="account-card__title">
         Your Multiplies
       </div>
       <account-multiply-table only-multiplied />
-    </div>
+    </div> -->
   </main>
 </template>
 

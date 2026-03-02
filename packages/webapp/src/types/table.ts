@@ -75,6 +75,7 @@ export type BorrowCardTableItem = {
   pool_address: string
   asset_issuer: string
   market?: string
+  healthFactor: number
 } & TableAsset
 
 export type SuppliedCardTableItem = {

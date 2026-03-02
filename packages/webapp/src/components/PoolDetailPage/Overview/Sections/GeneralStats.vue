@@ -93,7 +93,6 @@ section#stats {
 
       .stat-title {
         color: $muted-foreground;
-        text-transform: uppercase;
         font-size: 10px;
         display: flex;
         align-items: center;

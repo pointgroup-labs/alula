@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { BorrowCardTableItem } from '~/types/table'
 // import type { BorrowObligation } from '@jlend/sdk'
-import { calculateBorrow } from '@alula/client-sdk/src/utils'
+import { calculateBorrow, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import {
   destructurePoolAsset,
   formatPrice,
@@ -24,27 +24,28 @@ const isHasObligations = computed(() => Object.keys(userStore.state.obligations)
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
   { key: 'debt', label: 'Debt', align: 'right' },
-  { key: 'market', label: 'Market', align: 'center' },
   { key: 'borrow_apy', label: 'Borrow APY', align: 'center' },
+  { key: 'hf', label: 'Health Factor', align: 'right' },
   { key: 'action', label: '' },
 ]
 
 const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
   const res = []
   for (const market in userStore.state.obligations) {
-    const deposits = userStore.state.obligations[market]?.borrows ?? []
+    const obligation = userStore.state.obligations[market]
+    const borrows = obligation?.borrows ?? []
     const marketState = marketsStore.state.markets[market]?.marketState
     const poolsData = marketState?.pools_data
     const assetDecimals = marketState?.asset_decimals ?? 7
     const oraclePriceDecimals = marketState?.oracle_price_decimals ?? 0
-    for (const deposit of deposits) {
-      const [pool_address, borrow] = deposit
+    for (const borrow of borrows) {
+      const [pool_address, bor] = borrow
       const activePool = poolsData?.find(data => data.pool.pool_address === pool_address)
       if (!activePool) {
         continue
       }
 
-      const rawDept = calculateBorrow(borrow.d_tokens, {
+      const rawDept = calculateBorrow(bor.d_tokens, {
         total_borrowed: activePool.pool.total_borrowed,
         total_d_tokens: activePool.pool.total_d_tokens,
       }, assetDecimals)
@@ -57,6 +58,10 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
       const [, asset_issuer] = destructurePoolAsset(activePool.pool.name)
       const borrowApy = activePool.apy.borrow_bps / 100
 
+      const userTotalSupplyByMarket = calcUserTotalStakeInUsd(obligation!, poolsData!, assetDecimals, oraclePriceDecimals, 'close')
+      const usetTotalBorrowedByMarket = calcUserTotalBorrowedInUsd(obligation!, poolsData!, assetDecimals, oraclePriceDecimals)
+      const healthFactor = Math.min(Math.max(userTotalSupplyByMarket / usetTotalBorrowedByMarket, 0), 10)
+
       const data = {
         raw: activePool,
         market,
@@ -68,6 +73,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
         action: 'Repay',
         pool_address,
         asset_issuer,
+        healthFactor,
       }
 
       res.push(data)
@@ -117,6 +123,7 @@ watch(selectedMarket, (p) => {
           :items="items"
           responsive
           class="account-table market-table"
+          :class="{ 'table-loading': userStore.loading }"
         >
           <template
             v-for="field in fields"
@@ -136,8 +143,11 @@ watch(selectedMarket, (p) => {
                 <div class="market-table__asset__info__name">
                   {{ data.item.asset.symbol }}
                 </div>
-                <div class="market-table__asset__info__symbol">
-                  {{ data.item.asset.name }}
+                <div
+                  class="market-table__asset__info__symbol"
+                  style="text-transform: capitalize;"
+                >
+                  {{ data.item.market }}
                 </div>
               </div>
             </div>
@@ -155,15 +165,6 @@ watch(selectedMarket, (p) => {
             </j-tooltip>
           </template>
 
-          <template #cell(market)="data">
-            <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
-              <span>{{ data.item.market }}</span>
-              <template #content>
-                {{ data.item.market }}
-              </template>
-            </j-tooltip>
-          </template>
-
           <template #cell(borrow_apy)="data">
             <div class="table-cell justify-content-center">
               <j-pill-label
@@ -172,6 +173,28 @@ watch(selectedMarket, (p) => {
               >
                 {{ data.item.borrow_apy }}
               </j-pill-label>
+            </div>
+          </template>
+
+          <template #cell(hf)="data">
+            <div class="table-cell justify-content-end">
+              <div
+                class="hf-indicator"
+                :style="{
+                  '--indicator-width': `${Math.min(Math.max((data.item.healthFactor - 1) * 100, 0), 100)}%`,
+                  '--indicator-color': data.item.healthFactor < 1.2
+                    ? 'var(--hf-danger)' : data.item.healthFactor < 2
+                      ? 'var(--hf-warning)' : 'var(--hf-success)',
+                }"
+              />
+              <span
+                :style="{
+                  color: data.item.healthFactor < 1.2 ? 'var(--hf-danger)' : data.item.healthFactor < 2 ? 'var(--hf-warning)' : 'var(--hf-success)',
+                }"
+                class="text-num hf-percent"
+              >
+                {{ truncatePercent(data.item.healthFactor, 2) }}
+              </span>
             </div>
           </template>
 
@@ -206,13 +229,6 @@ watch(selectedMarket, (p) => {
         <i-app-percentage-square-icon />
         No borrowed assets
       </div>
-
-      <j-loading-spinner
-        v-if="userStore.loading"
-        class="table-loading-spinner"
-      >
-        Loading...
-      </j-loading-spinner>
     </div>
   </div>
 
@@ -226,8 +242,42 @@ watch(selectedMarket, (p) => {
 
 <style lang="scss">
 .account-card {
+  --hf-danger: #{$danger};
+  --hf-warning: #{$warning};
+  --hf-success: #{$success};
+
   .table-cell__dept {
     color: $borrow;
+  }
+
+  .hf-indicator {
+    position: relative;
+    width: 50px;
+    height: 4px;
+    border-radius: 10px;
+    background-color: color-mix(in oklab, $border 70%, transparent);
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-right: 4px;
+    font-family: $font-JetBrainsMono;
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      width: var(--indicator-width, 0%);
+      border-radius: 10px;
+      background-color: var(--indicator-color, #{$success});
+      transition:
+        width 0.3s ease,
+        background-color 0.3s ease;
+    }
+  }
+
+  .hf-percent {
+    font-size: 12px;
   }
 }
 </style>

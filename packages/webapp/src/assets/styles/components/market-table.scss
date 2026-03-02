@@ -196,3 +196,35 @@
   line-height: 16px;
   text-align: center;
 }
+
+.table-loading {
+  thead {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -100%;
+      width: 40%;
+      height: 1px;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in oklab, #6b7a94 60%, transparent) 50%,
+        transparent 100%
+      );
+      animation: table-shimmer 1.6s ease-in-out infinite;
+      pointer-events: none;
+    }
+  }
+}
+
+@keyframes table-shimmer {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 110%;
+  }
+}

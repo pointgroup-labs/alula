@@ -115,6 +115,7 @@ watch(selectedPool, (p) => {
           :items="items"
           responsive
           class="account-table market-table"
+          :class="{ 'table-loading': userStore.loading }"
         >
           <template
             v-for="field in fields"
@@ -203,13 +204,6 @@ watch(selectedPool, (p) => {
         <i-app-strongbox-icon />
         No supplied assets
       </div>
-
-      <j-loading-spinner
-        v-if="userStore.loading"
-        class="table-loading-spinner"
-      >
-        Loading...
-      </j-loading-spinner>
     </div>
   </div>
 

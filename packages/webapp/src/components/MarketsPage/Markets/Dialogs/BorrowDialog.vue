@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { calcFee } from '@alula/client-sdk/src/utils'
+import { calcFee, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
@@ -35,19 +35,24 @@ const amount = toRef(market, 'borrowAmount')
 const dialog = defineModel({ default: false })
 
 const healthFactor = computed(() => {
-  const depositUsd = userStore.userTotalDepositInUsd
+  const marketName = marketsStore.selectedMarketName
+  const obligation = userStore.state.obligations[marketName]
+  const marketState = marketsStore.state.markets[marketName]?.marketState
+  if (!obligation || !marketState) {
+    return 0
+  }
+  const assetDecimals = marketState.asset_decimals ?? 7
+  const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+  const poolsData = marketState.pools_data
+
+  const depositUsd = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'close')
   const borrowedUsd = userStore.userTotalBorrowedInUsd
   const price = poolData.value?.price || 0
-  const closeLTV = Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 10_000
 
   const extraBorrowUsd = (amount.value || 0) * price
   const totalBorrowUsd = borrowedUsd + extraBorrowUsd
 
-  let hf = (depositUsd * closeLTV) / totalBorrowUsd
-
-  if (!Number.isFinite(hf)) {
-    hf = 0
-  }
+  const hf = totalBorrowUsd > 0 ? depositUsd / totalBorrowUsd : 0
 
   return Math.min(hf, 10)
 })

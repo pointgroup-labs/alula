@@ -34,7 +34,7 @@ const userTotalDepositByMarket = computed(() => {
   if (!obligation || !pools) {
     return 0
   }
-  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals) ?? 0
+  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals, 'close') ?? 0
 })
 
 const userTotalBorrowByMarket = computed(() => {
@@ -64,11 +64,9 @@ const balance = computed(() => {
   return wallet.getAssetBalance(String(data.asset_issuer))
 })
 
-const closeLTV = computed(() => data?.raw?.pool.config?.health_config.close_ltv_bps ? Number(data.raw.pool.config.health_config.close_ltv_bps) / 10_000 : 0)
-
 const healthFactor = computed(() => {
   const amountInUsd = Number(amount.value || 0) * Number(data?.price || 0)
-  const deposited = (userTotalDepositByMarket.value * closeLTV.value)
+  const deposited = userTotalDepositByMarket.value
   const borrowed = Math.max(Number(userTotalBorrowByMarket.value) - amountInUsd, 0)
   const result = Math.max(deposited / borrowed, 0)
   return Math.min(result, 10)

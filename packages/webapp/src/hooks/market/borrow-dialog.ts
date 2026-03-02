@@ -1,4 +1,5 @@
 import type { MarketTableItem } from '~/types/table'
+import { calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 
 export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isCalcFee: boolean = true) {
   const wallet = useWallet()
@@ -34,11 +35,19 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isC
     if (!poolData.value) {
       return 0
     }
-    const userTotalDepositInUsd = userStore.userTotalDepositInUsd
+    const marketName = String(poolData.value.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
     const userTotalBorrowedInUsd = Number(userStore.userTotalBorrowedInUsd) || 0
-    const openLTV = Number(poolData.value?.raw.pool.config.health_config.open_ltv_bps || 0) / 10_000
     const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(poolData.value.price)
-    const userAvailableByLTV = Number(userTotalDepositInUsd * openLTV) || 0
+
+    let userAvailableByLTV = 0
+    if (obligation && marketState) {
+      const assetDecimals = marketState.asset_decimals ?? 7
+      const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+      userAvailableByLTV = calcUserTotalStakeInUsd(obligation, marketState.pools_data, assetDecimals, oraclePriceDecimals, 'open')
+    }
+
     const userAvailable = Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0)
     const maxAvailableUsd = Math.min(userAvailable, marketAvailableInUsd)
     const maxAvailableAssets = maxAvailableUsd / Number(poolData.value.price)
