@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { calcFee } from '@alula/client-sdk/src/utils'
+import { calcFee, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, truncatePercent } from '~/utils'
 
@@ -32,19 +32,24 @@ const {
 const amount = toRef(market, 'borrowAmount')
 
 const healthFactor = computed(() => {
-  const depositUsd = userStore.userTotalDepositInUsd
-  const borrowedUsd = userStore.userTotalBorrowedInUsd
+  const marketName = String(selectedPool?.value?.market)
+  const obligation = userStore.state.obligations[marketName]
+  const marketState = marketsStore.state.markets[marketName]?.marketState
+  if (!obligation || !marketState) {
+    return 0
+  }
+  const assetDecimals = marketState.asset_decimals ?? 7
+  const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+  const poolsData = marketState.pools_data
+
+  const depositUsd = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
+  const borrowedUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
   const price = selectedPool?.value?.price || 0
-  const closeLTV = Number(selectedPool?.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 10_000
 
   const extraBorrowUsd = (amount.value || 0) * price
   const totalBorrowUsd = borrowedUsd + extraBorrowUsd
 
-  let hf = (depositUsd * closeLTV) / totalBorrowUsd
-
-  if (!Number.isFinite(hf)) {
-    hf = 0
-  }
+  const hf = totalBorrowUsd > 0 ? depositUsd / totalBorrowUsd : 0
 
   return Math.min(hf, 10)
 })
@@ -272,6 +277,7 @@ const debtAccrual = computedAsync(async () => {
     <j-checkbox
       v-model="agree"
       :disabled="!isCanBorrow"
+      color="#6366F1"
     >
       <div class="extra-info__label">
         I acknowledge the risks involved.

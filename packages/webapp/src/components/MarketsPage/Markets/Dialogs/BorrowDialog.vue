@@ -193,7 +193,7 @@ watch(dialog, async (v) => {
                 <template v-if="isLoading">
                   <j-loading-spinner
                     width="14px"
-                    style="padding: 0; width: 14px; margin-left: auto"
+                    style="padding: 0; width: 14px;"
                   />
                 </template>
                 <template v-else>

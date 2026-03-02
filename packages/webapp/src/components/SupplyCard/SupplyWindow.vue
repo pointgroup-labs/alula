@@ -142,6 +142,7 @@ const rewardsEarnings = computedAsync(async () => {
       v-model="collateralOnly"
       size="small"
       :disabled="!isCanSupply"
+      color="#22d3ee"
     />
   </div>
 
