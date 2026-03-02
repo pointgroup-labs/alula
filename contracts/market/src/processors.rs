@@ -507,9 +507,14 @@ pub fn process_simulate_withdraw(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<WithdrawResult, MCError> {
+    require_nonnegative(amount)?;
+
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
+    obligation.accrue_interest(e)?;
+
     let pool = Pool::try_get(e, pool_address)?;
+    pool.require_withdraw_enabled()?;
 
     let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
 

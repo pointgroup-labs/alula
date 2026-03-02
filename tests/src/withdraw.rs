@@ -11,8 +11,8 @@ use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
     assert_approx_eq_rel, get_deposit_position, get_obligation_collateral,
     get_obligation_j_tokens_as_tokens, get_obligation_originally_deposited,
-    get_pool_total_available, get_pool_total_borrowed, get_pool_total_collateral,
-    get_pool_total_supply,
+    get_pool_operation_fees_sum, get_pool_total_available, get_pool_total_borrowed,
+    get_pool_total_collateral, get_pool_total_supply,
 };
 
 #[test]
@@ -556,4 +556,40 @@ fn test_withdraw_scarcity_over_limit() {
             .try_withdraw(creditor, &gold_pool_address, &(allowed_withdrawal / 10), &None)
             .is_ok()
     );
+}
+
+#[test]
+fn test_simulate_withdraw_accrues_interest() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        users,
+        gold_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(user, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR);
+
+    let creditor_balance_before = gold_token_client.balance(user);
+    let fees_before = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+
+    let simulated = contract_client.simulate_withdraw(user, &gold_pool_address, &i128::MAX, &None);
+    contract_client.withdraw(user, &gold_pool_address, &i128::MAX, &None);
+
+    let creditor_balance_after = gold_token_client.balance(user);
+    let creditor_balance_diff =
+        creditor_balance_after.checked_sub(creditor_balance_before).unwrap();
+    let fees_after = get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let fees_diff = fees_after.checked_sub(fees_before).unwrap();
+
+    assert_eq!(creditor_balance_diff, simulated.withdrawer_to_receive);
+    assert_eq!(fees_diff, simulated.operation_fees.fee_sum);
 }
