@@ -9,7 +9,7 @@ use crate::{
     error::MCError,
     events, farms,
     misc::{
-        MarketData, PoolData, require_admin, require_borrows_on_market_allowed,
+        MarketData, PoolData, require_admin, require_borrows_on_market_allowed, require_deployer,
         require_deposits_on_market_allowed, require_insurance_fund, require_market_not_frozen,
         require_nonnegative, require_owned_and_admin,
     },
@@ -630,7 +630,7 @@ impl Market for MarketContract {
     // * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     //   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        require_admin(&e);
+        require_deployer(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }

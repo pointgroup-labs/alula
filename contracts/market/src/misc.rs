@@ -63,6 +63,10 @@ pub fn require_insurance_fund(e: &Env) -> Result<(), MCError> {
     Ok(())
 }
 
+pub fn require_deployer(e: &Env) {
+    storage::get_deployer(e).require_auth();
+}
+
 // Ensures that the caller is the admin of the contract
 #[inline(always)]
 pub fn require_admin(e: &Env) {
