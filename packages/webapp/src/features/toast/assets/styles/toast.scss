@@ -1,16 +1,19 @@
 $toast-variants: (
   success: (
-    background-color: $success,
+    background-color: rgba(0, 201, 80, 0.3),
+    border: 1px solid $success,
   ),
   info: (
-    background-color: $neutral-3,
-    color: $neutral-6,
+    background-color: rgba(107, 122, 148, 0.3),
+    boeder: 1px solid $muted-foreground,
   ),
   warning: (
-    background-color: $warning,
+    background-color: rgba(240, 176, 0, 0.3),
+    border: 1px solid $warning,
   ),
   danger: (
-    background-color: $danger,
+    background-color: rgba(244, 63, 93, 0.3),
+    border: 1px solid $red,
   ),
 );
 
@@ -19,6 +22,7 @@ $toast-variants: (
   pointer-events: all !important;
   width: 344px;
   padding: $spacing-16;
+  backdrop-filter: blur(6px);
 
   .alert-close {
     cursor: pointer;
@@ -187,7 +191,7 @@ $toast-variants: (
         font-style: normal;
         font-weight: 500;
         line-height: 16px;
-        background-color: rgb(1 41 56 / 89%);
+        background-color: rgba(16, 185, 129, 1);
         color: #fff;
         border-radius: 8px;
         display: flex;
@@ -196,7 +200,7 @@ $toast-variants: (
 
         &:hover,
         &:active {
-          background-color: lighten(rgb(1 41 56 / 89%), 10%);
+          background-color: lighten(rgba(16, 185, 129, 1), 6%);
           color: #fff;
         }
       }
