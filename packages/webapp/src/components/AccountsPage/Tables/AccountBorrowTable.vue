@@ -58,7 +58,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
       const [, asset_issuer] = destructurePoolAsset(activePool.pool.name)
       const borrowApy = activePool.apy.borrow_bps / 100
 
-      const userTotalSupplyByMarket = calcUserTotalStakeInUsd(obligation!, poolsData!, assetDecimals, oraclePriceDecimals, 'close')
+      const userTotalSupplyByMarket = calcUserTotalStakeInUsd(obligation!, poolsData!, assetDecimals, oraclePriceDecimals, 'open')
       const usetTotalBorrowedByMarket = calcUserTotalBorrowedInUsd(obligation!, poolsData!, assetDecimals, oraclePriceDecimals)
       const healthFactor = Math.min(Math.max(userTotalSupplyByMarket / usetTotalBorrowedByMarket, 0), 10)
 

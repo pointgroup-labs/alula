@@ -26,7 +26,7 @@ const userTotalDepositByMarket = computed(() => {
   if (!obligation || !pools) {
     return 0
   }
-  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals) ?? 0
+  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals, 'open') ?? 0
 })
 
 const userTotalBorrowByMarket = computed(() => {
@@ -63,16 +63,15 @@ const supplyBalance = computed(() => Number(data?.balance || 0) - collateralBala
 const totalSuppliedBalance = computed(() => Number(data?.balance) || 0)
 const remainingBalance = computed(() => Number(collateralOnly.value ? collateralBalance.value : supplyBalance.value) - amount.value)
 
-const closeLTV = computed(() => data?.raw.pool.config.health_config.close_ltv_bps ? Number(data.raw.pool.config.health_config.close_ltv_bps) / 10_000 : 0)
 const openLtv = computed(() => data?.raw.pool.config.health_config.open_ltv_bps ? Number(data.raw.pool.config.health_config.open_ltv_bps) / 10_000 : 0)
 
 const healthFactor = computed(() => {
   const price = Number(data?.price || 0)
-  const withdrawUsd = Number(amount.value || 0) * price
+  const withdrawUsd = Number(amount.value || 0) * price * openLtv.value
   const depositedAfterWithdraw = Math.max(userTotalDepositByMarket.value - withdrawUsd, 0)
   const borrowed = userTotalBorrowByMarket.value
 
-  const result = borrowed === 0 ? 10 : Math.max((depositedAfterWithdraw * closeLTV.value) / borrowed, 0)
+  const result = borrowed === 0 ? 10 : Math.max(depositedAfterWithdraw / borrowed, 0)
   return Math.min(result, 10)
 })
 
@@ -86,11 +85,13 @@ const poolLimit = computed(() => {
 
 const availableToWithdraw = computed(() => {
   const price = Number(data?.price || 1)
-  const deposited = userTotalDepositByMarket.value
+  const depositWithOpenLtv = userTotalDepositByMarket.value
   const borrowed = userTotalBorrowByMarket.value
+  const poolOpenLtv = openLtv.value
 
-  const targetDeposit = borrowed / openLtv.value
-  const maxWithdrawUsd = Math.max(deposited - targetDeposit, 0)
+  const maxWithdrawUsd = poolOpenLtv > 0
+    ? Math.max(depositWithOpenLtv - borrowed * 1.1, 0) / poolOpenLtv
+    : 0
   const maxWithdrawAmount = maxWithdrawUsd / price
   const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value
   return Math.min(balance, maxWithdrawAmount)

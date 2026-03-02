@@ -1,5 +1,6 @@
 import type { MarketTableItem } from '~/types/table'
-import { calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import { truncatePercent } from '~/utils'
 
 export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isCalcFee: boolean = true) {
   const wallet = useWallet()
@@ -38,21 +39,25 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isC
     const marketName = String(poolData.value.market)
     const obligation = userStore.state.obligations[marketName]
     const marketState = marketsStore.state.markets[marketName]?.marketState
-    const userTotalBorrowedInUsd = Number(userStore.userTotalBorrowedInUsd) || 0
     const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(poolData.value.price)
 
-    let userAvailableByLTV = 0
-    if (obligation && marketState) {
-      const assetDecimals = marketState.asset_decimals ?? 7
-      const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-      userAvailableByLTV = calcUserTotalStakeInUsd(obligation, marketState.pools_data, assetDecimals, oraclePriceDecimals, 'open')
+    if (!obligation || !marketState) {
+      return 0
     }
 
-    const userAvailable = Math.max(userAvailableByLTV - userTotalBorrowedInUsd, 0)
-    const maxAvailableUsd = Math.min(userAvailable, marketAvailableInUsd)
+    const assetDecimals = marketState.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+    const poolsData = marketState.pools_data
+
+    const userDepositWithCloseLtv = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
+    const userTotalBorrowedInUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
+
+    // max borrow so that HF stays >= 1.1: extra = depositWithOpenLtv / 1.1 - borrowed
+    const userAvailableUsd = Math.max(userDepositWithCloseLtv / 1.1 - userTotalBorrowedInUsd, 0)
+    const maxAvailableUsd = Math.min(userAvailableUsd, marketAvailableInUsd)
     const maxAvailableAssets = maxAvailableUsd / Number(poolData.value.price)
 
-    return marketAvailableInUsd > userAvailable ? maxAvailableAssets : Math.floor(maxAvailableAssets)
+    return Number(truncatePercent(maxAvailableAssets, assetDecimals))
   })
 
   const closeLTV = computed(() => Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 100)

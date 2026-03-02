@@ -34,7 +34,7 @@ const userTotalDepositByMarket = computed(() => {
   if (!obligation || !pools) {
     return 0
   }
-  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals, 'close') ?? 0
+  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals, 'open') ?? 0
 })
 
 const userTotalBorrowByMarket = computed(() => {

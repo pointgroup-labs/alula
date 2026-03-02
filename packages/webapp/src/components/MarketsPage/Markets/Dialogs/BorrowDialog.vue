@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { calcFee, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import { calcFee, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
@@ -35,7 +35,7 @@ const amount = toRef(market, 'borrowAmount')
 const dialog = defineModel({ default: false })
 
 const healthFactor = computed(() => {
-  const marketName = marketsStore.selectedMarketName
+  const marketName = String(poolData.value?.market)
   const obligation = userStore.state.obligations[marketName]
   const marketState = marketsStore.state.markets[marketName]?.marketState
   if (!obligation || !marketState) {
@@ -45,8 +45,8 @@ const healthFactor = computed(() => {
   const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
   const poolsData = marketState.pools_data
 
-  const depositUsd = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'close')
-  const borrowedUsd = userStore.userTotalBorrowedInUsd
+  const depositUsd = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
+  const borrowedUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
   const price = poolData.value?.price || 0
 
   const extraBorrowUsd = (amount.value || 0) * price
