@@ -24,6 +24,10 @@ export type MarketTableItem = {
   pool_address: string
   market?: string
   assetDecimals: number
+  position: {
+    supplied: number | string
+    borrowed: number | string
+  }
 } & TableAsset
 
 export type BorrowTableItem = {

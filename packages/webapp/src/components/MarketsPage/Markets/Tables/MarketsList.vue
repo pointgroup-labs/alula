@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 import { capitalize } from 'vue'
-import { amountToUsdWithShort, formatPrice, shortenNumber } from '~/utils'
+import { amountToUsdWithShort, shortenNumber } from '~/utils'
 
 const {
   searchAsset,
@@ -42,15 +42,12 @@ const marketsStore = useMarketsStore()
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
-  // { key: 'status', label: 'Status', align: 'center', thClass: 'status', tdClass: 'status' },
-  // { key: 'price', label: 'Price', align: 'right', thClass: 'price', tdClass: 'price' },
   { key: 'total_supply', label: 'Supplied', align: 'right', thClass: 'supply', tdClass: 'supply' },
   { key: 'total_borrowed', label: 'Borrowed', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
   { key: 'utilization_rate', label: 'Utilization', align: 'right', thClass: 'utilization', tdClass: 'utilization' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
   { key: 'borrow_apy', label: 'Borrow rate', align: 'center', thClass: 'apy', tdClass: 'apy' },
-  // { key: 'utilization_rate', label: 'Utilization', align: 'right' },
-  // { key: 'max_ltv', label: 'Open LTV', align: 'right' },
+  { key: 'position', label: 'My Position', align: 'right', thClass: 'position', tdClass: 'position' },
   { key: 'action', label: '', thClass: 'action', tdClass: 'action' },
 ]
 
@@ -193,40 +190,25 @@ const stop = watch(additionalMarketsData, () => {
 
         <template #cell(price)="data">
           <div class="table-cell justify-content-end">
-            <j-tooltip>
-              {{ formatCompactUSD(data.item.price, 2, 2) }}
-              <template #content>
-                {{ formatPrice(data.item.price) }}
-              </template>
-            </j-tooltip>
+            {{ formatCompactUSD(data.item.price, 2, 2) }}
           </div>
         </template>
 
         <template #cell(total_supply)="data">
           <div class="table-cell justify-content-end">
-            <j-tooltip tooltip-class="with-price">
+            <div class="with-price">
               <strong>{{ shortenNumber(data.item.total_supply) }}</strong>
               <span>${{ amountToUsdWithShort(data.item.total_supply, data.item.price) }}</span>
-              <template #content>
-                {{ formatPrice(data.item.total_supply) }} {{ data.item.asset.symbol }}
-                <br>
-                <span>${{ amountToUsdWithShort(data.item.total_supply, data.item.price, false) }}</span>
-              </template>
-            </j-tooltip>
+            </div>
           </div>
         </template>
 
         <template #cell(total_borrowed)="data">
           <div class="table-cell justify-content-end">
-            <j-tooltip tooltip-class="with-price">
+            <div class="with-price">
               <strong>{{ shortenNumber(data.item.total_borrowed) }}</strong>
               <span>${{ amountToUsdWithShort(data.item.total_borrowed, data.item.price) }}</span>
-              <template #content>
-                {{ formatPrice(data.item.total_borrowed) }} {{ data.item.asset.symbol }}
-                <br>
-                <span>${{ amountToUsdWithShort(data.item.total_borrowed, data.item.price, false) }}</span>
-              </template>
-            </j-tooltip>
+            </div>
           </div>
         </template>
 
@@ -272,17 +254,23 @@ const stop = watch(additionalMarketsData, () => {
           </div>
         </template>
 
-        <!-- <template #cell(utilization_rate)="data">
-          <div class="table-cell justify-content-end">
-            {{ data.item.utilization_rate }}
+        <template #cell(position)="data">
+          <div class="table-cell justify-content-end with-price">
+            <template v-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
+              <strong :style="{ color: +data.item.position.supplied > 0 ? '#22d3ee' : '#6366F1' }">
+                {{ shortenNumber(+data.item.position.supplied || +data.item.position.borrowed) }}</strong>
+              <span>
+                ${{ amountToUsdWithShort(+data.item.position.supplied || +data.item.position.borrowed, data.item.price) }}</span>
+            </template>
+            <div
+              v-else
+              style="opacity: .3;"
+            >
+              -
+            </div>
           </div>
-        </template>
 
-        <template #cell(max_ltv)="data">
-          <div class="table-cell justify-content-end">
-            {{ data.item.open_ltv }}
-          </div>
-        </template> -->
+        </template>
 
         <template #cell(action)="data">
           <div class="table-cell justify-content-end market-table__action">
