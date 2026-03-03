@@ -3,7 +3,7 @@ import arrowRight from '~/assets/img/icons/arrow-right.svg?raw'
 import stellarExpertLogo from '~/assets/img/stellar-expert-logo.webp'
 
 const recentStore = useRecentActivityStore()
-const records = computed(() => recentStore.state.records)
+const records = computed(() => recentStore.state.records.slice(0, 100))
 
 const { generateExplorerLink } = useExplorerLink()
 
@@ -104,8 +104,8 @@ function formatDate(iso: string) {
   }
 
   .arrow-right svg {
-    width: 20px;
-    height: 20px;
+    width: 14px;
+    height: 14px;
 
     path {
       stroke: $text-primary;
@@ -116,7 +116,7 @@ function formatDate(iso: string) {
 .tx-history-list {
   display: flex;
   flex-direction: column;
-  gap: $spacing-24;
+  gap: 18px;
   padding: 0 0 $spacing-20 0;
 
   &__item {
@@ -150,6 +150,7 @@ function formatDate(iso: string) {
   &__meta {
     font-size: 12px;
     color: $text-secondary;
+    margin-top: 4px;
   }
 
   &__action {
@@ -161,8 +162,8 @@ function formatDate(iso: string) {
   }
 
   .stellar-expert-logo {
-    width: 20px;
-    height: 20px;
+    width: 14px;
+    height: 14px;
     object-fit: contain;
   }
 }

@@ -41,7 +41,7 @@ watch(() => rpcStore.network, (val) => {
         </div>
         <template #target="{ active }">
           <j-btn
-            size="md"
+            size="xs"
             variant="ghost"
           >
             {{ activeNetwork }}
@@ -125,20 +125,20 @@ watch(() => rpcStore.network, (val) => {
   }
 
   .network-rpc {
-    font-size: 16px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 700;
-    line-height: 20px;
+    line-height: 16px;
     display: flex;
     flex-direction: column;
     gap: $spacing-4;
     color: $text-primary;
 
     &__url {
-      font-size: 15px;
+      font-size: 12px;
       font-style: normal;
       font-weight: 400;
-      line-height: 20px;
+      line-height: 14px;
       color: $muted-foreground;
     }
   }

@@ -76,10 +76,10 @@ function close() {
 
   .setting-item__title {
     color: $foreground;
-    font-size: 16px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 500;
-    line-height: 20px;
+    line-height: 16px;
   }
 
   .logo-with-text {
@@ -109,7 +109,7 @@ function close() {
 
     .option-title {
       color: rgba(232, 237, 245, 0.8);
-      font-size: 22px;
+      font-size: 16px;
       margin-bottom: -10px;
       font-weight: 700;
     }

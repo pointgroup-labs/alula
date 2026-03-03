@@ -63,7 +63,7 @@ async function handleLanguage(lang: string) {
 
   .language-selected-lang {
     color: $text-primary;
-    font-size: 16px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 400;
     line-height: 20px;
@@ -78,8 +78,8 @@ async function handleLanguage(lang: string) {
       color: $text-primary;
 
       svg {
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
 
         path {
           stroke: $text-primary;
@@ -94,6 +94,7 @@ async function handleLanguage(lang: string) {
     color: $text-primary;
     padding: $spacing-12 0;
     cursor: pointer;
+    font-size: 14px;
 
     &.active {
       font-weight: 700;

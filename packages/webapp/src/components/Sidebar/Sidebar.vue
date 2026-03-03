@@ -196,7 +196,7 @@ onMounted(() => {
 
   &__title {
     color: #fff;
-    font-size: 32px;
+    font-size: 22px;
     font-style: normal;
     font-weight: 700;
     line-height: 28px;
@@ -215,8 +215,8 @@ onMounted(() => {
     align-items: center;
 
     svg {
-      width: 22px;
-      height: 22px;
+      width: 16px;
+      height: 16px;
 
       path {
         stroke: #fff;
@@ -225,10 +225,10 @@ onMounted(() => {
   }
 
   .btn-close {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
     background: #fff;
-    mask-size: 22px;
+    mask-size: 16px;
     opacity: 1;
     flex-shrink: 0;
   }

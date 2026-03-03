@@ -56,17 +56,17 @@ function disconnect() {
 
   .wallet-info {
     color: $text-primary;
-    height: 46.22px;
+    height: 46px;
     display: flex;
     flex-direction: column;
     gap: $spacing-4;
-    font-size: 16px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 700;
     line-height: 20px;
 
     &__details {
-      font-size: 16px;
+      font-size: 14px;
       font-style: normal;
       font-weight: 700;
       line-height: 20px;
@@ -85,7 +85,7 @@ function disconnect() {
       font-size: 12px;
       font-style: normal;
       font-weight: 400;
-      line-height: 16px;
+      line-height: 14px;
     }
   }
 }
