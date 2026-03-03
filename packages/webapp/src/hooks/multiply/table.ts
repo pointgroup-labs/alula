@@ -1,4 +1,5 @@
 import type { MultiplyTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 
 export function useMultiplyTable() {
   const marketsStore = useMarketsStore()
@@ -24,8 +25,8 @@ export function useMultiplyTable() {
         const depositPoolData = poolsData.find(p => p.pool.pool_address === deposit_pool)!
         const borrowPoolData = poolsData.find(p => p.pool.pool_address === borrow_pool)!
         const multiplier = max_leverage_multiplier / 100
-        const supplyBPS = Number(depositPoolData?.apy.supply_bps || 0) / 10_000
-        const borrowBPS = Number(borrowPoolData?.apy.borrow_bps || 0) / 10_000
+        const supplyBPS = bpsToNumber(Number(depositPoolData?.apy.supply_bps || 0))
+        const borrowBPS = bpsToNumber(Number(borrowPoolData?.apy.borrow_bps || 0))
         const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
         const supplied = depositPoolData && depositPoolData.pool.total_available ? Number(bigintToNumber(depositPoolData.pool.total_available, assetDecimals)) : 0
         const liquidity

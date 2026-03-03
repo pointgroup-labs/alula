@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import { bigintToNumber } from '~/utils'
 
 const { generateExplorerLink } = useExplorerLink()
@@ -19,8 +20,8 @@ const detailCardsData = computed(() => {
   }
 
   const borrowAPY = selectedPool.value?.borrow_apy ?? '0%'
-  const utilRatioLimit = Number(pool.value?.config.health_config.utilization_ratio_limit_bps || 0) / 100
-  const withdrawFee = Number(pool.value?.config.fee_config.withdraw_fee_bps) / 100
+  const utilRatioLimit = bpsToNumber(Number(pool.value?.config.health_config.utilization_ratio_limit_bps || 0)) * 100
+  const withdrawFee = bpsToNumber(Number(pool.value?.config.fee_config.withdraw_fee_bps)) * 100
   return {
     utilRate: selectedPool.value?.utilization_rate,
     utilRatioLimit: utilRatioLimit.toFixed(0),
@@ -32,7 +33,7 @@ const detailCardsData = computed(() => {
 const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, selectedPool.value?.assetDecimals)) || 0)
 const totalSupplied = computed(() => {
   const supplied = Number(bigintToNumber(selectedPool.value?.raw?.total_supply, selectedPool.value?.assetDecimals)) || 0
-  const utilRatio = Number(pool.value?.config.health_config.utilization_ratio_limit_bps) / 10_000
+  const utilRatio = bpsToNumber(Number(pool.value?.config.health_config.utilization_ratio_limit_bps))
   return (supplied * utilRatio) || 0
 })
 

@@ -1,4 +1,5 @@
 import type { MarketTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { truncatePercent } from '~/utils'
 
@@ -25,7 +26,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isC
     if (!poolData.value) {
       return 0
     }
-    const utilRatioLimit = Number(poolData.value?.raw.pool.config.health_config.utilization_ratio_limit_bps || 0) / 10_000
+    const utilRatioLimit = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.utilization_ratio_limit_bps || 0))
     const totalSupply = Number(bigintToNumber(poolData.value.raw.total_supply, poolData.value.assetDecimals))
     const totalBorrow = Number(bigintToNumber(poolData.value.raw.pool.total_borrowed, poolData.value.assetDecimals))
     const availableByRatioLimit = totalSupply * utilRatioLimit

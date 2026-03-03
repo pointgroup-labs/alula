@@ -1,4 +1,5 @@
 import type { MultiplyTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import { calcFee } from '@alula/client-sdk/src/utils'
 import { bigintToNumber, destructurePoolAsset, focusInput, formatPrice } from '~/utils'
 
@@ -56,7 +57,7 @@ export function useLeverage(data: MaybeRef<MultiplyTableItem | undefined>) {
       return 0
     }
     const maxBorrowByUtil = Number(bigintToNumber(borrowPoolData.value.total_supply, poolData!.value!.assetDecimals))
-      * (Number(borrowPoolData.value.pool.config.health_config.utilization_ratio_limit_bps) / 10_000)
+      * bpsToNumber(Number(borrowPoolData.value.pool.config.health_config.utilization_ratio_limit_bps))
       - Number(bigintToNumber(borrowPoolData.value.pool.total_borrowed, poolData!.value!.assetDecimals))
     return Math.max(0, Math.min(Number(bigintToNumber(borrowPoolData.value?.total_available_adjusted, poolData!.value!.assetDecimals)), maxBorrowByUtil))
   })

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
-import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
+import { bpsToNumber, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { focusInput, shortenNumber, truncatePercent } from '~/utils'
 
@@ -63,7 +63,7 @@ const supplyBalance = computed(() => Number(data?.balance || 0) - collateralBala
 const totalSuppliedBalance = computed(() => Number(data?.balance) || 0)
 const remainingBalance = computed(() => Number(collateralOnly.value ? collateralBalance.value : supplyBalance.value) - amount.value)
 
-const openLtv = computed(() => data?.raw.pool.config.health_config.open_ltv_bps ? Number(data.raw.pool.config.health_config.open_ltv_bps) / 10_000 : 0)
+const openLtv = computed(() => data?.raw.pool.config.health_config.open_ltv_bps ?  bpsToNumber(Number(data.raw.pool.config.health_config.open_ltv_bps)) : 0)
 
 const healthFactor = computed(() => {
   const price = Number(data?.price || 0)
@@ -303,29 +303,6 @@ watch(collateralBalance, (b) => {
           variant="success"
         />
       </template>
-
-      <!-- <div class="dialog-info-table">
-        <div
-          v-for="item in infoPanelData"
-          :key="item.label"
-          class="dialog-info-table__item"
-        >
-          <span>{{ item?.label }}</span>
-          <span>
-            <template v-if="item?.name === 'healthFactor' && loading">
-              <j-loading-spinner
-                width="10px"
-                style="padding: 0; width: 14px; margin-left: auto"
-              />
-            </template>
-            <template v-else>
-              {{ item?.value }}
-            </template>
-          </span>
-        </div>
-
-        <div class="separator" />
-      </div> -->
 
       <j-toggle
         v-if="collateralBalance > 0"

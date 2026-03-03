@@ -1,5 +1,6 @@
 import type { ObligationUI } from '@alula/client-sdk'
 import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import Decimal from 'decimal.js'
 
 export function checkIsHaveMultiply(
@@ -43,10 +44,10 @@ export function calculateMaxMultiplierFromBps(ltvByBps: number): number {
  * - Deposit token price
  * - Leverage multiplier
  * - Flash loan fee
- * 
+ *
  * Formula (simplified, assuming 1:1 swap):
  * maxDeposit = borrowAvailableInUsd / (depositTokenPrice * (multiplier - 1) * (1 + flashLoanFee))
- * 
+ *
  * @param borrowAvailableInUsd - The amount of asset that can be borrowed in USD
  * @param depositTokenPrice - The price of the deposit token in USD
  * @param selectedMultiplier - The multiplier to use for the calculation (e.g., 2.5)
@@ -63,10 +64,9 @@ export function calcRemainingMultiplyUSD(
     // If multiplier is 1 or less, no leverage is used
     return Infinity
   }
-  
+
   // Calculate flash loan fee multiplier (1 + fee)
-  const flashLoanFeeMultiplier = 1 + (flashLoanFeeBps / 10_000)
-  
+  const flashLoanFeeMultiplier = 1 + bpsToNumber(flashLoanFeeBps)
   // Calculate max deposit considering:
   // - User deposits D tokens
   // - Contract borrows D * (M - 1) * depositTokenPrice in USD

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyAccountTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { amountToUsdWithShort, calculateCurrentMultiplier, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
@@ -53,8 +54,8 @@ const tableItems = computed<MultiplyAccountTableItem[]>(() => {
       const [, depOblData] = depositObligation
       const [, borrowOblData] = borrowObligation
 
-      const supplyBPS = Number(depositPoolData?.apy.supply_bps || 0) / 10_000
-      const borrowBPS = Number(borrowPoolData?.apy.borrow_bps || 0) / 10_000
+      const supplyBPS = bpsToNumber(Number(depositPoolData?.apy.supply_bps || 0))
+      const borrowBPS = bpsToNumber(Number(borrowPoolData?.apy.borrow_bps || 0))
       const ltv = Number(depositPoolData?.pool.config.health_config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
       const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyAccountTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { amountToUsdWithShort, calculateCurrentMultiplier, formatPrice, truncatePercent } from '~/utils'
 
@@ -54,8 +55,8 @@ const userPositions = computed<MultiplyAccountItemWithStats[]>(() => {
   const [, depOblData] = depositObligation
   const [, borrowOblData] = borrowObligation
 
-  const supplyBPS = Number(depositPoolData?.apy.supply_bps || 0) / 10_000
-  const borrowBPS = Number(borrowPoolData?.apy.borrow_bps || 0) / 10_000
+  const supplyBPS = bpsToNumber(Number(depositPoolData?.apy.supply_bps || 0))
+  const borrowBPS = bpsToNumber(Number(borrowPoolData?.apy.borrow_bps || 0))
   const ltv = Number(depositPoolData?.pool.config.health_config.open_ltv_bps) || 0
   const multiplier = calculateMaxMultiplierFromBps(ltv)
   const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
@@ -79,11 +80,11 @@ const userPositions = computed<MultiplyAccountItemWithStats[]>(() => {
   const collateralValue = deposited * currentPrice
   const borrowValue = borrowed * borrowPoolPrice
 
-  const liquidationLtv = Number(depositPoolData?.pool.config.health_config.close_ltv_bps) || 0
-  const maxBorrowValueAtLiquidation = collateralValue * (liquidationLtv / 10_000)
+  const liquidationLtv = bpsToNumber(Number(depositPoolData?.pool.config.health_config.close_ltv_bps || 0))
+  const maxBorrowValueAtLiquidation = collateralValue * liquidationLtv
   const healthFactor = borrowValue > 0 ? (maxBorrowValueAtLiquidation / borrowValue) * 100 : 0
 
-  const liquidationPrice = deposited > 0 ? (borrowed * borrowPoolPrice) / (deposited * (liquidationLtv / 10_000)) : 0
+  const liquidationPrice = deposited > 0 ? (borrowed * borrowPoolPrice) / (deposited * liquidationLtv) : 0
 
   const softLiquidationPrice = liquidationPrice * 1.1
 
