@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 const marketsStore = useMarketsStore()
 const isMarkets = computed(() => Object.keys(marketsStore.state.markets).length > 0)
-const isHasMarkets = ref(true)
 const searchAsset = ref()
 </script>
 
@@ -11,11 +10,10 @@ const searchAsset = ref()
       v-model="searchAsset"
     />
     <markets-list
-      v-model:is-has-markets="isHasMarkets"
       :search-asset="searchAsset"
     />
     <div
-      v-if="searchAsset && isMarkets && !isHasMarkets"
+      v-if="searchAsset && isMarkets"
       class="no-markets-found"
     >
       No Markets found

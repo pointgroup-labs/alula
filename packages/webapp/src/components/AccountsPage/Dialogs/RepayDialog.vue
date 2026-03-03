@@ -1,185 +1,43 @@
 <script lang="ts" setup>
-import type { BorrowCardTableItem } from '~/types/table'
-import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
-import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { focusInput, shortenNumber, truncatePercent } from '~/utils'
-
-const {
-  data,
-  modelValue,
-} = defineProps<{
-  data?: BorrowCardTableItem
-  modelValue: boolean
-}>()
+import { CLEAR_DIALOG_TIMEOUT } from '~/config'
 
 const dialog = defineModel({ default: false })
-
-const marketsStore = useMarketsStore()
-const market = useMarketActions()
+const isOpen = ref(false)
 
 const isValidate = ref(true)
 
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
-
-const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
-
-const userStore = useUserStore()
-
-const userTotalDepositByMarket = computed(() => {
-  const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
-  const pools = activeMarket.value?.marketState.pools_data
-  const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 7
-  const oraclePriceDecimals = activeMarket.value?.marketState.oracle_price_decimals ?? 0
-  if (!obligation || !pools) {
-    return 0
-  }
-  return calcUserTotalStakeInUsd(obligation, pools, assetDecimals, oraclePriceDecimals, 'open') ?? 0
-})
-
-const userTotalBorrowByMarket = computed(() => {
-  const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
-  const pools = activeMarket.value?.marketState.pools_data
-  const assetDecimals = activeMarket.value?.marketState.asset_decimals ?? 7
-  const oraclePriceDecimals = activeMarket.value?.marketState.oracle_price_decimals ?? 0
-  if (!obligation || !pools) {
-    return 0
-  }
-  return calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals, oraclePriceDecimals) ?? 0
-})
-
-const loading = ref(false)
-const reloadFee = ref(false)
-
-const amount = toRef(market, 'repayAmount')
-const txFee = ref(0)
-
-const balance = computed(() => {
-  if (!data) {
-    return 0
-  }
-  if (data.asset.symbol === 'XLM') {
-    return wallet.nativeBalance
-  }
-  return wallet.getAssetBalance(String(data.asset_issuer))
-})
-
-const healthFactor = computed(() => {
-  const amountInUsd = Number(amount.value || 0) * Number(data?.price || 0)
-  const deposited = userTotalDepositByMarket.value
-  const borrowed = Math.max(Number(userTotalBorrowByMarket.value) - amountInUsd, 0)
-  const result = Math.max(deposited / borrowed, 0)
-  return Math.min(result, 10)
-})
-
-const infoPanelData = computed(() => {
-  if (!data) {
-    return {}
-  }
-  const debt = Number(data?.debt ?? 0)
-  const borrowBalanceAfterRepay = Math.max(Number(debt) - amount.value || 0, 0)
-  return {
-    balances: {
-      title: 'Balances / Health',
-      data: [
-        {
-          label: 'Health Factor',
-          value: truncatePercent(healthFactor.value, 2),
-        },
-        {
-          label: 'Debt',
-          value: `${shortenNumber(data?.debt || 0, 2, maxDecimalsForShortenNumber(debt))} ${data?.asset.symbol}`,
-        },
-        {
-          label: 'Debt Balance After Repayment',
-          value: `${shortenNumber(borrowBalanceAfterRepay, 2, maxDecimalsForShortenNumber(borrowBalanceAfterRepay))} ${data.asset.symbol}`,
-        },
-      ],
-    },
-    fees: {
-      title: 'Fees',
-      data: [
-        {
-          label: 'Transaction Fee',
-          value: `${txFee.value} XLM`,
-        },
-      ],
-    },
-  }
-})
+const {
+  poolData,
+  asset,
+  price,
+  debt,
+  balance,
+  infoPanelData,
+  isLoadingFee,
+  amount,
+  loading: isLoading,
+  repay: doRepay,
+  stopRepayWatcher,
+} = useRepayDialog(dialog)
 
 async function repay() {
-  if (!data) {
-    return
-  }
-  if (!amount.value || amount.value <= 0 || amount.value > Number(balance.value)) {
-    focusInput('.repay-dialog__input')
-    return
-  }
-  try {
-    loading.value = true
-    isValidate.value = false
-    const withBuffer = Number(data.debt) === Number(amount.value) && Number(balance.value) !== Number(amount.value)
-
-    const marketProps = {
-      market: activeMarket.value!.marketName,
-      client: activeMarket.value!.client,
-      pool_address: data?.pool_address,
-      amount: amount.value,
-      asset_data: data?.raw?.pool.name,
-      limit: balance.value,
-      withBuffer,
-    }
-
-    await market.repay(marketProps)
-
-    dialog.value = false
-  } finally {
-    loading.value = false
-    isValidate.value = true
-  }
+  isValidate.value = false
+  await doRepay(() => { dialog.value = false })
+  isValidate.value = true
 }
 
-let interval: string | number | NodeJS.Timeout | undefined
-
-watch(() => data, (d) => {
-  if (!d) {
+watch(poolData, (r) => {
+  if (!r) {
     dialog.value = false
   }
 })
 
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([d, _r]) => {
-  if (!d?.pool_address || !publicKey.value) {
-    return
-  }
-
-  const tx = await activeMarket.value?.client.borrowing.buildRepayTx(
-    publicKey.value,
-    d?.pool_address || '',
-    0,
-  )
-  txFee.value = activeMarket.value?.client.borrowing.getTransactionFee(tx) ?? 0
-}, { immediate: true, debounce: 300 })
-
-watch(() => modelValue, async (v) => {
-  clearInterval(interval)
+watch(dialog, (v) => {
+  setTimeout(() => isOpen.value = v, v ? 0 : 500)
   if (!v) {
-    setTimeout(() => {
-      amount.value = 0
-    }, CLEAR_DIALOG_TIMEOUT)
-    return
+    stopRepayWatcher()
+    setTimeout(() => { amount.value = 0 }, CLEAR_DIALOG_TIMEOUT)
   }
-
-  interval = setInterval(() => {
-    reloadFee.value = true
-    nextTick(() => {
-      reloadFee.value = false
-    })
-  }, RELOAD_FEE_INTERVAL)
 })
 </script>
 
@@ -191,24 +49,27 @@ watch(() => modelValue, async (v) => {
     <template #header>
       <div class="dialog-default__title">
         <img
-          :src="data?.asset.icon"
-          :alt="`${data?.asset.symbol} icon`"
+          :src="asset.icon"
+          :alt="`${asset.symbol} icon`"
         >
-        <span>Repay {{ data?.asset.symbol }}</span>
+        <span>Repay {{ asset.symbol }}</span>
       </div>
     </template>
 
-    <div class="dialog-default__body">
+    <div
+      v-if="isOpen"
+      class="dialog-default__body"
+    >
       <input-widget
         v-model="amount"
         class="repay-dialog__input mb-2"
         :balance="balance"
-        :limit="Number(data?.debt) || 0"
+        :limit="debt"
         label-left="Balance"
         variant="borrow"
-        :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${data?.asset.symbol}`"
+        :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${asset.symbol}`"
         :reset="dialog"
-        :price="Number(data?.price ?? 0)"
+        :price="Number(price)"
         :rules="[
           (v) => {
             return !isValidate || Number(v) <= balance || 'Insufficient balance'
@@ -228,18 +89,29 @@ watch(() => modelValue, async (v) => {
           :title="infoPanelData.fees!.title"
           :data="infoPanelData.fees!.data"
           variant="borrow"
-        />
+        >
+          <template #txFee="{ item }">
+            <j-loading-spinner
+              v-if="isLoadingFee"
+              width="14px"
+              style="padding: 0; width: 20px; height: 20px; margin: 0 auto;"
+            />
+            <template v-else>
+              {{ item.value }}
+            </template>
+          </template>
+        </info-panel>
       </template>
 
       <div class="dialog-default__action mt-2">
         <j-btn
-          :loading="loading"
+          :loading="isLoading"
           variant="purple"
           size="lg"
           pill
           @click="repay"
         >
-          Repay {{ data?.asset.symbol }}
+          Repay {{ asset.symbol }}
         </j-btn>
       </div>
     </div>

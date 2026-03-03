@@ -1,169 +1,36 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { calcFee, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
-import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE, RELOAD_FEE_INTERVAL } from '~/config'
-import { focusInput, shortenNumber, truncatePercent } from '~/utils'
+import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE } from '~/config'
+import { truncatePercent } from '~/utils'
 
 const props = defineProps<{ data?: MarketTableItem }>()
 
-const marketsStore = useMarketsStore()
-const market = useMarketActions()
-
-const userStore = useUserStore()
-
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
-
 const poolData = toRef(props, 'data')
 
+const dialog = defineModel({ default: false })
+const isOpen = ref(false)
+
 const {
-  marketClient,
   agree,
   isLoading,
-  reloadFee,
-  txFee,
-  poolBorrowLimit,
+  isLoadingFee,
+  amount,
+  healthFactor,
   availableToBorrow,
-  closeLTV,
-  liquidationPenalty,
   isCanBorrow,
   attentionText,
-} = useBorrowDialog(poolData)
+  infoPanelData,
+  borrow,
+  stopBorrowWatchers,
+} = useBorrowDialog(poolData, dialog)
 
-const amount = toRef(market, 'borrowAmount')
-
-const dialog = defineModel({ default: false })
-
-const healthFactor = computed(() => {
-  const marketName = String(poolData.value?.market)
-  const obligation = userStore.state.obligations[marketName]
-  const marketState = marketsStore.state.markets[marketName]?.marketState
-  if (!obligation || !marketState) {
-    return 0
-  }
-  const assetDecimals = marketState.asset_decimals ?? 7
-  const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-  const poolsData = marketState.pools_data
-
-  const depositUsd = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
-  const borrowedUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-  const price = poolData.value?.price || 0
-
-  const extraBorrowUsd = (amount.value || 0) * price
-  const totalBorrowUsd = borrowedUsd + extraBorrowUsd
-
-  const hf = totalBorrowUsd > 0 ? depositUsd / totalBorrowUsd : 0
-
-  return Math.min(hf, 10)
-})
-
-const marketFee = computed(() => {
-  const marketFeeBps = poolData.value?.raw.pool.config.fee_config.borrow_fee_bps
-  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
-})
-
-const infoPanelData = computed(() => {
-  if (!poolData.value) {
-    return {}
-  }
-  return {
-    poolInfo: {
-      title: 'Pool Info',
-      data: [
-        {
-          label: 'Pool Liquidity Available',
-          value: shortenNumber(poolBorrowLimit.value || 0),
-        },
-        {
-          label: 'Open LTV',
-          value: poolData.value.open_ltv,
-        },
-        {
-          label: 'Close LTV',
-          value: truncatePercent(closeLTV.value || 0, 2),
-        },
-      ],
-    },
-    health: {
-      title: 'Health',
-      data: [
-        {
-          label: 'Health Factor',
-          value: truncatePercent(healthFactor.value),
-          slotName: 'hf',
-        },
-        {
-          label: 'Borrowing Capacity',
-          value: shortenNumber(availableToBorrow.value || 0),
-        },
-        {
-          label: 'Liquidation Penalty',
-          value: truncatePercent(liquidationPenalty.value || 0, 2),
-        },
-      ],
-    },
-    fees: {
-      title: 'Operation Fee',
-      data: [
-        {
-          label: 'Operation Fee',
-          value: `${formatPrice(marketFee.value, 0, 5)} ${poolData.value?.asset.symbol}`,
-        },
-        {
-          label: 'Transaction Fee',
-          value: `${txFee.value} ${poolData.value?.asset.symbol}`,
-        },
-      ],
-    },
-  }
-})
-async function borrow() {
-  if (!publicKey.value || !poolData.value?.raw.pool.pool_address) {
-    return
-  }
-  if (!amount.value || amount.value <= 0) {
-    focusInput('.borrow-input')
-    return
-  }
-
-  try {
-    marketsStore.poolActiveAddress = poolData.value?.raw.pool.pool_address
-
-    const marketProps = {
-      market: marketsStore.selectedMarketName,
-      client: marketClient.value!,
-      pool_address: poolData.value?.raw.pool.pool_address,
-      amount: amount.value,
-      asset_data: poolData.value?.raw.pool.name,
-      poolBorrowLimit: poolBorrowLimit.value,
-    }
-
-    await market.borrow(marketProps)
-
-    marketsStore.dialogBorrow = false
-  } finally {
-    marketsStore.poolActiveAddress = undefined
-  }
-}
-
-let interval: string | number | NodeJS.Timeout | undefined
-
-watch(dialog, async (v) => {
-  clearInterval(interval)
+watch(dialog, (v) => {
+  setTimeout(() => isOpen.value = v, v ? 0 : 500)
   if (!v) {
-    setTimeout(() => {
-      amount.value = 0
-    }, CLEAR_DIALOG_TIMEOUT)
+    stopBorrowWatchers()
+    setTimeout(() => { amount.value = 0 }, CLEAR_DIALOG_TIMEOUT)
     agree.value = false
-    return
   }
-
-  interval = setInterval(() => {
-    reloadFee.value = true
-    nextTick(() => {
-      reloadFee.value = false
-    })
-  }, RELOAD_FEE_INTERVAL)
 })
 </script>
 
@@ -182,7 +49,10 @@ watch(dialog, async (v) => {
       </div>
     </template>
 
-    <div class="dialog-default__body">
+    <div
+      v-if="isOpen"
+      class="dialog-default__body"
+    >
       <input-widget
         v-model="amount"
         class="borrow-input mb-2"
@@ -231,7 +101,18 @@ watch(dialog, async (v) => {
           :title="infoPanelData.fees!.title"
           :data="infoPanelData.fees!.data"
           variant="borrow"
-        />
+        >
+          <template #txFee="{ item }">
+            <j-loading-spinner
+              v-if="isLoadingFee"
+              width="14px"
+              style="padding: 0; width: 20px; height: 20px; margin: 0 auto;"
+            />
+            <template v-else>
+              {{ item.value }}
+            </template>
+          </template>
+        </info-panel>
       </template>
 
       <warning-block

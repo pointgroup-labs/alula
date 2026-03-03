@@ -74,21 +74,12 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
 })
 
 const dialog = ref(false)
-const selectedMarket = ref({ market: '', pool_address: '' })
-const selectedPool = computed(() =>
-  items.value?.find(item => item.pool_address === selectedMarket.value.pool_address
-    && item.market === selectedMarket.value.market))
 
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
-  selectedMarket.value = { market: String(item.market), pool_address: item?.pool_address }
+  marketsStore.selectedMarketName = String(item.market)
+  marketsStore.selectedPoolAddress = item.pool_address
   dialog.value = true
 }
-
-watch(selectedPool, (p) => {
-  if (!p) {
-    dialog.value = false
-  }
-})
 </script>
 
 <template>
@@ -198,10 +189,7 @@ watch(selectedPool, (p) => {
   </div>
 
   <client-only>
-    <withdraw-dialog
-      v-model="dialog"
-      :data="selectedPool"
-    />
+    <withdraw-dialog v-model="dialog" />
   </client-only>
 </template>
 

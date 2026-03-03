@@ -11,10 +11,6 @@ const {
 
 const { width } = useWindowSize()
 
-const isHasMarkets = defineModel<boolean>('isHasMarkets', {
-  default: true,
-})
-
 const marketActions = useMarketActions()
 
 const router = useRouter()
@@ -36,9 +32,12 @@ const {
   isOpened,
   toggleOpen } = useAccordionMarketsHandler('accordion-markets')
 
-const { additionalMarketsData, generateMockAdditionalData } = useAdditionalApy()
+const { additionalMarketsData } = useAdditionalApy()
 
 const marketsStore = useMarketsStore()
+
+const dialogRepay = ref(false)
+const dialogWithdraw = ref(false)
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },
@@ -51,10 +50,24 @@ const fields = [
   { key: 'action', label: '', thClass: 'action', tdClass: 'action' },
 ]
 
-async function dialogHandler(marketName: string, item: MarketTableItem, action: 'supply' | 'borrow') {
+async function dialogHandler(marketName: string, item: MarketTableItem, action: 'supply' | 'borrow' | 'repay' | 'withdraw') {
   selectedMarketName.value = marketName
   selectedPoolAddress.value = item?.pool_address
-  action === 'supply' ? dialogSupply.value = true : dialogBorrow.value = true
+  if (action === 'repay') {
+    dialogRepay.value = true
+    return
+  }
+  if (action === 'supply') {
+    dialogSupply.value = true
+    return
+  }
+  if (action === 'borrow') {
+    dialogBorrow.value = true
+    return
+  }
+  if (action === 'withdraw') {
+    dialogWithdraw.value = true
+  }
 }
 
 function onRowClicked(marketName: string, item: MarketTableItem) {
@@ -88,14 +101,6 @@ function rowClass(item: any): any {
 watch(() => searchAsset, (val) => {
   search.value = val
 })
-
-watch(filteredMarkets, (val) => {
-  isHasMarkets.value = val.length > 0
-  if (additionalMarketsData.value.length > 0) {
-    return
-  }
-  generateMockAdditionalData(marketWithTableItems.value)
-}, { immediate: true })
 
 const stop = watch(additionalMarketsData, () => {
   if (opened.value.length === 0 && additionalMarketsData.value.length > 0) {
@@ -275,6 +280,7 @@ const stop = watch(additionalMarketsData, () => {
         <template #cell(action)="data">
           <div class="table-cell justify-content-end market-table__action">
             <j-btn
+              v-if="+data.item.position.borrowed === 0"
               size="xs"
               variant="outline-cyan"
               pill
@@ -285,6 +291,18 @@ const stop = watch(additionalMarketsData, () => {
               Supply
             </j-btn>
             <j-btn
+              v-else
+              size="xs"
+              variant="outline-cyan"
+              pill
+              :disabled="marketActions.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
+              :loading="marketActions.isLoading(data.item.pool_address, 'repay', data.item.market!)"
+              @click="dialogHandler(market.marketName, data.item, 'repay')"
+            >
+              Repay
+            </j-btn>
+            <j-btn
+              v-if="+data.item.position.supplied === 0"
               size="xs"
               variant="outline-purple"
               pill
@@ -293,6 +311,17 @@ const stop = watch(additionalMarketsData, () => {
               @click="dialogHandler(market.marketName, data.item, 'borrow')"
             >
               Borrow
+            </j-btn>
+            <j-btn
+              v-else
+              size="xs"
+              variant="outline-success"
+              pill
+              :disabled="marketActions.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
+              :loading="marketActions.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
+              @click="dialogHandler(market.marketName, data.item, 'withdraw')"
+            >
+              Withdraw
             </j-btn>
           </div>
         </template>
@@ -331,13 +360,23 @@ const stop = watch(additionalMarketsData, () => {
     No markets
   </div>
 
-  <supply-dialog
-    v-model="dialogSupply"
-    :data="selectedPool"
-  />
+  <client-only>
+    <supply-dialog
+      v-model="dialogSupply"
+      :data="selectedPool"
+    />
 
-  <borrow-dialog
-    v-model="dialogBorrow"
-    :data="selectedPool"
-  />
+    <repay-dialog
+      v-model="dialogRepay"
+    />
+
+    <withdraw-dialog
+      v-model="dialogWithdraw"
+    />
+
+    <borrow-dialog
+      v-model="dialogBorrow"
+      :data="selectedPool"
+    />
+  </client-only>
 </template>

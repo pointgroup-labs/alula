@@ -260,6 +260,7 @@ declare global {
   const useRecentActivity: typeof import('../store/recent-activity').useRecentActivity
   const useRecentActivityStore: typeof import('../store/recent-activity').useRecentActivityStore
   const useRefHistory: typeof import('@vueuse/core').useRefHistory
+  const useRepayDialog: typeof import('../hooks/market/repay-dialog').useRepayDialog
   const useResizeObserver: typeof import('@vueuse/core').useResizeObserver
   const useRpc: typeof import('../store/rpc')['useRpc']
   const useRpcStore: typeof import('../store/rpc').useRpcStore
@@ -319,6 +320,7 @@ declare global {
   const useWindowFocus: typeof import('@vueuse/core').useWindowFocus
   const useWindowScroll: typeof import('@vueuse/core').useWindowScroll
   const useWindowSize: typeof import('@vueuse/core').useWindowSize
+  const useWithdrawDialog: typeof import('../hooks/market/withdraw-dialog').useWithdrawDialog
   const watch: typeof import('vue').watch
   const watchArray: typeof import('@vueuse/core').watchArray
   const watchAtMost: typeof import('@vueuse/core').watchAtMost
@@ -605,6 +607,7 @@ declare module 'vue' {
     readonly useRafFn: UnwrapRef<typeof import('@vueuse/core')['useRafFn']>
     readonly useRecentActivityStore: UnwrapRef<typeof import('../store/recent-activity')['useRecentActivityStore']>
     readonly useRefHistory: UnwrapRef<typeof import('@vueuse/core')['useRefHistory']>
+    readonly useRepayDialog: UnwrapRef<typeof import('../hooks/market/repay-dialog')['useRepayDialog']>
     readonly useResizeObserver: UnwrapRef<typeof import('@vueuse/core')['useResizeObserver']>
     readonly useRpcStore: UnwrapRef<typeof import('../store/rpc')['useRpcStore']>
     readonly useSSRWidth: UnwrapRef<typeof import('@vueuse/core')['useSSRWidth']>
@@ -663,6 +666,7 @@ declare module 'vue' {
     readonly useWindowFocus: UnwrapRef<typeof import('@vueuse/core')['useWindowFocus']>
     readonly useWindowScroll: UnwrapRef<typeof import('@vueuse/core')['useWindowScroll']>
     readonly useWindowSize: UnwrapRef<typeof import('@vueuse/core')['useWindowSize']>
+    readonly useWithdrawDialog: UnwrapRef<typeof import('../hooks/market/withdraw-dialog')['useWithdrawDialog']>
     readonly watch: UnwrapRef<typeof import('vue')['watch']>
     readonly watchArray: UnwrapRef<typeof import('@vueuse/core')['watchArray']>
     readonly watchAtMost: UnwrapRef<typeof import('@vueuse/core')['watchAtMost']>
