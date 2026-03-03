@@ -6,19 +6,23 @@
 
   --background-color: rgba(0, 211, 238, 0.02);
   --border-color: rgba(0, 211, 238, 0.15);
+  --box-shadow: rgba(0, 211, 238, 0.05);
 
   &--borrow {
     --background-color: rgba(99, 102, 241, 0.03);
     --border-color: rgba(99, 102, 241, 0.15);
+    --box-shadow: rgba(99, 102, 241, 0.05);
   }
 
   &--success {
     --background-color: rgba(0, 201, 80, 0.02);
     --border-color: rgba(0, 201, 80, 0.15);
+    --box-shadow: rgba(0, 201, 80, 0.05);
   }
 
   background-color: var(--background-color);
   border-color: var(--border-color);
+  box-shadow: inset 0px 0px 10px 1px var(--box-shadow);
 
   &__title {
     font-size: 16px;
@@ -54,6 +58,7 @@
       font-weight: 500;
       line-height: 20px;
       color: $foreground;
+      font-family: $font-JetBrainsMono;
     }
   }
 }
