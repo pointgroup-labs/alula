@@ -61,7 +61,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
     <div class="stat-card__header">
       <div
         class="header-icon"
-        :style="{ '--icon-bg': 'rgb(245 158 11 / 10%)', '--icon-color': '#6366F1' }"
+        :style="{ '--icon-bg': 'rgba(99, 102, 241, 10%)', '--icon-color': '#6366F1' }"
       >
         <i-metrics-arrow-down />
       </div>
@@ -72,7 +72,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
 
       <div
         class="pool-card-pill"
-        :style="{ '--color': '#f43f5e', '--background-color': 'rgb(244 63 94 / 10%)' }"
+        :style="{ '--color': '#f43f5e', '--background-color': 'rgba(244, 63, 94, 10%)' }"
       >
         APY {{ selectedPool.borrow_apy }}
       </div>

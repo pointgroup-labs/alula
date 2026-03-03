@@ -156,7 +156,7 @@ const debtAccrual = computedAsync(async () => {
 
   <div
     class="info-card mt-3 info-supply"
-    :style="{ '--color': '#6366F1', '--bg-color': 'rgba(245, 158, 11, 0.04)', '--border-color': 'rgba(252, 157, 16, 0.1)' }"
+    :style="{ '--color': '#6366F1', '--bg-color': 'rgba(99, 102, 241, 0.03)', '--border-color': 'rgba(99, 102, 241, 0.1)' }"
   >
     <div class="info-supply__header">
       <div class="info-title">

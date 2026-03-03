@@ -300,29 +300,17 @@ onBeforeUnmount(() => {
         </h3>
 
         <div class="current-metrics-data">
-          <div
-            class="current-metrics-data__item"
-            :style="{ '--color': '#22d3ee' }"
-          >
-            <div class="label">
-              Optimal
-            </div>
-            <div class="value">
-              {{ optimalUtilizationPct }}%
-            </div>
-          </div>
+          <metric-indicator
+            color="#22d3ee"
+            label="Optimal"
+            :value="`${optimalUtilizationPct}%`"
+          />
 
-          <div
-            class="current-metrics-data__item"
-            :style="{ '--color': '#f43f5e' }"
-          >
-            <div class="label">
-              Current
-            </div>
-            <div class="value">
-              {{ currentUtilizationPct.toFixed(2) }}%
-            </div>
-          </div>
+          <metric-indicator
+            color="#f43f5e"
+            label="Current"
+            :value="`${truncatePercent(currentUtilizationPct, 2)}%`"
+          />
         </div>
       </div>
 

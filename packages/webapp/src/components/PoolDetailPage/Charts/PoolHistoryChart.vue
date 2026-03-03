@@ -216,29 +216,17 @@ onMounted(async () => {
         </h3>
 
         <div class="current-metrics-data">
-          <div
-            class="current-metrics-data__item"
-            :style="{ '--color': '#22d3ee' }"
-          >
-            <div class="label">
-              Supply
-            </div>
-            <div class="value">
-              {{ formatPrice(currentSupplyApy, 1, 2) }}%
-            </div>
-          </div>
+          <metric-indicator
+            color="#22d3ee"
+            label="Supply"
+            :value="`${formatPrice(currentSupplyApy, 1, 2)}%`"
+          />
 
-          <div
-            class="current-metrics-data__item"
-            :style="{ '--color': '#6366F1' }"
-          >
-            <div class="label">
-              Borrow
-            </div>
-            <div class="value">
-              {{ formatPrice(currentBorrowApy, 1, 2) }}%
-            </div>
-          </div>
+          <metric-indicator
+            color="#6366F1"
+            label="Borrow"
+            :value="`${formatPrice(currentBorrowApy, 1, 2)}%`"
+          />
         </div>
 
         <chart-date-filter
@@ -268,31 +256,6 @@ section#market-history-chart {
     align-items: center;
     gap: 12px;
     margin-left: 20px;
-
-    &__item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-
-      &::before {
-        content: '';
-        width: 6px;
-        height: 6px;
-        display: flex;
-        border-radius: 50%;
-        background-color: var(--color);
-      }
-
-      .label {
-        color: $muted-foreground;
-      }
-
-      .value {
-        color: var(--color);
-        font-family: $font-JetBrainsMono;
-      }
-    }
   }
 
   .chart-date-filters {
