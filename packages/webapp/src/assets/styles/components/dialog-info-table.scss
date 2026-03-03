@@ -1,69 +1,20 @@
-.dialog-info-table {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  &__item {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    justify-content: space-between;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 16px;
-    color: $muted-foreground;
-
-    span {
-      &:nth-child(2) {
-        color: $foreground;
-        text-align: right;
-        font-family: $font-JetBrainsMono;
-      }
-    }
-
-    a {
-      color: $foreground;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: $spacing-8;
-      text-decoration-line: underline;
-      text-decoration-style: dotted;
-      text-decoration-skip-ink: auto;
-      text-decoration-thickness: 10%;
-      text-underline-offset: 18%;
-      text-underline-position: from-font;
-
-      svg {
-        width: 12px;
-        height: 12px;
-      }
-    }
-  }
-
-  .separator {
-    background: $surface-neutral-10;
-    margin: 8px 0;
-  }
-}
-
 .dialog-info-card {
   padding: $spacing-12;
   border-radius: $spacing-16;
   border: 1px solid $border-color;
   box-shadow: none;
 
-  --background-color: rgba(0, 211, 238, 0.03);
-  --border-color: rgba(0, 211, 238, 0.3);
+  --background-color: rgba(0, 211, 238, 0.02);
+  --border-color: rgba(0, 211, 238, 0.15);
 
   &--borrow {
-    --background-color: rgba(99, 102, 241, 0.05);
-    --border-color: rgba(99, 102, 241, 0.3);
+    --background-color: rgba(99, 102, 241, 0.03);
+    --border-color: rgba(99, 102, 241, 0.15);
   }
 
   &--success {
-    --background-color: rgba(0, 201, 80, 0.03);
-    --border-color: rgba(0, 201, 80, 0.3);
+    --background-color: rgba(0, 201, 80, 0.02);
+    --border-color: rgba(0, 201, 80, 0.15);
   }
 
   background-color: var(--background-color);

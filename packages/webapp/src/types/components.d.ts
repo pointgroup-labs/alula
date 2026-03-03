@@ -63,6 +63,7 @@ declare module 'vue' {
     IMetricsTrendDown: typeof import('~icons/metrics/trend-down')['default']
     IMetricsTrendUp: typeof import('~icons/metrics/trend-up')['default']
     InfoOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/InfoOverview.vue')['default']
+    InfoPanel: typeof import('./../components/Widget/InfoPanel.vue')['default']
     InfoRisksFaq: typeof import('./../components/MarketDetailPage/Overview/RisksFaq.vue/InfoRisksFaq.vue')['default']
     InfoTooltip: typeof import('./../components/Widget/InfoTooltip.vue')['default']
     InputSimple: typeof import('./../components/Widget/InputSimple.vue')['default']

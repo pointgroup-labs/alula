@@ -101,46 +101,57 @@ const availableToWithdrawWithPoolLimit = computed(() => {
   return Math.min(Number(truncatePercent(availableToWithdraw.value, 7)), Number(poolLimit.value))
 })
 
-const infoTableData = computed(() => {
+const infoPanelData = computed(() => {
   if (!data) {
     return {}
   }
   return {
-    healthFactor: {
-      label: 'Health Factor',
-      value: truncatePercent(healthFactor.value || 0, 2),
+    balances: {
+      title: 'Balances',
+      data: [
+        {
+          label: 'Total Supply',
+          value: `${shortenNumber(totalSuppliedBalance.value || 0, 2, maxDecimalsForShortenNumber(totalSuppliedBalance.value))} ${data?.asset.symbol}`,
+        },
+        {
+          label: 'Supply Balance',
+          value: `${shortenNumber(supplyBalance.value || 0, 2, maxDecimalsForShortenNumber(supplyBalance.value))} ${data?.asset.symbol}`,
+        },
+        {
+          label: 'Collateral Balance',
+          value: `${shortenNumber(collateralBalance.value || 0, 2, maxDecimalsForShortenNumber(collateralBalance.value))} ${data?.asset.symbol}`,
+        },
+      ],
     },
-    totalTupply: {
-      label: 'Total Supply',
-      value: `${shortenNumber(totalSuppliedBalance.value || 0, 2, maxDecimalsForShortenNumber(totalSuppliedBalance.value))} ${data?.asset.symbol}`,
+    health: {
+      title: 'Health',
+      data: [
+        {
+          label: 'Health Factor',
+          value: truncatePercent(healthFactor.value || 0, 2),
+        },
+        {
+          label: 'Remaining Supply',
+          value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0), 2, maxDecimalsForShortenNumber(remainingBalance.value))} ${data?.asset.symbol}`,
+        },
+        {
+          label: 'Available for Withdrawal',
+          value: `${shortenNumber(availableToWithdraw.value || 0, 2, maxDecimalsForShortenNumber(availableToWithdraw.value))} ${data?.asset.symbol}`,
+        },
+      ],
     },
-    supplyBalance: {
-      label: 'Supply Balance',
-      value: `${shortenNumber(supplyBalance.value || 0, 2, maxDecimalsForShortenNumber(supplyBalance.value))} ${data?.asset.symbol}`,
-    },
-    collateralBalance: {
-      label: 'Collateral Balance',
-      value: `${shortenNumber(collateralBalance.value || 0, 2, maxDecimalsForShortenNumber(collateralBalance.value))} ${data?.asset.symbol}`,
-    },
-    remaining: {
-      label: 'Remaining Supply',
-      value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0), 2, maxDecimalsForShortenNumber(remainingBalance.value))} ${data?.asset.symbol}`,
-    },
-    available: {
-      label: 'Available for Withdrawal',
-      value: `${shortenNumber(availableToWithdraw.value || 0, 2, maxDecimalsForShortenNumber(availableToWithdraw.value))} ${data?.asset.symbol}`,
-    },
-    poolLimit: {
-      label: 'Pool Withdrawal Limit',
-      value: `${shortenNumber(poolLimit.value || 0, 2, maxDecimalsForShortenNumber(poolLimit.value))} ${data?.asset.symbol}`,
-    },
-    poolFee: {
-      label: 'Pool Withdrawal Limit',
-      value: `${shortenNumber(poolLimit.value || 0, 2, maxDecimalsForShortenNumber(poolLimit.value))} ${data?.asset.symbol}`,
-    },
-    txFee: {
-      label: 'Transaction Fee',
-      value: `${txFee.value || 0} XLM`,
+    poolInfo: {
+      title: 'Info / Fee',
+      data: [
+        {
+          label: 'Pool Withdrawal Limit',
+          value: `${shortenNumber(poolLimit.value || 0, 2, maxDecimalsForShortenNumber(poolLimit.value))} ${data?.asset.symbol}`,
+        },
+        {
+          label: 'Transaction Fee',
+          value: `${txFee.value || 0} XLM`,
+        },
+      ],
     },
   }
 })
@@ -270,127 +281,32 @@ watch(collateralBalance, (b) => {
         ]"
       />
 
-      <template v-if="Object.keys(infoTableData).length > 0">
+      <template v-if="Object.keys(infoPanelData).length > 0">
         <!-- Balances -->
-        <div
-          class="dialog-info-card dialog-info-card--success"
-        >
-          <div class="dialog-info-card__title">
-            Balances
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- Total -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.totalTupply?.label }}</span>
-              <span class="value">
-                {{ infoTableData.totalTupply?.value }}
-              </span>
-            </div>
-
-            <!-- Supply -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.supplyBalance?.label }}</span>
-              <span class="value">
-                {{ infoTableData.supplyBalance?.value }}
-              </span>
-            </div>
-
-            <!-- Collateral -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.collateralBalance?.label }}</span>
-              <span class="value">
-                {{ infoTableData.collateralBalance?.value }}
-              </span>
-            </div>
-          </div>
-        </div>
+        <info-panel
+          :title="infoPanelData.balances!.title"
+          :data="infoPanelData.balances!.data"
+          variant="success"
+        />
 
         <!-- Health -->
-        <div
-          class="dialog-info-card dialog-info-card--success"
-        >
-          <div class="dialog-info-card__title">
-            Health
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- Health -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.healthFactor?.label }}</span>
-              <span class="value">
-                {{ infoTableData.healthFactor?.value }}
-              </span>
-            </div>
-
-            <!-- Remaining -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.remaining?.label }}</span>
-              <span class="value">
-                {{ infoTableData.remaining?.value }}
-              </span>
-            </div>
-
-            <!-- Available -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.available?.label }}</span>
-              <span class="value">
-                {{ infoTableData.available?.value }}
-              </span>
-            </div>
-          </div>
-        </div>
+        <info-panel
+          :title="infoPanelData.health!.title"
+          :data="infoPanelData.health!.data"
+          variant="success"
+        />
 
         <!-- Pool Info -->
-        <div
-          class="dialog-info-card dialog-info-card--success"
-        >
-          <div class="dialog-info-card__title">
-            Pool Info
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- pool limit -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.poolLimit?.label }}</span>
-              <span class="value">
-                {{ infoTableData.poolLimit?.value }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Fees -->
-        <div
-          class="dialog-info-card dialog-info-card--success"
-        >
-          <div class="dialog-info-card__title">
-            Fees
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- pool fee -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.poolFee?.label }}</span>
-              <span class="value">
-                {{ infoTableData.poolFee?.value }}
-              </span>
-            </div>
-
-            <!-- tx fee -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.txFee?.label }}</span>
-              <span class="value">
-                {{ infoTableData.txFee?.value }}
-              </span>
-            </div>
-          </div>
-        </div>
+        <info-panel
+          :title="infoPanelData.poolInfo!.title"
+          :data="infoPanelData.poolInfo!.data"
+          variant="success"
+        />
       </template>
 
       <!-- <div class="dialog-info-table">
         <div
-          v-for="item in infoTableData"
+          v-for="item in infoPanelData"
           :key="item.label"
           class="dialog-info-table__item"
         >

@@ -44,6 +44,46 @@ const marketFee = computed(() => {
 
 const reserveAmount = computed(() => poolData.value?.raw.pool.token_symbol === 'native' ? 2 : 0)
 
+const infoPanelData = computed(() => {
+  if (!poolData.value) {
+    return {}
+  }
+
+  return {
+    poolInfo: {
+      title: 'Pool Info',
+      data: [
+        {
+          label: 'Supply Limit',
+          value: `${limitLabel.value} ${limitLabel.value === '-' ? '' : poolData.value?.asset.symbol}`,
+        },
+        {
+          label: 'Open LTV',
+          value: poolData.value.open_ltv,
+        },
+        {
+          label: 'Util. Rate',
+          value: poolData.value.utilization_rate,
+        },
+      ],
+    },
+    fees: {
+      title: 'Fees',
+      data: [
+        {
+          label: 'Operation Fee',
+          value: formatPrice(marketFee.value),
+        },
+        {
+          label: 'Transaction Fee',
+          value: txFee.value,
+          slotName: 'txFee',
+        },
+      ],
+    },
+  }
+})
+
 async function supply() {
   try {
     if (!publicKey.value || !poolData.value?.raw.pool.pool_address) {
@@ -131,129 +171,26 @@ watch(dialog, async (v) => {
 
       <template v-if="poolData">
         <!-- Pool Info -->
-        <div
-          class="dialog-info-card"
-        >
-          <div class="dialog-info-card__title">
-            Pool Info
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- Supply Limit -->
-            <div class="dialog-info-card__item">
-              <span class="label">Supply Limit</span>
-              <span class="value">{{ limitLabel }} {{ limitLabel !== '-' ? poolData?.asset.symbol : '' }}</span>
-            </div>
-
-            <!-- Open LTV -->
-            <div class="dialog-info-card__item">
-              <span class="label">Open LTV</span>
-              <span class="value">{{ poolData.open_ltv }}</span>
-            </div>
-
-            <!-- Utilization -->
-            <div class="dialog-info-card__item">
-              <span class="label">Util. Rate</span>
-              <span class="value">{{ poolData.utilization_rate }}</span>
-            </div>
-          </div>
-        </div>
+        <info-panel
+          :title="infoPanelData.poolInfo!.title"
+          :data="infoPanelData.poolInfo!.data"
+        />
 
         <!-- Fees -->
-        <div
-          class="dialog-info-card"
+        <info-panel
+          :title="infoPanelData.fees!.title"
+          :data="infoPanelData.fees!.data"
         >
-          <div class="dialog-info-card__title">
-            Fees
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- Operation Fee -->
-            <div class="dialog-info-card__item">
-              <span class="label">Operation Fee</span>
-              <span class="value">{{ formatPrice(marketFee) }} XLM</span>
-            </div>
-
-            <!-- Transaction Fee -->
-            <div class="dialog-info-card__item">
-              <span class="label">Transaction Fee</span>
-              <span class="value">
-                <j-loading-spinner
-                  v-if="isLoadingFee"
-                  width="14px"
-                  style="margin:0 20px 0 auto;"
-                />
-                <span v-else>{{ txFee }} XLM</span></span>
-            </div>
-          </div>
-        </div>
+          <template #txFee>
+            <j-loading-spinner
+              v-if="isLoadingFee"
+              width="14px"
+              style="margin:0 20px 0 auto;"
+            />
+            <span v-else>{{ txFee }} XLM</span>
+          </template>
+        </info-panel>
       </template>
-
-      <!-- <div
-        v-if="poolData"
-        class="dialog-info-table mt-3"
-      > -->
-      <!-- Supply Limit -->
-      <!-- <div
-          class="dialog-info-table__item"
-        >
-          <span>Supply Limit</span>
-          <span>{{ limitLabel }} {{ limitLabel !== '-' ? poolData?.asset.symbol : '' }}</span>
-        </div> -->
-
-      <!-- Contract Address -->
-      <!-- <div
-          class="dialog-info-table__item"
-        >
-          <span>Contract</span>
-          <a
-            :href="generateExplorerLink(String(contractAddress), 'contract')"
-            target="_blank"
-          >{{ shortenAddress(String(contractAddress), 5) }}
-            <i-app-export-icon />
-          </a>
-        </div> -->
-
-      <!-- Open LTV  -->
-      <!-- <div
-          class="dialog-info-table__item"
-        >
-          <span>Open LTV </span>
-          <span>{{ poolData.open_ltv }}</span>
-        </div> -->
-
-      <!-- Util Rate -->
-      <!-- <div
-          class="dialog-info-table__item"
-        >
-          <span>Utilization Rate</span>
-          <span>{{ poolData.utilization_rate }}</span>
-        </div> -->
-
-      <!-- Market Fee -->
-      <!-- <div
-          class="dialog-info-table__item"
-        >
-          <span>Operation Fee</span>
-
-          <span>{{ formatPrice(marketFee) }} XLM</span>
-        </div> -->
-
-      <!-- Transaction Fee -->
-      <!-- <div
-          class="dialog-info-table__item"
-        >
-          <span>Transaction Fee</span>
-          <j-loading-spinner
-            v-if="isLoadingFee"
-            width="14px"
-            style="margin:0 20px 0 auto;"
-          />
-          <span v-else>{{ txFee }} XLM</span>
-        </div>
-
-        <div class="separator" />
-      </div> -->
 
       <warning-block
         v-if="!isCanSupply"

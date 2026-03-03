@@ -72,28 +72,38 @@ const healthFactor = computed(() => {
   return Math.min(result, 10)
 })
 
-const infoTableData = computed(() => {
+const infoPanelData = computed(() => {
   if (!data) {
     return {}
   }
   const debt = Number(data?.debt ?? 0)
   const borrowBalanceAfterRepay = Math.max(Number(debt) - amount.value || 0, 0)
   return {
-    healthFactor: {
-      label: 'Health Factor',
-      value: truncatePercent(healthFactor.value, 2),
+    balances: {
+      title: 'Balances / Health',
+      data: [
+        {
+          label: 'Health Factor',
+          value: truncatePercent(healthFactor.value, 2),
+        },
+        {
+          label: 'Debt',
+          value: `${shortenNumber(data?.debt || 0, 2, maxDecimalsForShortenNumber(debt))} ${data?.asset.symbol}`,
+        },
+        {
+          label: 'Debt Balance After Repayment',
+          value: `${shortenNumber(borrowBalanceAfterRepay, 2, maxDecimalsForShortenNumber(borrowBalanceAfterRepay))} ${data.asset.symbol}`,
+        },
+      ],
     },
-    debt: {
-      label: 'Debt',
-      value: `${shortenNumber(data?.debt || 0, 2, maxDecimalsForShortenNumber(debt))} ${data?.asset.symbol}`,
-    },
-    debtBalanceAfterRepayment: {
-      label: 'Debt Balance After Repayment',
-      value: `${shortenNumber(borrowBalanceAfterRepay, 2, maxDecimalsForShortenNumber(borrowBalanceAfterRepay))} ${data.asset.symbol}`,
-    },
-    txFee: {
-      label: 'Transaction Fee',
-      value: `${txFee.value} XLM`,
+    fees: {
+      title: 'Fees',
+      data: [
+        {
+          label: 'Transaction Fee',
+          value: `${txFee.value} XLM`,
+        },
+      ],
     },
   }
 })
@@ -206,84 +216,20 @@ watch(() => modelValue, async (v) => {
         ]"
       />
 
-      <template v-if="Object.keys(infoTableData).length > 0">
+      <template v-if="Object.keys(infoPanelData).length > 0">
         <!-- Balances -->
-        <div
-          class="dialog-info-card dialog-info-card--borrow"
-        >
-          <div class="dialog-info-card__title">
-            Balances / Health
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- Health -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.healthFactor?.label }}</span>
-              <span class="value">
-                {{ infoTableData.healthFactor?.value }}
-              </span>
-            </div>
-
-            <!-- Debt -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.debt?.label }}</span>
-              <span class="value">
-                {{ infoTableData.debt?.value }}
-              </span>
-            </div>
-
-            <!-- Debt -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.debtBalanceAfterRepayment?.label }}</span>
-              <span class="value">
-                {{ infoTableData.debtBalanceAfterRepayment?.value }}
-              </span>
-            </div>
-          </div>
-        </div>
-
+        <info-panel
+          :title="infoPanelData.balances!.title"
+          :data="infoPanelData.balances!.data"
+          variant="borrow"
+        />
         <!-- Fee -->
-        <div
-          class="dialog-info-card dialog-info-card--borrow"
-        >
-          <div class="dialog-info-card__title">
-            Fees
-          </div>
-
-          <div class="dialog-info-card__body">
-            <!-- TxFee -->
-            <div class="dialog-info-card__item">
-              <span class="label">{{ infoTableData.txFee?.label }}</span>
-              <span class="value">
-                {{ infoTableData.txFee?.value }}
-              </span>
-            </div>
-          </div>
-        </div>
+        <info-panel
+          :title="infoPanelData.fees!.title"
+          :data="infoPanelData.fees!.data"
+          variant="borrow"
+        />
       </template>
-
-      <!-- <div class="dialog-info-table">
-        <div
-          v-for="item in infoTableData"
-          :key="item.label"
-          class="dialog-info-table__item"
-        >
-          <span>{{ item?.label }}</span>
-          <span>
-            <template v-if="item?.name === 'healthFactor' && loading">
-              <j-loading-spinner
-                width="14px"
-                style="padding: 0; width: 14px; margin-left: auto"
-              />
-            </template>
-            <template v-else>
-              {{ item?.value }}
-            </template>
-          </span>
-        </div>
-
-        <div class="separator" />
-      </div> -->
 
       <div class="dialog-default__action mt-2">
         <j-btn
