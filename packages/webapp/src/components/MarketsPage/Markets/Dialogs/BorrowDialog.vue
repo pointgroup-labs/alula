@@ -346,7 +346,7 @@ watch(dialog, async (v) => {
 
       <div class="dialog-default__action mt-2">
         <market-dialog-action-btn
-          variant="accent"
+          variant="purple"
           pill
           size="lg"
           :loading="isLoading"

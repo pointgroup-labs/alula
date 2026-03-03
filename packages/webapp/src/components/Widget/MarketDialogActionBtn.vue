@@ -6,14 +6,14 @@ import { clickElement, destructurePoolAsset, shortenAddress } from '~/utils'
 
 const {
   loading = false,
-  variant = 'blue',
+  variant = 'cyan',
   pool,
   ...props
 } = defineProps<{
   pool?: Pool
   isTrust?: boolean
   loading?: boolean
-  variant?: 'blue' | 'accent'
+  variant?: 'cyan' | 'purple'
   disabled?: boolean
 } & BButtonProps>()
 
@@ -117,24 +117,6 @@ async function emitClickHandler() {
 .market-action-btn {
   --bs-btn-active-color: #000;
   width: 100%;
-
-  &.btn-blue {
-    background-color: $supply;
-    color: $dark;
-
-    &:hover {
-      background-color: lighten($supply, 10%);
-    }
-  }
-
-  &.btn-accent {
-    background-color: $purple;
-    color: $foreground;
-
-    &:hover {
-      background-color: lighten($purple, 10%);
-    }
-  }
 
   .complete-icon {
     width: 16px;

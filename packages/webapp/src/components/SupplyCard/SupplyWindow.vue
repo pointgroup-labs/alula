@@ -112,10 +112,10 @@ const rewardsEarnings = computedAsync(async () => {
       :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${selectedPool?.asset.symbol}`"
       :rules="[
         (v) => {
-          return Number(v) < balance || 'Insufficient balance'
+          return !publicKey || Number(v) < balance || 'Insufficient balance'
         },
         (v) => {
-          return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
+          return !publicKey || (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
         },
       ]"
     >
@@ -255,7 +255,7 @@ const rewardsEarnings = computedAsync(async () => {
 
   <div class="supply-card__action mt-4">
     <market-dialog-action-btn
-      variant="blue"
+      variant="cyan"
       size="lg"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"

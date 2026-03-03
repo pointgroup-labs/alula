@@ -131,7 +131,7 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
     <div class="mobile-card-footer">
       <j-btn
         size="sm"
-        variant="blue"
+        variant="cyan"
         :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'supply' })"

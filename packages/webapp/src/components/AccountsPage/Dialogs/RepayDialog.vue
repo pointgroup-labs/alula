@@ -288,7 +288,7 @@ watch(() => modelValue, async (v) => {
       <div class="dialog-default__action mt-2">
         <j-btn
           :loading="loading"
-          variant="accent"
+          variant="purple"
           size="lg"
           pill
           @click="repay"

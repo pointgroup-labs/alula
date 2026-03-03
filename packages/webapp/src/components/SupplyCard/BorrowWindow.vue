@@ -134,7 +134,7 @@ const debtAccrual = computedAsync(async () => {
       variant="borrow"
       :rules="[
         (v: any) => {
-          return Number(v) < availableToBorrow || 'Borrow limit exceeded'
+          return !publicKey || Number(v) < availableToBorrow || 'Borrow limit exceeded'
         },
       ]"
     >
@@ -287,7 +287,7 @@ const debtAccrual = computedAsync(async () => {
 
   <div class="supply-card__action mt-4">
     <market-dialog-action-btn
-      variant="accent"
+      variant="purple"
       size="lg"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"

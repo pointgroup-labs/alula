@@ -9,6 +9,8 @@ declare module 'node_modules/bootstrap-vue-next/dist/src/types/ColorTypes' {
     accent: unknown
     ghost: unknown
     blue: unknown
+    purple: unknown
+    cyan: unknown
   }
 }
 

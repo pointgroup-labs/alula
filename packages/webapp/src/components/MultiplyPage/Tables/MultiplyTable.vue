@@ -187,7 +187,7 @@ function onRowClicked(data: MultiplyTableItem) {
             size="xs"
             :loading="market.isLoading(data.item.pool_address, 'leverage', data.item.market!)"
             :disabled="market.isDisabled(data.item.pool_address, 'leverage', data.item.market!)"
-            variant="blue"
+            variant="cyan"
             @click="multiplyDialogHandler(data.item, 'supply')"
           >
             Multiply

@@ -276,7 +276,7 @@ const stop = watch(additionalMarketsData, () => {
           <div class="table-cell justify-content-end market-table__action">
             <j-btn
               size="xs"
-              variant="outline-blue"
+              variant="outline-cyan"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"

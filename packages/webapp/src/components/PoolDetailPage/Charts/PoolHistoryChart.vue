@@ -73,7 +73,7 @@ const option = computed<EChartsOption>(() => {
     animationDurationUpdate: 400,
     animationEasingUpdate: 'cubicOut',
 
-    grid: { left: 0, right: 14, top: 0, bottom: 12},
+    grid: { left: 0, right: 10, top: 0, bottom: 12 },
 
     tooltip: {
       trigger: 'axis',
@@ -108,8 +108,7 @@ const option = computed<EChartsOption>(() => {
         fontSize: isMobile.value ? 10 : 12,
         margin: 14,
         formatter: (v: string) => {
-          const withYear = activeFilter.value?.value !== 180 && width.value >= 650
-          return labelWithDateOrMonth(v, activeFilter.value?.value === 180, withYear)
+          return labelWithDateOrMonth(v, activeFilter.value?.value === 180, false)
         },
       },
     },

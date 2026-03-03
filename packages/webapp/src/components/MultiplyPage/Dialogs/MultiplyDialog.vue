@@ -169,7 +169,7 @@ watch(dialog, async (v) => {
 
         <div class="multiply-dialog-action">
           <market-dialog-action-btn
-            variant="blue"
+            variant="cyan"
             :loading="market.isLoading(String(data?.pool_address), 'leverage', String(data?.market))"
             :pool="data?.depositPoolData.pool"
             :disabled="Number(selectedMultiplier) < 1"

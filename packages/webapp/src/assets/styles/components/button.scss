@@ -19,13 +19,22 @@ $btn-variants: (
     focusBg: rgba(242, 176, 26, 0.6),
   ),
 
-  blue: (
-    bg: rgba(0, 144, 255, 0.4),
+  purple: (
+    bg: $purple,
     color: #fff,
-    hoverBg: rgba(0, 144, 255, 0.6),
+    hoverBg: lighten($purple, 4%),
+    focusBg: lighten($purple, 4%),
   ),
 
-  outline-blue: (
+  cyan: (
+    bg: $cyan,
+    color: $dark,
+    hoverBg: lighten($cyan, 10%),
+    focusBg: lighten($cyan, 10%),
+  ),
+
+
+  outline-cyan: (
     bg: transparent,
     color: rgba(232, 237, 245, 0.7),
     outline: 1px solid rgba(0, 211, 238, 0.1),
@@ -86,6 +95,7 @@ $btn-size: (
   @each $name, $variant in $btn-variants {
     &.btn-#{$name} {
       --bs-btn-disabled-bg: #{map-get($variant, bg)};
+      --bs-btn-hover-color: #{map-get($variant, color)};
 
       background: map-get($variant, bg);
       color: map-get($variant, color);
