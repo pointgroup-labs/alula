@@ -12,6 +12,9 @@ const {
 const { width } = useWindowSize()
 
 const marketActions = useMarketActions()
+const userStore = useUserStore()
+
+const isObligationsLoading = computed(() => userStore.loading)
 
 const router = useRouter()
 
@@ -261,7 +264,12 @@ const stop = watch(additionalMarketsData, () => {
 
         <template #cell(position)="data">
           <div class="table-cell justify-content-end with-price">
-            <template v-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
+            <j-loading-spinner
+              v-if="isObligationsLoading"
+              class="position-spinner"
+              width="16px"
+            />
+            <template v-else-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
               <strong :style="{ color: +data.item.position.supplied > 0 ? '#22d3ee' : '#6366F1' }">
                 {{ shortenNumber(+data.item.position.supplied || +data.item.position.borrowed) }}</strong>
               <span>
@@ -380,3 +388,18 @@ const stop = watch(additionalMarketsData, () => {
     />
   </client-only>
 </template>
+
+<style lang="scss">
+.market-table {
+  .position {
+    .position-spinner {
+      position: relative !important;
+      background-color: transparent !important;
+      align-items: flex-end;
+      .spinner-border {
+        color: $muted-foreground !important;
+      }
+    }
+  }
+}
+</style>
