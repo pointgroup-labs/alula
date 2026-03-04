@@ -2,7 +2,7 @@
 
 use market::{
     error::MCError,
-    pool::{PoolConfig, PoolHealthConfig},
+    pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig},
 };
 use soroban_sdk::{Address, testutils::Address as _};
 
@@ -121,5 +121,23 @@ fn test_multiply_pair_with_inexistent_pool() {
     assert_eq!(
         contract_client.try_initialize_multiply_pair(&deposit_pool_address, &borrow_pool_address),
         Err(Ok(MCError::BorrowPoolDoesNotExist))
+    );
+}
+
+#[test]
+fn test_pool_initialize_rejects_100_percent_fee() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let token_address = register_random_sac(&e);
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { borrow_fee_bps: 10_000, ..Default::default() },
+        ..Default::default()
+    };
+
+    assert_eq!(
+        contract_client.try_initialize_pool(&token_address, &Some(pool_config)),
+        Err(Ok(MCError::InvalidLoanPoolConfig))
     );
 }

@@ -556,6 +556,9 @@ impl Obligation {
     ) -> Result<BorrowResult, MCError> {
         let max_healthy_borrow_added_amount =
             self.compute_max_healthy_debt_added_amount(e, pool)?;
+        if max_healthy_borrow_added_amount <= 0 {
+            return Err(MCError::UnhealthyOperation);
+        }
 
         let real_borrowed_amount = if original_amount == i128::MAX {
             // `[i128::MAX]` indicates capped borrow
@@ -570,7 +573,6 @@ impl Obligation {
 
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
-        // NB: This can potentially create a borrow obligation with 0ed fields
         let mut borrow_position = self
             .borrows
             .get(pool.pool_address.clone())

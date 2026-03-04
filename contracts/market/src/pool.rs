@@ -827,19 +827,19 @@ impl PoolFeeConfig {
         ];
 
         for &fee in individual_fees {
-            if fee as i128 > BPS_FACTOR {
-                return Err("Individual fees must not exceed 100%");
+            if fee as i128 >= BPS_FACTOR {
+                return Err("Individual fees must be less than 100%");
             }
         }
 
-        if *withdraw_max_scarcity_fee_bps as i128 > BPS_FACTOR // NB: to prevent overflow
-            || (*withdraw_max_scarcity_fee_bps + *withdraw_fee_bps) as i128 > BPS_FACTOR
+        if *withdraw_max_scarcity_fee_bps as i128 >= BPS_FACTOR // NB: to prevent overflow
+            || (*withdraw_max_scarcity_fee_bps + *withdraw_fee_bps) as i128 >= BPS_FACTOR
         {
-            return Err("Max scarcity fee, summed with the withdrawal fee, must not exceed 100%");
+            return Err("Max scarcity fee, summed with the withdrawal fee, must be less than 100%");
         }
 
-        if *take_rate_bps as i128 > BPS_FACTOR {
-            return Err("Take Rate must not exceed 100%");
+        if *take_rate_bps as i128 >= BPS_FACTOR {
+            return Err("Take Rate must be less than 100%");
         }
 
         if let Some(take_rate_beneficiaries) = take_rate_beneficiaries {
