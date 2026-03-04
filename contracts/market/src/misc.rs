@@ -34,11 +34,21 @@ pub struct MarketData {
     pub oracle_price_decimals: u32,
 }
 
-// Ensures that the provided amount is non-negative.
+// Ensures that the provided amount is non-negative
 #[inline(always)]
 pub fn require_nonnegative(amount: i128) -> Result<(), MCError> {
     if amount.is_negative() {
-        return Err(MCError::NegativeInputAmount);
+        return Err(MCError::InvalidInputAmount);
+    }
+
+    Ok(())
+}
+
+// Ensures that the provided amount is positive
+#[inline(always)]
+pub fn require_positive(amount: i128) -> Result<(), MCError> {
+    if !amount.is_positive() {
+        return Err(MCError::InvalidInputAmount);
     }
 
     Ok(())

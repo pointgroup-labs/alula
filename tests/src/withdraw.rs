@@ -168,7 +168,7 @@ fn test_withdraw_zero() {
 
     assert_eq!(
         contract_client.try_withdraw(creditor, &gold_pool_address, &0, &None),
-        Err(Ok(MCError::InternalError))
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 
@@ -185,18 +185,10 @@ fn test_remove_collateral_zero() {
         &None,
     );
 
-    let obligation_before =
-        get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-
-    contract_client.remove_collateral(collateral_provider, &gold_pool_address, &0, &None);
-
-    let obligation_after =
-        get_deposit_position(&contract_client, collateral_provider, &gold_pool_address).unwrap();
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(obligation_before, obligation_after);
-    assert_eq!(pool_before, pool_after);
+    assert_eq!(
+        contract_client.try_remove_collateral(collateral_provider, &gold_pool_address, &0, &None),
+        Err(Ok(MCError::InvalidInputAmount))
+    );
 }
 
 #[test]
@@ -209,7 +201,7 @@ fn test_withdraw_negative() {
 
     assert_eq!(
         contract_client.try_withdraw(creditor, &gold_pool_address, &-1, &None),
-        Err(Ok(MCError::NegativeInputAmount))
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 
@@ -228,7 +220,7 @@ fn test_remove_collateral_negative() {
 
     assert_eq!(
         contract_client.try_remove_collateral(collateral_provider, &gold_pool_address, &-1, &None),
-        Err(Ok(MCError::NegativeInputAmount))
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 

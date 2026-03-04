@@ -52,12 +52,15 @@ fn test_deposit() {
 }
 
 #[test]
-fn test_deposit_zero_is_prohibited() {
+fn test_deposit_zero() {
     let TestMarketFixture { contract_client, usdc_token_address, users, .. } =
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    assert!(contract_client.try_deposit(creditor, &usdc_token_address, &0, &None).is_err());
+    assert_eq!(
+        contract_client.try_deposit(creditor, &usdc_token_address, &0, &None),
+        Err(Ok(MCError::InvalidInputAmount))
+    );
 }
 
 #[test]
@@ -111,11 +114,10 @@ fn test_add_collateral_zero() {
         TestMarketFixture::new();
     let creditor = &users[0];
 
-    let pool_before = contract_client.get_pool(&gold_pool_address);
-    contract_client.add_collateral(creditor, &gold_pool_address, &0, &None);
-    let pool_after = contract_client.get_pool(&gold_pool_address);
-
-    assert_eq!(pool_before, pool_after);
+    assert_eq!(
+        contract_client.try_add_collateral(creditor, &gold_pool_address, &0, &None),
+        Err(Ok(MCError::InvalidInputAmount))
+    );
 }
 
 #[test]
@@ -126,7 +128,7 @@ fn test_add_collateral_negative() {
 
     assert_eq!(
         contract_client.try_add_collateral(creditor, &gold_pool_address, &-1, &None),
-        Err(Ok(MCError::NegativeInputAmount))
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 
@@ -151,7 +153,7 @@ fn test_deposit_negative() {
 
     assert_eq!(
         contract_client.try_deposit(creditor, &gold_pool_address, &-1, &None),
-        Err(Ok(MCError::NegativeInputAmount))
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 

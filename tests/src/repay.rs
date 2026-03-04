@@ -91,7 +91,10 @@ fn test_repay_zero() {
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
 
-    assert!(contract_client.try_repay(borrower, &usdc_pool_address, &0, &None).is_err());
+    assert_eq!(
+        contract_client.try_repay(borrower, &usdc_pool_address, &0, &None),
+        Err(Ok(MCError::InvalidInputAmount))
+    );
 }
 
 #[test]

@@ -8,7 +8,8 @@ use soroban_sdk::{
 };
 
 use crate::{
-    constants::*, error::MCError, math_utils::MathUtils, soroswap_router as router, storage,
+    constants::*, error::MCError, math_utils::MathUtils, misc::require_positive,
+    soroswap_router as router, storage,
 };
 
 // TODO: Maybe, create some internal trait for common swap operations and
@@ -163,6 +164,9 @@ pub fn swap_exact_tokens_for_tokens(
     amount_out: i128,
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
+    require_positive(amount_in)?;
+    require_positive(amount_out)?;
+
     if token_in == token_out {
         return Err(MCError::InvalidSwap);
     }

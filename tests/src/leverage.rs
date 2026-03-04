@@ -17,7 +17,7 @@ use crate::{
 // ---- Deposit with leverage ----
 
 #[test]
-fn test_deposit_zero_is_prohibited() {
+fn test_deposit_zero() {
     const LEVERAGE: u32 = 3; // x3 leverage
     const LEVERAGE_MULTIPLIER: u32 = LEVERAGE * LEVERAGE_SCALE;
 
@@ -34,18 +34,17 @@ fn test_deposit_zero_is_prohibited() {
         &None,
     );
 
-    assert!(
-        contract_client
-            .try_deposit_with_leverage(
-                looper,
-                &gold_pool_address,
-                &usdc_pool_address,
-                &false,
-                &0,
-                &LEVERAGE_MULTIPLIER,
-                &None,
-            )
-            .is_err()
+    assert_eq!(
+        contract_client.try_deposit_with_leverage(
+            looper,
+            &gold_pool_address,
+            &usdc_pool_address,
+            &false,
+            &0,
+            &LEVERAGE_MULTIPLIER,
+            &None,
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 
@@ -638,7 +637,7 @@ fn test_withdraw_negative() {
     );
 
     assert_eq!(
-        Err(Ok(MCError::NegativeInputAmount)),
+        Err(Ok(MCError::InvalidInputAmount)),
         contract_client.try_withdraw_from_leveraged(
             looper,
             &gold_pool_address,

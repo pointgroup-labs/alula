@@ -67,7 +67,7 @@ impl TryFrom<u32> for MarketStatus {
             4 => MarketStatus::DepositFrozenByAdmin,
             5 => MarketStatus::Frozen,
             6 => MarketStatus::FrozenByAdmin,
-            _ => return Err(MCError::InvalidMarketUpdate),
+            _ => return Err(MCError::InvalidMarketConfigOrUpdate),
         };
 
         Ok(market_status)

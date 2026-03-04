@@ -267,19 +267,17 @@ fn test_liquidate_zero() {
     let test = LiquidationTest::risky();
     test.wait_n_years(3);
 
-    assert!(
-        test.fixture
-            .contract_client
-            .try_liquidate(
-                &test.liquidator,
-                &test.borrower,
-                &None,
-                &test.borrow_pool_address,
-                &test.collateral_pool_address,
-                &0,
-                &0,
-            )
-            .is_err()
+    assert_eq!(
+        test.fixture.contract_client.try_liquidate(
+            &test.liquidator,
+            &test.borrower,
+            &None,
+            &test.borrow_pool_address,
+            &test.collateral_pool_address,
+            &0,
+            &0,
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 
@@ -297,7 +295,7 @@ fn test_liquidate_negative_amount() {
         &-1,
         &0,
     );
-    assert_eq!(result, Err(Ok(MCError::NegativeInputAmount)));
+    assert_eq!(result, Err(Ok(MCError::InvalidInputAmount)));
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.liquidator,
@@ -308,7 +306,7 @@ fn test_liquidate_negative_amount() {
         &0,
         &-1,
     );
-    assert_eq!(result, Err(Ok(MCError::NegativeInputAmount)));
+    assert_eq!(result, Err(Ok(MCError::InvalidInputAmount)));
 }
 
 #[test]
@@ -322,7 +320,7 @@ fn test_liquidate_self_fails() {
         &None,
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
+        &1,
         &0,
     );
 
@@ -340,7 +338,7 @@ fn test_liquidate_nonexistent_user_fails() {
         &None,
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
+        &1,
         &0,
     );
 

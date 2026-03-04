@@ -376,15 +376,15 @@ fn test_update_market_config() {
 
     assert_eq!(
         contract_client.try_update_market(&(MAX_POSITIONS + 1), &0),
-        Err(Ok(MCError::InvalidMarketUpdate))
+        Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
     assert_eq!(
         contract_client.try_update_market(&(MAX_POSITIONS), &-1),
-        Err(Ok(MCError::NegativeInputAmount))
+        Err(Ok(MCError::InvalidInputAmount))
     );
     assert_eq!(
         contract_client.try_update_market(&(1), &MIN_COLLATERAL_VALUE_CENTS),
-        Err(Ok(MCError::InvalidMarketUpdate))
+        Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
 
     contract_client.update_market(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);

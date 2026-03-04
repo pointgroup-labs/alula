@@ -670,7 +670,7 @@ impl Market for MarketContract {
         storage::extend_instance(&e);
 
         if !(2..=MAX_RESERVES).contains(&new_max_positions) {
-            return Err(MCError::InvalidMarketUpdate);
+            return Err(MCError::InvalidMarketConfigOrUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);
         storage::set_min_collateral_value_cents(&e, new_min_collateral_value_cents);
@@ -699,7 +699,7 @@ impl Market for MarketContract {
         let old_status = storage::get_market_status(&e);
         let new_status = MarketStatus::try_from(new_status)?;
         if old_status.is_admin_protected() || new_status.is_admin_protected() {
-            return Err(MCError::InvalidMarketUpdate);
+            return Err(MCError::InvalidMarketConfigOrUpdate);
         }
 
         storage::set_market_status(&e, &new_status);
@@ -1426,7 +1426,7 @@ impl MarketContract {
         if !(2..=MAX_RESERVES).contains(&max_positions)
             || !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps)
         {
-            return Err(MCError::InvalidMarketConfig);
+            return Err(MCError::InvalidMarketConfigOrUpdate);
         }
 
         let market_status = if update_in_queue_period.is_some() {
@@ -1490,7 +1490,8 @@ impl MarketContract {
     pub fn accept_proposed_admin(e: Env) -> Result<(), MCError> {
         storage::extend_instance(&e);
 
-        let proposed_admin = storage::get_proposed_admin(&e).ok_or(MCError::InvalidMarketUpdate)?;
+        let proposed_admin =
+            storage::get_proposed_admin(&e).ok_or(MCError::InvalidMarketConfigOrUpdate)?;
         proposed_admin.require_auth();
 
         storage::set_admin(&e, &proposed_admin);

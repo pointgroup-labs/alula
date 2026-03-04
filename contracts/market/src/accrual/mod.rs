@@ -222,9 +222,6 @@ mod test {
         let apr = -1000; // -10%
         let seconds_passed = SECONDS_IN_YEAR;
 
-        assert_eq!(
-            model.compute_multiplier(apr, seconds_passed),
-            Err(MCError::NegativeInputAmount)
-        );
+        assert_eq!(model.compute_multiplier(apr, seconds_passed), Err(MCError::InvalidInputAmount));
     }
 }

@@ -5,19 +5,18 @@ use soroban_sdk::contracterror;
 pub enum MCError {
     // Core errors (0-99)
     InternalError = 0,
-    NegativeInputAmount = 1,
+    InvalidInputAmount = 1,
     DependencyContractError = 2,
     MarketIsNotOwned = 3,
     BorrowForbiddenOnMarket = 4,
     DepositForbiddenOnMarket = 5,
     MarketIsFrozen = 6,
-    InvalidMarketConfig = 7,
-    InvalidMarketUpdate = 8,
-    IncorrectRequestType = 9,
-    OverOrUnderflow = 10,
-    TooManyPositions = 11,
-    MinCollateralValueIsNotMet = 12,
-    NonPositiveSharesAmount = 13,
+    InvalidMarketConfigOrUpdate = 7,
+    IncorrectRequestType = 8,
+    OverOrUnderflow = 9,
+    TooManyPositions = 10,
+    MinCollateralValueIsNotMet = 11,
+    NonPositiveSharesAmount = 12,
 
     // Pool-related errors (100-199)
     InvalidInitialization = 100,

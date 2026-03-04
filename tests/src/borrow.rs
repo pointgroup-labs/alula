@@ -199,7 +199,10 @@ fn test_borrow_zero() {
     contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
 
-    assert!(contract_client.try_borrow(borrower, &usdc_pool_address, &0, &None).is_err());
+    assert_eq!(
+        contract_client.try_borrow(borrower, &usdc_pool_address, &0, &None),
+        Err(Ok(MCError::InvalidInputAmount))
+    );
 }
 
 #[test]
@@ -214,7 +217,7 @@ fn test_borrow_negative() {
 
     assert_eq!(
         contract_client.try_borrow(borrower, &usdc_pool_address, &-1, &None),
-        Err(Ok(MCError::NegativeInputAmount))
+        Err(Ok(MCError::InvalidInputAmount))
     );
 }
 

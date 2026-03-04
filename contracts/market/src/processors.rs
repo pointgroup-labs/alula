@@ -11,7 +11,7 @@ use crate::{
     error::MCError,
     events, farms,
     math_utils::MathUtils,
-    misc::require_nonnegative,
+    misc::{require_nonnegative, require_positive},
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
@@ -192,7 +192,7 @@ pub fn process_deposit<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_deposit_enabled()?;
@@ -248,7 +248,7 @@ pub fn process_borrow<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -295,7 +295,7 @@ pub fn process_add_collateral<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
@@ -338,7 +338,7 @@ pub fn process_repay<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -395,7 +395,7 @@ pub fn process_remove_collateral<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -444,7 +444,7 @@ pub fn process_withdraw<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -507,7 +507,7 @@ pub fn process_simulate_withdraw(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<WithdrawResult, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -527,7 +527,7 @@ pub fn process_flash_loan(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_total_available(amount)?;
@@ -572,7 +572,7 @@ pub fn process_deposit_with_leverage(
     leverage_multiplier: u32,
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
@@ -746,7 +746,7 @@ pub fn process_withdraw_from_leveraged(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, &pair.deposit_pool).map_err(|_| {
@@ -936,7 +936,7 @@ pub fn process_liquidate<'a>(
     repay_amount: i128,
     min_demanded_collateral_amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(repay_amount)?;
+    require_positive(repay_amount)?;
     require_nonnegative(min_demanded_collateral_amount)?;
 
     if borrow_pool_address == collateral_pool_address || liquidator == &borrower_obligation_key.user
@@ -1354,9 +1354,6 @@ fn compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
 ) -> Result<i128, MCError> {
     // TODO: This formula is too simple, and it's likely leading to the issues
     // we have when partially withdrawing from the leveraged position
-
-    require_nonnegative(deposited_amount)?;
-    require_nonnegative(borrowed_amount)?;
 
     let x_tokens = swap::get_amount_in(e, deposited_token, borrowed_token, borrowed_amount)?;
     if x_tokens > deposited_amount {
