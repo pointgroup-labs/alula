@@ -21,8 +21,14 @@ export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: 
 
     const price = depositedPool?.oracle_asset_price ? bigintToNumber(depositedPool?.oracle_asset_price, oraclePriceDecimals) : 0
 
+    const ltvMultiplier = ltvType === 'close'
+      ? bpsToNumber(Number(depositedPool.pool.config?.health_config.close_ltv_bps ?? 0))
+      : ltvType === 'open'
+        ? bpsToNumber(Number(depositedPool.pool.config?.health_config.open_ltv_bps ?? 0))
+        : 1
+
     const collateral = data?.collateral || 0
-    userDepositsInUsd += Number(bigintToNumber(BigInt(collateral), assetDecimals)) * Number(price ?? 0)
+    userDepositsInUsd += Number(bigintToNumber(BigInt(collateral), assetDecimals)) * Number(price ?? 0) * ltvMultiplier
     const j_tokens = data?.j_tokens
     if (!depositedPool || !j_tokens) {
       userDepositsInUsd += 0
@@ -38,11 +44,6 @@ export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: 
       },
       assetDecimals,
     )
-    const ltvMultiplier = ltvType === 'close'
-      ? bpsToNumber(Number(depositedPool.pool.config?.health_config.close_ltv_bps ?? 0))
-      : ltvType === 'open'
-        ? bpsToNumber(Number(depositedPool.pool.config?.health_config.open_ltv_bps ?? 0))
-        : 1
     const availableInUsd = Number(userAvailable) * Number(price) * ltvMultiplier
     userDepositsInUsd += availableInUsd || 0
   }

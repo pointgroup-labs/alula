@@ -64,7 +64,7 @@ const userPositions = computed<MultiplyAccountItemWithStats[]>(() => {
   const deposited = +calculateTotalStake(depOblData.j_tokens, {
     total_j_tokens: depositPoolData.pool.total_j_tokens,
     total_borrowed: depositPoolData.pool.total_borrowed,
-    total_available: depositPoolData.pool.total_available,
+    total_available: depositPoolData.total_available_adjusted,
   }) || 0
 
   const borrowed = +calculateBorrow(borrowOblData.d_tokens, {

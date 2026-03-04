@@ -42,7 +42,7 @@ const balance = computed(() => {
   const deposited = calculateTotalStake(userShares, {
     total_j_tokens: depositPoolData.pool.total_j_tokens,
     total_borrowed: depositPoolData.pool.total_borrowed,
-    total_available: depositPoolData.pool.total_available,
+    total_available: depositPoolData.total_available_adjusted,
   }).toString()
   return Number(deposited) || 0
 })
@@ -188,7 +188,7 @@ watchDebounced([
 
         <div class="multiply-dialog-action">
           <market-dialog-action-btn
-            variant="primary"
+            variant="success"
             :loading="market.isLoading(String(data?.pool_address), 'withdrawLeverage', String(data?.market))"
             :pool="data?.depositPoolData.pool"
             @click-handler="withdrawLeverage"

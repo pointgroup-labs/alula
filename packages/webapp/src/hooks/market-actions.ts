@@ -462,7 +462,6 @@ export function useMarketActions() {
     }
 
     await Promise.allSettled(tasks.map(cb => cb()))
-    marketsStore.selectedMarketName = undefined
   }
 
   function isDisabled(pool_address: string, actionType: TableActionType, activeMarket: string) {

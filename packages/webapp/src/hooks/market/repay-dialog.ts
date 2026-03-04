@@ -133,7 +133,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
     try {
       loading.value = true
 
-      const withBuffer = debt.value === amount.value && Number(balance.value) !== amount.value
+      const withBuffer = debt.value === Number(amount.value) && Number(balance.value) > Number(amount.value)
 
       const marketProps = {
         market: activeMarket.value!.marketName,

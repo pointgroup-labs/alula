@@ -43,7 +43,7 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
       const deposited = calculateTotalStake(dep.j_tokens, {
         total_j_tokens: activePool.pool.total_j_tokens,
         total_borrowed: activePool.pool.total_borrowed,
-        total_available: activePool.pool.total_available,
+        total_available: activePool.total_available_adjusted,
       })
       const userCollateral = bigintToNumber(dep.collateral, assetDecimals)
       const balance = Number(deposited) + Number(userCollateral)
@@ -73,12 +73,10 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
   return res.filter(Boolean) as SuppliedCardTableItem[]
 })
 
-const dialog = ref(false)
-
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
   marketsStore.selectedPoolAddress = item.pool_address
-  dialog.value = true
+  marketsStore.dialogWithdraw = true
 }
 </script>
 
@@ -188,7 +186,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
   </div>
 
   <client-only>
-    <withdraw-dialog v-model="dialog" />
+    <withdraw-dialog v-model="marketsStore.dialogWithdraw" />
   </client-only>
 </template>
 

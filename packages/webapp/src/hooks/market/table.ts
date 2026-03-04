@@ -28,7 +28,7 @@ export function useMarketTable() {
         const suppliedFromJTokens = depositPosition?.j_tokens
           ? Number(calculateTotalStake(
               depositPosition.j_tokens,
-              { total_j_tokens: pool.total_j_tokens, total_borrowed: pool.total_borrowed, total_available: pool.total_available },
+              { total_j_tokens: pool.total_j_tokens, total_borrowed: pool.total_borrowed, total_available: d.total_available_adjusted },
               assetDecimals,
             ))
           : 0

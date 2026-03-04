@@ -65,7 +65,7 @@ watch(dialog, (v) => {
         variant="borrow"
         :rules="[
           (v: any) => {
-            return Number(v) < availableToBorrow || 'Borrow limit exceeded'
+            return Number(v) < availableToBorrow * 1.1 || 'Borrow limit exceeded'
           },
         ]"
       />

@@ -47,7 +47,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     const deposited = calculateTotalStake(dep.j_tokens, {
       total_j_tokens: poolData.value.pool.total_j_tokens,
       total_borrowed: poolData.value.pool.total_borrowed,
-      total_available: poolData.value.pool.total_available,
+      total_available: poolData.value.total_available_adjusted,
     })
     const collateral = Number(bigintToNumber(dep.collateral, assetDecimals.value))
     const balance = Number(deposited) + collateral

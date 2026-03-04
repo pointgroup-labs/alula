@@ -82,12 +82,10 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
   return res?.filter(Boolean) as BorrowCardTableItem[]
 })
 
-const dialog = ref(false)
-
 function withdrawDialogHandler(item: BorrowCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
   marketsStore.selectedPoolAddress = item.pool_address
-  dialog.value = true
+  marketsStore.dialogRepay = true
 }
 </script>
 
@@ -220,7 +218,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
   </div>
 
   <client-only>
-    <repay-dialog v-model="dialog" />
+    <repay-dialog v-model="marketsStore.dialogRepay" />
   </client-only>
 </template>
 

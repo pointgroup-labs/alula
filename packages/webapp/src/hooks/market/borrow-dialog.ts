@@ -56,12 +56,11 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
 
-    const userDepositWithCloseLtv = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
+    const userDepositWithOpenLTV = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
     const userTotalBorrowedInUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
 
-    // max borrow so that HF stays >= 1.1: extra = depositWithOpenLtv / 1.1 - borrowed
-    const userAvailableUsd = Math.max(userDepositWithCloseLtv / 1.1 - userTotalBorrowedInUsd, 0)
-    const maxAvailableUsd = Math.min(userAvailableUsd, marketAvailableInUsd)
+    const userAvailableUsd = Math.max((userDepositWithOpenLTV) - userTotalBorrowedInUsd, 0)
+    const maxAvailableUsd = Math.min(userAvailableUsd / 1.1, marketAvailableInUsd)
     const maxAvailableAssets = maxAvailableUsd / Number(poolData.value.price)
 
     return Number(truncatePercent(maxAvailableAssets, assetDecimals))
