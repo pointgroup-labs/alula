@@ -23,7 +23,7 @@ const {
 
 async function withdraw() {
   isValidate.value = false
-  await doWithdraw(() => { dialog.value = false })
+  await doWithdraw()
   isValidate.value = true
 }
 

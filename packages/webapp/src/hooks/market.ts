@@ -1,6 +1,8 @@
 export function useMarket(state: MarketsState) {
   const dialogSupply = ref(false)
   const dialogBorrow = ref(false)
+  const dialogRepay = ref(false)
+  const dialogWithdraw = ref(false)
   const dialogLeverage = ref(false)
   const dialogLeverageWithdraw = ref(false)
 
@@ -128,6 +130,8 @@ export function useMarket(state: MarketsState) {
 
     dialogSupply,
     dialogBorrow,
+    dialogRepay,
+    dialogWithdraw,
     dialogLeverage,
     dialogLeverageWithdraw,
     marketInfoDialog,

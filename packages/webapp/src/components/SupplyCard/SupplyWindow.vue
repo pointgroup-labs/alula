@@ -27,7 +27,7 @@ const {
   isLoading,
   isCanSupply,
   attentionText,
-} = useSupplyDialog(selectedPool)
+} = useSupplyDialog(selectedPool, toRef(true))
 
 const marketFee = computed(() => {
   const marketFeeBps = collateralOnly.value
@@ -112,10 +112,10 @@ const rewardsEarnings = computedAsync(async () => {
       :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${selectedPool?.asset.symbol}`"
       :rules="[
         (v) => {
-          return !publicKey || Number(v) < balance || 'Insufficient balance'
+          return Number(v) < balance || 'Insufficient balance'
         },
         (v) => {
-          return !publicKey || (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
+          return (supplyLimit <= 0 || Number(v) <= supplyLimit) || 'Pool supply limit'
         },
       ]"
     >

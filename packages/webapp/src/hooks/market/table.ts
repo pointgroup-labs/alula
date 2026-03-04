@@ -119,6 +119,8 @@ export function useMarketTable() {
     activeMarket,
     dialogSupply: toRef(marketsStore, 'dialogSupply'),
     dialogBorrow: toRef(marketsStore, 'dialogBorrow'),
+    dialogRepay: toRef(marketsStore, 'dialogRepay'),
+    dialogWithdraw: toRef(marketsStore, 'dialogWithdraw'),
     infoDialog: toRef(marketsStore, 'marketInfoDialog'),
     selectedMarketName,
     selectedPool,

@@ -122,7 +122,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
     }
   })
 
-  async function repay(onSuccess: () => void) {
+  async function repay() {
     if (!poolData.value) {
       return
     }
@@ -146,7 +146,6 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
       }
 
       await market.repay(marketProps)
-      onSuccess()
     } finally {
       loading.value = false
     }

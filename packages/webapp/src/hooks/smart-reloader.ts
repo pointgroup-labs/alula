@@ -13,24 +13,34 @@ export function useSmartReloader() {
   let poolIntervalId: NodeJS.Timeout | null = null
   let obligationIntervalId: NodeJS.Timeout | null = null
 
+  // Watch only the structural fingerprint (market names + pool addresses).
+  // Pool *data* updates (prices, APY, etc.) also mutate state.markets deeply,
+  // which would retrigger a full deep watch and cause a feedback loop where
+  // every updatePool call schedules yet another rebuild of POOL_JOBS.
+  // Using a string fingerprint means the callback only fires when markets are
+  // added/removed or pool addresses change — not on every data refresh.
   watchDebounced(
-    () => marketsStore.state.markets,
-    (markets) => {
+    () => Object.entries(marketsStore.state.markets)
+      .flatMap(([name, market]) =>
+        (market?.marketState?.pools_data ?? [])
+          .map(d => d?.pool?.pool_address)
+          .filter(Boolean)
+          .map(addr => `${name}:${addr}`),
+      )
+      .toSorted()
+      .join('|'),
+    () => {
+      const markets = marketsStore.state.markets
       const jobs: Job[] = []
-      if (!markets) {
-        return
-      }
 
-      for (const market of Object.values<any>(markets)) {
-        const marketState = market?.marketState
-        const name = marketState?.global_state.name
+      for (const [name, market] of Object.entries(markets)) {
         const client = market?.client
         if (!name || !client) {
           continue
         }
 
-        for (const data of (marketState?.pools_data ?? [])) {
-          const addr = data?.pool.pool_address
+        for (const data of (market?.marketState?.pools_data ?? [])) {
+          const addr = data?.pool?.pool_address
           if (!addr) {
             continue
           }
@@ -39,13 +49,25 @@ export function useSmartReloader() {
       }
       POOL_JOBS.value = jobs
     },
-    { debounce: 400, deep: true, immediate: true },
+    { debounce: 400, immediate: true },
   )
 
+  // Same principle for obligations: watch only the set of keys, not deep data.
   watchDebounced(
-    [() => userStore.state.obligations,
-      () => userStore.state.multiplyObligations],
-    ([obligations, multiplyObligations]) => {
+    () => {
+      const oblKeys = Object.keys(userStore.state.obligations ?? {}).toSorted().join(',')
+      const multOblKeys = Object.keys(userStore.state.multiplyObligations ?? {}).toSorted().join(',')
+      // Also include market multiply_pairs structure since jobs depend on it
+      const pairsKey = Object.entries(marketsStore.state.markets)
+        .map(([name, m]) =>
+          `${name}:${(m?.marketState?.multiply_pairs ?? []).map(p => `${p.deposit_pool}-${p.borrow_pool}`).join(',')}`)
+        .toSorted()
+        .join('|')
+      return `${oblKeys}||${multOblKeys}||${pairsKey}`
+    },
+    () => {
+      const obligations = userStore.state.obligations
+      const multiplyObligations = userStore.state.multiplyObligations
       const jobs: Job[] = []
       if (!obligations && !multiplyObligations) {
         return
@@ -79,7 +101,7 @@ export function useSmartReloader() {
       }
 
       OBLIGATION_JOBS.value = jobs
-    }, { debounce: 400, deep: true, immediate: true })
+    }, { debounce: 400, immediate: true })
 
   async function runWithLimit(jobs: Job[], limit = 5, pauseMs = 500) {
     for (let i = 0; i < jobs.length; i += limit) {
@@ -91,25 +113,35 @@ export function useSmartReloader() {
     }
   }
 
-  function tick(jobs: Job[]) {
+  // Per-queue running flags to prevent concurrent overlapping runs.
+  const poolRunGuard = { running: false }
+  const obligationRunGuard = { running: false }
+
+  function tick(jobs: Job[], guard: { running: boolean }) {
     if (document.visibilityState === 'hidden' || !navigator.onLine) {
       return
     }
-    void runWithLimit(jobs)
+    if (guard.running) {
+      return
+    }
+    guard.running = true
+    void runWithLimit(jobs).finally(() => {
+      guard.running = false
+    })
   }
 
   function startPool() {
     if (poolIntervalId != null) {
       return
     }
-    poolIntervalId = globalThis.setInterval(() => tick(POOL_JOBS.value), POOL_EVERY_MS)
+    poolIntervalId = globalThis.setInterval(() => tick(POOL_JOBS.value, poolRunGuard), POOL_EVERY_MS)
   }
 
   function startObligation() {
     if (obligationIntervalId != null) {
       return
     }
-    obligationIntervalId = globalThis.setInterval(() => tick(OBLIGATION_JOBS.value), OBLIGATION_EVERY_MS)
+    obligationIntervalId = globalThis.setInterval(() => tick(OBLIGATION_JOBS.value, obligationRunGuard), OBLIGATION_EVERY_MS)
   }
 
   function start() {
@@ -133,7 +165,7 @@ export function useSmartReloader() {
   return {
     start,
     stop,
-    refreshPools: () => tick(POOL_JOBS.value),
-    refreshObligations: () => tick(OBLIGATION_JOBS.value),
+    refreshPools: () => tick(POOL_JOBS.value, poolRunGuard),
+    refreshObligations: () => tick(OBLIGATION_JOBS.value, obligationRunGuard),
   }
 }

@@ -25,6 +25,8 @@ const {
   filteredMarkets,
   dialogSupply,
   dialogBorrow,
+  dialogRepay,
+  dialogWithdraw,
   selectedMarketName,
   selectedPool,
   selectedPoolAddress,
@@ -38,9 +40,6 @@ const {
 const { additionalMarketsData } = useAdditionalApy()
 
 const marketsStore = useMarketsStore()
-
-const dialogRepay = ref(false)
-const dialogWithdraw = ref(false)
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },

@@ -174,7 +174,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     }
   })
 
-  async function withdraw(onSuccess: () => void) {
+  async function withdraw() {
     if (!poolData.value) {
       return
     }
@@ -198,8 +198,6 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
       collateralOnly.value
         ? await market.removeCollateral(marketProps)
         : await market.withdraw({ ...marketProps, limit: supplyBalance.value })
-
-      onSuccess()
     } finally {
       loading.value = false
     }

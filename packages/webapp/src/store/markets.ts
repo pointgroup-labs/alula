@@ -22,6 +22,8 @@ export const useMarketsStore = defineStore('markets', () => {
 
     dialogSupply,
     dialogBorrow,
+    dialogRepay,
+    dialogWithdraw,
     dialogLeverage,
     dialogLeverageWithdraw,
     marketInfoDialog,
@@ -38,23 +40,18 @@ export const useMarketsStore = defineStore('markets', () => {
   const poolActiveAddress = ref<string>()
 
   async function updatePool(pool_address: string, market: string, client: StellarClient, withLogs = true) {
-    try {
-      state.loading = true
-      const poolData = await loadPoolData(pool_address, client)
-      const updatedMarketPool = state.markets[market]?.marketState.pools_data.map(data => (data.pool.pool_address === pool_address ? poolData : data)) as PoolData[]
-      state.markets[market] = {
-        ...state.markets[market]!,
-        marketState: {
-          ...state.markets[market]!.marketState,
-          pools_data: updatedMarketPool,
-        },
-      }
+    const poolData = await loadPoolData(pool_address, client)
+    const updatedMarketPool = state.markets[market]?.marketState.pools_data.map(data => (data.pool.pool_address === pool_address ? poolData : data)) as PoolData[]
+    state.markets[market] = {
+      ...state.markets[market]!,
+      marketState: {
+        ...state.markets[market]!.marketState,
+        pools_data: updatedMarketPool,
+      },
+    }
 
-      if (withLogs) {
-        console.log('%c[Updated pool]', 'color: #FFB726', poolData)
-      }
-    } finally {
-      state.loading = false
+    if (withLogs) {
+      console.log('%c[Updated pool]', 'color: #FFB726', poolData)
     }
   }
 
@@ -142,6 +139,8 @@ export const useMarketsStore = defineStore('markets', () => {
 
     dialogSupply,
     dialogBorrow,
+    dialogRepay,
+    dialogWithdraw,
     dialogLeverage,
     marketInfoDialog,
     dialogLeverageWithdraw,

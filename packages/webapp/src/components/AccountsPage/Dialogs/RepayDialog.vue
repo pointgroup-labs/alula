@@ -22,7 +22,7 @@ const {
 
 async function repay() {
   isValidate.value = false
-  await doRepay(() => { dialog.value = false })
+  await doRepay()
   isValidate.value = true
 }
 

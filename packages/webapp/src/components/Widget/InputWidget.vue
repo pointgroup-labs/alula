@@ -40,7 +40,8 @@ const {
 const emit = defineEmits(['update:modelValue', 'maxHandler'])
 
 const slot = defineSlots()
-const { publicKey } = useWallet()
+const wallet = useWallet()
+const publicKey = computed(() => wallet.publicKey)
 
 const { assetDecimals } = useMarketActions()
 
@@ -54,7 +55,7 @@ const val = computed({
 })
 
 const ruleError = computed(() => {
-  if (!rules?.length || !publicKey) {
+  if (!rules?.length || !publicKey.value) {
     return ''
   }
   for (const rule of rules) {

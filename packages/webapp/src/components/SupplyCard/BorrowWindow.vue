@@ -22,6 +22,7 @@ const {
   isLoading,
   txFee,
   poolBorrowLimit,
+  isLoadingFee,
   availableToBorrow,
   closeLTV,
   liquidationPenalty,
@@ -134,7 +135,7 @@ const debtAccrual = computedAsync(async () => {
       variant="borrow"
       :rules="[
         (v: any) => {
-          return !publicKey || Number(v) < availableToBorrow || 'Borrow limit exceeded'
+          return Number(v) < availableToBorrow || 'Borrow limit exceeded'
         },
       ]"
     >
@@ -260,7 +261,12 @@ const debtAccrual = computedAsync(async () => {
             Transaction Fee
           </div>
           <div class="value">
-            {{ txFee }}
+            <j-loading-spinner
+              v-if="isLoadingFee"
+              width="14px"
+              style="margin:0 20px 0 auto;"
+            />
+            <span v-else>{{ txFee }} XLM</span>
           </div>
         </div>
       </div>

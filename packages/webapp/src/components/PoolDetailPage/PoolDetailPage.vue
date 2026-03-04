@@ -34,13 +34,13 @@ provide('selectedPool', selectedPool)
       <pool-detail-top />
 
       <j-loading-spinner
-        v-if="loading"
+        v-if="loading && Object.keys(marketsStore.state.markets).length === 0"
         class="table-loading-spinner"
       >
         Loading market data...
       </j-loading-spinner>
 
-      <template v-else-if="selectedPool && !loading">
+      <template v-else-if="selectedPool">
         <pool-overview />
       </template>
 

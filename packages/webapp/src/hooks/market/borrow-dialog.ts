@@ -188,8 +188,6 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       }
 
       await market.borrow(marketProps)
-
-      marketsStore.dialogBorrow = false
     } finally {
       marketsStore.poolActiveAddress = undefined
     }

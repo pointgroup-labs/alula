@@ -151,7 +151,10 @@ export function useMarketActions() {
       title: 'Deposit',
       body: `Sending transaction to deposit ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.lending.deposit(pk, pool_address, amount, kit.value),
-      reset: () => (depositAmount.value = undefined),
+      reset: () => {
+        depositAmount.value = undefined
+        marketsStore.dialogSupply = false
+      },
     })
   }
 
@@ -185,7 +188,10 @@ export function useMarketActions() {
       title: 'Borrow',
       body: `Sending transaction to borrow ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.borrowing.borrow(pk, pool_address, amount, kit.value),
-      reset: () => (borrowAmount.value = undefined),
+      reset: () => {
+        borrowAmount.value = undefined
+        marketsStore.dialogBorrow = false
+      },
     })
   }
 
@@ -222,7 +228,10 @@ export function useMarketActions() {
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.lending.withdraw(pk, pool_address, increasedAmount, kit.value),
-      reset: () => (withdrawAmount.value = undefined),
+      reset: () => {
+        withdrawAmount.value = undefined
+        marketsStore.dialogWithdraw = false
+      },
     })
   }
 
@@ -260,7 +269,10 @@ export function useMarketActions() {
       title: 'Repay',
       body: `Sending transaction to repay ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.borrowing.repay(pk, pool_address, increasedAmount, kit.value),
-      reset: () => (repayAmount.value = undefined),
+      reset: () => {
+        repayAmount.value = undefined
+        marketsStore.dialogRepay = false
+      },
     })
   }
 
@@ -295,7 +307,10 @@ export function useMarketActions() {
       title: 'Add Collateral',
       body: `Sending transaction to add collateral ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.lending.addCollateral(pk, pool_address, amount, kit.value),
-      reset: () => (depositAmount.value = undefined),
+      reset: () => {
+        depositAmount.value = undefined
+        marketsStore.dialogSupply = false
+      },
     })
   }
 
@@ -329,7 +344,10 @@ export function useMarketActions() {
       title: 'Withdraw Collateral',
       body: `Sending transaction to withdraw collateral ${amountToAssetDecimals(amount)} ${symbol}`,
       exec: () => client!.lending.removeCollateral(pk, pool_address, amount, kit.value),
-      reset: () => (withdrawAmount.value = undefined),
+      reset: () => {
+        withdrawAmount.value = undefined
+        marketsStore.dialogWithdraw = false
+      },
     })
   }
 
@@ -372,7 +390,10 @@ export function useMarketActions() {
           leverageMultiplier: leverage_multiplier,
         },
         kit.value),
-      reset: () => (depositAmount.value = undefined),
+      reset: () => {
+        depositAmount.value = undefined
+        marketsStore.dialogLeverage = false
+      },
     })
   }
 
@@ -413,7 +434,10 @@ export function useMarketActions() {
           amount: increasedAmount,
         },
         connectionStore.kit),
-      reset: () => (withdrawAmount.value = undefined),
+      reset: () => {
+        withdrawAmount.value = undefined
+        marketsStore.dialogLeverageWithdraw = false
+      },
     })
   }
 
@@ -438,6 +462,7 @@ export function useMarketActions() {
     }
 
     await Promise.allSettled(tasks.map(cb => cb()))
+    marketsStore.selectedMarketName = undefined
   }
 
   function isDisabled(pool_address: string, actionType: TableActionType, activeMarket: string) {
