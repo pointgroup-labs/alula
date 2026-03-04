@@ -27,7 +27,7 @@ const {
   liquidationPenalty,
   isCanBorrow,
   attentionText,
-} = useBorrowDialog(selectedPool)
+} = useBorrowDialog(selectedPool, toRef(true))
 
 const amount = toRef(market, 'borrowAmount')
 
@@ -156,7 +156,7 @@ const debtAccrual = computedAsync(async () => {
 
   <div
     class="info-card mt-3 info-supply"
-    :style="{ '--color': '#6366F1', '--bg-color': 'rgba(99, 102, 241, 0.03)', '--border-color': 'rgba(99, 102, 241, 0.1)' }"
+    :style="{ '--color': '#8a8df4', '--bg-color': 'rgba(99, 102, 241, 0.03)', '--border-color': 'rgba(99, 102, 241, 0.1)' }"
   >
     <div class="info-supply__header">
       <div class="info-title">
@@ -277,7 +277,7 @@ const debtAccrual = computedAsync(async () => {
     <j-checkbox
       v-model="agree"
       :disabled="!isCanBorrow"
-      color="#6366F1"
+      color="#8a8df4"
     >
       <div class="extra-info__label">
         I acknowledge the risks involved.

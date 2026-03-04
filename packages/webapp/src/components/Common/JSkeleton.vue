@@ -8,6 +8,7 @@ const {
   height?: string
   variant?: 'default' | 'rounded' | 'square'
   fullWidth?: boolean
+  pill?: boolean
 }>()
 </script>
 
@@ -18,6 +19,7 @@ const {
       [
         `j-skeleton--${variant}`,
         `j-skeleton--${fullWidth ? 'full-width' : 'default'}`,
+        { 'j-skeleton--pill': pill },
       ]"
     :style="{ 'width': `${width}px`, 'min-width': `${width}px`, 'height': `${variant !== 'default' ? width : height}px` }"
   />

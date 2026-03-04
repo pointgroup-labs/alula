@@ -98,8 +98,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
     </div>
 
     <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
-      <table-skeleton v-if="width > 650" />
-      <table-skeleton-mobile v-else />
+      <borrow-table-skeleton />
     </div>
 
     <div
@@ -187,7 +186,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           </template>
 
           <template #cell(action)="data">
-            <div class="table-cell justify-content-center">
+            <div class="table-cell justify-content-end">
               <j-btn
                 variant="outline-purple"
                 size="xs"

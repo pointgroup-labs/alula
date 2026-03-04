@@ -125,8 +125,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 
 <template>
   <div v-if="markets.length === 0 && isLoading">
-    <table-skeleton v-if="width > 650" />
-    <table-skeleton-mobile v-else />
+    <market-table-skeleton v-if="width > 650" />
+    <market-table-skeleton-mobile v-else />
   </div>
   <div
     v-else

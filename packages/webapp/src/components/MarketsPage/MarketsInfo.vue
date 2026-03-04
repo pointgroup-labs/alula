@@ -32,7 +32,7 @@ function normalizeAmount(price: number) {
 
 <template>
   <div class="markets-info">
-    <template v-if="loading">
+    <template v-if="loading && poolsInfo.total_collateral === 0">
       <market-info-skeleton
         v-for="i in 3"
         :key="i"
@@ -44,6 +44,7 @@ function normalizeAmount(price: number) {
         :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
         bg="#006ce4"
         icon-color="#006CE4"
+        :loading="loading"
       />
       <total-card
         title="Total Borrow"
@@ -52,14 +53,16 @@ function normalizeAmount(price: number) {
         bg="#ffd101"
         :icon="borrowingIcon"
         icon-color="#FFD101"
+        :loading="loading"
       />
-         <total-card
+      <total-card
         title="Global Market Size"
         :body="`$${marketSize}`"
         color="#111"
         bg="#ffd101"
         :icon="borrowingIcon"
         icon-color="#FFD101"
+        :loading="loading"
       />
     </template>
   </div>

@@ -199,7 +199,7 @@ watch(() => reset, () => {
   .borrow {
     --background-color: rgba(99, 102, 241, 0.05);
     --border-color: rgba(99, 102, 241, 0.3);
-    --color: #6366f1;
+    --color: #8a8df4;
   }
 
   .success {

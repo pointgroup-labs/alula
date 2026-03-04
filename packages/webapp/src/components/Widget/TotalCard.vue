@@ -11,6 +11,7 @@ defineProps<{
 <template>
   <div
     class="total-card"
+    :class="{ 'total-card--loading': !loading }"
   >
     <div class="total-card__title">
       {{ title }}
@@ -49,4 +50,5 @@ defineProps<{
     line-height: 28px;
   }
 }
+
 </style>

@@ -89,8 +89,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
     </div>
 
     <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
-      <table-skeleton v-if="width > 650" />
-      <table-skeleton-mobile v-else />
+      <supply-table-skeleton />
     </div>
 
     <div

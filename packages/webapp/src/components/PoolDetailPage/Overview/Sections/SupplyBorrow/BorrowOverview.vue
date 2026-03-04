@@ -62,7 +62,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
     <div class="stat-card__header">
       <div
         class="header-icon"
-        :style="{ '--icon-bg': 'rgba(99, 102, 241, 10%)', '--icon-color': '#6366F1' }"
+        :style="{ '--icon-bg': 'rgba(99, 102, 241, 10%)', '--icon-color': '#8a8df4' }"
       >
         <i-metrics-arrow-down />
       </div>
@@ -83,7 +83,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
       <market-progress
         is-progress
         :progress="Number(progress).toFixed(1)"
-        color="#6366F1"
+        color="#8a8df4"
       >
         <div class="market-progress__info">
           <div class="market-progress__info__title">

@@ -85,7 +85,7 @@ function utilRateColor(value?: number) {
   }
   switch (true) {
     case value >= 80: return '#f43f5e'
-    case value >= 60: return '#6366F1'
+    case value >= 60: return '#8a8df4'
     default: return 'rgb(0, 201, 80)'
   }
 }
@@ -115,11 +115,7 @@ const stop = watch(additionalMarketsData, () => {
 
 <template>
   <div v-if="marketWithTableItems.length === 0 && loading">
-    <j-skeleton
-      full-width
-      height="60"
-      style="border-radius: 8px;"
-    />
+    <market-table-skeleton />
   </div>
   <div
     v-else-if="marketWithTableItems.length > 0"
@@ -164,6 +160,7 @@ const stop = watch(additionalMarketsData, () => {
         responsive
         class="market-table"
         :tbody-tr-class="rowClass"
+        :class="{ 'table-loading': loading }"
         @row-clicked="(e) => onRowClicked(market.marketName, e)"
       >
         <template
@@ -270,7 +267,7 @@ const stop = watch(additionalMarketsData, () => {
               width="16px"
             />
             <template v-else-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
-              <strong :style="{ color: +data.item.position.supplied > 0 ? '#22d3ee' : '#6366F1' }">
+              <strong :style="{ color: +data.item.position.supplied > 0 ? '#22d3ee' : '#8a8df4' }">
                 {{ shortenNumber(+data.item.position.supplied || +data.item.position.borrowed) }}</strong>
               <span>
                 ${{ amountToUsdWithShort(+data.item.position.supplied || +data.item.position.borrowed, data.item.price) }}</span>
@@ -352,13 +349,6 @@ const stop = watch(additionalMarketsData, () => {
         @on-row-clicked="onRowClicked"
       />
     </j-accordion>
-
-    <j-loading-spinner
-      v-if="loading"
-      class="table-loading-spinner"
-    >
-      Loading...
-    </j-loading-spinner>
   </div>
 
   <div

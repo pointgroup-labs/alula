@@ -5,7 +5,7 @@ const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
 
 const {
   poolBorrowLimit,
-} = useBorrowDialog(selectedPool, false)
+} = useBorrowDialog(selectedPool, toRef(false))
 
 const poolData = computed(() => {
   const assetSymbol = selectedPool?.value?.asset?.symbol ?? '-'
@@ -38,7 +38,7 @@ const poolData = computed(() => {
       <!-- Borrow -->
       <div class="stat-card stat-card--small">
         <div class="stat-title">
-          <i-metrics-trend-down style="color: #6366F1;" /> Total borrowed
+          <i-metrics-trend-down style="color: #8a8df4;" /> Total borrowed
         </div>
         <div class="stat-value">
           <span>{{ shortenNumber(poolData.borrowed) }}</span> {{ poolData.assetSymbol }}

@@ -62,7 +62,7 @@ let chart: ECharts | null = null
 
 const option = computed<EChartsOption>(() => {
   const supply = '#22d3ee'
-  const borrow = '#6366F1'
+  const borrow = '#8a8df4'
 
   const gridLine = 'rgba(120, 160, 200, 0.18)'
   const axisText = 'rgba(180, 200, 220, 0.55)'
@@ -223,7 +223,7 @@ onMounted(async () => {
           />
 
           <metric-indicator
-            color="#6366F1"
+            color="#8a8df4"
             label="Borrow"
             :value="`${formatPrice(currentBorrowApy, 1, 2)}%`"
           />

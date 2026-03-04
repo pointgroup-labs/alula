@@ -64,7 +64,7 @@ const apyWithAdittional = computed(() => {
           :key="data.additional_apy"
           class="additional-tip__value"
         >
-          {{ data.token_symbol }} REWARDS: <span :style="{ color: isDeposit ? '#22d3ee' : '#6366F1' }">
+          {{ data.token_symbol }} REWARDS: <span :style="{ color: isDeposit ? '#22d3ee' : '#8a8df4' }">
             {{ truncatePercent(data.additional_apy, 2) }}% </span>
         </div>
         <div class="additional-tip__value">

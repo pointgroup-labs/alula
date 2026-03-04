@@ -124,7 +124,7 @@ watch(dialog, (v) => {
         <j-checkbox
           v-model="agree"
           :disabled="!isCanBorrow"
-          color="#6366F1"
+          color="#8a8df4"
         >
           <div class="extra-info__label">
             I acknowledge the risks involved.
