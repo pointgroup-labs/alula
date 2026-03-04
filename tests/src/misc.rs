@@ -665,3 +665,102 @@ fn test_referrer_fee_is_charged_and_referrer_receives_it() {
     let ref_after = gold_token_client.balance(&referrer);
     assert_eq!(ref_after.checked_sub(ref_before).unwrap(), expected_referrer_fee);
 }
+
+#[test]
+fn test_repeated_deposits_do_not_inflate_positions_count() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        btc_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
+
+    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 2);
+
+    contract_client.deposit(creditor, &btc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 3);
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(creditor, &btc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 3);
+}
+
+#[test]
+fn test_repeated_borrows_do_not_inflate_positions_count() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 2);
+
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 2);
+}
+
+#[test]
+fn test_positions_count_decrements_on_withdraw_and_remove_collateral() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let creditor = &users[0];
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(creditor, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.add_collateral(creditor, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 2);
+
+    contract_client.withdraw(creditor, &gold_pool_address, &i128::MAX, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
+
+    contract_client.remove_collateral(creditor, &usdc_pool_address, &i128::MAX, &None);
+    assert!(contract_client.try_get_user_obligation(creditor).is_err());
+}
+
+#[test]
+fn test_positions_count_decrements_on_repay() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 2);
+
+    contract_client.repay(borrower, &usdc_pool_address, &2000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 1);
+
+    contract_client.withdraw(borrower, &gold_pool_address, &i128::MAX, &None);
+    assert!(contract_client.try_get_user_obligation(borrower).is_err());
+}
