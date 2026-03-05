@@ -1,4 +1,4 @@
-use soroban_fixed_point_math::FixedPoint;
+use soroban_fixed_point_math::{FixedPoint, SorobanFixedPoint};
 use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, OperationFees,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    oracle::{self, get_asset_price},
+    oracle,
     storage::{self, PoolUpdate},
     utils::{MathUtils, PoolData},
 };
@@ -25,6 +25,8 @@ pub struct Pool {
     pub token_address: Address,
     // The token symbol of the associated asset
     pub token_symbol: String,
+    // Number of decimals used for fixed-point representation of the asset amount
+    pub token_decimals: u32,
     // The total amount of borrowed assets. This value increases with interest rate accrual
     pub total_borrowed: i128,
     // The total `dTokens` amount. Represents the sum of all debt shares distributed among debtors
@@ -44,8 +46,6 @@ pub struct Pool {
     pub config: PoolConfig,
     // The timestamp of the last accrual re-calculation
     pub last_accrual_timestamp: u64,
-    // Remaining supply bootstrap amounts that are distributed evenly among specified periods
-    pub bootstrap_periods: Map<(u64, u64), PoolBootstrapPeriod>,
     // Borrow annual percentage rate in basis points
     pub borrow_apr_bps: i128,
     // Supply annual percentage rate in basis points
@@ -88,24 +88,23 @@ impl Pool {
 
     fn adjust_accumulated_fees_with_computed_per_operation(
         &mut self,
+        e: &Env,
         fees: &OperationFees,
     ) -> Result<(), MCError> {
-        let referrer_fees = fees.referrer_fee.unwrap_or(0);
-        let net_protocol_fees = fees.fee_sum - referrer_fees;
+        if fees.fee_sum < fees.referrer_fee {
+            events::referrer_fee_exceeds_operation_fees_sum(
+                e,
+                self.pool_address.clone(),
+                fees.fee_sum,
+                fees.referrer_fee,
+            );
+
+            return Err(MCError::InternalError);
+        }
+        let net_protocol_fees = fees.fee_sum - fees.referrer_fee; // safe
 
         self.operation_fees_sum =
             self.operation_fees_sum.checked_add(net_protocol_fees).map_over_or_underflow()?;
-
-        Ok(())
-    }
-
-    // Bootstraps the pool by distributing additional rewards to suppliers
-    pub fn bootstrap(&mut self, amount: i128, period: (u64, u64)) -> Result<(), MCError> {
-        if self.bootstrap_periods.get(period).is_some() {
-            return Err(MCError::InvalidBootstrapPeriod);
-        }
-
-        self.bootstrap_periods.set(period, PoolBootstrapPeriod::new(amount));
 
         Ok(())
     }
@@ -115,7 +114,10 @@ impl Pool {
         self.adjust_total_j_tokens(e, deposit_result.j_tokens_to_issue)?;
         self.adjust_total_available(e, deposit_result.deposited)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&deposit_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &deposit_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -131,7 +133,10 @@ impl Pool {
             withdraw_result.j_tokens_to_burn.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&withdraw_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
+            &withdraw_result.operation_fees,
+        )?;
 
         Ok(())
     }
@@ -145,7 +150,7 @@ impl Pool {
             borrow_result.borrower_new_debt.checked_neg().map_over_or_underflow()?,
         )?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&borrow_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &borrow_result.operation_fees)?;
 
         Ok(())
     }
@@ -159,6 +164,7 @@ impl Pool {
         self.adjust_total_collateral(e, add_collateral_result.added_collateral)?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
             &add_collateral_result.operation_fees,
         )?;
 
@@ -177,7 +183,7 @@ impl Pool {
         )?;
         self.adjust_total_available(e, repay_result.debt_repaid)?;
 
-        self.adjust_accumulated_fees_with_computed_per_operation(&repay_result.operation_fees)?;
+        self.adjust_accumulated_fees_with_computed_per_operation(e, &repay_result.operation_fees)?;
 
         Ok(())
     }
@@ -194,6 +200,7 @@ impl Pool {
         )?;
 
         self.adjust_accumulated_fees_with_computed_per_operation(
+            e,
             &remove_collateral_result.operation_fees,
         )?;
 
@@ -206,6 +213,7 @@ impl Pool {
         e: &Env,
         liquidation_result: &LiquidationResult,
     ) -> Result<(), MCError> {
+        self.adjust_total_available(e, liquidation_result.debt_repaid)?;
         self.adjust_total_borrowed(
             e,
             liquidation_result.debt_repaid.checked_neg().map_over_or_underflow()?,
@@ -364,9 +372,12 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-        let tokens_amount = shares_amount
-            .fixed_mul_ceil(total_tokens_amount, total_shares_amount)
-            .map_over_or_underflow()?;
+        let tokens_amount = SorobanFixedPoint::fixed_mul_ceil(
+            &shares_amount,
+            e,
+            &total_tokens_amount,
+            &total_shares_amount,
+        );
 
         Ok(tokens_amount)
     }
@@ -391,9 +402,12 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-        let tokens_amount = shares_amount
-            .fixed_mul_floor(total_tokens_amount, total_shares_amount)
-            .map_over_or_underflow()?;
+        let tokens_amount = SorobanFixedPoint::fixed_mul_floor(
+            &shares_amount,
+            e,
+            &total_tokens_amount,
+            &total_shares_amount,
+        );
 
         Ok(tokens_amount)
     }
@@ -411,7 +425,7 @@ impl Pool {
         }
 
         let shares_amount = if total_shares_amount == 0 {
-            INITIAL_SHARES_AMOUNT
+            tokens_amount
         } else {
             // This must hold when issuing new shares:
             // ----
@@ -447,7 +461,7 @@ impl Pool {
         }
 
         let shares_amount = if total_shares_amount == 0 {
-            INITIAL_SHARES_AMOUNT
+            tokens_amount
         } else {
             total_shares_amount
                 .fixed_div_floor(total_tokens_amount, tokens_amount)
@@ -460,7 +474,7 @@ impl Pool {
     // ---- `require_` circuits ----
 
     pub fn require_total_available(&self, required: i128) -> Result<(), MCError> {
-        if required > self.total_available {
+        if required > self.total_available()? {
             return Err(MCError::NotEnoughPoolFunds);
         }
 
@@ -618,10 +632,6 @@ impl Pool {
             .map_over_or_underflow()
     }
 
-    pub fn operation_fees_sum(&self) -> i128 {
-        self.operation_fees_sum
-    }
-
     pub fn total_available(&self) -> Result<i128, MCError> {
         Ok(i128::max(
             self.total_available.checked_sub(self.take_rate_fees_sum).map_over_or_underflow()?,
@@ -709,19 +719,13 @@ impl Pool {
         let collateral_sum =
             deposited_tokens.checked_add(self.total_collateral).map_over_or_underflow()?;
 
-        self.get_assets_value(e, collateral_sum)
+        oracle::get_asset_value_floor(e, collateral_sum, &self.token_address, self.token_decimals)
     }
 
     pub fn compute_total_debt_value(&self, e: &Env) -> Result<i128, MCError> {
         let debt = self.total_debt()?;
 
-        self.get_assets_value(e, debt)
-    }
-
-    fn get_assets_value(&self, e: &Env, amount: i128) -> Result<i128, MCError> {
-        let price = get_asset_price(e, &self.token_address)?;
-
-        price.checked_mul(amount).map_over_or_underflow()
+        oracle::get_asset_value_ceil(e, debt, &self.token_address, self.token_decimals)
     }
 
     // Refreshes the pool with the contract's storage data
@@ -761,9 +765,9 @@ pub struct PoolFeeConfig {
 
     pub deposit_fee_bps: u32,
     pub withdraw_fee_bps: u32,
-    // Additional scalar (in basis points) used for the additional withdrawal fee when the utilization ratio
-    // exceeds `utilization_ratio_limit_bps`
-    pub withdraw_scarcity_fee_sc_bps: u32,
+    // Maximum value of a fee in basis points (accumulating linearly from `0`) in case the utilization ratio
+    // on the pool exceeds the `utilization_ratio_limit_bps` after the withdrawal
+    pub withdraw_max_scarcity_fee_bps: u32,
     pub add_collateral_fee_bps: u32,
     pub remove_collateral_fee_bps: u32,
     pub repay_fee_bps: u32,
@@ -787,7 +791,7 @@ impl Default for PoolFeeConfig {
 
             deposit_fee_bps: DEFAULT_DEPOSIT_FEE_BPS,
             withdraw_fee_bps: DEFAULT_WITHDRAW_FEE_BPS,
-            withdraw_scarcity_fee_sc_bps: DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS,
+            withdraw_max_scarcity_fee_bps: DEFAULT_MAX_WITHDRAW_SCARCITY_FEE_BPS,
             add_collateral_fee_bps: DEFAULT_ADD_COLLATERAL_FEE_BPS,
             remove_collateral_fee_bps: DEFAULT_REMOVE_COLLATERAL_FEE_BPS,
             repay_fee_bps: DEFAULT_REPAY_FEE_BPS,
@@ -807,6 +811,7 @@ impl PoolFeeConfig {
             flash_loan_fee_bps,
             deposit_fee_bps,
             withdraw_fee_bps,
+            withdraw_max_scarcity_fee_bps,
             add_collateral_fee_bps,
             remove_collateral_fee_bps,
             repay_fee_bps,
@@ -827,13 +832,19 @@ impl PoolFeeConfig {
         ];
 
         for &fee in individual_fees {
-            if fee as i128 > BPS_FACTOR {
-                return Err("Individual fees must not exceed 100%");
+            if fee as i128 >= BPS_FACTOR {
+                return Err("Individual fees must be less than 100%");
             }
         }
 
-        if *take_rate_bps as i128 > BPS_FACTOR {
-            return Err("Take Rate must not exceed 100%");
+        if *withdraw_max_scarcity_fee_bps as i128 >= BPS_FACTOR // NB: to prevent overflow
+            || (*withdraw_max_scarcity_fee_bps + *withdraw_fee_bps) as i128 >= BPS_FACTOR
+        {
+            return Err("Max scarcity fee, summed with the withdrawal fee, must be less than 100%");
+        }
+
+        if *take_rate_bps as i128 >= BPS_FACTOR {
+            return Err("Take Rate must be less than 100%");
         }
 
         if let Some(take_rate_beneficiaries) = take_rate_beneficiaries {
@@ -973,9 +984,6 @@ pub struct PoolHealthConfig {
     pub liquidation_close_factor_bps: i128,
     // Maximum additional value in the received tokens that can be given to liquidators when purchasing collateral
     pub max_liquidation_incentive_bps: i128,
-    // LTV calculated for unparameterized obligation positions(i.e., no openLTV/liability factors scaling) that marks
-    // position as insolvent. Used as a means to avoid unprofitable health-improving liquidations
-    pub insolvency_ltv_bps: i128,
 }
 
 impl Default for PoolHealthConfig {
@@ -990,7 +998,6 @@ impl Default for PoolHealthConfig {
             max_liquidation_incentive_bps: DEFAULT_LIQUIDATION_INCENTIVE_BPS,
             withdraw_scarcity_limit_bps: DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS,
             withdraw_scarcity_cooldown_s: DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS,
-            insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
         }
     }
 }
@@ -1007,7 +1014,6 @@ impl PoolHealthConfig {
             max_liquidation_incentive_bps,
             withdraw_scarcity_limit_bps,
             withdraw_scarcity_cooldown_s,
-            insolvency_ltv_bps,
         } = self;
 
         if supply_limit.is_negative() {
@@ -1050,26 +1056,7 @@ impl PoolHealthConfig {
             return Err("Withdrawal scarcity cooldown seconds exceed limit");
         }
 
-        if !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps) {
-            return Err("Insolvency LTV bps must be within 95% to 100%");
-        }
-
         Ok(())
-    }
-}
-
-#[contracttype]
-#[derive(Debug, Clone)]
-pub struct PoolBootstrapPeriod {
-    // Total provided bootstrap amount
-    pub total_amount: i128,
-    // Remaining bootstrap amount
-    pub remaining_amount: i128,
-}
-
-impl PoolBootstrapPeriod {
-    pub fn new(total_amount: i128) -> Self {
-        Self { total_amount, remaining_amount: total_amount }
     }
 }
 

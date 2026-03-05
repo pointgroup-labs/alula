@@ -6,6 +6,9 @@ pub const BPS_IN_PERCENT: i128 = 100;
 /// Basis points denominator for fractional calculations: 100% = 10,000 bps
 pub const BPS_FACTOR: i128 = 10_000;
 
+/// Denominator for fractional calculations with 9 decimal places
+pub const SCALAR_9: i128 = i128::pow(10, 9);
+
 /// Denominator for fixed-point compounded interest calculations.
 /// Higher precision (10^18) ensures accurate results when raising to integer powers.
 pub const SCALED_FIXED_POINT_DENOMINATOR: i128 = i128::pow(10, 18);
@@ -117,7 +120,7 @@ pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
 pub const DEFAULT_BORROW_FEE_BPS: u32 = 0;
 pub const DEFAULT_DEPOSIT_FEE_BPS: u32 = 0;
 pub const DEFAULT_WITHDRAW_FEE_BPS: u32 = 0;
-pub const DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS: u32 = 20_000; // 200%
+pub const DEFAULT_MAX_WITHDRAW_SCARCITY_FEE_BPS: u32 = 500; // 5%
 pub const DEFAULT_FLASH_LOAN_FEE_BPS: u32 = 1; // 0.01%
 pub const DEFAULT_ADD_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
@@ -139,17 +142,13 @@ pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 // Maximum acceptable oracle price age in seconds
 pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Relies on 'Reflector' resolution being 5 minutes
 
-// ---- Dependency Contract Addresses ----
-
-pub const ROUTER_ADDRESS: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD";
-
 // ---- MISC ----
 
 pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;
 pub const DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;
-pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 10i128.pow(5); // 10^5 = 0.01
+pub const DEFAULT_MIN_COLLATERAL_VALUE_CENTS: i128 = 500;
 pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market

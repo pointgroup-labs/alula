@@ -1,11 +1,7 @@
 #![cfg(test)]
 
-use ::market::constants::DEFAULT_INSOLVENCY_LTV_BPS;
-use market_manager::{
-    constants::MAX_RESERVES,
-    contract::{MarketManagerClient, MarketManagerContract},
-    error::MMCError,
-};
+use ::market::constants::{DEFAULT_INSOLVENCY_LTV_BPS, MAX_RESERVES};
+use market_manager::contract::{MarketManagerClient, MarketManagerContract};
 use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
 
 use crate::get_default_env;
@@ -56,6 +52,7 @@ fn test_manager_deploy_markets() {
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
+    let swap_provider = Address::generate(&e);
 
     let salt_1 = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
@@ -64,6 +61,7 @@ fn test_manager_deploy_markets() {
         &market_admin,
         &name_1,
         &oracle,
+        &swap_provider,
         &insurance_fund,
         &2,
         &1,
@@ -82,6 +80,7 @@ fn test_manager_deploy_markets() {
         &market_admin,
         &name_2,
         &oracle,
+        &swap_provider,
         &insurance_fund,
         &2,
         &1,
@@ -102,6 +101,7 @@ fn test_manager_cannot_redeploy_market() {
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
+    let swap_provider = Address::generate(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
@@ -110,6 +110,7 @@ fn test_manager_cannot_redeploy_market() {
         &market_admin,
         &name_1,
         &oracle,
+        &swap_provider,
         &insurance_fund,
         &2,
         &1,
@@ -128,6 +129,7 @@ fn test_manager_cannot_redeploy_market() {
                 &market_admin,
                 &name_2,
                 &oracle,
+                &swap_provider,
                 &insurance_fund,
                 &2,
                 &1,
@@ -145,38 +147,26 @@ fn test_manager_invalid_deploy() {
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
+    let swap_provider = Address::generate(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
 
-    assert_eq!(
-        manager_client.try_deploy(
-            &salt,
-            &market_admin,
-            &name_1,
-            &oracle,
-            &insurance_fund,
-            &2,
-            &-1,
-            &DEFAULT_INSOLVENCY_LTV_BPS,
-            &None,
-        ),
-        Err(Ok(MMCError::InvalidMarketState))
-    );
-
-    assert_eq!(
-        manager_client.try_deploy(
-            &salt,
-            &market_admin,
-            &name_1,
-            &oracle,
-            &insurance_fund,
-            &((2 * MAX_RESERVES) + 1),
-            &0,
-            &DEFAULT_INSOLVENCY_LTV_BPS,
-            &None,
-        ),
-        Err(Ok(MMCError::InvalidMarketState))
+    assert!(
+        manager_client
+            .try_deploy(
+                &salt,
+                &market_admin,
+                &name_1,
+                &oracle,
+                &swap_provider,
+                &insurance_fund,
+                &2,
+                &-1,
+                &DEFAULT_INSOLVENCY_LTV_BPS,
+                &None,
+            )
+            .is_err(),
     );
 
     assert!(
@@ -186,8 +176,26 @@ fn test_manager_invalid_deploy() {
                 &market_admin,
                 &name_1,
                 &oracle,
+                &swap_provider,
                 &insurance_fund,
-                &((2 * MAX_RESERVES) - 1),
+                &(MAX_RESERVES + 1),
+                &0,
+                &DEFAULT_INSOLVENCY_LTV_BPS,
+                &None,
+            )
+            .is_err(),
+    );
+
+    assert!(
+        manager_client
+            .try_deploy(
+                &salt,
+                &market_admin,
+                &name_1,
+                &oracle,
+                &swap_provider,
+                &insurance_fund,
+                &(MAX_RESERVES - 1),
                 &0,
                 &DEFAULT_INSOLVENCY_LTV_BPS,
                 &None,

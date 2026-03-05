@@ -1,10 +1,6 @@
 #![cfg(test)]
 
-use market::{
-    constants::BPS_FACTOR,
-    error::MCError,
-    pool::{PoolConfig, PoolHealthConfig},
-};
+use market::{constants::BPS_FACTOR, error::MCError};
 use soroban_sdk::{
     Address,
     testutils::{Address as _, Ledger},
@@ -14,7 +10,7 @@ use crate::{
     DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_unparameterized_ltv_bps,
     get_obligation_collateral, get_obligation_d_tokens_as_tokens,
     get_obligation_initially_borrowed, get_obligation_j_tokens_as_tokens,
-    get_obligation_unpaid_interest,
+    get_obligation_unpaid_interest, get_pool_total_available, get_pool_total_borrowed,
 };
 
 struct LiquidationTest {
@@ -61,14 +57,7 @@ impl LiquidationTest {
 
     /// Creates a risky position closer to liquidation threshold
     fn risky() -> Self {
-        let pool_config = PoolConfig {
-            health_config: PoolHealthConfig {
-                liability_factor_bps: (BPS_FACTOR * 11) / 10,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let fixture = TestMarketFixture::new_with_pool_config(pool_config);
+        let fixture = TestMarketFixture::new();
         let (borrow_pool_address, collateral_pool_address) =
             (fixture.usdc_pool_address.clone(), fixture.gold_pool_address.clone());
 
@@ -278,29 +267,18 @@ fn test_liquidate_zero() {
     let test = LiquidationTest::risky();
     test.wait_n_years(3);
 
-    let borrow_pool_before = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_before =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_before = test.debt();
-
-    test.fixture.contract_client.liquidate(
-        &test.liquidator,
-        &test.borrower,
-        &None,
-        &test.borrow_pool_address,
-        &test.collateral_pool_address,
-        &0,
-        &0,
+    assert_eq!(
+        test.fixture.contract_client.try_liquidate(
+            &test.liquidator,
+            &test.borrower,
+            &None,
+            &test.borrow_pool_address,
+            &test.collateral_pool_address,
+            &0,
+            &0,
+        ),
+        Err(Ok(MCError::InvalidInputAmount))
     );
-
-    let borrow_pool_after = test.fixture.contract_client.get_pool(&test.borrow_pool_address);
-    let collateral_pool_after =
-        test.fixture.contract_client.get_pool(&test.collateral_pool_address);
-    let debt_after = test.debt();
-
-    assert_eq!(debt_before, debt_after);
-    assert_eq!(borrow_pool_before, borrow_pool_after);
-    assert_eq!(collateral_pool_before, collateral_pool_after);
 }
 
 #[test]
@@ -317,7 +295,7 @@ fn test_liquidate_negative_amount() {
         &-1,
         &0,
     );
-    assert_eq!(result, Err(Ok(MCError::NegativeInputAmount)));
+    assert_eq!(result, Err(Ok(MCError::InvalidInputAmount)));
 
     let result = test.fixture.contract_client.try_liquidate(
         &test.liquidator,
@@ -328,7 +306,7 @@ fn test_liquidate_negative_amount() {
         &0,
         &-1,
     );
-    assert_eq!(result, Err(Ok(MCError::NegativeInputAmount)));
+    assert_eq!(result, Err(Ok(MCError::InvalidInputAmount)));
 }
 
 #[test]
@@ -342,7 +320,7 @@ fn test_liquidate_self_fails() {
         &None,
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
+        &1,
         &0,
     );
 
@@ -360,7 +338,7 @@ fn test_liquidate_nonexistent_user_fails() {
         &None,
         &test.borrow_pool_address,
         &test.collateral_pool_address,
-        &0,
+        &1,
         &0,
     );
 
@@ -478,7 +456,7 @@ fn test_liquidate_deposit_successful() {
     let debt_before = test.debt();
     let deposit_before = test.total_supplied();
     let liquidation_amount = test.liquidation_amount_from_percentage(10);
-    let collateral_amount = test.liquidation_amount_from_percentage(10);
+    let min_demanded_collateral = test.collateral();
 
     assert_eq!(
         test.fixture.contract_client.try_get_user_obligation(&test.liquidator),
@@ -492,7 +470,7 @@ fn test_liquidate_deposit_successful() {
         &test.borrow_pool_address,
         &test.collateral_pool_address,
         &liquidation_amount,
-        &collateral_amount,
+        &min_demanded_collateral,
     );
 
     let debt_after = test.debt();
@@ -512,7 +490,7 @@ fn test_liquidate_deposit_successful() {
         deposit_before,
         deposit_after
     );
-    assert!(collateral_amount <= liquidator_j_tokens_tokens);
+    assert!(min_demanded_collateral <= liquidator_j_tokens_tokens);
 }
 
 #[test]
@@ -767,4 +745,104 @@ fn test_liquidate_unpaid_interest_only() {
     assert_eq!(new_unpaid_interest, 0);
     assert_eq!(new_initially_borrowed, new_debt);
     assert_eq!(initially_borrowed_before, initially_borrowed_after);
+}
+
+#[test]
+fn test_liquidation_increases_borrow_pool_total_available() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
+
+    let pool_available_before =
+        get_pool_total_available(&test.fixture.contract_client, &test.borrow_pool_address);
+    let pool_borrowed_before =
+        get_pool_total_borrowed(&test.fixture.contract_client, &test.borrow_pool_address);
+
+    let liquidation_amount = test.max_liquidation_amount();
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &liquidation_amount,
+        &1,
+    );
+
+    let pool_available_after =
+        get_pool_total_available(&test.fixture.contract_client, &test.borrow_pool_address);
+    let pool_borrowed_after =
+        get_pool_total_borrowed(&test.fixture.contract_client, &test.borrow_pool_address);
+
+    assert_eq!(
+        pool_available_after,
+        pool_available_before + liquidation_amount,
+        "Repaid debt must flow into total_available"
+    );
+    assert_eq!(
+        pool_borrowed_after,
+        pool_borrowed_before - liquidation_amount,
+        "Repaid debt must reduce total_borrowed"
+    );
+}
+
+#[test]
+fn test_liquidate_with_excess_repay_amount_refunds_difference() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
+
+    let liquidator_borrow_token_before = test.fixture.usdc_token_client.balance(&test.liquidator);
+    let liquidator_collateral_token_before =
+        test.fixture.gold_token_client.balance(&test.liquidator);
+    let contract_borrow_token_before =
+        test.fixture.usdc_token_client.balance(&test.fixture.contract_id);
+
+    let actual_debt = test.debt();
+
+    let overshoot = 500;
+    let repay_amount = actual_debt + overshoot;
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &repay_amount,
+        &0,
+    );
+
+    let liquidator_borrow_token_after = test.fixture.usdc_token_client.balance(&test.liquidator);
+    let contract_borrow_token_after =
+        test.fixture.usdc_token_client.balance(&test.fixture.contract_id);
+
+    let liquidator_net_spend = liquidator_borrow_token_before - liquidator_borrow_token_after;
+    assert_eq!(
+        liquidator_net_spend, actual_debt,
+        "Liquidator should only pay the actual debt ({actual_debt}), not the full repay_amount \
+         ({repay_amount}). Net spend was {liquidator_net_spend}"
+    );
+
+    let contract_borrow_token_increase = contract_borrow_token_after - contract_borrow_token_before;
+    assert_eq!(
+        contract_borrow_token_increase, actual_debt,
+        "Contract borrow-token balance should increase by actual debt"
+    );
+
+    let liquidator_collateral_token_after =
+        test.fixture.gold_token_client.balance(&test.liquidator);
+    assert!(
+        liquidator_collateral_token_after > liquidator_collateral_token_before,
+        "Liquidator should receive collateral"
+    );
+
+    assert_eq!(
+        get_obligation_d_tokens_as_tokens(
+            &test.fixture.e,
+            &test.fixture.contract_client,
+            &test.borrower,
+            &test.borrow_pool_address,
+        ),
+        Err(MCError::ObligationDoesNotExist)
+    );
 }

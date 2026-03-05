@@ -9,14 +9,13 @@ use market::{
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env,
+    Address, Env, map as smap,
     testutils::{Address as _, Ledger},
 };
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
-    assert_approx_eq_rel, get_obligation_d_tokens, get_obligation_j_tokens,
-    get_obligation_received_interest,
+    get_obligation_d_tokens, get_obligation_j_tokens, get_obligation_unpaid_interest,
 };
 
 fn wait(e: &Env, am: u64) {
@@ -60,6 +59,7 @@ fn test_computed_interest_is_negative_reproduced() {
     wait(&e, 60 * 2 + 5);
     contract_client.deposit(k2, &usdc_pool_address, &1000000000, &None);
     wait(&e, 35);
+    contract_client.add_collateral(k1, &gold_pool_address, &1000000, &None);
     contract_client.borrow(k1, &usdc_pool_address, &77367249, &None);
     wait(&e, 27 * 60);
     contract_client.deposit(k1, &gold_pool_address, &120000000, &None);
@@ -78,7 +78,7 @@ fn test_computed_interest_is_negative_reproduced() {
     wait(&e, 20);
     contract_client.deposit(k1, &gold_pool_address, &1000000000, &None);
     wait(&e, (3 * 60) + 25);
-    contract_client.withdraw(k1, &gold_pool_address, &4819579912, &None);
+    contract_client.withdraw(k1, &gold_pool_address, &i128::MAX, &None);
     wait(&e, (28 * 60) + 42);
     contract_client.deposit(k1, &gold_pool_address, &23330000000, &None);
     wait(&e, (4 * 60) + 15);
@@ -125,9 +125,9 @@ fn test_computed_interest_is_negative_reproduced_2() {
     wait(&e, 20);
     contract_client.withdraw(maksym, &gold_pool_address, &10500000000, &None);
     wait(&e, 25);
-    contract_client.deposit(maksym, &usdc_pool_address, &10000000000, &None);
+    contract_client.deposit(maksym, &usdc_pool_address, &21000000000, &None);
     wait(&e, 50);
-    contract_client.deposit(k1, &gold_pool_address, &10000000000i128, &None);
+    contract_client.deposit(k1, &gold_pool_address, &20000000000i128, &None);
     wait(&e, 60);
     contract_client.borrow(maksym, &gold_pool_address, &6979216852i128, &None);
     wait(&e, 20);
@@ -186,57 +186,6 @@ fn test_pool_is_empty_prior_anything() {
 }
 
 #[test]
-fn test_reset_storage_removes_obligations() {
-    let TestMarketFixture { contract_client, usdc_pool_address, users, .. } =
-        TestMarketFixture::new();
-
-    let user1 = &users[0];
-    let user2 = &users[2];
-
-    assert!(contract_client.get_all_obligations().is_empty());
-
-    contract_client.deposit(user1, &usdc_pool_address, &1000, &None);
-    contract_client.deposit(user2, &usdc_pool_address, &1000, &None);
-
-    assert!(contract_client.try_get_user_obligation(user1).is_ok());
-    assert!(contract_client.try_get_user_obligation(user2).is_ok());
-    assert_eq!(contract_client.get_all_obligations().len(), 2);
-
-    contract_client.reset_storage();
-
-    assert!(contract_client.try_get_user_obligation(user1).is_err());
-    assert!(contract_client.try_get_user_obligation(user2).is_err());
-    assert!(contract_client.get_all_obligations().is_empty());
-}
-
-#[test]
-fn test_reset_storage_removes_pool() {
-    let TestMarketFixture { contract_client, .. } = TestMarketFixture::new();
-
-    assert_eq!(contract_client.get_all_pools().len(), 3); // NB: 3 pools are set initially
-
-    contract_client.reset_storage();
-
-    assert!(contract_client.get_all_pools().is_empty());
-}
-
-#[test]
-fn test_reset_storage_removes_multiply_pairs() {
-    let TestMarketFixture { contract_client, usdc_pool_address, btc_pool_address, .. } =
-        TestMarketFixture::new();
-
-    assert_eq!(contract_client.get_all_multiply_pairs().len(), 1); // NB: 1 pair is set initially
-
-    contract_client.initialize_multiply_pair(&usdc_pool_address, &btc_pool_address);
-
-    assert_eq!(contract_client.get_all_multiply_pairs().len(), 2);
-
-    contract_client.reset_storage();
-
-    assert!(contract_client.get_all_multiply_pairs().is_empty());
-}
-
-#[test]
 fn test_obligations_list_contains_unique_obligations() {
     let TestMarketFixture { contract_client, gold_pool_address, users, .. } =
         TestMarketFixture::new();
@@ -260,115 +209,6 @@ fn test_obligations_list_contains_unique_obligations() {
     let obligations = contract_client.get_all_obligations();
     assert_eq!(obligations.len(), 1);
     assert!(!obligations.contains(ObligationKey::new(creditor.clone())));
-}
-
-#[test]
-fn test_bootstrap_pool() {
-    let TestMarketFixture {
-        e,
-        contract_client,
-        gold_pool_address,
-        gold_token_client,
-        contract_id,
-        users,
-        ..
-    } = TestMarketFixture::new();
-    let liquidity_provider = &users[0];
-    let creditor_1 = &users[1];
-    let creditor_2 = &users[2];
-
-    contract_client.deposit(creditor_1, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.deposit(creditor_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-
-    // -- Move time --
-
-    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR);
-    contract_client.refresh_pool(&gold_pool_address);
-
-    // -- Assert no received interest has accrued due to 0% utilization --
-
-    let received_interest_1 =
-        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
-            .unwrap();
-    let received_interest_2 =
-        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
-            .unwrap();
-
-    assert_approx_eq_abs(received_interest_1, 0, 2);
-    assert_approx_eq_abs(received_interest_2, 0, 2);
-
-    // -- Bootstrap pool --
-
-    gold_token_client.approve(
-        liquidity_provider,
-        &contract_id,
-        &DEFAULT_DEPOSIT_AMOUNT,
-        &(e.ledger().sequence()),
-    );
-    contract_client.bootstrap_pool(
-        &gold_pool_address,
-        liquidity_provider,
-        &DEFAULT_DEPOSIT_AMOUNT,
-        &e.ledger().timestamp(),
-        &(e.ledger().timestamp() + SECONDS_IN_YEAR),
-    );
-
-    // -- Assert half of bootstrapped value has accrued --
-
-    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 2);
-    contract_client.refresh_pool(&gold_pool_address);
-
-    let received_interest_1 =
-        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
-            .unwrap();
-    let received_interest_2 =
-        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
-            .unwrap();
-
-    assert_approx_eq_rel(received_interest_1, received_interest_2, 1);
-    assert_approx_eq_rel(
-        received_interest_1.checked_add(received_interest_2).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT / 2,
-        10,
-    );
-
-    // -- Wait till the bootstrap period ends --
-
-    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 2);
-    contract_client.refresh_pool(&gold_pool_address);
-
-    let received_interest_1 =
-        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
-            .unwrap();
-    let received_interest_2 =
-        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
-            .unwrap();
-
-    assert_eq!(received_interest_1, received_interest_2);
-    assert_approx_eq_rel(
-        received_interest_1.checked_add(received_interest_2).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT,
-        10,
-    );
-
-    // -- Assert no bootstrap takes place after draining --
-
-    e.ledger().with_mut(|li| li.timestamp += SECONDS_IN_YEAR / 2);
-    contract_client.refresh_pool(&gold_pool_address);
-
-    let received_interest_1 =
-        get_obligation_received_interest(&e, &contract_client, creditor_1, &gold_pool_address)
-            .unwrap();
-    let received_interest_2 =
-        get_obligation_received_interest(&e, &contract_client, creditor_2, &gold_pool_address)
-            .unwrap();
-
-    assert_eq!(received_interest_1, received_interest_2);
-    assert_approx_eq_rel(
-        received_interest_1.checked_add(received_interest_2).unwrap(),
-        DEFAULT_DEPOSIT_AMOUNT,
-        10,
-    );
 }
 
 #[test]
@@ -446,7 +286,7 @@ fn test_unable_to_borrow_and_deposit_the_same_asset() {
 
     contract_client.deposit(liquidity_provider, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
     contract_client.add_collateral(user_2, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(user_2, &gold_pool_address, &i128::MAX, &None);
     assert_eq!(
         contract_client.try_deposit(user_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None),
         Err(Ok(MCError::BorrowPositionForAssetExists))
@@ -685,7 +525,7 @@ fn test_refresh_multiply_pair_obligation() {
 }
 
 #[test]
-fn transfer_admin() {
+fn test_transfer_admin() {
     let TestMarketFixture { e, contract_id, full_contract_client, contract_admin, .. } =
         TestMarketFixture::new();
     let new_admin = Address::generate(&e);
@@ -712,49 +552,215 @@ fn transfer_admin() {
 }
 
 #[test]
-fn test_updating_positions_amounts_does_not_affect_positions_count() {
-    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
+fn test_require_available_accounts_for_take_rate_fees() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let liquidity_provider = &users[0];
+    let borrower = &users[1];
+    let beneficiary = users[2].clone();
+
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
+
+    contract_client
+        .set_take_rate_fees_beneficiaries(&usdc_pool_address, &smap![&e, (beneficiary, 10_000)]);
+
+    // - Move time -
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+
+    contract_client.refresh_obligation(borrower);
+    let usdc_pool_data = contract_client.get_pool_data(&usdc_pool_address);
+
+    // - Verify that the interest rate has accrued and take rate fees are accounted for -
+
+    let unpaid_interest =
+        get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
+    let take_rate_fees_sum = usdc_pool_data.pool.take_rate_fees_sum;
+
+    assert!(unpaid_interest > 0);
+    assert!(take_rate_fees_sum > 0);
+
+    assert_approx_eq_abs(unpaid_interest / 10, take_rate_fees_sum, 1);
+
+    // - Verify that the interest rate has accrued and that the rate fees are accounted for -
+
+    let (total_available, total_available_adjusted) =
+        (usdc_pool_data.pool.total_available, usdc_pool_data.total_available_adjusted);
+    assert_eq!(total_available, total_available_adjusted.checked_add(take_rate_fees_sum).unwrap());
+
+    let flash_loan_callback = Address::generate(&e);
+
+    assert_ne!(
+        contract_client.try_flash_loan(
+            &flash_loan_callback,
+            borrower,
+            &usdc_pool_address,
+            &total_available_adjusted
+        ),
+        Err(Ok(MCError::NotEnoughPoolFunds))
+    );
+    assert_eq!(
+        contract_client.try_flash_loan(
+            &flash_loan_callback,
+            borrower,
+            &usdc_pool_address,
+            &(total_available_adjusted + 1)
+        ),
+        Err(Ok(MCError::NotEnoughPoolFunds))
+    );
+}
+
+#[test]
+fn test_referrer_fee_is_charged_and_referrer_receives_it() {
+    use soroban_sdk::{Address, Map};
+
+    let TestMarketFixture {
+        e, contract_client, gold_pool_address, users, gold_token_client, ..
+    } = TestMarketFixture::new();
+
+    let depositor = &users[0];
+    let referrer = Address::generate(&e);
+
+    // Configure fees: 20% deposit fee, referrer share 50%
+    let pool_before = contract_client.get_pool(&gold_pool_address);
+    let mut new_cfg = pool_before.config.clone();
+
+    let deposit_fee_bps: u32 = 2_000;
+    new_cfg.fee_config.deposit_fee_bps = deposit_fee_bps;
+
+    let mut referrers: Map<Address, u32> = Map::new(&e);
+    referrers.set(referrer.clone(), 5_000);
+    new_cfg.fee_config.referrers = Some(referrers);
+
+    contract_client.queue_in_pool_config_update(&gold_pool_address, &new_cfg);
+
+    // Advance time so the queued config becomes eligible to apply
+    let gs = contract_client.get_global_state();
+    if let Some(period) = gs.update_in_queue_period
+        && period > 0
+    {
+        e.ledger().with_mut(|li| li.timestamp += period + 1);
+    }
+    contract_client.apply_pool_config_update(&gold_pool_address);
+
+    // Sanity: config applied
+    let pool_after_cfg = contract_client.get_pool(&gold_pool_address);
+    assert_eq!(pool_after_cfg.config.fee_config.deposit_fee_bps, deposit_fee_bps);
+
+    let ref_before = gold_token_client.balance(&referrer);
+
+    let amount: i128 = 1_000_000;
+    contract_client.deposit(depositor, &gold_pool_address, &amount, &Some(referrer.clone()));
+
+    // Sanity: referrer fee expected to be nonzero (otherwise test is meaningless)
+    let total_fee = (amount * deposit_fee_bps as i128) / BPS_FACTOR;
+    let expected_referrer_fee = total_fee / 2;
+    assert!(expected_referrer_fee > 0);
+
+    let ref_after = gold_token_client.balance(&referrer);
+    assert_eq!(ref_after.checked_sub(ref_before).unwrap(), expected_referrer_fee);
+}
+
+#[test]
+fn test_repeated_deposits_do_not_inflate_positions_count() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        usdc_pool_address,
+        btc_pool_address,
+        users,
+        ..
+    } = TestMarketFixture::new();
+    let creditor = &users[0];
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
+
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
+
+    contract_client.add_collateral(creditor, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 2);
+
+    contract_client.deposit(creditor, &btc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 3);
+
+    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(creditor, &btc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 3);
+}
+
+#[test]
+fn test_repeated_borrows_do_not_inflate_positions_count() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 2);
+
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 2);
+}
+
+#[test]
+fn test_positions_count_decrements_on_withdraw_and_remove_collateral() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
         TestMarketFixture::new();
     let creditor = &users[0];
-    let debtor = &users[1];
 
-    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    let creditor_obligation = contract_client.get_user_obligation(creditor);
-    assert_eq!(creditor_obligation.positions_count, 1);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(creditor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(creditor, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    contract_client.add_collateral(creditor, &usdc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 2);
 
-    contract_client.deposit(creditor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    let creditor_obligation = contract_client.get_user_obligation(creditor);
-    assert_eq!(creditor_obligation.positions_count, 1);
+    contract_client.withdraw(creditor, &gold_pool_address, &i128::MAX, &None);
+    assert_eq!(contract_client.get_user_obligation(creditor).positions_count, 1);
 
-    contract_client.add_collateral(debtor, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    let debtor_obligation = contract_client.get_user_obligation(debtor);
-    assert_eq!(debtor_obligation.positions_count, 1);
+    contract_client.remove_collateral(creditor, &usdc_pool_address, &i128::MAX, &None);
+    assert!(contract_client.try_get_user_obligation(creditor).is_err());
+}
 
-    contract_client.add_collateral(debtor, &gold_pool_address, &1, &None);
-    let debtor_obligation = contract_client.get_user_obligation(debtor);
-    assert_eq!(debtor_obligation.positions_count, 1);
+#[test]
+fn test_positions_count_decrements_on_repay() {
+    let TestMarketFixture { contract_client, gold_pool_address, usdc_pool_address, users, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
 
-    contract_client.borrow(debtor, &usdc_pool_address, &1, &None);
-    let debtor_obligation = contract_client.get_user_obligation(debtor);
-    assert_eq!(debtor_obligation.positions_count, 2);
+    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        liquidity_provider,
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
-    contract_client.borrow(debtor, &usdc_pool_address, &1, &None);
-    let debtor_obligation = contract_client.get_user_obligation(debtor);
-    assert_eq!(debtor_obligation.positions_count, 2);
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    contract_client.borrow(borrower, &usdc_pool_address, &1000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 2);
 
-    contract_client.repay(debtor, &usdc_pool_address, &1, &None);
-    let debtor_obligation = contract_client.get_user_obligation(debtor);
-    assert_eq!(debtor_obligation.positions_count, 2);
+    contract_client.repay(borrower, &usdc_pool_address, &2000, &None);
+    assert_eq!(contract_client.get_user_obligation(borrower).positions_count, 1);
 
-    contract_client.repay(debtor, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    let debtor_obligation = contract_client.get_user_obligation(debtor);
-    assert_eq!(debtor_obligation.positions_count, 1);
-
-    contract_client.remove_collateral(debtor, &gold_pool_address, &1, &None);
-    let debtor_obligation = contract_client.get_user_obligation(debtor);
-    assert_eq!(debtor_obligation.positions_count, 1);
-
-    contract_client.withdraw(creditor, &usdc_pool_address, &1, &None);
-    let creditor_obligation = contract_client.get_user_obligation(creditor);
-    assert_eq!(creditor_obligation.positions_count, 1);
+    contract_client.withdraw(borrower, &gold_pool_address, &i128::MAX, &None);
+    assert!(contract_client.try_get_user_obligation(borrower).is_err());
 }

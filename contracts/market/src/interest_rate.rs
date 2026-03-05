@@ -1,14 +1,9 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Env, Vec, contracttype, vec as svec};
+use soroban_sdk::{Env, contracttype};
 
 use crate::{
-    accrual::Accrual,
-    constants::*,
-    error::MCError,
-    events,
-    interest_rate_model::InterestRate,
-    pool::{Pool, PoolBootstrapPeriod},
-    utils::MathUtils,
+    accrual::Accrual, constants::*, error::MCError, events, interest_rate_model::InterestRate,
+    math_utils::MathUtils, pool::Pool,
 };
 
 // Compound interest rates represented in basis points
@@ -89,7 +84,7 @@ impl Pool {
                 .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR * 10)
                 .map_over_or_underflow()?;
 
-            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier - rate_diff)
+            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier.saturating_sub(rate_diff))
         } else {
             // Negative diff - modifier increases
             let rate_diff = utilization_error
@@ -97,53 +92,10 @@ impl Pool {
                 .map_over_or_underflow()?
                 .checked_neg()
                 .map_over_or_underflow()?;
-            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier + rate_diff)
+            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier.saturating_add(rate_diff))
         };
 
         self.interest_rate_modifier = new_interest_rate_modifier;
-
-        // -- Accrue supply APR bootstraps(candidate to be removed) --
-
-        let mut updated_periods: Vec<((u64, u64), PoolBootstrapPeriod)> = svec![e];
-        let mut outdated_periods: Vec<(u64, u64)> = svec![e];
-
-        for ((start_period, end_period), mut pool_bootstrap_period) in self.bootstrap_periods.iter()
-        {
-            if end_period <= current_timestamp {
-                let new_total_available = self
-                    .total_available
-                    .checked_add(pool_bootstrap_period.remaining_amount)
-                    .map_over_or_underflow()?;
-
-                self.total_available = new_total_available;
-                outdated_periods.push_back((start_period, end_period));
-            } else if current_timestamp > start_period && current_timestamp < end_period {
-                let remaining_time_period = end_period - current_timestamp; // safe
-                let remaining_time_ratio = remaining_time_period
-                    .fixed_div_ceil(end_period - start_period, BPS_FACTOR as u64)
-                    .map_over_or_underflow()?; // safe
-
-                let new_remaining_amount = pool_bootstrap_period
-                    .total_amount
-                    .fixed_mul_floor(remaining_time_ratio as i128, BPS_FACTOR)
-                    .map_over_or_underflow()?;
-                let diff = pool_bootstrap_period.remaining_amount - new_remaining_amount; // safe
-
-                let new_total_available =
-                    self.total_available.checked_add(diff).map_over_or_underflow()?;
-                self.total_available = new_total_available;
-
-                pool_bootstrap_period.remaining_amount = new_remaining_amount;
-                updated_periods.push_back(((start_period, end_period), pool_bootstrap_period));
-            }
-        }
-
-        for outdated_period in outdated_periods {
-            self.bootstrap_periods.remove(outdated_period);
-        }
-        for (period, updated_period) in updated_periods {
-            self.bootstrap_periods.set(period, updated_period);
-        }
 
         Ok(())
     }

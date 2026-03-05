@@ -25,7 +25,7 @@ use insurance_fund_interface::InsuranceFundClient;
 use market::{
     constants::{
         BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
-        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP, ROUTER_ADDRESS,
+        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP,
     },
     contract::{MarketClient, MarketContract, MarketContractClient},
     error::MCError,
@@ -48,6 +48,7 @@ pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
+const ROUTER_ADDRESS: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD"; // Soroswap router
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
@@ -138,6 +139,10 @@ impl TestMarketFixture<'_> {
 
         let contract_admin = Address::generate(&e);
 
+        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
+        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
+        let router_client = router::Client::new(&e, &router_address);
+
         let insurance_fund = e.register(
             controlled_insurance_fund::ControlledInsuranceFundContract,
             (contract_admin.clone(),),
@@ -158,6 +163,7 @@ impl TestMarketFixture<'_> {
                 contract_name,
                 contract_admin.clone(),
                 oracle.clone(),
+                router_address.clone(),
                 insurance_fund.clone(),
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
@@ -170,12 +176,7 @@ impl TestMarketFixture<'_> {
         let full_contract_client = MarketContractClient::new(&e, &market_contract_id);
 
         controlled_insurance_fund_client.set_market(&market_contract_id);
-
         contract_client.update_market_status(&0);
-
-        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
-        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
-        let router_client = router::Client::new(&e, &router_address);
 
         // GOLD
         let gold_admin = Address::generate(&e);
@@ -185,7 +186,7 @@ impl TestMarketFixture<'_> {
             token_address: gold_token_address,
         } = setup_test_asset(&e, &gold_admin, &users);
         let gold_pool_address =
-            contract_client.initialize_pool(&gold_token_address, &None, &Some(pool_config.clone()));
+            contract_client.initialize_pool(&gold_token_address, &Some(pool_config.clone()));
 
         // BTC
         let btc_admin = Address::generate(&e);
@@ -195,11 +196,11 @@ impl TestMarketFixture<'_> {
             token_address: btc_token_address,
         } = setup_test_asset(&e, &btc_admin, &users);
         let btc_pool_address =
-            contract_client.initialize_pool(&btc_token_address, &None, &Some(pool_config.clone()));
+            contract_client.initialize_pool(&btc_token_address, &Some(pool_config.clone()));
 
         // USDC
         let usdc_pool_address =
-            contract_client.initialize_pool(&usdc_token_address, &None, &Some(pool_config.clone()));
+            contract_client.initialize_pool(&usdc_token_address, &Some(pool_config.clone()));
 
         contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
 
@@ -1265,6 +1266,15 @@ pub fn get_pool_available_take_rate_fees_sum(
     pool.total_available().unwrap()
 }
 
+pub fn get_pool_utilization_ratio_bps(
+    contract_client: &MarketClient,
+    pool_address: &Address,
+) -> i128 {
+    let pool = contract_client.get_pool(pool_address);
+
+    pool.compute_utilization_ratio_bps().unwrap()
+}
+
 pub fn compute_pool_collateral_value(
     e: &Env,
     contract_client: &MarketClient,
@@ -1316,6 +1326,14 @@ pub fn make_oracle_prices_equal(e: &Env, oracle_client: &MockPriceOracleClient) 
     ]);
 }
 
+pub fn make_oracle_prices_zero(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![e, 0, 0, 0,]);
+}
+
+pub fn make_oracle_prices_negative(e: &Env, oracle_client: &MockPriceOracleClient) {
+    oracle_client.set_price_stable(&soroban_sdk::vec![e, -1, -1, -1,]);
+}
+
 pub struct TestAssetSetup<'a> {
     pub token_client: TokenClient<'a>,
     pub token_address: Address,
@@ -1341,6 +1359,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
     let insurance_fund = Address::generate(e);
+    let router_address = Address::generate(e);
 
     let contract_id = e.register(
         MarketContract,
@@ -1348,6 +1367,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             contract_name,
             contract_admin.clone(),
             oracle,
+            router_address,
             insurance_fund,
             contract_admin,
             DEFAULT_MAX_POSITIONS,

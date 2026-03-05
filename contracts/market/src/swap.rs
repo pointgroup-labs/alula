@@ -7,7 +7,10 @@ use soroban_sdk::{
     vec,
 };
 
-use crate::{constants::*, error::MCError, soroswap_router as router, utils::MathUtils};
+use crate::{
+    constants::*, error::MCError, math_utils::MathUtils, misc::require_positive,
+    soroswap_router as router, storage,
+};
 
 // TODO: Maybe, create some internal trait for common swap operations and
 //  implement it for different swap providers?
@@ -28,8 +31,13 @@ pub fn get_amount_in(
     token_out: &Address,
     amount_out: i128,
 ) -> Result<i128, MCError> {
+    if token_in == token_out {
+        return Err(MCError::InvalidSwap);
+    }
+
     let path = vec![&e, token_in.clone(), token_out.clone()];
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let soroswap_router = storage::get_swap_provider(e);
+    let router_client = router::Client::new(e, &soroswap_router);
 
     let amounts_in = router_client.router_get_amounts_in(&amount_out, &path);
     let Some(amount_in) = amounts_in.first() else {
@@ -54,8 +62,13 @@ pub fn get_amount_out(
     token_out: &Address,
     amount_in: i128,
 ) -> Result<i128, MCError> {
+    if token_in == token_out {
+        return Err(MCError::InvalidSwap);
+    }
+
     let path = vec![&e, token_in.clone(), token_out.clone()];
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
+    let soroswap_router = storage::get_swap_provider(e);
+    let router_client = router::Client::new(e, &soroswap_router);
 
     let amounts_out = router_client.router_get_amounts_out(&amount_in, &path);
     let Some(amount_out) = amounts_out.last() else {
@@ -86,9 +99,13 @@ pub fn swap_tokens_for_exact_tokens(
     amount_out: i128,
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
+    if token_in == token_out {
+        return Err(MCError::InvalidSwap);
+    }
+
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
-    let router_address = Address::from_str(e, ROUTER_ADDRESS);
-    let router_client = router::Client::new(e, &router_address);
+    let soroswap_router = storage::get_swap_provider(e);
+    let router_client = router::Client::new(e, &soroswap_router);
     let pair = router_client.router_pair_for(token_in, token_out);
 
     let amount_in_max = amount_in
@@ -147,9 +164,16 @@ pub fn swap_exact_tokens_for_tokens(
     amount_out: i128,
     max_slippage_bps: Option<i128>,
 ) -> Result<i128, MCError> {
+    require_positive(amount_in)?;
+    require_positive(amount_out)?;
+
+    if token_in == token_out {
+        return Err(MCError::InvalidSwap);
+    }
+
     let max_slippage_bps = resolve_max_slippage(max_slippage_bps)?;
-    let router_client = router::Client::new(e, &Address::from_str(e, ROUTER_ADDRESS));
-    let pair = router_client.router_pair_for(token_in, token_out);
+    let soroswap_router = storage::get_swap_provider(e);
+    let router_client = router::Client::new(e, &soroswap_router);
 
     let amount_out_min = amount_out
         .checked_sub(
@@ -196,7 +220,7 @@ pub fn swap_exact_tokens_for_tokens(
 fn resolve_max_slippage(max_slippage_bps: Option<i128>) -> Result<i128, MCError> {
     if let Some(slippage) = max_slippage_bps {
         if !(0..=BPS_FACTOR).contains(&slippage) {
-            return Err(MCError::InvalidSwapSlippage);
+            return Err(MCError::InvalidSwap);
         }
         Ok(slippage)
     } else {

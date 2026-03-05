@@ -1,5 +1,3 @@
-pub const MAX_RESERVES: u32 = 25;
-
 pub const SECONDS_PER_DAY: u32 = 24 * 60 * 60;
 pub const SECONDS_PER_LEDGER: u32 = 6;
 pub const LEDGERS_PER_DAY: u32 = SECONDS_PER_DAY / SECONDS_PER_LEDGER;

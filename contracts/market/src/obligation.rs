@@ -1,12 +1,13 @@
 use farms_interface::Delegatee;
-use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Address, Bytes, BytesN, Env, Map, contracttype};
+use soroban_fixed_point_math::{FixedPoint, SorobanFixedPoint};
+use soroban_sdk::{Address, Bytes, BytesN, Env, I256, Map, contracttype};
 
 use crate::{
     constants::*,
     error::MCError,
     events,
-    oracle::{self, get_asset_price},
+    math_utils::MathUtils,
+    oracle,
     pool::{Pool, PoolFeeConfig},
     storage,
     utils::MathUtils,
@@ -311,22 +312,26 @@ impl Obligation {
                 .checked_mul(amount_of_borrow_backing_collateral_positions as i128)
                 .map_over_or_underflow()?;
             let borrow_backing_value_left =
-                i128::max(value_left - min_collateral_value_requirement, 0);
+                i128::max(value_left.saturating_sub(min_collateral_value_requirement), 0);
 
             // ----
-            // borrow_backing_value_left = amount * scalar_bps(i.e. liability_factor_bps or open_ltv_bps) *
-            // asset_price
+            // borrow_backing_value_left = (amount * asset_price / 10^decimals) * (scalar_bps / BPS_FACTOR)
             // ----
-            // , implies:
+            // implies:
             // ----
-            // amount = borrow_backing_value_left / (scalar_bps * asset_price)
+            // amount = (borrow_backing_value_left * 10^decimals) / (asset_price * scalar_bps / BPS_FACTOR)
             // ----
 
-            let numerator = borrow_backing_value_left;
-            let denominator =
+            let target_value = I256::from_i128(e, borrow_backing_value_left);
+            let decimals_multiplier = I256::from_i128(e, 10_i128.pow(pool.token_decimals));
+
+            let numerator = target_value.mul(&decimals_multiplier);
+
+            let scaled_price =
                 asset_price.fixed_mul_ceil(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
+            let denominator = I256::from_i128(e, scaled_price);
 
-            numerator.checked_div(denominator).map_over_or_underflow()?
+            numerator.div(&denominator).to_i128().map_over_or_underflow()?
         };
 
         Ok(max_amount)
@@ -445,13 +450,7 @@ impl Obligation {
         let supply = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
         let total_collateral_tokens = supply.checked_add(collateral).map_over_or_underflow()?;
 
-        if scalar_bps == BPS_FACTOR {
-            let price = oracle::get_asset_price(e, &pool.token_address)?;
-
-            total_collateral_tokens.checked_mul(price).map_over_or_underflow()
-        } else {
-            Self::compute_asset_value_scaled_floor(e, total_collateral_tokens, pool, scalar_bps)
-        }
+        Self::compute_asset_value_scaled_floor(e, total_collateral_tokens, pool, scalar_bps)
     }
 
     // Computes obligation's debt pool's asset value scaled
@@ -465,13 +464,7 @@ impl Obligation {
         let &BorrowPosition { d_tokens, .. } = borrow_position;
         let debt = pool.compute_tokens_from_d_tokens_ceil(e, d_tokens)?;
 
-        if scalar_bps == BPS_FACTOR {
-            let price = oracle::get_asset_price(e, &pool.token_address)?;
-
-            debt.checked_mul(price).map_over_or_underflow()
-        } else {
-            Self::compute_asset_value_scaled_ceil(e, debt, pool, scalar_bps)
-        }
+        Self::compute_asset_value_scaled_ceil(e, debt, pool, scalar_bps)
     }
 
     fn compute_asset_value_scaled_floor(
@@ -480,8 +473,13 @@ impl Obligation {
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        let price = oracle::get_asset_price(e, &pool.token_address)?;
-        let value = amount.checked_mul(price).map_over_or_underflow()?;
+        let price = I256::from_i128(e, oracle::get_asset_price(e, &pool.token_address)?);
+        let amount = I256::from_i128(e, amount);
+
+        let numerator = amount.mul(&price);
+        let denominator = I256::from_i128(e, 10_i128.pow(pool.token_decimals));
+
+        let value = numerator.div(&denominator).to_i128().map_over_or_underflow()?;
         let value_scaled = value.fixed_mul_floor(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
 
         Ok(value_scaled)
@@ -493,8 +491,16 @@ impl Obligation {
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        let price = oracle::get_asset_price(e, &pool.token_address)?;
-        let value = amount.checked_mul(price).map_over_or_underflow()?;
+        let price = I256::from_i128(e, oracle::get_asset_price(e, &pool.token_address)?);
+        let amount = I256::from_i128(e, amount);
+
+        let numerator = amount.mul(&price);
+        let denominator = I256::from_i128(e, 10_i128.pow(pool.token_decimals));
+
+        let value = numerator
+            .fixed_div_ceil(e, &denominator, &I256::from_i128(e, 1))
+            .to_i128()
+            .map_over_or_underflow()?;
         let value_scaled = value.fixed_mul_ceil(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
 
         Ok(value_scaled)
@@ -525,6 +531,9 @@ impl Obligation {
             original_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (j_tokens_to_issue, new_originally_deposited) =
             pool.compute_j_tokens_from_tokens_floor(e, deposited_tokens_minus_fee)?;
+        if j_tokens_to_issue <= 0 {
+            return Err(MCError::NonPositiveSharesAmount);
+        }
 
         deposit_position.adjust_originally_deposited(e, new_originally_deposited)?;
         deposit_position.adjust_j_tokens(e, j_tokens_to_issue)?;
@@ -548,11 +557,23 @@ impl Obligation {
     ) -> Result<BorrowResult, MCError> {
         let max_healthy_borrow_added_amount =
             self.compute_max_healthy_debt_added_amount(e, pool)?;
-        let real_borrowed_amount = i128::min(max_healthy_borrow_added_amount, original_amount);
+        if max_healthy_borrow_added_amount <= 0 {
+            return Err(MCError::UnhealthyOperation);
+        }
+
+        let real_borrowed_amount = if original_amount == i128::MAX {
+            // `[i128::MAX]` indicates capped borrow
+            max_healthy_borrow_added_amount
+        } else {
+            if original_amount > max_healthy_borrow_added_amount {
+                return Err(MCError::UnhealthyOperation);
+            }
+
+            original_amount
+        };
 
         pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
-        // NB: This can potentially create a borrow obligation with 0ed fields
         let mut borrow_position = self
             .borrows
             .get(pool.pool_address.clone())
@@ -570,6 +591,16 @@ impl Obligation {
             real_borrowed_amount.checked_sub(operation_fees.fee_sum).map_over_or_underflow()?;
         let (d_tokens_to_issue, new_originally_borrowed) =
             pool.compute_d_tokens_from_tokens_ceil(e, real_borrowed_amount)?;
+        if d_tokens_to_issue <= 0 {
+            events::minting_non_positive_d_tokens_on_borrow(
+                e,
+                pool.pool_address.clone(),
+                d_tokens_to_issue,
+                real_borrowed_amount,
+            );
+
+            return Err(MCError::InternalError);
+        }
 
         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
         borrow_position.adjust_originally_borrowed(e, new_originally_borrowed)?;
@@ -625,21 +656,31 @@ impl Obligation {
             self.deposits.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
 
         let all_deposit = pool.compute_tokens_from_j_tokens_floor(e, deposit_position.j_tokens)?;
-        let deposit_decrease = if self.borrow_exists() {
-            let max_healthy_withdrawn_amount =
-                self.compute_max_healthy_collateral_removed_amount(e, pool)?;
+        let amount_capped_to_deposit = all_deposit.min(provided_amount);
 
-            all_deposit.min(max_healthy_withdrawn_amount).min(provided_amount)
+        let deposit_decrease = if self.borrow_exists() {
+            let max_healthy = self.compute_max_healthy_collateral_removed_amount(e, pool)?;
+
+            if provided_amount == i128::MAX {
+                max_healthy.min(all_deposit)
+            } else if amount_capped_to_deposit > max_healthy {
+                return Err(MCError::UnhealthyOperation);
+            } else {
+                amount_capped_to_deposit
+            }
         } else {
-            all_deposit.min(provided_amount)
+            amount_capped_to_deposit
         };
-        if deposit_decrease > pool.total_available()? {
-            return Err(MCError::NotEnoughPoolFunds);
-        }
+        pool.require_total_available(deposit_decrease)?;
+
         let is_all_withdrawn = deposit_decrease == all_deposit;
 
         let withdraw_scarcity_fee_bps =
-            compute_withdraw_scarcity_fee_bps(e, pool, deposit_decrease, &mut deposit_position)?;
+            compute_withdraw_scarcity_fee_bps(e, pool, deposit_decrease, &deposit_position)?;
+        if withdraw_scarcity_fee_bps > 0 {
+            deposit_position.last_scarcity_withdraw_ts = e.ledger().timestamp();
+        }
+
         let withdraw_fee_bps = pool
             .config
             .fee_config
@@ -661,6 +702,16 @@ impl Obligation {
             // TODO: Is this `min` redundant?
             pool.compute_j_tokens_from_tokens_ceil(deposit_decrease)?.min(deposit_position.j_tokens)
         };
+        if j_tokens_to_burn <= 0 {
+            events::burning_non_positive_j_tokens_on_withdraw(
+                e,
+                pool.pool_address.clone(),
+                j_tokens_to_burn,
+                deposit_decrease,
+            );
+
+            return Err(MCError::InternalError);
+        }
 
         let all_deposit_ceil =
             pool.compute_tokens_from_j_tokens_ceil(e, deposit_position.j_tokens)?;
@@ -775,8 +826,10 @@ impl Obligation {
         provided_amount: i128,
         referrer: &Option<Address>,
     ) -> Result<RepayResult, MCError> {
-        let mut borrow_position =
-            self.borrows.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
+        let mut borrow_position = self
+            .borrows
+            .get(pool.pool_address.clone())
+            .ok_or(MCError::BorrowPositionDoesNotExist)?;
 
         let all_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
         let all_debt_fees = compute_operation_fees(
@@ -808,6 +861,9 @@ impl Obligation {
         } else {
             pool.compute_d_tokens_from_tokens_floor(debt_decrease_in_tokens)?
         };
+        if d_tokens_to_burn <= 0 {
+            return Err(MCError::NonPositiveSharesAmount);
+        }
 
         let unpaid_interest =
             all_debt.checked_sub(borrow_position.originally_borrowed).map_over_or_underflow()?;
@@ -862,13 +918,12 @@ impl Obligation {
         })
     }
 
-    // Liquidates unhealthy borrow
     pub fn liquidate(
         &mut self,
         e: &Env,
         borrow_pool: &Pool,
         collateral_pool: &Pool,
-        amount: i128,
+        repay_amount: i128,
         demanded_collateral_amount: i128,
     ) -> Result<LiquidationResult, MCError> {
         let (mut deposit_position, mut borrow_position) = (
@@ -879,6 +934,7 @@ impl Obligation {
                 .get(borrow_pool.pool_address.clone())
                 .ok_or(MCError::InvalidLiquidationInputs)?,
         );
+
         let (obligation_debt_value_w_liability_factors, obligation_collateral_value_w_close_ltvs) = (
             self.compute_debt_value_scaled_w_liability_factors(e)?,
             self.compute_collateral_value_scaled_w_close_ltvs(e)?,
@@ -900,19 +956,20 @@ impl Obligation {
                 .min(collateral_pool.config.health_config.max_liquidation_incentive_bps),
             borrow_pool.config.health_config.liquidation_close_factor_bps,
         );
-        let (borrowed_asset_price, collateral_asset_price) = (
-            oracle::get_asset_price(e, &borrow_pool.token_address)?,
-            oracle::get_asset_price(e, &collateral_pool.token_address)?,
-        );
-        let (insolvency_ltv_bps, min_collateral_value_threshold) = (
-            storage::get_insolvency_ltv_bps(e),
-            compute_min_collateral_threshold_scaled(e)?, // TODO: Fix for arbitrary price decimals
-        );
+
+        let (insolvency_ltv_bps, min_collateral_value_threshold) =
+            (storage::get_insolvency_ltv_bps(e), compute_min_collateral_threshold_scaled(e)?);
         let is_solvent = unparameterized_ltv_bps < insolvency_ltv_bps;
 
         let position_debt =
             borrow_pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
-        let liquidated_amount = amount.min(position_debt);
+        let liquidated_amount = repay_amount.min(position_debt);
+        let liquidated_value = oracle::get_asset_value_floor(
+            e,
+            liquidated_amount,
+            &borrow_pool.token_address,
+            borrow_pool.token_decimals,
+        )?;
 
         let position_collateral_tokens_from_j_tokens =
             collateral_pool.compute_tokens_from_j_tokens_floor(e, deposit_position.j_tokens)?;
@@ -921,7 +978,27 @@ impl Obligation {
             .checked_add(position_collateral_tokens_from_j_tokens)
             .map_over_or_underflow()?;
 
-        let (mut collateral_to_sell_to_liquidator, liquidated_amount) = if is_solvent {
+        // -- Count max possible redeemed collateral with liquidation incentive --
+
+        let redeemed_collateral_amount_with_max_incentive = {
+            let collateral_amount = oracle::get_asset_amount_floor(
+                e,
+                liquidated_value,
+                &collateral_pool.token_address,
+                collateral_pool.token_decimals,
+            )?;
+
+            collateral_amount
+                .fixed_mul_floor(
+                    BPS_FACTOR
+                        .checked_add(max_liquidation_incentive_bps)
+                        .map_over_or_underflow()?,
+                    BPS_FACTOR,
+                )
+                .map_over_or_underflow()?
+        };
+
+        let mut collateral_to_sell_to_liquidator = if is_solvent {
             // -- LTV-improving scenario --
 
             // Check if the liquidation doesn't exceed the close factor
@@ -931,80 +1008,57 @@ impl Obligation {
             if liquidated_borrow_bps > liquidation_close_factor_bps {
                 return Err(MCError::InvalidLiquidationInputs);
             }
-            // Count the maximum amount of sold collateral that improves LTV:
-            // ----
-            // received_collateral_amount < (obligation_collateral_value * borrowed_asset_repaid_amount * borrowed_asset_price) /
-            //                          / (obligation_debt_value * collateral_asset_price),
-            // ----
-            // must hold for the position to become healthier
-            let liquidated_value =
-                liquidated_amount.checked_mul(borrowed_asset_price).map_over_or_underflow()?;
 
-            let numerator = obligation_collateral_value
-                .checked_mul(liquidated_value)
-                .map_over_or_underflow()?;
-            let denominator = obligation_debt_value
-                .checked_mul(collateral_asset_price)
-                .map_over_or_underflow()?;
-            let max_ltv_improving_collateral_seized = numerator
-                .checked_div(denominator)
-                .map_over_or_underflow()?
-                .checked_mul(99)
-                .map_over_or_underflow()?
-                .checked_div(100)
-                .map_over_or_underflow()?;
-
-            let collateral_value_to_redeem_with_max_incentive = liquidated_value
-                .fixed_mul_floor(
-                    BPS_FACTOR
-                        .checked_add(max_liquidation_incentive_bps)
-                        .map_over_or_underflow()?,
-                    BPS_FACTOR,
-                )
-                .map_over_or_underflow()?;
-            let redeemed_collateral_amount_with_max_incentive =
-                collateral_value_to_redeem_with_max_incentive
-                    .checked_div(collateral_asset_price)
+            let max_ltv_improving_collateral_seized = {
+                // Count the maximum amount of sold collateral that improves LTV:
+                // ----
+                // (old_debt_value / old_collateral_value) > (old_debt_value - debt_value_repaid) / (old_collateral_value - collateral_value_lost),
+                // , implies:
+                // collateral_value_lost < (old_collateral_value / old_debt_value) * debt_value_repaid
+                // ----
+                // must hold for the position to become healthier
+                let unparameterized_ltv_sc9 = obligation_collateral_value
+                    .fixed_div_floor(obligation_debt_value, SCALAR_9)
                     .map_over_or_underflow()?;
 
-            // Find the amount of collateral to give away that obeys all LTV improving constraints
-            let collateral_to_sell_to_liquidator = position_collateral_sum
-                .min(max_ltv_improving_collateral_seized)
-                .min(redeemed_collateral_amount_with_max_incentive);
+                let max_collateral_received_value = liquidated_value
+                    .fixed_mul_floor(unparameterized_ltv_sc9, SCALAR_9)
+                    .map_over_or_underflow()?;
 
-            (collateral_to_sell_to_liquidator, liquidated_amount)
+                // Take 99.9% to guarantee LTV improvement
+                let strict_max_collateral_received_value = max_collateral_received_value
+                    .fixed_mul_floor(999, 1000)
+                    .map_over_or_underflow()?;
+
+                oracle::get_asset_amount_floor(
+                    e,
+                    strict_max_collateral_received_value,
+                    &collateral_pool.token_address,
+                    collateral_pool.token_decimals,
+                )?
+            };
+
+            position_collateral_sum
+                .min(max_ltv_improving_collateral_seized)
+                .min(redeemed_collateral_amount_with_max_incentive)
         } else {
             // -- Insolvency scenario - the obligation is given away completely to liquidators to decrease the amount of `bad debt`
             // in the market --
 
-            let liquidated_value =
-                liquidated_amount.checked_mul(borrowed_asset_price).map_over_or_underflow()?;
-
-            let collateral_value_to_redeem_with_max_incentive = liquidated_value
-                .fixed_mul_floor(
-                    BPS_FACTOR
-                        .checked_add(max_liquidation_incentive_bps)
-                        .map_over_or_underflow()?,
-                    BPS_FACTOR,
-                )
-                .map_over_or_underflow()?;
-            let redeemed_collateral_amount_with_max_incentive =
-                collateral_value_to_redeem_with_max_incentive
-                    .checked_div(collateral_asset_price)
-                    .map_over_or_underflow()?;
-
-            let collateral_to_sell_to_liquidator =
-                position_collateral_sum.min(redeemed_collateral_amount_with_max_incentive);
-
-            (collateral_to_sell_to_liquidator, liquidated_amount)
+            position_collateral_sum.min(redeemed_collateral_amount_with_max_incentive)
         };
-        let collateral_left = position_collateral_sum - collateral_to_sell_to_liquidator; // safe 
-        let collateral_value_left =
-            collateral_left.checked_mul(collateral_asset_price).map_over_or_underflow()?;
+
+        let collateral_left = position_collateral_sum - collateral_to_sell_to_liquidator; // safe
+        let collateral_value_left = oracle::get_asset_value_floor(
+            e,
+            collateral_left,
+            &collateral_pool.token_address,
+            collateral_pool.token_decimals,
+        )?;
 
         let is_all_collateral_drained = if collateral_value_left < min_collateral_value_threshold {
             // If collateral(both plain collateral and supply shares) that's left is worth
-            // less than the configured `min_collateral_value` on the market, the liquidator
+            // less than the configured `min_collateral_value_cents` on the market, the liquidator
             // additionally receives all of the collateral that's left
             collateral_to_sell_to_liquidator += collateral_left;
 
@@ -1065,6 +1119,7 @@ impl Obligation {
         // -- Adjust Borrow Position --
 
         let is_all_debt_liquidated = liquidated_amount == position_debt;
+
         let (d_tokens_to_burn, new_originally_borrowed) = if is_all_debt_liquidated {
             // All gone
             (borrow_position.d_tokens, 0)
@@ -1074,7 +1129,8 @@ impl Obligation {
             let unpaid_interest = position_debt
                 .checked_sub(borrow_position.originally_borrowed)
                 .map_over_or_underflow()?;
-            let new_originally_borrowed = if unpaid_interest.is_negative() {
+
+            if unpaid_interest.is_negative() {
                 events::computed_interest_is_negative(
                     e,
                     &borrow_pool.pool_address,
@@ -1083,8 +1139,10 @@ impl Obligation {
                     unpaid_interest,
                 );
 
-                return Err(MCError::InternalError);
-            } else if liquidated_amount > unpaid_interest {
+                // return Err(MCError::InternalError); // For similar reasons as in the 'repay' flow
+            }
+
+            let new_originally_borrowed = if liquidated_amount > unpaid_interest {
                 let new_total_d_tokens = borrow_pool.total_d_tokens - d_tokens_to_burn; // safe
                 let new_total_borrowed = borrow_pool.total_borrowed - liquidated_amount; // safe
                 let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
@@ -1102,6 +1160,10 @@ impl Obligation {
             (d_tokens_to_burn, new_originally_borrowed)
         };
 
+        if d_tokens_to_burn <= 0 {
+            return Err(MCError::NonPositiveSharesAmount);
+        }
+
         borrow_position
             .adjust_d_tokens(e, d_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
         borrow_position.set_originally_borrowed(e, new_originally_borrowed)?;
@@ -1118,8 +1180,15 @@ impl Obligation {
             self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
         }
 
+        let amount_to_send_back = if liquidated_amount < repay_amount {
+            repay_amount - liquidated_amount // safe
+        } else {
+            0
+        };
+
         Ok(LiquidationResult {
             j_tokens_seized,
+            amount_to_send_back,
             debt_repaid: liquidated_amount,
             d_tokens_burned: d_tokens_to_burn,
             plain_collateral_seized,
@@ -1154,13 +1223,16 @@ impl Obligation {
                 MCError::InternalError
             })?;
 
-            let token_address = &pool.token_address;
-            let price = get_asset_price(e, token_address)?;
             let all_collateral = pool
                 .compute_tokens_from_j_tokens_floor(e, j_tokens)?
                 .checked_add(collateral)
                 .map_over_or_underflow()?;
-            let collateral_value = all_collateral.checked_mul(price).map_over_or_underflow()?;
+            let collateral_value = oracle::get_asset_value_floor(
+                e,
+                all_collateral,
+                &pool.token_address,
+                pool.token_decimals,
+            )?;
 
             let min_collateral_value_threshold = compute_min_collateral_threshold_scaled(e)?;
             if collateral_value > min_collateral_value_threshold {
@@ -1348,7 +1420,7 @@ pub fn compute_operation_fees(
     pool_fee_config: &PoolFeeConfig,
 ) -> Result<OperationFees, MCError> {
     if fee_bps == 0 || original_amount == 0 {
-        return Ok(OperationFees { fee_sum: 0, referrer_fee: None });
+        return Ok(OperationFees { fee_sum: 0, referrer_fee: 0 });
     }
 
     // -- Calculate Total Fee --
@@ -1358,32 +1430,26 @@ pub fn compute_operation_fees(
 
     // -- Calculate the Referrer Split --
 
-    let mut referrer_fee = None;
-    if let Some(referrer_addr) = referrer
+    let referrer_fee = if let Some(referrer_addr) = referrer
         && let Some(referrers_map) = &pool_fee_config.referrers
         && let Some(referrer_share_bps) = referrers_map.get(referrer_addr.clone())
         && referrer_share_bps != 0
     {
-        referrer_fee = Some(
-            fee_sum
-                .fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR)
-                .map_over_or_underflow()?,
-        );
+        fee_sum.fixed_mul_ceil(referrer_share_bps as i128, BPS_FACTOR).map_over_or_underflow()?
+    } else {
+        0
     };
 
     Ok(OperationFees { fee_sum, referrer_fee })
 }
 
 // Computes additional withdraw scarcity fee(in basis) points that is charged when pool's utilization ratio
-// exceeds utilization ratio limit. E.g., (2% of origination fee + 4.5% of scarcity fee, etc.).
-//
-// # WARNING
-// This updates `deposit_position.last_scarcity_withdraw_ts` on `DepositPosition` in case of scarcity withdraw
+// exceeds utilization ratio limit. E.g., (2% of origination fee + 4.5% of scarcity fee, etc.)
 fn compute_withdraw_scarcity_fee_bps(
     e: &Env,
     pool: &Pool,
     deposit_decrease: i128,
-    deposit_position: &mut DepositPosition,
+    deposit_position: &DepositPosition,
 ) -> Result<u32, MCError> {
     let pool_total_supply = pool.total_supply()?;
     if pool_total_supply == 0 {
@@ -1403,6 +1469,10 @@ fn compute_withdraw_scarcity_fee_bps(
                 .map_over_or_underflow()?
         }
     };
+
+    if new_utilization_ratio_bps == BPS_FACTOR {
+        return Ok(pool.config.fee_config.withdraw_max_scarcity_fee_bps);
+    }
 
     let utilization_ratio_diff_bps = if new_utilization_ratio_bps
         > pool.config.health_config.utilization_ratio_limit_bps
@@ -1438,15 +1508,20 @@ fn compute_withdraw_scarcity_fee_bps(
         {
             return Err(MCError::ScarcityCooldownPeriod);
         }
-        deposit_position.last_scarcity_withdraw_ts = current_timestamp;
 
         new_utilization_ratio_bps - pool.config.health_config.utilization_ratio_limit_bps // safe
     } else {
-        0
+        return Ok(0);
     };
+
+    let max_utilization_ratio_diff_bps =
+        BPS_FACTOR - pool.config.health_config.utilization_ratio_limit_bps; // safe
     let fee = utilization_ratio_diff_bps
-        .fixed_mul_ceil(pool.config.fee_config.withdraw_scarcity_fee_sc_bps as i128, BPS_FACTOR)
-        .map_over_or_underflow()? as u32;
+        .fixed_mul_ceil(
+            pool.config.fee_config.withdraw_max_scarcity_fee_bps as i128,
+            max_utilization_ratio_diff_bps,
+        )
+        .unwrap() as u32; // safe
 
     Ok(fee)
 }
@@ -1458,7 +1533,7 @@ pub struct OperationFees {
     // Fee sum
     pub fee_sum: i128,
     // Fee, immediately sent to the referrer if one is present
-    pub referrer_fee: Option<i128>,
+    pub referrer_fee: i128,
 }
 
 #[contracttype]
@@ -1531,6 +1606,8 @@ pub struct RemoveCollateralResult {
 pub struct LiquidationResult {
     // The amount of debt tokens repaid by the liquidator
     pub debt_repaid: i128,
+    // Excess amount given by the liquidator that is sent back
+    pub amount_to_send_back: i128,
     // The amount of `dTokens` that are burned from the borrower's borrow position
     pub d_tokens_burned: i128,
     // The amount of plain collateral seized from the borrower's obligation and transferred to the liquidator
@@ -1545,9 +1622,8 @@ pub struct LiquidationResult {
 pub fn compute_min_collateral_threshold_scaled(e: &Env) -> Result<i128, MCError> {
     let min_collat_cents = storage::get_min_collateral_value_cents(e);
 
-    let oracle_decimals = oracle::get_oracle_price_decimals(e); // e.g., 14
-    let token_decimals = 7; // TODO: Must be implemented for non-SAC assets as well
-    let total_scale = i128::pow(10, oracle_decimals + token_decimals);
+    let oracle_decimals = oracle::get_oracle_price_decimals(e);
+    let total_scale = i128::pow(10, oracle_decimals);
 
     let threshold = min_collat_cents
         .checked_mul(total_scale)
@@ -1557,6 +1633,7 @@ pub fn compute_min_collateral_threshold_scaled(e: &Env) -> Result<i128, MCError>
 
     Ok(threshold)
 }
+
 #[cfg(test)]
 mod tests {
     use soroban_sdk::{BytesN, Env};

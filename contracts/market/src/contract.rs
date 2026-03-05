@@ -1,14 +1,18 @@
 #![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
-    Address, BytesN, Env, Map, String, Vec, contract, contractclient, contractimpl, token,
-    vec as svec,
+    Address, BytesN, Env, Map, String, Vec, contract, contractclient, contractimpl, vec as svec,
 };
 
 use crate::{
     constants::*,
     error::MCError,
     events, farms,
+    misc::{
+        MarketData, PoolData, require_admin, require_borrows_on_market_allowed, require_deployer,
+        require_deposits_on_market_allowed, require_insurance_fund, require_market_not_frozen,
+        require_nonnegative, require_owned_and_admin,
+    },
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
     oracle,
@@ -35,6 +39,12 @@ pub trait Market {
 
     // Gets the contract's global state
     fn get_global_state(e: Env) -> GlobalState;
+
+    // Updates the swap provider contract address
+    //
+    // # Arguments
+    // * `new_swap_provider` - updated swap provider address
+    fn update_swap_provider(e: Env, new_swap_provider: Address);
 
     // Updates the owned market's parameters
     //
@@ -67,13 +77,10 @@ pub trait Market {
     // # Arguments
     // * `token_address` - address of a corresponding Soroban Asset Contract
     // * `token_ticker` - symbol which represents a pool's token ticker
-    // * `salt` - optional salt data, which, when provided, is used along with `token_address` to
-    //   derive a deterministic pool address
     // * `pool_config` - optional `PoolConfig` data. If not provided, a default pool config is used
     fn initialize_pool(
         e: Env,
         token_address: Address,
-        salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError>;
 
@@ -140,17 +147,6 @@ pub trait Market {
         e: Env,
         pool_address: Address,
         beneficiaries: Map<Address, u32>,
-    ) -> Result<(), MCError>;
-
-    // Incentivizes a pool's supply with a donated asset amount for a defined period of time. Useful for bootstrapping pools
-    // after deployment
-    fn bootstrap_pool(
-        e: Env,
-        pool_address: Address,
-        sponsor: Address,
-        amount: i128,
-        start_period: u64,
-        end_period: u64,
     ) -> Result<(), MCError>;
 
     // Deposits tokens into the loan pool
@@ -412,32 +408,6 @@ pub trait Market {
         amount: i128,
     ) -> Result<(), MCError>;
 
-    // -- TO BE REMOVED --
-
-    // Swap tokens via a swap provider contract. This guarantees a swap
-    // and is agnostic to the possible price slippage
-    //
-    // # Arguments
-    // * `user` - user which deposits a token
-    // * `token_in` - address of a token that would be taken from the user
-    // * `token_out` - address of a token that would be given to the user
-    // * `amount` - exact amount of the `token_in`
-    fn swap(
-        e: Env,
-        user: Address,
-        token_in: Address,
-        token_out: Address,
-        amount_in: i128,
-    ) -> Result<i128, MCError>;
-
-    // Donates tokens to `total_available` on a pool
-    //
-    // # Arguments
-    // * `user` - user that donates tokens
-    // * `pool_address` - address of a pool to whose reserve the donation takes place
-    // * `amount` - donation amount
-    fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError>;
-
     // Issues `cover bad debt` requests on every bad debt borrow position on the user's obligation to the Insurance Fund contract
     //
     // # Arguments
@@ -649,11 +619,6 @@ pub trait Market {
     // * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     //   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>);
-
-    // Resets the contract's storage. Useful when the contract's invariants are broken and require
-    // resetting on the testnet without re-deploying the contract
-    #[cfg(not(feature = "mainnet"))]
-    fn reset_storage(e: Env);
 }
 
 #[contract]
@@ -670,7 +635,7 @@ impl Market for MarketContract {
     // * `new_wasm_hash` - hash of the WASM binary uploaded to the network that's used as a new
     //   version of the contract
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        require_admin(&e);
+        require_deployer(&e);
 
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
@@ -694,46 +659,56 @@ impl Market for MarketContract {
         process_get_global_state(&e)
     }
 
+    fn update_swap_provider(e: Env, new_swap_provider: Address) {
+        require_admin(&e);
+
+        storage::set_swap_provider(&e, &new_swap_provider);
+    }
+
     fn update_market(
         e: Env,
         new_max_positions: u32,
         new_min_collateral_value_cents: i128,
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        require_nonnegative(new_min_collateral_value_cents)?;
+        storage::extend_instance(&e);
 
-        if !(2..=2 * MAX_RESERVES).contains(&new_max_positions)
-            || new_min_collateral_value_cents.is_negative()
-        {
-            return Err(MCError::InvalidMarketUpdate);
+        if !(2..=MAX_RESERVES).contains(&new_max_positions) {
+            return Err(MCError::InvalidMarketConfigOrUpdate);
         }
         storage::set_max_positions(&e, new_max_positions);
         storage::set_min_collateral_value_cents(&e, new_min_collateral_value_cents);
+
+        events::update_market(&e, new_max_positions, new_min_collateral_value_cents);
 
         Ok(())
     }
 
     fn update_market_status(e: Env, new_status: u32) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let new_status = MarketStatus::try_from(new_status)?;
+
         storage::set_market_status(&e, &new_status);
+        events::update_market_status(&e, new_status);
 
         Ok(())
     }
 
     fn fund_update_market_status(e: Env, new_status: u32) -> Result<(), MCError> {
         require_insurance_fund(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let old_status = storage::get_market_status(&e);
         let new_status = MarketStatus::try_from(new_status)?;
         if old_status.is_admin_protected() || new_status.is_admin_protected() {
-            return Err(MCError::InvalidMarketStatusUpdate);
+            return Err(MCError::InvalidMarketConfigOrUpdate);
         }
 
         storage::set_market_status(&e, &new_status);
+        events::fund_update_market_status(&e, new_status);
 
         Ok(())
     }
@@ -741,13 +716,12 @@ impl Market for MarketContract {
     fn initialize_pool(
         e: Env,
         token_address: Address,
-        salt: Option<BytesN<32>>,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError> {
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
-        process_initialize_pool(&e, &token_address, &salt, &pool_config)
+        process_initialize_pool(&e, &token_address, &pool_config)
     }
 
     fn initialize_multiply_pair(
@@ -756,7 +730,7 @@ impl Market for MarketContract {
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_initialize_multiply_pair(&e, &deposit_pool_address, &borrow_pool_address)
     }
@@ -767,7 +741,7 @@ impl Market for MarketContract {
         new_pool_config: PoolConfig,
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         new_pool_config.validate()?;
 
@@ -781,7 +755,7 @@ impl Market for MarketContract {
 
     fn cancel_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let pool = Pool::try_get(&e, &pool_address)?;
         pool.remove_pool_config_update(&e)?;
@@ -793,7 +767,7 @@ impl Market for MarketContract {
 
     fn apply_pool_config_update(e: Env, pool_address: Address) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.apply_pool_config_update(&e)?;
@@ -822,16 +796,18 @@ impl Market for MarketContract {
         require_admin(&e);
 
         // NB: Distribute pool fees for valid fees tracking afterwards
-        process_distribute_pool_fees(&e, &pool_address)?;
+        process_distribute_pool_fees(&e, pool_address.clone())?;
 
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
 
         let mut new_config = pool.config;
-        new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries);
+        new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries.clone());
         new_config.validate()?;
 
         pool.config = new_config;
         pool.set(&e);
+
+        events::set_take_rate_fees_beneficiaries(&e, pool_address, beneficiaries);
 
         Ok(())
     }
@@ -844,33 +820,20 @@ impl Market for MarketContract {
         require_admin(&e);
 
         // NB: Distribute pool fees for valid fees tracking afterwards
-        process_distribute_pool_fees(&e, &pool_address)?;
+        process_distribute_pool_fees(&e, pool_address.clone())?;
 
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
         let mut new_config = pool.config;
 
-        new_config.fee_config.operation_fee_beneficiaries = Some(beneficiaries);
+        new_config.fee_config.operation_fee_beneficiaries = Some(beneficiaries.clone());
         new_config.validate()?; // TODO: Validate only fee_config?
 
         pool.config = new_config;
         pool.set(&e);
 
+        events::set_operation_fees_beneficiaries(&e, pool_address, beneficiaries);
+
         Ok(())
-    }
-
-    fn bootstrap_pool(
-        e: Env,
-        pool_address: Address,
-        sponsor: Address,
-        amount: i128,
-        start_period: u64,
-        end_period: u64,
-    ) -> Result<(), MCError> {
-        require_admin(&e);
-        require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
-
-        process_bootstrap_pool(&e, &pool_address, &sponsor, amount, start_period, end_period)
     }
 
     fn deposit(
@@ -882,7 +845,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -899,7 +862,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let earn_seed: BytesN<32> = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
@@ -917,41 +880,11 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_borrows_on_market_allowed(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
         process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
-    }
-
-    fn swap(
-        e: Env,
-        user: Address,
-        token_in: Address,
-        token_out: Address,
-        amount_in: i128,
-    ) -> Result<i128, MCError> {
-        user.require_auth();
-        require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
-
-        process_swap_exact_tokens(&e, &user, &token_in, &token_out, amount_in)
-    }
-
-    fn donate(e: Env, user: Address, pool_address: Address, amount: i128) -> Result<(), MCError> {
-        user.require_auth();
-        require_nonnegative(amount)?;
-        storage::extend_instance_storage(&e);
-
-        let mut pool = Pool::try_get(&e, &pool_address)?;
-        pool.accrue_interest(&e)?;
-        pool.adjust_total_available(&e, amount)?;
-        pool.set(&e);
-
-        let token_client = token::Client::new(&e, &pool.token_address);
-        token_client.transfer(&user, e.current_contract_address(), &amount);
-
-        Ok(())
     }
 
     fn add_collateral(
@@ -963,7 +896,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -980,7 +913,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -997,7 +930,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -1014,7 +947,7 @@ impl Market for MarketContract {
         repay_amount: i128,
         min_demanded_collateral_amount: i128,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         liquidator.require_auth();
         require_market_not_frozen(&e)?;
 
@@ -1043,7 +976,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user);
 
@@ -1085,7 +1018,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         user.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let earn_seed = get_earn_obligation_seed(&e);
         let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
@@ -1103,7 +1036,7 @@ impl Market for MarketContract {
     ) -> Result<(), MCError> {
         caller.require_auth();
         require_market_not_frozen(&e)?;
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_flash_loan(&e, &contract, &pool_address, amount)
     }
@@ -1118,7 +1051,7 @@ impl Market for MarketContract {
         leverage_multiplier: u32,
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
         require_borrows_on_market_allowed(&e)?;
@@ -1151,7 +1084,7 @@ impl Market for MarketContract {
         amount: i128,
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         user.require_auth();
         require_deposits_on_market_allowed(&e)?;
         require_borrows_on_market_allowed(&e)?;
@@ -1163,10 +1096,10 @@ impl Market for MarketContract {
     }
 
     fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         let obligation_key = ObligationKey::new(user);
 
-        process_issue_cover_bad_debt(&e, &obligation_key)
+        process_issue_cover_bad_debt(&e, obligation_key)
     }
 
     fn issue_cover_bad_debt_pair(
@@ -1175,19 +1108,19 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
 
-        process_issue_cover_bad_debt(&e, &obligation_key)
+        process_issue_cover_bad_debt(&e, obligation_key)
     }
 
     fn claim_cover_bad_debt_results(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
         let obligation_key = ObligationKey::new(user);
 
-        process_claim_cover_bad_debt_results(&e, &obligation_key)
+        process_claim_cover_bad_debt_results(&e, obligation_key)
     }
 
     fn claim_cover_bad_debt_result_pair(
@@ -1196,22 +1129,22 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
         let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
 
-        process_claim_cover_bad_debt_results(&e, &obligation_key)
+        process_claim_cover_bad_debt_results(&e, obligation_key)
     }
 
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
-        process_distribute_pool_fees(&e, &pool_address)
+        process_distribute_pool_fees(&e, pool_address)
     }
 
     fn distribute_all_pools_fees(e: Env) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         process_distribute_all_pools_fees(&e)
     }
@@ -1239,22 +1172,20 @@ impl Market for MarketContract {
     }
 
     fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new(user.clone());
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-        obligation.accrue_interest(&e)?;
+        process_refresh_obligation(&e, obligation_key)?;
 
         Ok(())
     }
 
     fn refresh_earn_obligation(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key =
             ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-        obligation.accrue_interest(&e)?;
+        process_refresh_obligation(&e, obligation_key)?;
 
         Ok(())
     }
@@ -1265,24 +1196,25 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let obligation_key = ObligationKey::new_with_seed(
             user.clone(),
             MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed,
         );
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-        obligation.accrue_interest(&e)?;
+        process_refresh_obligation(&e, obligation_key)?;
 
         Ok(())
     }
 
     fn refresh_pool(e: Env, pool_address: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let mut pool = Pool::try_get(&e, &pool_address)?;
         pool.accrue_interest(&e)?;
         pool.set(&e);
+
+        events::refresh_pool(&e, pool_address);
 
         Ok(())
     }
@@ -1420,7 +1352,7 @@ impl Market for MarketContract {
     }
 
     fn refresh_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let Some(farms_contract) = storage::get_farms_contract(&e) else {
             return Ok(()); // No farms configured
@@ -1433,7 +1365,7 @@ impl Market for MarketContract {
     }
 
     fn refresh_earn_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let Some(farms_contract) = storage::get_farms_contract(&e) else {
             return Ok(()); // No farms configured
@@ -1451,7 +1383,7 @@ impl Market for MarketContract {
         deposit_pool_address: Address,
         borrow_pool_address: Address,
     ) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         let Some(farms_contract) = storage::get_farms_contract(&e) else {
             return Ok(()); // No farms configured
@@ -1461,15 +1393,6 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new_with_seed(user, pair.seed.clone());
         farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
         Ok(())
-    }
-
-    #[cfg(not(feature = "mainnet"))]
-    fn reset_storage(e: Env) {
-        require_admin(&e);
-
-        storage::remove_all_obligations(&e);
-        storage::remove_all_pools(&e);
-        storage::remove_all_multiply_pairs(&e);
     }
 }
 
@@ -1482,6 +1405,7 @@ impl MarketContract {
     // * `admin` - market's administrator
     // * `name` - market's name(not necessarily unique)
     // * `oracle` - SEP-40 compliant oracle's contract address
+    // * `swap_provider` - AMM DEX or any other integrated swap provider
     // * `insurance_fund` - `Insurance Fund` trait compliant contract's address
     // * `deployer` - address of a deployer contract
     // * `max_positions` - max allowed number of positions in an obligation
@@ -1494,6 +1418,7 @@ impl MarketContract {
         name: String,
         admin: Address,
         oracle: Address,
+        swap_provider: Address,
         insurance_fund: Address,
         deployer: Address,
         max_positions: u32,
@@ -1501,6 +1426,14 @@ impl MarketContract {
         insolvency_ltv_bps: i128,
         update_in_queue_period: Option<u64>,
     ) -> Result<(), MCError> {
+        require_nonnegative(min_collateral_value_cents)?;
+
+        if !(2..=MAX_RESERVES).contains(&max_positions)
+            || !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps)
+        {
+            return Err(MCError::InvalidMarketConfigOrUpdate);
+        }
+
         let market_status = if update_in_queue_period.is_some() {
             // Owned markets begin in a frozen state
             MarketStatus::Frozen
@@ -1513,6 +1446,7 @@ impl MarketContract {
         storage::set_oracle(&e, &oracle);
         storage::set_deployer(&e, &deployer);
         storage::set_market_status(&e, &market_status);
+        storage::set_swap_provider(&e, &swap_provider);
         storage::set_insurance_fund(&e, &insurance_fund);
         storage::set_max_positions(&e, max_positions);
         storage::set_update_in_queue_period(&e, update_in_queue_period);
@@ -1548,7 +1482,7 @@ impl MarketContract {
     // * `new_admin` - proposed admin
     pub fn propose_new_admin(e: Env, new_admin: Address) -> Result<(), MCError> {
         require_admin(&e);
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
         storage::set_proposed_admin(&e, &new_admin);
 
@@ -1559,9 +1493,10 @@ impl MarketContract {
 
     // Accepts the proposal to become a new admin
     pub fn accept_proposed_admin(e: Env) -> Result<(), MCError> {
-        storage::extend_instance_storage(&e);
+        storage::extend_instance(&e);
 
-        let proposed_admin = storage::get_proposed_admin(&e).ok_or(MCError::InvalidMarketUpdate)?;
+        let proposed_admin =
+            storage::get_proposed_admin(&e).ok_or(MCError::InvalidMarketConfigOrUpdate)?;
         proposed_admin.require_auth();
 
         storage::set_admin(&e, &proposed_admin);

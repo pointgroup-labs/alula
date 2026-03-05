@@ -2,7 +2,7 @@ use insurance_fund_interface::{CoverageStatus, InsuranceFundClient, IssueRequest
 use moderc3156::FlashLoanClient;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Map, Vec, map as smap,
+    Address, Env, Vec, map as smap,
     token::{self, TokenClient},
 };
 
@@ -10,6 +10,8 @@ use crate::{
     constants::*,
     error::MCError,
     events, farms,
+    math_utils::MathUtils,
+    misc::{require_nonnegative, require_positive},
     multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
@@ -27,7 +29,7 @@ pub fn process_submit_requests_batch<'a>(
     referrer: &'a Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     let mut transfers =
-        RequestTransfers::new(e, user.clone(), smap![&e], smap![&e], referrer.clone());
+        RequestTransfers::new(e, user.clone(), referrer.clone(), smap![&e], smap![&e], smap![&e]);
 
     for request in requests {
         let Request { request_type, pool_address, amount } = request;
@@ -52,7 +54,6 @@ pub fn process_submit_requests_batch<'a>(
             RequestType::RemoveCollateral => {
                 process_remove_collateral(e, obligation_key, &pool_address, amount, referrer)?
             }
-            RequestType::RefreshFarms => process_refresh_farms(e, obligation_key)?,
         };
 
         transfers.merge(new_transfers)?;
@@ -66,6 +67,8 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
     let name = storage::get_name(e);
     let admin = storage::get_admin(e);
     let oracle = storage::get_oracle(e);
+    let swap_provider = storage::get_swap_provider(e);
+    let insurance_fund = storage::get_insurance_fund(e);
     let deployer = storage::get_deployer(e);
     let status = storage::get_market_status(e) as u32;
     let is_owned = update_in_queue_period.is_some();
@@ -76,11 +79,13 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
     GlobalState {
         name,
         admin,
-        oracle,
         status,
+        oracle,
         deployer,
         is_owned,
         max_positions,
+        swap_provider,
+        insurance_fund,
         insolvency_ltv_bps,
         min_collateral_value_cents,
         update_in_queue_period,
@@ -90,14 +95,10 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
 pub fn process_initialize_pool(
     e: &Env,
     token_address: &Address,
-    salt: &Option<BytesN<32>>,
     pool_config: &Option<PoolConfig>,
 ) -> Result<Address, MCError> {
-    let pool_address: Address = if let Some(salt) = salt {
-        e.deployer().with_address(token_address.clone(), salt.clone()).deployed_address()
-    } else {
-        token_address.clone()
-    };
+    // NB: We can remove either `pool_address` or `token_address` from the `Pool` struct later
+    let pool_address: Address = token_address.clone();
 
     Pool::require_does_not_exist(e, &pool_address)?;
 
@@ -115,6 +116,7 @@ pub fn process_initialize_pool(
     let token_client = TokenClient::new(e, token_address);
     let name = token_client.name();
     let token_symbol = token_client.symbol();
+    let token_decimals = token_client.decimals();
 
     events::initialize_pool(e, token_address, &pool_address, &token_symbol);
 
@@ -132,10 +134,9 @@ pub fn process_initialize_pool(
         config: pool_config,
         pool_address: pool_address.clone(),
         token_symbol,
+        token_decimals,
         token_address: token_address.clone(),
         last_accrual_timestamp: e.ledger().timestamp(),
-
-        bootstrap_periods: Map::new(e),
 
         borrow_apr_bps: 0,
         supply_apr_bps: 0,
@@ -185,40 +186,6 @@ pub fn process_initialize_multiply_pair(
     Ok(())
 }
 
-pub fn process_bootstrap_pool(
-    e: &Env,
-    pool_address: &Address,
-    sponsor: &Address,
-    amount: i128,
-    start_period: u64,
-    end_period: u64,
-) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
-
-    let current_timestamp = e.ledger().timestamp();
-    if start_period < current_timestamp || start_period >= end_period {
-        return Err(MCError::InvalidBootstrapPeriod);
-    }
-    let period = (start_period, end_period);
-
-    let mut pool = Pool::try_get(e, pool_address)?;
-
-    pool.bootstrap(amount, period)?;
-    pool.set(e);
-
-    let token_client = token::Client::new(e, &pool.token_address);
-    token_client.transfer_from(
-        &e.current_contract_address(),
-        sponsor,
-        &e.current_contract_address(),
-        &amount,
-    );
-
-    events::bootstrap_pool(e, pool_address, sponsor, amount, period);
-
-    Ok(())
-}
-
 pub fn process_deposit<'a>(
     e: &'a Env,
     obligation_key: &ObligationKey,
@@ -226,7 +193,7 @@ pub fn process_deposit<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_deposit_enabled()?;
@@ -256,11 +223,18 @@ pub fn process_deposit<'a>(
     // Auto-refresh supply farm stake
     farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Supply)?;
 
+    let user_transfers = smap![&e, (pool.token_address.clone(), amount)];
+
+    let referrer_fee = deposit_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_user_transfers(
         e,
         obligation_key.user.clone(),
-        smap![&e, (pool.token_address, amount)],
         referrer.clone(),
+        user_transfers,
+        referrer_fee_transfers,
     );
 
     events::deposit(e, pool_address, obligation_key, deposit_result);
@@ -275,7 +249,7 @@ pub fn process_borrow<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -295,11 +269,19 @@ pub fn process_borrow<'a>(
     // Auto-refresh debt farm stake
     farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Debt)?;
 
+    let market_transfers =
+        smap![&e, (pool.token_address.clone(), borrow_result.borrower_to_receive)];
+
+    let referrer_fee = borrow_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
         obligation_key.user.clone(),
-        smap![&e, (pool.token_address, borrow_result.borrower_to_receive)],
         referrer.clone(),
+        market_transfers,
+        referrer_fee_transfers,
     );
 
     events::borrow(e, pool_address, obligation_key, borrow_result);
@@ -314,7 +296,7 @@ pub fn process_add_collateral<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation =
         Obligation::try_get(e, obligation_key).unwrap_or(Obligation::new(e, obligation_key));
@@ -331,11 +313,18 @@ pub fn process_add_collateral<'a>(
     obligation.set(e, obligation_key);
     pool.set(e);
 
+    let user_transfers = smap![&e, (pool.token_address.clone(), amount)];
+
+    let referrer_fee = add_collateral_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_user_transfers(
         e,
         obligation_key.user.clone(),
-        smap![&e, (pool.token_address, amount)],
         referrer.clone(),
+        user_transfers,
+        referrer_fee_transfers,
     );
 
     events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
@@ -350,7 +339,7 @@ pub fn process_repay<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -380,13 +369,19 @@ pub fn process_repay<'a>(
     // from the borrower's account - 2 transfers take place: borrower => contract(original
     // amount), contract => borrower(excess amount). See - <https://discord.com/channels/897514728459468821/1424779244189520145>
     let user_transfers = smap![e, (pool.token_address.clone(), amount)];
-    let market_transfers = smap![e, (pool.token_address, repay_result.amount_to_send_back)];
+    let market_transfers = smap![e, (pool.token_address.clone(), repay_result.amount_to_send_back)];
+
+    let referrer_fee = repay_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new(
         e,
         obligation_key.user.clone(),
+        referrer.clone(),
         market_transfers,
         user_transfers,
-        referrer.clone(),
+        referrer_fee_transfers,
     );
 
     events::repay(e, pool_address, obligation_key, repay_result);
@@ -401,7 +396,7 @@ pub fn process_remove_collateral<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -421,11 +416,21 @@ pub fn process_remove_collateral<'a>(
         obligation.set(e, obligation_key);
     }
 
+    let market_transfers = smap![
+        e,
+        (pool.token_address.clone(), remove_collateral_result.collateral_remover_to_receive)
+    ];
+
+    let referrer_fee = remove_collateral_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
         obligation_key.user.clone(),
-        smap![e, (pool.token_address, remove_collateral_result.collateral_remover_to_receive)],
         referrer.clone(),
+        market_transfers,
+        referrer_fee_transfers,
     );
 
     events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
@@ -440,7 +445,7 @@ pub fn process_withdraw<'a>(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -463,11 +468,19 @@ pub fn process_withdraw<'a>(
 
     pool.set(e);
 
+    let market_transfers =
+        smap![e, (pool.token_address.clone(), withdraw_result.withdrawer_to_receive)];
+
+    let referrer_fee = withdraw_result.operation_fees.referrer_fee;
+    let referrer_fee_transfers =
+        if referrer_fee > 0 { smap![&e, (pool.token_address, referrer_fee)] } else { smap![e] };
+
     let transfers = RequestTransfers::new_with_market_transfers(
         e,
         obligation_key.user.clone(),
-        smap![e, (pool.token_address, withdraw_result.withdrawer_to_receive)],
         referrer.clone(),
+        market_transfers,
+        referrer_fee_transfers,
     );
 
     events::withdraw(e, pool_address, obligation_key, withdraw_result);
@@ -480,18 +493,12 @@ pub fn process_withdraw<'a>(
 // This function syncs the user's farm stakes with their current obligation positions.
 // It should be called when the user wants to update their farm stakes to claim
 // the correct amount of rewards
-pub fn process_refresh_farms<'a>(
-    e: &'a Env,
-    obligation_key: &ObligationKey,
-) -> Result<RequestTransfers<'a>, MCError> {
-    let Some(farms_contract) = storage::get_farms_contract(e) else {
-        // No farms configured, return empty transfers
-        return Ok(RequestTransfers::empty(e, obligation_key.user.clone()));
+pub fn process_refresh_farms(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
+    if let Some(farms_contract) = storage::get_farms_contract(e) {
+        farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
     };
 
-    farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
-
-    Ok(RequestTransfers::empty(e, obligation_key.user.clone()))
+    Ok(())
 }
 
 pub fn process_simulate_withdraw(
@@ -501,9 +508,14 @@ pub fn process_simulate_withdraw(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<WithdrawResult, MCError> {
+    require_positive(amount)?;
+
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
+    obligation.accrue_interest(e)?;
+
     let pool = Pool::try_get(e, pool_address)?;
+    pool.require_withdraw_enabled()?;
 
     let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
 
@@ -516,7 +528,7 @@ pub fn process_flash_loan(
     pool_address: &Address,
     amount: i128,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_total_available(amount)?;
@@ -561,7 +573,7 @@ pub fn process_deposit_with_leverage(
     leverage_multiplier: u32,
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
     pair.require_valid_leverage_multiplier(leverage_multiplier)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
@@ -735,7 +747,7 @@ pub fn process_withdraw_from_leveraged(
     amount: i128,
     referrer: &Option<Address>,
 ) -> Result<(), MCError> {
-    require_nonnegative(amount)?;
+    require_positive(amount)?;
 
     let (mut deposit_pool, mut borrow_pool) = (
         Pool::try_get(e, &pair.deposit_pool).map_err(|_| {
@@ -938,7 +950,7 @@ pub fn process_liquidate<'a>(
     repay_amount: i128,
     min_demanded_collateral_amount: i128,
 ) -> Result<RequestTransfers<'a>, MCError> {
-    require_nonnegative(repay_amount)?;
+    require_positive(repay_amount)?;
     require_nonnegative(min_demanded_collateral_amount)?;
 
     if borrow_pool_address == collateral_pool_address || liquidator == &borrower_obligation_key.user
@@ -948,6 +960,7 @@ pub fn process_liquidate<'a>(
 
     let mut obligation = Obligation::try_get(e, borrower_obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
+
     obligation.accrue_interest(e)?;
 
     let (mut borrow_pool, mut collateral_pool) = (
@@ -964,6 +977,7 @@ pub fn process_liquidate<'a>(
         repay_amount,
         min_demanded_collateral_amount,
     )?;
+
     if liquidation_result.j_tokens_seized.is_positive() {
         // In case the liquidated obligation's plain collateral wasn't sufficient to cover the liquidation,
         // borrower's jTokens are transferred to the liquidator as a part of the incentive
@@ -1016,14 +1030,21 @@ pub fn process_liquidate<'a>(
     borrow_pool.set(e);
     collateral_pool.set(e);
 
-    let user_transfers =
-        smap![e, (borrow_pool.token_address.clone(), liquidation_result.debt_repaid)];
+    let user_transfers = smap![e, (borrow_pool.token_address.clone(), repay_amount)];
     let market_transfers = smap![
         e,
-        (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized)
+        (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized),
+        (borrow_pool.token_address, liquidation_result.amount_to_send_back)
     ];
-    let transfers =
-        RequestTransfers::new(e, liquidator.clone(), market_transfers, user_transfers, None);
+
+    let transfers = RequestTransfers::new(
+        e,
+        liquidator.clone(),
+        None,
+        market_transfers,
+        user_transfers,
+        smap![e],
+    );
 
     events::liquidate(
         e,
@@ -1037,11 +1058,8 @@ pub fn process_liquidate<'a>(
     Ok(transfers)
 }
 
-pub fn process_issue_cover_bad_debt(
-    e: &Env,
-    obligation_key: &ObligationKey,
-) -> Result<(), MCError> {
-    let mut obligation = Obligation::try_get(e, obligation_key)?;
+pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> Result<(), MCError> {
+    let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
     obligation.require_borrow_exists()?;
     obligation.require_no_liquidatable_collateral_exists(e)?;
@@ -1074,7 +1092,7 @@ pub fn process_issue_cover_bad_debt(
                     events::insurance_fund_duplicate_request_id(
                         e,
                         obligation_key,
-                        &pool_address,
+                        pool_address,
                         request_id,
                     );
 
@@ -1092,7 +1110,7 @@ pub fn process_issue_cover_bad_debt(
                     events::inconsistent_immediate_insurance_fund_coverage(
                         e,
                         obligation_key,
-                        &pool_address,
+                        pool_address,
                         actual_received,
                         covered_amount,
                     );
@@ -1155,19 +1173,21 @@ pub fn process_issue_cover_bad_debt(
     }
 
     if obligation.is_empty() {
-        obligation.remove(e, obligation_key);
+        obligation.remove(e, &obligation_key);
     } else {
-        obligation.set(e, obligation_key);
+        obligation.set(e, &obligation_key);
     }
+
+    events::issue_cover_bad_debt(e, obligation_key);
 
     Ok(())
 }
 
 pub fn process_claim_cover_bad_debt_results(
     e: &Env,
-    obligation_key: &ObligationKey,
+    obligation_key: ObligationKey,
 ) -> Result<(), MCError> {
-    let mut obligation = Obligation::try_get(e, obligation_key)?;
+    let mut obligation = Obligation::try_get(e, &obligation_key)?;
     obligation.accrue_interest(e)?;
 
     let insurance_fund = storage::get_insurance_fund(e);
@@ -1183,7 +1203,12 @@ pub fn process_claim_cover_bad_debt_results(
         })?;
 
         let request_status = insurance_fund_client.get_status(&request_id).ok_or_else(|| {
-            events::insurance_fund_missing_request(e, obligation_key, &pool_address, request_id);
+            events::insurance_fund_missing_request(
+                e,
+                obligation_key.clone(),
+                pool_address.clone(),
+                request_id,
+            );
             MCError::DependencyContractError
         })?;
 
@@ -1200,7 +1225,7 @@ pub fn process_claim_cover_bad_debt_results(
                 events::insurance_fund_claim_mismatch(
                     e,
                     obligation_key,
-                    &pool_address,
+                    pool_address,
                     request_id,
                     approved_amount,
                     actual_received,
@@ -1236,16 +1261,18 @@ pub fn process_claim_cover_bad_debt_results(
     }
 
     if obligation.is_empty() {
-        obligation.remove(e, obligation_key);
+        obligation.remove(e, &obligation_key);
     } else {
-        obligation.set(e, obligation_key);
+        obligation.set(e, &obligation_key);
     }
+
+    events::claim_cover_bad_debt_results(e, obligation_key);
 
     Ok(())
 }
 
-pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(), MCError> {
-    let mut pool = Pool::try_get(e, pool_address)?;
+pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<(), MCError> {
+    let mut pool = Pool::try_get(e, &pool_address)?;
     let insurance_fund_addr = storage::get_insurance_fund(e);
 
     let token_client = token::Client::new(e, &pool.token_address);
@@ -1275,6 +1302,10 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
                 }
             }
         }
+        pool.adjust_total_available(
+            e,
+            pool.take_rate_fees_sum.checked_neg().map_over_or_underflow()?,
+        )?;
         pool.take_rate_fees_sum = 0;
     }
 
@@ -1302,6 +1333,7 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
 
     pool.set(e);
 
+    events::distribute_pool_fees(e, pool_address);
     // TODO: Add `skim_fees` endpoint that allows admin to receive any excessive fees
 
     Ok(())
@@ -1309,31 +1341,19 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: &Address) -> Result<(
 
 pub fn process_distribute_all_pools_fees(e: &Env) -> Result<(), MCError> {
     for pool_address in Pool::get_all(e) {
-        process_distribute_pool_fees(e, &pool_address)?;
+        process_distribute_pool_fees(e, pool_address)?;
     }
 
     Ok(())
 }
 
-pub fn process_swap_exact_tokens(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
-) -> Result<i128, MCError> {
-    require_nonnegative(amount_in)?;
+pub fn process_refresh_obligation(e: &Env, obligation_key: ObligationKey) -> Result<(), MCError> {
+    let obligation = Obligation::try_get(e, &obligation_key)?;
+    obligation.accrue_interest(e)?;
 
-    // Since `amount_out` is calculated within the call, there's no price slippage
-    let amount_out = swap::get_amount_out(e, token_in, token_out, amount_in)?;
+    events::refresh_obligation(e, obligation_key);
 
-    let received_amount = swap::swap_exact_tokens_for_tokens(
-        e, user, token_in, token_out, amount_in, amount_out, None,
-    )?;
-
-    events::swap(e, user, token_in, token_out, amount_in, amount_out, received_amount);
-
-    Ok(received_amount)
+    Ok(())
 }
 
 // ---- Helpers ----
@@ -1348,9 +1368,6 @@ fn compute_leveraged_position_max_withdrawable_to_user_wallet_amount(
 ) -> Result<i128, MCError> {
     // TODO: This formula is too simple, and it's likely leading to the issues
     // we have when partially withdrawing from the leveraged position
-
-    require_nonnegative(deposited_amount)?;
-    require_nonnegative(borrowed_amount)?;
 
     let x_tokens = swap::get_amount_in(e, deposited_token, borrowed_token, borrowed_amount)?;
     if x_tokens > deposited_amount {

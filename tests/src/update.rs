@@ -1,7 +1,10 @@
 #![cfg(test)]
 
 use market::{
-    constants::{MAX_RESERVES, POOL_STATUS_DEPOSIT_ENABLED},
+    constants::{
+        DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MIN_COLLATERAL_VALUE_CENTS, MAX_RESERVES,
+        POOL_STATUS_DEPOSIT_ENABLED,
+    },
     error::MCError,
     pool::{PoolConfig, PoolFeeConfig, PoolHealthConfig, PoolStatus},
     storage::MarketStatus,
@@ -22,7 +25,6 @@ fn test_queue_in_pool_config_update() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &None,
         &None, // default pool config
     );
 
@@ -74,7 +76,6 @@ fn test_queue_in_invalid_pool_config_update() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &None,
         &None, // default pool config
     );
 
@@ -161,7 +162,6 @@ fn test_cancel_pool_config_update() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &None,
         &None, // default pool config
     );
 
@@ -205,7 +205,6 @@ fn test_update_market_fails_for_permissionless_market() {
 
     let pool_address = contract_client.initialize_pool(
         &token_address,
-        &None,
         &None, // default pool config
     );
 
@@ -231,7 +230,7 @@ fn test_update_pool_in_permissionless_market_fails() {
 
     let token_address = register_random_sac(&e);
 
-    let pool_address = contract_client.initialize_pool(&token_address, &None, &None);
+    let pool_address = contract_client.initialize_pool(&token_address, &None);
 
     const NEW_SUPPLY_LIMIT: i128 = 100;
 
@@ -315,7 +314,7 @@ fn test_update_market_status() {
 
     assert!(contract_client.try_deposit(creditor, &gold_pool_address, &100, &None).is_ok());
     assert!(contract_client.try_withdraw(creditor, &gold_pool_address, &1, &None).is_ok());
-    assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &100, &None).is_ok());
+    assert!(contract_client.try_borrow(creditor, &usdc_pool_address, &50, &None).is_ok());
     assert!(contract_client.try_repay(creditor, &usdc_pool_address, &1, &None).is_ok());
 
     contract_client.update_market_status(&(MarketStatus::BorrowFrozen as u32));
@@ -372,20 +371,20 @@ fn test_update_market_config() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
 
-    const MAX_POSITIONS: u32 = 2 * MAX_RESERVES;
-    const MIN_COLLATERAL_VALUE_CENTS: i128 = 10 * 10i128.pow(7);
+    const MAX_POSITIONS: u32 = MAX_RESERVES;
+    const MIN_COLLATERAL_VALUE_CENTS: i128 = 10;
 
     assert_eq!(
         contract_client.try_update_market(&(MAX_POSITIONS + 1), &0),
-        Err(Ok(MCError::InvalidMarketUpdate))
+        Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
     assert_eq!(
         contract_client.try_update_market(&(MAX_POSITIONS), &-1),
-        Err(Ok(MCError::InvalidMarketUpdate))
+        Err(Ok(MCError::InvalidInputAmount))
     );
     assert_eq!(
         contract_client.try_update_market(&(1), &MIN_COLLATERAL_VALUE_CENTS),
-        Err(Ok(MCError::InvalidMarketUpdate))
+        Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
 
     contract_client.update_market(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);
@@ -396,4 +395,88 @@ fn test_update_market_config() {
 
     assert_eq!(new_min_collateral_value_cents, MIN_COLLATERAL_VALUE_CENTS);
     assert_eq!(new_max_positions, MAX_POSITIONS);
+}
+
+#[test]
+fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
+    use controlled_insurance_fund::{
+        ControlledInsuranceFundContract, ControlledInsuranceFundContractClient,
+    };
+    use market::contract::{MarketContract, MarketContractClient};
+    use soroban_sdk::{
+        Address, Env, IntoVal, String,
+        testutils::{Address as _, MockAuth, MockAuthInvoke},
+    };
+
+    let e = Env::default();
+
+    // Actors
+    let market_admin = Address::generate(&e);
+    let fund_admin = Address::generate(&e);
+    let attacker = Address::generate(&e);
+
+    // Market dependencies required by constructor
+    let oracle = Address::generate(&e);
+    let deployer = Address::generate(&e);
+    let swap_provider = Address::generate(&e);
+
+    // Deploy ControlledInsuranceFund
+    let cif_addr = e.register(ControlledInsuranceFundContract, (&fund_admin,));
+    let cif = ControlledInsuranceFundContractClient::new(&e, &cif_addr);
+
+    // Deploy Market with insurance_fund = ControlledInsuranceFund
+    let name = String::from_str(&e, "test-market");
+    let max_positions: u32 = MAX_RESERVES;
+    let min_collateral_value_cents: i128 = DEFAULT_MIN_COLLATERAL_VALUE_CENTS;
+    let insolvency_ltv_bps: i128 = DEFAULT_INSOLVENCY_LTV_BPS;
+    let update_in_queue_period: Option<u64> = Some(1);
+
+    let market_addr = e.register(
+        MarketContract,
+        (
+            &name,
+            &market_admin,
+            &oracle,
+            &swap_provider,
+            &cif_addr,
+            &deployer,
+            &max_positions,
+            &min_collateral_value_cents,
+            &insolvency_ltv_bps,
+            &update_in_queue_period,
+        ),
+    );
+    let market = MarketContractClient::new(&e, &market_addr);
+
+    // Setup: fund_admin sets the market address in the insurance fund.
+    // This call is admin gated, so we mock auth only for this call
+    let set_market_invoke = MockAuthInvoke {
+        contract: &cif_addr,
+        fn_name: "set_market",
+        args: (&market_addr,).into_val(&e),
+        sub_invokes: &[],
+    };
+    let set_market_auth = [MockAuth { address: &fund_admin, invoke: &set_market_invoke }];
+    cif.mock_auths(&set_market_auth).set_market(&market_addr);
+
+    // Setup: move the market to Active via market admin (admin only).
+    // Owned markets may start Frozen depending on initialization
+    let set_active_invoke = MockAuthInvoke {
+        contract: &market_addr,
+        fn_name: "update_market_status",
+        args: (MarketStatus::Active as u32,).into_val(&e),
+        sub_invokes: &[],
+    };
+    let set_active_auth = [MockAuth { address: &market_admin, invoke: &set_active_invoke }];
+    market.mock_auths(&set_active_auth).update_market_status(&(MarketStatus::Active as u32));
+
+    assert_eq!(market.get_global_state().status, MarketStatus::Active as u32);
+
+    // Sanity: without auth, an unprivileged caller cannot use the admin only market entrypoint
+    assert!(market.try_update_market_status(&(MarketStatus::Frozen as u32)).is_err());
+    assert_eq!(market.get_global_state().status, MarketStatus::Active as u32);
+
+    // Sanity: without auth, an unprivileged caller cannot use the admin only cif entrypoint
+    let _ = attacker;
+    assert!(cif.try_update_market_status(&(MarketStatus::Frozen as u32)).is_err());
 }

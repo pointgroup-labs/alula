@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, String, Symbol, contractevent};
+use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, contractevent};
 
 use crate::{
     obligation::{
@@ -6,6 +6,7 @@ use crate::{
         ObligationKey, RemoveCollateralResult, RepayResult, WithdrawResult,
     },
     pool::{Pool, PoolConfig},
+    storage::MarketStatus,
 };
 
 // --- Contract's Methods Events ---
@@ -46,16 +47,6 @@ struct CancelPoolConfigUpdate {
 struct ApplyPoolConfigUpdate {
     #[topic]
     pool_address: Address,
-}
-
-#[contractevent]
-struct BootstrapPoolEvent {
-    #[topic]
-    pool_address: Address,
-    #[topic]
-    sponsor: Address,
-    amount: i128,
-    period: (u64, u64),
 }
 
 #[contractevent]
@@ -180,6 +171,66 @@ struct WithdrawFromLeveragedEvent {
 struct ProposeNewAdmin {
     #[topic]
     new_admin: Address,
+}
+
+#[contractevent]
+struct UpdateMarket {
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+}
+
+#[contractevent]
+struct UpdateMarketStatus {
+    new_status: MarketStatus,
+}
+
+#[contractevent]
+struct FundUpdateMarketStatus {
+    new_status: MarketStatus,
+}
+
+#[contractevent]
+struct SetTakeRateBeneficiaries {
+    #[topic]
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+}
+
+#[contractevent]
+struct SetOperationFeesBeneficiaries {
+    #[topic]
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+}
+
+#[contractevent]
+struct IssueCoverBadDebt {
+    #[topic]
+    obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct ClaimCoverBadDebtResults {
+    #[topic]
+    obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct DistributePoolFees {
+    #[topic]
+    pool_address: Address,
+}
+
+#[contractevent]
+struct RefreshObligation {
+    #[topic]
+    obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct RefreshPool {
+    #[topic]
+    pool_address: Address,
 }
 
 #[contractevent]
@@ -347,6 +398,30 @@ struct ClaimMismatch {
 struct ReferrerIsUnexpectedlyMissing {}
 
 #[contractevent]
+struct ReferrerFeeExceedsOpsFees {
+    #[topic]
+    pool_address: Address,
+    operation_fees_sum: i128,
+    referrer_fee: i128,
+}
+
+#[contractevent]
+struct NonPositiveDTokensBorrow {
+    #[topic]
+    pool_address: Address,
+    minted_d_tokens_amount: i128,
+    real_borrowed_amount: i128,
+}
+
+#[contractevent]
+struct NonPositiveJTokensWithdraw {
+    #[topic]
+    pool_address: Address,
+    burned_j_tokens_amount: i128,
+    deposit_decrease: i128,
+}
+
+#[contractevent]
 struct ObligationFarmsRefreshedEvent {
     #[topic]
     pub user: Address,
@@ -429,22 +504,6 @@ pub fn cancel_pool_config_update(e: &Env, pool_address: Address) {
 
 pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
     ApplyPoolConfigUpdate { pool_address }.publish(e);
-}
-
-pub fn bootstrap_pool(
-    e: &Env,
-    pool_address: &Address,
-    sponsor: &Address,
-    amount: i128,
-    period: (u64, u64),
-) {
-    BootstrapPoolEvent {
-        pool_address: pool_address.clone(),
-        sponsor: sponsor.clone(),
-        amount,
-        period,
-    }
-    .publish(e);
 }
 
 pub fn swap(
@@ -615,6 +674,54 @@ pub fn withdraw_from_leveraged(
     .publish(e);
 }
 
+pub fn update_market(e: &Env, new_max_positions: u32, new_min_collateral_value_cents: i128) {
+    UpdateMarket { new_max_positions, new_min_collateral_value_cents }.publish(e);
+}
+
+pub fn update_market_status(e: &Env, new_status: MarketStatus) {
+    UpdateMarketStatus { new_status }.publish(e);
+}
+
+pub fn fund_update_market_status(e: &Env, new_status: MarketStatus) {
+    FundUpdateMarketStatus { new_status }.publish(e);
+}
+
+pub fn set_take_rate_fees_beneficiaries(
+    e: &Env,
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+) {
+    SetTakeRateBeneficiaries { pool_address, beneficiaries }.publish(e);
+}
+
+pub fn set_operation_fees_beneficiaries(
+    e: &Env,
+    pool_address: Address,
+    beneficiaries: Map<Address, u32>,
+) {
+    SetOperationFeesBeneficiaries { pool_address, beneficiaries }.publish(e);
+}
+
+pub fn issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) {
+    IssueCoverBadDebt { obligation_key }.publish(e);
+}
+
+pub fn claim_cover_bad_debt_results(e: &Env, obligation_key: ObligationKey) {
+    ClaimCoverBadDebtResults { obligation_key }.publish(e);
+}
+
+pub fn distribute_pool_fees(e: &Env, pool_address: Address) {
+    DistributePoolFees { pool_address }.publish(e);
+}
+
+pub fn refresh_obligation(e: &Env, obligation_key: ObligationKey) {
+    RefreshObligation { obligation_key }.publish(e);
+}
+
+pub fn refresh_pool(e: &Env, pool_address: Address) {
+    RefreshPool { pool_address }.publish(e);
+}
+
 pub fn propose_new_admin(e: &Env, new_admin: Address) {
     ProposeNewAdmin { new_admin }.publish(e);
 }
@@ -710,20 +817,6 @@ pub fn pool_total_shares_smaller_than_individual_user_shares(
     PoolInconsistentTotalShares { total_shares, individual_shares }.publish(e);
 }
 
-// Emitted when the total shares in a pool are found to be less than the total tokens amount
-pub fn pool_total_shares_smaller_than_total_tokens(
-    e: &Env,
-    total_shares: i128,
-    total_tokens: i128,
-) {
-    PoolInconsistentTotalTokens { total_shares, total_tokens }.publish(e);
-}
-
-// Emitted when pool state becomes generally inconsistent
-pub fn pool_contains_inconsistent_state(e: &Env, pool: &Pool) {
-    PoolContainsInconsistentState { pool: pool.clone() }.publish(e);
-}
-
 // Emitted when obligation unexpectedly becomes empty
 pub fn obligation_is_unexpectedly_empty(
     e: &Env,
@@ -789,18 +882,13 @@ pub fn received_unexpected_swap_amount(
 
 pub fn inconsistent_immediate_insurance_fund_coverage(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     balance_diff: i128,
     debt_amount: i128,
 ) {
-    InconsistentImmediateCoverage {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        balance_diff,
-        debt_amount,
-    }
-    .publish(e)
+    InconsistentImmediateCoverage { obligation_key, pool_address, balance_diff, debt_amount }
+        .publish(e)
 }
 
 // --- Farms Integration Events ---
@@ -834,62 +922,63 @@ pub fn obligation_farms_refreshed(e: &Env, user: &Address, num_supply: u32, num_
 
 pub fn insurance_fund_missing_request(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     request_id: u64,
 ) {
-    InsuranceFundMissingRequest {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        request_id,
-    }
-    .publish(e);
+    InsuranceFundMissingRequest { obligation_key, pool_address, request_id }.publish(e);
 }
 
 pub fn insurance_fund_duplicate_request_id(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     request_id: u64,
 ) {
-    DuplicateRequestId {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        request_id,
-    }
-    .publish(e);
+    DuplicateRequestId { obligation_key, pool_address, request_id }.publish(e);
 }
 
 pub fn insurance_fund_claim_mismatch(
     e: &Env,
-    obligation_key: &ObligationKey,
-    pool_address: &Address,
+    obligation_key: ObligationKey,
+    pool_address: Address,
     request_id: u64,
     approved_amount: i128,
     actual_received: i128,
 ) {
-    ClaimMismatch {
-        obligation_key: obligation_key.clone(),
-        pool_address: pool_address.clone(),
-        request_id,
-        approved_amount,
-        actual_received,
-    }
-    .publish(e);
+    ClaimMismatch { obligation_key, pool_address, request_id, approved_amount, actual_received }
+        .publish(e);
 }
 
 pub fn referrer_is_unexpectedly_missing(e: &Env) {
     ReferrerIsUnexpectedlyMissing {}.publish(e);
 }
 
-// --- Helper Functions  ---
-
-#[contractevent]
-struct DbgEvent {
-    #[topic]
-    pub symbol: Symbol,
+pub fn referrer_fee_exceeds_operation_fees_sum(
+    e: &Env,
+    pool_address: Address,
+    operation_fees_sum: i128,
+    referrer_fee: i128,
+) {
+    ReferrerFeeExceedsOpsFees { pool_address, operation_fees_sum, referrer_fee }.publish(e);
 }
 
-pub fn dbg(e: &Env, symbol: Symbol) {
-    DbgEvent { symbol }.publish(e);
+pub fn minting_non_positive_d_tokens_on_borrow(
+    e: &Env,
+    pool_address: Address,
+    minted_d_tokens_amount: i128,
+    real_borrowed_amount: i128,
+) {
+    NonPositiveDTokensBorrow { pool_address, minted_d_tokens_amount, real_borrowed_amount }
+        .publish(e);
+}
+
+pub fn burning_non_positive_j_tokens_on_withdraw(
+    e: &Env,
+    pool_address: Address,
+    burned_j_tokens_amount: i128,
+    deposit_decrease: i128,
+) {
+    NonPositiveJTokensWithdraw { pool_address, burned_j_tokens_amount, deposit_decrease }
+        .publish(e);
 }

@@ -16,6 +16,8 @@ pub struct GlobalState {
     pub is_owned: bool,
     pub admin: Address,
     pub oracle: Address,
+    pub swap_provider: Address,
+    pub insurance_fund: Address,
     pub deployer: Address,
     pub max_positions: u32,
     pub insolvency_ltv_bps: i128,
@@ -65,7 +67,7 @@ impl TryFrom<u32> for MarketStatus {
             4 => MarketStatus::DepositFrozenByAdmin,
             5 => MarketStatus::Frozen,
             6 => MarketStatus::FrozenByAdmin,
-            _ => return Err(MCError::InvalidMarketStatusUpdate),
+            _ => return Err(MCError::InvalidMarketConfigOrUpdate),
         };
 
         Ok(market_status)
@@ -94,6 +96,7 @@ pub enum DataKey {
     FarmsContract,
     ConfigUpdate(Address),
     Pool(Address),
+    SwapProvider,
     InsuranceFund,
     AllObligations,
     InsolvencyLtvBps,
@@ -109,17 +112,17 @@ pub enum DataKey {
 // -- TTL Bumpers --
 
 // Instance bumper
-pub fn extend_instance_storage(e: &Env) {
+pub fn extend_instance(e: &Env) {
     e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }
 
 // Persistent individual resource bumper
-pub fn extend_individual_storage(e: &Env, key: &DataKey) {
+pub fn extend_individual(e: &Env, key: &DataKey) {
     e.storage().persistent().extend_ttl(key, INDIVIDUAL_THRESHOLD, INDIVIDUAL_BUMP);
 }
 
 // Persistent shared resource bumper
-pub fn extend_shared_storage(e: &Env, key: &DataKey) {
+pub fn extend_shared(e: &Env, key: &DataKey) {
     e.storage().persistent().extend_ttl(key, SHARED_THRESHOLD, SHARED_BUMP);
 }
 
@@ -131,6 +134,14 @@ pub fn set_oracle(e: &Env, oracle: &Address) {
 }
 pub fn get_oracle(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
+}
+
+// - SwapProvider -
+pub fn set_swap_provider(e: &Env, swap_provider: &Address) {
+    e.storage().instance().set(&DataKey::SwapProvider, &swap_provider)
+}
+pub fn get_swap_provider(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::SwapProvider).expect("SwapProvider must be set")
 }
 
 // - InsuranceFund -
@@ -246,7 +257,7 @@ pub fn clear_farms_contract(e: &Env) {
 pub fn get_all_pools(e: &Env) -> Vec<Address> {
     let res = e.storage().persistent().get(&DataKey::AllPools);
     if let Some(pools) = res {
-        extend_shared_storage(e, &DataKey::AllPools);
+        extend_shared(e, &DataKey::AllPools);
         pools
     } else {
         Vec::new(e)
@@ -260,7 +271,7 @@ pub fn register_pool(e: &Env, pool_address: &Address) -> u32 {
     let mut pools = get_all_pools(e);
     pools.push_back(pool_address.clone());
     e.storage().persistent().set(&DataKey::AllPools, &pools);
-    extend_shared_storage(e, &DataKey::AllPools);
+    extend_shared(e, &DataKey::AllPools);
     pools.len() - 1
 }
 
@@ -270,7 +281,7 @@ pub fn set_pool(e: &Env, pool_address: &Address, pool: &Pool) {
     let key = DataKey::Pool(pool_address.clone());
 
     e.storage().persistent().set(&key, pool);
-    extend_shared_storage(e, &key);
+    extend_shared(e, &key);
 }
 
 // Checks whether a pool with the given address exists
@@ -278,7 +289,7 @@ pub fn pool_exists(e: &Env, pool_address: &Address) -> bool {
     let key = DataKey::Pool(pool_address.clone());
     let res = e.storage().persistent().has(&key);
     if res {
-        extend_shared_storage(e, &key);
+        extend_shared(e, &key);
     }
     res
 }
@@ -288,7 +299,7 @@ pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     let key = DataKey::Pool(pool_address.clone());
     let res = e.storage().persistent().get(&key);
     if res.is_some() {
-        extend_shared_storage(e, &key);
+        extend_shared(e, &key);
     }
     res
 }
@@ -327,7 +338,7 @@ pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), 
 pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpdate> {
     let config_update = e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()));
     if config_update.is_some() {
-        extend_shared_storage(e, &DataKey::ConfigUpdate(pool_address.clone()));
+        extend_shared(e, &DataKey::ConfigUpdate(pool_address.clone()));
     }
 
     config_update
@@ -339,7 +350,7 @@ pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpd
 pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
     let storage = e.storage().persistent();
     if let Some(pairs) = storage.get(&DataKey::AllMultiplyPairs) {
-        extend_shared_storage(e, &DataKey::AllMultiplyPairs);
+        extend_shared(e, &DataKey::AllMultiplyPairs);
         pairs
     } else {
         Vec::new(e)
@@ -353,7 +364,7 @@ pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
     let mut pairs = get_all_multiply_pairs(e);
     pairs.push_back(pair);
     e.storage().persistent().set(&DataKey::AllMultiplyPairs, &pairs);
-    extend_shared_storage(e, &DataKey::AllMultiplyPairs);
+    extend_shared(e, &DataKey::AllMultiplyPairs);
     pairs.len() - 1
 }
 
@@ -366,7 +377,7 @@ pub fn set_multiply_pair(
 ) {
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
     e.storage().persistent().set(&key, pair);
-    extend_shared_storage(e, &key);
+    extend_shared(e, &key);
 }
 
 // Checks whether a multiply pair with the given deposit and borrow pool addresses exists
@@ -378,7 +389,7 @@ pub fn multiply_pair_exists(
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
     let res = e.storage().persistent().has(&key);
     if res {
-        extend_shared_storage(e, &key);
+        extend_shared(e, &key);
     }
 
     res
@@ -393,7 +404,7 @@ pub fn get_multiply_pair(
     let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
     let res = e.storage().persistent().get(&key);
     if res.is_some() {
-        extend_shared_storage(e, &key);
+        extend_shared(e, &key);
     }
     res
 }
@@ -404,7 +415,7 @@ pub fn get_multiply_pair(
 pub fn set_obligation(e: &Env, obligation_key: &ObligationKey, obligation: &Obligation) {
     let key = DataKey::Obligation(obligation_key.clone());
     e.storage().persistent().set(&key, obligation);
-    extend_individual_storage(e, &key);
+    extend_individual(e, &key);
 }
 
 // Gets an obligation by its key, if it exists
@@ -412,7 +423,7 @@ pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligat
     let key = DataKey::Obligation(obligation_key.clone());
     let res = e.storage().persistent().get(&key);
     if res.is_some() {
-        extend_individual_storage(e, &key);
+        extend_individual(e, &key);
     }
     res
 }
@@ -424,7 +435,7 @@ pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
     let key = DataKey::Obligation(obligation_key.clone());
     let res = e.storage().persistent().has(&key);
     if res {
-        extend_individual_storage(e, &key);
+        extend_individual(e, &key);
     }
 
     res
@@ -436,14 +447,14 @@ pub fn register_obligation(e: &Env, obligation_key: &ObligationKey) {
     let mut obligations = get_all_obligations(e);
     obligations.set(obligation_key.clone(), ());
     storage.set(&DataKey::AllObligations, &obligations);
-    extend_shared_storage(e, &DataKey::AllObligations);
+    extend_shared(e, &DataKey::AllObligations);
 }
 
 // Gets all obligation keys stored in the contract
 pub fn get_all_obligations(e: &Env) -> Map<ObligationKey, ()> {
     let storage = e.storage().persistent();
     if let Some(obligations) = storage.get(&DataKey::AllObligations) {
-        extend_shared_storage(e, &DataKey::AllObligations);
+        extend_shared(e, &DataKey::AllObligations);
         obligations
     } else {
         Map::new(e)
