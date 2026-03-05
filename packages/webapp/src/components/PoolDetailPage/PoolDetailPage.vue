@@ -6,6 +6,7 @@ const poolAddress = route.params?.pool as string
 
 const marketsStore = useMarketsStore()
 const loading = computed(() => marketsStore.state.loading)
+const isMarketsLoaded = computed(() => Object.keys(marketsStore.state.markets).length > 0)
 
 const {
   selectedMarketName,
@@ -30,22 +31,19 @@ provide('selectedPool', selectedPool)
 
 <template>
   <main>
-    <div class="market-detail-page container">
+    <pool-detail-skeleton v-if="loading && !isMarketsLoaded" />
+    <div
+      v-else
+      class="market-detail-page container"
+    >
       <pool-detail-top />
 
-      <j-loading-spinner
-        v-if="loading && Object.keys(marketsStore.state.markets).length === 0"
-        class="table-loading-spinner"
-      >
-        Loading market data...
-      </j-loading-spinner>
-
-      <template v-else-if="selectedPool">
+      <template v-if="selectedPool">
         <pool-overview />
       </template>
 
       <div
-        v-else
+        v-else-if="!selectedPool && isMarketsLoaded"
         class="no-data"
       >
         Market or Pool not found
