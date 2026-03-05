@@ -1,7 +1,8 @@
 import type { WatchStopHandle } from 'vue'
-import { calculateBorrow, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import { bpsToNumber } from '@alula/client-sdk'
+import { calculateBorrow } from '@alula/client-sdk/src/utils'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { shortenNumber, truncatePercent } from '~/utils'
+import { calcHealthFactor, shortenNumber, truncatePercent } from '~/utils'
 
 export function useRepayDialog(isOpen: Ref<boolean>) {
   const marketsStore = useMarketsStore()
@@ -42,24 +43,6 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
     }, assetDecimals.value))
   })
 
-  const userTotalDepositByMarket = computed(() => {
-    const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
-    const pools = activeMarket.value?.marketState.pools_data
-    if (!obligation || !pools) {
-      return 0
-    }
-    return calcUserTotalStakeInUsd(obligation, pools, assetDecimals.value, oraclePriceDecimals.value, 'open') ?? 0
-  })
-
-  const userTotalBorrowByMarket = computed(() => {
-    const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
-    const pools = activeMarket.value?.marketState.pools_data
-    if (!obligation || !pools) {
-      return 0
-    }
-    return calcUserTotalBorrowedInUsd(obligation, pools, assetDecimals.value, oraclePriceDecimals.value) ?? 0
-  })
-
   const loading = ref(false)
   const reloadFee = ref(false)
   const isLoadingFee = ref(false)
@@ -78,11 +61,14 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
   })
 
   const healthFactor = computed(() => {
-    const amountInUsd = Number(amount.value || 0) * Number(price.value)
-    const deposited = userTotalDepositByMarket.value
-    const borrowed = Math.max(Number(userTotalBorrowByMarket.value) - amountInUsd, 0)
-    const result = Math.max(deposited / borrowed, 0)
-    return Math.min(result, 10)
+    const poolsData = activeMarket.value?.marketState.pools_data
+    const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
+    if (!poolsData || !obligation) { return 0 }
+
+    const repayLF = bpsToNumber(Number(poolData.value?.pool.config.health_config.liability_factor_bps || 0))
+    const borrowAdjustUsd = -(Number(amount.value || 0) * Number(price.value) * repayLF)
+
+    return calcHealthFactor(obligation, poolsData, assetDecimals.value, oraclePriceDecimals.value, 0, borrowAdjustUsd)
   })
 
   const infoPanelData = computed(() => {

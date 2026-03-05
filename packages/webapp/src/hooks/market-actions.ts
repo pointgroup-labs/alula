@@ -136,11 +136,21 @@ export function useMarketActions() {
     const { asset_code, asset_issuer, symbol } = parseAsset(asset_data)
     const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
 
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
-    }
-    if (balance < amount) {
-      throw new Error('Insufficient balance')
+    try {
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+      if (balance < amount) {
+        throw new Error('Insufficient balance')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Deposit Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     await runAction({
@@ -171,11 +181,21 @@ export function useMarketActions() {
   ) {
     const pk = requireWallet()
     const { client, market, pool_address, amount, asset_data, poolBorrowLimit } = props
-    if (poolBorrowLimit < amount) {
-      throw new Error('Borrow limit exceeded')
-    }
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
+    try {
+      if (poolBorrowLimit < amount) {
+        throw new Error('Borrow limit exceeded')
+      }
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Borrow Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     const { symbol } = parseAsset(asset_data)
@@ -208,12 +228,21 @@ export function useMarketActions() {
     }) {
     const pk = requireWallet()
     const { client, market, pool_address, amount, limit, asset_data, withBuffer } = props
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
-    }
-
-    if (amount > limit) {
-      throw new Error('Withdraw limit exceeded')
+    try {
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+      if (amount > limit) {
+        throw new Error('Withdraw limit exceeded')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Withdraw Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     const { symbol } = parseAsset(asset_data)
@@ -249,12 +278,21 @@ export function useMarketActions() {
   ) {
     const pk = requireWallet()
     const { client, market, pool_address, amount, limit, asset_data, withBuffer } = props
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
-    }
-
-    if (amount > limit) {
-      throw new Error('Withdraw limit exceeded')
+    try {
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+      if (amount > limit) {
+        throw new Error('Withdraw limit exceeded')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Repay Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     const { symbol } = parseAsset(asset_data)
@@ -291,12 +329,21 @@ export function useMarketActions() {
     const { asset_code, asset_issuer, symbol } = parseAsset(asset_data)
     const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
 
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
-    }
-
-    if (balance < amount) {
-      throw new Error('Insufficient balance')
+    try {
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+      if (balance < amount) {
+        throw new Error('Insufficient balance')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Collateral Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     await runAction({
@@ -326,12 +373,21 @@ export function useMarketActions() {
     }) {
     const pk = requireWallet()
     const { client, market, pool_address, amount, limit, asset_data } = props
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
-    }
-
-    if (amount > limit) {
-      throw new Error('Withdraw limit exceeded')
+    try {
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+      if (amount > limit) {
+        throw new Error('Withdraw limit exceeded')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Collateral Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     const { symbol } = parseAsset(asset_data)
@@ -367,8 +423,18 @@ export function useMarketActions() {
   ) {
     const pk = requireWallet()
     const { client, market, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier, asset_code } = props
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
+    try {
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Leverage Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     await runAction({
@@ -411,8 +477,18 @@ export function useMarketActions() {
   ) {
     const pk = requireWallet()
     const { client, market, deposit_pool_address, borrow_pool_address, amount, asset_code } = props
-    if (!amount || amount <= 0) {
-      throw new Error('Amount should be greater than 0')
+    try {
+      if (!amount || amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: `Withdraw Leverage Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
     }
 
     const increasedAmount = amount * 1.05

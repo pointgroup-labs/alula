@@ -1,11 +1,9 @@
 import type { WatchStopHandle } from 'vue'
 import type { MarketTableItem } from '~/types/table'
 import { bpsToNumber, calcFee } from '@alula/client-sdk'
-import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import { calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { truncatePercent } from '~/utils'
-
-const BORROW_SAFETY_BUFFER = 0.95
+import { calcHealthFactor, truncatePercent } from '~/utils'
 
 export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isOpen: Ref<boolean>) {
   const wallet = useWallet()
@@ -48,7 +46,6 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const marketName = String(poolData.value.market)
     const obligation = userStore.state.obligations[marketName]
     const marketState = marketsStore.state.markets[marketName]?.marketState
-    const marketAvailableInUsd = Number(poolBorrowLimit.value) * Number(poolData.value.price)
 
     if (!obligation || !marketState) {
       return 0
@@ -58,14 +55,42 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
 
-    const userDepositWithOpenLTV = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
-    const userTotalBorrowedInUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
+    // Σ(Vc_i × oLTV_i)
+    const depositWithOpenLTV = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
 
-    const userAvailableUsd = Math.max((userDepositWithOpenLTV * BORROW_SAFETY_BUFFER) - userTotalBorrowedInUsd, 0)
-    const maxAvailableUsd = Math.min(userAvailableUsd, marketAvailableInUsd)
-    const maxAvailableAssets = maxAvailableUsd / Number(poolData.value.price)
+    // Σ(Vb_j × LF_j)
+    let borrowedWithLF = 0
+    for (const [borrowedPoolAddress, data] of obligation.borrows) {
+      const borrowedPool = poolsData.find(p => p.pool.pool_address === borrowedPoolAddress)
+      if (!borrowedPool) {
+        continue
+      }
+      const price = borrowedPool.oracle_asset_price
+        ? bigintToNumber(borrowedPool.oracle_asset_price, oraclePriceDecimals)
+        : 0
+      const borrowBps = bigintToNumber(data.d_tokens * BigInt(borrowedPool.d_token_rate_ceil_bps), assetDecimals)
+      const lf = bpsToNumber(Number(borrowedPool.pool.config.health_config.liability_factor_bps))
+      borrowedWithLF += bpsToNumber(Number(borrowBps)) * Number(price) * lf
+    }
 
-    return Number(truncatePercent(maxAvailableAssets, assetDecimals))
+    // Vmin × count of deposit positions with non-zero close LTV
+    const positionsWithNonZeroLTV = obligation.deposits.filter(([poolAddr]) => {
+      const pool = poolsData.find(p => p.pool.pool_address === poolAddr)
+      return pool && Number(pool.pool.config.health_config.close_ltv_bps) > 0
+    }).length
+    const minCollateralUsd = (Number(marketState.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
+
+    // BC = Σ(Vc_i × oLTV_i) − Σ(Vb_j × LF_j) − Vmin × count
+    const borrowingCapacityUsd = Math.max(depositWithOpenLTV - borrowedWithLF - minCollateralUsd, 0)
+
+    // maxTokens = BC / (price × LF) for the target borrow pool
+    const price = Number(poolData.value.price)
+    const liabilityFactor = bpsToNumber(Number(poolData.value.raw.pool.config.health_config.liability_factor_bps))
+    const maxAvailableAssets = price > 0 && liabilityFactor > 0
+      ? borrowingCapacityUsd / (price * liabilityFactor)
+      : 0
+
+    return Number(truncatePercent(Math.min(maxAvailableAssets, poolBorrowLimit.value), assetDecimals))
   })
 
   const closeLTV = computed(() => Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 100)
@@ -88,16 +113,11 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
 
-    const depositUsd = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
-    const borrowedUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-    const price = poolData.value?.price || 0
+    const price = Number(poolData.value?.price || 0)
+    const liabilityFactor = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.liability_factor_bps || 0))
+    const borrowAdjustUsd = (amount.value || 0) * price * liabilityFactor
 
-    const extraBorrowUsd = (amount.value || 0) * price
-    const totalBorrowUsd = borrowedUsd + extraBorrowUsd
-
-    const hf = totalBorrowUsd > 0 ? depositUsd / totalBorrowUsd : 0
-
-    return Math.min(hf, 10)
+    return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals, 0, borrowAdjustUsd)
   })
 
   const marketFee = computed(() => {
