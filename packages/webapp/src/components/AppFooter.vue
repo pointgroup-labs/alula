@@ -6,7 +6,7 @@ import { ALULA_URL } from '~/config'
   <footer>
     <div class="container">
       <div class="copyright">
-        © Copyright 2025 <a
+        © Copyright {{ new Date().getFullYear() }} <a
           :href="ALULA_URL"
           target="_blank"
         >Alula Finance</a>. All rights reserved.
@@ -33,6 +33,7 @@ footer {
   font-weight: 500;
   line-height: 16px;
   border-top: 1px solid $border-color;
+  z-index: 1;
 }
 
 .container {
