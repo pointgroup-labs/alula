@@ -105,6 +105,25 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     return calcFee(Number(amount.value || 0), marketFeeBps || 0)
   })
 
+  const dynamicUtilizationRate = computed(() => {
+    const pool = poolData?.value?.raw.pool
+    const assetDecimals = poolData?.value?.assetDecimals ?? 7
+    if (!pool) {
+      return poolData?.value?.utilization_rate ?? '-'
+    }
+
+    const totalBorrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals))
+    const totalAvailable = Number(bigintToNumber(pool.total_available, assetDecimals))
+    const borrowAmount = Number(amount.value) || 0
+
+    const newTotalBorrowed = totalBorrowed + borrowAmount
+    const newTotalAvailable = Math.max(totalAvailable - borrowAmount, 0)
+    const denominator = newTotalAvailable + newTotalBorrowed
+    const newUtil = denominator > 0 ? newTotalBorrowed / denominator * 100 : 0
+
+    return `${truncatePercent(newUtil, 2)}%`
+  })
+
   const infoPanelData = computed(() => {
     if (!poolData.value) {
       return {}
@@ -140,8 +159,8 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
             value: shortenNumber(availableToBorrow.value || 0),
           },
           {
-            label: 'Liquidation Penalty',
-            value: truncatePercent(liquidationPenalty.value || 0, 2),
+            label: 'Util. Rate',
+            value: dynamicUtilizationRate.value,
           },
         ],
       },
@@ -262,6 +281,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     isLoading,
     isLoadingFee,
     reloadFee,
+    marketFee,
     txFee,
     amount,
     healthFactor,
@@ -269,6 +289,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     availableToBorrow,
     closeLTV,
     liquidationPenalty,
+    dynamicUtilizationRate,
     isCanBorrow,
     attentionText,
     infoPanelData,

@@ -53,3 +53,14 @@ export function checkIsCanUsePool(
 export function maxDecimalsForShortenNumber(value?: number) {
   return !value || value > 1 ? 2 : 7
 }
+
+export function utilRateColor(rate?: number) {
+  if (!rate) {
+    return 'transparent'
+  }
+  switch (true) {
+    case rate >= 80: return '#f43f5e'
+    case rate >= 60: return '#f59e0b'
+    default: return 'rgb(0, 201, 80)'
+  }
+}

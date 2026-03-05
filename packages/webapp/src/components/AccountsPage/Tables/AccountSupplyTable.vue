@@ -57,7 +57,7 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
         asset: getFullTokenData(activePool.pool.token_symbol),
         assetDecimals,
         balance,
-        balanceUsd: formatPrice(balance * Number(price), 2, 2),
+        balanceUsd: balance * Number(price),
         price: Number(price),
         available,
         supply_apy: `${truncatePercent(poolApy || 0, 2)}%`,
@@ -73,6 +73,14 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
   return res.filter(Boolean) as SuppliedCardTableItem[]
 })
 
+const totalSupplyUsd = computed(() => {
+  let sum = 0
+  for (const item of items.value) {
+    sum += Number(item.balanceUsd)
+  }
+  return formatCompactUSD(sum, 2, 2)
+})
+
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
   marketsStore.selectedPoolAddress = item.pool_address
@@ -84,6 +92,12 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
   <div class="account-card">
     <div class="account-card__title">
       Your Supplies
+
+      <metric-indicator
+        label="Total Supplied"
+        :value="`${totalSupplyUsd}`"
+        color="#00c950"
+      />
     </div>
 
     <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
@@ -137,7 +151,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
               {{
                 Number(data.item.balance) > 1000 ? shortenNumber(Number(data.item.balance)) : Number(data.item.balance).toFixed(5)
               }}
-              <span>${{ data.item.balanceUsd }}</span>
+              <span>${{ formatPrice(data.item.balanceUsd, 2, 2) }}</span>
             </div>
           </template>
 
@@ -212,6 +226,9 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
     font-style: normal;
     font-weight: 700;
     line-height: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 
     @media (max-width: $breakpoint-sm) {
       font-size: 16px;

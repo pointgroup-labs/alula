@@ -78,17 +78,6 @@ function onRowClicked(marketName: string, item: MarketTableItem) {
   router.push(`/lend/${marketAddress}/${poolAddress}`)
 }
 
-function utilRateColor(value?: number) {
-  if (!value) {
-    return 'transparent'
-  }
-  switch (true) {
-    case value >= 80: return '#f43f5e'
-    case value >= 60: return '#8a8df4'
-    default: return 'rgb(0, 201, 80)'
-  }
-}
-
 function rowClass(item: any): any {
   if (!item) {
     return

@@ -53,7 +53,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
       const price = activePool.oracle_asset_price ? bigintToNumber(activePool.oracle_asset_price, oraclePriceDecimals) : 0
 
       const debt = Number(rawDept)
-      const debtUsd = formatPrice(Number(debt) * Number(price), 2, 2)
+      const debtUsd = Number(debt) * Number(price)
 
       const [, asset_issuer] = destructurePoolAsset(activePool.pool.name)
       const borrowApy = activePool.apy.borrow_bps / 100
@@ -82,6 +82,14 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
   return res?.filter(Boolean) as BorrowCardTableItem[]
 })
 
+const totalDebt = computed(() => {
+  let sum = 0
+  for (const item of items.value) {
+    sum += Number(item.debtUsd)
+  }
+  return formatCompactUSD(sum, 2, 2)
+})
+
 function withdrawDialogHandler(item: BorrowCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
   marketsStore.selectedPoolAddress = item.pool_address
@@ -93,6 +101,12 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
   <div class="account-card">
     <div class="account-card__title">
       Your Borrows
+
+      <metric-indicator
+        label="Total Borrowed"
+        :value="`${totalDebt}`"
+        color="#f43f5e"
+      />
     </div>
 
     <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
@@ -146,7 +160,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
               {{
                 Number(data.item.debt) > 1000 ? shortenNumber(Number(data.item.debt)) : Number(data.item.debt).toFixed(5)
               }}
-              <span>${{ data.item.debtUsd }}</span>
+              <span>${{ formatPrice(data.item.debtUsd, 2, 2) }}</span>
             </div>
           </template>
 

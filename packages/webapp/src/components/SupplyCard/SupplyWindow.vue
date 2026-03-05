@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { calcFee } from '@alula/client-sdk/src/utils'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
 
@@ -8,16 +7,8 @@ const emits = defineEmits(['dialogHandler'])
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
 
-const marketsStore = useMarketsStore()
-const market = useMarketActions()
-
-const amount = toRef(market, 'depositAmount')
-
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
-
 const {
-  marketClient,
+  amount,
   collateralOnly,
   balance,
   txFee,
@@ -27,43 +18,19 @@ const {
   isLoading,
   isCanSupply,
   attentionText,
+  marketFee,
+  dynamicUtilizationRate,
+  supply: doSupply,
 } = useSupplyDialog(selectedPool, toRef(true))
-
-const marketFee = computed(() => {
-  const marketFeeBps = collateralOnly.value
-    ? selectedPool?.value?.raw.pool.config.fee_config.add_collateral_fee_bps
-    : selectedPool?.value?.raw.pool.config.fee_config.deposit_fee_bps
-  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
-})
 
 const reserveAmount = computed(() => selectedPool?.value?.raw.pool.token_symbol === 'native' ? 2 : 0)
 
 async function supply() {
-  try {
-    if (!publicKey.value || !selectedPool?.value?.raw.pool.pool_address) {
-      return
-    }
-    if (!amount.value || amount.value <= 0) {
-      focusInput('.input-wrapper')
-      return
-    }
-    marketsStore.poolActiveAddress = selectedPool?.value?.raw.pool.pool_address
-
-    const marketProps = {
-      market: marketsStore.selectedMarketName,
-      client: marketClient.value!,
-      pool_address: selectedPool?.value?.raw.pool.pool_address,
-      amount: amount.value,
-      asset_data: selectedPool?.value?.raw.pool.name,
-    }
-    collateralOnly.value
-      ? await market.addCollateral(marketProps)
-      : await market.deposit(marketProps)
-
-    marketsStore.dialogSupply = false
-  } finally {
-    marketsStore.poolActiveAddress = undefined
+  if (!amount.value || amount.value <= 0) {
+    focusInput('.input-wrapper')
+    return
   }
+  await doSupply()
 }
 
 const debouncedFn = useDebounceFn(calculateRewardsEarnings, 500)
@@ -213,8 +180,11 @@ const rewardsEarnings = computedAsync(async () => {
           <div class="label">
             Utilization Rate
           </div>
-          <div class="value">
-            {{ selectedPool?.utilization_rate }}
+          <div
+            class="value"
+            :style="{ color: utilRateColor(Number(dynamicUtilizationRate.replace('%', ''))) }"
+          >
+            {{ dynamicUtilizationRate }}
           </div>
         </div>
 

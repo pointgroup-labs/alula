@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { calcFee, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, truncatePercent } from '~/utils'
 
@@ -8,85 +7,28 @@ const emits = defineEmits(['dialogHandler'])
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
 
-const marketsStore = useMarketsStore()
-const market = useMarketActions()
-
-const userStore = useUserStore()
-
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
-
 const {
-  marketClient,
+  amount,
   agree,
   isLoading,
+  marketFee,
   txFee,
-  poolBorrowLimit,
   isLoadingFee,
   availableToBorrow,
   closeLTV,
-  liquidationPenalty,
   isCanBorrow,
   attentionText,
+  healthFactor,
+  dynamicUtilizationRate,
+  borrow: doBorrow,
 } = useBorrowDialog(selectedPool, toRef(true))
 
-const amount = toRef(market, 'borrowAmount')
-
-const healthFactor = computed(() => {
-  const marketName = String(selectedPool?.value?.market)
-  const obligation = userStore.state.obligations[marketName]
-  const marketState = marketsStore.state.markets[marketName]?.marketState
-  if (!obligation || !marketState) {
-    return 0
-  }
-  const assetDecimals = marketState.asset_decimals ?? 7
-  const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-  const poolsData = marketState.pools_data
-
-  const depositUsd = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
-  const borrowedUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-  const price = selectedPool?.value?.price || 0
-
-  const extraBorrowUsd = (amount.value || 0) * price
-  const totalBorrowUsd = borrowedUsd + extraBorrowUsd
-
-  const hf = totalBorrowUsd > 0 ? depositUsd / totalBorrowUsd : 0
-
-  return Math.min(hf, 10)
-})
-
-const marketFee = computed(() => {
-  const marketFeeBps = selectedPool?.value?.raw.pool.config.fee_config.borrow_fee_bps
-  return calcFee(Number(amount.value || 0), marketFeeBps || 0)
-})
-
 async function borrow() {
-  if (!publicKey.value || !selectedPool?.value?.raw.pool.pool_address) {
-    return
-  }
   if (!amount.value || amount.value <= 0) {
     focusInput('.input-wrapper')
     return
   }
-
-  try {
-    marketsStore.poolActiveAddress = selectedPool?.value?.raw.pool.pool_address
-
-    const marketProps = {
-      market: marketsStore.selectedMarketName,
-      client: marketClient.value!,
-      pool_address: selectedPool?.value?.raw.pool.pool_address,
-      amount: amount.value,
-      asset_data: selectedPool?.value?.raw.pool.name,
-      poolBorrowLimit: poolBorrowLimit.value,
-    }
-
-    await market.borrow(marketProps)
-
-    marketsStore.dialogBorrow = false
-  } finally {
-    marketsStore.poolActiveAddress = undefined
-  }
+  await doBorrow()
 }
 
 const debouncedFn = useDebounceFn(calculateDebtAccrual, 500)
@@ -235,13 +177,16 @@ const debtAccrual = computedAsync(async () => {
           </div>
         </div>
 
-        <!-- Liquidation penalty -->
+        <!-- Utilization Rate -->
         <div class="summary-list__item">
           <div class="label">
-            Liquidation penalty
+            Utilization Rate
           </div>
-          <div class="value">
-            {{ truncatePercent(liquidationPenalty || 0, 2) }}%
+          <div
+            class="value"
+            :style="{ color: utilRateColor(Number(dynamicUtilizationRate.replace('%', ''))), opacity: 1 }"
+          >
+            {{ dynamicUtilizationRate }}
           </div>
         </div>
 

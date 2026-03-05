@@ -59,6 +59,23 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     return calcFee(Number(amount.value || 0), marketFeeBps || 0)
   })
 
+  const dynamicUtilizationRate = computed(() => {
+    const pool = poolData?.value?.raw.pool
+    const assetDecimals = poolData?.value?.assetDecimals ?? 7
+    if (!pool) {
+      return poolData?.value?.utilization_rate ?? '-'
+    }
+
+    const totalBorrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals))
+    const totalAvailable = Number(bigintToNumber(pool.total_available, assetDecimals))
+    const depositAmount = collateralOnly.value ? 0 : (Number(amount.value) || 0)
+
+    const newTotalAvailable = totalAvailable + depositAmount
+    const newUtil = totalBorrowed > 0 ? totalBorrowed / (newTotalAvailable + totalBorrowed) * 100 : 0
+
+    return `${truncatePercent(newUtil, 2)}%`
+  })
+
   const infoPanelData = computed(() => {
     if (!poolData.value) {
       return {}
@@ -78,7 +95,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
           },
           {
             label: 'Util. Rate',
-            value: poolData.value.utilization_rate,
+            value: dynamicUtilizationRate.value,
           },
         ],
       },
@@ -247,6 +264,8 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     isCanSupply,
     attentionText,
     infoPanelData,
+    marketFee,
+    dynamicUtilizationRate,
     supply,
     startFeeInterval,
     stopSupplyWatchers,
