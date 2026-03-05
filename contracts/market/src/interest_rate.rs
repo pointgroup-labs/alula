@@ -84,7 +84,7 @@ impl Pool {
                 .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR * 10)
                 .map_over_or_underflow()?;
 
-            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier - rate_diff)
+            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier.saturating_sub(rate_diff))
         } else {
             // Negative diff - modifier increases
             let rate_diff = utilization_error
@@ -92,7 +92,7 @@ impl Pool {
                 .map_over_or_underflow()?
                 .checked_neg()
                 .map_over_or_underflow()?;
-            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier + rate_diff)
+            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier.saturating_add(rate_diff))
         };
 
         self.interest_rate_modifier = new_interest_rate_modifier;

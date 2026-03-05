@@ -311,7 +311,7 @@ impl Obligation {
                 .checked_mul(amount_of_borrow_backing_collateral_positions as i128)
                 .map_over_or_underflow()?;
             let borrow_backing_value_left =
-                i128::max(value_left - min_collateral_value_requirement, 0);
+                i128::max(value_left.saturating_sub(min_collateral_value_requirement), 0);
 
             // ----
             // borrow_backing_value_left = (amount * asset_price / 10^decimals) * (scalar_bps / BPS_FACTOR)
@@ -661,7 +661,7 @@ impl Obligation {
             let max_healthy = self.compute_max_healthy_collateral_removed_amount(e, pool)?;
 
             if provided_amount == i128::MAX {
-                max_healthy
+                max_healthy.min(all_deposit)
             } else if amount_capped_to_deposit > max_healthy {
                 return Err(MCError::UnhealthyOperation);
             } else {

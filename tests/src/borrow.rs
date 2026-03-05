@@ -377,7 +377,7 @@ fn test_borrow_w_different_token_decimals() {
     const ORACLE_PRICE_DECIMALS: u32 = 14;
 
     let e = get_default_env();
-    e.mock_all_auths_allowing_non_root_auth();
+    e.mock_all_auths();
 
     let borrower = Address::generate(&e);
     let contract_admin = Address::generate(&e);

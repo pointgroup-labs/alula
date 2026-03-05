@@ -819,8 +819,8 @@ fn test_liquidate_with_excess_repay_amount_refunds_difference() {
     let liquidator_net_spend = liquidator_borrow_token_before - liquidator_borrow_token_after;
     assert_eq!(
         liquidator_net_spend, actual_debt,
-        "Liquidator should only pay the actual debt ({actual_debt}), not the full \
-         repay_amount ({repay_amount}). Net spend was {liquidator_net_spend}"
+        "Liquidator should only pay the actual debt ({actual_debt}), not the full repay_amount \
+         ({repay_amount}). Net spend was {liquidator_net_spend}"
     );
 
     let contract_borrow_token_increase = contract_borrow_token_after - contract_borrow_token_before;

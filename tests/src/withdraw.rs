@@ -9,7 +9,7 @@ use soroban_sdk::testutils::Ledger;
 
 use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, MCError, TestMarketFixture,
-    assert_approx_eq_rel, get_deposit_position, get_obligation_collateral,
+    assert_approx_eq_rel, get_deposit_position, get_obligation_collateral, get_obligation_d_tokens,
     get_obligation_j_tokens_as_tokens, get_obligation_originally_deposited,
     get_pool_operation_fees_sum, get_pool_total_available, get_pool_total_borrowed,
     get_pool_total_collateral, get_pool_total_supply,
@@ -646,4 +646,57 @@ fn test_simulate_withdraw_accrues_interest() {
 
     assert_eq!(creditor_balance_diff, simulated.withdrawer_to_receive);
     assert_eq!(fees_diff, simulated.operation_fees.fee_sum);
+}
+
+#[test]
+fn test_withdraw_all_when_borrow_exists_but_max_healthy_exceeds_deposit() {
+    let TestMarketFixture {
+        contract_client,
+        gold_pool_address,
+        btc_pool_address,
+        usdc_pool_address,
+        users,
+        gold_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let user = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    // Deposit GOLD and add BTC collateral so the combined collateral value greatly exceeds
+    // the borrow. max_healthy for the GOLD pool alone will exceed the user's GOLD deposit
+    // because the surplus is computed globally across all deposit pools
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(user, &btc_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
+
+    contract_client.borrow(user, &usdc_pool_address, &1, &None);
+
+    let balance_before = gold_token_client.balance(user);
+
+    // i128::MAX should withdraw the entire GOLD deposit, not an uncapped max_healthy value
+    contract_client.withdraw(user, &gold_pool_address, &i128::MAX, &None);
+
+    let received = gold_token_client.balance(user).checked_sub(balance_before).unwrap();
+    assert_eq!(received, DEFAULT_DEPOSIT_AMOUNT);
+
+    assert_eq!(
+        get_deposit_position(&contract_client, user, &gold_pool_address),
+        Err(MCError::DepositPositionDoesNotExist)
+    );
+
+    let pool_total_supply = get_pool_total_supply(&contract_client, &gold_pool_address).unwrap();
+    assert_eq!(pool_total_supply, 0);
+
+    // The borrow still exists
+    assert!(get_obligation_d_tokens(&contract_client, user, &usdc_pool_address).unwrap() > 0);
+
+    // Explicit amount == all_deposit should also succeed (not UnhealthyOperation)
+    contract_client.deposit(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.withdraw(user, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+
+    assert_eq!(
+        get_deposit_position(&contract_client, user, &gold_pool_address),
+        Err(MCError::DepositPositionDoesNotExist)
+    );
 }

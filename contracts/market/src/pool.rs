@@ -1,4 +1,4 @@
-use soroban_fixed_point_math::FixedPoint;
+use soroban_fixed_point_math::{FixedPoint, SorobanFixedPoint};
 use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
 
 use crate::{
@@ -373,9 +373,12 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-        let tokens_amount = shares_amount
-            .fixed_mul_ceil(total_tokens_amount, total_shares_amount)
-            .map_over_or_underflow()?;
+        let tokens_amount = SorobanFixedPoint::fixed_mul_ceil(
+            &shares_amount,
+            e,
+            &total_tokens_amount,
+            &total_shares_amount,
+        );
 
         Ok(tokens_amount)
     }
@@ -400,9 +403,12 @@ impl Pool {
 
             return Err(MCError::InternalError);
         }
-        let tokens_amount = shares_amount
-            .fixed_mul_floor(total_tokens_amount, total_shares_amount)
-            .map_over_or_underflow()?;
+        let tokens_amount = SorobanFixedPoint::fixed_mul_floor(
+            &shares_amount,
+            e,
+            &total_tokens_amount,
+            &total_shares_amount,
+        );
 
         Ok(tokens_amount)
     }
@@ -420,7 +426,7 @@ impl Pool {
         }
 
         let shares_amount = if total_shares_amount == 0 {
-            INITIAL_SHARES_AMOUNT
+            tokens_amount
         } else {
             // This must hold when issuing new shares:
             // ----
@@ -456,7 +462,7 @@ impl Pool {
         }
 
         let shares_amount = if total_shares_amount == 0 {
-            INITIAL_SHARES_AMOUNT
+            tokens_amount
         } else {
             total_shares_amount
                 .fixed_div_floor(total_tokens_amount, tokens_amount)
