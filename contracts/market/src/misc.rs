@@ -3,7 +3,6 @@ use soroban_sdk::{Env, Vec, contracttype};
 use crate::{
     error::MCError,
     interest_rate::AnnualPercentageYields,
-    multiply_pair::MultiplyPair,
     pool::Pool,
     storage::{self, GlobalState, MarketStatus},
 };
@@ -28,9 +27,7 @@ pub struct PoolData {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct MarketData {
     pub pools_data: Vec<PoolData>,
-    pub multiply_pairs: Vec<MultiplyPair>,
     pub global_state: GlobalState,
-    pub asset_decimals: u32,
     pub oracle_price_decimals: u32,
 }
 

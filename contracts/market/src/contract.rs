@@ -13,8 +13,7 @@ use crate::{
         require_deposits_on_market_allowed, require_insurance_fund, require_market_not_frozen,
         require_nonnegative, require_owned_and_admin,
     },
-    multiply_pair::MultiplyPair,
-    obligation::{Obligation, ObligationKey, WithdrawResult, get_earn_obligation_seed},
+    obligation::{Obligation, ObligationKey, WithdrawResult},
     oracle,
     pool::{Pool, PoolConfig},
     processors::*,
@@ -27,7 +26,7 @@ pub trait Market {
     // Submits a request batch
     fn submit_requests_batch(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         requests: Vec<Request>,
         referrer: Option<Address>,
     ) -> Result<(), MCError>;
@@ -78,17 +77,6 @@ pub trait Market {
         token_address: Address,
         pool_config: Option<PoolConfig>,
     ) -> Result<Address, MCError>;
-
-    // Initializes a multiply pair
-    //
-    // # Arguments
-    // * `deposit_pool_address` - address of a pool in a pair for a leveraged deposit
-    // * `borrow_pool_address` - address of a pool in a pair for a leveraged borrow
-    fn initialize_multiply_pair(
-        e: Env,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError>;
 
     // Queues in pool's config update
     //
@@ -153,54 +141,9 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn deposit(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError>;
-
-    // Deposits tokens into the loan pool as a part of the `Earn` isolated obligation that prohibits all types of borrowing
-    //
-    // # Arguments
-    // * `user` - user that deposits a token
-    // * `pool_address` - address of a pool to which the deposit happens
-    // * `amount` - amount of tokens which are going to be deposited
-    // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
-    fn deposit_earn(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError>;
-
-    // Deposits tokens into the loan pool with leverage. Leverage is achieved by utilizing flash
-    // loan and token swap
-    //
-    // # WARNING
-    // This increases the perceived `supply APR` only for favorable supply and borrow APRs
-    // on deposited and borrowed tokens respectively
-    //
-    // # Arguments
-    // * `user` - user that deposits tokens with leverage
-    // * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
-    // * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
-    // * `deposit_as_margin` - flag that determines which asset(deposited or borrowed) will be used
-    //   as the provided by the user initial margin amount
-    // * `amount` - original borrow amount before the leverage
-    // * `leverage_multiplier` - leverage multiplier, where the last two digits represent decimal
-    //   places (e.g., 700 for x7.00, 255 for x2.55, etc.)
-    // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
-    fn deposit_with_leverage(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-        deposit_as_margin: bool,
-        amount: i128,
-        // TODO: swap_aggregator_address: Address? This requires standardization
-        // TODO: Account for slippage
-        leverage_multiplier: u32,
         referrer: Option<Address>,
     ) -> Result<(), MCError>;
 
@@ -216,7 +159,7 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn withdraw(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -237,65 +180,11 @@ pub trait Market {
     // [`WithdrawResult`] with simulated withdrawal data
     fn simulate_withdraw(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
     ) -> Result<WithdrawResult, MCError>;
-
-    // Simulates Withdrawal of the deposited tokens from the `Earn` obligation from the loan pool to the user
-    //
-    // # Arguments
-    // * `user` - user that deposits a token
-    // * `pool_address` - address of a pool to which the deposit happens
-    // * `amount` - amount of tokens which are going to be deposited
-    // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
-    //
-    // # Returns
-    // [`WithdrawResult`] with simulated withdrawal data
-    fn simulate_earn_withdraw(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<WithdrawResult, MCError>;
-
-    // Withdraws deposited tokens from the `Earn` obligation from the loan pool to the user
-    //
-    // # Arguments
-    // * `user` - user that deposits a token
-    // * `pool_address` - address of a pool to which the deposit happens
-    // * `amount` - amount of tokens which are going to be deposited
-    // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
-    fn withdraw_earn(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError>;
-
-    // Withdraws tokens from the leveraged deposit position without affecting the leverage
-    // multiplier
-    //
-    // # Arguments
-    // * `user` - user that deleverages and withdraws from the position
-    // * `deposit_pool_address` - address of a pool from the pair to which the deposit happened
-    // * `borrow_pool_address` - address of a pool from the pair from which the borrow happened
-    // * `amount` - desired amount of tokens to receive in the user wallet
-    //   The actual amount withdrawn is capped by the value difference between deposited and borrowed
-    //   tokens in the leveraged position (minus operational fees). Passing [`u64::MAX`] (or
-    //   [`i128::MAX`]) can be used to withdraw all available tokens
-    // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
-    fn withdraw_from_leveraged(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError>;
 
     // Borrows tokens from the loan pool
     //
@@ -306,7 +195,7 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn borrow(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -323,7 +212,7 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn add_collateral(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -341,7 +230,7 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn remove_collateral(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -358,7 +247,7 @@ pub trait Market {
     // * `referrer` - optional referrer's address. Depending on the pool's configuration, referrers are eligible for immediate fees
     fn repay(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -369,7 +258,6 @@ pub trait Market {
     // # Arguments
     // * `liquidator` - agent that liquidates the borrower's position
     // * `borrower` - the borrower whose position is being liquidated
-    // * `borrower_obligation_seed` - the borrower obligation's seed(if any)
     // * `borrow_pool_address` - address of a pool whose borrowed tokens are repaid by the
     //       liquidator
     // * `collateral_pool_address` - address of a pool whose tokens are sold to the liquidator with
@@ -379,8 +267,7 @@ pub trait Market {
     fn liquidate(
         e: Env,
         liquidator: Address,
-        borrower: Address,
-        borrower_obligation_seed: Option<BytesN<32>>,
+        borrower: ObligationKey,
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         repay_amount: i128,
@@ -407,48 +294,19 @@ pub trait Market {
     //
     // # Arguments
     // * `user` - user that has a bad debt
-    fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError>;
-
-    // Issues `cover bad debt` requests on a bad debt borrow position on the user's multiply pair obligation to the Insurance Fund contract
-    //
-    // # Arguments
-    // * `user` - user that has a bad debt
-    // * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
-    // * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
-    fn issue_cover_bad_debt_pair(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError>;
+    fn issue_cover_bad_debt(e: Env, user: ObligationKey) -> Result<(), MCError>;
 
     // Claims `cover bad debt` requests results for the user's obligation from the Insurance Fund if they exist
     //
     // # Arguments
     // * `user` - user that has open `cover bad debt` requests
-    fn claim_cover_bad_debt_results(e: Env, user: Address) -> Result<(), MCError>;
-
-    // Claims `cover bad debt` request's result for the user's multiply pair obligation from the Insurance Fund if it exists
-    //
-    // # Arguments
-    // * `user` - user that has an open `cover bad debt` requests
-    // * `deposit_pool_address` - address of a pool from the pair to which the deposit happens
-    // * `borrow_pool_address` - address of a pool from the pair from which the borrow happens
-    fn claim_cover_bad_debt_result_pair(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError>;
+    fn claim_cover_bad_debt_results(e: Env, user: ObligationKey) -> Result<(), MCError>;
 
     // Distributes a pool's fees to the beneficiaries
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError>;
 
     // Distributes all pools' fees to the beneficiaries
     fn distribute_all_pools_fees(e: Env) -> Result<(), MCError>;
-
-    // Returns asset's decimals
-    fn get_asset_decimals() -> u32;
 
     // Returns oracle price's decimals
     fn get_oracle_price_decimals(e: Env) -> u32;
@@ -463,43 +321,13 @@ pub trait Market {
     //
     // # Arguments
     // * `user` - user which obligation is returned
-    fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError>;
+    fn get_user_obligation(e: Env, user: ObligationKey) -> Result<Obligation, MCError>;
 
     // Accrues interest on all pools to whose obligation has open positions
-    fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError>;
-
-    // Accrues interest on all pools to whose earn obligation has open positions
-    fn refresh_earn_obligation(e: Env, user: Address) -> Result<(), MCError>;
-
-    // Accrues interest on all pools to whose multiply pair obligation has open positions
-    fn refresh_multiply_pair_obligation(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError>;
+    fn refresh_obligation(e: Env, user: ObligationKey) -> Result<(), MCError>;
 
     // Accrues interest on a pool
     fn refresh_pool(e: Env, pool_address: Address) -> Result<(), MCError>;
-
-    // Returns the user's `Earn` obligation
-    //
-    // # Arguments
-    // * `user` - user whose `Earn` obligation is returned
-    fn get_earn_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError>;
-
-    // Returns the user's obligation for a specific multiply pair
-    //
-    // # Arguments
-    // * `user` - user whose obligation is returned
-    // * `deposit_pool_address` - address of a deposit pool from the pair
-    // * `borrow_pool_address` - address of a borrow pool from the pair
-    fn get_multiply_pair_obligation(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<Obligation, MCError>;
 
     // Returns the specific loan pool
     //
@@ -527,20 +355,6 @@ pub trait Market {
     // A proper way of accessing a list of all obligations would be to read
     // the corresponding storage entry
     fn get_all_obligations(e: Env) -> Vec<ObligationKey>;
-
-    // Returns the specific multiply pair
-    //
-    // # Arguments
-    // * `deposit_pool_address` - deposit pool of a pair that is returned
-    // * `borrow_pool_address` - borrow pool of a pair that is returned
-    fn get_multiply_pair(
-        e: Env,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<MultiplyPair, MCError>;
-
-    // Returns a list of all multiply pairs registered for the market
-    fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair>;
 
     // Sets the farms contract address for this market
     //
@@ -589,25 +403,6 @@ pub trait Market {
     // * `user` - User whose farms to refresh
     fn refresh_obligation_farms(e: Env, user: Address) -> Result<(), MCError>;
 
-    // Refreshes farm stakes for a user's earn obligation (permissionless)
-    //
-    // # Arguments
-    // * `user` - User whose earn obligation farms to refresh
-    fn refresh_earn_obligation_farms(e: Env, user: Address) -> Result<(), MCError>;
-
-    // Refreshes farm stakes for a user's multiply pair obligation (permissionless).
-    //
-    // # Arguments
-    // * `user` - User whose multiply pair farms to refresh
-    // * `deposit_pool_address` - Deposit pool of the multiply pair
-    // * `borrow_pool_address` - Borrow pool of the multiply pair
-    fn refresh_multiply_pair_farms(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError>;
-
     // Upgrades the lending contract
     //
     // # Arguments
@@ -638,16 +433,14 @@ impl Market for MarketContract {
     // TODO: Re-design this to include liquidations and leveraged operations
     fn submit_requests_batch(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         requests: Vec<Request>,
         referrer: Option<Address>,
     ) -> Result<(), MCError> {
         user.require_auth();
+        storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user.clone());
-
-        process_submit_requests_batch(&e, &user, &requests, &obligation_key, &referrer)?
-            .execute_transfers(&e)
+        process_submit_requests_batch(&e, &requests, &user, &referrer)
     }
 
     fn get_global_state(e: Env) -> GlobalState {
@@ -717,17 +510,6 @@ impl Market for MarketContract {
         storage::extend_instance(&e);
 
         process_initialize_pool(&e, &token_address, &pool_config)
-    }
-
-    fn initialize_multiply_pair(
-        e: Env,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError> {
-        require_admin(&e);
-        storage::extend_instance(&e);
-
-        process_initialize_multiply_pair(&e, &deposit_pool_address, &borrow_pool_address)
     }
 
     fn queue_in_pool_config_update(
@@ -833,7 +615,7 @@ impl Market for MarketContract {
 
     fn deposit(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -842,33 +624,12 @@ impl Market for MarketContract {
         require_deposits_on_market_allowed(&e)?;
         storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user);
-
-        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers(&e)
-    }
-
-    fn deposit_earn(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError> {
-        user.require_auth();
-        require_deposits_on_market_allowed(&e)?;
-        storage::extend_instance(&e);
-
-        let earn_seed: BytesN<32> = get_earn_obligation_seed(&e);
-        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
-
-        process_deposit(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers(&e)
+        process_deposit(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
     fn borrow(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -877,14 +638,12 @@ impl Market for MarketContract {
         require_borrows_on_market_allowed(&e)?;
         storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user);
-
-        process_borrow(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_borrow(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
     fn add_collateral(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -893,15 +652,12 @@ impl Market for MarketContract {
         require_market_not_frozen(&e)?;
         storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user);
-
-        process_add_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers(&e)
+        process_add_collateral(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
     fn remove_collateral(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -910,15 +666,13 @@ impl Market for MarketContract {
         require_market_not_frozen(&e)?;
         storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user);
-
-        process_remove_collateral(&e, &obligation_key, &pool_address, amount, &referrer)?
+        process_remove_collateral(&e, &user, &pool_address, amount, &referrer)?
             .execute_transfers(&e)
     }
 
     fn repay(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -927,16 +681,13 @@ impl Market for MarketContract {
         require_market_not_frozen(&e)?;
         storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user);
-
-        process_repay(&e, &obligation_key, &pool_address, amount, &referrer)?.execute_transfers(&e)
+        process_repay(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
     fn liquidate(
         e: Env,
         liquidator: Address,
-        borrower: Address,
-        borrower_obligation_seed: Option<BytesN<32>>,
+        borrower: ObligationKey,
         borrow_pool_address: Address,
         collateral_pool_address: Address,
         repay_amount: i128,
@@ -946,14 +697,10 @@ impl Market for MarketContract {
         liquidator.require_auth();
         require_market_not_frozen(&e)?;
 
-        let obligation_key = borrower_obligation_seed
-            .map(|seed| ObligationKey::new_with_seed(borrower.clone(), seed))
-            .unwrap_or_else(|| ObligationKey::new(borrower));
-
         process_liquidate(
             &e,
             &liquidator,
-            &obligation_key,
+            &borrower,
             &borrow_pool_address,
             &collateral_pool_address,
             repay_amount,
@@ -964,7 +711,7 @@ impl Market for MarketContract {
 
     fn withdraw(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
@@ -973,53 +720,17 @@ impl Market for MarketContract {
         require_market_not_frozen(&e)?;
         storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user);
-
-        process_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers(&e)
+        process_withdraw(&e, &user, &pool_address, amount, &referrer)?.execute_transfers(&e)
     }
 
     fn simulate_withdraw(
         e: Env,
-        user: Address,
+        user: ObligationKey,
         pool_address: Address,
         amount: i128,
         referrer: Option<Address>,
     ) -> Result<WithdrawResult, MCError> {
-        let obligation_key = ObligationKey::new(user);
-
-        process_simulate_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)
-    }
-
-    fn simulate_earn_withdraw(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<WithdrawResult, MCError> {
-        let earn_seed = get_earn_obligation_seed(&e);
-        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
-
-        process_simulate_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)
-    }
-
-    fn withdraw_earn(
-        e: Env,
-        user: Address,
-        pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError> {
-        user.require_auth();
-        require_market_not_frozen(&e)?;
-        storage::extend_instance(&e);
-
-        let earn_seed = get_earn_obligation_seed(&e);
-        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
-
-        process_withdraw(&e, &obligation_key, &pool_address, amount, &referrer)?
-            .execute_transfers(&e)
+        process_simulate_withdraw(&e, &user, &pool_address, amount, &referrer)
     }
 
     fn flash_loan(
@@ -1036,100 +747,16 @@ impl Market for MarketContract {
         process_flash_loan(&e, &contract, &pool_address, amount)
     }
 
-    fn deposit_with_leverage(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-        deposit_as_margin: bool,
-        amount: i128,
-        leverage_multiplier: u32,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError> {
+    fn issue_cover_bad_debt(e: Env, user: ObligationKey) -> Result<(), MCError> {
         storage::extend_instance(&e);
-        user.require_auth();
-        require_deposits_on_market_allowed(&e)?;
-        require_borrows_on_market_allowed(&e)?;
 
-        let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
-        let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
-        // TODO: We can allow to multiply more but only with the preserved current multiplier
-        if storage::obligation_exists(&e, &obligation_key) {
-            return Err(MCError::InvalidLeverageInputs);
-        }
-
-        process_deposit_with_leverage(
-            &e,
-            &obligation_key,
-            &multiply_pair,
-            deposit_as_margin,
-            amount,
-            leverage_multiplier,
-            &referrer,
-        )?;
-
-        Ok(())
+        process_issue_cover_bad_debt(&e, user)
     }
 
-    fn withdraw_from_leveraged(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-        amount: i128,
-        referrer: Option<Address>,
-    ) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-        user.require_auth();
-        require_deposits_on_market_allowed(&e)?;
-        require_borrows_on_market_allowed(&e)?;
-
-        let multiply_pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
-        let obligation_key = ObligationKey::new_with_seed(user.clone(), multiply_pair.seed.clone());
-
-        process_withdraw_from_leveraged(&e, &obligation_key, &multiply_pair, amount, &referrer)
-    }
-
-    fn issue_cover_bad_debt(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-        let obligation_key = ObligationKey::new(user);
-
-        process_issue_cover_bad_debt(&e, obligation_key)
-    }
-
-    fn issue_cover_bad_debt_pair(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError> {
+    fn claim_cover_bad_debt_results(e: Env, user: ObligationKey) -> Result<(), MCError> {
         storage::extend_instance(&e);
 
-        let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
-        let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
-
-        process_issue_cover_bad_debt(&e, obligation_key)
-    }
-
-    fn claim_cover_bad_debt_results(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-        let obligation_key = ObligationKey::new(user);
-
-        process_claim_cover_bad_debt_results(&e, obligation_key)
-    }
-
-    fn claim_cover_bad_debt_result_pair(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-
-        let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
-        let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
-
-        process_claim_cover_bad_debt_results(&e, obligation_key)
+        process_claim_cover_bad_debt_results(&e, user)
     }
 
     fn distribute_pool_fees(e: Env, pool_address: Address) -> Result<(), MCError> {
@@ -1144,11 +771,6 @@ impl Market for MarketContract {
         process_distribute_all_pools_fees(&e)
     }
 
-    fn get_asset_decimals() -> u32 {
-        // See - <https://github.com/stellar/rs-soroban-env/blob/main/soroban-env-host/src/builtin_contracts/stellar_asset_contract/contract.rs#L374>
-        7
-    }
-
     fn get_oracle_price_decimals(e: Env) -> u32 {
         oracle::get_oracle_price_decimals(&e)
     }
@@ -1159,45 +781,16 @@ impl Market for MarketContract {
         oracle::get_asset_price(&e, &pool.token_address)
     }
 
-    fn get_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
-        let obligation_key = ObligationKey::new(user);
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
+    fn get_user_obligation(e: Env, user: ObligationKey) -> Result<Obligation, MCError> {
+        let obligation = Obligation::try_get(&e, &user)?;
 
         Ok(obligation)
     }
 
-    fn refresh_obligation(e: Env, user: Address) -> Result<(), MCError> {
+    fn refresh_obligation(e: Env, user: ObligationKey) -> Result<(), MCError> {
         storage::extend_instance(&e);
 
-        let obligation_key = ObligationKey::new(user.clone());
-        process_refresh_obligation(&e, obligation_key)?;
-
-        Ok(())
-    }
-
-    fn refresh_earn_obligation(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-
-        let obligation_key =
-            ObligationKey::new_with_seed(user.clone(), get_earn_obligation_seed(&e));
-        process_refresh_obligation(&e, obligation_key)?;
-
-        Ok(())
-    }
-
-    fn refresh_multiply_pair_obligation(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-
-        let obligation_key = ObligationKey::new_with_seed(
-            user.clone(),
-            MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed,
-        );
-        process_refresh_obligation(&e, obligation_key)?;
+        process_refresh_obligation(&e, user)?;
 
         Ok(())
     }
@@ -1212,28 +805,6 @@ impl Market for MarketContract {
         events::refresh_pool(&e, pool_address);
 
         Ok(())
-    }
-
-    fn get_earn_user_obligation(e: Env, user: Address) -> Result<Obligation, MCError> {
-        let earn_seed = get_earn_obligation_seed(&e);
-
-        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-
-        Ok(obligation)
-    }
-
-    fn get_multiply_pair_obligation(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<Obligation, MCError> {
-        let mp_seed = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?.seed;
-        let obligation_key = ObligationKey::new_with_seed(user, mp_seed);
-        let obligation = Obligation::try_get(&e, &obligation_key)?;
-
-        Ok(obligation)
     }
 
     fn get_pool(e: Env, pool_address: Address) -> Result<Pool, MCError> {
@@ -1257,12 +828,9 @@ impl Market for MarketContract {
             pools_data.push_back(pool.get_pool_data(&e)?);
         }
         let global_state = process_get_global_state(&e);
-        let multiply_pairs = MultiplyPair::get_all(&e);
         let market_data = MarketData {
             global_state,
             pools_data,
-            multiply_pairs,
-            asset_decimals: 7,
             oracle_price_decimals: oracle::get_oracle_price_decimals(&e),
         };
 
@@ -1278,18 +846,6 @@ impl Market for MarketContract {
         }
 
         obligations_vec
-    }
-
-    fn get_multiply_pair(
-        e: Env,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<MultiplyPair, MCError> {
-        MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)
-    }
-
-    fn get_all_multiply_pairs(e: Env) -> Vec<MultiplyPair> {
-        MultiplyPair::get_all(&e)
     }
 
     fn get_pool_data(e: Env, pool_address: Address) -> Result<PoolData, MCError> {
@@ -1356,37 +912,6 @@ impl Market for MarketContract {
         let obligation_key = ObligationKey::new(user);
         farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
 
-        Ok(())
-    }
-
-    fn refresh_earn_obligation_farms(e: Env, user: Address) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-
-        let Some(farms_contract) = storage::get_farms_contract(&e) else {
-            return Ok(()); // No farms configured
-        };
-
-        let earn_seed = get_earn_obligation_seed(&e);
-        let obligation_key = ObligationKey::new_with_seed(user, earn_seed);
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
-        Ok(())
-    }
-
-    fn refresh_multiply_pair_farms(
-        e: Env,
-        user: Address,
-        deposit_pool_address: Address,
-        borrow_pool_address: Address,
-    ) -> Result<(), MCError> {
-        storage::extend_instance(&e);
-
-        let Some(farms_contract) = storage::get_farms_contract(&e) else {
-            return Ok(()); // No farms configured
-        };
-
-        let pair = MultiplyPair::try_get(&e, &deposit_pool_address, &borrow_pool_address)?;
-        let obligation_key = ObligationKey::new_with_seed(user, pair.seed.clone());
-        farms::refresh_all_obligation_farms(&e, &farms_contract, &obligation_key)?;
         Ok(())
     }
 }

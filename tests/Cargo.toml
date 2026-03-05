@@ -21,5 +21,8 @@ path = "../contracts/controlled_insurance_fund"
 path = "../contracts/market"
 features = ["testutils"]
 
+[dependencies.proxy-swap-interface]
+workspace = true
+
 [dependencies.market_manager]
 path = "../contracts/market_manager"

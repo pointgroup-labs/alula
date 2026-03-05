@@ -3,7 +3,6 @@ use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
 use crate::{
     constants::*,
     error::MCError,
-    multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
 };
@@ -100,12 +99,10 @@ pub enum DataKey {
     InsuranceFund,
     AllObligations,
     InsolvencyLtvBps,
-    AllMultiplyPairs,
     EarnObligationSeed,
     MinCollateralValueCents,
     UpdateInQueuePeriod,
     Obligation(ObligationKey),
-    MultiplyPair((Address, Address)),
     ProposedAdmin,
 }
 
@@ -344,71 +341,6 @@ pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpd
     config_update
 }
 
-// ---- Multiply Pair ----
-
-// Gets all multiply pairs stored in the contract
-pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
-    let storage = e.storage().persistent();
-    if let Some(pairs) = storage.get(&DataKey::AllMultiplyPairs) {
-        extend_shared(e, &DataKey::AllMultiplyPairs);
-        pairs
-    } else {
-        Vec::new(e)
-    }
-}
-
-// Registers a new multiply pair in the contract storage and returns its index
-// NB: Does not check for existing pairs, use `multiply_pair_exists` before calling this
-// if you want to avoid duplicates
-pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
-    let mut pairs = get_all_multiply_pairs(e);
-    pairs.push_back(pair);
-    e.storage().persistent().set(&DataKey::AllMultiplyPairs, &pairs);
-    extend_shared(e, &DataKey::AllMultiplyPairs);
-    pairs.len() - 1
-}
-
-// Sets a multiply pair by its key (deposit and borrow pool addresses)
-pub fn set_multiply_pair(
-    e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    pair: &MultiplyPair,
-) {
-    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    e.storage().persistent().set(&key, pair);
-    extend_shared(e, &key);
-}
-
-// Checks whether a multiply pair with the given deposit and borrow pool addresses exists
-pub fn multiply_pair_exists(
-    e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> bool {
-    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    let res = e.storage().persistent().has(&key);
-    if res {
-        extend_shared(e, &key);
-    }
-
-    res
-}
-
-// Gets a multiply pair by its key (deposit and borrow pool addresses) if it exists
-pub fn get_multiply_pair(
-    e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Option<MultiplyPair> {
-    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    let res = e.storage().persistent().get(&key);
-    if res.is_some() {
-        extend_shared(e, &key);
-    }
-    res
-}
-
 // ---- Obligation ----
 
 // Sets an obligation by its key
@@ -483,27 +415,6 @@ pub fn remove_all_pools(e: &Env) {
         storage.remove(&DataKey::Pool(pool));
     }
     storage.remove(&DataKey::AllPools);
-}
-
-// Removes a multiply pair from the contract storage by its key
-// Also removes the multiply pair from the list of all multiply pairs
-pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
-    let storage = e.storage().persistent();
-    storage.remove(&DataKey::MultiplyPair(pair.key()));
-    let mut pairs = get_all_multiply_pairs(e);
-    if let Some(idx) = pairs.last_index_of(pair) {
-        pairs.remove(idx);
-        storage.set(&DataKey::AllMultiplyPairs, &pairs);
-    }
-}
-
-// Removes all multiply pairs from the contract storage
-pub fn remove_all_multiply_pairs(e: &Env) {
-    let storage = e.storage().persistent();
-    for pair in get_all_multiply_pairs(e) {
-        storage.remove(&DataKey::MultiplyPair(pair.key()));
-    }
-    storage.remove(&DataKey::AllMultiplyPairs);
 }
 
 // Removes an obligation from the contract storage by its key

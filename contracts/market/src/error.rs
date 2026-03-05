@@ -58,11 +58,7 @@ pub enum MCError {
     AssetCannotBeUsedAsCollateral = 604,
     LiquidationExcessiveDemandedCollateral = 605,
 
-    // Leverage and swap errors (700-799)
-    InvalidLeverageInputs = 700,
+    // Requests batching errors (700-799)
     InvalidSwap = 701,
-    MultiplyPairAlreadyExists = 702,
-    MultiplyPairDoesNotExist = 703,
-    LeveragePositionContainsBadDebt = 704,
-    InconsistentDepositWithLeverage = 705,
+    FlashBorrowAlreadyRegistered = 702,
 }

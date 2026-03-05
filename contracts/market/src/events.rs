@@ -22,14 +22,6 @@ struct InitializePoolEvent {
 }
 
 #[contractevent]
-struct InitializeMultiplyPairEvent {
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-}
-
-#[contractevent]
 struct QueueInPoolConfigUpdate {
     #[topic]
     pool_address: Address,
@@ -58,9 +50,10 @@ struct DepositEvent {
     deposit_result: DepositResult,
 }
 
-// TODO: TO BE REMOVED
 #[contractevent]
-struct SwapEvent {
+struct SwapExact {
+    #[topic]
+    swap_provider: Address,
     #[topic]
     user: Address,
     #[topic]
@@ -68,8 +61,23 @@ struct SwapEvent {
     #[topic]
     token_out: Address,
     amount_in: i128,
-    amount_out: i128,
+    min_amount_out: i128,
     received_amount: i128,
+}
+
+#[contractevent]
+struct SwapForExact {
+    #[topic]
+    swap_provider: Address,
+    #[topic]
+    user: Address,
+    #[topic]
+    token_in: Address,
+    #[topic]
+    token_out: Address,
+    max_amount_in: i128,
+    amount_out: i128,
+    sent_amount: i128,
 }
 
 #[contractevent]
@@ -141,33 +149,6 @@ struct FlashLoanEvent {
 }
 
 #[contractevent]
-struct DepositWithLeverageEvent {
-    #[topic]
-    obligation_key: ObligationKey,
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-    original_amount: i128,
-    leverage_multiplier: u32,
-    total_deposited_amount: i128,
-    total_borrowed_amount: i128,
-}
-
-#[contractevent]
-struct WithdrawFromLeveragedEvent {
-    #[topic]
-    obligation_key: ObligationKey,
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-    withdrawn_to_wallet_amount: i128,
-    deposit_reduced_amount: i128,
-    borrow_reduced_amount: i128,
-}
-
-#[contractevent]
 struct ProposeNewAdmin {
     #[topic]
     new_admin: Address,
@@ -236,35 +217,19 @@ struct RefreshPool {
 #[contractevent]
 struct AcceptAdminProposal {}
 
+#[contractevent]
+struct FlashBorrow {
+    pool_address: Address,
+    user: Address,
+    amount: i128,
+}
+
 // ----- Internal Error Events -----
 
 #[contractevent]
 struct LedgerTimestampError {
     current_timestamp: u64,
     stored_timestamp: u64,
-}
-
-#[contractevent]
-struct LeveragedPositionBadDebt {
-    #[topic]
-    user: Address,
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-    deposited_amount: i128,
-    borrowed_amount: i128,
-    deposited_amount_swapped: i128,
-}
-
-#[contractevent]
-struct LeverageExceedsBorrowCapacity {
-    #[topic]
-    user: Address,
-    #[topic]
-    flash_borrow_amount: i128,
-    flash_repay_amount: i128,
-    max_healthy_borrow_amount: i128,
 }
 
 #[contractevent]
@@ -482,18 +447,6 @@ pub fn initialize_pool(
     .publish(e);
 }
 
-pub fn initialize_multiply_pair(
-    e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) {
-    InitializeMultiplyPairEvent {
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
-    }
-    .publish(e);
-}
-
 pub fn queue_in_pool_config_update(e: &Env, pool_address: Address, pool_config: PoolConfig) {
     QueueInPoolConfigUpdate { pool_address, pool_config }.publish(e);
 }
@@ -506,22 +459,48 @@ pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
     ApplyPoolConfigUpdate { pool_address }.publish(e);
 }
 
-pub fn swap(
+#[allow(clippy::too_many_arguments)]
+pub fn swap_exact(
     e: &Env,
+    swap_provider: &Address,
     user: &Address,
     token_in: &Address,
     token_out: &Address,
     amount_in: i128,
-    amount_out: i128,
+    min_amount_out: i128,
     received_amount: i128,
 ) {
-    SwapEvent {
+    SwapExact {
+        swap_provider: swap_provider.clone(),
         user: user.clone(),
         token_in: token_in.clone(),
         token_out: token_out.clone(),
         amount_in,
-        amount_out,
+        min_amount_out,
         received_amount,
+    }
+    .publish(e);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn swap_for_exact(
+    e: &Env,
+    swap_provider: &Address,
+    user: &Address,
+    token_in: &Address,
+    token_out: &Address,
+    max_amount_in: i128,
+    amount_out: i128,
+    sent_amount: i128,
+) {
+    SwapForExact {
+        swap_provider: swap_provider.clone(),
+        user: user.clone(),
+        token_in: token_in.clone(),
+        token_out: token_out.clone(),
+        max_amount_in,
+        amount_out,
+        sent_amount,
     }
     .publish(e);
 }
@@ -631,47 +610,8 @@ pub fn flash_loan(
     .publish(e);
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn deposit_with_leverage(
-    e: &Env,
-    obligation_key: &ObligationKey,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    original_amount: i128,
-    leverage_multiplier: u32,
-    total_deposited_amount: i128,
-    total_borrowed_amount: i128,
-) {
-    DepositWithLeverageEvent {
-        obligation_key: obligation_key.clone(),
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
-        original_amount,
-        leverage_multiplier,
-        total_deposited_amount,
-        total_borrowed_amount,
-    }
-    .publish(e);
-}
-
-pub fn withdraw_from_leveraged(
-    e: &Env,
-    obligation_key: &ObligationKey,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    withdrawn_to_wallet_amount: i128,
-    deposit_reduced_amount: i128,
-    borrow_reduced_amount: i128,
-) {
-    WithdrawFromLeveragedEvent {
-        obligation_key: obligation_key.clone(),
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
-        withdrawn_to_wallet_amount,
-        deposit_reduced_amount,
-        borrow_reduced_amount,
-    }
-    .publish(e);
+pub fn flash_borrow(e: &Env, user: &Address, pool_address: &Address, amount: i128) {
+    FlashBorrow { pool_address: pool_address.clone(), user: user.clone(), amount }.publish(e);
 }
 
 pub fn update_market(e: &Env, new_max_positions: u32, new_min_collateral_value_cents: i128) {
@@ -740,43 +680,6 @@ pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     stored_timestamp: u64,
 ) {
     LedgerTimestampError { current_timestamp, stored_timestamp }.publish(e);
-}
-
-// Emitted when a leveraged position incurs bad debt
-pub fn leveraged_position_bad_debt(
-    e: &Env,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    deposited_amount: i128,
-    borrowed_amount: i128,
-    deposited_amount_swapped: i128,
-) {
-    LeveragedPositionBadDebt {
-        user: user.clone(),
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
-        deposited_amount,
-        borrowed_amount,
-        deposited_amount_swapped,
-    }
-    .publish(e);
-}
-
-pub fn leverage_borrow_exceeds_borrowing_capacity(
-    e: &Env,
-    user: &Address,
-    flash_borrow_amount: i128,
-    flash_repay_amount: i128,
-    max_healthy_borrow_amount: i128,
-) {
-    LeverageExceedsBorrowCapacity {
-        user: user.clone(),
-        flash_borrow_amount,
-        flash_repay_amount,
-        max_healthy_borrow_amount,
-    }
-    .publish(e);
 }
 
 // Emitted when a pool's utilization ratio exceeds a predefined limit

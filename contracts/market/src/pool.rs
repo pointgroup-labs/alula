@@ -506,6 +506,14 @@ impl Pool {
         Ok(())
     }
 
+    pub fn require_flash_loan_enabled(&self) -> Result<(), MCError> {
+        if !self.config.status.is_flash_loan_enabled() {
+            return Err(MCError::OperationForbiddenOnPool);
+        }
+
+        Ok(())
+    }
+
     pub fn require_add_collateral_enabled(&self) -> Result<(), MCError> {
         if !self.config.status.is_add_collateral_enabled() {
             return Err(MCError::OperationForbiddenOnPool);
@@ -911,6 +919,10 @@ impl PoolStatus {
 
     pub fn is_borrow_enabled(&self) -> bool {
         (self.flags & POOL_STATUS_BORROW_ENABLED) > 0
+    }
+
+    pub fn is_flash_loan_enabled(&self) -> bool {
+        (self.flags & POOL_STATUS_FLASH_LOAN_ENABLED) > 0
     }
 
     pub fn is_withdraw_enabled(&self) -> bool {

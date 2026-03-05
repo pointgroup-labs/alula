@@ -1,19 +1,17 @@
 mod bad_debt;
+mod batch_flash_swap;
 mod borrow;
 mod deposit;
 mod fees;
 mod fuzz;
 mod initialize;
 mod interest_rates;
-mod leverage;
 mod liquidate;
 mod market_manager;
 mod misc;
 mod oracle;
 mod repay;
-mod requests_batching;
 mod storage_extension;
-mod swap;
 mod update;
 mod withdraw;
 
@@ -30,9 +28,8 @@ use market::{
     contract::{MarketClient, MarketContract, MarketContractClient},
     error::MCError,
     math_utils::MathUtils,
-    obligation::{BorrowPosition, DepositPosition},
+    obligation::{BorrowPosition, DepositPosition, ObligationKey},
     pool::{PoolConfig, PoolFeeConfig},
-    soroswap_router as router,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
@@ -48,7 +45,6 @@ pub const DEFAULT_ADMIN_ASSET_MINT_AMOUNT: i128 = i128::MAX / 1024;
 pub const DEFAULT_USER_ASSET_MINT_AMOUNT: i128 = DEFAULT_ADMIN_ASSET_MINT_AMOUNT;
 
 const ORACLE_ADDRESS: &str = "CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63";
-const ROUTER_ADDRESS: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD"; // Soroswap router
 
 #[derive(Arbitrary, Debug, Clone, Copy)]
 pub enum Token {
@@ -67,9 +63,6 @@ pub struct TestMarketFixture<'a> {
     // Oracle
     pub oracle_client: MockPriceOracleClient<'a>,
     pub oracle: Address,
-    // Swap Router
-    pub router_client: router::Client<'a>,
-    pub router_address: Address,
     // Insurance Fund
     pub controlled_insurance_fund_client: ControlledInsuranceFundContractClient<'a>,
     pub insurance_fund_client: InsuranceFundClient<'a>,
@@ -139,9 +132,7 @@ impl TestMarketFixture<'_> {
 
         let contract_admin = Address::generate(&e);
 
-        let router_address = Address::from_str(&e, ROUTER_ADDRESS);
-        e.register_at(&router_address, router::WASM, (usdc_token_address.clone(),));
-        let router_client = router::Client::new(&e, &router_address);
+        let swap_provider_address = Address::generate(&e);
 
         let insurance_fund = e.register(
             controlled_insurance_fund::ControlledInsuranceFundContract,
@@ -163,7 +154,7 @@ impl TestMarketFixture<'_> {
                 contract_name,
                 contract_admin.clone(),
                 oracle.clone(),
-                router_address.clone(),
+                swap_provider_address.clone(),
                 insurance_fund.clone(),
                 market_manager_address,
                 DEFAULT_MAX_POSITIONS,
@@ -202,8 +193,6 @@ impl TestMarketFixture<'_> {
         let usdc_pool_address =
             contract_client.initialize_pool(&usdc_token_address, &Some(pool_config.clone()));
 
-        contract_client.initialize_multiply_pair(&gold_pool_address, &usdc_pool_address);
-
         oracle_client.set_data(
             &contract_admin,
             &Asset::Other(Symbol::new(&e, "USD")),
@@ -227,9 +216,7 @@ impl TestMarketFixture<'_> {
             // Oracle
             oracle_client,
             oracle,
-            // Swap router
-            router_client,
-            router_address,
+            // TODO: Swap provider?
             // Insurance Fund
             controlled_insurance_fund_client,
             insurance_fund_client,
@@ -343,13 +330,13 @@ impl TestMarketFixture<'_> {
 
         // -- It must be always possible to borrow what's available on the pool --
 
-        let multiply_pairs = contract_client.get_all_multiply_pairs();
-
         for pool in pools {
             let (mut j_tokens_obligations_sum, mut d_tokens_obligations_sum) = (0_i128, 0_i128);
 
             for user in users {
-                if let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) {
+                if let Ok(Ok(obligation)) =
+                    contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
+                {
                     if let Some(deposit_position) =
                         obligation.deposits.get(pool.pool_address.clone())
                     {
@@ -357,48 +344,6 @@ impl TestMarketFixture<'_> {
                     }
 
                     if let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
-                    {
-                        d_tokens_obligations_sum += borrow_position.d_tokens;
-                    }
-                }
-
-                if let Ok(Ok(earn_obligation)) = contract_client.try_get_earn_user_obligation(user)
-                {
-                    if let Some(deposit_position) =
-                        earn_obligation.deposits.get(pool.pool_address.clone())
-                    {
-                        j_tokens_obligations_sum += deposit_position.j_tokens;
-                    }
-
-                    if let Some(borrow_position) =
-                        earn_obligation.borrows.get(pool.pool_address.clone())
-                    {
-                        d_tokens_obligations_sum += borrow_position.d_tokens;
-                    }
-                }
-
-                for mp in &multiply_pairs {
-                    if mp.deposit_pool == pool.pool_address {
-                        if let Ok(Ok(mp_obligation)) = contract_client
-                            .try_get_multiply_pair_obligation(
-                                user,
-                                &mp.deposit_pool,
-                                &mp.borrow_pool,
-                            )
-                            && let Some(deposit_position) =
-                                mp_obligation.deposits.get(pool.pool_address.clone())
-                        {
-                            j_tokens_obligations_sum += deposit_position.j_tokens;
-                        }
-                    } else if mp.borrow_pool == pool.pool_address
-                        && let Ok(Ok(mp_obligation)) = contract_client
-                            .try_get_multiply_pair_obligation(
-                                user,
-                                &mp.deposit_pool,
-                                &mp.borrow_pool,
-                            )
-                        && let Some(borrow_position) =
-                            mp_obligation.borrows.get(pool.pool_address.clone())
                     {
                         d_tokens_obligations_sum += borrow_position.d_tokens;
                     }
@@ -458,16 +403,6 @@ pub enum Command {
     ButchWithdrawCollateral(WithdrawCollateral),
     NibblesWithdrawCollateral(WithdrawCollateral),
 
-    TomDepositWithLeverage(DepositWithLeverage),
-    JerryDepositWithLeverage(DepositWithLeverage),
-    ButchDepositWithLeverage(DepositWithLeverage),
-    NibblesDepositWithLeverage(DepositWithLeverage),
-
-    TomWithdrawFromLeveraged(WithdrawFromLeveraged),
-    JerryWithdrawFromLeveraged(WithdrawFromLeveraged),
-    ButchWithdrawFromLeveraged(WithdrawFromLeveraged),
-    NibblesWithdrawFromLeveraged(WithdrawFromLeveraged),
-
     AllPassTime(PassTime),
 }
 
@@ -484,8 +419,6 @@ impl Command {
             TomLiquidate(command) => command.run(test_fixture, 0),
             TomDepositCollateral(command) => command.run(test_fixture, 0),
             TomWithdrawCollateral(command) => command.run(test_fixture, 0),
-            TomDepositWithLeverage(command) => command.run(test_fixture, 0),
-            TomWithdrawFromLeveraged(command) => command.run(test_fixture, 0),
             // Jerry
             JerryRepay(command) => command.run(test_fixture, 1),
             JerryBorrow(command) => command.run(test_fixture, 1),
@@ -494,8 +427,6 @@ impl Command {
             JerryLiquidate(command) => command.run(test_fixture, 1),
             JerryDepositCollateral(command) => command.run(test_fixture, 1),
             JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
-            JerryDepositWithLeverage(command) => command.run(test_fixture, 1),
-            JerryWithdrawFromLeveraged(command) => command.run(test_fixture, 1),
             // Butch
             ButchRepay(command) => command.run(test_fixture, 2),
             ButchBorrow(command) => command.run(test_fixture, 2),
@@ -504,8 +435,6 @@ impl Command {
             ButchLiquidate(command) => command.run(test_fixture, 2),
             ButchDepositCollateral(command) => command.run(test_fixture, 2),
             ButchWithdrawCollateral(command) => command.run(test_fixture, 2),
-            ButchDepositWithLeverage(command) => command.run(test_fixture, 2),
-            ButchWithdrawFromLeveraged(command) => command.run(test_fixture, 2),
             // Nibbles
             NibblesRepay(command) => command.run(test_fixture, 3),
             NibblesBorrow(command) => command.run(test_fixture, 3),
@@ -514,8 +443,6 @@ impl Command {
             NibblesLiquidate(command) => command.run(test_fixture, 3),
             NibblesDepositCollateral(command) => command.run(test_fixture, 3),
             NibblesWithdrawCollateral(command) => command.run(test_fixture, 3),
-            NibblesDepositWithLeverage(command) => command.run(test_fixture, 3),
-            NibblesWithdrawFromLeveraged(command) => command.run(test_fixture, 3),
             // All
             AllPassTime(command) => command.run(test_fixture, 0),
         }
@@ -584,22 +511,6 @@ pub struct Liquidate {
     pub min_collateral_received_amount: Amount,
 }
 
-#[derive(Arbitrary, Debug)]
-pub struct DepositWithLeverage {
-    pub amount: Amount,
-    pub deposit_token: Token,
-    pub borrow_token: Token,
-    pub flash_loan_amount: Amount,
-    pub leverage: u32,
-}
-
-#[derive(Arbitrary, Debug)]
-pub struct WithdrawFromLeveraged {
-    pub amount: Amount,
-    pub deposit_token: Token,
-    pub borrow_token: Token,
-}
-
 impl RunCommand for PassTime {
     fn run(&self, test_fixture: &TestMarketFixture, _who: usize) {
         test_fixture.pass_time(self.amount);
@@ -610,7 +521,12 @@ impl RunCommand for Borrow {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
-        let res = contract_client.try_borrow(&users[who], &pool_address, &self.amount.0, &None);
+        let res = contract_client.try_borrow(
+            &ObligationKey::new(users[who].clone()),
+            &pool_address,
+            &self.amount.0,
+            &None,
+        );
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -622,7 +538,12 @@ impl RunCommand for Deposit {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_deposit(&users[who], &pool_address, &self.amount.0, &None);
+        let res = contract_client.try_deposit(
+            &ObligationKey::new(users[who].clone()),
+            &pool_address,
+            &self.amount.0,
+            &None,
+        );
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -634,8 +555,12 @@ impl RunCommand for DepositCollateral {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res =
-            contract_client.try_add_collateral(&users[who], &pool_address, &self.amount.0, &None);
+        let res = contract_client.try_add_collateral(
+            &ObligationKey::new(users[who].clone()),
+            &pool_address,
+            &self.amount.0,
+            &None,
+        );
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -648,7 +573,7 @@ impl RunCommand for WithdrawCollateral {
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
         let res = contract_client.try_remove_collateral(
-            &users[who],
+            &ObligationKey::new(users[who].clone()),
             &pool_address,
             &self.amount.0,
             &None,
@@ -664,7 +589,12 @@ impl RunCommand for Withdraw {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_withdraw(&users[who], &pool_address, &self.amount.0, &None);
+        let res = contract_client.try_withdraw(
+            &ObligationKey::new(users[who].clone()),
+            &pool_address,
+            &self.amount.0,
+            &None,
+        );
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -676,7 +606,12 @@ impl RunCommand for Repay {
         let pool_address = test_fixture.get_pool_address(self.token);
         let TestMarketFixture { contract_client, users, .. } = test_fixture;
 
-        let res = contract_client.try_repay(&users[who], &pool_address, &self.amount.0, &None);
+        let res = contract_client.try_repay(
+            &ObligationKey::new(users[who].clone()),
+            &pool_address,
+            &self.amount.0,
+            &None,
+        );
         if matches!(res, Err(Ok(MCError::InternalError))) {
             panic!("Internal Error");
         }
@@ -694,8 +629,7 @@ impl RunCommand for Liquidate {
 
             let res = contract_client.try_liquidate(
                 liquidator,
-                borrower,
-                &None,
+                &ObligationKey::new(borrower.clone()),
                 &borrow_pool_address,
                 &collateral_pool_address,
                 &self.repay_amount.0,
@@ -704,59 +638,6 @@ impl RunCommand for Liquidate {
             if matches!(res, Err(Ok(MCError::InternalError))) {
                 panic!("Internal Error");
             }
-        }
-    }
-}
-
-impl RunCommand for DepositWithLeverage {
-    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
-        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
-        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
-
-        if deposit_pool_address != borrow_pool_address {
-            let TestMarketFixture { contract_client, users, .. } = test_fixture;
-
-            let (flash_liquidity_provider, lender) = (&users[who], &users[(who + 1) % users.len()]);
-
-            contract_client.deposit(
-                flash_liquidity_provider,
-                &borrow_pool_address,
-                &self.flash_loan_amount.0,
-                &None,
-            );
-
-            let res = contract_client.try_deposit_with_leverage(
-                lender,
-                &deposit_pool_address,
-                &borrow_pool_address,
-                &false,
-                &self.amount.0,
-                &self.leverage,
-                &None,
-            );
-            if matches!(res, Err(Ok(MCError::InternalError))) {
-                panic!("Internal Error");
-            }
-        }
-    }
-}
-
-impl RunCommand for WithdrawFromLeveraged {
-    fn run(&self, test_fixture: &TestMarketFixture, who: usize) {
-        let deposit_pool_address = test_fixture.get_pool_address(self.deposit_token);
-        let borrow_pool_address = test_fixture.get_pool_address(self.borrow_token);
-
-        let TestMarketFixture { contract_client, users, .. } = test_fixture;
-
-        let res = contract_client.try_withdraw_from_leveraged(
-            &users[who],
-            &deposit_pool_address,
-            &borrow_pool_address,
-            &self.amount.0,
-            &None,
-        );
-        if matches!(res, Err(Ok(MCError::InternalError))) {
-            panic!("Internal Error");
         }
     }
 }
@@ -787,22 +668,6 @@ pub fn get_earn_obligation_j_tokens(
     Ok(deposit_position.j_tokens)
 }
 
-pub fn get_multiply_pair_obligation_j_tokens(
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<i128, MCError> {
-    let deposit_position = get_multiply_pair_deposit_position(
-        contract_client,
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    )?;
-
-    Ok(deposit_position.j_tokens)
-}
-
 pub fn get_obligation_d_tokens(
     contract_client: &MarketClient,
     user: &Address,
@@ -824,44 +689,12 @@ pub fn get_earn_obligation_d_tokens(
     Ok(borrow_position.d_tokens)
 }
 
-pub fn get_multiply_pair_obligation_d_tokens(
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<i128, MCError> {
-    let borrow_position = get_multiply_pair_borrow_position(
-        contract_client,
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    )?;
-
-    Ok(borrow_position.d_tokens)
-}
-
 pub fn get_obligation_initially_borrowed(
     contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let borrow_position = get_borrow_position(contract_client, user, pool_address)?;
-
-    Ok(borrow_position.originally_borrowed)
-}
-
-pub fn get_multiply_pair_obligation_borrowed(
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<i128, MCError> {
-    let borrow_position = get_multiply_pair_borrow_position(
-        contract_client,
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    )?;
 
     Ok(borrow_position.originally_borrowed)
 }
@@ -887,44 +720,12 @@ pub fn get_earn_obligation_deposited(
     Ok(deposit_position.originally_deposited)
 }
 
-pub fn get_multiply_pair_obligation_deposited(
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<i128, MCError> {
-    let deposit_position = get_multiply_pair_deposit_position(
-        contract_client,
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    )?;
-
-    Ok(deposit_position.originally_deposited)
-}
-
 pub fn get_obligation_collateral(
     contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let deposit_position = get_deposit_position(contract_client, user, pool_address)?;
-
-    Ok(deposit_position.collateral)
-}
-
-pub fn get_multiply_pair_obligation_collateral(
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<i128, MCError> {
-    let deposit_position = get_multiply_pair_deposit_position(
-        contract_client,
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    )?;
 
     Ok(deposit_position.collateral)
 }
@@ -1009,26 +810,6 @@ pub fn get_earn_obligation_j_tokens_as_tokens(
     Ok(deposited_tokens)
 }
 
-pub fn get_multiply_pair_obligation_j_tokens_as_tokens(
-    e: &Env,
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<i128, MCError> {
-    let pool = contract_client.get_pool(deposit_pool_address);
-    let j_tokens = get_multiply_pair_obligation_j_tokens(
-        contract_client,
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    )?;
-
-    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
-
-    Ok(deposited_tokens)
-}
-
 pub fn compute_unparameterized_ltv_bps(
     e: &Env,
     contract_client: &MarketClient,
@@ -1045,7 +826,7 @@ pub fn compute_user_obligation_debt_value(
     contract_client: &MarketClient,
     user: &Address,
 ) -> i128 {
-    let obligation = contract_client.get_user_obligation(user);
+    let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
 
     e.as_contract(&contract_client.address, || obligation.compute_debt_value(e).unwrap())
 }
@@ -1055,39 +836,7 @@ pub fn compute_user_obligation_collateral_value(
     contract_client: &MarketClient,
     user: &Address,
 ) -> i128 {
-    let obligation = contract_client.get_user_obligation(user);
-
-    e.as_contract(&contract_client.address, || obligation.compute_collateral_value(e).unwrap())
-}
-
-pub fn compute_multiply_pair_obligation_debt_value(
-    e: &Env,
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> i128 {
-    let obligation = contract_client.get_multiply_pair_obligation(
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    );
-
-    e.as_contract(&contract_client.address, || obligation.compute_debt_value(e).unwrap())
-}
-
-pub fn compute_multiply_pair_obligation_collateral_value(
-    e: &Env,
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> i128 {
-    let obligation = contract_client.get_multiply_pair_obligation(
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    );
+    let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
 
     e.as_contract(&contract_client.address, || obligation.compute_collateral_value(e).unwrap())
 }
@@ -1099,7 +848,9 @@ pub fn get_deposit_position(
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositPosition, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
+    let Ok(Ok(obligation)) =
+        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
+    else {
         return Err(MCError::ObligationDoesNotExist);
     };
 
@@ -1116,7 +867,9 @@ pub fn get_earn_obligation_deposit_position(
     user: &Address,
     pool_address: &Address,
 ) -> Result<DepositPosition, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
+    let Ok(Ok(obligation)) =
+        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
+    else {
         return Err(MCError::ObligationDoesNotExist);
     };
 
@@ -1128,34 +881,14 @@ pub fn get_earn_obligation_deposit_position(
     Ok(deposit)
 }
 
-pub fn get_multiply_pair_deposit_position(
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<DepositPosition, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_multiply_pair_obligation(
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    ) else {
-        return Err(MCError::ObligationDoesNotExist);
-    };
-
-    let deposit = obligation
-        .deposits
-        .get(deposit_pool_address.clone())
-        .ok_or(MCError::DepositPositionDoesNotExist)?;
-
-    Ok(deposit)
-}
-
 pub fn get_borrow_position(
     contract_client: &MarketClient,
     user: &Address,
     pool_address: &Address,
 ) -> Result<BorrowPosition, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_user_obligation(user) else {
+    let Ok(Ok(obligation)) =
+        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
+    else {
         return Err(MCError::ObligationDoesNotExist);
     };
 
@@ -1170,35 +903,15 @@ pub fn get_earn_obligation_borrow_position(
     user: &Address,
     pool_address: &Address,
 ) -> Result<BorrowPosition, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_earn_user_obligation(user) else {
+    let Ok(Ok(obligation)) =
+        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
+    else {
         return Err(MCError::ObligationDoesNotExist);
     };
 
     // NB: Expected that this always returns `Err(MCError::BorrowPositionDoesNotExist)`
     let borrow =
         obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowPositionDoesNotExist)?;
-
-    Ok(borrow)
-}
-
-pub fn get_multiply_pair_borrow_position(
-    contract_client: &MarketClient,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Result<BorrowPosition, MCError> {
-    let Ok(Ok(obligation)) = contract_client.try_get_multiply_pair_obligation(
-        user,
-        deposit_pool_address,
-        borrow_pool_address,
-    ) else {
-        return Err(MCError::ObligationDoesNotExist);
-    };
-
-    let borrow = obligation
-        .borrows
-        .get(borrow_pool_address.clone())
-        .ok_or(MCError::BorrowPositionDoesNotExist)?;
 
     Ok(borrow)
 }

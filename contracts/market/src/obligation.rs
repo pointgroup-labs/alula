@@ -27,6 +27,10 @@ impl ObligationKey {
     pub fn new_with_seed(user: Address, seed: BytesN<32>) -> Self {
         Self { user, seed: Some(seed) }
     }
+
+    pub fn require_auth(&self) {
+        self.user.require_auth();
+    }
 }
 
 impl From<&ObligationKey> for Delegatee {

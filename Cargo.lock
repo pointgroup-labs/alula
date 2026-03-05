@@ -942,6 +942,7 @@ dependencies = [
  "farms-interface",
  "insurance-fund-interface",
  "moderc3156",
+ "proxy-swap-interface",
  "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk",
@@ -1087,6 +1088,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "proxy-swap-interface"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
 ]
 
 [[package]]
@@ -1677,6 +1685,7 @@ dependencies = [
  "insurance-fund-interface",
  "market",
  "market_manager",
+ "proxy-swap-interface",
  "sep-40-oracle",
  "soroban-fixed-point-math",
  "soroban-sdk",

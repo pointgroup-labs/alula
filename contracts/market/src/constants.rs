@@ -100,20 +100,6 @@ pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850;
 pub const MIN_INSOLVENCY_LTV_BPS: i128 = 9_500;
 pub const MAX_INSOLVENCY_LTV_BPS: i128 = BPS_FACTOR; // 100%
 
-// ---- Swap ----
-
-// Default max slippage in bps
-pub const DEFAULT_MAX_SLIPPAGE_BPS: i128 = 1; // 0.01%
-// Default max swap fee in bps
-pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1; // 0.01%
-
-// ---- Deposit with leverage ----
-
-// Scale to represent leverage multipliers (e.g., with current scale 100 = 1.0x, 224 = 2.24x)
-pub const LEVERAGE_SCALE: u32 = 100;
-// Minimum leverage multiplier (scaled by LEVERAGE_SCALE)
-pub const MIN_LEVERAGE_MULTIPLIER: u32 = 101; // x1.01
-
 // ---- Fees ----
 
 pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
@@ -135,6 +121,7 @@ pub const POOL_STATUS_WITHDRAW_ENABLED: u32 = 1 << 2;
 pub const POOL_STATUS_REPAY_ENABLED: u32 = 1 << 3;
 pub const POOL_STATUS_ADD_COLLATERAL_ENABLED: u32 = 1 << 4;
 pub const POOL_STATUS_REMOVE_COLLATERAL_ENABLED: u32 = 1 << 5;
+pub const POOL_STATUS_FLASH_LOAN_ENABLED: u32 = 1 << 6;
 pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 
 // ---- Oracle ----

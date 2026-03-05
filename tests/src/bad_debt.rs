@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::{constants::SECONDS_IN_YEAR, error::MCError};
+use market::{constants::SECONDS_IN_YEAR, error::MCError, obligation::ObligationKey};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{map as smap, testutils::Ledger};
 
@@ -19,17 +19,27 @@ fn test_obligation_does_not_have_bad_debt_by_default() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &(10 * DEFAULT_DEPOSIT_AMOUNT), &None);
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(10 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     assert_eq!(
-        contract_client.try_issue_cover_bad_debt(borrower),
+        contract_client.try_issue_cover_bad_debt(&ObligationKey::new(borrower.clone())),
         Err(Ok(MCError::BadDebtCoverageCriterionIsNotMet))
     );
 }
@@ -57,18 +67,32 @@ fn test_partially_socialize_full_bad_debt_loss() {
         &smap![&e, (insurance_fund.clone(), 10_000)],
     );
 
-    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     // Borrow max possible amount
-    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     // Verify obligation is still healthy
     assert_eq!(
         contract_client.try_liquidate(
             liquidator,
-            borrower,
-            &None,
+            &ObligationKey::new(borrower.clone()),
             &usdc_pool_address,
             &gold_pool_address,
             &1,
@@ -97,8 +121,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
 
     contract_client.liquidate(
         liquidator,
-        borrower,
-        &None,
+        &ObligationKey::new(borrower.clone()),
         &usdc_pool_address,
         &gold_pool_address,
         &debt_amount.fixed_mul_ceil(90, 100).unwrap(),
@@ -132,9 +155,9 @@ fn test_partially_socialize_full_bad_debt_loss() {
 
     // - Partially cover bad debt -
 
-    contract_client.issue_cover_bad_debt(borrower);
+    contract_client.issue_cover_bad_debt(&ObligationKey::new(borrower.clone()));
     controlled_insurance_fund_client.mark_ready(&0, &insurance_fund_balance_after);
-    contract_client.claim_cover_bad_debt_results(borrower);
+    contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower.clone()));
 
     let pool_data_after = contract_client.get_pool_data(&usdc_pool_address);
 
@@ -145,7 +168,7 @@ fn test_partially_socialize_full_bad_debt_loss() {
     // - Verify obligation no longer exists -
 
     assert_eq!(
-        contract_client.try_get_user_obligation(borrower),
+        contract_client.try_get_user_obligation(&ObligationKey::new(borrower.clone())),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
     // - Verify that partial bad debt coverage took place -
@@ -185,22 +208,37 @@ fn test_completely_cover_bad_debt() {
     );
 
     contract_client.add_collateral(
-        borrower_1,
+        &ObligationKey::new(borrower_1.clone()),
         &gold_pool_address,
         &(10 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.add_collateral(borrower_2, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower_2.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(20 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
 
     // Borrow max possible amounts
-    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX, &None); // will borrow x10 due to having x10 more collateral
-    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower_1.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    ); // will borrow x10 due to having x10 more collateral
+    contract_client.borrow(
+        &ObligationKey::new(borrower_2.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     // - Accrue bad debt on the pool -
 
@@ -229,8 +267,7 @@ fn test_completely_cover_bad_debt() {
 
     contract_client.liquidate(
         liquidator,
-        borrower_2,
-        &None,
+        &ObligationKey::new(borrower_2.clone()),
         &usdc_pool_address,
         &gold_pool_address,
         &borrower_2_debt_before.fixed_mul_ceil(98, 100).unwrap(),
@@ -248,14 +285,14 @@ fn test_completely_cover_bad_debt() {
     let pool_d_tokens_before = get_pool_total_d_tokens(&contract_client, &usdc_pool_address);
     let pool_j_tokens_before = get_pool_total_j_tokens(&contract_client, &usdc_pool_address);
 
-    contract_client.issue_cover_bad_debt(borrower_2);
+    contract_client.issue_cover_bad_debt(&ObligationKey::new(borrower_2.clone()));
     controlled_insurance_fund_client.mark_ready(&0, &insurance_fund_balance);
-    contract_client.claim_cover_bad_debt_results(borrower_2);
+    contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower_2.clone()));
 
     // - Verify 2nd obligation no longer exists -
 
     assert_eq!(
-        contract_client.try_get_user_obligation(borrower_2),
+        contract_client.try_get_user_obligation(&ObligationKey::new(borrower_2.clone())),
         Err(Ok(MCError::ObligationDoesNotExist))
     );
 
