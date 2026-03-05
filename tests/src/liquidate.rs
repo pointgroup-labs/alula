@@ -785,3 +785,64 @@ fn test_liquidation_increases_borrow_pool_total_available() {
         "Repaid debt must reduce total_borrowed"
     );
 }
+
+#[test]
+fn test_liquidate_with_excess_repay_amount_refunds_difference() {
+    let test = LiquidationTest::risky();
+    test.wait_n_years(3);
+
+    let liquidator_borrow_token_before = test.fixture.usdc_token_client.balance(&test.liquidator);
+    let liquidator_collateral_token_before =
+        test.fixture.gold_token_client.balance(&test.liquidator);
+    let contract_borrow_token_before =
+        test.fixture.usdc_token_client.balance(&test.fixture.contract_id);
+
+    let actual_debt = test.debt();
+
+    let overshoot = 500;
+    let repay_amount = actual_debt + overshoot;
+
+    test.fixture.contract_client.liquidate(
+        &test.liquidator,
+        &test.borrower,
+        &None,
+        &test.borrow_pool_address,
+        &test.collateral_pool_address,
+        &repay_amount,
+        &0,
+    );
+
+    let liquidator_borrow_token_after = test.fixture.usdc_token_client.balance(&test.liquidator);
+    let contract_borrow_token_after =
+        test.fixture.usdc_token_client.balance(&test.fixture.contract_id);
+
+    let liquidator_net_spend = liquidator_borrow_token_before - liquidator_borrow_token_after;
+    assert_eq!(
+        liquidator_net_spend, actual_debt,
+        "Liquidator should only pay the actual debt ({actual_debt}), not the full \
+         repay_amount ({repay_amount}). Net spend was {liquidator_net_spend}"
+    );
+
+    let contract_borrow_token_increase = contract_borrow_token_after - contract_borrow_token_before;
+    assert_eq!(
+        contract_borrow_token_increase, actual_debt,
+        "Contract borrow-token balance should increase by actual debt"
+    );
+
+    let liquidator_collateral_token_after =
+        test.fixture.gold_token_client.balance(&test.liquidator);
+    assert!(
+        liquidator_collateral_token_after > liquidator_collateral_token_before,
+        "Liquidator should receive collateral"
+    );
+
+    assert_eq!(
+        get_obligation_d_tokens_as_tokens(
+            &test.fixture.e,
+            &test.fixture.contract_client,
+            &test.borrower,
+            &test.borrow_pool_address,
+        ),
+        Err(MCError::ObligationDoesNotExist)
+    );
+}

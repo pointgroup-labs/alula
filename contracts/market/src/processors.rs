@@ -1016,11 +1016,11 @@ pub fn process_liquidate<'a>(
     borrow_pool.set(e);
     collateral_pool.set(e);
 
-    let user_transfers =
-        smap![e, (borrow_pool.token_address.clone(), liquidation_result.debt_repaid)];
+    let user_transfers = smap![e, (borrow_pool.token_address.clone(), repay_amount)];
     let market_transfers = smap![
         e,
-        (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized)
+        (collateral_pool.token_address.clone(), liquidation_result.plain_collateral_seized),
+        (borrow_pool.token_address, liquidation_result.amount_to_send_back)
     ];
 
     let transfers = RequestTransfers::new(

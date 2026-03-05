@@ -922,7 +922,7 @@ impl Obligation {
         e: &Env,
         borrow_pool: &Pool,
         collateral_pool: &Pool,
-        amount: i128,
+        repay_amount: i128,
         demanded_collateral_amount: i128,
     ) -> Result<LiquidationResult, MCError> {
         let (mut deposit_position, mut borrow_position) = (
@@ -962,7 +962,7 @@ impl Obligation {
 
         let position_debt =
             borrow_pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
-        let liquidated_amount = amount.min(position_debt);
+        let liquidated_amount = repay_amount.min(position_debt);
         let liquidated_value = oracle::get_asset_value_floor(
             e,
             liquidated_amount,
@@ -1179,8 +1179,15 @@ impl Obligation {
             self.borrows.set(borrow_pool.pool_address.clone(), borrow_position);
         }
 
+        let amount_to_send_back = if liquidated_amount < repay_amount {
+            repay_amount - liquidated_amount // safe
+        } else {
+            0
+        };
+
         Ok(LiquidationResult {
             j_tokens_seized,
+            amount_to_send_back,
             debt_repaid: liquidated_amount,
             d_tokens_burned: d_tokens_to_burn,
             plain_collateral_seized,
@@ -1598,6 +1605,8 @@ pub struct RemoveCollateralResult {
 pub struct LiquidationResult {
     // The amount of debt tokens repaid by the liquidator
     pub debt_repaid: i128,
+    // Excess amount given by the liquidator that is sent back
+    pub amount_to_send_back: i128,
     // The amount of `dTokens` that are burned from the borrower's borrow position
     pub d_tokens_burned: i128,
     // The amount of plain collateral seized from the borrower's obligation and transferred to the liquidator
