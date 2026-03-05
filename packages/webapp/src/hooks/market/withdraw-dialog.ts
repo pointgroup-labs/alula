@@ -106,7 +106,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     const poolOpenLtv = openLtv.value
 
     const maxWithdrawUsd = poolOpenLtv > 0
-      ? Math.max(depositWithOpenLtv - borrowed * 1.1, 0) / poolOpenLtv
+      ? Math.max(depositWithOpenLtv - borrowed * 1.05, 0) / poolOpenLtv
       : 0
     const maxWithdrawAmount = maxWithdrawUsd / priceVal
     const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value

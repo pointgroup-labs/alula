@@ -5,6 +5,8 @@ import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/clie
 import { RELOAD_FEE_INTERVAL } from '~/config'
 import { truncatePercent } from '~/utils'
 
+const BORROW_SAFETY_BUFFER = 0.95
+
 export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isOpen: Ref<boolean>) {
   const wallet = useWallet()
   const publicKey = computed(() => wallet.publicKey)
@@ -59,8 +61,8 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const userDepositWithOpenLTV = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
     const userTotalBorrowedInUsd = calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
 
-    const userAvailableUsd = Math.max((userDepositWithOpenLTV) - userTotalBorrowedInUsd, 0)
-    const maxAvailableUsd = Math.min(userAvailableUsd / 1.1, marketAvailableInUsd)
+    const userAvailableUsd = Math.max((userDepositWithOpenLTV * BORROW_SAFETY_BUFFER) - userTotalBorrowedInUsd, 0)
+    const maxAvailableUsd = Math.min(userAvailableUsd, marketAvailableInUsd)
     const maxAvailableAssets = maxAvailableUsd / Number(poolData.value.price)
 
     return Number(truncatePercent(maxAvailableAssets, assetDecimals))
