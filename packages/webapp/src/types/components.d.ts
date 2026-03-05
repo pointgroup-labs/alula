@@ -138,6 +138,7 @@ declare module 'vue' {
     PoolInfoOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/PoolInfoOverview.vue')['default']
     PoolInterestChart: typeof import('./../components/PoolDetailPage/Charts/PoolInterestChart.vue')['default']
     PoolOverview: typeof import('./../components/PoolDetailPage/Overview/PoolOverview.vue')['default']
+    PoolOverviewBottomTabs: typeof import('./../components/PoolDetailPage/Overview/PoolOverviewBottomTabs.vue')['default']
     PoolStatus: typeof import('./../components/Widget/PoolStatus.vue')['default']
     PoolSupplyBorrowOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/PoolSupplyBorrowOverview.vue')['default']
     RepayDialog: typeof import('./../components/AccountsPage/Dialogs/RepayDialog.vue')['default']

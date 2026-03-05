@@ -5,8 +5,7 @@
       <pool-history-chart />
       <pool-supply-borrow-overview />
       <pool-interest-chart />
-      <pool-info-overview />
-      <pool-detail-overview />
+      <pool-overview-bottom-tabs />
     </div>
 
     <supply-card />

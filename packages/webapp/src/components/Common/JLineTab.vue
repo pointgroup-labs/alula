@@ -33,6 +33,7 @@ watchEffect(() => {
   display: flex;
   align-items: flex-end;
   gap: $spacing-12;
+  font-size: 14px;
   font-weight: 500;
 
   @media (max-width: $breakpoint-sm) {
@@ -40,13 +41,13 @@ watchEffect(() => {
   }
 
   .overview-tab {
-    padding: 0 $spacing-6 $spacing-12;
+    padding: 0 $spacing-6 $spacing-8;
     border-bottom: 2px solid transparent;
     transition: 0.1s ease;
     cursor: pointer;
 
     &--active {
-      border-color: var(--active-tab-color, $purple);
+      border-color: var(--active-tab-color, $muted-foreground);
     }
   }
 }
