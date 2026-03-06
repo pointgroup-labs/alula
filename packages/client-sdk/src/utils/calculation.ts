@@ -40,7 +40,7 @@ export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: 
       {
         total_j_tokens: depositedPool.pool.total_j_tokens,
         total_borrowed: depositedPool.pool.total_borrowed,
-        total_available: depositedPool.pool.total_available,
+        total_available: depositedPool.total_available_adjusted,
       },
       assetDecimals,
     )

@@ -18,6 +18,8 @@ export const SOROBAN_RPC_URLS: Record<string, string> = {
 
 export const SOROBAN_CONTRACT_ID = 'CA3VABPMY6AGTC45QU7BH2TJDASEAPIUUXRZFWET3CNEY45OHOWZ6IXS'
 
+export const MAX_I128 = 170_141_183_460_469_231_731_687_303_715_884_105_727n
+
 export const CONTRACT_ID: Record<string, string> = {
   testnet: SOROBAN_CONTRACT_ID,
 }

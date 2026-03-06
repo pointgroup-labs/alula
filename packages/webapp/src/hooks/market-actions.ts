@@ -247,8 +247,6 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const increasedAmount = withBuffer ? amount * 1.05 : amount
-
     await runAction({
       client,
       market,
@@ -256,7 +254,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.withdraw(pk, pool_address, increasedAmount, kit.value),
+      exec: () => client!.lending.withdraw(pk, pool_address, amount, kit.value, withBuffer),
       reset: () => {
         withdrawAmount.value = undefined
         marketsStore.dialogWithdraw = false
@@ -370,9 +368,10 @@ export function useMarketActions() {
       amount: number
       limit: number
       asset_data: string
+      withBuffer: boolean
     }) {
     const pk = requireWallet()
-    const { client, market, pool_address, amount, limit, asset_data } = props
+    const { client, market, pool_address, amount, limit, asset_data, withBuffer } = props
     try {
       if (!amount || amount <= 0) {
         throw new Error('Amount should be greater than 0')
@@ -399,7 +398,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw Collateral',
       body: `Sending transaction to withdraw collateral ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.removeCollateral(pk, pool_address, amount, kit.value),
+      exec: () => client!.lending.removeCollateral(pk, pool_address, amount, kit.value, withBuffer),
       reset: () => {
         withdrawAmount.value = undefined
         marketsStore.dialogWithdraw = false

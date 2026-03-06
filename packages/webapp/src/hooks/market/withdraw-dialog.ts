@@ -222,7 +222,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
         amount: amount.value,
         asset_data: poolData.value.pool.name,
         limit: collateralBalance.value,
-        withBuffer: Number(availableToWithdraw.value) === Number(amount.value),
+        withBuffer: Number(amount.value) >= availableToWithdrawWithPoolLimit.value,
       }
 
       collateralOnly.value
