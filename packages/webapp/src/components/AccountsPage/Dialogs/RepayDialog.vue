@@ -66,7 +66,7 @@ watch(dialog, (v) => {
         :balance="balance"
         :limit="debt"
         label-left="Balance"
-        variant="accent"
+        variant="purple"
         :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${asset.symbol}`"
         :reset="dialog"
         :price="Number(price)"
@@ -81,12 +81,12 @@ watch(dialog, (v) => {
         <!-- Balances -->
         <info-panel
           :data="infoPanelData.balances!.data"
-          variant="accent"
+          variant="purple"
         />
         <!-- Fee -->
         <info-panel
           :data="infoPanelData.fees!.data"
-          variant="accent"
+          variant="purple"
         >
           <template #txFee="{ item }">
             <j-loading-spinner
@@ -104,7 +104,7 @@ watch(dialog, (v) => {
       <div class="dialog-default__action mt-2">
         <j-btn
           :loading="isLoading"
-          variant="accent"
+          variant="purple"
           size="lg"
           pill
           @click="repay"

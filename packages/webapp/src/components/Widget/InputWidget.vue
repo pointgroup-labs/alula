@@ -132,7 +132,7 @@ watch(() => reset, () => {
     </div>
 
     <div
-      class="input-block"
+      class="input-block active"
       :class="[
         variant,
         { active: val && Number(val) > 0, error: displayError },

@@ -281,7 +281,7 @@ const stop = watch(additionalMarketsData, () => {
             <j-btn
               v-else
               size="xs"
-              variant="outline-accent"
+              variant="outline-purple"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'repay', data.item.market!)"
@@ -303,7 +303,7 @@ const stop = watch(additionalMarketsData, () => {
             <j-btn
               v-else
               size="xs"
-              variant="outline-success"
+              variant="outline-cyan"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"

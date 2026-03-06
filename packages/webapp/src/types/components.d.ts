@@ -136,6 +136,7 @@ declare module 'vue' {
     PoolDetailTop: typeof import('./../components/PoolDetailPage/PoolDetailTop.vue')['default']
     PoolHistoryChart: typeof import('./../components/PoolDetailPage/Charts/PoolHistoryChart.vue')['default']
     PoolInfoOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/PoolInfoOverview.vue')['default']
+    PoolInfoRisks: typeof import('./../components/PoolDetailPage/PoolInfoRisks.vue')['default']
     PoolInterestChart: typeof import('./../components/PoolDetailPage/Charts/PoolInterestChart.vue')['default']
     PoolOverview: typeof import('./../components/PoolDetailPage/Overview/PoolOverview.vue')['default']
     PoolOverviewBottomTabs: typeof import('./../components/PoolDetailPage/Overview/PoolOverviewBottomTabs.vue')['default']

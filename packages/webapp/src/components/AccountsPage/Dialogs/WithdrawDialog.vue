@@ -72,7 +72,7 @@ watch(dialog, (v) => {
         label-left="Amount"
         :label-right="`${formatPrice(availableToWithdrawWithPoolLimit ?? 0, 0, 4)} ${asset.symbol}`"
         :reset="dialog"
-        variant="success"
+        variant="cyan"
         :rules="[
           (v) => {
             return !isValidate || Number(v) <= availableToWithdrawWithPoolLimit || 'Withdraw limit exceeded'
@@ -84,19 +84,16 @@ watch(dialog, (v) => {
         <!-- Balances -->
         <info-panel
           :data="infoPanelData.balances!.data"
-          variant="success"
         />
 
         <!-- Health -->
         <info-panel
           :data="infoPanelData.health!.data"
-          variant="success"
         />
 
         <!-- Pool Info -->
         <info-panel
           :data="infoPanelData.poolInfo!.data"
-          variant="success"
         >
           <template #txFee="{ item }">
             <j-loading-spinner
@@ -113,7 +110,6 @@ watch(dialog, (v) => {
         <!-- Fees -->
         <info-panel
           :data="infoPanelData.fees!.data"
-          variant="success"
         >
           <template #txFee="{ item }">
             <j-loading-spinner
@@ -143,7 +139,7 @@ watch(dialog, (v) => {
       <div class="dialog-default__action mt-2">
         <j-btn
           :loading="isLoading"
-          variant="success"
+          variant="cyan"
           size="lg"
           pill
           @click="withdraw"

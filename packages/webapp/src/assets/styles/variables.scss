@@ -35,7 +35,7 @@ $dark: #111;
 
 // new vars
 $border: #1e293b;
-$border-color: color-mix(in oklab, $border 40%, transparent);
+$border-color: color-mix(in oklab, $border 100%, transparent);
 $card: #111827;
 $card-bg: color-mix(in oklab, $card 30%, transparent);
 $popover-bg: rgba(10, 14, 23, 0.8);
