@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 defineProps<{
-  title: string
+  title?: string
   data: {
     label: string
     value: string | number
@@ -15,7 +15,10 @@ defineProps<{
     class="dialog-info-card"
     :class="[`dialog-info-card--${variant}`]"
   >
-    <div class="dialog-info-card__title">
+    <div
+      v-if="title"
+      class="dialog-info-card__title"
+    >
       {{ title }}
     </div>
 

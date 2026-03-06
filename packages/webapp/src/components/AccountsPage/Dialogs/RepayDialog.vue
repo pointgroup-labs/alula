@@ -80,13 +80,11 @@ watch(dialog, (v) => {
       <template v-if="Object.keys(infoPanelData).length > 0">
         <!-- Balances -->
         <info-panel
-          :title="infoPanelData.balances!.title"
           :data="infoPanelData.balances!.data"
           variant="borrow"
         />
         <!-- Fee -->
         <info-panel
-          :title="infoPanelData.fees!.title"
           :data="infoPanelData.fees!.data"
           variant="borrow"
         >

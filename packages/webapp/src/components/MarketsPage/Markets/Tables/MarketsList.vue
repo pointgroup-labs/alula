@@ -148,7 +148,7 @@ const stop = watch(additionalMarketsData, () => {
         responsive
         class="market-table"
         :tbody-tr-class="rowClass"
-        :class="{ 'table-loading': loading }"
+        :class="{ 'table-loading': loading || isObligationsLoading }"
         @row-clicked="(e) => onRowClicked(market.marketName, e)"
       >
         <template
@@ -249,12 +249,7 @@ const stop = watch(additionalMarketsData, () => {
 
         <template #cell(position)="data">
           <div class="table-cell justify-content-end with-price">
-            <j-loading-spinner
-              v-if="isObligationsLoading"
-              class="position-spinner"
-              width="16px"
-            />
-            <template v-else-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
+            <template v-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
               <strong :style="{ color: +data.item.position.supplied > 0 ? '#22d3ee' : '#8a8df4' }">
                 {{ shortenNumber(+data.item.position.supplied || +data.item.position.borrowed) }}</strong>
               <span>

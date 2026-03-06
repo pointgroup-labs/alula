@@ -32,16 +32,6 @@ section#pool-details-bottom {
   .j-line-tabs {
     position: relative;
     margin-bottom: -8px;
-
-    &::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background-color: $border-color;
-    }
   }
 }
 </style>

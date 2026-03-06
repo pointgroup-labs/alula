@@ -18,6 +18,7 @@ defineProps<{
     </div>
     <div
       class="total-card__body text-num"
+      :style="{ '--color': color }"
     >
       {{ body }}
     </div>
@@ -43,12 +44,11 @@ defineProps<{
   }
 
   &__body {
-    color: $text-primary;
+    color: var(--color, '#f5f5f5');
     font-size: 1.5rem;
     font-style: normal;
     font-weight: 600;
     line-height: 28px;
   }
 }
-
 </style>

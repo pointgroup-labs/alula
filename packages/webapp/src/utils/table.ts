@@ -56,7 +56,7 @@ export function maxDecimalsForShortenNumber(value?: number) {
 
 export function utilRateColor(rate?: number) {
   if (!rate) {
-    return 'transparent'
+    return '#e8edf5'
   }
   switch (true) {
     case rate >= 80: return '#f43f5e'

@@ -42,14 +42,13 @@ const show = ref(false)
 
 <style lang="scss">
 .j-accordion {
-  // --bs-accordion-bg: rgba(255, 255, 255, 0.04);
   --bs-accordion-bg: #{$card-bg};
-  color: #fff;
+  --bs-accordion-color: #{$foreground};
   border: 1px solid $border-color;
   border-radius: 12px;
 
   .accordion-item {
-    // border-radius: 12px;
+    font-size: 14px;
   }
 
   .accordion-header {
@@ -69,7 +68,7 @@ const show = ref(false)
 
   .accordion-button {
     cursor: pointer;
-    color: $text-primary;
+    color: $foreground;
     font-size: $text-sm;
     font-style: normal;
     font-weight: 500;

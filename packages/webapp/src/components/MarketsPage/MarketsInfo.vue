@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import borrowingIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
-import { formatPrice, shortenNumber } from '~/utils'
+import { formatPrice } from '~/utils'
 
 const marketsStore = useMarketsStore()
 
@@ -23,11 +23,7 @@ const poolsInfo = computed(() => {
   }, { total_collateral: 0, total_borrowed: 0 })
 })
 
-const marketSize = computed(() => shortenNumber(poolsInfo.value.total_collateral + poolsInfo.value.total_borrowed))
-
-function normalizeAmount(price: number) {
-  return price < 1_000_000 ? formatPrice(price, 2, 2) : shortenNumber(price)
-}
+const marketSize = computed(() => formatPrice(poolsInfo.value.total_collateral + poolsInfo.value.total_borrowed, 0, 0))
 </script>
 
 <template>
@@ -41,15 +37,14 @@ function normalizeAmount(price: number) {
     <template v-else>
       <total-card
         title="Total Supply"
-        :body="`$${normalizeAmount(poolsInfo.total_collateral)}`"
+        :body="`$${formatPrice(poolsInfo.total_collateral, 0, 0)}`"
         bg="#006ce4"
         icon-color="#006CE4"
         :loading="loading"
       />
       <total-card
         title="Total Borrow"
-        :body="`$${normalizeAmount(poolsInfo.total_borrowed)}`"
-        color="#111"
+        :body="`$${formatPrice(poolsInfo.total_borrowed, 0, 0)}`"
         bg="#ffd101"
         :icon="borrowingIcon"
         icon-color="#FFD101"
@@ -58,7 +53,6 @@ function normalizeAmount(price: number) {
       <total-card
         title="Global Market Size"
         :body="`$${marketSize}`"
-        color="#111"
         bg="#ffd101"
         :icon="borrowingIcon"
         icon-color="#FFD101"

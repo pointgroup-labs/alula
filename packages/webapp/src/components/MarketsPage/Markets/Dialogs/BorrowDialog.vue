@@ -73,14 +73,12 @@ watch(dialog, (v) => {
       <template v-if="data">
         <!-- Pool info -->
         <info-panel
-          :title="infoPanelData.poolInfo!.title"
           :data="infoPanelData.poolInfo!.data"
           variant="borrow"
         />
 
         <!-- Health -->
         <info-panel
-          :title="infoPanelData.health!.title"
           :data="infoPanelData.health!.data"
           variant="borrow"
         >
@@ -98,7 +96,6 @@ watch(dialog, (v) => {
 
         <!-- Fees -->
         <info-panel
-          :title="infoPanelData.fees!.title"
           :data="infoPanelData.fees!.data"
           variant="borrow"
         >
@@ -134,7 +131,7 @@ watch(dialog, (v) => {
 
       <div class="extra-info">
         <div class="extra-info__label">Borrow APY</div>
-        <div class="extra-info__value">{{ data?.borrow_apy }}</div>
+        <div class="extra-info__value text-num">{{ data?.borrow_apy }}</div>
       </div>
 
       <div class="dialog-default__action mt-2">

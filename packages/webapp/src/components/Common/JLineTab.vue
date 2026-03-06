@@ -30,6 +30,7 @@ watchEffect(() => {
 
 <style lang="scss">
 .j-line-tabs {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: $spacing-12;
@@ -38,6 +39,16 @@ watchEffect(() => {
 
   @media (max-width: $breakpoint-sm) {
     justify-content: center;
+  }
+
+  &:before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: color-mix(in oklab, #1e293b 40%, transparent);
   }
 
   .overview-tab {

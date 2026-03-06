@@ -78,13 +78,11 @@ watch(dialog, (v) => {
       <template v-if="poolData">
         <!-- Pool Info -->
         <info-panel
-          :title="infoPanelData.poolInfo!.title"
           :data="infoPanelData.poolInfo!.data"
         />
 
         <!-- Fees -->
         <info-panel
-          :title="infoPanelData.fees!.title"
           :data="infoPanelData.fees!.data"
         >
           <template #txFee>
@@ -117,7 +115,7 @@ watch(dialog, (v) => {
 
       <div class="extra-info">
         <div class="extra-info__label">Supply APY</div>
-        <div class="extra-info__value">{{ poolData?.deposit_apy }}</div>
+        <div class="extra-info__value text-num">{{ poolData?.deposit_apy }}</div>
       </div>
 
       <div class="dialog-default__action mt-2">

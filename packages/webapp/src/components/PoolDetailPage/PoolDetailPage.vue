@@ -27,6 +27,16 @@ watch(() => marketsStore.state.markets, (storeMarkets) => {
 }, { immediate: true })
 
 provide('selectedPool', selectedPool)
+
+const tabs = [{
+  label: 'Pool',
+  value: 'pool',
+}, {
+  label: 'Info / Risks',
+  value: 'info',
+}]
+
+const activeTab = ref(tabs[0])
 </script>
 
 <template>
@@ -39,7 +49,46 @@ provide('selectedPool', selectedPool)
       <pool-detail-top />
 
       <template v-if="selectedPool">
-        <pool-overview />
+        <j-line-tab
+          v-model="activeTab"
+          :tabs="tabs"
+          style="margin-bottom: -12px;"
+        />
+        <pool-overview v-if="activeTab?.value === 'pool'" />
+        <div v-if="activeTab?.value === 'info'">
+          <j-accordion
+            title="Liquidity"
+            class="mb-3"
+          >
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptatum dolorem quidem tenetur harum adipisci
+            dolore, nobis nam iure? Sed excepturi possimus delectus doloremque alias ullam vitae, eveniet similique
+            facilis numquam!
+          </j-accordion>
+          <j-accordion
+            title="Liquidity"
+            class="mb-3"
+          >
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptatum dolorem quidem tenetur harum adipisci
+            dolore, nobis nam iure? Sed excepturi possimus delectus doloremque alias ullam vitae, eveniet similique
+            facilis numquam!
+          </j-accordion>
+          <j-accordion
+            title="Liquidity"
+            class="mb-3"
+          >
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptatum dolorem quidem tenetur harum adipisci
+            dolore, nobis nam iure? Sed excepturi possimus delectus doloremque alias ullam vitae, eveniet similique
+            facilis numquam!
+          </j-accordion>
+          <j-accordion
+            title="Liquidity"
+            class="mb-3"
+          >
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Voluptatum dolorem quidem tenetur harum adipisci
+            dolore, nobis nam iure? Sed excepturi possimus delectus doloremque alias ullam vitae, eveniet similique
+            facilis numquam!
+          </j-accordion>
+        </div>
       </template>
 
       <div
