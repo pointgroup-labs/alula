@@ -13,10 +13,10 @@ $btn-variants: (
   ),
 
   accent: (
-    bg: rgba(242, 176, 26, 0.4),
+    bg: $accent,
     color: #fff,
-    hoverBg: rgba(242, 176, 26, 0.6),
-    focusBg: rgba(242, 176, 26, 0.6),
+    hoverBg: lighten($accent, 10%),
+    focusBg: lighten($accent, 10%),
   ),
 
   purple: (
@@ -32,7 +32,6 @@ $btn-variants: (
     hoverBg: lighten($cyan, 10%),
     focusBg: lighten($cyan, 10%),
   ),
-
 
   outline-cyan: (
     bg: transparent,

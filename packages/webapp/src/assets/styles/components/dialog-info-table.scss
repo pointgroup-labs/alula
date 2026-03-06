@@ -8,7 +8,7 @@
   --border-color: rgba(0, 211, 238, 0.15);
   --box-shadow: rgba(0, 211, 238, 0.05);
 
-  &--borrow {
+  &--purple {
     --background-color: rgba(99, 102, 241, 0.03);
     --border-color: rgba(99, 102, 241, 0.15);
     --box-shadow: rgba(99, 102, 241, 0.05);
@@ -18,6 +18,12 @@
     --background-color: rgba(0, 201, 80, 0.02);
     --border-color: rgba(0, 201, 80, 0.15);
     --box-shadow: rgba(0, 201, 80, 0.05);
+  }
+
+  &--accent {
+    --background-color: rgba(245, 159, 11, 0.02);
+    --border-color: rgba(245, 159, 11, 0.15);
+    --box-shadow: rgba(245, 159, 11, 0.05);
   }
 
   background-color: var(--background-color);

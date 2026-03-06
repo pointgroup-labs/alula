@@ -33,7 +33,7 @@ const {
   rules?: Array<(val: string | number) => true | string>
   modelValue?: string | number
   error?: string
-  variant?: 'supply' | 'borrow' | 'success'
+  variant?: 'cyan' | 'purple' | 'success' | 'accent'
   reset?: boolean
 }>()
 
@@ -197,7 +197,7 @@ watch(() => reset, () => {
   --border-color: rgba(0, 211, 238, 0.3);
   --color: #22d3ee;
 
-  .borrow {
+  .purple {
     --background-color: rgba(99, 102, 241, 0.05);
     --border-color: rgba(99, 102, 241, 0.3);
     --color: #8a8df4;
@@ -207,6 +207,12 @@ watch(() => reset, () => {
     --background-color: rgba(0, 201, 80, 0.03);
     --border-color: rgba(0, 201, 80, 0.3);
     --color: #00c950;
+  }
+
+  .accent {
+    --background-color: rgba(245, 159, 11, 0.03);
+    --border-color: rgba(245, 159, 11, 0.3);
+    --color: #f59e0b;
   }
 
   &__label {

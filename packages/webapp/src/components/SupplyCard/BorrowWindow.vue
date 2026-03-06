@@ -74,7 +74,7 @@ const debtAccrual = computedAsync(async () => {
       :price="selectedPool?.price"
       label-left="Available to Borrow"
       :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${selectedPool?.asset.symbol}`"
-      variant="borrow"
+      variant="purple"
       :rules="[
         (v: any) => {
           return Number(v) < availableToBorrow || 'Borrow limit exceeded'

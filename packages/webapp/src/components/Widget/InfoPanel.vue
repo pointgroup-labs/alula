@@ -6,7 +6,7 @@ defineProps<{
     value: string | number
     slotName?: string
   }[]
-  variant?: 'borrow' | 'success'
+  variant?: 'purple' | 'success' | 'accent'
 }>()
 </script>
 
