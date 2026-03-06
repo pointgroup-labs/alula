@@ -57,6 +57,11 @@ watch(dialog, (v) => {
           :alt="`${asset.symbol} icon`"
         >
         <span>Withdraw {{ asset.symbol }}</span>
+
+        <reload-coundown
+          v-if="dialog"
+          color="#e8edf5"
+        />
       </div>
     </template>
 

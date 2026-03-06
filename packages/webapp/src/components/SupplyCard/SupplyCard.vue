@@ -189,7 +189,6 @@ function dialogHandler() {
 
         &__title {
           font-size: 10px;
-          text-transform: uppercase;
           color: $muted-foreground;
           opacity: 0.7;
         }
@@ -212,10 +211,12 @@ function dialogHandler() {
 
     &__header {
       font-size: 11px;
-      text-transform: uppercase;
       color: $muted-foreground;
       padding: 10px 16px;
       border-bottom: 1px solid $border-color;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .summary-list {

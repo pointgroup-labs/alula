@@ -1,4 +1,8 @@
 <script lang="ts" setup>
+const { start, poolCountdown, obligationCountdown } = useSmartReloader()
+provide('poolCountdown', poolCountdown)
+provide('obligationCountdown', obligationCountdown)
+
 onMounted(() => {
   if (import.meta.client) {
     nextTick(() => {
@@ -8,7 +12,6 @@ onMounted(() => {
         body.style.opacity = '1'
       }
     })
-    const { start } = useSmartReloader()
     start()
   }
 })

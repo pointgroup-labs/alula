@@ -9,9 +9,17 @@ export function useSmartReloader() {
 
   const POOL_EVERY_MS = 30_000
   const OBLIGATION_EVERY_MS = 120_000
+  const COUNTDOWN_TICK_MS = 1000
+  const POOL_EVERY_S = POOL_EVERY_MS / 1000
+  const OBLIGATION_EVERY_S = OBLIGATION_EVERY_MS / 1000
 
   let poolIntervalId: NodeJS.Timeout | null = null
   let obligationIntervalId: NodeJS.Timeout | null = null
+  let poolCountdownId: NodeJS.Timeout | null = null
+  let obligationCountdownId: NodeJS.Timeout | null = null
+
+  const poolCountdown = ref(POOL_EVERY_S)
+  const obligationCountdown = ref(OBLIGATION_EVERY_S)
 
   // Watch only the structural fingerprint (market names + pool addresses).
   // Pool *data* updates (prices, APY, etc.) also mutate state.markets deeply,
@@ -134,14 +142,28 @@ export function useSmartReloader() {
     if (poolIntervalId != null) {
       return
     }
-    poolIntervalId = globalThis.setInterval(() => tick(POOL_JOBS.value, poolRunGuard), POOL_EVERY_MS)
+    poolCountdown.value = POOL_EVERY_S
+    poolIntervalId = globalThis.setInterval(() => {
+      poolCountdown.value = POOL_EVERY_S
+      tick(POOL_JOBS.value, poolRunGuard)
+    }, POOL_EVERY_MS)
+    poolCountdownId = globalThis.setInterval(() => {
+      poolCountdown.value = Math.max(0, poolCountdown.value - 1)
+    }, COUNTDOWN_TICK_MS)
   }
 
   function startObligation() {
     if (obligationIntervalId != null) {
       return
     }
-    obligationIntervalId = globalThis.setInterval(() => tick(OBLIGATION_JOBS.value, obligationRunGuard), OBLIGATION_EVERY_MS)
+    obligationCountdown.value = OBLIGATION_EVERY_S
+    obligationIntervalId = globalThis.setInterval(() => {
+      obligationCountdown.value = OBLIGATION_EVERY_S
+      tick(OBLIGATION_JOBS.value, obligationRunGuard)
+    }, OBLIGATION_EVERY_MS)
+    obligationCountdownId = globalThis.setInterval(() => {
+      obligationCountdown.value = Math.max(0, obligationCountdown.value - 1)
+    }, COUNTDOWN_TICK_MS)
   }
 
   function start() {
@@ -158,6 +180,14 @@ export function useSmartReloader() {
       clearInterval(obligationIntervalId)
       obligationIntervalId = null
     }
+    if (poolCountdownId != null) {
+      clearInterval(poolCountdownId)
+      poolCountdownId = null
+    }
+    if (obligationCountdownId != null) {
+      clearInterval(obligationCountdownId)
+      obligationCountdownId = null
+    }
   }
 
   onUnmounted(stop)
@@ -165,7 +195,15 @@ export function useSmartReloader() {
   return {
     start,
     stop,
-    refreshPools: () => tick(POOL_JOBS.value, poolRunGuard),
-    refreshObligations: () => tick(OBLIGATION_JOBS.value, obligationRunGuard),
+    poolCountdown,
+    obligationCountdown,
+    refreshPools: () => {
+      poolCountdown.value = POOL_EVERY_S
+      tick(POOL_JOBS.value, poolRunGuard)
+    },
+    refreshObligations: () => {
+      obligationCountdown.value = OBLIGATION_EVERY_S
+      tick(OBLIGATION_JOBS.value, obligationRunGuard)
+    },
   }
 }

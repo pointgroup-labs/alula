@@ -46,6 +46,8 @@ watch(dialog, (v) => {
           :alt="`${data?.asset.symbol} icon`"
         >
         <span>Borrow {{ data?.asset.symbol }}</span>
+
+        <reload-coundown v-if="dialog" />
       </div>
     </template>
 

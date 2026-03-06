@@ -48,6 +48,11 @@ watch(dialog, (v) => {
           :alt="`${poolData?.asset.symbol} icon`"
         >
         <span>Supply {{ poolData?.asset.symbol }}</span>
+
+        <reload-coundown
+          v-if="dialog"
+          color="#e8edf5"
+        />
       </div>
     </template>
 

@@ -136,6 +136,8 @@ const debtAccrual = computedAsync(async () => {
     >
       <div class="info-summary__header">
         Transaction Summary
+
+        <reload-coundown :size="18" />
       </div>
 
       <div class="summary-list">
