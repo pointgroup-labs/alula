@@ -195,6 +195,10 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
     }
   }, { immediate: true })
 
+  onUnmounted(() => {
+    stopRepayWatcher()
+  })
+
   return {
     poolData,
     asset,

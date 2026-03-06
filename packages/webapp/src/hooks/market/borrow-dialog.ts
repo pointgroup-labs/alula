@@ -295,6 +295,10 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     }
   }, { immediate: true })
 
+  onUnmounted(() => {
+    stopBorrowWatchers()
+  })
+
   return {
     marketClient,
     agree,
