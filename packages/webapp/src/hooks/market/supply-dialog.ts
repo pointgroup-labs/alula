@@ -184,7 +184,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
           const tx = await marketClient.value.lending.buildDepositTx(
             publicKey.value,
             d.raw.pool.pool_address || '',
-            0,
+            0.01,
           )
           txFee.value = marketClient.value.lending.getTransactionFee(tx)
         } finally {

@@ -188,11 +188,20 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
         ],
       },
       poolInfo: {
-        title: 'Info / Fee',
+        title: 'Pool Info',
         data: [
           {
             label: 'Pool Withdrawal Limit',
             value: `${shortenNumber(poolLimit.value || 0, 2, maxDecimalsForShortenNumber(poolLimit.value))} ${sym}`,
+          },
+        ],
+      },
+      fees: {
+        title: 'Fees',
+        data: [
+          {
+            label: 'Operation Fee',
+            value: `${formatPrice(poolFee.value, 0, 5)} ${sym}`,
           },
           {
             label: 'Transaction Fee',
@@ -243,12 +252,16 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     stopSimulateWatcher = watchDebounced(
       amount,
       async (a) => {
-        if (!isOpen.value) { return }
+        if (!isOpen.value) {
+          return
+        }
         if (!a || Number(a) <= 0) {
           poolFee.value = 0
           return
         }
-        if (!publicKey.value || !pool_address.value) { return }
+        if (!publicKey.value || !pool_address.value) {
+          return
+        }
 
         const feeData = await activeMarket.value?.client.market.simulateWithdraw(
           publicKey.value,
@@ -276,7 +289,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
           const tx = await activeMarket.value?.client.lending.buildWithdrawTx(
             publicKey.value,
             r.pool.pool_address,
-            0,
+            0.1,
           )
           txFee.value = activeMarket.value?.client.lending.getTransactionFee(tx) ?? 0
         } finally {

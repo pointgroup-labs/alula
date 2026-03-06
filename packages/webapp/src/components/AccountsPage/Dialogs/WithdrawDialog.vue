@@ -109,6 +109,24 @@ watch(dialog, (v) => {
             </template>
           </template>
         </info-panel>
+
+        <!-- Fees -->
+        <info-panel
+          :data="infoPanelData.fees!.data"
+          variant="success"
+        >
+          <template #txFee="{ item }">
+            <j-loading-spinner
+              v-if="isLoadingFee"
+              width="14px"
+              style="padding: 0; width: 20px; height: 20px; margin: 0 auto;"
+            />
+            <template v-else>
+              {{ item.value }}
+            </template>
+          </template>
+        </info-panel>
+
       </template>
 
       <j-toggle

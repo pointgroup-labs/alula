@@ -154,7 +154,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
           const tx = await activeMarket.value?.client.borrowing.buildRepayTx(
             publicKey.value,
             r.pool.pool_address,
-            0,
+            0.01,
           )
           txFee.value = activeMarket.value?.client.borrowing.getTransactionFee(tx) ?? 0
         } finally {

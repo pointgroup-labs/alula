@@ -268,7 +268,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
           const tx = await marketClient.value.borrowing.buildBorrowTx(
             publicKey.value,
             d.raw.pool.pool_address || '',
-            0,
+            0.01,
           )
           txFee.value = marketClient.value.borrowing.getTransactionFee(tx)
         } finally {
