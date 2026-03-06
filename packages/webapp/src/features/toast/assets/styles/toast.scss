@@ -1,3 +1,10 @@
+// Fix: bootstrap-vue-next sets position: fixed on leaving toast items,
+// which breaks positioning for bottom-start (no CSS transform on container).
+// Using position: absolute keeps the item within the fixed toast container.
+.b-list-leave-active {
+  position: absolute !important;
+}
+
 $toast-variants: (
   success: (
     background-color: rgba(0, 201, 80, 0.3),

@@ -38,7 +38,7 @@ export function useToast() {
    * { variant: 'success' | 'info' | 'warning' | 'danger' }
    */
   async function create({
-    position = 'bottom-center',
+    position = 'bottom-start',
     variant = 'success',
     modelValue = 5000,
     toastClass = '',
