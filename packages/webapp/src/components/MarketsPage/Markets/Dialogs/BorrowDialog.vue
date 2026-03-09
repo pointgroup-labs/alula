@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { CLEAR_DIALOG_TIMEOUT, POOL_REMAINING_BALANCE } from '~/config'
+import { CLEAR_DIALOG_TIMEOUT } from '~/config'
 import { truncatePercent } from '~/utils'
 
 const props = defineProps<{ data?: MarketTableItem }>()
@@ -59,7 +59,6 @@ watch(dialog, (v) => {
         v-model="amount"
         class="borrow-input mb-2"
         :balance="availableToBorrow"
-        :fee="POOL_REMAINING_BALANCE"
         label-left="Available"
         :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${data?.asset.symbol}`"
         :price="poolData?.price"

@@ -225,6 +225,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
         amount: amount.value,
         asset_data: poolData.value?.raw.pool.name,
         poolBorrowLimit: poolBorrowLimit.value,
+        withBuffer: Number(amount.value) >= Number(availableToBorrow.value),
       }
 
       await market.borrow(marketProps)

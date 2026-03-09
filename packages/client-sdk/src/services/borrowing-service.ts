@@ -1,6 +1,7 @@
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
 import { DecimalsConfig } from '../config/decimals'
+import { MAX_I128 } from '../constants'
 import { BaseClient } from '../core/base-client'
 import { TransactionHelper } from '../core/transaction-builder'
 import { amountToBigInt } from '../utils'
@@ -40,8 +41,8 @@ export class BorrowingService extends BaseClient {
   /**
    * Build borrow transaction
    */
-  async buildBorrowTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
+  async buildBorrowTx(user: string, poolAddress: string, amount: string | number | bigint) {
+    const amountInBigInt = typeof amount === 'bigint' ? amount : amountToBigInt(String(amount), this.decimals.assetDecimals)
     return await this.client.borrow({
       user,
       pool_address: poolAddress,
@@ -66,8 +67,9 @@ export class BorrowingService extends BaseClient {
   /**
    * Borrow from pool
    */
-  async borrow(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
-    const tx = await this.buildBorrowTx(user, poolAddress, amount)
+  async borrow(user: string, poolAddress: string, amount: number, kit: any, withBuffer: boolean, options = { debug: true }) {
+    const resolvedAmount = withBuffer ? MAX_I128 : amount
+    const tx = await this.buildBorrowTx(user, poolAddress, resolvedAmount)
 
     if (options?.debug) {
       console.log('%c[Borrow Tx]', 'color: #00ff00', tx)

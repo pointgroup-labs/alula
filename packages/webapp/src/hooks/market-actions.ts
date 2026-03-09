@@ -177,10 +177,11 @@ export function useMarketActions() {
       amount: number
       asset_data: string
       poolBorrowLimit: number
+      withBuffer: boolean
     },
   ) {
     const pk = requireWallet()
-    const { client, market, pool_address, amount, asset_data, poolBorrowLimit } = props
+    const { client, market, pool_address, amount, asset_data, poolBorrowLimit, withBuffer } = props
     try {
       if (poolBorrowLimit < amount) {
         throw new Error('Borrow limit exceeded')
@@ -207,7 +208,7 @@ export function useMarketActions() {
       type: 'borrow',
       title: 'Borrow',
       body: `Sending transaction to borrow ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.borrowing.borrow(pk, pool_address, amount, kit.value),
+      exec: () => client!.borrowing.borrow(pk, pool_address, amount, kit.value, withBuffer),
       reset: () => {
         borrowAmount.value = undefined
         marketsStore.dialogBorrow = false
