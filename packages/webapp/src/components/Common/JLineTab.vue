@@ -33,7 +33,7 @@ watchEffect(() => {
   position: relative;
   display: flex;
   align-items: flex-end;
-  gap: $spacing-12;
+  gap: 12px;
   font-size: 14px;
   font-weight: 500;
 
@@ -52,13 +52,13 @@ watchEffect(() => {
   }
 
   .overview-tab {
-    padding: 0 $spacing-6 $spacing-8;
+    padding: 0 $spacing-sm $spacing-md;
     border-bottom: 2px solid transparent;
     transition: 0.1s ease;
     cursor: pointer;
 
     &--active {
-      border-color: var(--active-tab-color, $muted-foreground);
+      border-color: var(--active-tab-color, $text-tertiary);
     }
   }
 }

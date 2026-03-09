@@ -169,17 +169,17 @@ onUnmounted(() => {
 
     input {
       font-weight: 400;
-      color: $foreground;
+      color: $text-primary;
 
       &::placeholder {
-        color: $muted-foreground;
+        color: $text-tertiary;
       }
     }
 
     .search-icon {
       width: 18px;
       height: 18px;
-      color: $muted-foreground;
+      color: $text-tertiary;
     }
 
     .close-icon {
@@ -188,18 +188,18 @@ onUnmounted(() => {
 
     .esc {
       font-size: 12px;
-      color: $muted-foreground;
+      color: $text-tertiary;
       background-color: color-mix(in oklab, #1a2236 60%, transparent);
       display: flex;
       align-items: center;
       padding: 4px 8px;
-      border-radius: 8px;
+      border-radius: $radius-md;
       transition: all 0.2s ease;
       cursor: pointer;
 
       &:hover {
         background-color: color-mix(in oklab, #1a2236 90%, transparent);
-        color: $foreground;
+        color: $text-primary;
       }
     }
   }
@@ -232,12 +232,12 @@ onUnmounted(() => {
         min-width: 40px;
         &__symbol {
           font-size: 14px;
-          color: $foreground;
+          color: $text-primary;
         }
 
         &__name {
           font-size: 11px;
-          color: $muted-foreground;
+          color: $text-tertiary;
         }
       }
 
@@ -246,7 +246,7 @@ onUnmounted(() => {
         align-items: flex-start;
         flex-direction: column;
         font-size: 11px;
-        color: $foreground;
+        color: $text-primary;
 
         > div {
           display: flex;
@@ -275,7 +275,7 @@ onUnmounted(() => {
   .no-data {
     padding: 24px;
     text-align: center;
-    color: $muted-foreground;
+    color: $text-tertiary;
     font-size: 12px;
   }
 }

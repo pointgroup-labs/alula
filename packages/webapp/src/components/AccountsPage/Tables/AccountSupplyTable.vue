@@ -209,7 +209,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: $spacing-16;
+  gap: 16px;
 
   .loading-spinner {
     position: absolute;
@@ -222,6 +222,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
   }
 
   &__title {
+    color: $navi-25;
     font-size: 20px;
     font-style: normal;
     font-weight: 700;
@@ -240,13 +241,14 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: $spacing-8;
+    gap: 8px;
     min-height: 116px;
     max-height: 200px;
     font-size: 14px;
     font-style: normal;
     font-weight: 400;
     line-height: 16px;
+    color: $navi-100;
   }
 }
 
@@ -257,17 +259,6 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 
   .profile-action {
     width: 100px;
-  }
-}
-
-.theme-dark {
-  .account-card {
-    &__title {
-      color: #fff;
-    }
-    .no-data {
-      color: $neutral-9;
-    }
   }
 }
 </style>

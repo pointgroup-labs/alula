@@ -1,7 +1,7 @@
 .market-detail-page {
   display: flex !important;
   flex-direction: column;
-  gap: $spacing-32;
+  gap: 32px;
 
   h3 {
     margin: 0;
@@ -10,7 +10,7 @@
   .stat-card {
     background-color: $card-bg;
     border: 1px solid $border-color;
-    border-radius: 14px;
+    border-radius: $radius-2xl;
 
     &__header {
       padding: 14px 20px;
@@ -21,7 +21,7 @@
 
       .title {
         font-size: 14px;
-        color: $foreground;
+        color: $text-primary;
       }
     }
 
@@ -33,7 +33,7 @@
   .market-details-top {
     display: flex;
     align-items: center;
-    gap: $spacing-16;
+    gap: 16px;
 
     @media (max-width: $breakpoint-xs) {
       flex-wrap: wrap;
@@ -42,7 +42,7 @@
     .asset-data {
       display: flex;
       align-items: center;
-      gap: $spacing-6;
+      gap: 6px;
       font-size: 18px;
       font-weight: 500;
 
@@ -57,7 +57,7 @@
         align-items: flex-start;
 
         span[data='symbol'] {
-          color: $muted-foreground;
+          color: $text-tertiary;
           font-size: 12px;
           opacity: 0.8;
         }
@@ -73,16 +73,16 @@
       .market-name {
         padding: 2px 8px;
         font-size: 10px;
-        color: $muted-foreground;
+        color: $text-tertiary;
         letter-spacing: 0.05em;
         font-weight: 500;
         text-transform: uppercase;
         background-color: color-mix(in oklab, $new-secondary 60%, transparent);
-        border-radius: 50px;
+        border-radius: $radius-full;
       }
 
       .market-price {
-        color: color-mix(in oklab, $foreground 80%, transparent);
+        color: color-mix(in oklab, $text-primary 80%, transparent);
         font-family: $font-JetBrainsMono;
         font-size: 12px;
       }
@@ -101,7 +101,7 @@
 
         span:nth-child(1) {
           font-size: 10px;
-          color: $muted-foreground;
+          color: $text-tertiary;
           letter-spacing: 0.05em;
         }
 
@@ -131,25 +131,25 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    border-bottom: 1px solid $neutral-5;
+    border-bottom: 1px solid $navi-50;
 
     @media (max-width: $breakpoint-sm) {
       align-items: normal;
       flex-direction: column-reverse;
-      gap: $spacing-24;
+      gap: 24px;
     }
   }
 
   .market-overview {
     display: flex;
-    gap: $spacing-16;
+    gap: 16px;
 
     .overview-wrapper {
       min-width: 0;
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: $spacing-24;
+      gap: 24px;
     }
 
     .supply-card {
@@ -160,7 +160,7 @@
     section {
       display: flex;
       flex-direction: column;
-      gap: $spacing-32;
+      gap: 32px;
 
       &:last-child {
         padding-bottom: 100px;
@@ -169,7 +169,7 @@
   }
 
   .no-data {
-    padding: $spacing-32;
+    padding: $spacing-4xl;
     margin: 0 auto;
     color: $text-secondary;
     font-size: 12px;

@@ -131,8 +131,8 @@ onMounted(() => {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: $spacing-16;
-    padding: $spacing-40 $spacing-24;
+    gap: 16px;
+    padding: $spacing-5xl $spacing-3xl;
     max-width: 480px;
     width: 100%;
   }
@@ -142,7 +142,7 @@ onMounted(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: $spacing-8;
+    margin-bottom: $spacing-md;
   }
 
   &__code {
@@ -175,10 +175,10 @@ onMounted(() => {
     justify-content: center;
     width: 80px;
     height: 80px;
-    border-radius: 20px;
+    border-radius: $radius-3xl;
     background: rgba(245, 158, 11, 0.08);
     border: 1px solid rgba(245, 158, 11, 0.2);
-    margin-bottom: $spacing-8;
+    margin-bottom: $spacing-md;
   }
 
   &__title {
@@ -191,14 +191,14 @@ onMounted(() => {
 
   &__subtitle {
     font-size: 15px;
-    color: $muted-foreground;
+    color: $text-tertiary;
     line-height: 1.6;
     margin: 0;
     max-width: 360px;
   }
 
   &__link {
-    margin-top: $spacing-8;
+    margin-top: $spacing-md;
     text-decoration: none;
   }
 
@@ -206,7 +206,7 @@ onMounted(() => {
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px;
-    padding: $spacing-10 $spacing-24 !important;
+    padding: 10px $spacing-3xl !important;
     border-radius: $radius-8 !important;
     border: 1px solid rgba(34, 211, 238, 0.25) !important;
     color: #22d3ee !important;

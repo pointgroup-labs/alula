@@ -213,16 +213,16 @@ watchDebounced([
     }
 
     &__body {
-      padding-top: $spacing-16;
+      padding-top: $spacing-xl;
       display: flex;
       flex-direction: column;
-      gap: $spacing-16;
+      gap: 16px;
     }
 
     .multiply-dialog-action {
       display: flex;
       justify-content: space-between;
-      gap: $spacing-32;
+      gap: 32px;
 
       .action-info {
         white-space: nowrap;
@@ -232,7 +232,7 @@ watchDebounced([
         gap: 2px;
 
         span:first-child {
-          color: $neutral-12;
+          color: $navi-200;
           font-size: 12px;
           font-style: normal;
           font-weight: 500;

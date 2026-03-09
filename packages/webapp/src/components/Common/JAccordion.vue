@@ -43,9 +43,9 @@ const show = ref(false)
 <style lang="scss">
 .j-accordion {
   --bs-accordion-bg: #{$card-bg};
-  --bs-accordion-color: #{$foreground};
+  --bs-accordion-color: #{$text-primary};
   border: 1px solid $border-color;
-  border-radius: 12px;
+  border-radius: $radius-xl;
 
   .accordion-item {
     font-size: 14px;
@@ -53,27 +53,27 @@ const show = ref(false)
 
   .accordion-header {
     margin: 0;
-    border-radius: 12px;
+    border-radius: $radius-xl;
 
     &:has(button[aria-expanded='true']) {
-      border-radius: 12px 12px 0 0;
+      border-radius: $radius-xl $radius-xl 0 0;
       border-bottom: 1px solid $border-color;
     }
   }
 
   .accordion-body {
-    padding: $spacing-16;
+    padding: $spacing-xl;
     overflow: auto;
   }
 
   .accordion-button {
     cursor: pointer;
-    color: $foreground;
+    color: $text-primary;
     font-size: $text-sm;
     font-style: normal;
     font-weight: 500;
     line-height: normal;
-    padding: $spacing-12 $spacing-16;
+    padding: $spacing-lg $spacing-xl;
     background-color: transparent;
 
     font-family: $font-family-base;

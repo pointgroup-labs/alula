@@ -4,7 +4,7 @@ $label-variants: (
     color: #fff,
   ),
   secondary: (
-    background-color: $neutral-5,
+    background-color: $navi-50,
     color: $dark,
   ),
   warning: (
@@ -56,7 +56,7 @@ $label-sizes: (
   font-size: 12px;
   font-style: normal;
   line-height: 16px;
-  border-radius: 100px;
+  border-radius: $radius-full;
 
   @each $name, $zises in $label-sizes {
     &.j-pill-label--#{$name} {

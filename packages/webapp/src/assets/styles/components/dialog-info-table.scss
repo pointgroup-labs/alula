@@ -1,6 +1,6 @@
 .dialog-info-card {
-  padding: $spacing-12;
-  border-radius: $spacing-16;
+  padding: $spacing-lg;
+  border-radius: $radius-2xl;
   border: 1px solid $border-color;
   box-shadow: none;
 
@@ -41,13 +41,13 @@
     font-style: normal;
     font-weight: 500;
     line-height: 20px;
-    color: $foreground;
+    color: $text-primary;
   }
 
   &__body {
     display: flex;
     justify-content: space-between;
-    gap: $spacing-12;
+    gap: 12px;
   }
 
   &__item {
@@ -60,7 +60,7 @@
       font-style: normal;
       font-weight: 400;
       line-height: 16px;
-      color: $muted-foreground;
+      color: $text-tertiary;
     }
 
     .value {
@@ -68,7 +68,7 @@
       font-style: normal;
       font-weight: 500;
       line-height: 20px;
-      color: $foreground;
+      color: $text-primary;
       font-family: $font-JetBrainsMono;
     }
   }

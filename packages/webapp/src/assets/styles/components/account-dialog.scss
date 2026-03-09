@@ -2,7 +2,7 @@
   &__title {
     display: flex;
     align-items: center;
-    gap: $spacing-8;
+    gap: 8px;
     font-size: 20px;
     font-style: normal;
     font-weight: 400;
@@ -17,10 +17,10 @@
   }
 
   &__body {
-    padding-top: $spacing-16;
+    padding-top: $spacing-xl;
     display: flex;
     flex-direction: column;
-    gap: $spacing-16;
+    gap: 16px;
   }
 
   .account-info-table {
@@ -37,11 +37,11 @@
       line-height: 12px;
 
       &:nth-child(even) {
-        background-color: $neutral-2;
+        background-color: $fg-secondary;
       }
 
       span {
-        padding: $spacing-6 $spacing-16;
+        padding: $spacing-sm $spacing-xl;
 
         &:nth-child(2) {
           text-align: right;
@@ -53,7 +53,7 @@
   .account-dialog-action {
     display: flex;
     justify-content: space-between;
-    gap: $spacing-32;
+    gap: 32px;
 
     .btn {
       width: 192px;

@@ -29,9 +29,9 @@ const search = defineModel({ default: undefined })
   .j-input {
     .input-group {
       height: 40px;
-      gap: $spacing-12;
+      gap: 12px;
       background-color: $card-bg;
-      padding: $spacing-6 $spacing-12;
+      padding: $spacing-sm $spacing-lg;
       border: 1px solid $border-color;
     }
 
@@ -43,7 +43,7 @@ const search = defineModel({ default: undefined })
     }
 
     input {
-      color: $foreground;
+      color: $text-primary;
       font-size: $text-sm;
       font-style: normal;
       font-weight: 400;
@@ -51,8 +51,8 @@ const search = defineModel({ default: undefined })
     }
 
     input::placeholder {
-      color: $muted-foreground;
-      opacity: .7;
+      color: $text-tertiary;
+      opacity: 0.7;
     }
 
     .search-icon {

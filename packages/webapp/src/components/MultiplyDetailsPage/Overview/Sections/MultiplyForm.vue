@@ -205,7 +205,7 @@ section#multiply-form {
   margin-top: 44px;
 
   .multiply-form-card {
-    border-radius: 20px;
+    border-radius: $radius-3xl;
     padding: 0;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 250, 251, 0.99) 100%);
     border: 1px solid rgba(33, 44, 66, 0.08);
@@ -250,13 +250,13 @@ section#multiply-form {
     padding: 24px 28px;
     display: flex;
     flex-direction: column;
-    gap: $spacing-20;
+    gap: 20px;
   }
 
   .multiplier-section {
     padding: 16px;
     background: rgba(92, 108, 255, 0.02);
-    border-radius: 12px;
+    border-radius: $radius-xl;
     border: 1px solid rgba(92, 108, 255, 0.08);
     transition: all 0.2s ease;
 
@@ -279,7 +279,7 @@ section#multiply-form {
     height: 52px;
     font-size: 16px;
     font-weight: 600;
-    border-radius: 12px;
+    border-radius: $radius-xl;
     box-shadow: 0 4px 12px rgba(0, 108, 228, 0.2);
     transition: all 0.2s ease;
   }
@@ -313,7 +313,7 @@ section#multiply-form {
       align-items: center;
       padding: 12px 16px;
       background: rgba(255, 255, 255, 0.7);
-      border-radius: 10px;
+      border-radius: $radius-lg;
       border: 1px solid rgba(33, 44, 66, 0.05);
       transition: all 0.2s ease;
 
@@ -411,7 +411,7 @@ section#multiply-form {
     margin-top: 32px;
 
     .multiply-form-card {
-      border-radius: 16px;
+      border-radius: $radius-2xl;
     }
 
     .form-header,

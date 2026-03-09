@@ -19,7 +19,7 @@
     0px 2px 8px rgba(33, 44, 66, 0.04),
     0px 8px 24px rgba(33, 44, 66, 0.06),
     inset 0px 1px 0px rgba(255, 255, 255, 0.6);
-  border-radius: 16px;
+  border-radius: $radius-2xl;
   font-weight: 500;
   height: fit-content;
   position: relative;

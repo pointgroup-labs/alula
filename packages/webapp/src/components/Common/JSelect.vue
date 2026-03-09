@@ -226,7 +226,7 @@ onMounted(() => {
   position: absolute;
   z-index: 9999;
   box-shadow: 0 0 2px 0px #00000054;
-  border-radius: 4px;
+  border-radius: $radius-xs;
   width: max-content;
 
   ul {
@@ -236,12 +236,12 @@ onMounted(() => {
   }
 
   .j-input {
-    margin-top: $spacing-4;
-    padding: 0 $spacing-4;
+    margin-top: $spacing-xs;
+    padding: 0 $spacing-xs;
   }
 
   .active-option {
-    background-color: $neutral-5;
+    background-color: $navi-50;
   }
 
   .dropdown-options-item {
@@ -250,7 +250,7 @@ onMounted(() => {
     cursor: pointer;
 
     &:hover {
-      background-color: darken($neutral-5, 2%);
+      background-color: darken($navi-50, 2%);
     }
 
     &.no-data {
@@ -262,23 +262,8 @@ onMounted(() => {
 
   .j-input {
     .input-group {
-      border-radius: $spacing-4;
+      border-radius: $spacing-xs;
     }
   }
 }
-
-// .theme-dark {
-//   .dropdown-menu-options {
-//     background-color: $dark-bg;
-//     border: 1px solid $neutral-16;
-//   }
-
-//   .dropdown-options-item:hover {
-//     background-color: $neutral-16;
-//   }
-
-//   .dropdown-menu-options .active-option {
-//     background-color: $neutral-16;
-//   }
-// }
 </style>

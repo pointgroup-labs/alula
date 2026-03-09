@@ -377,12 +377,12 @@ function openWithdrawDialog() {
 <style lang="scss">
 section#multiply-position {
   .position-header {
-    margin-bottom: $spacing-32;
+    margin-bottom: $spacing-4xl;
 
     h2 {
       font-size: 24px;
       font-weight: 600;
-      margin: 0 0 $spacing-8 0;
+      margin: 0 0 $spacing-md 0;
       color: #262729;
       letter-spacing: -0.02em;
     }
@@ -412,7 +412,7 @@ section#multiply-position {
       padding: 48px 32px;
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 250, 251, 0.99) 100%);
       border: 1px solid rgba(33, 44, 66, 0.08);
-      border-radius: 20px;
+      border-radius: $radius-3xl;
       box-shadow:
         0px 2px 8px rgba(33, 44, 66, 0.04),
         0px 8px 24px rgba(33, 44, 66, 0.06);
@@ -420,7 +420,7 @@ section#multiply-position {
       .empty-icon {
         width: 80px;
         height: 80px;
-        margin: 0 auto $spacing-24;
+        margin: 0 auto $spacing-3xl;
         background: linear-gradient(135deg, rgba(92, 108, 255, 0.1) 0%, rgba(92, 108, 255, 0.05) 100%);
         border-radius: 50%;
         display: flex;
@@ -437,20 +437,20 @@ section#multiply-position {
       h3 {
         font-size: 20px;
         font-weight: 600;
-        margin: 0 0 $spacing-12 0;
+        margin: 0 0 $spacing-lg 0;
         color: #262729;
       }
 
       p {
         font-size: 14px;
         color: #8a8b8d;
-        margin: 0 0 $spacing-8 0;
+        margin: 0 0 $spacing-md 0;
       }
 
       .empty-hint {
         font-size: 13px;
         color: #aaabad;
-        margin-top: $spacing-16;
+        margin-top: $spacing-xl;
       }
     }
   }
@@ -458,19 +458,19 @@ section#multiply-position {
   .position-content {
     display: flex;
     flex-direction: column;
-    gap: $spacing-24;
+    gap: 24px;
   }
 
   .position-cards {
     display: flex;
     flex-direction: column;
-    gap: $spacing-20;
+    gap: 20px;
   }
 
   .position-card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 250, 251, 0.99) 100%);
     border: 2px solid rgba(33, 44, 66, 0.08);
-    border-radius: 20px;
+    border-radius: $radius-3xl;
     padding: 0;
     overflow: hidden;
     box-shadow:
@@ -504,7 +504,7 @@ section#multiply-position {
     .position-pair {
       display: flex;
       align-items: center;
-      gap: $spacing-12;
+      gap: 12px;
 
       .pair-icons {
         position: relative;
@@ -547,8 +547,8 @@ section#multiply-position {
     }
 
     .health-badge {
-      padding: $spacing-8 $spacing-16;
-      border-radius: 12px;
+      padding: $spacing-md $spacing-xl;
+      border-radius: $radius-xl;
       text-align: center;
       min-width: 80px;
 
@@ -609,7 +609,7 @@ section#multiply-position {
       width: 100%;
       height: 20px;
       background: transparent;
-      border-radius: 16px;
+      border-radius: $radius-2xl;
       overflow: visible;
       position: relative;
       display: flex;
@@ -629,7 +629,7 @@ section#multiply-position {
         &.danger-zone {
           width: 60%;
           background: linear-gradient(90deg, rgba(251, 71, 71, 0.25) 0%, rgba(251, 71, 71, 0.15) 100%);
-          border-radius: 14px 0 0 14px;
+          border-radius: $radius-2xl 0 0 $radius-2xl;
         }
 
         &.warning-zone {
@@ -640,7 +640,7 @@ section#multiply-position {
         &.safe-zone {
           flex: 1;
           background: linear-gradient(90deg, rgba(8, 181, 118, 0.25) 0%, rgba(8, 181, 118, 0.15) 100%);
-          border-radius: 0 14px 14px 0;
+          border-radius: 0 $radius-2xl $radius-2xl 0;
         }
       }
 
@@ -670,7 +670,7 @@ section#multiply-position {
           white-space: nowrap;
           background: rgba(255, 255, 255, 0.95);
           padding: 2px 6px;
-          border-radius: 4px;
+          border-radius: $radius-xs;
           border: 1px solid rgba(33, 44, 66, 0.1);
           transition: opacity 0.2s ease;
         }
@@ -714,7 +714,7 @@ section#multiply-position {
           white-space: nowrap;
           background: #fff;
           padding: 4px 10px;
-          border-radius: 8px;
+          border-radius: $radius-md;
           box-shadow:
             0 2px 8px rgba(0, 0, 0, 0.1),
             0 0 0 1px rgba(33, 44, 66, 0.1);
@@ -797,20 +797,20 @@ section#multiply-position {
     .position-metrics {
       display: flex;
       flex-direction: column;
-      gap: $spacing-16;
+      gap: 16px;
     }
 
     .metric-row {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: $spacing-16;
+      gap: 16px;
     }
 
     .metric-item {
       padding: 14px 16px;
       background: rgba(255, 255, 255, 0.6);
       border: 1px solid rgba(33, 44, 66, 0.06);
-      border-radius: 12px;
+      border-radius: $radius-xl;
       transition: all 0.2s ease;
 
       &:hover {
@@ -843,7 +843,7 @@ section#multiply-position {
       .metric-value {
         &:has(.warning-block) {
           display: flex;
-          gap: $spacing-8;
+          gap: 8px;
         }
 
         .value-primary {
@@ -921,7 +921,7 @@ section#multiply-position {
     .position-card-header {
       flex-direction: column;
       align-items: flex-start;
-      gap: $spacing-16;
+      gap: 16px;
 
       .health-badge {
         align-self: stretch;

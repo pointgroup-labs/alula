@@ -7,8 +7,8 @@
     width: 40px !important;
     height: 20px;
     background-size: 24px;
-    background-color: $muted-foreground !important;
-    border-color: $muted-foreground !important;
+    background-color: $text-tertiary !important;
+    border-color: $text-tertiary !important;
     margin-top: 0;
     margin-bottom: 0;
     cursor: pointer;
@@ -24,12 +24,5 @@
     &:focus {
       box-shadow: none;
     }
-  }
-}
-
-.theme-dark {
-  .form-check-input {
-    background-color: $neutral-16;
-    border-color: $neutral-16 !important;
   }
 }

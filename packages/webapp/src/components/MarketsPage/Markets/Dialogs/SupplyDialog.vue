@@ -159,7 +159,7 @@ watch(dialog, (v) => {
     }
 
     &__value {
-      font-family: $font-Inter;
+      font-family: $font-family-base;
       font-size: 24px;
       font-style: normal;
       font-weight: 700;

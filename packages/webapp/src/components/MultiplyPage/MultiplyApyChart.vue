@@ -221,18 +221,18 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: $spacing-16;
+  gap: 16px;
 
   .loop-multiply__legend {
     display: flex;
-    gap: $spacing-16;
+    gap: 16px;
   }
 
   .loop-legend-item {
     color: $text-secondary;
     display: flex;
     align-items: center;
-    gap: $spacing-4;
+    gap: 4px;
     font-size: 11px;
     font-style: normal;
     font-weight: 500;

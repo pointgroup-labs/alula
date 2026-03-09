@@ -59,7 +59,7 @@ function disconnect() {
     height: 46px;
     display: flex;
     flex-direction: column;
-    gap: $spacing-4;
+    gap: 4px;
     font-size: 14px;
     font-style: normal;
     font-weight: 700;
@@ -72,10 +72,10 @@ function disconnect() {
       line-height: 20px;
       display: flex;
       align-items: center;
-      gap: $spacing-8;
+      gap: 8px;
 
       .disconnect-icon {
-        margin-left: $spacing-4;
+        margin-left: $spacing-xs;
         cursor: pointer;
       }
     }

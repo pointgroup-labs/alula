@@ -100,7 +100,7 @@ function formatDate(iso: string) {
   }
 
   .tx-history-list {
-    padding: $spacing-12 3px 0 0;
+    padding: $spacing-lg 3px 0 0;
   }
 
   .arrow-right svg {
@@ -117,7 +117,7 @@ function formatDate(iso: string) {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 0 0 $spacing-20 0;
+  padding: 0 0 $spacing-2xl 0;
 
   &__item {
     padding: 0;
@@ -169,7 +169,7 @@ function formatDate(iso: string) {
 }
 .no-recent-activity {
   text-align: center;
-  padding: $spacing-20 0;
+  padding: $spacing-2xl 0;
   color: $text-secondary;
 }
 </style>

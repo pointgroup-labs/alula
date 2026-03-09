@@ -48,7 +48,7 @@ function toggleHandler() {
 .j-toggle {
   display: flex;
   align-items: center;
-  gap: $spacing-8;
+  gap: 8px;
   cursor: pointer;
 
   &:has(.form-check-input:disabled) {

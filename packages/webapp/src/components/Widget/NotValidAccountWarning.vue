@@ -22,10 +22,10 @@ const isValidAccount = computed(() => store.isValidAccount && !!walletStore.publ
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: $spacing-8;
+  gap: 8px;
   background-color: #ffb72642;
-  padding: $spacing-16;
-  border-radius: 8px;
+  padding: $spacing-xl;
+  border-radius: $radius-md;
 
   .warning-icon {
     width: 22px;

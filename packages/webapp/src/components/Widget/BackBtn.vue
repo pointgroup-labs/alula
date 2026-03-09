@@ -33,7 +33,7 @@ const {
   padding: 0;
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: $radius-sm;
   background-color: transparent;
 
   :deep(svg) {
@@ -42,7 +42,7 @@ const {
   }
 
   &:hover {
-    color: $foreground;
+    color: $text-primary;
   }
 }
 </style>

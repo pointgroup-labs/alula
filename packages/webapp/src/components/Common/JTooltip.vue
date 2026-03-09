@@ -152,9 +152,9 @@ watchEffect((onCleanup) => {
 
 <style lang="scss">
 $tooltip-bg-color: $popover-bg;
-$tooltip-padding-y: 12px;
-$tooltip-padding-x: 12px;
-$tooltip-border-radius: 12px;
+$tooltip-padding-y: $spacing-lg;
+$tooltip-padding-x: $spacing-lg;
+$tooltip-border-radius: $radius-xl;
 $tooltip-border-color: $border-color;
 
 .tooltip-content {

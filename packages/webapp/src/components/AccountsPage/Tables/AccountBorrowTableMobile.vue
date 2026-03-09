@@ -81,6 +81,6 @@ const market = useMarketActions()
 <style lang="scss" scoped>
 .mobile-card-body {
   justify-content: center;
-  gap: $spacing-16;
+  gap: 16px;
 }
 </style>

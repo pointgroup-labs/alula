@@ -165,7 +165,7 @@ onMounted(() => {
 
 .sidebar-wrapper {
   width: 400px;
-  padding: $spacing-32 $spacing-24;
+  padding: $spacing-4xl $spacing-3xl;
   position: absolute;
   right: var(--sidebar-x);
   top: 0;
@@ -174,7 +174,7 @@ onMounted(() => {
   color: $dark;
   overflow-y: auto;
   border-left: 1px solid $border-color;
-  background: rgba(10, 14, 23, .3);
+  background: rgba(10, 14, 23, 0.3);
   // box-shadow:
   //   0 8px 64px 0 rgba(0, 0, 0, 0.4),
   //   inset 12px 0 20px -12px rgba(255, 255, 255, 0.12);
@@ -183,7 +183,7 @@ onMounted(() => {
   will-change: transform;
 
   @media (max-width: $breakpoint-xs) {
-    padding: $spacing-24;
+    padding: $spacing-3xl;
     width: 100vw;
     box-shadow: none;
   }
@@ -204,7 +204,7 @@ onMounted(() => {
     &--back {
       display: flex;
       align-items: center;
-      gap: $spacing-12;
+      gap: 12px;
       cursor: pointer;
       user-select: none;
     }

@@ -53,7 +53,7 @@ section#pool-detail-overview {
     display: flex;
     align-items: flex-start;
     background-color: color-mix(in oklab, $new-secondary 20%, transparent);
-    border-radius: 16px;
+    border-radius: $radius-2xl;
   }
 
   .detail-list {
@@ -72,11 +72,11 @@ section#pool-detail-overview {
       }
 
       &__label {
-        color: $muted-foreground;
+        color: $text-tertiary;
       }
 
       &__value {
-        color: $foreground;
+        color: $text-primary;
         font-family: $font-JetBrainsMono;
         opacity: 0.9;
       }
@@ -87,7 +87,7 @@ section#pool-detail-overview {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: $foreground;
+        color: $text-primary;
       }
     }
   }

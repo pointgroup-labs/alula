@@ -82,10 +82,10 @@ function copy() {
 
   &__item {
     color: #fff;
-    padding: $spacing-8 $spacing-16;
+    padding: $spacing-md $spacing-xl;
     display: flex;
     align-items: center;
-    gap: $spacing-8;
+    gap: 8px;
     cursor: pointer;
 
     &:hover {

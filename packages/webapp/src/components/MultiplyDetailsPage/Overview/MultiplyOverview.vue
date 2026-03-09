@@ -13,14 +13,14 @@
 .multiply-overview {
   display: flex;
   align-items: flex-start;
-  gap: $spacing-16;
+  gap: 16px;
   padding-bottom: 120px;
 
   &__wrapper {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: $spacing-64;
+    gap: 64px;
   }
 }
 </style>

@@ -70,12 +70,12 @@ function close() {
     min-height: calc(100% - 36px);
     display: flex;
     flex-direction: column;
-    gap: $spacing-24;
-    padding-top: $spacing-24;
+    gap: 24px;
+    padding-top: $spacing-3xl;
   }
 
   .setting-item__title {
-    color: $foreground;
+    color: $text-primary;
     font-size: 14px;
     font-style: normal;
     font-weight: 500;

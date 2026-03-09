@@ -76,7 +76,7 @@ $btn-size: (
     font-size: 12px,
     font-weight: 700,
     line-height: 100%,
-    border-radius: 4px,
+    border-radius: $radius-xs,
   ),
 );
 
@@ -198,7 +198,7 @@ $btn-size: (
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: $spacing-8;
+    gap: 8px;
     transform: translateY(-1px);
   }
 

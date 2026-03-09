@@ -27,16 +27,16 @@ defineProps<{
 
 <style lang="scss">
 .total-card {
-  border-radius: 12px;
+  border-radius: $radius-xl;
   background-color: $card-bg;
-  padding: $spacing-16 $spacing-20;
+  padding: $spacing-xl $spacing-2xl;
   border: 1px solid $border-color;
   display: flex;
   flex-direction: column;
   gap: 8px;
 
   &__title {
-    color: $muted-foreground;
+    color: $text-tertiary;
     font-size: 0.75rem;
     font-style: normal;
     font-weight: 500;

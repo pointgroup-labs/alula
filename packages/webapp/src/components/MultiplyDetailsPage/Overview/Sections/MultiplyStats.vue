@@ -151,23 +151,23 @@ section#multiply-stats {
 
   .stat-cards {
     width: 100%;
-    padding: 0 0 $spacing-16;
+    padding: 0 0 $spacing-xl;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: $spacing-12;
+    gap: 12px;
 
     [class*='tooltip'] {
       width: 100%;
     }
 
     .market-info-detail-card {
-      gap: $spacing-6;
+      gap: 6px;
     }
 
     .info-label {
       display: flex;
       align-items: center;
-      gap: $spacing-6;
+      gap: 6px;
       line-height: normal;
     }
 
@@ -184,7 +184,7 @@ section#multiply-stats {
   }
 
   .stats-table {
-    padding-top: $spacing-16;
+    padding-top: $spacing-xl;
     display: block;
     column-count: 2;
     column-gap: 20px;
@@ -200,7 +200,7 @@ section#multiply-stats {
       padding: 12px 16px;
       background: linear-gradient(135deg, rgba(249, 250, 251, 0.6) 0%, rgba(255, 255, 255, 0.4) 100%);
       border: 1px solid rgba(226, 232, 240, 0.8);
-      border-radius: 10px;
+      border-radius: $radius-lg;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
       overflow: hidden;
@@ -240,7 +240,7 @@ section#multiply-stats {
     .stat-value {
       display: flex;
       align-items: center;
-      gap: $spacing-6;
+      gap: 6px;
       font-weight: 600;
       color: #1e293b;
       font-size: 14px;

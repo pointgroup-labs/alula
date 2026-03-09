@@ -53,25 +53,25 @@ function select(label: ButtonOpt) {
   align-items: center;
   gap: 4px;
   width: 100%;
-  background-color: $neutral-2;
+  background-color: $fg-secondary;
   padding: 4px;
-  border-radius: $spacing-12;
+  border-radius: $radius-xl;
 
   .btn {
     width: 100%;
 
     &-secondary {
-      background-color: $neutral-2;
+      background-color: $fg-secondary;
       border-color: transparent;
 
       &.active {
-        background-color: $neutral-2;
+        background-color: $fg-secondary;
         border-color: transparent;
       }
 
       &:hover {
-        background-color: $neutral-2;
-        border-color: $neutral-3;
+        background-color: $fg-secondary;
+        border-color: $navi-50;
       }
     }
 
@@ -80,19 +80,4 @@ function select(label: ButtonOpt) {
     }
   }
 }
-
-// .theme-dark {
-//   .j-btn-group {
-//     background-color: $dark;
-
-//     .btn-secondary {
-//       background-color: $dark;
-//       color: #fff;
-
-//       &:hover {
-//         border-color: $neutral-600;
-//       }
-//     }
-//   }
-// }
 </style>

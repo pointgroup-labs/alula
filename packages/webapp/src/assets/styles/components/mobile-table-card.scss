@@ -1,16 +1,16 @@
 .table-mobile-card {
-  padding: $spacing-16;
+  padding: $spacing-xl;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   align-self: stretch;
-  gap: $spacing-16;
+  gap:16px;
   background: transparent;
   color: $text-primary;
 
   &:not(:last-child) {
     border-bottom: 1px solid $surface-neutral-20;
-    padding: $spacing-16 $spacing-16 $spacing-24;
+    padding: $spacing-xl $spacing-xl $spacing-3xl;
   }
 
   .mobile-card-top {
@@ -22,7 +22,7 @@
     .card-asset {
       display: flex;
       align-items: center;
-      gap: $spacing-8;
+      gap: 8px;
 
       img {
         width: 32px;
@@ -56,7 +56,7 @@
 
     .card-top-info {
       display: flex;
-      gap: $spacing-8;
+      gap: 8px;
     }
   }
 
@@ -72,7 +72,7 @@
     width: 100%;
     display: flex;
     align-items: center;
-    gap: $spacing-12;
+    gap: 12px;
 
     .btn {
       width: 100%;

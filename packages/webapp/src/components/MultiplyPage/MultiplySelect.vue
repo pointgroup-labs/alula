@@ -99,7 +99,7 @@ $multiplier-color: #c7c7c7;
   --dp-animation-duration: 0;
   display: flex;
   flex-direction: column;
-  gap: $spacing-8;
+  gap: 8px;
   padding: 8px;
 
   @media (max-width: 1370px) {
@@ -131,8 +131,8 @@ $multiplier-color: #c7c7c7;
         justify-content: center;
         align-items: center;
         gap: 12px;
-        padding: $spacing-4 $spacing-8;
-        border-radius: $spacing-4;
+        padding: $spacing-xs $spacing-md;
+        border-radius: $spacing-xs;
         background: #d9f7eb;
         font-family: sans-serif;
         font-variant-numeric: tabular-nums;

@@ -66,6 +66,6 @@ const marketSize = computed(() => formatPrice(poolsInfo.value.total_collateral +
 .markets-info {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: $spacing-24;
+  gap: 24px;
 }
 </style>

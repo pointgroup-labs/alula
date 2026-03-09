@@ -31,11 +31,11 @@ function isActiveRoute(tab: Record<string, string>) {
 .setting-item.navigation {
   display: flex;
   flex-direction: column;
-  gap: $spacing-4;
+  gap: 4px;
 
   .navigation-item {
-    padding: $spacing-16;
-    border-radius: $spacing-8;
+    padding: $spacing-xl;
+    border-radius: $radius-md;
     color: $text-primary;
     font-size: 16px;
     font-style: normal;
@@ -44,7 +44,7 @@ function isActiveRoute(tab: Record<string, string>) {
     text-decoration: none;
     display: flex;
     align-items: center;
-    gap: $spacing-16;
+    gap: 16px;
 
     &--active {
       background-color: $surface-neutral-08;
@@ -56,7 +56,7 @@ function isActiveRoute(tab: Record<string, string>) {
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: $spacing-8;
+      border-radius: $radius-md;
       background-color: $surface-neutral-80;
       color: $dark;
 

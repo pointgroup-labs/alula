@@ -233,14 +233,14 @@ watch(dialog, async (v) => {
   }
 
   &__body {
-    padding: $spacing-16 $spacing-24 $spacing-24;
+    padding: $spacing-xl $spacing-3xl $spacing-3xl;
     display: flex;
     flex-direction: row;
     gap: 48px;
 
     @media (max-width: $breakpoint-xs) {
       flex-direction: column-reverse;
-      gap: $spacing-16;
+      gap: 16px;
     }
   }
 
@@ -248,7 +248,7 @@ watch(dialog, async (v) => {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: $spacing-16;
+    gap: 16px;
 
     @media (max-width: $breakpoint-xs) {
       min-width: 100%;
@@ -260,7 +260,7 @@ watch(dialog, async (v) => {
         content: '';
         width: 1px;
         height: 100%;
-        background-color: $neutral-5;
+        background-color: $navi-50;
         position: absolute;
         top: 0;
         right: -24px;
@@ -299,7 +299,7 @@ watch(dialog, async (v) => {
   .loop-multiply__vault {
     display: flex;
     flex-direction: column;
-    gap: $spacing-10;
+    gap: 10px;
     margin-top: auto;
 
     &-title {
@@ -322,7 +322,7 @@ watch(dialog, async (v) => {
   .multiply-dialog-action {
     display: flex;
     justify-content: space-between;
-    gap: $spacing-32;
+    gap: 32px;
 
     .action-info {
       white-space: nowrap;
@@ -332,7 +332,7 @@ watch(dialog, async (v) => {
       gap: 2px;
 
       span:first-child {
-        color: $neutral-12;
+        color: $navi-200;
         font-size: 12px;
         font-style: normal;
         font-weight: 500;

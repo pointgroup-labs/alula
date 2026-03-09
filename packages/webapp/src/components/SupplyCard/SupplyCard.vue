@@ -50,12 +50,12 @@ function dialogHandler() {
   background-color: color-mix(in oklab, $card 50%, transparent);
   padding: 20px;
   border: 1px solid $border-color;
-  border-radius: 14px;
+  border-radius: $radius-2xl;
 
   .info-card {
     background-color: color-mix(in oklab, $new-secondary 30%, transparent);
     border: 1px solid $border-color;
-    border-radius: 14px;
+    border-radius: $radius-2xl;
     transition: border-color 0.2s ease;
     padding: 16px;
   }
@@ -65,15 +65,15 @@ function dialogHandler() {
     align-items: center;
     justify-content: center;
     padding: 4px;
-    border-radius: 14px;
+    border-radius: $radius-2xl;
     background-color: color-mix(in oklab, $new-secondary 60%, transparent);
 
     .nav-tab {
       font-size: 14px;
       padding: 10px 0;
       width: 100%;
-      border-radius: 14px;
-      color: $muted-foreground;
+      border-radius: $radius-2xl;
+      color: $text-tertiary;
       text-align: center;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -108,10 +108,10 @@ function dialogHandler() {
     align-items: center;
     gap: 8px;
     font-size: 14px;
-    color: $foreground;
+    color: $text-primary;
     background-color: color-mix(in oklab, #1a2236 60%, transparent);
     padding: 8px 12px;
-    border-radius: 10px;
+    border-radius: $radius-lg;
     cursor: pointer;
 
     &:hover {
@@ -127,7 +127,7 @@ function dialogHandler() {
 
     svg {
       width: 7px;
-      color: $muted-foreground;
+      color: $text-tertiary;
     }
   }
 
@@ -136,7 +136,7 @@ function dialogHandler() {
     align-items: center;
     justify-content: space-between;
     font-size: 14px;
-    color: $muted-foreground;
+    color: $text-tertiary;
   }
 
   .info-supply {
@@ -151,7 +151,7 @@ function dialogHandler() {
 
       .info-title {
         font-size: 12px;
-        color: $muted-foreground;
+        color: $text-tertiary;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -189,7 +189,7 @@ function dialogHandler() {
 
         &__title {
           font-size: 10px;
-          color: $muted-foreground;
+          color: $text-tertiary;
           opacity: 0.7;
         }
 
@@ -198,7 +198,7 @@ function dialogHandler() {
           font-family: $font-JetBrainsMono;
           font-size: 14px;
           font-weight: 600;
-          color: $foreground;
+          color: $text-primary;
           overflow: hidden;
           text-overflow: ellipsis;
         }
@@ -211,7 +211,7 @@ function dialogHandler() {
 
     &__header {
       font-size: 11px;
-      color: $muted-foreground;
+      color: $text-tertiary;
       padding: 10px 16px;
       border-bottom: 1px solid $border-color;
       display: flex;
@@ -231,10 +231,10 @@ function dialogHandler() {
         align-items: center;
         justify-content: space-between;
         font-size: 12px;
-        color: $foreground;
+        color: $text-primary;
 
         .label {
-          color: $muted-foreground;
+          color: $text-tertiary;
         }
 
         .value {

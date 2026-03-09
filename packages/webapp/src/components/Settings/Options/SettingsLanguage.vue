@@ -69,7 +69,7 @@ async function handleLanguage(lang: string) {
     line-height: 20px;
     display: flex;
     align-items: center;
-    gap: $spacing-8;
+    gap: 8px;
     cursor: pointer;
 
     i {
@@ -92,7 +92,7 @@ async function handleLanguage(lang: string) {
 .languages-list {
   &__item {
     color: $text-primary;
-    padding: $spacing-12 0;
+    padding: $spacing-lg 0;
     cursor: pointer;
     font-size: 14px;
 

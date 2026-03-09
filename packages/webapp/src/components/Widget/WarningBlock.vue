@@ -20,16 +20,16 @@ const {
 
 <style lang="scss">
 .warning-block {
-  padding: 10px $spacing-16;
+  padding: 10px $spacing-xl;
   display: flex;
   align-items: center;
-  gap: $spacing-8;
-  color: $foreground;
+  gap: 8px;
+  color: $text-primary;
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
   line-height: 16px;
-  border-radius: 14px;
+  border-radius: $radius-2xl;
   border: 1px solid $warning;
   background: rgba(228, 156, 11, 0.15);
 

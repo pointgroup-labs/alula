@@ -11,13 +11,13 @@ const {
   availableToBorrow,
   isCanBorrow,
   attentionText,
-} = useBorrowDialog(poolData, false)
+} = useBorrowDialog(poolData, ref(false))
 
 const {
   balance,
   isCanSupply,
   attentionText: supplyAttentionText,
-} = useSupplyDialog(poolData, false)
+} = useSupplyDialog(poolData, ref(false))
 
 async function supplyDialogHandler(action: 'supply' | 'borrow') {
   const marketName = poolData?.value?.market ?? ''
@@ -96,27 +96,27 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
 .market-detail-actions {
   display: flex;
   justify-content: flex-end;
-  gap: $spacing-32;
-  padding-bottom: $spacing-12;
+  gap: 32px;
+  padding-bottom: $spacing-lg;
 
   @media (max-width: $breakpoint-xs) {
     flex-direction: column;
     align-items: flex-end;
-    gap: $spacing-16;
+    gap: 16px;
   }
 
   .action-wrapper {
     position: relative;
     display: flex;
     align-items: center;
-    gap: $spacing-16;
+    gap: 16px;
 
     &:first-child {
       &::after {
         content: '';
         width: 1px;
         height: 100%;
-        background-color: $neutral-5;
+        background-color: $navi-50;
         position: absolute;
         top: 0;
         right: -16px;
@@ -133,10 +133,10 @@ async function supplyDialogHandler(action: 'supply' | 'borrow') {
 
     &__title {
       font-size: 14px;
-      color: $neutral-12;
+      color: $navi-200;
       display: flex;
       align-items: center;
-      gap: $spacing-4;
+      gap: 4px;
 
       svg {
         width: 16px;

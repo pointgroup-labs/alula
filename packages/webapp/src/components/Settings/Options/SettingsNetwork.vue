@@ -97,7 +97,7 @@ watch(() => rpcStore.network, (val) => {
     &__item {
       color: $text-primary;
       text-transform: capitalize;
-      padding: $spacing-8 $spacing-24;
+      padding: $spacing-md $spacing-3xl;
       cursor: pointer;
 
       &:hover {
@@ -120,8 +120,8 @@ watch(() => rpcStore.network, (val) => {
   .networks {
     display: flex;
     flex-direction: column;
-    gap: $spacing-24;
-    padding-top: $spacing-24;
+    gap: 24px;
+    padding-top:$spacing-3xl;
   }
 
   .network-rpc {
@@ -131,7 +131,7 @@ watch(() => rpcStore.network, (val) => {
     line-height: 16px;
     display: flex;
     flex-direction: column;
-    gap: $spacing-4;
+    gap: 4px;
     color: $text-primary;
 
     &__url {
@@ -139,7 +139,7 @@ watch(() => rpcStore.network, (val) => {
       font-style: normal;
       font-weight: 400;
       line-height: 14px;
-      color: $muted-foreground;
+      color: $text-tertiary;
     }
   }
 }

@@ -86,8 +86,8 @@ header {
   z-index: 1;
 
   .header-wrapper {
-    padding-top: $spacing-16;
-    padding-bottom: $spacing-16;
+    padding-top: $spacing-xl;
+    padding-bottom: $spacing-xl;
     display: flex;
     align-items: stretch;
     gap: 56px;
@@ -101,13 +101,13 @@ header {
   .header-nav {
     display: flex;
     align-items: flex-end;
-    gap: $spacing-16;
+    gap: 16px;
 
     .nav-link {
       height: 32px;
-      padding: $spacing-6 $spacing-12;
-      border-radius: 10px;
-      color: $muted-foreground;
+      padding: $spacing-sm $spacing-lg;
+      border-radius: $radius-lg;
+      color: $text-tertiary;
       font-family: $font-family-base;
       font-size: 13px;
       font-style: normal;
@@ -121,7 +121,7 @@ header {
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: $spacing-12;
+    gap: 12px;
   }
 }
 
@@ -129,7 +129,7 @@ header {
   header {
     .nav-link {
       &--active {
-        color: $foreground;
+        color: $text-primary;
         background: $surface-neutral-04;
       }
 

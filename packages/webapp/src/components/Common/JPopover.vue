@@ -101,7 +101,7 @@ onMounted(() => {
 }
 
 .popover-body {
-  border-radius: 12px;
+  border-radius: $radius-xl;
   border: 1px solid $border-color;
   box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
   background: $popover-bg;

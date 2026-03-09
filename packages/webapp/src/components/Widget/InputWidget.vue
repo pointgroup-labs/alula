@@ -220,7 +220,7 @@ watch(() => reset, () => {
     align-items: center;
     justify-content: space-between;
     font-size: 12px;
-    color: $muted-foreground;
+    color: $text-tertiary;
     margin-bottom: 8px;
   }
 
@@ -238,7 +238,7 @@ watch(() => reset, () => {
     padding: 0;
     background-color: color-mix(in oklab, $new-secondary 30%, transparent);
     border: 1px solid $border-color;
-    border-radius: 14px;
+    border-radius: $radius-2xl;
     transition: border-color 0.2s ease;
 
     &.active {
@@ -268,10 +268,10 @@ watch(() => reset, () => {
         font-family: $font-JetBrainsMono;
         font-weight: 500;
         font-size: 1.4rem;
-        color: $foreground;
+        color: $text-primary;
 
         &::placeholder {
-          color: $muted-foreground;
+          color: $text-tertiary;
           opacity: 0.5;
         }
       }
@@ -297,20 +297,20 @@ watch(() => reset, () => {
     justify-content: space-between;
     gap: 6px;
     font-size: 12px;
-    color: $muted-foreground;
+    color: $text-tertiary;
 
     span {
       padding: 4px 10px;
       font-size: 11px;
       text-transform: uppercase;
-      border-radius: 6px;
-      color: $muted-foreground;
+      border-radius: $radius-sm;
+      color: $text-tertiary;
       background-color: color-mix(in oklab, $new-secondary 60%, transparent);
       transition: all 0.1s ease;
       cursor: pointer;
 
       &:hover {
-        color: $foreground;
+        color: $text-primary;
       }
 
       &.active {
@@ -323,7 +323,7 @@ watch(() => reset, () => {
   .amount-to-dollar {
     font-size: 12px;
     font-family: $font-JetBrainsMono;
-    color: $muted-foreground;
+    color: $text-tertiary;
     overflow: hidden;
     text-overflow: ellipsis;
     margin-left: 16px;

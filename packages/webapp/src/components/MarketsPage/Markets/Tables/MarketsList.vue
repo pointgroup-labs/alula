@@ -370,7 +370,7 @@ const stop = watch(additionalMarketsData, () => {
       background-color: transparent !important;
       align-items: flex-end;
       .spinner-border {
-        color: $muted-foreground !important;
+        color: $text-tertiary !important;
       }
     }
   }

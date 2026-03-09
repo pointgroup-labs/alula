@@ -92,7 +92,7 @@ section#stats {
       gap: 4px;
 
       .stat-title {
-        color: $muted-foreground;
+        color: $text-tertiary;
         font-size: 10px;
         display: flex;
         align-items: center;
@@ -105,7 +105,7 @@ section#stats {
       }
 
       .stat-value {
-        color: $muted-foreground;
+        color: $text-tertiary;
         font-size: 10px;
         display: flex;
         align-items: flex-end;
@@ -115,7 +115,7 @@ section#stats {
           font-family: $font-JetBrainsMono;
           font-size: 18px;
           font-weight: 700;
-          color: $foreground;
+          color: $text-primary;
           line-height: 23px;
         }
       }

@@ -40,7 +40,7 @@ const dialog = defineModel({
 .j-dialog {
   .modal-content {
     padding: 0;
-    border-radius: $spacing-16;
+    border-radius: $radius-2xl;
     border: 1px solid $border-color;
     background: transparent;
     box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
@@ -61,7 +61,7 @@ const dialog = defineModel({
   }
 
   .modal-header {
-    padding: $spacing-16 $spacing-12 $spacing-16 $spacing-24;
+    padding: $spacing-xl $spacing-lg $spacing-xl $spacing-3xl;
     border-bottom: 1px solid $border-color;
 
     &:not(:has(.dialog-balance)) {
@@ -80,7 +80,7 @@ const dialog = defineModel({
 
     .dialog-balance {
       margin-left: auto;
-      font-family: $font-Inter;
+      font-family: $font-family-base;
 
       &__label {
         color: #9ca3af;
@@ -118,8 +118,8 @@ const dialog = defineModel({
 
       .modal-content {
         max-height: 90%;
-        border-radius: $spacing-24 $spacing-24 0 0;
-        padding: $spacing-24;
+        border-radius: $radius-4xl $radius-4xl 0 0;
+        padding: $spacing-3xl;
       }
     }
   }

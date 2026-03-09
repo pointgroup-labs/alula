@@ -1,7 +1,7 @@
 .j-checkbox {
   display: flex !important;
   align-items: center;
-  gap: $spacing-8;
+  gap: 8px;
   font-weight: 400;
   padding-top: 0;
   padding-bottom: 0;
@@ -12,7 +12,7 @@
 
   .form-check {
     &-input {
-      border-radius: $spacing-4;
+      border-radius: $spacing-xs;
       margin-top: 0 !important;
       background-size: 80%;
       cursor: pointer;

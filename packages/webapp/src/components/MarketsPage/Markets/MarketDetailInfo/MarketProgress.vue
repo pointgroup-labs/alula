@@ -45,13 +45,13 @@ const slot = useSlots()
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $spacing-8;
+  gap: 8px;
 }
 .market-progress {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: $spacing-12;
+  gap: 12px;
 
   .j-circular-progress {
     font-size: 8px;
@@ -69,7 +69,7 @@ const slot = useSlots()
       font-size: 10px;
       font-style: normal;
       text-transform: uppercase;
-      color: $muted-foreground;
+      color: $text-tertiary;
     }
 
     &__data {
@@ -80,7 +80,7 @@ const slot = useSlots()
       line-height: normal;
 
       span {
-        color: $muted-foreground;
+        color: $text-tertiary;
         font-size: 10px;
         font-weight: 500;
         line-height: 14px;

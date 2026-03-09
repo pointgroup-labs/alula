@@ -247,7 +247,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
     position: relative;
     width: 50px;
     height: 4px;
-    border-radius: 10px;
+    border-radius: $radius-lg;
     background-color: color-mix(in oklab, $border 70%, transparent);
     overflow: hidden;
     flex-shrink: 0;
@@ -261,7 +261,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
       top: 0;
       height: 100%;
       width: var(--indicator-width, 0%);
-      border-radius: 10px;
+      border-radius: $radius-lg;
       background-color: var(--indicator-color, #{$success});
       transition:
         width 0.3s ease,

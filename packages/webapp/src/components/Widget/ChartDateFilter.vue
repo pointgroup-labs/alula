@@ -40,21 +40,21 @@ const activeFilter = computed({
 .chart-date-filters {
   width: fit-content;
   margin-left: auto;
-  border-radius: $spacing-4;
+  border-radius: $radius-xs;
   background-color: color-mix(in oklab, $new-secondary 40%, transparent);
 
   .btn {
     width: fit-content;
-    padding: $spacing-4 $spacing-8;
-    border-radius: $spacing-4;
-    color: $muted-foreground;
+    padding: $spacing-xs $spacing-md;
+    border-radius: $spacing-xs;
+    color: $text-tertiary;
 
     &-ghost {
-      color: $foreground;
+      color: $text-primary;
     }
 
     &:hover {
-      color: $foreground;
+      color: $text-primary;
     }
 
     .btn-content {

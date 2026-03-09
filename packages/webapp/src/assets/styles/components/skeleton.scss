@@ -48,7 +48,7 @@ $skeleton-variants: (
   }
 
   &--pill {
-    border-radius: 50px !important;
+    border-radius: $radius-full !important;
   }
 }
 

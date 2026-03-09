@@ -13,19 +13,19 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: $spacing-6 $spacing-12;
+  padding: $spacing-sm $spacing-lg;
   background-color: rgba(26, 34, 54, 0.4);
-  border-radius: 0.75rem;
+  border-radius: $radius-2xl;
   border: 1px solid $surface-neutral-10;
   font-family: $font-JetBrainsMono;
   font-size: $text-xs;
   font-style: normal;
 
   span {
-    color: $foreground;
+    color: $text-primary;
 
     &[data-name='title'] {
-      color: $muted-foreground;
+      color: $text-tertiary;
     }
   }
 

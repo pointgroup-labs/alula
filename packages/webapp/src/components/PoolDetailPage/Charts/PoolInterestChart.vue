@@ -353,7 +353,7 @@ section#market-interest-chart {
       }
 
       .label {
-        color: $muted-foreground;
+        color: $text-tertiary;
       }
 
       .value {

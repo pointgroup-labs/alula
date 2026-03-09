@@ -20,19 +20,19 @@
   .account-cards {
     display: grid;
     grid-template-columns: 1fr 1px 1fr;
-    gap: $spacing-32;
+    gap: 32px;
 
     @media (max-width: $breakpoint-sm) {
       display: flex;
       flex-direction: column;
-      gap: $spacing-16;
+      gap: 16px;
     }
   }
 
   .account-multiply__cards {
     display: flex;
     flex-direction: column;
-    gap: $spacing-16;
+    gap: 16px;
   }
 }
 </style>

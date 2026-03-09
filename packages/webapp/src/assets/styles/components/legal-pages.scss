@@ -23,7 +23,7 @@
   }
 
   .last-updated {
-    color: $muted-foreground;
+    color: $text-tertiary;
     font-style: italic;
     margin-bottom: 40px;
     border-bottom: 1px solid $border-color;
@@ -37,7 +37,7 @@
       font-size: 1.1rem;
       font-weight: 600;
       margin-bottom: 14px;
-      color: $foreground;
+      color: $text-primary;
       border-left: 3px solid $primary;
       padding-left: 14px;
 
@@ -65,13 +65,13 @@
 
     strong {
       font-weight: 600;
-      color: $foreground;
+      color: $text-primary;
     }
 
     &.acknowledgment {
       background: color-mix(in oklab, $primary 8%, transparent);
       border: 1px solid color-mix(in oklab, $primary 30%, transparent);
-      border-radius: 12px;
+      border-radius: $radius-xl;
       padding: 24px;
       margin-top: 40px;
 
@@ -87,7 +87,7 @@
       border-left: 3px solid $primary;
       padding: 18px 20px;
       margin: 24px 0;
-      border-radius: 0 8px 8px 0;
+      border-radius: 0 $radius-md $radius-md 0;
     }
 
     &.warning {
@@ -95,7 +95,7 @@
       border-left: 3px solid $warning;
       padding: 18px 20px;
       margin: 24px 0;
-      border-radius: 0 8px 8px 0;
+      border-radius: 0 $radius-md $radius-md 0;
 
       .section-title {
         border-left: none;

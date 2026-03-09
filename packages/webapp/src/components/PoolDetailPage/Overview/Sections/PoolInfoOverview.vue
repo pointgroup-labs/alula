@@ -111,12 +111,12 @@ const detailCardsData = computed(() => {
   }
 
   .title {
-    color: $muted-foreground;
+    color: $text-tertiary;
     font-size: 10px;
   }
 
   .value {
-    color: $foreground;
+    color: $text-primary;
     font-family: $font-JetBrainsMono;
     font-size: 14px;
   }

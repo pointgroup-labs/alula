@@ -26,7 +26,7 @@ const searchAsset = ref()
   .table-wrapper {
     display: flex;
     flex-direction: column;
-    gap: $spacing-16;
+    gap: 16px;
 
     @media (max-width: $breakpoint-xs) {
       gap: 32px;
@@ -34,7 +34,7 @@ const searchAsset = ref()
 
     .market-info-wrapper {
       display: flex;
-      gap: $spacing-16;
+      gap: 16px;
       margin-left: auto;
 
       @media (max-width: $breakpoint-xs) {

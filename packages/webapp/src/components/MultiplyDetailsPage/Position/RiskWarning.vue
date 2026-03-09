@@ -38,11 +38,11 @@ const warnintText = computed(() => {
 
 <style lang="scss">
 .warning-block.risk-warning {
-  padding: $spacing-4 $spacing-12 $spacing-4 $spacing-8;
+  padding: $spacing-xs $spacing-lg $spacing-xs $spacing-md;
   align-items: center;
 
   .warning-text--warning {
-    color: $neutral-12;
+    color: $navi-200;
   }
 
   &--warning {

@@ -37,7 +37,7 @@ defineProps<{
   }
 
   .label {
-    color: $muted-foreground;
+    color: $text-tertiary;
   }
 
   .value {
