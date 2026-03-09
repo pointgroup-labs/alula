@@ -104,7 +104,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
         data: [
           {
             label: 'Operation Fee',
-            value: formatPrice(marketFee.value),
+            value: `${formatPrice(marketFee.value)} ${poolData.value?.asset.symbol}`,
           },
           {
             label: 'Transaction Fee',
