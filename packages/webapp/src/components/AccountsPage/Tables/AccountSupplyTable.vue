@@ -169,7 +169,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
           <template #cell(action)="data">
             <div class="table-cell justify-content-end">
               <j-btn
-                variant="brand"
+                variant="brand-outlined"
                 pill
                 size="xs"
                 :disabled="market.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
