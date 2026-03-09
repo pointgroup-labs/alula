@@ -9,6 +9,7 @@ const {
   size?: 'sm' | 'lg'
   modelValue: any
   color?: string
+  bgColor?: string
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -33,7 +34,7 @@ const value = computed({
     :class="{ bold }"
     :state="null"
     v-bind="props"
-    :style="{ '--checkbox-color': color }"
+    :style="{ '--checkbox-color': color, '--checkbox-bg-color': bgColor }"
   >
     <slot />
   </b-form-checkbox>

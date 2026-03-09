@@ -7,20 +7,23 @@
 
 $toast-variants: (
   success: (
-    background-color: rgba(0, 201, 80, 0.3),
-    border: 1px solid $success,
+    background-color: rgba(5, 51, 33, 0.7),
+    border: 1px solid $green-500,
+    iconColor: $green-500,
   ),
   info: (
-    background-color: rgba(107, 122, 148, 0.3),
-    border: 1px solid $text-tertiary,
+    background-color: rgba(21, 28, 43, 0.7),
+    border: 1px solid $navi-400,
   ),
   warning: (
-    background-color: rgba(240, 176, 0, 0.3),
-    border: 1px solid $warning,
+    background-color: rgba(58, 35, 18, 0.7),
+    border: 1px solid $yellow-500,
+    iconColor: $yellow-500,
   ),
   danger: (
-    background-color: rgba(244, 63, 93, 0.3),
-    border: 1px solid $red,
+    background-color: rgba(52, 21, 17, 0.7),
+    border: 1px solid $red-500,
+    iconColor: $red-500,
   ),
 );
 
@@ -41,6 +44,7 @@ $toast-variants: (
   }
 
   .progress {
+    --bs-progress-bg: transparent;
     height: 4px;
     position: absolute;
     left: 0;
@@ -125,6 +129,9 @@ $toast-variants: (
 
   @each $name, $styles in $toast-variants {
     &.toast--#{$name} {
+      .toast-icon {
+        color: map-get($styles, iconColor);
+      }
       @each $prop, $value in $styles {
         #{$prop}: #{$value};
       }

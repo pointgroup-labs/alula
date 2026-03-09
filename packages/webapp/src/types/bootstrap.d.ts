@@ -11,6 +11,8 @@ declare module 'node_modules/bootstrap-vue-next/dist/src/types/ColorTypes' {
     blue: unknown
     purple: unknown
     cyan: unknown
+    brand: unknown
+    ['brand-secondary']: unknown
   }
 }
 

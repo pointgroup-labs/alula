@@ -270,7 +270,7 @@ const stop = watch(additionalMarketsData, () => {
             <j-btn
               v-if="+data.item.position.borrowed === 0"
               size="xs"
-              variant="outline-cyan"
+              variant="brand"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
@@ -281,7 +281,7 @@ const stop = watch(additionalMarketsData, () => {
             <j-btn
               v-else
               size="xs"
-              variant="outline-purple"
+              variant="brand-secondary"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'repay', data.item.market!)"
@@ -292,7 +292,7 @@ const stop = watch(additionalMarketsData, () => {
             <j-btn
               v-if="+data.item.position.supplied === 0"
               size="xs"
-              variant="outline-purple"
+              variant="brand-secondary"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
@@ -303,7 +303,7 @@ const stop = watch(additionalMarketsData, () => {
             <j-btn
               v-else
               size="xs"
-              variant="outline-cyan"
+              variant="brand"
               pill
               :disabled="marketActions.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"

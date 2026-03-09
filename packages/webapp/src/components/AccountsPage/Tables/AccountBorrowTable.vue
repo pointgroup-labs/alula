@@ -197,7 +197,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           <template #cell(action)="data">
             <div class="table-cell justify-content-end">
               <j-btn
-                variant="outline-purple"
+                variant="brand-secondary"
                 size="xs"
                 class="repay-btn"
                 pill

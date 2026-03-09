@@ -2,9 +2,7 @@
 import type { BButtonProps } from 'bootstrap-vue-next'
 import { shortenAddress } from '~/utils'
 
-const {
-  size = 'md',
-} = defineProps<{
+defineProps<{
 } & BButtonProps>()
 
 const connection = useConnectionStore()
@@ -35,9 +33,9 @@ function copy() {
   <j-btn
     v-if="!publicKey"
     :loading="loading"
-    :size="size"
+    size="md"
     class="connect-wallet"
-    variant="ghost"
+    variant="primary"
     @click="connectWallet"
   >
     Connect Wallet
@@ -65,7 +63,7 @@ function copy() {
         :loading="loading"
         :size="size"
         class="connect-wallet"
-        variant="outline-cyan"
+        variant="brand"
       >
         <address-icon :address="publicKey" /> {{ shortenAddress(publicKey) }}
       </j-btn>

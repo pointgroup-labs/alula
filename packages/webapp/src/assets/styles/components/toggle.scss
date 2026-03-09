@@ -4,21 +4,40 @@
   gap: 8px;
 
   .form-check-input {
+    position: relative;
     width: 40px !important;
-    height: 20px;
+    height: 24px;
     background-size: 24px;
-    background-color: $text-tertiary !important;
-    border-color: $text-tertiary !important;
+    background-color: $navi-700;
+    border-color: $navi-300;
     margin-top: 0;
     margin-bottom: 0;
+    background-image: none;
     cursor: pointer;
-    background-position: -2px center;
-    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+
+    &::before {
+      content: '';
+      height: 20px;
+      width: 20px;
+      position: absolute;
+      left: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      background-color: $navi-50;
+      border-radius: 50%;
+      transition: all 0.1s linear;
+    }
 
     &:checked {
-      background-color: var(--toggle-color, $primary) !important;
-      border-color: var(--toggle-color, $primary) !important;
+      background-color: var(--toggle-color, $primary);
+      border-color: var(--toggle-color, $primary);
       background-position: 17px center;
+
+      &::before {
+        background-color: $navi-600;
+        right: 1px;
+        left: initial;
+      }
     }
 
     &:focus {

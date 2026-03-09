@@ -73,7 +73,7 @@ watch(() => route.path, (p) => {
       </nav>
 
       <div class="header-actions">
-        <connect-wallet size="sm" />
+        <connect-wallet />
         <app-settings />
       </div>
     </div>

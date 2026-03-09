@@ -109,7 +109,6 @@ const rewardsEarnings = computedAsync(async () => {
       v-model="collateralOnly"
       size="small"
       :disabled="!isCanSupply"
-      color="#22d3ee"
     />
   </div>
 
@@ -227,7 +226,7 @@ const rewardsEarnings = computedAsync(async () => {
 
   <div class="supply-card__action mt-4">
     <market-dialog-action-btn
-      variant="cyan"
+      variant="brand"
       size="lg"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"

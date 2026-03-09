@@ -6,14 +6,14 @@ import { clickElement, destructurePoolAsset, shortenAddress } from '~/utils'
 
 const {
   loading = false,
-  variant = 'cyan',
+  variant = 'brand',
   pool,
   ...props
 } = defineProps<{
   pool?: Pool
   isTrust?: boolean
   loading?: boolean
-  variant?: 'cyan' | 'purple'
+  variant?: 'brand' | 'brand-secondary'
   disabled?: boolean
 } & BButtonProps>()
 

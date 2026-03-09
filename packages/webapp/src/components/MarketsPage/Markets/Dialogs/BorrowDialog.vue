@@ -122,7 +122,6 @@ watch(dialog, (v) => {
         <j-checkbox
           v-model="agree"
           :disabled="!isCanBorrow"
-          color="#8a8df4"
         >
           <div class="extra-info__label">
             I acknowledge the risks involved.
@@ -137,7 +136,7 @@ watch(dialog, (v) => {
 
       <div class="dialog-default__action mt-2">
         <market-dialog-action-btn
-          variant="purple"
+          variant="brand-secondary"
           pill
           size="lg"
           :loading="isLoading"

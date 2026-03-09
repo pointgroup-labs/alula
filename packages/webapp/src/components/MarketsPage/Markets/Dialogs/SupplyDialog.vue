@@ -114,7 +114,6 @@ watch(dialog, (v) => {
           v-model="collateralOnly"
           size="small"
           :disabled="!isCanSupply"
-          color="#22d3ee"
         />
       </div>
 
@@ -125,7 +124,7 @@ watch(dialog, (v) => {
 
       <div class="dialog-default__action mt-2">
         <market-dialog-action-btn
-          variant="cyan"
+          variant="brand"
           pill
           size="lg"
           :loading="isLoading"

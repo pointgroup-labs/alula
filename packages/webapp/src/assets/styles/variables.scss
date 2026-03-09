@@ -32,7 +32,7 @@ $brand-700: #072230;
 $brand-600: #082737;
 $brand-500: #0a2b3d;
 $brand-400: #0e5069;
-$brand-300: #0e5069;
+$brand-300: #146786;
 $brand-200: #127691;
 $brand-100: #19a2be;
 $brand-50: #22d3ee;
@@ -242,21 +242,19 @@ $tooltip-bg-color: #fff;
 
 // button
 $btn-padding-y-lg: $spacing-lg;
-$btn-padding-x-lg: $spacing-4xl;
+$btn-padding-x-lg: $spacing-2xl;
 $btn-font-size-lg: 16px;
-$btn-border-radius-lg: $spacing-md;
+$btn-border-radius-lg: $radius-md;
 
-$btn-padding-y-md: 10px;
+$btn-padding-y-md: $spacing-md;
 $btn-padding-x-md: $spacing-2xl;
 $btn-font-size-md: 14px;
-$btn-border-radius-md: $spacing-md;
+$btn-border-radius-md: $radius-md;
 
 $btn-padding-y-sm: $spacing-md;
 $btn-padding-x-sm: $spacing-xl;
 $btn-font-size-sm: 14px;
-$btn-border-radius-sm: $spacing-md;
-
-$btn-hover-bg-tint-amount: 30%;
+$btn-border-radius-sm: $radius-md;
 
 // radio
 // $form-check-input-border: 1px solid $neutral-200;

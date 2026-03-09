@@ -240,7 +240,7 @@ const debtAccrual = computedAsync(async () => {
 
   <div class="supply-card__action mt-4">
     <market-dialog-action-btn
-      variant="purple"
+      variant="brand-secondary"
       size="lg"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"
