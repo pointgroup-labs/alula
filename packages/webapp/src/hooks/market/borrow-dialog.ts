@@ -32,17 +32,37 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     if (!poolData.value) {
       return 0
     }
-    const utilRatioLimit = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.utilization_ratio_limit_bps || 0))
-    const totalSupply = Number(bigintToNumber(poolData.value.raw.total_supply, poolData.value.assetDecimals))
-    const totalBorrow = Number(bigintToNumber(poolData.value.raw.pool.total_borrowed, poolData.value.assetDecimals))
-    const availableByRatioLimit = totalSupply * utilRatioLimit
-    return Math.max(availableByRatioLimit - totalBorrow, 0)
+
+    const bpsFactor = 10_000n
+    const totalAvailableAdjusted = BigInt(poolData.value.raw.total_available_adjusted)
+    const totalSupply = BigInt(poolData.value.raw.total_supply)
+    const totalBorrow = BigInt(poolData.value.raw.pool.total_borrowed)
+    const utilRatioLimitBps = BigInt(poolData.value.raw.pool.config.health_config.utilization_ratio_limit_bps || 0)
+
+    if (totalSupply <= 0n) {
+      return 0
+    }
+
+    const utilizationRatioBps = (totalBorrow * bpsFactor + totalSupply - 1n) / totalSupply
+    if (utilizationRatioBps > utilRatioLimitBps) {
+      return 0
+    }
+
+    const availablePercentageToBorrowBps = utilRatioLimitBps - utilizationRatioBps
+    const maxBorrowByUtilization = (totalSupply * availablePercentageToBorrowBps) / bpsFactor
+    let borrowLimit = totalAvailableAdjusted
+    if (maxBorrowByUtilization < borrowLimit) {
+      borrowLimit = maxBorrowByUtilization
+    }
+
+    return Number(bigintToNumber(borrowLimit, poolData.value.assetDecimals))
   })
 
-  const availableToBorrow = computed(() => {
+  const healthBorrowLimit = computed(() => {
     if (!poolData.value) {
       return 0
     }
+
     const marketName = String(poolData.value.market)
     const obligation = userStore.state.obligations[marketName]
     const marketState = marketsStore.state.markets[marketName]?.marketState
@@ -55,10 +75,8 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
 
-    // Σ(Vc_i × oLTV_i)
     const depositWithOpenLTV = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
 
-    // Σ(Vb_j × LF_j)
     let borrowedWithLF = 0
     for (const [borrowedPoolAddress, data] of obligation.borrows) {
       const borrowedPool = poolsData.find(p => p.pool.pool_address === borrowedPoolAddress)
@@ -73,24 +91,30 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       borrowedWithLF += bpsToNumber(Number(borrowBps)) * Number(price) * lf
     }
 
-    // Vmin × count of deposit positions with non-zero close LTV
     const positionsWithNonZeroLTV = obligation.deposits.filter(([poolAddr]) => {
       const pool = poolsData.find(p => p.pool.pool_address === poolAddr)
       return pool && Number(pool.pool.config.health_config.close_ltv_bps) > 0
     }).length
     const minCollateralUsd = (Number(marketState.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
 
-    // BC = Σ(Vc_i × oLTV_i) − Σ(Vb_j × LF_j) − Vmin × count
     const borrowingCapacityUsd = Math.max(depositWithOpenLTV - borrowedWithLF - minCollateralUsd, 0)
 
-    // maxTokens = BC / (price × LF) for the target borrow pool
     const price = Number(poolData.value.price)
     const liabilityFactor = bpsToNumber(Number(poolData.value.raw.pool.config.health_config.liability_factor_bps))
+
     const maxAvailableAssets = price > 0 && liabilityFactor > 0
       ? borrowingCapacityUsd / (price * liabilityFactor)
       : 0
 
-    return Number(truncatePercent(Math.min(maxAvailableAssets, poolBorrowLimit.value), assetDecimals))
+    return Number(truncatePercent(maxAvailableAssets, assetDecimals))
+  })
+
+  const availableToBorrow = computed(() => {
+    if (!poolData.value) {
+      return 0
+    }
+
+    return Number(truncatePercent(Math.min(healthBorrowLimit.value, poolBorrowLimit.value), poolData.value.assetDecimals))
   })
 
   const closeLTV = computed(() => Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 100)
@@ -225,7 +249,8 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
         amount: amount.value,
         asset_data: poolData.value?.raw.pool.name,
         poolBorrowLimit: poolBorrowLimit.value,
-        withBuffer: Number(amount.value) >= Number(availableToBorrow.value),
+        withBuffer: healthBorrowLimit.value < poolBorrowLimit.value - (1 / 10 ** poolData.value.assetDecimals)
+          && Number(amount.value) >= Number(availableToBorrow.value) - (1 / 10 ** poolData.value.assetDecimals),
       }
 
       await market.borrow(marketProps)
