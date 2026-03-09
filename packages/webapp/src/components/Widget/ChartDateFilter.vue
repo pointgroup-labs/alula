@@ -41,16 +41,20 @@ const activeFilter = computed({
   width: fit-content;
   margin-left: auto;
   border-radius: $radius-xs;
-  background-color: color-mix(in oklab, $new-secondary 40%, transparent);
+  background-color: $navi-800;
 
   .btn {
+    height: 20px;
     width: fit-content;
     padding: $spacing-xs $spacing-md;
     border-radius: $spacing-xs;
     color: $text-tertiary;
+    outline: none !important;
 
     &-ghost {
       color: $text-primary;
+      background-color: $navi-500;
+      border-radius: $radius-xs;
     }
 
     &:hover {

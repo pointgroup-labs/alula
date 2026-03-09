@@ -82,12 +82,12 @@ watch(() => route.path, (p) => {
 
 <style lang="scss">
 header {
-  border-bottom: 1px solid $border-color;
+  border-bottom: 1px solid $border-primary;
   z-index: 1;
 
   .header-wrapper {
-    padding-top: $spacing-xl;
-    padding-bottom: $spacing-xl;
+    padding-top: $spacing-2xl;
+    padding-bottom: $spacing-2xl;
     display: flex;
     align-items: stretch;
     gap: 56px;
@@ -104,16 +104,27 @@ header {
     gap: 16px;
 
     .nav-link {
-      height: 32px;
-      padding: $spacing-sm $spacing-lg;
-      border-radius: $radius-lg;
+      height: 40px;
+      padding: $spacing-md $spacing-2xl;
+      border-radius: $radius-sm;
       color: $text-tertiary;
-      font-family: $font-family-base;
-      font-size: 13px;
+      font-size: 16px;
       font-style: normal;
+      font-weight: 500;
+      line-height: 20px;
       display: flex;
       align-items: center;
       cursor: pointer;
+
+      &:hover {
+        color: $text-secondary;
+        background-color: $navi-450;
+      }
+
+      &--active {
+        background-color: $navi-600;
+        color: $text-primary;
+      }
     }
   }
 
@@ -122,21 +133,6 @@ header {
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-}
-
-.theme-dark {
-  header {
-    .nav-link {
-      &--active {
-        color: $text-primary;
-        background: $surface-neutral-04;
-      }
-
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.06);
-      }
-    }
   }
 }
 </style>

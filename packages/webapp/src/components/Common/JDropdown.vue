@@ -49,7 +49,7 @@ function dropdownHandler(actionType: 'show' | 'hide') {
 <style lang="scss">
 .j-menu {
   .btn {
-    background-color: color-mix(in oklab, $new-secondary 80%, transparent);
+    background-color: color-mix(in oklab, $secondary 80%, transparent);
     color: $text-primary;
     padding: 8px 12px;
 
@@ -69,7 +69,7 @@ function dropdownHandler(actionType: 'show' | 'hide') {
     padding: 12px 8px 8px;
     align-items: center;
     border-radius: $radius-lg;
-    border: 1px solid $border-color;
+    border: 1px solid $border-primary;
     background-color: $card;
     backdrop-filter: blur(5px);
     color: #fff;

@@ -6,6 +6,7 @@ html,
 body {
   margin: 0;
   font-family: $font-family-base;
+  background-color: $navi-900;
   color: #fff;
 }
 
@@ -77,8 +78,8 @@ h2 {
 .card {
   padding: $spacing-3xl;
   border-radius: $radius-2xl;
-  background-color: $card-bg;
-  border: 1px solid $border-color;
+  background-color: $bg-card;
+  border: 1px solid $border-primary;
   box-shadow: none;
 }
 

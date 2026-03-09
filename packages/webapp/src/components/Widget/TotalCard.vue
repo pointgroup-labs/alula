@@ -28,9 +28,9 @@ defineProps<{
 <style lang="scss">
 .total-card {
   border-radius: $radius-xl;
-  background-color: $card-bg;
-  padding: $spacing-xl $spacing-2xl;
-  border: 1px solid $border-color;
+  background-color: $bg-card;
+  padding: $spacing-xl;
+  border: 1px solid $border-primary;
   display: flex;
   flex-direction: column;
   gap: 8px;

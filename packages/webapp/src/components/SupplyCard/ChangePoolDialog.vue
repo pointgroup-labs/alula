@@ -151,7 +151,7 @@ onUnmounted(() => {
 
   .modal-header {
     padding: 8px 0;
-    border-bottom: 1px solid $border-color;
+    border-bottom: 1px solid $border-primary;
 
     .input-group {
       border: none;
@@ -218,7 +218,7 @@ onUnmounted(() => {
       cursor: pointer;
 
       &:hover {
-        background-color: color-mix(in oklab, $new-secondary 70%, transparent);
+        background-color: color-mix(in oklab, $secondary 70%, transparent);
       }
 
       .asset-icon {
@@ -236,7 +236,7 @@ onUnmounted(() => {
         }
 
         &__name {
-          font-size: 11px;
+          font-size: $text-xs;
           color: $text-tertiary;
         }
       }
@@ -245,7 +245,7 @@ onUnmounted(() => {
         display: flex;
         align-items: flex-start;
         flex-direction: column;
-        font-size: 11px;
+        font-size: $text-xs;
         color: $text-primary;
 
         > div {

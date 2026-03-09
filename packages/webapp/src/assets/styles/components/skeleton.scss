@@ -11,8 +11,8 @@ $skeleton-variants: (
   overflow: hidden;
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, $card 70%, rgba(255, 255, 255, 0.4) 2%),
-    color-mix(in oklab, $card 85%, black 10%)
+    color-mix(in oklab, $navi-900 70%, rgba(255, 255, 255, 0.4) 2%),
+    color-mix(in oklab, $navi-900 85%, black 10%)
   );
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 

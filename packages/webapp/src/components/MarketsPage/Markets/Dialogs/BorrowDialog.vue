@@ -63,7 +63,7 @@ watch(dialog, (v) => {
         :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${data?.asset.symbol}`"
         :price="poolData?.price"
         :reset="dialog"
-        variant="purple"
+        variant="indigo"
         :rules="[
           (v: any) => {
             return Number(v) < availableToBorrow * 1.1 || 'Borrow limit exceeded'
@@ -75,13 +75,13 @@ watch(dialog, (v) => {
         <!-- Pool info -->
         <info-panel
           :data="infoPanelData.poolInfo!.data"
-          variant="purple"
+          variant="indigo"
         />
 
         <!-- Health -->
         <info-panel
           :data="infoPanelData.health!.data"
-          variant="purple"
+          variant="indigo"
         >
           <template #hf>
             <j-loading-spinner
@@ -98,7 +98,7 @@ watch(dialog, (v) => {
         <!-- Fees -->
         <info-panel
           :data="infoPanelData.fees!.data"
-          variant="purple"
+          variant="indigo"
         >
           <template #txFee="{ item }">
             <j-loading-spinner

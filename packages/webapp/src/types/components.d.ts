@@ -98,6 +98,7 @@ declare module 'vue' {
     MarketHistoryChartSupply: typeof import('./../components/MarketDetailPage/Charts/MarketHistoryChartSupply.vue')['default']
     MarketHystoryChart: typeof import('./../components/MarketDetailPage/Charts/MarketHystoryChart.vue')['default']
     MarketInfo: typeof import('../components/MarketsPage/MarketsInfo.vue')['default']
+    MarketInfoBadge: typeof import('./../components/Widget/MarketInfoBadge.vue')['default']
     MarketInfoDetailCard: typeof import('./../components/Widget/MarketInfoDetailCard.vue')['default']
     MarketInfoPill: typeof import('./../components/Widget/MarketInfoPill.vue')['default']
     MarketInfoSkeleton: typeof import('./../components/Skeleton/MarketInfoSkeleton.vue')['default']

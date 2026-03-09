@@ -14,6 +14,19 @@
     margin-bottom: 0;
     background-image: none;
     cursor: pointer;
+    transition: all 0.1s ease;
+
+    &:hover {
+      background-color: $navi-500;
+
+      &::before {
+        background-color: $white;
+      }
+
+      &:checked {
+        background-color: $navi-50;
+      }
+    }
 
     &::before {
       content: '';
@@ -25,12 +38,10 @@
       transform: translateY(-50%);
       background-color: $navi-50;
       border-radius: 50%;
-      transition: all 0.1s linear;
     }
 
     &:checked {
       background-color: var(--toggle-color, $primary);
-      border-color: var(--toggle-color, $primary);
       background-position: 17px center;
 
       &::before {

@@ -568,7 +568,7 @@ section#multiply-position {
       }
 
       .health-label {
-        font-size: 11px;
+        font-size: $text-xs;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -664,7 +664,7 @@ section#multiply-position {
           top: -24px;
           left: 50%;
           transform: translateX(-50%);
-          font-size: 11px;
+          font-size: $text-xs;
           font-weight: 600;
           color: #4e4f51;
           white-space: nowrap;
@@ -773,7 +773,7 @@ section#multiply-position {
       justify-content: space-between;
       margin-top: 8px;
       padding: 0 4px;
-      font-size: 11px;
+      font-size: $text-xs;
       font-weight: 600;
       color: #8a8b8d;
     }

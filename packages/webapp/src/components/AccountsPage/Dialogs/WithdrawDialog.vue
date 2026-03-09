@@ -133,7 +133,6 @@ watch(dialog, (v) => {
       <j-toggle
         v-if="collateralBalance > 0"
         v-model="collateralOnly"
-        color="#00c950"
         class="my-2"
       >
         <template #append>
@@ -144,7 +143,7 @@ watch(dialog, (v) => {
       <div class="dialog-default__action mt-2">
         <j-btn
           :loading="isLoading"
-          variant="cyan"
+          variant="brand"
           size="lg"
           pill
           @click="withdraw"

@@ -155,7 +155,7 @@ $tooltip-bg-color: $popover-bg;
 $tooltip-padding-y: $spacing-lg;
 $tooltip-padding-x: $spacing-lg;
 $tooltip-border-radius: $radius-xl;
-$tooltip-border-color: $border-color;
+$tooltip-border-color: $border-primary;
 
 .tooltip-content {
   background-color: $tooltip-bg-color;

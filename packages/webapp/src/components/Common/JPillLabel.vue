@@ -1,12 +1,12 @@
 <script lang="ts" setup>
 const {
-  variant = 'primary',
+  variant = 'cyan',
   size = 'lg',
 } = defineProps<{
   color?: string
   bgColor?: string
   label?: string
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'outline-success' | 'outline-warning' | 'supply' | 'borrow'
+  variant?: 'cyan' | 'indigo' 
   size?: 'lg' | 'md' | 'sm'
 }>()
 </script>

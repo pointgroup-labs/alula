@@ -147,8 +147,8 @@ const option = computed<EChartsOption>(() => {
         areaStyle: {
           opacity: 1,
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(52, 211, 232, 0.08)' },
-            { offset: 1, color: 'rgba(52, 211, 232, 0.00)' },
+            { offset: 0, color: 'rgba(34, 211, 238, 0.4)' },
+            { offset: 1, color: 'rgba(34, 211, 238, 0)' },
           ]),
         },
       },
@@ -163,8 +163,8 @@ const option = computed<EChartsOption>(() => {
         areaStyle: {
           opacity: 1,
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(245, 158, 11, 0.08)' },
-            { offset: 1, color: 'rgba(245, 158, 11, 0.00)' },
+            { offset: 0, color: 'rgba(138, 142, 244, 0.4)' },
+            { offset: 1, color: 'rgba(138, 142, 244, 0)' },
           ]),
         },
       },

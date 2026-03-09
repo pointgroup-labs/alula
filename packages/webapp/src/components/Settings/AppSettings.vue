@@ -41,6 +41,8 @@ provide('isSidebar', isSettingsSidebar)
 .settings-btn {
   padding: 8px;
   color: #fff;
+  width: 40px;
+  height: 40px;
   cursor: pointer;
 
   .settings-icon {

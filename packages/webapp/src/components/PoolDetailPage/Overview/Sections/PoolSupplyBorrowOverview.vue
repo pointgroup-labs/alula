@@ -52,7 +52,7 @@ section#pool-detail-overview {
     padding: 10px;
     display: flex;
     align-items: flex-start;
-    background-color: color-mix(in oklab, $new-secondary 20%, transparent);
+    background-color: color-mix(in oklab, $secondary 20%, transparent);
     border-radius: $radius-2xl;
   }
 
@@ -68,7 +68,7 @@ section#pool-detail-overview {
       font-size: 12px;
 
       &:not(:last-child) {
-        border-bottom: 1px solid $border-color;
+        border-bottom: 1px solid $border-primary;
       }
 
       &__label {

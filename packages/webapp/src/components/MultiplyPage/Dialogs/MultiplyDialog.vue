@@ -352,25 +352,4 @@ watch(dialog, async (v) => {
     }
   }
 }
-
-.theme-dark {
-  .multiply-dialog {
-    &__title {
-      color: #fff;
-    }
-    .j-input__prepend .popover {
-      .popover-borrow-asset {
-        color: #fff;
-      }
-    }
-
-    &__data {
-      &.with-border {
-        &::after {
-          background: $neutral-18;
-        }
-      }
-    }
-  }
-}
 </style>

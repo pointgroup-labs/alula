@@ -233,7 +233,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
+    font-size: $text-xs;
     font-style: normal;
     font-weight: 500;
     line-height: 12px;

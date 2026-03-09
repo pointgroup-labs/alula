@@ -19,30 +19,50 @@ $btn-variants: (
   ),
 
   brand: (
+    bg: $brand-100,
+    color: #000,
+    outline: 1px solid $brand-500,
+    hoverBg: darken($brand-100, 10%),
+    hoverColor: #000,
+    focusBg: darken($brand-100, 10%),
+    focusOutline: 1px solid $brand-400,
+  ),
+
+  brand-outlined: (
     bg: $brand-900,
     color: $navi-25,
     outline: 1px solid $brand-500,
     hoverBg: $brand-600,
     hoverColor: $brand-50,
-    focusBg: $brand-600,
+    focusBg: $brand-900,
     focusOutline: 1px solid $brand-400,
   ),
 
   brand-secondary: (
+    bg: $indigo-50,
+    color: #000,
+    outline: 1px solid $indigo-500,
+    hoverBg: $indigo-100,
+    hoverColor: #000,
+    focusBg: $indigo-100,
+    focusOutline: 1px solid $indigo-400,
+  ),
+
+  brand-secondary-outlined: (
     bg: $indigo-900,
     color: $navi-25,
     outline: 1px solid $indigo-500,
     hoverBg: $indigo-600,
     hoverColor: $indigo-50,
-    focusBg: $indigo-600,
+    focusBg: $indigo-900,
     focusOutline: 1px solid $indigo-400,
   ),
 
   ghost: (
-    bg: color-mix(in oklab, $new-secondary 40%, transparent),
+    bg: color-mix(in oklab, $secondary 40%, transparent),
     color: #fff,
     outline: 1px solid rgba(107, 122, 148, 0.2),
-    hoverBg: color-mix(in oklab, $new-secondary 60%, transparent),
+    hoverBg: color-mix(in oklab, $secondary 60%, transparent),
     hoverColor: #fff,
     focusOutline: 1px solid rgba(107, 122, 148, 0.2),
   ),
@@ -59,10 +79,10 @@ $btn-variants: (
   ),
 
   purple: (
-    bg: $purple,
+    bg: $indigo,
     color: #fff,
-    hoverBg: lighten($purple, 4%),
-    focusBg: lighten($purple, 4%),
+    hoverBg: lighten($indigo, 4%),
+    focusBg: lighten($indigo, 4%),
   ),
 
   cyan: (
@@ -77,7 +97,7 @@ $btn-variants: (
     color: rgba(232, 237, 245, 0.7),
     outline: 1px solid rgba(242, 176, 26, 0.1),
     hoverBg: rgba(252, 157, 16, 0.1),
-    hoverColor: $borrow,
+    hoverColor: $indigo,
     focusOutline: 1px solid rgba(242, 176, 26, 0.4),
   ),
 

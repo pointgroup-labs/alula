@@ -41,7 +41,7 @@ const dialog = defineModel({
   .modal-content {
     padding: 0;
     border-radius: $radius-2xl;
-    border: 1px solid $border-color;
+    border: 1px solid $border-primary;
     background: transparent;
     box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
     color: #fff;
@@ -62,7 +62,7 @@ const dialog = defineModel({
 
   .modal-header {
     padding: $spacing-xl $spacing-lg $spacing-xl $spacing-3xl;
-    border-bottom: 1px solid $border-color;
+    border-bottom: 1px solid $border-primary;
 
     &:not(:has(.dialog-balance)) {
       .close-icon {
@@ -85,7 +85,7 @@ const dialog = defineModel({
       &__label {
         color: #9ca3af;
         text-align: right;
-        font-size: 11px;
+        font-size: $text-xs;
         font-style: normal;
         font-weight: 400;
         line-height: 16.5px;

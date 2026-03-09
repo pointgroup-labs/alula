@@ -1,11 +1,11 @@
 @use 'sass:map';
 $primary: #fff;
-$secondary: #eaecf0;
+$secondary: #1a2236;
 $accent: #f59e0b;
 $warning: #f0b100;
 $danger: #fb4747;
 $success: #00c950;
-$purple: #8a8df4;
+$indigo: #8a8df4;
 $cyan: #22d3ee;
 
 // COLORS
@@ -35,7 +35,7 @@ $brand-400: #0e5069;
 $brand-300: #146786;
 $brand-200: #127691;
 $brand-100: #19a2be;
-$brand-50: #22d3ee;
+$brand-50: $cyan;
 
 // indigo
 $indigo-950: #121324;
@@ -48,7 +48,7 @@ $indigo-400: #2f3279;
 $indigo-300: #3c419a;
 $indigo-200: #4d50b7;
 $indigo-100: #5e61d4;
-$indigo-50: #8a8df4;
+$indigo-50: $indigo;
 
 // red
 $red-950: #55160c;
@@ -102,8 +102,6 @@ $yellow-200: #feee95;
 $yellow-100: #fef7c3;
 $yellow-50: #fefbe8;
 
-$neutral-18: #262729;
-
 $white: #fff;
 $dark: #1111;
 
@@ -129,6 +127,14 @@ $bg-success-primary: $green-600;
 $bg-success-secondary: $green-500;
 
 $bg-card: $navi-900;
+
+$popover-bg: rgba(10, 14, 23, 0.5);
+
+// border
+// $border-primary: $navi-600;
+$border-primary: $navi-500;
+$border-secondary: $navi-500;
+$border-primary-dark: $navi-700;
 
 // text
 $text-primary: #e8edf5;
@@ -162,17 +168,12 @@ $fg-warning-secondary: $orange-400;
 $fg-success-primary: $green-500;
 $fg-success-secondary: $green-400;
 
-// border
-$border-primary: $navi-600;
-$border-secondary: $navi-500;
-$border-primary-dark: $navi-700;
-
 // TEXT
 $font-family-base: 'Inter', sans-serif;
 $font-JetBrainsMono: 'JetBrainsMono', monospace;
 
-$text-sm: 0.875rem;
-$text-xs: 0.75rem;
+$text-sm: 14px;
+$text-xs: 12px;
 
 $surface-neutral-04: rgba(255, 255, 255, 0.04);
 $surface-neutral-08: rgba(255, 255, 255, 0.08);
@@ -182,19 +183,6 @@ $surface-neutral-20: rgba(255, 255, 255, 0.2);
 $surface-neutral-30: rgba(255, 255, 255, 0.3);
 $surface-neutral-60: rgba(255, 255, 255, 0.6);
 $surface-neutral-80: rgba(255, 255, 255, 0.8);
-
-// new vars
-$border: #1e293b;
-$border-color: color-mix(in oklab, $border 100%, transparent);
-$card: #111827;
-$card-bg: color-mix(in oklab, $card 30%, transparent);
-$popover-bg: rgba(10, 14, 23, 0.8);
-
-$supply: #22d3ee;
-$borrow: #f59e0b;
-$red: #f43f5e;
-
-$new-secondary: #1a2236;
 
 // spacing
 $spacing-xs: 4px;

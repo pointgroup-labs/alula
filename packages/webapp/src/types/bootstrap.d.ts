@@ -13,6 +13,8 @@ declare module 'node_modules/bootstrap-vue-next/dist/src/types/ColorTypes' {
     cyan: unknown
     brand: unknown
     ['brand-secondary']: unknown
+    ['brand-outlined']: unknown
+    ['brand-secondary-outlined']: unknown
   }
 }
 

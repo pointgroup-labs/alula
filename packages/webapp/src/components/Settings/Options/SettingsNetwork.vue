@@ -101,7 +101,7 @@ watch(() => rpcStore.network, (val) => {
       cursor: pointer;
 
       &:hover {
-        background-color: color-mix(in oklab, $card 60%, transparent);
+        background-color: color-mix(in oklab, $navi-900 60%, transparent);
       }
     }
 

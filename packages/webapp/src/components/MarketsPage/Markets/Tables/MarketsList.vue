@@ -119,13 +119,13 @@ const stop = watch(additionalMarketsData, () => {
         {{ capitalize(market.marketName) }} Market
 
         <div class="market-info-wrapper">
-          <market-info-pill>
+          <market-info-badge>
             <span data-name="title">Market Size: </span>
 
             <span>${{ shortenNumber(market.marketSize) }}</span>
-          </market-info-pill>
+          </market-info-badge>
 
-          <market-info-pill v-if="market.assets.length > 0">
+          <market-info-badge v-if="market.assets.length > 0">
             <span data-name="title">Assets </span>
 
             <img
@@ -135,7 +135,7 @@ const stop = watch(additionalMarketsData, () => {
               alt="market asset"
             >
             <span v-if="market.assets.length > 2">+{{ market.assets.length - 2 }}</span>
-          </market-info-pill>
+          </market-info-badge>
         </div>
       </template>
 
@@ -226,11 +226,12 @@ const stop = watch(additionalMarketsData, () => {
             class="table-cell justify-content-center flex"
             style="opacity: .8;"
           >
-            <market-apy-with-additional
-              :pool-data="data.item"
-              :additional-markets-data="additionalMarketsData"
-              :is-deposit="true"
-            />
+            <j-pill-label
+              variant="cyan"
+              size="sm"
+            >
+              {{ data.item.deposit_apy }}
+            </j-pill-label>
           </div>
         </template>
 
@@ -239,18 +240,19 @@ const stop = watch(additionalMarketsData, () => {
             class="table-cell justify-content-center"
             style="opacity: .8;"
           >
-            <market-apy-with-additional
-              :pool-data="data.item"
-              :additional-markets-data="additionalMarketsData"
-              :is-deposit="false"
-            />
+            <j-pill-label
+              variant="indigo"
+              size="sm"
+            >
+              {{ data.item.borrow_apy }}
+            </j-pill-label>
           </div>
         </template>
 
         <template #cell(position)="data">
           <div class="table-cell justify-content-end with-price">
             <template v-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
-              <strong :style="{ color: +data.item.position.supplied > 0 ? '#22d3ee' : '#8a8df4' }">
+              <strong :style="{ color: +data.item.position.supplied > 0 ? '#22D3EE' : '#8A8DF4' }">
                 {{ shortenNumber(+data.item.position.supplied || +data.item.position.borrowed) }}</strong>
               <span>
                 ${{ amountToUsdWithShort(+data.item.position.supplied || +data.item.position.borrowed, data.item.price) }}</span>
@@ -269,9 +271,8 @@ const stop = watch(additionalMarketsData, () => {
           <div class="table-cell justify-content-end market-table__action">
             <j-btn
               v-if="+data.item.position.borrowed === 0"
-              size="xs"
-              variant="brand"
-              pill
+              size="sm"
+              variant="brand-outlined"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'supply')"
@@ -280,9 +281,8 @@ const stop = watch(additionalMarketsData, () => {
             </j-btn>
             <j-btn
               v-else
-              size="xs"
-              variant="brand-secondary"
-              pill
+              size="sm"
+              variant="brand-secondary-outlined"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'repay', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'repay')"
@@ -291,9 +291,8 @@ const stop = watch(additionalMarketsData, () => {
             </j-btn>
             <j-btn
               v-if="+data.item.position.supplied === 0"
-              size="xs"
-              variant="brand-secondary"
-              pill
+              size="sm"
+              variant="brand-secondary-outlined"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'borrow')"
@@ -302,9 +301,8 @@ const stop = watch(additionalMarketsData, () => {
             </j-btn>
             <j-btn
               v-else
-              size="xs"
-              variant="brand"
-              pill
+              size="sm"
+              variant="brand-outlined"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'withdraw')"

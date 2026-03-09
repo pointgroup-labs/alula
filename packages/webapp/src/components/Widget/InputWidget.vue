@@ -33,7 +33,7 @@ const {
   rules?: Array<(val: string | number) => true | string>
   modelValue?: string | number
   error?: string
-  variant?: 'cyan' | 'purple' | 'success' | 'accent'
+  variant?: 'cyan' | 'indigo' | 'success' | 'accent'
   reset?: boolean
 }>()
 
@@ -195,23 +195,27 @@ watch(() => reset, () => {
 
   --background-color: rgba(0, 211, 238, 0.03);
   --border-color: rgba(0, 211, 238, 0.3);
+  --btn-bg: rgba(0, 211, 238, 0.15);
   --color: #22d3ee;
 
-  .purple {
+  .indigo {
     --background-color: rgba(99, 102, 241, 0.05);
     --border-color: rgba(99, 102, 241, 0.3);
+    --btn-bg: rgba(138, 142, 244, 0.15);
     --color: #8a8df4;
   }
 
   .success {
     --background-color: rgba(0, 201, 80, 0.03);
     --border-color: rgba(0, 201, 80, 0.3);
+    --btn-bg: rgba(0, 201, 80, 0.15);
     --color: #00c950;
   }
 
   .accent {
     --background-color: rgba(245, 159, 11, 0.03);
     --border-color: rgba(245, 159, 11, 0.3);
+    --btn-bg: rgba(245, 159, 11, 0.15);
     --color: #f59e0b;
   }
 
@@ -236,8 +240,8 @@ watch(() => reset, () => {
 
   .input-block {
     padding: 0;
-    background-color: color-mix(in oklab, $new-secondary 30%, transparent);
-    border: 1px solid $border-color;
+    background-color: color-mix(in oklab, $secondary 30%, transparent);
+    border: 1px solid $border-primary;
     border-radius: $radius-2xl;
     transition: border-color 0.2s ease;
 
@@ -301,11 +305,11 @@ watch(() => reset, () => {
 
     span {
       padding: 4px 10px;
-      font-size: 11px;
+      font-size: $text-xs;
       text-transform: uppercase;
       border-radius: $radius-sm;
       color: $text-tertiary;
-      background-color: color-mix(in oklab, $new-secondary 60%, transparent);
+      background-color: color-mix(in oklab, $secondary 60%, transparent);
       transition: all 0.1s ease;
       cursor: pointer;
 
@@ -315,7 +319,7 @@ watch(() => reset, () => {
 
       &.active {
         color: var(--color);
-        background-color: rgba(0, 211, 238, 0.15);
+        background-color: var(--btn-bg);
       }
     }
   }

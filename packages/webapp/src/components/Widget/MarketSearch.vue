@@ -30,9 +30,9 @@ const search = defineModel({ default: undefined })
     .input-group {
       height: 40px;
       gap: 12px;
-      background-color: $card-bg;
+      background-color: $bg-card;
       padding: $spacing-sm $spacing-lg;
-      border: 1px solid $border-color;
+      border: 1px solid $border-primary;
     }
 
     .j-input__prepend {

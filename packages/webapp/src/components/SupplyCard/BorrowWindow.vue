@@ -74,7 +74,7 @@ const debtAccrual = computedAsync(async () => {
       :price="selectedPool?.price"
       label-left="Available to Borrow"
       :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${selectedPool?.asset.symbol}`"
-      variant="purple"
+      variant="indigo"
       :rules="[
         (v: any) => {
           return Number(v) < availableToBorrow || 'Borrow limit exceeded'
@@ -230,7 +230,6 @@ const debtAccrual = computedAsync(async () => {
     <j-checkbox
       v-model="agree"
       :disabled="!isCanBorrow"
-      color="#8a8df4"
     >
       <div class="extra-info__label">
         I acknowledge the risks involved.
@@ -248,7 +247,7 @@ const debtAccrual = computedAsync(async () => {
       pill
       @click-handler="borrow"
     >
-      Borrow {{ selectedPool?.asset.symbol }}
+      <i-metrics-complete class="complete-icon" />  Borrow {{ selectedPool?.asset.symbol }}
     </market-dialog-action-btn>
   </div>
 </template>

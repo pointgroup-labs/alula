@@ -164,7 +164,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           <template #cell(borrow_apy)="data">
             <div class="table-cell justify-content-center">
               <j-pill-label
-                variant="borrow"
+                variant="indigo"
                 size="sm"
               >
                 {{ data.item.borrow_apy }}
@@ -197,7 +197,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           <template #cell(action)="data">
             <div class="table-cell justify-content-end">
               <j-btn
-                variant="brand-secondary"
+                variant="brand-secondary-outlined"
                 size="xs"
                 class="repay-btn"
                 pill
@@ -240,7 +240,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
   --hf-success: #{$success};
 
   .table-cell__dept {
-    color: $purple;
+    color: $indigo;
   }
 
   .hf-indicator {
@@ -248,7 +248,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
     width: 50px;
     height: 4px;
     border-radius: $radius-lg;
-    background-color: color-mix(in oklab, $border 70%, transparent);
+    background-color: color-mix(in oklab, $border-primary 70%, transparent);
     overflow: hidden;
     flex-shrink: 0;
     margin-right: 4px;

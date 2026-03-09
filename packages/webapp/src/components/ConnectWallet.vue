@@ -63,7 +63,7 @@ function copy() {
         :loading="loading"
         :size="size"
         class="connect-wallet"
-        variant="brand"
+        variant="brand-outlined"
       >
         <address-icon :address="publicKey" /> {{ shortenAddress(publicKey) }}
       </j-btn>
@@ -80,6 +80,7 @@ function copy() {
 
   &__item {
     color: #fff;
+    opacity: .7;
     padding: $spacing-md $spacing-xl;
     display: flex;
     align-items: center;
@@ -87,7 +88,7 @@ function copy() {
     cursor: pointer;
 
     &:hover {
-      background-color: color-mix(in oklab, $card 60%, transparent);
+      opacity: 1;
     }
   }
 }

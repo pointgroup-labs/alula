@@ -1,14 +1,14 @@
 .dialog-info-card {
   padding: $spacing-lg;
   border-radius: $radius-2xl;
-  border: 1px solid $border-color;
+  border: 1px solid $border-primary;
   box-shadow: none;
 
   --background-color: rgba(0, 211, 238, 0.02);
   --border-color: rgba(0, 211, 238, 0.15);
   --box-shadow: rgba(0, 211, 238, 0.05);
 
-  &--purple {
+  &--indigo {
     --background-color: rgba(99, 102, 241, 0.03);
     --border-color: rgba(99, 102, 241, 0.15);
     --box-shadow: rgba(99, 102, 241, 0.05);

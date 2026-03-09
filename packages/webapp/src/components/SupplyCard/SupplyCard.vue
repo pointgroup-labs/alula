@@ -47,15 +47,15 @@ function dialogHandler() {
   max-width: 400px;
   width: 100%;
   height: fit-content;
-  background-color: color-mix(in oklab, $card 50%, transparent);
-  padding: 20px;
-  border: 1px solid $border-color;
-  border-radius: $radius-2xl;
+  background-color: $bg-card;
+  padding: $spacing-xl;
+  border: 1px solid $border-primary;
+  border-radius: 14px;
 
   .info-card {
-    background-color: color-mix(in oklab, $new-secondary 30%, transparent);
-    border: 1px solid $border-color;
-    border-radius: $radius-2xl;
+    background-color: color-mix(in oklab, $secondary 30%, transparent);
+    border: 1px solid $border-primary;
+    border-radius: 14px;
     transition: border-color 0.2s ease;
     padding: 16px;
   }
@@ -65,14 +65,14 @@ function dialogHandler() {
     align-items: center;
     justify-content: center;
     padding: 4px;
-    border-radius: $radius-2xl;
-    background-color: color-mix(in oklab, $new-secondary 60%, transparent);
+    border-radius: 14px;
+    border: 1px solid $border-primary;
 
     .nav-tab {
-      font-size: 14px;
+      font-size: $text-sm;
       padding: 10px 0;
       width: 100%;
-      border-radius: $radius-2xl;
+      border-radius: $radius-md;
       color: $text-tertiary;
       text-align: center;
       cursor: pointer;
@@ -80,24 +80,24 @@ function dialogHandler() {
 
       &--supply {
         &:hover {
-          color: $supply;
+          color: $cyan;
         }
       }
       &--borrow {
         &:hover {
-          color: $purple;
+          color: $indigo;
         }
       }
 
       &.active {
         &.nav-tab--supply {
-          color: $supply;
-          background-color: rgba(0, 211, 238, 0.15);
+          color: $cyan;
+          background-color: $brand-500;
         }
 
         &.nav-tab--borrow {
-          color: $purple;
-          background-color: rgba(99, 102, 241, 0.15);
+          color: $indigo;
+          background-color: $indigo-500;
         }
       }
     }
@@ -210,10 +210,10 @@ function dialogHandler() {
     padding: 0;
 
     &__header {
-      font-size: 11px;
+      font-size: $text-xs;
       color: $text-tertiary;
       padding: 10px 16px;
-      border-bottom: 1px solid $border-color;
+      border-bottom: 1px solid $border-primary;
       display: flex;
       align-items: center;
       justify-content: space-between;

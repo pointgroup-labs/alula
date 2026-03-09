@@ -106,7 +106,7 @@ const detailCardsData = computed(() => {
       position: absolute;
       width: 1px;
       height: calc(100% + 32px);
-      background-color: $border-color;
+      background-color: $border-primary;
     }
   }
 
@@ -126,7 +126,7 @@ const detailCardsData = computed(() => {
     transition: opacity 0.1s ease;
 
     &:hover {
-      color: $supply;
+      color: $cyan;
     }
   }
 

@@ -3,20 +3,20 @@
 </script>
 
 <template>
-  <div class="market-info-pill">
+  <div class="market-info-badge">
     <slot />
   </div>
 </template>
 
 <style lang="scss">
-.market-info-pill {
+.market-info-badge {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: $spacing-sm $spacing-lg;
-  background-color: rgba(26, 34, 54, 0.4);
+  background-color: $navi-800;
   border-radius: $radius-2xl;
-  border: 1px solid $surface-neutral-10;
+  border: 1px solid $navi-500;
   font-family: $font-JetBrainsMono;
   font-size: $text-xs;
   font-style: normal;

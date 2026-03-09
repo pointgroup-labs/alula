@@ -7,7 +7,6 @@ const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
 const pool = computed(() => selectedPool.value?.raw?.pool)
 
 const asset = computed(() => selectedPool?.value?.asset)
-const price = computed(() => selectedPool?.value?.price ?? 0)
 
 const detailCardsData = computed(() => {
   if (!pool.value) {
@@ -51,10 +50,6 @@ const detailCardsData = computed(() => {
       class="market-pills"
     >
       <div class="market-name">{{ capitalize(selectedPool?.market ?? '') }} market</div>
-
-      <div class="market-price">
-        {{ formatCompactUSD(price, 2, 2) }}
-      </div>
 
     </div>
 

@@ -26,13 +26,14 @@ import { ALULA_URL } from '~/config'
 
 <style scoped lang="scss">
 footer {
+  margin-top: 100px;
   padding: 40px 0;
   color: $text-tertiary;
   font-size: 12px;
   font-style: normal;
   font-weight: 500;
   line-height: 16px;
-  border-top: 1px solid $border-color;
+  border-top: 1px solid $border-primary;
   z-index: 1;
 }
 
