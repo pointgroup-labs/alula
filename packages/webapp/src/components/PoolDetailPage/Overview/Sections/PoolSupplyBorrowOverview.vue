@@ -73,6 +73,9 @@ section#pool-detail-overview {
 
       &__label {
         color: $text-tertiary;
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
 
       &__value {

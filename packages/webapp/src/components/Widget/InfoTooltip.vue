@@ -2,8 +2,8 @@
 import infoIcon from '~/assets/img/icons/info-circle.svg?raw'
 
 const {
-  iconColor = '#111',
-  size = 16,
+  iconColor = '#6b7994',
+  size = 12,
 } = defineProps<{
   iconColor?: string
   size?: number
@@ -26,8 +26,7 @@ const slot = defineSlots()
 
       <template #content>
         <slot
-          v-if="slot?.content"
-          name="content"
+          v-if="slot?.default"
         />
         <span
           v-else

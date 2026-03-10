@@ -99,7 +99,12 @@ const progress = computed(() => borrowCap.value.toFixed(2))
       <div class="detail-list">
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Pool Utilization 
+            Pool Utilization
+            <info-tooltip>
+              Percentage of supplied assets currently borrowed.
+              <br>
+              Higher utilization leads to higher borrow rates.
+            </info-tooltip>
           </div>
           <div class="detail-list__item__value">
             {{ detailCardsData.utilRate }}
@@ -109,6 +114,9 @@ const progress = computed(() => borrowCap.value.toFixed(2))
         <div class="detail-list__item">
           <div class="detail-list__item__label">
             Take Rate
+            <info-tooltip>
+              Percentage of borrower interest taken as a protocol fee.
+            </info-tooltip>
           </div>
           <div class="detail-list__item__value">
             {{ reserve }}%

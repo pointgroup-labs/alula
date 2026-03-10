@@ -92,6 +92,10 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
         <div class="detail-list__item">
           <div class="detail-list__item__label">
             Open LTV
+
+            <info-tooltip>
+              Maximum loan-to-value ratio allowed when opening a borrow position.
+            </info-tooltip>
           </div>
           <div class="detail-list__item__value">
             {{ detailCardsData.openLTV }}%
@@ -101,6 +105,10 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
         <div class="detail-list__item">
           <div class="detail-list__item__label">
             Close LTV
+
+            <info-tooltip>
+              Loan-to-value ratio at which a position becomes eligible for liquidation.
+            </info-tooltip>
           </div>
           <div class="detail-list__item__value">
             {{ detailCardsData.closeLTV }}%

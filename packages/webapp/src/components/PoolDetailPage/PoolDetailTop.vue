@@ -58,21 +58,39 @@ const detailCardsData = computed(() => {
 
     <div class="pool-metrics">
       <div class="pool-metrics__item">
-        <span>Supply APY</span>
+        <span>Supply APY
+          <info-tooltip>
+            Estimated annual yield earned by supplying assets.
+            <br>
+            Rates adjust dynamically based on pool utilization.
+          </info-tooltip>
+        </span>
         <span class="supply">{{ detailCardsData.depositApy }}</span>
       </div>
 
       <div class="separator-vert" />
 
       <div class="pool-metrics__item">
-        <span>Borrow APY</span>
+        <span>Borrow APY
+          <info-tooltip>
+            Annual interest rate paid for borrowing assets.
+            <br>
+            Rates increase as pool utilization grows
+          </info-tooltip>
+        </span>
         <span class="borrow">{{ detailCardsData.borrowAPY }}</span>
       </div>
 
       <div class="separator-vert" />
 
       <div class="pool-metrics__item">
-        <span>Borrow Capacity</span>
+        <span>Borrow Capacity
+          <info-tooltip>
+            Percentage of the pool's borrow limit currently used.
+            <br>
+            At 100% no additional borrowing is possible
+          </info-tooltip>
+        </span>
         <span class="">{{ detailCardsData.utilRate }}</span>
       </div>
     </div>

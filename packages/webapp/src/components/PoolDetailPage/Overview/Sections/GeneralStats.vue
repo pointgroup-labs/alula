@@ -59,6 +59,11 @@ const poolData = computed(() => {
       <div class="stat-card stat-card--small">
         <div class="stat-title">
           <i-metrics-pulse style="color: #f43f5e;" /> Utilization Limit
+          <info-tooltip>
+            Maximum allowed pool utilization.
+            <br>
+            Borrowing is disabled once this limit is reached
+          </info-tooltip>
         </div>
         <div class="stat-value">
           <span>{{ poolData.Limit.toFixed(2) }}%</span>
