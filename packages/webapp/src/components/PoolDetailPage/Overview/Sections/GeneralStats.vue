@@ -13,7 +13,7 @@ const poolData = computed(() => {
     assetSymbol,
     supplied: selectedPool?.value?.total_supply ?? 0,
     borrowed: selectedPool?.value?.total_borrowed ?? 0,
-    utilRate: Number(selectedPool?.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps || 0) / 100,
+    Limit: Number(selectedPool?.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps || 0) / 100,
     price: selectedPool?.value?.price ?? 0,
   }
 })
@@ -58,10 +58,10 @@ const poolData = computed(() => {
       <!-- Utilization -->
       <div class="stat-card stat-card--small">
         <div class="stat-title">
-          <i-metrics-pulse style="color: #f43f5e;" /> Utilization
+          <i-metrics-pulse style="color: #f43f5e;" /> Utilization Limit
         </div>
         <div class="stat-value">
-          <span>{{ poolData.utilRate.toFixed(2) }}%</span>
+          <span>{{ poolData.Limit.toFixed(2) }}%</span>
         </div>
       </div>
 

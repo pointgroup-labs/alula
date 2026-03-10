@@ -99,7 +99,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
       <div class="detail-list">
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Utilization Rate
+            Pool Utilization 
           </div>
           <div class="detail-list__item__value">
             {{ detailCardsData.utilRate }}

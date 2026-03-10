@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import { capitalize } from 'vue'
 
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
@@ -18,11 +19,13 @@ const detailCardsData = computed(() => {
   }
   const depositApy = selectedPool.value?.deposit_apy ?? '0.00%'
   const borrowAPY = selectedPool.value?.borrow_apy ?? '0.00%'
-  const utilRate = selectedPool.value?.utilization_rate ?? '0.00%'
+  const utilRatePercent = selectedPool.value?.utilization_rate_percent
+  const utilLimit = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps) || 0) * 100
+  const utilRate = utilRatePercent / utilLimit * 100
   return {
     depositApy,
     borrowAPY,
-    utilRate,
+    utilRate: `${truncatePercent(utilRate, 2)}%`,
   }
 })
 </script>
@@ -69,7 +72,7 @@ const detailCardsData = computed(() => {
       <div class="separator-vert" />
 
       <div class="pool-metrics__item">
-        <span>Utilization</span>
+        <span>Borrow Capacity</span>
         <span class="">{{ detailCardsData.utilRate }}</span>
       </div>
     </div>
