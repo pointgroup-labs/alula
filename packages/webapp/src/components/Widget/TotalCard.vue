@@ -44,7 +44,7 @@ defineProps<{
   }
 
   &__body {
-    color: var(--color, '#f5f5f5');
+    color: var(--color, '#e8edf5');
     font-size: 1.5rem;
     font-style: normal;
     font-weight: 600;

@@ -1,5 +1,5 @@
 import type { MarketTableItem, TableAsset } from '~/types/table'
-import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
+import { bpsToNumber, calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 
 export function useMarketTable() {
   const marketsStore = useMarketsStore()
@@ -52,6 +52,7 @@ export function useMarketTable() {
         const utilRate = Number(pool.total_borrowed) / Number((pool.total_available + pool.total_borrowed)) * 100
         const openLtv = Number(pool.config.health_config.open_ltv_bps) / 100
         const supply_limit = Number(bigintToNumber(pool.config.health_config.supply_limit, assetDecimals)) || 0
+        const utilization_rate_limit = bpsToNumber(Number(pool.config.health_config.utilization_ratio_limit_bps))
         const price = Number(bigintToNumber(d.oracle_asset_price, oraclePriceDecimals)) || 0
         const available = Number(bigintToNumber(d.total_available_adjusted, assetDecimals))
         const asset = getFullTokenData(pool.token_symbol)
@@ -70,6 +71,7 @@ export function useMarketTable() {
           action: 'Supply',
           price,
           supply_limit,
+          utilization_rate_limit,
           available,
           pool_address: pool.pool_address,
           market: marketName,

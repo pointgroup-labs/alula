@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { bpsToNumber } from '@alula/client-sdk'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
 
@@ -183,7 +184,10 @@ const rewardsEarnings = computedAsync(async () => {
           </div>
           <div
             class="value"
-            :style="{ color: utilRateColor(Number(dynamicUtilizationRate.replace('%', ''))) }"
+            :style="{
+              color:
+                utilRateColor(Number(dynamicUtilizationRate.replace('%', '')),
+                              bpsToNumber(Number(selectedPool.raw.pool.config.health_config.utilization_ratio_limit_bps) || 0) * 100) }"
           >
             {{ dynamicUtilizationRate }}
           </div>

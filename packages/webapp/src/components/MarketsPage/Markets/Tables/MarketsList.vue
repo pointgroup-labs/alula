@@ -181,12 +181,6 @@ const stop = watch(additionalMarketsData, () => {
           </div>
         </template>
 
-        <template #cell(price)="data">
-          <div class="table-cell justify-content-end">
-            {{ formatCompactUSD(data.item.price, 2, 2) }}
-          </div>
-        </template>
-
         <template #cell(total_supply)="data">
           <div class="table-cell justify-content-end">
             <div class="with-price">
@@ -212,7 +206,7 @@ const stop = watch(additionalMarketsData, () => {
               :width="18"
               :stroke-width="30"
               stroke-bg="#262729"
-              :stroke-color="utilRateColor(data.item.utilization_rate_percent ?? 0)"
+              :stroke-color="utilRateColor(data.item.utilization_rate_percent, data.item.utilization_rate_limit * 100)"
               background="transparent"
               color="#fff"
               :with-progress="false"

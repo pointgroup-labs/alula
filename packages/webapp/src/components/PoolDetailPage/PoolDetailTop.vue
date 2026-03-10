@@ -9,6 +9,35 @@ const pool = computed(() => selectedPool.value?.raw?.pool)
 
 const asset = computed(() => selectedPool?.value?.asset)
 
+const borrowCapacity = computed(() => {
+  if (!pool.value) {
+    return 0
+  }
+  const utilRatePercent = selectedPool.value?.utilization_rate_percent
+  const utilLimit = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps) || 0) * 100
+  return utilRatePercent / utilLimit * 100
+})
+
+const utilRateColor = computed(() => {
+  const currentUtil = selectedPool.value?.utilization_rate_percent ?? 0
+  const limitUtil
+    = bpsToNumber(
+      Number(selectedPool.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps) || 0,
+    ) * 100
+
+  if (!limitUtil) {
+    return '#e8edf5'
+  }
+  const capacityUsed = (currentUtil / limitUtil) * 100
+  if (capacityUsed >= 90) {
+    return '#f43f5e'
+  }
+  if (capacityUsed >= 70) {
+    return '#f79009'
+  }
+  return '#e8edf5'
+})
+
 const detailCardsData = computed(() => {
   if (!pool.value) {
     return {
@@ -19,13 +48,10 @@ const detailCardsData = computed(() => {
   }
   const depositApy = selectedPool.value?.deposit_apy ?? '0.00%'
   const borrowAPY = selectedPool.value?.borrow_apy ?? '0.00%'
-  const utilRatePercent = selectedPool.value?.utilization_rate_percent
-  const utilLimit = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps) || 0) * 100
-  const utilRate = utilRatePercent / utilLimit * 100
   return {
     depositApy,
     borrowAPY,
-    utilRate: `${truncatePercent(utilRate, 2)}%`,
+    utilRate: `${truncatePercent(borrowCapacity.value, 2)}%`,
   }
 })
 </script>
@@ -91,7 +117,7 @@ const detailCardsData = computed(() => {
             At 100% no additional borrowing is possible
           </info-tooltip>
         </span>
-        <span class="">{{ detailCardsData.utilRate }}</span>
+        <span :style="{ color: utilRateColor }">{{ detailCardsData.utilRate }}</span>
       </div>
     </div>
   </div>

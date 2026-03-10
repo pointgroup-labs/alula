@@ -21,6 +21,7 @@ export type MarketTableItem = {
   price: number
   available: number
   supply_limit: number
+  utilization_rate_limit: number
   pool_address: string
   market?: string
   assetDecimals: number
