@@ -31,9 +31,14 @@ provide('selectedPool', selectedPool)
 const tabs = [{
   label: 'Pool',
   value: 'pool',
-}, {
+},
+{
   label: 'Info / Risks',
   value: 'info',
+},
+{
+  label: 'Position',
+  value: 'position',
 }]
 
 const activeTab = ref(tabs[0])
@@ -56,6 +61,7 @@ const activeTab = ref(tabs[0])
         />
         <pool-overview v-if="activeTab?.value === 'pool'" />
         <pool-info-risks v-if="activeTab?.value === 'info'" />
+        <my-position v-if="activeTab?.value === 'position'" />
       </template>
 
       <div

@@ -130,6 +130,7 @@ declare module 'vue' {
     MultiplyTableMobile: typeof import('./../components/MultiplyPage/Tables/MultiplyTableMobile.vue')['default']
     MultiplyVault: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplyVault.vue')['default']
     MyMultiplyPositions: typeof import('./../components/MultiplyDetailsPage/Position/Sections/MyMultiplyPositions.vue')['default']
+    MyPosition: typeof import('./../components/PoolDetailPage/Position/MyPosition.vue')['default']
     NotValidAccountWarning: typeof import('./../components/Widget/NotValidAccountWarning.vue')['default']
     PoolDetailActions: typeof import('./../components/PoolDetailPage/PoolDetailActions.vue')['default']
     PoolDetailOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/PoolDetailOverview.vue')['default']
