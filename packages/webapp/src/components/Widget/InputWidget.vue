@@ -132,7 +132,7 @@ watch(() => reset, () => {
     </div>
 
     <div
-      class="input-block active"
+      class="input-block"
       :class="[
         variant,
         { active: val && Number(val) > 0, error: displayError },
@@ -196,12 +196,14 @@ watch(() => reset, () => {
   --background-color: rgba(0, 211, 238, 0.03);
   --border-color: rgba(0, 211, 238, 0.3);
   --btn-bg: rgba(0, 211, 238, 0.15);
+  --active-border-color: #{$brand-200};
   --color: #22d3ee;
 
   .indigo {
     --background-color: rgba(99, 102, 241, 0.05);
     --border-color: rgba(99, 102, 241, 0.3);
     --btn-bg: rgba(138, 142, 244, 0.15);
+    --active-border-color: #{$indigo-200};
     --color: #8a8df4;
   }
 
@@ -209,6 +211,7 @@ watch(() => reset, () => {
     --background-color: rgba(0, 201, 80, 0.03);
     --border-color: rgba(0, 201, 80, 0.3);
     --btn-bg: rgba(0, 201, 80, 0.15);
+    --active-border-color: #{$green-500};
     --color: #00c950;
   }
 
@@ -216,6 +219,7 @@ watch(() => reset, () => {
     --background-color: rgba(245, 159, 11, 0.03);
     --border-color: rgba(245, 159, 11, 0.3);
     --btn-bg: rgba(245, 159, 11, 0.15);
+    --active-border-color: #{$orange-500};
     --color: #f59e0b;
   }
 
@@ -240,14 +244,13 @@ watch(() => reset, () => {
 
   .input-block {
     padding: 0;
-    background-color: color-mix(in oklab, $secondary 30%, transparent);
-    border: 1px solid $border-primary;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color, $border-primary);
     border-radius: $radius-2xl;
     transition: border-color 0.2s ease;
 
     &.active {
-      background-color: var(--background-color);
-      border-color: var(--border-color);
+      border-color: var(--active-border-color);
     }
 
     &.error {
