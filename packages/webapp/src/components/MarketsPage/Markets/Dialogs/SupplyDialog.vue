@@ -94,7 +94,7 @@ watch(dialog, (v) => {
             <j-loading-spinner
               v-if="isLoadingFee"
               width="14px"
-              style="padding: 0; width: 20px; height: 20px; margin: 0 auto;"
+              style="padding: 0; width: 18.5px; height: 18.5px; margin: 0 auto;"
             />
             <span v-else>{{ txFee }} XLM</span>
           </template>

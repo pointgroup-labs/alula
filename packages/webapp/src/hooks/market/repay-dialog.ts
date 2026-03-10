@@ -90,7 +90,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
             value: `${shortenNumber(debtVal, 2, maxDecimalsForShortenNumber(debtVal))} ${asset.value.symbol}`,
           },
           {
-            label: 'Debt Balance After Repayment',
+            label: 'Remaining Debt',
             value: `${shortenNumber(borrowBalanceAfterRepay, 2, maxDecimalsForShortenNumber(borrowBalanceAfterRepay))} ${asset.value.symbol}`,
           },
         ],

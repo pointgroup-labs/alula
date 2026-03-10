@@ -227,11 +227,10 @@ const rewardsEarnings = computedAsync(async () => {
   <div class="supply-card__action mt-4">
     <market-dialog-action-btn
       variant="brand"
-      size="lg"
+      size="md"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"
       :disabled="!isCanSupply || amount >= balance"
-      pill
       @click-handler="supply"
     >
       <i-metrics-complete class="complete-icon" /> Supply {{ selectedPool?.asset.symbol }}

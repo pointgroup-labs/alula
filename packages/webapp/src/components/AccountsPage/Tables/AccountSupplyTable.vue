@@ -97,6 +97,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
         label="Total Supplied"
         :value="`${totalSupplyUsd}`"
         color="#00c950"
+        v-if="isHasObligations"
       />
     </div>
 

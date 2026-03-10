@@ -38,6 +38,16 @@ p {
   min-height: 100dvh;
 }
 
+#nprogress {
+  .bar {
+    background: $cyan !important;
+  }
+  .spinner-icon {
+    border-top-color: $cyan !important;
+    border-left-color: $cyan !important;
+  }
+}
+
 main {
   flex: 1;
   display: flex !important;

@@ -240,11 +240,10 @@ const debtAccrual = computedAsync(async () => {
   <div class="supply-card__action mt-4">
     <market-dialog-action-btn
       variant="brand-secondary"
-      size="lg"
+      size="md"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"
       :disabled="!agree || !isCanBorrow || amount > availableToBorrow"
-      pill
       @click-handler="borrow"
     >
       <i-metrics-complete class="complete-icon" />  Borrow {{ selectedPool?.asset.symbol }}

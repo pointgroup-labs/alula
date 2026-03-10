@@ -110,6 +110,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
             label: 'Transaction Fee',
             value: txFee.value,
             slotName: 'txFee',
+            className: 'fee-cell',
           },
         ],
       },

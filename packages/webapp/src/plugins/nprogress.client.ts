@@ -5,7 +5,7 @@ import 'nprogress/nprogress.css'
 
 export default defineNuxtPlugin((nuxtApp) => {
   NProgress.configure({
-    // showSpinner: false,
+    showSpinner: false,
     // speed: 400,
     // trickleSpeed: 200,
   })

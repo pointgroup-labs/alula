@@ -219,6 +219,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
             label: 'Transaction Fee',
             value: `${txFee.value} ${poolData.value?.asset.symbol}`,
             slotName: 'txFee',
+            className: 'fee-cell',
           },
         ],
       },

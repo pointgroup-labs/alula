@@ -100,6 +100,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
       Your Borrows
 
       <metric-indicator
+        v-if="isHasObligations"
         label="Total Borrowed"
         :value="`${totalDebt}`"
         color="#f43f5e"

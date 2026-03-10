@@ -55,7 +55,7 @@ const val = computed({
 })
 
 const ruleError = computed(() => {
-  if (!rules?.length || !publicKey.value) {
+  if (!rules?.length || !publicKey.value || !val.value) {
     return ''
   }
   for (const rule of rules) {
@@ -251,6 +251,9 @@ watch(() => reset, () => {
     }
 
     &.error {
+      --btn-bg: rgb(244 63 94 / 8%);
+      --color: #f43f5e;
+
       background-color: rgb(244 63 94 / 10%);
       border-color: #f43f5e;
     }

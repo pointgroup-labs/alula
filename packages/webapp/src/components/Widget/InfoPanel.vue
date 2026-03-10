@@ -5,6 +5,7 @@ defineProps<{
     label: string
     value: string | number
     slotName?: string
+    className?: string
   }[]
   variant?: 'indigo' | 'success' | 'accent'
 }>()
@@ -27,6 +28,7 @@ defineProps<{
         v-for="d in data"
         :key="d.label"
         class="dialog-info-card__item"
+        :class="[d?.className]"
       >
         <span class="label">{{ d.label }}</span>
 

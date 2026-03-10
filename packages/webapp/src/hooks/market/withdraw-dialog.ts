@@ -207,6 +207,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
             label: 'Transaction Fee',
             value: `${txFee.value || 0} XLM`,
             slotName: 'txFee',
+            className: 'fee-cell',
           },
         ],
       },
@@ -271,7 +272,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
         const feeSum = feeData?.operation_fees?.fee_sum
         poolFee.value = feeSum ? Number(bigintToNumber(feeSum, assetDecimals.value)) : 0
       },
-      { debounce: 500 },
+      { debounce: 1000 },
     )
 
     stopTxFeeWatcher = watchDebounced(
