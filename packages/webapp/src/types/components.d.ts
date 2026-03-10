@@ -54,6 +54,7 @@ declare module 'vue' {
     IAppSuccessCircle: typeof import('~icons/app/success-circle')['default']
     IAppWalletIcon: typeof import('~icons/app/wallet-icon')['default']
     IAppWarningColor: typeof import('~icons/app/warning-color')['default']
+    IAppWarningIcon: typeof import('~icons/app/warning-icon')['default']
     IMetricsArrowDown: typeof import('~icons/metrics/arrow-down')['default']
     IMetricsArrowUp: typeof import('~icons/metrics/arrow-up')['default']
     IMetricsComplete: typeof import('~icons/metrics/complete')['default']

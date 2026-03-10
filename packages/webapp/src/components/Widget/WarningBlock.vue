@@ -11,32 +11,39 @@ const {
 
 <template>
   <div class="warning-block">
-    <i-app-warning-color class="warning-icon" />
-    <div :class="[`warning-text--${isWarning ? 'warning' : 'default'}`]">
-      <span>{{ title }}:</span> {{ text }}
+    <i-app-warning-icon class="warning-icon" />
+    <div
+      class="warning-text"
+      :class="[`warning-text--${isWarning ? 'warning' : 'default'}`]"
+    >
+      <span>{{ title }}</span>
+      {{ text }}
     </div>
   </div>
 </template>
 
 <style lang="scss">
 .warning-block {
-  padding: 10px $spacing-xl;
+  padding: $spacing-xl;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   color: $text-primary;
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
   line-height: 16px;
-  border-radius: $radius-2xl;
-  border: 1px solid $warning;
-  background: rgba(228, 156, 11, 0.15);
+  border-radius: $radius-md;
+  border: 1px solid $yellow-500;
+  background: #3a2312;
 
   .warning-text {
-    &--warning {
-      color: $danger;
-    }
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    // &--warning {
+    // }
   }
 
   span {
@@ -44,9 +51,9 @@ const {
   }
 
   .warning-icon {
-    min-width: 24px;
-    width: 24px;
-    height: 24px;
+    min-width: 16px;
+    width: 16px;
+    height: 16px;
   }
 }
 </style>

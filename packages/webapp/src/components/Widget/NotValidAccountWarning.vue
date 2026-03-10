@@ -9,7 +9,7 @@ const isValidAccount = computed(() => store.isValidAccount && !!walletStore.publ
     v-if="!isValidAccount && walletStore.publicKey"
     class="not-valid-account-warning"
   >
-    <i-app-warning-color class="warning-icon" />
+    <i-app-warning-icon class="warning-icon" />
     <div class="warning-text">
       The wallet address {{ shortenAddress(String(walletStore.publicKey), 8) }} does not exist on the network.
       Please fund your account!
