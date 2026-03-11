@@ -2,7 +2,7 @@
 
 use controlled_insurance_fund::storage::DataKey;
 use market::{
-    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D, SECONDS_IN_YEAR},
     error::MCError,
     misc::{MarketData, PoolData},
     obligation::ObligationKey,
@@ -260,6 +260,7 @@ fn test_obligations_list_contains_unique_obligations() {
 #[test]
 fn test_too_many_positions() {
     let TestMarketFixture {
+        e,
         contract_client,
         gold_pool_address,
         usdc_pool_address,
@@ -269,7 +270,11 @@ fn test_too_many_positions() {
     } = TestMarketFixture::new();
     let user = &users[0];
 
-    contract_client.update_market(&2, &1);
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+
+    contract_client.queue_in_market_update(&2, &1, &DEFAULT_BAD_DEBT_LOCK_D);
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_market_update();
 
     contract_client.add_collateral(
         &ObligationKey::new(user.clone()),
@@ -322,7 +327,9 @@ fn test_too_many_positions() {
         Err(Ok(MCError::TooManyPositions))
     );
 
-    contract_client.update_market(&3, &1);
+    contract_client.queue_in_market_update(&3, &1, &DEFAULT_BAD_DEBT_LOCK_D);
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_market_update();
 
     assert!(
         contract_client
@@ -452,7 +459,7 @@ fn test_get_market_data() {
     let market_data = contract_client.get_market_data();
     let MarketData { pools_data, global_state, .. } = market_data;
 
-    assert!(global_state.update_in_queue_period.is_some());
+    assert!(global_state.update_in_queue_period > 0);
 
     for pool_data in pools_data.iter() {
         let PoolData { apy, j_token_rate_floor_bps, d_token_rate_ceil_bps, .. } = pool_data;
@@ -710,16 +717,14 @@ fn test_referrer_fee_is_charged_and_referrer_receives_it() {
     referrers.set(referrer.clone(), 5_000);
     new_cfg.fee_config.referrers = Some(referrers);
 
-    contract_client.queue_in_pool_config_update(&gold_pool_address, &new_cfg);
+    contract_client.queue_in_pool_set(&gold_pool_address, &new_cfg);
 
-    // Advance time so the queued config becomes eligible to apply
     let gs = contract_client.get_global_state();
-    if let Some(period) = gs.update_in_queue_period
-        && period > 0
-    {
+    let period = gs.update_in_queue_period;
+    if period > 0 {
         e.ledger().with_mut(|li| li.timestamp += period + 1);
     }
-    contract_client.apply_pool_config_update(&gold_pool_address);
+    contract_client.apply_pool_set(&gold_pool_address);
 
     // Sanity: config applied
     let pool_after_cfg = contract_client.get_pool(&gold_pool_address);

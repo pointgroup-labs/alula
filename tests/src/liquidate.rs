@@ -1,6 +1,10 @@
 #![cfg(test)]
 
-use market::{constants::BPS_FACTOR, error::MCError, obligation::ObligationKey};
+use market::{
+    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D},
+    error::MCError,
+    obligation::ObligationKey,
+};
 use soroban_sdk::{
     Address,
     testutils::{Address as _, Ledger},
@@ -566,6 +570,7 @@ fn test_liquidate_both_plain_collateral_and_shares() {
 #[test]
 fn test_min_collateral_seized() {
     let test = LiquidationTest::risky();
+
     test.wait_n_years(3);
 
     let debt_before = test.debt();
@@ -574,7 +579,14 @@ fn test_min_collateral_seized() {
     let liquidation_amount = (2 * debt_before) / 3;
     let collateral_amount = ((deposit_before + collateral_before) / 2) + 100;
 
-    test.fixture.contract_client.update_market(&10, &(collateral_amount / 2));
+    let update_in_queue_period =
+        test.fixture.contract_client.get_global_state().update_in_queue_period;
+
+    test.fixture.contract_client.queue_in_market_update(&10, &1, &DEFAULT_BAD_DEBT_LOCK_D);
+    test.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    test.fixture.contract_client.refresh_pool(&test.borrow_pool_address);
+    test.fixture.contract_client.refresh_pool(&test.collateral_pool_address);
+    test.fixture.contract_client.apply_market_update();
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,
@@ -598,15 +610,23 @@ fn test_min_collateral_seized() {
 #[test]
 fn test_liquidated_all_mixed_collateral() {
     let test = LiquidationTest::risky_with_both_as_a_collateral();
+
+    let update_in_queue_period =
+        test.fixture.contract_client.get_global_state().update_in_queue_period;
+
     test.wait_n_years(3);
+
+    test.fixture.contract_client.queue_in_market_update(&10, &1, &DEFAULT_BAD_DEBT_LOCK_D);
+    test.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    test.fixture.contract_client.refresh_pool(&test.borrow_pool_address);
+    test.fixture.contract_client.refresh_pool(&test.collateral_pool_address);
+    test.fixture.contract_client.apply_market_update();
 
     let debt_before = test.debt();
     let deposit_before = test.total_supplied();
     let collateral_before = test.collateral();
     let liquidation_amount = debt_before;
     let collateral_amount = deposit_before + collateral_before;
-
-    test.fixture.contract_client.update_market(&10, &(collateral_amount / 2));
 
     test.fixture.contract_client.liquidate(
         &test.liquidator,

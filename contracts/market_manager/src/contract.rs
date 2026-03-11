@@ -1,12 +1,12 @@
 #![allow(clippy::too_many_arguments)]
-use soroban_sdk::{Address, BytesN, Env, Map, String, contract, contractclient, contractimpl};
+use soroban_sdk::{
+    Address, BytesN, Env, Map, String, contract, contractclient, contractimpl, contracttype,
+};
 
 use crate::{
     error::MMCError,
     storage::{self, Config, extend_instance},
 };
-
-// --- TODO: Remove this before deployment ---
 
 mod market {
     use soroban_sdk::contractimport;
@@ -16,6 +16,17 @@ mod market {
 
     #[cfg(feature = "deploy")]
     contractimport!(file = "../../wasms/deploy/market.wasm");
+}
+
+#[contracttype]
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct MarketInitParams {
+    pub max_positions: u32,
+    pub min_collateral_value_cents: i128,
+    pub insolvency_ltv_bps: i128,
+    pub update_in_queue_period: u64,
+    pub is_owned: bool,
+    pub bad_debt_lock_d: u64,
 }
 
 #[contractclient(name = "MarketManagerClient")]
@@ -28,11 +39,7 @@ pub trait MarketManager {
     // * `name` - name of the deployed market
     // * `oracle` - address of SEP-40—compliant oracle contract
     // * `insurance_fund` - `Insurance Fund` trait compliant contract's address
-    // * `max_positions` - maximum number of positions for a single obligation to have at a single moment
-    // * `min_collateral` - minimum allowed value of a collateral position at a single moment
-    // * `insolvency_ltv_bps` - unparameterized LTV(i.e., not scaled with closeLTV\openLTV\liability factors) that marks obligation in market as insolvent
-    // * `update_in_queue_period` - amount of seconds required to pass before applying an issued pool's config update in an owned pool. Passing here `None` means that the market is permissionless
-    //   and its pools and parameters cannot be modified(except for new pools initialization)
+    // * `params` - market initialization parameters
     #[allow(clippy::too_many_arguments)]
     fn deploy(
         e: Env,
@@ -40,12 +47,8 @@ pub trait MarketManager {
         admin: Address,
         name: String,
         oracle: Address,
-        swap_provider: Address,
         insurance_fund: Address,
-        max_positions: u32,
-        min_collateral: i128,
-        insolvency_ltv_bps: i128,
-        update_in_queue_period: Option<u64>,
+        params: MarketInitParams,
     ) -> Result<Address, MMCError>;
 
     // Returns a set of all lending markets deployed by the manager
@@ -68,12 +71,8 @@ impl MarketManager for MarketManagerContract {
         market_admin: Address,
         name: String,
         oracle: Address,
-        swap_provider: Address,
         insurance_fund: Address,
-        max_positions: u32,
-        min_collateral_value_cents: i128,
-        insolvency_ltv_bps: i128,
-        update_in_queue_period: Option<u64>,
+        params: MarketInitParams,
     ) -> Result<Address, MMCError> {
         extend_instance(&e);
 
@@ -82,18 +81,7 @@ impl MarketManager for MarketManagerContract {
 
         let market_address = e.deployer().with_current_contract(salt).deploy_v2(
             market_contract_wasm_hash,
-            (
-                name,
-                market_admin,
-                oracle,
-                swap_provider,
-                insurance_fund,
-                e.current_contract_address(),
-                max_positions,
-                min_collateral_value_cents,
-                insolvency_ltv_bps,
-                update_in_queue_period,
-            ),
+            (name, market_admin, oracle, insurance_fund, e.current_contract_address(), params),
         );
 
         storage::register_market(&e, &market_address)?;
@@ -127,8 +115,6 @@ impl MarketManagerContract {
         storage::set_market_contract_wasm_hash(&e, &market_contract_wasm_hash);
     }
 
-    // --- TODO: TO BE REMOVED ---
-
     // Upgrades the market manager contract
     //
     // # Arguments
@@ -161,7 +147,7 @@ impl MarketManagerContract {
 
 // -- Helpers --
 
-#[inline(always)] // TODO: to be removed
+#[inline(always)]
 fn require_admin(e: &Env) {
     storage::get_admin(e).require_auth();
 }

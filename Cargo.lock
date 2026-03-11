@@ -266,6 +266,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "controlled_oracle"
+version = "0.0.1"
+dependencies = [
+ "sep-40-oracle",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

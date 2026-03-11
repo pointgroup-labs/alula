@@ -1,6 +1,6 @@
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env, Map, contracttype, map as smap,
+    Address, Env, Map, Vec, contracttype, map as smap,
     token::{self, TokenClient},
 };
 
@@ -17,8 +17,7 @@ pub struct StandardRequest {
 #[contracttype]
 pub struct SwapExactTokensRequest {
     pub swap_provider: Address,
-    pub token_in: Address,
-    pub token_out: Address,
+    pub path: Vec<Address>,
     pub amount_in: i128,
     pub min_amount_out: i128,
 }
@@ -26,8 +25,7 @@ pub struct SwapExactTokensRequest {
 #[contracttype]
 pub struct SwapForExactTokensRequest {
     pub swap_provider: Address,
-    pub token_in: Address,
-    pub token_out: Address,
+    pub path: Vec<Address>,
     pub max_amount_in: i128,
     pub amount_out: i128,
 }

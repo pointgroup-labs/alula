@@ -9,7 +9,7 @@ use market::{
     },
 };
 use soroban_sdk::{
-    Address, Env, contract, contractimpl,
+    Address, Env, Vec, contract, contractimpl,
     testutils::Address as _,
     token::{StellarAssetClient, TokenClient},
     vec as svec,
@@ -24,39 +24,39 @@ pub struct MockProxySwap;
 impl MockProxySwap {
     pub fn swap_exact(
         e: Env,
-        _swap_provider: Address,
         user: Address,
-        token_in: Address,
-        token_out: Address,
+        path: Vec<Address>,
         amount_in: i128,
         _min_amount_out: i128,
     ) -> i128 {
         user.require_auth();
+
+        let token_in = path.first().unwrap();
+        let token_out = path.last().unwrap();
+
         TokenClient::new(&e, &token_in).burn(&user, &amount_in);
         StellarAssetClient::new(&e, &token_out).mint(&user, &amount_in);
+
         amount_in
     }
 
     pub fn swap_for_exact(
         e: Env,
-        _swap_provider: Address,
         user: Address,
-        token_in: Address,
-        token_out: Address,
+        path: Vec<Address>,
         _amount_in_max: i128,
         amount_out: i128,
     ) -> i128 {
         user.require_auth();
+
+        let token_in = path.first().unwrap();
+        let token_out = path.last().unwrap();
+
         TokenClient::new(&e, &token_in).burn(&user, &amount_out);
         StellarAssetClient::new(&e, &token_out).mint(&user, &amount_out);
+
         amount_out
     }
-}
-
-fn setup_with_proxy_swap(e: &Env, contract_client: &market::contract::MarketClient) -> Address {
-    let proxy_swap_id = e.register(MockProxySwap, ());
-    contract_client.update_swap_provider(&proxy_swap_id);
-    proxy_swap_id
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn test_flash_borrow_swap_deposit_borrow_batch() {
         gold_token_address,
         ..
     } = TestMarketFixture::new();
-    let proxy_swap = setup_with_proxy_swap(&e, &contract_client);
+    let proxy_swap = e.register(MockProxySwap, ());
     let user = &users[0];
     let liquidity_provider = &users[1];
 
@@ -101,8 +101,7 @@ fn test_flash_borrow_swap_deposit_borrow_batch() {
         }),
         Request::SwapExactTokens(SwapExactTokensRequest {
             swap_provider: proxy_swap.clone(),
-            token_in: usdc_token_address.clone(),
-            token_out: gold_token_address.clone(),
+            path: svec![&e, usdc_token_address.clone(), gold_token_address.clone()],
             amount_in: flash_amount,
             min_amount_out: flash_amount,
         }),
@@ -144,7 +143,7 @@ fn test_liquidation_via_flash_borrow_and_swap() {
         gold_token_address,
         ..
     } = TestMarketFixture::new();
-    let proxy_swap = setup_with_proxy_swap(&e, &contract_client);
+    let proxy_swap = e.register(MockProxySwap, ());
 
     let borrower = &users[0];
     let liquidity_provider = &users[1];
@@ -206,8 +205,7 @@ fn test_liquidation_via_flash_borrow_and_swap() {
         // Swap just enough seized GOLD to cover the flash repayment (principal + fee)
         Request::SwapForExactTokens(SwapForExactTokensRequest {
             swap_provider: proxy_swap.clone(),
-            token_in: gold_token_address.clone(),
-            token_out: usdc_token_address.clone(),
+            path: svec![&e, gold_token_address.clone(), usdc_token_address.clone()],
             max_amount_in: i128::MAX,
             amount_out: flash_repayment + 1,
         }),

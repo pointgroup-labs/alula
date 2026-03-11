@@ -296,8 +296,6 @@ impl Obligation {
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        // TODO: What to do when `scalar_bps` == 0?
-
         let (collateral_value_scaled, amount_of_borrow_backing_collateral_positions) =
             self.compute_collateral_value_scaled_w_open_ltvs(e)?;
         let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
@@ -564,18 +562,20 @@ impl Obligation {
             return Err(MCError::UnhealthyOperation);
         }
 
+        // `[i128::MAX]` indicates capped borrow
         let real_borrowed_amount = if original_amount == i128::MAX {
-            // `[i128::MAX]` indicates capped borrow
-            max_healthy_borrow_added_amount
+            let max_prserving_ur_cap_borrow =
+                pool.compute_available_utilization_ratio_capped_borrow(e)?;
+
+            max_healthy_borrow_added_amount.min(max_prserving_ur_cap_borrow)
         } else {
+            pool.require_borrow_preserves_ur_cap(e, original_amount)?;
             if original_amount > max_healthy_borrow_added_amount {
                 return Err(MCError::UnhealthyOperation);
             }
 
             original_amount
         };
-
-        pool.require_borrow_preserves_ur_cap(e, real_borrowed_amount)?;
 
         let mut borrow_position = self
             .borrows
@@ -602,7 +602,8 @@ impl Obligation {
                 real_borrowed_amount,
             );
 
-            return Err(MCError::InternalError);
+            // 2 consecutive `i128::MAX` withdrawals will lead to this
+            return Err(MCError::NonPositiveSharesAmount);
         }
 
         borrow_position.adjust_d_tokens(e, d_tokens_to_issue)?;
@@ -655,8 +656,10 @@ impl Obligation {
         provided_amount: i128,
         referrer: &Option<Address>,
     ) -> Result<WithdrawResult, MCError> {
-        let mut deposit_position =
-            self.deposits.get(pool.pool_address.clone()).ok_or(MCError::ObligationDoesNotExist)?;
+        let mut deposit_position = self
+            .deposits
+            .get(pool.pool_address.clone())
+            .ok_or(MCError::DepositPositionDoesNotExist)?;
 
         let all_deposit = pool.compute_tokens_from_j_tokens_floor(e, deposit_position.j_tokens)?;
         let amount_capped_to_deposit = all_deposit.min(provided_amount);
@@ -665,12 +668,14 @@ impl Obligation {
             let max_healthy = self.compute_max_healthy_collateral_removed_amount(e, pool)?;
 
             if provided_amount == i128::MAX {
-                max_healthy.min(all_deposit)
+                max_healthy.min(all_deposit).min(pool.total_available()?)
             } else if amount_capped_to_deposit > max_healthy {
                 return Err(MCError::UnhealthyOperation);
             } else {
                 amount_capped_to_deposit
             }
+        } else if provided_amount == i128::MAX {
+            amount_capped_to_deposit.min(pool.total_available()?)
         } else {
             amount_capped_to_deposit
         };
@@ -702,7 +707,6 @@ impl Obligation {
         let j_tokens_to_burn = if is_all_withdrawn {
             deposit_position.j_tokens
         } else {
-            // TODO: Is this `min` redundant?
             pool.compute_j_tokens_from_tokens_ceil(deposit_decrease)?.min(deposit_position.j_tokens)
         };
         if j_tokens_to_burn <= 0 {
@@ -713,7 +717,7 @@ impl Obligation {
                 deposit_decrease,
             );
 
-            return Err(MCError::InternalError);
+            return Err(MCError::NonPositiveSharesAmount);
         }
 
         let all_deposit_ceil =
@@ -729,29 +733,26 @@ impl Obligation {
                 all_deposit_ceil,
                 received_interest,
             );
-
-            return Err(MCError::InternalError);
-        } else if deposit_decrease >= received_interest {
-            let new_originally_deposited = if is_all_withdrawn {
-                0
-            } else {
-                let new_total_j_tokens = pool.total_j_tokens - j_tokens_to_burn; // safe
-                let new_total_supply = pool.total_supply()? - deposit_decrease; // safe
-                let new_j_tokens = deposit_position.j_tokens - j_tokens_to_burn; // safe
-
-                Pool::compute_tokens_from_shares_floor(
-                    e,
-                    new_j_tokens,
-                    new_total_j_tokens,
-                    new_total_supply,
-                )?
-            };
-
-            deposit_position.set_originally_deposited(e, new_originally_deposited)?;
         }
+
+        let new_originally_deposited = if is_all_withdrawn {
+            0
+        } else {
+            let new_total_j_tokens = pool.total_j_tokens - j_tokens_to_burn; // safe
+            let new_total_supply = pool.total_supply()? - deposit_decrease; // safe
+            let new_j_tokens = deposit_position.j_tokens - j_tokens_to_burn; // safe
+
+            Pool::compute_tokens_from_shares_floor(
+                e,
+                new_j_tokens,
+                new_total_j_tokens,
+                new_total_supply,
+            )?
+        };
 
         deposit_position
             .adjust_j_tokens(e, j_tokens_to_burn.checked_neg().map_over_or_underflow()?)?;
+        deposit_position.set_originally_deposited(e, new_originally_deposited)?;
 
         if deposit_position.is_empty() {
             self.try_remove_deposit_position(e, &pool.pool_address)?;
@@ -878,27 +879,23 @@ impl Obligation {
                 all_debt,
                 unpaid_interest,
             );
-
-            // return Err(MCError::InternalError); // For now, this only makes the experience worse due to a known valid case that yields
-            // this behavior
-        } else if debt_decrease_in_tokens >= unpaid_interest {
-            let new_originally_borrowed = if is_all_repaid {
-                0
-            } else {
-                let new_total_d_tokens = pool.total_d_tokens - d_tokens_to_burn; // safe
-                let new_total_borrowed = pool.total_borrowed - debt_decrease_in_tokens; // safe
-                let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
-
-                Pool::compute_tokens_from_shares_floor(
-                    e,
-                    new_d_tokens,
-                    new_total_d_tokens,
-                    new_total_borrowed,
-                )?
-            };
-
-            borrow_position.set_originally_borrowed(e, new_originally_borrowed)?;
         }
+
+        let new_originally_borrowed = if is_all_repaid {
+            0
+        } else {
+            let new_total_d_tokens = pool.total_d_tokens - d_tokens_to_burn; // safe
+            let new_total_borrowed = pool.total_borrowed - debt_decrease_in_tokens; // safe
+            let new_d_tokens = borrow_position.d_tokens - d_tokens_to_burn; // safe
+
+            Pool::compute_tokens_from_shares_floor(
+                e,
+                new_d_tokens,
+                new_total_d_tokens,
+                new_total_borrowed,
+            )?
+        };
+        borrow_position.set_originally_borrowed(e, new_originally_borrowed)?;
 
         if is_all_repaid {
             self.try_remove_borrow_position(e, &pool.pool_address)?;
@@ -932,10 +929,10 @@ impl Obligation {
         let (mut deposit_position, mut borrow_position) = (
             self.deposits
                 .get(collateral_pool.pool_address.clone())
-                .ok_or(MCError::InvalidLiquidationInputs)?,
+                .ok_or(MCError::DepositPositionDoesNotExist)?,
             self.borrows
                 .get(borrow_pool.pool_address.clone())
-                .ok_or(MCError::InvalidLiquidationInputs)?,
+                .ok_or(MCError::BorrowPositionDoesNotExist)?,
         );
 
         let (obligation_debt_value_w_liability_factors, obligation_collateral_value_w_close_ltvs) = (
@@ -1093,7 +1090,6 @@ impl Obligation {
                 // Complete collateral liquidation
                 deposit_position.j_tokens
             } else {
-                // TODO: Does this always work with ceiling/flooring?
                 collateral_pool
                     .compute_j_tokens_from_tokens_ceil(tokens_from_j_tokens_seized)?
                     .min(deposit_position.j_tokens)
@@ -1141,8 +1137,6 @@ impl Obligation {
                     position_debt,
                     unpaid_interest,
                 );
-
-                // return Err(MCError::InternalError); // For similar reasons as in the 'repay' flow
             }
 
             let new_originally_borrowed = if liquidated_amount > unpaid_interest {

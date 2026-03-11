@@ -700,7 +700,6 @@ fn remove_collateral_up_to_open_ltv() {
     assert_eq!(obligation_collateral_before, DEFAULT_DEPOSIT_AMOUNT);
     // Check that the required amount to back up the borrow remains
     assert_approx_eq_rel(
-        // TODO: Investigate a bit deeper when checking maths
         obligation_collateral_after,
         (BPS_FACTOR * (obligation_collateral_before / 2)) / DEFAULT_OPEN_LTV_BPS,
         5,

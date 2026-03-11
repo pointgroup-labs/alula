@@ -311,10 +311,6 @@ fn test_remove_collateral_fee() {
     assert_eq!(collateral_adder_collateral_diff, expected_collateral_adder_collateral_diff);
 }
 
-// TODO: Add cap checks
-// TODO: Add a test that verifies the constant `market` and `host` fees availability regardless of
-// `total_available` on pool(contrary to `reserve` fees)
-
 #[test]
 fn test_withdraw_fee() {
     const WITHDRAW_FEE_BPS: u32 = 500; // 5%
@@ -1295,5 +1291,3 @@ fn test_distribute_pool_fees_transfers_tokens_but_keeps_total_available_unchange
     // Confirm pool accounting reflects the token outflow
     assert_eq!(total_available_after, total_available_before.checked_sub(fees_before).unwrap());
 }
-
-// TODO: Add test for `distribute_pool_fees`

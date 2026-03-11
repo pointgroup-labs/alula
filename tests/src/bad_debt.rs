@@ -1,21 +1,29 @@
 #![cfg(test)]
 
-use market::{constants::SECONDS_IN_YEAR, error::MCError, obligation::ObligationKey};
+use market::{
+    constants::{DEFAULT_BAD_DEBT_LOCK_D, SECONDS_IN_YEAR, SECONDS_PER_HOUR},
+    error::MCError,
+    obligation::ObligationKey,
+};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{map as smap, testutils::Ledger};
 
 use crate::{
-    DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, compute_user_obligation_collateral_value,
-    compute_user_obligation_debt_value, get_obligation_d_tokens_as_tokens,
-    get_pool_total_available, get_pool_total_borrowed, get_pool_total_d_tokens,
-    get_pool_total_j_tokens,
+    DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture,
+    compute_user_obligation_collateral_value, compute_user_obligation_debt_value,
+    get_obligation_d_tokens_as_tokens, get_pool_total_available, get_pool_total_borrowed,
+    get_pool_total_d_tokens, get_pool_total_j_tokens,
 };
 
 #[test]
 fn test_obligation_does_not_have_bad_debt_by_default() {
-    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
-        TestMarketFixture::new();
-    contract_client.update_market(&10, &1);
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    contract_client.queue_in_market_update(&10, &1, &DEFAULT_BAD_DEBT_LOCK_D);
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_market_update();
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
@@ -182,8 +190,6 @@ fn test_partially_socialize_full_bad_debt_loss() {
     assert!(j_token_rate_before > j_token_rate_after);
 }
 
-// TODO: Add missing test for complete socialization
-
 #[test]
 fn test_completely_cover_bad_debt() {
     let TestMarketFixture {
@@ -312,4 +318,406 @@ fn test_completely_cover_bad_debt() {
     assert_eq!(pool_j_tokens_after, pool_j_tokens_before);
     assert_eq!(pool_available_diff, borrower_2_new_debt); // complete coverage took place
     assert_eq!(pool_borrowed_diff, borrower_2_new_debt);
+}
+
+// ---- Bad Debt Tests ----
+
+/// Helper: creates a market with bad debt on USDC pool (Recorded coverage path),
+/// returns fixture with the lock already active on the USDC pool.
+fn setup_bad_debt_with_recorded_coverage() -> (
+    TestMarketFixture<'static>,
+    soroban_sdk::Address, // borrower
+    soroban_sdk::Address, // liquidity_provider
+) {
+    let fixture = TestMarketFixture::new();
+    let TestMarketFixture {
+        ref e,
+        ref contract_client,
+        ref insurance_fund,
+        ref usdc_pool_address,
+        ref gold_pool_address,
+        ref users,
+        ..
+    } = fixture;
+    let borrower = users[0].clone();
+    let liquidity_provider = users[1].clone();
+    let liquidator = &users[2];
+
+    contract_client.set_take_rate_fees_beneficiaries(
+        usdc_pool_address,
+        &smap![e, (insurance_fund.clone(), 10_000)],
+    );
+
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += 5 * SECONDS_IN_YEAR;
+    });
+    contract_client.refresh_pool(usdc_pool_address);
+    contract_client.distribute_all_pools_fees();
+
+    let debt_amount =
+        get_obligation_d_tokens_as_tokens(e, contract_client, &borrower, usdc_pool_address)
+            .unwrap();
+
+    contract_client.liquidate(
+        liquidator,
+        &ObligationKey::new(borrower.clone()),
+        usdc_pool_address,
+        gold_pool_address,
+        &debt_amount.fixed_mul_ceil(90, 100).unwrap(),
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
+
+    // issue_cover_bad_debt triggers the Recorded path → activates the lock
+    contract_client.issue_cover_bad_debt(&ObligationKey::new(borrower.clone()));
+
+    (fixture, borrower, liquidity_provider)
+}
+
+#[test]
+fn test_bad_debt_lock_blocks_withdraw() {
+    let (fixture, _borrower, liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture { ref contract_client, ref usdc_pool_address, .. } = fixture;
+
+    let pool = contract_client.get_pool(usdc_pool_address);
+    assert!(pool.bad_debt_lock_d > 0);
+    assert_eq!(pool.bad_debt_request_count, 1);
+
+    assert_eq!(
+        contract_client.try_withdraw(
+            &ObligationKey::new(liquidity_provider.clone()),
+            usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+}
+
+#[test]
+fn test_bad_debt_lock_blocks_simulate_withdraw() {
+    let (fixture, _borrower, liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture { ref contract_client, ref usdc_pool_address, .. } = fixture;
+
+    assert!(matches!(
+        contract_client.try_simulate_withdraw(
+            &ObligationKey::new(liquidity_provider.clone()),
+            usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    ));
+}
+
+#[test]
+fn test_bad_debt_lock_blocks_deposit() {
+    let (fixture, _borrower, _liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture { ref contract_client, ref usdc_pool_address, ref users, .. } = fixture;
+    let another_user = &users[3];
+
+    assert_eq!(
+        contract_client.try_deposit(
+            &ObligationKey::new(another_user.clone()),
+            usdc_pool_address,
+            &100,
+            &None
+        ),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+}
+
+#[test]
+fn test_bad_debt_lock_does_not_block_collateral_ops() {
+    let (fixture, _borrower, _liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture { ref contract_client, ref gold_pool_address, ref users, .. } = fixture;
+    let another_user = &users[3];
+
+    assert!(
+        contract_client
+            .try_add_collateral(
+                &ObligationKey::new(another_user.clone()),
+                gold_pool_address,
+                &DEFAULT_COLLATERAL_AMOUNT,
+                &None
+            )
+            .is_ok()
+    );
+}
+
+#[test]
+fn test_bad_debt_lock_does_not_affect_other_pools() {
+    let (fixture, _borrower, _liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture {
+        ref contract_client,
+        ref gold_pool_address,
+        ref usdc_pool_address,
+        ref users,
+        ..
+    } = fixture;
+    let depositor = &users[3];
+
+    // USDC pool is locked
+    let usdc_pool = contract_client.get_pool(usdc_pool_address);
+    assert!(usdc_pool.bad_debt_lock_d > 0);
+
+    // GOLD pool is not locked
+    let gold_pool = contract_client.get_pool(gold_pool_address);
+    assert_eq!(gold_pool.bad_debt_lock_d, 0);
+
+    contract_client.deposit(
+        &ObligationKey::new(depositor.clone()),
+        gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    assert!(
+        contract_client
+            .try_withdraw(&ObligationKey::new(depositor.clone()), gold_pool_address, &1, &None)
+            .is_ok()
+    );
+}
+
+#[test]
+fn test_bad_debt_lock_expires_after_deadline() {
+    let (fixture, _borrower, liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture { ref e, ref contract_client, ref usdc_pool_address, .. } = fixture;
+
+    let pool = contract_client.get_pool(usdc_pool_address);
+    let deadline = pool.bad_debt_lock_d;
+
+    // Still locked 1 second before deadline
+    e.ledger().with_mut(|li| li.timestamp = deadline - 1);
+    assert_eq!(
+        contract_client.try_withdraw(
+            &ObligationKey::new(liquidity_provider.clone()),
+            usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+
+    // Exactly at deadline: lock expires
+    e.ledger().with_mut(|li| li.timestamp = deadline);
+    assert!(
+        contract_client
+            .try_withdraw(
+                &ObligationKey::new(liquidity_provider.clone()),
+                usdc_pool_address,
+                &1,
+                &None
+            )
+            .is_ok()
+    );
+}
+
+#[test]
+fn test_bad_debt_lock_cleared_on_claim() {
+    let (fixture, borrower, liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture {
+        ref contract_client,
+        ref controlled_insurance_fund_client,
+        ref usdc_token_client,
+        ref usdc_pool_address,
+        ref insurance_fund,
+        ..
+    } = fixture;
+
+    // Pool is locked
+    let pool_before = contract_client.get_pool(usdc_pool_address);
+    assert!(pool_before.bad_debt_lock_d > 0);
+    assert_eq!(pool_before.bad_debt_request_count, 1);
+
+    // Resolve the bad debt via the insurance fund
+    let insurance_fund_balance = usdc_token_client.balance(insurance_fund);
+    controlled_insurance_fund_client.mark_ready(&0, &insurance_fund_balance);
+    contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower.clone()));
+
+    // Lock is cleared
+    let pool_after = contract_client.get_pool(usdc_pool_address);
+    assert_eq!(pool_after.bad_debt_lock_d, 0);
+    assert_eq!(pool_after.bad_debt_request_count, 0);
+
+    // Withdrawal now works
+    assert!(
+        contract_client
+            .try_withdraw(
+                &ObligationKey::new(liquidity_provider.clone()),
+                usdc_pool_address,
+                &1,
+                &None
+            )
+            .is_ok()
+    );
+}
+
+#[test]
+fn test_consecutive_bad_debt_requests_extend_deadline_and_increment_counter() {
+    let fixture = TestMarketFixture::new();
+    let TestMarketFixture {
+        ref e,
+        ref contract_client,
+        ref insurance_fund,
+        ref controlled_insurance_fund_client,
+        ref usdc_token_client,
+        ref usdc_pool_address,
+        ref gold_pool_address,
+        ref users,
+        ..
+    } = fixture;
+    let borrower_1 = &users[0];
+    let borrower_2 = &users[1];
+    let liquidity_provider = &users[2];
+    let liquidator = &users[3];
+
+    contract_client.set_take_rate_fees_beneficiaries(
+        usdc_pool_address,
+        &smap![e, (insurance_fund.clone(), 10_000)],
+    );
+
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower_1.clone()),
+        gold_pool_address,
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower_2.clone()),
+        gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        usdc_pool_address,
+        &(20 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    contract_client.borrow(
+        &ObligationKey::new(borrower_1.clone()),
+        usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower_2.clone()),
+        usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
+
+    e.ledger().with_mut(|li| {
+        li.timestamp += 15 * SECONDS_IN_YEAR;
+    });
+    contract_client.refresh_pool(usdc_pool_address);
+    contract_client.distribute_pool_fees(usdc_pool_address);
+
+    // Liquidate borrower_2 down to bad debt
+    let debt_2 =
+        get_obligation_d_tokens_as_tokens(e, contract_client, borrower_2, usdc_pool_address)
+            .unwrap();
+    contract_client.liquidate(
+        liquidator,
+        &ObligationKey::new(borrower_2.clone()),
+        usdc_pool_address,
+        gold_pool_address,
+        &debt_2.fixed_mul_ceil(98, 100).unwrap(),
+        &DEFAULT_DEPOSIT_AMOUNT,
+    );
+
+    // Liquidate borrower_1 down to bad debt
+    let debt_1 =
+        get_obligation_d_tokens_as_tokens(e, contract_client, borrower_1, usdc_pool_address)
+            .unwrap();
+    contract_client.liquidate(
+        liquidator,
+        &ObligationKey::new(borrower_1.clone()),
+        usdc_pool_address,
+        gold_pool_address,
+        &debt_1.fixed_mul_ceil(98, 100).unwrap(),
+        &(10 * DEFAULT_DEPOSIT_AMOUNT),
+    );
+
+    // -- First issue_cover_bad_debt --
+    contract_client.issue_cover_bad_debt(&ObligationKey::new(borrower_2.clone()));
+
+    let pool_after_first = contract_client.get_pool(usdc_pool_address);
+    let first_deadline = pool_after_first.bad_debt_lock_d;
+    assert!(first_deadline > 0);
+    assert_eq!(pool_after_first.bad_debt_request_count, 1);
+
+    // Advance 8 hours
+    e.ledger().with_mut(|li| li.timestamp += 8 * SECONDS_PER_HOUR);
+
+    // -- Second issue_cover_bad_debt --
+    contract_client.issue_cover_bad_debt(&ObligationKey::new(borrower_1.clone()));
+
+    let pool_after_second = contract_client.get_pool(usdc_pool_address);
+    let second_deadline = pool_after_second.bad_debt_lock_d;
+    assert_eq!(pool_after_second.bad_debt_request_count, 2);
+    assert!(second_deadline > first_deadline, "Deadline should be extended");
+
+    // -- Resolve first request, counter decrements but lock stays --
+    let insurance_balance = usdc_token_client.balance(insurance_fund);
+    controlled_insurance_fund_client.mark_ready(&0, &insurance_balance);
+    contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower_2.clone()));
+
+    let pool_after_first_claim = contract_client.get_pool(usdc_pool_address);
+    assert_eq!(pool_after_first_claim.bad_debt_request_count, 1);
+    assert!(
+        pool_after_first_claim.bad_debt_lock_d > 0,
+        "Lock must remain active with 1 outstanding request"
+    );
+
+    // Withdrawals still blocked
+    assert_eq!(
+        contract_client.try_withdraw(
+            &ObligationKey::new(liquidity_provider.clone()),
+            usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+
+    // -- Resolve second request, counter reaches 0 → lock cleared --
+    let insurance_balance = usdc_token_client.balance(insurance_fund);
+    controlled_insurance_fund_client.mark_ready(&1, &insurance_balance);
+    contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower_1.clone()));
+
+    let pool_final = contract_client.get_pool(usdc_pool_address);
+    assert_eq!(pool_final.bad_debt_request_count, 0);
+    assert_eq!(pool_final.bad_debt_lock_d, 0);
+
+    // Withdrawals unblocked
+    assert!(
+        contract_client
+            .try_withdraw(
+                &ObligationKey::new(liquidity_provider.clone()),
+                usdc_pool_address,
+                &1,
+                &None
+            )
+            .is_ok()
+    );
 }
