@@ -6,6 +6,7 @@ use market::{
     error::MCError,
     obligation::ObligationKey,
     pool::{PoolConfig, PoolHealthConfig},
+    storage::MarketInitParams,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
@@ -535,7 +536,6 @@ fn test_borrow_w_different_token_decimals() {
 
     // - Market contract -
 
-    let router_address = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
     let market_manager_address = Address::generate(&e);
     let contract_name = String::from_str(&e, "market_contract");
@@ -546,20 +546,29 @@ fn test_borrow_w_different_token_decimals() {
             contract_name,
             contract_admin.clone(),
             oracle.clone(),
-            router_address,
             insurance_fund,
             market_manager_address,
-            DEFAULT_MAX_POSITIONS,
-            0i128,
-            DEFAULT_INSOLVENCY_LTV_BPS,
-            Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
+            MarketInitParams {
+                max_positions: DEFAULT_MAX_POSITIONS,
+                min_collateral_value_cents: 0i128,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+                is_owned: true,
+            },
         ),
     );
     let market = MarketClient::new(&e, &market_id);
     market.update_market_status(&0);
 
-    let collateral_pool = market.initialize_pool(&collateral_asset.token_address, &None);
-    let borrowed_pool = market.initialize_pool(&borrowed_token_address, &None);
+    market.queue_in_pool_set(&collateral_asset.token_address, &PoolConfig::default());
+    e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+    market.apply_pool_set(&collateral_asset.token_address);
+    let collateral_pool = collateral_asset.token_address.clone();
+
+    market.queue_in_pool_set(&borrowed_token_address, &PoolConfig::default());
+    e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+    market.apply_pool_set(&borrowed_token_address);
+    let borrowed_pool = borrowed_token_address.clone();
 
     // Oracle feeds prices for pool addresses (not token addresses)
     oracle_client.set_data(

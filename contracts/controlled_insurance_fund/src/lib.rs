@@ -18,7 +18,6 @@ impl ControlledInsuranceFundContract {
 
     /// Sets an insured market contract address in the storage
     pub fn set_market(e: Env, market: Address) {
-        // TODO: This must be a one-time lock or something like that
         require_admin(&e);
         storage::extend_instance(&e);
 

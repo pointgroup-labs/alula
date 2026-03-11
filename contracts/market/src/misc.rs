@@ -52,14 +52,18 @@ pub fn require_positive(amount: i128) -> Result<(), MCError> {
 }
 
 #[inline(always)]
-pub fn require_owned_and_admin(e: &Env) -> Result<(), MCError> {
-    require_admin(e);
-
-    if storage::get_update_in_queue_period(e).is_none() {
+pub fn require_owned(e: &Env) -> Result<(), MCError> {
+    if !storage::get_is_owned(e) {
         return Err(MCError::MarketIsNotOwned);
     }
 
     Ok(())
+}
+
+#[inline(always)]
+pub fn require_owned_and_admin(e: &Env) -> Result<(), MCError> {
+    require_admin(e);
+    require_owned(e)
 }
 
 #[inline(always)]
@@ -100,7 +104,7 @@ pub fn require_deposits_on_market_allowed(e: &Env) -> Result<(), MCError> {
 
 #[inline(always)]
 pub fn require_market_not_frozen(e: &Env) -> Result<(), MCError> {
-    if matches!(storage::get_market_status(e), MarketStatus::Frozen) {
+    if matches!(storage::get_market_status(e), MarketStatus::Frozen | MarketStatus::FrozenByAdmin) {
         return Err(MCError::MarketIsFrozen);
     }
 

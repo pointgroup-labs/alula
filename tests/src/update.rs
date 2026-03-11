@@ -18,20 +18,24 @@ use crate::{
 };
 
 #[test]
-fn test_queue_in_pool_config_update() {
+fn test_queue_in_pool_set_for_existing_pool() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
 
-    let pool_address = contract_client.initialize_pool(
-        &token_address,
-        &None, // default pool config
-    );
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_pool_set(&token_address);
+
+    let pool_address = token_address.clone();
 
     assert_eq!(
-        contract_client.try_cancel_pool_config_update(&pool_address),
-        Err(Ok(MCError::PoolDoesNotHaveQueuedInConfigUpdate))
+        contract_client.try_cancel_pool_set(&pool_address),
+        Err(Ok(MCError::PoolDoesNotHaveQueuedPoolSet))
     );
 
     let before_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
@@ -42,25 +46,18 @@ fn test_queue_in_pool_config_update() {
         ..Default::default()
     };
 
-    contract_client.queue_in_pool_config_update(&pool_address, &new_pool_config);
+    contract_client.queue_in_pool_set(&pool_address, &new_pool_config);
 
-    let pool_config_update_queue_in_period =
-        contract_client.get_global_state().update_in_queue_period.unwrap();
-
-    // - Move time -
-
-    e.ledger().with_mut(|li| li.timestamp += pool_config_update_queue_in_period - 1);
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period - 1);
 
     assert_eq!(
-        contract_client.try_apply_pool_config_update(&pool_address),
-        Err(Ok(MCError::PoolConfigUpdateIsNotYetApplicable))
+        contract_client.try_apply_pool_set(&pool_address),
+        Err(Ok(MCError::PoolSetIsNotYetApplicable))
     );
 
     e.ledger().with_mut(|li| li.timestamp += 1);
 
-    // - Apply config update -
-
-    contract_client.apply_pool_config_update(&pool_address);
+    contract_client.apply_pool_set(&pool_address);
 
     let after_borrow_fee_bps = get_pool_fee_config(&contract_client, &pool_address).borrow_fee_bps;
 
@@ -69,16 +66,11 @@ fn test_queue_in_pool_config_update() {
 }
 
 #[test]
-fn test_queue_in_invalid_pool_config_update() {
+fn test_queue_in_invalid_pool_set() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
-
-    let pool_address = contract_client.initialize_pool(
-        &token_address,
-        &None, // default pool config
-    );
 
     const NEW_SUPPLY_LIMIT: i128 = -1;
 
@@ -88,13 +80,13 @@ fn test_queue_in_invalid_pool_config_update() {
     };
 
     assert_eq!(
-        contract_client.try_queue_in_pool_config_update(&pool_address, &new_pool_config),
+        contract_client.try_queue_in_pool_set(&token_address, &new_pool_config),
         Err(Ok(MCError::InvalidLoanPoolConfig))
     );
 }
 
 #[test]
-fn test_queue_in_disable_borrowing_pool_config_update() {
+fn test_queue_in_disable_borrowing_pool_set() {
     let TestMarketFixture {
         e, contract_client, gold_pool_address, users, usdc_pool_address, ..
     } = TestMarketFixture::new();
@@ -126,19 +118,16 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
             .is_ok()
     );
 
-    let pool_config_update_queue_in_period =
-        contract_client.get_global_state().update_in_queue_period.unwrap();
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
 
     let new_pool_status = PoolStatus { flags: POOL_STATUS_DEPOSIT_ENABLED };
     let new_pool_config = PoolConfig { status: new_pool_status, ..Default::default() };
 
-    contract_client.queue_in_pool_config_update(&usdc_pool_address, &new_pool_config);
+    contract_client.queue_in_pool_set(&usdc_pool_address, &new_pool_config);
 
-    // - Move time -
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
 
-    e.ledger().with_mut(|li| li.timestamp += pool_config_update_queue_in_period);
-
-    contract_client.apply_pool_config_update(&usdc_pool_address);
+    contract_client.apply_pool_set(&usdc_pool_address);
 
     assert_eq!(
         contract_client.try_borrow(
@@ -158,13 +147,11 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
     let new_pool_config =
         PoolConfig { status: PoolStatus::new_all_disabled(), ..Default::default() };
 
-    contract_client.queue_in_pool_config_update(&usdc_pool_address, &new_pool_config);
+    contract_client.queue_in_pool_set(&usdc_pool_address, &new_pool_config);
 
-    // - Move time -
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
 
-    e.ledger().with_mut(|li| li.timestamp += pool_config_update_queue_in_period);
-
-    contract_client.apply_pool_config_update(&usdc_pool_address);
+    contract_client.apply_pool_set(&usdc_pool_address);
 
     assert_eq!(
         contract_client.try_borrow(
@@ -187,16 +174,19 @@ fn test_queue_in_disable_borrowing_pool_config_update() {
 }
 
 #[test]
-fn test_cancel_pool_config_update() {
+fn test_cancel_pool_set() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
 
     let token_address = register_random_sac(&e);
 
-    let pool_address = contract_client.initialize_pool(
-        &token_address,
-        &None, // default pool config
-    );
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_pool_set(&token_address);
+
+    let pool_address = token_address.clone();
 
     const NEW_SUPPLY_LIMIT: i128 = 100;
 
@@ -206,26 +196,22 @@ fn test_cancel_pool_config_update() {
     };
 
     assert_eq!(
-        contract_client.try_cancel_pool_config_update(&pool_address),
-        Err(Ok(MCError::PoolDoesNotHaveQueuedInConfigUpdate))
+        contract_client.try_cancel_pool_set(&pool_address),
+        Err(Ok(MCError::PoolDoesNotHaveQueuedPoolSet))
     );
 
-    contract_client.queue_in_pool_config_update(&pool_address, &new_pool_config);
+    contract_client.queue_in_pool_set(&pool_address, &new_pool_config);
 
     assert_eq!(
-        contract_client
-            .get_pool_config_queued_in_update(&pool_address)
-            .new_config
-            .health_config
-            .supply_limit,
+        contract_client.get_queued_pool_set(&pool_address).new_config.health_config.supply_limit,
         NEW_SUPPLY_LIMIT
     );
 
-    contract_client.cancel_pool_config_update(&pool_address);
+    contract_client.cancel_pool_set(&pool_address);
 
     assert_eq!(
-        contract_client.try_get_pool_config_queued_in_update(&pool_address),
-        Err(Ok(MCError::PoolDoesNotHaveQueuedInConfigUpdate))
+        contract_client.try_get_queued_pool_set(&pool_address),
+        Err(Ok(MCError::PoolDoesNotHaveQueuedPoolSet))
     );
 }
 
@@ -236,10 +222,13 @@ fn test_update_market_fails_for_permissionless_market() {
 
     let token_address = register_random_sac(&e);
 
-    let pool_address = contract_client.initialize_pool(
-        &token_address,
-        &None, // default pool config
-    );
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_pool_set(&token_address);
+
+    let pool_address = token_address.clone();
 
     const NEW_SUPPLY_LIMIT: i128 = 100;
 
@@ -249,11 +238,14 @@ fn test_update_market_fails_for_permissionless_market() {
     };
 
     assert_eq!(
-        contract_client.try_queue_in_pool_config_update(&pool_address, &new_pool_config),
+        contract_client.try_queue_in_pool_set(&pool_address, &new_pool_config),
         Err(Ok(MCError::MarketIsNotOwned))
     );
 
-    assert_eq!(contract_client.try_update_market(&1, &1), Err(Ok(MCError::MarketIsNotOwned)));
+    assert_eq!(
+        contract_client.try_queue_in_market_update(&1, &1),
+        Err(Ok(MCError::MarketIsNotOwned))
+    );
 }
 
 #[test]
@@ -263,7 +255,13 @@ fn test_update_pool_in_permissionless_market_fails() {
 
     let token_address = register_random_sac(&e);
 
-    let pool_address = contract_client.initialize_pool(&token_address, &None);
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_pool_set(&token_address);
+
+    let pool_address = token_address.clone();
 
     const NEW_SUPPLY_LIMIT: i128 = 100;
 
@@ -273,11 +271,14 @@ fn test_update_pool_in_permissionless_market_fails() {
     };
 
     assert_eq!(
-        contract_client.try_queue_in_pool_config_update(&pool_address, &new_pool_config),
+        contract_client.try_queue_in_pool_set(&pool_address, &new_pool_config),
         Err(Ok(MCError::MarketIsNotOwned))
     );
 
-    assert_eq!(contract_client.try_update_market(&1, &1), Err(Ok(MCError::MarketIsNotOwned)));
+    assert_eq!(
+        contract_client.try_queue_in_market_update(&1, &1),
+        Err(Ok(MCError::MarketIsNotOwned))
+    );
 }
 
 #[test]
@@ -473,14 +474,10 @@ fn test_update_market_status() {
         ),
         Err(Ok(MCError::DepositForbiddenOnMarket))
     );
-    assert_eq!(
-        contract_client.try_withdraw(
-            &ObligationKey::new(creditor.clone()),
-            &gold_pool_address,
-            &1,
-            &None
-        ),
-        Err(Ok(MCError::MarketIsFrozen))
+    assert!(
+        contract_client
+            .try_withdraw(&ObligationKey::new(creditor.clone()), &gold_pool_address, &1, &None)
+            .is_ok()
     );
     assert_eq!(
         contract_client.try_borrow(
@@ -491,19 +488,15 @@ fn test_update_market_status() {
         ),
         Err(Ok(MCError::BorrowForbiddenOnMarket))
     );
-    assert_eq!(
-        contract_client.try_repay(
-            &ObligationKey::new(creditor.clone()),
-            &usdc_pool_address,
-            &1,
-            &None
-        ),
-        Err(Ok(MCError::MarketIsFrozen))
+    assert!(
+        contract_client
+            .try_repay(&ObligationKey::new(creditor.clone()), &usdc_pool_address, &1, &None)
+            .is_ok()
     );
 }
 
 #[test]
-fn test_update_market_config() {
+fn test_queue_in_market_config_update() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
 
@@ -511,19 +504,37 @@ fn test_update_market_config() {
     const MIN_COLLATERAL_VALUE_CENTS: i128 = 10;
 
     assert_eq!(
-        contract_client.try_update_market(&(MAX_POSITIONS + 1), &0),
+        contract_client.try_queue_in_market_update(&(MAX_POSITIONS + 1), &0),
         Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
     assert_eq!(
-        contract_client.try_update_market(&(MAX_POSITIONS), &-1),
+        contract_client.try_queue_in_market_update(&(MAX_POSITIONS), &-1),
         Err(Ok(MCError::InvalidInputAmount))
     );
     assert_eq!(
-        contract_client.try_update_market(&(1), &MIN_COLLATERAL_VALUE_CENTS),
+        contract_client.try_queue_in_market_update(&(1), &MIN_COLLATERAL_VALUE_CENTS),
         Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
 
-    contract_client.update_market(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);
+    contract_client.queue_in_market_update(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+
+    assert_eq!(
+        contract_client.try_apply_market_update(),
+        Err(Ok(MCError::MarketConfigUpdateIsNotYetApplicable))
+    );
+
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period - 1);
+
+    assert_eq!(
+        contract_client.try_apply_market_update(),
+        Err(Ok(MCError::MarketConfigUpdateIsNotYetApplicable))
+    );
+
+    e.ledger().with_mut(|li| li.timestamp += 1);
+
+    contract_client.apply_market_update();
 
     let global_state = contract_client.get_global_state();
     let (new_min_collateral_value_cents, new_max_positions) =
@@ -534,11 +545,54 @@ fn test_update_market_config() {
 }
 
 #[test]
+fn test_cancel_market_config_update() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    assert_eq!(
+        contract_client.try_cancel_market_update(),
+        Err(Ok(MCError::MarketDoesNotHaveQueuedInConfigUpdate))
+    );
+
+    const MAX_POSITIONS: u32 = MAX_RESERVES;
+    const MIN_COLLATERAL_VALUE_CENTS: i128 = 10;
+
+    contract_client.queue_in_market_update(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);
+
+    let queued_update = contract_client.get_market_queued_in_update();
+    assert_eq!(queued_update.new_max_positions, MAX_POSITIONS);
+    assert_eq!(queued_update.new_min_collateral_value_cents, MIN_COLLATERAL_VALUE_CENTS);
+
+    contract_client.cancel_market_update();
+
+    assert_eq!(
+        contract_client.try_get_market_queued_in_update(),
+        Err(Ok(MCError::MarketDoesNotHaveQueuedInConfigUpdate))
+    );
+}
+
+#[test]
+fn test_queue_in_market_config_update_fails_when_already_queued() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    contract_client.queue_in_market_update(&MAX_RESERVES, &10);
+
+    assert_eq!(
+        contract_client.try_queue_in_market_update(&MAX_RESERVES, &20),
+        Err(Ok(MCError::MarketAlreadyContainsQueuedInConfigUpdate))
+    );
+}
+
+#[test]
 fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
     use controlled_insurance_fund::{
         ControlledInsuranceFundContract, ControlledInsuranceFundContractClient,
     };
-    use market::contract::{MarketContract, MarketContractClient};
+    use market::{
+        contract::{MarketContract, MarketContractClient},
+        storage::MarketInitParams,
+    };
     use soroban_sdk::{
         Address, Env, IntoVal, String,
         testutils::{Address as _, MockAuth, MockAuthInvoke},
@@ -546,26 +600,22 @@ fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
 
     let e = Env::default();
 
-    // Actors
     let market_admin = Address::generate(&e);
     let fund_admin = Address::generate(&e);
     let attacker = Address::generate(&e);
 
-    // Market dependencies required by constructor
     let oracle = Address::generate(&e);
     let deployer = Address::generate(&e);
-    let swap_provider = Address::generate(&e);
 
-    // Deploy ControlledInsuranceFund
     let cif_addr = e.register(ControlledInsuranceFundContract, (&fund_admin,));
     let cif = ControlledInsuranceFundContractClient::new(&e, &cif_addr);
 
-    // Deploy Market with insurance_fund = ControlledInsuranceFund
     let name = String::from_str(&e, "test-market");
     let max_positions: u32 = MAX_RESERVES;
     let min_collateral_value_cents: i128 = DEFAULT_MIN_COLLATERAL_VALUE_CENTS;
     let insolvency_ltv_bps: i128 = DEFAULT_INSOLVENCY_LTV_BPS;
-    let update_in_queue_period: Option<u64> = Some(1);
+    let update_in_queue_period: u64 = 1;
+    let is_owned: bool = true;
 
     let market_addr = e.register(
         MarketContract,
@@ -573,19 +623,19 @@ fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
             &name,
             &market_admin,
             &oracle,
-            &swap_provider,
             &cif_addr,
             &deployer,
-            &max_positions,
-            &min_collateral_value_cents,
-            &insolvency_ltv_bps,
-            &update_in_queue_period,
+            MarketInitParams {
+                max_positions,
+                min_collateral_value_cents,
+                insolvency_ltv_bps,
+                update_in_queue_period,
+                is_owned,
+            },
         ),
     );
     let market = MarketContractClient::new(&e, &market_addr);
 
-    // Setup: fund_admin sets the market address in the insurance fund.
-    // This call is admin gated, so we mock auth only for this call
     let set_market_invoke = MockAuthInvoke {
         contract: &cif_addr,
         fn_name: "set_market",
@@ -595,8 +645,6 @@ fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
     let set_market_auth = [MockAuth { address: &fund_admin, invoke: &set_market_invoke }];
     cif.mock_auths(&set_market_auth).set_market(&market_addr);
 
-    // Setup: move the market to Active via market admin (admin only).
-    // Owned markets may start Frozen depending on initialization
     let set_active_invoke = MockAuthInvoke {
         contract: &market_addr,
         fn_name: "update_market_status",
@@ -608,11 +656,435 @@ fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
 
     assert_eq!(market.get_global_state().status, MarketStatus::Active as u32);
 
-    // Sanity: without auth, an unprivileged caller cannot use the admin only market entrypoint
     assert!(market.try_update_market_status(&(MarketStatus::Frozen as u32)).is_err());
     assert_eq!(market.get_global_state().status, MarketStatus::Active as u32);
 
-    // Sanity: without auth, an unprivileged caller cannot use the admin only cif entrypoint
     let _ = attacker;
     assert!(cif.try_update_market_status(&(MarketStatus::Frozen as u32)).is_err());
+}
+
+#[test]
+fn test_queue_in_new_pool_set() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let token_address = register_random_sac(&e);
+
+    assert!(contract_client.try_get_pool(&token_address).is_err());
+
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    assert!(contract_client.try_get_pool(&token_address).is_err());
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+
+    contract_client.apply_pool_set(&token_address);
+
+    assert!(contract_client.try_get_pool(&token_address).is_ok());
+}
+
+#[test]
+fn test_apply_pool_set_permissionless() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, false);
+
+    let token_address = register_random_sac(&e);
+
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+
+    contract_client.apply_pool_set(&token_address);
+
+    assert!(contract_client.try_get_pool(&token_address).is_ok());
+}
+
+// -- Security regression tests --
+
+#[test]
+fn test_apply_pool_set_has_no_auth_check() {
+    use market::{
+        contract::{MarketClient, MarketContract},
+        storage::MarketInitParams,
+    };
+    use soroban_sdk::{
+        Address, Env, IntoVal, String,
+        testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+    };
+
+    let e = Env::default();
+
+    let admin = Address::generate(&e);
+    let attacker = Address::generate(&e);
+    let oracle = Address::generate(&e);
+    let deployer = Address::generate(&e);
+    let insurance_fund = Address::generate(&e);
+
+    let market_addr = e.register(
+        MarketContract,
+        (
+            &String::from_str(&e, "test"),
+            &admin,
+            &oracle,
+            &insurance_fund,
+            &deployer,
+            MarketInitParams {
+                max_positions: MAX_RESERVES,
+                min_collateral_value_cents: 0i128,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: 100,
+                is_owned: true,
+            },
+        ),
+    );
+
+    let market = MarketClient::new(&e, &market_addr);
+
+    let activate_invoke = MockAuthInvoke {
+        contract: &market_addr,
+        fn_name: "update_market_status",
+        args: (0u32,).into_val(&e),
+        sub_invokes: &[],
+    };
+    market
+        .mock_auths(&[MockAuth { address: &admin, invoke: &activate_invoke }])
+        .update_market_status(&0);
+
+    let token_address = register_random_sac(&e);
+
+    let queue_invoke = MockAuthInvoke {
+        contract: &market_addr,
+        fn_name: "queue_in_pool_set",
+        args: (&token_address, PoolConfig::default()).into_val(&e),
+        sub_invokes: &[],
+    };
+    market
+        .mock_auths(&[MockAuth { address: &admin, invoke: &queue_invoke }])
+        .queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    e.ledger().with_mut(|li| li.timestamp += 100);
+
+    // Attacker (non-admin) tries to apply the pool set — this SHOULD fail
+    let apply_invoke = MockAuthInvoke {
+        contract: &market_addr,
+        fn_name: "apply_pool_set",
+        args: (&token_address,).into_val(&e),
+        sub_invokes: &[],
+    };
+    let result = market
+        .mock_auths(&[MockAuth { address: &attacker, invoke: &apply_invoke }])
+        .try_apply_pool_set(&token_address);
+
+    assert!(result.is_err(), "apply_pool_set should require admin auth but succeeded for attacker");
+}
+
+#[test]
+fn test_apply_market_update_requires_owned_and_admin() {
+    use market::{
+        contract::{MarketClient, MarketContract},
+        storage::MarketInitParams,
+    };
+    use soroban_sdk::{
+        Address, Env, IntoVal, String,
+        testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+    };
+
+    let e = Env::default();
+
+    let admin = Address::generate(&e);
+    let attacker = Address::generate(&e);
+
+    let market_addr = e.register(
+        MarketContract,
+        (
+            &String::from_str(&e, "test"),
+            &admin,
+            &Address::generate(&e),
+            &Address::generate(&e),
+            &Address::generate(&e),
+            MarketInitParams {
+                max_positions: MAX_RESERVES,
+                min_collateral_value_cents: 0i128,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: 100,
+                is_owned: true,
+            },
+        ),
+    );
+
+    let market = MarketClient::new(&e, &market_addr);
+
+    let activate_invoke = MockAuthInvoke {
+        contract: &market_addr,
+        fn_name: "update_market_status",
+        args: (0u32,).into_val(&e),
+        sub_invokes: &[],
+    };
+    market
+        .mock_auths(&[MockAuth { address: &admin, invoke: &activate_invoke }])
+        .update_market_status(&0);
+
+    let queue_invoke = MockAuthInvoke {
+        contract: &market_addr,
+        fn_name: "queue_in_market_update",
+        args: (MAX_RESERVES, 10i128).into_val(&e),
+        sub_invokes: &[],
+    };
+    market
+        .mock_auths(&[MockAuth { address: &admin, invoke: &queue_invoke }])
+        .queue_in_market_update(&MAX_RESERVES, &10);
+
+    e.ledger().with_mut(|li| li.timestamp += 100);
+
+    let apply_invoke = MockAuthInvoke {
+        contract: &market_addr,
+        fn_name: "apply_market_update",
+        args: ().into_val(&e),
+        sub_invokes: &[],
+    };
+    let result = market
+        .mock_auths(&[MockAuth { address: &attacker, invoke: &apply_invoke }])
+        .try_apply_market_update();
+
+    assert!(
+        result.is_err(),
+        "apply_market_update should require admin auth but succeeded for attacker"
+    );
+}
+
+#[test]
+fn test_get_queued_pool_set_is_public_readable() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let token_address = register_random_sac(&e);
+
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    let queued = contract_client.get_queued_pool_set(&token_address);
+    assert_eq!(queued.new_config, PoolConfig::default());
+}
+
+#[test]
+fn test_cancel_pool_set_for_nonexistent_pool_only_requires_admin() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, false);
+
+    let token_address = register_random_sac(&e);
+
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+    contract_client.cancel_pool_set(&token_address);
+
+    assert_eq!(
+        contract_client.try_get_queued_pool_set(&token_address),
+        Err(Ok(MCError::PoolDoesNotHaveQueuedPoolSet))
+    );
+}
+
+#[test]
+fn test_queue_pool_set_duplicate_fails() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    let token_address = register_random_sac(&e);
+
+    contract_client.queue_in_pool_set(&token_address, &PoolConfig::default());
+
+    assert_eq!(
+        contract_client.try_queue_in_pool_set(&token_address, &PoolConfig::default()),
+        Err(Ok(MCError::PoolAlreadyContainsQueuedPoolSet))
+    );
+}
+
+#[test]
+fn test_repay_and_withdraw_allowed_when_frozen() {
+    let TestMarketFixture { contract_client, gold_pool_address, users, usdc_pool_address, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[2];
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(&ObligationKey::new(borrower.clone()), &usdc_pool_address, &100, &None);
+
+    contract_client.update_market_status(&(MarketStatus::Frozen as u32));
+
+    assert!(
+        contract_client
+            .try_repay(&ObligationKey::new(borrower.clone()), &usdc_pool_address, &50, &None)
+            .is_ok(),
+        "Repay should be allowed when market is frozen"
+    );
+
+    assert!(
+        contract_client
+            .try_withdraw(
+                &ObligationKey::new(liquidity_provider.clone()),
+                &usdc_pool_address,
+                &1,
+                &None
+            )
+            .is_ok(),
+        "Withdraw should be allowed when market is frozen"
+    );
+}
+
+#[test]
+fn test_submit_requests_batch_allowed_when_frozen() {
+    use market::request::{Request, StandardRequest};
+    let TestMarketFixture {
+        e, contract_client, gold_pool_address, users, usdc_pool_address, ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[2];
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(&ObligationKey::new(borrower.clone()), &usdc_pool_address, &100, &None);
+
+    contract_client.update_market_status(&(MarketStatus::Frozen as u32));
+
+    contract_client.submit_requests_batch(
+        &ObligationKey::new(borrower.clone()),
+        &soroban_sdk::vec![
+            &e,
+            Request::Repay(StandardRequest { pool_address: usdc_pool_address.clone(), amount: 50 })
+        ],
+        &None,
+    );
+}
+
+#[test]
+fn test_min_collateral_value_cents_validation_on_market_update() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    assert_eq!(
+        contract_client.try_queue_in_market_update(&MAX_RESERVES, &10_001),
+        Err(Ok(MCError::InvalidMarketConfigOrUpdate)),
+        "min_collateral_value_cents should be capped at MAX_COLLATERAL_VALUE_CENTS (10_000)"
+    );
+
+    assert!(
+        contract_client.try_queue_in_market_update(&MAX_RESERVES, &10_000).is_ok(),
+        "10_000 cents ($100) should be accepted"
+    );
+}
+
+#[test]
+fn test_remove_and_add_collateral_allowed_when_frozen() {
+    let TestMarketFixture { contract_client, gold_pool_address, users, usdc_pool_address, .. } =
+        TestMarketFixture::new();
+    let depositor = &users[0];
+    let liquidity_provider = &users[2];
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(depositor.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+
+    contract_client.update_market_status(&(MarketStatus::Frozen as u32));
+
+    contract_client.remove_collateral(
+        &ObligationKey::new(depositor.clone()),
+        &gold_pool_address,
+        &1,
+        &None,
+    );
+
+    contract_client.add_collateral(
+        &ObligationKey::new(depositor.clone()),
+        &gold_pool_address,
+        &1,
+        &None,
+    );
+
+    contract_client.withdraw(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &1,
+        &None,
+    );
+}
+
+#[test]
+fn test_frozen_by_admin_blocks_deposit_and_borrow() {
+    let TestMarketFixture { contract_client, gold_pool_address, users, usdc_pool_address, .. } =
+        TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[2];
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(&ObligationKey::new(borrower.clone()), &usdc_pool_address, &100, &None);
+
+    contract_client.update_market_status(&(MarketStatus::FrozenByAdmin as u32));
+
+    assert_eq!(
+        contract_client.try_deposit(
+            &ObligationKey::new(liquidity_provider.clone()),
+            &usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::DepositForbiddenOnMarket))
+    );
+    assert_eq!(
+        contract_client.try_borrow(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::BorrowForbiddenOnMarket))
+    );
+
+    contract_client.repay(&ObligationKey::new(borrower.clone()), &usdc_pool_address, &50, &None);
+
+    contract_client.withdraw(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &1,
+        &None,
+    );
 }

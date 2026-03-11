@@ -13,8 +13,7 @@ use crate::{
         AddCollateralResult, BorrowResult, DepositResult, LiquidationResult, OperationFees,
         RemoveCollateralResult, RepayResult, WithdrawResult,
     },
-    oracle,
-    storage::{self, PoolUpdate},
+    oracle, storage,
 };
 
 #[contracttype]
@@ -522,30 +521,6 @@ impl Pool {
         Ok(())
     }
 
-    pub fn require_remove_collateral_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.is_remove_collateral_enabled() {
-            return Err(MCError::OperationForbiddenOnPool);
-        }
-
-        Ok(())
-    }
-
-    pub fn require_withdraw_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.is_withdraw_enabled() {
-            return Err(MCError::OperationForbiddenOnPool);
-        }
-
-        Ok(())
-    }
-
-    pub fn require_repay_enabled(&self) -> Result<(), MCError> {
-        if !self.config.status.is_repay_enabled() {
-            return Err(MCError::OperationForbiddenOnPool);
-        }
-
-        Ok(())
-    }
-
     pub fn require_borrow_preserves_ur_cap(
         &self,
         e: &Env,
@@ -671,56 +646,8 @@ impl Pool {
         storage::get_all_pools(e)
     }
 
-    fn exists(e: &Env, address: &Address) -> bool {
+    pub fn exists(e: &Env, address: &Address) -> bool {
         storage::pool_exists(e, address)
-    }
-
-    // Queues in pool's config update
-    //
-    // # WARNING
-    // Modifies the contract's storage
-    pub fn queue_in_config_update(&self, e: &Env, config: &PoolConfig) -> Result<(), MCError> {
-        storage::queue_in_pool_config_update(e, &self.pool_address, config)
-    }
-
-    // Removes pool's config update from the queue
-    //
-    // # WARNING
-    // Modifies the contract's storage
-    pub fn remove_pool_config_update(&self, e: &Env) -> Result<(), MCError> {
-        storage::remove_pool_config_update(e, &self.pool_address)
-    }
-
-    // Applies the pool's config update from the queue if it exists and is matured
-    //
-    // # WARNING
-    // Modifies the contract's storage
-    pub fn apply_pool_config_update(&mut self, e: &Env) -> Result<(), MCError> {
-        let update_pool_config_period =
-            storage::get_update_in_queue_period(e).expect("Must be present for an owned pool");
-        let pool_config_update = self.get_pool_config_update(e)?;
-        let current_time = e.ledger().timestamp();
-
-        if current_time
-            < pool_config_update
-                .queued_in_timestamp
-                .checked_add(update_pool_config_period)
-                .map_over_or_underflow()?
-        {
-            return Err(MCError::PoolConfigUpdateIsNotYetApplicable);
-        }
-
-        self.config = pool_config_update.new_config;
-        self.set(e);
-        storage::remove_pool_config_update(e, &self.pool_address)?;
-
-        Ok(())
-    }
-
-    // Gets the pool's config update from the queue if it exists
-    pub fn get_pool_config_update(&self, e: &Env) -> Result<PoolUpdate, MCError> {
-        storage::get_pool_config_update(e, &self.pool_address)
-            .ok_or(MCError::PoolDoesNotHaveQueuedInConfigUpdate)
     }
 
     pub fn compute_total_collateral_value(&self, e: &Env) -> Result<i128, MCError> {
@@ -827,7 +754,7 @@ impl PoolFeeConfig {
             take_rate_bps,
             take_rate_beneficiaries,
             operation_fee_beneficiaries,
-            ..
+            referrers,
         } = &self;
 
         let individual_fees = [
@@ -892,6 +819,24 @@ impl PoolFeeConfig {
             }
         }
 
+        if let Some(referrers) = referrers {
+            if referrers.is_empty() {
+                return Err("Provided Referrers fees are empty");
+            }
+
+            let mut share_sum: u32 = 0;
+            for (_, share_bps) in referrers.iter() {
+                share_sum = match share_sum.checked_add(share_bps) {
+                    Some(sum) => sum,
+                    None => return Err("Referrer fee shares overflow"),
+                };
+            }
+
+            if share_sum as i128 > BPS_FACTOR {
+                return Err("Referrers fees exceed 100%");
+            }
+        }
+
         Ok(())
     }
 }
@@ -925,20 +870,8 @@ impl PoolStatus {
         (self.flags & POOL_STATUS_FLASH_LOAN_ENABLED) > 0
     }
 
-    pub fn is_withdraw_enabled(&self) -> bool {
-        (self.flags & POOL_STATUS_WITHDRAW_ENABLED) > 0
-    }
-
-    pub fn is_repay_enabled(&self) -> bool {
-        (self.flags & POOL_STATUS_REPAY_ENABLED) > 0
-    }
-
     pub fn is_add_collateral_enabled(&self) -> bool {
         (self.flags & POOL_STATUS_ADD_COLLATERAL_ENABLED) > 0
-    }
-
-    pub fn is_remove_collateral_enabled(&self) -> bool {
-        (self.flags & POOL_STATUS_REMOVE_COLLATERAL_ENABLED) > 0
     }
 }
 

@@ -12,8 +12,8 @@ use crate::{
     events, farms,
     math_utils::MathUtils,
     misc::{
-        require_borrows_on_market_allowed, require_deposits_on_market_allowed,
-        require_market_not_frozen, require_nonnegative, require_positive,
+        require_borrows_on_market_allowed, require_deposits_on_market_allowed, require_nonnegative,
+        require_positive,
     },
     obligation::{Obligation, ObligationKey, WithdrawResult},
     pool::{Pool, PoolConfig},
@@ -25,14 +25,12 @@ use crate::{
     swap,
 };
 
-pub fn process_submit_requests_batch<'a>(
-    e: &'a Env,
+pub fn process_submit_requests_batch(
+    e: &Env,
     requests: &Vec<Request>,
-    obligation_key: &'a ObligationKey,
-    referrer: &'a Option<Address>,
+    obligation_key: &ObligationKey,
+    referrer: &Option<Address>,
 ) -> Result<(), MCError> {
-    require_market_not_frozen(e)?;
-
     let mut transfers = RequestTransfers::new(
         e,
         obligation_key.user.clone(),
@@ -46,8 +44,6 @@ pub fn process_submit_requests_batch<'a>(
     for request in requests {
         match request {
             Request::Deposit(standard_request) => {
-                require_deposits_on_market_allowed(e)?;
-
                 let new_transfers = process_deposit(
                     e,
                     obligation_key,
@@ -59,8 +55,6 @@ pub fn process_submit_requests_batch<'a>(
                 transfers.merge(new_transfers)?;
             }
             Request::Borrow(standard_request) => {
-                require_borrows_on_market_allowed(e)?;
-
                 let new_transfers = process_borrow(
                     e,
                     obligation_key,
@@ -124,8 +118,7 @@ pub fn process_submit_requests_batch<'a>(
             }
             Request::SwapExactTokens(SwapExactTokensRequest {
                 swap_provider,
-                token_in,
-                token_out,
+                path,
                 amount_in,
                 min_amount_out,
             }) => {
@@ -135,16 +128,14 @@ pub fn process_submit_requests_batch<'a>(
                     e,
                     &swap_provider,
                     &obligation_key.user,
-                    &token_in,
-                    &token_out,
+                    &path,
                     amount_in,
                     min_amount_out,
                 )?;
             }
             Request::SwapForExactTokens(SwapForExactTokensRequest {
                 swap_provider,
-                token_in,
-                token_out,
+                path,
                 max_amount_in,
                 amount_out,
             }) => {
@@ -154,8 +145,7 @@ pub fn process_submit_requests_batch<'a>(
                     e,
                     &swap_provider,
                     &obligation_key.user,
-                    &token_in,
-                    &token_out,
+                    &path,
                     max_amount_in,
                     amount_out,
                 )?;
@@ -193,11 +183,10 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
     let name = storage::get_name(e);
     let admin = storage::get_admin(e);
     let oracle = storage::get_oracle(e);
-    let swap_provider = storage::get_swap_provider(e);
     let insurance_fund = storage::get_insurance_fund(e);
     let deployer = storage::get_deployer(e);
     let status = storage::get_market_status(e) as u32;
-    let is_owned = update_in_queue_period.is_some();
+    let is_owned = storage::get_is_owned(e);
     let max_positions = storage::get_max_positions(e);
     let min_collateral_value_cents = storage::get_min_collateral_value_cents(e);
     let insolvency_ltv_bps = storage::get_insolvency_ltv_bps(e);
@@ -210,7 +199,6 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
         deployer,
         is_owned,
         max_positions,
-        swap_provider,
         insurance_fund,
         insolvency_ltv_bps,
         min_collateral_value_cents,
@@ -221,23 +209,11 @@ pub fn process_get_global_state(e: &Env) -> GlobalState {
 pub fn process_initialize_pool(
     e: &Env,
     token_address: &Address,
-    pool_config: &Option<PoolConfig>,
+    pool_config: &PoolConfig,
 ) -> Result<Address, MCError> {
-    // NB: We can remove either `pool_address` or `token_address` from the `Pool` struct later
     let pool_address: Address = token_address.clone();
 
     Pool::require_does_not_exist(e, &pool_address)?;
-
-    let pool_config: PoolConfig = match pool_config {
-        Some(cfg) => {
-            if cfg.validate().is_err() {
-                return Err(MCError::InvalidLoanPoolConfig);
-            }
-
-            cfg.clone()
-        }
-        None => PoolConfig::default(),
-    };
 
     let token_client = TokenClient::new(e, token_address);
     let name = token_client.name();
@@ -257,7 +233,7 @@ pub fn process_initialize_pool(
         take_rate_fees_sum: 0,
 
         name,
-        config: pool_config,
+        config: pool_config.clone(),
         pool_address: pool_address.clone(),
         token_symbol,
         token_decimals,
@@ -288,6 +264,7 @@ pub fn process_deposit<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_positive(amount)?;
+    require_deposits_on_market_allowed(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_deposit_enabled()?;
@@ -344,6 +321,7 @@ pub fn process_borrow<'a>(
     referrer: &Option<Address>,
 ) -> Result<RequestTransfers<'a>, MCError> {
     require_positive(amount)?;
+    require_borrows_on_market_allowed(e)?;
 
     let mut obligation = Obligation::try_get(e, obligation_key)?;
     obligation.require_no_active_cover_bad_debt_requests_exists()?;
@@ -440,7 +418,6 @@ pub fn process_repay<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.require_repay_enabled()?;
 
     let repay_result = obligation.repay(e, &pool, amount, referrer)?;
     pool.repay(e, &repay_result)?;
@@ -498,7 +475,6 @@ pub fn process_remove_collateral<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.require_remove_collateral_enabled()?;
 
     let remove_collateral_result = obligation.remove_collateral(e, &pool, amount, referrer)?;
     pool.remove_collateral(e, &remove_collateral_result)?;
@@ -571,7 +547,6 @@ pub fn process_withdraw<'a>(
     obligation.accrue_interest(e)?;
 
     let mut pool = Pool::try_get(e, pool_address)?;
-    pool.require_withdraw_enabled()?;
 
     let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
     pool.withdraw(e, &withdraw_result)?;
@@ -607,19 +582,6 @@ pub fn process_withdraw<'a>(
     Ok(transfers)
 }
 
-// Refreshes all farm stakes for an obligation.
-//
-// This function syncs the user's farm stakes with their current obligation positions.
-// It should be called when the user wants to update their farm stakes to claim
-// the correct amount of rewards
-pub fn process_refresh_farms(e: &Env, obligation_key: &ObligationKey) -> Result<(), MCError> {
-    if let Some(farms_contract) = storage::get_farms_contract(e) {
-        farms::refresh_all_obligation_farms(e, &farms_contract, obligation_key)?;
-    };
-
-    Ok(())
-}
-
 pub fn process_simulate_withdraw(
     e: &Env,
     obligation_key: &ObligationKey,
@@ -634,7 +596,6 @@ pub fn process_simulate_withdraw(
     obligation.accrue_interest(e)?;
 
     let pool = Pool::try_get(e, pool_address)?;
-    pool.require_withdraw_enabled()?;
 
     let withdraw_result = obligation.withdraw(e, &pool, amount, referrer)?;
 
@@ -1019,27 +980,33 @@ pub fn process_swap_exact(
     e: &Env,
     swap_provider: &Address,
     user: &Address,
-    token_in: &Address,
-    token_out: &Address,
+    path: &Vec<Address>,
     amount_in: i128,
     min_amount_out: i128,
 ) -> Result<i128, MCError> {
     require_nonnegative(amount_in)?;
     require_nonnegative(min_amount_out)?;
 
-    let received_amount =
-        swap::swap_exact(e, swap_provider, user, token_in, token_out, amount_in, min_amount_out)?;
+    if path.len() < 2 || path.first() == path.last() {
+        return Err(MCError::InvalidSwap);
+    }
 
-    events::swap_exact(
-        e,
-        swap_provider,
-        user,
-        token_in,
-        token_out,
-        amount_in,
-        min_amount_out,
-        received_amount,
-    );
+    let received_amount =
+        swap::swap_exact(e, swap_provider, user, path, amount_in, min_amount_out)?;
+
+    if received_amount < min_amount_out {
+        events::inconsistent_swap_received_amount(
+            e,
+            swap_provider,
+            path,
+            received_amount,
+            min_amount_out,
+        );
+
+        return Err(MCError::SwapSlippageExceeded);
+    }
+
+    events::swap_exact(e, swap_provider, user, path, amount_in, min_amount_out, received_amount);
 
     Ok(received_amount)
 }
@@ -1048,34 +1015,27 @@ pub fn process_swap_for_exact(
     e: &Env,
     swap_provider: &Address,
     user: &Address,
-    token_in: &Address,
-    token_out: &Address,
+    path: &Vec<Address>,
     max_amount_in: i128,
     amount_out: i128,
 ) -> Result<i128, MCError> {
     require_nonnegative(max_amount_in)?;
     require_nonnegative(amount_out)?;
 
-    let sent_amount = swap::swap_for_exact(
-        e,
-        swap_provider,
-        user,
-        token_in,
-        token_out,
-        max_amount_in,
-        amount_out,
-    )?;
+    if path.len() < 2 || path.first() == path.last() {
+        return Err(MCError::InvalidSwap);
+    }
 
-    events::swap_for_exact(
-        e,
-        swap_provider,
-        user,
-        token_in,
-        token_out,
-        max_amount_in,
-        amount_out,
-        sent_amount,
-    );
+    let sent_amount =
+        swap::swap_for_exact(e, swap_provider, user, path, max_amount_in, amount_out)?;
+
+    if sent_amount > max_amount_in {
+        events::inconsistent_swap_sent_amount(e, swap_provider, path, sent_amount, max_amount_in);
+
+        return Err(MCError::SwapSlippageExceeded);
+    }
+
+    events::swap_for_exact(e, swap_provider, user, path, max_amount_in, amount_out, sent_amount);
 
     Ok(sent_amount)
 }
@@ -1088,9 +1048,6 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<()
     let market_addr = e.current_contract_address();
 
     if pool.total_available > pool.take_rate_fees_sum {
-        // TODO: Ideally, we can distribute `take_rate` fees when there's not enough available liquidity
-        // to redeem all of them, but this requires an additional refactoring
-
         // -- Distribute Take Rate Fees --
 
         if let Some(take_rate_beneficiaries) = &pool.config.fee_config.take_rate_beneficiaries {
@@ -1143,7 +1100,6 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<()
     pool.set(e);
 
     events::distribute_pool_fees(e, pool_address);
-    // TODO: Add `skim_fees` endpoint that allows admin to receive any excessive fees
 
     Ok(())
 }

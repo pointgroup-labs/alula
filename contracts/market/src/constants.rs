@@ -1,8 +1,5 @@
 // ---- General ----
 
-/// Number of basis points (bps) in one percent: 1% = 100 bps
-pub const BPS_IN_PERCENT: i128 = 100;
-
 /// Basis points denominator for fractional calculations: 100% = 10,000 bps
 pub const BPS_FACTOR: i128 = 10_000;
 
@@ -56,7 +53,6 @@ pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 // -- Kinked(with 2 kink points) interest rate model --
 
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
-pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000;
 pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: i128 = 7_000;
 pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: i128 = 8_000;
 
@@ -67,7 +63,6 @@ pub const DEFAULT_MAX_APR_BPS: i128 = 40_000;
 // -- Interest Rate reactivity --
 
 pub const DEFAULT_TARGET_UTILIZATION_RATIO_BPS: i128 = 6_500;
-pub const DEFAULT_REACTIVITY_CONSTANT: i128 = BPS_FACTOR; // x1
 pub const MIN_REACTIVITY_CONSTANT: u32 = 0;
 pub const MAX_REACTIVITY_CONSTANT: u32 = 100; // 0.01
 pub const MIN_IR_MODIFIER: i128 = BPS_FACTOR / 10; // x0.1
@@ -91,8 +86,6 @@ pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
 pub const DEFAULT_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000;
 pub const DEFAULT_OPEN_LTV_BPS: i128 = 7_000;
 pub const DEFAULT_CLOSE_LTV_BPS: i128 = 8_000;
-// Health factor threshold expressed in bps (100% = 10_000 bps)
-pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = BPS_FACTOR;
 pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100% (equivalent to a liability factor to make no difference)
 pub const MAX_LIABILITY_FACTOR_BPS: i128 = 2 * BPS_FACTOR;
 
@@ -117,11 +110,8 @@ pub const DEFAULT_TAKE_RATE_BPS: u32 = 1_000; // 10%
 
 pub const POOL_STATUS_DEPOSIT_ENABLED: u32 = 1 << 0;
 pub const POOL_STATUS_BORROW_ENABLED: u32 = 1 << 1;
-pub const POOL_STATUS_WITHDRAW_ENABLED: u32 = 1 << 2;
-pub const POOL_STATUS_REPAY_ENABLED: u32 = 1 << 3;
-pub const POOL_STATUS_ADD_COLLATERAL_ENABLED: u32 = 1 << 4;
-pub const POOL_STATUS_REMOVE_COLLATERAL_ENABLED: u32 = 1 << 5;
-pub const POOL_STATUS_FLASH_LOAN_ENABLED: u32 = 1 << 6;
+pub const POOL_STATUS_ADD_COLLATERAL_ENABLED: u32 = 1 << 2;
+pub const POOL_STATUS_FLASH_LOAN_ENABLED: u32 = 1 << 3;
 pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 
 // ---- Oracle ----
@@ -135,9 +125,9 @@ pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;
 pub const DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;
-pub const DEFAULT_MIN_COLLATERAL_VALUE_CENTS: i128 = 500;
+pub const DEFAULT_MIN_COLLATERAL_VALUE_CENTS: i128 = 500; // 5$ 
+pub const MIN_COLLATERAL_VALUE_CENTS: i128 = 0; // 0$ 
+pub const MAX_COLLATERAL_VALUE_CENTS: i128 = 10_000; // 100$
 pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
-
-pub const INITIAL_SHARES_AMOUNT: i128 = 10_i128.pow(5);

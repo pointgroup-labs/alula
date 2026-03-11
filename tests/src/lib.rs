@@ -30,6 +30,7 @@ use market::{
     math_utils::MathUtils,
     obligation::{BorrowPosition, DepositPosition, ObligationKey},
     pool::{PoolConfig, PoolFeeConfig},
+    storage::MarketInitParams,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
@@ -132,8 +133,6 @@ impl TestMarketFixture<'_> {
 
         let contract_admin = Address::generate(&e);
 
-        let swap_provider_address = Address::generate(&e);
-
         let insurance_fund = e.register(
             controlled_insurance_fund::ControlledInsuranceFundContract,
             (contract_admin.clone(),),
@@ -154,13 +153,15 @@ impl TestMarketFixture<'_> {
                 contract_name,
                 contract_admin.clone(),
                 oracle.clone(),
-                swap_provider_address.clone(),
                 insurance_fund.clone(),
                 market_manager_address,
-                DEFAULT_MAX_POSITIONS,
-                0i128,
-                DEFAULT_INSOLVENCY_LTV_BPS,
-                Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
+                MarketInitParams {
+                    max_positions: DEFAULT_MAX_POSITIONS,
+                    min_collateral_value_cents: 0i128,
+                    insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                    update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+                    is_owned: true,
+                },
             ),
         );
         let contract_client = MarketClient::new(&e, &market_contract_id);
@@ -176,8 +177,10 @@ impl TestMarketFixture<'_> {
             token_client: gold_token_client,
             token_address: gold_token_address,
         } = setup_test_asset(&e, &gold_admin, &users);
-        let gold_pool_address =
-            contract_client.initialize_pool(&gold_token_address, &Some(pool_config.clone()));
+        contract_client.queue_in_pool_set(&gold_token_address, &pool_config);
+        e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+        contract_client.apply_pool_set(&gold_token_address);
+        let gold_pool_address = gold_token_address.clone();
 
         // BTC
         let btc_admin = Address::generate(&e);
@@ -186,12 +189,16 @@ impl TestMarketFixture<'_> {
             token_client: btc_token_client,
             token_address: btc_token_address,
         } = setup_test_asset(&e, &btc_admin, &users);
-        let btc_pool_address =
-            contract_client.initialize_pool(&btc_token_address, &Some(pool_config.clone()));
+        contract_client.queue_in_pool_set(&btc_token_address, &pool_config);
+        e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+        contract_client.apply_pool_set(&btc_token_address);
+        let btc_pool_address = btc_token_address.clone();
 
         // USDC
-        let usdc_pool_address =
-            contract_client.initialize_pool(&usdc_token_address, &Some(pool_config.clone()));
+        contract_client.queue_in_pool_set(&usdc_token_address, &pool_config);
+        e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+        contract_client.apply_pool_set(&usdc_token_address);
+        let usdc_pool_address = usdc_token_address.clone();
 
         oracle_client.set_data(
             &contract_admin,
@@ -216,7 +223,6 @@ impl TestMarketFixture<'_> {
             // Oracle
             oracle_client,
             oracle,
-            // TODO: Swap provider?
             // Insurance Fund
             controlled_insurance_fund_client,
             insurance_fund_client,
@@ -365,7 +371,6 @@ pub trait RunCommand {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize);
 }
 
-// TODO: Macro?
 #[derive(Arbitrary, Debug)]
 pub enum Command {
     TomRepay(Repay),
@@ -657,17 +662,6 @@ pub fn get_obligation_j_tokens(
     Ok(deposit_position.j_tokens)
 }
 
-pub fn get_earn_obligation_j_tokens(
-    contract_client: &MarketClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<i128, MCError> {
-    let deposit_position =
-        get_earn_obligation_deposit_position(contract_client, user, pool_address)?;
-
-    Ok(deposit_position.j_tokens)
-}
-
 pub fn get_obligation_d_tokens(
     contract_client: &MarketClient,
     user: &Address,
@@ -676,17 +670,6 @@ pub fn get_obligation_d_tokens(
     let deposit_position = get_borrow_position(contract_client, user, pool_address)?;
 
     Ok(deposit_position.d_tokens)
-}
-
-pub fn get_earn_obligation_d_tokens(
-    contract_client: &MarketClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<i128, MCError> {
-    // NB: This is expected to always return Err(MCError::BorrowPositionDoesNotExist)
-    let borrow_position = get_earn_obligation_borrow_position(contract_client, user, pool_address)?;
-
-    Ok(borrow_position.d_tokens)
 }
 
 pub fn get_obligation_initially_borrowed(
@@ -705,17 +688,6 @@ pub fn get_obligation_originally_deposited(
     pool_address: &Address,
 ) -> Result<i128, MCError> {
     let deposit_position = get_deposit_position(contract_client, user, pool_address)?;
-
-    Ok(deposit_position.originally_deposited)
-}
-
-pub fn get_earn_obligation_deposited(
-    contract_client: &MarketClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<i128, MCError> {
-    let deposit_position =
-        get_earn_obligation_deposit_position(contract_client, user, pool_address)?;
 
     Ok(deposit_position.originally_deposited)
 }
@@ -778,38 +750,6 @@ pub fn get_obligation_j_tokens_as_tokens(
     Ok(deposited_tokens)
 }
 
-pub fn get_obligation_received_interest(
-    e: &Env,
-    contract_client: &MarketClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<i128, MCError> {
-    let total_supply = get_obligation_j_tokens_as_tokens(e, contract_client, user, pool_address)?;
-    let initially_deposited =
-        get_obligation_originally_deposited(contract_client, user, pool_address)?;
-
-    if total_supply < initially_deposited {
-        return Err(MCError::InternalError);
-    }
-    let received_interest = total_supply - initially_deposited;
-
-    Ok(received_interest)
-}
-
-pub fn get_earn_obligation_j_tokens_as_tokens(
-    e: &Env,
-    contract_client: &MarketClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<i128, MCError> {
-    let pool = contract_client.get_pool(pool_address);
-    let j_tokens = get_earn_obligation_j_tokens(contract_client, user, pool_address)?;
-
-    let deposited_tokens = pool.compute_tokens_from_j_tokens_floor(e, j_tokens)?;
-
-    Ok(deposited_tokens)
-}
-
 pub fn compute_unparameterized_ltv_bps(
     e: &Env,
     contract_client: &MarketClient,
@@ -862,25 +802,6 @@ pub fn get_deposit_position(
     Ok(deposit)
 }
 
-pub fn get_earn_obligation_deposit_position(
-    contract_client: &MarketClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<DepositPosition, MCError> {
-    let Ok(Ok(obligation)) =
-        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
-    else {
-        return Err(MCError::ObligationDoesNotExist);
-    };
-
-    let deposit = obligation
-        .deposits
-        .get(pool_address.clone())
-        .ok_or(MCError::DepositPositionDoesNotExist)?;
-
-    Ok(deposit)
-}
-
 pub fn get_borrow_position(
     contract_client: &MarketClient,
     user: &Address,
@@ -892,24 +813,6 @@ pub fn get_borrow_position(
         return Err(MCError::ObligationDoesNotExist);
     };
 
-    let borrow =
-        obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowPositionDoesNotExist)?;
-
-    Ok(borrow)
-}
-
-pub fn get_earn_obligation_borrow_position(
-    contract_client: &MarketClient,
-    user: &Address,
-    pool_address: &Address,
-) -> Result<BorrowPosition, MCError> {
-    let Ok(Ok(obligation)) =
-        contract_client.try_get_user_obligation(&ObligationKey::new(user.clone()))
-    else {
-        return Err(MCError::ObligationDoesNotExist);
-    };
-
-    // NB: Expected that this always returns `Err(MCError::BorrowPositionDoesNotExist)`
     let borrow =
         obligation.borrows.get(pool_address.clone()).ok_or(MCError::BorrowPositionDoesNotExist)?;
 
@@ -970,15 +873,6 @@ pub fn get_pool_take_rate_fees_sum(contract_client: &MarketClient, pool_address:
     pool.take_rate_fees_sum
 }
 
-pub fn get_pool_available_take_rate_fees_sum(
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> i128 {
-    let pool = contract_client.get_pool(pool_address);
-
-    pool.total_available().unwrap()
-}
-
 pub fn get_pool_utilization_ratio_bps(
     contract_client: &MarketClient,
     pool_address: &Address,
@@ -986,26 +880,6 @@ pub fn get_pool_utilization_ratio_bps(
     let pool = contract_client.get_pool(pool_address);
 
     pool.compute_utilization_ratio_bps().unwrap()
-}
-
-pub fn compute_pool_collateral_value(
-    e: &Env,
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> Result<i128, MCError> {
-    let pool = contract_client.get_pool(pool_address);
-
-    e.as_contract(&contract_client.address, || pool.compute_total_collateral_value(e))
-}
-
-pub fn compute_pool_debt_value(
-    e: &Env,
-    contract_client: &MarketClient,
-    pool_address: &Address,
-) -> Result<i128, MCError> {
-    let pool = contract_client.get_pool(pool_address);
-
-    e.as_contract(&contract_client.address, || pool.compute_total_debt_value(e))
 }
 
 // - PoolConfig -
@@ -1072,7 +946,6 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
     let contract_admin = Address::generate(e);
     let oracle = Address::generate(e);
     let insurance_fund = Address::generate(e);
-    let router_address = Address::generate(e);
 
     let contract_id = e.register(
         MarketContract,
@@ -1080,13 +953,15 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
             contract_name,
             contract_admin.clone(),
             oracle,
-            router_address,
             insurance_fund,
             contract_admin,
-            DEFAULT_MAX_POSITIONS,
-            0i128,
-            DEFAULT_INSOLVENCY_LTV_BPS,
-            if is_owned { Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS) } else { None },
+            MarketInitParams {
+                max_positions: DEFAULT_MAX_POSITIONS,
+                min_collateral_value_cents: 0i128,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+                is_owned,
+            },
         ),
     );
 
@@ -1132,12 +1007,4 @@ where
 pub fn assert_approx_eq_rel(a: i128, b: i128, delta_bps: i128) {
     let abs_delta = b.fixed_mul_floor(delta_bps, BPS_FACTOR).unwrap();
     assert_approx_eq_abs(a, b, abs_delta);
-}
-
-pub fn get_amount_scaled_down(amount: i128, scale_bps: i128) -> i128 {
-    amount.checked_sub(amount.fixed_mul_floor(scale_bps, BPS_FACTOR).unwrap()).unwrap()
-}
-
-pub fn get_amount_scaled_up(amount: i128, scale_bps: i128) -> i128 {
-    amount.checked_add(amount.fixed_mul_ceil(scale_bps, BPS_FACTOR).unwrap()).unwrap()
 }

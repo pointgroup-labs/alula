@@ -296,8 +296,6 @@ impl Obligation {
         pool: &Pool,
         scalar_bps: i128,
     ) -> Result<i128, MCError> {
-        // TODO: What to do when `scalar_bps` == 0?
-
         let (collateral_value_scaled, amount_of_borrow_backing_collateral_positions) =
             self.compute_collateral_value_scaled_w_open_ltvs(e)?;
         let debt_value_scaled = self.compute_debt_value_scaled_w_liability_factors(e)?;
@@ -702,7 +700,6 @@ impl Obligation {
         let j_tokens_to_burn = if is_all_withdrawn {
             deposit_position.j_tokens
         } else {
-            // TODO: Is this `min` redundant?
             pool.compute_j_tokens_from_tokens_ceil(deposit_decrease)?.min(deposit_position.j_tokens)
         };
         if j_tokens_to_burn <= 0 {
@@ -713,7 +710,7 @@ impl Obligation {
                 deposit_decrease,
             );
 
-            return Err(MCError::InternalError);
+            return Err(MCError::NonPositiveSharesAmount);
         }
 
         let all_deposit_ceil =
@@ -1093,7 +1090,6 @@ impl Obligation {
                 // Complete collateral liquidation
                 deposit_position.j_tokens
             } else {
-                // TODO: Does this always work with ceiling/flooring?
                 collateral_pool
                     .compute_j_tokens_from_tokens_ceil(tokens_from_j_tokens_seized)?
                     .min(deposit_position.j_tokens)

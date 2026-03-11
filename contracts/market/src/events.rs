@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, contractevent};
+use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, Vec, contractevent};
 
 use crate::{
     obligation::{
@@ -9,7 +9,7 @@ use crate::{
     storage::MarketStatus,
 };
 
-// --- Contract's Methods Events ---
+// -- Contract's Methods Events --
 
 #[contractevent]
 struct InitializePoolEvent {
@@ -22,7 +22,7 @@ struct InitializePoolEvent {
 }
 
 #[contractevent]
-struct QueueInPoolConfigUpdate {
+struct QueueInPoolSet {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -30,13 +30,13 @@ struct QueueInPoolConfigUpdate {
 }
 
 #[contractevent]
-struct CancelPoolConfigUpdate {
+struct CancelPoolSet {
     #[topic]
     pool_address: Address,
 }
 
 #[contractevent]
-struct ApplyPoolConfigUpdate {
+struct ApplyPoolSet {
     #[topic]
     pool_address: Address,
 }
@@ -57,9 +57,7 @@ struct SwapExact {
     #[topic]
     user: Address,
     #[topic]
-    token_in: Address,
-    #[topic]
-    token_out: Address,
+    path: Vec<Address>,
     amount_in: i128,
     min_amount_out: i128,
     received_amount: i128,
@@ -71,10 +69,7 @@ struct SwapForExact {
     swap_provider: Address,
     #[topic]
     user: Address,
-    #[topic]
-    token_in: Address,
-    #[topic]
-    token_out: Address,
+    path: Vec<Address>,
     max_amount_in: i128,
     amount_out: i128,
     sent_amount: i128,
@@ -155,7 +150,16 @@ struct ProposeNewAdmin {
 }
 
 #[contractevent]
-struct UpdateMarket {
+struct QueueInMarketConfigUpdate {
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+}
+
+#[contractevent]
+struct CancelMarketConfigUpdate {}
+
+#[contractevent]
+struct ApplyMarketConfigUpdate {
     new_max_positions: u32,
     new_min_collateral_value_cents: i128,
 }
@@ -224,7 +228,30 @@ struct FlashBorrow {
     amount: i128,
 }
 
-// ----- Internal Error Events -----
+#[contractevent]
+struct FarmsContractSetEvent {
+    #[topic]
+    farms_contract: Address,
+}
+
+#[contractevent]
+struct FarmsContractClearedEvent {}
+
+#[contractevent]
+struct PoolFarmsClearedEvent {
+    #[topic]
+    pool_address: Address,
+}
+
+#[contractevent]
+struct PoolFarmSetEvent {
+    #[topic]
+    pool_address: Address,
+    farm_id: BytesN<32>,
+    farm_kind: Symbol,
+}
+
+// -- Internal Error Events --
 
 #[contractevent]
 struct LedgerTimestampError {
@@ -242,12 +269,6 @@ struct UtilizationRatioExceedsLimit {
 struct PoolIsMissingInStorage {
     #[topic]
     pool_address: Address,
-}
-
-#[contractevent]
-struct ObligationIsMissingInStorage {
-    #[topic]
-    obligation_key: ObligationKey,
 }
 
 #[contractevent]
@@ -302,20 +323,6 @@ struct PositionsCountBecomesNegative {
     pool_address: Address,
     #[topic]
     obligation: Obligation,
-}
-
-#[contractevent]
-struct ReceivedUnexpectedSwapAmount {
-    #[topic]
-    user: Address,
-    #[topic]
-    token_in: Address,
-    #[topic]
-    token_out: Address,
-    amount_in: i128,
-    amount_out: i128,
-    expected_amount_in: i128,
-    expected_amount_out: i128,
 }
 
 #[contractevent]
@@ -389,35 +396,30 @@ struct NonPositiveJTokensWithdraw {
 #[contractevent]
 struct ObligationFarmsRefreshedEvent {
     #[topic]
-    pub user: Address,
-    pub num_supply_farms: u32,
-    pub num_debt_farms: u32,
+    user: Address,
+    num_supply_farms: u32,
+    num_debt_farms: u32,
 }
 
 #[contractevent]
-struct FarmsContractSetEvent {
+struct InconsistentSwapReceived {
     #[topic]
-    pub farms_contract: Address,
+    swap_provider: Address,
+    path: Vec<Address>,
+    received_amount: i128,
+    min_amount_out: i128,
 }
 
 #[contractevent]
-struct FarmsContractClearedEvent {}
-
-#[contractevent]
-struct PoolFarmsClearedEvent {
+struct InconsistentSwapSent {
     #[topic]
-    pub pool_address: Address,
+    swap_provider: Address,
+    path: Vec<Address>,
+    sent_amount: i128,
+    max_amount_in: i128,
 }
 
-#[contractevent]
-struct PoolFarmSetEvent {
-    #[topic]
-    pub pool_address: Address,
-    pub farm_id: BytesN<32>,
-    pub farm_kind: Symbol,
-}
-
-// --- Methods that abstract how events are published ---
+// -- Methods that abstract how events are published --
 
 pub fn deposit(
     e: &Env,
@@ -447,16 +449,16 @@ pub fn initialize_pool(
     .publish(e);
 }
 
-pub fn queue_in_pool_config_update(e: &Env, pool_address: Address, pool_config: PoolConfig) {
-    QueueInPoolConfigUpdate { pool_address, pool_config }.publish(e);
+pub fn queue_in_pool_set(e: &Env, pool_address: Address, pool_config: PoolConfig) {
+    QueueInPoolSet { pool_address, pool_config }.publish(e);
 }
 
-pub fn cancel_pool_config_update(e: &Env, pool_address: Address) {
-    CancelPoolConfigUpdate { pool_address }.publish(e);
+pub fn cancel_pool_set(e: &Env, pool_address: Address) {
+    CancelPoolSet { pool_address }.publish(e);
 }
 
-pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
-    ApplyPoolConfigUpdate { pool_address }.publish(e);
+pub fn apply_pool_set(e: &Env, pool_address: Address) {
+    ApplyPoolSet { pool_address }.publish(e);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -464,8 +466,7 @@ pub fn swap_exact(
     e: &Env,
     swap_provider: &Address,
     user: &Address,
-    token_in: &Address,
-    token_out: &Address,
+    path: &Vec<Address>,
     amount_in: i128,
     min_amount_out: i128,
     received_amount: i128,
@@ -473,8 +474,7 @@ pub fn swap_exact(
     SwapExact {
         swap_provider: swap_provider.clone(),
         user: user.clone(),
-        token_in: token_in.clone(),
-        token_out: token_out.clone(),
+        path: path.clone(),
         amount_in,
         min_amount_out,
         received_amount,
@@ -487,8 +487,7 @@ pub fn swap_for_exact(
     e: &Env,
     swap_provider: &Address,
     user: &Address,
-    token_in: &Address,
-    token_out: &Address,
+    path: &Vec<Address>,
     max_amount_in: i128,
     amount_out: i128,
     sent_amount: i128,
@@ -496,8 +495,7 @@ pub fn swap_for_exact(
     SwapForExact {
         swap_provider: swap_provider.clone(),
         user: user.clone(),
-        token_in: token_in.clone(),
-        token_out: token_out.clone(),
+        path: path.clone(),
         max_amount_in,
         amount_out,
         sent_amount,
@@ -614,8 +612,24 @@ pub fn flash_borrow(e: &Env, user: &Address, pool_address: &Address, amount: i12
     FlashBorrow { pool_address: pool_address.clone(), user: user.clone(), amount }.publish(e);
 }
 
-pub fn update_market(e: &Env, new_max_positions: u32, new_min_collateral_value_cents: i128) {
-    UpdateMarket { new_max_positions, new_min_collateral_value_cents }.publish(e);
+pub fn queue_in_market_config_update(
+    e: &Env,
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+) {
+    QueueInMarketConfigUpdate { new_max_positions, new_min_collateral_value_cents }.publish(e);
+}
+
+pub fn cancel_market_config_update(e: &Env) {
+    CancelMarketConfigUpdate {}.publish(e);
+}
+
+pub fn apply_market_config_update(
+    e: &Env,
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+) {
+    ApplyMarketConfigUpdate { new_max_positions, new_min_collateral_value_cents }.publish(e);
 }
 
 pub fn update_market_status(e: &Env, new_status: MarketStatus) {
@@ -670,7 +684,7 @@ pub fn accept_proposed_admin(e: &Env) {
     AcceptAdminProposal {}.publish(e);
 }
 
-// --- Internal Errors Events ---
+// -- Internal Errors Events --
 
 // Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
 // storage timestamp
@@ -694,11 +708,6 @@ pub fn utilization_ratio_exceeds_limit(
 // Emitted when an attempt is made to interact with a loan pool that does not exist in storage
 pub fn pool_is_unexpectedly_missing_in_storage(e: &Env, pool_address: &Address) {
     PoolIsMissingInStorage { pool_address: pool_address.clone() }.publish(e);
-}
-
-// Emitted when an attempt is made to interact with an obligation that does not exist in storage
-pub fn obligation_is_unexpectedly_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
-    ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
 // Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
@@ -758,31 +767,6 @@ pub fn positions_count_becomes_negative(e: &Env, pool_address: &Address, obligat
     .publish(e);
 }
 
-// Emitted when an unexpected amount has been received after a deterministic swap operation via a
-// swap provider
-#[allow(clippy::too_many_arguments)]
-pub fn received_unexpected_swap_amount(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
-    amount_out: i128,
-    expected_amount_in: i128,
-    expected_amount_out: i128,
-) {
-    ReceivedUnexpectedSwapAmount {
-        user: user.clone(),
-        token_in: token_in.clone(),
-        token_out: token_out.clone(),
-        amount_in,
-        amount_out,
-        expected_amount_in,
-        expected_amount_out,
-    }
-    .publish(e);
-}
-
 pub fn inconsistent_immediate_insurance_fund_coverage(
     e: &Env,
     obligation_key: ObligationKey,
@@ -794,7 +778,7 @@ pub fn inconsistent_immediate_insurance_fund_coverage(
         .publish(e)
 }
 
-// --- Farms Integration Events ---
+// -- Farms Integration Events --
 
 pub fn set_farms_contract(e: &Env, farms_contract: &Address) {
     FarmsContractSetEvent { farms_contract: farms_contract.clone() }.publish(e);
@@ -884,4 +868,36 @@ pub fn burning_non_positive_j_tokens_on_withdraw(
 ) {
     NonPositiveJTokensWithdraw { pool_address, burned_j_tokens_amount, deposit_decrease }
         .publish(e);
+}
+
+pub fn inconsistent_swap_received_amount(
+    e: &Env,
+    swap_provider: &Address,
+    path: &Vec<Address>,
+    received_amount: i128,
+    min_amount_out: i128,
+) {
+    InconsistentSwapReceived {
+        swap_provider: swap_provider.clone(),
+        path: path.clone(),
+        received_amount,
+        min_amount_out,
+    }
+    .publish(e);
+}
+
+pub fn inconsistent_swap_sent_amount(
+    e: &Env,
+    swap_provider: &Address,
+    path: &Vec<Address>,
+    sent_amount: i128,
+    max_amount_in: i128,
+) {
+    InconsistentSwapSent {
+        swap_provider: swap_provider.clone(),
+        path: path.clone(),
+        sent_amount,
+        max_amount_in,
+    }
+    .publish(e);
 }

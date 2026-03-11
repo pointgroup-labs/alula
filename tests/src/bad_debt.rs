@@ -13,9 +13,13 @@ use crate::{
 
 #[test]
 fn test_obligation_does_not_have_bad_debt_by_default() {
-    let TestMarketFixture { contract_client, usdc_pool_address, gold_pool_address, users, .. } =
-        TestMarketFixture::new();
-    contract_client.update_market(&10, &1);
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
+    } = TestMarketFixture::new();
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    contract_client.queue_in_market_update(&10, &1);
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_market_update();
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
@@ -181,8 +185,6 @@ fn test_partially_socialize_full_bad_debt_loss() {
 
     assert!(j_token_rate_before > j_token_rate_after);
 }
-
-// TODO: Add missing test for complete socialization
 
 #[test]
 fn test_completely_cover_bad_debt() {
