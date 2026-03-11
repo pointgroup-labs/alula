@@ -77,7 +77,8 @@ const rewardsEarnings = computedAsync(async () => {
       :fee="POOL_REMAINING_BALANCE + txFee + reserveAmount"
       :price="selectedPool?.price"
       label-left="You Supply"
-      :label-right="`${formatPrice(balance ?? 0, 0, 4)} ${selectedPool?.asset.symbol}`"
+      :label-right="formatPrice(balance ?? 0, 0, 4)"
+      :symbol="selectedPool?.asset.symbol"
       :rules="[
         (v) => {
           return Number(v) < balance || 'Insufficient balance'

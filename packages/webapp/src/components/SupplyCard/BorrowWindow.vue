@@ -74,7 +74,8 @@ const debtAccrual = computedAsync(async () => {
       :fee="POOL_REMAINING_BALANCE"
       :price="selectedPool?.price"
       label-left="Available to Borrow"
-      :label-right="`${formatPrice(availableToBorrow ?? 0, 0, 4)} ${selectedPool?.asset.symbol}`"
+      :label-right="formatPrice(availableToBorrow ?? 0, 0, 4)"
+      :symbol="selectedPool?.asset.symbol"
       variant="indigo"
       :rules="[
         (v: any) => {
