@@ -1,4 +1,5 @@
 import type { TableAsset } from '~/types/table'
+import aquaIcon from '~/assets/img/tokens/aqua.webp'
 import eurcIcon from '~/assets/img/tokens/eurc.webp'
 import xlmIcom from '~/assets/img/tokens/stellar.webp'
 import usdcIcon from '~/assets/img/tokens/usdc.webp'
@@ -7,6 +8,7 @@ export const TOKEN_ICONS: Record<string, string> = {
   xlm: xlmIcom,
   usdc: usdcIcon,
   eurc: eurcIcon,
+  aqua: aquaIcon,
 }
 
 export function getTokenIcon(token: string): string {

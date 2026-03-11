@@ -498,7 +498,7 @@ function handleRoute(address: string) {
                       v-if="positions?.deposits"
                     >
                       <template #content>
-                        Click on the icon to go to another pool
+                        Click an asset icon to view that pool
                       </template>
                       <div class="position-icons">
                         <img
@@ -524,7 +524,7 @@ function handleRoute(address: string) {
                       v-if="positions?.borrows"
                     >
                       <template #content>
-                        Click on the icon to go to another pool
+                        Click an asset icon to view that pool
                       </template>
                       <div class="position-icons">
                         <img
@@ -860,6 +860,10 @@ section#my-position {
       line-height: 1.1;
     }
 
+    [class*='tooltip'] {
+      cursor: default;
+    }
+
     .position-icons {
       display: flex;
       align-items: center;
@@ -867,6 +871,7 @@ section#my-position {
       img {
         width: 16px;
         height: 16px;
+        border-radius: 50%;
         object-fit: contain;
         cursor: pointer;
         transition: 0.1s ease;
