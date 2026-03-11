@@ -5,7 +5,9 @@ export function useMarketTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
 
-  const search = ref()
+  const route = useRoute()
+
+  const search = computed(() => route.query?.search)
 
   const loading = computed(() => marketsStore.state.loading)
   const activeMarket = computed(() => marketsStore.activeMarket)
@@ -103,8 +105,8 @@ export function useMarketTable() {
   const filteredMarkets = computed(() =>
     search.value
       ? sortedMarkets.value.filter((market) => {
-          return market.marketName.toLowerCase().includes(search.value?.toLowerCase())
-            || market.assets.some(asset => asset.symbol?.toLowerCase().includes(search.value?.toLowerCase()))
+          return market.marketName.toLowerCase().includes(String(search.value)?.toLowerCase())
+            || market.assets.some(asset => asset.symbol?.toLowerCase().includes(String(search.value)?.toLowerCase()))
         })
       : sortedMarkets.value)
 

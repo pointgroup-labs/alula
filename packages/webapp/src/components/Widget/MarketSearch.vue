@@ -1,5 +1,22 @@
 <script lang="ts" setup>
-const search = defineModel({ default: undefined })
+const search = ref()
+
+const router = useRouter()
+const route = useRoute()
+
+watchDebounced(search, (val) => {
+  const query = val ? { search: val } : undefined
+  router.replace({
+    ...route,
+    query,
+  })
+}, { debounce: 300 })
+
+onMounted(() => {
+  if (route.query?.search) {
+    search.value = route.query.search
+  }
+})
 </script>
 
 <template>

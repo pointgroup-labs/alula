@@ -3,18 +3,14 @@ import type { MarketTableItem } from '~/types/table'
 import { capitalize } from 'vue'
 import { amountToUsdWithShort, shortenNumber } from '~/utils'
 
-const {
-  searchAsset,
-} = defineProps<{
-  searchAsset?: string
-}>()
-
 const { width } = useWindowSize()
 
 const marketActions = useMarketActions()
 const userStore = useUserStore()
 
 const isObligationsLoading = computed(() => userStore.loading)
+
+const isMarkets = defineModel('isMarkets', { default: true })
 
 const router = useRouter()
 
@@ -89,14 +85,24 @@ function rowClass(item: any): any {
   return ''
 }
 
-watch(() => searchAsset, (val) => {
-  search.value = val
-})
-
 const stop = watch(additionalMarketsData, () => {
   if (opened.value.length === 0 && additionalMarketsData.value.length > 0) {
     toggleOpen(filteredMarkets.value[0]!.marketName)
     stop()
+  }
+})
+
+watch([
+  filteredMarkets,
+  search,
+], ([markets, s]) => {
+  isMarkets.value = markets.length > 0
+  if ((markets.length > 0 && opened.value.length === 0) || s) {
+    for (const market of markets) {
+      if (!isOpened(market.marketName)) {
+        toggleOpen(market.marketName)
+      }
+    }
   }
 })
 </script>
@@ -112,7 +118,7 @@ const stop = watch(additionalMarketsData, () => {
     <j-accordion
       v-for="(market) in filteredMarkets"
       :key="market.marketName"
-      :visible="!searchAsset ? isOpened(market.marketName) : !!searchAsset"
+      :visible="isOpened(market.marketName)"
       @toggle="toggleOpen(market.marketName)"
     >
       <template #title>
