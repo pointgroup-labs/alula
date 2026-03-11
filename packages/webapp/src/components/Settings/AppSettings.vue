@@ -8,7 +8,7 @@ provide('isSidebar', isSettingsSidebar)
 <template>
   <j-btn
     variant="ghost"
-    size="md"
+    size="sm"
     class="settings-btn"
     aria-haspopup="dialog"
     :aria-expanded="isSettingsSidebar"
@@ -41,13 +41,13 @@ provide('isSidebar', isSettingsSidebar)
 .settings-btn {
   padding: 8px;
   color: #fff;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
 
   .settings-icon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 }
 </style>

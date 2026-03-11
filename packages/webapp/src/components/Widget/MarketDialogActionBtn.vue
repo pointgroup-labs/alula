@@ -50,9 +50,6 @@ async function addTrust() {
       title: 'Add Trust Success',
       body: `You added trustline for ${asset} ${shortenAddress(String(issuer), 6)}`,
       modelValue: 30_000,
-      alertProps: {
-        variant: 'success',
-      },
       actions: [
         {
           label: 'View Transaction',

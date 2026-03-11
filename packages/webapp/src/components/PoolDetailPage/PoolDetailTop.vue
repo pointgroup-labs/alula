@@ -9,6 +9,12 @@ const pool = computed(() => selectedPool.value?.raw?.pool)
 
 const asset = computed(() => selectedPool?.value?.asset)
 
+const {
+  poolBorrowLimit,
+} = useBorrowDialog(selectedPool, toRef(false))
+
+const price = computed(() => selectedPool.value?.price ?? 0)
+
 const borrowCapacity = computed(() => {
   if (!pool.value) {
     return 0
@@ -43,6 +49,7 @@ const detailCardsData = computed(() => {
     return {
       depositApy: '0.00%',
       borrowAPY: '0.00%',
+      supplied: '0.00',
       utilRate: '0.00%',
     }
   }
@@ -51,6 +58,7 @@ const detailCardsData = computed(() => {
   return {
     depositApy,
     borrowAPY,
+    supplied: selectedPool?.value?.total_supply ?? 0,
     utilRate: `${truncatePercent(borrowCapacity.value, 2)}%`,
   }
 })
@@ -74,13 +82,20 @@ const detailCardsData = computed(() => {
       </div>
     </div>
 
-    <div
-      v-if="selectedPool"
-      class="market-pills"
-    >
-      <div class="market-name">{{ capitalize(selectedPool?.market ?? '') }} market</div>
+    <template v-if="selectedPool">
+      <div class="separator-vert" />
 
-    </div>
+      <div class="pool-metrics__item">
+        <span>Multi-oracle price</span>
+        <span>${{ formatPrice(price, 2, 2) }}</span>
+      </div>
+
+      <div class="separator-vert" />
+
+      <div class="market-pills">
+        <div class="market-name">{{ capitalize(selectedPool?.market ?? '') }} market</div>
+      </div>
+    </template>
 
     <div class="pool-metrics">
       <div class="pool-metrics__item">
@@ -105,6 +120,32 @@ const detailCardsData = computed(() => {
           </info-tooltip>
         </span>
         <span class="borrow">{{ detailCardsData.borrowAPY }}</span>
+      </div>
+
+      <div class="separator-vert" />
+
+      <div class="pool-metrics__item">
+        <span>Supplied
+          <info-tooltip>
+            Total amount of assets supplied to this pool by all users.
+            <br>
+            These assets can be borrowed and generate yield for suppliers.
+          </info-tooltip>
+        </span>
+        <span>{{ shortenNumber(detailCardsData.supplied) }}</span>
+      </div>
+
+      <div class="separator-vert" />
+
+      <div class="pool-metrics__item">
+        <span>Available Liquidity
+          <info-tooltip>
+            Amount of assets currently available to borrow from this pool.
+            <br>
+            Decreases as users borrow and increases when they repay.
+          </info-tooltip>
+        </span>
+        <span>{{ shortenNumber(poolBorrowLimit) }}</span>
       </div>
 
       <div class="separator-vert" />

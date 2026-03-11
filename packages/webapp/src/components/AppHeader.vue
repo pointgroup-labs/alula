@@ -90,7 +90,7 @@ header {
     padding-bottom: $spacing-2xl;
     display: flex;
     align-items: stretch;
-    gap: 56px;
+    gap: 64px;
   }
 
   .app-logo {
@@ -104,14 +104,14 @@ header {
     gap: 16px;
 
     .nav-link {
-      height: 40px;
+      height: 32px;
       padding: $spacing-md $spacing-2xl;
       border-radius: $radius-sm;
       color: $text-tertiary;
-      font-size: 16px;
+      font-size: 14px;
       font-style: normal;
       font-weight: 500;
-      line-height: 20px;
+      line-height: 16px;
       display: flex;
       align-items: center;
       cursor: pointer;

@@ -33,9 +33,9 @@ function copy() {
   <j-btn
     v-if="!publicKey"
     :loading="loading"
-    size="md"
+    size="sm"
     class="connect-wallet"
-    variant="primary"
+    variant="ghost"
     @click="connectWallet"
   >
     Connect Wallet
@@ -61,7 +61,7 @@ function copy() {
     <template #target>
       <j-btn
         :loading="loading"
-        :size="size"
+        size="sm"
         class="connect-wallet"
         variant="brand-outlined"
       >

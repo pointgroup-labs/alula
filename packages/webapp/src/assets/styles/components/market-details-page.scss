@@ -7,6 +7,11 @@
     margin: 0;
   }
 
+  .separator-vert {
+    height: 44px;
+    background-color: $border-primary;
+  }
+
   .stat-card {
     background-color: $bg-card;
     border: 1px solid $border-primary;
@@ -121,10 +126,6 @@
 
         .borrow {
           color: $indigo;
-        }
-
-        .separator-vert {
-          background-color: $border-primary;
         }
       }
     }

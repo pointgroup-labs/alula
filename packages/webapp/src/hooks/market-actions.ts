@@ -97,9 +97,8 @@ export function useMarketActions() {
         title: `${title} Success`,
         body: 'Transaction sent successfully',
         modelValue: 10_000,
-        alertProps: { variant: 'success' },
         actions: res?.txHash
-          ? [{ label: 'View Transaction', href: generateExplorerLink(String(res.txHash)) }]
+          ? [{ label: 'View Transaction', href: generateExplorerLink(String(res.txHash)), target: '_blank' }]
           : [],
       })
       await recentStore.fetchAndUpdateLastTx()
