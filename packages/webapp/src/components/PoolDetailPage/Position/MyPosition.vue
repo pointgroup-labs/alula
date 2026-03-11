@@ -247,6 +247,79 @@ const liquidationBufferUsd = computed(() => {
   return Math.max(liquidationCollateralValueUsd.value - weightedBorrowedValueUsd.value, 0)
 })
 
+const currentPoolCloseCollateralUsd = computed(() => {
+  const currentPrice = Number(selectedPool.value?.price ?? 0)
+  const closeLtv = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config?.health_config?.close_ltv_bps ?? 0))
+
+  if (suppliedAmount.value <= 0 || currentPrice <= 0 || closeLtv <= 0) {
+    return 0
+  }
+
+  return suppliedAmount.value * currentPrice * closeLtv
+})
+
+const currentPoolWeightedBorrowUsd = computed(() => {
+  if (!borrowPosition.value?.d_tokens) {
+    return 0
+  }
+
+  const currentPrice = Number(selectedPool.value?.price ?? 0)
+  const dTokenRateCeilBps = selectedPool.value?.raw?.d_token_rate_ceil_bps
+  const liabilityFactor = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config?.health_config?.liability_factor_bps ?? 0))
+
+  if (!dTokenRateCeilBps || currentPrice <= 0 || liabilityFactor <= 0) {
+    return 0
+  }
+
+  const borrowedBaseAmount = bpsToNumber(Number(bigintToNumber(
+    borrowPosition.value.d_tokens * BigInt(dTokenRateCeilBps),
+    assetDecimals.value,
+  )))
+
+  return borrowedBaseAmount * currentPrice * liabilityFactor
+})
+
+const currentPoolWeightedBorrowPerPrice = computed(() => {
+  if (!borrowPosition.value?.d_tokens) {
+    return 0
+  }
+
+  const dTokenRateCeilBps = selectedPool.value?.raw?.d_token_rate_ceil_bps
+  const liabilityFactor = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config?.health_config?.liability_factor_bps ?? 0))
+
+  if (!dTokenRateCeilBps || liabilityFactor <= 0) {
+    return 0
+  }
+
+  const borrowedBaseAmount = bpsToNumber(Number(bigintToNumber(
+    borrowPosition.value.d_tokens * BigInt(dTokenRateCeilBps),
+    assetDecimals.value,
+  )))
+
+  return borrowedBaseAmount * liabilityFactor
+})
+
+const liquidationPrice = computed<number | null>(() => {
+  if (healthFactor.value === null || (!hasSupply.value && !hasBorrow.value)) {
+    return null
+  }
+
+  const closeLtv = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config?.health_config?.close_ltv_bps ?? 0))
+  const otherCloseCollateralUsd = Math.max(liquidationCollateralValueUsd.value - currentPoolCloseCollateralUsd.value, 0)
+  const otherWeightedBorrowUsd = Math.max(weightedBorrowedValueUsd.value - currentPoolWeightedBorrowUsd.value, 0)
+
+  const collateralPerPrice = suppliedAmount.value * closeLtv
+  const borrowPerPrice = currentPoolWeightedBorrowPerPrice.value
+
+  const priceSensitivity = collateralPerPrice - borrowPerPrice
+  if (priceSensitivity === 0) {
+    return null
+  }
+
+  const price = (otherWeightedBorrowUsd - otherCloseCollateralUsd) / priceSensitivity
+  return Number.isFinite(price) && price > 0 ? price : null
+})
+
 const positionLabel = computed(() => {
   if (hasSupply.value && hasBorrow.value) {
     return 'Supplying & Borrowing'
@@ -492,6 +565,15 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
                   <div class="metric-list__value metric-list__value--stacked">
                     <span>{{ truncatePercent(liquidationBufferPercent, 2) }}%</span>
                     <small>{{ formatCompactUSD(liquidationBufferUsd, 2, 2) }} until liquidation</small>
+                  </div>
+                </div>
+
+                <div class="metric-list__item">
+                  <div class="metric-list__label">
+                    Liquidation Price
+                  </div>
+                  <div class="metric-list__value">
+                    {{ liquidationPrice !== null ? formatCompactUSD(liquidationPrice, 2, 2) : '—' }}
                   </div>
                 </div>
               </div>
