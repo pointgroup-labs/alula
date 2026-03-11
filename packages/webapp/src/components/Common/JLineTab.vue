@@ -6,11 +6,16 @@ const { tabs = [] } = defineProps<{
 
 const activeTab = defineModel<{ label: string, value: string }>()
 
-watchEffect(() => {
-  if (tabs?.length) {
-    activeTab.value = tabs[0]
+watch(() => tabs, (nextTabs) => {
+  if (!nextTabs?.length) {
+    return
   }
-})
+
+  const hasActiveTab = nextTabs.some(tab => tab.value === activeTab.value?.value)
+  if (!hasActiveTab) {
+    activeTab.value = nextTabs[0]
+  }
+}, { immediate: true })
 </script>
 
 <template>

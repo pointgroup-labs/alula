@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 const route = useRoute()
+const router = useRouter()
 
 const marketAddress = route.params?.market as string
 const poolAddress = route.params?.pool as string
@@ -41,7 +42,40 @@ const tabs = [{
   value: 'position',
 }]
 
-const activeTab = ref(tabs[0])
+const defaultTab = tabs[0]!
+
+function resolveTab(tabValue?: string | null) {
+  return tabs.find(tab => tab.value === tabValue) ?? defaultTab
+}
+
+const activeTab = ref(resolveTab(route.query.activeTab as string | undefined))
+
+watch(activeTab, (tab) => {
+  if (!tab?.value) {
+    return
+  }
+
+  if (route.query.activeTab === tab.value) {
+    return
+  }
+
+  router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      activeTab: tab.value,
+    },
+  })
+}, { deep: true })
+
+watch(() => route.query.activeTab, (tabValue) => {
+  const nextTab = resolveTab(tabValue as string | undefined)
+  if (activeTab.value?.value === nextTab?.value) {
+    return
+  }
+
+  activeTab.value = nextTab
+}, { immediate: true })
 </script>
 
 <template>

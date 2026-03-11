@@ -28,18 +28,6 @@
 
     <div class="market-overview">
       <div class="overview-wrapper">
-        <section id="stats">
-          <div class="stat-cards">
-            <j-skeleton
-              v-for="value in 5"
-              :key="value"
-              full-width
-              height="72"
-              style="border-radius: 12px;"
-            />
-          </div>
-        </section>
-
         <j-skeleton
           full-width
           height="300"

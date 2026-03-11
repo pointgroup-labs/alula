@@ -446,7 +446,9 @@ function handleRoute(address: string) {
     params: {
       market: route.params.market,
       pool: address,
-    } })
+    },
+    query: route.query,
+  })
 }
 </script>
 
