@@ -35,6 +35,7 @@ const {
   error?: string
   variant?: 'cyan' | 'indigo' | 'success' | 'accent'
   reset?: boolean
+  symbol?: string
 }>()
 
 const emit = defineEmits(['update:modelValue', 'maxHandler'])
@@ -90,7 +91,14 @@ function max(percent?: string | number) {
 }
 
 function handleAmount(percent: string | null) {
-  if (!percent) { return }
+  if (!percent || balance <= 0) {
+    return
+  }
+  if (percent === selectedAmount.value) {
+    selectedAmount.value = null
+    val.value = ''
+    return
+  }
   selectedAmount.value = percent
   const result = max(percent.replace('%', ''))
   val.value = String(result)
@@ -127,7 +135,7 @@ watch(() => reset, () => {
         v-else
         class="input-widget__label-right"
       >
-        {{ labelRight }}
+        <span @click="handleAmount('max')">{{ labelRight }}</span> {{ symbol }}
       </span>
     </div>
 
@@ -162,7 +170,10 @@ watch(() => reset, () => {
         />
       </div>
       <div class="input-block__btns">
-        <div class="select-amount">
+        <div
+          class="select-amount"
+          :class="{ 'select-amount--disabled': balance <= 0 }"
+        >
           <span
             v-for="value in amountActions"
             :key="value"
@@ -234,6 +245,11 @@ watch(() => reset, () => {
 
   &__label-right {
     font-family: $font-JetBrainsMono;
+
+    span {
+      border-bottom: 1px dashed $text-tertiary;
+      cursor: pointer;
+    }
   }
 
   &__error {
@@ -308,6 +324,11 @@ watch(() => reset, () => {
     gap: 6px;
     font-size: 12px;
     color: $text-tertiary;
+
+    &--disabled {
+      user-select: none;
+      pointer-events: none;
+    }
 
     span {
       padding: 4px 10px;
