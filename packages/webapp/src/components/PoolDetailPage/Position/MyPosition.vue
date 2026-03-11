@@ -5,6 +5,9 @@ import { calcHealthFactor, calcWeightedBorrowedUsd } from '~/utils'
 
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
 
+const route = useRoute()
+const router = useRouter()
+
 const userStore = useUserStore()
 const marketsStore = useMarketsStore()
 const marketActions = useMarketActions()
@@ -24,6 +27,32 @@ const depositPosition = computed(() =>
 const borrowPosition = computed(() =>
   obligation.value?.borrows?.find(([address]) => address === pool.value?.pool_address)?.[1],
 )
+
+const positions = computed(() => {
+  if (!obligation.value) {
+    return null
+  }
+  const borrows = obligation.value.borrows?.map(([address]) => {
+    const symbol = poolsData.value?.find(p => p.pool.pool_address === address)?.pool?.token_symbol ?? ''
+    const asset = getFullTokenData(symbol)
+    return {
+      address,
+      ...asset,
+    }
+  }) ?? []
+  const deposits = obligation.value.deposits?.map(([address]) => {
+    const symbol = poolsData.value?.find(p => p.pool.pool_address === address)?.pool?.token_symbol ?? ''
+    const asset = getFullTokenData(symbol)
+    return {
+      address,
+      ...asset,
+    }
+  }) ?? []
+  return {
+    borrows,
+    deposits,
+  }
+})
 
 const collateralOnly = computed(() => {
   if (!depositPosition.value?.collateral) {
@@ -317,7 +346,8 @@ const liquidationPrice = computed<number | null>(() => {
   }
 
   const price = (otherWeightedBorrowUsd - otherCloseCollateralUsd) / priceSensitivity
-  return Number.isFinite(price) && price > 0 ? price : null
+  const liqPrice = Number.isFinite(price) && price > 0 ? price : null
+  return Math.max(liqPrice ?? 0, 0)
 })
 
 const positionLabel = computed(() => {
@@ -406,6 +436,18 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
   }
   marketsStore.dialogRepay = true
 }
+
+function handleRoute(address: string) {
+  if (!address) {
+    return
+  }
+  router.push({
+    name: route.name,
+    params: {
+      market: route.params.market,
+      pool: address,
+    } })
+}
 </script>
 
 <template>
@@ -449,6 +491,23 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
                 <div class="overview-metric">
                   <div class="overview-metric__label">
                     Collateral Value
+
+                    <j-tooltip
+                      v-if="positions?.deposits"
+                    >
+                      <template #content>
+                        Click on the icon to go to another pool
+                      </template>
+                      <div class="position-icons">
+                        <img
+                          v-for="asset in positions?.deposits"
+                          :key="asset.symbol"
+                          :src="asset.icon"
+                          alt="asset icon"
+                          @click="handleRoute(asset.address)"
+                        >
+                      </div>
+                    </j-tooltip>
                   </div>
                   <div class="overview-metric__value">
                     {{ formatCompactUSD(collateralValueUsd, 2, 2) }}
@@ -458,6 +517,23 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
                 <div class="overview-metric">
                   <div class="overview-metric__label">
                     Borrowed Value
+
+                    <j-tooltip
+                      v-if="positions?.borrows"
+                    >
+                      <template #content>
+                        Click on the icon to go to another pool
+                      </template>
+                      <div class="position-icons">
+                        <img
+                          v-for="asset in positions?.borrows"
+                          :key="asset.symbol"
+                          :src="asset.icon"
+                          alt="asset icon"
+                          @click="handleRoute(asset.address)"
+                        >
+                      </div>
+                    </j-tooltip>
                   </div>
                   <div class="overview-metric__value">
                     {{ formatCompactUSD(borrowedValueUsd, 2, 2) }}
@@ -564,7 +640,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
                   </div>
                   <div class="metric-list__value metric-list__value--stacked">
                     <span>{{ truncatePercent(liquidationBufferPercent, 2) }}%</span>
-                    <small>{{ formatCompactUSD(liquidationBufferUsd, 2, 2) }} until liquidation</small>
+                    <small v-if="healthFactor">{{ formatCompactUSD(liquidationBufferUsd, 2, 2) }} until liquidation</small>
                   </div>
                 </div>
 
@@ -769,6 +845,9 @@ section#my-position {
     &__label {
       color: $text-tertiary;
       font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
 
     &__value {
@@ -777,6 +856,27 @@ section#my-position {
       font-weight: 700;
       color: $text-primary;
       line-height: 1.1;
+    }
+
+    .position-icons {
+      display: flex;
+      align-items: center;
+
+      img {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+        cursor: pointer;
+        transition: 0.1s ease;
+
+        &:hover {
+          transform: scale(1.2);
+        }
+
+        &:not(:first-child) {
+          margin-left: -4px;
+        }
+      }
     }
   }
 
