@@ -3,6 +3,14 @@ import type { MarketTableItem } from '~/types/table'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
 
+const {
+  opened = false,
+  withSelectedPool = true,
+} = defineProps<{
+  opened?: boolean
+  withSelectedPool?: boolean
+}>()
+
 const emits = defineEmits(['dialogHandler'])
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
@@ -15,6 +23,7 @@ const {
   isLoadingFee,
   supplyLimit,
   limitLabel,
+  reserveAmount,
   isLoading,
   isCanSupply,
   attentionText,
@@ -25,8 +34,6 @@ const {
   dynamicHealthFactor,
   supply: doSupply,
 } = useSupplyDialog(selectedPool, toRef(true))
-
-const reserveAmount = computed(() => selectedPool?.value?.raw.pool.token_symbol === 'native' ? 2 : 0)
 
 async function supply() {
   if (!amount.value || amount.value <= 0) {
@@ -92,6 +99,7 @@ const rewardsEarnings = computedAsync(async () => {
     >
       <template #prepend>
         <div
+          v-if="withSelectedPool"
           class="select-pool-btn"
           @click="emits('dialogHandler')"
         >
@@ -108,7 +116,7 @@ const rewardsEarnings = computedAsync(async () => {
 
   <Transition name="summary-slide">
     <div
-      v-if="amount && amount > 0 && selectedPool"
+      v-if="amount && amount > 0 && selectedPool || opened"
       class="info-card mt-3 info-summary"
     >
       <div class="info-summary__item">
@@ -220,7 +228,7 @@ const rewardsEarnings = computedAsync(async () => {
   </Transition>
 
   <div
-    v-if="amount && amount > 0 && selectedPool"
+    v-if="amount && amount > 0 && selectedPool || opened"
     class="collateral mt-3"
   >
     <div class="collateral-label">Collateral Only</div>

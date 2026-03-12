@@ -162,6 +162,7 @@ declare module 'vue' {
     SidebarSubMenu: typeof import('.../components/Widget/MetricIndicator.vue)['default']
     StatusIndicator: typeof import('./../components/Widget/StatusIndicator.vue')['default']
     SupplyCard: typeof import('./../components/SupplyCard/SupplyCard.vue')['default']
+    SupplyContent: typeof import('./../components/SupplyCard/SupplyContent.vue')['default']
     SupplyDialog: typeof import('./../components/MarketsPage/Markets/Dialogs/SupplyDialog.vue')['default']
     SupplyOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/SupplyBorrow/SupplyOverview.vue')['default']
     SupplyTableSkeleton: typeof import('./../components/Skeleton/SupplyTableSkeleton.vue')['default']

@@ -1,7 +1,5 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { CLEAR_DIALOG_TIMEOUT } from '~/config'
-import { truncatePercent } from '~/utils'
 
 const props = defineProps<{ data?: MarketTableItem }>()
 
@@ -10,28 +8,11 @@ const poolData = toRef(props, 'data')
 const dialog = defineModel({ default: false })
 const isOpen = ref(false)
 
-const {
-  agree,
-  isLoading,
-  isLoadingFee,
-  amount,
-  healthFactor,
-  availableToBorrow,
-  isCanBorrow,
-  attentionText,
-  infoPanelData,
-  borrow,
-  stopBorrowWatchers,
-} = useBorrowDialog(poolData, dialog)
-
 watch(dialog, (v) => {
   setTimeout(() => isOpen.value = v, v ? 0 : 500)
-  if (!v) {
-    stopBorrowWatchers()
-    setTimeout(() => { amount.value = 0 }, CLEAR_DIALOG_TIMEOUT)
-    agree.value = false
-  }
 })
+
+provide('selectedPool', poolData)
 </script>
 
 <template>
@@ -55,99 +36,8 @@ watch(dialog, (v) => {
       v-if="isOpen"
       class="dialog-default__body"
     >
-      <input-widget
-        v-model="amount"
-        class="borrow-input mb-2"
-        :balance="availableToBorrow"
-        label-left="Available"
-        :label-right="formatPrice(availableToBorrow ?? 0, 0, 4)"
-        :symbol="data?.asset.symbol"
-        :price="poolData?.price"
-        :reset="dialog"
-        variant="indigo"
-        :rules="[
-          (v: any) => {
-            return Number(v) < availableToBorrow * 1.1 || 'Borrow limit exceeded'
-          },
-        ]"
-      />
-
-      <template v-if="data">
-        <!-- Pool info -->
-        <info-panel
-          :data="infoPanelData.poolInfo!.data"
-          variant="indigo"
-        />
-
-        <!-- Health -->
-        <info-panel
-          :data="infoPanelData.health!.data"
-          variant="indigo"
-        >
-          <template #hf>
-            <j-loading-spinner
-              v-if="isLoading"
-              width="14px"
-              style="padding: 0; width: 14px;"
-            />
-            <template v-else>
-              {{ truncatePercent(healthFactor) }}
-            </template>
-          </template>
-        </info-panel>
-
-        <!-- Fees -->
-        <info-panel
-          :data="infoPanelData.fees!.data"
-          variant="indigo"
-        >
-          <template #txFee="{ item }">
-            <j-loading-spinner
-              v-if="isLoadingFee"
-              width="14px"
-              style="padding: 0; width: 20px; height: 20px; margin: 0 auto;"
-            />
-            <template v-else>
-              {{ item.value }}
-            </template>
-          </template>
-        </info-panel>
-      </template>
-
-      <warning-block
-        :text="attentionText"
-        :is-warning="!isCanBorrow"
-      />
-
-      <div class="extra-info">
-        <j-checkbox
-          v-model="agree"
-          :disabled="!isCanBorrow"
-        >
-          <div class="extra-info__label">
-            I acknowledge the risks involved.
-          </div>
-        </j-checkbox>
-      </div>
-
-      <div class="extra-info">
-        <div class="extra-info__label">Borrow APY</div>
-        <div class="extra-info__value text-num">{{ data?.borrow_apy }}</div>
-      </div>
-
-      <div class="dialog-default__action mt-2">
-        <market-dialog-action-btn
-          variant="brand-secondary"
-          pill
-          size="lg"
-          :loading="isLoading"
-          :pool="data?.raw.pool"
-          :disabled="!agree || !isCanBorrow || amount > availableToBorrow"
-          @click-handler="borrow"
-        >
-          Borrow {{ data?.asset.symbol }}
-        </market-dialog-action-btn>
-      </div>
+      <borrow-window   :with-selected-pool="false"
+        opened />
     </div>
   </j-dialog>
 </template>

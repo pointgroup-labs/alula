@@ -3,6 +3,14 @@ import type { MarketTableItem } from '~/types/table'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, truncatePercent } from '~/utils'
 
+const {
+  opened = false,
+  withSelectedPool = true,
+} = defineProps<{
+  opened?: boolean
+  withSelectedPool?: boolean
+}>()
+
 const emits = defineEmits(['dialogHandler'])
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
@@ -54,6 +62,7 @@ async function borrow() {
     >
       <template #prepend>
         <div
+          v-if="withSelectedPool"
           class="select-pool-btn"
           @click="emits('dialogHandler')"
         >
@@ -70,7 +79,7 @@ async function borrow() {
 
   <Transition name="summary-slide">
     <div
-      v-if="amount && amount > 0 && selectedPool"
+      v-if="amount && amount > 0 && selectedPool || opened"
       class="info-card mt-3 info-summary"
     >
       <div class="info-summary__item">
@@ -123,11 +132,10 @@ async function borrow() {
 
       <div class="separator" />
 
-      <div class="info-summary__item">
-        <div class="info-summary__header">
-          Fees
-        </div>
-
+      <j-accordion
+        class="info-summary__item accordion-summary"
+        title="Fees"
+      >
         <div class="summary-list">
           <div class="summary-list__item">
             <div class="label">
@@ -152,7 +160,7 @@ async function borrow() {
             </div>
           </div>
         </div>
-      </div>
+      </j-accordion>
 
       <div class="separator" />
 
