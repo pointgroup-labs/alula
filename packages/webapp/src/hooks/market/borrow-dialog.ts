@@ -117,16 +117,12 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     return Number(truncatePercent(Math.min(healthBorrowLimit.value, poolBorrowLimit.value), poolData.value.assetDecimals))
   })
 
-  const closeLTV = computed(() => Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps || 0) / 100)
-
-  const liquidationPenalty = computed(() => Number(poolData.value?.raw.pool.config.health_config.liquidation_close_factor_bps || 0) / 100)
-
   const isCanBorrow = computed(() => {
     const depositObligations = userStore.state.obligations[String(poolData.value?.market)]?.deposits ?? []
     return checkIsCanUsePool(depositObligations, poolData.value?.raw.pool.pool_address)
   })
 
-  const healthFactor = computed(() => {
+  const dynamicHealthFactor = computed(() => {
     const marketName = String(poolData.value?.market)
     const obligation = userStore.state.obligations[marketName]
     const marketState = marketsStore.state.markets[marketName]?.marketState
@@ -266,83 +262,6 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     return calcFee(Number(amount.value || 0), marketFeeBps || 0)
   })
 
-  const dynamicUtilizationRate = computed(() => {
-    const pool = poolData?.value?.raw.pool
-    const assetDecimals = poolData?.value?.assetDecimals ?? 7
-    if (!pool) {
-      return poolData?.value?.utilization_rate ?? '-'
-    }
-
-    const totalBorrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals))
-    const totalAvailable = Number(bigintToNumber(pool.total_available, assetDecimals))
-    const borrowAmount = Number(amount.value) || 0
-
-    const newTotalBorrowed = totalBorrowed + borrowAmount
-    const newTotalAvailable = Math.max(totalAvailable - borrowAmount, 0)
-    const denominator = newTotalAvailable + newTotalBorrowed
-    const newUtil = denominator > 0 ? newTotalBorrowed / denominator * 100 : 0
-
-    return `${truncatePercent(newUtil, 2)}%`
-  })
-
-  const infoPanelData = computed(() => {
-    if (!poolData.value) {
-      return {}
-    }
-    return {
-      poolInfo: {
-        title: 'Pool Info',
-        data: [
-          {
-            label: 'Pool Liquidity Available',
-            value: shortenNumber(poolBorrowLimit.value || 0),
-          },
-          {
-            label: 'Open LTV',
-            value: poolData.value.open_ltv,
-          },
-          {
-            label: 'Close LTV',
-            value: truncatePercent(closeLTV.value || 0, 2),
-          },
-        ],
-      },
-      health: {
-        title: 'Health',
-        data: [
-          {
-            label: 'Health Factor',
-            value: truncatePercent(healthFactor.value),
-            slotName: 'hf',
-          },
-          {
-            label: 'Borrowing Capacity',
-            value: shortenNumber(availableToBorrow.value || 0),
-          },
-          {
-            label: 'Util. Rate',
-            value: dynamicUtilizationRate.value,
-          },
-        ],
-      },
-      fees: {
-        title: 'Operation Fee',
-        data: [
-          {
-            label: 'Operation Fee',
-            value: `${formatPrice(marketFee.value, 0, 5)} ${poolData.value?.asset.symbol}`,
-          },
-          {
-            label: 'Transaction Fee',
-            value: `${txFee.value} ${poolData.value?.asset.symbol}`,
-            slotName: 'txFee',
-            className: 'fee-cell',
-          },
-        ],
-      },
-    }
-  })
-
   const attentionText = computed(() =>
     isCanBorrow.value
       ? 'Parameter changes via governance can alter your account health factor and risk of liquidation.'
@@ -444,30 +363,21 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
   })
 
   return {
-    marketClient,
     agree,
     isLoading,
     isLoadingFee,
-    reloadFee,
     marketFee,
     txFee,
     amount,
-    healthFactor,
     currentHealthFactor,
-    dynamicHealthFactor: healthFactor,
+    dynamicHealthFactor,
     poolBorrowLimit,
     availableToBorrow,
     currentLtv,
     maxLtv,
     dynamicLtv,
-    closeLTV,
-    liquidationPenalty,
-    dynamicUtilizationRate,
     isCanBorrow,
     attentionText,
-    infoPanelData,
     borrow,
-    startFeeInterval,
-    stopBorrowWatchers,
   }
 }

@@ -36,7 +36,7 @@ const {
 
 async function borrow() {
   if (!amount.value || amount.value <= 0) {
-    focusInput('.input-wrapper')
+    focusInput('.borrow-input-wrapper')
     return
   }
   await doBorrow()
@@ -44,7 +44,7 @@ async function borrow() {
 </script>
 
 <template>
-  <div class="input-wrappe mt-4">
+  <div class="input-wrapper mt-4 borrow-input-wrapper">
     <input-widget
       v-model="amount"
       :balance="availableToBorrow"
@@ -86,7 +86,11 @@ async function borrow() {
         <div class="info-summary__header">
           Position Impact
 
-          <reload-coundown :size="18" />
+          <reload-coundown
+            :size="16"
+            color="#54627D"
+            bg-color="#35476a"
+          />
         </div>
 
         <div class="summary-list">
@@ -104,7 +108,7 @@ async function borrow() {
               <template v-else>
                 <span class="positive">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
                 →
-                <span class="negative">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+                <span :style="{ color: healthFactorColor(dynamicHealthFactor) }">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
               </template>
             </div>
           </div>
@@ -119,7 +123,7 @@ async function borrow() {
               <div>
                 <span class="positive">{{ truncatePercent(currentLtv || 0, 2) }}%</span>
                 →
-                <span class="negative">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                <span :style="{ color: ltvColor(dynamicLtv, maxLtv) }">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
               </div>
               <div class="max-ltv">
                 Max LTV: {{ truncatePercent(maxLtv || 0, 2) }}%
@@ -128,6 +132,34 @@ async function borrow() {
           </div>
         </div>
 
+      </div>
+
+      <div class="separator" />
+
+      <div class="info-summary__item">
+        <div class="info-summary__header">
+          Market Details
+        </div>
+
+        <div class="summary-list">
+          <div class="summary-list__item">
+            <div class="label">
+              Borrow Rate
+            </div>
+            <div class="value">
+              {{ selectedPool?.borrow_apy }}
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">
+              Pool Liquidity
+            </div>
+            <div class="value">
+              {{ shortenNumber(poolBorrowLimit || 0) }} {{ selectedPool?.asset.symbol }}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="separator" />
@@ -161,34 +193,6 @@ async function borrow() {
           </div>
         </div>
       </j-accordion>
-
-      <div class="separator" />
-
-      <div class="info-summary__item">
-        <div class="info-summary__header">
-          Market Details
-        </div>
-
-        <div class="summary-list">
-          <div class="summary-list__item">
-            <div class="label">
-              Borrow Rate
-            </div>
-            <div class="value">
-              {{ selectedPool?.borrow_apy }}
-            </div>
-          </div>
-
-          <div class="summary-list__item">
-            <div class="label">
-              Pool Liquidity
-            </div>
-            <div class="value">
-              {{ shortenNumber(poolBorrowLimit || 0) }} {{ selectedPool?.asset.symbol }}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </Transition>
 
@@ -209,7 +213,7 @@ async function borrow() {
     </j-checkbox>
   </div>
 
-  <div class="supply-card__action mt-4">
+  <div class="supply-card__action mt-3">
     <market-dialog-action-btn
       variant="brand-secondary"
       size="md"

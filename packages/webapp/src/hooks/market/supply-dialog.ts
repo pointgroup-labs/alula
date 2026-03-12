@@ -42,10 +42,9 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
   })
 
   const isSupplyLimited = computed(() => poolData.value?.supply_limit && !collateralOnly.value && poolData.value?.supply_limit > 0)
+  const isHasBorrows = computed(() => (userStore.state.obligations[String(poolData.value?.market)]?.borrows ?? []).length > 0)
   const supplyLimit = computed(() => isSupplyLimited.value ? Math.max(Number(poolData.value?.supply_limit) - Number(poolData.value?.total_supply), 0) : 0)
   const limitLabel = computed(() => isSupplyLimited.value ? shortenNumber(Number(supplyLimit.value), 2, 2) : '-')
-
-  const contractAddress = computed(() => poolData.value?.raw.pool.pool_address || '')
 
   const reserveAmount = computed(() => poolData.value?.raw.pool.token_symbol === 'native' ? 2 : 0)
 
@@ -92,6 +91,63 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     )
 
     return (weightedBorrowedValueUsd / collateralValueUsd) * 100
+  })
+
+  const maxLtv = computed(() => {
+    const marketName = String(poolData.value?.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
+
+    if (!obligation || !marketState) {
+      return 0
+    }
+
+    const assetDecimals = marketState.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+    const poolsData = marketState.pools_data
+    const poolAddress = poolData.value?.raw.pool.pool_address
+    const supplyPrice = Number(poolData.value?.price ?? 0)
+    const supplyAmount = Number(amount.value) || 0
+    const nextCollateralValueUsd = calcUserTotalStakeInUsd(
+      obligation,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+    ) + supplyAmount * supplyPrice
+
+    if (nextCollateralValueUsd <= 0) {
+      return 0
+    }
+
+    const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
+      obligation,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+    )
+    const poolOpenLtv = Number(poolData.value?.raw.pool.config.health_config.open_ltv_bps ?? 0) / 10_000
+    const nextDepositWithOpenLtvUsd = calcUserTotalStakeInUsd(
+      obligation,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+      'open',
+    ) + supplyAmount * supplyPrice * poolOpenLtv
+    const currentPositionsWithNonZeroLtv = obligation.deposits.filter(([depositPoolAddress]) => {
+      const depositPool = poolsData.find(pool => pool.pool.pool_address === depositPoolAddress)
+      return depositPool && Number(depositPool.pool.config.health_config.close_ltv_bps) > 0
+    }).length
+    const shouldAddPosition = Boolean(
+      poolAddress
+      && supplyAmount > 0
+      && Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps ?? 0) > 0
+      && !obligation.deposits.some(([depositPoolAddress]) => depositPoolAddress === poolAddress),
+    )
+    const nextPositionsWithNonZeroLtv = currentPositionsWithNonZeroLtv + (shouldAddPosition ? 1 : 0)
+    const minCollateralUsd = (Number(marketState.global_state.min_collateral_value_cents) / 100) * nextPositionsWithNonZeroLtv
+    const borrowingCapacityUsd = Math.max(nextDepositWithOpenLtvUsd - weightedBorrowedValueUsd - minCollateralUsd, 0)
+
+    return ((weightedBorrowedValueUsd + borrowingCapacityUsd) / nextCollateralValueUsd) * 100
   })
 
   const dynamicLtv = computed(() => {
@@ -160,64 +216,6 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const depositAdjustUsd = -((Number(amount.value) || 0) * Number(poolData.value?.price ?? 0) * closeLtvRatio)
 
     return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals, depositAdjustUsd)
-  })
-
-  const dynamicUtilizationRate = computed(() => {
-    const pool = poolData?.value?.raw.pool
-    const assetDecimals = poolData?.value?.assetDecimals ?? 7
-    if (!pool) {
-      return poolData?.value?.utilization_rate ?? '-'
-    }
-
-    const totalBorrowed = Number(bigintToNumber(pool.total_borrowed, assetDecimals))
-    const totalAvailable = Number(bigintToNumber(pool.total_available, assetDecimals))
-    const depositAmount = collateralOnly.value ? 0 : (Number(amount.value) || 0)
-
-    const newTotalAvailable = totalAvailable + depositAmount
-    const newUtil = totalBorrowed > 0 ? totalBorrowed / (newTotalAvailable + totalBorrowed) * 100 : 0
-
-    return `${truncatePercent(newUtil, 2)}%`
-  })
-
-  const infoPanelData = computed(() => {
-    if (!poolData.value) {
-      return {}
-    }
-
-    return {
-      poolInfo: {
-        title: 'Pool Info',
-        data: [
-          {
-            label: 'Supply Limit',
-            value: `${limitLabel.value} ${limitLabel.value === '-' ? '' : poolData.value?.asset.symbol}`,
-          },
-          {
-            label: 'Open LTV',
-            value: poolData.value.open_ltv,
-          },
-          {
-            label: 'Util. Rate',
-            value: dynamicUtilizationRate.value,
-          },
-        ],
-      },
-      fees: {
-        title: 'Fees',
-        data: [
-          {
-            label: 'Operation Fee',
-            value: `${formatPrice(marketFee.value)} ${poolData.value?.asset.symbol}`,
-          },
-          {
-            label: 'Transaction Fee',
-            value: txFee.value,
-            slotName: 'txFee',
-            className: 'fee-cell',
-          },
-        ],
-      },
-    }
   })
 
   async function supply() {
@@ -358,28 +356,23 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
 
   return {
     balance,
-    marketClient,
     collateralOnly,
     txFee,
-    reloadFee,
     isLoadingFee,
     supplyLimit,
     limitLabel,
-    contractAddress,
+    isHasBorrows,
     amount,
     reserveAmount,
     isLoading,
     isCanSupply,
     attentionText,
-    infoPanelData,
     marketFee,
     currentLtv,
+    maxLtv,
     dynamicLtv,
     currentHealthFactor,
     dynamicHealthFactor,
-    dynamicUtilizationRate,
     supply,
-    startFeeInterval,
-    stopSupplyWatchers,
   }
 }

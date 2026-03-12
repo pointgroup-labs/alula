@@ -18,7 +18,7 @@ provide('selectedPool', poolData)
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="supply-dialog dialog-default"
+    class-name="dialog-with-action dialog-default"
   >
     <template #header>
       <div class="dialog-default__title">
@@ -27,8 +27,6 @@ provide('selectedPool', poolData)
           :alt="`${data?.asset.symbol} icon`"
         >
         <span>Borrow {{ data?.asset.symbol }}</span>
-
-        <reload-coundown v-if="dialog" />
       </div>
     </template>
 
@@ -36,8 +34,10 @@ provide('selectedPool', poolData)
       v-if="isOpen"
       class="dialog-default__body"
     >
-      <borrow-window   :with-selected-pool="false"
-        opened />
+      <borrow-window
+        :with-selected-pool="false"
+        opened
+      />
     </div>
   </j-dialog>
 </template>

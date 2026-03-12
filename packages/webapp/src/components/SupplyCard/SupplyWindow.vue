@@ -23,12 +23,14 @@ const {
   isLoadingFee,
   supplyLimit,
   limitLabel,
+  isHasBorrows,
   reserveAmount,
   isLoading,
   isCanSupply,
   attentionText,
   marketFee,
   currentLtv,
+  maxLtv,
   dynamicLtv,
   currentHealthFactor,
   dynamicHealthFactor,
@@ -37,7 +39,7 @@ const {
 
 async function supply() {
   if (!amount.value || amount.value <= 0) {
-    focusInput('.input-wrapper')
+    focusInput('.supply-input-wrapper')
     return
   }
   await doSupply()
@@ -78,7 +80,7 @@ const rewardsEarnings = computedAsync(async () => {
 </script>
 
 <template>
-  <div class="input-wrappe mt-4">
+  <div class="input-wrapper mt-4 supply-input-wrapper">
     <input-widget
       v-model="amount"
       :balance="balance"
@@ -119,38 +121,77 @@ const rewardsEarnings = computedAsync(async () => {
       v-if="amount && amount > 0 && selectedPool || opened"
       class="info-card mt-3 info-summary"
     >
+      <template v-if="isHasBorrows">
+        <div class="info-summary__item">
+          <div class="info-summary__header">
+            Position Impact
+            <reload-coundown
+              :size="16"
+              color="#54627D"
+              bg-color="#35476a"
+            />
+          </div>
+
+          <div class="summary-list">
+            <div class="summary-list__item">
+              <div class="label">
+                Health Factor
+              </div>
+              <div class="value">
+                <span class="positive">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
+                →
+                <span :style="{ color: healthFactorColor(dynamicHealthFactor) }">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+              </div>
+            </div>
+
+            <div class="summary-list__item">
+              <div class="label">
+                Loan-to-Value (LTV)
+              </div>
+              <div class="value">
+                <span class="positive">
+                  {{ truncatePercent(currentLtv || 0, 2) }}%
+                </span>
+                →
+                <span :style="{ color: ltvColor(dynamicLtv, maxLtv) }">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="separator" />
+      </template>
+
       <div class="info-summary__item">
         <div class="info-summary__header">
-          Position Impact
-          <reload-coundown
-            :size="16"
-            color="#54627D"
-            bg-color="#35476a"
-          />
+          Market Details
         </div>
 
         <div class="summary-list">
           <div class="summary-list__item">
             <div class="label">
-              Health Factor
+              Supply APY
             </div>
             <div class="value">
-              <span class="positive">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
-              →
-              <span class="negative">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+              {{ selectedPool?.deposit_apy }}
             </div>
           </div>
 
           <div class="summary-list__item">
             <div class="label">
-              Loan-to-Value (LTV)
+              Est. yearly income
             </div>
             <div class="value">
-              <span class="positive">
-                {{ truncatePercent(currentLtv || 0, 2) }}%
-              </span>
-              →
-              <span class="negative">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+              {{ rewardsEarnings?.yearly ? `$${formatPrice(rewardsEarnings?.yearly)}` : '--' }}
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">
+              Supply Limit
+            </div>
+            <div class="value">
+              {{ limitLabel }} {{ limitLabel !== '-' ? selectedPool?.asset.symbol : '' }}
             </div>
           </div>
         </div>
@@ -188,42 +229,6 @@ const rewardsEarnings = computedAsync(async () => {
         </div>
       </j-accordion>
 
-      <div class="separator" />
-
-      <div class="info-summary__item">
-        <div class="info-summary__header">
-          Market Details
-        </div>
-
-        <div class="summary-list">
-          <div class="summary-list__item">
-            <div class="label">
-              Supply APY
-            </div>
-            <div class="value">
-              {{ selectedPool?.deposit_apy }}
-            </div>
-          </div>
-
-          <div class="summary-list__item">
-            <div class="label">
-              Est. yearly income
-            </div>
-            <div class="value">
-              {{ rewardsEarnings?.yearly ? `$${formatPrice(rewardsEarnings?.yearly)}` : '--' }}
-            </div>
-          </div>
-
-          <div class="summary-list__item">
-            <div class="label">
-              Supply Limit
-            </div>
-            <div class="value">
-              {{ limitLabel }} {{ limitLabel !== '-' ? selectedPool?.asset.symbol : '' }}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </Transition>
 

@@ -179,14 +179,12 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
                 class="hf-indicator"
                 :style="{
                   '--indicator-width': `${Math.min(Math.max((data.item.healthFactor - 1) * 100, 0), 100)}%`,
-                  '--indicator-color': data.item.healthFactor < 1.2
-                    ? 'var(--hf-danger)' : data.item.healthFactor < 2
-                      ? 'var(--hf-warning)' : 'var(--hf-success)',
+                  '--indicator-color': healthFactorColor(data.item.healthFactor),
                 }"
               />
               <span
                 :style="{
-                  color: data.item.healthFactor < 1.2 ? 'var(--hf-danger)' : data.item.healthFactor < 2 ? 'var(--hf-warning)' : 'var(--hf-success)',
+                  color: healthFactorColor(data.item.healthFactor),
                 }"
                 class="text-num hf-percent"
               >
@@ -236,10 +234,6 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
 
 <style lang="scss">
 .account-card {
-  --hf-danger: #{$danger};
-  --hf-warning: #{$warning};
-  --hf-success: #{$success};
-
   .table-cell__dept {
     color: $indigo;
   }

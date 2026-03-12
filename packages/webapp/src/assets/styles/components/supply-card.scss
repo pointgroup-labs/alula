@@ -6,14 +6,6 @@
   padding: $spacing-xl;
   border: 1px solid $border-primary;
   border-radius: 14px;
-
-  .info-card {
-    background-color: color-mix(in oklab, $secondary 30%, transparent);
-    border: 1px solid $border-primary;
-    border-radius: 14px;
-    transition: border-color 0.2s ease;
-    padding: 16px;
-  }
 }
 
 .supply-card-tabs {
@@ -164,10 +156,17 @@
 
 .info-summary {
   padding: $spacing-xl;
-  background-color: $navi-800;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+
+  &.info-card {
+    background-color: color-mix(in oklab, $secondary 30%, transparent);
+    border: 1px solid $border-primary;
+    border-radius: 14px;
+    transition: border-color 0.2s ease;
+  }
 
   &__item {
     &:first-child {
@@ -240,10 +239,10 @@
     }
     .accordion-header {
       padding: 0;
-      border: none;
+      border: none !important;
     }
     .accordion-button {
-      padding: $spacing-md 0;
+      padding: $spacing-md 0 $spacing-md;
       font-size: 12px;
     }
     .accordion-body {

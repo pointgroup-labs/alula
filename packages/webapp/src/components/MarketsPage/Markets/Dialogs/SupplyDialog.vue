@@ -27,11 +27,6 @@ provide('selectedPool', poolData)
           :alt="`${poolData?.asset.symbol} icon`"
         >
         <span>Supply {{ poolData?.asset.symbol }}</span>
-
-        <reload-coundown
-          v-if="dialog"
-          color="#e8edf5"
-        />
       </div>
     </template>
 
@@ -46,36 +41,3 @@ provide('selectedPool', poolData)
     </div>
   </j-dialog>
 </template>
-
-<style lang="scss">
-.supply-dialog {
-  .modal-content {
-    max-width: 442px;
-  }
-
-  .extra-info {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    &__label {
-      font-size: 14px;
-      font-style: normal;
-      font-weight: 500;
-      line-height: 16px;
-    }
-
-    &__value {
-      font-family: $font-family-base;
-      font-size: 24px;
-      font-style: normal;
-      font-weight: 700;
-      line-height: 36px;
-    }
-  }
-
-  .j-input__label {
-    display: none;
-  }
-}
-</style>

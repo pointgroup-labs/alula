@@ -388,8 +388,6 @@ const statusPillStyle = computed(() => {
   }
 })
 
-const healthTone = computed(() => getHealthTone(healthFactor.value))
-
 const healthStatusLabel = computed(() => {
   if (healthFactor.value === null) {
     return 'Healthy'
@@ -402,21 +400,8 @@ const healthStatusLabel = computed(() => {
 
 const healthIndicatorStyle = computed(() => ({
   '--indicator-width': `${Math.min(Math.max((((healthFactor.value ?? 1) - 1) * 100), 0), 100)}%`,
-  '--indicator-color': `var(--hf-${healthTone.value})`,
+  '--indicator-color': healthFactorColor(healthFactor.value),
 }))
-
-function getHealthTone(value: number | null): 'danger' | 'warning' | 'success' {
-  if (value === null) {
-    return 'success'
-  }
-  if (value < 1.2) {
-    return 'danger'
-  }
-  if (value < 2) {
-    return 'warning'
-  }
-  return 'success'
-}
 
 function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
   marketsStore.selectedMarketName = marketKey.value
@@ -555,7 +540,7 @@ function handleRoute(address: string) {
                   </div>
                   <div
                     class="health-highlight__status"
-                    :class="`health-${healthTone}`"
+                    :style="{ color: healthIndicatorStyle['--indicator-color'] }"
                   >
                     {{ healthStatusLabel }}
                   </div>
@@ -564,7 +549,7 @@ function handleRoute(address: string) {
                 <div class="health-highlight__value-row">
                   <div
                     class="health-highlight__value"
-                    :class="`health-${healthTone}`"
+                    :style="{ color: healthIndicatorStyle['--indicator-color'] }"
                   >
                     {{ healthFactor === null ? 'No debt' : truncatePercent(healthFactor, 2) }}
                   </div>
@@ -737,10 +722,6 @@ function handleRoute(address: string) {
 
 <style lang="scss">
 section#my-position {
-  --hf-danger: #{$danger};
-  --hf-warning: #{$warning};
-  --hf-success: #{$success};
-
   .pool-card {
     .stat-card__header {
       gap: 12px;
@@ -1011,18 +992,6 @@ section#my-position {
         width 0.3s ease,
         background-color 0.3s ease;
     }
-  }
-
-  .health-danger {
-    color: var(--hf-danger) !important;
-  }
-
-  .health-warning {
-    color: var(--hf-warning) !important;
-  }
-
-  .health-success {
-    color: var(--hf-success) !important;
   }
 
   .supply-color {

@@ -192,6 +192,31 @@ h2 {
   }
 }
 
+.dialog-with-action {
+  .modal-content {
+    max-width: 442px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    height: 65px;
+  }
+
+  .modal-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dialog-default__body {
+    flex: 1;
+    overflow: auto;
+  }
+}
+
 .table-wrapper {
   height: 100%;
   position: relative;
