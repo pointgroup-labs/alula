@@ -81,6 +81,38 @@ const optimalUtilizationPct = computed(() =>
   kinkModel.value ? bpsToPct(kinkModel.value.kink2_ur_bps) : 80,
 )
 
+const maxUtilizationPct = computed(() => {
+  const relevantMaxPct = Math.max(
+    optimalUtilizationPct.value,
+    currentUtilizationPct.value,
+  )
+
+  if (!Number.isFinite(relevantMaxPct) || relevantMaxPct <= 0) {
+    return optimalUtilizationPct.value || 100
+  }
+
+  return Math.min(relevantMaxPct, 100)
+})
+
+const gradientStops = computed(() => {
+  const maxPct = maxUtilizationPct.value
+
+  if (!kinkModel.value || maxPct <= 0) {
+    return { kink1: 0.7, kink2: 0.85 }
+  }
+
+  const toOffset = (pct: number) => Math.min(Math.max(pct / maxPct, 0), 1)
+
+  return {
+    kink1: toOffset(bpsToPct(kinkModel.value.kink1_ur_bps)),
+    kink2: toOffset(bpsToPct(kinkModel.value.kink2_ur_bps)),
+  }
+})
+
+const chartCurrentUtilizationPct = computed(() => currentUtilizationPct.value)
+
+const chartOptimalUtilizationPct = computed(() => optimalUtilizationPct.value)
+
 /* ------------------------------------------------ */
 /* CURVE */
 /* ------------------------------------------------ */
@@ -89,8 +121,10 @@ const curvePoints = computed(() => {
   const m = kinkModel.value
   if (!m) { return [] }
 
+  const maxPct = maxUtilizationPct.value
+
   return Array.from({ length: POINTS }, (_, i) => {
-    const u_pct = (i / (POINTS - 1)) * 100
+    const u_pct = (i / (POINTS - 1)) * maxPct
     const u_bps = BigInt(Math.round(u_pct * 100))
     const apr_bps = borrowAprAtBps(m, u_bps)
 
@@ -99,11 +133,10 @@ const curvePoints = computed(() => {
 })
 
 const yMaxPct = computed(() => {
-  const m = kinkModel.value
-  if (!m) { return 100 }
+  if (!kinkModel.value) { return 100 }
 
-  const maxAprPct = Number(m.max_apr_bps) / 100
-  return Math.min(Math.max(100, Math.ceil(maxAprPct / 50) * 50), 500)
+  const visibleMaxAprPct = aprAtPct(maxUtilizationPct.value)
+  return Math.min(Math.max(10, visibleMaxAprPct), 500)
 })
 
 function aprAtPct(pct: number) {
@@ -159,15 +192,13 @@ const option = computed<EChartsOption>(() => {
     xAxis: {
       type: 'value',
       min: 0,
-      max: 100,
+      max: maxUtilizationPct.value,
+      splitNumber: isMobile.value ? 4 : 6,
 
       axisLabel: {
         color: axisText,
         fontSize: isMobile.value ? 8 : 12,
-        formatter: (v: number) => {
-          const shown = [0, 17, 34, 51, 68, 85, 100]
-          return shown.includes(v) ? `${v}%` : ''
-        },
+        formatter: (v: number) => `${truncatePercent(v, 0)}%`,
       },
 
       splitLine: { show: false },
@@ -204,9 +235,8 @@ const option = computed<EChartsOption>(() => {
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
             { offset: 0, color: 'rgba(34,211,238,0.18)' },
-            { offset: 0.8, color: 'rgba(34,211,238,0.18)' },
-
-            { offset: 0.9, color: 'rgba(245,158,11,0.18)' },
+            { offset: gradientStops.value.kink1, color: 'rgba(34,211,238,0.18)' },
+            { offset: gradientStops.value.kink2, color: 'rgba(245,158,11,0.18)' },
 
             { offset: 1, color: 'rgba(255,77,109,0.18)' },
           ]),
@@ -216,8 +246,8 @@ const option = computed<EChartsOption>(() => {
           width: 3,
           color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
             { offset: 0, color: '#22d3ee' },
-            { offset: 0.7, color: '#22d3ee' },
-            { offset: 0.85, color: '#f59e0b' },
+            { offset: gradientStops.value.kink1, color: '#22d3ee' },
+            { offset: gradientStops.value.kink2, color: '#f59e0b' },
             { offset: 1, color: '#ef4444' },
           ]),
         },
@@ -229,11 +259,11 @@ const option = computed<EChartsOption>(() => {
 
           data: [
             {
-              xAxis: currentUtilizationPct.value,
+              xAxis: chartCurrentUtilizationPct.value,
               lineStyle: { color: '#f43f5e' },
             },
             {
-              xAxis: optimalUtilizationPct.value,
+              xAxis: chartOptimalUtilizationPct.value,
               lineStyle: { color: '#22d3ee' },
             },
           ],
@@ -244,8 +274,8 @@ const option = computed<EChartsOption>(() => {
         type: 'scatter',
         symbolSize: 10,
         data: [[
-          currentUtilizationPct.value,
-          aprAtPct(currentUtilizationPct.value),
+          chartCurrentUtilizationPct.value,
+          aprAtPct(chartCurrentUtilizationPct.value),
         ]],
         itemStyle: { color: '#f43f5e' },
         z: 5,
@@ -255,8 +285,8 @@ const option = computed<EChartsOption>(() => {
         type: 'scatter',
         symbolSize: 10,
         data: [[
-          optimalUtilizationPct.value,
-          aprAtPct(optimalUtilizationPct.value),
+          chartOptimalUtilizationPct.value,
+          aprAtPct(chartOptimalUtilizationPct.value),
         ]],
         itemStyle: { color: '#22d3ee' },
         z: 5,
