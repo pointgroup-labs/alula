@@ -254,7 +254,7 @@ watch(() => reset, () => {
   }
 
   &__error {
-    color: #f43f5e;
+    color: $danger;
     margin: 8px 0 0;
     font-size: 12px;
   }
@@ -272,10 +272,10 @@ watch(() => reset, () => {
 
     &.error {
       --btn-bg: rgb(244 63 94 / 8%);
-      --color: #f43f5e;
+      --color: $danger;
 
       background-color: rgb(244 63 94 / 10%);
-      border-color: #f43f5e;
+      border-color: $danger;
     }
 
     &__top {

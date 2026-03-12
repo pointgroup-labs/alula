@@ -207,41 +207,102 @@ function dialogHandler() {
   }
 
   .info-summary {
-    padding: 0;
+    padding: $spacing-xl;
+    background-color: $navi-800;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    &__item {
+      &:first-child {
+        .info-summary__header {
+          padding-top: 0;
+        }
+      }
+      &:last-child {
+        .summary-list__item {
+          padding-bottom: 0;
+        }
+      }
+    }
 
     &__header {
       font-size: $text-xs;
-      color: $text-tertiary;
-      padding: 10px 16px;
-      border-bottom: 1px solid $border-primary;
+      font-weight: 700;
+      color: $text-primary;
+      padding: $spacing-md 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
     .summary-list {
-      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
 
       &__item {
-        height: 16px;
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: space-between;
         font-size: 12px;
+        font-weight: 400;
         color: $text-primary;
+        padding: $spacing-md 0;
 
         .label {
-          color: $text-tertiary;
+          color: #6b7a94;
         }
 
         .value {
           font-family: $font-JetBrainsMono;
           opacity: 0.8;
+
+          &:has(:is(.negative, .positive)) {
+            opacity: 1;
+          }
         }
       }
+    }
+
+    .positive {
+      color: $success;
+      opacity: 1;
+    }
+    .negative {
+      color: $danger;
+      opacity: 1;
+    }
+
+    .accordion-summary {
+      padding: 0;
+      border-radius: 0;
+      border: none;
+      .accordion-item {
+        background-color: transparent;
+        border: none;
+      }
+      .accordion-header {
+        padding: 0;
+        border: none;
+      }
+      .accordion-button {
+        padding: $spacing-md 0;
+        font-size: 12px;
+      }
+      .accordion-body {
+        padding: 0;
+      }
+    }
+
+    .max-ltv {
+      font-family: $font-JetBrainsMono;
+      font-size: 10px;
+      font-style: normal;
+      font-weight: 400;
+      line-height: 12px;
+      text-align: right;
+      margin-bottom: -12px;
     }
   }
 }

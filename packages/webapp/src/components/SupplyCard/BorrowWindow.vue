@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { bpsToNumber } from '@alula/client-sdk'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, truncatePercent } from '~/utils'
 
@@ -16,11 +15,14 @@ const {
   txFee,
   isLoadingFee,
   availableToBorrow,
-  closeLTV,
+  poolBorrowLimit,
   isCanBorrow,
   attentionText,
-  healthFactor,
-  dynamicUtilizationRate,
+  currentHealthFactor,
+  dynamicHealthFactor,
+  currentLtv,
+  maxLtv,
+  dynamicLtv,
   borrow: doBorrow,
 } = useBorrowDialog(selectedPool, toRef(true))
 
@@ -31,39 +33,6 @@ async function borrow() {
   }
   await doBorrow()
 }
-
-const debouncedFn = useDebounceFn(calculateDebtAccrual, 500)
-
-function calculateDebtAccrual(
-  deposit: number,
-  apyPercent: number,
-  price: number,
-) {
-  const apy = apyPercent / 100
-  const dailyRate = (1 + apy) ** (1 / 365) - 1
-  const daily = deposit * dailyRate * price
-  const yearly = deposit * apy * price
-  return {
-    daily: daily.toFixed(daily > 1 ? 2 : 4),
-    yearly: yearly.toFixed(yearly > 1 ? 2 : 4),
-  }
-}
-
-const debtAccrual = computedAsync(async () => {
-  if (!amount.value || amount.value === 0) {
-    return {
-      daily: 0,
-      yearly: 0,
-    }
-  }
-  const apyRaw = selectedPool?.value?.deposit_apy ?? '0'
-  const apy = Number(apyRaw.replace('%', ''))
-  const price = selectedPool?.value.price ?? 0
-  return debouncedFn(
-    Number(amount.value),
-    apy,
-    price)
-})
 </script>
 
 <template>
@@ -99,128 +68,116 @@ const debtAccrual = computedAsync(async () => {
     </input-widget>
   </div>
 
-  <div
-    class="info-card mt-3 info-supply"
-    :style="{ '--color': '#8a8df4', '--bg-color': 'rgba(99, 102, 241, 0.03)', '--border-color': 'rgba(99, 102, 241, 0.1)' }"
-  >
-    <div class="info-supply__header">
-      <div class="info-title">
-        Borrow APY
-      </div>
-      <div class="info-apy">
-        {{ selectedPool?.borrow_apy }}
-      </div>
-    </div>
-    <div class="info-supply__body">
-      <div class="info-detail">
-        <div class="info-detail__title">
-          Daily
-        </div>
-        <div class="info-detail__value">
-          {{ debtAccrual?.daily ? `$${formatPrice(debtAccrual?.daily)}` : '--' }}
-        </div>
-      </div>
-      <div class="info-detail">
-        <div class="info-detail__title">
-          Est. Debt / yr
-        </div>
-        <div class="info-detail__value">
-          {{ debtAccrual?.yearly ? `$${formatPrice(debtAccrual?.yearly)}` : '--' }}
-        </div>
-      </div>
-    </div>
-  </div>
-
   <Transition name="summary-slide">
     <div
       v-if="amount && amount > 0 && selectedPool"
       class="info-card mt-3 info-summary"
     >
-      <div class="info-summary__header">
-        Transaction Summary
+      <div class="info-summary__item">
+        <div class="info-summary__header">
+          Position Impact
 
-        <reload-coundown :size="18" />
+          <reload-coundown :size="18" />
+        </div>
+
+        <div class="summary-list">
+          <div class="summary-list__item">
+            <div class="label">
+              Health Factor
+            </div>
+            <div class="value">
+              <template v-if="isLoading">
+                <j-loading-spinner
+                  width="14px"
+                  style="padding: 0; width: 14px; margin-left: auto"
+                />
+              </template>
+              <template v-else>
+                <span class="positive">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
+                →
+                <span class="negative">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+              </template>
+            </div>
+          </div>
+
+          <div class="summary-list__item align-items-start mb-2">
+            <div class="label">
+              Loan-to-Value (LTV)
+            </div>
+            <div
+              class="value"
+            >
+              <div>
+                <span class="positive">{{ truncatePercent(currentLtv || 0, 2) }}%</span>
+                →
+                <span class="negative">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+              </div>
+              <div class="max-ltv">
+                Max LTV: {{ truncatePercent(maxLtv || 0, 2) }}%
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <div class="summary-list">
-        <!-- Health Factor -->
-        <div class="summary-list__item">
-          <div class="label">
-            Health Factor
+      <div class="separator" />
+
+      <div class="info-summary__item">
+        <div class="info-summary__header">
+          Fees
+        </div>
+
+        <div class="summary-list">
+          <div class="summary-list__item">
+            <div class="label">
+              Operation Fee
+            </div>
+            <div class="value">
+              {{ formatPrice(marketFee, 0, 5) }} {{ selectedPool?.asset.symbol }}
+            </div>
           </div>
-          <div class="value">
-            <template v-if="isLoading">
+
+          <div class="summary-list__item">
+            <div class="label">
+              Transaction Fee
+            </div>
+            <div class="value">
               <j-loading-spinner
+                v-if="isLoadingFee"
                 width="14px"
-                style="padding: 0; width: 14px; margin-left: auto"
+                style="margin:0 20px 0 auto;"
               />
-            </template>
-            <template v-else>
-              {{ truncatePercent(healthFactor) }}
-            </template>
+              <span v-else>{{ txFee }} XLM</span>
+            </div>
           </div>
         </div>
+      </div>
 
-        <!-- Borrowing Capacity -->
-        <div class="summary-list__item">
-          <div class="label">
-            Borrowing Capacity
-          </div>
-          <div class="value">
-            {{ shortenNumber(availableToBorrow || 0) }}
-          </div>
+      <div class="separator" />
+
+      <div class="info-summary__item">
+        <div class="info-summary__header">
+          Market Details
         </div>
 
-        <!-- Close LTV -->
-        <div class="summary-list__item">
-          <div class="label">
-            Close LTV
+        <div class="summary-list">
+          <div class="summary-list__item">
+            <div class="label">
+              Borrow Rate
+            </div>
+            <div class="value">
+              {{ selectedPool?.borrow_apy }}
+            </div>
           </div>
-          <div class="value">
-            {{ truncatePercent(closeLTV || 0, 2) }}%
-          </div>
-        </div>
 
-        <!-- Utilization Rate -->
-        <div class="summary-list__item">
-          <div class="label">
-            Utilization Rate
-          </div>
-          <div
-            class="value"
-            :style="{
-              color:
-                utilRateColor(Number(dynamicUtilizationRate.replace('%', '')),
-                              bpsToNumber(Number(selectedPool.raw.pool.config.health_config.utilization_ratio_limit_bps) || 0) * 100),
-              opacity: 1,
-            }"
-          >
-            {{ dynamicUtilizationRate }}
-          </div>
-        </div>
-
-        <!-- Market fee -->
-        <div class="summary-list__item">
-          <div class="label">
-            Operation Fee
-          </div>
-          <div class="value">
-            {{ formatPrice(marketFee, 0, 5) }} {{ selectedPool?.asset.symbol }}
-          </div>
-        </div>
-
-        <!-- Tx fee -->
-        <div class="summary-list__item">
-          <div class="label">
-            Transaction Fee
-          </div>
-          <div class="value">
-            <j-loading-spinner
-              v-if="isLoadingFee"
-              width="14px"
-              style="margin:0 20px 0 auto;"
-            />
-            <span v-else>{{ txFee }} XLM</span>
+          <div class="summary-list__item">
+            <div class="label">
+              Pool Liquidity
+            </div>
+            <div class="value">
+              {{ shortenNumber(poolBorrowLimit || 0) }} {{ selectedPool?.asset.symbol }}
+            </div>
           </div>
         </div>
       </div>

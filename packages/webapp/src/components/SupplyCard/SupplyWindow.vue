@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { bpsToNumber } from '@alula/client-sdk'
 import { POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, formatPrice } from '~/utils'
 
@@ -20,7 +19,10 @@ const {
   isCanSupply,
   attentionText,
   marketFee,
-  dynamicUtilizationRate,
+  currentLtv,
+  dynamicLtv,
+  currentHealthFactor,
+  dynamicHealthFactor,
   supply: doSupply,
 } = useSupplyDialog(selectedPool, toRef(true))
 
@@ -104,7 +106,123 @@ const rewardsEarnings = computedAsync(async () => {
     </input-widget>
   </div>
 
-  <div class="collateral mt-3">
+  <Transition name="summary-slide">
+    <div
+      v-if="amount && amount > 0 && selectedPool"
+      class="info-card mt-3 info-summary"
+    >
+      <div class="info-summary__item">
+        <div class="info-summary__header">
+          Position Impact
+          <reload-coundown
+            :size="16"
+            color="#54627D"
+            bg-color="#35476a"
+          />
+        </div>
+
+        <div class="summary-list">
+          <div class="summary-list__item">
+            <div class="label">
+              Health Factor
+            </div>
+            <div class="value">
+              <span class="positive">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
+              →
+              <span class="negative">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">
+              Loan-to-Value (LTV)
+            </div>
+            <div class="value">
+              <span class="positive">
+                {{ truncatePercent(currentLtv || 0, 2) }}%
+              </span>
+              →
+              <span class="negative">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="separator" />
+
+      <j-accordion
+        class="info-summary__item accordion-summary"
+        title="Fees"
+      >
+        <div class="summary-list">
+          <div class="summary-list__item">
+            <div class="label">
+              Operation Fee
+            </div>
+            <div class="value">
+              {{ formatPrice(marketFee) }} XLM
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">
+              Transaction Fee
+            </div>
+            <div class="value">
+              <j-loading-spinner
+                v-if="isLoadingFee"
+                width="14px"
+                style="margin:0 20px 0 auto;"
+              />
+              <span v-else>{{ txFee }} XLM</span>
+            </div>
+          </div>
+        </div>
+      </j-accordion>
+
+      <div class="separator" />
+
+      <div class="info-summary__item">
+        <div class="info-summary__header">
+          Market Details
+        </div>
+
+        <div class="summary-list">
+          <div class="summary-list__item">
+            <div class="label">
+              Supply APY
+            </div>
+            <div class="value">
+              {{ selectedPool?.deposit_apy }}
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">
+              Est. yearly income
+            </div>
+            <div class="value">
+              {{ rewardsEarnings?.yearly ? `$${formatPrice(rewardsEarnings?.yearly)}` : '--' }}
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">
+              Supply Limit
+            </div>
+            <div class="value">
+              {{ limitLabel }} {{ limitLabel !== '-' ? selectedPool?.asset.symbol : '' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Transition>
+
+  <div
+    v-if="amount && amount > 0 && selectedPool"
+    class="collateral mt-3"
+  >
     <div class="collateral-label">Collateral Only</div>
 
     <j-toggle
@@ -114,114 +232,6 @@ const rewardsEarnings = computedAsync(async () => {
     />
   </div>
 
-  <div
-    class="info-card mt-3 info-supply"
-    :style="{ '--color': '#22d3ee', '--bg-color': 'rgba(0, 211, 238, 0.04)', '--border-color': 'rgba(0, 211, 238, 0.1)' }"
-  >
-    <div class="info-supply__header">
-      <div class="info-title">
-        Supply APY
-      </div>
-      <div class="info-apy">
-        {{ selectedPool?.deposit_apy }}
-      </div>
-    </div>
-    <div class="info-supply__body">
-      <div class="info-detail">
-        <div class="info-detail__title">
-          Daily
-        </div>
-        <div class="info-detail__value">
-          {{ rewardsEarnings?.daily ? `$${formatPrice(rewardsEarnings?.daily)}` : '--' }}
-        </div>
-      </div>
-      <div class="info-detail">
-        <div class="info-detail__title">
-          Est. Earnings / yr
-        </div>
-        <div class="info-detail__value">
-          {{ rewardsEarnings?.yearly ? `$${formatPrice(rewardsEarnings?.yearly)}` : '--' }}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <Transition name="summary-slide">
-    <div
-      v-if="amount && amount > 0 && selectedPool"
-      class="info-card mt-3 info-summary"
-    >
-      <div class="info-summary__header">
-        Transaction Summary
-
-        <reload-coundown :size="18" />
-      </div>
-
-      <div class="summary-list">
-        <!-- Supply Limit -->
-        <div class="summary-list__item">
-          <div class="label">
-            Supply Limit
-          </div>
-          <div class="value">
-            {{ limitLabel }} {{ limitLabel !== '-' ? selectedPool?.asset.symbol : '' }}
-          </div>
-        </div>
-
-        <!-- Open LTV -->
-        <div class="summary-list__item">
-          <div class="label">
-            Open LTV
-          </div>
-          <div class="value">
-            {{ selectedPool?.open_ltv }}
-          </div>
-        </div>
-
-        <!-- Utilization Rate -->
-        <div class="summary-list__item">
-          <div class="label">
-            Utilization Rate
-          </div>
-          <div
-            class="value"
-            :style="{
-              color:
-                utilRateColor(Number(dynamicUtilizationRate.replace('%', '')),
-                              bpsToNumber(Number(selectedPool.raw.pool.config.health_config.utilization_ratio_limit_bps) || 0) * 100) }"
-          >
-            {{ dynamicUtilizationRate }}
-          </div>
-        </div>
-
-        <!-- Operation Fee -->
-        <div class="summary-list__item">
-          <div class="label">
-            Operation Fee
-          </div>
-          <div class="value">
-            {{ formatPrice(marketFee) }} XLM
-          </div>
-        </div>
-
-        <!-- Transaction Fee -->
-        <div class="summary-list__item">
-          <div class="label">
-            Transaction Fee
-          </div>
-          <div class="value">
-            <j-loading-spinner
-              v-if="isLoadingFee"
-              width="14px"
-              style="margin:0 20px 0 auto;"
-            />
-            <span v-else>{{ txFee }} XLM</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </Transition>
-
   <warning-block
     v-if="!isCanSupply"
     :text="attentionText"
@@ -229,7 +239,7 @@ const rewardsEarnings = computedAsync(async () => {
     class="mt-3"
   />
 
-  <div class="supply-card__action mt-4">
+  <div class="supply-card__action mt-3">
     <market-dialog-action-btn
       variant="brand"
       size="md"

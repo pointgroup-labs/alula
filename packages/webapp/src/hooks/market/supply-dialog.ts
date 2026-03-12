@@ -1,7 +1,9 @@
 import type { WatchStopHandle } from 'vue'
 import type { MarketTableItem } from '~/types/table'
 import { calcFee } from '@alula/client-sdk'
+import { calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { RELOAD_FEE_INTERVAL } from '~/config'
+import { calcHealthFactor, calcWeightedBorrowedUsd } from '~/utils'
 
 export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isOpen: Ref<boolean>) {
   const router = useRouter()
@@ -57,6 +59,107 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       ? poolData.value?.raw.pool.config.fee_config.add_collateral_fee_bps
       : poolData.value?.raw.pool.config.fee_config.deposit_fee_bps
     return calcFee(Number(amount.value || 0), marketFeeBps || 0)
+  })
+
+  const currentLtv = computed(() => {
+    const marketName = String(poolData.value?.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
+
+    if (!obligation || !marketState) {
+      return 0
+    }
+
+    const assetDecimals = marketState.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+    const poolsData = marketState.pools_data
+    const collateralValueUsd = calcUserTotalStakeInUsd(
+      obligation,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+    )
+
+    if (collateralValueUsd <= 0) {
+      return 0
+    }
+
+    const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
+      obligation,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+    )
+
+    return (weightedBorrowedValueUsd / collateralValueUsd) * 100
+  })
+
+  const dynamicLtv = computed(() => {
+    const marketName = String(poolData.value?.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
+
+    if (!obligation || !marketState) {
+      return 0
+    }
+
+    const assetDecimals = marketState.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+    const poolsData = marketState.pools_data
+    const collateralValueUsd = calcUserTotalStakeInUsd(
+      obligation,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+    )
+    const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
+      obligation,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+    )
+    const collateralAdjustUsd = (Number(amount.value) || 0) * Number(poolData.value?.price ?? 0)
+    const nextCollateralValueUsd = collateralValueUsd + collateralAdjustUsd
+
+    if (nextCollateralValueUsd <= 0) {
+      return 0
+    }
+
+    return (weightedBorrowedValueUsd / nextCollateralValueUsd) * 100
+  })
+
+  const currentHealthFactor = computed(() => {
+    const marketName = String(poolData.value?.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
+
+    if (!obligation || !marketState) {
+      return 10
+    }
+
+    const assetDecimals = marketState.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+    const poolsData = marketState.pools_data
+
+    return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals)
+  })
+
+  const dynamicHealthFactor = computed(() => {
+    const marketName = String(poolData.value?.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
+
+    if (!obligation || !marketState) {
+      return 10
+    }
+
+    const assetDecimals = marketState.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+    const poolsData = marketState.pools_data
+    const closeLtvRatio = Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps ?? 0) / 10_000
+    const depositAdjustUsd = -((Number(amount.value) || 0) * Number(poolData.value?.price ?? 0) * closeLtvRatio)
+
+    return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals, depositAdjustUsd)
   })
 
   const dynamicUtilizationRate = computed(() => {
@@ -270,6 +373,10 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     attentionText,
     infoPanelData,
     marketFee,
+    currentLtv,
+    dynamicLtv,
+    currentHealthFactor,
+    dynamicHealthFactor,
     dynamicUtilizationRate,
     supply,
     startFeeInterval,
