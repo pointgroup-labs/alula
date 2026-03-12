@@ -48,23 +48,16 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
 <template>
   <div class="pool-card stat-card stat-card--small">
     <div class="stat-card__header">
-      <div
-        class="header-icon"
-        :style="{ '--icon-bg': 'rgb(34 211 238 / 10%)', '--icon-color': '#22d3ee' }"
-      >
-        <i-metrics-arrow-up />
-      </div>
-
       <h3 class="pool-card-title">
         Supply
       </h3>
 
-      <div
-        class="pool-card-pill"
-        :style="{ '--color': '#10b981', '--background-color': 'rgb(16 185 129 / 10%)' }"
+      <j-pill-label
+        size="sm"
+        style="margin-left: auto;"
       >
         APY {{ selectedPool.deposit_apy }}
-      </div>
+      </j-pill-label>
     </div>
 
     <div class="stat-card__body">

@@ -60,23 +60,17 @@ const progress = computed(() => borrowCap.value.toFixed(2))
 <template>
   <div class="pool-card stat-card stat-card--small">
     <div class="stat-card__header">
-      <div
-        class="header-icon"
-        :style="{ '--icon-bg': 'rgba(99, 102, 241, 10%)', '--icon-color': '#8a8df4' }"
-      >
-        <i-metrics-arrow-down />
-      </div>
-
       <h3 class="pool-card-title">
         Borrow
       </h3>
 
-      <div
-        class="pool-card-pill"
-        :style="{ '--color': '#f43f5e', '--background-color': 'rgba(244, 63, 94, 10%)' }"
+      <j-pill-label
+        size="sm"
+        variant="indigo"
+        style="margin-left: auto;"
       >
-        APY {{ selectedPool.borrow_apy }}
-      </div>
+        RATE {{ selectedPool.borrow_apy }}
+      </j-pill-label>
     </div>
 
     <div class="stat-card__body">

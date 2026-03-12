@@ -245,6 +245,7 @@ watch(() => reset, () => {
 
   &__label-right {
     font-family: $font-JetBrainsMono;
+    user-select: none;
 
     span {
       border-bottom: 1px dashed $text-tertiary;

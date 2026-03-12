@@ -19,32 +19,7 @@ section#pool-detail-overview {
     }
 
     &-title {
-      font-size: 12px;
-    }
-
-    &-pill {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 50px;
-      color: var(--color);
-      background-color: var(--background-color);
-      margin-left: auto;
-    }
-
-    .header-icon {
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background-color: var(--icon-bg);
-      color: var(--icon-color);
-
-      svg {
-        width: 12px;
-        height: 12px;
-      }
+      font-size: 14px;
     }
   }
 
