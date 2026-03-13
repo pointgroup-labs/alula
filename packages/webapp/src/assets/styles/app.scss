@@ -6,13 +6,12 @@ html,
 body {
   margin: 0;
   font-family: $font-family-base;
-  background-color: $navi-900;
-  color: #fff;
+  background-color: $navi-950;
+  color: $text-primary;
 }
 
 body {
   opacity: 0;
-  background: #0a0e17;
 }
 
 body::before {

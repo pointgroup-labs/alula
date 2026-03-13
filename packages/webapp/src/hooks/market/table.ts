@@ -20,7 +20,10 @@ export function useMarketTable() {
       const oraclePriceDecimals = data?.marketState.oracle_price_decimals ?? 0
       const poolsData = data?.marketState?.pools_data ?? []
       const assets: TableAsset['asset'][] = []
-      let marketSize = 0
+      const marketSize = {
+        supplied: 0,
+        borrowed: 0,
+      }
       const tableItems = poolsData?.map((d) => {
         const pool = d.pool
         const obligation = userStore.state.obligations[marketName]
@@ -59,7 +62,8 @@ export function useMarketTable() {
         const available = Number(bigintToNumber(d.total_available_adjusted, assetDecimals))
         const asset = getFullTokenData(pool.token_symbol)
         assets.push(asset)
-        marketSize += (total_supply + total_collateral) * price
+        marketSize.supplied += (total_supply + total_collateral) * price
+        marketSize.borrowed += total_borrowed * price
         return {
           raw: d,
           asset,
@@ -136,5 +140,8 @@ export type MarketWithTableItems = {
   marketName: string
   assets: TableAsset['asset'][]
   tableItems: MarketTableItem[]
-  marketSize: number
+  marketSize: {
+    supplied: number
+    borrowed: number
+  }
 }

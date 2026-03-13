@@ -63,7 +63,7 @@ watch(() => tabs, (nextTabs) => {
     cursor: pointer;
 
     &--active {
-      border-color: var(--active-tab-color, $text-tertiary);
+      border-color: var(--active-tab-color, $text-primary);
     }
   }
 }

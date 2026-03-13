@@ -128,7 +128,13 @@ watch([
           <market-info-badge>
             <span data-name="title">Market Size: </span>
 
-            <span>${{ shortenNumber(market.marketSize) }}</span>
+            <span>${{ shortenNumber(market.marketSize.supplied) }}</span>
+          </market-info-badge>
+
+          <market-info-badge>
+            <span data-name="title">Borrowed: </span>
+
+            <span>${{ shortenNumber(market.marketSize.borrowed) }}</span>
           </market-info-badge>
 
           <market-info-badge v-if="market.assets.length > 0">
