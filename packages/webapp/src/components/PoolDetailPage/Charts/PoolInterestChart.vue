@@ -20,7 +20,7 @@ const pool = computed(() => selectedPool.value?.raw.pool)
 const BPS = 10_000n
 
 /* ------------------------------------------------ */
-/* INTEREST MODEL (твоя логика без изменений) */
+/* INTEREST MODEL
 /* ------------------------------------------------ */
 
 type KinkedModel = {
@@ -78,17 +78,21 @@ const kinkModel = computed<KinkedModel | null>(() => {
 })
 
 const optimalUtilizationPct = computed(() =>
+  kinkModel.value ? bpsToPct(kinkModel.value.kink1_ur_bps) : 80,
+)
+
+const chartMaxUtilizationPct = computed(() =>
   kinkModel.value ? bpsToPct(kinkModel.value.kink2_ur_bps) : 80,
 )
 
 const maxUtilizationPct = computed(() => {
   const relevantMaxPct = Math.max(
-    optimalUtilizationPct.value,
+    chartMaxUtilizationPct.value,
     currentUtilizationPct.value,
   )
 
   if (!Number.isFinite(relevantMaxPct) || relevantMaxPct <= 0) {
-    return optimalUtilizationPct.value || 100
+    return chartMaxUtilizationPct.value || 100
   }
 
   return Math.min(relevantMaxPct, 100)
@@ -113,6 +117,14 @@ const chartCurrentUtilizationPct = computed(() => currentUtilizationPct.value)
 
 const chartOptimalUtilizationPct = computed(() => optimalUtilizationPct.value)
 
+const chartCurrentUtilizationPctColor = computed(() => {
+  if (!currentUtilizationPct.value || !chartOptimalUtilizationPct.value) {
+    return '#c6ccd9'
+  }
+  const percent = currentUtilizationPct.value / chartOptimalUtilizationPct.value
+  return percent < 0.7 ? '#00c950' : (percent < 0.9 ? '#f0b100' : '#f43f5e')
+})
+
 /* ------------------------------------------------ */
 /* CURVE */
 /* ------------------------------------------------ */
@@ -136,7 +148,12 @@ const yMaxPct = computed(() => {
   if (!kinkModel.value) { return 100 }
 
   const visibleMaxAprPct = aprAtPct(maxUtilizationPct.value)
-  return Math.min(Math.max(10, visibleMaxAprPct), 500)
+  const roundedMaxAprPct = Math.ceil(visibleMaxAprPct / 10) * 10
+  const yAxisMaxPct = roundedMaxAprPct <= visibleMaxAprPct
+    ? roundedMaxAprPct + 10
+    : roundedMaxAprPct
+
+  return Math.min(Math.max(10, yAxisMaxPct), 500)
 })
 
 function aprAtPct(pct: number) {
@@ -166,7 +183,7 @@ const option = computed<EChartsOption>(() => {
       left: 10,
       right: 10,
       top: 10,
-      bottom: 18,
+      bottom: 34,
     },
 
     tooltip: {
@@ -194,6 +211,13 @@ const option = computed<EChartsOption>(() => {
       min: 0,
       max: maxUtilizationPct.value,
       splitNumber: isMobile.value ? 4 : 6,
+      name: 'Utilization Rate',
+      nameLocation: 'middle',
+      nameGap: isMobile.value ? 28 : 30,
+      nameTextStyle: {
+        color: axisText,
+        fontSize: isMobile.value ? 10 : 12,
+      },
 
       axisLabel: {
         color: axisText,
@@ -260,11 +284,36 @@ const option = computed<EChartsOption>(() => {
           data: [
             {
               xAxis: chartCurrentUtilizationPct.value,
-              lineStyle: { color: '#f43f5e' },
+              // label: {
+              //   show: true,
+              //   formatter: 'Current',
+              //   position: 'insideEndTop',
+              //   color: '#f43f5e',
+              //   fontSize: 12,
+              // },
+              lineStyle: { color: chartCurrentUtilizationPctColor.value ?? '#f43f5e' },
             },
             {
               xAxis: chartOptimalUtilizationPct.value,
+              // label: {
+              //   show: true,
+              //   formatter: 'Optimal',
+              //   position: 'insideEndTop',
+              //   color: '#22d3ee',
+              //   fontSize: 12,
+              // },
               lineStyle: { color: '#22d3ee' },
+            },
+            {
+              xAxis: chartMaxUtilizationPct.value,
+              // label: {
+              //   show: true,
+              //   formatter: 'Utilization',
+              //   position: 'insideEndTop',
+              //   color: '#22d3ee',
+              //   fontSize: 12,
+              // },
+              lineStyle: { color: '#f43f5e' },
             },
           ],
         },
@@ -277,7 +326,7 @@ const option = computed<EChartsOption>(() => {
           chartCurrentUtilizationPct.value,
           aprAtPct(chartCurrentUtilizationPct.value),
         ]],
-        itemStyle: { color: '#f43f5e' },
+        itemStyle: { color: chartCurrentUtilizationPctColor.value ?? '#f43f5e' },
         z: 5,
       },
 
@@ -289,6 +338,17 @@ const option = computed<EChartsOption>(() => {
           aprAtPct(chartOptimalUtilizationPct.value),
         ]],
         itemStyle: { color: '#22d3ee' },
+        z: 5,
+      },
+
+      {
+        type: 'scatter',
+        symbolSize: 10,
+        data: [[
+          chartMaxUtilizationPct.value,
+          aprAtPct(chartMaxUtilizationPct.value),
+        ]],
+        itemStyle: { color: '#f43f5e' },
         z: 5,
       },
     ],
@@ -331,6 +391,12 @@ onBeforeUnmount(() => {
 
         <div class="current-metrics-data">
           <metric-indicator
+            :color="chartCurrentUtilizationPctColor"
+            label="Current"
+            :value="`${truncatePercent(currentUtilizationPct, 2)}%`"
+          />
+
+          <metric-indicator
             color="#22d3ee"
             label="Optimal"
             :value="`${optimalUtilizationPct}%`"
@@ -338,9 +404,10 @@ onBeforeUnmount(() => {
 
           <metric-indicator
             color="#f43f5e"
-            label="Current"
-            :value="`${truncatePercent(currentUtilizationPct, 2)}%`"
+            label="Utilization"
+            :value="`${maxUtilizationPct}%`"
           />
+
         </div>
       </div>
 
