@@ -180,9 +180,12 @@ const rewardsEarnings = computedAsync(async () => {
           <div class="summary-list__item">
             <div class="label">
               Est. yearly income
+              <info-tooltip>
+                Estimated earnings from your deposit based on the current APY.
+              </info-tooltip>
             </div>
             <div class="value">
-              {{ rewardsEarnings?.yearly ? `$${formatPrice(rewardsEarnings?.yearly)}` : '--' }}
+              {{ rewardsEarnings?.yearly ? `≈ $${formatPrice(rewardsEarnings?.yearly)}` : '--' }}
             </div>
           </div>
 

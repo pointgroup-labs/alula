@@ -15,17 +15,23 @@ const emits = defineEmits(['dialogHandler'])
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
 
+const marketsStore = useMarketsStore()
+const marketState = computed(() => marketsStore.state.markets[selectedPool?.value?.market ?? '']?.marketState)
+const poolsData = computed(() => marketState.value?.pools_data ?? [])
+
 const {
   amount,
   agree,
   isLoading,
+  obligation,
   marketFee,
   txFee,
   isLoadingFee,
   availableToBorrow,
   poolBorrowLimit,
   isCanBorrow,
-  attentionText,
+  collateralValueUsd,
+  // attentionText,
   currentHealthFactor,
   dynamicHealthFactor,
   currentLtv,
@@ -41,6 +47,32 @@ async function borrow() {
   }
   await doBorrow()
 }
+
+const positions = computed(() => {
+  if (!obligation.value) {
+    return null
+  }
+  const borrows = obligation.value.borrows?.map(([address]) => {
+    const symbol = poolsData.value?.find(p => p.pool.pool_address === address)?.pool?.token_symbol ?? ''
+    const asset = getFullTokenData(symbol)
+    return {
+      address,
+      ...asset,
+    }
+  }) ?? []
+  const deposits = obligation.value.deposits?.map(([address]) => {
+    const symbol = poolsData.value?.find(p => p.pool.pool_address === address)?.pool?.token_symbol ?? ''
+    const asset = getFullTokenData(symbol)
+    return {
+      address,
+      ...asset,
+    }
+  }) ?? []
+  return {
+    borrows,
+    deposits,
+  }
+})
 </script>
 
 <template>
@@ -138,10 +170,36 @@ async function borrow() {
 
       <div class="info-summary__item">
         <div class="info-summary__header">
-          Market Details
+          Borrow details
         </div>
 
         <div class="summary-list">
+          <div
+            v-if="positions && positions?.deposits?.length > 0"
+            class="summary-list__item"
+          >
+            <div class="label">
+              Collateral assets
+            </div>
+            <div class="value collateral-assets">
+              <img
+                v-for="collateral in positions?.deposits"
+                :key="collateral.name"
+                :src="collateral?.icon"
+                alt="asset icon"
+              >
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">
+              Total collateral value
+            </div>
+            <div class="value">
+              {{ formatCompactUSD(collateralValueUsd) }}
+            </div>
+          </div>
+
           <div class="summary-list__item">
             <div class="label">
               Borrow Rate
@@ -153,7 +211,7 @@ async function borrow() {
 
           <div class="summary-list__item">
             <div class="label">
-              Pool Liquidity
+              Available liquidity
             </div>
             <div class="value">
               {{ shortenNumber(poolBorrowLimit || 0) }} {{ selectedPool?.asset.symbol }}
@@ -196,11 +254,11 @@ async function borrow() {
     </div>
   </Transition>
 
-  <warning-block
+  <!-- <warning-block
     :text="attentionText"
     :is-warning="!isCanBorrow"
     class="mt-3"
-  />
+  /> -->
 
   <div class="extra-info mt-3">
     <j-checkbox

@@ -207,6 +207,9 @@
 
       .label {
         color: #6b7a94;
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
 
       .value {
@@ -216,6 +219,23 @@
         &:has(:is(.negative, .positive)) {
           opacity: 1;
         }
+      }
+    }
+  }
+
+  .collateral-assets {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      border-radius: 50%;
+
+      &:not(:first-child) {
+        margin-left: -8px;
       }
     }
   }

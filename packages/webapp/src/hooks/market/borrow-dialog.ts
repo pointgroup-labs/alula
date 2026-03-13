@@ -28,6 +28,10 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
 
   const isLoading = computed(() => marketsStore.poolActiveAddress === poolData.value?.raw.pool.pool_address)
 
+  const marketName = computed(() => poolData.value?.market)
+  const obligation = computed(() => userStore.state.obligations[String(marketName.value)])
+  const marketState = computed(() => marketsStore.state.markets[String(marketName.value)]?.marketState)
+
   const poolBorrowLimit = computed(() => {
     if (!poolData.value) {
       return 0
@@ -63,22 +67,18 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const marketName = String(poolData.value.market)
-    const obligation = userStore.state.obligations[marketName]
-    const marketState = marketsStore.state.markets[marketName]?.marketState
-
-    if (!obligation || !marketState) {
+    if (!obligation.value || !marketState.value) {
       return 0
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
-    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-    const poolsData = marketState.pools_data
+    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
+    const poolsData = marketState.value.pools_data
 
-    const depositWithOpenLTV = calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'open')
+    const depositWithOpenLTV = calcUserTotalStakeInUsd(obligation.value, poolsData, assetDecimals, oraclePriceDecimals, 'open')
 
     let borrowedWithLF = 0
-    for (const [borrowedPoolAddress, data] of obligation.borrows) {
+    for (const [borrowedPoolAddress, data] of obligation.value.borrows) {
       const borrowedPool = poolsData.find(p => p.pool.pool_address === borrowedPoolAddress)
       if (!borrowedPool) {
         continue
@@ -91,11 +91,11 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       borrowedWithLF += bpsToNumber(Number(borrowBps)) * Number(price) * lf
     }
 
-    const positionsWithNonZeroLTV = obligation.deposits.filter(([poolAddr]) => {
+    const positionsWithNonZeroLTV = obligation.value.deposits.filter(([poolAddr]) => {
       const pool = poolsData.find(p => p.pool.pool_address === poolAddr)
       return pool && Number(pool.pool.config.health_config.close_ltv_bps) > 0
     }).length
-    const minCollateralUsd = (Number(marketState.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
+    const minCollateralUsd = (Number(marketState.value.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
 
     const borrowingCapacityUsd = Math.max(depositWithOpenLTV - borrowedWithLF - minCollateralUsd, 0)
 
@@ -123,94 +123,89 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
   })
 
   const dynamicHealthFactor = computed(() => {
-    const marketName = String(poolData.value?.market)
-    const obligation = userStore.state.obligations[marketName]
-    const marketState = marketsStore.state.markets[marketName]?.marketState
-    if (!obligation || !marketState) {
+    if (!obligation.value || !marketState.value) {
       return 0
     }
-    const assetDecimals = marketState.asset_decimals ?? 7
-    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-    const poolsData = marketState.pools_data
+    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
+    const poolsData = marketState.value.pools_data
 
     const price = Number(poolData.value?.price || 0)
     const liabilityFactor = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.liability_factor_bps || 0))
     const borrowAdjustUsd = (amount.value || 0) * price * liabilityFactor
 
-    return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals, 0, borrowAdjustUsd)
+    return calcHealthFactor(obligation.value, poolsData, assetDecimals, oraclePriceDecimals, 0, borrowAdjustUsd)
   })
 
   const currentHealthFactor = computed(() => {
-    const marketName = String(poolData.value?.market)
-    const obligation = userStore.state.obligations[marketName]
-    const marketState = marketsStore.state.markets[marketName]?.marketState
-    if (!obligation || !marketState) {
+    if (!obligation.value || !marketState.value) {
       return 10
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
-    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-    const poolsData = marketState.pools_data
+    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
+    const poolsData = marketState.value.pools_data
 
-    return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals)
+    return calcHealthFactor(obligation.value, poolsData, assetDecimals, oraclePriceDecimals)
+  })
+
+  const collateralValueUsd = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
+    const poolsData = marketState.value.pools_data
+
+    return calcUserTotalStakeInUsd(
+      obligation.value,
+      poolsData,
+      assetDecimals,
+      oraclePriceDecimals,
+    )
   })
 
   const currentLtv = computed(() => {
-    const marketName = String(poolData.value?.market)
-    const obligation = userStore.state.obligations[marketName]
-    const marketState = marketsStore.state.markets[marketName]?.marketState
-    if (!obligation || !marketState) {
+    if (!obligation.value || !marketState.value) {
       return 0
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
-    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-    const poolsData = marketState.pools_data
-    const collateralValueUsd = calcUserTotalStakeInUsd(
-      obligation,
-      poolsData,
-      assetDecimals,
-      oraclePriceDecimals,
-    )
+    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
+    const poolsData = marketState.value.pools_data
+    const collateralValue = collateralValueUsd.value
 
-    if (collateralValueUsd <= 0) {
+    if (collateralValue <= 0) {
       return 0
     }
 
     const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
-      obligation,
+      obligation.value,
       poolsData,
       assetDecimals,
       oraclePriceDecimals,
     )
 
-    return (weightedBorrowedValueUsd / collateralValueUsd) * 100
+    return (weightedBorrowedValueUsd / collateralValue) * 100
   })
 
   const maxLtv = computed(() => {
-    const marketName = String(poolData.value?.market)
-    const obligation = userStore.state.obligations[marketName]
-    const marketState = marketsStore.state.markets[marketName]?.marketState
-    if (!obligation || !marketState) {
+    if (!obligation.value || !marketState.value) {
       return 0
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
-    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-    const poolsData = marketState.pools_data
-    const collateralValueUsd = calcUserTotalStakeInUsd(
-      obligation,
-      poolsData,
-      assetDecimals,
-      oraclePriceDecimals,
-    )
+    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
+    const poolsData = marketState.value.pools_data
+    const collateralValue = collateralValueUsd.value
 
-    if (collateralValueUsd <= 0) {
+    if (collateralValue <= 0) {
       return 0
     }
 
     const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
-      obligation,
+      obligation.value,
       poolsData,
       assetDecimals,
       oraclePriceDecimals,
@@ -219,33 +214,25 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const liabilityFactor = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.liability_factor_bps || 0))
     const maxBorrowAdjustUsd = availableToBorrow.value * price * liabilityFactor
 
-    return ((weightedBorrowedValueUsd + maxBorrowAdjustUsd) / collateralValueUsd) * 100
+    return ((weightedBorrowedValueUsd + maxBorrowAdjustUsd) / collateralValue) * 100
   })
 
   const dynamicLtv = computed(() => {
-    const marketName = String(poolData.value?.market)
-    const obligation = userStore.state.obligations[marketName]
-    const marketState = marketsStore.state.markets[marketName]?.marketState
-    if (!obligation || !marketState) {
+    if (!obligation.value || !marketState.value) {
       return 0
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
-    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
-    const poolsData = marketState.pools_data
-    const collateralValueUsd = calcUserTotalStakeInUsd(
-      obligation,
-      poolsData,
-      assetDecimals,
-      oraclePriceDecimals,
-    )
+    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
+    const poolsData = marketState.value.pools_data
+    const collateralValue = collateralValueUsd.value
 
-    if (collateralValueUsd <= 0) {
+    if (collateralValue <= 0) {
       return 0
     }
 
     const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
-      obligation,
+      obligation.value,
       poolsData,
       assetDecimals,
       oraclePriceDecimals,
@@ -254,7 +241,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const liabilityFactor = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.liability_factor_bps || 0))
     const borrowAdjustUsd = (Number(amount.value) || 0) * price * liabilityFactor
 
-    return ((weightedBorrowedValueUsd + borrowAdjustUsd) / collateralValueUsd) * 100
+    return ((weightedBorrowedValueUsd + borrowAdjustUsd) / collateralValue) * 100
   })
 
   const marketFee = computed(() => {
@@ -364,6 +351,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
 
   return {
     agree,
+    obligation,
     isLoading,
     isLoadingFee,
     marketFee,
@@ -373,6 +361,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     dynamicHealthFactor,
     poolBorrowLimit,
     availableToBorrow,
+    collateralValueUsd,
     currentLtv,
     maxLtv,
     dynamicLtv,
