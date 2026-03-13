@@ -18,6 +18,12 @@ section#pool-detail-overview {
       gap: 12px;
     }
 
+    .stat-card__body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
     &-title {
       font-size: 14px;
     }
@@ -27,8 +33,9 @@ section#pool-detail-overview {
     padding: 10px;
     display: flex;
     align-items: flex-start;
-    background-color: color-mix(in oklab, $secondary 20%, transparent);
+    background-color: $bg-tertiary;
     border-radius: $radius-2xl;
+    border: 1px solid $border-secondary;
   }
 
   .detail-list {

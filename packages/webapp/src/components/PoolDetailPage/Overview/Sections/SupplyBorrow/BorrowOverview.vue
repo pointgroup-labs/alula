@@ -69,7 +69,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
         variant="indigo"
         style="margin-left: auto;"
       >
-        RATE {{ selectedPool.borrow_apy }}
+        Rate {{ selectedPool.borrow_apy }}
       </j-pill-label>
     </div>
 
