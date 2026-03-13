@@ -76,7 +76,7 @@ const positions = computed(() => {
 </script>
 
 <template>
-  <div class="input-wrapper mt-4 borrow-input-wrapper">
+  <div class="input-wrapper borrow-input-wrapper">
     <input-widget
       v-model="amount"
       :balance="availableToBorrow"

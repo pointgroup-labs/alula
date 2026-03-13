@@ -80,7 +80,7 @@ const rewardsEarnings = computedAsync(async () => {
 </script>
 
 <template>
-  <div class="input-wrapper mt-4 supply-input-wrapper">
+  <div class="input-wrapper supply-input-wrapper">
     <input-widget
       v-model="amount"
       :balance="balance"

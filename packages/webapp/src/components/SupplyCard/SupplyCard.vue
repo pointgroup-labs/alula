@@ -16,7 +16,7 @@ function dialogHandler() {
 <template>
   <div class="supply-card">
     <div class="supply-card__body">
-      <div class="supply-card-tabs">
+      <div class="supply-card-tabs mb-4">
         <div
           v-for="tab in tabs"
           :key="tab.value"
