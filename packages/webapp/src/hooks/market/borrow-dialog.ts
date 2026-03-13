@@ -249,10 +249,12 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     return calcFee(Number(amount.value || 0), marketFeeBps || 0)
   })
 
-  const attentionText = computed(() =>
-    isCanBorrow.value
-      ? 'Parameter changes via governance can alter your account health factor and risk of liquidation.'
-      : 'You cannot open a loan in the same pool where you have a deposit.')
+  const attentionText = computed(() => {
+    if (!isCanBorrow.value) {
+      return 'You need to deposit collateral before you can borrow.'
+    }
+    return availableToBorrow.value <= 0 && isCanBorrow.value ? 'You don\'t have enough collateral or available borrow limit.' : null
+  })
 
   async function borrow() {
     if (!publicKey.value || !poolData.value?.raw.pool.pool_address) {

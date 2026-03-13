@@ -31,7 +31,7 @@ const {
   poolBorrowLimit,
   isCanBorrow,
   collateralValueUsd,
-  // attentionText,
+  attentionText,
   currentHealthFactor,
   dynamicHealthFactor,
   currentLtv,
@@ -254,16 +254,16 @@ const positions = computed(() => {
     </div>
   </Transition>
 
-  <!-- <warning-block
+  <warning-block
+    v-if="attentionText"
     :text="attentionText"
-    :is-warning="!isCanBorrow"
     class="mt-3"
-  /> -->
+  />
 
   <div class="extra-info mt-3">
     <j-checkbox
       v-model="agree"
-      :disabled="!isCanBorrow"
+      :disabled="!isCanBorrow || availableToBorrow <= 0"
     >
       <div class="extra-info__label">
         I acknowledge the risks involved.
@@ -277,7 +277,7 @@ const positions = computed(() => {
       size="md"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"
-      :disabled="!agree || !isCanBorrow || amount > availableToBorrow"
+      :disabled="!agree || !isCanBorrow || amount > availableToBorrow || availableToBorrow <= 0"
       @click-handler="borrow"
     >
       <i-metrics-complete class="complete-icon" />  Borrow {{ selectedPool?.asset.symbol }}
