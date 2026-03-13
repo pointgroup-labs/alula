@@ -29,12 +29,12 @@ $btn-variants: (
   ),
 
   brand-outlined: (
-    bg: $brand-900,
+    bg: $brand-700,
     color: $navi-25,
     outline: 1px solid $brand-500,
-    hoverBg: $brand-600,
+    hoverBg: $brand-500,
     hoverColor: $brand-50,
-    focusBg: $brand-900,
+    focusBg: $brand-700,
     focusOutline: 1px solid $brand-400,
   ),
 
@@ -49,13 +49,13 @@ $btn-variants: (
   ),
 
   brand-secondary-outlined: (
-    bg: $indigo-900,
+    bg: $indigo-700,
     color: $navi-25,
     outline: 1px solid $indigo-500,
-    hoverBg: $indigo-600,
+    hoverBg: $indigo-500,
     hoverColor: $indigo-50,
-    focusBg: $indigo-900,
-    focusOutline: 1px solid $indigo-400,
+    focusBg: $indigo-700,
+    focusOutline: 1px solid $indigo-300,
   ),
 
   ghost: (
