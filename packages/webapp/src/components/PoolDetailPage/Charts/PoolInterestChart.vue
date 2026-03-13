@@ -211,7 +211,7 @@ const option = computed<EChartsOption>(() => {
       min: 0,
       max: maxUtilizationPct.value,
       splitNumber: isMobile.value ? 4 : 6,
-      name: 'Utilization Rate',
+      // name: 'Utilization Rate',
       nameLocation: 'middle',
       nameGap: isMobile.value ? 28 : 30,
       nameTextStyle: {
@@ -386,32 +386,48 @@ onBeforeUnmount(() => {
     <div class="stat-card">
       <div class="stat-card__header">
         <h3 class="title">
-          Interest Rate
+          Utilization & interest rate model
         </h3>
-
-        <div class="current-metrics-data">
-          <metric-indicator
-            :color="chartCurrentUtilizationPctColor"
-            label="Current"
-            :value="`${truncatePercent(currentUtilizationPct, 2)}%`"
-          />
-
-          <metric-indicator
-            color="#22d3ee"
-            label="Optimal"
-            :value="`${optimalUtilizationPct}%`"
-          />
-
-          <metric-indicator
-            color="#f43f5e"
-            label="Utilization"
-            :value="`${maxUtilizationPct}%`"
-          />
-
-        </div>
       </div>
 
       <div class="stat-card__body">
+        <div class="interest-stats">
+          <div
+            class="stat-card"
+            :style="{ '--color': '#22d3ee' }"
+          >
+            <div class="stat-card__label">
+              Optimal utilization
+            </div>
+            <div class="stat-card__value">
+              {{ truncatePercent(optimalUtilizationPct, 2) }}%
+            </div>
+          </div>
+
+          <div
+            class="stat-card"
+            :style="{ '--color': chartCurrentUtilizationPctColor }"
+          >
+            <div class="stat-card__label">
+              Сurrent utilization
+            </div>
+            <div class="stat-card__value">
+              {{ truncatePercent(currentUtilizationPct, 2) }}%
+            </div>
+          </div>
+
+          <div
+            class="stat-card"
+            :style="{ '--color': '#f43f5e' }"
+          >
+            <div class="stat-card__label">
+              Max utilization
+            </div>
+            <div class="stat-card__value">
+              {{ truncatePercent(maxUtilizationPct, 2) }}%
+            </div>
+          </div>
+        </div>
         <client-only>
           <div class="interest-chart">
             <div
@@ -428,34 +444,56 @@ onBeforeUnmount(() => {
 
 <style lang="scss">
 section#market-interest-chart {
-  .current-metrics-data {
+  .stat-card__body {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-left: auto;
+    gap: 24px;
+  }
+  .interest-chart {
+    flex: 1;
+  }
+  .interest-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 
-    &__item {
+    .stat-card {
+      width: 160px;
+      padding: 10px;
       display: flex;
+      justify-content: center;
       align-items: center;
-      gap: 6px;
-      font-size: 12px;
+      gap: 8px;
+      border-radius: $radius-md;
+      background: $bg-tertiary;
 
-      &::before {
-        content: '';
-        width: 6px;
-        height: 6px;
-        display: flex;
-        border-radius: 50%;
-        background-color: var(--color);
-      }
-
-      .label {
+      &__label {
         color: $text-tertiary;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 18px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        &:before {
+          content: '';
+          display: block;
+          min-width: 6px;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: var(--color, $text-primary);
+        }
       }
 
-      .value {
-        color: var(--color);
+      &__value {
+        color: var(--color, $text-primary);
         font-family: $font-JetBrainsMono;
+        font-size: 18px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: normal;
       }
     }
   }

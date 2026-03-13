@@ -33,5 +33,9 @@ section#pool-details-bottom {
     position: relative;
     margin-bottom: -8px;
   }
+
+  .stat-card__body {
+    overflow-x: auto;
+  }
 }
 </style>

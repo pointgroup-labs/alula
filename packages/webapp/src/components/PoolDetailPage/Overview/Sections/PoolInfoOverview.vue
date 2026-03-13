@@ -1,7 +1,10 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
+import { HALBORN_AUDITOR } from '~/config/audits'
 
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
+
+const { generateExplorerLink } = useExplorerLink()
 
 const pool = computed(() => selectedPool.value?.raw?.pool)
 
@@ -26,6 +29,11 @@ const detailCardsData = computed(() => {
     poolAddress: pool.value?.pool_address,
   }
 })
+
+function normalizeDate(date: string): string {
+  const dateObj = new Date(date)
+  return `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`
+}
 </script>
 
 <template>
@@ -72,10 +80,28 @@ const detailCardsData = computed(() => {
             </div>
             <a
               class="value"
-              href="#"
+              :href="generateExplorerLink(String(detailCardsData.poolAddress), 'contract')"
               target="_blank"
             >
-              {{ shortenAddress(detailCardsData.poolAddress ?? '', 6) }}
+              {{ shortenAddress(detailCardsData.poolAddress ?? '', 4) }}
+              <i-app-export-icon class="export-icon" />
+            </a>
+          </div>
+
+          <div class="info-list__item auditor-item">
+            <div class="title">
+              Audited ({{ normalizeDate(HALBORN_AUDITOR.auditedAt) }})
+            </div>
+            <a
+              class="value"
+              :href="HALBORN_AUDITOR.link"
+              target="_blank"
+            >
+              <img
+                :src="HALBORN_AUDITOR.logo"
+                alt="auditor logo"
+              >
+              {{ HALBORN_AUDITOR.name }}
               <i-app-export-icon class="export-icon" />
             </a>
           </div>
@@ -98,6 +124,7 @@ const detailCardsData = computed(() => {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
+    white-space: nowrap;
 
     &::after {
       content: '';
@@ -107,6 +134,13 @@ const detailCardsData = computed(() => {
       width: 1px;
       height: calc(100% + 32px);
       background-color: $border-primary;
+    }
+  }
+
+  .auditor-item {
+    img {
+      width: 18px;
+      height: 12px;
     }
   }
 
@@ -122,18 +156,23 @@ const detailCardsData = computed(() => {
   }
 
   a {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     text-decoration: none;
     transition: opacity 0.1s ease;
 
     &:hover {
-      color: $cyan;
+      .export-icon {
+        color: $text-primary;
+      }
     }
   }
 
   .export-icon {
-    margin-left: 6px;
     width: 12px;
     height: 12px;
+    color: $navi-300;
   }
 }
 </style>
