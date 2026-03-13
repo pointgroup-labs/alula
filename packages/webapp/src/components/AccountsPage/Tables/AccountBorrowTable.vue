@@ -103,7 +103,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
         v-if="isHasObligations"
         label="Total Borrowed"
         :value="`${totalDebt}`"
-        color="#f43f5e"
+        color="#f04438"
       />
     </div>
 

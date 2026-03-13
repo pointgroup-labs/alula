@@ -53,22 +53,3 @@ export function calcHealthFactor(
   const hf = adjustedBorrow > 0 ? adjustedDeposit / adjustedBorrow : 10
   return Math.min(hf, 10)
 }
-
-const SUCCESS_COLOR = '#00c950'
-const WARNING_COLOR = '#f0b100'
-const DANGER_COLOR = '#f43f5e'
-
-export function healthFactorColor(hf?: number | null): string {
-  if (!hf) {
-    return SUCCESS_COLOR
-  }
-  return hf < 1.2 ? DANGER_COLOR : (hf < 1.5 ? WARNING_COLOR : SUCCESS_COLOR)
-}
-
-export function ltvColor(current: number, max?: number) {
-  if (!max) {
-    return
-  }
-  const percentage = current / max
-  return percentage < 0.7 ? SUCCESS_COLOR : (percentage < 0.9 ? WARNING_COLOR : DANGER_COLOR)
-}

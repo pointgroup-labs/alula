@@ -195,7 +195,7 @@ $multiplier-color: #c7c7c7;
         transform: translateX(-50%);
         white-space: nowrap;
         color: #878787;
-        font-size: 10px;
+        font-size: $text-xs;
         font-style: normal;
         font-weight: 600;
         line-height: 12px;

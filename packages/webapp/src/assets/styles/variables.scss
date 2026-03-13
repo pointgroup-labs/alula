@@ -3,8 +3,8 @@ $primary: #e8edf5;
 $secondary: #1a2236;
 $accent: #f59e0b;
 $warning: #f0b100;
-$danger: #f43f5e;
-$success: #00c950;
+$danger: #f04438;
+$success: #17B26A;
 $indigo: #8a8df4;
 $cyan: #22d3ee;
 
@@ -51,12 +51,13 @@ $indigo-100: #5e61d4;
 $indigo-50: $indigo;
 
 // red
+$red-975: #271312;
 $red-950: #55160c;
 $red-900: #7a271a;
 $red-800: #912018;
 $red-700: #b42318;
 $red-600: #d92d20;
-$red-500: #f04438;
+$red-500: $danger;
 $red-400: #f97066;
 $red-300: #fda29b;
 $red-200: #fecdca;
@@ -69,7 +70,7 @@ $green-900: #074d31;
 $green-800: #085d3a;
 $green-700: #067647;
 $green-600: #079455;
-$green-500: #17b26a;
+$green-500: $success;
 $green-400: #47cd89;
 $green-300: #75e0a7;
 $green-200: #abefc6;
@@ -132,7 +133,7 @@ $popover-bg: rgba(10, 14, 23, 0.5);
 
 // border
 $border-primary: $navi-500;
-$border-secondary: $navi-500;
+$border-secondary: $navi-400;
 $border-primary-dark: $navi-700;
 
 // text

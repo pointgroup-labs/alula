@@ -204,18 +204,20 @@ watch(() => reset, () => {
   display: flex;
   flex-direction: column;
 
-  --background-color: rgba(0, 211, 238, 0.03);
+  --background-color: #{$brand-900};
   --border-color: rgba(0, 211, 238, 0.3);
   --btn-bg: rgba(0, 211, 238, 0.15);
+  --active-background-color: #{$brand-700};
   --active-border-color: #{$brand-200};
   --color: #22d3ee;
 
   .indigo {
-    --background-color: rgba(99, 102, 241, 0.05);
-    --border-color: rgba(99, 102, 241, 0.3);
+    --background-color: #{$indigo-900};
+    --border-color: #{$indigo-500};
     --btn-bg: rgba(138, 142, 244, 0.15);
+    --active-background-color: #{$indigo-800};
     --active-border-color: #{$indigo-200};
-    --color: #8a8df4;
+    --color: #{$indigo};
   }
 
   .success {
@@ -223,13 +225,15 @@ watch(() => reset, () => {
     --border-color: rgba(0, 201, 80, 0.3);
     --btn-bg: rgba(0, 201, 80, 0.15);
     --active-border-color: #{$green-500};
-    --color: #00c950;
+    --active-background-color: rgba(0, 201, 80, 0.07);
+    --color: #{$success};
   }
 
   .accent {
     --background-color: rgba(245, 159, 11, 0.03);
     --border-color: rgba(245, 159, 11, 0.3);
     --btn-bg: rgba(245, 159, 11, 0.15);
+    --active-background-color: rgba(245, 159, 11, 0.07);
     --active-border-color: #{$orange-500};
     --color: #f59e0b;
   }
@@ -268,13 +272,14 @@ watch(() => reset, () => {
 
     &.active {
       border-color: var(--active-border-color);
+      background-color: var(--active-background-color);
     }
 
     &.error {
       --btn-bg: rgb(244 63 94 / 8%);
       --color: $danger;
 
-      background-color: rgb(244 63 94 / 10%);
+      background-color: $red-975;
       border-color: $danger;
     }
 

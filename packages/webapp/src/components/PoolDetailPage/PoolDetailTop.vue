@@ -36,7 +36,7 @@ const utilRateColor = computed(() => {
   }
   const capacityUsed = (currentUtil / limitUtil) * 100
   if (capacityUsed >= 90) {
-    return '#f43f5e'
+    return '#f04438'
   }
   if (capacityUsed >= 70) {
     return '#f79009'

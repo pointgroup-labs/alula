@@ -66,7 +66,7 @@ const slot = useSlots()
     gap: 2px;
 
     &__title {
-      font-size: 10px;
+      font-size: $text-xs;
       font-style: normal;
       text-transform: uppercase;
       color: $text-tertiary;
@@ -81,7 +81,7 @@ const slot = useSlots()
 
       span {
         color: $text-tertiary;
-        font-size: 10px;
+        font-size: $text-xs;
         font-weight: 500;
         line-height: 14px;
       }

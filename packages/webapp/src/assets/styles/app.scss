@@ -20,9 +20,9 @@ body::before {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    radial-gradient(800px circle at 50% 22%, rgba(34, 211, 238, 0.05), transparent 70%),
-    radial-gradient(600px circle at 50% 78%, rgba(245, 158, 11, 0.045), transparent 70%), #0a0e17;
+  // background:
+  //   radial-gradient(800px circle at 50% 22%, rgba(34, 211, 238, 0.05), transparent 70%),
+  //   radial-gradient(600px circle at 50% 78%, rgba(245, 158, 11, 0.045), transparent 70%), #0a0e17;
   will-change: transform;
   transform: translateZ(0);
 }
@@ -244,18 +244,3 @@ body:has(stellar-wallets-modal) {
   }
 }
 
-.theme-dark {
-  background-color: $dark;
-  color: #fff;
-
-  .table-wrapper {
-    .loading-spinner {
-      background: rgba(0, 0, 0, 0.5);
-      color: #fff;
-
-      .spinner-border {
-        color: #fff !important;
-      }
-    }
-  }
-}

@@ -136,7 +136,7 @@
       overflow: hidden;
 
       &__title {
-        font-size: 10px;
+        font-size: $text-xs;
         color: $text-tertiary;
         opacity: 0.7;
       }
@@ -162,8 +162,8 @@
   overflow-y: auto;
 
   &.info-card {
-    background-color: color-mix(in oklab, $secondary 30%, transparent);
-    border: 1px solid $border-primary;
+    background-color: $navi-600;
+    border: 1px solid $border-secondary;
     border-radius: 14px;
     transition: border-color 0.2s ease;
   }
@@ -252,7 +252,7 @@
 
   .max-ltv {
     font-family: $font-JetBrainsMono;
-    font-size: 10px;
+    font-size: $text-xs;
     font-style: normal;
     font-weight: 400;
     line-height: 12px;

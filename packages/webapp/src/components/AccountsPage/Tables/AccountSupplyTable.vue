@@ -96,7 +96,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
       <metric-indicator
         label="Total Supplied"
         :value="`${totalSupplyUsd}`"
-        color="#00c950"
+        color="#17B26A"
         v-if="isHasObligations"
       />
     </div>

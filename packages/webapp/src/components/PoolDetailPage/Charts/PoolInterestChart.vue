@@ -122,7 +122,7 @@ const chartCurrentUtilizationPctColor = computed(() => {
     return '#c6ccd9'
   }
   const percent = currentUtilizationPct.value / chartOptimalUtilizationPct.value
-  return percent < 0.7 ? '#00c950' : (percent < 0.9 ? '#f0b100' : '#f43f5e')
+  return percent < 0.7 ? '#17B26A' : (percent < 0.9 ? '#f0b100' : '#f04438')
 })
 
 /* ------------------------------------------------ */
@@ -288,10 +288,10 @@ const option = computed<EChartsOption>(() => {
               //   show: true,
               //   formatter: 'Current',
               //   position: 'insideEndTop',
-              //   color: '#f43f5e',
+              //   color: '#f04438',
               //   fontSize: 12,
               // },
-              lineStyle: { color: chartCurrentUtilizationPctColor.value ?? '#f43f5e' },
+              lineStyle: { color: chartCurrentUtilizationPctColor.value ?? '#f04438' },
             },
             {
               xAxis: chartOptimalUtilizationPct.value,
@@ -313,7 +313,7 @@ const option = computed<EChartsOption>(() => {
               //   color: '#22d3ee',
               //   fontSize: 12,
               // },
-              lineStyle: { color: '#f43f5e' },
+              lineStyle: { color: '#f04438' },
             },
           ],
         },
@@ -326,7 +326,7 @@ const option = computed<EChartsOption>(() => {
           chartCurrentUtilizationPct.value,
           aprAtPct(chartCurrentUtilizationPct.value),
         ]],
-        itemStyle: { color: chartCurrentUtilizationPctColor.value ?? '#f43f5e' },
+        itemStyle: { color: chartCurrentUtilizationPctColor.value ?? '#f04438' },
         z: 5,
       },
 
@@ -348,7 +348,7 @@ const option = computed<EChartsOption>(() => {
           chartMaxUtilizationPct.value,
           aprAtPct(chartMaxUtilizationPct.value),
         ]],
-        itemStyle: { color: '#f43f5e' },
+        itemStyle: { color: '#f04438' },
         z: 5,
       },
     ],
@@ -397,7 +397,7 @@ onBeforeUnmount(() => {
             :style="{ '--color': '#22d3ee' }"
           >
             <div class="stat-card__label">
-              Optimal utilization
+              Optimal <br> utilization
             </div>
             <div class="stat-card__value">
               {{ truncatePercent(optimalUtilizationPct, 2) }}%
@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
             :style="{ '--color': chartCurrentUtilizationPctColor }"
           >
             <div class="stat-card__label">
-              Сurrent utilization
+              Сurrent <br> utilization
             </div>
             <div class="stat-card__value">
               {{ truncatePercent(currentUtilizationPct, 2) }}%
@@ -418,10 +418,10 @@ onBeforeUnmount(() => {
 
           <div
             class="stat-card"
-            :style="{ '--color': '#f43f5e' }"
+            :style="{ '--color': '#f04438' }"
           >
             <div class="stat-card__label">
-              Max utilization
+              Max <br> utilization
             </div>
             <div class="stat-card__value">
               {{ truncatePercent(maxUtilizationPct, 2) }}%
@@ -457,18 +457,18 @@ section#market-interest-chart {
     gap: 6px;
 
     .stat-card {
-      width: 160px;
       padding: 10px;
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      gap: 24px;
       border-radius: $radius-md;
       background: $bg-tertiary;
 
       &__label {
+        width: fit-content;
         color: $text-tertiary;
-        font-size: 12px;
+        font-size: $text-xs;
         font-style: normal;
         font-weight: 400;
         line-height: 18px;
@@ -490,7 +490,7 @@ section#market-interest-chart {
       &__value {
         color: var(--color, $text-primary);
         font-family: $font-JetBrainsMono;
-        font-size: 18px;
+        font-size: $text-sm;
         font-style: normal;
         font-weight: 700;
         line-height: normal;

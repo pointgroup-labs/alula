@@ -62,7 +62,7 @@ watch(() => pool, () => {
 
   .j-pill-label {
     padding: 0 8px;
-    font-size: 10px;
+    font-size: $text-xs;
     font-weight: 600;
     line-height: 14px;
     background-color: #fff;

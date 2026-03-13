@@ -179,7 +179,7 @@ function styleWalletModal() {
       backdrop-filter: blur(6.4px);
     }
     .dialog-modal  {
-      background: transparent !important
+      background: transparent !important;
     }
       .dialog-modal-body {
       background-color: transparent !important;

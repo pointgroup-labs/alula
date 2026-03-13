@@ -732,7 +732,7 @@ section#my-position {
     }
 
     &-pill {
-      font-size: 10px;
+      font-size: $text-xs;
       padding: 2px 6px;
       border-radius: 50px;
       color: var(--color);
