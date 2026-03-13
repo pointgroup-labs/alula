@@ -192,10 +192,10 @@ h2 {
   }
 }
 
-.dialog-with-action {
+.pool-dialog {
   .modal-content {
+    height: fit-content;
     max-width: 442px;
-    height: 100%;
     display: flex;
     flex-direction: column;
   }

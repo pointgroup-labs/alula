@@ -62,7 +62,7 @@ export function healthFactorColor(hf?: number | null): string {
   if (!hf) {
     return SUCCESS_COLOR
   }
-  return hf < 1.2 ? DANGER_COLOR : (hf < 2 ? WARNING_COLOR : SUCCESS_COLOR)
+  return hf < 1.2 ? DANGER_COLOR : (hf < 1.5 ? WARNING_COLOR : SUCCESS_COLOR)
 }
 
 export function ltvColor(current: number, max?: number) {
