@@ -207,15 +207,15 @@ async function withdraw() {
     />
   </div>
 
-  <div class="dialog-default__action mt-2">
+  <div class="supply-card__action mt-3">
     <j-btn
       :loading="isLoading"
       variant="brand"
-      size="lg"
-      pill
+      size="md"
+      class="market-action-btn"
       @click="withdraw"
     >
-      Withdraw {{ asset.symbol }}
+      <i-metrics-complete class="complete-icon" />  Withdraw {{ asset.symbol }}
     </j-btn>
   </div>
 </template>

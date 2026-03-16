@@ -263,6 +263,7 @@ const rewardsEarnings = computedAsync(async () => {
       :pool="selectedPool?.raw.pool"
       :disabled="!isCanSupply || amount >= balance"
       @click-handler="supply"
+      class="market-action-btn"
     >
       <i-metrics-complete class="complete-icon" /> Supply {{ selectedPool?.asset.symbol }}
     </market-dialog-action-btn>

@@ -109,15 +109,3 @@ async function emitClickHandler() {
     </template>
   </j-btn>
 </template>
-
-<style lang="scss">
-.market-action-btn {
-  --bs-btn-active-color: #000;
-  width: 100%;
-
-  .complete-icon {
-    width: 16px;
-    height: 16px;
-  }
-}
-</style>

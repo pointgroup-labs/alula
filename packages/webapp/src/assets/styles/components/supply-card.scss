@@ -26,24 +26,29 @@
     cursor: pointer;
     transition: all 0.2s ease;
 
-    &--supply {
+    &--supply,
+    &--repay {
       &:hover {
         color: $cyan;
       }
     }
-    &--borrow {
+
+    &--borrow,
+    &--withdraw {
       &:hover {
         color: $indigo;
       }
     }
 
     &.active {
-      &.nav-tab--supply {
+      &.nav-tab--supply,
+      &.nav-tab--withdraw {
         color: $cyan;
         background-color: $brand-500;
       }
 
-      &.nav-tab--borrow {
+      &.nav-tab--borrow,
+      &.nav-tab--repay {
         color: $indigo;
         background-color: $indigo-500;
       }
@@ -278,6 +283,15 @@
     line-height: 12px;
     text-align: right;
     margin-bottom: -12px;
+  }
+}
+
+.market-action-btn {
+  width: 100%;
+
+  .complete-icon {
+    width: 16px;
+    height: 16px;
   }
 }
 

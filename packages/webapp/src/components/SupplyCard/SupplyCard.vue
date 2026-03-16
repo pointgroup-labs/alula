@@ -1,16 +1,41 @@
 <script lang="ts" setup>
-const tabs = [
-  { label: 'Supply', value: 'supply' },
-  { label: 'Borrow', value: 'borrow' },
-]
+import type { MarketTableItem } from '~/types/table'
 
-const activeTab = ref(tabs[0])
+const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
+
+const supplied = computed(() => Number(selectedPool?.value.position.supplied) || 0)
+const borrowed = computed(() => Number(selectedPool?.value.position.borrowed) || 0)
+
+const tabs = computed(() => {
+  if (supplied.value > 0) {
+    return [
+      { label: 'Supply', value: 'supply' },
+      { label: 'Withdraw', value: 'withdraw' },
+    ]
+  }
+  if (borrowed.value > 0) {
+    return [
+      { label: 'Borrow', value: 'borrow' },
+      { label: 'Repay', value: 'repay' },
+    ]
+  }
+  return [
+    { label: 'Supply', value: 'supply' },
+    { label: 'Borrow', value: 'borrow' },
+  ]
+})
+
+const activeTab = ref(tabs.value[0])
 
 const dialog = ref(false)
 
 function dialogHandler() {
   dialog.value = !dialog.value
 }
+
+watchDebounced(tabs, (t) => {
+  activeTab.value = t[0]
+}, { debounce: 300 })
 </script>
 
 <template>
@@ -35,6 +60,12 @@ function dialogHandler() {
       <borrow-window
         v-else-if="activeTab?.value === 'borrow'"
         @dialog-handler="dialogHandler"
+      />
+      <repay-window
+        v-else-if="activeTab?.value === 'repay'"
+      />
+      <withdraw-window
+        v-else-if="activeTab?.value === 'withdraw'"
       />
 
       <change-pool-dialog v-model="dialog" />

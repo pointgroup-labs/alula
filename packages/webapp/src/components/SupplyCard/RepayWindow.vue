@@ -171,7 +171,7 @@ async function repay() {
       size="md"
       @click="repay"
     >
-      Repay {{ asset.symbol }}
+      <i-metrics-complete class="complete-icon" /> Repay {{ asset.symbol }}
     </j-btn>
   </div>
 </template>

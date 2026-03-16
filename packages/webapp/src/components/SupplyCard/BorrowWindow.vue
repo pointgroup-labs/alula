@@ -274,6 +274,7 @@ const positions = computed(() => {
   <div class="supply-card__action mt-3">
     <market-dialog-action-btn
       variant="brand-secondary"
+      class="market-action-btn"
       size="md"
       :loading="isLoading"
       :pool="selectedPool?.raw.pool"
