@@ -38,13 +38,16 @@ export function formatCompactUSD(num: number, minDigits = 0, maxDigits = 1) {
 export function shortenNumber(num: number | string, minDigits = 2, maxDigits = 2): string {
   const value = Number(num)
 
-  if (!Number.isFinite(value)) {
+  if (!Number.isFinite(value) || value === 0) {
     return '0'
   }
 
-  if (Math.abs(value) < 0.000_001 && value !== 0) {
-    return value.toFixed(10).replace(/\.?0+$/, '')
+  if (Math.abs(value) < 0.000_000_1 && value !== 0) {
+    return '<0.0000001'
   }
+
+  minDigits = Math.max(0, Math.min(20, minDigits))
+  maxDigits = Math.max(minDigits, Math.min(20, maxDigits))
 
   const formatter = new Intl.NumberFormat('en', {
     notation: 'compact',
