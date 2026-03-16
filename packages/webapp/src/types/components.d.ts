@@ -175,5 +175,6 @@ declare module 'vue' {
     WarningBlock: typeof import('./../components/Widget/WarningBlock.vue')['default']
     WithdrawDialog: typeof import('./../components/AccountsPage/Dialogs/WithdrawDialog.vue')['default']
     WithdrawLeverageDialog: typeof import('./../components/MultiplyPage/Dialogs/WithdrawLeverageDialog.vue')['default']
+    WithdrawWindow: typeof import('./../components/SupplyCard/WithdrawWindow.vue')['default']
   }
 }

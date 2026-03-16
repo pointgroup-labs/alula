@@ -1,7 +1,7 @@
 import type { WatchStopHandle } from 'vue'
 import { bpsToNumber, calculateTotalStake, calcUserTotalStakeInUsd } from '@alula/client-sdk'
 import { RELOAD_FEE_INTERVAL } from '~/config'
-import { calcHealthFactor, shortenNumber, truncatePercent } from '~/utils'
+import { calcHealthFactor, calcWeightedBorrowedUsd, truncatePercent } from '~/utils'
 
 export function useWithdrawDialog(isOpen: Ref<boolean>) {
   const marketsStore = useMarketsStore()
@@ -65,8 +65,9 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
   const collateralBalance = computed(() => userDeposit.value.collateral)
   const supplyBalance = computed(() => userDeposit.value.balance - collateralBalance.value)
-  const totalSuppliedBalance = computed(() => userDeposit.value.balance)
-  const remainingBalance = computed(() => (collateralOnly.value ? collateralBalance.value : supplyBalance.value) - amount.value)
+  const remainingBalance = computed(() => (collateralOnly.value ? collateralBalance.value : supplyBalance.value) - (amount.value ?? 0))
+  const obligation = computed(() => userStore.state.obligations[String(activeMarket.value?.marketName)])
+  const marketState = computed(() => activeMarket.value?.marketState)
 
   const openLtv = computed(() =>
     poolData.value?.pool.config.health_config.open_ltv_bps
@@ -74,17 +75,95 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
       : 0,
   )
 
-  const healthFactor = computed(() => {
-    const poolsData = activeMarket.value?.marketState.pools_data
-    const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
-    if (!poolsData || !obligation) { return 10 }
-
-    const closeLTVPool = poolData.value?.pool.config.health_config.close_ltv_bps
+  const closeLtv = computed(() =>
+    poolData.value?.pool.config.health_config.close_ltv_bps
       ? bpsToNumber(Number(poolData.value.pool.config.health_config.close_ltv_bps))
-      : 0
-    const depositAdjustUsd = Number(amount.value || 0) * Number(price.value) * closeLTVPool
+      : 0,
+  )
 
-    return calcHealthFactor(obligation, poolsData, assetDecimals.value, oraclePriceDecimals.value, depositAdjustUsd)
+  const currentWeightedBorrowedUsd = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    return calcWeightedBorrowedUsd(
+      obligation.value,
+      marketState.value.pools_data,
+      assetDecimals.value,
+      oraclePriceDecimals.value,
+    )
+  })
+
+  const collateralValueUsd = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    return calcUserTotalStakeInUsd(
+      obligation.value,
+      marketState.value.pools_data,
+      assetDecimals.value,
+      oraclePriceDecimals.value,
+    )
+  })
+
+  const withdrawAdjustUsd = computed(() => (Number(amount.value) || 0) * Number(price.value || 0))
+
+  const currentHealthFactor = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 10
+    }
+
+    return calcHealthFactor(
+      obligation.value,
+      marketState.value.pools_data,
+      assetDecimals.value,
+      oraclePriceDecimals.value,
+    )
+  })
+
+  const dynamicHealthFactor = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 10
+    }
+
+    const depositAdjustUsd = withdrawAdjustUsd.value * closeLtv.value
+
+    return calcHealthFactor(
+      obligation.value,
+      marketState.value.pools_data,
+      assetDecimals.value,
+      oraclePriceDecimals.value,
+      depositAdjustUsd,
+    )
+  })
+
+  const currentLtv = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    const collateralValue = collateralValueUsd.value
+
+    if (collateralValue <= 0) {
+      return 0
+    }
+
+    return (currentWeightedBorrowedUsd.value / collateralValue) * 100
+  })
+
+  const dynamicLtv = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    const nextCollateralValueUsd = Math.max(collateralValueUsd.value - withdrawAdjustUsd.value, 0)
+
+    if (nextCollateralValueUsd <= 0) {
+      return 0
+    }
+
+    return (currentWeightedBorrowedUsd.value / nextCollateralValueUsd) * 100
   })
 
   const poolLimit = computed(() => {
@@ -98,45 +177,28 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
   const availableToWithdraw = computed(() => {
     const priceVal = Number(price.value) || 1
     const balance = collateralOnly.value ? collateralBalance.value : supplyBalance.value
-    const poolsData = activeMarket.value?.marketState.pools_data
-    const obligation = userStore.state.obligations[String(activeMarket.value?.marketName)]
+    const poolsData = marketState.value?.pools_data
 
-    if (!poolsData || !obligation) {
+    if (!poolsData || !obligation.value || !marketState.value) {
       return 0
     }
 
-    // If no borrows — can withdraw everything
-    if (obligation.borrows.length === 0) {
+    if (obligation.value.borrows.length === 0) {
       return balance
     }
 
-    // Σ(Vc_i × oLTV_i)
     const depositWithOpenLTV = userTotalDepositByMarket.value
 
-    // Σ(Vb_j × LF_j)
-    let borrowedWithLF = 0
-    for (const [borrowedPoolAddress, data] of obligation.borrows) {
-      const borrowedPool = poolsData.find(p => p.pool.pool_address === borrowedPoolAddress)
-      if (!borrowedPool) { continue }
-      const bPrice = borrowedPool.oracle_asset_price
-        ? bigintToNumber(borrowedPool.oracle_asset_price, oraclePriceDecimals.value)
-        : 0
-      const borrowBps = bigintToNumber(data.d_tokens * BigInt(borrowedPool.d_token_rate_ceil_bps), assetDecimals.value)
-      const lf = bpsToNumber(Number(borrowedPool.pool.config.health_config.liability_factor_bps))
-      borrowedWithLF += bpsToNumber(Number(borrowBps)) * Number(bPrice) * lf
-    }
+    const borrowedWithLF = currentWeightedBorrowedUsd.value
 
-    // Vmin × count of deposit positions with non-zero close LTV
-    const positionsWithNonZeroLTV = obligation.deposits.filter(([poolAddr]) => {
+    const positionsWithNonZeroLTV = obligation.value.deposits.filter(([poolAddr]) => {
       const pool = poolsData.find(p => p.pool.pool_address === poolAddr)
       return pool && Number(pool.pool.config.health_config.close_ltv_bps) > 0
     }).length
-    const minCollateralUsd = (Number(activeMarket.value?.marketState.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
+    const minCollateralUsd = (Number(marketState.value.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
 
-    // BC = Σ(Vc_i × oLTV_i) − Σ(Vb_j × LF_j) − Vmin × count
     const borrowingCapacityUsd = Math.max(depositWithOpenLTV - borrowedWithLF - minCollateralUsd, 0)
 
-    // maxWithdrawAssets = BC / (price × oLTV_p)
     const poolOpenLtv = openLtv.value
     const maxWithdrawAmount = poolOpenLtv > 0 ? (borrowingCapacityUsd / poolOpenLtv) / priceVal : 0
 
@@ -147,71 +209,19 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     Math.min(Number(truncatePercent(availableToWithdraw.value, 7)), Number(poolLimit.value)),
   )
 
-  const infoPanelData = computed(() => {
-    if (!poolData.value) {
-      return {}
+  const maxLtv = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
     }
-    const sym = asset.value.symbol
-    return {
-      balances: {
-        title: 'Balances',
-        data: [
-          {
-            label: 'Total Supply',
-            value: `${shortenNumber(totalSuppliedBalance.value || 0, 2, maxDecimalsForShortenNumber(totalSuppliedBalance.value))} ${sym}`,
-          },
-          {
-            label: 'Supply Balance',
-            value: `${shortenNumber(supplyBalance.value || 0, 2, maxDecimalsForShortenNumber(supplyBalance.value))} ${sym}`,
-          },
-          {
-            label: 'Collateral Balance',
-            value: `${shortenNumber(collateralBalance.value || 0, 2, maxDecimalsForShortenNumber(collateralBalance.value))} ${sym}`,
-          },
-        ],
-      },
-      health: {
-        title: 'Health',
-        data: [
-          {
-            label: 'Health Factor',
-            value: truncatePercent(healthFactor.value || 0, 2),
-          },
-          {
-            label: 'Remaining Supply',
-            value: `${shortenNumber(Math.max(remainingBalance.value || 0, 0), 2, maxDecimalsForShortenNumber(remainingBalance.value))} ${sym}`,
-          },
-          {
-            label: 'Available for Withdrawal',
-            value: `${shortenNumber(availableToWithdraw.value || 0, 2, maxDecimalsForShortenNumber(availableToWithdraw.value))} ${sym}`,
-          },
-        ],
-      },
-      poolInfo: {
-        title: 'Pool Info',
-        data: [
-          {
-            label: 'Pool Withdrawal Limit',
-            value: `${shortenNumber(poolLimit.value || 0, 2, maxDecimalsForShortenNumber(poolLimit.value))} ${sym}`,
-          },
-        ],
-      },
-      fees: {
-        title: 'Fees',
-        data: [
-          {
-            label: 'Operation Fee',
-            value: `${formatPrice(poolFee.value, 0, 5)} ${sym}`,
-          },
-          {
-            label: 'Transaction Fee',
-            value: `${txFee.value || 0} XLM`,
-            slotName: 'txFee',
-            className: 'fee-cell',
-          },
-        ],
-      },
+
+    const maxWithdrawUsd = Number(availableToWithdrawWithPoolLimit.value || 0) * Number(price.value || 0)
+    const nextCollateralValueUsd = Math.max(collateralValueUsd.value - maxWithdrawUsd, 0)
+
+    if (nextCollateralValueUsd <= 0) {
+      return 0
     }
+
+    return (currentWeightedBorrowedUsd.value / nextCollateralValueUsd) * 100
   })
 
   async function withdraw() {
@@ -345,21 +355,24 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
   return {
     poolData,
+    poolLimit,
     asset,
     price,
     collateralBalance,
     supplyBalance,
-    availableToWithdraw,
+    remainingBalance,
     availableToWithdrawWithPoolLimit,
-    infoPanelData,
     isLoadingFee,
+    poolFee,
     txFee,
     amount,
     collateralOnly,
+    currentHealthFactor,
+    dynamicHealthFactor,
+    currentLtv,
+    dynamicLtv,
+    maxLtv,
     loading,
-    reloadFee,
     withdraw,
-    startFeeInterval,
-    stopWithdrawWatchers,
   }
 }

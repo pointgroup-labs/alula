@@ -330,7 +330,6 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
   }, { immediate: true })
 
   onUnmounted(() => {
-    console.log(11)
     stopRepayWatcher()
   })
 

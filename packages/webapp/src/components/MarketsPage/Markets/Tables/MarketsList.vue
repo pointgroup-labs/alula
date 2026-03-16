@@ -353,7 +353,6 @@ watch([
 
     <repay-dialog
       v-model="dialogRepay"
-      :data="selectedPool"
     />
 
     <withdraw-dialog

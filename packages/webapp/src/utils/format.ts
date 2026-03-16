@@ -36,13 +36,24 @@ export function formatCompactUSD(num: number, minDigits = 0, maxDigits = 1) {
 }
 
 export function shortenNumber(num: number | string, minDigits = 2, maxDigits = 2): string {
+  const value = Number(num)
+
+  if (!Number.isFinite(value)) {
+    return '0'
+  }
+
+  if (Math.abs(value) < 0.000_001 && value !== 0) {
+    return value.toFixed(10).replace(/\.?0+$/, '')
+  }
+
   const formatter = new Intl.NumberFormat('en', {
     notation: 'compact',
     compactDisplay: 'short',
     minimumFractionDigits: minDigits,
     maximumFractionDigits: maxDigits,
   })
-  return formatter.format(Number(num))
+
+  return formatter.format(value)
 }
 
 export function parseFormattedPrice(formattedPrice: string): number {

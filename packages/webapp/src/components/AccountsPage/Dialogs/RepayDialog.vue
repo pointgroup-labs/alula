@@ -1,12 +1,11 @@
 <script lang="ts" setup>
-import type { MarketTableItem } from '~/types/table'
-
-const props = defineProps<{ data?: MarketTableItem }>()
-
-const poolData = toRef(props, 'data')
-
 const dialog = defineModel({ default: false })
 const isOpen = ref(false)
+
+const marketsStore = useMarketsStore()
+
+const activePool = computed(() => marketsStore.activeMarket?.marketState?.pools_data?.find(data => data.pool.pool_address === marketsStore.selectedPoolAddress))
+const asset = computed(() => getFullTokenData(activePool.value?.pool?.token_symbol ?? ''))
 
 watch(dialog, (v) => {
   setTimeout(() => isOpen.value = v, v ? 0 : 500)
@@ -16,15 +15,15 @@ watch(dialog, (v) => {
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="dialog-default"
+    class-name="pool-dialog dialog-default"
   >
     <template #header>
       <div class="dialog-default__title">
         <img
-          :src="poolData?.asset.icon"
-          :alt="`${poolData?.asset.symbol} icon`"
+          :src="asset?.icon"
+          :alt="`${asset?.symbol} icon`"
         >
-        <span>Supply {{ poolData?.asset.symbol }}</span>
+        <span>Repay {{ asset?.symbol }}</span>
       </div>
     </template>
 
