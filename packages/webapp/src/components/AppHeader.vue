@@ -39,10 +39,8 @@ watch(() => route.path, (p) => {
     return
   }
   const tab = tabs.slice(1).find(t => p.includes(t.route))
-  if (tab) {
-    activeTab.value = tab
-  }
-}, { immediate: true, once: true })
+  activeTab.value = tab
+}, { immediate: true })
 </script>
 
 <template>
