@@ -176,7 +176,8 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
 
             <position-overview />
 
-            <position-borrow-limits />
+            <position-supply-info v-if="hasSupply" />
+            <position-borrow-limits v-else />
 
             <position-risk-metrics />
 

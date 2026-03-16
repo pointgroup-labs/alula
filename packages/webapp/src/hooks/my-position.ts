@@ -19,6 +19,13 @@ type MyPositionState = {
   selectedPool: Ref<MarketTableItem>
   marketKey: ComputedRef<string>
   positions: ComputedRef<PositionsData>
+  suppliedAmount: ComputedRef<number>
+  suppliedUsd: ComputedRef<number>
+  collateralOnly: ComputedRef<number>
+  collateralOnlyUsd: ComputedRef<number>
+  currentPoolInterestBearingAmount: ComputedRef<number>
+  currentPoolInterestBearingUsd: ComputedRef<number>
+  currentPoolYearlyYieldUsd: ComputedRef<number>
   borrowedAmount: ComputedRef<number>
   borrowLimit: ComputedRef<number>
   availableToBorrow: ComputedRef<number>
@@ -178,6 +185,10 @@ export function createMyPositionState(): MyPositionState {
 
   const suppliedUsd = computed(() => suppliedAmount.value * Number(selectedPool.value?.price ?? 0))
   const borrowedUsd = computed(() => borrowedAmount.value * Number(selectedPool.value?.price ?? 0))
+  const collateralOnlyUsd = computed(() => collateralOnly.value * Number(selectedPool.value?.price ?? 0))
+  const currentPoolInterestBearingAmount = computed(() => Math.max(suppliedAmount.value - collateralOnly.value, 0))
+  const currentPoolInterestBearingUsd = computed(() => currentPoolInterestBearingAmount.value * Number(selectedPool.value?.price ?? 0))
+  const currentPoolYearlyYieldUsd = computed(() => currentPoolInterestBearingUsd.value * bpsToNumber(Number(selectedPool.value?.raw?.apy.supply_bps || 0)))
 
   const interestBearingSupplyUsd = computed(() => {
     if (!obligation.value) {
@@ -534,6 +545,13 @@ export function createMyPositionState(): MyPositionState {
     selectedPool,
     marketKey,
     positions,
+    suppliedAmount,
+    suppliedUsd,
+    collateralOnly,
+    collateralOnlyUsd,
+    currentPoolInterestBearingAmount,
+    currentPoolInterestBearingUsd,
+    currentPoolYearlyYieldUsd,
     borrowedAmount,
     borrowLimit,
     availableToBorrow,

@@ -150,6 +150,7 @@ declare module 'vue' {
     PositionBorrowLimits: typeof import('./../components/PoolDetailPage/Position/PositionBorrowLimits.vue')['default']
     PositionOverview: typeof import('./../components/PoolDetailPage/Position/PositionOverview.vue')['default']
     PositionRiskMetrics: typeof import('./../components/PoolDetailPage/Position/PositionRiskMetrics.vue')['default']
+    PositionSupplyInfo: typeof import('./../components/PoolDetailPage/Position/PositionSupplyInfo.vue')['default']
     ReloadCoundown: typeof import('./../components/Widget/ReloadCoundown.vue')['default']
     RepayDialog: typeof import('./../components/AccountsPage/Dialogs/RepayDialog.vue')['default']
     RepayWindow: typeof import('./../components/SupplyCard/RepayWindow.vue')['default']
