@@ -103,6 +103,9 @@ export function useMarketActions() {
       })
       await recentStore.fetchAndUpdateLastTx()
     } catch (error: any) {
+      if (error?.message.includes('rejected')) {
+        return
+      }
       toast.create({
         title: `${title} Error`,
         body: String(error?.message || error),
