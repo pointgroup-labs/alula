@@ -103,7 +103,10 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
             {{ positionLabel }}
           </div>
 
-          <div class="net-apy">
+          <div
+            v-if="hasPosition"
+            class="net-apy"
+          >
             NET APY
             <info-tooltip>
               Net APY = supply yield on interest-bearing deposits minus borrow cost, divided by your net position base.
@@ -116,7 +119,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
               class="net-apy__value"
               :class="[`net-apy--${netApy > 0 ? 'positive' : 'negative'}`]"
             >
-              {{ netApy > 0 ? '+' : netApy < 0 ? '-' : '' }}{{ netApyDisplay }}</span>
+              {{ netApy > 0 ? '+' : '' }}{{ netApyDisplay }}</span>
           </div>
 
           <div
@@ -365,7 +368,22 @@ section#my-position {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: $spacing-md 0 $spacing-md $spacing-lg;
+      padding: $spacing-md $spacing-lg;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      text-align: left;
+
+      .asset {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: $text-tertiary;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: normal;
+      }
 
       img {
         width: 24px;
@@ -381,6 +399,41 @@ section#my-position {
         font-style: normal;
         font-weight: 400;
         line-height: normal;
+
+        &--interactive {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+      }
+
+      .chevron {
+        width: 12px;
+        transform: rotate(-90deg);
+        opacity: 0.55;
+        transition:
+          transform 0.2s ease,
+          opacity 0.2s ease;
+      }
+
+      &--interactive {
+        cursor: pointer;
+        border-radius: $radius-md;
+        transition: background-color 0.2s ease;
+
+        &:hover {
+          background-color: color-mix(in oklab, $bg-secondary 55%, transparent);
+
+          .chevron {
+            opacity: 1;
+            transform: translateX(2px) rotate(-90deg);
+          }
+        }
+
+        &:focus-visible {
+          outline: 1px solid $border-secondary;
+          outline-offset: 0;
+        }
       }
     }
 

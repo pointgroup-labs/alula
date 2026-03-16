@@ -2,9 +2,13 @@
 const {
   collateralValueUsd,
   positions,
+  selectedPool,
   weightedBorrowedValueUsd,
   healthFactor,
 } = useMyPosition()
+
+const route = useRoute()
+const router = useRouter()
 
 const dialog = ref(false)
 
@@ -12,6 +16,25 @@ const healthIndicatorStyle = computed(() => ({
   '--indicator-width': `${Math.min(Math.max((((healthFactor.value ?? 1) - 1) * 100), 0), 100)}%`,
   '--indicator-color': healthFactorColor(healthFactor.value),
 }))
+
+function isCurrentPool(address: string) {
+  return address === selectedPool.value.pool_address
+}
+
+async function navigateToPool(address: string) {
+  if (!address || isCurrentPool(address)) {
+    return
+  }
+
+  await router.push({
+    name: route.name,
+    params: {
+      ...route.params,
+      pool: address,
+    },
+    query: route.query,
+  })
+}
 
 function handleClick() {
   dialog.value = !dialog.value
@@ -37,10 +60,14 @@ function handleClick() {
         v-if="positions?.deposits"
         class="overview-metric__list"
       >
-        <div
+        <button
           v-for="position in positions.deposits"
           :key="position.address"
+          type="button"
           class="overview-metric__item"
+          :class="{ 'overview-metric__item--interactive': !isCurrentPool(position.address) }"
+          :disabled="isCurrentPool(position.address)"
+          @click="navigateToPool(position.address)"
         >
           <div class="asset">
             <img
@@ -49,10 +76,14 @@ function handleClick() {
             >
             {{ position.symbol }}
           </div>
-          <div class="value">
+          <div class="value value--interactive">
             {{ formatCompactUSD(position.usd, 2, 2) }}
+            <i-app-chevron-down
+              v-if="!isCurrentPool(position.address)"
+              class="chevron"
+            />
           </div>
-        </div>
+        </button>
       </div>
     </div>
 
@@ -77,10 +108,14 @@ function handleClick() {
         v-if="positions?.borrows && positions?.borrows?.length > 0"
         class="overview-metric__list"
       >
-        <div
+        <button
           v-for="position in positions.borrows"
           :key="position.address"
+          type="button"
           class="overview-metric__item"
+          :class="{ 'overview-metric__item--interactive': !isCurrentPool(position.address) }"
+          :disabled="isCurrentPool(position.address)"
+          @click="navigateToPool(position.address)"
         >
           <div class="asset">
             <img
@@ -89,10 +124,14 @@ function handleClick() {
             >
             {{ position.symbol }}
           </div>
-          <div class="value">
+          <div class="value value--interactive">
             {{ formatCompactUSD(position.usd, 2, 2) }}
+            <i-app-chevron-down
+              v-if="!isCurrentPool(position.address)"
+              class="chevron"
+            />
           </div>
-        </div>
+        </button>
       </div>
 
       <div
