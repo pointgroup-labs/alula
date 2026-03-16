@@ -9,10 +9,15 @@ const selectedOption = ref()
 const search = ref()
 
 const marketsStore = useMarketsStore()
+const wallet = useWallet()
 
 const options = computed(() => {
   return marketsStore.selectedMarketPools?.map((data) => {
     const asset = getFullTokenData(data.pool.token_symbol)
+    const balance = asset?.symbol === 'XLM' ? wallet.nativeBalance : wallet.getAssetBalance(destructurePoolAsset(data.pool.name)[1])
+    const oraclePriceDecimals = marketsStore.activeMarket?.marketState.oracle_price_decimals ?? 0
+    const price = balance > 0 ? Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimals)) || 0 : 0
+    const balanceUsd = price * balance
     return {
       label: asset.symbol,
       value: data.pool.pool_address,
@@ -22,6 +27,7 @@ const options = computed(() => {
         borrow: data.apy.borrow_bps / 100,
         supply: data.apy.supply_bps / 100,
       },
+      balance: balanceUsd,
     }
   }) ?? []
 })
@@ -123,6 +129,7 @@ onUnmounted(() => {
           <div class="asset-data__symbol">{{ option.label }}</div>
           <div class="asset-data__name">{{ option.name }}</div>
         </div>
+
         <div class="apy-data">
           <div :style="{ '--color': '#22d3ee' }">
             Supply APY: <span>{{ option.apy.supply }}%</span>
@@ -130,6 +137,11 @@ onUnmounted(() => {
           <div :style="{ '--color': '#8a8df4' }">
             Borrow APY: <span>{{ option.apy.borrow }}%</span>
           </div>
+        </div>
+
+        <div class="balance-data">
+          <div class="label">My Balance</div>
+          <div class="value">${{ formatPrice(option.balance, 2, 2) }}</div>
         </div>
       </div>
     </div>
@@ -146,7 +158,7 @@ onUnmounted(() => {
 <style lang="scss">
 .change-pool-dialog {
   .modal-content {
-    width: 400px;
+    width: 500px;
   }
 
   .modal-header {
@@ -267,6 +279,30 @@ onUnmounted(() => {
             color: var(--color);
             font-family: $font-JetBrainsMono;
           }
+        }
+      }
+
+      .balance-data {
+        display: flex;
+        align-items: flex-end;
+        flex-direction: column;
+        margin-left: auto;
+
+        .label {
+          color: $text-tertiary;
+          font-size: 12px;
+          font-style: normal;
+          font-weight: 400;
+          line-height: normal;
+        }
+
+        .value {
+          color: $text-primary;
+          font-family: $font-JetBrainsMono;
+          font-size: 14px;
+          font-style: normal;
+          font-weight: 500;
+          line-height: 20px;
         }
       }
     }

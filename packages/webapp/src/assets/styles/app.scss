@@ -125,7 +125,7 @@ h2 {
 
 .dialog-default {
   .modal-dialog {
-    min-width: 442px;
+    min-width: 500px;
 
     @media (max-width: $breakpoint-xs) {
       width: 100%;
@@ -194,7 +194,7 @@ h2 {
 .pool-dialog {
   .modal-content {
     height: fit-content;
-    max-width: 442px;
+    max-width: 500px;
     display: flex;
     flex-direction: column;
   }

@@ -277,10 +277,11 @@
 
   .max-ltv {
     font-family: $font-JetBrainsMono;
-    font-size: $text-xs;
+    font-size: 10px;
     font-style: normal;
     font-weight: 400;
     line-height: 12px;
+    color: $text-tertiary;
     text-align: right;
     margin-bottom: -12px;
   }
