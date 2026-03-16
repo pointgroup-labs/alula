@@ -30,7 +30,9 @@ $toast-variants: (
 .j-toast {
   position: relative;
   pointer-events: all !important;
-  width: 344px;
+  min-width: 380px;
+  max-width: 400px;
+  width: fit-content;
   padding: $spacing-xl;
   backdrop-filter: blur(6px);
 
@@ -105,7 +107,9 @@ $toast-variants: (
   .toast-body {
     max-height: 220px;
     overflow: auto;
-    word-break: break-all;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   .toast-actions {
