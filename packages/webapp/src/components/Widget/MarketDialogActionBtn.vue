@@ -93,7 +93,7 @@ async function emitClickHandler() {
 
 <template>
   <j-btn
-    :variant="publicKey ? variant : 'primary'"
+    :variant="publicKey ? variant : 'ghost'"
     :loading="isLoading || isConnectionLoading"
     v-bind="props"
     :disabled="!publicKey ? false : disabled"
