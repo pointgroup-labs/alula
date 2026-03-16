@@ -63,7 +63,7 @@ watch(selectedOption, (opt) => {
       ...route.params,
       pool: opt.value,
     },
-    query: route.query,
+    query: undefined,
     hash: route.hash,
   })
 })

@@ -1,12 +1,9 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { bpsToNumber, calculateBorrow, calculateTotalStake, calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
+import { bpsToNumber, calculateBorrow, calculateTotalStake, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { calcHealthFactor, calcWeightedBorrowedUsd } from '~/utils'
 
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
-
-const route = useRoute()
-const router = useRouter()
 
 const userStore = useUserStore()
 const marketsStore = useMarketsStore()
@@ -32,19 +29,58 @@ const positions = computed(() => {
   if (!obligation.value) {
     return null
   }
-  const borrows = obligation.value.borrows?.map(([address]) => {
-    const symbol = poolsData.value?.find(p => p.pool.pool_address === address)?.pool?.token_symbol ?? ''
+  const borrows = obligation.value.borrows?.map(([address, data]) => {
+    const poolData = poolsData.value.find(p => p.pool.pool_address === address)
+    const symbol = poolData?.pool?.token_symbol ?? ''
     const asset = getFullTokenData(symbol)
+    const price = poolData?.oracle_asset_price
+      ? Number(bigintToNumber(poolData.oracle_asset_price, oraclePriceDecimals.value))
+      : 0
+    const amount = data?.d_tokens && poolData
+      ? Number(calculateBorrow(
+          data.d_tokens,
+          {
+            total_d_tokens: poolData.pool.total_d_tokens,
+            total_borrowed: poolData.pool.total_borrowed,
+          },
+          assetDecimals.value,
+        ))
+      : 0
+
     return {
       address,
+      amount,
+      usd: amount * price,
       ...asset,
     }
   }) ?? []
-  const deposits = obligation.value.deposits?.map(([address]) => {
-    const symbol = poolsData.value?.find(p => p.pool.pool_address === address)?.pool?.token_symbol ?? ''
+  const deposits = obligation.value.deposits?.map(([address, data]) => {
+    const poolData = poolsData.value.find(p => p.pool.pool_address === address)
+    const symbol = poolData?.pool?.token_symbol ?? ''
     const asset = getFullTokenData(symbol)
+    const price = poolData?.oracle_asset_price
+      ? Number(bigintToNumber(poolData.oracle_asset_price, oraclePriceDecimals.value))
+      : 0
+    const suppliedFromJTokens = data?.j_tokens && poolData
+      ? Number(calculateTotalStake(
+          data.j_tokens,
+          {
+            total_j_tokens: poolData.pool.total_j_tokens,
+            total_borrowed: poolData.pool.total_borrowed,
+            total_available: poolData.total_available_adjusted,
+          },
+          assetDecimals.value,
+        ))
+      : 0
+    const suppliedCollateral = data?.collateral
+      ? Number(bigintToNumber(BigInt(data.collateral), assetDecimals.value))
+      : 0
+    const amount = suppliedFromJTokens + suppliedCollateral
+
     return {
       address,
+      amount,
+      usd: amount * price,
       ...asset,
     }
   }) ?? []
@@ -116,22 +152,9 @@ const collateralValueUsd = computed(() => {
   )
 })
 
-const borrowedValueUsd = computed(() => {
-  if (!obligation.value || !marketState.value) {
-    return borrowedUsd.value
-  }
-
-  return calcUserTotalBorrowedInUsd(
-    obligation.value,
-    poolsData.value,
-    assetDecimals.value,
-    oraclePriceDecimals.value,
-  )
-})
-
 const weightedBorrowedValueUsd = computed(() => {
   if (!obligation.value || !marketState.value) {
-    return 0
+    return borrowedUsd.value
   }
 
   return calcWeightedBorrowedUsd(
@@ -351,14 +374,11 @@ const liquidationPrice = computed<number | null>(() => {
 })
 
 const positionLabel = computed(() => {
-  if (hasSupply.value && hasBorrow.value) {
-    return 'Supplying & Borrowing'
-  }
   if (hasBorrow.value) {
-    return 'Borrow Position'
+    return 'Borrow'
   }
   if (hasSupply.value) {
-    return 'Supply Position'
+    return 'Supply'
   }
   return 'No Active Position'
 })
@@ -388,16 +408,6 @@ const statusPillStyle = computed(() => {
   }
 })
 
-const healthStatusLabel = computed(() => {
-  if (healthFactor.value === null) {
-    return 'Healthy'
-  }
-  if (healthFactor.value < 1.2) {
-    return 'Risky'
-  }
-  return 'Healthy'
-})
-
 const healthIndicatorStyle = computed(() => ({
   '--indicator-width': `${Math.min(Math.max((((healthFactor.value ?? 1) - 1) * 100), 0), 100)}%`,
   '--indicator-color': healthFactorColor(healthFactor.value),
@@ -421,20 +431,6 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
   }
   marketsStore.dialogRepay = true
 }
-
-function handleRoute(address: string) {
-  if (!address) {
-    return
-  }
-  router.push({
-    name: route.name,
-    params: {
-      market: route.params.market,
-      pool: address,
-    },
-    query: route.query,
-  })
-}
 </script>
 
 <template>
@@ -451,9 +447,6 @@ function handleRoute(address: string) {
               <h3 class="pool-card-title">
                 My Position
               </h3>
-              <p class="subtitle">
-                {{ positionLabel }} in {{ selectedPool?.asset.symbol }} on {{ selectedPool?.market }} market
-              </p>
             </div>
           </div>
 
@@ -463,184 +456,83 @@ function handleRoute(address: string) {
           >
             {{ positionLabel }}
           </div>
+
+          <div
+            v-if="hasPosition"
+            class="position-actions"
+          >
+            <j-btn
+              v-if="hasSupply"
+              size="sm"
+              variant="brand-outlined"
+              :disabled="marketActions.isDisabled(selectedPool.pool_address, 'deposit', selectedPool.market!)"
+              :loading="marketActions.isLoading(selectedPool.pool_address, 'deposit', selectedPool.market!)"
+              @click="openAction('supply')"
+            >
+              Supply
+            </j-btn>
+            <j-btn
+              v-else
+              size="sm"
+              variant="brand-secondary-outlined"
+              :disabled="marketActions.isDisabled(selectedPool.pool_address, 'repay', selectedPool.market!)"
+              :loading="marketActions.isLoading(selectedPool.pool_address, 'repay', selectedPool.market!)"
+              @click="openAction('repay')"
+            >
+              Repay
+            </j-btn>
+            <j-btn
+              v-if="hasBorrow"
+              size="sm"
+              variant="brand-secondary-outlined"
+              :disabled="marketActions.isDisabled(selectedPool.pool_address, 'borrow', selectedPool.market!)"
+              :loading="marketActions.isLoading(selectedPool.pool_address, 'borrow', selectedPool.market!)"
+              @click="openAction('borrow')"
+            >
+              Borrow
+            </j-btn>
+            <j-btn
+              v-else
+              size="sm"
+              variant="brand-outlined"
+              :disabled="marketActions.isDisabled(selectedPool.pool_address, 'withdraw', selectedPool.market!)"
+              :loading="marketActions.isLoading(selectedPool.pool_address, 'withdraw', selectedPool.market!)"
+              @click="openAction('withdraw')"
+            >
+              Withdraw
+            </j-btn>
+          </div>
         </div>
       </div>
 
       <div class="stat-card__body">
         <template v-if="hasPosition">
           <div class="position-layout">
-            <div class="position-panel position-panel--overview stat-card stat-card--small">
-              <div class="position-panel__eyebrow">
-                Position Overview
-              </div>
 
-              <div class="overview-metrics">
-                <div class="overview-metric">
-                  <div class="overview-metric__label">
-                    Collateral Value
+            <position-overview
+              :collateral-value-usd="collateralValueUsd"
+              :positions="positions"
+              :weighted-borrowed-value-usd="weightedBorrowedValueUsd"
+              :health-factor="healthFactor"
+              :health-indicator-style="healthIndicatorStyle"
+            />
 
-                    <j-tooltip
-                      v-if="positions?.deposits"
-                    >
-                      <template #content>
-                        Click an asset icon to view that pool
-                      </template>
-                      <div class="position-icons">
-                        <img
-                          v-for="asset in positions?.deposits"
-                          :key="asset.symbol"
-                          :src="asset.icon"
-                          alt="asset icon"
-                          @click="handleRoute(asset.address)"
-                        >
-                      </div>
-                    </j-tooltip>
-                  </div>
-                  <div class="overview-metric__value">
-                    {{ formatCompactUSD(collateralValueUsd, 2, 2) }}
-                  </div>
-                </div>
+            <position-borrow-limits
+              :borrow-limit="borrowLimit"
+              :selected-pool="selectedPool"
+              :borrowed-amount="borrowedAmount"
+              :available-to-borrow="availableToBorrow"
+            />
 
-                <div class="overview-metric">
-                  <div class="overview-metric__label">
-                    Borrowed Value
+            <position-risk-metrics
+              :current-ltv="currentLtv"
+              :liquidation-ltv="liquidationLtv"
+              :liquidation-buffer-percent="liquidationBufferPercent"
+              :liquidation-buffer-usd="liquidationBufferUsd"
+              :health-factor="healthFactor"
+              :liquidation-price="liquidationPrice"
+            />
 
-                    <j-tooltip
-                      v-if="positions?.borrows"
-                    >
-                      <template #content>
-                        Click an asset icon to view that pool
-                      </template>
-                      <div class="position-icons">
-                        <img
-                          v-for="asset in positions?.borrows"
-                          :key="asset.symbol"
-                          :src="asset.icon"
-                          alt="asset icon"
-                          @click="handleRoute(asset.address)"
-                        >
-                      </div>
-                    </j-tooltip>
-                  </div>
-                  <div class="overview-metric__value">
-                    {{ formatCompactUSD(borrowedValueUsd, 2, 2) }}
-                  </div>
-                </div>
-              </div>
-
-              <div class="health-highlight">
-                <div class="health-highlight__meta">
-                  <div class="health-highlight__label">
-                    Health Factor
-                    <info-tooltip>
-                      Health Factor = weighted collateral at Close LTV divided by weighted debt with liability factor.
-                      <br>
-                      Lower values mean higher liquidation risk.
-                    </info-tooltip>
-                  </div>
-                  <div
-                    class="health-highlight__status"
-                    :style="{ color: healthIndicatorStyle['--indicator-color'] }"
-                  >
-                    {{ healthStatusLabel }}
-                  </div>
-                </div>
-
-                <div class="health-highlight__value-row">
-                  <div
-                    class="health-highlight__value"
-                    :style="{ color: healthIndicatorStyle['--indicator-color'] }"
-                  >
-                    {{ healthFactor === null ? 'No debt' : truncatePercent(healthFactor, 2) }}
-                  </div>
-                  <div
-                    v-if="healthFactor !== null"
-                    class="hf-indicator"
-                    :style="healthIndicatorStyle"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div class="position-panel stat-card stat-card--small">
-              <div class="position-panel__eyebrow">
-                Borrow Limits
-              </div>
-
-              <div class="metric-list">
-                <div class="metric-list__item">
-                  <div class="metric-list__label">
-                    Borrow Limit
-                  </div>
-                  <div class="metric-list__value">
-                    {{ formatPrice(borrowLimit, 0, 5) }} {{ selectedPool?.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="metric-list__item">
-                  <div class="metric-list__label">
-                    Borrowed
-                  </div>
-                  <div class="metric-list__value">
-                    {{ formatPrice(borrowedAmount, 0, 5) }} {{ selectedPool?.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="metric-list__item">
-                  <div class="metric-list__label">
-                    Available to Borrow
-                  </div>
-                  <div class="metric-list__value borrow-color">
-                    {{ formatPrice(availableToBorrow, 0, 5) }} {{ selectedPool?.asset.symbol }}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="position-panel stat-card stat-card--small">
-              <div class="position-panel__eyebrow">
-                Risk Metrics
-              </div>
-
-              <div class="metric-list">
-                <div class="metric-list__item">
-                  <div class="metric-list__label">
-                    Current LTV
-                  </div>
-                  <div class="metric-list__value">
-                    {{ truncatePercent(currentLtv, 2) }}%
-                  </div>
-                </div>
-
-                <div class="metric-list__item">
-                  <div class="metric-list__label">
-                    Liquidation LTV
-                  </div>
-                  <div class="metric-list__value">
-                    {{ truncatePercent(liquidationLtv, 2) }}%
-                  </div>
-                </div>
-
-                <div class="metric-list__item">
-                  <div class="metric-list__label">
-                    Liquidation Buffer
-                  </div>
-                  <div class="metric-list__value metric-list__value--stacked">
-                    <span>{{ truncatePercent(liquidationBufferPercent, 2) }}%</span>
-                    <small v-if="healthFactor">{{ formatCompactUSD(liquidationBufferUsd, 2, 2) }} until liquidation</small>
-                  </div>
-                </div>
-
-                <div class="metric-list__item">
-                  <div class="metric-list__label">
-                    Liquidation Price
-                  </div>
-                  <div class="metric-list__value">
-                    {{ liquidationPrice !== null ? formatCompactUSD(liquidationPrice, 2, 2) : '—' }}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </template>
 
@@ -655,51 +547,6 @@ function handleRoute(address: string) {
           </div>
         </template>
 
-        <div
-          v-if="hasPosition"
-          class="position-actions"
-        >
-          <j-btn
-            v-if="hasSupply"
-            size="sm"
-            variant="brand-outlined"
-            :disabled="marketActions.isDisabled(selectedPool.pool_address, 'deposit', selectedPool.market!)"
-            :loading="marketActions.isLoading(selectedPool.pool_address, 'deposit', selectedPool.market!)"
-            @click="openAction('supply')"
-          >
-            Supply
-          </j-btn>
-          <j-btn
-            v-else
-            size="sm"
-            variant="brand-secondary-outlined"
-            :disabled="marketActions.isDisabled(selectedPool.pool_address, 'repay', selectedPool.market!)"
-            :loading="marketActions.isLoading(selectedPool.pool_address, 'repay', selectedPool.market!)"
-            @click="openAction('repay')"
-          >
-            Repay
-          </j-btn>
-          <j-btn
-            v-if="hasBorrow"
-            size="sm"
-            variant="brand-secondary-outlined"
-            :disabled="marketActions.isDisabled(selectedPool.pool_address, 'borrow', selectedPool.market!)"
-            :loading="marketActions.isLoading(selectedPool.pool_address, 'borrow', selectedPool.market!)"
-            @click="openAction('borrow')"
-          >
-            Borrow
-          </j-btn>
-          <j-btn
-            v-else
-            size="sm"
-            variant="brand-outlined"
-            :disabled="marketActions.isDisabled(selectedPool.pool_address, 'withdraw', selectedPool.market!)"
-            :loading="marketActions.isLoading(selectedPool.pool_address, 'withdraw', selectedPool.market!)"
-            @click="openAction('withdraw')"
-          >
-            Withdraw
-          </j-btn>
-        </div>
       </div>
     </div>
 
@@ -723,6 +570,7 @@ function handleRoute(address: string) {
 <style lang="scss">
 section#my-position {
   .pool-card {
+    background-color: $bg-card;
     .stat-card__header {
       gap: 12px;
     }
@@ -737,7 +585,6 @@ section#my-position {
       border-radius: 50px;
       color: var(--color);
       background-color: var(--background-color);
-      margin-left: auto;
       white-space: nowrap;
     }
   }
@@ -746,7 +593,6 @@ section#my-position {
     width: 100%;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 16px;
 
     @media (max-width: $breakpoint-sm) {
@@ -781,7 +627,8 @@ section#my-position {
 
   .position-layout {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
     gap: 16px;
     margin-bottom: 16px;
 
@@ -791,13 +638,14 @@ section#my-position {
   }
 
   .position-panel {
-    padding: 14px 16px;
+    padding: $spacing-xl;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    background-color: $bg-tertiary;
+    border-color: $border-secondary;
 
     &--overview {
-      grid-column: span 2;
+      grid-row: span 2;
 
       @media (max-width: $breakpoint-md) {
         grid-column: span 1;
@@ -806,30 +654,23 @@ section#my-position {
 
     &__eyebrow {
       color: $text-primary;
-      font-size: 14px;
-    }
-  }
-
-  .overview-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-
-    @media (max-width: $breakpoint-xs) {
-      grid-template-columns: 1fr;
+      font-size: 12px;
+      font-weight: 700;
+      padding-bottom: $spacing-md;
     }
   }
 
   .overview-metric {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 
-    &__label {
+    &__title {
       color: $text-tertiary;
       font-size: 12px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 16px;
     }
 
@@ -838,33 +679,40 @@ section#my-position {
       font-size: 14px;
       font-weight: 700;
       color: $text-primary;
-      line-height: 1.1;
+    }
+
+    &__list {
+      display: flex;
+      flex-direction: column;
+      max-height: 120px;
+      overflow: auto;
+    }
+
+    &__item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: $spacing-md 0 $spacing-md $spacing-lg;
+
+      img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        border-radius: 50%;
+      }
+
+      .value {
+        color: $text-tertiary;
+        font-family: $font-JetBrainsMono;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: normal;
+      }
     }
 
     [class*='tooltip'] {
       cursor: default;
-    }
-
-    .position-icons {
-      display: flex;
-      align-items: center;
-
-      img {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        object-fit: contain;
-        cursor: pointer;
-        transition: 0.1s ease;
-
-        &:hover {
-          transform: scale(1.2);
-        }
-
-        &:not(:first-child) {
-          margin-left: -4px;
-        }
-      }
     }
   }
 
@@ -874,6 +722,7 @@ section#my-position {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    margin-top: auto;
 
     &__meta {
       display: flex;
@@ -922,10 +771,15 @@ section#my-position {
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 10px 0;
+      padding: $spacing-md 0;
 
-      &:not(:last-child) {
-        border-bottom: 1px solid $border-primary;
+      &:last-child {
+        padding-bottom: 0;
+
+        .metric-list__value {
+          font-size: 14px;
+          font-weight: 500;
+        }
       }
     }
 
@@ -937,8 +791,8 @@ section#my-position {
     &__value {
       color: $text-primary;
       font-family: $font-JetBrainsMono;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 400;
       text-align: right;
 
       &--stacked {
@@ -949,18 +803,23 @@ section#my-position {
         span {
           color: $text-primary;
           font-family: $font-JetBrainsMono;
-          font-size: 16px;
+          font-size: 12px;
           font-weight: 700;
         }
 
         small {
-          color: $text-secondary;
-          font-size: 11px;
-          font-weight: 500;
-          line-height: 1.2;
-          font-family: inherit;
+          color: $text-tertiary;
+          font-family: $font-JetBrainsMono;
+          font-size: 12px;
+          font-style: normal;
+          font-weight: 400;
+          line-height: normal;
         }
       }
+    }
+
+    .separator {
+      margin: $spacing-md 0;
     }
   }
 
@@ -1023,12 +882,29 @@ section#my-position {
     }
   }
 
+  .no-borrow-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    border: 1px solid $border-secondary;
+    height: 100%;
+    border-radius: $radius-md;
+    color: $text-tertiary;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 20px;
+    gap: 12px;
+  }
+
   .position-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
+    margin-left: auto;
   }
 }
 </style>
