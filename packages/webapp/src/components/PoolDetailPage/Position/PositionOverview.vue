@@ -1,13 +1,18 @@
 <script lang="ts" setup>
-defineProps<{
-  collateralValueUsd: number
-  positions: any
-  weightedBorrowedValueUsd: number
-  healthFactor: number | null
-  healthIndicatorStyle: any
-}>()
+const {
+  collateralValueUsd,
+  positions,
+  weightedBorrowedValueUsd,
+  healthFactor,
+} = useMyPosition()
 
 const dialog = ref(false)
+
+const healthIndicatorStyle = computed(() => ({
+  '--indicator-width': `${Math.min(Math.max((((healthFactor.value ?? 1) - 1) * 100), 0), 100)}%`,
+  '--indicator-color': healthFactorColor(healthFactor.value),
+}))
+
 function handleClick() {
   dialog.value = !dialog.value
 }

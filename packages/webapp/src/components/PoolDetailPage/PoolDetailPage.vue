@@ -15,6 +15,8 @@ const {
   selectedPool,
 } = useMarketTable()
 
+provide('selectedPool', selectedPool)
+
 watch(() => marketsStore.state.markets, (storeMarkets) => {
   if (!storeMarkets || Object.keys(storeMarkets).length === 0) {
     return
@@ -26,8 +28,6 @@ watch(() => marketsStore.state.markets, (storeMarkets) => {
   selectedMarketName.value = market?.[0]
   selectedPoolAddress.value = pool?.pool.pool_address
 }, { immediate: true })
-
-provide('selectedPool', selectedPool)
 
 const tabs = [{
   label: 'Pool',

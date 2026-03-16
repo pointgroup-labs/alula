@@ -1,19 +1,13 @@
 <script lang="ts" setup>
-import type { MarketTableItem } from '~/types/table'
-
 const {
   selectedPool,
-  borrowLimit = 0,
-  borrowedAmount = 0,
-} = defineProps<{
-  availableToBorrow: number
-  borrowedAmount?: number
-  borrowLimit?: number
-  selectedPool?: MarketTableItem
-}>()
+  borrowLimit,
+  borrowedAmount,
+  availableToBorrow,
+} = useMyPosition()
 
-const borrowLimitUsd = computed(() => borrowLimit * Number(selectedPool?.price ?? 0))
-const borrowedAmountUsd = computed(() => borrowedAmount * Number(selectedPool?.price ?? 0))
+const borrowLimitUsd = computed(() => borrowLimit.value * Number(selectedPool.value?.price ?? 0))
+const borrowedAmountUsd = computed(() => borrowedAmount.value * Number(selectedPool.value?.price ?? 0))
 </script>
 
 <template>
@@ -39,7 +33,7 @@ const borrowedAmountUsd = computed(() => borrowedAmount * Number(selectedPool?.p
         </div>
         <div class="metric-list__value  metric-list__value--stacked">
           <span>{{ formatPrice(borrowedAmount, 0, 5) }} {{ selectedPool?.asset.symbol }}</span>
-          <small class="metric-list__sub-value">${{formatPrice(borrowedAmountUsd, 0, 2)}}</small>
+          <small class="metric-list__sub-value">${{ formatPrice(borrowedAmountUsd, 0, 2) }}</small>
         </div>
       </div>
 

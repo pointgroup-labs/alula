@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-defineProps<{
-  currentLtv: number
-  liquidationLtv: number
-  liquidationBufferPercent: number
-  liquidationBufferUsd: number
-  healthFactor?: number | null
-  liquidationPrice: number | null
-}>()
+const {
+  currentLtv,
+  liquidationLtv,
+  liquidationBufferPercent,
+  liquidationBufferUsd,
+  healthFactor,
+  liquidationPrice,
+} = useMyPosition()
 </script>
 
 <template>
