@@ -6,7 +6,7 @@ const marketsStore = useMarketsStore()
 
 const loading = computed(() => marketsStore.state.loading)
 
-const poolsInfo = computed(() => {
+const marketsInfo = computed(() => {
   return Object.values(marketsStore.state.markets)?.reduce((acc, { marketState }) => {
     const assetDecimals = marketState?.asset_decimals ?? 0
     const oraclePriceDecimale = marketState?.oracle_price_decimals ?? 0
@@ -18,17 +18,16 @@ const poolsInfo = computed(() => {
       const borrowed = Number(bigintToNumber(data.pool.total_borrowed, assetDecimals)) * price
       acc.total_borrowed += borrowed
       acc.total_collateral += supplied
+      acc.available_liquidity += supplied - borrowed
     }
     return acc
-  }, { total_collateral: 0, total_borrowed: 0 })
+  }, { total_collateral: 0, total_borrowed: 0, available_liquidity: 0 })
 })
-
-const marketSize = computed(() => formatPrice(poolsInfo.value.total_collateral + poolsInfo.value.total_borrowed, 0, 0))
 </script>
 
 <template>
   <div class="markets-info">
-    <template v-if="loading && poolsInfo.total_collateral === 0">
+    <template v-if="loading && marketsInfo.total_collateral === 0">
       <market-info-skeleton
         v-for="i in 3"
         :key="i"
@@ -37,22 +36,22 @@ const marketSize = computed(() => formatPrice(poolsInfo.value.total_collateral +
     <template v-else>
       <total-card
         title="Total Supply"
-        :body="`$${formatPrice(poolsInfo.total_collateral, 0, 0)}`"
+        :body="`$${formatPrice(marketsInfo.total_collateral, 0, 0)}`"
         bg="#006ce4"
         icon-color="#006CE4"
         :loading="loading"
       />
       <total-card
         title="Total Borrow"
-        :body="`$${formatPrice(poolsInfo.total_borrowed, 0, 0)}`"
+        :body="`$${formatPrice(marketsInfo.total_borrowed, 0, 0)}`"
         bg="#ffd101"
         :icon="borrowingIcon"
         icon-color="#FFD101"
         :loading="loading"
       />
       <total-card
-        title="Global Market Size"
-        :body="`$${marketSize}`"
+        title="Available Liquidity"
+        :body="`$${formatPrice(marketsInfo.available_liquidity, 0, 0)}`"
         bg="#ffd101"
         :icon="borrowingIcon"
         icon-color="#FFD101"
