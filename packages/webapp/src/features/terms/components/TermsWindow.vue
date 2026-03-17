@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { TERMS_VERSION } from '../constants'
+import { TermsContent } from '../index'
 
 const key = computed(() => `termsAccepted:${TERMS_VERSION}`)
 const acceptedTerms = useLocalStorage(key, false, { initOnMounted: true })
@@ -88,46 +89,7 @@ function updateAccepted(value: boolean) {
         tabindex="0"
         @scroll="updateScrollState"
       >
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Tempore, illo eveniet facere modi ipsam dolores
-        animi!
-        Facilis fuga accusamus, animi nesciunt accusantium iusto? Blanditiis, aliquid. Accusantium maxime dolor
-        ullam
-        mollitia?
+        <terms-content />
       </div>
 
       <Transition name="terms-hint">
@@ -166,7 +128,7 @@ function updateAccepted(value: boolean) {
 <style lang="scss">
 .terms-dialog {
   .modal-dialog .modal-content {
-    max-width: 500px;
+    max-width: 600px;
 
     @media (max-width: $breakpoint-xs) {
       padding-top: 12px;
@@ -237,10 +199,9 @@ function updateAccepted(value: boolean) {
     overflow-y: auto;
     overflow-x: hidden;
     background: linear-gradient(180deg, color-mix(in oklab, $navi-500 88%, white) 0%, $navi-500 100%);
-    padding: $spacing-2xl;
     border-radius: 12px;
     border: 1px solid $border-secondary;
-    max-height: min(400px, 55vh);
+    max-height: min(500px, 55vh);
     color: $text-secondary;
     font-size: 14px;
     line-height: 1.7;
