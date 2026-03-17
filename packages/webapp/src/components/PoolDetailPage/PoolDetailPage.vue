@@ -48,27 +48,26 @@ function resolveTab(tabValue?: string | null) {
   return tabs.find(tab => tab.value === tabValue) ?? defaultTab
 }
 
-const activeTab = ref(resolveTab(route.query.activeTab as string | undefined))
+const activeTab = ref(resolveTab(route.params.page as string | undefined))
 
 watch(activeTab, (tab) => {
   if (!tab?.value) {
     return
   }
 
-  if (route.query.activeTab === tab.value) {
+  if (route.params.page === tab.value) {
     return
   }
 
-  router.replace({
-    path: route.path,
-    query: {
-      ...route.query,
-      activeTab: tab.value,
+  router.push({
+    params: {
+      ...route.params,
+      page: tab.value,
     },
   })
 }, { deep: true })
 
-watch(() => route.query.activeTab, (tabValue) => {
+watch(() => route.params.page, (tabValue) => {
   const nextTab = resolveTab(tabValue as string | undefined)
   if (activeTab.value?.value === nextTab?.value) {
     return

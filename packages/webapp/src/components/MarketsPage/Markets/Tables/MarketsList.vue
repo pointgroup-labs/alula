@@ -71,7 +71,7 @@ async function dialogHandler(marketName: string, item: MarketTableItem, action: 
 function onRowClicked(marketName: string, item: MarketTableItem) {
   const marketAddress = marketsStore.state.markets[marketName]?.address
   const poolAddress = item.pool_address
-  router.push(`/lend/${marketAddress}/${poolAddress}`)
+  router.push(`/lend/${marketAddress}/${poolAddress}/pool`)
 }
 
 function rowClass(item: any): any {
