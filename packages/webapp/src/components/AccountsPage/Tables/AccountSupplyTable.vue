@@ -94,10 +94,10 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
       Your Supplies
 
       <metric-indicator
+        v-if="isHasObligations"
         label="Total Supplied"
         :value="`${totalSupplyUsd}`"
         color="#17B26A"
-        v-if="isHasObligations"
       />
     </div>
 
@@ -171,8 +171,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
             <div class="table-cell justify-content-end">
               <j-btn
                 variant="brand-outlined"
-                pill
-                size="xs"
+                size="sm"
                 :disabled="market.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
                 @click="withdrawDialogHandler(data.item)"
@@ -208,9 +207,10 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 <style lang="scss">
 .account-card {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  background-color: $bg-card;
+  border: 1px solid $border-secondary;
+  border-radius: 12px;
+  overflow: hidden;
 
   .loading-spinner {
     position: absolute;
@@ -231,6 +231,8 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: $spacing-xl;
+    border-bottom: 1px solid $border-primary;
 
     @media (max-width: $breakpoint-sm) {
       font-size: 16px;
@@ -254,8 +256,33 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 }
 
 .account-table {
+  th {
+    &:first-child {
+      padding-left: 16px;
+    }
+    &:last-child {
+      padding-right: 16px;
+    }
+  }
+  td {
+    &:first-child {
+      padding-left: 16px;
+    }
+    &:last-child {
+      padding-right: 16px;
+    }
+  }
   tbody tr {
     cursor: default;
+    border-color: $border-primary;
+
+    &:hover {
+      background-color: $navi-700;
+    }
+
+    &:last-child {
+      border-radius: 0 0 12px 12px !important;
+    }
   }
 
   .profile-action {

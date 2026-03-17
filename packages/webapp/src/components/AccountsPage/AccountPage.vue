@@ -2,7 +2,6 @@
   <main class="account-page container">
     <div class="account-cards card">
       <account-supply-table />
-      <div class="separator-vert" />
       <account-borrow-table />
     </div>
     <!--
@@ -19,8 +18,10 @@
 .account-page {
   .account-cards {
     display: grid;
-    grid-template-columns: 1fr 1px 1fr;
-    gap: 32px;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    background-color: transparent;
+    border: none;
 
     @media (max-width: $breakpoint-sm) {
       display: flex;

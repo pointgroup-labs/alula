@@ -197,9 +197,8 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
             <div class="table-cell justify-content-end">
               <j-btn
                 variant="brand-secondary-outlined"
-                size="xs"
+                size="sm"
                 class="repay-btn"
-                pill
                 :disabled="market.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'repay', data.item.market!)"
                 @click="withdrawDialogHandler(data.item)"
