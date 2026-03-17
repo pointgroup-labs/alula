@@ -31,7 +31,7 @@ const positionLabel = computed(() => {
   if (hasSupply.value) {
     return 'Supply'
   }
-  return 'No Active Position'
+  return null
 })
 
 const statusPillStyle = computed(() => {
@@ -97,6 +97,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
           </div>
 
           <div
+            v-if="positionLabel"
             class="pool-card-pill"
             :style="statusPillStyle"
           >
@@ -513,6 +514,9 @@ section#my-position {
     &__label {
       color: $text-tertiary;
       font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     &__value {
@@ -589,7 +593,7 @@ section#my-position {
   }
 
   .empty-state {
-    padding: 16px;
+    padding: 64px 16px;
     border: 1px solid $border-primary;
     border-radius: $radius-xl;
     margin-bottom: 18px;
