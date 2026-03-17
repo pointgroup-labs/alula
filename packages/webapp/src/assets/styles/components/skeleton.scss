@@ -14,7 +14,7 @@ $skeleton-variants: (
 
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 
-  animation: skeleton-pulse 1.2s ease-in-out infinite;
+  animation: skeleton-pulse 2s ease-in-out infinite;
 
   @each $variant, $variant-properties in $skeleton-variants {
     &--#{$variant} {
@@ -35,12 +35,12 @@ $skeleton-variants: (
 
 @keyframes skeleton-pulse {
   0% {
-    opacity: 0.65;
+    opacity: 0.35;
   }
   50% {
     opacity: 1;
   }
   100% {
-    opacity: 0.65;
+    opacity: 0.35;
   }
 }

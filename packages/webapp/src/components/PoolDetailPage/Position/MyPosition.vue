@@ -11,6 +11,9 @@ const {
 
 const marketsStore = useMarketsStore()
 const marketActions = useMarketActions()
+const userStore = useUserStore()
+
+const isLoadingObligations = computed(() => userStore.loading)
 
 const netApyDisplay = computed(() => {
   const value = Number(netApy.value || 0)
@@ -184,6 +187,13 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
 
           </div>
         </template>
+
+        <j-skeleton
+          v-else-if="!hasPosition && isLoadingObligations"
+          full-width
+          height="178"
+          style="border-radius: 12px;"
+        />
 
         <template v-else>
           <div class="empty-state">
