@@ -1,18 +1,12 @@
 <script setup lang="ts">
-// import { CookieModal } from '~/features/cookie'
-
-// if (import.meta.client) {
-//   onMounted(() => {
-//     initWallet()
-//   })
-// }
+import { TermsWindow } from '~/features/terms'
 </script>
 
 <template>
   <app-header />
   <NuxtPage />
   <app-footer />
-  <!-- <client-only>
-    <cookie-modal />
-  </client-only> -->
+  <client-only>
+    <terms-window />
+  </client-only>
 </template>
