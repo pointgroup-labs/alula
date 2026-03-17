@@ -4,6 +4,7 @@ const {
   positions,
   selectedPool,
   weightedBorrowedValueUsd,
+  liquidationBufferUsd,
   healthFactor,
 } = useMyPosition()
 
@@ -16,6 +17,33 @@ const healthIndicatorStyle = computed(() => ({
   '--indicator-width': `${Math.min(Math.max((((healthFactor.value ?? 1) - 1) * 100), 0), 100)}%`,
   '--indicator-color': healthFactorColor(healthFactor.value),
 }))
+
+const healthStatusLabel = computed(() => {
+  if (!healthFactor.value) {
+    return null
+  }
+  if (healthFactor.value < 1.2) {
+    return 'At Risk'
+  }
+  if (healthFactor.value < 1.5) {
+    return 'Caution'
+  }
+  return 'Health'
+})
+
+const healthStatusDetail = computed(() => {
+  if (!healthFactor.value) {
+    return null
+  }
+  const formattedBuffer = formatCompactUSD(liquidationBufferUsd.value, 2, 2)
+  if (healthFactor.value < 1.2) {
+    return 'Add collateral or repay'
+  }
+  if (healthFactor.value < 1.5) {
+    return `Buffer left: ~${formattedBuffer}`
+  }
+  return `You can borrow ~${formattedBuffer} more before liquidation.`
+})
 
 function isCurrentPool(address: string) {
   return address === selectedPool.value.pool_address
@@ -158,6 +186,18 @@ function handleClick() {
             <br>
             Lower values mean higher liquidation risk.
           </info-tooltip>
+          <j-tooltip>
+            <span
+              v-if="healthStatusLabel"
+              class="health-highlight__badge"
+              :style="{ '--indicator-color': healthIndicatorStyle['--indicator-color'] }"
+            >
+              {{ healthStatusLabel }}
+            </span>
+            <template #content>
+              {{ healthStatusDetail }}
+            </template>
+          </j-tooltip>
         </div>
 
         <div class="health-highlight__value-row">

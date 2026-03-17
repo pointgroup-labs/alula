@@ -449,7 +449,7 @@ section#my-position {
     border-top: 1px solid $border-primary;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     margin-top: auto;
 
     &__meta {
@@ -465,6 +465,20 @@ section#my-position {
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    &__badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: var(--indicator-color, $text-primary);
+      background-color: color-mix(in oklab, var(--indicator-color, $border-secondary) 12%, transparent);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
     }
 
     &__status {
@@ -486,6 +500,12 @@ section#my-position {
       font-weight: 700;
       line-height: 1;
       color: $text-primary;
+    }
+
+    &__hint {
+      font-size: 12px;
+      line-height: 1.4;
+      color: $text-tertiary;
     }
   }
 
