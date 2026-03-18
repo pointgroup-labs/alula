@@ -21,7 +21,7 @@ export default defineNuxtConfig({
   dir: {
     public: resolve(__dirname, 'public'),
   },
-  ssr: env.NODE_ENV !== 'development',
+  ssr: false,
   devServer: {
     port: 3000,
   },
