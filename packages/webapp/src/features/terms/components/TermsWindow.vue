@@ -139,7 +139,6 @@ function updateAccepted(value: boolean) {
     height: 65px;
 
     @media (max-width: $breakpoint-xs) {
-      padding: 0;
       height: 35px;
     }
 
@@ -162,10 +161,6 @@ function updateAccepted(value: boolean) {
     flex-direction: column;
     gap: $spacing-xl;
     min-height: 0;
-
-    @media (max-width: $breakpoint-xs) {
-      padding: 12px 0 0;
-    }
   }
 
   &__actions {
