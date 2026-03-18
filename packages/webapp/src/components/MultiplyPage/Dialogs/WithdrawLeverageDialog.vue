@@ -25,8 +25,7 @@ const reloadFee = ref(false)
 
 const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
 
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
+const { publicKey } = useWalletComposable()
 
 const balance = computed(() => {
   if (!data) {
@@ -188,7 +187,7 @@ watchDebounced([
 
         <div class="multiply-dialog-action">
           <market-dialog-action-btn
-            variant="success"
+            variant="brand"
             :loading="market.isLoading(String(data?.pool_address), 'withdrawLeverage', String(data?.market))"
             :pool="data?.depositPoolData.pool"
             @click-handler="withdrawLeverage"

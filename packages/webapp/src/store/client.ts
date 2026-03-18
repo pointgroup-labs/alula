@@ -7,16 +7,14 @@ export const useClientStore = defineStore('client', () => {
 
   const network = computed(() => rpcStore.network)
 
-  const walletStore = useWallet()
-
-  const publicKey = computed(() => walletStore.publicKey)
-
   const isValidAccount = ref(false)
 
   const alulaClient = computedAsync(async () => await initClient())
 
   async function initClient(marketAddress?: string) {
-    const pubkey = isValidAccount.value ? publicKey.value : undefined
+    const walletStore = useWallet()
+    const pubkey = isValidAccount.value ? walletStore.publicKey : undefined
+
     return import.meta.client && network.value
       ? await StellarClient.fromAddress(pubkey, network.value as RPCcluster, marketAddress)
       : {} as StellarClient

@@ -31,7 +31,12 @@ export function useMarketActions() {
 
   const toast = useToast()
 
-  const wallet = useWallet()
+  const {
+    publicKey,
+    nativeBalance,
+    getAssetBalance,
+    loadBalances,
+  } = useWalletComposable()
 
   const assetDecimals = computed(() => marketsStore.assetDecimals)
 
@@ -39,11 +44,11 @@ export function useMarketActions() {
 
   async function addTrustLine(asset: string, issuer: string) {
     try {
-      if (!wallet.publicKey) {
+      if (!publicKey.value) {
         return
       }
-      const res = await marketclient.value!.wallet.addTrustline(wallet.publicKey, asset, issuer, connectionStore.kit)
-      await wallet.loadBalances()
+      const res = await marketclient.value!.wallet.addTrustline(publicKey.value, asset, issuer, connectionStore.kit)
+      await loadBalances()
       return res
     } catch (error) {
       console.log(error)
@@ -52,10 +57,10 @@ export function useMarketActions() {
   }
 
   function requireWallet() {
-    if (!wallet.publicKey) {
+    if (!publicKey.value) {
       throw new Error('Wallet not connected')
     }
-    return wallet.publicKey
+    return publicKey.value
   }
 
   async function runAction(opts: {
@@ -136,7 +141,7 @@ export function useMarketActions() {
     const pk = requireWallet()
     const { market, client, pool_address, amount, asset_data } = props
     const { asset_code, asset_issuer, symbol } = parseAsset(asset_data)
-    const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
+    const balance = asset_code === 'native' ? nativeBalance.value : getAssetBalance(asset_issuer)
 
     try {
       if (!amount || amount <= 0) {
@@ -328,7 +333,7 @@ export function useMarketActions() {
     const pk = requireWallet()
     const { client, market, pool_address, amount, asset_data } = props
     const { asset_code, asset_issuer, symbol } = parseAsset(asset_data)
-    const balance = asset_code === 'native' ? wallet.nativeBalance : wallet.getAssetBalance(asset_issuer)
+    const balance = asset_code === 'native' ? nativeBalance.value : getAssetBalance(asset_issuer)
 
     try {
       if (!amount || amount <= 0) {
@@ -532,7 +537,7 @@ export function useMarketActions() {
     action?: () => void | Promise<void> }) {
     const tasks = [
       () => marketsStore.updatePool(pool_address, market, client),
-      () => wallet.loadBalances(),
+      () => loadBalances(),
       () => action?.(),
     ]
     if (withObligation) {

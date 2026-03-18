@@ -28,8 +28,7 @@ const isLoading = computed(() => txLoading.value || loading)
 const connection = useConnectionStore()
 const isConnectionLoading = computed(() => connection.loading)
 
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
+const { publicKey, balances } = useWalletComposable()
 
 const market = useMarketActions()
 
@@ -38,7 +37,7 @@ const assetData = computed(() => destructurePoolAsset(String(pool?.name)) || [])
 const isTrust = computed(() => {
   const asset_issuer = assetData.value?.[1]
   return pool?.token_symbol === 'native'
-    || !!wallet.balances?.find((b: any) => b.asset_issuer?.toLowerCase() === asset_issuer?.toLowerCase())
+    || !!balances.value?.find((b: any) => b.asset_issuer?.toLowerCase() === asset_issuer?.toLowerCase())
 })
 
 async function addTrust() {

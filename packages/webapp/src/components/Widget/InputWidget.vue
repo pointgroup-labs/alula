@@ -41,8 +41,7 @@ const {
 const emit = defineEmits(['update:modelValue', 'maxHandler'])
 
 const slot = defineSlots()
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
+const { publicKey } = useWalletComposable()
 
 const { assetDecimals } = useMarketActions()
 

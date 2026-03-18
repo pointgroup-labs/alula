@@ -17,14 +17,14 @@ const selectedOption = ref()
 const search = ref()
 
 const marketsStore = useMarketsStore()
-const wallet = useWallet()
+const { nativeBalance, getAssetBalance } = useWalletComposable()
 
 const options = computed(() => {
   return marketsStore.selectedMarketPools
     ?.filter(p => !filteredPositions.includes(p.pool.pool_address))
     ?.map((data) => {
       const asset = getFullTokenData(data.pool.token_symbol)
-      const balance = asset?.symbol === 'XLM' ? wallet.nativeBalance : wallet.getAssetBalance(destructurePoolAsset(data.pool.name)[1])
+      const balance = asset?.symbol === 'XLM' ? nativeBalance.value : getAssetBalance(destructurePoolAsset(data.pool.name)[1])
       const oraclePriceDecimals = marketsStore.activeMarket?.marketState.oracle_price_decimals ?? 0
       const price = balance > 0 ? Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimals)) || 0 : 0
       const balanceUsd = price * balance

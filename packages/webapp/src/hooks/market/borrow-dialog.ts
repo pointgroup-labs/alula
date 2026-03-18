@@ -6,8 +6,7 @@ import { RELOAD_FEE_INTERVAL } from '~/config'
 import { calcHealthFactor, calcWeightedBorrowedUsd, truncatePercent } from '~/utils'
 
 export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isOpen: Ref<boolean>) {
-  const wallet = useWallet()
-  const publicKey = computed(() => wallet.publicKey)
+  const { publicKey } = useWalletComposable()
 
   const marketsStore = useMarketsStore()
   const market = useMarketActions()

@@ -10,7 +10,8 @@ export const useUserStore = defineStore('user', () => {
     multiplyObligations: {},
   })
 
-  const wallet = useWallet()
+  const { publicKey } = useWalletComposable()
+
   const marketsStore = useMarketsStore()
 
   const activeMarket = computed(() => marketsStore.activeMarket)
@@ -20,7 +21,7 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserObligation(market: string, client: StellarClient) {
     try {
       loading.value = true
-      const obligations = await client.obligation.getUserObligation(wallet.publicKey)
+      const obligations = await client.obligation.getUserObligation(publicKey.value)
       state.obligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
@@ -37,7 +38,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       loading.value = true
       const { client, market, depositPoolAddress, borrowPoolAddress } = props
-      const obligations = await client.obligation.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      const obligations = await client.obligation.getUserMultiplyObligation(publicKey.value, depositPoolAddress, borrowPoolAddress)
       state.multiplyObligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market Multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
     } finally {
@@ -51,7 +52,7 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      const obligation = await client.obligation.getUserObligation(wallet.publicKey)
+      const obligation = await client.obligation.getUserObligation(publicKey.value)
       state.obligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Obligation]`, 'color: #FFB726', state.obligations[market])
@@ -79,7 +80,7 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      const obligation = await client.obligation.getUserMultiplyObligation(wallet.publicKey, depositPoolAddress, borrowPoolAddress)
+      const obligation = await client.obligation.getUserMultiplyObligation(publicKey.value, depositPoolAddress, borrowPoolAddress)
       state.multiplyObligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Leverage Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
@@ -118,7 +119,7 @@ export const useUserStore = defineStore('user', () => {
   })
 
   watch([
-    () => wallet.publicKey,
+    () => publicKey.value,
     () => marketsStore.state.markets,
   ], async ([pubkey, markets]) => {
     if (!pubkey || Object.keys(markets).length === 0) {

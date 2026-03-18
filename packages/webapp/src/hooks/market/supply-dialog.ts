@@ -9,8 +9,11 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
   const router = useRouter()
   const route = useRoute()
 
-  const wallet = useWallet()
-  const publicKey = computed(() => wallet.publicKey)
+  const {
+    publicKey,
+    nativeBalance,
+    getAssetBalance,
+  } = useWalletComposable()
 
   const marketsStore = useMarketsStore()
   const market = useMarketActions()
@@ -35,10 +38,10 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
     if (poolData.value.raw.pool.token_symbol === 'native') {
-      return wallet.nativeBalance
+      return nativeBalance.value
     }
     const [, asset_issuer] = destructurePoolAsset(poolData.value?.raw.pool.name)
-    return wallet.getAssetBalance(String(asset_issuer))
+    return getAssetBalance(String(asset_issuer))
   })
 
   const isSupplyLimited = computed(() => poolData.value?.supply_limit && !collateralOnly.value && poolData.value?.supply_limit > 0)

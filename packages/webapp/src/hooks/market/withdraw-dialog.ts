@@ -6,10 +6,9 @@ import { calcHealthFactor, calcWeightedBorrowedUsd, truncatePercent } from '~/ut
 export function useWithdrawDialog(isOpen: Ref<boolean>) {
   const marketsStore = useMarketsStore()
   const market = useMarketActions()
-  const wallet = useWallet()
   const userStore = useUserStore()
 
-  const publicKey = computed(() => wallet.publicKey)
+  const { publicKey } = useWalletComposable()
 
   const marketKey = computed(() => marketsStore.selectedMarketName)
   const poolData = computed(() =>

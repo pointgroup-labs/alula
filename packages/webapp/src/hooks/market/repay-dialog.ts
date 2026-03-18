@@ -7,10 +7,12 @@ import { calcHealthFactor, calcWeightedBorrowedUsd, truncatePercent } from '~/ut
 export function useRepayDialog(isOpen: Ref<boolean>) {
   const marketsStore = useMarketsStore()
   const market = useMarketActions()
-  const wallet = useWallet()
   const userStore = useUserStore()
 
-  const publicKey = computed(() => wallet.publicKey)
+  const {
+    publicKey,
+    nativeBalance,
+    getAssetBalance } = useWalletComposable()
 
   const loading = ref(false)
   const reloadFee = ref(false)
@@ -58,9 +60,9 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
       return 0
     }
     if (asset.value.symbol === 'XLM') {
-      return wallet.nativeBalance
+      return nativeBalance.value
     }
-    return wallet.getAssetBalance(asset_issuer.value)
+    return getAssetBalance(asset_issuer.value)
   })
 
   const liabilityFactor = computed(() => bpsToNumber(Number(poolData.value?.pool.config.health_config.liability_factor_bps || 0)))

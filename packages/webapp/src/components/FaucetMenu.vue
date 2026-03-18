@@ -7,8 +7,7 @@ const rpcStore = useRpcStore()
 
 const isTestNet = computed(() => rpcStore.network === 'testnet')
 
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
+const { publicKey, loadBalances } = useWalletComposable()
 
 const clientStore = useClientStore()
 const alulaClient = computed(() => clientStore.alulaClient)
@@ -39,7 +38,7 @@ async function faucet() {
       variant: 'info',
     })
     if (res?.ok) {
-      await wallet.loadBalances()
+      await loadBalances()
     }
   } finally {
     loading.value = false

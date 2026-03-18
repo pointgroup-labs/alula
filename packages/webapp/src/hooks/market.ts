@@ -21,8 +21,7 @@ export function useMarket(state: MarketsState) {
   const route = useRoute()
   const router = useRouter()
 
-  const walletStore = useWallet()
-  const publicKey = computed(() => walletStore.publicKey)
+  const { publicKey } = useWalletComposable()
 
   const clientStore = useClientStore()
 

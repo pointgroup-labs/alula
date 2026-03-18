@@ -33,8 +33,6 @@ const {
   isOpened,
   toggleOpen } = useAccordionMarketsHandler('accordion-markets')
 
-const { additionalMarketsData } = useAdditionalApy()
-
 const marketsStore = useMarketsStore()
 
 const fields = [
@@ -84,13 +82,6 @@ function rowClass(item: any): any {
   }
   return ''
 }
-
-const stop = watch(additionalMarketsData, () => {
-  if (opened.value.length === 0 && additionalMarketsData.value.length > 0) {
-    toggleOpen(filteredMarkets.value[0]!.marketName)
-    stop()
-  }
-})
 
 watch([
   filteredMarkets,
@@ -332,7 +323,6 @@ watch([
       <markets-list-mobile
         v-else
         :items="market.tableItems"
-        :additional-markets-data="additionalMarketsData"
         @dialog-handler="(e: any) => dialogHandler(market.marketName, e.item, e.action)"
         @on-row-clicked="onRowClicked"
       />

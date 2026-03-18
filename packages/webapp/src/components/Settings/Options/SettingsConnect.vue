@@ -1,8 +1,7 @@
 <script lang="ts" setup>
 import { capitalize } from 'vue'
 
-const wallet = useWallet()
-const publicKey = computed(() => wallet.publicKey)
+const { publicKey } = useWalletComposable()
 const connection = useConnectionStore()
 
 const walletName = computed(() => {

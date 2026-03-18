@@ -18,8 +18,11 @@ export function useLeverage(data: MaybeRef<MultiplyTableItem | undefined>) {
 
   const activeMarket = computed(() => marketsStore.state.markets[String(poolData?.value?.market)])
 
-  const wallet = useWallet()
-  const publicKey = computed(() => wallet.publicKey)
+  const {
+    publicKey,
+    nativeBalance,
+    getAssetBalance,
+  } = useWalletComposable()
 
   const multiplyAssets = computed(() => [poolData?.value?.asset, poolData?.value?.borrowAsset])
 
@@ -33,10 +36,10 @@ export function useLeverage(data: MaybeRef<MultiplyTableItem | undefined>) {
     const currentPool = isDepositMultiply.value ? poolData.value.depositPoolData.pool : poolData.value.borrowPoolData.pool
     const poolAsset = currentPool.token_symbol
     if (poolAsset === 'native') {
-      return wallet.nativeBalance
+      return nativeBalance.value
     }
     const [, asset_issuer] = destructurePoolAsset(currentPool.name)
-    return wallet.getAssetBalance(String(asset_issuer))
+    return getAssetBalance(String(asset_issuer))
   })
 
   const percentFromMaxMultiply = ref(90)

@@ -1,6 +1,7 @@
 export const useRecentActivityStore = defineStore('recent-activity', () => {
-  const wallet = useWallet()
   const rpcStore = useRpcStore()
+
+  const { publicKey } = useWalletComposable()
 
   const state = reactive<RecentActivityState>({
     records: [],
@@ -8,7 +9,7 @@ export const useRecentActivityStore = defineStore('recent-activity', () => {
   })
 
   function fetchLink(limit = 100) {
-    return `${rpcStore.horizonRPCUrl}/accounts/${wallet.publicKey}/operations?limit=${limit}&order=desc`
+    return `${rpcStore.horizonRPCUrl}/accounts/${publicKey.value}/operations?limit=${limit}&order=desc`
   }
 
   async function fetchTxs() {
@@ -52,7 +53,7 @@ export const useRecentActivityStore = defineStore('recent-activity', () => {
   }
 
   watch(
-    [() => wallet.publicKey, () => rpcStore.network],
+    [() => publicKey.value, () => rpcStore.network],
     async ([pk]) => {
       state.records = []
       if (!pk) {

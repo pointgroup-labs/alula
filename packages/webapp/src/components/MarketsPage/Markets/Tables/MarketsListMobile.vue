@@ -6,7 +6,6 @@ const {
   items,
 } = defineProps<{
   items: MarketTableItem[]
-  additionalMarketsData: any
 }>()
 
 const emits = defineEmits(['dialogHandler', 'onRowClicked'])

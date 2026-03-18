@@ -6,9 +6,8 @@ defineProps<{
 } & BButtonProps>()
 
 const connection = useConnectionStore()
-const wallet = useWallet()
+const { publicKey } = useWalletComposable()
 const loading = computed(() => connection.loading || connection.autoConnecting)
-const publicKey = computed(() => wallet.publicKey)
 
 const toast = useToast()
 
