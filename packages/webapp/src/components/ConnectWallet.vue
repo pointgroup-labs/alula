@@ -7,7 +7,7 @@ defineProps<{
 
 const connection = useConnectionStore()
 const wallet = useWallet()
-const loading = computed(() => connection.loading)
+const loading = computed(() => connection.loading || connection.autoConnecting)
 const publicKey = computed(() => wallet.publicKey)
 
 const toast = useToast()
@@ -80,7 +80,7 @@ function copy() {
 
   &__item {
     color: #fff;
-    opacity: .7;
+    opacity: 0.7;
     padding: $spacing-md $spacing-xl;
     display: flex;
     align-items: center;

@@ -16,6 +16,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const { publicKey, balances } = toRefs(walletStore)
 
   const loading = ref(false)
+  const autoConnecting = ref(false)
 
   const kit = ref()
 
@@ -64,6 +65,7 @@ export const useConnectionStore = defineStore('connection', () => {
   async function initKit() {
     await createKit()
     if (import.meta.client && selectedWalletId.value) {
+      autoConnecting.value = true
       try {
         await kit.value.setWallet(selectedWalletId.value)
         const { address } = await kit.value.getAddress()
@@ -71,6 +73,8 @@ export const useConnectionStore = defineStore('connection', () => {
         await walletStore.initWallet(address)
       } catch {
         selectedWalletId.value = ''
+      } finally {
+        autoConnecting.value = false
       }
     }
   }
@@ -158,12 +162,12 @@ export const useConnectionStore = defineStore('connection', () => {
   return {
     kit,
     loading,
+    autoConnecting,
 
     selectedWalletId,
 
     disconnect,
     connectWallet,
-
   }
 })
 
