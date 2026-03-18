@@ -22,6 +22,7 @@ const emit = defineEmits(['close'])
 // ─── Navigation stack ────────────────────────────────────────────────────────
 const views = ref<PanelView[]>([])
 const slideDir = ref<1 | -1>(1)
+const sidebarWrapper = ref<HTMLElement | null>(null)
 
 provide('sidebarPush', (view: PanelView) => {
   slideDir.value = 1
@@ -46,11 +47,26 @@ function close() {
   emit('close')
 }
 
+async function resetScrollPosition() {
+  await nextTick()
+  sidebarWrapper.value?.scrollTo({ top: 0 })
+}
+
 let body: HTMLElement | null
 
 watch(() => isSidebar, (val) => {
   if (!val) { views.value = [] }
   body?.classList.toggle('body--no-scroll', val)
+
+  if (val) {
+    void resetScrollPosition()
+  }
+})
+
+watch(() => views.value.length, () => {
+  if (isSidebar) {
+    void resetScrollPosition()
+  }
 })
 
 onMounted(() => {
@@ -76,6 +92,7 @@ onMounted(() => {
         <div
           v-if="isSidebar"
           id="sidebar-root"
+          ref="sidebarWrapper"
           class="sidebar-wrapper"
           :style="{
             '--sidebar-translate': position === 'left' ? '-100%' : '100%',

@@ -168,8 +168,12 @@ function formatDate(iso: string) {
   }
 }
 .no-recent-activity {
-  text-align: center;
   padding: $spacing-2xl 0;
-  color: $text-secondary;
+  color: $navi-50;
+  font-size: $text-xs;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  text-align: center;
 }
 </style>
