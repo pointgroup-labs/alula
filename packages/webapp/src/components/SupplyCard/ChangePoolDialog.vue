@@ -1,4 +1,12 @@
 <script lang="ts" setup>
+const {
+  filteredPositions = [],
+  isBorrow = false,
+} = defineProps<{
+  filteredPositions?: string[]
+  isBorrow?: boolean
+}>()
+
 const dialog = defineModel({ default: false })
 
 const route = useRoute()
@@ -12,24 +20,26 @@ const marketsStore = useMarketsStore()
 const wallet = useWallet()
 
 const options = computed(() => {
-  return marketsStore.selectedMarketPools?.map((data) => {
-    const asset = getFullTokenData(data.pool.token_symbol)
-    const balance = asset?.symbol === 'XLM' ? wallet.nativeBalance : wallet.getAssetBalance(destructurePoolAsset(data.pool.name)[1])
-    const oraclePriceDecimals = marketsStore.activeMarket?.marketState.oracle_price_decimals ?? 0
-    const price = balance > 0 ? Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimals)) || 0 : 0
-    const balanceUsd = price * balance
-    return {
-      label: asset.symbol,
-      value: data.pool.pool_address,
-      name: asset.name,
-      icon: asset.icon,
-      apy: {
-        borrow: data.apy.borrow_bps / 100,
-        supply: data.apy.supply_bps / 100,
-      },
-      balance: balanceUsd,
-    }
-  }) ?? []
+  return marketsStore.selectedMarketPools
+    ?.filter(p => !filteredPositions.includes(p.pool.pool_address))
+    ?.map((data) => {
+      const asset = getFullTokenData(data.pool.token_symbol)
+      const balance = asset?.symbol === 'XLM' ? wallet.nativeBalance : wallet.getAssetBalance(destructurePoolAsset(data.pool.name)[1])
+      const oraclePriceDecimals = marketsStore.activeMarket?.marketState.oracle_price_decimals ?? 0
+      const price = balance > 0 ? Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimals)) || 0 : 0
+      const balanceUsd = price * balance
+      return {
+        label: asset.symbol,
+        value: data.pool.pool_address,
+        name: asset.name,
+        icon: asset.icon,
+        apy: {
+          borrow: data.apy.borrow_bps / 100,
+          supply: data.apy.supply_bps / 100,
+        },
+        balance: balanceUsd,
+      }
+    }) ?? []
 })
 
 const filteredOptions = computed(() => {
@@ -57,14 +67,17 @@ watch(selectedOption, (opt) => {
     return
   }
 
-  router.replace({
+  router.push({
     name: route.name as string,
     params: {
       ...route.params,
       pool: opt.value,
+      page: isBorrow ? 'pool' : route.params.page,
     },
-    query: undefined,
-    hash: route.hash,
+    query: {
+      ...route.query,
+      action: isBorrow ? 'borrow' : 'supply',
+    },
   })
 })
 
@@ -150,7 +163,7 @@ onUnmounted(() => {
       v-else
       class="no-data"
     >
-      No pools
+      {{ filteredPositions.length > 0 ? 'No pools to borrow' : 'No pools' }}
     </div>
   </j-dialog>
 </template>

@@ -3,6 +3,9 @@ import type { MarketTableItem } from '~/types/table'
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
 
+const route = useRoute()
+const router = useRouter()
+
 const supplied = computed(() => Number(selectedPool?.value.position.supplied) || 0)
 const borrowed = computed(() => Number(selectedPool?.value.position.borrowed) || 0)
 
@@ -36,6 +39,34 @@ function dialogHandler() {
 watchDebounced(tabs, (t) => {
   activeTab.value = t[0]
 }, { debounce: 300 })
+
+watch(activeTab, () => {
+  if (route.query?.action) {
+    const query = { ...route.query }
+    delete query?.action
+    router.replace({
+      name: route.name as string,
+      params: {
+        ...route.params,
+      },
+      query,
+    })
+  }
+})
+
+watch(() => route.query, (query) => {
+  const action = query?.action
+  if (!action) {
+    return
+  }
+  const findTab = tabs.value.find(t => t.value === action)
+  if (findTab) {
+    activeTab.value = findTab
+    requestAnimationFrame(() => {
+      focusInput('.borrow-input-wrapper')
+    })
+  }
+}, { immediate: true })
 </script>
 
 <template>

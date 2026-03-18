@@ -45,6 +45,8 @@ const healthStatusDetail = computed(() => {
   return `You can borrow ~${formattedBuffer} more before liquidation.`
 })
 
+const existSuppliedPools = computed(() => positions.value?.deposits?.map(p => p.address) ?? [])
+
 function isCurrentPool(address: string) {
   return address === selectedPool.value.pool_address
 }
@@ -218,5 +220,9 @@ function handleClick() {
     </div>
   </div>
 
-  <change-pool-dialog v-model="dialog" />
+  <change-pool-dialog
+    v-model="dialog"
+    :filtered-positions="existSuppliedPools"
+    is-borrow
+  />
 </template>
