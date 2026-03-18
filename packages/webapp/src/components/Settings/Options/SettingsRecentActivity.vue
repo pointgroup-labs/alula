@@ -69,6 +69,7 @@ function formatDate(iso: string) {
           :href="generateExplorerLink(record.transaction_hash)"
           target="_blank"
           class="tx-history-list__action"
+          rel="noopener noreferrer nofollow"
         >
           <i-app-export-icon color="#111" />
         </a>

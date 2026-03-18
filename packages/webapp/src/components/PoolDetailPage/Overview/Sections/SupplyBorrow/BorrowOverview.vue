@@ -155,6 +155,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
             <a
               :href="generateExplorerLink(pool?.pool_address, 'contract')"
               target="_blank"
+              rel="noopener noreferrer nofollow"
             >
               <i-app-export-icon class="export-icon" />
             </a>

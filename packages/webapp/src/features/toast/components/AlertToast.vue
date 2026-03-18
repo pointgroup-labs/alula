@@ -69,11 +69,12 @@ watch(() => modelValue, (value) => {
 
         <a
           v-if="actions?.length"
-          :href="actions[0].href"
+          :href="actions[0]?.href"
           target="_blank"
+          rel="noopener noreferrer nofollow"
           @click="close"
         >
-          {{ actions[0].label }}
+          {{ actions[0]?.label }}
           <div
             class="export-icon"
             v-html="exportIcon"

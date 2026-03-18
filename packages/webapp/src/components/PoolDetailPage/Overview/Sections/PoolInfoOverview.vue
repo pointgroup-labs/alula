@@ -82,6 +82,7 @@ function normalizeDate(date: string): string {
               class="value"
               :href="generateExplorerLink(String(detailCardsData.poolAddress), 'contract')"
               target="_blank"
+              rel="noopener noreferrer nofollow"
             >
               {{ shortenAddress(detailCardsData.poolAddress ?? '', 4) }}
               <i-app-export-icon class="export-icon" />
@@ -96,6 +97,7 @@ function normalizeDate(date: string): string {
               class="value"
               :href="HALBORN_AUDITOR.link"
               target="_blank"
+              rel="noopener noreferrer nofollow"
             >
               <img
                 :src="HALBORN_AUDITOR.logo"
