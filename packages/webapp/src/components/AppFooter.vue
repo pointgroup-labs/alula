@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ALULA_URL } from '~/config'
+import { ALULA_URL, DOCS_URL } from '~/config'
 </script>
 
 <template>
@@ -13,6 +13,13 @@ import { ALULA_URL } from '~/config'
       </div>
 
       <nav>
+        <a
+          :href="DOCS_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Documentation
+        </a>
         <nuxt-link to="/terms">
           Terms of Use
         </nuxt-link>
@@ -40,15 +47,28 @@ footer {
 .container {
   display: flex;
   justify-content: space-between;
+
+  @media (max-width: $breakpoint-xs) {
+    flex-direction: column-reverse;
+    gap: 26px;
+  }
 }
 
 nav {
   display: flex;
   gap: 24px;
+
+  @media (max-width: $breakpoint-xs) {
+    justify-content: center;
+  }
 }
 
 a {
   text-decoration: none;
   color: $text-tertiary;
+
+  &:hover {
+    color: lighten($text-tertiary, 10%);
+  }
 }
 </style>
