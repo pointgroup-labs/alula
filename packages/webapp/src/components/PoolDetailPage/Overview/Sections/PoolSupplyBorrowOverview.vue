@@ -13,6 +13,10 @@ section#pool-detail-overview {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 
+  @media (max-width: $breakpoint-sm) {
+    grid-template-columns: 1fr;
+  }
+
   .pool-card {
     .stat-card__header {
       gap: 12px;

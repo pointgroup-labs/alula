@@ -41,7 +41,7 @@ const market = useMarketActions()
           </div>
           <div class="info-wrapper__value">
             <j-pill-label
-              variant="warning"
+              variant="indigo"
               size="sm"
             >
               {{ item.borrow_apy }}
@@ -66,8 +66,9 @@ const market = useMarketActions()
 
     <div class="mobile-card-footer">
       <j-btn
-        variant="accent"
+        variant="brand-secondary-outlined"
         size="sm"
+        class="repay-btn"
         :disabled="market.isDisabled(item.pool_address, 'withdraw', item.market!)"
         :loading="market.isLoading(item.pool_address, 'withdraw', item.market!)"
         @click="emits('dialogHandler', { item })"

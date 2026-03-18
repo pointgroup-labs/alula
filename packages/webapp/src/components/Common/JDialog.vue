@@ -119,7 +119,6 @@ const dialog = defineModel({
       .modal-content {
         max-height: 90%;
         border-radius: $radius-4xl $radius-4xl 0 0;
-        padding: $spacing-3xl;
       }
     }
   }

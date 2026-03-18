@@ -2,8 +2,6 @@
 defineProps<{
   title: string
   body: string
-  icon?: string
-  color?: string
   loading?: boolean
 }>()
 </script>
@@ -18,7 +16,6 @@ defineProps<{
     </div>
     <div
       class="total-card__body text-num"
-      :style="{ '--color': color }"
     >
       {{ body }}
     </div>
@@ -44,7 +41,7 @@ defineProps<{
   }
 
   &__body {
-    color: var(--color, '#e8edf5');
+    color: $text-primary;
     font-size: 1.5rem;
     font-style: normal;
     font-weight: 600;

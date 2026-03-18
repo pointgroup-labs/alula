@@ -254,9 +254,9 @@ section#my-position {
     align-items: center;
     gap: 16px;
 
-    @media (max-width: $breakpoint-sm) {
-      flex-direction: column;
-      align-items: flex-start;
+    @media (max-width: $breakpoint-xs) {
+      flex-wrap: wrap;
+      gap: 12px;
     }
   }
 
@@ -271,6 +271,11 @@ section#my-position {
     line-height: normal;
     margin: 0 $spacing-xs 0 auto;
 
+    @media (max-width: $breakpoint-xs) {
+      margin: 0;
+      gap: 2px;
+    }
+
     &__value {
       margin-left: $spacing-xs;
       font-family: $font-JetBrainsMono;
@@ -278,6 +283,10 @@ section#my-position {
       font-style: normal;
       font-weight: 700;
       line-height: normal;
+
+      @media (max-width: $breakpoint-xs) {
+        font-size: 14px;
+      }
     }
 
     &--positive {
@@ -652,11 +661,15 @@ section#my-position {
     height: 100%;
     border-radius: $radius-md;
     color: $text-tertiary;
-    font-size: 16px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 500;
     line-height: 20px;
     gap: 12px;
+
+    @media (max-width: $breakpoint-xs) {
+      padding: 32px 0;
+    }
   }
 
   .position-actions {
@@ -665,6 +678,10 @@ section#my-position {
     justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
+
+    @media (max-width: $breakpoint-xs) {
+      margin: 0 auto;
+    }
   }
 }
 </style>

@@ -11,10 +11,14 @@ const {
 
 const emits = defineEmits(['dialogHandler', 'onRowClicked'])
 
-const market = useMarketActions()
+const marketActions = useMarketActions()
 
 function onRowClicked(item: MarketTableItem) {
   emits('onRowClicked', item.market, item)
+}
+
+function dialogHandler(item: MarketTableItem, action: string) {
+  emits('dialogHandler', { item, action })
 }
 </script>
 
@@ -54,12 +58,12 @@ function onRowClicked(item: MarketTableItem) {
             Supply APY
           </div>
           <div class="info-wrapper__value">
-            <market-apy-with-additional
-              :pool-data="item"
-              :additional-markets-data="additionalMarketsData"
-              :is-deposit="true"
-              style="height: 24px; font-size: 12px;"
-            />
+            <j-pill-label
+              variant="cyan"
+              size="sm"
+            >
+              {{ item.deposit_apy }}
+            </j-pill-label>
           </div>
         </div>
         <div class="info-wrapper with-pill">
@@ -67,12 +71,12 @@ function onRowClicked(item: MarketTableItem) {
             Borrow APY
           </div>
           <div class="info-wrapper__value">
-            <market-apy-with-additional
-              :pool-data="item"
-              :additional-markets-data="additionalMarketsData"
-              :is-deposit="false"
-              style="height: 24px; font-size: 12px;"
-            />
+            <j-pill-label
+              variant="indigo"
+              size="sm"
+            >
+              {{ item.borrow_apy }}
+            </j-pill-label>
           </div>
         </div>
         <div
@@ -136,22 +140,44 @@ function onRowClicked(item: MarketTableItem) {
 
     <div class="mobile-card-footer">
       <j-btn
+        v-if="+item.position.borrowed === 0"
         size="sm"
-        variant="cyan"
-        :disabled="market.isDisabled(item.pool_address, 'deposit', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'deposit', item.market!)"
-        @click.stop="emits('dialogHandler', { item, action: 'supply' })"
+        variant="brand-outlined"
+        :disabled="marketActions.isDisabled(item.pool_address, 'deposit', item.market!)"
+        :loading="marketActions.isLoading(item.pool_address, 'deposit', item.market!)"
+        @click="dialogHandler(item, 'supply')"
       >
         Supply
       </j-btn>
       <j-btn
+        v-else
         size="sm"
-        variant="accent"
-        :disabled="market.isDisabled(item.pool_address, 'borrow', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'borrow', item.market!)"
-        @click.stop="emits('dialogHandler', { item, action: 'borrow' })"
+        variant="brand-secondary-outlined"
+        :disabled="marketActions.isDisabled(item.pool_address, 'repay', item.market!)"
+        :loading="marketActions.isLoading(item.pool_address, 'repay', item.market!)"
+        @click="dialogHandler(item, 'repay')"
+      >
+        Repay
+      </j-btn>
+      <j-btn
+        v-if="+item.position.supplied === 0"
+        size="sm"
+        variant="brand-secondary-outlined"
+        :disabled="marketActions.isDisabled(item.pool_address, 'borrow', item.market!)"
+        :loading="marketActions.isLoading(item.pool_address, 'borrow', item.market!)"
+        @click="dialogHandler(item, 'borrow')"
       >
         Borrow
+      </j-btn>
+      <j-btn
+        v-else
+        size="sm"
+        variant="brand-outlined"
+        :disabled="marketActions.isDisabled(item.pool_address, 'withdraw', item.market!)"
+        :loading="marketActions.isLoading(item.pool_address, 'withdraw', item.market!)"
+        @click="dialogHandler(item, 'withdraw')"
+      >
+        Withdraw
       </j-btn>
     </div>
   </table-mobile-card>

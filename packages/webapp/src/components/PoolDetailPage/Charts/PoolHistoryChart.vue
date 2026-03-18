@@ -256,10 +256,18 @@ section#market-history-chart {
     align-items: center;
     gap: 12px;
     margin-left: 20px;
+
+    @media (max-width: $breakpoint-xs) {
+      margin: 6px auto;
+    }
   }
 
   .chart-date-filters {
     margin-left: auto;
+
+    @media (max-width: $breakpoint-xs) {
+      margin: 0 auto;
+    }
   }
 }
 </style>

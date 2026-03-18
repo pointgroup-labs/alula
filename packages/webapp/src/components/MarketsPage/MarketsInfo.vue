@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import borrowingIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import { formatPrice } from '~/utils'
 
 const marketsStore = useMarketsStore()
@@ -37,24 +36,16 @@ const marketsInfo = computed(() => {
       <total-card
         title="Total Supply"
         :body="`$${formatPrice(marketsInfo.total_collateral, 0, 0)}`"
-        bg="#006ce4"
-        icon-color="#006CE4"
         :loading="loading"
       />
       <total-card
         title="Total Borrow"
         :body="`$${formatPrice(marketsInfo.total_borrowed, 0, 0)}`"
-        bg="#ffd101"
-        :icon="borrowingIcon"
-        icon-color="#FFD101"
         :loading="loading"
       />
       <total-card
         title="Available Liquidity"
         :body="`$${formatPrice(marketsInfo.available_liquidity, 0, 0)}`"
-        bg="#ffd101"
-        :icon="borrowingIcon"
-        icon-color="#FFD101"
         :loading="loading"
       />
     </template>

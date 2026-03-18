@@ -18,11 +18,15 @@
     border-radius: $radius-2xl;
 
     &__header {
-      padding: 14px 20px;
       display: flex;
       align-items: center;
       border-bottom: 1px solid $border-primary;
       padding: 14px 20px;
+
+      @media (max-width: $breakpoint-sm) {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
 
       .title {
         font-size: 14px;
@@ -40,8 +44,9 @@
     align-items: center;
     gap: 16px;
 
-    @media (max-width: $breakpoint-xs) {
+    @media (max-width: $breakpoint-sm) {
       flex-wrap: wrap;
+      gap: 12px;
     }
 
     .asset-data {
@@ -85,6 +90,14 @@
         text-transform: uppercase;
         background-color: color-mix(in oklab, $secondary 60%, transparent);
         border-radius: $radius-full;
+
+        @media (max-width: $breakpoint-xs) {
+          padding: 2px 16px;
+
+          span {
+            display: none;
+          }
+        }
       }
 
       .market-price {
@@ -100,10 +113,16 @@
       gap: 24px;
       margin-left: auto;
 
+      @media (max-width: $breakpoint-sm) {
+        margin: 16px auto 0;
+        overflow-x: auto;
+      }
+
       &__item {
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: space-between;
 
         span:nth-child(1) {
           font-size: $text-xs;
@@ -112,6 +131,15 @@
           display: flex;
           align-items: center;
           gap: 4px;
+
+          @media (max-width: $breakpoint-sm) {
+            align-items: flex-start;
+            gap: 8px;
+
+            i {
+              margin-top: 4px;
+            }
+          }
         }
 
         span:nth-child(2) {
@@ -149,6 +177,10 @@
     display: flex;
     gap: 16px;
 
+    @media (max-width: $breakpoint-sm) {
+      flex-direction: column-reverse;
+    }
+
     .overview-wrapper {
       min-width: 0;
       width: 100%;
@@ -160,6 +192,13 @@
     .supply-card {
       position: sticky;
       top: 20px;
+
+      @media (max-width: $breakpoint-sm) {
+        max-width: initial;
+        width: 100%;
+        position: relative;
+        top: 0;
+      }
     }
 
     section {

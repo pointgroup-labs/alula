@@ -57,8 +57,8 @@ function isActiveRoute(tab: Record<string, string>) {
       align-items: center;
       justify-content: center;
       border-radius: $radius-md;
-      background-color: $surface-neutral-80;
-      color: $dark;
+      background-color: $navi-400;
+      color: $navi-50;
 
       svg {
         width: 20px;

@@ -36,6 +36,11 @@ $toast-variants: (
   padding: $spacing-xl;
   backdrop-filter: blur(6px);
 
+  @media (max-width: $breakpoint-xs) {
+    min-width: 100%;
+    max-width: 400px;
+  }
+
   .alert-close {
     cursor: pointer;
 

@@ -85,7 +85,7 @@
     gap: 2px;
 
     &__title {
-      color: $text-secondary;
+      color: $text-tertiary;
       font-size: $text-xs;
       font-style: normal;
       font-weight: 500;
@@ -97,6 +97,7 @@
       font-style: normal;
       font-weight: 700;
       line-height: 16px;
+      font-family: $font-JetBrainsMono;
     }
   }
 
@@ -104,7 +105,7 @@
     gap: 5px;
 
     .info-wrapper__title {
-      color: $text-secondary;
+      color: $text-tertiary;
     }
   }
 }

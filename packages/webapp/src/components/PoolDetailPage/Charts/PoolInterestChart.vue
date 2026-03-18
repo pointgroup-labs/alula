@@ -447,6 +447,10 @@ section#market-interest-chart {
   .stat-card__body {
     display: flex;
     gap: 24px;
+
+    @media (max-width: $breakpoint-xs) {
+      flex-direction: column;
+    }
   }
   .interest-chart {
     flex: 1;

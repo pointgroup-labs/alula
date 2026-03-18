@@ -39,7 +39,9 @@ const slot = defineSlots()
 
 <style lang="scss">
 .info-tooltip {
+  min-width: var(--info-tp-size);
   width: var(--info-tp-size);
+  min-height: var(--info-tp-size);
   height: var(--info-tp-size);
 
   i {

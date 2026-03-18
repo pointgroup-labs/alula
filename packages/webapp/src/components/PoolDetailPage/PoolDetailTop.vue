@@ -93,7 +93,7 @@ const detailCardsData = computed(() => {
       <div class="separator-vert" />
 
       <div class="market-pills">
-        <div class="market-name">{{ capitalize(selectedPool?.market ?? '') }} market</div>
+        <div class="market-name">{{ capitalize(selectedPool?.market ?? '') }} <span>market</span></div>
       </div>
     </template>
 
