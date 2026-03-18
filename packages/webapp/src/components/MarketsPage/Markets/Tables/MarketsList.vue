@@ -109,7 +109,8 @@ watch([
 
 <template>
   <div v-if="marketWithTableItems.length === 0 && loading">
-    <market-table-skeleton />
+    <market-table-skeleton v-if="width > 1024" />
+    <market-table-skeleton-mobile v-else />
   </div>
   <div
     v-else-if="marketWithTableItems.length > 0"

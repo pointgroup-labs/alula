@@ -1,3 +1,7 @@
+<script lang="ts" setup>
+const { width } = useWindowSize()
+</script>
+
 <template>
   <div class="market-detail-page container">
     <div class="market-details-top">
@@ -38,6 +42,7 @@
         width="400"
         height="486"
         style="border-radius: 12px;"
+        :full-width="width < 1024"
       />
     </div>
   </div>
