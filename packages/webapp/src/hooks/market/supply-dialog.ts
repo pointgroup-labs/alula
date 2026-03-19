@@ -242,6 +242,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       collateralOnly.value
         ? await market.addCollateral(marketProps)
         : await market.deposit(marketProps)
+      collateralOnly.value = false
     } finally {
       marketsStore.poolActiveAddress = undefined
     }
