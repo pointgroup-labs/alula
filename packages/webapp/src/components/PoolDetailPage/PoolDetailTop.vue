@@ -24,25 +24,25 @@ const borrowCapacity = computed(() => {
   return utilRatePercent / utilLimit * 100
 })
 
-const utilRateColor = computed(() => {
-  const currentUtil = selectedPool.value?.utilization_rate_percent ?? 0
-  const limitUtil
-    = bpsToNumber(
-      Number(selectedPool.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps) || 0,
-    ) * 100
+// const utilRateColor = computed(() => {
+//   const currentUtil = selectedPool.value?.utilization_rate_percent ?? 0
+//   const limitUtil
+//     = bpsToNumber(
+//       Number(selectedPool.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps) || 0,
+//     ) * 100
 
-  if (!limitUtil) {
-    return '#e8edf5'
-  }
-  const capacityUsed = (currentUtil / limitUtil) * 100
-  if (capacityUsed >= 90) {
-    return '#f04438'
-  }
-  if (capacityUsed >= 70) {
-    return '#f79009'
-  }
-  return '#e8edf5'
-})
+//   if (!limitUtil) {
+//     return '#e8edf5'
+//   }
+//   const capacityUsed = (currentUtil / limitUtil) * 100
+//   if (capacityUsed >= 90) {
+//     return '#f04438'
+//   }
+//   if (capacityUsed >= 70) {
+//     return '#f79009'
+//   }
+//   return '#e8edf5'
+// })
 
 const detailCardsData = computed(() => {
   if (!pool.value) {
@@ -148,9 +148,9 @@ const detailCardsData = computed(() => {
         <span>{{ shortenNumber(poolBorrowLimit) }}</span>
       </div>
 
-      <div class="separator-vert" />
+      <!-- <div class="separator-vert" /> -->
 
-      <div class="pool-metrics__item">
+      <!-- <div class="pool-metrics__item">
         <span>Borrow Capacity
           <info-tooltip>
             Percentage of the pool's borrow limit currently used.
@@ -159,7 +159,7 @@ const detailCardsData = computed(() => {
           </info-tooltip>
         </span>
         <span :style="{ color: utilRateColor }">{{ detailCardsData.utilRate }}</span>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
