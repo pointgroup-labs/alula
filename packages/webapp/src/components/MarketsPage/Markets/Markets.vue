@@ -6,7 +6,13 @@ const loading = computed(() => marketsStore.state.loading)
 
 <template>
   <div class="markets">
-    <market-search />
+    <div class="markets-control">
+      <div class="market-filters">
+        wfe
+      </div>
+      <collapse-all-btn />
+      <market-search />
+    </div>
     <markets-list v-model:is-markets="isMarkets" />
     <div
       v-if="!isMarkets && !loading"
@@ -19,6 +25,12 @@ const loading = computed(() => marketsStore.state.loading)
 
 <style lang="scss">
 .markets {
+  .markets-control {
+    margin: 8px 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
   .table-wrapper {
     display: flex;
     flex-direction: column;

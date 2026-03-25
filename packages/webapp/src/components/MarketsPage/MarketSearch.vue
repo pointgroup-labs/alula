@@ -36,8 +36,6 @@ onMounted(() => {
 <style lang="scss">
 .market-search {
   width: 280px;
-  margin-left: auto;
-  margin-bottom: 24px;
 
   @media (max-width: $breakpoint-xs) {
     width: 100%;
