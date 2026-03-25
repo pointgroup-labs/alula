@@ -2,9 +2,18 @@
   display: flex !important;
   align-items: center;
   gap: 8px;
+  font-size: 16px;
   font-weight: 400;
   padding-top: 0;
   padding-bottom: 0;
+
+  &.form-control-sm {
+    font-size: 14px;
+  }
+
+  &.form-control-lg {
+    font-size: 18px;
+  }
 
   &:has(input:disabled) {
     pointer-events: none;

@@ -1,0 +1,74 @@
+.market-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  @media (max-width: $breakpoint-xs) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    .popover-target,
+    .btn {
+      width: 100%;
+    }
+  }
+}
+
+.market-filter-btn {
+  &.btn-ghost {
+    color: $text-tertiary !important;
+  }
+
+  .arrow-icon {
+    width: 14px;
+    height: 14px;
+    transition: transform 100ms linear;
+
+    &.active {
+      transform: rotate(180deg);
+    }
+
+    path {
+      stroke: $text-tertiary;
+    }
+  }
+}
+
+.markets-filter-menu {
+  display: flex;
+  flex-direction: column;
+
+  .filter-item {
+    display: flex;
+    align-items: center;
+    padding: $spacing-md;
+    cursor: pointer;
+
+    &:hover {
+      span {
+        color: $text-primary;
+      }
+    }
+
+    .j-checkbox {
+      margin: 0;
+      padding-right: 0;
+    }
+
+    img {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      border-radius: 50%;
+      margin-left: 4px;
+    }
+
+    span {
+      color: $text-tertiary;
+      margin-left: 6px;
+      font-size: 14px;
+      font-size: 500;
+    }
+  }
+}

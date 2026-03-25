@@ -6,7 +6,7 @@ const {
   ...props
 } = defineProps<{
   bold?: boolean
-  size?: 'sm' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
   modelValue: any
   color?: string
   bgColor?: string

@@ -158,13 +158,15 @@ export type MarketsState = {
   loading: boolean
   loadingLeveragePools: boolean
   marketsList: string[]
-  markets: Record<string, {
-    marketState: MarketData
-    marketName: string
-    address: string
-    client: StellarClient
-  }>
+  markets: MarketFullData
 }
+
+export type MarketFullData = Record<string, {
+  marketState: MarketData
+  marketName: string
+  address: string
+  client: StellarClient
+}>
 
 export type PoolWithPrice = {
   pool_price: number | string

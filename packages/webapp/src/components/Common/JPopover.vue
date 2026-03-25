@@ -103,7 +103,6 @@ onMounted(() => {
 .popover-body {
   border-radius: $radius-xl;
   border: 1px solid $border-primary;
-  box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
   background: $popover-bg;
   backdrop-filter: blur(6px);
 }

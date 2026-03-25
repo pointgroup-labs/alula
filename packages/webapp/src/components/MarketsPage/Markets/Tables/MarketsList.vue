@@ -306,7 +306,7 @@ watch([
         <template #empty>
           <div
             v-show="!loading"
-            class="no-data"
+            class="no-table-data"
           >
             No pools
           </div>

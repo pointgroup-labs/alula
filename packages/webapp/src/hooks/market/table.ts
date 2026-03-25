@@ -4,6 +4,7 @@ import { bpsToNumber, calculateBorrow, calculateTotalStake } from '@alula/client
 export function useMarketTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
+  const filterStore = useMarketFilterStore()
 
   const route = useRoute()
 
@@ -11,6 +12,9 @@ export function useMarketTable() {
 
   const loading = computed(() => marketsStore.state.loading)
   const activeMarket = computed(() => marketsStore.activeMarket)
+
+  const collateralFilter = computed(() => filterStore.collateralFilter)
+  const debtFilter = computed(() => filterStore.debtFilter)
 
   const marketWithTableItems = computed<MarketWithTableItems[]>(() => {
     const markets = Object.entries(marketsStore.state.markets)
@@ -106,13 +110,55 @@ export function useMarketTable() {
     return 1
   }))
 
-  const filteredMarkets = computed(() =>
-    search.value
-      ? sortedMarkets.value.filter((market) => {
-          return market.marketName.toLowerCase().includes(String(search.value)?.toLowerCase())
-            || market.assets.some(asset => asset.symbol?.toLowerCase().includes(String(search.value)?.toLowerCase()))
-        })
-      : sortedMarkets.value)
+  const filteredMarkets = computed(() => {
+    const collateral = collateralFilter.value
+    const debt = debtFilter.value
+
+    const selected = new Set<string>()
+
+    for (const key in collateral) {
+      if (collateral[key]) {
+        selected.add(key)
+      }
+    }
+
+    for (const key in debt) {
+      if (debt[key]) {
+        selected.add(key)
+      }
+    }
+
+    const hasFilter = selected.size > 0
+
+    const searchValue
+      = (typeof search.value === 'string' ? search.value : '').toLowerCase()
+
+    return sortedMarkets.value
+      .map((market) => {
+        const tableItems = hasFilter
+          ? market.tableItems.filter(item =>
+              selected.has(item.asset.symbol),
+            )
+          : market.tableItems
+
+        return {
+          ...market,
+          tableItems,
+        }
+      })
+      .filter((market) => {
+        if (!searchValue) {
+          return true
+        }
+
+        return (
+          market.marketName.toLowerCase().includes(searchValue)
+          || market.assets.some(asset =>
+            asset.symbol?.toLowerCase().includes(searchValue),
+          )
+        )
+      })
+  })
 
   const selectedMarketName = toRef(marketsStore, 'selectedMarketName')
   const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')

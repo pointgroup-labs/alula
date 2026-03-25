@@ -8,7 +8,8 @@ const loading = computed(() => marketsStore.state.loading)
   <div class="markets">
     <div class="markets-control">
       <div class="market-filters">
-        wfe
+        <collateral-assets-filter />
+        <debt-assets-filter />
       </div>
       <collapse-all-btn />
       <market-search />
@@ -29,8 +30,19 @@ const loading = computed(() => marketsStore.state.loading)
     margin: 8px 0 24px;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
+
+    @media (max-width: $breakpoint-xs) {
+      gap: 12px;
+    }
   }
+  .collapse-btn {
+    @media (max-width: $breakpoint-xs) {
+      display: none;
+    }
+  }
+
   .table-wrapper {
     display: flex;
     flex-direction: column;

@@ -121,6 +121,7 @@ declare global {
   const tryOnMounted: typeof import('@vueuse/core').tryOnMounted
   const tryOnScopeDispose: typeof import('@vueuse/core').tryOnScopeDispose
   const tryOnUnmounted: typeof import('@vueuse/core').tryOnUnmounted
+  const u: typeof import('../store/filter').u
   const unref: typeof import('vue').unref
   const unrefElement: typeof import('@vueuse/core').unrefElement
   const until: typeof import('@vueuse/core').until
@@ -223,6 +224,9 @@ declare global {
   const useManualRefHistory: typeof import('@vueuse/core').useManualRefHistory
   const useMarket: typeof import('../hooks/market').useMarket
   const useMarketActions: typeof import('../hooks/market-actions').useMarketActions
+  const useMarketAssetFilterStore: typeof import('../store/filter').useMarketAssetFilterStore
+  const useMarketFilter: typeof import('../store/filter').useMarketFilter
+  const useMarketFilterStore: typeof import('../store/filter').useMarketFilterStore
   const useMarketTable: typeof import('../hooks/market/table').useMarketTable
   const useMarketsStore: typeof import('../store/markets').useMarketsStore
   const useMediaControls: typeof import('@vueuse/core').useMediaControls
@@ -351,7 +355,7 @@ declare global {
   export type { MarketWithTableItems } from '../hooks/market/table'
   import('../hooks/market/table')
   // @ts-ignore
-  export type { MarketsState, PoolWithPrice, TableActionType } from '../store/markets'
+  export type { MarketsState, MarketFullData, PoolWithPrice, TableActionType } from '../store/markets'
   import('../store/markets')
   // @ts-ignore
   export type { RecentActivityState, OperationRecord } from '../store/recent-activity'
@@ -575,6 +579,7 @@ declare module 'vue' {
     readonly useManualRefHistory: UnwrapRef<typeof import('@vueuse/core')['useManualRefHistory']>
     readonly useMarket: UnwrapRef<typeof import('../hooks/market')['useMarket']>
     readonly useMarketActions: UnwrapRef<typeof import('../hooks/market-actions')['useMarketActions']>
+    readonly useMarketFilterStore: UnwrapRef<typeof import('../store/filter')['useMarketFilterStore']>
     readonly useMarketTable: UnwrapRef<typeof import('../hooks/market/table')['useMarketTable']>
     readonly useMarketsStore: UnwrapRef<typeof import('../store/markets')['useMarketsStore']>
     readonly useMediaControls: UnwrapRef<typeof import('@vueuse/core')['useMediaControls']>

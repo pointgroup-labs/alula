@@ -49,7 +49,7 @@ function copy() {
       class="wallet-popover__item"
       @click="copy"
     >
-      Copy Address <i-app-copy :color="isDark ? '#fff' : '#878787'" />
+      Copy Address <i-app-copy />
     </div>
     <div
       class="wallet-popover__item"
@@ -78,8 +78,7 @@ function copy() {
   }
 
   &__item {
-    color: #fff;
-    opacity: 0.7;
+    color: $text-tertiary;
     padding: $spacing-md $spacing-xl;
     display: flex;
     align-items: center;
@@ -87,7 +86,15 @@ function copy() {
     cursor: pointer;
 
     &:hover {
-      opacity: 1;
+      color: $text-primary;
+
+      svg {
+        color: $text-primary;
+      }
+    }
+
+    svg {
+      color: $text-tertiary;
     }
   }
 }
