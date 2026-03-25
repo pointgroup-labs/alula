@@ -9,9 +9,9 @@ const pool = computed(() => selectedPool.value?.raw?.pool)
 
 const asset = computed(() => selectedPool?.value?.asset)
 
-const {
-  poolBorrowLimit,
-} = useBorrowDialog(selectedPool, toRef(false))
+// const {
+//   poolBorrowLimit,
+// } = useBorrowDialog(selectedPool, toRef(false))
 
 const price = computed(() => selectedPool.value?.price ?? 0)
 
@@ -122,9 +122,9 @@ const detailCardsData = computed(() => {
         <span class="borrow">{{ detailCardsData.borrowAPY }}</span>
       </div>
 
-      <div class="separator-vert" />
+      <!-- <div class="separator-vert" /> -->
 
-      <div class="pool-metrics__item">
+      <!-- <div class="pool-metrics__item">
         <span>Supplied
           <info-tooltip>
             Total amount of assets supplied to this pool by all users.
@@ -133,11 +133,11 @@ const detailCardsData = computed(() => {
           </info-tooltip>
         </span>
         <span>{{ shortenNumber(detailCardsData.supplied) }}</span>
-      </div>
+      </div> -->
 
-      <div class="separator-vert" />
+      <!-- <div class="separator-vert" /> -->
 
-      <div class="pool-metrics__item">
+      <!-- <div class="pool-metrics__item">
         <span>Available Liquidity
           <info-tooltip>
             Amount of assets currently available to borrow from this pool.
@@ -146,7 +146,7 @@ const detailCardsData = computed(() => {
           </info-tooltip>
         </span>
         <span>{{ shortenNumber(poolBorrowLimit) }}</span>
-      </div>
+      </div> -->
 
       <!-- <div class="separator-vert" /> -->
 

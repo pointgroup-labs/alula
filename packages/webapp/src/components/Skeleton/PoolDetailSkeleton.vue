@@ -21,10 +21,10 @@ const { width } = useWindowSize()
         style="height: 45px;"
       >
         <j-skeleton
-          v-for="value in 3"
+          v-for="value in 2"
           :key="value"
           width="76"
-          height="32"
+          height="48"
           pill
         />
       </div>
