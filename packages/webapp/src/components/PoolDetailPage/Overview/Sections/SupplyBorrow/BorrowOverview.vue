@@ -40,8 +40,10 @@ const maxBorrow = computed(() => {
   return Number(totalSupplied.value * utilRatioLimit || 0)
 })
 
+const availableBorrow = computed(() => maxBorrow.value - totalBorrowed.value)
+
 const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(selectedPool.value?.price || 0)) || 0)
-const maxBorrowUsd = computed(() => Number(maxBorrow.value * Number(selectedPool.value?.price || 0)) || 0)
+const availableBorrowUsd = computed(() => Number(availableBorrow.value * Number(selectedPool.value?.price || 0)) || 0)
 
 const reserve = computed(() => {
   if (!pool.value) {
@@ -96,11 +98,11 @@ const progress = computed(() => {
 
           <div class="market-progress__info">
             <div class="market-progress__info__title">
-              Max Borrow
+              Available
             </div>
             <div class="market-progress__info__data">
-              {{ shortenNumber(maxBorrow, 1, 1) }}
-              <span>/ {{ formatCompactUSD(maxBorrowUsd, 1, 1) }}</span>
+              {{ shortenNumber(availableBorrow, 1, 1) }}
+              <span>/ {{ formatCompactUSD(availableBorrowUsd, 1, 1) }}</span>
             </div>
           </div>
         </div>
