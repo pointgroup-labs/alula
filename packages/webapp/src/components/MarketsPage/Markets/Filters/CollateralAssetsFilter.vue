@@ -1,7 +1,13 @@
 <script lang="ts" setup>
+import type { ComponentPublicInstance } from 'vue'
+
 const filterStore = useMarketFilterStore()
 
 const uniqueAssets = computed(() => filterStore.uniqueAssets)
+
+const el = ref<ComponentPublicInstance | null>(null)
+
+const menuWidth = computed(() => (el.value?.$el as HTMLElement | undefined)?.offsetWidth ?? 100)
 
 function toggle(symbol: string) {
   filterStore.marketToggle(filterStore.collateralFilter, symbol)
@@ -15,7 +21,10 @@ function toggle(symbol: string) {
     position="bottom"
     :teleport-to-body="false"
   >
-    <div class="markets-filter-menu">
+    <div
+      class="markets-filter-menu"
+      :style="{ width: `${menuWidth - 24}px` }"
+    >
       <div
         v-for="asset in uniqueAssets"
         :key="asset.symbol"
@@ -36,6 +45,7 @@ function toggle(symbol: string) {
     </div>
     <template #target="{ active }">
       <j-btn
+        ref="el"
         :variant="filterStore.isActiveCollateralFilter ? 'brand-outlined' : 'ghost'"
         size="md"
         class="market-filter-btn"
