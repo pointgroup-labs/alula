@@ -7,6 +7,7 @@ const loading = computed(() => marketsStore.state.loading)
 
 <template>
   <div class="markets">
+    <my-positions-widget />
     <div class="markets-control">
       <div class="market-filters">
         <collateral-assets-filter />
