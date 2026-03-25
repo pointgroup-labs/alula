@@ -11,12 +11,20 @@ export const TOKEN_ICONS: Record<string, string> = {
   aqua: aquaIcon,
 }
 
+export const TOKEN_NAMES: Record<string, string> = {
+  native: 'Stellar',
+  xlm: 'Stellar',
+  usdc: 'USD Coin',
+  eurc: 'Euro Coin',
+  aqua: 'Aqua',
+}
+
 export function getTokenIcon(token: string): string {
   return TOKEN_ICONS[token.toLowerCase()] || TOKEN_ICONS.xlm || ''
 }
 
-export function getTokenName(token: string) {
-  return token === 'native' ? 'Stellar' : token
+export function getTokenName(token: string): string {
+  return TOKEN_NAMES[token.toLowerCase()] ?? TOKEN_NAMES.native ?? ''
 }
 
 export function getTokenSymbol(token: string) {

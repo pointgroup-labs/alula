@@ -75,35 +75,26 @@
       }
     }
 
-    .market-pills {
+    .market-pill {
       display: flex;
       align-items: center;
       flex-direction: column;
       gap: 2px;
+      padding: 4px 12px;
+      font-size: $text-xs;
+      color: $text-tertiary;
+      letter-spacing: 0.05em;
+      font-weight: 500;
+      text-transform: capitalize;
+      background-color: color-mix(in oklab, $secondary 60%, transparent);
+      border-radius: $radius-full;
 
-      .market-name {
-        padding: 2px 8px;
-        font-size: $text-xs;
-        color: $text-tertiary;
-        letter-spacing: 0.05em;
-        font-weight: 500;
-        text-transform: uppercase;
-        background-color: color-mix(in oklab, $secondary 60%, transparent);
-        border-radius: $radius-full;
-
-        @media (max-width: $breakpoint-xs) {
-          padding: 2px 16px;
-
-          span {
-            display: none;
-          }
-        }
+      span {
+        color: $text-primary;
       }
 
-      .market-price {
-        color: color-mix(in oklab, $text-primary 80%, transparent);
-        font-family: $font-JetBrainsMono;
-        font-size: 12px;
+      @media (max-width: $breakpoint-xs) {
+        padding: 2px 16px;
       }
     }
 
@@ -123,6 +114,14 @@
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
+        gap: 4px;
+        font-size: 12px;
+        color: $text-tertiary;
+
+        span {
+          font-size: 14px;
+          color: $text-primary;
+        }
 
         span:nth-child(1) {
           font-size: $text-xs;

@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
 import { bpsToNumber } from '@alula/client-sdk'
-import { capitalize } from 'vue'
+
+const { width } = useWindowSize()
 
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
 
@@ -83,17 +84,17 @@ const detailCardsData = computed(() => {
     </div>
 
     <template v-if="selectedPool">
-      <div class="separator-vert" />
-
-      <div class="pool-metrics__item">
-        <span>Multi-oracle price</span>
-        <span>${{ formatPrice(price, 2, 2) }}</span>
+      <div class="market-pill">
+        {{ selectedPool?.market ?? '' }} Market
       </div>
 
-      <div class="separator-vert" />
-
-      <div class="market-pills">
-        <div class="market-name">{{ capitalize(selectedPool?.market ?? '') }} <span>market</span></div>
+      <div
+        v-if="width > 650"
+        class="market-pill"
+      >
+        <div class="market-name">
+          Price: <span class="text-num"> ${{ formatPrice(price, 2, 2) }}</span>
+        </div>
       </div>
     </template>
 
