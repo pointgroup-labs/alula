@@ -15,14 +15,14 @@ const detailCardsData = computed(() => {
       openLTV: 0,
       depositApy: 0,
       depositFee: 0,
-      repayFee: 0,
+      withdrawFee: 0,
     }
   }
   const closeLTV = Number(pool.value?.config.health_config.close_ltv_bps) / 100
   const openLTV = Number(pool.value?.config.health_config.open_ltv_bps) / 100
 
   const depositFee = Number(pool.value?.config.fee_config.deposit_fee_bps) / 100
-  const repayFee = Number(pool.value?.config.fee_config.repay_fee_bps) / 100
+  const withdrawFee = Number(pool.value?.config.fee_config.withdraw_fee_bps) / 100
 
   const price = Number(selectedPool.value?.price || 0)
 
@@ -32,7 +32,7 @@ const detailCardsData = computed(() => {
     closeLTV: truncatePercent(closeLTV || 0, 2),
     openLTV: truncatePercent(openLTV || 0, 2),
     depositFee: truncatePercent(depositFee || 0, 2),
-    repayFee: truncatePercent(repayFee || 0, 2),
+    withdrawFee: truncatePercent(withdrawFee || 0, 2),
     price: formatCompactUSD(price, 2, 2),
   }
 })
@@ -42,6 +42,7 @@ const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(p
 const totalSupplied = computed(() => Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.total_available, marketsStore.assetDecimals)) || 0)
 
 const totalSuppliedInUsd = computed(() => totalSupplied.value * selectedPool.value?.price || 0)
+const supplyLimitInUsd = computed(() => supplyLimit.value * selectedPool.value?.price || 0)
 const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value / supplyLimit.value * 100).toFixed(2) : 100)
 </script>
 
@@ -56,7 +57,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
         size="sm"
         style="margin-left: auto;"
       >
-        APY {{ selectedPool.deposit_apy }}
+        Supply APY {{ selectedPool.deposit_apy }}
       </j-pill-label>
     </div>
 
@@ -66,25 +67,35 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
         :progress="Number(progress).toFixed(1)"
         color="#22d3ee"
       >
-        <div class="market-progress__info">
-          <div class="market-progress__info__title">
-            Total Supply
+        <div class="progress-content">
+          <div class="market-progress__info">
+            <div class="market-progress__info__title">
+              Supplied
+            </div>
+            <div class="market-progress__info__data">
+              {{ shortenNumber(totalSupplied, 1, 1) }}
+              <span>/ {{ formatCompactUSD(totalSuppliedInUsd, 1, 1) }}</span>
+            </div>
           </div>
-          <div class="market-progress__info__data">
-            {{ shortenNumber(totalSupplied) }}
-            <span>/ {{ isSupplyLimit ? shortenNumber(supplyLimit) : '-' }}</span>
+
+          <div class="separator-vert" />
+
+          <div class="market-progress__info">
+            <div class="market-progress__info__title">
+              Supply Cap
+            </div>
+            <div class="market-progress__info__data">
+              {{ isSupplyLimit ? shortenNumber(supplyLimit, 1, 1) : '-' }}
+              <span>/ {{ formatCompactUSD(supplyLimitInUsd, 1, 1) }}</span>
+            </div>
           </div>
         </div>
-
-        <template #progress>
-          {{ isSupplyLimit ? progress : '&infin;' }}
-        </template>
       </market-progress>
 
       <div class="detail-list">
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Open LTV
+            Max LTV
 
             <info-tooltip>
               Maximum loan-to-value ratio allowed when opening a borrow position.
@@ -97,7 +108,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
 
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Close LTV
+            Liquidation Threshold
 
             <info-tooltip>
               Loan-to-value ratio at which a position becomes eligible for liquidation.
@@ -105,15 +116,6 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
           </div>
           <div class="detail-list__item__value">
             {{ detailCardsData.closeLTV }}%
-          </div>
-        </div>
-
-        <div class="detail-list__item">
-          <div class="detail-list__item__label">
-            Supplied
-          </div>
-          <div class="detail-list__item__value">
-            {{ formatCompactUSD(totalSuppliedInUsd) }}
           </div>
         </div>
 
@@ -131,22 +133,13 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
 
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Rapay Fee
+            Withdraw Fee
           </div>
           <div
             class="detail-list__item__value"
             style="color: #10b981;"
           >
-            {{ detailCardsData.repayFee }}%
-          </div>
-        </div>
-
-        <div class="detail-list__item">
-          <div class="detail-list__item__label">
-            Price
-          </div>
-          <div class="detail-list__item__value">
-            {{ detailCardsData.price }}
+            {{ detailCardsData.withdrawFee }}%
           </div>
         </div>
       </div>

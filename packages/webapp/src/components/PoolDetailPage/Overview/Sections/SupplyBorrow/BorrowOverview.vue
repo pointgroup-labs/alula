@@ -3,8 +3,6 @@ import type { MarketTableItem } from '~/types/table'
 import { bpsToNumber } from '@alula/client-sdk'
 import { bigintToNumber } from '~/utils'
 
-const { generateExplorerLink } = useExplorerLink()
-
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
 
 const pool = computed(() => selectedPool.value?.raw?.pool)
@@ -31,21 +29,19 @@ const detailCardsData = computed(() => {
 })
 
 const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, selectedPool.value?.assetDecimals)) || 0)
-const totalSupplied = computed(() => {
-  const supplied = Number(bigintToNumber(selectedPool.value?.raw?.total_supply, selectedPool.value?.assetDecimals)) || 0
-  const utilRatio = bpsToNumber(Number(pool.value?.config.health_config.utilization_ratio_limit_bps))
-  return (supplied * utilRatio) || 0
-})
+const totalSupplied = computed(() => Number(bigintToNumber(selectedPool.value?.raw?.total_supply, selectedPool.value?.assetDecimals)) || 0)
 
-const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(selectedPool.value?.price || 0)) || 0)
-
-const borrowCap = computed(() => {
+const maxBorrow = computed(() => {
   if (!pool.value) {
     return 0
   }
-  const cap = (totalBorrowed.value / totalSupplied.value) * 100
-  return Number(cap || 0)
+
+  const utilRatioLimit = bpsToNumber(Number(pool.value.config.health_config.utilization_ratio_limit_bps || 0))
+  return Number(totalSupplied.value * utilRatioLimit || 0)
 })
+
+const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(selectedPool.value?.price || 0)) || 0)
+const maxBorrowUsd = computed(() => Number(maxBorrow.value * Number(selectedPool.value?.price || 0)) || 0)
 
 const reserve = computed(() => {
   if (!pool.value) {
@@ -54,7 +50,13 @@ const reserve = computed(() => {
   const reserve = Number(pool.value?.config.fee_config.take_rate_bps) / 100
   return Number(reserve || 0).toFixed(0)
 })
-const progress = computed(() => borrowCap.value.toFixed(2))
+const progress = computed(() => {
+  if (!maxBorrow.value) {
+    return '0.00'
+  }
+
+  return ((totalBorrowed.value / maxBorrow.value) * 100).toFixed(2)
+})
 </script>
 
 <template>
@@ -69,7 +71,7 @@ const progress = computed(() => borrowCap.value.toFixed(2))
         variant="indigo"
         style="margin-left: auto;"
       >
-        Rate {{ selectedPool.borrow_apy }}
+        Borrow rate {{ selectedPool.borrow_apy }}
       </j-pill-label>
     </div>
 
@@ -79,13 +81,27 @@ const progress = computed(() => borrowCap.value.toFixed(2))
         :progress="Number(progress).toFixed(1)"
         color="#8a8df4"
       >
-        <div class="market-progress__info">
-          <div class="market-progress__info__title">
-            Total Borrow
+        <div class="progress-content">
+          <div class="market-progress__info">
+            <div class="market-progress__info__title">
+              Borrowed
+            </div>
+            <div class="market-progress__info__data">
+              {{ shortenNumber(totalBorrowed, 1, 1) }}
+              <span> /{{ formatCompactUSD(totalBorrowedUsd, 1, 1) }}</span>
+            </div>
           </div>
-          <div class="market-progress__info__data">
-            {{ shortenNumber(totalBorrowed ?? 0) }}
-            <span>/ {{ shortenNumber(totalSupplied ?? 0) }}</span>
+
+          <div class="separator-vert" />
+
+          <div class="market-progress__info">
+            <div class="market-progress__info__title">
+              Max Borrow
+            </div>
+            <div class="market-progress__info__data">
+              {{ shortenNumber(maxBorrow, 1, 1) }}
+              <span>/ {{ formatCompactUSD(maxBorrowUsd, 1, 1) }}</span>
+            </div>
           </div>
         </div>
       </market-progress>
@@ -93,7 +109,8 @@ const progress = computed(() => borrowCap.value.toFixed(2))
       <div class="detail-list">
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Pool Utilization
+            Utilization Rate
+
             <info-tooltip>
               Percentage of supplied assets currently borrowed.
               <br>
@@ -107,31 +124,23 @@ const progress = computed(() => borrowCap.value.toFixed(2))
 
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Take Rate
+            Max Borrow Utilization
+          </div>
+          <div class="detail-list__item__value">
+            {{ detailCardsData.utilRatioLimit }}%
+          </div>
+        </div>
+
+        <div class="detail-list__item">
+          <div class="detail-list__item__label">
+            Reserve Factor
+
             <info-tooltip>
               Percentage of borrower interest taken as a protocol fee.
             </info-tooltip>
           </div>
           <div class="detail-list__item__value">
             {{ reserve }}%
-          </div>
-        </div>
-
-        <div class="detail-list__item">
-          <div class="detail-list__item__label">
-            Borrowed
-          </div>
-          <div class="detail-list__item__value">
-            {{ formatCompactUSD(totalBorrowedUsd) }}
-          </div>
-        </div>
-
-        <div class="detail-list__item">
-          <div class="detail-list__item__label">
-            Util. Rate Limit
-          </div>
-          <div class="detail-list__item__value">
-            {{ detailCardsData.utilRatioLimit }}%
           </div>
         </div>
 
@@ -144,21 +153,6 @@ const progress = computed(() => borrowCap.value.toFixed(2))
             style="color: #10b981;"
           >
             {{ detailCardsData.withdrawFee }}%
-          </div>
-        </div>
-
-        <div class="detail-list__item">
-          <div class="detail-list__item__label">
-            View contract
-          </div>
-          <div class="detail-list__item__value">
-            <a
-              :href="generateExplorerLink(pool?.pool_address, 'contract')"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-            >
-              <i-app-export-icon class="export-icon" />
-            </a>
           </div>
         </div>
       </div>

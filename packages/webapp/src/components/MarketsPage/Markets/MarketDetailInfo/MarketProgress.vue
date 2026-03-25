@@ -17,6 +17,8 @@ const slot = useSlots()
 <template>
   <div class="market-progress__wrapper">
     <div class="market-progress">
+      <slot />
+
       <j-circular-progress
         v-if="isProgress"
         :progress="Number(progress)"
@@ -35,7 +37,6 @@ const slot = useSlots()
         </template>
       </j-circular-progress>
 
-      <slot />
     </div>
   </div>
 </template>
@@ -48,16 +49,31 @@ const slot = useSlots()
   gap: 8px;
 }
 .market-progress {
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 12px;
+  padding: 10px;
+  background-color: $bg-tertiary;
+  border-radius: $radius-2xl;
+  border: 1px solid $border-secondary;
 
   .j-circular-progress {
     font-size: 8px;
     font-style: normal;
     font-weight: 500;
     line-height: 12px;
+  }
+
+  .progress-content {
+    display: flex;
+    gap: 14px;
+  }
+
+  .separator-vert {
+    height: auto;
+    background-color: $border-secondary;
   }
 
   &__info {

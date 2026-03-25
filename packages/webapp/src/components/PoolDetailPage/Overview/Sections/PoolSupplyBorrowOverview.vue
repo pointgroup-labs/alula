@@ -33,14 +33,6 @@ section#pool-detail-overview {
     }
   }
 
-  .market-progress__wrapper {
-    padding: 10px;
-    display: flex;
-    align-items: flex-start;
-    background-color: $bg-tertiary;
-    border-radius: $radius-2xl;
-    border: 1px solid $border-secondary;
-  }
 
   .detail-list {
     display: flex;
