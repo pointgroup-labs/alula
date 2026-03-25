@@ -86,17 +86,21 @@ watch(() => route.query, (query) => {
 
       <supply-window
         v-if="activeTab?.value === 'supply'"
+        opened
         @dialog-handler="dialogHandler"
       />
       <borrow-window
         v-else-if="activeTab?.value === 'borrow'"
+        opened
         @dialog-handler="dialogHandler"
       />
       <repay-window
         v-else-if="activeTab?.value === 'repay'"
+        opened
       />
       <withdraw-window
         v-else-if="activeTab?.value === 'withdraw'"
+        opened
       />
 
       <change-pool-dialog v-model="dialog" />
