@@ -31,6 +31,10 @@ function clearFilters() {
 <style lang="scss" scoped>
 .clear-filter-btn {
   padding: $spacing-lg;
+
+  @media (max-width: $breakpoint-xs) {
+    display: none;
+  }
   svg {
     width: 16px;
     height: 16px;
