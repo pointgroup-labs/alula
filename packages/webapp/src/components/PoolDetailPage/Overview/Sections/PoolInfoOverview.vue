@@ -149,6 +149,9 @@ function normalizeDate(date: string): string {
   .title {
     color: $text-tertiary;
     font-size: $text-xs;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .value {

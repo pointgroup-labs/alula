@@ -42,7 +42,12 @@ const detailCardsData = computed(() => {
         <div class="info-list">
           <div class="info-list__item">
             <div class="title">
-              Liquidation Close Factor
+              Close Factor
+
+              <info-tooltip>
+                The maximum percentage of a debt that can be repaid in a single liquidation transaction. This mechanism
+                allows a position to be gradually restored to health without selling all collateral at once.
+              </info-tooltip>
             </div>
             <div class="value">
               {{ detailCardsData.liquidationCloseFactor }}%
@@ -51,7 +56,12 @@ const detailCardsData = computed(() => {
 
           <div class="info-list__item">
             <div class="title">
-              Withdraw Scarcity Limit
+              Max Scarcity Rate
+
+              <info-tooltip>
+                The peak borrow interest rate reached at 100% pool utilization. This high rate incentivizes borrowers to
+                repay their loans, ensuring there is always liquidity available for suppliers to withdraw their funds.
+              </info-tooltip>
             </div>
             <div class="value">
               {{ detailCardsData.withdrawScarcityLimitBps }}%
@@ -60,7 +70,12 @@ const detailCardsData = computed(() => {
 
           <div class="info-list__item">
             <div class="title">
-              Max Liquidation Incentive
+              Liquidation Bonus
+
+              <info-tooltip>
+                A discount provided to liquidators on the purchase of collateral when they repay a user's debt. This
+                incentive ensures that risky positions are closed quickly to maintain protocol stability.
+              </info-tooltip>
             </div>
             <div class="value">
               {{ detailCardsData.maxLiquidationIncentive }}%
@@ -69,7 +84,12 @@ const detailCardsData = computed(() => {
 
           <div class="info-list__item">
             <div class="title">
-              Target Utilization Rate
+              Optimal Utilization
+
+              <info-tooltip>
+                The target pool usage level where the interest rate curve reaches its "kink". Beyond this point, the
+                cost of borrowing increases sharply to prevent liquidity shortages and protect the protocol's health
+              </info-tooltip>
             </div>
             <div class="value">
               {{ detailCardsData.targetUtilizationRate }}%
