@@ -130,15 +130,8 @@ watch([
           </market-info-badge>
 
           <market-info-badge v-if="market.assets.length > 0">
-            <span data-name="title">Assets </span>
-
-            <img
-              v-for="asset in market.assets.slice(0, 2)"
-              :key="asset.icon"
-              :src="asset.icon"
-              alt="market asset"
-            >
-            <span v-if="market.assets.length > 2">+{{ market.assets.length - 2 }}</span>
+            <span data-name="title">Assets: </span>
+            <span>{{ market.assets.length  }}</span>
           </market-info-badge>
         </div>
       </template>
