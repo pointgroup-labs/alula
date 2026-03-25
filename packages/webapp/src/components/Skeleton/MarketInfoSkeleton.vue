@@ -1,7 +1,7 @@
 <template>
   <j-skeleton
-    full-width
-    height="86"
-    style="border-radius: 12px;"
+    width="164"
+    height="39"
+    style="border-radius: 8px;"
   />
 </template>
