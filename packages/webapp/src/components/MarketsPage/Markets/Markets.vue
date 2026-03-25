@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 const marketsStore = useMarketsStore()
+
 const isMarkets = ref(true)
 const loading = computed(() => marketsStore.state.loading)
 </script>
@@ -10,6 +11,7 @@ const loading = computed(() => marketsStore.state.loading)
       <div class="market-filters">
         <collateral-assets-filter />
         <debt-assets-filter />
+        <clear-filters-btn />
       </div>
       <collapse-all-btn />
       <market-search />

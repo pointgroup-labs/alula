@@ -24,8 +24,14 @@ export const useMarketFilterStore = defineStore('market-filter', () => {
     return [...ASSETS_MAP.values()]
   })
 
-  function marketToggle(filters: Record<string, boolean>, symbol: string) {
+  function toggle(filters: Record<string, boolean>, symbol: string) {
     filters[symbol] = !filters[symbol]
+  }
+
+  function clearFilter(filters: Record<string, boolean>) {
+    for (const key in filters) {
+      filters[key] = false
+    }
   }
 
   watch(() => marketsStore.state.markets, (next, prev) => {
@@ -53,6 +59,7 @@ export const useMarketFilterStore = defineStore('market-filter', () => {
     isActiveCollateralFilter,
     isActiveDebtFilter,
 
-    marketToggle,
+    toggle,
+    clearFilter,
   }
 })

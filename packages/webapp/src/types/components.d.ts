@@ -27,6 +27,7 @@ declare module 'vue' {
     BorrowWindow: typeof import('./../components/SupplyCard/BorrowWindow.vue')['default']
     ChangePoolDialog: typeof import('./../components/SupplyCard/ChangePoolDialog.vue')['default']
     ChartDateFilter: typeof import('./../components/Widget/ChartDateFilter.vue')['default']
+    ClearFiltersBtn: typeof import('./../components/MarketsPage/Markets/Filters/ClearFiltersBtn.vue')['default']
     CollapseAllBtn: typeof import('./../components/MarketsPage/CollapseAllBtn.vue')['default']
     CollapsedAllBtn: typeof import('./../components/Widget/CollapsedAllBtn.vue')['default']
     CollateralAssetsFilter: typeof import('./../components/MarketsPage/Markets/Filters/CollateralAssetsFilter.vue')['default']

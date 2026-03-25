@@ -10,7 +10,7 @@ const el = ref<ComponentPublicInstance | null>(null)
 const menuWidth = computed(() => (el.value?.$el as HTMLElement | undefined)?.offsetWidth ?? 100)
 
 function toggle(symbol: string) {
-  filterStore.marketToggle(filterStore.debtFilter, symbol)
+  filterStore.toggle(filterStore.debtFilter, symbol)
 }
 </script>
 
