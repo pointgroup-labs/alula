@@ -4,6 +4,14 @@ import type { MarketTableItem } from '~/types/table'
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
 
 const pool = computed(() => selectedPool.value?.raw?.pool)
+const optimalUtilizationRate = computed(() => {
+  const interestRateModel = pool.value?.config.interest_rate_model?.values?.[0]
+  if (!interestRateModel) {
+    return null
+  }
+
+  return Number(interestRateModel.kink1_ur_bps ?? 8000n) / 100
+})
 
 const detailCardsData = computed(() => {
   if (!pool.value) {
@@ -11,20 +19,19 @@ const detailCardsData = computed(() => {
       liquidationCloseFactor: '-',
       maxLiquidationIncentive: '-',
       withdrawScarcityLimitBps: '-',
-      targetUtilizationRate: '-',
+      optimalUtilizationRate: '-',
     }
   }
 
   const liquidationCloseFactor = Number(pool.value?.config.health_config.liquidation_close_factor_bps) / 100
   const maxLiquidationIncentive = Number(pool.value?.config.health_config.max_liquidation_incentive_bps) / 100
   const withdrawScarcityLimitBps = Number(pool.value?.config.health_config.withdraw_scarcity_limit_bps) / 100
-  const targetUtilizationRate = Number(pool.value?.target_utilization_ratio_bps || 0) / 100
 
   return {
     liquidationCloseFactor: truncatePercent(liquidationCloseFactor || 0, 2),
     maxLiquidationIncentive: truncatePercent(maxLiquidationIncentive || 0, 2),
     withdrawScarcityLimitBps: truncatePercent(withdrawScarcityLimitBps || 0, 2),
-    targetUtilizationRate: truncatePercent(targetUtilizationRate || 0, 2),
+    optimalUtilizationRate: optimalUtilizationRate.value && truncatePercent(optimalUtilizationRate.value || 0, 2),
   }
 })
 </script>
@@ -92,7 +99,12 @@ const detailCardsData = computed(() => {
               </info-tooltip>
             </div>
             <div class="value">
-              {{ detailCardsData.targetUtilizationRate }}%
+              <template v-if="optimalUtilizationRate">
+                {{ detailCardsData.optimalUtilizationRate }}%
+              </template>
+              <template v-else>
+                -
+              </template>
             </div>
           </div>
         </div>
