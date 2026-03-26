@@ -7,6 +7,7 @@ export function useLeverage(data: MaybeRef<MultiplyTableItem | undefined>) {
   const userStore = useUserStore()
   const marketsStore = useMarketsStore()
   const market = useMarketActions()
+  const { getTokenSymbol } = useTokensStore()
 
   const poolData = computed(() => unref(data))
 

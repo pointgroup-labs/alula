@@ -4,6 +4,7 @@ import { bpsToNumber } from '@alula/client-sdk'
 export function useMultiplyTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
+  const { getFullTokenData } = useTokensStore()
 
   const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
   const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')

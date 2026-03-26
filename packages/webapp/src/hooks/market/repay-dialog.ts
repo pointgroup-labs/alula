@@ -8,6 +8,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
   const marketsStore = useMarketsStore()
   const market = useMarketActions()
   const userStore = useUserStore()
+  const { getFullTokenData } = useTokensStore()
 
   const {
     publicKey,

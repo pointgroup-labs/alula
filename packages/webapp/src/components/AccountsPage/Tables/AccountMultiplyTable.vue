@@ -14,6 +14,7 @@ const { width } = useWindowSize()
 
 const marketsStore = useMarketsStore()
 const userStore = useUserStore()
+const { getFullTokenData } = useTokensStore()
 
 const market = useMarketActions()
 

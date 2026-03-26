@@ -1,9 +1,8 @@
 <script lang="ts" setup>
-import { getTokenIcon } from '~/utils'
-
 const toast = useToast()
 
 const rpcStore = useRpcStore()
+const { getTokenIcon } = useTokensStore()
 
 const isTestNet = computed(() => rpcStore.network === 'testnet')
 

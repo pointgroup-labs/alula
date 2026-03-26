@@ -4,7 +4,7 @@ import { calcUserTotalBorrowedInUsd } from '@alula/client-sdk'
 import { bpsToNumber, calculateBorrow, calculateTotalStake, calcUserTotalStakeInUsd } from '@alula/client-sdk/src/utils'
 import { calcHealthFactor, calcWeightedBorrowedUsd } from '~/utils'
 
-type PositionAsset = ReturnType<typeof getFullTokenData> & {
+type PositionAsset = {
   address: string
   amount: number
   usd: number
@@ -52,6 +52,7 @@ export function createMyPositionState(): MyPositionState {
 
   const userStore = useUserStore()
   const marketsStore = useMarketsStore()
+  const { getFullTokenData } = useTokensStore()
 
   const pool = computed(() => selectedPool.value?.raw?.pool)
   const marketKey = computed(() => String(selectedPool.value?.market ?? ''))

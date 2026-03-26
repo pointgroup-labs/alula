@@ -14,6 +14,8 @@ const {
 const emits = defineEmits(['dialogHandler'])
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
+  
+const { getFullTokenData } = useTokensStore()
 
 const marketsStore = useMarketsStore()
 const marketState = computed(() => marketsStore.state.markets[selectedPool?.value?.market ?? '']?.marketState)

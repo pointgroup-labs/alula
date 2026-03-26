@@ -3,6 +3,7 @@ const dialog = defineModel({ default: false })
 const isOpen = ref(false)
 
 const marketsStore = useMarketsStore()
+const { getFullTokenData } = useTokensStore()
 
 const activePool = computed(() => marketsStore.activeMarket?.marketState?.pools_data?.find(data => data.pool.pool_address === marketsStore.selectedPoolAddress))
 const asset = computed(() => getFullTokenData(activePool.value?.pool?.token_symbol ?? ''))

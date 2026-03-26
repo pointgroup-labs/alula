@@ -7,6 +7,7 @@ import { formatPrice, shortenNumber } from '~/utils'
 const { width } = useWindowSize()
 
 const userStore = useUserStore()
+const { getFullTokenData } = useTokensStore()
 
 const marketsStore = useMarketsStore()
 

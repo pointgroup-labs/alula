@@ -1,5 +1,6 @@
 export const useMarketFilterStore = defineStore('market-filter', () => {
   const marketsStore = useMarketsStore()
+  const { getFullTokenData } = useTokensStore()
 
   const collateralFilter = ref<Record<string, boolean>>({})
   const debtFilter = ref<Record<string, boolean>>({})

@@ -9,6 +9,8 @@ const {
 
 const dialog = defineModel({ default: false })
 
+const { getFullTokenData } = useTokensStore()
+
 const route = useRoute()
 const router = useRouter()
 

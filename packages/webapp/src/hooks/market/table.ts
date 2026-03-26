@@ -5,6 +5,7 @@ export function useMarketTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
   const filterStore = useMarketFilterStore()
+  const { getFullTokenData } = useTokensStore()
 
   const route = useRoute()
 
