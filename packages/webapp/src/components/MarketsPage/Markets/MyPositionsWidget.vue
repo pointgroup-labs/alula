@@ -6,6 +6,7 @@ const router = useRouter()
 
 const userStore = useUserStore()
 const marketsStore = useMarketsStore()
+const { marketWithTableItems } = useMarketTable()
 
 const obligations = computed(() => Object.entries(userStore.state.obligations).filter(([, obligation]) => Boolean(obligation)))
 
@@ -50,6 +51,31 @@ const metrics = computed(() => {
     weightedBorrowed: 0,
     liquidationCollateral: 0,
   })
+})
+
+const netApy = computed(() => {
+  let totalSuppliedUsd = 0
+  let totalEarningsUsd = 0
+  let totalBorrowUsd = 0
+
+  for (const market of marketWithTableItems.value) {
+    for (const item of market.tableItems) {
+      const suppliedUsd = Number(item.position.supplied || 0) * Number(item.price || 0)
+      const borrowedUsd = Number(item.position.borrowed || 0) * Number(item.price || 0)
+      const supplyApy = Number(String(item.deposit_apy).replace('%', '')) / 100
+      const borrowApy = Number(String(item.borrow_apy).replace('%', '')) / 100
+
+      totalSuppliedUsd += suppliedUsd
+      totalEarningsUsd += suppliedUsd * supplyApy
+      totalBorrowUsd += borrowedUsd * borrowApy
+    }
+  }
+
+  if (totalSuppliedUsd <= 0) {
+    return 0
+  }
+
+  return ((totalEarningsUsd - totalBorrowUsd) / totalSuppliedUsd) * 100
 })
 
 const netValue = computed(() => metrics.value.supplied - metrics.value.borrowed)
@@ -104,6 +130,17 @@ function goToPortfolio() {
           class="my-positions__metric-value"
           :style="{ color: ltvValueColor }"
         >{{ truncatePercent(currentLtv, 2) }}%</span>
+      </div>
+
+      <div class="my-positions__metric">
+        <span class="my-positions__metric-label">Net APY</span>
+        <span
+          class="my-positions__metric-value"
+          :class="{
+            'my-positions__metric-value--positive': netApy > 0,
+            'my-positions__metric-value--negative': netApy < 0,
+          }"
+        >{{ truncatePercent(netApy, 2) }}%</span>
       </div>
     </div>
 
@@ -222,6 +259,14 @@ function goToPortfolio() {
       font-style: normal;
       font-weight: 700;
       line-height: normal;
+
+      &--positive {
+        color: $success;
+      }
+
+      &--negative {
+        color: $danger;
+      }
     }
   }
 
