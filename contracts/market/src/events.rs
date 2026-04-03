@@ -47,6 +47,7 @@ struct DepositEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     deposit_result: DepositResult,
 }
 
@@ -81,6 +82,7 @@ struct BorrowEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     borrow_result: BorrowResult,
 }
 
@@ -90,6 +92,7 @@ struct AddCollateralEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     add_collateral_result: AddCollateralResult,
 }
 
@@ -99,6 +102,7 @@ struct RepayEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     repay_result: RepayResult,
 }
 
@@ -112,6 +116,8 @@ struct LiquidateEvent {
     borrow_pool_address: Address,
     #[topic]
     collateral_pool_address: Address,
+    borrower_obligation: Option<Obligation>,
+    liquidator_obligation: Option<Obligation>,
     liquidation_result: LiquidationResult,
 }
 
@@ -121,6 +127,7 @@ struct RemoveCollateralEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Option<Obligation>,
     remove_collateral_result: RemoveCollateralResult,
 }
 
@@ -130,6 +137,7 @@ struct WithdrawEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Option<Obligation>,
     withdraw_result: WithdrawResult,
 }
 
@@ -434,17 +442,19 @@ struct InconsistentSwapSent {
     max_amount_in: i128,
 }
 
-// -- Methods that abstract how events are published --
+// -- Methods that abstract away how events are published --
 
 pub fn deposit(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     deposit_result: DepositResult,
 ) {
     DepositEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         deposit_result,
     }
     .publish(e);
@@ -522,11 +532,13 @@ pub fn borrow(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     borrow_result: BorrowResult,
 ) {
     BorrowEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         borrow_result,
     }
     .publish(e);
@@ -536,11 +548,13 @@ pub fn add_collateral(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     add_collateral_result: AddCollateralResult,
 ) {
     AddCollateralEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         add_collateral_result,
     }
     .publish(e);
@@ -550,11 +564,13 @@ pub fn repay(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     repay_result: RepayResult,
 ) {
     RepayEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         repay_result,
     }
     .publish(e);
@@ -567,6 +583,8 @@ pub fn liquidate(
     borrower_obligation_key: &ObligationKey,
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
+    borrower_obligation: Option<Obligation>,
+    liquidator_obligation: Option<Obligation>,
     liquidation_result: LiquidationResult,
 ) {
     LiquidateEvent {
@@ -574,6 +592,8 @@ pub fn liquidate(
         borrower_obligation_key: borrower_obligation_key.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
         collateral_pool_address: collateral_pool_address.clone(),
+        borrower_obligation,
+        liquidator_obligation,
         liquidation_result,
     }
     .publish(e);
@@ -583,11 +603,13 @@ pub fn remove_collateral(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Option<Obligation>,
     remove_collateral_result: RemoveCollateralResult,
 ) {
     RemoveCollateralEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         remove_collateral_result,
     }
     .publish(e);
@@ -597,11 +619,13 @@ pub fn withdraw(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Option<Obligation>,
     withdraw_result: WithdrawResult,
 ) {
     WithdrawEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         withdraw_result,
     }
     .publish(e);

@@ -313,7 +313,7 @@ pub fn process_deposit<'a>(
         referrer_fee_transfers,
     );
 
-    events::deposit(e, pool_address, obligation_key, deposit_result);
+    events::deposit(e, pool_address, obligation_key, obligation, deposit_result);
 
     Ok(transfers)
 }
@@ -361,7 +361,7 @@ pub fn process_borrow<'a>(
         referrer_fee_transfers,
     );
 
-    events::borrow(e, pool_address, obligation_key, borrow_result);
+    events::borrow(e, pool_address, obligation_key, obligation, borrow_result);
 
     Ok(transfers)
 }
@@ -404,7 +404,7 @@ pub fn process_add_collateral<'a>(
         referrer_fee_transfers,
     );
 
-    events::add_collateral(e, pool_address, obligation_key, add_collateral_result);
+    events::add_collateral(e, pool_address, obligation_key, obligation, add_collateral_result);
 
     Ok(transfers)
 }
@@ -461,7 +461,7 @@ pub fn process_repay<'a>(
         None,
     );
 
-    events::repay(e, pool_address, obligation_key, repay_result);
+    events::repay(e, pool_address, obligation_key, obligation, repay_result);
 
     Ok(transfers)
 }
@@ -486,11 +486,15 @@ pub fn process_remove_collateral<'a>(
 
     pool.set(e);
 
-    if obligation.is_empty() {
+    let event_obligation = if obligation.is_empty() {
         obligation.remove(e, obligation_key);
+
+        None
     } else {
         obligation.set(e, obligation_key);
-    }
+
+        Some(obligation)
+    };
 
     let market_transfers = smap![
         e,
@@ -509,7 +513,13 @@ pub fn process_remove_collateral<'a>(
         referrer_fee_transfers,
     );
 
-    events::remove_collateral(e, pool_address, obligation_key, remove_collateral_result);
+    events::remove_collateral(
+        e,
+        pool_address,
+        obligation_key,
+        event_obligation,
+        remove_collateral_result,
+    );
 
     Ok(transfers)
 }
@@ -560,11 +570,15 @@ pub fn process_withdraw<'a>(
     // Auto-refresh supply farm stake before potentially removing obligation
     farms::try_refresh_pool_farm(e, &obligation, obligation_key, &pool, farms::FarmKind::Supply)?;
 
-    if obligation.is_empty() {
+    let event_obligation = if obligation.is_empty() {
         obligation.remove(e, obligation_key);
+
+        None
     } else {
         obligation.set(e, obligation_key);
-    }
+
+        Some(obligation)
+    };
 
     pool.set(e);
 
@@ -583,7 +597,7 @@ pub fn process_withdraw<'a>(
         referrer_fee_transfers,
     );
 
-    events::withdraw(e, pool_address, obligation_key, withdraw_result);
+    events::withdraw(e, pool_address, obligation_key, event_obligation, withdraw_result);
 
     Ok(transfers)
 }
@@ -689,13 +703,13 @@ pub fn process_liquidate<'a>(
         min_demanded_collateral_amount,
     )?;
 
-    if liquidation_result.j_tokens_seized.is_positive() {
-        // In case the liquidated obligation's plain collateral wasn't sufficient to cover the liquidation,
-        // borrower's jTokens are transferred to the liquidator as a part of the incentive
+    let liquidator_obligation_key = ObligationKey::new(liquidator.clone());
+    let mut liquidator_event_obligation: Option<Obligation> =
+        Obligation::try_get(e, &liquidator_obligation_key).ok();
 
-        let liquidator_obligation_key = ObligationKey::new(liquidator.clone());
-        let mut liquidator_obligation = Obligation::try_get(e, &liquidator_obligation_key)
-            .unwrap_or(Obligation::new(e, &liquidator_obligation_key));
+    if liquidation_result.j_tokens_seized.is_positive() {
+        let mut liquidator_obligation =
+            liquidator_event_obligation.unwrap_or(Obligation::new(e, &liquidator_obligation_key));
 
         liquidator_obligation.liquidation_increase_j_tokens(
             e,
@@ -712,6 +726,8 @@ pub fn process_liquidate<'a>(
             &collateral_pool,
             farms::FarmKind::Supply,
         )?;
+
+        liquidator_event_obligation = Some(liquidator_obligation);
     }
 
     borrow_pool.liquidation_repay_debt(e, &liquidation_result)?;
@@ -733,11 +749,16 @@ pub fn process_liquidate<'a>(
         farms::FarmKind::Supply,
     )?;
 
-    if obligation.is_empty() {
+    let borrower_event_obligation = if obligation.is_empty() {
         obligation.remove(e, borrower_obligation_key);
+
+        None
     } else {
         obligation.set(e, borrower_obligation_key);
-    }
+
+        Some(obligation)
+    };
+
     borrow_pool.set(e);
     collateral_pool.set(e);
 
@@ -764,6 +785,8 @@ pub fn process_liquidate<'a>(
         borrower_obligation_key,
         borrow_pool_address,
         collateral_pool_address,
+        borrower_event_obligation,
+        liquidator_event_obligation,
         liquidation_result,
     );
 
@@ -1143,4 +1166,9 @@ pub fn process_refresh_obligation(e: &Env, obligation_key: ObligationKey) -> Res
     events::refresh_obligation(e, obligation_key);
 
     Ok(())
+}
+
+// -- Helpers --
+pub fn obligation_map_to_event(obligation: Obligation) -> Option<Obligation> {
+    if !obligation.is_empty() { Some(obligation) } else { None }
 }
