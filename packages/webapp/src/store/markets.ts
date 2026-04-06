@@ -120,15 +120,13 @@ export const useMarketsStore = defineStore('markets', () => {
 
   watch([
     network,
-    alulaClient,
-    () => rpcStore.horizonRPCUrl,
-    () => rpcStore.sorobanRPCUrl],
-  async ([nextNetwork, _nextClient, _nextHorizonRPCUrl, _nextSorobanRPCUrl],
-    [prevNetwork, _prevClient, _prevHorizonRPCUrl, _prevSorobanRPCUrl]) => {
+    alulaClient],
+  async ([nextNetwork, _nextClient],
+    [prevNetwork, _prevClient]) => {
     if (import.meta.env.SSR) {
       return
     }
-    if (nextNetwork !== prevNetwork || _nextHorizonRPCUrl !== _prevHorizonRPCUrl || _nextSorobanRPCUrl !== _prevSorobanRPCUrl) {
+    if (nextNetwork !== prevNetwork) {
       state.markets = {}
       state.marketsList = []
     }
