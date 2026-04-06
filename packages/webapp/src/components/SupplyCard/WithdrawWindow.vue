@@ -22,7 +22,6 @@ const {
   txFee,
   currentHealthFactor,
   dynamicHealthFactor,
-  currentLtv,
   dynamicLtv,
   maxLtv,
   loading: isLoading,
@@ -73,6 +72,11 @@ async function withdraw() {
           <div class="summary-list__item">
             <div class="label">
               Health Factor
+              <info-tooltip>
+                An indicator of your position's safety. It compares your deposited collateral against your borrowed
+                debt.
+                If the Health Factor reaches 1.0, your assets will be liquidated.
+              </info-tooltip>
             </div>
             <div class="value">
               <template v-if="isLoading">
@@ -82,24 +86,30 @@ async function withdraw() {
                 />
               </template>
               <template v-else>
-                <span class="positive">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
-                →
-                <span :style="{ color: healthFactorColor(dynamicHealthFactor) }">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+                <span :style="{ color: healthFactorColor(currentHealthFactor, '#fff') }">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
+                <template v-if="amount && amount > 0">
+                  →
+                  <span :style="{ color: healthFactorColor(dynamicHealthFactor, '#fff') }">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+                </template>
               </template>
             </div>
           </div>
 
           <div class="summary-list__item align-items-start mb-2">
             <div class="label">
-              Loan-to-Value (LTV)
+              Borrow Limit Used
+              <info-tooltip>
+                Shows how much of your total borrowing power you are currently using. This limit is based on the maximum
+                Loan-to-Value (LTV) of your collaterals. At maximum % you cannot borrow more.
+              </info-tooltip>
             </div>
             <div
               class="value"
             >
               <div class="text-end">
-                <span class="positive">{{ truncatePercent(currentLtv || 0, 2) }}%</span>
-                →
-                <span :style="{ color: ltvColor(dynamicLtv, maxLtv) }">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                <span>{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                of
+                <span>{{ truncatePercent(maxLtv || 0, 2) }}%</span>
               </div>
             </div>
           </div>

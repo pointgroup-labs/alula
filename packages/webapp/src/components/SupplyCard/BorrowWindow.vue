@@ -14,7 +14,7 @@ const {
 const emits = defineEmits(['dialogHandler'])
 
 const selectedPool = inject<Ref<MarketTableItem>>('selectedPool')
-  
+
 const { getFullTokenData } = useTokensStore()
 
 const marketsStore = useMarketsStore()
@@ -32,11 +32,9 @@ const {
   availableToBorrow,
   poolBorrowLimit,
   isCanBorrow,
-  collateralValueUsd,
   attentionText,
   currentHealthFactor,
   dynamicHealthFactor,
-  currentLtv,
   maxLtv,
   dynamicLtv,
   borrow: doBorrow,
@@ -85,7 +83,7 @@ const positions = computed(() => {
       :fee="POOL_REMAINING_BALANCE"
       :price="selectedPool?.price"
       label-left="Available to Borrow"
-      :label-right="formatPrice(availableToBorrow ?? 0, 0, 4)"
+      :label-right="formatPrice(Math.max((availableToBorrow ?? 0) - POOL_REMAINING_BALANCE, 0), 0, 4)"
       :symbol="selectedPool?.asset.symbol"
       variant="indigo"
       :rules="[
@@ -131,6 +129,11 @@ const positions = computed(() => {
           <div class="summary-list__item">
             <div class="label">
               Health Factor
+              <info-tooltip>
+                An indicator of your position's safety. It compares your deposited collateral against your borrowed
+                debt.
+                If the Health Factor reaches 1.0, your assets will be liquidated.
+              </info-tooltip>
             </div>
             <div class="value">
               <template v-if="isLoading">
@@ -140,27 +143,29 @@ const positions = computed(() => {
                 />
               </template>
               <template v-else>
-                <span class="positive">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
-                →
-                <span :style="{ color: healthFactorColor(dynamicHealthFactor) }">{{ truncatePercent(dynamicHealthFactor || 0, 2) }}</span>
+                <span :style="{ color: healthFactorColor(currentHealthFactor, '#fff') }">{{ truncatePercent(currentHealthFactor || 0, 2) }}</span>
+                <template v-if="amount && amount > 0">
+                  →
+                  <span :style="{ color: healthFactorColor(dynamicHealthFactor, '#fff') }">{{ truncatePercent(dynamicHealthFactor
+                    || 0, 2) }}</span>
+                </template>
               </template>
             </div>
           </div>
 
           <div class="summary-list__item align-items-start mb-2">
             <div class="label">
-              Loan-to-Value (LTV)
+              Borrow Limit Used
+              <info-tooltip>
+                Shows how much of your total borrowing power you are currently using. This limit is based on the maximum
+                Loan-to-Value (LTV) of your collaterals. At maximum % you cannot borrow more.
+              </info-tooltip>
             </div>
-            <div
-              class="value"
-            >
+            <div class="value">
               <div>
-                <span class="positive">{{ truncatePercent(currentLtv || 0, 2) }}%</span>
-                →
-                <span :style="{ color: ltvColor(dynamicLtv, maxLtv) }">{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
-              </div>
-              <div class="max-ltv">
-                Max LTV: {{ truncatePercent(maxLtv || 0, 2) }}%
+                <span>{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                of
+                <span>{{ truncatePercent(maxLtv || 0, 2) }}%</span>
               </div>
             </div>
           </div>
@@ -196,24 +201,6 @@ const positions = computed(() => {
           <div class="summary-list__item">
             <div class="label">
               Total collateral value
-            </div>
-            <div class="value">
-              {{ formatCompactUSD(collateralValueUsd) }}
-            </div>
-          </div>
-
-          <div class="summary-list__item">
-            <div class="label">
-              Borrow Rate
-            </div>
-            <div class="value">
-              {{ selectedPool?.borrow_apy }}
-            </div>
-          </div>
-
-          <div class="summary-list__item">
-            <div class="label">
-              Available liquidity
             </div>
             <div class="value">
               {{ shortenNumber(poolBorrowLimit || 0) }} {{ selectedPool?.asset.symbol }}
@@ -283,7 +270,7 @@ const positions = computed(() => {
       :disabled="!agree || !isCanBorrow || amount > availableToBorrow || availableToBorrow <= 0"
       @click-handler="borrow"
     >
-      <i-metrics-complete class="complete-icon" />  Borrow {{ selectedPool?.asset.symbol }}
+      <i-metrics-complete class="complete-icon" /> Borrow {{ selectedPool?.asset.symbol }}
     </market-dialog-action-btn>
   </div>
 </template>

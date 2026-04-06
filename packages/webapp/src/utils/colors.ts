@@ -2,11 +2,11 @@ const SUCCESS_COLOR = '#17B26A'
 const WARNING_COLOR = '#f0b100'
 const DANGER_COLOR = '#f04438'
 
-export function healthFactorColor(hf?: number | null): string {
+export function healthFactorColor(hf?: number | null, successColor = SUCCESS_COLOR): string {
   if (!hf) {
     return SUCCESS_COLOR
   }
-  return hf < 1.2 ? DANGER_COLOR : (hf < 1.5 ? WARNING_COLOR : SUCCESS_COLOR)
+  return hf < 1.2 ? DANGER_COLOR : (hf < 1.5 ? WARNING_COLOR : successColor)
 }
 
 export function ltvColor(current: number, max?: number) {
