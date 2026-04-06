@@ -204,8 +204,7 @@ mod test {
     #[test]
     fn test_extreme_multiplicator_very_extreme_old_value_breaks_i128() {
         // NB: This test shows the boundaries of using [`i128`] for intermediate calculations.
-        // The boundaries can be extended when switching [`i128`] => [`I256`](See: https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.I256.html).
-        // TODO: Consider increased gas cost if switching to [`I256`] as a future-proofing measure
+        // The boundaries can be extended when switching [`i128`] => [`I256`](See: https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.I256.html)
         let old_value: i128 = 100_000_000_000_0000000;
         let big_multiplier = 200 * SCALED_FIXED_POINT_DENOMINATOR;
 

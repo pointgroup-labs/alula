@@ -12,17 +12,21 @@ pub struct ControlledInsuranceFundContract;
 impl ControlledInsuranceFundContract {
     /// Constructs an account-controlled insurance fund contract
     pub fn __constructor(e: Env, admin: Address) {
-        storage::set_admin(&e, admin);
+        storage::set_admin(&e, &admin);
         storage::init_requests_counter(&e);
     }
 
     /// Sets an insured market contract address in the storage
-    pub fn set_market(e: Env, market: Address) {
-        // TODO: This must be a one-time lock or something like that
+    pub fn set_market(e: Env, market: Address) -> Result<(), ContractError> {
         require_admin(&e);
         storage::extend_instance(&e);
 
+        if storage::is_market_set(&e) {
+            return Err(ContractError::MarketIsAlreadySet);
+        }
         storage::set_market(&e, market);
+
+        Ok(())
     }
 
     /// # Returns
@@ -101,6 +105,30 @@ impl ControlledInsuranceFundContract {
         let market = storage::get_market(&e);
         let market_client = market::MarketPartialClient::new(&e, &market);
         market_client.fund_update_market_status(&new_status);
+    }
+
+    /// Proposes a new fund's admin
+    pub fn propose_new_admin(e: Env, proposed_admin: Address) -> Result<(), ContractError> {
+        require_admin(&e);
+        storage::extend_instance(&e);
+
+        storage::set_proposed_admin(&e, proposed_admin);
+
+        Ok(())
+    }
+
+    // Accepts the proposal to become a new admin
+    pub fn accept_proposed_admin(e: Env) -> Result<(), ContractError> {
+        storage::extend_instance(&e);
+
+        let proposed_admin =
+            storage::get_proposed_admin(&e).ok_or(ContractError::ProposedAdminIsNotSet)?;
+        proposed_admin.require_auth();
+
+        storage::set_admin(&e, &proposed_admin);
+        storage::remove_proposed_admin(&e);
+
+        Ok(())
     }
 }
 

@@ -4,7 +4,9 @@ use market::{
     constants::*,
     contract::{MarketClient, MarketContract},
     error::MCError,
+    obligation::ObligationKey,
     pool::{PoolConfig, PoolHealthConfig},
+    storage::MarketInitParams,
 };
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient, MockPriceOracleWASM};
 use soroban_fixed_point_math::FixedPoint;
@@ -36,17 +38,27 @@ fn test_borrow() {
     let liquidity_provider = &users[1];
 
     // NB: GOLD is used as the main collateral in integration tests
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
     // NB: USDC is used as the main borrowed token in integration tests
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
-    contract_client.borrow(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
     let borrower_balance_after = usdc_token_client.balance(borrower);
 
     let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
@@ -84,18 +96,38 @@ fn test_borrow_multiple_shareholders() {
     let liquidity_provider = &users[2];
 
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(3 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.deposit(borrower_1, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT), &None);
-    contract_client.deposit(borrower_2, &gold_pool_address, &(3 * DEFAULT_DEPOSIT_AMOUNT), &None);
+    contract_client.deposit(
+        &ObligationKey::new(borrower_1.clone()),
+        &gold_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(borrower_2.clone()),
+        &gold_pool_address,
+        &(3 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
 
-    contract_client.borrow(borrower_1, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower_1.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     const BORROWER_2_BORROW_AMOUNT: i128 = (3 * DEFAULT_DEPOSIT_AMOUNT) / 2;
-    contract_client.borrow(borrower_2, &usdc_pool_address, &BORROWER_2_BORROW_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower_2.clone()),
+        &usdc_pool_address,
+        &BORROWER_2_BORROW_AMOUNT,
+        &None,
+    );
 
     let obligation_d_tokens_as_tokens_1 =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower_1, &usdc_pool_address)
@@ -169,11 +201,26 @@ fn test_borrow_exceeds_utilization_cap() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(borrower, &gold_pool_address, &(2 * &DEFAULT_DEPOSIT_AMOUNT), &None);
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * &DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
-    contract_client.borrow(borrower, &usdc_pool_address, &BORROW_AMOUNT, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &BORROW_AMOUNT,
+        &None,
+    );
     let borrower_balance_after = usdc_token_client.balance(borrower);
 
     let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
@@ -183,8 +230,15 @@ fn test_borrow_exceeds_utilization_cap() {
         BORROW_AMOUNT.fixed_mul_ceil(BPS_FACTOR - borrow_fee_bps as i128, BPS_FACTOR).unwrap()
     );
 
+    // -- Try to borrow more than UR cap allows --
+
     assert_eq!(
-        contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
+        contract_client.try_borrow(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &1,
+            &None
+        ),
         Err(Ok(MCError::PoolUtilizationRatioCapExceeded))
     );
 }
@@ -196,11 +250,26 @@ fn test_borrow_zero() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     assert_eq!(
-        contract_client.try_borrow(borrower, &usdc_pool_address, &0, &None),
+        contract_client.try_borrow(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &0,
+            &None
+        ),
         Err(Ok(MCError::InvalidInputAmount))
     );
 }
@@ -212,11 +281,26 @@ fn test_borrow_negative() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.deposit(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     assert_eq!(
-        contract_client.try_borrow(borrower, &usdc_pool_address, &-1, &None),
+        contract_client.try_borrow(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &-1,
+            &None
+        ),
         Err(Ok(MCError::InvalidInputAmount))
     );
 }
@@ -227,10 +311,20 @@ fn test_deposit_exists() {
         TestMarketFixture::new();
     let borrower = &users[0];
 
-    contract_client.deposit(borrower, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     assert_eq!(
-        contract_client.try_borrow(borrower, &usdc_pool_address, &1, &None),
+        contract_client.try_borrow(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &1,
+            &None
+        ),
         Err(Ok(MCError::DepositPositionForAssetExists))
     );
 }
@@ -249,11 +343,26 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
-    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
     let borrower_balance_after = usdc_token_client.balance(borrower);
 
     let borrow_fee_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).borrow_fee_bps;
@@ -265,7 +374,12 @@ fn test_borrow_amount_is_reduced_to_satisfy_obligation_health() {
                 .unwrap()
     );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     let obligation_borrowed =
         get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address).unwrap();
@@ -302,9 +416,24 @@ fn test_borrow_w_big_liability_factor() {
     let borrower = &users[0];
     let liquidity_provider = &users[1];
 
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.add_collateral(borrower, &gold_pool_address, &DEFAULT_COLLATERAL_AMOUNT, &None);
-    contract_client.borrow(borrower, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &DEFAULT_COLLATERAL_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     let borrowed =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
@@ -409,7 +538,6 @@ fn test_borrow_w_different_token_decimals() {
 
     // - Market contract -
 
-    let router_address = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
     let market_manager_address = Address::generate(&e);
     let contract_name = String::from_str(&e, "market_contract");
@@ -420,20 +548,30 @@ fn test_borrow_w_different_token_decimals() {
             contract_name,
             contract_admin.clone(),
             oracle.clone(),
-            router_address,
             insurance_fund,
             market_manager_address,
-            DEFAULT_MAX_POSITIONS,
-            0i128,
-            DEFAULT_INSOLVENCY_LTV_BPS,
-            Some(DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS),
+            MarketInitParams {
+                max_positions: DEFAULT_MAX_POSITIONS,
+                min_collateral_value_cents: 0i128,
+                insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+                is_owned: true,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+            },
         ),
     );
     let market = MarketClient::new(&e, &market_id);
     market.update_market_status(&0);
 
-    let collateral_pool = market.initialize_pool(&collateral_asset.token_address, &None);
-    let borrowed_pool = market.initialize_pool(&borrowed_token_address, &None);
+    market.queue_in_pool_set(&collateral_asset.token_address, &PoolConfig::default());
+    e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+    market.apply_pool_set(&collateral_asset.token_address);
+    let collateral_pool = collateral_asset.token_address.clone();
+
+    market.queue_in_pool_set(&borrowed_token_address, &PoolConfig::default());
+    e.ledger().with_mut(|li| li.timestamp += DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS);
+    market.apply_pool_set(&borrowed_token_address);
+    let borrowed_pool = borrowed_token_address.clone();
 
     // Oracle feeds prices for pool addresses (not token addresses)
     oracle_client.set_data(
@@ -458,13 +596,23 @@ fn test_borrow_w_different_token_decimals() {
     let collateral_amount: i128 = 10_000 * 10_i128.pow(7); // 10,000 tokens in 7-decimal
     let liquidity_amount: i128 = 100_000 * 10_i128.pow(BORROWED_TOKEN_DECIMALS); // 100k tokens in 18-decimal
 
-    market.deposit(&borrower, &collateral_pool, &collateral_amount, &None);
-    market.deposit(&liquidity_provider, &borrowed_pool, &liquidity_amount, &None);
+    market.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &collateral_pool,
+        &collateral_amount,
+        &None,
+    );
+    market.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &borrowed_pool,
+        &liquidity_amount,
+        &None,
+    );
 
     // - Borrow: request way more than LTV allows -
 
     let borrower_balance_before = borrowed_token_client.balance(&borrower);
-    market.borrow(&borrower, &borrowed_pool, &i128::MAX, &None);
+    market.borrow(&ObligationKey::new(borrower.clone()), &borrowed_pool, &i128::MAX, &None);
     let borrower_balance_after = borrowed_token_client.balance(&borrower);
 
     let received = borrower_balance_after.checked_sub(borrower_balance_before).unwrap();

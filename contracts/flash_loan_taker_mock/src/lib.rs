@@ -60,7 +60,7 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
 
 #[cfg(test)]
 mod test {
-    use market::error::MCError;
+    use market::{error::MCError, obligation::ObligationKey};
     use soroban_sdk::Address;
     use tests::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
@@ -79,7 +79,7 @@ mod test {
 
             // Deposit usdc as some lender to have a non-empty loan pool
             test_fixture.contract_client.deposit(
-                lender,
+                &ObligationKey::new(lender.clone()),
                 &test_fixture.usdc_pool_address,
                 &DEFAULT_DEPOSIT_AMOUNT,
                 &None,

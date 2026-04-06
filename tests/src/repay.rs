@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use market::{constants::*, error::MCError};
+use market::{constants::*, error::MCError, obligation::ObligationKey};
 use soroban_sdk::testutils::Ledger;
 
 use crate::{
@@ -24,20 +24,35 @@ fn test_repay() {
     let liquidity_provider = &users[1];
 
     contract_client.add_collateral(
-        borrower,
+        &ObligationKey::new(borrower.clone()),
         &gold_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
     // Borrow 50% of the available
-    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
 
     // Repay the half of the debt
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
-    contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
+    contract_client.repay(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 4),
+        &None,
+    );
     let borrower_balance_after = usdc_token_client.balance(borrower);
 
     assert_eq!(
@@ -61,7 +76,12 @@ fn test_repay() {
     assert_eq!(pool_total_available, (3 * DEFAULT_DEPOSIT_AMOUNT) / 4);
 
     // Repay the rest
-    contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 4), &None);
+    contract_client.repay(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 4),
+        &None,
+    );
 
     assert_eq!(
         get_obligation_initially_borrowed(&contract_client, borrower, &usdc_pool_address),
@@ -83,16 +103,31 @@ fn test_repay_zero() {
     let liquidity_provider = &users[1];
 
     contract_client.add_collateral(
-        borrower,
+        &ObligationKey::new(borrower.clone()),
         &gold_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
-    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
 
     assert_eq!(
-        contract_client.try_repay(borrower, &usdc_pool_address, &0, &None),
+        contract_client.try_repay(
+            &ObligationKey::new(borrower.clone()),
+            &usdc_pool_address,
+            &0,
+            &None
+        ),
         Err(Ok(MCError::InvalidInputAmount))
     );
 }
@@ -106,14 +141,24 @@ fn test_repay_with_interest_accrual() {
     let liquidity_provider = &users[1];
 
     contract_client.add_collateral(
-        borrower,
+        &ObligationKey::new(borrower.clone()),
         &gold_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
 
     // -- Move time --
 
@@ -125,7 +170,12 @@ fn test_repay_with_interest_accrual() {
     let unpaid_interest =
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
 
-    contract_client.repay(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+    contract_client.repay(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
 
     let remaining_debt =
         get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address)
@@ -149,14 +199,24 @@ fn test_repay_unpaid_interest_only() {
     let liquidity_provider = &users[1];
 
     contract_client.add_collateral(
-        borrower,
+        &ObligationKey::new(borrower.clone()),
         &gold_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
-    contract_client.deposit(liquidity_provider, &usdc_pool_address, &DEFAULT_DEPOSIT_AMOUNT, &None);
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
 
     // -- Move time --
 
@@ -169,7 +229,12 @@ fn test_repay_unpaid_interest_only() {
         get_obligation_unpaid_interest(&e, &contract_client, borrower, &usdc_pool_address).unwrap();
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
-    contract_client.repay(borrower, &usdc_pool_address, &obligation_unpaid_interest_before, &None);
+    contract_client.repay(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &obligation_unpaid_interest_before,
+        &None,
+    );
     let borrower_balance_after = usdc_token_client.balance(borrower);
 
     assert_eq!(
@@ -197,23 +262,28 @@ fn test_repay_all_with_bigger_than_debt_value() {
     let liquidity_provider = &users[1];
 
     contract_client.add_collateral(
-        borrower,
+        &ObligationKey::new(borrower.clone()),
         &gold_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(2 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
 
-    contract_client.borrow(borrower, &usdc_pool_address, &(DEFAULT_DEPOSIT_AMOUNT / 2), &None);
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &(DEFAULT_DEPOSIT_AMOUNT / 2),
+        &None,
+    );
 
     let borrower_balance_before = usdc_token_client.balance(borrower);
     contract_client.repay(
-        borrower,
+        &ObligationKey::new(borrower.clone()),
         &usdc_pool_address,
         &(3 * DEFAULT_DEPOSIT_AMOUNT / 2), // x3 of borrowed amount
         &None,
@@ -248,25 +318,60 @@ fn test_consecutive_borrows_can_lead_to_unpaid_interest_become_negative() {
     let borrower_3 = &users[3];
 
     contract_client.deposit(
-        liquidity_provider,
+        &ObligationKey::new(liquidity_provider.clone()),
         &usdc_pool_address,
         &(100000000000 * DEFAULT_DEPOSIT_AMOUNT),
         &None,
     );
 
-    contract_client.add_collateral(borrower_1, &gold_pool_address, &7777777, &None);
-    contract_client.borrow(borrower_1, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower_1.clone()),
+        &gold_pool_address,
+        &7777777,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower_1.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
-    contract_client.add_collateral(borrower_2, &gold_pool_address, &177777, &None);
-    contract_client.borrow(borrower_2, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower_2.clone()),
+        &gold_pool_address,
+        &177777,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower_2.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
-    contract_client.add_collateral(borrower_3, &gold_pool_address, &5325523, &None);
-    contract_client.borrow(borrower_3, &usdc_pool_address, &i128::MAX, &None);
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower_3.clone()),
+        &gold_pool_address,
+        &5325523,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower_3.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
 
     // NB: Consecutive borrows can lead to 'unpaid_interest_becomes_negative' internal error when repaying the first borrow
     // right away. This is a consequence of generating an amount of dTokens with ceiling rounding to favour the protocol when borrowing
     assert_eq!(
-        contract_client.try_repay(borrower_1, &usdc_pool_address, &1, &None),
+        contract_client.try_repay(
+            &ObligationKey::new(borrower_1.clone()),
+            &usdc_pool_address,
+            &1,
+            &None
+        ),
         Err(Ok(MCError::InternalError))
     );
 }
