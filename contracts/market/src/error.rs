@@ -26,10 +26,14 @@ pub enum MCError {
     DepositPoolDoesNotExist = 104,
     BorrowPoolDoesNotExist = 105,
     CollateralPoolDoesNotExist = 106,
-    PoolAlreadyContainsQueuedInConfigUpdate = 107,
-    PoolDoesNotHaveQueuedInConfigUpdate = 108,
-    PoolConfigUpdateIsNotYetApplicable = 109,
+    PoolAlreadyContainsQueuedPoolSet = 107,
+    PoolDoesNotHaveQueuedPoolSet = 108,
+    PoolSetIsNotYetApplicable = 109,
     OperationForbiddenOnPool = 110,
+    MarketAlreadyContainsQueuedInConfigUpdate = 111,
+    MarketDoesNotHaveQueuedInConfigUpdate = 112,
+    MarketConfigUpdateIsNotYetApplicable = 113,
+    PoolBadDebtLocked = 114,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,
@@ -58,11 +62,8 @@ pub enum MCError {
     AssetCannotBeUsedAsCollateral = 604,
     LiquidationExcessiveDemandedCollateral = 605,
 
-    // Leverage and swap errors (700-799)
-    InvalidLeverageInputs = 700,
+    // Requests batching & swap errors (700-799)
     InvalidSwap = 701,
-    MultiplyPairAlreadyExists = 702,
-    MultiplyPairDoesNotExist = 703,
-    LeveragePositionContainsBadDebt = 704,
-    InconsistentDepositWithLeverage = 705,
+    FlashBorrowAlreadyRegistered = 702,
+    SwapSlippageExceeded = 703,
 }

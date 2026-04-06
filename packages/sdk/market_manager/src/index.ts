@@ -33,6 +33,19 @@ if (typeof window !== "undefined") {
 
 
 
+
+export interface MarketInitParams {
+  bad_debt_lock_d: u64;
+  insolvency_ltv_bps: i128;
+  is_owned: boolean;
+  max_positions: u32;
+  min_collateral_value_cents: i128;
+  update_in_queue_period: u64;
+}
+
+
+
+
 /**
  * Market Manager Contract Error
  */
@@ -54,7 +67,7 @@ export interface Client {
   /**
    * Construct and simulate a deploy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  deploy: ({salt, market_admin, name, oracle, swap_provider, insurance_fund, max_positions, min_collateral_value_cents, insolvency_ltv_bps, update_in_queue_period}: {salt: Buffer, market_admin: string, name: string, oracle: string, swap_provider: string, insurance_fund: string, max_positions: u32, min_collateral_value_cents: i128, insolvency_ltv_bps: i128, update_in_queue_period: Option<u64>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<string>>>
+  deploy: ({salt, market_admin, name, oracle, insurance_fund, params}: {salt: Buffer, market_admin: string, name: string, oracle: string, insurance_fund: string, params: MarketInitParams}, options?: MethodOptions) => Promise<AssembledTransaction<Result<string>>>
 
   /**
    * Construct and simulate a get_markets transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -96,7 +109,8 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAKAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADXN3YXBfcHJvdmlkZXIAAAAAAAATAAAAAAAAAA5pbnN1cmFuY2VfZnVuZAAAAAAAEwAAAAAAAAANbWF4X3Bvc2l0aW9ucwAAAAAAAAQAAAAAAAAAGm1pbl9jb2xsYXRlcmFsX3ZhbHVlX2NlbnRzAAAAAAALAAAAAAAAABJpbnNvbHZlbmN5X2x0dl9icHMAAAAAAAsAAAAAAAAAFnVwZGF0ZV9pbl9xdWV1ZV9wZXJpb2QAAAAAA+gAAAAGAAAAAQAAA+kAAAATAAAH0AAAAAhNTUNFcnJvcg==",
+      new ContractSpec([ "AAAAAQAAAAAAAAAAAAAAEE1hcmtldEluaXRQYXJhbXMAAAAGAAAAAAAAAA9iYWRfZGVidF9sb2NrX2QAAAAABgAAAAAAAAASaW5zb2x2ZW5jeV9sdHZfYnBzAAAAAAALAAAAAAAAAAhpc19vd25lZAAAAAEAAAAAAAAADW1heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAABptaW5fY29sbGF0ZXJhbF92YWx1ZV9jZW50cwAAAAAACwAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAABg==",
+        "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAGAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADmluc3VyYW5jZV9mdW5kAAAAAAATAAAAAAAAAAZwYXJhbXMAAAAAB9AAAAAQTWFya2V0SW5pdFBhcmFtcwAAAAEAAAPpAAAAEwAAB9AAAAAITU1DRXJyb3I=",
         "AAAAAAAAAAAAAAALZ2V0X21hcmtldHMAAAAAAAAAAAEAAAPsAAAAEwAAA+0AAAAA",
         "AAAAAAAAAAAAAAAKZ2V0X2NvbmZpZwAAAAAAAAAAAAEAAAfQAAAABkNvbmZpZwAA",
         "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAZbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",

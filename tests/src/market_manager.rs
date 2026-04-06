@@ -1,7 +1,10 @@
 #![cfg(test)]
 
-use ::market::constants::{DEFAULT_INSOLVENCY_LTV_BPS, MAX_RESERVES};
-use market_manager::contract::{MarketManagerClient, MarketManagerContract};
+use ::market::constants::{
+    DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS,
+    DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, MAX_RESERVES,
+};
+use market_manager::contract::{MarketInitParams, MarketManagerClient, MarketManagerContract};
 use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
 
 use crate::get_default_env;
@@ -36,6 +39,17 @@ impl<'a> ManagerSetup<'a> {
     }
 }
 
+fn default_params(is_owned: bool) -> MarketInitParams {
+    MarketInitParams {
+        max_positions: 2,
+        min_collateral_value_cents: 1,
+        insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+        update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+        is_owned,
+        bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+    }
+}
+
 #[test]
 fn test_manager_has_no_markets_initially() {
     let ManagerSetup { manager_client, .. } = ManagerSetup::new();
@@ -52,7 +66,6 @@ fn test_manager_deploy_markets() {
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
-    let swap_provider = Address::generate(&e);
 
     let salt_1 = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
@@ -61,12 +74,8 @@ fn test_manager_deploy_markets() {
         &market_admin,
         &name_1,
         &oracle,
-        &swap_provider,
         &insurance_fund,
-        &2,
-        &1,
-        &DEFAULT_INSOLVENCY_LTV_BPS,
-        &None,
+        &default_params(false),
     );
 
     let market_list = manager_client.get_markets();
@@ -80,12 +89,8 @@ fn test_manager_deploy_markets() {
         &market_admin,
         &name_2,
         &oracle,
-        &swap_provider,
         &insurance_fund,
-        &2,
-        &1,
-        &DEFAULT_INSOLVENCY_LTV_BPS,
-        &None,
+        &default_params(false),
     );
 
     let market_list = manager_client.get_markets();
@@ -101,7 +106,6 @@ fn test_manager_cannot_redeploy_market() {
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
-    let swap_provider = Address::generate(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
@@ -110,18 +114,12 @@ fn test_manager_cannot_redeploy_market() {
         &market_admin,
         &name_1,
         &oracle,
-        &swap_provider,
         &insurance_fund,
-        &2,
-        &1,
-        &DEFAULT_INSOLVENCY_LTV_BPS,
-        &None,
+        &default_params(false),
     );
 
     let name_2 = String::from_str(&e, "market_2");
 
-    // NB: Markets' addresses are deterministically derived from salt and
-    // market manager's contract address, hence no redeployment like this is possible
     assert!(
         manager_client
             .try_deploy(
@@ -129,12 +127,8 @@ fn test_manager_cannot_redeploy_market() {
                 &market_admin,
                 &name_2,
                 &oracle,
-                &swap_provider,
                 &insurance_fund,
-                &2,
-                &1,
-                &DEFAULT_INSOLVENCY_LTV_BPS,
-                &None
+                &default_params(false),
             )
             .is_err()
     );
@@ -147,7 +141,6 @@ fn test_manager_invalid_deploy() {
     let market_admin = Address::generate(&e);
     let oracle = Address::generate(&e);
     let insurance_fund = Address::generate(&e);
-    let swap_provider = Address::generate(&e);
 
     let salt = BytesN::from_array(&e, &[0; 32]);
     let name_1 = String::from_str(&e, "market_1");
@@ -159,12 +152,15 @@ fn test_manager_invalid_deploy() {
                 &market_admin,
                 &name_1,
                 &oracle,
-                &swap_provider,
                 &insurance_fund,
-                &2,
-                &-1,
-                &DEFAULT_INSOLVENCY_LTV_BPS,
-                &None,
+                &MarketInitParams {
+                    max_positions: 2,
+                    min_collateral_value_cents: -1,
+                    insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                    update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+                    is_owned: false,
+                    bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+                },
             )
             .is_err(),
     );
@@ -176,12 +172,15 @@ fn test_manager_invalid_deploy() {
                 &market_admin,
                 &name_1,
                 &oracle,
-                &swap_provider,
                 &insurance_fund,
-                &(MAX_RESERVES + 1),
-                &0,
-                &DEFAULT_INSOLVENCY_LTV_BPS,
-                &None,
+                &MarketInitParams {
+                    max_positions: MAX_RESERVES + 1,
+                    min_collateral_value_cents: 0,
+                    insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                    update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+                    is_owned: false,
+                    bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+                },
             )
             .is_err(),
     );
@@ -193,12 +192,15 @@ fn test_manager_invalid_deploy() {
                 &market_admin,
                 &name_1,
                 &oracle,
-                &swap_provider,
                 &insurance_fund,
-                &(MAX_RESERVES - 1),
-                &0,
-                &DEFAULT_INSOLVENCY_LTV_BPS,
-                &None,
+                &MarketInitParams {
+                    max_positions: MAX_RESERVES - 1,
+                    min_collateral_value_cents: 0,
+                    insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
+                    update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
+                    is_owned: false,
+                    bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
+                },
             )
             .is_ok(),
     );

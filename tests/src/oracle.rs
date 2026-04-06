@@ -5,14 +5,6 @@ use market::error::MCError;
 use crate::{TestMarketFixture, make_oracle_prices_negative, make_oracle_prices_zero};
 
 #[test]
-fn test_get_asset_decimals() {
-    let TestMarketFixture { contract_client, .. } = TestMarketFixture::new();
-
-    let decimals = contract_client.get_asset_decimals();
-    assert_eq!(decimals, 7);
-}
-
-#[test]
 fn test_get_oracle_price_decimals() {
     let TestMarketFixture { contract_client, .. } = TestMarketFixture::new();
 

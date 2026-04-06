@@ -72,7 +72,6 @@ impl Pool {
 
         self.last_accrual_timestamp = current_timestamp;
 
-        // TODO: Verify that all allowed params imply an expected/reasonable behavior
         let utilization_diff = utilization_ratio_bps
             .checked_sub(self.target_utilization_ratio_bps)
             .map_over_or_underflow()?;
@@ -133,10 +132,7 @@ impl Pool {
         if total == 0 {
             Ok(0)
         } else {
-            self.total_borrowed
-                // TODO: Investigate why using `floor` here breaks fuzzing tests
-                .fixed_div_ceil(total, BPS_FACTOR)
-                .map_over_or_underflow()
+            self.total_borrowed.fixed_div_ceil(total, BPS_FACTOR).map_over_or_underflow()
         }
     }
 }

@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, contractevent};
+use soroban_sdk::{Address, BytesN, Env, Map, String, Symbol, Vec, contractevent};
 
 use crate::{
     obligation::{
@@ -9,7 +9,7 @@ use crate::{
     storage::MarketStatus,
 };
 
-// --- Contract's Methods Events ---
+// -- Contract's Methods Events --
 
 #[contractevent]
 struct InitializePoolEvent {
@@ -22,15 +22,7 @@ struct InitializePoolEvent {
 }
 
 #[contractevent]
-struct InitializeMultiplyPairEvent {
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-}
-
-#[contractevent]
-struct QueueInPoolConfigUpdate {
+struct QueueInPoolSet {
     #[topic]
     pool_address: Address,
     #[topic]
@@ -38,13 +30,13 @@ struct QueueInPoolConfigUpdate {
 }
 
 #[contractevent]
-struct CancelPoolConfigUpdate {
+struct CancelPoolSet {
     #[topic]
     pool_address: Address,
 }
 
 #[contractevent]
-struct ApplyPoolConfigUpdate {
+struct ApplyPoolSet {
     #[topic]
     pool_address: Address,
 }
@@ -55,21 +47,33 @@ struct DepositEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     deposit_result: DepositResult,
 }
 
-// TODO: TO BE REMOVED
 #[contractevent]
-struct SwapEvent {
+struct SwapExact {
+    #[topic]
+    swap_provider: Address,
     #[topic]
     user: Address,
     #[topic]
-    token_in: Address,
-    #[topic]
-    token_out: Address,
+    path: Vec<Address>,
     amount_in: i128,
-    amount_out: i128,
+    min_amount_out: i128,
     received_amount: i128,
+}
+
+#[contractevent]
+struct SwapForExact {
+    #[topic]
+    swap_provider: Address,
+    #[topic]
+    user: Address,
+    path: Vec<Address>,
+    max_amount_in: i128,
+    amount_out: i128,
+    sent_amount: i128,
 }
 
 #[contractevent]
@@ -78,6 +82,7 @@ struct BorrowEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     borrow_result: BorrowResult,
 }
 
@@ -87,6 +92,7 @@ struct AddCollateralEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     add_collateral_result: AddCollateralResult,
 }
 
@@ -96,6 +102,7 @@ struct RepayEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Obligation,
     repay_result: RepayResult,
 }
 
@@ -109,6 +116,8 @@ struct LiquidateEvent {
     borrow_pool_address: Address,
     #[topic]
     collateral_pool_address: Address,
+    borrower_obligation: Option<Obligation>,
+    liquidator_obligation: Option<Obligation>,
     liquidation_result: LiquidationResult,
 }
 
@@ -118,6 +127,7 @@ struct RemoveCollateralEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Option<Obligation>,
     remove_collateral_result: RemoveCollateralResult,
 }
 
@@ -127,6 +137,7 @@ struct WithdrawEvent {
     pool_address: Address,
     #[topic]
     obligation_key: ObligationKey,
+    obligation: Option<Obligation>,
     withdraw_result: WithdrawResult,
 }
 
@@ -141,42 +152,26 @@ struct FlashLoanEvent {
 }
 
 #[contractevent]
-struct DepositWithLeverageEvent {
-    #[topic]
-    obligation_key: ObligationKey,
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-    original_amount: i128,
-    leverage_multiplier: u32,
-    total_deposited_amount: i128,
-    total_borrowed_amount: i128,
-}
-
-#[contractevent]
-struct WithdrawFromLeveragedEvent {
-    #[topic]
-    obligation_key: ObligationKey,
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-    withdrawn_to_wallet_amount: i128,
-    deposit_reduced_amount: i128,
-    borrow_reduced_amount: i128,
-}
-
-#[contractevent]
 struct ProposeNewAdmin {
     #[topic]
     new_admin: Address,
 }
 
 #[contractevent]
-struct UpdateMarket {
+struct QueueInMarketConfigUpdate {
     new_max_positions: u32,
     new_min_collateral_value_cents: i128,
+    new_bad_debt_lock_d: u64,
+}
+
+#[contractevent]
+struct CancelMarketConfigUpdate {}
+
+#[contractevent]
+struct ApplyMarketConfigUpdate {
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+    new_bad_debt_lock_d: u64,
 }
 
 #[contractevent]
@@ -216,6 +211,19 @@ struct ClaimCoverBadDebtResults {
 }
 
 #[contractevent]
+struct PoolBadDebtLocked {
+    #[topic]
+    pool_address: Address,
+    deadline: u64,
+}
+
+#[contractevent]
+struct PoolBadDebtUnlocked {
+    #[topic]
+    pool_address: Address,
+}
+
+#[contractevent]
 struct DistributePoolFees {
     #[topic]
     pool_address: Address,
@@ -236,35 +244,42 @@ struct RefreshPool {
 #[contractevent]
 struct AcceptAdminProposal {}
 
-// ----- Internal Error Events -----
+#[contractevent]
+struct FlashBorrow {
+    pool_address: Address,
+    user: Address,
+    amount: i128,
+}
+
+#[contractevent]
+struct FarmsContractSetEvent {
+    #[topic]
+    farms_contract: Address,
+}
+
+#[contractevent]
+struct FarmsContractClearedEvent {}
+
+#[contractevent]
+struct PoolFarmsClearedEvent {
+    #[topic]
+    pool_address: Address,
+}
+
+#[contractevent]
+struct PoolFarmSetEvent {
+    #[topic]
+    pool_address: Address,
+    farm_id: BytesN<32>,
+    farm_kind: Symbol,
+}
+
+// -- Internal Error Events --
 
 #[contractevent]
 struct LedgerTimestampError {
     current_timestamp: u64,
     stored_timestamp: u64,
-}
-
-#[contractevent]
-struct LeveragedPositionBadDebt {
-    #[topic]
-    user: Address,
-    #[topic]
-    deposit_pool_address: Address,
-    #[topic]
-    borrow_pool_address: Address,
-    deposited_amount: i128,
-    borrowed_amount: i128,
-    deposited_amount_swapped: i128,
-}
-
-#[contractevent]
-struct LeverageExceedsBorrowCapacity {
-    #[topic]
-    user: Address,
-    #[topic]
-    flash_borrow_amount: i128,
-    flash_repay_amount: i128,
-    max_healthy_borrow_amount: i128,
 }
 
 #[contractevent]
@@ -277,12 +292,6 @@ struct UtilizationRatioExceedsLimit {
 struct PoolIsMissingInStorage {
     #[topic]
     pool_address: Address,
-}
-
-#[contractevent]
-struct ObligationIsMissingInStorage {
-    #[topic]
-    obligation_key: ObligationKey,
 }
 
 #[contractevent]
@@ -337,20 +346,6 @@ struct PositionsCountBecomesNegative {
     pool_address: Address,
     #[topic]
     obligation: Obligation,
-}
-
-#[contractevent]
-struct ReceivedUnexpectedSwapAmount {
-    #[topic]
-    user: Address,
-    #[topic]
-    token_in: Address,
-    #[topic]
-    token_out: Address,
-    amount_in: i128,
-    amount_out: i128,
-    expected_amount_in: i128,
-    expected_amount_out: i128,
 }
 
 #[contractevent]
@@ -424,45 +419,42 @@ struct NonPositiveJTokensWithdraw {
 #[contractevent]
 struct ObligationFarmsRefreshedEvent {
     #[topic]
-    pub user: Address,
-    pub num_supply_farms: u32,
-    pub num_debt_farms: u32,
+    user: Address,
+    num_supply_farms: u32,
+    num_debt_farms: u32,
 }
 
 #[contractevent]
-struct FarmsContractSetEvent {
+struct InconsistentSwapReceived {
     #[topic]
-    pub farms_contract: Address,
+    swap_provider: Address,
+    path: Vec<Address>,
+    received_amount: i128,
+    min_amount_out: i128,
 }
 
 #[contractevent]
-struct FarmsContractClearedEvent {}
-
-#[contractevent]
-struct PoolFarmsClearedEvent {
+struct InconsistentSwapSent {
     #[topic]
-    pub pool_address: Address,
+    swap_provider: Address,
+    path: Vec<Address>,
+    sent_amount: i128,
+    max_amount_in: i128,
 }
 
-#[contractevent]
-struct PoolFarmSetEvent {
-    #[topic]
-    pub pool_address: Address,
-    pub farm_id: BytesN<32>,
-    pub farm_kind: Symbol,
-}
-
-// --- Methods that abstract how events are published ---
+// -- Methods that abstract away how events are published --
 
 pub fn deposit(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     deposit_result: DepositResult,
 ) {
     DepositEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         deposit_result,
     }
     .publish(e);
@@ -482,46 +474,56 @@ pub fn initialize_pool(
     .publish(e);
 }
 
-pub fn initialize_multiply_pair(
+pub fn queue_in_pool_set(e: &Env, pool_address: Address, pool_config: PoolConfig) {
+    QueueInPoolSet { pool_address, pool_config }.publish(e);
+}
+
+pub fn cancel_pool_set(e: &Env, pool_address: Address) {
+    CancelPoolSet { pool_address }.publish(e);
+}
+
+pub fn apply_pool_set(e: &Env, pool_address: Address) {
+    ApplyPoolSet { pool_address }.publish(e);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn swap_exact(
     e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
+    swap_provider: &Address,
+    user: &Address,
+    path: &Vec<Address>,
+    amount_in: i128,
+    min_amount_out: i128,
+    received_amount: i128,
 ) {
-    InitializeMultiplyPairEvent {
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
+    SwapExact {
+        swap_provider: swap_provider.clone(),
+        user: user.clone(),
+        path: path.clone(),
+        amount_in,
+        min_amount_out,
+        received_amount,
     }
     .publish(e);
 }
 
-pub fn queue_in_pool_config_update(e: &Env, pool_address: Address, pool_config: PoolConfig) {
-    QueueInPoolConfigUpdate { pool_address, pool_config }.publish(e);
-}
-
-pub fn cancel_pool_config_update(e: &Env, pool_address: Address) {
-    CancelPoolConfigUpdate { pool_address }.publish(e);
-}
-
-pub fn apply_pool_config_update(e: &Env, pool_address: Address) {
-    ApplyPoolConfigUpdate { pool_address }.publish(e);
-}
-
-pub fn swap(
+#[allow(clippy::too_many_arguments)]
+pub fn swap_for_exact(
     e: &Env,
+    swap_provider: &Address,
     user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
+    path: &Vec<Address>,
+    max_amount_in: i128,
     amount_out: i128,
-    received_amount: i128,
+    sent_amount: i128,
 ) {
-    SwapEvent {
+    SwapForExact {
+        swap_provider: swap_provider.clone(),
         user: user.clone(),
-        token_in: token_in.clone(),
-        token_out: token_out.clone(),
-        amount_in,
+        path: path.clone(),
+        max_amount_in,
         amount_out,
-        received_amount,
+        sent_amount,
     }
     .publish(e);
 }
@@ -530,11 +532,13 @@ pub fn borrow(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     borrow_result: BorrowResult,
 ) {
     BorrowEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         borrow_result,
     }
     .publish(e);
@@ -544,11 +548,13 @@ pub fn add_collateral(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     add_collateral_result: AddCollateralResult,
 ) {
     AddCollateralEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         add_collateral_result,
     }
     .publish(e);
@@ -558,11 +564,13 @@ pub fn repay(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Obligation,
     repay_result: RepayResult,
 ) {
     RepayEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         repay_result,
     }
     .publish(e);
@@ -575,6 +583,8 @@ pub fn liquidate(
     borrower_obligation_key: &ObligationKey,
     borrow_pool_address: &Address,
     collateral_pool_address: &Address,
+    borrower_obligation: Option<Obligation>,
+    liquidator_obligation: Option<Obligation>,
     liquidation_result: LiquidationResult,
 ) {
     LiquidateEvent {
@@ -582,6 +592,8 @@ pub fn liquidate(
         borrower_obligation_key: borrower_obligation_key.clone(),
         borrow_pool_address: borrow_pool_address.clone(),
         collateral_pool_address: collateral_pool_address.clone(),
+        borrower_obligation,
+        liquidator_obligation,
         liquidation_result,
     }
     .publish(e);
@@ -591,11 +603,13 @@ pub fn remove_collateral(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Option<Obligation>,
     remove_collateral_result: RemoveCollateralResult,
 ) {
     RemoveCollateralEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         remove_collateral_result,
     }
     .publish(e);
@@ -605,11 +619,13 @@ pub fn withdraw(
     e: &Env,
     pool_address: &Address,
     obligation_key: &ObligationKey,
+    obligation: Option<Obligation>,
     withdraw_result: WithdrawResult,
 ) {
     WithdrawEvent {
         pool_address: pool_address.clone(),
         obligation_key: obligation_key.clone(),
+        obligation,
         withdraw_result,
     }
     .publish(e);
@@ -631,51 +647,40 @@ pub fn flash_loan(
     .publish(e);
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn deposit_with_leverage(
+pub fn flash_borrow(e: &Env, user: &Address, pool_address: &Address, amount: i128) {
+    FlashBorrow { pool_address: pool_address.clone(), user: user.clone(), amount }.publish(e);
+}
+
+pub fn queue_in_market_config_update(
     e: &Env,
-    obligation_key: &ObligationKey,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    original_amount: i128,
-    leverage_multiplier: u32,
-    total_deposited_amount: i128,
-    total_borrowed_amount: i128,
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+    new_bad_debt_lock_d: u64,
 ) {
-    DepositWithLeverageEvent {
-        obligation_key: obligation_key.clone(),
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
-        original_amount,
-        leverage_multiplier,
-        total_deposited_amount,
-        total_borrowed_amount,
+    QueueInMarketConfigUpdate {
+        new_max_positions,
+        new_min_collateral_value_cents,
+        new_bad_debt_lock_d,
     }
     .publish(e);
 }
 
-pub fn withdraw_from_leveraged(
-    e: &Env,
-    obligation_key: &ObligationKey,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    withdrawn_to_wallet_amount: i128,
-    deposit_reduced_amount: i128,
-    borrow_reduced_amount: i128,
-) {
-    WithdrawFromLeveragedEvent {
-        obligation_key: obligation_key.clone(),
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
-        withdrawn_to_wallet_amount,
-        deposit_reduced_amount,
-        borrow_reduced_amount,
-    }
-    .publish(e);
+pub fn cancel_market_config_update(e: &Env) {
+    CancelMarketConfigUpdate {}.publish(e);
 }
 
-pub fn update_market(e: &Env, new_max_positions: u32, new_min_collateral_value_cents: i128) {
-    UpdateMarket { new_max_positions, new_min_collateral_value_cents }.publish(e);
+pub fn apply_market_config_update(
+    e: &Env,
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+    new_bad_debt_lock_d: u64,
+) {
+    ApplyMarketConfigUpdate {
+        new_max_positions,
+        new_min_collateral_value_cents,
+        new_bad_debt_lock_d,
+    }
+    .publish(e);
 }
 
 pub fn update_market_status(e: &Env, new_status: MarketStatus) {
@@ -710,6 +715,14 @@ pub fn claim_cover_bad_debt_results(e: &Env, obligation_key: ObligationKey) {
     ClaimCoverBadDebtResults { obligation_key }.publish(e);
 }
 
+pub fn pool_bad_debt_locked(e: &Env, pool_address: &Address, deadline: u64) {
+    PoolBadDebtLocked { pool_address: pool_address.clone(), deadline }.publish(e);
+}
+
+pub fn pool_bad_debt_unlocked(e: &Env, pool_address: &Address) {
+    PoolBadDebtUnlocked { pool_address: pool_address.clone() }.publish(e);
+}
+
 pub fn distribute_pool_fees(e: &Env, pool_address: Address) {
     DistributePoolFees { pool_address }.publish(e);
 }
@@ -730,7 +743,7 @@ pub fn accept_proposed_admin(e: &Env) {
     AcceptAdminProposal {}.publish(e);
 }
 
-// --- Internal Errors Events ---
+// -- Internal Errors Events --
 
 // Emitted when the current ledger timestamp unexpectedly precedes the previously kept in the
 // storage timestamp
@@ -740,43 +753,6 @@ pub fn current_ledger_timestamp_smaller_than_stored_timestamp(
     stored_timestamp: u64,
 ) {
     LedgerTimestampError { current_timestamp, stored_timestamp }.publish(e);
-}
-
-// Emitted when a leveraged position incurs bad debt
-pub fn leveraged_position_bad_debt(
-    e: &Env,
-    user: &Address,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    deposited_amount: i128,
-    borrowed_amount: i128,
-    deposited_amount_swapped: i128,
-) {
-    LeveragedPositionBadDebt {
-        user: user.clone(),
-        deposit_pool_address: deposit_pool_address.clone(),
-        borrow_pool_address: borrow_pool_address.clone(),
-        deposited_amount,
-        borrowed_amount,
-        deposited_amount_swapped,
-    }
-    .publish(e);
-}
-
-pub fn leverage_borrow_exceeds_borrowing_capacity(
-    e: &Env,
-    user: &Address,
-    flash_borrow_amount: i128,
-    flash_repay_amount: i128,
-    max_healthy_borrow_amount: i128,
-) {
-    LeverageExceedsBorrowCapacity {
-        user: user.clone(),
-        flash_borrow_amount,
-        flash_repay_amount,
-        max_healthy_borrow_amount,
-    }
-    .publish(e);
 }
 
 // Emitted when a pool's utilization ratio exceeds a predefined limit
@@ -791,11 +767,6 @@ pub fn utilization_ratio_exceeds_limit(
 // Emitted when an attempt is made to interact with a loan pool that does not exist in storage
 pub fn pool_is_unexpectedly_missing_in_storage(e: &Env, pool_address: &Address) {
     PoolIsMissingInStorage { pool_address: pool_address.clone() }.publish(e);
-}
-
-// Emitted when an attempt is made to interact with an obligation that does not exist in storage
-pub fn obligation_is_unexpectedly_missing_in_storage(e: &Env, obligation_key: &ObligationKey) {
-    ObligationIsMissingInStorage { obligation_key: obligation_key.clone() }.publish(e);
 }
 
 // Emitted when a pool's total amount of tokens unexpectedly attempts to become negative
@@ -855,31 +826,6 @@ pub fn positions_count_becomes_negative(e: &Env, pool_address: &Address, obligat
     .publish(e);
 }
 
-// Emitted when an unexpected amount has been received after a deterministic swap operation via a
-// swap provider
-#[allow(clippy::too_many_arguments)]
-pub fn received_unexpected_swap_amount(
-    e: &Env,
-    user: &Address,
-    token_in: &Address,
-    token_out: &Address,
-    amount_in: i128,
-    amount_out: i128,
-    expected_amount_in: i128,
-    expected_amount_out: i128,
-) {
-    ReceivedUnexpectedSwapAmount {
-        user: user.clone(),
-        token_in: token_in.clone(),
-        token_out: token_out.clone(),
-        amount_in,
-        amount_out,
-        expected_amount_in,
-        expected_amount_out,
-    }
-    .publish(e);
-}
-
 pub fn inconsistent_immediate_insurance_fund_coverage(
     e: &Env,
     obligation_key: ObligationKey,
@@ -891,7 +837,7 @@ pub fn inconsistent_immediate_insurance_fund_coverage(
         .publish(e)
 }
 
-// --- Farms Integration Events ---
+// -- Farms Integration Events --
 
 pub fn set_farms_contract(e: &Env, farms_contract: &Address) {
     FarmsContractSetEvent { farms_contract: farms_contract.clone() }.publish(e);
@@ -981,4 +927,36 @@ pub fn burning_non_positive_j_tokens_on_withdraw(
 ) {
     NonPositiveJTokensWithdraw { pool_address, burned_j_tokens_amount, deposit_decrease }
         .publish(e);
+}
+
+pub fn inconsistent_swap_received_amount(
+    e: &Env,
+    swap_provider: &Address,
+    path: &Vec<Address>,
+    received_amount: i128,
+    min_amount_out: i128,
+) {
+    InconsistentSwapReceived {
+        swap_provider: swap_provider.clone(),
+        path: path.clone(),
+        received_amount,
+        min_amount_out,
+    }
+    .publish(e);
+}
+
+pub fn inconsistent_swap_sent_amount(
+    e: &Env,
+    swap_provider: &Address,
+    path: &Vec<Address>,
+    sent_amount: i128,
+    max_amount_in: i128,
+) {
+    InconsistentSwapSent {
+        swap_provider: swap_provider.clone(),
+        path: path.clone(),
+        sent_amount,
+        max_amount_in,
+    }
+    .publish(e);
 }
