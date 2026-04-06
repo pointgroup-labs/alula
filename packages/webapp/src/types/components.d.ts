@@ -50,6 +50,7 @@ declare module 'vue' {
     IAppCopy: typeof import('~icons/app/copy')['default']
     IAppCrossIcon: typeof import('~icons/app/cross-icon')['default']
     IAppDisconnectIcon: typeof import('~icons/app/disconnect-icon')['default']
+    IAppEditIcon: typeof import('~icons/app/edit-icon')['default']
     IAppErrorCircle: typeof import('~icons/app/error-circle')['default']
     IAppExportIcon: typeof import('~icons/app/export-icon')['default']
     IAppInfoCircle: typeof import('~icons/app/info-circle')['default']

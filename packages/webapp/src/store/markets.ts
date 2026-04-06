@@ -31,6 +31,8 @@ export const useMarketsStore = defineStore('markets', () => {
     activeActionPool,
   } = useMarket(state)
 
+  const toast = useToast()
+
   const clientStore = useClientStore()
   const alulaClient = computed(() => clientStore.alulaClient)
 
@@ -104,18 +106,29 @@ export const useMarketsStore = defineStore('markets', () => {
 
       state.markets = marketsByName
       console.log('%c[Markets info]', 'color: #FFB726', state.markets)
-    } catch (error) {
+    } catch (error: any) {
       console.log(error)
+      toast.create({
+        title: 'Error',
+        body: String(error?.message || error),
+        variant: 'danger',
+      })
     } finally {
       state.loading = false
     }
   }
 
-  watch([network, alulaClient], async ([nextNetwork, _nextClient], [prevNetwork, _prevClient]) => {
+  watch([
+    network,
+    alulaClient,
+    () => rpcStore.horizonRPCUrl,
+    () => rpcStore.sorobanRPCUrl],
+  async ([nextNetwork, _nextClient, _nextHorizonRPCUrl, _nextSorobanRPCUrl],
+    [prevNetwork, _prevClient, _prevHorizonRPCUrl, _prevSorobanRPCUrl]) => {
     if (import.meta.env.SSR) {
       return
     }
-    if (nextNetwork !== prevNetwork) {
+    if (nextNetwork !== prevNetwork || _nextHorizonRPCUrl !== _prevHorizonRPCUrl || _nextSorobanRPCUrl !== _prevSorobanRPCUrl) {
       state.markets = {}
       state.marketsList = []
     }

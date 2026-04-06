@@ -7,6 +7,8 @@ export enum Network {
 
 export const useRpcStore = defineStore('rpc', () => {
   const config = useRuntimeConfig()
+  const customHorizonRpc = useLocalStorage('customHorizonRpc', '', { initOnMounted: true })
+  const customSorobanRpc = useLocalStorage('customSorobanRpc', '', { initOnMounted: true })
 
   const network = useLocalStorage<Network | null>(
     'network',
@@ -26,8 +28,8 @@ export const useRpcStore = defineStore('rpc', () => {
         : Network.Testnet
   })
 
-  const horizonRPCUrl = computed(() => RPC_URLS[String(network.value)] || '-')
-  const sorobanRPCUrl = computed(() => SOROBAN_RPC_URLS[String(network.value)] || '-')
+  const horizonRPCUrl = computed(() => customHorizonRpc.value || RPC_URLS[String(network.value)] || '-')
+  const sorobanRPCUrl = computed(() => customSorobanRpc.value || SOROBAN_RPC_URLS[String(network.value)] || '-')
 
   function setNetwork(newNetwork: Network) {
     network.value = newNetwork
@@ -38,5 +40,7 @@ export const useRpcStore = defineStore('rpc', () => {
     setNetwork,
     horizonRPCUrl,
     sorobanRPCUrl,
+    customHorizonRpc,
+    customSorobanRpc,
   }
 })

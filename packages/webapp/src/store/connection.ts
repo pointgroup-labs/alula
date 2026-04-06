@@ -124,7 +124,9 @@ export const useConnectionStore = defineStore('connection', () => {
     selectedWalletId.value = ''
   }
 
-  watch(network, async () => {
+  watch([
+    network,
+  ], async () => {
     if (!kit.value) {
       return
     }

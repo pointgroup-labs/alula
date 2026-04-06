@@ -3,6 +3,8 @@ import { StellarClient } from '@alula/client-sdk'
 import { defineStore } from 'pinia'
 
 export const useClientStore = defineStore('client', () => {
+  const toast = useToast()
+
   const rpcStore = useRpcStore()
 
   const network = computed(() => rpcStore.network)
@@ -12,12 +14,26 @@ export const useClientStore = defineStore('client', () => {
   const alulaClient = computedAsync(async () => await initClient())
 
   async function initClient(marketAddress?: string) {
-    const walletStore = useWallet()
-    const pubkey = isValidAccount.value ? walletStore.publicKey : undefined
+    try {
+      const walletStore = useWallet()
+      const pubkey = isValidAccount.value ? walletStore.publicKey : undefined
 
-    return import.meta.client && network.value
-      ? await StellarClient.fromAddress(pubkey, network.value as RPCcluster, marketAddress)
-      : {} as StellarClient
+      return import.meta.client && network.value
+        ? await StellarClient.fromAddress(pubkey, marketAddress, {
+            rpc: network.value as RPCcluster,
+            horizonRpcUrl: rpcStore.horizonRPCUrl,
+            sorobanRpcUrl: rpcStore.sorobanRPCUrl,
+          })
+        : {} as StellarClient
+    } catch (error: any) {
+      console.error(error)
+      toast.create({
+        title: `Client Error`,
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 5000,
+      })
+    }
   }
   return {
     alulaClient,
