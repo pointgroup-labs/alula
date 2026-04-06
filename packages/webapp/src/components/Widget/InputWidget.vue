@@ -93,11 +93,11 @@ function handleAmount(percent: string | null) {
   if (!percent || balance <= 0) {
     return
   }
-  if (percent === selectedAmount.value) {
-    selectedAmount.value = null
-    val.value = ''
-    return
-  }
+  // if (percent === selectedAmount.value) {
+  //   selectedAmount.value = null
+  //   val.value = ''
+  //   return
+  // }
   selectedAmount.value = percent
   const result = max(percent.replace('%', ''))
   val.value = String(result)
