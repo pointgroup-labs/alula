@@ -1,5 +1,5 @@
 import type { RPCcluster } from '../types'
-import { Client } from '@alula/market-sdk'
+import { Client, ObligationKey } from '@alula/market-sdk'
 import { DecimalsConfig } from '../config/decimals'
 import { MAX_I128 } from '../constants'
 import { BaseClient } from '../core/base-client'
@@ -41,8 +41,8 @@ export class LendingService extends BaseClient {
   /**
    * Build deposit transaction
    */
-  async buildDepositTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
+  async buildDepositTx(user: ObligationKey, poolAddress: string, amount: string | number, assetDecimals: number) {
+    const amountInBigInt = amountToBigInt(String(amount), assetDecimals)
     return await this.client.deposit({
       user,
       pool_address: poolAddress,
@@ -54,8 +54,8 @@ export class LendingService extends BaseClient {
   /**
    * Build withdraw transaction
    */
-  async buildWithdrawTx(user: string, poolAddress: string, amount: string | number | bigint) {
-    const amountInBigInt = typeof amount === 'bigint' ? amount : amountToBigInt(String(amount), this.decimals.assetDecimals)
+  async buildWithdrawTx(user: ObligationKey, poolAddress: string, amount: string | number | bigint, assetDecimals: number) {
+    const amountInBigInt = typeof amount === 'bigint' ? amount : amountToBigInt(String(amount), assetDecimals)
     return await this.client.withdraw({
       user,
       pool_address: poolAddress,
@@ -67,8 +67,8 @@ export class LendingService extends BaseClient {
   /**
    * Build add collateral transaction
    */
-  async buildAddCollateralTx(user: string, poolAddress: string, amount: string | number) {
-    const amountInBigInt = amountToBigInt(String(amount), this.decimals.assetDecimals)
+  async buildAddCollateralTx(user: ObligationKey, poolAddress: string, amount: string | number, assetDecimals: number) {
+    const amountInBigInt = amountToBigInt(String(amount), assetDecimals)
     return await this.client.add_collateral({
       user,
       pool_address: poolAddress,
@@ -80,8 +80,8 @@ export class LendingService extends BaseClient {
   /**
    * Build remove collateral transaction
    */
-  async buildRemoveCollateralTx(user: string, poolAddress: string, amount: string | number | bigint) {
-    const amountInBigInt = typeof amount === 'bigint' ? amount : amountToBigInt(String(amount), this.decimals.assetDecimals)
+  async buildRemoveCollateralTx(user: ObligationKey, poolAddress: string, amount: string | number | bigint, assetDecimals: number) {
+    const amountInBigInt = typeof amount === 'bigint' ? amount : amountToBigInt(String(amount), assetDecimals)
     return await this.client.remove_collateral({
       user,
       pool_address: poolAddress,
@@ -93,8 +93,8 @@ export class LendingService extends BaseClient {
   /**
    * Deposit to lending pool
    */
-  async deposit(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
-    const tx = await this.buildDepositTx(user, poolAddress, amount)
+  async deposit(user: ObligationKey, poolAddress: string, amount: number, assetDecimals: number, kit: any, options = { debug: true }) {
+    const tx = await this.buildDepositTx(user, poolAddress, amount, assetDecimals)
 
     if (options?.debug) {
       console.log('%c[Deposit Tx]', 'color: #00ff00', tx)
@@ -106,8 +106,8 @@ export class LendingService extends BaseClient {
   /**
    * Add collateral to pool
    */
-  async addCollateral(user: string, poolAddress: string, amount: number, kit: any, options = { debug: true }) {
-    const tx = await this.buildAddCollateralTx(user, poolAddress, amount)
+  async addCollateral(user: ObligationKey, poolAddress: string, amount: number, assetDecimals: number, kit: any, options = { debug: true }) {
+    const tx = await this.buildAddCollateralTx(user, poolAddress, amount, assetDecimals)
 
     if (options?.debug) {
       console.log('%c[Add Collateral Tx]', 'color: #00ff00', tx)
@@ -119,9 +119,9 @@ export class LendingService extends BaseClient {
   /**
    * Remove collateral from pool
    */
-  async removeCollateral(user: string, poolAddress: string, amount: number, kit: any, withBuffer: boolean, options = { debug: true }) {
+  async removeCollateral(user: ObligationKey, poolAddress: string, amount: number, assetDecimals: number, kit: any, withBuffer: boolean, options = { debug: true }) {
     const resolvedAmount = withBuffer ? MAX_I128 : amount
-    const tx = await this.buildRemoveCollateralTx(user, poolAddress, resolvedAmount)
+    const tx = await this.buildRemoveCollateralTx(user, poolAddress, resolvedAmount, assetDecimals)
 
     if (options?.debug) {
       console.log('%c[Remove Collateral Tx]', 'color: #00ff00', tx)
@@ -133,9 +133,9 @@ export class LendingService extends BaseClient {
   /**
    * Withdraw from lending pool
    */
-  async withdraw(user: string, poolAddress: string, amount: number, kit: any, withBuffer: boolean, options = { debug: true }) {
+  async withdraw(user: ObligationKey, poolAddress: string, amount: number, assetDecimals: number, kit: any, withBuffer: boolean, options = { debug: true }) {
     const resolvedAmount = withBuffer ? MAX_I128 : amount
-    const tx = await this.buildWithdrawTx(user, poolAddress, resolvedAmount)
+    const tx = await this.buildWithdrawTx(user, poolAddress, resolvedAmount, assetDecimals)
 
     if (options?.debug) {
       console.log('%c[Withdraw Tx]', 'color: #00ff00', tx)
@@ -147,7 +147,7 @@ export class LendingService extends BaseClient {
   /**
    * Get transaction fee
    */
-  getTransactionFee(tx: any): number {
-    return this.txHelper.getTransactionFee(tx, this.decimals.assetDecimals)
+  getTransactionFee(tx: any, assetDecimals: number): number {
+    return this.txHelper.getTransactionFee(tx, assetDecimals)
   }
 }

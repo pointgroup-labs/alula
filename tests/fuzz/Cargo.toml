@@ -7,13 +7,6 @@ edition = { workspace = true }
 [package.metadata]
 cargo-fuzz = true
 
-[[bin]]
-name = "fuzz_target"
-path = "fuzz_targets/fuzz_target.rs"
-test = false
-doc = false
-bench = false
-
 [dependencies]
 arbitrary = { version = "1", features = ["derive"] }
 extension-trait = "1"
@@ -27,3 +20,10 @@ features = ["testutils"]
 
 [dependencies.tests]
 path = ".."
+
+[[bin]]
+name = "fuzz_target"
+path = "fuzz_targets/fuzz_target.rs"
+test = false
+doc = false
+bench = false

@@ -4,7 +4,8 @@ use soroban_sdk::contracttype;
 use crate::{
     constants::*,
     error::MCError,
-    utils::{self, MathUtils, require_nonnegative},
+    math_utils::{self, MathUtils},
+    misc::require_nonnegative,
 };
 
 pub trait Accrual {
@@ -46,7 +47,7 @@ impl Accrual for AccrualModel {
                     .checked_add(per_second_rate)
                     .map_over_or_underflow()?;
 
-                utils::bin_pow(growth_factor, seconds_passed, SCALED_FIXED_POINT_DENOMINATOR)
+                math_utils::bin_pow(growth_factor, seconds_passed, SCALED_FIXED_POINT_DENOMINATOR)
             }
         }
     }

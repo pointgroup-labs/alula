@@ -6,21 +6,15 @@ trustPolicyExclude:
 
 packages:
   - packages/*
-  - 'packages/sdk/*'
 ignoredBuiltDependencies:
-  - '@parcel/watcher'
+  - bigint-buffer
+  - bufferutil
   - esbuild
+  - keccak
   - protobufjs
+  - secp256k1
   - unix-dgram
   - utf-8-validate
   - vue-demi
 onlyBuiltDependencies:
-  - bigint-buffer
-  - bufferutil
-  - keccak
-  - blake-hash
-  - secp256k1
-  - simple-git-hooks
-  - tiny-secp256k1
   - unrs-resolver
-  - usb

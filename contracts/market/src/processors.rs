@@ -23,7 +23,6 @@ use crate::{
     },
     storage::{self, GlobalState},
     swap,
-    utils::{MathUtils, require_nonnegative},
 };
 
 pub fn process_submit_requests_batch(

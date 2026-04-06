@@ -1,6 +1,6 @@
 export * from './borrowing-service'
 export * from './lending-service'
-export * from './leverage-service'
+// export * from './leverage-service'
 export * from './market-manager-service'
 export * from './market-service'
 export * from './obligation-service'

@@ -1,4 +1,4 @@
-import type { MultiplyPair, Pool, WithdrawResult } from '@alula/market-sdk'
+import type { /* MultiplyPair, */ ObligationKey, Pool, WithdrawResult } from '@alula/market-sdk'
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
 import { DecimalsConfig, loadMarketDecimals } from '../config/decimals'
@@ -102,9 +102,9 @@ export class MarketService extends BaseClient {
    *
    * @return A Promise of type Array<MultiplyPair> containing all registered multiply pairs
    */
-  async getAllMultiplyPairs() {
-    return (await this.client.get_all_multiply_pairs()).result
-  }
+  // async getAllMultiplyPairs() {
+  //   return (await this.client.get_all_multiply_pairs()).result
+  // }
 
   /**
    * Retrieves pool data from the contract for a given pool address.
@@ -124,17 +124,17 @@ export class MarketService extends BaseClient {
    * @param borrowPoolAddress - borrow pool address
    * @return A Promise of type MultiplyPair containing the multiply pair configuration
    */
-  async getMultiplyPair(
-    depositPoolAddress: string,
-    borrowPoolAddress: string,
-  ): Promise<MultiplyPair> {
-    const result = await this.client.get_multiply_pair({
-      deposit_pool_address: depositPoolAddress,
-      borrow_pool_address: borrowPoolAddress,
-    })
+  // async getMultiplyPair(
+  //   depositPoolAddress: string,
+  //   borrowPoolAddress: string,
+  // ): Promise<MultiplyPair> {
+  //   const result = await this.client.get_multiply_pair({
+  //     deposit_pool_address: depositPoolAddress,
+  //     borrow_pool_address: borrowPoolAddress,
+  //   })
 
-    return this.unwrapOk(result.result)
-  }
+  //   return this.unwrapOk(result.result)
+  // }
 
   /**
    * Simulates a withdrawal from a lending pool
@@ -145,13 +145,14 @@ export class MarketService extends BaseClient {
    * @return A Promise of type WithdrawResult containing the simulated withdrawal result
    */
   async simulateWithdraw(
-    user: string,
+    user: ObligationKey,
     poolAddress: string,
     amount: string | number,
+    assetDecimals: number,
   ): Promise<WithdrawResult> {
     const amountInBigInt = amountToBigInt(
       String(amount),
-      this.decimals.assetDecimals,
+      assetDecimals,
     )
 
     const result = await this.client.simulate_withdraw({

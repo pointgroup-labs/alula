@@ -104,6 +104,7 @@ export const useMarketsStore = defineStore('markets', () => {
         marketsByName[key] = market
       }
 
+      // @ts-expect-error...
       state.markets = marketsByName
       console.log('%c[Markets info]', 'color: #FFB726', state.markets)
     } catch (error: any) {

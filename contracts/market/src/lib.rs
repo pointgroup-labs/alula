@@ -17,5 +17,3 @@ pub mod processors;
 pub mod request;
 pub mod storage;
 pub mod swap;
-
-pub mod utils;
