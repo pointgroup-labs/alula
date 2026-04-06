@@ -49,6 +49,9 @@ export function useMarketActions() {
       if (!publicKey.value) {
         return
       }
+      if (nativeBalance.value <= 0.5) {
+        throw new Error('Insufficient balance')
+      }
       const res = await marketclient.value!.wallet.addTrustline(publicKey.value, asset, issuer, connectionStore.kit)
       await loadBalances()
       return res
