@@ -122,7 +122,7 @@ const chartCurrentUtilizationPctColor = computed(() => {
     return '#c6ccd9'
   }
   const percent = currentUtilizationPct.value / chartOptimalUtilizationPct.value
-  return percent < 0.7 ? '#17B26A' : (percent < 0.9 ? '#f0b100' : '#f04438')
+  return percent < 0.8 ? '#17B26A' : (percent < 1 ? '#f0b100' : '#f04438')
 })
 
 /* ------------------------------------------------ */
