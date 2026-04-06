@@ -1,5 +1,6 @@
-import type { StellarClient } from '@alula/client-sdk'
+import type { RPCcluster, StellarClient } from '@alula/client-sdk'
 import type { TableActionType } from '~/store/markets'
+import { SOROBAN_RPC_URLS } from '@alula/client-sdk'
 import { TRANSACTION_TIMEOUT } from '~/config'
 import { destructurePoolAsset } from '~/utils'
 
@@ -18,6 +19,7 @@ export function useMarketActions() {
   const marketsStore = useMarketsStore()
   const connectionStore = useConnectionStore()
   const recentStore = useRecentActivityStore()
+  const rpcStore = useRpcStore()
   const marketclient = computed(() => marketsStore.marketClient)
 
   const { generateExplorerLink } = useExplorerLink()
@@ -56,6 +58,31 @@ export function useMarketActions() {
     }
   }
 
+  // check if rpc is available
+  async function ensureRpcAvailable() {
+    try {
+      const rpcNetwork = SOROBAN_RPC_URLS[rpcStore.network as RPCcluster]
+
+      const res = await fetch(String(rpcNetwork), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getHealth',
+        }),
+      })
+
+      const data = await res.json()
+
+      return res.ok && !data.error
+    } catch {
+      throw new Error('RPC not available! Please try again later.')
+    }
+  }
+
   function requireWallet() {
     if (!publicKey.value) {
       throw new Error('Wallet not connected')
@@ -89,6 +116,8 @@ export function useMarketActions() {
       noProgress: false,
     })
     try {
+      // Ensure RPC is available
+      await ensureRpcAvailable()
       const res = await withTimeoutAbort(exec(), TRANSACTION_TIMEOUT)
       opts?.reset?.()
       await reloadData({
