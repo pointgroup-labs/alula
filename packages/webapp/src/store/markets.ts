@@ -16,9 +16,9 @@ export const useMarketsStore = defineStore('markets', () => {
     activeMarket,
     marketClient,
     selectedMarketPools,
-    assetDecimals,
     selectedMarketName,
     selectedPoolAddress,
+    assetDecimals,
 
     dialogSupply,
     dialogBorrow,
@@ -104,7 +104,6 @@ export const useMarketsStore = defineStore('markets', () => {
         marketsByName[key] = market
       }
 
-      // @ts-expect-error...
       state.markets = marketsByName
       console.log('%c[Markets info]', 'color: #FFB726', state.markets)
     } catch (error: any) {
@@ -142,12 +141,12 @@ export const useMarketsStore = defineStore('markets', () => {
     state,
 
     marketClient,
-    assetDecimals,
 
     poolActiveAddress,
 
     activeMarket,
     activeLeverageMarket,
+    assetDecimals,
 
     selectedMarketPools,
 
@@ -179,7 +178,7 @@ export type MarketFullData = Record<string, {
   marketState: MarketData
   marketName: string
   address: string
-  client: StellarClient
+  client?: StellarClient
 }>
 
 export type PoolWithPrice = {

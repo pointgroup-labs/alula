@@ -34,7 +34,10 @@ export function useMarket(state: MarketsState) {
   const marketClient = computed(() => activeMarket.value?.client)
 
   const selectedMarketPools = computed(() => activeMarket.value?.marketState.pools_data ?? [])
-  const assetDecimals = computed(() => marketClient.value?.market.decimals.assetDecimals || 7)
+  const assetDecimals = computed(() => {
+    const pool = selectedMarketPools.value?.find(p => p.pool.pool_address === selectedPoolAddress.value)
+    return pool?.pool.token_decimals || 7
+  })
 
   async function regenerateMarketClient() {
     const markets = Object.entries(state.markets)

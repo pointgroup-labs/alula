@@ -75,3 +75,23 @@ pids
 CLAUDE.md
 
 /contracts/controlled-oracle
+
+
+# UI package
+packages/webapp/node_modules
+packages/webapp/dist
+packages/webapp/dist-ssr
+packages/webapp/cross-env
+packages/webapp/.nuxt
+packages/webapp/.output
+packages/webapp/dist
+packages/webapp/.local
+packages/webapp/.vite-ssg-dist
+packages/webapp/.vite-ssg-temp
+packages/webapp/cypress/downloads
+
+# SDK package
+packages/sdk/node_modules/
+
+# CLI package
+packages/cli/node_modules/

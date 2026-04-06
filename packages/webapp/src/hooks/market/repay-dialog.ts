@@ -32,7 +32,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
   const activeMarket = computed(() => marketsStore.state.markets[String(marketKey.value)])
   const marketState = computed(() => activeMarket.value?.marketState)
 
-  const assetDecimals = computed(() => activeMarket.value?.marketState.asset_decimals ?? 7)
+  const assetDecimals = computed(() => poolData.value?.pool.token_decimals ?? 0)
   const oraclePriceDecimals = computed(() => activeMarket.value?.marketState.oracle_price_decimals ?? 0)
 
   const pool_address = computed(() => poolData.value?.pool.pool_address ?? '')
@@ -260,7 +260,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
 
       const marketProps = {
         market: activeMarket.value!.marketName,
-        client: activeMarket.value!.client,
+        client: activeMarket.value!.client!,
         pool_address: pool_address.value,
         amount: amount.value,
         asset_data: poolData.value.pool.name,
@@ -288,12 +288,17 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
 
         try {
           isLoadingFee.value = true
-          const tx = await activeMarket.value?.client.borrowing.buildRepayTx(
-            publicKey.value,
+          const user = {
+            user: publicKey.value,
+            seed: undefined,
+          }
+          const tx = await activeMarket.value?.client!.borrowing.buildRepayTx(
+            user,
             r.pool.pool_address,
             0.01,
+            assetDecimals.value,
           )
-          txFee.value = activeMarket.value?.client.borrowing.getTransactionFee(tx) ?? 0
+          txFee.value = activeMarket.value?.client!.borrowing.getTransactionFee(tx, assetDecimals.value) ?? 0
         } finally {
           isLoadingFee.value = false
         }

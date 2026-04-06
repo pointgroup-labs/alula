@@ -19,7 +19,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
   const activeMarket = computed(() => marketsStore.state.markets[String(marketKey.value)])
 
-  const assetDecimals = computed(() => activeMarket.value?.marketState.asset_decimals ?? 7)
+  const assetDecimals = computed(() => poolData.value?.pool.token_decimals ?? 0)
   const oraclePriceDecimals = computed(() => activeMarket.value?.marketState.oracle_price_decimals ?? 0)
 
   const pool_address = computed(() => poolData.value?.pool.pool_address ?? '')
@@ -237,7 +237,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
       const marketProps = {
         market: activeMarket.value!.marketName,
-        client: activeMarket.value!.client,
+        client: activeMarket.value!.client!,
         pool_address: pool_address.value,
         amount: amount.value,
         asset_data: poolData.value.pool.name,
@@ -274,10 +274,15 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
           return
         }
 
-        const feeData = await activeMarket.value?.client.market.simulateWithdraw(
-          publicKey.value,
+        const user = {
+          user: publicKey.value,
+          seed: undefined,
+        }
+        const feeData = await activeMarket.value?.client!.market.simulateWithdraw(
+          user,
           pool_address.value,
           a,
+          assetDecimals.value,
         )
         const feeSum = feeData?.operation_fees?.fee_sum
         poolFee.value = feeSum ? Number(bigintToNumber(feeSum, assetDecimals.value)) : 0
@@ -297,12 +302,17 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
         try {
           isLoadingFee.value = true
-          const tx = await activeMarket.value?.client.lending.buildWithdrawTx(
-            publicKey.value,
+          const user = {
+            user: publicKey.value,
+            seed: undefined,
+          }
+          const tx = await activeMarket.value?.client!.lending.buildWithdrawTx(
+            user,
             r.pool.pool_address,
             0.1,
+            assetDecimals.value,
           )
-          txFee.value = activeMarket.value?.client.lending.getTransactionFee(tx) ?? 0
+          txFee.value = activeMarket.value?.client!.lending.getTransactionFee(tx, assetDecimals.value) ?? 0
         } finally {
           isLoadingFee.value = false
         }

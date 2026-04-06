@@ -35,14 +35,19 @@ const metrics = computed(() => {
       return acc
     }
 
-    const assetDecimals = marketState.asset_decimals
     const oraclePriceDecimals = marketState.oracle_price_decimals
     const poolsData = marketState.pools_data
 
-    acc.supplied += calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-    acc.borrowed += calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-    acc.weightedBorrowed += calcWeightedBorrowedUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-    acc.liquidationCollateral += calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals, 'close') ?? 0
+    const depositPoolAddr = obligation.deposits?.[0]?.[0]
+    const borrowPoolAddr = obligation.borrows?.[0]?.[0]
+
+    const depositAssetDecimals = poolsData.find(data => data.pool.pool_address === depositPoolAddr)?.pool.token_decimals ?? 7
+    const borrowAssetDecimals = poolsData.find(data => data.pool.pool_address === borrowPoolAddr)?.pool.token_decimals ?? 7
+
+    acc.supplied += calcUserTotalStakeInUsd(obligation, poolsData, depositAssetDecimals, oraclePriceDecimals) ?? 0
+    acc.borrowed += calcUserTotalBorrowedInUsd(obligation, poolsData, borrowAssetDecimals, oraclePriceDecimals) ?? 0
+    acc.weightedBorrowed += calcWeightedBorrowedUsd(obligation, poolsData, borrowAssetDecimals, oraclePriceDecimals) ?? 0
+    acc.liquidationCollateral += calcUserTotalStakeInUsd(obligation, poolsData, depositAssetDecimals, oraclePriceDecimals, 'close') ?? 0
 
     return acc
   }, {

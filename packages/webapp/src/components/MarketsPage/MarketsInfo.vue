@@ -9,10 +9,10 @@ const loading = computed(() => marketsStore.state.loading)
 
 const marketsInfo = computed(() => {
   return Object.values(marketsStore.state.markets)?.reduce((acc, { marketState }) => {
-    const assetDecimals = marketState?.asset_decimals ?? 0
     const oraclePriceDecimale = marketState?.oracle_price_decimals ?? 0
 
     for (const data of marketState?.pools_data) {
+      const assetDecimals = data.pool.token_decimals
       const price = Number(bigintToNumber(data.oracle_asset_price, oraclePriceDecimale))
       const totalSupplied = data.total_supply + data.pool.total_collateral
       const supplied = Number(bigintToNumber(totalSupplied, assetDecimals)) * price

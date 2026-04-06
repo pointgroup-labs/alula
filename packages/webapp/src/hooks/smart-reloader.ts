@@ -64,14 +64,15 @@ export function useSmartReloader() {
   watchDebounced(
     () => {
       const oblKeys = Object.keys(userStore.state.obligations ?? {}).toSorted().join(',')
-      const multOblKeys = Object.keys(userStore.state.multiplyObligations ?? {}).toSorted().join(',')
-      // Also include market multiply_pairs structure since jobs depend on it
-      const pairsKey = Object.entries(marketsStore.state.markets)
-        .map(([name, m]) =>
-          `${name}:${(m?.marketState?.multiply_pairs ?? []).map(p => `${p.deposit_pool}-${p.borrow_pool}`).join(',')}`)
-        .toSorted()
-        .join('|')
-      return `${oblKeys}||${multOblKeys}||${pairsKey}`
+      // const multOblKeys = Object.keys(userStore.state.multiplyObligations ?? {}).toSorted().join(',')
+      // // Also include market multiply_pairs structure since jobs depend on it
+      // const pairsKey = Object.entries(marketsStore.state.markets)
+      //   .map(([name, m]) =>
+      //     `${name}:${(m?.marketState?.multiply_pairs ?? []).map(p => `${p.deposit_pool}-${p.borrow_pool}`).join(',')}`)
+      //   .toSorted()
+      //   .join('|')
+      // return `${oblKeys}||${multOblKeys}||${pairsKey}`
+      return `${oblKeys}`
     },
     () => {
       const obligations = userStore.state.obligations
@@ -98,14 +99,14 @@ export function useSmartReloader() {
         if (!obligation || !client) {
           continue
         }
-        for (const p of (market?.marketState.multiply_pairs ?? [])) {
-          jobs.push(() => userStore.updateUserMultiplyObligation({
-            market: key,
-            client,
-            depositPoolAddress: p.deposit_pool,
-            borrowPoolAddress: p.borrow_pool,
-            withLogs: false }))
-        }
+        // for (const p of (market?.marketState.multiply_pairs ?? [])) {
+        //   jobs.push(() => userStore.updateUserMultiplyObligation({
+        //     market: key,
+        //     client,
+        //     depositPoolAddress: p.deposit_pool,
+        //     borrowPoolAddress: p.borrow_pool,
+        //     withLogs: false }))
+        // }
       }
 
       OBLIGATION_JOBS.value = jobs
