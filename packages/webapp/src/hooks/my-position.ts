@@ -58,7 +58,7 @@ export function createMyPositionState(): MyPositionState {
   const marketKey = computed(() => String(selectedPool.value?.market ?? ''))
   const obligation = computed(() => userStore.state.obligations[marketKey.value])
   const marketState = computed(() => marketsStore.state.markets[marketKey.value]?.marketState)
-  const assetDecimals = computed(() => selectedPool.value?.assetDecimals ?? marketState.value?.asset_decimals ?? 7)
+  const assetDecimals = computed(() => selectedPool.value?.assetDecimals ?? 7)
   const oraclePriceDecimals = computed(() => marketState.value?.oracle_price_decimals ?? 0)
   const poolsData = computed(() => marketState.value?.pools_data ?? [])
 

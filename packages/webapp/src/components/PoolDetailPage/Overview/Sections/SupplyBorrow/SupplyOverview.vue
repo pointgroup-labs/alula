@@ -2,8 +2,6 @@
 import type { MarketTableItem } from '~/types/table'
 import { bigintToNumber } from '~/utils'
 
-const marketsStore = useMarketsStore()
-
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
 
 const pool = computed(() => selectedPool.value?.raw?.pool)
@@ -38,8 +36,8 @@ const detailCardsData = computed(() => {
 })
 
 const isSupplyLimit = computed(() => Number(pool.value?.config.health_config.supply_limit) > 0)
-const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.health_config.supply_limit, marketsStore.assetDecimals)) : 0)
-const totalSupplied = computed(() => Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.total_available, marketsStore.assetDecimals)) || 0)
+const supplyLimit = computed(() => isSupplyLimit.value ? Number(bigintToNumber(pool.value?.config.health_config.supply_limit, selectedPool.value.assetDecimals)) : 0)
+const totalSupplied = computed(() => Number(bigintToNumber(pool.value?.total_borrowed + pool.value?.total_available, selectedPool.value.assetDecimals)) || 0)
 
 const totalSuppliedInUsd = computed(() => totalSupplied.value * selectedPool.value?.price || 0)
 const supplyLimitInUsd = computed(() => supplyLimit.value * selectedPool.value?.price || 0)

@@ -172,8 +172,6 @@ export function useMarketActions() {
   ) {
     const pk = requireWallet()
     const { market, client, pool_address, amount, asset_data } = props
-    console.log('market', market)
-    console.log('pool_address', pool_address)
     const { asset_code, asset_issuer, symbol } = parseAsset(asset_data)
     const balance = asset_code === 'native' ? nativeBalance.value : getAssetBalance(asset_issuer)
 
