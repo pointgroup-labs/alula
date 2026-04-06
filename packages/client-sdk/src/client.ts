@@ -12,8 +12,14 @@ import { WalletService } from './services/wallet-service'
  */
 export interface StellarClientConfig {
   publicKey?: string
-  rpc: RPCcluster
   marketContractId?: string
+  opts: StellarClientOptions
+}
+
+export type StellarClientOptions = {
+  rpc: RPCcluster
+  horizonRpcUrl?: string
+  sorobanRpcUrl?: string
 }
 
 /**
@@ -53,16 +59,18 @@ export class StellarClient {
   public readonly leverage: LeverageService
   public readonly wallet: WalletService
   public readonly marketManager: MarketManagerService
+  public readonly horizonRpcUrl?: string
+  public readonly sorobanRpcUrl?: string
 
   private constructor(
     config: StellarClientConfig,
     market: MarketService,
   ) {
-    this.rpc = config.rpc
+    this.rpc = config.opts.rpc
     this.market = market
 
     const context = {
-      rpc: config.rpc,
+      rpc: config.opts.rpc,
       publicKey: config.publicKey,
       contractId: config.marketContractId,
     }
@@ -79,9 +87,11 @@ export class StellarClient {
 
   static async create(config: StellarClientConfig): Promise<StellarClient> {
     const market = await MarketService.create({
-      rpc: config.rpc,
+      rpc: config.opts.rpc,
       publicKey: config.publicKey,
       contractId: config.marketContractId,
+      horizonRpcUrl: config.opts.horizonRpcUrl,
+      sorobanRpcUrl: config.opts.sorobanRpcUrl,
     })
 
     return new StellarClient(config, market)
@@ -92,13 +102,13 @@ export class StellarClient {
    */
   static async fromAddress(
     address: string | undefined,
-    rpc: RPCcluster,
     marketContractId?: string,
+    opts: StellarClientOptions = { rpc: 'testnet' },
   ) {
     return StellarClient.create({
       publicKey: address,
-      rpc,
       marketContractId,
+      opts,
     })
   }
 }

@@ -9,6 +9,8 @@ export interface BaseClientConfig {
   rpc: RPCcluster
   publicKey?: string
   contractId?: string
+  horizonRpcUrl?: string
+  sorobanRpcUrl?: string
 }
 
 /**
@@ -18,6 +20,8 @@ export abstract class BaseClient {
   protected rpc: RPCcluster
   protected publicKey?: string
   protected contractId?: string
+  protected horizonRpcUrl?: string
+  protected sorobanRpcUrl?: string
   protected sorobanServer: SorobanRpc.Server
   protected networkPassphrase: string
 
@@ -25,7 +29,9 @@ export abstract class BaseClient {
     this.rpc = config.rpc
     this.publicKey = config.publicKey
     this.contractId = config.contractId
-    this.sorobanServer = new SorobanRpc.Server(getRPC(config.rpc, 'soroban'))
+    this.horizonRpcUrl = config.horizonRpcUrl
+    this.sorobanRpcUrl = config.sorobanRpcUrl
+    this.sorobanServer = new SorobanRpc.Server(this.getSorobanRpcUrl())
     this.networkPassphrase = getNetworkPassphrase(config.rpc)
   }
 
@@ -40,13 +46,13 @@ export abstract class BaseClient {
    * Get Soroban RPC URL
    */
   protected getSorobanRpcUrl(): string {
-    return getRPC(this.rpc, 'soroban')
+    return this.sorobanRpcUrl || getRPC(this.rpc, 'soroban')
   }
 
   /**
    * Get Horizon RPC URL
    */
   protected getHorizonRpcUrl(): string {
-    return getRPC(this.rpc, 'horizon')
+    return this.horizonRpcUrl || getRPC(this.rpc, 'horizon')
   }
 }

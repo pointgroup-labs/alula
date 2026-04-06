@@ -12,6 +12,8 @@ export interface MarketServiceConfig {
   rpc: RPCcluster
   publicKey?: string
   contractId?: string
+  horizonRpcUrl?: string
+  sorobanRpcUrl?: string
 }
 
 /**
@@ -38,7 +40,7 @@ export class MarketService extends BaseClient {
   static async create(config: MarketServiceConfig): Promise<MarketService> {
     const client = new Client({
       publicKey: config.publicKey,
-      rpcUrl: getRPC(config.rpc, 'soroban'),
+      rpcUrl: config.sorobanRpcUrl || getRPC(config.rpc, 'soroban'),
       contractId: config.contractId,
       networkPassphrase: getNetworkPassphrase(config.rpc),
     })
@@ -117,7 +119,7 @@ export class MarketService extends BaseClient {
 
   /**
    * Retrieves a multiply pair configuration by its deposit and borrow pool addresses
-   * 
+   *
    * @param depositPoolAddress - deposit pool address
    * @param borrowPoolAddress - borrow pool address
    * @return A Promise of type MultiplyPair containing the multiply pair configuration
@@ -136,7 +138,7 @@ export class MarketService extends BaseClient {
 
   /**
    * Simulates a withdrawal from a lending pool
-   * 
+   *
    * @param user - user address
    * @param poolAddress - pool address
    * @param amount - amount to withdraw (string or number)
