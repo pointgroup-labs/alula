@@ -13,6 +13,8 @@ export interface LendingServiceConfig {
   rpc: RPCcluster
   publicKey?: string
   contractId?: string
+  horizonRpcUrl?: string
+  sorobanRpcUrl?: string
   decimals: DecimalsConfig
 }
 

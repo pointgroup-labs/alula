@@ -10,6 +10,8 @@ export interface ObligationServiceConfig {
   rpc: RPCcluster
   publicKey?: string
   contractId?: string
+  horizonRpcUrl?: string
+  sorobanRpcUrl?: string
 }
 
 /**

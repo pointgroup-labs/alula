@@ -120,7 +120,8 @@ export const useMarketsStore = defineStore('markets', () => {
 
   watch([
     network,
-    alulaClient],
+    alulaClient,
+  ],
   async ([nextNetwork, _nextClient],
     [prevNetwork, _prevClient]) => {
     if (import.meta.env.SSR) {
@@ -134,6 +135,23 @@ export const useMarketsStore = defineStore('markets', () => {
       debouncedMarketFn()
     }
   }, {})
+
+  watch([
+    network,
+    () => rpcStore.horizonRPCUrl,
+    () => rpcStore.sorobanRPCUrl,
+  ], ([nextNetwork, horizonRPCUrl, sorobanRPCUrl], [prevNetwork, prevHorizonRPCUrl, prevSorobanRPCUrl]) => {
+    if (!prevHorizonRPCUrl && !prevSorobanRPCUrl) {
+      return
+    }
+    if (horizonRPCUrl === prevHorizonRPCUrl && sorobanRPCUrl === prevSorobanRPCUrl) {
+      return
+    }
+    if (nextNetwork !== prevNetwork) {
+      return
+    }
+    debouncedMarketFn()
+  })
 
   return {
     state,

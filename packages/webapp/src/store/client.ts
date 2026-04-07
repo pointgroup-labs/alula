@@ -11,7 +11,7 @@ export const useClientStore = defineStore('client', () => {
 
   const isValidAccount = ref(false)
 
-  const alulaClient = computedAsync(async () => await initClient())
+  const alulaClient = ref()
 
   async function initClient(marketAddress?: string) {
     try {
@@ -35,6 +35,16 @@ export const useClientStore = defineStore('client', () => {
       })
     }
   }
+
+  watch([
+    network,
+    () => rpcStore.horizonRPCUrl,
+    () => rpcStore.sorobanRPCUrl,
+  ], async ([nextNetwork, nextHorizonRpcUrl, nextSorobanRpcUrl]) => {
+    if (nextNetwork && nextHorizonRpcUrl && nextSorobanRpcUrl) {
+      alulaClient.value = await initClient()
+    }
+  })
   return {
     alulaClient,
 

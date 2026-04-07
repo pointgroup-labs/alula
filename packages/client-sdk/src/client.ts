@@ -68,11 +68,15 @@ export class StellarClient {
   ) {
     this.rpc = config.opts.rpc
     this.market = market
+    this.horizonRpcUrl = config.opts.horizonRpcUrl
+    this.sorobanRpcUrl = config.opts.sorobanRpcUrl
 
     const context = {
       rpc: config.opts.rpc,
       publicKey: config.publicKey,
       contractId: config.marketContractId,
+      horizonRpcUrl: config.opts.horizonRpcUrl,
+      sorobanRpcUrl: config.opts.sorobanRpcUrl,
     }
 
     const decimals = market.decimals

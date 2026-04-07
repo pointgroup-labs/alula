@@ -9,6 +9,8 @@ import { BaseClient } from '../core/base-client'
 export interface MarketManagerServiceConfig {
   rpc: RPCcluster
   publicKey?: string
+  horizonRpcUrl?: string
+  sorobanRpcUrl?: string
 }
 
 /**

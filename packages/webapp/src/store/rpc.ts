@@ -28,8 +28,8 @@ export const useRpcStore = defineStore('rpc', () => {
         : Network.Testnet
   })
 
-  const horizonRPCUrl = computed(() => customHorizonRpc.value || RPC_URLS[String(network.value)] || '-')
-  const sorobanRPCUrl = computed(() => customSorobanRpc.value || SOROBAN_RPC_URLS[String(network.value)] || '-')
+  const horizonRPCUrl = computed(() => customHorizonRpc.value || RPC_URLS[String(network.value)])
+  const sorobanRPCUrl = computed(() => customSorobanRpc.value || SOROBAN_RPC_URLS[String(network.value)])
 
   function setNetwork(newNetwork: Network) {
     network.value = newNetwork

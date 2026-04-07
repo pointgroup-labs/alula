@@ -8,6 +8,8 @@ import { BaseClient } from '../core/base-client'
 export interface WalletServiceConfig {
   rpc: RPCcluster
   publicKey?: string
+  horizonRpcUrl?: string
+  sorobanRpcUrl?: string
 }
 
 /**
