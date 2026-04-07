@@ -192,10 +192,7 @@ export function useMarketActions() {
       throw error
     }
 
-    const user = {
-      user: pk,
-      seed: undefined,
-    }
+    const oblKey = buildObligationKey({ pablicKey: pk })
 
     await runAction({
       client,
@@ -204,7 +201,7 @@ export function useMarketActions() {
       type: 'deposit',
       title: 'Deposit',
       body: `Sending transaction to deposit ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.deposit(user, pool_address, amount, assetDecimals.value, kit.value),
+      exec: () => client!.lending.deposit(oblKey, pool_address, amount, assetDecimals.value, kit.value),
       reset: () => {
         depositAmount.value = undefined
         marketsStore.dialogSupply = false
@@ -245,10 +242,7 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const user = {
-      user: pk,
-      seed: undefined,
-    }
+    const oblKey = buildObligationKey({ pablicKey: pk })
 
     await runAction({
       client,
@@ -257,7 +251,7 @@ export function useMarketActions() {
       type: 'borrow',
       title: 'Borrow',
       body: `Sending transaction to borrow ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.borrowing.borrow(user, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
+      exec: () => client!.borrowing.borrow(oblKey, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
       reset: () => {
         borrowAmount.value = undefined
         marketsStore.dialogBorrow = false
@@ -297,10 +291,7 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const user = {
-      user: pk,
-      seed: undefined,
-    }
+    const oblKey = buildObligationKey({ pablicKey: pk })
 
     await runAction({
       client,
@@ -309,7 +300,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.withdraw(user, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
+      exec: () => client!.lending.withdraw(oblKey, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
       reset: () => {
         withdrawAmount.value = undefined
         marketsStore.dialogWithdraw = false
@@ -352,10 +343,7 @@ export function useMarketActions() {
 
     const increasedAmount = withBuffer ? amount * 1.05 : amount
 
-    const user = {
-      user: pk,
-      seed: undefined,
-    }
+    const oblKey = buildObligationKey({ pablicKey: pk })
 
     await runAction({
       client,
@@ -364,7 +352,7 @@ export function useMarketActions() {
       type: 'repay',
       title: 'Repay',
       body: `Sending transaction to repay ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.borrowing.repay(user, pool_address, increasedAmount, assetDecimals.value, kit.value),
+      exec: () => client!.borrowing.repay(oblKey, pool_address, increasedAmount, assetDecimals.value, kit.value),
       reset: () => {
         repayAmount.value = undefined
         marketsStore.dialogRepay = false
@@ -404,10 +392,7 @@ export function useMarketActions() {
       throw error
     }
 
-    const user = {
-      user: pk,
-      seed: undefined,
-    }
+    const oblKey = buildObligationKey({ pablicKey: pk })
 
     await runAction({
       client,
@@ -416,7 +401,7 @@ export function useMarketActions() {
       type: 'deposit',
       title: 'Add Collateral',
       body: `Sending transaction to add collateral ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.addCollateral(user, pool_address, amount, assetDecimals.value, kit.value),
+      exec: () => client!.lending.addCollateral(oblKey, pool_address, amount, assetDecimals.value, kit.value),
       reset: () => {
         depositAmount.value = undefined
         marketsStore.dialogSupply = false
@@ -456,10 +441,7 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
-    const user = {
-      user: pk,
-      seed: undefined,
-    }
+    const oblKey = buildObligationKey({ pablicKey: pk })
 
     await runAction({
       client,
@@ -468,7 +450,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw Collateral',
       body: `Sending transaction to withdraw collateral ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.removeCollateral(user, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
+      exec: () => client!.lending.removeCollateral(oblKey, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
       reset: () => {
         withdrawAmount.value = undefined
         marketsStore.dialogWithdraw = false

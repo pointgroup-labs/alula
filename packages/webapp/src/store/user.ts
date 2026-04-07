@@ -18,11 +18,8 @@ export const useUserStore = defineStore('user', () => {
   async function loadUserObligation(market: string, client: StellarClient) {
     try {
       loading.value = true
-      const user = {
-        user: publicKey.value,
-        seed: undefined,
-      }
-      const obligations = await client.obligation.getUserObligation(user)
+      const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+      const obligations = await client.obligation.getUserObligation(oblKey)
       state.obligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
@@ -53,11 +50,8 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      const user = {
-        user: publicKey.value,
-        seed: undefined,
-      }
-      const obligation = await client.obligation.getUserObligation(user)
+      const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+      const obligation = await client.obligation.getUserObligation(oblKey)
       state.obligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Obligation]`, 'color: #FFB726', state.obligations[market])

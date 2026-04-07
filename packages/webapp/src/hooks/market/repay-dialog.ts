@@ -288,12 +288,11 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
 
         try {
           isLoadingFee.value = true
-          const user = {
-            user: publicKey.value,
-            seed: undefined,
-          }
+
+          const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+
           const tx = await activeMarket.value?.client!.borrowing.buildRepayTx(
-            user,
+            oblKey,
             r.pool.pool_address,
             0.01,
             assetDecimals.value,

@@ -274,12 +274,10 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
           return
         }
 
-        const user = {
-          user: publicKey.value,
-          seed: undefined,
-        }
+        const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+
         const feeData = await activeMarket.value?.client!.market.simulateWithdraw(
-          user,
+          oblKey,
           pool_address.value,
           a,
           assetDecimals.value,
@@ -302,12 +300,11 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
         try {
           isLoadingFee.value = true
-          const user = {
-            user: publicKey.value,
-            seed: undefined,
-          }
+
+          const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+
           const tx = await activeMarket.value?.client!.lending.buildWithdrawTx(
-            user,
+            oblKey,
             r.pool.pool_address,
             0.1,
             assetDecimals.value,
