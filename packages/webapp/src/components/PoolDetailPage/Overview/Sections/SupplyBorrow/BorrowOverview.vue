@@ -17,6 +17,7 @@ const detailCardsData = computed(() => {
     }
   }
 
+
   const borrowAPY = selectedPool.value?.borrow_apy ?? '0%'
   const utilRatioLimit = bpsToNumber(Number(pool.value?.config.health_config.utilization_ratio_limit_bps || 0)) * 100
   const withdrawFee = bpsToNumber(Number(pool.value?.config.fee_config.withdraw_fee_bps)) * 100

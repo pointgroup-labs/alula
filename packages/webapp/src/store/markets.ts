@@ -16,9 +16,9 @@ export const useMarketsStore = defineStore('markets', () => {
     activeMarket,
     marketClient,
     selectedMarketPools,
-    assetDecimals,
     selectedMarketName,
     selectedPoolAddress,
+    assetDecimals,
 
     dialogSupply,
     dialogBorrow,
@@ -120,15 +120,13 @@ export const useMarketsStore = defineStore('markets', () => {
 
   watch([
     network,
-    alulaClient,
-    () => rpcStore.horizonRPCUrl,
-    () => rpcStore.sorobanRPCUrl],
-  async ([nextNetwork, _nextClient, _nextHorizonRPCUrl, _nextSorobanRPCUrl],
-    [prevNetwork, _prevClient, _prevHorizonRPCUrl, _prevSorobanRPCUrl]) => {
+    alulaClient],
+  async ([nextNetwork, _nextClient],
+    [prevNetwork, _prevClient]) => {
     if (import.meta.env.SSR) {
       return
     }
-    if (nextNetwork !== prevNetwork || _nextHorizonRPCUrl !== _prevHorizonRPCUrl || _nextSorobanRPCUrl !== _prevSorobanRPCUrl) {
+    if (nextNetwork !== prevNetwork) {
       state.markets = {}
       state.marketsList = []
     }
@@ -141,12 +139,12 @@ export const useMarketsStore = defineStore('markets', () => {
     state,
 
     marketClient,
-    assetDecimals,
 
     poolActiveAddress,
 
     activeMarket,
     activeLeverageMarket,
+    assetDecimals,
 
     selectedMarketPools,
 
@@ -178,7 +176,7 @@ export type MarketFullData = Record<string, {
   marketState: MarketData
   marketName: string
   address: string
-  client: StellarClient
+  client?: StellarClient
 }>
 
 export type PoolWithPrice = {

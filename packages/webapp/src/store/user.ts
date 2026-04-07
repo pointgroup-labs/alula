@@ -1,7 +1,6 @@
 import type { StellarClient } from '@alula/client-sdk'
 import type { ObligationArray, ObligationUI } from '@alula/client-sdk/src/types'
 import type { Obligation } from '@alula/market-sdk'
-import { calcUserTotalBorrowedInUsd, calcUserTotalStakeInUsd } from '@alula/client-sdk'
 import { defineStore } from 'pinia'
 
 export const useUserStore = defineStore('user', () => {
@@ -14,14 +13,13 @@ export const useUserStore = defineStore('user', () => {
 
   const marketsStore = useMarketsStore()
 
-  const activeMarket = computed(() => marketsStore.activeMarket)
-
   const loading = ref(false)
 
   async function loadUserObligation(market: string, client: StellarClient) {
     try {
       loading.value = true
-      const obligations = await client.obligation.getUserObligation(publicKey.value)
+      const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+      const obligations = await client.obligation.getUserObligation(oblKey)
       state.obligations[market] = adaptAbligation(obligations)
       console.log(`%c[${market} market User Obligation]`, 'color: #FFB726', state.obligations[market])
     } finally {
@@ -29,22 +27,22 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function loadUserMultiplyObligation(props: {
-    client: StellarClient
-    market: string
-    depositPoolAddress: string
-    borrowPoolAddress: string
-  }) {
-    try {
-      loading.value = true
-      const { client, market, depositPoolAddress, borrowPoolAddress } = props
-      const obligations = await client.obligation.getUserMultiplyObligation(publicKey.value, depositPoolAddress, borrowPoolAddress)
-      state.multiplyObligations[market] = adaptAbligation(obligations)
-      console.log(`%c[${market} market Multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
-    } finally {
-      loading.value = false
-    }
-  }
+  // async function loadUserMultiplyObligation(props: {
+  //   client: StellarClient
+  //   market: string
+  //   depositPoolAddress: string
+  //   borrowPoolAddress: string
+  // }) {
+  //   try {
+  //     loading.value = true
+  //     const { client, market, depositPoolAddress, borrowPoolAddress } = props
+  //     const obligations = await client.obligation.getUserMultiplyObligation(publicKey.value, depositPoolAddress, borrowPoolAddress)
+  //     state.multiplyObligations[market] = adaptAbligation(obligations)
+  //     console.log(`%c[${market} market Multiply Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
+  //   } finally {
+  //     loading.value = false
+  //   }
+  // }
 
   async function updateUserObligation(market: string, client: StellarClient, withLogs = true) {
     try {
@@ -52,7 +50,8 @@ export const useUserStore = defineStore('user', () => {
       if (!client) {
         return
       }
-      const obligation = await client.obligation.getUserObligation(publicKey.value)
+      const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+      const obligation = await client.obligation.getUserObligation(oblKey)
       state.obligations[market] = adaptAbligation(obligation)
       if (withLogs) {
         console.log(`%c[Update ${market} market Obligation]`, 'color: #FFB726', state.obligations[market])
@@ -62,63 +61,35 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function updateUserMultiplyObligation({
-    market,
-    depositPoolAddress,
-    borrowPoolAddress,
-    client,
-    withLogs = true,
-  }: {
-    market: string
-    depositPoolAddress: string
-    borrowPoolAddress: string
-    client?: StellarClient
-    withLogs?: boolean
-  }) {
-    try {
-      loading.value = true
-      if (!client) {
-        return
-      }
-      const obligation = await client.obligation.getUserMultiplyObligation(publicKey.value, depositPoolAddress, borrowPoolAddress)
-      state.multiplyObligations[market] = adaptAbligation(obligation)
-      if (withLogs) {
-        console.log(`%c[Update ${market} market Leverage Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
-      }
-    } finally {
-      loading.value = false
-    }
-  }
+  // async function updateUserMultiplyObligation({
+  //   market,
+  //   depositPoolAddress,
+  //   borrowPoolAddress,
+  //   client,
+  //   withLogs = true,
+  // }: {
+  //   market: string
+  //   depositPoolAddress: string
+  //   borrowPoolAddress: string
+  //   client?: StellarClient
+  //   withLogs?: boolean
+  // }) {
+  //   try {
+  //     loading.value = true
+  //     if (!client) {
+  //       return
+  //     }
+  //     const obligation = await client.obligation.getUserMultiplyObligation(publicKey.value, depositPoolAddress, borrowPoolAddress)
+  //     state.multiplyObligations[market] = adaptAbligation(obligation)
+  //     if (withLogs) {
+  //       console.log(`%c[Update ${market} market Leverage Obligation]`, 'color: #FFB726', state.multiplyObligations[market])
+  //     }
+  //   } finally {
+  //     loading.value = false
+  //   }
+  // }
 
-  const userTotalDepositInUsd = computed(() => {
-    const obligation = state.obligations[marketsStore.selectedMarketName]
-    const marketState = activeMarket.value?.marketState
-
-    if (!obligation || !marketState) {
-      return 0
-    }
-    const assetDecimals = marketState.asset_decimals
-    const oraclePriceDecimals = marketState.oracle_price_decimals
-    const poolsData = marketState.pools_data
-
-    return calcUserTotalStakeInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-  })
-
-  const userTotalBorrowedInUsd = computed(() => {
-    const obligation = state.obligations[marketsStore.selectedMarketName]
-    const marketState = activeMarket.value?.marketState
-
-    if (!obligation || !marketState) {
-      return 0
-    }
-    const assetDecimals = marketState.asset_decimals
-    const oraclePriceDecimals = marketState.oracle_price_decimals
-    const poolsData = marketState.pools_data
-
-    return calcUserTotalBorrowedInUsd(obligation, poolsData, assetDecimals, oraclePriceDecimals) ?? 0
-  })
-
-  watch([
+  watchDebounced([
     () => publicKey.value,
     () => marketsStore.state.markets,
   ], async ([pubkey, markets]) => {
@@ -128,36 +99,33 @@ export const useUserStore = defineStore('user', () => {
       return
     }
 
-    const tasks = [
-      ...Object.values(markets).map(m =>
-        loadUserObligation(m.marketName, m.client),
-      ),
-      ...Object.values(markets).flatMap(m =>
-        m.marketState.multiply_pairs.map(p =>
-          loadUserMultiplyObligation({
-            // TODO: remove if market name is unique
-            market: m.marketName.split('_')[0]!,
-            depositPoolAddress: p.deposit_pool,
-            borrowPoolAddress: p.borrow_pool,
-            client: m.client,
-          }),
-        ),
-      ),
-    ]
+    const tasks
+      = Object.values(markets).map(m =>
+        loadUserObligation(m.marketName, m.client!),
+      )
+      // ...Object.values(markets).flatMap(m =>
+      //   m.marketState.multiply_pairs.map(p =>
+      //     loadUserMultiplyObligation({
+      //       // TODO: remove if market name is unique
+      //       market: m.marketName.split('_')[0]!,
+      //       depositPoolAddress: p.deposit_pool,
+      //       borrowPoolAddress: p.borrow_pool,
+      //       client: m.client,
+      //     }),
+      //   ),
+      // ),
 
     await Promise.allSettled(tasks)
-  })
+  }, { debounce: 500 })
 
   return {
     state,
 
     loading,
-    userTotalDepositInUsd,
-    userTotalBorrowedInUsd,
 
     loadUserObligation,
     updateUserObligation,
-    updateUserMultiplyObligation,
+    // updateUserMultiplyObligation,
   }
 })
 

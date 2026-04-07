@@ -2,7 +2,7 @@
 import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
 import { calcFee, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
-import { focusInput, formatPrice } from '~/utils'
+import { /* focusInput, */ formatPrice } from '~/utils'
 
 const {
   data,
@@ -10,7 +10,7 @@ const {
   data?: MultiplyTableItem | MultiplyAccountTableItem
 }>()
 
-const marketsStore = useMarketsStore()
+// const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
 const userStore = useUserStore()
@@ -23,9 +23,9 @@ const isValidate = ref(true)
 
 const reloadFee = ref(false)
 
-const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
+// const activeMarket = computed(() => marketsStore.state.markets[String(data?.market)])
 
-const { publicKey } = useWalletComposable()
+// const { publicKey } = useWalletComposable()
 
 const balance = computed(() => {
   if (!data) {
@@ -54,46 +54,46 @@ const marketFee = computed(() => {
 })
 
 async function withdrawLeverage() {
-  if (!publicKey.value || !data?.depositPoolData.pool.pool_address) {
-    return
-  }
-  if (!amount.value || amount.value <= 0) {
-    focusInput('.multiply-dialog')
-    return
-  }
-  const deposit_pool_address = data?.depositPoolData.pool.pool_address
-  const borrow_pool_address = data?.borrowPoolData.pool.pool_address
-  const asset_code = data?.depositPoolData.pool.token_symbol
-  if (!deposit_pool_address || !borrow_pool_address) {
-    return
-  }
+  // if (!publicKey.value || !data?.depositPoolData.pool.pool_address) {
+  //   return
+  // }
+  // if (!amount.value || amount.value <= 0) {
+  //   focusInput('.multiply-dialog')
+  //   return
+  // }
+  // const deposit_pool_address = data?.depositPoolData.pool.pool_address
+  // const borrow_pool_address = data?.borrowPoolData.pool.pool_address
+  // const asset_code = data?.depositPoolData.pool.token_symbol
+  // if (!deposit_pool_address || !borrow_pool_address) {
+  //   return
+  // }
 
-  const marketProps = {
-    client: activeMarket.value!.client,
-    market: activeMarket.value!.marketState.global_state.name,
-    deposit_pool_address,
-    borrow_pool_address,
-    amount: amount.value,
-    asset_code,
-  }
+  // const marketProps = {
+  //   client: activeMarket.value!.client,
+  //   market: activeMarket.value!.marketState.global_state.name,
+  //   deposit_pool_address,
+  //   borrow_pool_address,
+  //   amount: amount.value,
+  //   asset_code,
+  // }
 
   try {
     isValidate.value = false
-    await market.withdrawLeverage({
-      ...marketProps,
-      action: async () => {
-        dialog.value = false
-        await Promise.allSettled([
-          userStore.updateUserMultiplyObligation({
-            market: activeMarket.value!.marketState.global_state.name,
-            client: activeMarket.value!.client,
-            depositPoolAddress: deposit_pool_address,
-            borrowPoolAddress: borrow_pool_address,
-          }),
-          marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client),
-        ])
-      },
-    })
+    // await market.withdrawLeverage({
+    //   ...marketProps,
+    //   action: async () => {
+    //     dialog.value = false
+    //     await Promise.allSettled([
+    //       userStore.updateUserMultiplyObligation({
+    //         market: activeMarket.value!.marketState.global_state.name,
+    //         client: activeMarket.value!.client,
+    //         depositPoolAddress: deposit_pool_address,
+    //         borrowPoolAddress: borrow_pool_address,
+    //       }),
+    //       marketsStore.updatePool(borrow_pool_address, activeMarket.value!.marketState.global_state.name, activeMarket.value!.client),
+    //     ])
+    //   },
+    // })
   } finally {
     isValidate.value = true
   }
@@ -118,25 +118,25 @@ watch(dialog, async (v) => {
   }, RELOAD_FEE_INTERVAL)
 })
 
-watchDebounced([
-  () => data,
-  reloadFee,
-  publicKey,
-], async ([data]) => {
-  if (!data || !publicKey.value || !dialog.value) {
-    return
-  }
-  const tx = await activeMarket.value!.client.leverage.buildWithdrawLeverageTx(
-    {
-      user: publicKey.value,
-      depositPoolAddress: data?.depositPoolData.pool.pool_address || '',
-      borrowPoolAddress: data?.borrowPoolData.pool.pool_address || '',
-      amount: 1,
-    },
-  )
+// watchDebounced([
+//   () => data,
+//   reloadFee,
+//   publicKey,
+// ], async ([data]) => {
+//   if (!data || !publicKey.value || !dialog.value) {
+//     return
+//   }
+//   const tx = await activeMarket.value!.client.leverage.buildWithdrawLeverageTx(
+//     {
+//       user: publicKey.value,
+//       depositPoolAddress: data?.depositPoolData.pool.pool_address || '',
+//       borrowPoolAddress: data?.borrowPoolData.pool.pool_address || '',
+//       amount: 1,
+//     },
+//   )
 
-  txFee.value = activeMarket.value!.client.leverage.getTransactionFee(tx)
-}, { immediate: true, debounce: 300 })
+//   txFee.value = activeMarket.value!.client.leverage.getTransactionFee(tx)
+// }, { immediate: true, debounce: 300 })
 </script>
 
 <template>

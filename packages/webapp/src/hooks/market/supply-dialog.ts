@@ -27,6 +27,8 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
 
   const amount = toRef(market, 'depositAmount')
 
+  const tokenDecimals = computed(() => poolData.value?.raw.pool.token_decimals ?? 0)
+
   const isLoadingFee = ref(false)
   const reloadFee = ref(false)
   const txFee = ref(0)
@@ -72,13 +74,12 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
     const collateralValueUsd = calcUserTotalStakeInUsd(
       obligation,
       poolsData,
-      assetDecimals,
+      Number(tokenDecimals.value),
       oraclePriceDecimals,
     )
 
@@ -89,7 +90,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
       obligation,
       poolsData,
-      assetDecimals,
+      Number(tokenDecimals.value),
       oraclePriceDecimals,
     )
 
@@ -105,7 +106,6 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
     const poolAddress = poolData.value?.raw.pool.pool_address
@@ -114,7 +114,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const nextCollateralValueUsd = calcUserTotalStakeInUsd(
       obligation,
       poolsData,
-      assetDecimals,
+      Number(tokenDecimals.value),
       oraclePriceDecimals,
     ) + supplyAmount * supplyPrice
 
@@ -125,14 +125,14 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
       obligation,
       poolsData,
-      assetDecimals,
+      Number(tokenDecimals.value),
       oraclePriceDecimals,
     )
     const poolOpenLtv = Number(poolData.value?.raw.pool.config.health_config.open_ltv_bps ?? 0) / 10_000
     const nextDepositWithOpenLtvUsd = calcUserTotalStakeInUsd(
       obligation,
       poolsData,
-      assetDecimals,
+      Number(tokenDecimals.value),
       oraclePriceDecimals,
       'open',
     ) + supplyAmount * supplyPrice * poolOpenLtv
@@ -162,19 +162,18 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
     const collateralValueUsd = calcUserTotalStakeInUsd(
       obligation,
       poolsData,
-      assetDecimals,
+      Number(tokenDecimals.value),
       oraclePriceDecimals,
     )
     const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
       obligation,
       poolsData,
-      assetDecimals,
+      Number(tokenDecimals.value),
       oraclePriceDecimals,
     )
     const collateralAdjustUsd = (Number(amount.value) || 0) * Number(poolData.value?.price ?? 0)
@@ -196,11 +195,10 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 10
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
 
-    return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals)
+    return calcHealthFactor(obligation, poolsData, Number(tokenDecimals.value), oraclePriceDecimals)
   })
 
   const dynamicHealthFactor = computed(() => {
@@ -212,13 +210,12 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 10
     }
 
-    const assetDecimals = marketState.asset_decimals ?? 7
     const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
     const poolsData = marketState.pools_data
     const closeLtvRatio = Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps ?? 0) / 10_000
     const depositAdjustUsd = -((Number(amount.value) || 0) * Number(poolData.value?.price ?? 0) * closeLtvRatio)
 
-    return calcHealthFactor(obligation, poolsData, assetDecimals, oraclePriceDecimals, depositAdjustUsd)
+    return calcHealthFactor(obligation, poolsData, Number(tokenDecimals.value), oraclePriceDecimals, depositAdjustUsd)
   })
 
   async function supply() {
@@ -288,11 +285,15 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
         try {
           isLoadingFee.value = true
           const tx = await marketClient.value.lending.buildDepositTx(
-            publicKey.value,
+            {
+              user: publicKey.value,
+              seed: undefined,
+            },
             d.raw.pool.pool_address || '',
             0.01,
+            Number(tokenDecimals.value),
           )
-          txFee.value = marketClient.value.lending.getTransactionFee(tx)
+          txFee.value = marketClient.value.lending.getTransactionFee(tx, Number(tokenDecimals.value))
         } finally {
           isLoadingFee.value = false
         }

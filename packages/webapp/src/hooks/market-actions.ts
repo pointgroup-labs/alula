@@ -192,6 +192,8 @@ export function useMarketActions() {
       throw error
     }
 
+    const oblKey = buildObligationKey({ pablicKey: pk })
+
     await runAction({
       client,
       market,
@@ -199,7 +201,7 @@ export function useMarketActions() {
       type: 'deposit',
       title: 'Deposit',
       body: `Sending transaction to deposit ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.deposit(pk, pool_address, amount, kit.value),
+      exec: () => client!.lending.deposit(oblKey, pool_address, amount, assetDecimals.value, kit.value),
       reset: () => {
         depositAmount.value = undefined
         marketsStore.dialogSupply = false
@@ -240,6 +242,8 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
+    const oblKey = buildObligationKey({ pablicKey: pk })
+
     await runAction({
       client,
       market,
@@ -247,7 +251,7 @@ export function useMarketActions() {
       type: 'borrow',
       title: 'Borrow',
       body: `Sending transaction to borrow ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.borrowing.borrow(pk, pool_address, amount, kit.value, withBuffer),
+      exec: () => client!.borrowing.borrow(oblKey, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
       reset: () => {
         borrowAmount.value = undefined
         marketsStore.dialogBorrow = false
@@ -287,6 +291,8 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
+    const oblKey = buildObligationKey({ pablicKey: pk })
+
     await runAction({
       client,
       market,
@@ -294,7 +300,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw',
       body: `Sending transaction to withdraw ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.withdraw(pk, pool_address, amount, kit.value, withBuffer),
+      exec: () => client!.lending.withdraw(oblKey, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
       reset: () => {
         withdrawAmount.value = undefined
         marketsStore.dialogWithdraw = false
@@ -337,6 +343,8 @@ export function useMarketActions() {
 
     const increasedAmount = withBuffer ? amount * 1.05 : amount
 
+    const oblKey = buildObligationKey({ pablicKey: pk })
+
     await runAction({
       client,
       market,
@@ -344,7 +352,7 @@ export function useMarketActions() {
       type: 'repay',
       title: 'Repay',
       body: `Sending transaction to repay ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.borrowing.repay(pk, pool_address, increasedAmount, kit.value),
+      exec: () => client!.borrowing.repay(oblKey, pool_address, increasedAmount, assetDecimals.value, kit.value),
       reset: () => {
         repayAmount.value = undefined
         marketsStore.dialogRepay = false
@@ -384,6 +392,8 @@ export function useMarketActions() {
       throw error
     }
 
+    const oblKey = buildObligationKey({ pablicKey: pk })
+
     await runAction({
       client,
       market,
@@ -391,7 +401,7 @@ export function useMarketActions() {
       type: 'deposit',
       title: 'Add Collateral',
       body: `Sending transaction to add collateral ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.addCollateral(pk, pool_address, amount, kit.value),
+      exec: () => client!.lending.addCollateral(oblKey, pool_address, amount, assetDecimals.value, kit.value),
       reset: () => {
         depositAmount.value = undefined
         marketsStore.dialogSupply = false
@@ -431,6 +441,8 @@ export function useMarketActions() {
 
     const { symbol } = parseAsset(asset_data)
 
+    const oblKey = buildObligationKey({ pablicKey: pk })
+
     await runAction({
       client,
       market,
@@ -438,7 +450,7 @@ export function useMarketActions() {
       type: 'withdraw',
       title: 'Withdraw Collateral',
       body: `Sending transaction to withdraw collateral ${amountToAssetDecimals(amount)} ${symbol}`,
-      exec: () => client!.lending.removeCollateral(pk, pool_address, amount, kit.value, withBuffer),
+      exec: () => client!.lending.removeCollateral(oblKey, pool_address, amount, assetDecimals.value, kit.value, withBuffer),
       reset: () => {
         withdrawAmount.value = undefined
         marketsStore.dialogWithdraw = false
@@ -447,114 +459,114 @@ export function useMarketActions() {
   }
 
   // Leverage
-  async function leverage(
-    props: {
-      client: StellarClient
-      market: string
-      deposit_pool_address: string
-      borrow_pool_address: string
-      deposit_as_margin: boolean
-      amount: number
-      leverage_multiplier: number
-      asset_code: string
-      action?: () => void | Promise<void>
-    },
-  ) {
-    const pk = requireWallet()
-    const { client, market, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier, asset_code } = props
-    try {
-      if (!amount || amount <= 0) {
-        throw new Error('Amount should be greater than 0')
-      }
-    } catch (error: any) {
-      toast.create({
-        title: `Leverage Error`,
-        body: String(error?.message || error),
-        variant: 'danger',
-        modelValue: 10_000,
-      })
-      throw error
-    }
+  // async function leverage(
+  //   props: {
+  //     client: StellarClient
+  //     market: string
+  //     deposit_pool_address: string
+  //     borrow_pool_address: string
+  //     deposit_as_margin: boolean
+  //     amount: number
+  //     leverage_multiplier: number
+  //     asset_code: string
+  //     action?: () => void | Promise<void>
+  //   },
+  // ) {
+  //   const pk = requireWallet()
+  //   const { client, market, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier, asset_code } = props
+  //   try {
+  //     if (!amount || amount <= 0) {
+  //       throw new Error('Amount should be greater than 0')
+  //     }
+  //   } catch (error: any) {
+  //     toast.create({
+  //       title: `Leverage Error`,
+  //       body: String(error?.message || error),
+  //       variant: 'danger',
+  //       modelValue: 10_000,
+  //     })
+  //     throw error
+  //   }
 
-    await runAction({
-      client,
-      market,
-      pool: deposit_pool_address,
-      type: 'leverage',
-      title: 'Leverage',
-      body: `Sending transaction to leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
-      withObligation: false,
-      action: props.action,
-      exec: () => client!.leverage.depositWithLeverage(
-        {
-          user: pk,
-          depositPoolAddress: deposit_pool_address,
-          borrowPoolAddress: borrow_pool_address,
-          depositAsMargin: deposit_as_margin,
-          amount,
-          leverageMultiplier: leverage_multiplier,
-        },
-        kit.value),
-      reset: () => {
-        depositAmount.value = undefined
-        marketsStore.dialogLeverage = false
-      },
-    })
-  }
+  //   await runAction({
+  //     client,
+  //     market,
+  //     pool: deposit_pool_address,
+  //     type: 'leverage',
+  //     title: 'Leverage',
+  //     body: `Sending transaction to leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
+  //     withObligation: false,
+  //     action: props.action,
+  //     exec: () => client!.leverage.depositWithLeverage(
+  //       {
+  //         user: pk,
+  //         depositPoolAddress: deposit_pool_address,
+  //         borrowPoolAddress: borrow_pool_address,
+  //         depositAsMargin: deposit_as_margin,
+  //         amount,
+  //         leverageMultiplier: leverage_multiplier,
+  //       },
+  //       kit.value),
+  //     reset: () => {
+  //       depositAmount.value = undefined
+  //       marketsStore.dialogLeverage = false
+  //     },
+  //   })
+  // }
 
   // Withdraw Leverage
-  async function withdrawLeverage(
-    props: {
-      client: StellarClient
-      market: string
-      deposit_pool_address: string
-      borrow_pool_address: string
-      amount: number
-      asset_code: string
-      action?: () => void | Promise<void>
-    },
-  ) {
-    const pk = requireWallet()
-    const { client, market, deposit_pool_address, borrow_pool_address, amount, asset_code } = props
-    try {
-      if (!amount || amount <= 0) {
-        throw new Error('Amount should be greater than 0')
-      }
-    } catch (error: any) {
-      toast.create({
-        title: `Withdraw Leverage Error`,
-        body: String(error?.message || error),
-        variant: 'danger',
-        modelValue: 10_000,
-      })
-      throw error
-    }
+  // async function withdrawLeverage(
+  //   props: {
+  //     client: StellarClient
+  //     market: string
+  //     deposit_pool_address: string
+  //     borrow_pool_address: string
+  //     amount: number
+  //     asset_code: string
+  //     action?: () => void | Promise<void>
+  //   },
+  // ) {
+  //   const pk = requireWallet()
+  //   const { client, market, deposit_pool_address, borrow_pool_address, amount, asset_code } = props
+  //   try {
+  //     if (!amount || amount <= 0) {
+  //       throw new Error('Amount should be greater than 0')
+  //     }
+  //   } catch (error: any) {
+  //     toast.create({
+  //       title: `Withdraw Leverage Error`,
+  //       body: String(error?.message || error),
+  //       variant: 'danger',
+  //       modelValue: 10_000,
+  //     })
+  //     throw error
+  //   }
 
-    const increasedAmount = amount * 1.05
+  //   const increasedAmount = amount * 1.05
 
-    await runAction({
-      client,
-      market,
-      pool: deposit_pool_address,
-      type: 'withdrawLeverage',
-      title: 'Leverage',
-      body: `Sending transaction to Withdraw leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
-      withObligation: false,
-      action: props.action,
-      exec: () => client!.leverage.withdrawFromLeveraged(
-        {
-          user: pk,
-          depositPoolAddress: deposit_pool_address,
-          borrowPoolAddress: borrow_pool_address,
-          amount: increasedAmount,
-        },
-        connectionStore.kit),
-      reset: () => {
-        withdrawAmount.value = undefined
-        marketsStore.dialogLeverageWithdraw = false
-      },
-    })
-  }
+  //   await runAction({
+  //     client,
+  //     market,
+  //     pool: deposit_pool_address,
+  //     type: 'withdrawLeverage',
+  //     title: 'Leverage',
+  //     body: `Sending transaction to Withdraw leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
+  //     withObligation: false,
+  //     action: props.action,
+  //     exec: () => client!.leverage.withdrawFromLeveraged(
+  //       {
+  //         user: pk,
+  //         depositPoolAddress: deposit_pool_address,
+  //         borrowPoolAddress: borrow_pool_address,
+  //         amount: increasedAmount,
+  //       },
+  //       connectionStore.kit),
+  //     reset: () => {
+  //       withdrawAmount.value = undefined
+  //       marketsStore.dialogLeverageWithdraw = false
+  //     },
+  //   })
+  // }
 
   async function reloadData({
     pool_address,
@@ -616,8 +628,8 @@ export function useMarketActions() {
     addCollateral,
     removeCollateral,
 
-    leverage,
-    withdrawLeverage,
+    // leverage,
+    // withdrawLeverage,
 
     addTrustLine,
 

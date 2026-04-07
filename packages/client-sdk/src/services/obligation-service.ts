@@ -1,4 +1,4 @@
-import type { Obligation } from '@alula/market-sdk'
+import type { Obligation, ObligationKey } from '@alula/market-sdk'
 import type { RPCcluster } from '../types'
 import { Client } from '@alula/market-sdk'
 import { BaseClient } from '../core/base-client'
@@ -32,7 +32,7 @@ export class ObligationService extends BaseClient {
   /**
    * Get user obligation
    */
-  async getUserObligation(user: string): Promise<Obligation> {
+  async getUserObligation(user: ObligationKey): Promise<Obligation> {
     const result = await this.client.get_user_obligation({ user })
     return this.unwrapOk(result.result)
   }
@@ -40,16 +40,16 @@ export class ObligationService extends BaseClient {
   /**
    * Get user multiply pair obligation
    */
-  async getUserMultiplyObligation(
-    user: string,
-    depositPoolAddress: string,
-    borrowPoolAddress: string,
-  ): Promise<Obligation> {
-    const result = await this.client.get_multiply_pair_obligation({
-      user,
-      deposit_pool_address: depositPoolAddress,
-      borrow_pool_address: borrowPoolAddress,
-    })
-    return this.unwrapOk(result.result)
-  }
+//   async getUserMultiplyObligation(
+//     user: string,
+//     depositPoolAddress: string,
+//     borrowPoolAddress: string,
+//   ): Promise<Obligation> {
+//     const result = await this.client.get_multiply_pair_obligation({
+//       user,
+//       deposit_pool_address: depositPoolAddress,
+//       borrow_pool_address: borrowPoolAddress,
+//     })
+//     return this.unwrapOk(result.result)
+//   }
 }

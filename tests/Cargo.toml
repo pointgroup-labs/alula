@@ -23,3 +23,6 @@ features = ["testutils"]
 
 [dependencies.market_manager]
 path = "../contracts/market_manager"
+
+[dependencies.proxy-swap-interface]
+workspace = true

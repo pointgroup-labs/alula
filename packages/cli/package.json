@@ -1,6 +1,0 @@
-{
-  "name": "@jlend/cli",
-  "dependencies": {
-    "@stellar/stellar-sdk": "^13.3.0"
-  }
-}

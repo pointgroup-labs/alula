@@ -36,7 +36,6 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
     const borrows = obligation?.borrows ?? []
     const marketState = marketsStore.state.markets[market]?.marketState
     const poolsData = marketState?.pools_data
-    const assetDecimals = marketState?.asset_decimals ?? 7
     const oraclePriceDecimals = marketState?.oracle_price_decimals ?? 0
     for (const borrow of borrows) {
       const [pool_address, bor] = borrow
@@ -44,6 +43,7 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
       if (!activePool) {
         continue
       }
+      const assetDecimals = activePool.pool.token_decimals ?? 7
 
       const rawDept = calculateBorrow(bor.d_tokens, {
         total_borrowed: activePool.pool.total_borrowed,

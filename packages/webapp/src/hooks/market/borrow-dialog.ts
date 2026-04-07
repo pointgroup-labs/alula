@@ -17,6 +17,8 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
 
   const poolData = computed(() => unref(data))
 
+  const tokenDecimals = computed(() => poolData.value?.raw.pool.token_decimals ?? 0)
+
   const agree = ref(false)
 
   const reloadFee = ref(false)
@@ -70,7 +72,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const assetDecimals = tokenDecimals.value
     const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
     const poolsData = marketState.value.pools_data
 
@@ -125,7 +127,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     if (!obligation.value || !marketState.value) {
       return 0
     }
-    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const assetDecimals = tokenDecimals.value
     const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
     const poolsData = marketState.value.pools_data
 
@@ -141,7 +143,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 10
     }
 
-    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const assetDecimals = tokenDecimals.value
     const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
     const poolsData = marketState.value.pools_data
 
@@ -153,7 +155,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const assetDecimals = tokenDecimals.value
     const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
     const poolsData = marketState.value.pools_data
 
@@ -170,7 +172,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const assetDecimals = tokenDecimals.value
     const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
     const poolsData = marketState.value.pools_data
     const collateralValue = collateralValueUsd.value
@@ -194,7 +196,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const assetDecimals = tokenDecimals.value
     const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
     const poolsData = marketState.value.pools_data
     const collateralValue = collateralValueUsd.value
@@ -221,7 +223,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
       return 0
     }
 
-    const assetDecimals = marketState.value.asset_decimals ?? 7
+    const assetDecimals = tokenDecimals.value
     const oraclePriceDecimals = marketState.value.oracle_price_decimals ?? 0
     const poolsData = marketState.value.pools_data
     const collateralValue = collateralValueUsd.value
@@ -317,11 +319,15 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
         try {
           isLoadingFee.value = true
           const tx = await marketClient.value.borrowing.buildBorrowTx(
-            publicKey.value,
+            {
+              user: publicKey.value,
+              seed: undefined,
+            },
             d.raw.pool.pool_address || '',
             0.01,
+            tokenDecimals.value,
           )
-          txFee.value = marketClient.value.borrowing.getTransactionFee(tx)
+          txFee.value = marketClient.value.borrowing.getTransactionFee(tx, tokenDecimals.value)
         } finally {
           isLoadingFee.value = false
         }

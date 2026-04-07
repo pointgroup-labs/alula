@@ -39,7 +39,8 @@
     "typecheck",
     "unhead",
     "unplugin",
-    "vueuse"
+    "vueuse",
+    "wasms"
   ],
   // Enable the ESlint flat config support
   "eslint.useFlatConfig": true,

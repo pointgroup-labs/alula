@@ -163,7 +163,6 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         price_data.price = normalized_price;
 
         // Update the cache
-        // TODO: Create a cache per (oracle_address, asset_address) pair?
         oracle_cache.set(token_address.clone(), price_data);
         storage::set_oracle_price_data_cache(e, &oracle_config.address, &oracle_cache);
 

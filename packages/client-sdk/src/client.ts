@@ -2,7 +2,7 @@ import type { RPCcluster } from './types'
 import { ObligationService } from './services'
 import { BorrowingService } from './services/borrowing-service'
 import { LendingService } from './services/lending-service'
-import { LeverageService } from './services/leverage-service'
+// import { LeverageService } from './services/leverage-service'
 import { MarketManagerService } from './services/market-manager-service'
 import { MarketService } from './services/market-service'
 import { WalletService } from './services/wallet-service'
@@ -56,7 +56,7 @@ export class StellarClient {
   public readonly obligation: ObligationService
   public readonly lending: LendingService
   public readonly borrowing: BorrowingService
-  public readonly leverage: LeverageService
+  // public readonly leverage: LeverageService
   public readonly wallet: WalletService
   public readonly marketManager: MarketManagerService
   public readonly horizonRpcUrl?: string
@@ -79,7 +79,7 @@ export class StellarClient {
 
     this.lending = new LendingService({ ...context, decimals })
     this.borrowing = new BorrowingService({ ...context, decimals })
-    this.leverage = new LeverageService({ ...context, decimals })
+    // this.leverage = new LeverageService({ ...context, decimals })
     this.wallet = new WalletService(context)
     this.obligation = new ObligationService(context)
     this.marketManager = new MarketManagerService(context)

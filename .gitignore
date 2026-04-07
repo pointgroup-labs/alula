@@ -50,8 +50,8 @@ node_modules/
 .eslintcache
 
 # dotenv environment variable files
-# .env
-# .env.*
+.env
+.env.*
 
 # logs
 *.log
@@ -72,6 +72,9 @@ pids
 **/test_snapshots/
 
 .claude
+CLAUDE.md
+
+/contracts/controlled-oracle
 
 
 # UI package
@@ -92,4 +95,3 @@ packages/sdk/node_modules/
 
 # CLI package
 packages/cli/node_modules/
-CLAUDE.md

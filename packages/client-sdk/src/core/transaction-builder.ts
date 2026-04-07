@@ -1,4 +1,5 @@
 import type { RPCcluster } from '../types'
+import { ObligationKey } from '@alula/market-sdk'
 import { TransactionBuilder } from '@stellar/stellar-sdk'
 import { getNetworkPassphrase, sendSorobanTx } from '../utils'
 import { parseStellarError } from '../utils/errors'
@@ -18,7 +19,7 @@ export class TransactionHelper {
   /**
    * Sign and send a Soroban transaction
    */
-  async signAndSend(tx: any, user: string, kit: any, options?: { debug?: boolean }) {
+  async signAndSend(tx: any, user: ObligationKey, kit: any, options?: { debug?: boolean }) {
     const networkPassphrase = getNetworkPassphrase(this.rpc)
 
     if (options?.debug) {
@@ -26,7 +27,7 @@ export class TransactionHelper {
     }
 
     const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
-      address: user,
+      address: user.user,
       networkPassphrase,
     })
 

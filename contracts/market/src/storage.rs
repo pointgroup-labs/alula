@@ -3,10 +3,20 @@ use soroban_sdk::{Address, BytesN, Env, Map, String, Vec, contracttype};
 use crate::{
     constants::*,
     error::MCError,
-    multiply_pair::MultiplyPair,
     obligation::{Obligation, ObligationKey},
     pool::{Pool, PoolConfig},
 };
+
+#[contracttype]
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct MarketInitParams {
+    pub max_positions: u32,
+    pub min_collateral_value_cents: i128,
+    pub insolvency_ltv_bps: i128,
+    pub update_in_queue_period: u64,
+    pub is_owned: bool,
+    pub bad_debt_lock_d: u64,
+}
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -16,13 +26,13 @@ pub struct GlobalState {
     pub is_owned: bool,
     pub admin: Address,
     pub oracle: Address,
-    pub swap_provider: Address,
     pub insurance_fund: Address,
     pub deployer: Address,
     pub max_positions: u32,
     pub insolvency_ltv_bps: i128,
     pub min_collateral_value_cents: i128,
-    pub update_in_queue_period: Option<u64>,
+    pub update_in_queue_period: u64,
+    pub bad_debt_lock_d: u64,
 }
 
 #[contracttype]
@@ -76,8 +86,17 @@ impl TryFrom<u32> for MarketStatus {
 
 #[contracttype]
 #[derive(Debug, Eq, PartialEq)]
-pub struct PoolUpdate {
+pub struct QueuedPoolSet {
     pub new_config: PoolConfig,
+    pub queued_in_timestamp: u64,
+}
+
+#[contracttype]
+#[derive(Debug, Eq, PartialEq)]
+pub struct MarketUpdate {
+    pub new_max_positions: u32,
+    pub new_min_collateral_value_cents: i128,
+    pub new_bad_debt_lock_d: u64,
     pub queued_in_timestamp: u64,
 }
 
@@ -94,19 +113,18 @@ pub enum DataKey {
     MaxPositions,
     MarketStatus,
     FarmsContract,
-    ConfigUpdate(Address),
+    QueuedPoolSet(Address),
     Pool(Address),
-    SwapProvider,
     InsuranceFund,
     AllObligations,
     InsolvencyLtvBps,
-    AllMultiplyPairs,
     EarnObligationSeed,
     MinCollateralValueCents,
     UpdateInQueuePeriod,
+    MarketConfigUpdate,
     Obligation(ObligationKey),
-    MultiplyPair((Address, Address)),
     ProposedAdmin,
+    BadDebtLockDuration,
 }
 
 // -- TTL Bumpers --
@@ -136,14 +154,6 @@ pub fn get_oracle(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Oracle).expect("Oracle must be set")
 }
 
-// - SwapProvider -
-pub fn set_swap_provider(e: &Env, swap_provider: &Address) {
-    e.storage().instance().set(&DataKey::SwapProvider, &swap_provider)
-}
-pub fn get_swap_provider(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::SwapProvider).expect("SwapProvider must be set")
-}
-
 // - InsuranceFund -
 pub fn set_insurance_fund(e: &Env, insurance_fund: &Address) {
     e.storage().instance().set(&DataKey::InsuranceFund, &insurance_fund)
@@ -153,14 +163,22 @@ pub fn get_insurance_fund(e: &Env) -> Address {
 }
 
 // - UpdateInQueuePeriod -
-pub fn set_update_in_queue_period(e: &Env, update_in_queue_period: Option<u64>) {
+pub fn set_update_in_queue_period(e: &Env, update_in_queue_period: u64) {
     e.storage().instance().set(&DataKey::UpdateInQueuePeriod, &update_in_queue_period)
 }
-pub fn get_update_in_queue_period(e: &Env) -> Option<u64> {
+pub fn get_update_in_queue_period(e: &Env) -> u64 {
     e.storage()
         .instance()
         .get(&DataKey::UpdateInQueuePeriod)
         .expect("UpdateInQueuePeriod must be set")
+}
+
+// - IsOwned -
+pub fn set_is_owned(e: &Env, is_owned: bool) {
+    e.storage().instance().set(&DataKey::IsOwned, &is_owned)
+}
+pub fn get_is_owned(e: &Env) -> bool {
+    e.storage().instance().get(&DataKey::IsOwned).expect("IsOwned must be set")
 }
 // - MaxPositions -
 pub fn set_max_positions(e: &Env, max_positions: u32) {
@@ -251,6 +269,16 @@ pub fn clear_farms_contract(e: &Env) {
     e.storage().instance().remove(&DataKey::FarmsContract)
 }
 
+pub fn set_bad_debt_lock_d(e: &Env, duration: u64) {
+    e.storage().instance().set(&DataKey::BadDebtLockDuration, &duration)
+}
+pub fn get_bad_debt_lock_d(e: &Env) -> u64 {
+    e.storage()
+        .instance()
+        .get(&DataKey::BadDebtLockDuration)
+        .expect("BadDebtLockDuration must be set")
+}
+
 // ---- Pool ----
 
 // Gets all pools stored in the contract
@@ -304,109 +332,84 @@ pub fn get_pool(e: &Env, pool_address: &Address) -> Option<Pool> {
     res
 }
 
-// Queues in pool's config update
-pub fn queue_in_pool_config_update(
+// Queues in a pool set
+pub fn queue_in_pool_set(
     e: &Env,
     pool_address: &Address,
     config: &PoolConfig,
 ) -> Result<(), MCError> {
-    let key = DataKey::ConfigUpdate(pool_address.clone());
+    let key = DataKey::QueuedPoolSet(pool_address.clone());
     if e.storage().persistent().has(&key) {
-        return Err(MCError::PoolAlreadyContainsQueuedInConfigUpdate);
+        return Err(MCError::PoolAlreadyContainsQueuedPoolSet);
     }
 
-    let pool_update =
-        PoolUpdate { new_config: config.clone(), queued_in_timestamp: e.ledger().timestamp() };
-    e.storage().persistent().set(&key, &pool_update);
+    let queued_pool_set =
+        QueuedPoolSet { new_config: config.clone(), queued_in_timestamp: e.ledger().timestamp() };
+    e.storage().persistent().set(&key, &queued_pool_set);
 
     Ok(())
 }
 
-// Removes pool's config update from the queue
-pub fn remove_pool_config_update(e: &Env, pool_address: &Address) -> Result<(), MCError> {
-    let key = DataKey::ConfigUpdate(pool_address.clone());
+// Removes a queued pool set from the queue
+pub fn remove_queued_pool_set(e: &Env, pool_address: &Address) -> Result<(), MCError> {
+    let key = DataKey::QueuedPoolSet(pool_address.clone());
 
     if !e.storage().persistent().has(&key) {
-        return Err(MCError::PoolDoesNotHaveQueuedInConfigUpdate);
+        return Err(MCError::PoolDoesNotHaveQueuedPoolSet);
     }
     e.storage().persistent().remove(&key);
 
     Ok(())
 }
 
-// Gets pool's config update from the storage
-pub fn get_pool_config_update(e: &Env, pool_address: &Address) -> Option<PoolUpdate> {
-    let config_update = e.storage().persistent().get(&DataKey::ConfigUpdate(pool_address.clone()));
+// Gets a queued pool set from the storage
+pub fn get_queued_pool_set(e: &Env, pool_address: &Address) -> Option<QueuedPoolSet> {
+    let config_update = e.storage().persistent().get(&DataKey::QueuedPoolSet(pool_address.clone()));
     if config_update.is_some() {
-        extend_shared(e, &DataKey::ConfigUpdate(pool_address.clone()));
+        extend_shared(e, &DataKey::QueuedPoolSet(pool_address.clone()));
     }
 
     config_update
 }
 
-// ---- Multiply Pair ----
-
-// Gets all multiply pairs stored in the contract
-pub fn get_all_multiply_pairs(e: &Env) -> Vec<MultiplyPair> {
-    let storage = e.storage().persistent();
-    if let Some(pairs) = storage.get(&DataKey::AllMultiplyPairs) {
-        extend_shared(e, &DataKey::AllMultiplyPairs);
-        pairs
-    } else {
-        Vec::new(e)
-    }
-}
-
-// Registers a new multiply pair in the contract storage and returns its index
-// NB: Does not check for existing pairs, use `multiply_pair_exists` before calling this
-// if you want to avoid duplicates
-pub fn register_multiply_pair(e: &Env, pair: MultiplyPair) -> u32 {
-    let mut pairs = get_all_multiply_pairs(e);
-    pairs.push_back(pair);
-    e.storage().persistent().set(&DataKey::AllMultiplyPairs, &pairs);
-    extend_shared(e, &DataKey::AllMultiplyPairs);
-    pairs.len() - 1
-}
-
-// Sets a multiply pair by its key (deposit and borrow pool addresses)
-pub fn set_multiply_pair(
+// Queues in a market config update
+pub fn queue_in_market_config_update(
     e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-    pair: &MultiplyPair,
-) {
-    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    e.storage().persistent().set(&key, pair);
-    extend_shared(e, &key);
-}
-
-// Checks whether a multiply pair with the given deposit and borrow pool addresses exists
-pub fn multiply_pair_exists(
-    e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> bool {
-    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    let res = e.storage().persistent().has(&key);
-    if res {
-        extend_shared(e, &key);
+    new_max_positions: u32,
+    new_min_collateral_value_cents: i128,
+    new_bad_debt_lock_d: u64,
+) -> Result<(), MCError> {
+    let key = DataKey::MarketConfigUpdate;
+    if e.storage().instance().has(&key) {
+        return Err(MCError::MarketAlreadyContainsQueuedInConfigUpdate);
     }
 
-    res
+    let market_update = MarketUpdate {
+        new_max_positions,
+        new_min_collateral_value_cents,
+        new_bad_debt_lock_d,
+        queued_in_timestamp: e.ledger().timestamp(),
+    };
+    e.storage().instance().set(&key, &market_update);
+
+    Ok(())
 }
 
-// Gets a multiply pair by its key (deposit and borrow pool addresses) if it exists
-pub fn get_multiply_pair(
-    e: &Env,
-    deposit_pool_address: &Address,
-    borrow_pool_address: &Address,
-) -> Option<MultiplyPair> {
-    let key = DataKey::MultiplyPair((deposit_pool_address.clone(), borrow_pool_address.clone()));
-    let res = e.storage().persistent().get(&key);
-    if res.is_some() {
-        extend_shared(e, &key);
+// Removes market config update from the queue
+pub fn remove_market_config_update(e: &Env) -> Result<(), MCError> {
+    let key = DataKey::MarketConfigUpdate;
+
+    if !e.storage().instance().has(&key) {
+        return Err(MCError::MarketDoesNotHaveQueuedInConfigUpdate);
     }
-    res
+    e.storage().instance().remove(&key);
+
+    Ok(())
+}
+
+// Gets market config update from storage
+pub fn get_market_config_update(e: &Env) -> Option<MarketUpdate> {
+    e.storage().instance().get(&DataKey::MarketConfigUpdate)
 }
 
 // ---- Obligation ----
@@ -425,19 +428,6 @@ pub fn get_obligation(e: &Env, obligation_key: &ObligationKey) -> Option<Obligat
     if res.is_some() {
         extend_individual(e, &key);
     }
-    res
-}
-
-// # Returns
-// `true` if an obligation with the given key exists,
-// `false` otherwise
-pub fn obligation_exists(e: &Env, obligation_key: &ObligationKey) -> bool {
-    let key = DataKey::Obligation(obligation_key.clone());
-    let res = e.storage().persistent().has(&key);
-    if res {
-        extend_individual(e, &key);
-    }
-
     res
 }
 
@@ -461,51 +451,6 @@ pub fn get_all_obligations(e: &Env) -> Map<ObligationKey, ()> {
     }
 }
 
-// ---- State Removal(useful only for state resetting on testnet) ----
-
-// Removes a pool from the contract storage by its address
-// Also removes the pool from the list of all pools
-pub fn remove_pool(e: &Env, pool_address: &Address) {
-    let storage = e.storage().persistent();
-    storage.remove(&DataKey::Pool(pool_address.clone()));
-    let mut pools = get_all_pools(e);
-    if let Some(idx) = pools.last_index_of(pool_address) {
-        pools.remove(idx);
-        storage.set(&DataKey::AllPools, &pools);
-    }
-}
-
-// Removes all pools from the contract storage
-// Also clears the list of all pools
-pub fn remove_all_pools(e: &Env) {
-    let storage = e.storage().persistent();
-    for pool in get_all_pools(e) {
-        storage.remove(&DataKey::Pool(pool));
-    }
-    storage.remove(&DataKey::AllPools);
-}
-
-// Removes a multiply pair from the contract storage by its key
-// Also removes the multiply pair from the list of all multiply pairs
-pub fn remove_multiply_pair(e: &Env, pair: &MultiplyPair) {
-    let storage = e.storage().persistent();
-    storage.remove(&DataKey::MultiplyPair(pair.key()));
-    let mut pairs = get_all_multiply_pairs(e);
-    if let Some(idx) = pairs.last_index_of(pair) {
-        pairs.remove(idx);
-        storage.set(&DataKey::AllMultiplyPairs, &pairs);
-    }
-}
-
-// Removes all multiply pairs from the contract storage
-pub fn remove_all_multiply_pairs(e: &Env) {
-    let storage = e.storage().persistent();
-    for pair in get_all_multiply_pairs(e) {
-        storage.remove(&DataKey::MultiplyPair(pair.key()));
-    }
-    storage.remove(&DataKey::AllMultiplyPairs);
-}
-
 // Removes an obligation from the contract storage by its key
 // Also removes the obligation key from the list of all obligations
 pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
@@ -515,14 +460,4 @@ pub fn remove_obligation(e: &Env, obligation_key: &ObligationKey) {
 
     obligations.remove(obligation_key.clone());
     storage.set(&DataKey::AllObligations, &obligations);
-}
-
-// Removes all obligations from the contract storage
-// Also clears the list of all obligations
-pub fn remove_all_obligations(e: &Env) {
-    let storage = e.storage().persistent();
-    for (key, _) in get_all_obligations(e) {
-        storage.remove(&DataKey::Obligation(key));
-    }
-    storage.remove(&DataKey::AllObligations);
 }

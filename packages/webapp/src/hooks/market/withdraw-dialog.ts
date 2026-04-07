@@ -19,7 +19,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
   const activeMarket = computed(() => marketsStore.state.markets[String(marketKey.value)])
 
-  const assetDecimals = computed(() => activeMarket.value?.marketState.asset_decimals ?? 7)
+  const assetDecimals = computed(() => poolData.value?.pool.token_decimals ?? 0)
   const oraclePriceDecimals = computed(() => activeMarket.value?.marketState.oracle_price_decimals ?? 0)
 
   const pool_address = computed(() => poolData.value?.pool.pool_address ?? '')
@@ -214,14 +214,22 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
       return 0
     }
 
-    const maxWithdrawUsd = Number(availableToWithdrawWithPoolLimit.value || 0) * Number(price.value || 0)
-    const nextCollateralValueUsd = Math.max(collateralValueUsd.value - maxWithdrawUsd, 0)
+    const nextCollateralValueUsd = Math.max(collateralValueUsd.value - withdrawAdjustUsd.value, 0)
 
     if (nextCollateralValueUsd <= 0) {
       return 0
     }
 
-    return (currentWeightedBorrowedUsd.value / nextCollateralValueUsd) * 100
+    const poolsData = marketState.value.pools_data
+    const nextDepositWithOpenLtvUsd = Math.max(userTotalDepositByMarket.value - (withdrawAdjustUsd.value * openLtv.value), 0)
+    const positionsWithNonZeroLTV = obligation.value.deposits.filter(([poolAddr]) => {
+      const pool = poolsData.find(p => p.pool.pool_address === poolAddr)
+      return pool && Number(pool.pool.config.health_config.close_ltv_bps) > 0
+    }).length
+    const minCollateralUsd = (Number(marketState.value.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
+    const borrowingCapacityUsd = Math.max(nextDepositWithOpenLtvUsd - currentWeightedBorrowedUsd.value - minCollateralUsd, 0)
+
+    return ((currentWeightedBorrowedUsd.value + borrowingCapacityUsd) / nextCollateralValueUsd) * 100
   })
 
   async function withdraw() {
@@ -237,7 +245,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
       const marketProps = {
         market: activeMarket.value!.marketName,
-        client: activeMarket.value!.client,
+        client: activeMarket.value!.client!,
         pool_address: pool_address.value,
         amount: amount.value,
         asset_data: poolData.value.pool.name,
@@ -274,10 +282,13 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
           return
         }
 
-        const feeData = await activeMarket.value?.client.market.simulateWithdraw(
-          publicKey.value,
+        const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+
+        const feeData = await activeMarket.value?.client!.market.simulateWithdraw(
+          oblKey,
           pool_address.value,
           a,
+          assetDecimals.value,
         )
         const feeSum = feeData?.operation_fees?.fee_sum
         poolFee.value = feeSum ? Number(bigintToNumber(feeSum, assetDecimals.value)) : 0
@@ -297,12 +308,16 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
 
         try {
           isLoadingFee.value = true
-          const tx = await activeMarket.value?.client.lending.buildWithdrawTx(
-            publicKey.value,
+
+          const oblKey = buildObligationKey({ pablicKey: publicKey.value })
+
+          const tx = await activeMarket.value?.client!.lending.buildWithdrawTx(
+            oblKey,
             r.pool.pool_address,
             0.1,
+            assetDecimals.value,
           )
-          txFee.value = activeMarket.value?.client.lending.getTransactionFee(tx) ?? 0
+          txFee.value = activeMarket.value?.client!.lending.getTransactionFee(tx, assetDecimals.value) ?? 0
         } finally {
           isLoadingFee.value = false
         }

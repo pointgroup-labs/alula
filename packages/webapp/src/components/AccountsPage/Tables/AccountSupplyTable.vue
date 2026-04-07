@@ -30,7 +30,6 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
     const deposits = userStore.state.obligations[market]?.deposits ?? []
     const marketState = marketsStore.state.markets[market]?.marketState
     const poolsData = marketState?.pools_data
-    const assetDecimals = marketState?.asset_decimals ?? 7
     const oraclePriceDecimals = marketState?.oracle_price_decimals ?? 0
     for (const deposit of deposits) {
       const [pool_address, dep] = deposit
@@ -38,6 +37,8 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
       if (!activePool) {
         continue
       }
+
+      const assetDecimals = activePool.pool.token_decimals ?? 7
 
       const available = Number(bigintToNumber(activePool.total_available_adjusted, assetDecimals))
 

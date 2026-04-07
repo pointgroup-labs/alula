@@ -4,7 +4,9 @@
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{Env, contracttype, panic_with_error};
 
-use crate::{constants::*, error::MCError, interest_rate_model::InterestRate, utils::MathUtils};
+use crate::{
+    constants::*, error::MCError, interest_rate_model::InterestRate, math_utils::MathUtils,
+};
 
 #[contracttype]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

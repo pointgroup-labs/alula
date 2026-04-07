@@ -21,7 +21,6 @@ export function useMarketTable() {
     const markets = Object.entries(marketsStore.state.markets)
     const preparedTableData = []
     for (const [marketName, data] of markets) {
-      const assetDecimals = data?.marketState.asset_decimals ?? 0
       const oraclePriceDecimals = data?.marketState.oracle_price_decimals ?? 0
       const poolsData = data?.marketState?.pools_data ?? []
       const assets: TableAsset['asset'][] = []
@@ -31,6 +30,7 @@ export function useMarketTable() {
       }
       const tableItems = poolsData?.map((d) => {
         const pool = d.pool
+        const assetDecimals = pool.token_decimals ?? 7
         const obligation = userStore.state.obligations[marketName]
         const depositPosition = obligation?.deposits?.find(([addr]) => addr === pool.pool_address)?.[1]
         const borrowPosition = obligation?.borrows?.find(([addr]) => addr === pool.pool_address)?.[1]
