@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "pnpm build:sdk && nuxt dev",
     "build": "cross-env NUXT_ENV=production nuxt generate",
-    "build:market-sdk": "pnpm -r --filter market --filter market_manager run build",
+    "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build",
     "build:client-sdk": "pnpm -r --filter @alula/client-sdk run build",
     "build:sdk": "pnpm build:market-sdk && pnpm build:client-sdk",
     "build:ssg": "pnpm build:sdk && cross-env NUXT_ENV=production nuxt generate",
