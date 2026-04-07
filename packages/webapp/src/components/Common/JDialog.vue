@@ -18,6 +18,8 @@ const dialog = defineModel({
     :title="title"
     centered
     scrollable
+    lazy
+    unmount-lazy
     no-footer
     class="j-dialog"
     :class="className"

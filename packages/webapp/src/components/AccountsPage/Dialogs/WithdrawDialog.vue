@@ -6,13 +6,6 @@ const activePool = computed(() => marketsStore.activeMarket?.marketState?.pools_
 const asset = computed(() => getFullTokenData(activePool.value?.pool?.token_symbol ?? ''))
 
 const dialog = defineModel({ default: false })
-const isOpen = ref(false)
-
-watch(dialog, () => {
-  setTimeout(() => {
-    isOpen.value = dialog.value
-  }, dialog.value ? 0 : 500)
-})
 </script>
 
 <template>
@@ -30,10 +23,7 @@ watch(dialog, () => {
       </div>
     </template>
 
-    <div
-      v-if="isOpen"
-      class="dialog-default__body"
-    >
+    <div class="dialog-default__body">
       <withdraw-window opened />
     </div>
   </j-dialog>

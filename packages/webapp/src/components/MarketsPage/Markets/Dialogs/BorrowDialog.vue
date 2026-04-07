@@ -6,11 +6,6 @@ const props = defineProps<{ data?: MarketTableItem }>()
 const poolData = toRef(props, 'data')
 
 const dialog = defineModel({ default: false })
-const isOpen = ref(false)
-
-watch(dialog, (v) => {
-  setTimeout(() => isOpen.value = v, v ? 0 : 500)
-})
 
 provide('selectedPool', poolData)
 </script>
@@ -30,10 +25,7 @@ provide('selectedPool', poolData)
       </div>
     </template>
 
-    <div
-      v-if="isOpen"
-      class="dialog-default__body"
-    >
+    <div class="dialog-default__body">
       <borrow-window
         :with-selected-pool="false"
         opened
