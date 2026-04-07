@@ -43,7 +43,6 @@ export interface WithdrawLeverageParams {
 export class LeverageService extends BaseClient {
   private client: Client
   private txHelper: TransactionHelper
-  private decimals: DecimalsConfig
 
   constructor(config: LeverageServiceConfig) {
     super(config)
@@ -56,7 +55,6 @@ export class LeverageService extends BaseClient {
     })
 
     this.txHelper = new TransactionHelper(config.rpc, this.sorobanServer)
-    this.decimals = config.decimals
   }
 
   /**

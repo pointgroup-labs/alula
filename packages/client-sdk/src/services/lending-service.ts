@@ -24,7 +24,6 @@ export interface LendingServiceConfig {
 export class LendingService extends BaseClient {
   private client: Client
   private txHelper: TransactionHelper
-  private decimals: DecimalsConfig
 
   constructor(config: LendingServiceConfig) {
     super(config)
@@ -37,7 +36,6 @@ export class LendingService extends BaseClient {
     })
 
     this.txHelper = new TransactionHelper(config.rpc, this.sorobanServer)
-    this.decimals = config.decimals
   }
 
   /**
