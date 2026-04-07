@@ -214,14 +214,22 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
       return 0
     }
 
-    const maxWithdrawUsd = Number(availableToWithdrawWithPoolLimit.value || 0) * Number(price.value || 0)
-    const nextCollateralValueUsd = Math.max(collateralValueUsd.value - maxWithdrawUsd, 0)
+    const nextCollateralValueUsd = Math.max(collateralValueUsd.value - withdrawAdjustUsd.value, 0)
 
     if (nextCollateralValueUsd <= 0) {
       return 0
     }
 
-    return (currentWeightedBorrowedUsd.value / nextCollateralValueUsd) * 100
+    const poolsData = marketState.value.pools_data
+    const nextDepositWithOpenLtvUsd = Math.max(userTotalDepositByMarket.value - (withdrawAdjustUsd.value * openLtv.value), 0)
+    const positionsWithNonZeroLTV = obligation.value.deposits.filter(([poolAddr]) => {
+      const pool = poolsData.find(p => p.pool.pool_address === poolAddr)
+      return pool && Number(pool.pool.config.health_config.close_ltv_bps) > 0
+    }).length
+    const minCollateralUsd = (Number(marketState.value.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
+    const borrowingCapacityUsd = Math.max(nextDepositWithOpenLtvUsd - currentWeightedBorrowedUsd.value - minCollateralUsd, 0)
+
+    return ((currentWeightedBorrowedUsd.value + borrowingCapacityUsd) / nextCollateralValueUsd) * 100
   })
 
   async function withdraw() {
