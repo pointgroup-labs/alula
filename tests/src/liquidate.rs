@@ -1,6 +1,10 @@
 #![cfg(test)]
 
-use market::{constants::BPS_FACTOR, error::MCError, obligation::ObligationKey};
+use market::{
+    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D},
+    error::MCError,
+    obligation::ObligationKey,
+};
 use soroban_sdk::{
     Address,
     testutils::{Address as _, Ledger},
@@ -578,7 +582,7 @@ fn test_min_collateral_seized() {
     let update_in_queue_period =
         test.fixture.contract_client.get_global_state().update_in_queue_period;
 
-    test.fixture.contract_client.queue_in_market_update(&10, &1);
+    test.fixture.contract_client.queue_in_market_update(&10, &1, &DEFAULT_BAD_DEBT_LOCK_D);
     test.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
     test.fixture.contract_client.refresh_pool(&test.borrow_pool_address);
     test.fixture.contract_client.refresh_pool(&test.collateral_pool_address);
@@ -612,7 +616,7 @@ fn test_liquidated_all_mixed_collateral() {
 
     test.wait_n_years(3);
 
-    test.fixture.contract_client.queue_in_market_update(&10, &1);
+    test.fixture.contract_client.queue_in_market_update(&10, &1, &DEFAULT_BAD_DEBT_LOCK_D);
     test.fixture.e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
     test.fixture.contract_client.refresh_pool(&test.borrow_pool_address);
     test.fixture.contract_client.refresh_pool(&test.collateral_pool_address);

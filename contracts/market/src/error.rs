@@ -33,6 +33,7 @@ pub enum MCError {
     MarketAlreadyContainsQueuedInConfigUpdate = 111,
     MarketDoesNotHaveQueuedInConfigUpdate = 112,
     MarketConfigUpdateIsNotYetApplicable = 113,
+    PoolBadDebtLocked = 114,
 
     // Obligation-related errors (200-299)
     ObligationDoesNotExist = 200,

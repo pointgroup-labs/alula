@@ -230,6 +230,8 @@ fn test_borrow_exceeds_utilization_cap() {
         BORROW_AMOUNT.fixed_mul_ceil(BPS_FACTOR - borrow_fee_bps as i128, BPS_FACTOR).unwrap()
     );
 
+    // -- Try to borrow more than UR cap allows --
+
     assert_eq!(
         contract_client.try_borrow(
             &ObligationKey::new(borrower.clone()),
@@ -554,6 +556,7 @@ fn test_borrow_w_different_token_decimals() {
                 insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                 update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                 is_owned: true,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
             },
         ),
     );

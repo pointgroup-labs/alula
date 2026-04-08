@@ -1,7 +1,8 @@
 #![cfg(test)]
 
 use ::market::constants::{
-    DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, MAX_RESERVES,
+    DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS,
+    DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, MAX_RESERVES,
 };
 use market_manager::contract::{MarketInitParams, MarketManagerClient, MarketManagerContract};
 use soroban_sdk::{Address, BytesN, Env, String, testutils::Address as _};
@@ -45,6 +46,7 @@ fn default_params(is_owned: bool) -> MarketInitParams {
         insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
         update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
         is_owned,
+        bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
     }
 }
 
@@ -157,6 +159,7 @@ fn test_manager_invalid_deploy() {
                     insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                     update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                     is_owned: false,
+                    bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
                 },
             )
             .is_err(),
@@ -176,6 +179,7 @@ fn test_manager_invalid_deploy() {
                     insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                     update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                     is_owned: false,
+                    bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
                 },
             )
             .is_err(),
@@ -195,6 +199,7 @@ fn test_manager_invalid_deploy() {
                     insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                     update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                     is_owned: false,
+                    bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
                 },
             )
             .is_ok(),

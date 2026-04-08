@@ -22,7 +22,7 @@ use controlled_insurance_fund::ControlledInsuranceFundContractClient;
 use insurance_fund_interface::InsuranceFundClient;
 use market::{
     constants::{
-        BPS_FACTOR, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
+        BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MAX_POSITIONS,
         DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, INDIVIDUAL_BUMP,
     },
     contract::{MarketClient, MarketContract, MarketContractClient},
@@ -161,6 +161,7 @@ impl TestMarketFixture<'_> {
                     insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                     update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                     is_owned: true,
+                    bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
                 },
             ),
         );
@@ -961,6 +962,7 @@ pub fn setup_market_client<'a>(e: &Env, is_owned: bool) -> MarketClient<'a> {
                 insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                 update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                 is_owned,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
             },
         ),
     );

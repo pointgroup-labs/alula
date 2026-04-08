@@ -2,7 +2,8 @@
 
 use market::{
     constants::{
-        DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, MAX_RESERVES,
+        DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS,
+        DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS, MAX_RESERVES,
     },
     contract::{MarketClient, MarketContract},
     error::MCError,
@@ -121,6 +122,7 @@ fn test_constructor_rejects_invalid_min_collateral_value_cents() {
                 insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                 update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                 is_owned: false,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
             },
         ),
     );
@@ -144,6 +146,7 @@ fn test_constructor_accepts_boundary_min_collateral_value_cents() {
                 insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                 update_in_queue_period: DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS,
                 is_owned: false,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
             },
         ),
     );

@@ -15,6 +15,7 @@ pub struct MarketInitParams {
     pub insolvency_ltv_bps: i128,
     pub update_in_queue_period: u64,
     pub is_owned: bool,
+    pub bad_debt_lock_d: u64,
 }
 
 #[contracttype]
@@ -31,6 +32,7 @@ pub struct GlobalState {
     pub insolvency_ltv_bps: i128,
     pub min_collateral_value_cents: i128,
     pub update_in_queue_period: u64,
+    pub bad_debt_lock_d: u64,
 }
 
 #[contracttype]
@@ -94,6 +96,7 @@ pub struct QueuedPoolSet {
 pub struct MarketUpdate {
     pub new_max_positions: u32,
     pub new_min_collateral_value_cents: i128,
+    pub new_bad_debt_lock_d: u64,
     pub queued_in_timestamp: u64,
 }
 
@@ -121,6 +124,7 @@ pub enum DataKey {
     MarketConfigUpdate,
     Obligation(ObligationKey),
     ProposedAdmin,
+    BadDebtLockDuration,
 }
 
 // -- TTL Bumpers --
@@ -265,6 +269,16 @@ pub fn clear_farms_contract(e: &Env) {
     e.storage().instance().remove(&DataKey::FarmsContract)
 }
 
+pub fn set_bad_debt_lock_d(e: &Env, duration: u64) {
+    e.storage().instance().set(&DataKey::BadDebtLockDuration, &duration)
+}
+pub fn get_bad_debt_lock_d(e: &Env) -> u64 {
+    e.storage()
+        .instance()
+        .get(&DataKey::BadDebtLockDuration)
+        .expect("BadDebtLockDuration must be set")
+}
+
 // ---- Pool ----
 
 // Gets all pools stored in the contract
@@ -363,6 +377,7 @@ pub fn queue_in_market_config_update(
     e: &Env,
     new_max_positions: u32,
     new_min_collateral_value_cents: i128,
+    new_bad_debt_lock_d: u64,
 ) -> Result<(), MCError> {
     let key = DataKey::MarketConfigUpdate;
     if e.storage().instance().has(&key) {
@@ -372,6 +387,7 @@ pub fn queue_in_market_config_update(
     let market_update = MarketUpdate {
         new_max_positions,
         new_min_collateral_value_cents,
+        new_bad_debt_lock_d,
         queued_in_timestamp: e.ledger().timestamp(),
     };
     e.storage().instance().set(&key, &market_update);

@@ -2,8 +2,8 @@
 
 use market::{
     constants::{
-        DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MIN_COLLATERAL_VALUE_CENTS, MAX_RESERVES,
-        POOL_STATUS_DEPOSIT_ENABLED,
+        DEFAULT_BAD_DEBT_LOCK_D, DEFAULT_INSOLVENCY_LTV_BPS, DEFAULT_MIN_COLLATERAL_VALUE_CENTS,
+        MAX_BAD_DEBT_LOCK_D, MAX_RESERVES, POOL_STATUS_DEPOSIT_ENABLED,
     },
     error::MCError,
     obligation::ObligationKey,
@@ -243,7 +243,7 @@ fn test_update_market_fails_for_permissionless_market() {
     );
 
     assert_eq!(
-        contract_client.try_queue_in_market_update(&1, &1),
+        contract_client.try_queue_in_market_update(&1, &1, &DEFAULT_BAD_DEBT_LOCK_D),
         Err(Ok(MCError::MarketIsNotOwned))
     );
 }
@@ -276,7 +276,7 @@ fn test_update_pool_in_permissionless_market_fails() {
     );
 
     assert_eq!(
-        contract_client.try_queue_in_market_update(&1, &1),
+        contract_client.try_queue_in_market_update(&1, &1, &DEFAULT_BAD_DEBT_LOCK_D),
         Err(Ok(MCError::MarketIsNotOwned))
     );
 }
@@ -504,19 +504,32 @@ fn test_queue_in_market_config_update() {
     const MIN_COLLATERAL_VALUE_CENTS: i128 = 10;
 
     assert_eq!(
-        contract_client.try_queue_in_market_update(&(MAX_POSITIONS + 1), &0),
+        contract_client.try_queue_in_market_update(
+            &(MAX_POSITIONS + 1),
+            &0,
+            &DEFAULT_BAD_DEBT_LOCK_D,
+        ),
         Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
     assert_eq!(
-        contract_client.try_queue_in_market_update(&(MAX_POSITIONS), &-1),
+        contract_client
+            .try_queue_in_market_update(&(MAX_POSITIONS), &-1, &DEFAULT_BAD_DEBT_LOCK_D,),
         Err(Ok(MCError::InvalidInputAmount))
     );
     assert_eq!(
-        contract_client.try_queue_in_market_update(&(1), &MIN_COLLATERAL_VALUE_CENTS),
+        contract_client.try_queue_in_market_update(
+            &(1),
+            &MIN_COLLATERAL_VALUE_CENTS,
+            &DEFAULT_BAD_DEBT_LOCK_D,
+        ),
         Err(Ok(MCError::InvalidMarketConfigOrUpdate))
     );
 
-    contract_client.queue_in_market_update(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);
+    contract_client.queue_in_market_update(
+        &MAX_POSITIONS,
+        &MIN_COLLATERAL_VALUE_CENTS,
+        &DEFAULT_BAD_DEBT_LOCK_D,
+    );
 
     let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
 
@@ -557,7 +570,11 @@ fn test_cancel_market_config_update() {
     const MAX_POSITIONS: u32 = MAX_RESERVES;
     const MIN_COLLATERAL_VALUE_CENTS: i128 = 10;
 
-    contract_client.queue_in_market_update(&MAX_POSITIONS, &MIN_COLLATERAL_VALUE_CENTS);
+    contract_client.queue_in_market_update(
+        &MAX_POSITIONS,
+        &MIN_COLLATERAL_VALUE_CENTS,
+        &DEFAULT_BAD_DEBT_LOCK_D,
+    );
 
     let queued_update = contract_client.get_market_queued_in_update();
     assert_eq!(queued_update.new_max_positions, MAX_POSITIONS);
@@ -576,10 +593,10 @@ fn test_queue_in_market_config_update_fails_when_already_queued() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);
 
-    contract_client.queue_in_market_update(&MAX_RESERVES, &10);
+    contract_client.queue_in_market_update(&MAX_RESERVES, &10, &DEFAULT_BAD_DEBT_LOCK_D);
 
     assert_eq!(
-        contract_client.try_queue_in_market_update(&MAX_RESERVES, &20),
+        contract_client.try_queue_in_market_update(&MAX_RESERVES, &20, &DEFAULT_BAD_DEBT_LOCK_D,),
         Err(Ok(MCError::MarketAlreadyContainsQueuedInConfigUpdate))
     );
 }
@@ -631,6 +648,7 @@ fn test_anyone_cannot_freeze_market_via_controlled_insurance_fund() {
                 insolvency_ltv_bps,
                 update_in_queue_period,
                 is_owned,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
             },
         ),
     );
@@ -736,6 +754,7 @@ fn test_apply_pool_set_has_no_auth_check() {
                 insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                 update_in_queue_period: 100,
                 is_owned: true,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
             },
         ),
     );
@@ -810,6 +829,7 @@ fn test_apply_market_update_requires_owned_and_admin() {
                 insolvency_ltv_bps: DEFAULT_INSOLVENCY_LTV_BPS,
                 update_in_queue_period: 100,
                 is_owned: true,
+                bad_debt_lock_d: DEFAULT_BAD_DEBT_LOCK_D,
             },
         ),
     );
@@ -829,12 +849,12 @@ fn test_apply_market_update_requires_owned_and_admin() {
     let queue_invoke = MockAuthInvoke {
         contract: &market_addr,
         fn_name: "queue_in_market_update",
-        args: (MAX_RESERVES, 10i128).into_val(&e),
+        args: (MAX_RESERVES, 10i128, DEFAULT_BAD_DEBT_LOCK_D).into_val(&e),
         sub_invokes: &[],
     };
     market
         .mock_auths(&[MockAuth { address: &admin, invoke: &queue_invoke }])
-        .queue_in_market_update(&MAX_RESERVES, &10);
+        .queue_in_market_update(&MAX_RESERVES, &10, &DEFAULT_BAD_DEBT_LOCK_D);
 
     e.ledger().with_mut(|li| li.timestamp += 100);
 
@@ -982,15 +1002,63 @@ fn test_min_collateral_value_cents_validation_on_market_update() {
     let contract_client = setup_market_client(&e, true);
 
     assert_eq!(
-        contract_client.try_queue_in_market_update(&MAX_RESERVES, &10_001),
+        contract_client.try_queue_in_market_update(
+            &MAX_RESERVES,
+            &10_001,
+            &DEFAULT_BAD_DEBT_LOCK_D,
+        ),
         Err(Ok(MCError::InvalidMarketConfigOrUpdate)),
         "min_collateral_value_cents should be capped at MAX_COLLATERAL_VALUE_CENTS (10_000)"
     );
 
     assert!(
-        contract_client.try_queue_in_market_update(&MAX_RESERVES, &10_000).is_ok(),
+        contract_client
+            .try_queue_in_market_update(&MAX_RESERVES, &10_000, &DEFAULT_BAD_DEBT_LOCK_D)
+            .is_ok(),
         "10_000 cents ($100) should be accepted"
     );
+}
+
+#[test]
+fn test_bad_debt_lock_d_validation_on_market_update() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    assert_eq!(
+        contract_client.try_queue_in_market_update(&MAX_RESERVES, &0, &(MAX_BAD_DEBT_LOCK_D + 1),),
+        Err(Ok(MCError::InvalidMarketConfigOrUpdate)),
+        "Value exceeding MAX_BAD_DEBT_LOCK_D should be rejected"
+    );
+
+    assert!(
+        contract_client.try_queue_in_market_update(&MAX_RESERVES, &0, &0).is_ok(),
+        "0 (no lock) should be accepted"
+    );
+}
+
+#[test]
+fn test_apply_market_update_sets_bad_debt_lock_d() {
+    let e = get_default_env();
+    let contract_client = setup_market_client(&e, true);
+
+    const NEW_LOCK_DURATION: u64 = 6 * 3600; // 6 hours
+
+    contract_client.queue_in_market_update(&MAX_RESERVES, &0, &NEW_LOCK_DURATION);
+
+    let queued = contract_client.get_market_queued_in_update();
+    assert_eq!(queued.new_bad_debt_lock_d, NEW_LOCK_DURATION);
+
+    let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_market_update();
+
+    // Queue a second update with a different value to confirm the first took effect
+    contract_client.queue_in_market_update(&MAX_RESERVES, &0, &0);
+    let queued2 = contract_client.get_market_queued_in_update();
+    assert_eq!(queued2.new_bad_debt_lock_d, 0);
+
+    e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
+    contract_client.apply_market_update();
 }
 
 #[test]

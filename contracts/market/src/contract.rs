@@ -39,10 +39,12 @@ pub trait Market {
     // # Arguments
     // * `new_max_positions` - updated maximum number of positions that a single obligation can have
     // * `new_min_collateral_value_cents` - updated minimum collateral allowed
+    // * `new_bad_debt_lock_d` - updated bad debt lock duration
     fn queue_in_market_update(
         e: Env,
         new_max_positions: u32,
         new_min_collateral_value_cents: i128,
+        new_bad_debt_lock_d: u64,
     ) -> Result<(), MCError>;
 
     // Cancels market config update if it exists in the update queue
@@ -436,6 +438,7 @@ impl Market for MarketContract {
         e: Env,
         new_max_positions: u32,
         new_min_collateral_value_cents: i128,
+        new_bad_debt_lock_d: u64,
     ) -> Result<(), MCError> {
         require_owned_and_admin(&e)?;
         require_nonnegative(new_min_collateral_value_cents)?;
@@ -444,6 +447,7 @@ impl Market for MarketContract {
         if !(2..=MAX_RESERVES).contains(&new_max_positions)
             || !(MIN_COLLATERAL_VALUE_CENTS..=MAX_COLLATERAL_VALUE_CENTS)
                 .contains(&new_min_collateral_value_cents)
+            || !(MIN_BAD_DEBT_LOCK_D..=MAX_BAD_DEBT_LOCK_D).contains(&new_bad_debt_lock_d)
         {
             return Err(MCError::InvalidMarketConfigOrUpdate);
         }
@@ -452,12 +456,14 @@ impl Market for MarketContract {
             &e,
             new_max_positions,
             new_min_collateral_value_cents,
+            new_bad_debt_lock_d,
         )?;
 
         events::queue_in_market_config_update(
             &e,
             new_max_positions,
             new_min_collateral_value_cents,
+            new_bad_debt_lock_d,
         );
 
         Ok(())
@@ -478,29 +484,33 @@ impl Market for MarketContract {
         require_owned_and_admin(&e)?;
         storage::extend_instance(&e);
 
-        let market_update = storage::get_market_config_update(&e)
+        let MarketUpdate {
+            new_max_positions,
+            new_min_collateral_value_cents,
+            new_bad_debt_lock_d,
+            queued_in_timestamp,
+        } = storage::get_market_config_update(&e)
             .ok_or(MCError::MarketDoesNotHaveQueuedInConfigUpdate)?;
 
         let update_period = storage::get_update_in_queue_period(&e);
         let current_time = e.ledger().timestamp();
 
         if current_time
-            < market_update
-                .queued_in_timestamp
-                .checked_add(update_period)
-                .ok_or(MCError::OverOrUnderflow)?
+            < queued_in_timestamp.checked_add(update_period).ok_or(MCError::OverOrUnderflow)?
         {
             return Err(MCError::MarketConfigUpdateIsNotYetApplicable);
         }
 
-        storage::set_max_positions(&e, market_update.new_max_positions);
-        storage::set_min_collateral_value_cents(&e, market_update.new_min_collateral_value_cents);
+        storage::set_max_positions(&e, new_max_positions);
+        storage::set_min_collateral_value_cents(&e, new_min_collateral_value_cents);
+        storage::set_bad_debt_lock_d(&e, new_bad_debt_lock_d);
         storage::remove_market_config_update(&e)?;
 
         events::apply_market_config_update(
             &e,
-            market_update.new_max_positions,
-            market_update.new_min_collateral_value_cents,
+            new_max_positions,
+            new_min_collateral_value_cents,
+            new_bad_debt_lock_d,
         );
 
         Ok(())
@@ -974,22 +984,16 @@ impl MarketContract {
         deployer: Address,
         params: MarketInitParams,
     ) -> Result<(), MCError> {
+        verify_market_params(&params)?;
+
         let MarketInitParams {
             max_positions,
             min_collateral_value_cents,
             insolvency_ltv_bps,
             update_in_queue_period,
             is_owned,
+            bad_debt_lock_d,
         } = params;
-
-        require_nonnegative(min_collateral_value_cents)?;
-        if !(2..=MAX_RESERVES).contains(&max_positions)
-            || !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps)
-            || !(MIN_COLLATERAL_VALUE_CENTS..=MAX_COLLATERAL_VALUE_CENTS)
-                .contains(&min_collateral_value_cents)
-        {
-            return Err(MCError::InvalidMarketConfigOrUpdate);
-        }
 
         let market_status = if is_owned { MarketStatus::Frozen } else { MarketStatus::Active };
 
@@ -1004,6 +1008,7 @@ impl MarketContract {
         storage::set_is_owned(&e, is_owned);
         storage::set_min_collateral_value_cents(&e, min_collateral_value_cents);
         storage::set_insolvency_ltv_bps(&e, insolvency_ltv_bps);
+        storage::set_bad_debt_lock_d(&e, bad_debt_lock_d);
 
         Ok(())
     }
@@ -1058,4 +1063,30 @@ impl MarketContract {
 
         Ok(())
     }
+}
+
+// -- Helpers --
+
+fn verify_market_params(params: &MarketInitParams) -> Result<(), MCError> {
+    let &MarketInitParams {
+        min_collateral_value_cents,
+        bad_debt_lock_d,
+        update_in_queue_period: _,
+        insolvency_ltv_bps,
+        max_positions,
+        is_owned: _,
+    } = params;
+
+    require_nonnegative(min_collateral_value_cents)?;
+
+    if !(2..=MAX_RESERVES).contains(&max_positions)
+        || !(MIN_INSOLVENCY_LTV_BPS..=MAX_INSOLVENCY_LTV_BPS).contains(&insolvency_ltv_bps)
+        || !(MIN_COLLATERAL_VALUE_CENTS..=MAX_COLLATERAL_VALUE_CENTS)
+            .contains(&min_collateral_value_cents)
+        || !(MIN_BAD_DEBT_LOCK_D..=MAX_BAD_DEBT_LOCK_D).contains(&bad_debt_lock_d)
+    {
+        return Err(MCError::InvalidMarketConfigOrUpdate);
+    }
+
+    Ok(())
 }

@@ -2,7 +2,7 @@
 
 use controlled_insurance_fund::storage::DataKey;
 use market::{
-    constants::{BPS_FACTOR, SECONDS_IN_YEAR},
+    constants::{BPS_FACTOR, DEFAULT_BAD_DEBT_LOCK_D, SECONDS_IN_YEAR},
     error::MCError,
     misc::{MarketData, PoolData},
     obligation::ObligationKey,
@@ -272,7 +272,7 @@ fn test_too_many_positions() {
 
     let update_in_queue_period = contract_client.get_global_state().update_in_queue_period;
 
-    contract_client.queue_in_market_update(&2, &1);
+    contract_client.queue_in_market_update(&2, &1, &DEFAULT_BAD_DEBT_LOCK_D);
     e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
     contract_client.apply_market_update();
 
@@ -327,7 +327,7 @@ fn test_too_many_positions() {
         Err(Ok(MCError::TooManyPositions))
     );
 
-    contract_client.queue_in_market_update(&3, &1);
+    contract_client.queue_in_market_update(&3, &1, &DEFAULT_BAD_DEBT_LOCK_D);
     e.ledger().with_mut(|li| li.timestamp += update_in_queue_period);
     contract_client.apply_market_update();
 

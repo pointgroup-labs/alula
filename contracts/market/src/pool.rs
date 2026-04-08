@@ -62,6 +62,10 @@ pub struct Pool {
     pub farm_supply: Option<BytesN<32>>,
     // Farm ID for debt incentives (d-token staking)
     pub farm_debt: Option<BytesN<32>>,
+    // Timestamp deadline after which the bad debt lock expires (0 = no lock)
+    pub bad_debt_lock_d: u64,
+    // Number of unresolved insurance fund coverage requests referencing this pool
+    pub bad_debt_request_count: u32,
 }
 
 macro_rules! generate_adjust_method {
@@ -527,7 +531,7 @@ impl Pool {
         removed_available_amount: i128,
     ) -> Result<(), MCError> {
         let max_available_amount_to_remove =
-            Self::compute_available_utilization_ratio_cap_borrow(self, e)?;
+            Self::compute_available_utilization_ratio_capped_borrow(self, e)?;
 
         if removed_available_amount > max_available_amount_to_remove {
             return Err(MCError::PoolUtilizationRatioCapExceeded);
@@ -542,6 +546,18 @@ impl Pool {
         }
 
         Ok(())
+    }
+
+    pub fn require_bad_debt_unlocked(&self, e: &Env) -> Result<(), MCError> {
+        if self.bad_debt_lock_d == 0 {
+            return Ok(());
+        }
+
+        if e.ledger().timestamp() >= self.bad_debt_lock_d {
+            return Ok(());
+        }
+
+        Err(MCError::PoolBadDebtLocked)
     }
 
     // ---- MISC ----
@@ -591,7 +607,10 @@ impl Pool {
 
     // Computes the maximum available amount for borrowing that doesn't exceed the utilization
     // ratio limit on a pool
-    pub fn compute_available_utilization_ratio_cap_borrow(&self, e: &Env) -> Result<i128, MCError> {
+    pub fn compute_available_utilization_ratio_capped_borrow(
+        &self,
+        e: &Env,
+    ) -> Result<i128, MCError> {
         let total_supply = self.total_supply()?;
         let utilization_ratio = self.compute_utilization_ratio_bps()?;
 
@@ -922,7 +941,7 @@ pub struct PoolHealthConfig {
     // basis points with respect to a total obligation's collateral value. LTV greater than
     // that makes borrow position eligible to liquidation
     pub close_ltv_bps: i128,
-    // The factor used to calculate the current borrow limit by multiplying the collateral value
+    // The factor used to calculate the current borrow limit by multiplying the borrow value
     // by it before subtracting this value from the obligation's max borrow limit. Volatile
     // assets' pools are expected to have this value set way above 100%
     pub liability_factor_bps: i128,

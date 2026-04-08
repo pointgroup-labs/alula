@@ -26,6 +26,7 @@ pub struct MarketInitParams {
     pub insolvency_ltv_bps: i128,
     pub update_in_queue_period: u64,
     pub is_owned: bool,
+    pub bad_debt_lock_d: u64,
 }
 
 #[contractclient(name = "MarketManagerClient")]

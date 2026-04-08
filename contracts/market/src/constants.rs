@@ -131,3 +131,7 @@ pub const MAX_COLLATERAL_VALUE_CENTS: i128 = 10_000; // 100$
 pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
+
+pub const DEFAULT_BAD_DEBT_LOCK_D: u64 = 12 * SECONDS_PER_HOUR; // 12 hours
+pub const MAX_BAD_DEBT_LOCK_D: u64 = 5 * SECONDS_PER_DAY; // 5 days
+pub const MIN_BAD_DEBT_LOCK_D: u64 = 0; // no lock
