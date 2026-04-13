@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import type { SuppliedCardTableItem } from '~/types/table'
 import { calculateTotalStake } from '@alula/client-sdk/src/utils'
-// import type { DepositObligation } from '@jlend/sdk'
 import { formatPrice, shortenNumber } from '~/utils'
 
 const { width } = useWindowSize()

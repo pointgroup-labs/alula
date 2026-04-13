@@ -242,11 +242,11 @@ export default defineNuxtConfig({
       // ],
     },
     manifest: {
-      name: env.NUXT_PUBLIC_APP_NAME ?? 'Jlend',
+      name: env.NUXT_PUBLIC_APP_NAME ?? 'Alula',
       short_name:
         env.NUXT_PUBLIC_APP_SHORT_NAME
         ?? env.NUXT_PUBLIC_APP_NAME
-        ?? 'JLend',
+        ?? 'Alula',
       description: env.NUXT_PUBLIC_APP_DESCRIPTION,
       theme_color: '#ffffff',
       display: 'standalone',
@@ -289,7 +289,7 @@ export default defineNuxtConfig({
       htmlAttrs: {
         lang: 'en',
       },
-      title: env.NUXT_PUBLIC_APP_TITLE ?? 'JLend',
+      title: env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         // Preconnect wallet connect

@@ -1,5 +1,5 @@
 {
-  "name": "@jlend/webapp",
+  "name": "@alula/webapp",
   "type": "module",
   "private": true,
   "scripts": {

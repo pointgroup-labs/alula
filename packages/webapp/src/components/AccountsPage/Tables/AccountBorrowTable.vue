@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { BorrowCardTableItem } from '~/types/table'
-// import type { BorrowObligation } from '@jlend/sdk'
 import { calculateBorrow } from '@alula/client-sdk/src/utils'
 import { calcHealthFactor,
   destructurePoolAsset,

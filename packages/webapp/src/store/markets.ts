@@ -1,4 +1,3 @@
-// import type { CompoundRates, Pool } from '@jlend/sdk'
 import type { StellarClient } from '@alula/client-sdk'
 import type { MarketData, Pool, PoolData } from '@alula/market-sdk'
 import { defineStore } from 'pinia'

@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-// import type { Pool } from '@jlend/sdk'
 import type { Pool } from '@alula/market-sdk'
 import type { BButtonProps } from 'bootstrap-vue-next'
 import { clickElement, destructurePoolAsset, shortenAddress } from '~/utils'
