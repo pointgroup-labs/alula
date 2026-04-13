@@ -96,7 +96,7 @@ impl ProxySwap for SoroSwapProviderContract {
         e: Env,
         user: Address,
         path: Vec<Address>,
-        amount_in_max: i128,
+        max_amount_in: i128,
         amount_out: i128,
     ) -> i128 {
         extend_instance(&e);
@@ -110,7 +110,7 @@ impl ProxySwap for SoroSwapProviderContract {
 
         router_client.swap_tokens_for_exact_tokens(
             &amount_out,
-            &amount_in_max,
+            &max_amount_in,
             &path,
             &user,
             &u64::MAX,

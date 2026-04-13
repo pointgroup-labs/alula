@@ -44,7 +44,7 @@ impl MockProxySwap {
         e: Env,
         user: Address,
         path: Vec<Address>,
-        _amount_in_max: i128,
+        _max_amount_in: i128,
         amount_out: i128,
     ) -> i128 {
         user.require_auth();

@@ -73,12 +73,8 @@ impl AquaSwapProviderContract {
         get_admin(&e).require_auth();
 
         let route = PoolRoute { pool_tokens, pool_index };
-        e.storage()
-            .persistent()
-            .set(&DataKey::PoolRoute(token_a.clone(), token_b.clone()), &route);
-        e.storage()
-            .persistent()
-            .set(&DataKey::PoolRoute(token_b, token_a), &route);
+        e.storage().persistent().set(&DataKey::PoolRoute(token_a.clone(), token_b.clone()), &route);
+        e.storage().persistent().set(&DataKey::PoolRoute(token_b, token_a), &route);
     }
 }
 
@@ -127,13 +123,13 @@ impl ProxySwap for AquaSwapProviderContract {
         e: Env,
         user: Address,
         path: Vec<Address>,
-        amount_in_max: i128,
+        max_amount_in: i128,
         amount_out: i128,
     ) -> i128 {
         extend_instance(&e);
         user.require_auth();
         validate_path(&e, &path);
-        validate_positive(&e, amount_in_max);
+        validate_positive(&e, max_amount_in);
         validate_positive(&e, amount_out);
 
         let router_client = router::Client::new(&e, &get_router(&e));
@@ -147,7 +143,7 @@ impl ProxySwap for AquaSwapProviderContract {
             &swaps_chain,
             &token_in,
             &(amount_out as u128),
-            &(amount_in_max as u128),
+            &(max_amount_in as u128),
         );
 
         let balance_after = TokenClient::new(&e, &token_in).balance(&user);
