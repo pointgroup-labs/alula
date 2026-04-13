@@ -218,6 +218,18 @@ sdk: build/optimize ## Generate TypeScript SDK
 	@stellar contract bindings typescript --overwrite \
 		--wasm "$(DEPLOY_OPTIMIZED_DIR)/market_manager.optimized.wasm" \
 		--output-dir ./packages/sdk/market_manager --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/soroswap_swap_provider.optimized.wasm" \
+		--output-dir ./packages/sdk/soroswap_swap_provider --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/aqua_swap_provider.optimized.wasm" \
+		--output-dir ./packages/sdk/aqua_swap_provider --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DOWNLOADS_DIR)/soroswap-router.wasm" \
+		--output-dir ./packages/sdk/soroswap_router --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DOWNLOADS_DIR)/aqua-router.wasm" \
+		--output-dir ./packages/sdk/aqua_router --network "$(NETWORK)"
 	$(call success,"SDK generated")
 
 # ══════════════════════════════════════════════════════════════════════════════
