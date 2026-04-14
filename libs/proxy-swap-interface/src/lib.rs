@@ -15,7 +15,7 @@ pub trait ProxySwap {
         e: Env,
         user: Address,
         path: Vec<Address>,
-        amount_in_max: i128,
+        max_amount_in: i128,
         amount_out: i128,
     ) -> i128;
 }
