@@ -229,8 +229,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         <div class="table-cell justify-content-end market-table__action">
           <j-btn
             v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
-            size="xs"
-            variant="accent-outlined"
+            size="sm"
+            variant="brand-secondary-outlined"
             :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             @click="multiplyDialogHandler(data.item)"
@@ -256,16 +256,9 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       show-in-accounts
       @dialog-handler="(e: any) => multiplyDialogHandler(e.item)"
     />
-
-    <j-loading-spinner
-      v-if="isLoading"
-      class="table-loading-spinner"
-    >
-      Loading...
-    </j-loading-spinner>
   </div>
 
-  <withdraw-leverage-dialog
+  <withdraw-multiply-dialog
     v-model="dialogLeverageWithdraw"
     :data="selectedVault"
   />

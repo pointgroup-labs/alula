@@ -26,12 +26,12 @@ const {
   previewLoading,
   txFee,
   loading: isLoading,
-  withdraw: doWithdraw,
+  withdraw,
 } = useMultiplyWithdraw(toRef(() => opened), toRef(() => data))
 
 async function withdrawLeverage() {
   isValidate.value = false
-  await doWithdraw()
+  await withdraw()
   isValidate.value = true
 }
 </script>
@@ -92,7 +92,7 @@ async function withdrawLeverage() {
             </div>
           </div>
 
-          <div class="summary-list__item align-items-start mb-2">
+          <div class="summary-list__item align-items-start">
             <div class="label">Max repay</div>
             <div class="value">
               <div class="text-end">
@@ -108,6 +108,12 @@ async function withdrawLeverage() {
       <div class="info-summary__item">
         <div class="info-summary__header">
           Close details
+
+          <j-loading-spinner
+            v-if="previewLoading"
+            width="14px"
+            style="margin-left: auto;"
+          />
         </div>
 
         <div class="summary-list">
@@ -125,7 +131,7 @@ async function withdrawLeverage() {
             </div>
           </div>
 
-          <div class="summary-list__item align-items-start mb-2">
+          <div class="summary-list__item align-items-start">
             <div class="label">Remaining debt</div>
             <div class="value">
               <div class="text-end">
@@ -134,12 +140,19 @@ async function withdrawLeverage() {
             </div>
           </div>
 
-          <div class="summary-list__item align-items-start mb-2">
+          <div class="summary-list__item align-items-start">
             <div class="label">Remaining supply</div>
             <div class="value">
               <div class="text-end">
                 {{ shortenNumber(remainingDepositAmount || 0, 2, maxDecimalsForShortenNumber(remainingDepositAmount)) }} {{ data?.asset.symbol }}
               </div>
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">Swap estimate</div>
+            <div class="value">
+              {{ formatPrice(swapInputEstimate, 2, data?.depositPoolData.pool.token_decimals || 7) }} {{ data?.asset.symbol }}
             </div>
           </div>
         </div>
@@ -152,13 +165,6 @@ async function withdrawLeverage() {
         title="Fees"
       >
         <div class="summary-list">
-          <div class="summary-list__item">
-            <div class="label">Swap estimate</div>
-            <div class="value">
-              {{ formatPrice(swapInputEstimate, 2, data?.depositPoolData.pool.token_decimals || 7) }} {{ data?.asset.symbol }}
-            </div>
-          </div>
-
           <div class="summary-list__item">
             <div class="label">Flash loan fee</div>
             <div class="value">
