@@ -1,256 +1,243 @@
 <script lang="ts" setup>
-import type { MultiplyTableItem } from '~/types/table'
-import { amountToUsdWithShort, formatPrice, shortenNumber, truncatePercent } from '~/utils'
-
-const {
-  onlyMultiplied = false,
-} = defineProps<{
-  onlyMultiplied?: boolean
-}>()
+import type { MultiplyVaultItem } from '~/types/table'
+import { amountToUsdWithShort, formatCompactUSD, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
-
-const router = useRouter()
-
-const {
-  tableItems,
-  selectedPoolAddress,
-  dialogLeverage,
-  dialogLeverageWithdraw,
-  markets,
-  isLoading,
-  selectedPool,
-  activeLeverageMarket,
-} = useMultiplyTable()
-
-const market = useMarketActions()
-
 const marketsStore = useMarketsStore()
+const marketActions = useMarketActions()
 const userStore = useUserStore()
+
+const { vaults, openVault } = useMultiplyCatalog()
+
+const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
+const withdrawDialogOpen = toRef(marketsStore, 'dialogLeverageWithdraw')
+const selectedVault = ref<MultiplyVaultItem>()
+const selectedWithdrawVault = ref<MultiplyVaultItem>()
 
 const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
-  { key: 'maxAPY', label: 'APY', align: 'center' },
-  { key: 'multiplier', label: 'Multiplier', align: 'center' },
   { key: 'market', label: 'Market', align: 'center' },
-  { key: 'supplied', label: 'Supply', align: 'right' },
-  { key: 'liquidity', label: 'Liquidity', align: 'right' },
-  { key: 'borrowing', label: 'Borrow Token', align: 'right' },
-  { key: 'action', label: '' },
+  { key: 'price', label: 'Collateral Price', align: 'right' },
+  { key: 'liquidity', label: 'Borrow Liquidity', align: 'right' },
+  { key: 'supplied', label: 'Collateral TVL', align: 'right' },
+  { key: 'apyAtMaxMultiplier', label: 'APY at Max Multiplier', align: 'center' },
+  { key: 'maxMultiplier', label: 'Max Multiplier', align: 'center' },
+  { key: 'action', label: '', align: 'right' },
 ]
 
-const filteredData = computed(() => {
-  const data = onlyMultiplied ? tableItems.value?.filter(item => isUserHaveMultiply(item.pool_address, String(item.market))) : tableItems.value
-  return data.filter(Boolean)
-})
-
-async function multiplyDialogHandler(item: MultiplyTableItem, action: 'supply' | 'withdraw') {
-  selectedPoolAddress.value = item?.pool_address
-  activeLeverageMarket.value = String(item.market)
-  action === 'supply' ? dialogLeverage.value = true : dialogLeverageWithdraw.value = true
+function openDialog(vault: MultiplyVaultItem) {
+  selectedVault.value = vault
+  dialogLeverage.value = true
 }
 
-function isUserHaveMultiply(poolAddress: string, market: string) {
-  return checkIsHaveMultiply(
-    userStore.state.multiplyObligations,
-    tableItems.value ?? [],
-    poolAddress,
-    market,
-  )
+function openWithdrawDialog(vault: MultiplyVaultItem) {
+  selectedWithdrawVault.value = vault
+  withdrawDialogOpen.value = true
 }
 
-function onRowClicked(data: MultiplyTableItem) {
-  const marketAddress = marketsStore.state.markets[String(data.market)]?.address
-  const poolAddress = data.pool_address
-  if (!marketAddress || !poolAddress) {
-    return
+function onRowClicked(vault: MultiplyVaultItem) {
+  openVault(vault)
+}
+
+function isUserHaveMultiply(vault: MultiplyVaultItem) {
+  const obligation = userStore.state.multiplyObligations[vault.market]?.[vault.pairKey]
+  const deposits: any[] = obligation?.deposits ?? []
+  const borrows: any[] = obligation?.borrows ?? []
+
+  if (deposits.length === 0 || borrows.length === 0) {
+    return false
   }
-  router.push(`/multiply/${marketAddress}/${poolAddress}`)
+
+  const hasDeposit = deposits.some(deposit => deposit.includes(vault.depositPoolData.pool.pool_address))
+  const hasBorrow = borrows.some(borrow => borrow.includes(vault.borrowPoolData.pool.pool_address))
+
+  return hasDeposit && hasBorrow
 }
 </script>
 
 <template>
-  <div v-if="markets.length === 0 && isLoading">
-    <market-table-skeleton v-if="width > 650" />
-    <market-table-skeleton-mobile v-else />
-  </div>
-  <div
-    v-else
-    class="table-wrapper"
-  >
-    <BTable
-      v-if="width >= 1024"
-      show-empty
-      borderless
-      :fields="fields"
-      :items="filteredData"
-      responsive
-      class="market-table multiply-table"
-      @row-clicked="onRowClicked"
+  <div class="multiply-table">
+    <div
+      v-if="vaults.length === 0"
+      class="multiply-table__empty"
     >
-      <template
-        v-for="field in fields"
-        :key="field.key"
-        #[`head(${field.key})`]="data"
-      >
-        <span :style="{ '--align': field.align }">{{ data.label }}</span>
-      </template>
+      No multiply vaults available.
+    </div>
 
-      <template #cell(asset)="data">
-        <div class="market-table__asset">
-          <img
-            :src="data.item.asset.icon"
-            alt="asset icon"
-          >
-          <img
-            :src="data.item.borrowAsset.icon"
-            alt="XLM icon"
-            class="xlm-icon"
-          >
-          <div class="market-table__asset__info">
-            <div class="market-table__asset__info__name">
-              {{ data.item.asset.symbol }}/{{ data.item.borrowAsset.symbol }}
-            </div>
-            <div class="market-table__asset__info__symbol">
-              {{ data.item.asset.name }} / {{ data.item.borrowAsset.symbol }}
+    <div
+      v-else
+      class="table-wrapper"
+    >
+      <BTable
+        v-if="width >= 1024"
+        show-empty
+        borderless
+        :fields="fields"
+        :items="vaults"
+        responsive
+        class="market-table multiply-table__desktop"
+        @row-clicked="onRowClicked"
+      >
+        <template
+          v-for="field in fields"
+          :key="field.key"
+          #[`head(${field.key})`]="data"
+        >
+          <span :style="{ '--align': field.align }">{{ data.label }}</span>
+        </template>
+
+        <template #cell(asset)="data">
+          <div class="market-table__asset">
+            <img
+              :src="data.item.asset.icon"
+              :alt="data.item.asset.symbol"
+            >
+            <img
+              :src="data.item.borrowAsset.icon"
+              :alt="data.item.borrowAsset.symbol"
+              class="xlm-icon"
+            >
+            <div class="market-table__asset__info">
+              <div class="market-table__asset__info__name">
+                {{ data.item.asset.symbol }}/{{ data.item.borrowAsset.symbol }}
+              </div>
+              <div class="market-table__asset__info__symbol">
+                Borrow {{ data.item.borrowAsset.symbol }}, swap into {{ data.item.asset.symbol }}
+              </div>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
 
-      <template #cell(maxAPY)="data">
-        <div
-          class="table-cell cell-apy"
-          :class="[`cell-apy--${data.item.maxAPY < 0 ? 'negative' : 'positive'}`]"
-        >
-          {{ truncatePercent(data.item.maxAPY || 0, 2) }}%
-        </div>
-      </template>
-
-      <template #cell(multiplier)="data">
-        <div class="table-cell justify-content-center">
-          <j-pill-label
-            size="sm"
-            variant="success"
-          >
-            {{ truncatePercent(data.item.multiplier || 0, 2) }}x
-          </j-pill-label>
-        </div>
-      </template>
-
-      <template #cell(market)="data">
-        <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
-          <span>{{ data.item.market }}</span>
-          <template #content>
-            {{ data.item.market }}
-          </template>
-        </j-tooltip>
-      </template>
-
-      <template #cell(liquidity)="data">
-        <div class="table-cell justify-content-end">
-          <j-tooltip tooltip-class="with-price">
-            <strong>{{ shortenNumber(data.item.liquidity || 0) }} {{ data.item.borrowAsset.symbol }}</strong>
-            <span>${{ amountToUsdWithShort(data.item.liquidity, data.item.borrowPoolPrice) }}</span>
+        <template #cell(market)="data">
+          <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
+            <span>{{ data.item.market }}</span>
             <template #content>
-              {{ formatPrice(data.item.liquidity) }} {{ data.item.borrowAsset.symbol }}
-              <br>
-              <span>${{ amountToUsdWithShort(data.item.liquidity, data.item.borrowPoolPrice, false) }}</span>
+              {{ data.item.market }}
             </template>
           </j-tooltip>
-        </div>
-      </template>
+        </template>
 
-      <template #cell(supplied)="data">
-        <div class="table-cell justify-content-end">
-          <j-tooltip tooltip-class="with-price">
-            <strong>{{ shortenNumber(data.item.supplied.toFixed(2) || 0) }} {{ data.item.asset.symbol }}</strong>
-            <span>${{ amountToUsdWithShort(data.item.supplied, data.item.price) }}</span>
-            <template #content>
-              {{ formatPrice(data.item.supplied) }} {{ data.item.asset.symbol }}
-              <br>
-              <span>${{ amountToUsdWithShort(data.item.supplied, data.item.price, false) }}</span>
-            </template>
-          </j-tooltip>
-        </div>
-      </template>
+        <template #cell(price)="data">
+          <div class="table-cell justify-content-end">
+            <div class="with-price">
+              <strong>{{ formatCompactUSD(data.item.price, 2, 4) }}</strong>
+              <span>{{ data.item.asset.symbol }}</span>
+            </div>
+          </div>
+        </template>
 
-      <template #cell(borrowing)="data">
-        <div class="table-cell justify-content-end">
-          {{ data.item.borrowAsset.symbol }}
-        </div>
-      </template>
+        <template #cell(liquidity)="data">
+          <div class="table-cell justify-content-end">
+            <j-tooltip tooltip-class="with-price">
+              <strong>{{ shortenNumber(data.item.liquidity || 0) }} {{ data.item.borrowAsset.symbol }}</strong>
+              <span>${{ amountToUsdWithShort(data.item.liquidity, data.item.borrowPoolPrice) }}</span>
+              <template #content>
+                {{ formatPrice(data.item.liquidity) }} {{ data.item.borrowAsset.symbol }}
+                <br>
+                <span>${{ amountToUsdWithShort(data.item.liquidity, data.item.borrowPoolPrice, false) }}</span>
+              </template>
+            </j-tooltip>
+          </div>
+        </template>
 
-      <template #cell(action)="data">
-        <div class="table-cell justify-content-end market-table__action">
-          <j-btn
-            size="xs"
-            :loading="market.isLoading(data.item.pool_address, 'leverage', data.item.market!)"
-            :disabled="market.isDisabled(data.item.pool_address, 'leverage', data.item.market!)"
-            variant="cyan"
-            @click="multiplyDialogHandler(data.item, 'supply')"
+        <template #cell(supplied)="data">
+          <div class="table-cell justify-content-end">
+            <j-tooltip tooltip-class="with-price">
+              <strong>{{ shortenNumber(data.item.supplied || 0) }} {{ data.item.asset.symbol }}</strong>
+              <span>${{ amountToUsdWithShort(data.item.supplied, data.item.price) }}</span>
+              <template #content>
+                {{ formatPrice(data.item.supplied) }} {{ data.item.asset.symbol }}
+                <br>
+                <span>${{ amountToUsdWithShort(data.item.supplied, data.item.price, false) }}</span>
+              </template>
+            </j-tooltip>
+          </div>
+        </template>
+
+        <template #cell(apyAtMaxMultiplier)="data">
+          <div
+            class="table-cell justify-content-center multiply-table__apy"
+            :class="[`multiply-table__apy--${data.item.apyAtMaxMultiplier < 0 ? 'negative' : 'positive'}`]"
           >
-            Multiply
-          </j-btn>
-          <j-btn
-            v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
-            size="xs"
-            variant="accent"
-            :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
-            :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
-            @click="multiplyDialogHandler(data.item, 'withdraw')"
-          >
-            Withdraw
-          </j-btn>
-        </div>
-      </template>
+            {{ truncatePercent(data.item.apyAtMaxMultiplier || 0, 2) }}%
+          </div>
+        </template>
 
-      <template
-        #empty
-      >
-        <div
-          v-show="!isLoading"
-          class="no-data"
-        >
-          No Multiply vaults
-        </div>
-      </template>
-    </BTable>
+        <template #cell(maxMultiplier)="data">
+          <div class="table-cell justify-content-center">
+            <j-pill-label
+              size="sm"
+              variant="success"
+            >
+              {{ truncatePercent(data.item.maxMultiplier || 0, 2) }}x
+            </j-pill-label>
+          </div>
+        </template>
 
-    <multiply-table-mobile
-      v-else
-      :items="filteredData"
-      @dialog-handler="(e: any) => multiplyDialogHandler(e.item, e.action)"
-    />
+        <template #cell(action)="data">
+          <div class="table-cell justify-content-end market-table__action">
+            <j-btn
+              size="sm"
+              variant="brand-outlined"
+              :disabled="marketActions.isDisabled(data.item.pool_address, 'multiplyOpen', data.item.market)"
+              :loading="marketActions.isLoading(data.item.pool_address, 'multiplyOpen', data.item.market)"
+              @click.stop="openDialog(data.item)"
+            >
+              Open Multiply
+            </j-btn>
+            <j-btn
+              v-if="isUserHaveMultiply(data.item)"
+              size="sm"
+              variant="brand-secondary-outlined"
+              :disabled="marketActions.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market)"
+              :loading="marketActions.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market)"
+              @click.stop="openWithdrawDialog(data.item)"
+            >
+              Withdraw
+            </j-btn>
+          </div>
+        </template>
 
-    <j-loading-spinner
-      v-if="isLoading"
-      class="table-loading-spinner"
-    >
-      Loading...
-    </j-loading-spinner>
+        <template #empty>
+          <div class="multiply-table__empty">
+            No multiply vaults available.
+          </div>
+        </template>
+      </BTable>
+
+      <multiply-table-mobile
+        v-else
+        :items="vaults as any"
+        @dialog-handler="(e: any) => e?.action === 'supply'
+          ? openDialog(e.item)
+          : e?.action === 'withdraw'
+            ? openWithdrawDialog(e.item)
+            : openVault(e.item)"
+      />
+    </div>
+
+    <client-only>
+      <multiply-dialog
+        v-model="dialogLeverage"
+        :data="selectedVault"
+      />
+      <withdraw-leverage-dialog
+        v-model="withdrawDialogOpen"
+        :data="selectedWithdrawVault"
+      />
+    </client-only>
   </div>
-
-  <client-only>
-    <multiply-dialog
-      v-model="dialogLeverage"
-      :data="selectedPool"
-    />
-
-    <withdraw-leverage-dialog
-      v-model="dialogLeverageWithdraw"
-      :data="selectedPool"
-    />
-  </client-only>
 </template>
 
 <style lang="scss">
 .multiply-table {
-  tbody tr {
-    cursor: pointer;
+  &__desktop {
+    tbody tr {
+      cursor: pointer;
+    }
   }
 
-  .cell-apy {
+  &__apy {
     color: $success;
     font-size: 14px;
     font-style: normal;
@@ -261,12 +248,13 @@ function onRowClicked(data: MultiplyTableItem) {
     }
   }
 
-  .no-data {
+  &__empty {
     color: $text-secondary;
     font-size: 12px;
     font-style: normal;
     font-weight: 400;
     line-height: 16px;
+    color: $text-secondary;
     text-align: center;
   }
 }

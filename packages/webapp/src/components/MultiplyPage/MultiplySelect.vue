@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import VueSlider from 'vue-3-slider-component'
-
 const {
   multiplier,
   maxMultiply,
@@ -9,225 +7,113 @@ const {
   maxMultiply: number | string
 }>()
 
-const minMultiplyPercent = computed(() => maxMultiply && Math.round((1.1 / Number(maxMultiply)) * 100))
+const percent = defineModel<number>({ default: 85 })
 
-const marks = computed(() => {
-  return {
-    [minMultiplyPercent.value]: '1.1',
-    100: `${maxMultiply}`,
+const minPercent = computed(() => {
+  const max = Number(maxMultiply)
+  if (!max) {
+    return 0
   }
+  return Math.min(100, Math.ceil((1.1 / max) * 100))
 })
 
-const userSelectedMultiplier = defineModel({
-  default: 0,
-})
-
-function checkDepositOrBorrow() {
-  if (userSelectedMultiplier.value <= 5) {
-    userSelectedMultiplier.value = 0
+watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
+  if (!nextMax) {
+    percent.value = 0
     return
   }
-  if (userSelectedMultiplier.value > 5 && userSelectedMultiplier.value <= 10) {
-    userSelectedMultiplier.value = 10
-  }
-}
 
-function opacityHandler(val: any) {
-  const multiplier = Number(userSelectedMultiplier.value)
-  const value = Number(val.value)
-
-  if (multiplier < value + 20 && value === minMultiplyPercent.value) {
-    return (multiplier - value - 5) / 10
+  if (percent.value < nextMin) {
+    percent.value = nextMin
   }
-  if (multiplier > 80 && value === 100) {
-    return 1 - (multiplier - 85) / 10
-  }
-  return 1
-}
+}, { immediate: true })
 </script>
 
 <template>
-  <div class="loop-multiply">
-    <div class="loan-ltv-value">
-      <div class="loan-ltv-value__multiplier">
-        Multiplier
-
-        <div class="loan-ltv-value__multiplier__value">
-          x{{ multiplier }}
+  <div class="multiply-select">
+    <div class="multiply-select__header">
+      <div>
+        <div class="multiply-select__label">
+          Target multiplier
+        </div>
+        <div class="multiply-select__hint">
+          The slider stays below the computed safe maximum.
         </div>
       </div>
+
+      <div class="multiply-select__value">
+        x{{ truncatePercent(Number(multiplier) || 0, 2) }}
+      </div>
     </div>
-    <vue-slider
-      v-model="userSelectedMultiplier"
-      :interval="0.1"
-      :min="minMultiplyPercent"
+
+    <input
+      v-model.number="percent"
+      class="multiply-select__range"
+      type="range"
+      :min="minPercent"
       :max="100"
-      :dot-size="25"
-      :contained="true"
-      height="12px"
-      tooltip="none"
-      class="ltv-select-slider"
-      :marks="marks"
-      @drag-end="checkDepositOrBorrow"
+      :step="0.1"
     >
-      <template #dot>
-        <div
-          class="slider-thumb"
-        />
-      </template>
-      <template #mark="value">
-        <div
-          class="vue-slider-mark"
-          :style="{ left: `${value.pos}%` }"
-        >
-          <div
-            class="vue-slider-mark__label"
-            :style="{ opacity: opacityHandler(value) }"
-          >
-            x{{ truncatePercent(Number(value?.label) || 0) }}
-          </div>
-        </div>
-      </template>
-    </vue-slider>
+
+    <div class="multiply-select__limits">
+      <span>x1.10</span>
+      <span>x{{ truncatePercent(Number(maxMultiply) || 0, 2) }}</span>
+    </div>
   </div>
 </template>
 
 <style lang="scss">
-$multiplier-color: #c7c7c7;
-
-.loop-multiply {
-  --dp-animation-duration: 0;
+.multiply-select {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid $border-primary;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%);
 
-  @media (max-width: 1370px) {
-    overflow: inherit;
-  }
-
-  .loan-ltv-value {
-    height: 24px;
+  &__header {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 16px;
-
-    &__multiplier {
-      width: 100%;
-      font-size: 12px;
-      font-style: normal;
-      font-weight: 700;
-      line-height: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      &__value {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-        padding: $spacing-xs $spacing-md;
-        border-radius: $spacing-xs;
-        background: #d9f7eb;
-        font-family: sans-serif;
-        font-variant-numeric: tabular-nums;
-      }
-    }
+    gap: 16px;
+    align-items: flex-start;
   }
 
-  .ltv-select-slider {
-    cursor: pointer;
-    padding-right: 18px !important;
-    padding-left: 18px !important;
-
-    .vue-slider-rail,
-    .vue-slider-process {
-      position: relative;
-      background-color: transparent;
-    }
-
-    .vue-slider-rail {
-      &::before {
-        content: '';
-        height: 2px;
-        width: 100%;
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        left: 0;
-        background-color: $multiplier-color;
-      }
-    }
-
-    .vue-slider-marks {
-      position: initial;
-      &::before {
-        content: '';
-        height: 2px;
-        width: 9%;
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        left: 0;
-        background-color: $multiplier-color;
-      }
-    }
-
-    .vue-slider-mark {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-
-      &:first-child,
-      &:last-child {
-        background-color: $multiplier-color;
-      }
-
-      &__label {
-        position: absolute;
-        top: 14px;
-        left: 40%;
-        transform: translateX(-50%);
-        white-space: nowrap;
-        color: #878787;
-        font-size: $text-xs;
-        font-style: normal;
-        font-weight: 600;
-        line-height: 12px;
-      }
-    }
-
-    .vue-slider-dot {
-      cursor: grab;
-
-      .slider-thumb {
-        width: 35px;
-        height: 35px;
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        background-color: $primary;
-        border-radius: 50%;
-        box-shadow: 2px 2px 1px 0px rgba(138, 138, 138, 0.25);
-      }
-    }
-
-    .vue-slider-dot-focus {
-      cursor: grab;
-    }
+  &__label {
+    font-size: 13px;
+    font-weight: 700;
+    color: $text-primary;
   }
-}
 
-.theme-dark {
-  .loan-ltv-value__multiplier__value {
-    background-color: $success;
-    color: $dark;
+  &__hint {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: $text-tertiary;
+  }
+
+  &__value {
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(24, 185, 119, 0.16);
+    border: 1px solid rgba(24, 185, 119, 0.22);
+    color: $text-success;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  &__range {
+    width: 100%;
+    accent-color: #18b977;
+    filter: saturate(1.15) brightness(0.95);
+  }
+
+  &__limits {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: $text-tertiary;
   }
 }
 </style>

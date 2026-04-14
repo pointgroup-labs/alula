@@ -1,10 +1,9 @@
 import type { MultiplyTableItem } from '~/types/table'
-import { bpsToNumber } from '@alula/client-sdk'
 
 export function useMultiplyTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
-  const { getFullTokenData } = useTokensStore()
+  const { vaults } = useMultiplyCatalog()
 
   const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
   const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')
@@ -14,51 +13,24 @@ export function useMultiplyTable() {
   const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
   const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
-  const tableItems = computed<MultiplyTableItem[]>(() => {
-    const res = []
-    for (const market in marketsStore.state.markets) {
-      const state = marketsStore.state.markets[market]?.marketState
-      const poolsData = state?.pools_data ?? []
-      const leveragePools = state?.multiply_pairs ?? []
-      const oraclePriceDecimals = state?.oracle_price_decimals ?? 0
-      const assetDecimals = state?.asset_decimals ?? 0
-      for (const { borrow_pool, deposit_pool, max_leverage_multiplier } of leveragePools) {
-        const depositPoolData = poolsData.find(p => p.pool.pool_address === deposit_pool)!
-        const borrowPoolData = poolsData.find(p => p.pool.pool_address === borrow_pool)!
-        const multiplier = max_leverage_multiplier / 100
-        const supplyBPS = bpsToNumber(Number(depositPoolData?.apy.supply_bps || 0))
-        const borrowBPS = bpsToNumber(Number(borrowPoolData?.apy.borrow_bps || 0))
-        const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
-        const supplied = depositPoolData && depositPoolData.pool.total_available ? Number(bigintToNumber(depositPoolData.pool.total_available, assetDecimals)) : 0
-        const liquidity
-          = borrowPoolData && borrowPoolData.total_available_adjusted
-            ? Number(bigintToNumber(borrowPoolData.total_available_adjusted, assetDecimals))
-            : 0
-        const depositPoolPrice = Number(bigintToNumber(depositPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
-        const borrowPoolPrice = Number(bigintToNumber(borrowPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
-
-        const data = {
-          market,
-          depositPoolData,
-          borrowPoolData,
-          asset: getFullTokenData(depositPoolData?.pool.token_symbol),
-          borrowAsset: getFullTokenData(borrowPoolData?.pool.token_symbol),
-          liquidity,
-          multiplier,
-          maxAPY,
-          price: depositPoolPrice,
-          borrowPoolPrice,
-          pool_address: depositPoolData?.pool.pool_address || '',
-          supplied,
-          assetDecimals,
-        }
-
-        res.push(data)
-      }
-    }
-
-    return res
-  })
+  const tableItems = computed<MultiplyTableItem[]>(() =>
+    vaults.value.map(vault => ({
+      pairKey: vault.pairKey,
+      market: vault.market,
+      depositPoolData: vault.depositPoolData,
+      borrowPoolData: vault.borrowPoolData,
+      asset: vault.asset,
+      borrowAsset: vault.borrowAsset,
+      liquidity: vault.liquidity,
+      multiplier: vault.maxMultiplier,
+      apyAtMaxMultiplier: vault.apyAtMaxMultiplier,
+      price: vault.price,
+      borrowPoolPrice: vault.borrowPoolPrice,
+      pool_address: vault.pool_address,
+      supplied: vault.supplied,
+      assetDecimals: vault.depositPoolData.pool.token_decimals,
+    })),
+  )
 
   const selectedPool = computed(() =>
     tableItems.value.find(item => item.pool_address === selectedPoolAddress.value

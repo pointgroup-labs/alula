@@ -1,20 +1,32 @@
-import type { ObligationUI } from '@alula/client-sdk'
+import type { MultiplyObligationUI } from '~/store/user'
 import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
 import { bpsToNumber } from '@alula/client-sdk'
 import Decimal from 'decimal.js'
+import { buildMultiplyPairKey } from '~/utils/obligation'
 
 export function checkIsHaveMultiply(
-  obligations: ObligationUI,
+  obligations: MultiplyObligationUI,
   tableData: MultiplyTableItem[] | MultiplyAccountTableItem[],
   poolAddress: string,
   market: string,
 ) {
-  const deposits: any = obligations[market]?.deposits ?? []
-  const borrows: any = obligations[market]?.borrows ?? []
   const poolData = tableData?.find(item => item.pool_address === poolAddress && item.market === market)
-  if (deposits.length === 0 || borrows.length === 0 || !poolData) {
+  if (!poolData) {
     return false
   }
+
+  const pairKey = poolData.pairKey || buildMultiplyPairKey(
+    poolData.depositPoolData.pool.pool_address,
+    poolData.borrowPoolData.pool.pool_address,
+  )
+  const obligation = obligations[market]?.[pairKey]
+  const deposits: any = obligation?.deposits ?? []
+  const borrows: any = obligation?.borrows ?? []
+
+  if (deposits.length === 0 || borrows.length === 0) {
+    return false
+  }
+
   const depositPoolAddress = poolData.depositPoolData.pool.pool_address
   const borrowPoolAddress = poolData.borrowPoolData.pool.pool_address
 

@@ -1,4 +1,5 @@
 import type { RPCcluster, StellarClient } from '@alula/client-sdk'
+import type { ObligationKey } from '@alula/market-sdk'
 import type { TableActionType } from '~/store/markets'
 import { SOROBAN_RPC_URLS } from '@alula/client-sdk'
 import { TRANSACTION_TIMEOUT } from '~/config'
@@ -459,114 +460,140 @@ export function useMarketActions() {
   }
 
   // Leverage
-  // async function leverage(
-  //   props: {
-  //     client: StellarClient
-  //     market: string
-  //     deposit_pool_address: string
-  //     borrow_pool_address: string
-  //     deposit_as_margin: boolean
-  //     amount: number
-  //     leverage_multiplier: number
-  //     asset_code: string
-  //     action?: () => void | Promise<void>
-  //   },
-  // ) {
-  //   const pk = requireWallet()
-  //   const { client, market, deposit_pool_address, borrow_pool_address, deposit_as_margin, amount, leverage_multiplier, asset_code } = props
-  //   try {
-  //     if (!amount || amount <= 0) {
-  //       throw new Error('Amount should be greater than 0')
-  //     }
-  //   } catch (error: any) {
-  //     toast.create({
-  //       title: `Leverage Error`,
-  //       body: String(error?.message || error),
-  //       variant: 'danger',
-  //       modelValue: 10_000,
-  //     })
-  //     throw error
-  //   }
+  async function openMultiply(
+    props: {
+      client: StellarClient
+      market: string
+      deposit_pool_address: string
+      borrow_pool_address: string
+      initial_amount: number
+      leverage_multiplier: number
+      slippage: number
+      swap_provider: string
+      obligation_key?: ObligationKey
+      path?: string[]
+      action?: () => void | Promise<void>
+      reset?: () => void
+    },
+  ) {
+    const pk = requireWallet()
+    const {
+      client,
+      market,
+      deposit_pool_address,
+      borrow_pool_address,
+      initial_amount,
+      leverage_multiplier,
+      slippage,
+      swap_provider,
+      path,
+    } = props
 
-  //   await runAction({
-  //     client,
-  //     market,
-  //     pool: deposit_pool_address,
-  //     type: 'leverage',
-  //     title: 'Leverage',
-  //     body: `Sending transaction to leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
-  //     withObligation: false,
-  //     action: props.action,
-  //     exec: () => client!.leverage.depositWithLeverage(
-  //       {
-  //         user: pk,
-  //         depositPoolAddress: deposit_pool_address,
-  //         borrowPoolAddress: borrow_pool_address,
-  //         depositAsMargin: deposit_as_margin,
-  //         amount,
-  //         leverageMultiplier: leverage_multiplier,
-  //       },
-  //       kit.value),
-  //     reset: () => {
-  //       depositAmount.value = undefined
-  //       marketsStore.dialogLeverage = false
-  //     },
-  //   })
-  // }
+    try {
+      if (!initial_amount || initial_amount <= 0) {
+        throw new Error('Amount should be greater than 0')
+      }
+      if (!Number.isFinite(leverage_multiplier) || leverage_multiplier <= 1) {
+        throw new Error('Multiplier should be greater than 1')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: 'Multiply Error',
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
+    }
 
-  // Withdraw Leverage
-  // async function withdrawLeverage(
-  //   props: {
-  //     client: StellarClient
-  //     market: string
-  //     deposit_pool_address: string
-  //     borrow_pool_address: string
-  //     amount: number
-  //     asset_code: string
-  //     action?: () => void | Promise<void>
-  //   },
-  // ) {
-  //   const pk = requireWallet()
-  //   const { client, market, deposit_pool_address, borrow_pool_address, amount, asset_code } = props
-  //   try {
-  //     if (!amount || amount <= 0) {
-  //       throw new Error('Amount should be greater than 0')
-  //     }
-  //   } catch (error: any) {
-  //     toast.create({
-  //       title: `Withdraw Leverage Error`,
-  //       body: String(error?.message || error),
-  //       variant: 'danger',
-  //       modelValue: 10_000,
-  //     })
-  //     throw error
-  //   }
+    const oblKey = props.obligation_key ?? buildObligationKey({ pablicKey: pk })
 
-  //   const increasedAmount = amount * 1.05
+    await runAction({
+      client,
+      market,
+      pool: deposit_pool_address,
+      type: 'multiplyOpen',
+      title: 'Open Multiply',
+      body: `Sending multiply transaction for ${amountToAssetDecimals(initial_amount)}`,
+      action: props.action,
+      exec: () => client.multiply.openPosition({
+        user: oblKey,
+        depositPoolAddress: deposit_pool_address,
+        borrowPoolAddress: borrow_pool_address,
+        initialAmount: initial_amount,
+        leverageMultiplier: leverage_multiplier,
+        slippagePercent: slippage,
+        swapProviderAddress: swap_provider,
+        path,
+      }, kit.value),
+      reset: props.reset,
+    })
+  }
 
-  //   await runAction({
-  //     client,
-  //     market,
-  //     pool: deposit_pool_address,
-  //     type: 'withdrawLeverage',
-  //     title: 'Leverage',
-  //     body: `Sending transaction to Withdraw leverage ${amountToAssetDecimals(amount)} ${asset_code}`,
-  //     withObligation: false,
-  //     action: props.action,
-  //     exec: () => client!.leverage.withdrawFromLeveraged(
-  //       {
-  //         user: pk,
-  //         depositPoolAddress: deposit_pool_address,
-  //         borrowPoolAddress: borrow_pool_address,
-  //         amount: increasedAmount,
-  //       },
-  //       connectionStore.kit),
-  //     reset: () => {
-  //       withdrawAmount.value = undefined
-  //       marketsStore.dialogLeverageWithdraw = false
-  //     },
-  //   })
-  // }
+  async function withdrawMultiply(
+    props: {
+      client: StellarClient
+      market: string
+      deposit_pool_address: string
+      borrow_pool_address: string
+      repay_amount?: number
+      swap_provider: string
+      obligation_key: ObligationKey
+      path?: string[]
+      action?: () => void | Promise<void>
+      reset?: () => void
+    },
+  ) {
+    const pk = requireWallet()
+    const {
+      client,
+      market,
+      deposit_pool_address,
+      borrow_pool_address,
+      repay_amount,
+      swap_provider,
+      obligation_key,
+      path,
+    } = props
+
+    if (obligation_key.user !== pk) {
+      throw new Error('Invalid multiply obligation owner')
+    }
+
+    try {
+      if (repay_amount != null && repay_amount <= 0) {
+        throw new Error('Repay amount must be greater than 0')
+      }
+    } catch (error: any) {
+      toast.create({
+        title: 'Withdraw Multiply Error',
+        body: String(error?.message || error),
+        variant: 'danger',
+        modelValue: 10_000,
+      })
+      throw error
+    }
+
+    await runAction({
+      client,
+      market,
+      pool: deposit_pool_address,
+      type: 'withdrawLeverage',
+      title: 'Withdraw Multiply',
+      body: 'Sending transaction to close multiply position',
+      withObligation: true,
+      action: props.action,
+      exec: () => client.multiply.closePosition({
+        user: obligation_key,
+        depositPoolAddress: deposit_pool_address,
+        borrowPoolAddress: borrow_pool_address,
+        repayAmount: repay_amount,
+        swapProviderAddress: swap_provider,
+        path,
+      }, kit.value),
+      reset: props.reset,
+    })
+  }
 
   async function reloadData({
     pool_address,
@@ -627,6 +654,9 @@ export function useMarketActions() {
 
     addCollateral,
     removeCollateral,
+
+    openMultiply,
+    withdrawMultiply,
 
     // leverage,
     // withdrawLeverage,

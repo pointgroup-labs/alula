@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "pnpm build:sdk && nuxt dev",
     "build": "cross-env NUXT_ENV=production nuxt generate",
-    "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build",
+    "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build && pnpm --dir ../sdk/soroswap_router build && pnpm --dir ../sdk/soroswap_swap_provider build",
     "build:client-sdk": "pnpm -r --filter @alula/client-sdk run build",
     "build:sdk": "pnpm build:market-sdk && pnpm build:client-sdk",
     "build:ssg": "pnpm build:sdk && cross-env NUXT_ENV=production nuxt generate",
@@ -80,6 +80,7 @@
     "unplugin-icons": "^22.5.0",
     "unplugin-imagemin": "^0.6.9",
     "unplugin-vue-components": "^28.8.0",
+    "unplugin-vue-router": "^0.19.2",
     "vite": "^7.3.1",
     "vite-bundle-visualizer": "^1.2.1",
     "vite-plugin-node-polyfills": "^0.24.0",

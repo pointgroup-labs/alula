@@ -9,6 +9,7 @@
     ],
     "useDefineForClassFields": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "5.0",
     "module": "esnext",
     "moduleResolution": "Bundler",
     "paths": {

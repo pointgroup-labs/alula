@@ -239,7 +239,10 @@ declare global {
   const useMouseInElement: typeof import('@vueuse/core').useMouseInElement
   const useMousePressed: typeof import('@vueuse/core').useMousePressed
   const useMultiply: typeof import('../hooks/multiply/table').useMultiply
+  const useMultiplyCatalog: typeof import('../hooks/multiply/catalog').useMultiplyCatalog
+  const useMultiplyOpen: typeof import('../hooks/multiply/open').useMultiplyOpen
   const useMultiplyTable: typeof import('../hooks/multiply/table').useMultiplyTable
+  const useMultiplyWithdraw: typeof import('../hooks/multiply/withdraw').useMultiplyWithdraw
   const useMutationObserver: typeof import('@vueuse/core').useMutationObserver
   const useMyPosition: typeof import('../hooks/my-position').useMyPosition
   const useNavigatorLanguage: typeof import('@vueuse/core').useNavigatorLanguage
@@ -365,7 +368,7 @@ declare global {
   export type { Network } from '../store/rpc'
   import('../store/rpc')
   // @ts-ignore
-  export type { UserState } from '../store/user'
+  export type { MultiplyObligationUI, UserState } from '../store/user'
   import('../store/user')
   // @ts-ignore
   export type { ToastAction, AlertToastVariant, ToastProps } from '../features/toast/toast'
@@ -574,7 +577,6 @@ declare module 'vue' {
     readonly useIntervalFn: UnwrapRef<typeof import('@vueuse/core')['useIntervalFn']>
     readonly useKeyModifier: UnwrapRef<typeof import('@vueuse/core')['useKeyModifier']>
     readonly useLastChanged: UnwrapRef<typeof import('@vueuse/core')['useLastChanged']>
-    readonly useLeverage: UnwrapRef<typeof import('../hooks/multiply/leverage')['useLeverage']>
     readonly useLocalStorage: UnwrapRef<typeof import('@vueuse/core')['useLocalStorage']>
     readonly useMagicKeys: UnwrapRef<typeof import('@vueuse/core')['useMagicKeys']>
     readonly useManualRefHistory: UnwrapRef<typeof import('@vueuse/core')['useManualRefHistory']>
@@ -592,7 +594,10 @@ declare module 'vue' {
     readonly useMouse: UnwrapRef<typeof import('@vueuse/core')['useMouse']>
     readonly useMouseInElement: UnwrapRef<typeof import('@vueuse/core')['useMouseInElement']>
     readonly useMousePressed: UnwrapRef<typeof import('@vueuse/core')['useMousePressed']>
+    readonly useMultiplyCatalog: UnwrapRef<typeof import('../hooks/multiply/catalog')['useMultiplyCatalog']>
+    readonly useMultiplyOpen: UnwrapRef<typeof import('../hooks/multiply/open')['useMultiplyOpen']>
     readonly useMultiplyTable: UnwrapRef<typeof import('../hooks/multiply/table')['useMultiplyTable']>
+    readonly useMultiplyWithdraw: UnwrapRef<typeof import('../hooks/multiply/withdraw')['useMultiplyWithdraw']>
     readonly useMutationObserver: UnwrapRef<typeof import('@vueuse/core')['useMutationObserver']>
     readonly useMyPosition: UnwrapRef<typeof import('../hooks/my-position')['useMyPosition']>
     readonly useNavigatorLanguage: UnwrapRef<typeof import('@vueuse/core')['useNavigatorLanguage']>

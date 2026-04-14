@@ -106,7 +106,9 @@ declare module 'vue' {
     MultiplyStats: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplyStats.vue')['default']
     MultiplyTable: typeof import('./../components/MultiplyPage/Tables/MultiplyTable.vue')['default']
     MultiplyTableMobile: typeof import('./../components/MultiplyPage/Tables/MultiplyTableMobile.vue')['default']
+    MultiplyTradePanel: typeof import('../components/MultiplyPage/Dialogs/MultiplyWindow.vue')['default']
     MultiplyVault: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplyVault.vue')['default']
+    MultiplyWindow: typeof import('./../components/MultiplyPage/Dialogs/MultiplyWindow.vue')['default']
     MyMultiplyPositions: typeof import('./../components/MultiplyDetailsPage/Position/Sections/MyMultiplyPositions.vue')['default']
     MyPosition: typeof import('./../components/PoolDetailPage/Position/MyPosition.vue')['default']
     MyPositionsWidget: typeof import('./../components/MarketsPage/Markets/MyPositionsWidget.vue')['default']
@@ -151,7 +153,10 @@ declare module 'vue' {
     TotalCard: typeof import('./../components/Widget/TotalCard.vue')['default']
     WarningBlock: typeof import('./../components/Widget/WarningBlock.vue')['default']
     WithdrawDialog: typeof import('./../components/AccountsPage/Dialogs/WithdrawDialog.vue')['default']
-    WithdrawLeverageDialog: typeof import('./../components/MultiplyPage/Dialogs/WithdrawLeverageDialog.vue')['default']
+    WithdrawLeverageDialog: typeof import('../components/MultiplyPage/Dialogs/WithdrawMultiplyDialog.vue')['default']
+    WithdrawLeverageWindow: typeof import('../components/MultiplyPage/Dialogs/WithdrawMultiplyWindow.vue')['default']
+    WithdrawMultiplyDialog: typeof import('./../components/MultiplyPage/Dialogs/WithdrawMultiplyDialog.vue')['default']
+    WithdrawMultiplyWindow: typeof import('./../components/MultiplyPage/Dialogs/WithdrawMultiplyWindow.vue')['default']
     WithdrawWindow: typeof import('./../components/SupplyCard/WithdrawWindow.vue')['default']
   }
 }

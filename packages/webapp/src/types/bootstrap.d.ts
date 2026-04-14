@@ -15,6 +15,7 @@ declare module 'node_modules/bootstrap-vue-next/dist/src/types/ColorTypes' {
     ['brand-secondary']: unknown
     ['brand-outlined']: unknown
     ['brand-secondary-outlined']: unknown
+    ['accent-outlined']: unknown
   }
 }
 

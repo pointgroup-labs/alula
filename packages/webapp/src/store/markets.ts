@@ -169,8 +169,8 @@ export const useMarketsStore = defineStore('markets', () => {
     dialogBorrow,
     dialogRepay,
     dialogWithdraw,
-    dialogLeverage,
     marketInfoDialog,
+    dialogLeverage,
     dialogLeverageWithdraw,
 
     selectedMarketName,
@@ -202,7 +202,7 @@ export type PoolWithPrice = {
   market?: string
 } & Pool
 
-export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage'
+export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage' | 'multiplyOpen'
 
 async function loadPoolData(address: string, client: any) {
   try {

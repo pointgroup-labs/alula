@@ -137,16 +137,16 @@ watch(() => forceValidation, (val) => {
           <slot name="append" />
         </div>
       </template>
-
-      <transition name="fade-bottom">
-        <div
-          v-if="errorMessage"
-          class="validate-label"
-        >
-          {{ errorMessage }}
-        </div>
-      </transition>
     </b-input-group>
+
+    <transition name="fade-bottom">
+      <div
+        v-if="errorMessage"
+        class="validate-label"
+      >
+        {{ errorMessage }}
+      </div>
+    </transition>
 
     <div
       v-if="slots.description"

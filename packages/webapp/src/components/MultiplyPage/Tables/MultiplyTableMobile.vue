@@ -48,6 +48,14 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
   }
   return shortenNumber(amount || 0)
 }
+
+function getApy(data: MultiplyTableItem | MultiplyAccountTableItem) {
+  if ('apyAtMaxMultiplier' in data) {
+    return data.apyAtMaxMultiplier || 0
+  }
+
+  return data.maxAPY || 0
+}
 </script>
 
 <template>
@@ -60,7 +68,7 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
   <table-mobile-card
     v-for="item in items"
     v-else
-    :key="item.pool_address"
+    :key="item.pairKey || item.pool_address"
   >
     <div class="mobile-card-top">
       <div class="card-asset">
@@ -120,10 +128,10 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          APY
+          APY at Max
         </div>
         <div class="info-wrapper__value apy-success">
-          {{ truncatePercent(item.maxAPY || 0, 2) }}%
+          {{ truncatePercent(getApy(item), 2) }}%
         </div>
       </div>
     </div>
@@ -153,6 +161,46 @@ function getSupply(data: MultiplyTableItem | MultiplyAccountTableItem) {
 </template>
 
 <style lang="scss" scoped>
+:deep(.table-mobile-card) {
+  padding: 18px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(24, 185, 119, 0.1), transparent 36%),
+    linear-gradient(180deg, rgba(17, 24, 39, 0.96) 0%, rgba(13, 18, 31, 0.96) 100%);
+  border: 1px solid $border-primary;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.2);
+
+  &:not(:last-child) {
+    margin-bottom: 14px;
+    border-bottom: 1px solid $border-primary;
+    padding: 18px;
+  }
+
+  .separator-vert {
+    background-color: $border-primary;
+  }
+
+  .info-wrapper__value {
+    color: $text-primary;
+  }
+
+  .mobile-card-footer {
+    margin-top: 4px;
+  }
+}
+
+:deep(.table-mobile-card .card-asset__info__name) {
+  color: $text-primary;
+}
+
+:deep(.table-mobile-card .card-asset__info__symbol) {
+  color: $text-tertiary;
+}
+
+:deep(.table-mobile-card .info-wrapper__title) {
+  color: $text-tertiary;
+}
+
 .apy-success {
   color: $success;
 }

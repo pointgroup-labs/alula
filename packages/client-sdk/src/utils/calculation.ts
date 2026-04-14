@@ -1,6 +1,6 @@
 import type { PoolData } from '@alula/market-sdk'
+import type { ObligationArray } from '../types'
 import Decimal from 'decimal.js'
-import { ObligationArray } from '../types'
 import { bigintToNumber, bpsToNumber } from './format'
 
 export function calcUserTotalStakeInUsd(obligation: ObligationArray, poolsData: PoolData[], assetDecimals: number, oraclePriceDecimals: number, ltvType?: 'open' | 'close') {

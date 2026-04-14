@@ -4,6 +4,7 @@
     "rootDir": "src",
     "module": "ESNext",
     "moduleResolution": "Node",
+    "ignoreDeprecations": "5.0",
     "strict": true,
     "declaration": true,
     "declarationMap": true,

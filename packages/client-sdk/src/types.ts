@@ -1,4 +1,4 @@
-import { BorrowPosition, DepositPosition, Obligation } from '@alula/market-sdk'
+import type { BorrowPosition, DepositPosition, Obligation } from '@alula/market-sdk'
 
 export type RPCcluster = 'devnet' | 'testnet' | 'public'
 

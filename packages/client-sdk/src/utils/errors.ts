@@ -76,7 +76,7 @@ export function parseStellarError(error: unknown): string {
 
   for (const key of Object.keys(errorMap)) {
     if (raw.includes(key)) {
-      return errorMap[key]
+      return String(errorMap[key])
     }
   }
 
