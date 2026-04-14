@@ -33,6 +33,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "aqua_swap_provider"
+version = "0.0.0"
+dependencies = [
+ "proxy-swap-interface",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1143,6 +1151,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "redstone_sep_40_adapter"
+version = "0.0.1"
+dependencies = [
+ "sep-40-oracle",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "ref-cast"
 version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1588,6 +1604,14 @@ name = "soroswap_sep_40_adapter"
 version = "0.0.1"
 dependencies = [
  "sep-40-oracle",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "soroswap_swap_provider"
+version = "0.0.0"
+dependencies = [
+ "proxy-swap-interface",
  "soroban-sdk",
 ]
 
