@@ -165,6 +165,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       :items="filteredData"
       responsive
       class="market-table multiply-table multiply-table-accounts"
+      :class="{ 'table-loading': userStore.loading }"
     >
       <template
         v-for="field in fields"

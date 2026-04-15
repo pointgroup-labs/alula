@@ -182,6 +182,10 @@ const { selectedVault } = useMultiplyCatalog()
     display: flex;
     justify-content: space-between;
     gap: 20px;
+
+    @media (max-width: $breakpoint-xs) {
+      flex-direction: column;
+    }
   }
 
   &__empty {

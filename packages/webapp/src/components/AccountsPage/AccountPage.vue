@@ -7,7 +7,7 @@
 
     <div class="account-multiply__cards card">
       <div class="account-card__title">
-        Your Multiplies
+        Your Positions
       </div>
       <account-multiply-table only-multiplied />
     </div>
@@ -31,9 +31,11 @@
   }
 
   .account-multiply__cards {
+    width: calc(100% - 48px);
     display: flex;
     flex-direction: column;
     gap: 16px;
+    margin: 0 auto;
   }
 }
 </style>
