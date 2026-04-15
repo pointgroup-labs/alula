@@ -56,6 +56,14 @@ function getApy(data: MultiplyTableItem | MultiplyAccountTableItem) {
 
   return data.maxAPY || 0
 }
+
+function getHealthFactor(data: MultiplyTableItem | MultiplyAccountTableItem) {
+  if (showInAccounts && 'healthFactor' in data) {
+    return data.healthFactor || 0
+  }
+
+  return null
+}
 </script>
 
 <template>
@@ -134,6 +142,31 @@ function getApy(data: MultiplyTableItem | MultiplyAccountTableItem) {
           {{ truncatePercent(getApy(item), 2) }}%
         </div>
       </div>
+
+      <template v-if="showInAccounts && getHealthFactor(item) !== null">
+        <div class="separator-vert" />
+
+        <div class="info-wrapper">
+          <div class="info-wrapper__title text-end">
+            Health Factor
+          </div>
+          <div class="info-wrapper__value hf-value">
+            <div
+              class="hf-indicator"
+              :style="{
+                '--indicator-width': `${Math.min(Math.max(((getHealthFactor(item) || 0) - 1) * 100, 0), 100)}%`,
+                '--indicator-color': healthFactorColor(getHealthFactor(item) || 0),
+              }"
+            />
+            <span
+              :style="{ color: healthFactorColor(getHealthFactor(item) || 0) }"
+              class="text-num hf-percent"
+            >
+              {{ truncatePercent(getHealthFactor(item) || 0, 2) }}
+            </span>
+          </div>
+        </div>
+      </template>
     </div>
 
     <div class="mobile-card-footer">
@@ -203,6 +236,40 @@ function getApy(data: MultiplyTableItem | MultiplyAccountTableItem) {
 
 .apy-success {
   color: $success;
+}
+
+.hf-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hf-indicator {
+  position: relative;
+  width: 50px;
+  height: 4px;
+  border-radius: $radius-lg;
+  background-color: color-mix(in oklab, $border-primary 70%, transparent);
+  overflow: hidden;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: var(--indicator-width, 0%);
+    border-radius: $radius-lg;
+    background-color: var(--indicator-color, #{$success});
+    transition:
+      width 0.3s ease,
+      background-color 0.3s ease;
+  }
+}
+
+.hf-percent {
+  font-size: 12px;
 }
 
 .no-data {

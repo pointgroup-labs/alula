@@ -32,8 +32,27 @@ const fields = [
   { key: 'market', label: 'Market', align: 'center' },
   { key: 'deposited', label: 'Deposited', align: 'right' },
   { key: 'borrowed', label: 'Borrowed', align: 'right' },
+  { key: 'hf', label: 'Health Factor', align: 'right' },
   { key: 'action', label: '' },
 ]
+
+function calculatePositionHealthFactor(params: {
+  deposited: number
+  depositPrice: number
+  closeLtvBps: number
+  borrowed: number
+  borrowPrice: number
+  liabilityFactorBps: number
+}) {
+  const weightedDepositUsd = params.deposited * params.depositPrice * bpsToNumber(params.closeLtvBps)
+  const weightedBorrowUsd = params.borrowed * params.borrowPrice * bpsToNumber(params.liabilityFactorBps)
+
+  if (weightedBorrowUsd <= 0) {
+    return 10
+  }
+
+  return Math.min(weightedDepositUsd / weightedBorrowUsd, 10)
+}
 
 const tableItems = computed<MultiplyAccountTableItem[]>(() => {
   const res = []
@@ -73,6 +92,14 @@ const tableItems = computed<MultiplyAccountTableItem[]>(() => {
         }, borrowPoolData.pool.token_decimals) || 0
       const depositPoolPrice = Number(bigintToNumber(depositPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
       const borrowPPoolPrice = Number(bigintToNumber(borrowPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
+      const healthFactor = calculatePositionHealthFactor({
+        deposited,
+        depositPrice: depositPoolPrice,
+        closeLtvBps: Number(depositPoolData.pool.config.health_config.close_ltv_bps || 0),
+        borrowed,
+        borrowPrice: borrowPPoolPrice,
+        liabilityFactorBps: Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0),
+      })
 
       const currentMultiplier = calculateCurrentMultiplier(deposited, depositPoolPrice, borrowed, borrowPPoolPrice) || 0
 
@@ -85,6 +112,7 @@ const tableItems = computed<MultiplyAccountTableItem[]>(() => {
         borrowAsset: getFullTokenData(borrowPoolData?.pool.token_symbol),
         deposited,
         borrowed,
+        healthFactor,
         multiplier: currentMultiplier,
         maxAPY,
         price: depositPoolPrice,
@@ -225,6 +253,26 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         </div>
       </template>
 
+      <template #cell(hf)="data">
+        <div class="table-cell justify-content-end">
+          <div
+            class="hf-indicator"
+            :style="{
+              '--indicator-width': `${Math.min(Math.max((data.item.healthFactor - 1) * 100, 0), 100)}%`,
+              '--indicator-color': healthFactorColor(data.item.healthFactor),
+            }"
+          />
+          <span
+            :style="{
+              color: healthFactorColor(data.item.healthFactor),
+            }"
+            class="text-num hf-percent"
+          >
+            {{ truncatePercent(data.item.healthFactor, 2) }}
+          </span>
+        </div>
+      </template>
+
       <template #cell(action)="data">
         <div class="table-cell justify-content-end market-table__action">
           <j-btn
@@ -280,6 +328,36 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     &--negative {
       color: $danger;
     }
+  }
+
+  .hf-indicator {
+    position: relative;
+    width: 50px;
+    height: 4px;
+    border-radius: $radius-lg;
+    background-color: color-mix(in oklab, $border-primary 70%, transparent);
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-right: 4px;
+    font-family: $font-JetBrainsMono;
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      width: var(--indicator-width, 0%);
+      border-radius: $radius-lg;
+      background-color: var(--indicator-color, #{$success});
+      transition:
+        width 0.3s ease,
+        background-color 0.3s ease;
+    }
+  }
+
+  .hf-percent {
+    font-size: 12px;
   }
 
   .no-data {

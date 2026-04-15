@@ -80,6 +80,7 @@ export type MultiplyAccountTableItem = {
   borrowAsset: TableAsset['asset']
   deposited: number
   borrowed: number
+  healthFactor: number
   multiplier: number
   maxAPY: number
   price: number
