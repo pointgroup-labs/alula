@@ -4,10 +4,10 @@ import { useMultiplyWithdraw } from '~/hooks/multiply/withdraw'
 
 const {
   opened = false,
-  data,
+  vault,
 } = defineProps<{
   opened?: boolean
-  data?: MultiplyTableItem | MultiplyAccountTableItem | MultiplyVaultItem
+  vault?: MultiplyTableItem | MultiplyAccountTableItem | MultiplyVaultItem
 }>()
 
 const isValidate = ref(true)
@@ -33,7 +33,7 @@ const {
   marginAsset,
   notMarginAsset,
   withdraw,
-} = useMultiplyWithdraw(toRef(() => opened), toRef(() => data))
+} = useMultiplyWithdraw(toRef(() => opened), toRef(() => vault))
 
 async function withdrawLeverage() {
   isValidate.value = false
@@ -57,12 +57,14 @@ async function withdrawLeverage() {
         (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
         (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Repay amount exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
       ]"
+      :disabled="true"
     >
       <template #prepend>
         <j-popover
           position="bottom"
           :teleport-to-body="false"
           close-popup
+          :disabled="isLoading || previewLoading"
         >
           <template #target="{ active }">
             <div
@@ -131,7 +133,7 @@ async function withdrawLeverage() {
                   />
                 </template>
                 <template v-else>
-                  {{ shortenNumber(currentDeposited || 0, 2, maxDecimalsForShortenNumber(currentDeposited)) }} {{ data?.asset.symbol }}
+                  {{ shortenNumber(currentDeposited || 0, 2, maxDecimalsForShortenNumber(currentDeposited)) }} {{ vault?.asset.symbol }}
                 </template>
               </div>
             </div>
@@ -164,14 +166,14 @@ async function withdrawLeverage() {
             <div class="summary-list__item">
               <div class="label">Debt repaid</div>
               <div class="value">
-                {{ shortenNumber(debtRepaidAmount || 0, 2, maxDecimalsForShortenNumber(debtRepaidAmount)) }} {{ data?.borrowAsset.symbol }}
+                {{ shortenNumber(debtRepaidAmount || 0, 2, maxDecimalsForShortenNumber(debtRepaidAmount)) }} {{ vault?.borrowAsset.symbol }}
               </div>
             </div>
 
             <div class="summary-list__item">
               <div class="label">Estimated receive</div>
               <div class="value">
-                {{ shortenNumber(estimatedReceiveAmount || 0, 2, maxDecimalsForShortenNumber(estimatedReceiveAmount)) }} {{ data?.asset.symbol }}
+                {{ shortenNumber(estimatedReceiveAmount || 0, 2, maxDecimalsForShortenNumber(estimatedReceiveAmount)) }} {{ vault?.asset.symbol }}
               </div>
             </div>
 
@@ -179,7 +181,7 @@ async function withdrawLeverage() {
               <div class="label">Remaining debt</div>
               <div class="value">
                 <div class="text-end">
-                  {{ shortenNumber(remainingBorrowAmount || 0, 2, maxDecimalsForShortenNumber(remainingBorrowAmount)) }} {{ data?.borrowAsset.symbol }}
+                  {{ shortenNumber(remainingBorrowAmount || 0, 2, maxDecimalsForShortenNumber(remainingBorrowAmount)) }} {{ vault?.borrowAsset.symbol }}
                 </div>
               </div>
             </div>
@@ -188,7 +190,7 @@ async function withdrawLeverage() {
               <div class="label">Remaining supply</div>
               <div class="value">
                 <div class="text-end">
-                  {{ shortenNumber(remainingDepositAmount || 0, 2, maxDecimalsForShortenNumber(remainingDepositAmount)) }} {{ data?.asset.symbol }}
+                  {{ shortenNumber(remainingDepositAmount || 0, 2, maxDecimalsForShortenNumber(remainingDepositAmount)) }} {{ vault?.asset.symbol }}
                 </div>
               </div>
             </div>
@@ -196,7 +198,7 @@ async function withdrawLeverage() {
             <div class="summary-list__item">
               <div class="label">Swap estimate</div>
               <div class="value">
-                {{ formatPrice(swapInputEstimate, 2, data?.depositPoolData.pool.token_decimals || 7) }} {{ data?.asset.symbol }}
+                {{ formatPrice(swapInputEstimate, 2, vault?.depositPoolData.pool.token_decimals || 7) }} {{ vault?.asset.symbol }}
               </div>
             </div>
           </div>
@@ -212,7 +214,7 @@ async function withdrawLeverage() {
             <div class="summary-list__item">
               <div class="label">Flash loan fee</div>
               <div class="value">
-                {{ formatPrice(marketFee, 2, data?.borrowPoolData.pool.token_decimals || 7) }} {{ data?.borrowAsset.symbol }}
+                {{ formatPrice(marketFee, 2, vault?.borrowPoolData.pool.token_decimals || 7) }} {{ vault?.borrowAsset.symbol }}
               </div>
             </div>
 

@@ -238,7 +238,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     }
   }
 
-  async function submit() {
+  async function openMultiply() {
     if (!vault.value || !activeClient.value || !amount.value || !publicKey.value || blockedReason.value || unhealthyReason.value) {
       return false
     }
@@ -327,7 +327,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     summary,
     loadingPreview,
     previewError,
-    submit,
+    openMultiply,
     reset,
     swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
   }

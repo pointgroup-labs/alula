@@ -516,7 +516,7 @@ export function useMarketActions() {
       pool: deposit_pool_address,
       type: 'multiplyOpen',
       title: 'Open Multiply',
-      body: `Sending multiply transaction for ${amountToAssetDecimals(initial_amount)}`,
+      body: `Sending multiply transaction`,
       action: props.action,
       exec: () => client.multiply.openPosition({
         user: oblKey,

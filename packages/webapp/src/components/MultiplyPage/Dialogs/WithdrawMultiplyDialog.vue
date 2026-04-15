@@ -27,7 +27,7 @@ const dialog = defineModel({ default: false })
 
     <div class="dialog-default__body">
       <withdraw-multiply-window
-        :data="data"
+        :vault="data"
         :opened="dialog"
       />
     </div>

@@ -80,7 +80,7 @@ const { selectedVault } = useMultiplyCatalog()
           </div>
         </div>
 
-        <multiply-window :vault="selectedVault" />
+        <multiply-supply-card :vault="selectedVault" />
       </section>
     </template>
 
@@ -191,15 +191,6 @@ const { selectedVault } = useMultiplyCatalog()
     border: 1px solid $border-primary;
     color: $text-secondary;
     text-align: center;
-  }
-
-  .multiply-trade-panel {
-    max-width: 500px;
-    width: 100%;
-    background-color: $bg-card;
-    padding: $spacing-xl;
-    border-radius: $radius-2xl;
-    border: 1px solid $border-primary;
   }
 }
 </style>

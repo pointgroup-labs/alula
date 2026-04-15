@@ -31,7 +31,7 @@ const {
   marginAsset,
   marginPrice,
   notMarginAsset,
-  submit,
+  openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
 
 const slippageModel = computed<string | number>({
@@ -88,10 +88,6 @@ const slippageRules = [
     return true
   },
 ]
-
-async function openMultiply() {
-  await submit()
-}
 </script>
 
 <template>
@@ -117,6 +113,7 @@ async function openMultiply() {
             position="bottom"
             :teleport-to-body="false"
             close-popup
+            :disabled="loadingPreview"
           >
             <template #target="{ active }">
               <div

@@ -275,10 +275,6 @@ export class MultiplyService extends BaseClient {
       },
     )
 
-    console.log('PARAMS =>>>', params)
-    console.log('preview =>>>', preview)
-    console.log('requests =>>>', requests)
-
     const tx = await this.marketClient.submit_requests_batch({
       user: params.user,
       requests,

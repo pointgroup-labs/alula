@@ -104,6 +104,7 @@ declare module 'vue' {
     MultiplyPosition: typeof import('./../components/MultiplyDetailsPage/Position/MultiplyPosition.vue')['default']
     MultiplySelect: typeof import('./../components/MultiplyPage/MultiplySelect.vue')['default']
     MultiplyStats: typeof import('./../components/MultiplyDetailsPage/Overview/Sections/MultiplyStats.vue')['default']
+    MultiplySupplyCard: typeof import('./../components/MultiplyDetailsPage/MultiplySupplyCard.vue')['default']
     MultiplyTable: typeof import('./../components/MultiplyPage/Tables/MultiplyTable.vue')['default']
     MultiplyTableMobile: typeof import('./../components/MultiplyPage/Tables/MultiplyTableMobile.vue')['default']
     MultiplyTradePanel: typeof import('../components/MultiplyPage/Dialogs/MultiplyWindow.vue')['default']

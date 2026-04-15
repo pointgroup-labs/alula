@@ -7,6 +7,7 @@ const {
   modelValue,
   className,
   teleportToBody = true,
+  disabled = false,
   ...props
 } = defineProps<
   {
@@ -18,6 +19,7 @@ const {
     modelValue?: boolean
     className?: string
     menuClassName?: string
+    disabled?: boolean
   } & BButtonProps>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -72,9 +74,8 @@ onMounted(() => {
     <template #target>
       <div
         v-if="slot?.target"
-        :class="className"
+        :class="[className, { 'popover-target--disabled': disabled }]"
         class="popover-target"
-        @click="show = true"
       >
         <slot
           name="target"
@@ -113,7 +114,13 @@ onMounted(() => {
 
 .popover-target {
   width: fit-content;
+  user-select: none;
   cursor: pointer;
+
+  &--disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+  }
 }
 
 .popover-body {
