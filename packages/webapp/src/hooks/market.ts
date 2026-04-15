@@ -61,8 +61,7 @@ export function useMarket(state: MarketsState) {
     dialogSupply,
     dialogBorrow,
     marketInfoDialog,
-    dialogLeverage,
-  ], ([supply, borrow, infoDialog, leverage]) => {
+  ], ([supply, borrow, infoDialog]) => {
     const pool = selectedPoolAddress.value
     const market = selectedMarketName.value
     const query = { ...route.query }
@@ -71,7 +70,6 @@ export function useMarket(state: MarketsState) {
       supply,
       borrow,
       'market-info': infoDialog,
-      leverage,
     }
 
     const active = Object.entries(map).find(([, v]) => v)?.[0]
@@ -79,9 +77,6 @@ export function useMarket(state: MarketsState) {
     if (active) {
       query.dialog = active
       query.pool = pool
-      if (leverage) {
-        query['leverage-market'] = activeLeverageMarket.value
-      }
       router.replace({ query: { ...query, dialog: active, pool, market } })
     } else {
       delete query.dialog
