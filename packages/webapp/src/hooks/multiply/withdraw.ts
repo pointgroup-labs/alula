@@ -1,4 +1,4 @@
-import type { CloseMultiplyPreview } from '@alula/client-sdk/src/services/multiply-service'
+import type { CloseMultiplyPreview, MultiplyMarginAsset } from '@alula/client-sdk/src/services/multiply-service'
 import type { ComputedRef, Ref } from 'vue'
 import type { MultiplyAccountTableItem, MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
 import { SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
@@ -9,6 +9,14 @@ import { buildMultiplyObligationKey } from '~/utils/obligation'
 type MultiplyWithdrawItem = MultiplyTableItem | MultiplyAccountTableItem | MultiplyVaultItem
 type BooleanRef = Ref<boolean> | ComputedRef<boolean>
 type MultiplyWithdrawItemRef = Ref<MultiplyWithdrawItem | undefined> | ComputedRef<MultiplyWithdrawItem | undefined>
+
+function amountTolerance(decimals: number) {
+  return 1 / 10 ** Math.min(decimals, 6)
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
 
 export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdrawItemRef) {
   const marketsStore = useMarketsStore()
@@ -22,13 +30,26 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   const amount = toRef(market, 'withdrawAmount')
   const reloadFee = ref(false)
   const preview = ref<CloseMultiplyPreview>()
+  const fullClosePreview = ref<CloseMultiplyPreview>()
   const previewError = ref('')
   const previewLoading = ref(false)
   const txFee = ref(0)
   const loading = ref(false)
+  const resolvedRepayAmount = ref<number>()
+  const receivePreviewCache = new Map<string, { preview: CloseMultiplyPreview, repayAmount: number }>()
   let interval: string | number | NodeJS.Timeout | undefined
 
   const activeMarket = computed(() => marketsStore.state.markets[String(data.value?.market)])
+
+  const isMarginBorrow = ref(true)
+  const marginAssetType = computed<MultiplyMarginAsset>(() => isMarginBorrow.value ? 'borrow' : 'deposit')
+  const marginAsset = computed(() => isMarginBorrow.value ? data.value?.borrowAsset : data.value?.asset)
+  const notMarginAsset = computed(() => isMarginBorrow.value ? data.value?.asset : data.value?.borrowAsset)
+  const marginPrice = computed(() => isMarginBorrow.value ? data.value?.borrowPoolPrice : data.value?.price)
+  const borrowDecimals = computed(() => data.value?.borrowPoolData.pool.token_decimals || 7)
+  const depositDecimals = computed(() => data.value?.depositPoolData.pool.token_decimals || 7)
+  const inputLabel = computed(() => isMarginBorrow.value ? 'Repay amount' : 'Receive amount')
+  const maxAmountLabel = computed(() => isMarginBorrow.value ? 'Max repay' : 'Max receive')
 
   const swapPath = computed(() => {
     if (!data.value) {
@@ -54,11 +75,18 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   })
 
   const balance = computed(() => {
-    if (!preview.value || !data.value) {
+    if (!data.value) {
       return 0
     }
 
-    return Number(bigintToNumber(preview.value.maxRepayAmount, data.value.borrowPoolData.pool.token_decimals)) || 0
+    const sourcePreview = fullClosePreview.value || preview.value
+    if (!sourcePreview) {
+      return 0
+    }
+
+    return isMarginBorrow.value
+      ? Number(bigintToNumber(sourcePreview.maxRepayAmount, borrowDecimals.value)) || 0
+      : Number(bigintToNumber(sourcePreview.maxReceivableAmount, depositDecimals.value)) || 0
   })
 
   const currentDeposited = computed(() => {
@@ -67,7 +95,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     }
 
     if (preview.value) {
-      return Number(bigintToNumber(preview.value.currentDepositAmount, data.value.depositPoolData.pool.token_decimals)) || 0
+      return Number(bigintToNumber(preview.value.currentDepositAmount, depositDecimals.value)) || 0
     }
 
     const deposits: any = userStore.state.multiplyObligations[String(data.value.market)]?.[data.value.pairKey]?.deposits || []
@@ -89,7 +117,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
       return 0
     }
 
-    return Number(bigintToNumber(preview.value.requiredAmountIn, data.value.depositPoolData.pool.token_decimals)) || 0
+    return Number(bigintToNumber(preview.value.requiredAmountIn, depositDecimals.value)) || 0
   })
 
   const estimatedReceiveAmount = computed(() => {
@@ -97,7 +125,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
       return 0
     }
 
-    return Number(bigintToNumber(preview.value.estimatedReceiveAmount, data.value.depositPoolData.pool.token_decimals)) || 0
+    return Number(bigintToNumber(preview.value.estimatedReceiveAmount, depositDecimals.value)) || 0
   })
 
   const debtRepaidAmount = computed(() => {
@@ -105,7 +133,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
       return 0
     }
 
-    return Number(bigintToNumber(preview.value.debtRepaidAmount, data.value.borrowPoolData.pool.token_decimals)) || 0
+    return Number(bigintToNumber(preview.value.debtRepaidAmount, borrowDecimals.value)) || 0
   })
 
   const remainingBorrowAmount = computed(() => {
@@ -113,7 +141,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
       return 0
     }
 
-    return Number(bigintToNumber(preview.value.remainingBorrowAmount, data.value.borrowPoolData.pool.token_decimals)) || 0
+    return Number(bigintToNumber(preview.value.remainingBorrowAmount, borrowDecimals.value)) || 0
   })
 
   const remainingDepositAmount = computed(() => {
@@ -121,7 +149,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
       return 0
     }
 
-    return Number(bigintToNumber(preview.value.remainingDepositAmount, data.value.depositPoolData.pool.token_decimals)) || 0
+    return Number(bigintToNumber(preview.value.remainingDepositAmount, depositDecimals.value)) || 0
   })
 
   const marketFee = computed(() => {
@@ -131,14 +159,201 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
     return Number(bigintToNumber(
       preview.value.flashRepaymentAmount - preview.value.flashBorrowAmount,
-      data.value.borrowPoolData.pool.token_decimals,
+      borrowDecimals.value,
     )) || 0
   })
+
+  function toBorrowAmount(value: bigint) {
+    return Number(bigintToNumber(value, borrowDecimals.value)) || 0
+  }
+
+  function toDepositAmount(value: bigint) {
+    return Number(bigintToNumber(value, depositDecimals.value)) || 0
+  }
+
+  // eslint-disable-next-line unicorn/consistent-function-scoping
+  function amountsEqual(left: number | undefined, right: number | undefined, decimals: number) {
+    if (left == null || right == null) {
+      return false
+    }
+
+    return Math.abs(left - right) <= amountTolerance(decimals)
+  }
+
+  function getPreviewRepayAmount(sourcePreview: CloseMultiplyPreview) {
+    return toBorrowAmount(sourcePreview.repayAmount)
+  }
+
+  function getPreviewReceiveAmount(sourcePreview: CloseMultiplyPreview) {
+    return toDepositAmount(sourcePreview.estimatedReceiveAmount)
+  }
+
+  function getMaxReceivableAmount(sourcePreview: CloseMultiplyPreview) {
+    return toDepositAmount(sourcePreview.maxReceivableAmount)
+  }
+
+  function makeReceiveCacheKey(targetReceiveAmount: number) {
+    return targetReceiveAmount.toFixed(Math.min(depositDecimals.value, 6))
+  }
+
+  function getClosestCachedReceivePreview(targetReceiveAmount: number) {
+    let closest: { preview: CloseMultiplyPreview, repayAmount: number } | undefined
+    let closestDistance = Number.POSITIVE_INFINITY
+
+    for (const cachedPreview of receivePreviewCache.values()) {
+      const cachedReceiveAmount = getPreviewReceiveAmount(cachedPreview.preview)
+      const distance = Math.abs(cachedReceiveAmount - targetReceiveAmount)
+      if (distance < closestDistance) {
+        closest = cachedPreview
+        closestDistance = distance
+      }
+    }
+
+    return closest
+  }
+
+  function estimateRepayAmountFromReceive(targetReceiveAmount: number, maxPreview: CloseMultiplyPreview) {
+    const maxRepayAmount = toBorrowAmount(maxPreview.maxRepayAmount)
+    const maxReceiveAmount = getMaxReceivableAmount(maxPreview)
+
+    let anchorReceiveAmount = maxReceiveAmount
+    let anchorRepayAmount = maxRepayAmount
+
+    const currentPreview = preview.value
+    if (currentPreview) {
+      const currentReceiveAmount = getPreviewReceiveAmount(currentPreview)
+      if (currentReceiveAmount > 0 && Math.abs(currentReceiveAmount - targetReceiveAmount) < Math.abs(anchorReceiveAmount - targetReceiveAmount)) {
+        anchorReceiveAmount = currentReceiveAmount
+        anchorRepayAmount = getPreviewRepayAmount(currentPreview)
+      }
+    }
+
+    const cachedPreview = getClosestCachedReceivePreview(targetReceiveAmount)
+    if (cachedPreview) {
+      const cachedReceiveAmount = getPreviewReceiveAmount(cachedPreview.preview)
+      if (cachedReceiveAmount > 0 && Math.abs(cachedReceiveAmount - targetReceiveAmount) < Math.abs(anchorReceiveAmount - targetReceiveAmount)) {
+        anchorReceiveAmount = cachedReceiveAmount
+        anchorRepayAmount = cachedPreview.repayAmount
+      }
+    }
+
+    if (anchorReceiveAmount <= 0 || anchorRepayAmount <= 0) {
+      return maxRepayAmount
+    }
+
+    return clampNumber(
+      (targetReceiveAmount / anchorReceiveAmount) * anchorRepayAmount,
+      amountTolerance(borrowDecimals.value),
+      maxRepayAmount,
+    )
+  }
+
+  async function getClosePreview(repayAmount?: number) {
+    if (!data.value || !activeMarket.value?.client || !obligationKey.value) {
+      return
+    }
+
+    return await activeMarket.value.client.multiply.getClosePositionPreview({
+      user: obligationKey.value,
+      depositPoolAddress: data.value.depositPoolData.pool.pool_address,
+      borrowPoolAddress: data.value.borrowPoolData.pool.pool_address,
+      repayAmount,
+      swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
+      path: swapPath.value,
+    })
+  }
+
+  async function loadFullClosePreview() {
+    const result = await getClosePreview()
+    if (!result) {
+      return
+    }
+
+    fullClosePreview.value = result
+    return result
+  }
+
+  async function resolvePreviewFromReceiveAmount(targetReceiveAmount: number) {
+    const maxPreview = fullClosePreview.value || await loadFullClosePreview()
+    if (!maxPreview) {
+      return
+    }
+
+    const maxReceiveAmount = getMaxReceivableAmount(maxPreview)
+    if (targetReceiveAmount > maxReceiveAmount) {
+      throw new Error('Receive amount exceeds closeable collateral')
+    }
+
+    if (amountsEqual(targetReceiveAmount, maxReceiveAmount, depositDecimals.value)) {
+      return {
+        preview: maxPreview,
+        repayAmount: getPreviewRepayAmount(maxPreview),
+      }
+    }
+
+    if (preview.value && amountsEqual(targetReceiveAmount, getPreviewReceiveAmount(preview.value), depositDecimals.value)) {
+      return {
+        preview: preview.value,
+        repayAmount: getPreviewRepayAmount(preview.value),
+      }
+    }
+
+    const cacheKey = makeReceiveCacheKey(targetReceiveAmount)
+    const cachedPreview = receivePreviewCache.get(cacheKey)
+    if (cachedPreview) {
+      return cachedPreview
+    }
+
+    const maxRepayAmount = toBorrowAmount(maxPreview.maxRepayAmount)
+    const firstRepayAmount = estimateRepayAmountFromReceive(targetReceiveAmount, maxPreview)
+    const firstPreview = await getClosePreview(firstRepayAmount)
+    if (!firstPreview) {
+      return
+    }
+
+    let bestPreview = firstPreview
+    let bestRepayAmount = firstRepayAmount
+    let bestDistance = Math.abs(getPreviewReceiveAmount(firstPreview) - targetReceiveAmount)
+
+    const firstReceiveAmount = getPreviewReceiveAmount(firstPreview)
+    if (!amountsEqual(firstReceiveAmount, targetReceiveAmount, depositDecimals.value) && firstReceiveAmount > 0) {
+      const correctedRepayAmount = clampNumber(
+        firstRepayAmount * (targetReceiveAmount / firstReceiveAmount),
+        amountTolerance(borrowDecimals.value),
+        maxRepayAmount,
+      )
+
+      if (!amountsEqual(correctedRepayAmount, firstRepayAmount, borrowDecimals.value)) {
+        const correctedPreview = await getClosePreview(correctedRepayAmount)
+        if (correctedPreview) {
+          const correctedDistance = Math.abs(getPreviewReceiveAmount(correctedPreview) - targetReceiveAmount)
+          if (correctedDistance < bestDistance) {
+            bestPreview = correctedPreview
+            bestRepayAmount = correctedRepayAmount
+            bestDistance = correctedDistance
+          }
+        }
+      }
+    }
+
+    const result = {
+      preview: bestPreview,
+      repayAmount: bestRepayAmount,
+    }
+
+    receivePreviewCache.set(cacheKey, result)
+
+    return result
+  }
 
   function clearState() {
     amount.value = undefined
     preview.value = undefined
+    fullClosePreview.value = undefined
     previewError.value = ''
+    resolvedRepayAmount.value = undefined
+    receivePreviewCache.clear()
+    isMarginBorrow.value = true
     txFee.value = 0
   }
 
@@ -159,23 +374,46 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     previewError.value = ''
 
     try {
-      const multiplyService = activeMarket.value.client.multiply
-      const result = await multiplyService.getClosePositionPreview({
-        user: obligationKey.value,
-        depositPoolAddress: data.value.depositPoolData.pool.pool_address,
-        borrowPoolAddress: data.value.borrowPoolData.pool.pool_address,
-        repayAmount: amount.value && amount.value > 0 ? Number(amount.value) : undefined,
-        swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
-        path: swapPath.value,
-      })
-
-      preview.value = result
+      const maxPreview = fullClosePreview.value || await loadFullClosePreview()
+      if (!maxPreview) {
+        preview.value = undefined
+        return
+      }
 
       if (!amount.value) {
-        amount.value = Number(bigintToNumber(result.maxRepayAmount, data.value.borrowPoolData.pool.token_decimals)) || 0
+        amount.value = isMarginBorrow.value
+          ? Number(bigintToNumber(maxPreview.maxRepayAmount, borrowDecimals.value)) || 0
+          : Number(bigintToNumber(maxPreview.maxReceivableAmount, depositDecimals.value)) || 0
+      }
+
+      if (!amount.value || amount.value <= 0) {
+        preview.value = maxPreview
+        resolvedRepayAmount.value = getPreviewRepayAmount(maxPreview)
+        return
+      }
+
+      if (marginAssetType.value === 'borrow') {
+        if (preview.value && amountsEqual(Number(amount.value), getPreviewRepayAmount(preview.value), borrowDecimals.value)) {
+          resolvedRepayAmount.value = getPreviewRepayAmount(preview.value)
+          return
+        }
+
+        const result = await getClosePreview(Number(amount.value))
+        preview.value = result
+        resolvedRepayAmount.value = Number(amount.value)
+      } else {
+        if (preview.value && amountsEqual(Number(amount.value), getPreviewReceiveAmount(preview.value), depositDecimals.value)) {
+          resolvedRepayAmount.value = getPreviewRepayAmount(preview.value)
+          return
+        }
+
+        const resolvedPreview = await resolvePreviewFromReceiveAmount(Number(amount.value))
+        preview.value = resolvedPreview?.preview
+        resolvedRepayAmount.value = resolvedPreview?.repayAmount
       }
     } catch (error: any) {
       preview.value = undefined
+      resolvedRepayAmount.value = undefined
       previewError.value = String(error?.message || error)
       txFee.value = 0
     } finally {
@@ -184,7 +422,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   }
 
   async function loadTxFee() {
-    if (!opened.value || !data.value || !activeMarket.value?.client || !obligationKey.value || !amount.value || amount.value <= 0) {
+    if (!opened.value || !data.value || !activeMarket.value?.client || !obligationKey.value || !resolvedRepayAmount.value || resolvedRepayAmount.value <= 0) {
       txFee.value = 0
       return
     }
@@ -195,7 +433,8 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         user: obligationKey.value,
         depositPoolAddress: data.value.depositPoolData.pool.pool_address,
         borrowPoolAddress: data.value.borrowPoolData.pool.pool_address,
-        repayAmount: Number(amount.value),
+        repayAmount: Number(resolvedRepayAmount.value),
+        minReceiveAmount: isMarginBorrow.value ? undefined : Number(amount.value),
         swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
         path: swapPath.value,
       })
@@ -214,7 +453,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     if (!publicKey.value || !data.value?.depositPoolData.pool.pool_address || !activeMarket.value?.client || !obligationKey.value) {
       return
     }
-    if (!amount.value || amount.value <= 0) {
+    if (!amount.value || amount.value <= 0 || !resolvedRepayAmount.value || resolvedRepayAmount.value <= 0) {
       return
     }
 
@@ -226,7 +465,8 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         market: activeMarket.value.marketState.global_state.name,
         deposit_pool_address: data.value.depositPoolData.pool.pool_address,
         borrow_pool_address: data.value.borrowPoolData.pool.pool_address,
-        repay_amount: Number(amount.value),
+        repay_amount: Number(resolvedRepayAmount.value),
+        min_receive_amount: isMarginBorrow.value ? undefined : Number(amount.value),
         swap_provider: SOROSWAP_PROVIDER_ADDRESS,
         obligation_key: obligationKey.value,
         path: swapPath.value,
@@ -254,6 +494,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
       return
     }
 
+    await loadFullClosePreview()
     await loadPreview()
 
     interval = setInterval(() => {
@@ -269,6 +510,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     () => opened.value,
     () => publicKey.value,
     () => amount.value,
+    () => isMarginBorrow.value,
   ], async ([pairKey, isDialogOpen, wallet]) => {
     if (!pairKey || !isDialogOpen || !wallet) {
       return
@@ -289,7 +531,17 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     }
 
     await loadTxFee()
-  }, { immediate: true, debounce: 300 })
+  }, { immediate: true, debounce: 1000, maxWait: 1500 })
+
+  watch(() => isMarginBorrow.value, (nextValue) => {
+    if (!preview.value) {
+      return
+    }
+
+    amount.value = nextValue
+      ? getPreviewRepayAmount(preview.value)
+      : getPreviewReceiveAmount(preview.value)
+  })
 
   onScopeDispose(() => {
     clearReloadInterval()
@@ -298,7 +550,10 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   return {
     amount,
     balance,
+    inputLabel,
+    marginPrice,
     currentDeposited,
+    maxAmountLabel,
     swapInputEstimate,
     estimatedReceiveAmount,
     debtRepaidAmount,
@@ -310,6 +565,9 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     previewLoading,
     txFee,
     loading,
+    isMarginBorrow,
+    marginAsset,
+    notMarginAsset,
     withdraw,
   }
 }

@@ -27,6 +27,10 @@ const {
   summary,
   loadingPreview,
   previewError,
+  isMarginBorrow,
+  marginAsset,
+  marginPrice,
+  notMarginAsset,
   submit,
 } = useMultiplyOpen(toRef(() => vault))
 
@@ -59,7 +63,7 @@ const amountRules = computed(() => [
     }
 
     if (nextValue > Number(maxInputAmount.value || 0)) {
-      return 'Amount exceeds safe borrow limit'
+      return isMarginBorrow.value ? 'Amount exceeds safe borrow limit' : 'Amount exceeds available leverage capacity'
     }
 
     return true
@@ -101,19 +105,56 @@ async function openMultiply() {
         v-model="amount"
         :balance="balance"
         :limit="Number(maxInputAmount) || 0"
-        :price="vault.borrowPoolPrice"
-        :symbol="vault.borrowAsset.symbol"
-        :icon="vault.borrowAsset.icon"
+        :price="marginPrice"
+        :symbol="marginAsset?.symbol"
         label-left="Margin amount"
         :label-right="formatPrice(balance ?? 0, 0, 4)"
         class="multiply-trade-panel__amount-input"
         :rules="amountRules"
-      />
+      >
+        <template #prepend>
+          <j-popover
+            position="bottom"
+            :teleport-to-body="false"
+            close-popup
+          >
+            <template #target="{ active }">
+              <div
+                class="select-pool-btn"
+              >
+                <img
+                  :src="marginAsset?.icon"
+                  alt="asset icon"
+                >
+                {{ marginAsset?.symbol }}
+                <i-app-chevron-down
+                  class="arrow-icon"
+                  :class="{ 'arrow-icon--active': active }"
+                />
+              </div>
+            </template>
+
+            <div class="select-pool-menu">
+              <div
+                class="select-pool-menu__item"
+                @click="isMarginBorrow = !isMarginBorrow"
+              >
+                <img
+                  :src="notMarginAsset?.icon"
+                  alt="asset icon"
+                >
+                <span>{{ notMarginAsset?.symbol }}</span>
+              </div>
+            </div>
+          </j-popover>
+
+        </template>
+      </input-widget>
     </div>
 
     <div class="multiply-trade-panel__toolbar">
       <div class="multiply-trade-panel__input-meta">
-        <span>Borrow limit: {{ formatPrice(Number(maxInputAmount || 0), 2, 6) }} {{ vault.borrowAsset.symbol }}</span>
+        <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}: {{ formatPrice(Number(maxInputAmount || 0), 2, 6) }} {{ marginAsset?.symbol }}</span>
         <span>Pair: {{ vault.asset.symbol }}/{{ vault.borrowAsset.symbol }}</span>
       </div>
 
@@ -254,6 +295,13 @@ async function openMultiply() {
             </div>
 
             <div class="summary-list__item">
+              <div class="label">Total collateral</div>
+              <div class="value">
+                {{ shortenNumber(summary.depositAmount || 0, 2, maxDecimalsForShortenNumber(summary.depositAmount || 0)) }} {{ vault.asset.symbol }}
+              </div>
+            </div>
+
+            <div class="summary-list__item">
               <div class="label">Final borrow</div>
               <div class="value">
                 {{ shortenNumber(summary.finalBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.finalBorrowAmount || 0)) }} {{ vault.borrowAsset.symbol }}
@@ -264,7 +312,7 @@ async function openMultiply() {
               <div class="label">Est. collateral value</div>
               <div class="value">
                 <div class="text-end">
-                  ${{ amountToUsdWithShort(summary.minAmountOut, vault.price, false) }}
+                  ${{ amountToUsdWithShort(summary.depositAmount, vault.price, false) }}
                 </div>
               </div>
             </div>
@@ -434,6 +482,27 @@ async function openMultiply() {
 
     &--negative {
       color: $danger;
+    }
+  }
+
+  .select-pool-menu {
+    &__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: $text-secondary;
+      cursor: pointer;
+
+      img {
+        width: 20px;
+        height: 20px;
+      }
+    }
+  }
+
+  .arrow-icon {
+    &--active {
+      transform: rotate(180deg);
     }
   }
 }

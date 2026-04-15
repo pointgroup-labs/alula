@@ -18,11 +18,14 @@ export interface MultiplyServiceConfig {
   decimals: DecimalsConfig
 }
 
+export type MultiplyMarginAsset = 'borrow' | 'deposit'
+
 export interface MultiplyPreviewParams {
   depositPoolAddress: string
   borrowPoolAddress: string
   initialAmount: string | number
   leverageMultiplier: number
+  marginAsset?: MultiplyMarginAsset
   slippagePercent?: number
   swapProviderAddress: string
   path?: string[]
@@ -52,6 +55,7 @@ export interface MultiplyPreview {
   borrowPool: PoolData
   leverageMultiplier: number
   maxLeverageMultiplier: number
+  marginAsset: MultiplyMarginAsset
   flashLoanFeeBps: number
   swapPath: string[]
   swapProviderAddress: string
@@ -125,6 +129,7 @@ export class MultiplyService extends BaseClient {
   async getOpenPositionPreview(params: MultiplyPreviewParams): Promise<MultiplyPreview> {
     const depositPool = await this.getPoolData(params.depositPoolAddress)
     const borrowPool = await this.getPoolData(params.borrowPoolAddress)
+    const marginAsset = params.marginAsset ?? 'borrow'
 
     const maxLeverageMultiplier = calculateMultiplyMaxLeverage(
       Number(depositPool.pool.config.health_config.open_ltv_bps),
@@ -139,19 +144,48 @@ export class MultiplyService extends BaseClient {
     }
 
     const slippagePercent = this.normalizeSlippage(params.slippagePercent)
-    const initialAmount = this.amountToBigInt(params.initialAmount, borrowPool.pool.token_decimals)
+    const initialAmount = this.amountToBigInt(
+      params.initialAmount,
+      marginAsset === 'borrow' ? borrowPool.pool.token_decimals : depositPool.pool.token_decimals,
+    )
     if (initialAmount <= 0n) {
       throw new Error('Initial amount must be greater than 0')
     }
 
-    const flashBorrowAmount = this.decimalToBigInt(
-      new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1)),
-      Decimal.ROUND_DOWN,
-    )
-    const swapAmountIn = initialAmount + flashBorrowAmount
-    const swapPath = params.path?.length ? params.path : [params.borrowPoolAddress, params.depositPoolAddress]
-
+    const swapPath = params.path?.length ? params.path : [borrowPool.pool.token_address, depositPool.pool.token_address]
     const routerAddress = await this.getRouterAddress(params.swapProviderAddress)
+    let flashBorrowAmount: bigint
+    let swapAmountIn: bigint
+    let depositAmount: bigint
+
+    if (marginAsset === 'borrow') {
+      flashBorrowAmount = this.decimalToBigInt(
+        new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1)),
+        Decimal.ROUND_DOWN,
+      )
+      swapAmountIn = initialAmount + flashBorrowAmount
+      depositAmount = 0n
+    } else {
+      const targetDepositFromSwap = this.decimalToBigInt(
+        new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1)),
+        Decimal.ROUND_DOWN,
+      )
+
+      if (targetDepositFromSwap <= 0n) {
+        throw new Error('Initial amount is too small for the selected multiplier')
+      }
+
+      const expectedAmountsIn = await this.getExpectedAmountsIn(routerAddress, targetDepositFromSwap, swapPath)
+      const quotedBorrowAmount = expectedAmountsIn[0]
+      if (quotedBorrowAmount == null || quotedBorrowAmount <= 0n) {
+        throw new Error('Router did not return an input quote for this multiply swap path')
+      }
+
+      flashBorrowAmount = quotedBorrowAmount
+      swapAmountIn = flashBorrowAmount
+      depositAmount = initialAmount
+    }
+
     const expectedAmountsOut = await this.getExpectedAmountsOut(routerAddress, swapAmountIn, swapPath)
     const expectedAmountOut = expectedAmountsOut[expectedAmountsOut.length - 1]
     if (expectedAmountOut == null) {
@@ -163,6 +197,8 @@ export class MultiplyService extends BaseClient {
       new Decimal(expectedAmountOut.toString()).mul(slippageMultiplier),
       Decimal.ROUND_DOWN,
     )
+
+    depositAmount = marginAsset === 'borrow' ? minAmountOut : depositAmount + minAmountOut
 
     const flashLoanFeeBps = Number(borrowPool.pool.config.fee_config.flash_loan_fee_bps || 0)
     const finalBorrowAmount = this.decimalToBigInt(
@@ -177,6 +213,7 @@ export class MultiplyService extends BaseClient {
       borrowPool,
       leverageMultiplier: leverageMultiplier.toNumber(),
       maxLeverageMultiplier,
+      marginAsset,
       flashLoanFeeBps,
       swapPath,
       swapProviderAddress: params.swapProviderAddress,
@@ -186,14 +223,26 @@ export class MultiplyService extends BaseClient {
       swapAmountIn,
       expectedAmountOut,
       minAmountOut,
-      depositAmount: minAmountOut,
+      depositAmount,
       finalBorrowAmount,
     }
   }
 
   async buildOpenPositionTx(params: OpenMultiplyParams) {
     const preview = await this.getOpenPositionPreview(params)
-    const requests: Request[] = [
+    const requests: Request[] = []
+
+    if (preview.marginAsset === 'deposit') {
+      requests.push({
+        tag: 'Deposit',
+        values: [{
+          amount: preview.initialAmount,
+          pool_address: params.depositPoolAddress,
+        }],
+      })
+    }
+
+    requests.push(
       {
         tag: 'FlashBorrow',
         values: [{
@@ -213,7 +262,7 @@ export class MultiplyService extends BaseClient {
       {
         tag: 'Deposit',
         values: [{
-          amount: preview.depositAmount,
+          amount: preview.minAmountOut,
           pool_address: params.depositPoolAddress,
         }],
       },
@@ -224,7 +273,7 @@ export class MultiplyService extends BaseClient {
           pool_address: params.borrowPoolAddress,
         }],
       },
-    ]
+    )
 
     console.log('PARAMS =>>>', params)
     console.log('preview =>>>', preview)

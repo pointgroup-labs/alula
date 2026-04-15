@@ -221,7 +221,7 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
         v-model="dialogLeverage"
         :data="selectedVault"
       />
-      <withdraw-leverage-dialog
+      <withdraw-multiply-dialog
         v-model="withdrawDialogOpen"
         :data="selectedWithdrawVault"
       />
@@ -232,6 +232,11 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
 <style lang="scss">
 .multiply-table {
   &__desktop {
+    thead {
+      th {
+        border-bottom: 1px solid $border-primary;
+      }
+    }
     tbody tr {
       cursor: pointer;
     }

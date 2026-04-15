@@ -468,6 +468,7 @@ export function useMarketActions() {
       borrow_pool_address: string
       initial_amount: number
       leverage_multiplier: number
+      margin_asset?: 'borrow' | 'deposit'
       slippage: number
       swap_provider: string
       obligation_key?: ObligationKey
@@ -484,6 +485,7 @@ export function useMarketActions() {
       borrow_pool_address,
       initial_amount,
       leverage_multiplier,
+      margin_asset,
       slippage,
       swap_provider,
       path,
@@ -522,6 +524,7 @@ export function useMarketActions() {
         borrowPoolAddress: borrow_pool_address,
         initialAmount: initial_amount,
         leverageMultiplier: leverage_multiplier,
+        marginAsset: margin_asset,
         slippagePercent: slippage,
         swapProviderAddress: swap_provider,
         path,
@@ -537,6 +540,7 @@ export function useMarketActions() {
       deposit_pool_address: string
       borrow_pool_address: string
       repay_amount?: number
+      min_receive_amount?: number
       swap_provider: string
       obligation_key: ObligationKey
       path?: string[]
@@ -551,6 +555,7 @@ export function useMarketActions() {
       deposit_pool_address,
       borrow_pool_address,
       repay_amount,
+      min_receive_amount,
       swap_provider,
       obligation_key,
       path,
@@ -588,6 +593,7 @@ export function useMarketActions() {
         depositPoolAddress: deposit_pool_address,
         borrowPoolAddress: borrow_pool_address,
         repayAmount: repay_amount,
+        minReceiveAmount: min_receive_amount,
         swapProviderAddress: swap_provider,
         path,
       }, kit.value),

@@ -1,4 +1,4 @@
-import type { MultiplyPreview } from '@alula/client-sdk'
+import type { MultiplyMarginAsset, MultiplyPreview } from '@alula/client-sdk'
 import type { MultiplyVaultItem } from '~/types/table'
 import { bpsToNumber, SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
 import Decimal from 'decimal.js'
@@ -28,6 +28,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
 
   const activeClient = computed(() => vault.value ? marketsStore.state.markets[vault.value.market]?.client : undefined)
   const marketState = computed(() => vault.value ? marketsStore.state.markets[vault.value.market]?.marketState : undefined)
+
+  const isMarginBorrow = ref(true)
+  const marginAssetType = computed<MultiplyMarginAsset>(() => isMarginBorrow.value ? 'borrow' : 'deposit')
+  const marginAsset = computed(() => isMarginBorrow.value ? vault.value?.borrowAsset : vault.value?.asset)
+  const notMarginAsset = computed(() => isMarginBorrow.value ? vault.value?.asset : vault.value?.borrowAsset)
 
   const minPercent = computed(() => {
     const max = Number(vault.value?.maxMultiplier || 0)
@@ -62,9 +67,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   })
 
   const borrowPool = computed(() => vault.value?.borrowPoolData)
+  const marginPool = computed(() => isMarginBorrow.value ? vault.value?.borrowPoolData : vault.value?.depositPoolData)
+  const marginPrice = computed(() => isMarginBorrow.value ? vault.value?.borrowPoolPrice : vault.value?.price)
 
   const balance = computed(() => {
-    const pool = borrowPool.value?.pool
+    const pool = marginPool.value?.pool
     if (!pool) {
       return 0
     }
@@ -98,8 +105,26 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       return 0
     }
 
-    return availableBorrowLiquidity.value
-      / ((selectedMultiplier.value - 1) * (1 + bpsToNumber(flashLoanFeeBps.value)))
+    const maxFlashBorrow = availableBorrowLiquidity.value / (1 + bpsToNumber(flashLoanFeeBps.value))
+
+    if (isMarginBorrow.value) {
+      return maxFlashBorrow / (selectedMultiplier.value - 1)
+    }
+
+    if (!vault.value || !marketState.value) {
+      return 0
+    }
+
+    const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
+    const depositPrice = Number(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals))
+    const borrowPrice = Number(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals))
+
+    if (depositPrice <= 0 || borrowPrice <= 0) {
+      return 0
+    }
+
+    return (maxFlashBorrow * borrowPrice)
+      / (depositPrice * Math.max(selectedMultiplier.value - 1, 0))
   })
 
   const swapPath = computed(() => {
@@ -142,6 +167,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       swapAmountIn: Number(bigintToNumber(preview.value.swapAmountIn, borrowDecimals)),
       expectedAmountOut: Number(bigintToNumber(preview.value.expectedAmountOut, depositDecimals)),
       minAmountOut: Number(bigintToNumber(preview.value.minAmountOut, depositDecimals)),
+      depositAmount: Number(bigintToNumber(preview.value.depositAmount, depositDecimals)),
       finalBorrowAmount: Number(bigintToNumber(preview.value.finalBorrowAmount, borrowDecimals)),
       routerAddress: preview.value.routerAddress,
     }
@@ -156,7 +182,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     const depositDecimals = vault.value.depositPoolData.pool.token_decimals
     const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
 
-    const depositAmount = new Decimal(bigintToNumber(preview.value.minAmountOut, depositDecimals) || 0)
+    const depositAmount = new Decimal(bigintToNumber(preview.value.depositAmount, depositDecimals) || 0)
     const borrowAmount = new Decimal(bigintToNumber(preview.value.finalBorrowAmount, borrowDecimals) || 0)
     const depositPrice = new Decimal(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals) || 0)
     const borrowPrice = new Decimal(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals) || 0)
@@ -199,6 +225,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
         borrowPoolAddress: vault.value.borrowPoolData.pool.pool_address,
         initialAmount: amount.value,
         leverageMultiplier: selectedMultiplier.value,
+        marginAsset: marginAssetType.value,
         slippagePercent: slippage.value,
         swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
         path: swapPath.value,
@@ -230,12 +257,13 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       obligation_key: obligationKey,
       initial_amount: amount.value,
       leverage_multiplier: selectedMultiplier.value,
+      margin_asset: marginAssetType.value,
       slippage: slippage.value,
       swap_provider: SOROSWAP_PROVIDER_ADDRESS,
       path: swapPath.value,
       action: async () => {
         await Promise.allSettled([
-          useUserStore().updateUserMultiplyObligations(vault.value!.market, activeClient.value!, false),
+          userStore.updateUserMultiplyObligations(vault.value!.market, activeClient.value!, false),
           marketsStore.updatePool(vault.value!.depositPoolData.pool.pool_address, vault.value!.market, activeClient.value!),
           marketsStore.updatePool(vault.value!.borrowPoolData.pool.pool_address, vault.value!.market, activeClient.value!),
         ])
@@ -250,6 +278,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     amount.value = undefined
     preview.value = undefined
     previewError.value = undefined
+    isMarginBorrow.value = true
     percentFromMax.value = Math.max(minPercent.value || 0, 85)
     marketsStore.dialogLeverage = false
   }
@@ -267,6 +296,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   watchDebounced([
     amount,
     slippage,
+    isMarginBorrow,
     selectedMultiplier,
     vault,
     activeClient,
@@ -279,7 +309,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   return {
     amount,
     balance,
+    marginPrice,
     slippage,
+    isMarginBorrow,
+    marginAsset,
+    notMarginAsset,
     percentFromMax,
     minPercent,
     selectedMultiplier,
