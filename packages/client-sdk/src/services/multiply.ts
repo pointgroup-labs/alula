@@ -40,6 +40,7 @@ export interface CloseMultiplyPreviewParams {
   user: ObligationKey
   depositPoolAddress: string
   borrowPoolAddress: string
+  marginAsset?: MultiplyMarginAsset
   repayAmount?: string | number
   swapProviderAddress: string
   path?: string[]
@@ -72,6 +73,7 @@ export interface MultiplyPreview {
 export interface CloseMultiplyPreview {
   depositPool: PoolData
   borrowPool: PoolData
+  marginAsset: MultiplyMarginAsset
   currentDepositAmount: bigint
   currentBorrowAmount: bigint
   maxRepayAmount: bigint
@@ -84,6 +86,7 @@ export interface CloseMultiplyPreview {
   swapProviderAddress: string
   routerAddress: string
   withdrawAmount: bigint
+  depositReceiveAmount: bigint
   estimatedReceiveAmount: bigint
   remainingDepositAmount: bigint
   remainingBorrowAmount: bigint
@@ -288,6 +291,7 @@ export class MultiplyService extends BaseClient {
     const depositPool = await this.getPoolData(params.depositPoolAddress)
     const borrowPool = await this.getPoolData(params.borrowPoolAddress)
     const obligation = await this.getUserObligation(params.user)
+    const marginAsset = params.marginAsset ?? 'deposit'
 
     const depositPosition = this.findDepositPosition(obligation, params.depositPoolAddress)
     const borrowPosition = this.findBorrowPosition(obligation, params.borrowPoolAddress)
@@ -349,13 +353,24 @@ export class MultiplyService extends BaseClient {
       throw new Error('Repay amount is too small to cover flash-loan repayment for a partial close')
     }
 
-    const estimatedReceiveAmount = isFullClose
+    const depositReceiveAmount = isFullClose
       ? currentDepositAmount - requiredAmountIn
       : withdrawAmount - requiredAmountIn
+
+    const maxReceivableDepositAmount = currentDepositAmount - requiredAmountIn
+
+    let estimatedReceiveAmount = depositReceiveAmount
+    let maxReceivableAmount = maxReceivableDepositAmount
+
+    if (marginAsset === 'borrow') {
+      estimatedReceiveAmount = await this.quoteSwapExactOut(routerAddress, depositReceiveAmount, swapPath)
+      maxReceivableAmount = await this.quoteSwapExactOut(routerAddress, maxReceivableDepositAmount, swapPath)
+    }
 
     return {
       depositPool,
       borrowPool,
+      marginAsset,
       currentDepositAmount,
       currentBorrowAmount,
       maxRepayAmount,
@@ -368,20 +383,25 @@ export class MultiplyService extends BaseClient {
       swapProviderAddress: params.swapProviderAddress,
       routerAddress,
       withdrawAmount,
+      depositReceiveAmount,
       estimatedReceiveAmount,
       remainingDepositAmount: currentDepositAmount - withdrawAmount,
       remainingBorrowAmount: currentBorrowAmount - debtRepaidAmount,
       isFullClose,
       requiredAmountIn,
-      maxReceivableAmount: currentDepositAmount - requiredAmountIn,
+      maxReceivableAmount,
     }
   }
 
   async buildClosePositionTx(params: CloseMultiplyParams) {
     const preview = await this.getClosePositionPreview(params)
+    const receiveAssetDecimals = preview.marginAsset === 'borrow'
+      ? preview.borrowPool.pool.token_decimals
+      : preview.depositPool.pool.token_decimals
+
     const minReceiveAmount = params.minReceiveAmount == null
-      ? (preview.isFullClose ? preview.maxReceivableAmount : 0n)
-      : this.amountToBigInt(params.minReceiveAmount, preview.depositPool.pool.token_decimals)
+      ? (preview.marginAsset === 'deposit' && preview.isFullClose ? preview.maxReceivableAmount : 0n)
+      : this.amountToBigInt(params.minReceiveAmount, receiveAssetDecimals)
 
     if (minReceiveAmount < 0n) {
       throw new Error('Minimum receive amount must be non-negative')
@@ -391,15 +411,6 @@ export class MultiplyService extends BaseClient {
     if (minReceiveAmount > maxReceiveAmount) {
       throw new Error('Requested receive amount exceeds what this multiply close can return')
     }
-
-    const maxAmountIn = preview.withdrawAmount - minReceiveAmount
-    if (preview.requiredAmountIn > maxAmountIn) {
-      throw new Error('Requested receive amount is too high for this multiply close')
-    }
-
-    const withdrawAmount = preview.isFullClose && minReceiveAmount === preview.maxReceivableAmount
-      ? MAX_I128
-      : preview.withdrawAmount
 
     const requests: Request[] = [
       {
@@ -419,14 +430,18 @@ export class MultiplyService extends BaseClient {
       {
         tag: 'Withdraw',
         values: [{
-          amount: withdrawAmount,
+          amount: preview.marginAsset === 'deposit' && preview.isFullClose && minReceiveAmount === preview.maxReceivableAmount
+            ? MAX_I128
+            : preview.withdrawAmount,
           pool_address: params.depositPoolAddress,
         }],
       },
       {
         tag: 'SwapForExactTokens',
         values: [{
-          max_amount_in: maxAmountIn,
+          max_amount_in: preview.marginAsset === 'deposit'
+            ? preview.withdrawAmount - minReceiveAmount
+            : preview.requiredAmountIn,
           amount_out: preview.flashRepaymentAmount,
           path: preview.swapPath,
           swap_provider: params.swapProviderAddress,
@@ -434,13 +449,37 @@ export class MultiplyService extends BaseClient {
       },
     ]
 
+    if (preview.marginAsset === 'deposit') {
+      const maxAmountIn = preview.withdrawAmount - minReceiveAmount
+      if (preview.requiredAmountIn > maxAmountIn) {
+        throw new Error('Requested receive amount is too high for this multiply close')
+      }
+    } else if (preview.depositReceiveAmount > 0n) {
+      requests.push({
+        tag: 'SwapExactTokens',
+        values: [{
+          amount_in: preview.depositReceiveAmount,
+          min_amount_out: minReceiveAmount,
+          path: preview.swapPath,
+          swap_provider: params.swapProviderAddress,
+        }],
+      })
+    }
+
     const tx = await this.marketClient.submit_requests_batch({
       user: params.user,
       requests,
       referrer: params.referrer,
     })
 
-    return { preview, tx, minReceiveAmount, maxAmountIn }
+    return {
+      preview,
+      tx,
+      minReceiveAmount,
+      maxAmountIn: preview.marginAsset === 'deposit'
+        ? preview.withdrawAmount - minReceiveAmount
+        : preview.requiredAmountIn,
+    }
   }
 
   async openPosition(params: OpenMultiplyParams, kit: any, options = { debug: true }) {
@@ -519,6 +558,15 @@ export class MultiplyService extends BaseClient {
     })
 
     return this.unwrapOk(response.result)
+  }
+
+  private async quoteSwapExactOut(routerAddress: string, amountIn: bigint, path: string[]): Promise<bigint> {
+    if (amountIn <= 0n) {
+      return 0n
+    }
+
+    const expectedAmountsOut = await this.getExpectedAmountsOut(routerAddress, amountIn, path)
+    return expectedAmountsOut[expectedAmountsOut.length - 1] ?? 0n
   }
 
   private amountToBigInt(amount: string | number, decimals: number): bigint {

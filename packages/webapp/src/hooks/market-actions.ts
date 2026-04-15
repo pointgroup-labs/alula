@@ -539,6 +539,7 @@ export function useMarketActions() {
       market: string
       deposit_pool_address: string
       borrow_pool_address: string
+      margin_asset?: 'borrow' | 'deposit'
       repay_amount?: number
       min_receive_amount?: number
       swap_provider: string
@@ -554,6 +555,7 @@ export function useMarketActions() {
       market,
       deposit_pool_address,
       borrow_pool_address,
+      margin_asset,
       repay_amount,
       min_receive_amount,
       swap_provider,
@@ -592,6 +594,7 @@ export function useMarketActions() {
         user: obligation_key,
         depositPoolAddress: deposit_pool_address,
         borrowPoolAddress: borrow_pool_address,
+        marginAsset: margin_asset,
         repayAmount: repay_amount,
         minReceiveAmount: min_receive_amount,
         swapProviderAddress: swap_provider,

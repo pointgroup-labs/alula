@@ -24,6 +24,7 @@ const {
   remainingBorrowAmount,
   remainingDepositAmount,
   marketFee,
+  marginAssetType,
   preview,
   previewError,
   previewLoading,
@@ -57,7 +58,6 @@ async function withdrawLeverage() {
         (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
         (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Repay amount exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
       ]"
-      :disabled="true"
     >
       <template #prepend>
         <j-popover
@@ -173,7 +173,7 @@ async function withdrawLeverage() {
             <div class="summary-list__item">
               <div class="label">Estimated receive</div>
               <div class="value">
-                {{ shortenNumber(estimatedReceiveAmount || 0, 2, maxDecimalsForShortenNumber(estimatedReceiveAmount)) }} {{ vault?.asset.symbol }}
+                {{ shortenNumber(estimatedReceiveAmount || 0, 2, maxDecimalsForShortenNumber(estimatedReceiveAmount)) }} {{ marginAsset?.symbol }}
               </div>
             </div>
 
@@ -198,7 +198,7 @@ async function withdrawLeverage() {
             <div class="summary-list__item">
               <div class="label">Swap estimate</div>
               <div class="value">
-                {{ formatPrice(swapInputEstimate, 2, vault?.depositPoolData.pool.token_decimals || 7) }} {{ vault?.asset.symbol }}
+                {{ formatPrice(swapInputEstimate, 2, vault?.depositPoolData.pool.token_decimals || 7) }} {{ marginAssetType === 'borrow' ? vault?.asset.symbol : vault?.asset.symbol }}
               </div>
             </div>
           </div>
