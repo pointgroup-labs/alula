@@ -2,7 +2,7 @@ import type { MultiplyVaultItem } from '~/types/table'
 import { bpsToNumber, calculateMultiplyMaxLeverage } from '@alula/client-sdk'
 import { buildMultiplyPairKey } from '~/utils/obligation'
 
-export function useMultiplyCatalog() {
+export const useMultiplyStore = defineStore('multiply', () => {
   const route = useRoute()
   const router = useRouter()
   const marketsStore = useMarketsStore()
@@ -67,7 +67,7 @@ export function useMultiplyCatalog() {
 
   const selectedVault = computed(() => {
     const marketAddress = route.params.market as string | undefined
-    const pairKey = route.params.pool as string | undefined
+    const pairKey = route.params.pair as string | undefined
     if (!marketAddress || !pairKey) {
       return
     }
@@ -76,7 +76,7 @@ export function useMultiplyCatalog() {
   })
 
   function getVaultRoute(vault: MultiplyVaultItem) {
-    return `/multiply/${vault.marketAddress}/${vault.pairKey}`
+    return `/multiply/${vault.marketAddress}/${vault.pairKey}/pool`
   }
 
   function openVault(vault: MultiplyVaultItem) {
@@ -89,4 +89,4 @@ export function useMultiplyCatalog() {
     getVaultRoute,
     openVault,
   }
-}
+})

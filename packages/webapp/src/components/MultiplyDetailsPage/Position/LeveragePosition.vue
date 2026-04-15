@@ -1,0 +1,495 @@
+<script lang="ts" setup>
+import { formatCompactUSD } from '~/utils'
+
+const marketsStore = useMarketsStore()
+const marketActions = useMarketActions()
+
+const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
+const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
+
+const {
+  apyDisplay,
+  position,
+  hasPosition,
+  isLoadingPosition,
+  selectedVault,
+  openMultiply,
+  closeMultiply,
+} = provideLeveragePosition()
+</script>
+
+<template>
+  <section id="my-leverage-position">
+    <div class="pool-card stat-card position-card">
+      <div class="stat-card__header">
+        <div class="position-card__asset">
+          <div class="position-card__icons">
+            <img
+              :src="selectedVault?.asset.icon"
+              :alt="selectedVault?.asset.symbol"
+            >
+            <img
+              :src="selectedVault?.borrowAsset.icon"
+              :alt="selectedVault?.borrowAsset.symbol"
+              class="position-card__icons-secondary"
+            >
+          </div>
+
+          <div class="position-card__title-wrap">
+            <h3 class="pool-card-title">
+              My Multiply Position
+            </h3>
+            <p class="subtitle">
+              {{ selectedVault?.asset.symbol }}/{{ selectedVault?.borrowAsset.symbol }} vault in {{ selectedVault?.market }}
+            </p>
+          </div>
+        </div>
+
+        <div class="pool-card-pill pool-card-pill--multiply">
+          Multiply
+        </div>
+
+        <div
+          v-if="hasPosition && position"
+          class="net-apy"
+        >
+          NET APY
+          <info-tooltip>
+            Net APY for the active multiply position. It combines deposit yield on the collateral leg and borrow cost on the margin leg at the current multiplier.
+            <br>
+            Estimated yearly result: {{ position.yearlyResultUsd >= 0 ? '+' : '' }}{{ formatCompactUSD(position.yearlyResultUsd, 2, 2) }}.
+          </info-tooltip>
+          <span
+            class="net-apy__value"
+            :class="[`net-apy--${position.currentApy >= 0 ? 'positive' : 'negative'}`]"
+          >
+            {{ position.currentApy >= 0 ? '+' : '' }}{{ apyDisplay }}%
+          </span>
+        </div>
+
+        <div class="position-actions">
+          <j-btn
+            v-if="hasPosition"
+            size="sm"
+            variant="brand-secondary-outlined"
+            :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
+            :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
+            @click="closeMultiply"
+          >
+            Close Position
+          </j-btn>
+          <j-btn
+            v-else
+            size="sm"
+            variant="brand-outlined"
+            :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
+            :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
+            @click="openMultiply"
+          >
+            Open Multiply
+          </j-btn>
+        </div>
+
+      </div>
+
+      <div class="stat-card__body">
+        <template v-if="hasPosition && position">
+          <leverage-position-overview />
+          <leverage-position-metrics />
+        </template>
+
+        <j-skeleton
+          v-else-if="isLoadingPosition"
+          full-width
+          height="178"
+          style="border-radius: 12px;"
+          class="empty-state-skeleton"
+        />
+
+        <template v-else>
+          <div class="empty-state">
+            <div class="empty-state__title">
+              No active multiply position in this vault
+            </div>
+            <div class="empty-state__text">
+              Open a multiply position to see live collateral, debt, multiplier and liquidation metrics for this pair.
+            </div>
+            <j-btn
+              size="sm"
+              variant="brand-outlined"
+              :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
+              :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
+              @click="openMultiply"
+            >
+              Open Multiply
+            </j-btn>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <client-only>
+      <multiply-dialog
+        v-model="dialogLeverage"
+        :data="selectedVault"
+      />
+
+      <withdraw-multiply-dialog
+        v-model="dialogLeverageWithdraw"
+        :data="selectedVault"
+      />
+    </client-only>
+  </section>
+</template>
+
+<style lang="scss">
+section#my-leverage-position {
+  h3 {
+    margin: 0;
+  }
+
+  .pool-card {
+    background-color: $bg-card;
+    border: 1px solid #1a2335;
+    border-radius: 16px;
+
+    .stat-card__header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 20px;
+      border-bottom: 1px solid $border-primary;
+    }
+
+    .stat-card__body {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: $spacing-xl;
+
+      @media (max-width: $breakpoint-md) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    &-title {
+      font-size: 14px;
+    }
+
+    &-pill {
+      font-size: $text-xs;
+      padding: 2px 6px;
+      border-radius: 50px;
+      color: var(--color);
+      background-color: var(--background-color);
+      white-space: nowrap;
+
+      &--multiply {
+        --color: #8a8df4;
+        --background-color: rgb(138 141 244 / 10%);
+      }
+    }
+  }
+
+  .position-card__asset {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .position-card__icons {
+    position: relative;
+    width: 62px;
+    height: 38px;
+    flex-shrink: 0;
+
+    img {
+      position: absolute;
+      top: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 2px solid $bg-card;
+      background-color: $bg-card;
+      object-fit: cover;
+    }
+  }
+
+  .position-card__icons-secondary {
+    left: 20px;
+  }
+
+  .position-card__title-wrap {
+    min-width: 0;
+
+    .subtitle {
+      margin: 4px 0 0;
+      color: $text-tertiary;
+      font-size: 12px;
+    }
+  }
+
+  .net-apy {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: $text-tertiary;
+    font-size: 12px;
+    font-weight: 400;
+    margin: 0 $spacing-xs 0 auto;
+
+    @media (max-width: $breakpoint-xs) {
+      margin: 0;
+      gap: 2px;
+    }
+
+    &__value {
+      margin-left: $spacing-xs;
+      font-family: $font-JetBrainsMono;
+      font-size: 20px;
+      font-weight: 700;
+
+      @media (max-width: $breakpoint-xs) {
+        font-size: 14px;
+      }
+    }
+
+    &--positive {
+      color: $success;
+    }
+
+    &--negative {
+      color: $danger;
+    }
+  }
+
+  .position-panel {
+    padding: $spacing-xl;
+    display: flex;
+    flex-direction: column;
+    background-color: $bg-tertiary;
+    border-color: $border-secondary;
+
+    &--overview {
+      grid-row: span 2;
+    }
+
+    &__eyebrow {
+      color: $text-primary;
+      font-size: 12px;
+      font-weight: 700;
+      padding-bottom: $spacing-md;
+    }
+  }
+
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+
+    @media (max-width: $breakpoint-xs) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .overview-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid $border-primary;
+    border-radius: $radius-lg;
+    background-color: color-mix(in oklab, $bg-secondary 40%, transparent);
+
+    &__title {
+      color: $text-tertiary;
+      font-size: 12px;
+    }
+
+    &__value {
+      font-family: $font-JetBrainsMono;
+      font-size: 18px;
+      font-weight: 700;
+      color: $text-primary;
+
+      &--accent {
+        color: $text-brand;
+      }
+    }
+
+    &__caption {
+      color: $text-secondary;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+  }
+
+  .metrics-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .metrics-list__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: $spacing-md 0;
+    color: $text-secondary;
+    font-size: 12px;
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    &__label {
+      color: $text-tertiary;
+    }
+
+    &__value {
+      color: $text-primary;
+      font-family: $font-JetBrainsMono;
+      text-align: right;
+    }
+  }
+
+  .health-highlight {
+    padding-top: 12px;
+    border-top: 1px solid $border-primary;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+
+    &__meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    &__label {
+      color: $text-tertiary;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    &__badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: var(--indicator-color, $text-primary);
+      background-color: color-mix(in oklab, var(--indicator-color, $border-secondary) 12%, transparent);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+
+    &__status {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+    }
+
+    &__value-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    &__value {
+      font-family: $font-JetBrainsMono;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1;
+      color: $text-primary;
+    }
+
+    &__hint {
+      font-size: 12px;
+      line-height: 1.4;
+      color: $text-tertiary;
+    }
+  }
+
+  .hf-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hf-indicator {
+    position: relative;
+    width: 120px;
+    height: 4px;
+    border-radius: $radius-lg;
+    background-color: color-mix(in oklab, $border-primary 70%, transparent);
+    overflow: hidden;
+    flex-shrink: 0;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: var(--indicator-width, 0%);
+      height: 100%;
+      border-radius: $radius-lg;
+      background-color: var(--indicator-color, var(--hf-success));
+      transition:
+        width 0.3s ease,
+        background-color 0.3s ease;
+    }
+  }
+
+  .text-positive {
+    color: $success !important;
+  }
+
+  .text-negative {
+    color: $danger !important;
+  }
+
+  .empty-state {
+    min-height: 178px;
+    grid-column: span 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    background-color: $bg-tertiary;
+    border: 1px solid $border-secondary;
+    border-radius: 16px;
+
+    &__title {
+      color: $text-primary;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    &__text {
+      max-width: 520px;
+      color: $text-secondary;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  }
+
+  .empty-state-skeleton {
+    grid-column: span 2;
+  }
+}
+</style>

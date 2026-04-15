@@ -3,7 +3,8 @@ import type { MultiplyTableItem } from '~/types/table'
 export function useMultiplyTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
-  const { vaults } = useMultiplyCatalog()
+  const multiplyStore = useMultiplyStore()
+  const vaults = computed(() => multiplyStore.vaults)
 
   const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
   const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')

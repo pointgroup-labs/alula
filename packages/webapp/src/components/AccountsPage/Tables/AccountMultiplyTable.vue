@@ -15,7 +15,8 @@ const { width } = useWindowSize()
 const marketsStore = useMarketsStore()
 const userStore = useUserStore()
 const { getFullTokenData } = useTokensStore()
-const { vaults } = useMultiplyCatalog()
+const multiplyStore = useMultiplyStore()
+const vaults = computed(() => multiplyStore.vaults)
 
 const market = useMarketActions()
 

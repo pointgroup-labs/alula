@@ -21,10 +21,12 @@ declare global {
   const computedWithControl: typeof import('@vueuse/core').computedWithControl
   const controlledComputed: typeof import('@vueuse/core').controlledComputed
   const controlledRef: typeof import('@vueuse/core').controlledRef
+  const create: typeof import('../hooks/multiply/position').create
   const createApp: typeof import('vue').createApp
   const createEventHook: typeof import('@vueuse/core').createEventHook
   const createGlobalState: typeof import('@vueuse/core').createGlobalState
   const createInjectionState: typeof import('@vueuse/core').createInjectionState
+  const createLeveragePorisionState: typeof import('../hooks/multiply/position').createLeveragePorisionState
   const createMyPositionState: typeof import('../hooks/my-position').createMyPositionState
   const createReactiveFn: typeof import('@vueuse/core').createReactiveFn
   const createRef: typeof import('@vueuse/core').createRef
@@ -83,6 +85,7 @@ declare global {
   const pausableWatch: typeof import('@vueuse/core').pausableWatch
   const preferredDark: typeof import('../hooks/theme').preferredDark
   const provide: typeof import('vue').provide
+  const provideLeveragePosition: typeof import('../hooks/multiply/position').provideLeveragePosition
   const provideLocal: typeof import('@vueuse/core').provideLocal
   const provideMyPosition: typeof import('../hooks/my-position').provideMyPosition
   const reactify: typeof import('@vueuse/core').reactify
@@ -219,6 +222,7 @@ declare global {
   const useLastChanged: typeof import('@vueuse/core').useLastChanged
   const useLeverage: typeof import('../hooks/multiply/leverage').useLeverage
   const useLeverageDialog: typeof import('../hooks/multiply/leverage-dialog').useLeverageDialog
+  const useLeveragePosition: typeof import('../hooks/multiply/position').useLeveragePosition
   const useLocalStorage: typeof import('@vueuse/core').useLocalStorage
   const useMagicKeys: typeof import('@vueuse/core').useMagicKeys
   const useManualRefHistory: typeof import('@vueuse/core').useManualRefHistory
@@ -241,6 +245,7 @@ declare global {
   const useMultiply: typeof import('../hooks/multiply/table').useMultiply
   const useMultiplyCatalog: typeof import('../hooks/multiply/catalog').useMultiplyCatalog
   const useMultiplyOpen: typeof import('../hooks/multiply/open').useMultiplyOpen
+  const useMultiplyStore: typeof import('../store/multiply').useMultiplyStore
   const useMultiplyTable: typeof import('../hooks/multiply/table').useMultiplyTable
   const useMultiplyWithdraw: typeof import('../hooks/multiply/withdraw').useMultiplyWithdraw
   const useMutationObserver: typeof import('@vueuse/core').useMutationObserver
@@ -397,6 +402,7 @@ declare module 'vue' {
     readonly createEventHook: UnwrapRef<typeof import('@vueuse/core')['createEventHook']>
     readonly createGlobalState: UnwrapRef<typeof import('@vueuse/core')['createGlobalState']>
     readonly createInjectionState: UnwrapRef<typeof import('@vueuse/core')['createInjectionState']>
+    readonly createLeveragePorisionState: UnwrapRef<typeof import('../hooks/multiply/position')['createLeveragePorisionState']>
     readonly createMyPositionState: UnwrapRef<typeof import('../hooks/my-position')['createMyPositionState']>
     readonly createReactiveFn: UnwrapRef<typeof import('@vueuse/core')['createReactiveFn']>
     readonly createRef: UnwrapRef<typeof import('@vueuse/core')['createRef']>
@@ -452,6 +458,7 @@ declare module 'vue' {
     readonly onWatcherCleanup: UnwrapRef<typeof import('vue')['onWatcherCleanup']>
     readonly pausableWatch: UnwrapRef<typeof import('@vueuse/core')['pausableWatch']>
     readonly provide: UnwrapRef<typeof import('vue')['provide']>
+    readonly provideLeveragePosition: UnwrapRef<typeof import('../hooks/multiply/position')['provideLeveragePosition']>
     readonly provideLocal: UnwrapRef<typeof import('@vueuse/core')['provideLocal']>
     readonly provideMyPosition: UnwrapRef<typeof import('../hooks/my-position')['provideMyPosition']>
     readonly reactify: UnwrapRef<typeof import('@vueuse/core')['reactify']>
@@ -577,6 +584,7 @@ declare module 'vue' {
     readonly useIntervalFn: UnwrapRef<typeof import('@vueuse/core')['useIntervalFn']>
     readonly useKeyModifier: UnwrapRef<typeof import('@vueuse/core')['useKeyModifier']>
     readonly useLastChanged: UnwrapRef<typeof import('@vueuse/core')['useLastChanged']>
+    readonly useLeveragePosition: UnwrapRef<typeof import('../hooks/multiply/position')['useLeveragePosition']>
     readonly useLocalStorage: UnwrapRef<typeof import('@vueuse/core')['useLocalStorage']>
     readonly useMagicKeys: UnwrapRef<typeof import('@vueuse/core')['useMagicKeys']>
     readonly useManualRefHistory: UnwrapRef<typeof import('@vueuse/core')['useManualRefHistory']>
@@ -594,8 +602,8 @@ declare module 'vue' {
     readonly useMouse: UnwrapRef<typeof import('@vueuse/core')['useMouse']>
     readonly useMouseInElement: UnwrapRef<typeof import('@vueuse/core')['useMouseInElement']>
     readonly useMousePressed: UnwrapRef<typeof import('@vueuse/core')['useMousePressed']>
-    readonly useMultiplyCatalog: UnwrapRef<typeof import('../hooks/multiply/catalog')['useMultiplyCatalog']>
     readonly useMultiplyOpen: UnwrapRef<typeof import('../hooks/multiply/open')['useMultiplyOpen']>
+    readonly useMultiplyStore: UnwrapRef<typeof import('../store/multiply')['useMultiplyStore']>
     readonly useMultiplyTable: UnwrapRef<typeof import('../hooks/multiply/table')['useMultiplyTable']>
     readonly useMultiplyWithdraw: UnwrapRef<typeof import('../hooks/multiply/withdraw')['useMultiplyWithdraw']>
     readonly useMutationObserver: UnwrapRef<typeof import('@vueuse/core')['useMutationObserver']>

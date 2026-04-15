@@ -8,6 +8,8 @@ type PositionAsset = {
   address: string
   amount: number
   usd: number
+  icon?: string
+  symbol?: string
 }
 
 type PositionsData = {

@@ -7,7 +7,8 @@ const marketsStore = useMarketsStore()
 const marketActions = useMarketActions()
 const userStore = useUserStore()
 
-const { vaults, openVault } = useMultiplyCatalog()
+const multiplyStore = useMultiplyStore()
+const vaults = computed(() => multiplyStore.vaults)
 
 const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
 const withdrawDialogOpen = toRef(marketsStore, 'dialogLeverageWithdraw')
@@ -36,7 +37,7 @@ function openWithdrawDialog(vault: MultiplyVaultItem) {
 }
 
 function onRowClicked(vault: MultiplyVaultItem) {
-  openVault(vault)
+  multiplyStore.openVault(vault)
 }
 
 function isUserHaveMultiply(vault: MultiplyVaultItem) {
@@ -212,7 +213,7 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
           ? openDialog(e.item)
           : e?.action === 'withdraw'
             ? openWithdrawDialog(e.item)
-            : openVault(e.item)"
+            : multiplyStore.openVault(e.item)"
       />
     </div>
 
