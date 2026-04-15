@@ -1,11 +1,11 @@
 import type { RPCcluster } from './types'
 import { ObligationService } from './services'
-import { BorrowingService } from './services/borrowing-service'
-import { LendingService } from './services/lending-service'
-import { MarketManagerService } from './services/market-manager-service'
-import { MarketService } from './services/market-service'
-import { MultiplyService } from './services/multiply-service'
-import { WalletService } from './services/wallet-service'
+import { BorrowingService } from './services/borrowing'
+import { LendingService } from './services/lending'
+import { MarketService } from './services/market'
+import { MarketManagerService } from './services/market-manager'
+import { MultiplyService } from './services/multiply'
+import { WalletService } from './services/wallet'
 
 /**
  * Main client configuration

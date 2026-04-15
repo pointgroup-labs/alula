@@ -16,7 +16,7 @@ export * from './core'
 export * from './services'
 // Legacy exports for backward compatibility (deprecated)
 // These will be removed in future versions
-export { MarketService as MarketClient } from './services/market-service'
+export { MarketService as MarketClient } from './services/market'
 
 export * from './types'
 // Utilities
