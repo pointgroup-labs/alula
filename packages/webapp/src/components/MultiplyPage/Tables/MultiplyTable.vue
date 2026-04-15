@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyVaultItem } from '~/types/table'
-import { amountToUsdWithShort, formatCompactUSD, formatPrice, shortenNumber, truncatePercent } from '~/utils'
+import { amountToUsdWithShort, formatPrice, shortenNumber, truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
 const marketsStore = useMarketsStore()
@@ -18,7 +18,6 @@ const selectedWithdrawVault = ref<MultiplyVaultItem>()
 const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
   { key: 'market', label: 'Market', align: 'center' },
-  { key: 'price', label: 'Collateral Price', align: 'right' },
   { key: 'liquidity', label: 'Borrow Liquidity', align: 'right' },
   { key: 'supplied', label: 'Collateral TVL', align: 'right' },
   { key: 'apyAtMaxMultiplier', label: 'APY at Max Multiplier', align: 'center' },
@@ -116,15 +115,6 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
               {{ data.item.market }}
             </template>
           </j-tooltip>
-        </template>
-
-        <template #cell(price)="data">
-          <div class="table-cell justify-content-end">
-            <div class="with-price">
-              <strong>{{ formatCompactUSD(data.item.price, 2, 4) }}</strong>
-              <span>{{ data.item.asset.symbol }}</span>
-            </div>
-          </div>
         </template>
 
         <template #cell(liquidity)="data">

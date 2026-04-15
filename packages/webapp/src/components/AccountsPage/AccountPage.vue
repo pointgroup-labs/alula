@@ -7,7 +7,7 @@
 
     <div class="account-multiply__cards card">
       <div class="account-card__title">
-        Your Positions
+        My Positions
       </div>
       <account-multiply-table only-multiplied />
     </div>

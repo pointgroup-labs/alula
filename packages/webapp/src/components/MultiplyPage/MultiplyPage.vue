@@ -24,16 +24,20 @@
 .multiply-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
   padding-bottom: 72px;
 
   &__hero {
-    padding: 32px;
+    padding: $spacing-4xl;
     border-radius: 32px;
     background:
       radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 30%),
       linear-gradient(135deg, #0f172a 0%, #12323a 55%, #f3f8f9 180%);
     color: white;
+
+    @media (max-width: $breakpoint-xs) {
+    padding: $spacing-2xl;
+    }
   }
 
   &__eyebrow {

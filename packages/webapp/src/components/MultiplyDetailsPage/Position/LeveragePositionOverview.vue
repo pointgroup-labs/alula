@@ -16,51 +16,51 @@ const {
     </div>
 
     <div class="overview-grid">
-      <div class="overview-metric">
+      <div class="overview-metric overview-metric--primary">
         <div class="overview-metric__title">
-          Deposited collateral
+          Exposure ({{ selectedVault?.asset.symbol }})
         </div>
         <div class="overview-metric__value">
           {{ shortenNumber(position.deposited, 2, maxDecimalsForShortenNumber(position.deposited)) }} {{ selectedVault?.asset.symbol }}
         </div>
         <div class="overview-metric__caption">
-          ${{ amountToUsdWithShort(position.deposited, selectedVault?.price || 0, false) }}
+          Long {{ selectedVault?.asset.symbol }} exposure at current market price.
+        </div>
+      </div>
+
+      <div class="overview-metric overview-metric--featured">
+        <div class="overview-metric__title">
+          Leverage
+        </div>
+        <div class="overview-metric__value overview-metric__value--accent overview-metric__value--featured">
+          {{ truncatePercent(position.currentMultiplier, 2) }}x
+        </div>
+        <div class="overview-metric__caption">
+          Max vault multiplier: {{ truncatePercent(selectedVault?.maxMultiplier || 0, 2) }}x
         </div>
       </div>
 
       <div class="overview-metric">
         <div class="overview-metric__title">
-          Borrowed margin
+          Position Value
+        </div>
+        <div class="overview-metric__value">
+          {{ formatCompactUSD(position.positionValueUsd, 2, 2) }}
+        </div>
+        <div class="overview-metric__caption">
+          Total market value of your {{ selectedVault?.asset.symbol }} exposure.
+        </div>
+      </div>
+
+      <div class="overview-metric">
+        <div class="overview-metric__title">
+          Borrowed
         </div>
         <div class="overview-metric__value">
           {{ shortenNumber(position.borrowed, 2, maxDecimalsForShortenNumber(position.borrowed)) }} {{ selectedVault?.borrowAsset.symbol }}
         </div>
         <div class="overview-metric__caption">
-          ${{ amountToUsdWithShort(position.borrowed, selectedVault?.borrowPoolPrice || 0, false) }}
-        </div>
-      </div>
-
-      <div class="overview-metric">
-        <div class="overview-metric__title">
-          Net equity
-        </div>
-        <div class="overview-metric__value">
-          {{ formatCompactUSD(position.equityUsd, 2, 2) }}
-        </div>
-        <div class="overview-metric__caption">
-          Collateral value minus outstanding debt.
-        </div>
-      </div>
-
-      <div class="overview-metric">
-        <div class="overview-metric__title">
-          Current multiplier
-        </div>
-        <div class="overview-metric__value overview-metric__value--accent">
-          {{ truncatePercent(position.currentMultiplier, 2) }}x
-        </div>
-        <div class="overview-metric__caption">
-          Max vault multiplier: {{ truncatePercent(selectedVault?.maxMultiplier || 0, 2) }}x
+          ${{ amountToUsdWithShort(position.borrowed, selectedVault?.borrowPoolPrice || 0, false) }} outstanding debt
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ type LeveragePosition = {
   borrowed: number
   depositedUsd: number
   borrowedUsd: number
-  equityUsd: number
+  positionValueUsd: number
   currentMultiplier: number
   supplyApy: number
   borrowApy: number
@@ -20,6 +20,8 @@ type LeveragePosition = {
   liabilityFactor: number
   yearlyResultUsd: number
   liquidationBufferUsd: number
+  liquidationPrice: number | null
+  distanceToLiquidationPercent: number | null
 }
 
 type MyPositionState = {
@@ -28,7 +30,7 @@ type MyPositionState = {
   selectedVault: any
   obligation: ComputedRef<ObligationArray | undefined>
   apyDisplay: ComputedRef<string>
-  healthIndicatorStyle: ComputedRef<{ '--indicator-width': string; '--indicator-color': string }>
+  healthIndicatorStyle: ComputedRef<{ '--indicator-width': string, '--indicator-color': string }>
   hasPosition: ComputedRef<boolean>
   openMultiply: () => void
   closeMultiply: () => void
@@ -107,11 +109,12 @@ export function createLeveragePorisionState(): MyPositionState {
     const borrowPrice = Number(bigintToNumber(borrowPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
     const depositedUsd = deposited * depositPrice
     const borrowedUsd = borrowed * borrowPrice
-    const equityUsd = Math.max(depositedUsd - borrowedUsd, 0)
     const currentMultiplier = calculateCurrentMultiplier(deposited, depositPrice, borrowed, borrowPrice) || 0
     const supplyApy = bpsToNumber(Number(depositPoolData.apy.supply_bps || 0)) * 100
     const borrowApy = bpsToNumber(Number(borrowPoolData.apy.borrow_bps || 0)) * 100
     const currentApy = supplyApy * currentMultiplier - borrowApy * Math.max(currentMultiplier - 1, 0)
+    const closeLtvRate = bpsToNumber(Number(depositPoolData.pool.config.health_config.close_ltv_bps || 0))
+    const liabilityFactorRate = bpsToNumber(Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0))
     const healthFactor = calculatePositionHealthFactor({
       deposited,
       depositPrice,
@@ -120,23 +123,34 @@ export function createLeveragePorisionState(): MyPositionState {
       borrowPrice,
       liabilityFactorBps: Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0),
     })
+    const positionValueUsd = depositedUsd
     const currentLtv = depositedUsd > 0 ? (borrowedUsd / depositedUsd) * 100 : 0
     const openLtv = bpsToNumber(Number(depositPoolData.pool.config.health_config.open_ltv_bps || 0)) * 100
-    const closeLtv = bpsToNumber(Number(depositPoolData.pool.config.health_config.close_ltv_bps || 0)) * 100
-    const liabilityFactor = bpsToNumber(Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0)) * 100
-    const yearlyResultUsd = depositedUsd * (supplyApy / 100) - borrowedUsd * (borrowApy / 100)
-    const liquidationBufferUsd = Math.max(
-      depositedUsd * bpsToNumber(Number(depositPoolData.pool.config.health_config.close_ltv_bps || 0))
-      - borrowedUsd * bpsToNumber(Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0)),
-      0,
-    )
+    const closeLtv = closeLtvRate * 100
+    const liabilityFactor = liabilityFactorRate * 100
+    const equityUsd = Math.max(depositedUsd - borrowedUsd, 0)
+    const yearlyResultUsd = equityUsd * (currentApy / 100)
+    const liquidationPriceRaw = deposited > 0 && closeLtvRate > 0
+      ? (borrowedUsd * liabilityFactorRate) / (deposited * closeLtvRate)
+      : null
+    const liquidationPrice = liquidationPriceRaw && Number.isFinite(liquidationPriceRaw) && liquidationPriceRaw > 0
+      ? liquidationPriceRaw
+      : null
+    const distanceToLiquidationPercent
+      = liquidationPrice !== null && depositPrice > 0
+        ? Math.max(((depositPrice - liquidationPrice) / depositPrice) * 100, 0)
+        : null
+    const liquidationBufferUsd
+      = liquidationPrice === null
+        ? 0
+        : Math.max((depositPrice - liquidationPrice) * deposited, 0)
 
     return {
       deposited,
       borrowed,
       depositedUsd,
       borrowedUsd,
-      equityUsd,
+      positionValueUsd,
       currentMultiplier,
       supplyApy,
       borrowApy,
@@ -148,6 +162,8 @@ export function createLeveragePorisionState(): MyPositionState {
       liabilityFactor,
       yearlyResultUsd,
       liquidationBufferUsd,
+      liquidationPrice,
+      distanceToLiquidationPercent,
     }
   })
 

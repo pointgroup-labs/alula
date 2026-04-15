@@ -97,7 +97,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
 <template>
   <div class="account-card">
     <div class="account-card__title">
-      Your Borrows
+      My Borrows
 
       <metric-indicator
         v-if="isHasObligations"

@@ -49,6 +49,10 @@ const {
           Multiply
         </div>
 
+        <div class="pool-card-pill pool-card-pill--position">
+          Long {{ selectedVault?.asset.symbol }}
+        </div>
+
         <div
           v-if="hasPosition && position"
           class="net-apy"
@@ -67,7 +71,19 @@ const {
           </span>
         </div>
 
-        <div class="position-actions">
+        <div
+          class="position-actions"
+          :style="{ 'margin-left': hasPosition ? 0 : 'auto' }"
+        >
+          <j-btn
+            size="sm"
+            variant="brand-outlined"
+            :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
+            :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
+            @click="openMultiply"
+          >
+            Open Multiply
+          </j-btn>
           <j-btn
             v-if="hasPosition"
             size="sm"
@@ -77,16 +93,6 @@ const {
             @click="closeMultiply"
           >
             Close Position
-          </j-btn>
-          <j-btn
-            v-else
-            size="sm"
-            variant="brand-outlined"
-            :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
-            :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
-            @click="openMultiply"
-          >
-            Open Multiply
           </j-btn>
         </div>
 
@@ -157,6 +163,7 @@ section#my-leverage-position {
       width: 100%;
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 16px;
       padding: 14px 20px;
       border-bottom: 1px solid $border-primary;
@@ -190,6 +197,24 @@ section#my-leverage-position {
       &--multiply {
         --color: #8a8df4;
         --background-color: rgb(138 141 244 / 10%);
+      }
+
+      &--position {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        --color: #{$text-tertiary};
+        --background-color: rgb(138 141 244 / 10%);
+
+        &::before {
+          content: '';
+          display: block;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: $success;
+        }
       }
     }
   }
@@ -305,6 +330,17 @@ section#my-leverage-position {
     border-radius: $radius-lg;
     background-color: color-mix(in oklab, $bg-secondary 40%, transparent);
 
+    &--primary {
+      border-color: color-mix(in oklab, $text-brand 28%, $border-primary);
+      background-color: color-mix(in oklab, $text-brand 8%, $bg-secondary);
+    }
+
+    &--featured {
+      border-color: color-mix(in oklab, $text-brand 38%, $border-primary);
+      background-color: color-mix(in oklab, $text-brand 12%, $bg-secondary);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+    }
+
     &__title {
       color: $text-tertiary;
       font-size: 12px;
@@ -348,12 +384,28 @@ section#my-leverage-position {
 
     &__label {
       color: $text-tertiary;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     &__value {
       color: $text-primary;
       font-family: $font-JetBrainsMono;
       text-align: right;
+
+      &--stacked {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+
+        small {
+          color: $text-tertiary;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+      }
     }
   }
 
@@ -458,6 +510,14 @@ section#my-leverage-position {
 
   .text-negative {
     color: $danger !important;
+  }
+  .position-actions {
+    display: flex;
+    gap: 12px;
+
+    @media (max-width: $breakpoint-xs) {
+      margin: 0 auto !important;
+    }
   }
 
   .empty-state {

@@ -92,7 +92,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 <template>
   <div class="account-card">
     <div class="account-card__title">
-      Your Supplies
+      My Supplies
 
       <metric-indicator
         v-if="isHasObligations"
