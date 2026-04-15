@@ -11,6 +11,7 @@ declare module 'vue' {
     AccountBorrowTable: typeof import('./../components/AccountsPage/Tables/AccountBorrowTable.vue')['default']
     AccountBorrowTableMobile: typeof import('./../components/AccountsPage/Tables/AccountBorrowTableMobile.vue')['default']
     AccountMultiplyTable: typeof import('./../components/AccountsPage/Tables/AccountMultiplyTable.vue')['default']
+    AccountMultiplyTableMobile: typeof import('./../components/AccountsPage/Tables/AccountMultiplyTableMobile.vue')['default']
     AccountPage: typeof import('./../components/AccountsPage/AccountPage.vue')['default']
     AccountSupplyTable: typeof import('./../components/AccountsPage/Tables/AccountSupplyTable.vue')['default']
     AccountSupplyTableMobile: typeof import('./../components/AccountsPage/Tables/AccountSupplyTableMobile.vue')['default']

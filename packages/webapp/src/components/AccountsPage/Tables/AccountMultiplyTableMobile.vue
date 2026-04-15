@@ -1,18 +1,17 @@
 <script lang="ts" setup>
-import type { MultiplyVaultItem } from '~/types/table'
+import type { MultiplyAccountTableItem } from '~/types/table'
 
 const {
   items,
   showInAccounts = false,
 } = defineProps<{
-  items: MultiplyVaultItem[]
+  items: MultiplyAccountTableItem[]
   showInAccounts?: boolean
 }>()
 
 const emits = defineEmits(['dialogHandler'])
 
 const market = useMarketActions()
-const multiplyStore = useMultiplyStore()
 
 const userStore = useUserStore()
 
@@ -30,22 +29,14 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
   )
 }
 
-function getLiquidity(data: MultiplyVaultItem) {
-  const amount = data.liquidity
+function getLiquidity(data: MultiplyAccountTableItem) {
+  const amount = data.deposited
   return shortenNumber(amount || 0)
 }
 
-function getSupply(data: MultiplyVaultItem) {
-  const amount = data.supplied
+function getSupply(data: MultiplyAccountTableItem) {
+  const amount = data.borrowed
   return shortenNumber(amount || 0)
-}
-
-function getApy(data: MultiplyVaultItem) {
-  return data.apyAtMaxMultiplier || 0
-}
-
-function handleDetails(vault: MultiplyVaultItem) {
-  multiplyStore.openVault(vault)
 }
 </script>
 
@@ -80,24 +71,15 @@ function handleDetails(vault: MultiplyVaultItem) {
       <div class="card-top-info">
         <div class="info-wrapper with-pill align-items-center">
           <div class="info-wrapper__title text-center">
-            Max Multiplier
+            Multiplier
           </div>
           <div class="info-wrapper__value">
             <j-pill-label
               variant="success"
               size="sm"
             >
-              {{ truncatePercent(item.maxMultiplier || 0, 2) }}x
+              {{ truncatePercent(item.multiplier || 0, 2) }}x
             </j-pill-label>
-          </div>
-        </div>
-
-        <div class="info-wrapper with-pill align-items-center">
-          <div class="info-wrapper__title text-center">
-            Details
-          </div>
-          <div class="info-wrapper__value">
-            <i-app-info-circle @click="handleDetails(item)" />
           </div>
         </div>
       </div>
@@ -128,13 +110,13 @@ function handleDetails(vault: MultiplyVaultItem) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          APY at Max
+          Health Factor
         </div>
         <div
-          class="info-wrapper__value"
-          :class="[`apy--${item.apyAtMaxMultiplier > 0 ? 'positive' : 'negative'}`]"
+          class="info-wrapper__value text-end"
+          :style="{ color: healthFactorColor(item.healthFactor) }"
         >
-          {{ truncatePercent(getApy(item), 2) }}%
+          {{ truncatePercent(item.healthFactor || 0, 2) }}%
         </div>
       </div>
     </div>
@@ -202,15 +184,6 @@ function handleDetails(vault: MultiplyVaultItem) {
 
 :deep(.table-mobile-card .info-wrapper__title) {
   color: $text-tertiary;
-}
-
-.apy {
-  &--positive {
-    color: $success;
-  }
-  &--negative {
-    color: $danger;
-  }
 }
 
 .no-data {

@@ -208,12 +208,10 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
 
       <multiply-table-mobile
         v-else
-        :items="vaults as any"
+        :items="vaults"
         @dialog-handler="(e: any) => e?.action === 'supply'
           ? openDialog(e.item)
-          : e?.action === 'withdraw'
-            ? openWithdrawDialog(e.item)
-            : multiplyStore.openVault(e.item)"
+          : openWithdrawDialog(e.item)"
       />
     </div>
 

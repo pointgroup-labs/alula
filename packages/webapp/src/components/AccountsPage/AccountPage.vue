@@ -36,6 +36,7 @@
     flex-direction: column;
     gap: 16px;
     margin: 0 auto;
+    padding: 0;
   }
 }
 </style>

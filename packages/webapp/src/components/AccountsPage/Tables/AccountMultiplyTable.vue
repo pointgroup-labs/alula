@@ -28,7 +28,6 @@ const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || mar
 
 const fields = [
   { key: 'asset', label: 'Vault', align: 'left' },
-  { key: 'maxAPY', label: 'APY', align: 'center' },
   { key: 'multiplier', label: 'Multiplier', align: 'center' },
   { key: 'market', label: 'Market', align: 'center' },
   { key: 'deposited', label: 'Deposited', align: 'right' },
@@ -198,15 +197,6 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         </div>
       </template>
 
-      <template #cell(maxAPY)="data">
-        <div
-          class="table-cell cell-apy"
-          :class="[`cell-apy--${data.item.maxAPY < 0 ? 'negative' : 'positive'}`]"
-        >
-          {{ truncatePercent(data.item.maxAPY || 0, 2) }}%
-        </div>
-      </template>
-
       <template #cell(multiplier)="data">
         <div class="table-cell justify-content-center">
           <j-pill-label
@@ -300,7 +290,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       </template>
     </BTable>
 
-    <multiply-table-mobile
+    <account-multiply-table-mobile
       v-else
       :items="filteredData"
       show-in-accounts
@@ -316,6 +306,26 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 
 <style lang="scss">
 .multiply-table {
+  thead {
+    th:first-child {
+      padding-left: 16px;
+    }
+    th:last-child {
+      padding-right: 20px;
+    }
+  }
+
+  tbody {
+    tr {
+      td:first-child {
+        padding-left: 16px;
+      }
+      td:last-child {
+        padding-right: 20px;
+      }
+    }
+  }
+
   &.multiply-table-accounts {
     tbody tr {
       cursor: default;
