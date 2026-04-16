@@ -73,7 +73,7 @@ export type MultiplyVaultItem = {
   pool_address: string
 }
 
-export type MultiplyAccountTableItem = {
+export type MultiplyPortfolioTableItem = {
   pairKey: string
   depositPoolData: PoolData
   borrowPoolData: PoolData

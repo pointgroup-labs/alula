@@ -90,8 +90,8 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 </script>
 
 <template>
-  <div class="account-card">
-    <div class="account-card__title">
+  <div class="portfolio-card">
+    <div class="portfolio-card__title">
       My Supplies
 
       <metric-indicator
@@ -117,7 +117,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
           :fields="fields"
           :items="items"
           responsive
-          class="account-table market-table"
+          class="portfolio-table market-table"
           :class="{ 'table-loading': userStore.loading }"
         >
           <template
@@ -183,7 +183,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
           </template>
         </BTable>
 
-        <account-supply-table-mobile
+        <portfolio-supply-table-mobile
           v-else
           :items="items"
           @dialog-handler="(e: any) => withdrawDialogHandler(e.item)"
@@ -206,7 +206,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
 </template>
 
 <style lang="scss">
-.account-card {
+.portfolio-card {
   position: relative;
   background-color: $bg-card;
   border: 1px solid $border-secondary;
@@ -256,7 +256,7 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
   }
 }
 
-.account-table {
+.portfolio-table {
   th {
     &:first-child {
       padding-left: 16px;

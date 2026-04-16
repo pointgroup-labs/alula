@@ -182,7 +182,7 @@ function styleWalletModal() {
   style.textContent = `
     .backdrop {
       background: rgba(0, 0, 0, 0.1) !important;
-      backdrop-filter: blur(6.4px);
+      backdrop-filter: blur(6px) !important;
     }
     .dialog-modal  {
       background: transparent !important;
@@ -191,22 +191,20 @@ function styleWalletModal() {
       background-color: transparent !important;
       }
     .dialog-modal-body__help {
-      background-color: rgba(255, 255, 255, 0.04) !important;
-      backdrop-filter: blur(30px);
+      background-color: #061d29 !important;
     }
     .dialog-modal-body__wallets {
-      background-color: rgba(255, 255, 255, 0.10) !important;
-      backdrop-filter: blur(30px);
+      background-color: #1c2d36 !important;
     }
     .wallets-header__button svg {
       fill: #fff !important;
-      width: 16px;
-      height: 16px
+      width: 12px;
+      height: 12px
     }
     small.not-available {
       border-radius: 16px !important;
       border: 1px solid rgba(255, 255, 255, 0.08) !important;
-      background: rgba(255, 255, 255, 0.04) !important;
+      background: rgba(255, 255, 255, 1) !important;
     }
     .dialog-text,
     .dialog-text-solid {

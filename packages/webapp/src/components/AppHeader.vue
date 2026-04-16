@@ -23,10 +23,10 @@ const tabs = [{
   icon: multiplyTabIcon,
 },
 {
-  label: 'My Account',
-  route: '/account',
+  label: 'Portfolio',
+  route: '/portfolio',
   icon: accountTabIcon,
-  shortLabel: 'Account',
+  shortLabel: 'Portfolio',
 }]
 
 provide('navTabs', tabs)

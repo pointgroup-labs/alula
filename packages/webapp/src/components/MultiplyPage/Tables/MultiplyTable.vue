@@ -10,6 +10,8 @@ const userStore = useUserStore()
 const multiplyStore = useMultiplyStore()
 const vaults = computed(() => multiplyStore.vaults)
 
+console.log(vaults.value)
+
 const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
 const withdrawDialogOpen = toRef(marketsStore, 'dialogLeverageWithdraw')
 const selectedVault = ref<MultiplyVaultItem>()

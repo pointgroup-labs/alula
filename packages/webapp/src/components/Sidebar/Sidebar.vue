@@ -176,8 +176,7 @@ onMounted(() => {
 .sidebar-bg {
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .sidebar-wrapper {
@@ -190,9 +189,8 @@ onMounted(() => {
   transition: 0.1s ease;
   color: $dark;
   overflow-y: auto;
-  border-left: 1px solid $border-primary;
-  background: rgba(10, 14, 23, 0.3);
-  backdrop-filter: blur(20px);
+  border-left: 1px solid $navi-400;
+  background: rgba(10, 14, 23, 1);
   transform: translateZ(0);
   will-change: transform;
 

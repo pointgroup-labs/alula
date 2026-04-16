@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { MultiplyAccountTableItem } from '~/types/table'
+import type { MultiplyPortfolioTableItem } from '~/types/table'
 import { bpsToNumber } from '@alula/client-sdk'
 import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { amountToUsdWithShort, calculateCurrentMultiplier, formatPrice, shortenNumber, truncatePercent } from '~/utils'
@@ -21,7 +21,7 @@ const vaults = computed(() => multiplyStore.vaults)
 const market = useMarketActions()
 
 const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
-const selectedVault = ref<MultiplyAccountTableItem>()
+const selectedVault = ref<MultiplyPortfolioTableItem>()
 
 const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
 const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
@@ -54,7 +54,7 @@ function calculatePositionHealthFactor(params: {
   return Math.min(weightedDepositUsd / weightedBorrowUsd, 10)
 }
 
-const tableItems = computed<MultiplyAccountTableItem[]>(() => {
+const tableItems = computed<MultiplyPortfolioTableItem[]>(() => {
   const res = []
   for (const market in marketsStore.state.markets) {
     const state = marketsStore.state.markets[market]?.marketState
@@ -133,7 +133,7 @@ const filteredData = computed(() => {
   return data.filter(Boolean)
 })
 
-async function multiplyDialogHandler(item: MultiplyAccountTableItem) {
+async function multiplyDialogHandler(item: MultiplyPortfolioTableItem) {
   selectedVault.value = item
   dialogLeverageWithdraw.value = true
 }
@@ -290,7 +290,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       </template>
     </BTable>
 
-    <account-multiply-table-mobile
+    <portfolio-multiply-table-mobile
       v-else
       :items="filteredData"
       show-in-accounts

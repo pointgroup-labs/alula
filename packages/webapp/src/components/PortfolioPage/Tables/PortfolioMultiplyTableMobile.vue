@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import type { MultiplyAccountTableItem } from '~/types/table'
+import type { MultiplyPortfolioTableItem } from '~/types/table'
 
 const {
   items,
   showInAccounts = false,
 } = defineProps<{
-  items: MultiplyAccountTableItem[]
+  items: MultiplyPortfolioTableItem[]
   showInAccounts?: boolean
 }>()
 
@@ -29,12 +29,12 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
   )
 }
 
-function getLiquidity(data: MultiplyAccountTableItem) {
+function getLiquidity(data: MultiplyPortfolioTableItem) {
   const amount = data.deposited
   return shortenNumber(amount || 0)
 }
 
-function getSupply(data: MultiplyAccountTableItem) {
+function getSupply(data: MultiplyPortfolioTableItem) {
   const amount = data.borrowed
   return shortenNumber(amount || 0)
 }

@@ -1,22 +1,22 @@
 <template>
-  <main class="account-page container">
-    <div class="account-cards card">
-      <account-supply-table />
-      <account-borrow-table />
+  <main class="portfolio-page container">
+    <div class="portfolio-cards card">
+      <portfolio-supply-table />
+      <portfolio-borrow-table />
     </div>
 
-    <div class="account-multiply__cards card">
-      <div class="account-card__title">
+    <div class="portfolio-multiply__cards card">
+      <div class="portfolio-card__title">
         My Positions
       </div>
-      <account-multiply-table only-multiplied />
+      <portfolio-multiply-table only-multiplied />
     </div>
   </main>
 </template>
 
 <style lang="scss">
-.account-page {
-  .account-cards {
+.portfolio-page {
+  .portfolio-cards {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
@@ -30,7 +30,7 @@
     }
   }
 
-  .account-multiply__cards {
+  .portfolio-multiply__cards {
     width: calc(100% - 48px);
     display: flex;
     flex-direction: column;

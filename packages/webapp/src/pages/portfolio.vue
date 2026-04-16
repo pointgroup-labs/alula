@@ -1,3 +1,3 @@
 <template>
-  <account-page />
+  <portfolio-page />
 </template>
