@@ -13,6 +13,7 @@ export const useUserStore = defineStore('user', () => {
   const { publicKey } = useWalletComposable()
 
   const marketsStore = useMarketsStore()
+  const multiplyStore = useMultiplyStore()
 
   const loading = ref(false)
 
@@ -36,48 +37,32 @@ export const useUserStore = defineStore('user', () => {
         return
       }
 
-      const marketEntry = marketsStore.state.markets[market]
-      const poolsData = marketEntry?.marketState?.pools_data ?? []
       const obligationsByPair: Record<string, ObligationArray | undefined> = {}
 
-      const tasks = poolsData.flatMap((depositPoolData) => {
-        return poolsData.map(async (borrowPoolData) => {
-          if (!depositPoolData || !borrowPoolData) {
-            return
-          }
-          if (depositPoolData.pool.pool_address === borrowPoolData.pool.pool_address) {
-            return
-          }
-          if (depositPoolData.pool.token_address === borrowPoolData.pool.token_address) {
-            return
-          }
+      const marketVaults = multiplyStore.vaults
+        .filter(vault => vault.market === market)
+        .filter((vault, index, vaults) => vaults.findIndex(item => item.pairKey === vault.pairKey) === index)
 
-          const openLtvBps = Number(depositPoolData.pool.config.health_config.open_ltv_bps)
-          if (openLtvBps <= 0) {
-            return
-          }
+      await Promise.allSettled(marketVaults.map(async (vault) => {
+        const pairKey = buildMultiplyPairKey(
+          vault.depositPoolData.pool.pool_address,
+          vault.borrowPoolData.pool.pool_address,
+        )
 
-          const pairKey = buildMultiplyPairKey(
-            depositPoolData.pool.pool_address,
-            borrowPoolData.pool.pool_address,
-          )
+        try {
+          const obligationKey = await buildMultiplyObligationKey({
+            publicKey: publicKey.value!,
+            borrowTokenAddress: vault.borrowPoolData.pool.token_address,
+            depositTokenAddress: vault.depositPoolData.pool.token_address,
+          })
 
-          try {
-            const obligationKey = await buildMultiplyObligationKey({
-              publicKey: publicKey.value,
-              borrowTokenAddress: borrowPoolData.pool.token_address,
-              depositTokenAddress: depositPoolData.pool.token_address,
-            })
-            const obligation = await client.obligation.getUserObligation(obligationKey)
+          const obligation = await client.obligation.getUserObligation(obligationKey)
+          obligationsByPair[pairKey] = adaptAbligation(obligation)
+        } catch {
+          obligationsByPair[pairKey] = undefined
+        }
+      }))
 
-            obligationsByPair[pairKey] = adaptAbligation(obligation)
-          } catch {
-            obligationsByPair[pairKey] = undefined
-          }
-        })
-      })
-
-      await Promise.allSettled(tasks)
       state.multiplyObligations[market] = obligationsByPair
 
       if (withLogs) {
@@ -121,7 +106,7 @@ export const useUserStore = defineStore('user', () => {
 
     const tasks = Object.values(markets).flatMap(m => [
       loadUserObligation(m.marketName, m.client!),
-      loadUserMultiplyObligations(m.marketName, m.client!, false),
+      loadUserMultiplyObligations(m.marketName, m.client!),
     ])
 
     await Promise.allSettled(tasks)

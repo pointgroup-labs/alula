@@ -418,6 +418,10 @@ export class MultiplyService extends BaseClient {
       throw new Error('Requested receive amount exceeds what this multiply close can return')
     }
 
+    const requestedWithdrawAmount = preview.isFullClose
+      ? MAX_I128
+      : preview.withdrawAmount
+
     const requests: Request[] = [
       {
         tag: 'FlashBorrow',
@@ -436,9 +440,7 @@ export class MultiplyService extends BaseClient {
       {
         tag: 'Withdraw',
         values: [{
-          amount: preview.marginAsset === 'deposit' && preview.isFullClose && minReceiveAmount === preview.maxReceivableAmount
-            ? MAX_I128
-            : preview.withdrawAmount,
+          amount: requestedWithdrawAmount,
           pool_address: params.depositPoolAddress,
         }],
       },
