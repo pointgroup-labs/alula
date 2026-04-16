@@ -93,7 +93,7 @@ const liquidationLtv = computed(() => metrics.value.supplied > 0
 const ltvValueColor = computed(() => ltvColor(currentLtv.value, liquidationLtv.value) ?? 'inherit')
 
 function goToPortfolio() {
-  router.push('/account')
+  router.push('/portfolio')
 }
 </script>
 
