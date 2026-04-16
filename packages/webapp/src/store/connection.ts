@@ -64,8 +64,15 @@ export const useConnectionStore = defineStore('connection', () => {
 
   async function initKit() {
     await createKit()
+
     if (import.meta.client && selectedWalletId.value) {
+      if (!canAutoConnect(selectedWalletId.value)) {
+        selectedWalletId.value = ''
+        return
+      }
+
       autoConnecting.value = true
+
       try {
         await kit.value.setWallet(selectedWalletId.value)
         const { address } = await kit.value.getAddress()
@@ -108,6 +115,28 @@ export const useConnectionStore = defineStore('connection', () => {
     requestAnimationFrame(() => {
       styleWalletModal()
     })
+  }
+
+  function getModuleById(walletId: string) {
+    return kit.value?.modules?.find((m: any) => m.productId === walletId)
+  }
+
+  function canAutoConnect(walletId: string) {
+    const module = getModuleById(walletId)
+
+    if (!module) {
+      return false
+    }
+
+    if (module.moduleType !== 'HOT_WALLET') {
+      return false
+    }
+
+    if (['albedo', 'lobstr', 'hot-wallet', 'wallet_connect'].includes(module.productId)) {
+      return false
+    }
+
+    return true
   }
 
   async function validateAccount(address: string) {
