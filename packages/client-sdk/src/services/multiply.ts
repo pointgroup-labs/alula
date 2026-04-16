@@ -115,6 +115,10 @@ export function calculateMultiplyMaxLeverage(openLtvBps: number): number {
 export class MultiplyService extends BaseClient {
   private marketClient: MarketClient
   private txHelper: TransactionHelper
+  private CACHE_TTL = 10000
+  private poolCache = new Map<string, { data: PoolData, ts: number }>()
+  private routerCache = new Map<string, string>()
+  private obligationCache = new Map<string, { data: Obligation, ts: number }>()
 
   constructor(config: MultiplyServiceConfig) {
     super(config)
@@ -288,9 +292,11 @@ export class MultiplyService extends BaseClient {
   }
 
   async getClosePositionPreview(params: CloseMultiplyPreviewParams): Promise<CloseMultiplyPreview> {
-    const depositPool = await this.getPoolData(params.depositPoolAddress)
-    const borrowPool = await this.getPoolData(params.borrowPoolAddress)
-    const obligation = await this.getUserObligation(params.user)
+    const [depositPool, borrowPool, obligation] = await Promise.all([
+      this.getPoolData(params.depositPoolAddress),
+      this.getPoolData(params.borrowPoolAddress),
+      this.getUserObligation(params.user),
+    ])
     const marginAsset = params.marginAsset ?? 'deposit'
 
     const depositPosition = this.findDepositPosition(obligation, params.depositPoolAddress)
@@ -498,6 +504,8 @@ export class MultiplyService extends BaseClient {
     if (options?.debug) {
       console.log('%c[Multiply Close Tx]', 'color: #00ff00', tx)
     }
+    this.poolCache.delete(params.depositPoolAddress)
+    this.poolCache.delete(params.borrowPoolAddress)
 
     return await this.txHelper.signAndSend(tx, params.user, kit, options)
   }
@@ -507,16 +515,48 @@ export class MultiplyService extends BaseClient {
   }
 
   private async getPoolData(poolAddress: string): Promise<PoolData> {
+    const cached = this.poolCache.get(poolAddress)
+
+    if (cached && Date.now() - cached.ts < this.CACHE_TTL) {
+      return cached.data
+    }
+
     const response = await this.marketClient.get_pool_data({ pool_address: poolAddress })
-    return this.unwrapOk(response.result)
+    const data = this.unwrapOk<PoolData>(response.result)
+
+    this.poolCache.set(poolAddress, {
+      data,
+      ts: Date.now(),
+    })
+
+    return data
   }
 
   private async getUserObligation(user: ObligationKey): Promise<Obligation> {
+    const key = JSON.stringify(user)
+    const cached = this.obligationCache.get(key)
+
+    if (cached && Date.now() - cached.ts < this.CACHE_TTL) {
+      return cached.data
+    }
+
     const response = await this.marketClient.get_user_obligation({ user })
-    return this.unwrapOk(response.result)
+    const data = this.unwrapOk<Obligation>(response.result)
+
+    this.obligationCache.set(key, {
+      data,
+      ts: Date.now(),
+    })
+
+    return data
   }
 
   private async getRouterAddress(swapProviderAddress: string): Promise<string> {
+    const cached = this.routerCache.get(swapProviderAddress)
+    if (cached) {
+      return cached
+    }
+
     const providerClient = new SoroswapSwapProviderClient({
       publicKey: this.publicKey,
       rpcUrl: this.getSorobanRpcUrl(),
@@ -525,7 +565,11 @@ export class MultiplyService extends BaseClient {
     })
 
     const response = await providerClient.get_router()
-    return String(response.result)
+    const router = String(response.result)
+
+    this.routerCache.set(swapProviderAddress, router)
+
+    return router
   }
 
   private async getExpectedAmountsOut(routerAddress: string, amountIn: bigint, path: string[]): Promise<bigint[]> {
