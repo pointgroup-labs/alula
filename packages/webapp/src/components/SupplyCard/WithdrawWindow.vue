@@ -28,6 +28,26 @@ const {
   withdraw: doWithdraw,
 } = useWithdrawDialog(toRef(true))
 
+const supplyBalanceLabel = computed(() => `${normalizebalance(supplyBalance.value)} ${asset.value?.symbol}`)
+const collateralBalanceLabel = computed(() => `${normalizebalance(collateralBalance.value)} ${asset.value?.symbol}`)
+
+const tabs = computed(() => {
+  return [
+    { label: `Supply`, value: 'supply', balance: supplyBalanceLabel.value },
+    { label: `Collateral`, value: 'collateral', balance: collateralBalanceLabel.value, disabled: collateralBalance.value === 0 },
+  ]
+})
+
+const activeTab = ref(tabs.value[0])
+
+watch(activeTab, () => {
+  collateralOnly.value = activeTab.value?.value === 'collateral'
+})
+
+function normalizebalance(balance?: number) {
+  return shortenNumber(balance ?? 0, maxDecimalsForShortenNumber(balance))
+}
+
 async function withdraw() {
   isValidate.value = false
   await doWithdraw()
@@ -36,6 +56,15 @@ async function withdraw() {
 </script>
 
 <template>
+  <j-line-tab
+    v-model="activeTab"
+    :tabs="tabs"
+    class="withdraw-tabs"
+  >
+    <template #tab="{ tab }">
+      {{ tab.label }} <span>({{ tab.balance }})</span>
+    </template>
+  </j-line-tab>
   <input-widget
     v-model="amount"
     :balance="availableToWithdrawWithPoolLimit"
@@ -158,14 +187,14 @@ async function withdraw() {
           <div class="summary-list__item">
             <div class="label">Supply Balance</div>
             <div class="value">
-              {{ shortenNumber(supplyBalance ?? 0, maxDecimalsForShortenNumber(supplyBalance)) }} {{ asset.symbol }}
+              {{ supplyBalanceLabel }}
             </div>
           </div>
 
           <div class="summary-list__item">
             <div class="label">Collateral Balance</div>
             <div class="value">
-              {{ shortenNumber(collateralBalance ?? 0, maxDecimalsForShortenNumber(collateralBalance)) }} {{ asset.symbol }}
+              {{ collateralBalanceLabel }}
             </div>
           </div>
         </div>
@@ -205,18 +234,6 @@ async function withdraw() {
     </div>
   </Transition>
 
-  <div
-    v-if="collateralBalance > 0"
-    class="collateral mt-3"
-  >
-    <div class="collateral-label">Collateral Only</div>
-
-    <j-toggle
-      v-model="collateralOnly"
-      size="small"
-    />
-  </div>
-
   <div class="supply-card__action mt-3">
     <j-btn
       :loading="isLoading"
@@ -229,3 +246,22 @@ async function withdraw() {
     </j-btn>
   </div>
 </template>
+
+<style lang="scss">
+.withdraw-tabs {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 10px;
+
+  .overview-tab {
+    width: 100%;
+    text-align: center;
+    border-width: 1px;
+
+    span {
+      font-size: 12px;
+      color: $text-tertiary;
+    }
+  }
+}
+</style>

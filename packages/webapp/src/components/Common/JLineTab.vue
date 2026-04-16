@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 const { tabs = [] } = defineProps<{
-  tabs?: { label: string, value: string }[]
+  tabs?: { label: string, value: string, [key: string]: any }[]
   activeColor?: string
+  disabled?: boolean
 }>()
 
 const activeTab = defineModel<{ label: string, value: string }>()
+
+const slots = useSlots()
 
 watch(() => tabs, (nextTabs) => {
   if (!nextTabs?.length) {
@@ -24,11 +27,23 @@ watch(() => tabs, (nextTabs) => {
       v-for="tab in tabs"
       :key="tab.label"
       class="overview-tab"
-      :class="{ 'overview-tab--active': activeTab?.value === tab?.value }"
+      :class="{
+        'overview-tab--active': activeTab?.value === tab?.value,
+        'overview-tab--disabled': disabled || tab?.disabled,
+      }"
       :style="{ '--active-tab-color': activeColor }"
       @click="activeTab = tab"
     >
-      {{ tab.label }}
+      <template v-if="slots.tab">
+        <slot
+          name="tab"
+          :tab="tab"
+        />
+      </template>
+
+      <template v-else>
+        {{ tab.label }}
+      </template>
     </div>
   </div>
 </template>
@@ -60,10 +75,16 @@ watch(() => tabs, (nextTabs) => {
     padding: 0 $spacing-sm $spacing-md;
     border-bottom: 2px solid transparent;
     transition: 0.1s ease;
+    user-select: none;
     cursor: pointer;
 
     &--active {
       border-color: var(--active-tab-color, $text-primary);
+    }
+
+    &--disabled {
+      opacity: 0.5;
+      pointer-events: none;
     }
   }
 }

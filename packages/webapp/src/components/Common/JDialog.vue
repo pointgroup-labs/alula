@@ -40,6 +40,11 @@ const dialog = defineModel({
 
 <style lang="scss">
 .j-dialog {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
   .modal-content {
     padding: 0;
     border-radius: $radius-2xl;
