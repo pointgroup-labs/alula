@@ -150,8 +150,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 
 <template>
   <div v-if="markets.length === 0 && isLoading">
-    <market-table-skeleton v-if="width > 650" />
-    <market-table-skeleton-mobile v-else />
+    <portfolio-multiply-table-skeleton v-if="width > 1024" />
+    <portfolio-multiply-table-skeleton-mobile v-else />
   </div>
   <div
     v-else
@@ -164,7 +164,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
       :fields="fields"
       :items="filteredData"
       responsive
-      class="market-table multiply-table multiply-table-accounts"
+      class="market-table multiply-table portfolio-table"
       :class="{ 'table-loading': userStore.loading }"
     >
       <template
@@ -326,11 +326,6 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     }
   }
 
-  &.multiply-table-accounts {
-    tbody tr {
-      cursor: default;
-    }
-  }
   .cell-apy {
     color: $success;
     font-size: 14px;
@@ -373,7 +368,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
   }
 
   .no-data {
-    color: $text-secondary;
+    color: $text-tertiary;
     font-size: 12px;
     font-style: normal;
     font-weight: 400;

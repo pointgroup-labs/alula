@@ -73,6 +73,20 @@
     }
   }
 
+  thead {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -100%;
+      width: 40%;
+      height: 1px;
+      background: transparent;
+    }
+  }
+
   tbody {
     tr {
       height: 54px;

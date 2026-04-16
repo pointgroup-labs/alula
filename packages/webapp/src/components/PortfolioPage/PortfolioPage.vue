@@ -32,9 +32,6 @@
 
   .portfolio-multiply__cards {
     width: calc(100% - 48px);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
     margin: 0 auto;
     padding: 0;
   }

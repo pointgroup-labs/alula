@@ -10,7 +10,7 @@ const userStore = useUserStore()
 const multiplyStore = useMultiplyStore()
 const vaults = computed(() => multiplyStore.vaults)
 
-console.log(vaults.value)
+const isLoading = computed(() => (marketsStore.state.loading || userStore.loading) && vaults.value.length === 0)
 
 const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
 const withdrawDialogOpen = toRef(marketsStore, 'dialogLeverageWithdraw')
@@ -59,8 +59,12 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
 
 <template>
   <div class="multiply-table">
+    <template v-if="isLoading">
+      <multiply-table-skeleton v-if="width > 1024" />
+      <multiply-table-skeleton-mobile v-else />
+    </template>
     <div
-      v-if="vaults.length === 0"
+      v-else-if="vaults.length === 0"
       class="multiply-table__empty"
     >
       No multiply vaults available.
@@ -78,6 +82,7 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
         :items="vaults"
         responsive
         class="market-table multiply-table__desktop"
+        :class="{ 'table-loading': userStore.loading }"
         @row-clicked="onRowClicked"
       >
         <template

@@ -21,7 +21,7 @@
         class="card-top-info"
       >
         <j-skeleton
-          v-for="value in 3"
+          v-for="value in 2"
           :key="value"
           height="16"
           pill
@@ -48,22 +48,9 @@
         height="16"
         pill
       />
-
-      <div class="separator-vert" />
-
-      <j-skeleton
-        height="16"
-        pill
-      />
     </div>
 
     <div class="mobile-card-footer">
-      <j-skeleton
-        height="32"
-        pill
-        full-width
-      />
-
       <j-skeleton
         height="32"
         pill
