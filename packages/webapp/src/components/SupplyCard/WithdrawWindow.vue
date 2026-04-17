@@ -29,6 +29,7 @@ const {
 } = useWithdrawDialog(toRef(true))
 
 const isHasCollateral = computed(() => collateralBalance.value > 0)
+const isHasSupply = computed(() => supplyBalance.value > 0)
 const supplyBalanceLabel = computed(() => `${normalizebalance(supplyBalance.value)} ${asset.value?.symbol}`)
 const collateralBalanceLabel = computed(() => `${normalizebalance(collateralBalance.value)} ${asset.value?.symbol}`)
 
@@ -57,6 +58,12 @@ function selectBalance(type: 'A' | 'B') {
   }
   selected.value = type
 }
+
+watch([supplyBalance, isHasCollateral], ([b, c]) => {
+  if (b === 0 && c) {
+    selectBalance('B')
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -89,7 +96,10 @@ function selectBalance(type: 'A' | 'B') {
       </div>
 
       <div class="summary-list">
-        <div class="summary-list__item">
+        <div
+          v-if="isHasSupply"
+          class="summary-list__item"
+        >
           <div
             class="label"
             @click="selectBalance('A')"
@@ -121,6 +131,7 @@ function selectBalance(type: 'A' | 'B') {
             @click="selectBalance('B')"
           >
             <BFormRadio
+              v-if="isHasSupply"
               v-model="selected"
               name="some-radios"
               value="B"

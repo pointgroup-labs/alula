@@ -294,6 +294,7 @@ function readMoreHandler(e: Event) {
 .extra-info__label {
   a {
     color: $cyan;
+    white-space: nowrap;
   }
 }
 </style>
