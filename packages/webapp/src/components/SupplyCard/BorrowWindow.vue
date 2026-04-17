@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { POOL_REMAINING_BALANCE } from '~/config'
+import { DOCS_BORROW_RISKS_LINK, POOL_REMAINING_BALANCE } from '~/config'
 import { focusInput, truncatePercent } from '~/utils'
 
 const {
@@ -73,6 +73,15 @@ const positions = computed(() => {
     deposits,
   }
 })
+
+function readMoreHandler(e: Event) {
+  e.preventDefault()
+  const a = document.createElement('a')
+  a.href = DOCS_BORROW_RISKS_LINK
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  a.click()
+}
 </script>
 
 <template>
@@ -255,7 +264,13 @@ const positions = computed(() => {
       :disabled="!isCanBorrow || availableToBorrow <= 0"
     >
       <div class="extra-info__label">
-        I acknowledge the risks involved.
+        I understand how the borrowing mechanism works and consider  liquidation parameters.
+        <a
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+          @click.prevent="readMoreHandler"
+        >Read more</a>
       </div>
     </j-checkbox>
   </div>
@@ -274,3 +289,11 @@ const positions = computed(() => {
     </market-dialog-action-btn>
   </div>
 </template>
+
+<style scoped lang="scss">
+.extra-info__label {
+  a {
+    color: $cyan;
+  }
+}
+</style>

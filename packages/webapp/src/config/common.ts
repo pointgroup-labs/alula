@@ -16,3 +16,5 @@ export const TRANSACTION_TIMEOUT = 60_000
 export const POOL_REMAINING_BALANCE = 0.01
 
 export const EXPLORER_LINK = 'https://stellar.expert/'
+
+export const DOCS_BORROW_RISKS_LINK = 'https://docs.alula.finance/guides/borrow/borrow-related-risks'
