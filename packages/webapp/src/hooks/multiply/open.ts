@@ -173,6 +173,38 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     }
   })
 
+  const flashLoanFeeAmount = computed(() => {
+    if (!vault.value || !preview.value) {
+      return 0
+    }
+
+    const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
+    const borrowFeeAmount = Number(
+      bigintToNumber(
+        preview.value.finalBorrowAmount - preview.value.flashBorrowAmount,
+        borrowDecimals,
+      ),
+    )
+
+    if (isMarginBorrow.value) {
+      return borrowFeeAmount
+    }
+
+    if (!marketState.value) {
+      return 0
+    }
+
+    const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
+    const depositPrice = Number(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals))
+    const borrowPrice = Number(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals))
+
+    if (depositPrice <= 0 || borrowPrice <= 0) {
+      return 0
+    }
+
+    return borrowFeeAmount * (borrowPrice / depositPrice)
+  })
+
   const unhealthyReason = computed(() => {
     if (!vault.value || !preview.value || !marketState.value) {
       return ''
@@ -323,6 +355,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     maxInputAmount,
     availableBorrowLiquidity,
     flashLoanFeeBps,
+    flashLoanFeeAmount,
     preview,
     summary,
     loadingPreview,

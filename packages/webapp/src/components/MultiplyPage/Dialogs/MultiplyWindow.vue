@@ -23,7 +23,7 @@ const {
   unhealthyReason,
   maxInputAmount,
   availableBorrowLiquidity,
-  flashLoanFeeBps,
+  flashLoanFeeAmount,
   summary,
   loadingPreview,
   previewError,
@@ -338,7 +338,7 @@ const slippageRules = [
             <div class="summary-list__item">
               <div class="label">Flash loan fee</div>
               <div class="value">
-                {{ truncatePercent(flashLoanFeeBps / 100, 2) }}%
+                {{ shortenNumber(flashLoanFeeAmount || 0, 2, maxDecimalsForShortenNumber(flashLoanFeeAmount || 0)) }} {{ marginAsset?.symbol }}
               </div>
             </div>
 

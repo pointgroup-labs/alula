@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { MultiplyAccountTableItem, MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
+import type { MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
 import { useMultiplyWithdraw } from '~/hooks/multiply/withdraw'
 
 const {
@@ -7,7 +7,7 @@ const {
   vault,
 } = defineProps<{
   opened?: boolean
-  vault?: MultiplyTableItem | MultiplyAccountTableItem | MultiplyVaultItem
+  vault?: MultiplyTableItem | MultiplyVaultItem
 }>()
 
 const isValidate = ref(true)
@@ -214,7 +214,8 @@ async function withdrawLeverage() {
             <div class="summary-list__item">
               <div class="label">Flash loan fee</div>
               <div class="value">
-                {{ formatPrice(marketFee, 2, vault?.borrowPoolData.pool.token_decimals || 7) }} {{ vault?.borrowAsset.symbol }}
+                {{ formatPrice(marketFee, 2, vault?.borrowPoolData.pool.token_decimals || 7) }}
+                {{ isMarginBorrow ? vault?.borrowAsset.symbol : vault?.asset.symbol }}
               </div>
             </div>
 

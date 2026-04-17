@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import type { MultiplyAccountTableItem, MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
+import type { MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
 
 const {
   data,
 } = defineProps<{
-  data?: MultiplyTableItem | MultiplyAccountTableItem | MultiplyVaultItem
+  data?: MultiplyTableItem | MultiplyVaultItem
 }>()
 
 const dialog = defineModel({ default: false })
