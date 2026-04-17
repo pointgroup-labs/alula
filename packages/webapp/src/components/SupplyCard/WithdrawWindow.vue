@@ -344,6 +344,10 @@ watch([supplyBalance, isHasCollateral], ([b, c]) => {
     }
   }
 
+  .info-summary__item {
+    height: fit-content;
+  }
+
   .summary-list__item {
     .label:has(.balance-radio) {
       cursor: pointer;
