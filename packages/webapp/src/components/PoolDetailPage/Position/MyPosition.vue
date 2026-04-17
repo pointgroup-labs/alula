@@ -123,7 +123,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
               class="net-apy__value"
               :class="[`net-apy--${netApy > 0 ? 'positive' : 'negative'}`]"
             >
-              {{ netApy > 0 ? '+' : '' }}{{ netApyDisplay }}</span>
+              {{ netApy > 0 ? '+' : '' }}{{ netApyDisplay }}%</span>
           </div>
 
           <div
