@@ -178,7 +178,7 @@ async function withdrawLeverage() {
             </div>
 
             <div class="summary-list__item align-items-start">
-              <div class="label">Remaining debt</div>
+              <div class="label">Debt after repayment</div>
               <div class="value">
                 <div class="text-end">
                   {{ shortenNumber(remainingBorrowAmount || 0, 2, maxDecimalsForShortenNumber(remainingBorrowAmount)) }} {{ vault?.borrowAsset.symbol }}

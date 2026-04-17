@@ -29,8 +29,8 @@ const {
   isCanSupply,
   attentionText,
   marketFee,
-  maxLtv,
-  dynamicLtv,
+  borrowLimitUsedUsd,
+  borrowLimitTotalUsd,
   currentHealthFactor,
   dynamicHealthFactor,
   supply: doSupply,
@@ -123,7 +123,7 @@ const rewardsEarnings = computedAsync(async () => {
       <template v-if="isHasBorrows">
         <div class="info-summary__item">
           <div class="info-summary__header">
-            Position Impact
+            Position Impact wef
             <reload-coundown
               :size="16"
               color="#54627D"
@@ -153,16 +153,16 @@ const rewardsEarnings = computedAsync(async () => {
 
             <div class="summary-list__item">
               <div class="label">
-                Borrow Limit Used
+                Borrowed
                 <info-tooltip>
                   Shows how much of your total borrowing power you are currently using. This limit is based on the maximum
                   Loan-to-Value (LTV) of your collaterals. At maximum % you cannot borrow more.
                 </info-tooltip>
               </div>
               <div class="value">
-                <span>{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitUsedUsd || 0, 2, 2) }}</span>
                 of
-                <span>{{ truncatePercent(maxLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitTotalUsd || 0, 2, 2) }}</span>
               </div>
             </div>
           </div>

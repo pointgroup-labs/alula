@@ -2,15 +2,10 @@
 import marketsTabIcon from '~/assets/img/icons/chart-square-icon.svg?raw'
 import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
-import logoDark from '~/assets/img/logo-dark.svg'
-import logoLight from '~/assets/img/logo-light.svg'
-import logoMobile from '~/assets/img/logo-mobile.svg'
-import { isDark } from '~/hooks/theme'
 
 const { width } = useWindowSize()
 
 const route = useRoute()
-const logo = computed(() => width.value >= 1024 ? (isDark.value ? logoDark : logoLight) : logoMobile)
 
 const tabs = [{
   label: 'Markets',
@@ -46,13 +41,15 @@ watch(() => route.path, (p) => {
 <template>
   <header>
     <div class="header-wrapper container">
-      <client-only>
+      <nuxt-link
+        to="/"
+      >
         <img
-          :src="logo"
+          src="/logo.svg"
           alt="stellar logo"
           class="app-logo"
         >
-      </client-only>
+      </nuxt-link>
 
       <nav
         v-if="width >= 1024"

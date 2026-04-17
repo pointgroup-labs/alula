@@ -124,6 +124,7 @@ declare module 'vue' {
     MyMultiplyPositions: typeof import('./../components/MultiplyDetailsPage/Position/Sections/MyMultiplyPositions.vue')['default']
     MyPosition: typeof import('./../components/PoolDetailPage/Position/MyPosition.vue')['default']
     MyPositionsWidget: typeof import('./../components/MarketsPage/Markets/MyPositionsWidget.vue')['default']
+    PoolAuditsOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/PoolAuditsOverview.vue')['default']
     PoolDetailOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/PoolDetailOverview.vue')['default']
     PoolDetailPage: typeof import('./../components/PoolDetailPage/PoolDetailPage.vue')['default']
     PoolDetailSkeleton: typeof import('./../components/Skeleton/PoolDetailSkeleton.vue')['default']

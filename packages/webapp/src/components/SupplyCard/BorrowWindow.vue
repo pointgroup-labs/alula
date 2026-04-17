@@ -35,8 +35,8 @@ const {
   attentionText,
   currentHealthFactor,
   dynamicHealthFactor,
-  maxLtv,
-  dynamicLtv,
+  borrowLimitUsedUsd,
+  borrowLimitTotalUsd,
   borrow: doBorrow,
 } = useBorrowDialog(selectedPool, toRef(true))
 
@@ -155,7 +155,7 @@ const positions = computed(() => {
 
           <div class="summary-list__item align-items-start mb-2">
             <div class="label">
-              Borrow Limit Used
+              Borrowed
               <info-tooltip>
                 Shows how much of your total borrowing power you are currently using. This limit is based on the maximum
                 Loan-to-Value (LTV) of your collaterals. At maximum % you cannot borrow more.
@@ -163,9 +163,9 @@ const positions = computed(() => {
             </div>
             <div class="value">
               <div>
-                <span>{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitUsedUsd || 0, 2, 2) }}</span>
                 of
-                <span>{{ truncatePercent(maxLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitTotalUsd || 0, 2, 2) }}</span>
               </div>
             </div>
           </div>
@@ -200,10 +200,10 @@ const positions = computed(() => {
 
           <div class="summary-list__item">
             <div class="label">
-              Total collateral value
+              Available to borrow
             </div>
             <div class="value">
-              {{ shortenNumber(poolBorrowLimit || 0) }} {{ selectedPool?.asset.symbol }}
+              ${{ amountToUsdWithShort(poolBorrowLimit ?? 0, selectedPool?.price ?? 0) }}
             </div>
           </div>
         </div>

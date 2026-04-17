@@ -245,6 +245,43 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     return ((weightedBorrowedValueUsd + borrowAdjustUsd) / collateralValue) * 100
   })
 
+  const borrowLimitUsedUsd = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    const price = Number(poolData.value?.price || 0)
+    const liabilityFactor = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.liability_factor_bps || 0))
+    const borrowAdjustUsd = (Number(amount.value) || 0) * price * liabilityFactor
+
+    return Math.max(currentLtv.value >= 0
+      ? calcWeightedBorrowedUsd(
+        obligation.value,
+        marketState.value.pools_data,
+        tokenDecimals.value,
+        marketState.value.oracle_price_decimals ?? 0,
+      ) + borrowAdjustUsd
+      : 0, 0)
+  })
+
+  const borrowLimitTotalUsd = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
+      obligation.value,
+      marketState.value.pools_data,
+      tokenDecimals.value,
+      marketState.value.oracle_price_decimals ?? 0,
+    )
+    const price = Number(poolData.value?.price || 0)
+    const liabilityFactor = bpsToNumber(Number(poolData.value?.raw.pool.config.health_config.liability_factor_bps || 0))
+    const maxBorrowAdjustUsd = availableToBorrow.value * price * liabilityFactor
+
+    return Math.max(weightedBorrowedValueUsd + maxBorrowAdjustUsd, 0)
+  })
+
   const marketFee = computed(() => {
     const marketFeeBps = poolData.value?.raw.pool.config.fee_config.borrow_fee_bps
     return calcFee(Number(amount.value || 0), marketFeeBps || 0)
@@ -369,6 +406,8 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     poolBorrowLimit,
     availableToBorrow,
     collateralValueUsd,
+    borrowLimitUsedUsd,
+    borrowLimitTotalUsd,
     currentLtv,
     maxLtv,
     dynamicLtv,

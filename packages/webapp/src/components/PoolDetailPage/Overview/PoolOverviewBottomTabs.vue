@@ -8,6 +8,10 @@ const tabs = [
     label: 'Pool Details',
     value: 'details',
   },
+  {
+    label: 'Audits',
+    value: 'audits',
+  },
 ]
 
 const activeTab = ref(tabs[0])
@@ -24,6 +28,7 @@ const activeTab = ref(tabs[0])
 
     <pool-info-overview v-if="activeTab?.value === 'info'" />
     <pool-detail-overview v-if="activeTab?.value === 'details'" />
+    <pool-audits-overview v-if="activeTab?.value === 'audits'" />
   </section>
 </template>
 

@@ -291,7 +291,8 @@ export default defineNuxtConfig({
       },
       title: env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon-light.svg', media: '(prefers-color-scheme: light)' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg', media: '(prefers-color-scheme: dark)' },
         // Preconnect wallet connect
         { rel: 'preconnect', href: 'https://walletconnect.com', crossorigin: '' },
         { rel: 'preconnect', href: 'https://verify.walletconnect.com', crossorigin: '' },
@@ -323,6 +324,23 @@ export default defineNuxtConfig({
           type: 'text/javascript',
           body: true,
         } as any,
+        {
+          innerHTML: `
+              (function () {
+                function isWindows() {
+                  if (navigator.userAgentData && navigator.userAgentData.platform) {
+                    return navigator.userAgentData.platform === 'Windows'
+                  }
+                  return navigator.userAgent.includes('Windows')
+                }
+                if (isWindows()) {
+                  document.documentElement.classList.add('is-windows')
+                }
+              })()
+          `,
+          type: 'text/javascript',
+          body: true,
+        },
       ],
     },
   },

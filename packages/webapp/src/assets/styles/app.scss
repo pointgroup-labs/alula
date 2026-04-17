@@ -2,29 +2,28 @@
 @import 'variables';
 @import 'components';
 
-:root {
+html.is-windows {
   --scrollbar-bg: transparent;
   --scrollbar-bg-hover: rgba(62, 75, 100, 0.1);
   --scrollbar-thumb: rgba(62, 75, 100, 0.5);
   --scrollbar-thumb-hover: rgba(62, 75, 100, 0.9);
 }
 
-/* Chrome / Safari */
-::-webkit-scrollbar {
+html.is-windows ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
+html.is-windows ::-webkit-scrollbar-track {
   background: var(--scrollbar-bg);
 }
 
-::-webkit-scrollbar-thumb {
+html.is-windows ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 999px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+html.is-windows ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
 

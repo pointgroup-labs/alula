@@ -15,8 +15,8 @@ const {
   balance,
   currentHealthFactor,
   dynamicHealthFactor,
-  dynamicLtv,
-  maxLtv,
+  borrowLimitUsedUsd,
+  borrowLimitTotalUsd,
   isLoadingFee,
   amount,
   txFee,
@@ -96,7 +96,7 @@ async function repay() {
 
           <div class="summary-list__item align-items-start mb-2">
             <div class="label">
-              Borrow Limit Used
+              Borrowed
               <info-tooltip>
                 Shows how much of your total borrowing power you are currently using. This limit is based on the maximum
                 Loan-to-Value (LTV) of your collaterals. At maximum % you cannot borrow more.
@@ -106,10 +106,21 @@ async function repay() {
               class="value"
             >
               <div class="text-end">
-                <span>{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitUsedUsd || 0, 2, 2) }}</span>
                 of
-                <span>{{ truncatePercent(maxLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitTotalUsd || 0, 2, 2) }}</span>
               </div>
+            </div>
+          </div>
+
+          <div class="summary-list__item align-items-start mb-2">
+            <div class="label">
+              Debt after repayment
+            </div>
+            <div
+              class="value"
+            >
+              ${{ amountToUsdWithShort(debtAfterRepay, Number(price) || 0) }}
             </div>
           </div>
         </div>
@@ -128,18 +139,7 @@ async function repay() {
               Debt
             </div>
             <div class="value">
-              {{ shortenNumber(debt, 2, maxDecimalsForShortenNumber(debt)) }} {{ asset.symbol }}
-            </div>
-          </div>
-
-          <div class="summary-list__item align-items-start mb-2">
-            <div class="label">
-              Remaining debt
-            </div>
-            <div
-              class="value"
-            >
-              {{ shortenNumber(debtAfterRepay, 2, maxDecimalsForShortenNumber(debtAfterRepay)) }} {{ asset.symbol }}
+              ${{ amountToUsdWithShort(debt, Number(price) || 0) }}
             </div>
           </div>
         </div>

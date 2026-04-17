@@ -186,6 +186,68 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     return (weightedBorrowedValueUsd / nextCollateralValueUsd) * 100
   })
 
+  const borrowLimitUsedUsd = computed(() => {
+    const marketName = String(poolData.value?.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
+
+    if (!obligation || !marketState) {
+      return 0
+    }
+
+    return Math.max(calcWeightedBorrowedUsd(
+      obligation,
+      marketState.pools_data,
+      Number(tokenDecimals.value),
+      marketState.oracle_price_decimals ?? 0,
+    ), 0)
+  })
+
+  const borrowLimitTotalUsd = computed(() => {
+    const marketName = String(poolData.value?.market)
+    const obligation = userStore.state.obligations[marketName]
+    const marketState = marketsStore.state.markets[marketName]?.marketState
+
+    if (!obligation || !marketState) {
+      return 0
+    }
+
+    const oraclePriceDecimals = marketState.oracle_price_decimals ?? 0
+    const poolsData = marketState.pools_data
+    const poolAddress = poolData.value?.raw.pool.pool_address
+    const supplyPrice = Number(poolData.value?.price ?? 0)
+    const supplyAmount = Number(amount.value) || 0
+    const weightedBorrowedValueUsd = calcWeightedBorrowedUsd(
+      obligation,
+      poolsData,
+      Number(tokenDecimals.value),
+      oraclePriceDecimals,
+    )
+    const poolOpenLtv = Number(poolData.value?.raw.pool.config.health_config.open_ltv_bps ?? 0) / 10_000
+    const nextDepositWithOpenLtvUsd = calcUserTotalStakeInUsd(
+      obligation,
+      poolsData,
+      Number(tokenDecimals.value),
+      oraclePriceDecimals,
+      'open',
+    ) + supplyAmount * supplyPrice * poolOpenLtv
+    const currentPositionsWithNonZeroLtv = obligation.deposits.filter(([depositPoolAddress]) => {
+      const depositPool = poolsData.find(pool => pool.pool.pool_address === depositPoolAddress)
+      return depositPool && Number(depositPool.pool.config.health_config.close_ltv_bps) > 0
+    }).length
+    const shouldAddPosition = Boolean(
+      poolAddress
+      && supplyAmount > 0
+      && Number(poolData.value?.raw.pool.config.health_config.close_ltv_bps ?? 0) > 0
+      && !obligation.deposits.some(([depositPoolAddress]) => depositPoolAddress === poolAddress),
+    )
+    const nextPositionsWithNonZeroLtv = currentPositionsWithNonZeroLtv + (shouldAddPosition ? 1 : 0)
+    const minCollateralUsd = (Number(marketState.global_state.min_collateral_value_cents) / 100) * nextPositionsWithNonZeroLtv
+    const borrowingCapacityUsd = Math.max(nextDepositWithOpenLtvUsd - weightedBorrowedValueUsd - minCollateralUsd, 0)
+
+    return Math.max(weightedBorrowedValueUsd + borrowingCapacityUsd, 0)
+  })
+
   const currentHealthFactor = computed(() => {
     const marketName = String(poolData.value?.market)
     const obligation = userStore.state.obligations[marketName]
@@ -373,6 +435,8 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     isCanSupply,
     attentionText,
     marketFee,
+    borrowLimitUsedUsd,
+    borrowLimitTotalUsd,
     currentLtv,
     maxLtv,
     dynamicLtv,

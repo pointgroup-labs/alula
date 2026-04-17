@@ -245,6 +245,18 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
     return ((nextWeightedBorrowedUsd.value + maxBorrowAdjustUsd) / collateralValue) * 100
   })
 
+  const borrowLimitUsedUsd = computed(() => Math.max(nextWeightedBorrowedUsd.value, 0))
+
+  const borrowLimitTotalUsd = computed(() => {
+    if (!obligation.value || !marketState.value || !poolData.value) {
+      return 0
+    }
+
+    const maxBorrowAdjustUsd = availableToBorrowAfterRepay.value * Number(price.value) * liabilityFactor.value
+
+    return Math.max(nextWeightedBorrowedUsd.value + maxBorrowAdjustUsd, 0)
+  })
+
   async function repay() {
     if (!poolData.value) {
       return
@@ -348,6 +360,8 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
     balance,
     currentHealthFactor,
     dynamicHealthFactor,
+    borrowLimitUsedUsd,
+    borrowLimitTotalUsd,
     currentLtv,
     dynamicLtv,
     maxLtv,

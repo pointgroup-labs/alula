@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { MarketTableItem } from '~/types/table'
-import { HALBORN_AUDITOR } from '~/config/audits'
 
 const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
 
@@ -29,11 +28,6 @@ const detailCardsData = computed(() => {
     poolAddress: pool.value?.pool_address,
   }
 })
-
-function normalizeDate(date: string): string {
-  const dateObj = new Date(date)
-  return `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${dateObj.getFullYear()}`
-}
 </script>
 
 <template>
@@ -85,25 +79,6 @@ function normalizeDate(date: string): string {
               rel="noopener noreferrer nofollow"
             >
               {{ shortenAddress(detailCardsData.poolAddress ?? '', 4) }}
-              <i-app-export-icon class="export-icon" />
-            </a>
-          </div>
-
-          <div class="info-list__item auditor-item">
-            <div class="title">
-              Audited ({{ normalizeDate(HALBORN_AUDITOR.auditedAt) }})
-            </div>
-            <a
-              class="value"
-              :href="HALBORN_AUDITOR.link"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-            >
-              <img
-                :src="HALBORN_AUDITOR.logo"
-                alt="auditor logo"
-              >
-              {{ HALBORN_AUDITOR.name }}
               <i-app-export-icon class="export-icon" />
             </a>
           </div>

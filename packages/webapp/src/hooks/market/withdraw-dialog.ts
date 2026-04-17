@@ -232,6 +232,25 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     return ((currentWeightedBorrowedUsd.value + borrowingCapacityUsd) / nextCollateralValueUsd) * 100
   })
 
+  const borrowLimitUsedUsd = computed(() => Math.max(currentWeightedBorrowedUsd.value, 0))
+
+  const borrowLimitTotalUsd = computed(() => {
+    if (!obligation.value || !marketState.value) {
+      return 0
+    }
+
+    const poolsData = marketState.value.pools_data
+    const nextDepositWithOpenLtvUsd = Math.max(userTotalDepositByMarket.value - (withdrawAdjustUsd.value * openLtv.value), 0)
+    const positionsWithNonZeroLTV = obligation.value.deposits.filter(([poolAddr]) => {
+      const pool = poolsData.find(p => p.pool.pool_address === poolAddr)
+      return pool && Number(pool.pool.config.health_config.close_ltv_bps) > 0
+    }).length
+    const minCollateralUsd = (Number(marketState.value.global_state.min_collateral_value_cents) / 100) * positionsWithNonZeroLTV
+    const borrowingCapacityUsd = Math.max(nextDepositWithOpenLtvUsd - currentWeightedBorrowedUsd.value - minCollateralUsd, 0)
+
+    return Math.max(currentWeightedBorrowedUsd.value + borrowingCapacityUsd, 0)
+  })
+
   async function withdraw() {
     if (!poolData.value) {
       return
@@ -384,6 +403,8 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     collateralOnly,
     currentHealthFactor,
     dynamicHealthFactor,
+    borrowLimitUsedUsd,
+    borrowLimitTotalUsd,
     currentLtv,
     dynamicLtv,
     maxLtv,

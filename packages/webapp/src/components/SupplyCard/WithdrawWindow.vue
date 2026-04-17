@@ -22,8 +22,8 @@ const {
   txFee,
   currentHealthFactor,
   dynamicHealthFactor,
-  dynamicLtv,
-  maxLtv,
+  borrowLimitUsedUsd,
+  borrowLimitTotalUsd,
   loading: isLoading,
   withdraw: doWithdraw,
 } = useWithdrawDialog(toRef(true))
@@ -126,7 +126,7 @@ async function withdraw() {
 
           <div class="summary-list__item align-items-start mb-2">
             <div class="label">
-              Borrow Limit Used
+              Borrowed
               <info-tooltip>
                 Shows how much of your total borrowing power you are currently using. This limit is based on the maximum
                 Loan-to-Value (LTV) of your collaterals. At maximum % you cannot borrow more.
@@ -136,34 +136,10 @@ async function withdraw() {
               class="value"
             >
               <div class="text-end">
-                <span>{{ truncatePercent(dynamicLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitUsedUsd || 0, 2, 2) }}</span>
                 of
-                <span>{{ truncatePercent(maxLtv || 0, 2) }}%</span>
+                <span>${{ formatPrice(borrowLimitTotalUsd || 0, 2, 2) }}</span>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="separator" />
-
-      <div class="info-summary__item">
-        <div class="info-summary__header">
-          Limits
-        </div>
-
-        <div class="summary-list">
-          <div class="summary-list__item">
-            <div class="label">Pool liquidity</div>
-            <div class="value">
-              {{ shortenNumber(poolLimit ?? 0, 2) }} {{ asset.symbol }}
-            </div>
-          </div>
-
-          <div class="summary-list__item">
-            <div class="label">Available to withdraw</div>
-            <div class="value">
-              {{ shortenNumber(availableToWithdrawWithPoolLimit ?? 0, maxDecimalsForShortenNumber(availableToWithdrawWithPoolLimit)) }} {{ asset.symbol }}
             </div>
           </div>
 
@@ -179,6 +155,42 @@ async function withdraw() {
       <div class="separator" />
 
       <div class="info-summary__item">
+        <div class="info-summary__header">
+          Limits
+        </div>
+
+        <div class="summary-list">
+          <div
+            v-if="collateralOnly"
+            class="summary-list__item"
+          >
+            <div class="label">Collateral balance</div>
+            <div class="value">
+              {{ shortenNumber(collateralBalance ?? 0, 2) }} {{ asset.symbol }}
+            </div>
+          </div>
+          <div
+            v-else
+            class="summary-list__item"
+          >
+            <div class="label">Pool liquidity</div>
+            <div class="value">
+              {{ shortenNumber(poolLimit ?? 0, 2) }} {{ asset.symbol }}
+            </div>
+          </div>
+
+          <div class="summary-list__item">
+            <div class="label">Available to withdraw</div>
+            <div class="value">
+              {{ shortenNumber(availableToWithdrawWithPoolLimit ?? 0, maxDecimalsForShortenNumber(availableToWithdrawWithPoolLimit)) }} {{ asset.symbol }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="separator" />
+
+      <!-- <div class="info-summary__item">
         <div class="info-summary__header">
           Balance
         </div>
@@ -200,7 +212,7 @@ async function withdraw() {
         </div>
       </div>
 
-      <div class="separator" />
+      <div class="separator" /> -->
 
       <j-accordion
         class="info-summary__item accordion-summary"
