@@ -310,7 +310,6 @@ export default defineNuxtConfig({
         },
       ],
       script: [
-
         {
           innerHTML: `
              (function() {
@@ -340,6 +339,10 @@ export default defineNuxtConfig({
           `,
           type: 'text/javascript',
           body: true,
+        },
+        {
+          src: 'https://t.contentsquare.net/uxa/2baae6781cf55.js',
+          async: true,
         },
       ],
     },
