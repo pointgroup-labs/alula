@@ -3,7 +3,6 @@ import type { MultiplyVaultItem } from '~/types/table'
 
 const {
   items,
-  showInAccounts = false,
 } = defineProps<{
   items: MultiplyVaultItem[]
   showInAccounts?: boolean
@@ -16,28 +15,8 @@ const multiplyStore = useMultiplyStore()
 
 const userStore = useUserStore()
 
-const labelsByPage = computed(() => ({
-  supply: showInAccounts ? 'Borrowed' : 'Supplied',
-  liquidity: showInAccounts ? 'Deposited' : 'Liquidity',
-}))
-
-function isUserHaveMultiply(poolAddress: string, market: string) {
-  return checkIsHaveMultiply(
-    userStore.state.multiplyObligations,
-    items as any,
-    poolAddress,
-    market,
-  )
-}
-
-function getLiquidity(data: MultiplyVaultItem) {
-  const amount = data.liquidity
-  return shortenNumber(amount || 0)
-}
-
-function getSupply(data: MultiplyVaultItem) {
-  const amount = data.supplied
-  return shortenNumber(amount || 0)
+function isUserHaveMultiply(vault: MultiplyVaultItem) {
+  return checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
 }
 
 function getApy(data: MultiplyVaultItem) {
@@ -83,12 +62,8 @@ function handleDetails(vault: MultiplyVaultItem) {
             Max Multiplier
           </div>
           <div class="info-wrapper__value">
-            <j-pill-label
-              variant="success"
-              size="sm"
-            >
-              {{ truncatePercent(item.maxMultiplier || 0, 2) }}x
-            </j-pill-label>
+
+            {{ truncatePercent(item.maxMultiplier || 0, 2) }}x
           </div>
         </div>
 
@@ -106,58 +81,62 @@ function handleDetails(vault: MultiplyVaultItem) {
     <div class="mobile-card-body">
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          {{ labelsByPage.liquidity }}
-        </div>
-        <div class="info-wrapper__value ">
-          <span>{{ getLiquidity(item) }}</span> {{ item.borrowAsset.symbol }}
-        </div>
-      </div>
-
-      <div class="separator-vert" />
-
-      <div class="info-wrapper">
-        <div class="info-wrapper__title text-end">
-          {{ labelsByPage.supply }}
-        </div>
-        <div class="info-wrapper__value ">
-          <span>{{ getSupply(item) }}</span> {{ item.asset.symbol }}
-        </div>
-      </div>
-
-      <div class="separator-vert" />
-
-      <div class="info-wrapper">
-        <div class="info-wrapper__title text-end">
           APY at Max
         </div>
         <div
           class="info-wrapper__value"
-          :class="[`apy--${item.apyAtMaxMultiplier > 0 ? 'positive' : 'negative'}`]"
         >
-          {{ truncatePercent(getApy(item), 2) }}%
+          <j-pill-label
+            :variant="item.apyAtMaxMultiplier > 0 ? 'success' : 'danger'"
+            size="sm"
+          >
+            {{ truncatePercent(getApy(item), 2) }}%
+          </j-pill-label>
         </div>
       </div>
+
+      <div class="separator-vert" />
+
+      <div class="info-wrapper">
+        <div class="info-wrapper__title text-end">
+          Net Equity
+        </div>
+        <div
+          class="info-wrapper__value text-end"
+          :class="[`multiply-table__netEquity--${item?.netEquityUsd ? (item?.netEquityUsd < 0 ? 'negative' : 'positive') : 'neutral'}`]"
+        >
+          <template v-if="item.netEquityUsd">
+            ${{ formatPrice(item.netEquityUsd ?? 0, 2, 2) }}
+          </template>
+          <template v-else>
+            —
+          </template>
+        </div>
+      </div>
+
     </div>
 
     <div class="mobile-card-footer">
+
       <j-btn
+        v-if="isUserHaveMultiply(item)"
         size="sm"
-        variant="brand-outlined"
+        variant="positive-outlined"
+        :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
+        :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
+        @click="emits('dialogHandler', { item, action: 'Manage' })"
+      >
+        Manage
+      </j-btn>
+      <j-btn
+        v-else
+        size="sm"
+        variant="positive-outlined"
         :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'supply' })"
       >
         Multiply
-      </j-btn>
-      <j-btn
-        v-if="isUserHaveMultiply(item.pool_address, String(item.market))"
-        size="sm"
-        variant="brand-secondary-outlined"
-        :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
-        @click="emits('dialogHandler', { item, action: 'withdraw' })"
-      >
-        Withdraw
       </j-btn>
     </div>
   </table-mobile-card>

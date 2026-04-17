@@ -71,6 +71,31 @@ export type MultiplyVaultItem = {
   supplied: number
   liquidity: number
   pool_address: string
+  netEquityUsd?: number
+}
+
+export type MultiplyPositionItem = {
+  market: string
+  pairKey: string
+  deposited: number
+  borrowed: number
+  depositedUsd: number
+  borrowedUsd: number
+  netEquityUsd: number
+  positionValueUsd: number
+  currentMultiplier: number
+  supplyApy: number
+  borrowApy: number
+  currentApy: number
+  healthFactor: number
+  currentLtv: number
+  openLtv: number
+  closeLtv: number
+  liabilityFactor: number
+  yearlyResultUsd: number
+  liquidationBufferUsd: number
+  liquidationPrice: number | null
+  distanceToLiquidationPercent: number | null
 }
 
 export type MultiplyPortfolioTableItem = {

@@ -26,18 +26,7 @@ watchDebounced(tabs, (t) => {
 
 function isUserHaveMultiply(vault?: MultiplyVaultItem) {
   if (!vault) { return false }
-  const obligation = userStore.state.multiplyObligations[vault.market]?.[vault.pairKey]
-  const deposits: any[] = obligation?.deposits ?? []
-  const borrows: any[] = obligation?.borrows ?? []
-
-  if (deposits.length === 0 || borrows.length === 0) {
-    return false
-  }
-
-  const hasDeposit = deposits.some(deposit => deposit.includes(vault.depositPoolData.pool.pool_address))
-  const hasBorrow = borrows.some(borrow => borrow.includes(vault.borrowPoolData.pool.pool_address))
-
-  return hasDeposit && hasBorrow
+  return checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
 }
 </script>
 

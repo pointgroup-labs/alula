@@ -1,12 +1,12 @@
 import type { MultiplyObligationUI } from '~/store/user'
-import type { MultiplyAccountTableItem, MultiplyTableItem } from '~/types/table'
+import type { MultiplyTableItem } from '~/types/table'
 import { bpsToNumber } from '@alula/client-sdk'
 import Decimal from 'decimal.js'
 import { buildMultiplyPairKey } from '~/utils/obligation'
 
 export function checkIsHaveMultiply(
   obligations: MultiplyObligationUI,
-  tableData: MultiplyTableItem[] | MultiplyAccountTableItem[],
+  tableData: MultiplyTableItem[],
   poolAddress: string,
   market: string,
 ) {

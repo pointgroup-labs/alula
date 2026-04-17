@@ -23,6 +23,10 @@ $label-variants: (
     background-color: rgba(0, 201, 80, 0.1),
     color: $success,
   ),
+  danger: (
+    background-color: rgba(240, 68, 56, 0.1),
+    color: $danger,
+  ),
 );
 
 $label-sizes: (

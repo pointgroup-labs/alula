@@ -41,13 +41,6 @@
         height="16"
         pill
       />
-
-      <div class="separator-vert" />
-
-      <j-skeleton
-        height="16"
-        pill
-      />
     </div>
 
     <div class="mobile-card-footer">

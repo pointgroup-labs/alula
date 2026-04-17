@@ -27,14 +27,14 @@
     transition: all 0.2s ease;
 
     &--supply,
-    &--repay {
+    &--withdraw {
       &:hover {
         color: $cyan;
       }
     }
 
     &--borrow,
-    &--withdraw {
+    &--repay {
       &:hover {
         color: $indigo;
       }

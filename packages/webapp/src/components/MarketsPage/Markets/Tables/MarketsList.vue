@@ -131,7 +131,7 @@ watch([
 
           <market-info-badge v-if="market.assets.length > 0">
             <span data-name="title">Assets: </span>
-            <span>{{ market.assets.length  }}</span>
+            <span>{{ market.assets.length }}</span>
           </market-info-badge>
         </div>
       </template>

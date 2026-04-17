@@ -1,31 +1,9 @@
 import type { ObligationArray } from '@alula/client-sdk'
-import { bpsToNumber } from '@alula/client-sdk'
-import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
-import { calculateCurrentMultiplier, truncatePercent } from '~/utils'
-
-type LeveragePosition = {
-  deposited: number
-  borrowed: number
-  depositedUsd: number
-  borrowedUsd: number
-  positionValueUsd: number
-  currentMultiplier: number
-  supplyApy: number
-  borrowApy: number
-  currentApy: number
-  healthFactor: number
-  currentLtv: number
-  openLtv: number
-  closeLtv: number
-  liabilityFactor: number
-  yearlyResultUsd: number
-  liquidationBufferUsd: number
-  liquidationPrice: number | null
-  distanceToLiquidationPercent: number | null
-}
+import type { MultiplyPositionItem } from '~/types/table'
+import { truncatePercent } from '~/utils'
 
 type MyPositionState = {
-  position: ComputedRef<LeveragePosition | undefined>
+  position: ComputedRef<MultiplyPositionItem | undefined>
   isLoadingPosition: Ref<boolean>
   selectedVault: any
   obligation: ComputedRef<ObligationArray | undefined>
@@ -57,115 +35,19 @@ export function createLeveragePorisionState(): MyPositionState {
     return userStore.state.multiplyObligations[selectedVault.value.market]?.[selectedVault.value.pairKey]
   })
 
-  const hasPosition = computed(() => {
+  const selectedPosition = computed(() => {
     if (!selectedVault.value || !obligation.value) {
-      return false
-    }
-
-    const deposits: any[] = obligation.value.deposits ?? []
-    const borrows: any[] = obligation.value.borrows ?? []
-
-    if (deposits.length === 0 || borrows.length === 0) {
-      return false
-    }
-
-    const hasDeposit = deposits.some(deposit => deposit.includes(selectedVault.value!.depositPoolData.pool.pool_address))
-    const hasBorrow = borrows.some(borrow => borrow.includes(selectedVault.value!.borrowPoolData.pool.pool_address))
-
-    return hasDeposit && hasBorrow
-  })
-
-  const position = computed(() => {
-    if (!selectedVault.value || !hasPosition.value || !obligation.value) {
       return
     }
 
-    const marketState = marketsStore.state.markets[selectedVault.value.market]?.marketState
-    const oraclePriceDecimals = marketState?.oracle_price_decimals ?? 0
-    const depositPoolData = selectedVault.value.depositPoolData
-    const borrowPoolData = selectedVault.value.borrowPoolData
-    const depositObligation = obligation.value.deposits?.find(([address]) => address === depositPoolData.pool.pool_address)
-    const borrowObligation = obligation.value.borrows?.find(([address]) => address === borrowPoolData.pool.pool_address)
-
-    if (!depositObligation || !borrowObligation) {
-      return
-    }
-
-    const [, depositData] = depositObligation
-    const [, borrowData] = borrowObligation
-
-    const deposited = +calculateTotalStake(depositData.j_tokens, {
-      total_j_tokens: depositPoolData.pool.total_j_tokens,
-      total_borrowed: depositPoolData.pool.total_borrowed,
-      total_available: depositPoolData.total_available_adjusted,
-    }) || 0
-
-    const borrowed = +calculateBorrow(borrowData.d_tokens, {
-      total_borrowed: borrowPoolData.pool.total_borrowed,
-      total_d_tokens: borrowPoolData.pool.total_d_tokens,
-    }, borrowPoolData.pool.token_decimals) || 0
-
-    const depositPrice = Number(bigintToNumber(depositPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
-    const borrowPrice = Number(bigintToNumber(borrowPoolData.oracle_asset_price, oraclePriceDecimals)) || 0
-    const depositedUsd = deposited * depositPrice
-    const borrowedUsd = borrowed * borrowPrice
-    const currentMultiplier = calculateCurrentMultiplier(deposited, depositPrice, borrowed, borrowPrice) || 0
-    const supplyApy = bpsToNumber(Number(depositPoolData.apy.supply_bps || 0)) * 100
-    const borrowApy = bpsToNumber(Number(borrowPoolData.apy.borrow_bps || 0)) * 100
-    const currentApy = supplyApy * currentMultiplier - borrowApy * Math.max(currentMultiplier - 1, 0)
-    const closeLtvRate = bpsToNumber(Number(depositPoolData.pool.config.health_config.close_ltv_bps || 0))
-    const liabilityFactorRate = bpsToNumber(Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0))
-    const healthFactor = calculatePositionHealthFactor({
-      deposited,
-      depositPrice,
-      closeLtvBps: Number(depositPoolData.pool.config.health_config.close_ltv_bps || 0),
-      borrowed,
-      borrowPrice,
-      liabilityFactorBps: Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0),
-    })
-    const positionValueUsd = depositedUsd
-    const currentLtv = depositedUsd > 0 ? (borrowedUsd / depositedUsd) * 100 : 0
-    const openLtv = bpsToNumber(Number(depositPoolData.pool.config.health_config.open_ltv_bps || 0)) * 100
-    const closeLtv = closeLtvRate * 100
-    const liabilityFactor = liabilityFactorRate * 100
-    const equityUsd = Math.max(depositedUsd - borrowedUsd, 0)
-    const yearlyResultUsd = equityUsd * (currentApy / 100)
-    const liquidationPriceRaw = deposited > 0 && closeLtvRate > 0
-      ? (borrowedUsd * liabilityFactorRate) / (deposited * closeLtvRate)
-      : null
-    const liquidationPrice = liquidationPriceRaw && Number.isFinite(liquidationPriceRaw) && liquidationPriceRaw > 0
-      ? liquidationPriceRaw
-      : null
-    const distanceToLiquidationPercent
-      = liquidationPrice !== null && depositPrice > 0
-        ? Math.max(((depositPrice - liquidationPrice) / depositPrice) * 100, 0)
-        : null
-    const liquidationBufferUsd
-      = liquidationPrice === null
-        ? 0
-        : Math.max((depositPrice - liquidationPrice) * deposited, 0)
-
-    return {
-      deposited,
-      borrowed,
-      depositedUsd,
-      borrowedUsd,
-      positionValueUsd,
-      currentMultiplier,
-      supplyApy,
-      borrowApy,
-      currentApy,
-      healthFactor,
-      currentLtv,
-      openLtv,
-      closeLtv,
-      liabilityFactor,
-      yearlyResultUsd,
-      liquidationBufferUsd,
-      liquidationPrice,
-      distanceToLiquidationPercent,
-    }
+    return multiplyStore.positions.find(position => position.market === selectedVault.value!.market && position.pairKey === selectedVault.value!.pairKey)
   })
+
+  const hasPosition = computed(() => {
+    return !!selectedPosition.value
+  })
+
+  const position = computed(() => selectedPosition.value)
 
   const apyDisplay = computed(() => truncatePercent(position.value?.currentApy || 0, 2))
 
@@ -207,22 +89,4 @@ export function useLeveragePosition() {
     throw new Error('My leverage position state was not provided')
   }
   return state
-}
-
-function calculatePositionHealthFactor(params: {
-  deposited: number
-  depositPrice: number
-  closeLtvBps: number
-  borrowed: number
-  borrowPrice: number
-  liabilityFactorBps: number
-}) {
-  const weightedDepositUsd = params.deposited * params.depositPrice * bpsToNumber(params.closeLtvBps)
-  const weightedBorrowUsd = params.borrowed * params.borrowPrice * bpsToNumber(params.liabilityFactorBps)
-
-  if (weightedBorrowUsd <= 0) {
-    return 10
-  }
-
-  return Math.min(weightedDepositUsd / weightedBorrowUsd, 10)
 }
