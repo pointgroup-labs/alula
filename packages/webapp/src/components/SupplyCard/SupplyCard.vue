@@ -36,8 +36,11 @@ function dialogHandler() {
   dialog.value = !dialog.value
 }
 
-watchDebounced(tabs, (t) => {
-  activeTab.value = t[0]
+watchDebounced(tabs, (next, prev) => {
+  if (JSON.stringify(next) === JSON.stringify(prev)) {
+    return
+  }
+  activeTab.value = next[0]
 }, { debounce: 300 })
 
 watch(activeTab, () => {

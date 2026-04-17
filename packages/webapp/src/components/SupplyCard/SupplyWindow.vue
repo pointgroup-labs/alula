@@ -123,7 +123,7 @@ const rewardsEarnings = computedAsync(async () => {
       <template v-if="isHasBorrows">
         <div class="info-summary__item">
           <div class="info-summary__header">
-            Position Impact wef
+            Position Impact
             <reload-coundown
               :size="16"
               color="#54627D"

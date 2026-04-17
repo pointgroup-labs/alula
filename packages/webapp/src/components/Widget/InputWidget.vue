@@ -117,6 +117,12 @@ watch(() => reset, () => {
   val.value = ''
   selectedAmount.value = null
 })
+
+watch(() => modelValue, (v) => {
+  if (!v || v === '') {
+    selectedAmount.value = null
+  }
+})
 </script>
 
 <template>

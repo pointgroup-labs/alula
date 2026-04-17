@@ -28,21 +28,9 @@ const {
   withdraw: doWithdraw,
 } = useWithdrawDialog(toRef(true))
 
+const isHasCollateral = computed(() => collateralBalance.value > 0)
 const supplyBalanceLabel = computed(() => `${normalizebalance(supplyBalance.value)} ${asset.value?.symbol}`)
 const collateralBalanceLabel = computed(() => `${normalizebalance(collateralBalance.value)} ${asset.value?.symbol}`)
-
-const tabs = computed(() => {
-  return [
-    { label: `Supply`, value: 'supply', balance: supplyBalanceLabel.value },
-    { label: `Collateral`, value: 'collateral', balance: collateralBalanceLabel.value, disabled: collateralBalance.value === 0 },
-  ]
-})
-
-const activeTab = ref(tabs.value[0])
-
-watch(activeTab, () => {
-  collateralOnly.value = activeTab.value?.value === 'collateral'
-})
 
 function normalizebalance(balance?: number) {
   return shortenNumber(balance ?? 0, maxDecimalsForShortenNumber(balance))
@@ -53,18 +41,25 @@ async function withdraw() {
   await doWithdraw()
   isValidate.value = true
 }
+
+const selected = computed({
+  get() {
+    return collateralOnly.value ? 'B' : 'A'
+  },
+  set(newValue) {
+    collateralOnly.value = newValue === 'B'
+  },
+})
+
+function selectBalance(type: 'A' | 'B') {
+  if (type === selected.value || !isHasCollateral.value) {
+    return
+  }
+  selected.value = type
+}
 </script>
 
 <template>
-  <j-line-tab
-    v-model="activeTab"
-    :tabs="tabs"
-    class="withdraw-tabs"
-  >
-    <template #tab="{ tab }">
-      {{ tab.label }} <span>({{ tab.balance }})</span>
-    </template>
-  </j-line-tab>
   <input-widget
     v-model="amount"
     :balance="availableToWithdrawWithPoolLimit"
@@ -80,6 +75,71 @@ async function withdraw() {
       },
     ]"
   />
+
+  <div
+
+    class="info-card mt-3 info-summary info-summary--collateral"
+  >
+    <div class="info-summary__item">
+      <div class="info-summary__header">
+        Balances
+        <info-tooltip style="margin: 0 auto 0 6px">
+          Total deposited balances, including funds available for withdrawal (Supply) and funds locked as collateral.
+        </info-tooltip>
+      </div>
+
+      <div class="summary-list">
+        <div class="summary-list__item">
+          <div
+            class="label"
+            @click="selectBalance('A')"
+          >
+            <BFormRadio
+              v-if="isHasCollateral"
+              v-model="selected"
+              name="some-radios"
+              value="A"
+              class="balance-radio"
+            />
+
+            Supply
+            <info-tooltip>
+              Available for borrowing by other users and earns yield.
+            </info-tooltip>
+          </div>
+          <div class="value">
+            {{ supplyBalanceLabel }}
+          </div>
+        </div>
+
+        <div
+          v-if="isHasCollateral"
+          class="summary-list__item"
+        >
+          <div
+            class="label"
+            @click="selectBalance('B')"
+          >
+            <BFormRadio
+              v-model="selected"
+              name="some-radios"
+              value="B"
+              class="balance-radio"
+            />
+
+            Collateral only
+            <info-tooltip>
+              Not available for borrowing. Does not participate in lending, but can be withdrawn anytime.
+            </info-tooltip>
+          </div>
+          <div class="value">
+            {{ collateralBalanceLabel }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
 
   <Transition name="summary-slide">
     <div
@@ -260,19 +320,33 @@ async function withdraw() {
 </template>
 
 <style lang="scss">
-.withdraw-tabs {
-  width: 100%;
-  justify-content: center;
-  margin-bottom: 10px;
+.info-summary--collateral {
+  .collateral-toggle {
+    .form-check-input {
+      height: 20px;
+      background-size: 20px;
 
-  .overview-tab {
-    width: 100%;
-    text-align: center;
-    border-width: 1px;
+      &::before {
+        width: 17px;
+        height: 17px;
+      }
+    }
+  }
 
-    span {
-      font-size: 12px;
-      color: $text-tertiary;
+  .summary-list__item {
+    .label:has(.balance-radio) {
+      cursor: pointer;
+    }
+
+    .balance-radio {
+      box-shadow: none !important;
+      margin-right: 4px;
+      cursor: pointer;
+
+      &:checked {
+        background-color: $cyan;
+        border: $cyan;
+      }
     }
   }
 }
