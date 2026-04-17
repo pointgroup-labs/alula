@@ -244,7 +244,7 @@ watch([supplyBalance, isHasCollateral], ([b, c]) => {
             v-else
             class="summary-list__item"
           >
-            <div class="label">Pool liquidity</div>
+            <div class="label">Available pool liquidity</div>
             <div class="value">
               {{ shortenNumber(poolLimit ?? 0, 2) }} {{ asset.symbol }}
             </div>
