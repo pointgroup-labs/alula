@@ -1,50 +1,126 @@
-import type { MultiplyTableItem } from '~/types/table'
+import type { MultiplyVaultItem } from '~/types/table'
 
 export function useMultiplyTable() {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
+  const filtersStore = useMarketFilterStore()
+
   const multiplyStore = useMultiplyStore()
+
+  const route = useRoute()
+
+  const search = computed(() => route.query?.searchMultiply)
+
   const vaults = computed(() => multiplyStore.vaults)
 
-  const activeLeverageMarket = toRef(marketsStore, 'activeLeverageMarket')
-  const selectedPoolAddress = toRef(marketsStore, 'selectedPoolAddress')
+  const isLoading = computed(() => (marketsStore.state.loading || userStore.loading) && vaults.value.length === 0)
+
+  const positions = computed(() => multiplyStore.positions)
+
   const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
-  const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
+  const selectedVault = ref<MultiplyVaultItem>()
 
-  const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
-  const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
+  const vaultsByMarket = computed(() => {
+    const grouped = Object.values(
+      vaults.value.reduce((acc, item) => {
+        const key = item.market
 
-  const tableItems = computed<MultiplyTableItem[]>(() =>
-    vaults.value.map(vault => ({
-      pairKey: vault.pairKey,
-      market: vault.market,
-      depositPoolData: vault.depositPoolData,
-      borrowPoolData: vault.borrowPoolData,
-      asset: vault.asset,
-      borrowAsset: vault.borrowAsset,
-      liquidity: vault.liquidity,
-      multiplier: vault.maxMultiplier,
-      apyAtMaxMultiplier: vault.apyAtMaxMultiplier,
-      price: vault.price,
-      borrowPoolPrice: vault.borrowPoolPrice,
-      pool_address: vault.pool_address,
-      supplied: vault.supplied,
-      assetDecimals: vault.depositPoolData.pool.token_decimals,
-    })),
-  )
+        if (!acc[key]) {
+          acc[key] = {
+            market: key,
+            items: [],
+          }
+        }
 
-  const selectedPool = computed(() =>
-    tableItems.value.find(item => item.pool_address === selectedPoolAddress.value
-      && activeLeverageMarket.value === item.market))
+        const netEquityUsd = getNetEquity(item)
+        item.netEquityUsd = netEquityUsd
 
+        acc[key].items.push(item)
+
+        return acc
+      }, {} as Record<string, { market: string, items: MultiplyVaultItem[] }>),
+    )
+    return grouped
+  })
+
+  const filteredVaults = computed(() => {
+    const collateral = filtersStore.filters.multiply.collateral
+    const debt = filtersStore.filters.multiply.debt
+
+    const selected = new Set<string>()
+
+    for (const key in collateral) {
+      if (collateral[key]) {
+        selected.add(key)
+      }
+    }
+
+    for (const key in debt) {
+      if (debt[key]) {
+        selected.add(key)
+      }
+    }
+
+    const hasFilter = selected.size > 0
+
+    const searchValue
+      = (typeof search.value === 'string' ? search.value : '').toLowerCase()
+
+    return vaultsByMarket.value.map((vault) => {
+      const items = hasFilter || searchValue
+        ? vault.items.filter((item) => {
+            if (searchValue) {
+              return item.asset.symbol.toLowerCase().includes(searchValue)
+                || item.asset.name.toLowerCase().includes(searchValue)
+                || item.market?.toLowerCase().includes(searchValue)
+                || item.borrowAsset.name.toLowerCase().includes(searchValue)
+                || item.borrowAsset.symbol.toLowerCase().includes(searchValue)
+            }
+            return selected.has(item.asset.symbol)
+          })
+        : vault.items
+      return {
+        ...vault,
+        items,
+      }
+    }).filter((vault) => {
+      return vault.market.toLowerCase().includes(searchValue)
+        || vault.items.some((item) => {
+          return item.asset.symbol.toLowerCase().includes(searchValue)
+            || item.asset.name.toLowerCase().includes(searchValue)
+            || item.market?.toLowerCase().includes(searchValue)
+            || item.borrowAsset.name.toLowerCase().includes(searchValue)
+            || item.borrowAsset.symbol.toLowerCase().includes(searchValue)
+        })
+    })
+  })
+
+  function openDialog(vault: MultiplyVaultItem) {
+    selectedVault.value = vault
+    dialogLeverage.value = true
+  }
+
+  function onRowClicked(vault: MultiplyVaultItem) {
+    multiplyStore.openVault(vault)
+  }
+
+  function getNetEquity(vault: MultiplyVaultItem): number {
+    const position = positions.value.find(position => position.market === vault.market && position.pairKey === vault.pairKey)
+    return position?.netEquityUsd ?? 0
+  }
+
+  function isUserHaveMultiply(vault: MultiplyVaultItem) {
+    return checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
+  }
   return {
-    tableItems,
-    selectedPoolAddress,
-    dialogLeverage,
-    dialogLeverageWithdraw,
-    markets,
     isLoading,
-    selectedPool,
-    activeLeverageMarket,
+    vaultsByMarket,
+    filteredVaults,
+    selectedVault,
+    dialogLeverage,
+    openDialog,
+    onRowClicked,
+    getNetEquity,
+    isUserHaveMultiply,
   }
 }

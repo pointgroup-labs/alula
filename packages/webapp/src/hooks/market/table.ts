@@ -14,8 +14,8 @@ export function useMarketTable() {
   const loading = computed(() => marketsStore.state.loading)
   const activeMarket = computed(() => marketsStore.activeMarket)
 
-  const collateralFilter = computed(() => filterStore.collateralFilter)
-  const debtFilter = computed(() => filterStore.debtFilter)
+  const collateralFilter = computed(() => filterStore.filters.markets.collateral)
+  const debtFilter = computed(() => filterStore.filters.markets.debt)
 
   const marketWithTableItems = computed<MarketWithTableItems[]>(() => {
     const markets = Object.entries(marketsStore.state.markets)
@@ -136,10 +136,15 @@ export function useMarketTable() {
 
     return sortedMarkets.value
       .map((market) => {
-        const tableItems = hasFilter
-          ? market.tableItems.filter(item =>
-              selected.has(item.asset.symbol),
-            )
+        const tableItems = hasFilter || searchValue
+          ? market.tableItems.filter((item) => {
+              if (searchValue) {
+                return item.asset.symbol.toLowerCase().includes(searchValue)
+                  || item.asset.name.toLowerCase().includes(searchValue)
+                  || item.market?.toLowerCase().includes(searchValue)
+              }
+              return selected.has(item.asset.symbol)
+            })
           : market.tableItems
 
         return {
@@ -148,16 +153,9 @@ export function useMarketTable() {
         }
       })
       .filter((market) => {
-        if (!searchValue) {
-          return true
-        }
-
-        return (
-          market.marketName.toLowerCase().includes(searchValue)
-          || market.assets.some(asset =>
-            asset.symbol?.toLowerCase().includes(searchValue),
-          )
-        )
+        return market.marketName.toLowerCase().includes(searchValue)
+          || market.tableItems.some(item => item.asset.symbol.toLowerCase().includes(searchValue)
+            || item.asset.name.toLowerCase().includes(searchValue))
       })
   })
 

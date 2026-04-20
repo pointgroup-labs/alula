@@ -1,11 +1,15 @@
 <script lang="ts" setup>
+const { scope = 'search' } = defineProps<{
+  scope?: string
+}>()
+
 const search = ref()
 
 const router = useRouter()
 const route = useRoute()
 
 watchDebounced(search, (val) => {
-  const query = val ? { search: val } : undefined
+  const query = val ? { [scope]: val } : undefined
   router.replace({
     ...route,
     query,
@@ -13,8 +17,8 @@ watchDebounced(search, (val) => {
 }, { debounce: 300 })
 
 onMounted(() => {
-  if (route.query?.search) {
-    search.value = route.query.search
+  if (route.query?.[scope]) {
+    search.value = route.query[scope]
   }
 })
 </script>

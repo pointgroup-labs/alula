@@ -1,4 +1,27 @@
+export type FilterScope = 'markets' | 'multiply'
+type FilterType = 'collateral' | 'debt'
+
+type AssetFilters = {
+  collateral: Record<string, boolean>
+  debt: Record<string, boolean>
+}
+
+type FilterState = {
+  markets: AssetFilters
+  multiply: AssetFilters
+}
+
 export const useMarketFilterStore = defineStore('market-filter', () => {
+  const filters = ref<FilterState>({
+    markets: {
+      collateral: {},
+      debt: {},
+    },
+    multiply: {
+      collateral: {},
+      debt: {},
+    },
+  })
   const marketsStore = useMarketsStore()
   const { getFullTokenData } = useTokensStore()
 
@@ -7,9 +30,6 @@ export const useMarketFilterStore = defineStore('market-filter', () => {
 
   const ASSETS_MAP = new Map()
   const allMarkets = ref<MarketFullData>({})
-
-  const isActiveCollateralFilter = computed(() => Object.values(collateralFilter.value).some(Boolean))
-  const isActiveDebtFilter = computed(() => Object.values(debtFilter.value).some(Boolean))
 
   const uniqueAssets = computed(() => {
     for (const market of Object.values(allMarkets.value)) {
@@ -25,15 +45,20 @@ export const useMarketFilterStore = defineStore('market-filter', () => {
     return [...ASSETS_MAP.values()]
   })
 
-  function toggle(filters: Record<string, boolean>, symbol: string) {
-    filters[symbol] = !filters[symbol]
+  function toggle(scope: FilterScope, type: FilterType, symbol: string) {
+    const targetGroup = filters.value[scope][type]
+    targetGroup[symbol] = !targetGroup[symbol]
   }
 
-  function clearFilter(filters: Record<string, boolean>) {
-    for (const key in filters) {
-      filters[key] = false
+  function clearFilter(scope: FilterScope, type: FilterType) {
+    const targetGroup = filters.value[scope][type]
+    for (const key in targetGroup) {
+      targetGroup[key] = false
     }
   }
+
+  const isActiveCollateralFilter = (scope: FilterScope) => Object.values(filters.value[scope].collateral).some(Boolean)
+  const isActiveDebtFilter = (scope: FilterScope) => Object.values(filters.value[scope].debt).some(Boolean)
 
   watch(() => marketsStore.state.markets, (next, prev) => {
     const prevKeys = Object.keys(prev)
@@ -46,13 +71,14 @@ export const useMarketFilterStore = defineStore('market-filter', () => {
 
   watch(uniqueAssets, (assets) => {
     for (const asset of assets) {
-      if (!(asset.symbol in collateralFilter.value)) {
-        collateralFilter.value[asset.symbol] = false
-        debtFilter.value[asset.symbol] = false
-      }
+      filters.value.markets.collateral[asset.symbol] = false
+      filters.value.markets.debt[asset.symbol] = false
+      filters.value.multiply.collateral[asset.symbol] = false
+      filters.value.multiply.debt[asset.symbol] = false
     }
   }, { immediate: true })
   return {
+    filters,
     uniqueAssets,
     collateralFilter,
     debtFilter,

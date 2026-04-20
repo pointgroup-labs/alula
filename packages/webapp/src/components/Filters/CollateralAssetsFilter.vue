@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { ComponentPublicInstance } from 'vue'
 
+const { scope = 'markets' } = defineProps<{ scope?: FilterScope }>()
+
 const filterStore = useMarketFilterStore()
 
 const uniqueAssets = computed(() => filterStore.uniqueAssets)
@@ -10,7 +12,7 @@ const el = ref<ComponentPublicInstance | null>(null)
 const menuWidth = computed(() => (el.value?.$el as HTMLElement | undefined)?.offsetWidth ?? 100)
 
 function toggle(symbol: string) {
-  filterStore.toggle(filterStore.debtFilter, symbol)
+  filterStore.toggle(scope, 'collateral', symbol)
 }
 </script>
 
@@ -32,7 +34,7 @@ function toggle(symbol: string) {
         @click="toggle(asset.symbol)"
       >
         <j-checkbox
-          v-model="filterStore.debtFilter[asset.symbol]"
+          v-model="filterStore.filters[scope].collateral[asset.symbol]"
           size="md"
           @click.stop
         />
@@ -46,11 +48,11 @@ function toggle(symbol: string) {
     <template #target="{ active }">
       <j-btn
         ref="el"
-        :variant="filterStore.isActiveDebtFilter ? 'brand-outlined' : 'ghost'"
+        :variant="filterStore.isActiveCollateralFilter(scope) ? 'brand-outlined' : 'ghost'"
         size="md"
         class="market-filter-btn"
       >
-        Debt Assets <i-app-accordion-arrow-down
+        Collateral Assets <i-app-accordion-arrow-down
           class="arrow-icon"
           :class="{ active }"
         />

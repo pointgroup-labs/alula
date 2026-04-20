@@ -6,12 +6,12 @@
       <my-multiply-position-widget />
       <div class="markets-control">
         <div class="market-filters">
-          <collateral-assets-filter />
-          <debt-assets-filter />
-          <clear-filters-btn />
+          <collateral-assets-filter scope="multiply" />
+          <debt-assets-filter scope="multiply" />
+          <clear-filters-btn scope="multiply" />
         </div>
         <collapse-all-btn />
-        <market-search />
+        <market-search scope="searchMultiply" />
       </div>
 
       <multiply-table />

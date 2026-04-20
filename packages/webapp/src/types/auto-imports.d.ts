@@ -27,6 +27,7 @@ declare global {
   const createGlobalState: typeof import('@vueuse/core').createGlobalState
   const createInjectionState: typeof import('@vueuse/core').createInjectionState
   const createLeveragePorisionState: typeof import('../hooks/multiply/position').createLeveragePorisionState
+  const createMarketFilterStore: typeof import('../store/filter').createMarketFilterStore
   const createMyPositionState: typeof import('../hooks/my-position').createMyPositionState
   const createReactiveFn: typeof import('@vueuse/core').createReactiveFn
   const createRef: typeof import('@vueuse/core').createRef
@@ -363,6 +364,9 @@ declare global {
   // @ts-ignore
   export type { MarketWithTableItems } from '../hooks/market/table'
   import('../hooks/market/table')
+  // @ts-ignore
+  export type { FilterScope } from '../store/filter'
+  import('../store/filter')
   // @ts-ignore
   export type { MarketsState, MarketFullData, PoolWithPrice, TableActionType } from '../store/markets'
   import('../store/markets')

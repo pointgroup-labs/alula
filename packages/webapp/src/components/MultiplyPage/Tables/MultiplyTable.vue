@@ -1,22 +1,24 @@
 <script lang="ts" setup>
-import type { MultiplyVaultItem } from '~/types/table'
 import { capitalize } from 'vue'
 import { truncatePercent } from '~/utils'
 
 const { width } = useWindowSize()
-const marketsStore = useMarketsStore()
 const marketActions = useMarketActions()
 const userStore = useUserStore()
 
 const multiplyStore = useMultiplyStore()
+
+const {
+  isLoading,
+  filteredVaults,
+  selectedVault,
+  dialogLeverage,
+  openDialog,
+  onRowClicked,
+  isUserHaveMultiply,
+} = useMultiplyTable()
+
 const vaults = computed(() => multiplyStore.vaults)
-
-const isLoading = computed(() => (marketsStore.state.loading || userStore.loading) && vaults.value.length === 0)
-
-const positions = computed(() => multiplyStore.positions)
-
-const dialogLeverage = toRef(marketsStore, 'dialogLeverage')
-const selectedVault = ref<MultiplyVaultItem>()
 
 const fields = [
   { key: 'asset', label: 'Pair', align: 'left' },
@@ -25,47 +27,6 @@ const fields = [
   { key: 'netEquity', label: 'Net Equity', align: 'right' },
   { key: 'action', label: '', align: 'right' },
 ]
-
-const vaultsByMarket = computed(() => {
-  const grouped = Object.values(
-    vaults.value.reduce((acc, item) => {
-      const key = item.market
-
-      if (!acc[key]) {
-        acc[key] = {
-          market: key,
-          items: [],
-        }
-      }
-
-      const netEquityUsd = getNetEquity(item)
-      item.netEquityUsd = netEquityUsd
-
-      acc[key].items.push(item)
-
-      return acc
-    }, {} as Record<string, { market: string, items: MultiplyVaultItem[] }>),
-  )
-  return grouped
-})
-
-function openDialog(vault: MultiplyVaultItem) {
-  selectedVault.value = vault
-  dialogLeverage.value = true
-}
-
-function onRowClicked(vault: MultiplyVaultItem) {
-  multiplyStore.openVault(vault)
-}
-
-function getNetEquity(vault: MultiplyVaultItem): number {
-  const position = positions.value.find(position => position.market === vault.market && position.pairKey === vault.pairKey)
-  return position?.netEquityUsd ?? 0
-}
-
-function isUserHaveMultiply(vault: MultiplyVaultItem) {
-  return checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
-}
 </script>
 
 <template>
@@ -75,7 +36,7 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
       <multiply-table-skeleton-mobile v-else />
     </template>
     <div
-      v-else-if="vaults.length === 0"
+      v-else-if="filteredVaults.length === 0"
       class="multiply-table__empty"
     >
       No multiply vaults available.
@@ -85,7 +46,7 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
       class="table-wrapper"
     >
       <j-accordion
-        v-for="(vault) in vaultsByMarket"
+        v-for="(vault) in filteredVaults"
         :key="vault.market"
         visible
       >

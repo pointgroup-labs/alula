@@ -1,14 +1,15 @@
 <script lang="ts" setup>
+const { scope = 'markets' } = defineProps<{ scope?: FilterScope }>()
+
 const filterStore = useMarketFilterStore()
 
 const isHasActiveFilters = computed(() => {
-  return filterStore.isActiveCollateralFilter || filterStore.isActiveDebtFilter
+  return filterStore.isActiveCollateralFilter(scope) || filterStore.isActiveDebtFilter(scope)
 })
 
 function clearFilters() {
-  const { collateralFilter, debtFilter } = filterStore
-  filterStore.clearFilter(collateralFilter)
-  filterStore.clearFilter(debtFilter)
+  filterStore.clearFilter(scope, 'collateral')
+  filterStore.clearFilter(scope, 'debt')
 }
 </script>
 
