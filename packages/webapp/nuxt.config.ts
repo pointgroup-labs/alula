@@ -193,10 +193,18 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
+      APP_URL: env.NUXT_PUBLIC_APP_URL,
       PASSWORD_PROTECT: env.NUXT_PUBLIC_PASSWORD_PROTECT,
       COOKIE_DOMAIN: env.NUXT_PUBLIC_COOKIE_DOMAIN ?? 'localhost',
       NUXT_PUBLIC_RPC: env.NUXT_PUBLIC_RPC,
       ALULA_CLIENT_NETWORK: env.NUXT_PUBLIC_NETWORK,
+      APP_TITLE: env.NUXT_PUBLIC_APP_TITLE,
+      APP_DESCRIPTION: env.NUXT_PUBLIC_APP_DESCRIPTION,
+      KEYWORDS: env.NUXT_PUBLIC_KEYWORDS,
+      OG_TITLE: env.NUXT_PUBLIC_OG_TITLE,
+      OG_DESCRIPTION: env.NUXT_PUBLIC_OG_DESCRIPTION,
+      TWITTER_TITLE: env.NUXT_PUBLIC_TWITTER_TITLE,
+      TWITTER_DESCRIPTION: env.NUXT_PUBLIC_TWITTER_DESCRIPTION,
     },
   },
   routeRules: {
@@ -242,7 +250,7 @@ export default defineNuxtConfig({
       // ],
     },
     manifest: {
-      name: env.NUXT_PUBLIC_APP_NAME ?? 'Alula',
+      name: env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
       short_name:
         env.NUXT_PUBLIC_APP_SHORT_NAME
         ?? env.NUXT_PUBLIC_APP_NAME
@@ -296,18 +304,10 @@ export default defineNuxtConfig({
         // Preconnect wallet connect
         { rel: 'preconnect', href: 'https://walletconnect.com', crossorigin: '' },
         { rel: 'preconnect', href: 'https://verify.walletconnect.com', crossorigin: '' },
+        { rel: 'canonical', href: 'https://app.alula.finance/', crossorigin: '' },
       ],
       meta: [
-        { name: 'description', content: env.NUXT_PUBLIC_APP_DESCRIPTION },
-        // Open Graph tags (Facebook, Telegram, LinkedIn, etc.)
-        { property: 'og:title', content: env.NUXT_PUBLIC_APP_TITLE },
-        { property: 'og:description', content: env.NUXT_PUBLIC_APP_DESCRIPTION },
-        { property: 'og:type', content: 'website' },
-        { property: 'og:url', content: env.NUXT_PUBLIC_APP_URL },
-        {
-          property: 'og:image',
-          content: `${env.NUXT_PUBLIC_APP_URL}/og-image-1200x630.png`,
-        },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       ],
       script: [
         {
