@@ -409,7 +409,7 @@ const slippageRules = [
   &__toolbar {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 16px;
 
     @media (max-width: $breakpoint-md) {
@@ -420,6 +420,7 @@ const slippageRules = [
   }
 
   &__slippage-inline {
+    position: relative;
     display: flex;
     align-items: center;
     flex-direction: column;
@@ -440,13 +441,16 @@ const slippageRules = [
   }
 
   &__slippage-input {
-    width: 92px;
-    height: 28px;
+    width: 72px;
 
     &:focus-within {
       .input-group {
         border-color: $navi-200;
       }
+    }
+
+    &:has(.validate-label) {
+      margin-bottom: 18px;
     }
 
     .input-group {
@@ -463,6 +467,14 @@ const slippageRules = [
     .j-input__append {
       display: flex;
       align-items: center;
+    }
+
+    .validate-label {
+      position: absolute;
+      right: 0;
+      left: auto;
+      bottom: 0;
+      white-space: nowrap;
     }
   }
 

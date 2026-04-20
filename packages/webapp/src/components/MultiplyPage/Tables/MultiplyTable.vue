@@ -133,10 +133,7 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
               >
               <div class="market-table__asset__info">
                 <div class="market-table__asset__info__name">
-                  {{ data.item.asset.symbol }}/{{ data.item.borrowAsset.symbol }}
-                </div>
-                <div class="market-table__asset__info__symbol">
-                  Borrow {{ data.item.borrowAsset.symbol }}, swap into {{ data.item.asset.symbol }}
+                  {{ data.item.asset.symbol }} <span class="text-tertiary">/ {{ data.item.borrowAsset.symbol }}</span>
                 </div>
               </div>
             </div>
