@@ -9,7 +9,7 @@ const isValidAccount = computed(() => store.isValidAccount && !!publicKey)
   <main class="page-container container">
     <warning-block
       v-if="!isValidAccount && publicKey"
-      text="The wallet address GA726GBW...SAWNEACK does not exist on the network. Please fund your account!"
+      :text="`The wallet address ${shortenAddress(publicKey)} does not exist on the network. Please fund your account!`"
     />
     <markets-info v-if="width > 1024" />
     <markets />

@@ -103,3 +103,29 @@ export function calculateCurrentMultiplier(
 
   return totalValue / initialValue
 }
+
+export function calcMultiplyObligationNetApy({
+  suppliedUsd,
+  borrowedUsd,
+  supplyApy,
+  borrowApy,
+}: {
+  suppliedUsd: number
+  borrowedUsd: number
+  supplyApy: number
+  borrowApy: number
+}) {
+  if (suppliedUsd <= 0) {
+    return 0
+  }
+
+  const equity = suppliedUsd - borrowedUsd
+
+  if (equity <= 0) {
+    return 0
+  }
+
+  const multiplier = suppliedUsd / equity
+
+  return supplyApy * multiplier - borrowApy * (multiplier - 1)
+}

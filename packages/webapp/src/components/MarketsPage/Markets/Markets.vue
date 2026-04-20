@@ -26,13 +26,3 @@ const loading = computed(() => marketsStore.state.loading)
     </div>
   </div>
 </template>
-
-<style lang="scss">
-.markets {
-  .collapse-btn {
-    @media (max-width: $breakpoint-xs) {
-      display: none;
-    }
-  }
-}
-</style>

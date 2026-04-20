@@ -154,7 +154,7 @@ function isUserHaveMultiply(vault: MultiplyVaultItem) {
                 size="sm"
                 :variant="data.item.apyAtMaxMultiplier < 0 ? 'danger' : 'success'"
               >
-                {{ truncatePercent(data.item.apyAtMaxMultiplier || 0, 2) }}x
+                {{ truncatePercent(data.item.apyAtMaxMultiplier || 0, 2) }}%
               </j-pill-label>
             </div>
           </template>

@@ -120,7 +120,11 @@ export const useMultiplyStore = defineStore('multiply', () => {
       const currentMultiplier = calculateCurrentMultiplier(deposited, depositPrice, borrowed, borrowPrice) || 0
       const supplyApy = bpsToNumber(Number(depositPoolData.apy.supply_bps || 0)) * 100
       const borrowApy = bpsToNumber(Number(borrowPoolData.apy.borrow_bps || 0)) * 100
-      const currentApy = supplyApy * currentMultiplier - borrowApy * Math.max(currentMultiplier - 1, 0)
+      const currentApy = calcMultiplyObligationNetApy({
+        suppliedUsd: depositedUsd,
+        borrowedUsd,
+        supplyApy,
+        borrowApy })
       const closeLtvRate = bpsToNumber(Number(depositPoolData.pool.config.health_config.close_ltv_bps || 0))
       const liabilityFactorRate = bpsToNumber(Number(borrowPoolData.pool.config.health_config.liability_factor_bps || 0))
       const healthFactor = calculatePositionHealthFactor({

@@ -1,3 +1,15 @@
+.markets-control {
+  margin: 8px 0 24px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  @media (max-width: $breakpoint-xs) {
+    gap: 12px;
+  }
+}
+
 .market-filters {
   display: flex;
   align-items: center;

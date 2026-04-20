@@ -83,22 +83,5 @@ watch(() => activeTab.value?.value, (val) => {
   flex-direction: column;
   gap: 32px;
   padding-bottom: 72px;
-
-  &__eyebrow {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: $text-brand;
-  }
-
-  &__empty {
-    padding: 32px;
-    border-radius: 24px;
-    background: $bg-card;
-    border: 1px solid $border-primary;
-    color: $text-secondary;
-    text-align: center;
-  }
 }
 </style>
