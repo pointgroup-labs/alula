@@ -309,6 +309,59 @@ export default defineNuxtConfig({
       ],
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        // ✅ SEO
+        {
+          name: 'description',
+          content: env.NUXT_PUBLIC_APP_TITLE ?? 'Alula Protocol | Institution-Ready Credit Layer on Stellar',
+        },
+        {
+          name: 'description',
+          content: env.NUXT_PUBLIC_APP_DESCRIPTION ?? 'Access secure RWA lending pools and high-yield vaults on Stellar. Supply USDC/XLM or borrow against tokenized assets with institution-grade risk controls.',
+        },
+        {
+          name: 'keywords',
+          content: env.NUXT_PUBLIC_KEYWORDS ?? 'Alula, DeFi lending, RWA investment, Stellar stablecoins, USDC yield, institutional DeFi, tokenized credit, Soroban, lending, borrowing, rwa lending',
+        },
+
+        // ✅ Open Graph
+        {
+          property: 'og:type',
+          content: 'website',
+        },
+        {
+          property: 'og:url',
+          content: env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance/',
+        },
+        {
+          property: 'og:title',
+          content: env.NUXT_PUBLIC_OG_TITLE ?? 'Alula Dashboard | Institutional Yield & Credit',
+        },
+        {
+          property: 'og:description',
+          content: env.NUXT_PUBLIC_OG_DESCRIPTION ?? 'Manage your DeFi position with Cross-Pool Evaluation and JIT liquidity. Earn yield on stablecoins or access compliant RWA-backed credit lines.',
+        },
+        {
+          property: 'og:image',
+          content: `${env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance'}/og-image-1200x630.png`,
+        },
+
+        // ✅ Twitter
+        {
+          name: 'twitter:card',
+          content: 'summary_large_image',
+        },
+        {
+          name: 'twitter:title',
+          content: env.NUXT_PUBLIC_TWITTER_TITLE ?? 'Alula Protocol Dashboard | Institutional Yield & Credit',
+        },
+        {
+          name: 'twitter:description',
+          content: env.NUXT_PUBLIC_TWITTER_DESCRIPTION ?? 'Optimized RWA lending on Stellar. Access permissioned pools, fixed-rate credit, and secure yield orchestrators.',
+        },
+        {
+          name: 'twitter:image',
+          content: `${env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance'}/og-image-1200x630.png`,
+        },
       ],
       script: [
         {
