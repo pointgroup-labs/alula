@@ -1,13 +1,34 @@
 <script lang="ts" setup>
+import type { PoolData } from '@alula/market-sdk'
+
 const {
   multiplier,
   maxMultiply,
+  netApy,
+  pool,
 } = defineProps<{
   multiplier: number | string
   maxMultiply: number | string
+  netApy: number
+  pool?: PoolData
 }>()
 
 const percent = defineModel<number>({ default: 85 })
+
+const netApyDisplay = computed(() => truncatePercent(Number(netApy) || 0, 2))
+
+const netApyPrefix = computed(() => Number(netApy) > 0 ? '+' : '')
+const depositApy = computed(() => (pool?.apy.supply_bps || 0) / 100)
+
+const netApyClass = computed(() => {
+  if (netApy <= 0) {
+    return 'negative'
+  }
+  if (netApy < depositApy.value) {
+    return 'warning'
+  }
+  return 'positive'
+})
 
 const minPercent = computed(() => {
   const max = Number(maxMultiply)
@@ -69,8 +90,11 @@ watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
         Net APY
       </div>
 
-      <div class="net-apy__value">
-        0.00%
+      <div
+        class="net-apy__value"
+        :class="[`net-apy--${netApyClass}`]"
+      >
+        {{ netApyPrefix }}{{ netApyDisplay }}%
       </div>
     </div>
   </div>
@@ -110,6 +134,7 @@ watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
     color: $text-success;
     font-size: 12px;
     font-weight: 700;
+    font-family: $font-JetBrainsMono;
     white-space: nowrap;
   }
 
@@ -140,6 +165,26 @@ watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
       font-size: 13px;
       font-weight: 500;
       font-family: $font-JetBrainsMono;
+
+      &--positive {
+        color: $text-success;
+      }
+
+      &--negative {
+        color: $text-danger;
+      }
+    }
+
+    &--positive {
+      color: $text-success;
+    }
+
+    &--negative {
+      color: $text-danger;
+    }
+
+    &--warning {
+      color: $text-warning;
     }
   }
 }

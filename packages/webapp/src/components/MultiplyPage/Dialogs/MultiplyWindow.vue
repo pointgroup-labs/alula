@@ -176,6 +176,8 @@ const slippageRules = [
       v-model="percentFromMax"
       :multiplier="selectedMultiplier"
       :max-multiply="vault.maxMultiplier"
+      :net-apy="currentApy"
+      :pool="vault.depositPoolData"
     />
 
     <Transition name="summary-slide">
