@@ -383,7 +383,7 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
     }
   }, { immediate: true })
 
-  onUnmounted(() => {
+  onScopeDispose(() => {
     stopWithdrawWatchers()
   })
 

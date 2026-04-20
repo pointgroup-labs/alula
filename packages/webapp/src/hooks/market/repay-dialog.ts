@@ -348,7 +348,7 @@ export function useRepayDialog(isOpen: Ref<boolean>) {
     }
   }, { immediate: true })
 
-  onUnmounted(() => {
+  onScopeDispose(() => {
     stopRepayWatcher()
   })
 

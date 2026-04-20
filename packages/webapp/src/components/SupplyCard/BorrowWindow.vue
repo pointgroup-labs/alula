@@ -24,6 +24,7 @@ const poolsData = computed(() => marketState.value?.pools_data ?? [])
 const {
   amount,
   agree,
+  agreeToBorrow,
   isLoading,
   obligation,
   marketFee,
@@ -258,7 +259,10 @@ function readMoreHandler(e: Event) {
     class="mt-3"
   />
 
-  <div class="extra-info mt-3">
+  <div
+    v-if="!agreeToBorrow"
+    class="extra-info mt-3"
+  >
     <j-checkbox
       v-model="agree"
       :disabled="!isCanBorrow || availableToBorrow <= 0"
@@ -266,7 +270,7 @@ function readMoreHandler(e: Event) {
       <div class="extra-info__label">
         I understand how the borrowing mechanism works and consider  liquidation parameters.
         <a
-          href="#"
+          :href="DOCS_BORROW_RISKS_LINK"
           target="_blank"
           rel="noopener noreferrer"
           @click.prevent="readMoreHandler"

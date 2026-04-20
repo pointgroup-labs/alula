@@ -19,6 +19,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
 
   const tokenDecimals = computed(() => poolData.value?.raw.pool.token_decimals ?? 0)
 
+  const agreeToBorrow = useLocalStorage('agreeToBorrow', false)
   const agree = ref(false)
 
   const reloadFee = ref(false)
@@ -389,12 +390,17 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     }
   }, { immediate: true })
 
-  onUnmounted(() => {
+  onScopeDispose(() => {
     stopBorrowWatchers()
+  })
+
+  onMounted(() => {
+    agree.value = agreeToBorrow.value
   })
 
   return {
     agree,
+    agreeToBorrow,
     obligation,
     isLoading,
     isLoadingFee,

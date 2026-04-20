@@ -25,6 +25,8 @@ export function useMarketActions() {
 
   const { generateExplorerLink } = useExplorerLink()
 
+  const agreeToBorrow = useLocalStorage('agreeToBorrow', false)
+
   const collateralOnly = ref(false)
 
   const depositAmount = ref()
@@ -256,6 +258,7 @@ export function useMarketActions() {
       reset: () => {
         borrowAmount.value = undefined
         marketsStore.dialogBorrow = false
+        agreeToBorrow.value = true
       },
     })
   }

@@ -7,7 +7,7 @@
 
     <div class="portfolio-multiply__cards card">
       <div class="portfolio-card__title">
-        My Positions
+        My Multiplied Positions
       </div>
       <portfolio-multiply-table only-multiplied />
     </div>

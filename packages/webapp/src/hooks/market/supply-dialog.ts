@@ -417,7 +417,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     }
   }, { immediate: true })
 
-  onUnmounted(() => {
+  onScopeDispose(() => {
     stopSupplyWatchers()
   })
 
