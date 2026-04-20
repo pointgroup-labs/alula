@@ -1,11 +1,12 @@
 <script lang="ts" setup>
-import type { MarketTableItem } from '~/types/table'
+import type { Pool } from '@alula/market-sdk'
 import { bpsToNumber } from '@alula/client-sdk'
 import { bigintToNumber } from '~/utils'
 
-const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
+const multiplyStore = useMultiplyStore()
+const selectedVault = computed(() => multiplyStore.selectedVault)
 
-const pool = computed(() => selectedPool.value?.raw?.pool)
+const pool = computed<Pool | undefined>(() => selectedVault.value?.borrowPoolData.pool)
 
 const detailCardsData = computed(() => {
   if (!pool.value) {
@@ -17,19 +18,24 @@ const detailCardsData = computed(() => {
     }
   }
 
-  const borrowAPY = selectedPool.value?.borrow_apy ?? '0%'
+  const apyRaw = Number(selectedVault.value?.borrowPoolData.apy.borrow_bps ?? 0) / 100 || 0
+  const borrowAPY = `${apyRaw}%`
+
   const utilRatioLimit = bpsToNumber(Number(pool.value?.config.health_config.utilization_ratio_limit_bps || 0)) * 100
   const withdrawFee = bpsToNumber(Number(pool.value?.config.fee_config.withdraw_fee_bps)) * 100
+  const utilRateRaw = (Number(pool.value.total_borrowed) / Number((pool.value.total_available + pool.value.total_borrowed)) * 100) || 0
+  const utilRate = `${truncatePercent(utilRateRaw)}%`
+
   return {
-    utilRate: selectedPool.value?.utilization_rate,
+    utilRate,
     utilRatioLimit: utilRatioLimit.toFixed(0),
     withdrawFee: truncatePercent(withdrawFee, 2),
     borrowAPY,
   }
 })
 
-const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed, selectedPool.value?.assetDecimals)) || 0)
-const totalSupplied = computed(() => Number(bigintToNumber(selectedPool.value?.raw?.total_supply, selectedPool.value?.assetDecimals)) || 0)
+const totalBorrowed = computed(() => Number(bigintToNumber(pool.value?.total_borrowed ?? 0n, pool.value?.token_decimals ?? 7)) || 0)
+const totalSupplied = computed(() => Number(bigintToNumber(selectedVault.value?.borrowPoolData?.total_supply ?? 0n, pool.value?.token_decimals ?? 7)) || 0)
 
 const maxBorrow = computed(() => {
   if (!pool.value) {
@@ -42,8 +48,8 @@ const maxBorrow = computed(() => {
 
 const availableBorrow = computed(() => maxBorrow.value - totalBorrowed.value)
 
-const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(selectedPool.value?.price || 0)) || 0)
-const availableBorrowUsd = computed(() => Number(availableBorrow.value * Number(selectedPool.value?.price || 0)) || 0)
+const totalBorrowedUsd = computed(() => Number(totalBorrowed.value * Number(selectedVault.value?.borrowPoolPrice ?? 0)) || 0)
+const availableBorrowUsd = computed(() => Number(availableBorrow.value * Number(selectedVault.value?.borrowPoolPrice ?? 0)) || 0)
 
 const reserve = computed(() => {
   if (!pool.value) {
@@ -65,7 +71,7 @@ const progress = computed(() => {
   <div class="pool-card stat-card stat-card--small">
     <div class="stat-card__header">
       <h3 class="pool-card-title">
-        Borrow
+        Borrow ({{ selectedVault?.borrowAsset.symbol }})
       </h3>
 
       <j-pill-label
@@ -73,7 +79,7 @@ const progress = computed(() => {
         variant="indigo"
         style="margin-left: auto;"
       >
-        Borrow rate {{ selectedPool.borrow_apy }}
+        Borrow rate {{ detailCardsData.borrowAPY }}
       </j-pill-label>
     </div>
 

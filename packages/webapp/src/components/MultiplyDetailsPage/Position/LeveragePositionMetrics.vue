@@ -91,7 +91,7 @@ const {
           </div>
           <div class="metrics-list__row__value">
             ≈ <span :class="position.yearlyResultUsd >= 0 ? 'text-positive' : 'text-negative'">
-              <strong>{{ position.yearlyResultUsd >= 0 ? '+' : '' }}{{ formatCompactUSD(position.yearlyResultUsd, 2, 2) }}</strong>
+              <strong>{{ position.yearlyResultUsd >= 0 ? '+' : '' }}{{ formatCompactUSD(position.yearlyResultUsd || 0, 2, 2) }}</strong>
             </span>
           </div>
         </div>

@@ -45,7 +45,7 @@ watch(() => activeTab.value?.value, (val) => {
 
 <template>
   <main class="multiply-details container">
-    <back-btn to="/multiply" />
+    <multiply-details-top />
 
     <j-loading-spinner
       v-if="loading"
@@ -61,7 +61,7 @@ watch(() => activeTab.value?.value, (val) => {
         style="margin-bottom: -12px;"
       />
 
-      <multiply-details-main
+      <multiply-details-overview
         v-if="activeTab.value === 'pool'"
         :selected-vault="selectedVault"
       />
@@ -84,92 +84,12 @@ watch(() => activeTab.value?.value, (val) => {
   gap: 32px;
   padding-bottom: 72px;
 
-  &__hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
-    gap: 20px;
-    padding: 32px;
-    border-radius: 32px;
-    background:
-      radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 34%),
-      linear-gradient(180deg, rgba(17, 24, 39, 0.96) 0%, rgba(13, 18, 31, 0.96) 100%);
-    border: 1px solid $border-primary;
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
-
-    @media (max-width: $breakpoint-lg) {
-      grid-template-columns: 1fr;
-    }
-  }
-
   &__eyebrow {
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: $text-brand;
-  }
-
-  &__title {
-    margin: 10px 0;
-    font-size: clamp(28px, 4vw, 44px);
-    line-height: 1;
-    color: $text-primary;
-  }
-
-  &__copy {
-    margin: 0;
-    max-width: 720px;
-    line-height: 1.7;
-    color: $text-tertiary;
-  }
-
-  &__hero-stats,
-  &__overview {
-    height: fit-content;
-    display: grid;
-    gap: 14px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-
-    @media (max-width: $breakpoint-sm) {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  &__hero-stats > div,
-  &__card {
-    height: fit-content;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 16px;
-    border-radius: 18px;
-    background: $surface-neutral-04;
-    border: 1px solid $surface-neutral-08;
-
-    span,
-    small {
-      color: $text-tertiary;
-      font-size: 12px;
-    }
-
-    strong {
-      font-size: 15px;
-      color: $text-primary;
-      word-break: break-all;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-  }
-
-  &__content {
-    display: flex;
-    justify-content: space-between;
-    gap: 20px;
-
-    @media (max-width: $breakpoint-xs) {
-      flex-direction: column;
-    }
   }
 
   &__empty {
