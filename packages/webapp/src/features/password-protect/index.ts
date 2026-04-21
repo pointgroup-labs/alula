@@ -7,21 +7,19 @@ export function usePasswordProtect() {
   // @ts-expect-error...
   const passwordEnv = config.public.PASSWORD_PROTECT
 
-  console.log('config:', config.public)
-  console.log('passwordEnv:', passwordEnv)
-
   const pass = ref('')
   const error = ref('')
 
   const isLogin = computed(() => !passwordEnv || passwordStorage.value === passwordEnv)
 
   function login() {
-    if (pass.value !== passwordEnv) {
+    if (String(pass.value).trim() !== String(passwordEnv)) {
       error.value = 'Password incorrect'
       pass.value = ''
       return
     }
-    passwordStorage.value = pass.value
+
+    passwordStorage.value = String(pass.value).trim()
   }
 
   return {
