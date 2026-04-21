@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+const { isProd } = useAppEnv()
+
 const rpcStore = useRpcStore()
 
 const activeNetwork = ref()
@@ -78,6 +80,7 @@ watch(() => rpcStore.network, (val) => {
         Network RPC
       </div>
       <j-popover
+        v-if="!isProd"
         :teleport-to-body="false"
         position="bottom"
         class-name="select-network"
