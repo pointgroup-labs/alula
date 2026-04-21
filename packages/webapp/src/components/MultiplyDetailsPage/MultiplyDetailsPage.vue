@@ -13,6 +13,10 @@ const tabs = [{
   value: 'pool',
 },
 {
+  label: 'Info / Risks',
+  value: 'info',
+},
+{
   label: 'Position',
   value: 'position',
 }]
@@ -64,6 +68,9 @@ watch(() => activeTab.value?.value, (val) => {
       <multiply-details-overview
         v-if="activeTab.value === 'pool'"
         :selected-vault="selectedVault"
+      />
+      <multiply-info-risks
+        v-if="activeTab.value === 'info'"
       />
       <leverage-position v-if="activeTab.value === 'position'" />
     </template>
