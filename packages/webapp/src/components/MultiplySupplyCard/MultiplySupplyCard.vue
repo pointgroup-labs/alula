@@ -8,10 +8,10 @@ const { vault } = defineProps<{
 const userStore = useUserStore()
 
 const tabs = computed(() => {
-  const dynamicTabs = [{ label: 'Open Position', value: 'supply' }]
+  const dynamicTabs = [{ label: 'Open Position', value: 'add-position' }]
 
   if (isUserHaveMultiply(vault)) {
-    dynamicTabs.push({ label: 'Close Position', value: 'withdraw' })
+    dynamicTabs.push({ label: 'Close Position', value: 'close-position' })
   }
   return dynamicTabs
 })
@@ -49,14 +49,37 @@ function isUserHaveMultiply(vault?: MultiplyVaultItem) {
       </div>
 
       <multiply-window
-        v-if="activeTab?.value === 'supply'"
+        v-if="activeTab?.value === 'add-position'"
         :vault="vault"
       />
       <withdraw-multiply-window
-        v-if="activeTab?.value === 'withdraw'"
+        v-if="activeTab?.value === 'close-position'"
         :vault="vault"
         opened
       />
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.nav-tab {
+  &.nav-tab--add-position {
+    &:hover {
+      color: $success;
+    }
+    &.active {
+      color: $success;
+      background-color: rgba(23, 168, 100, 0.1);
+    }
+  }
+  &.nav-tab--close-position {
+    &:hover {
+      color: $danger;
+    }
+    &.active {
+      color: $danger;
+      background-color: rgba(251, 71, 71, 0.1);
+    }
+  }
+}
+</style>

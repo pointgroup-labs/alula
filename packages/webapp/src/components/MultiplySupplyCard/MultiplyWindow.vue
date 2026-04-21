@@ -19,7 +19,6 @@ const {
   percentFromMax,
   selectedMultiplier,
   currentApy,
-  blockedReason,
   unhealthyReason,
   maxInputAmount,
   availableBorrowLiquidity,
@@ -356,13 +355,7 @@ const slippageRules = [
     </Transition>
 
     <warning-block
-      v-if="blockedReason"
-      :text="blockedReason"
-      class="mt-3"
-    />
-
-    <warning-block
-      v-else-if="unhealthyReason"
+      v-if="unhealthyReason"
       :text="unhealthyReason"
       class="mt-3"
       is-warning
@@ -375,7 +368,7 @@ const slippageRules = [
         size="md"
         :loading="marketActions.isLoading(vault.pool_address, 'multiplyOpen', vault.market)"
         :pool="vault.depositPoolData.pool"
-        :disabled="Boolean(blockedReason) || Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
+        :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
         @click-handler="openMultiply"
       >
         <i-metrics-complete class="complete-icon" /> Open Multiply

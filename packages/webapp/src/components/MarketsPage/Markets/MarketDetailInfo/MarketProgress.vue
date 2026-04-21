@@ -52,7 +52,8 @@ const slot = useSlots()
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 24px;
+  justify-content: flex-start;
+  gap: 12px;
   padding: 10px;
   background-color: $bg-tertiary;
   border-radius: $radius-2xl;

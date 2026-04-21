@@ -137,23 +137,6 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     ]
   })
 
-  const existingBorrowInPool = computed(() => {
-    if (!vault.value) {
-      return false
-    }
-
-    const borrows = userStore.state.obligations[String(vault.value.market)]?.borrows ?? []
-    return borrows.some(([poolAddress, borrowPosition]) => poolAddress === vault.value?.borrowPoolData.pool.pool_address && Boolean(borrowPosition))
-  })
-
-  const blockedReason = computed(() => {
-    if (!vault.value || !existingBorrowInPool.value) {
-      return ''
-    }
-
-    return `Multiply is unavailable because you already have an active borrow position in ${vault.value.borrowAsset.symbol}. Repay that borrow first, then open the multiply position.`
-  })
-
   const summary = computed(() => {
     if (!preview.value || !vault.value) {
       return
@@ -242,7 +225,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   })
 
   async function refreshPreview() {
-    if (!vault.value || !activeClient.value || !amount.value || amount.value <= 0 || selectedMultiplier.value <= 1 || blockedReason.value) {
+    if (!vault.value || !activeClient.value || !amount.value || amount.value <= 0 || selectedMultiplier.value <= 1) {
       preview.value = undefined
       previewError.value = undefined
       return
@@ -271,7 +254,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   }
 
   async function openMultiply() {
-    if (!vault.value || !activeClient.value || !amount.value || !publicKey.value || blockedReason.value || unhealthyReason.value) {
+    if (!vault.value || !activeClient.value || !amount.value || !publicKey.value || unhealthyReason.value) {
       return false
     }
 
@@ -350,7 +333,6 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     minPercent,
     selectedMultiplier,
     currentApy,
-    blockedReason,
     unhealthyReason,
     maxInputAmount,
     availableBorrowLiquidity,

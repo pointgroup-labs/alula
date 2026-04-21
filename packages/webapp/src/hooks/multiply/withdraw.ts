@@ -1,12 +1,12 @@
 import type { CloseMultiplyPreview, MultiplyMarginAsset } from '@alula/client-sdk/src/services/multiply'
 import type { ComputedRef, Ref } from 'vue'
-import type { MultiplyAccountTableItem, MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
+import type { MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
 import { SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
 import { calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { buildMultiplyObligationKey } from '~/utils/obligation'
 
-type MultiplyWithdrawItem = MultiplyTableItem | MultiplyAccountTableItem | MultiplyVaultItem
+type MultiplyWithdrawItem = MultiplyTableItem | MultiplyVaultItem
 type BooleanRef = Ref<boolean> | ComputedRef<boolean>
 type MultiplyWithdrawItemRef = Ref<MultiplyWithdrawItem | undefined> | ComputedRef<MultiplyWithdrawItem | undefined>
 

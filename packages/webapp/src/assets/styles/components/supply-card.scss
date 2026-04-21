@@ -204,6 +204,7 @@
       position: relative;
       display: flex;
       align-items: center;
+      gap: 12px;
       justify-content: space-between;
       font-size: 12px;
       font-weight: 400;
@@ -220,6 +221,7 @@
       .value {
         font-family: $font-JetBrainsMono;
         opacity: 0.8;
+        line-height: normal;
 
         &:has(:is(.negative, .positive)) {
           opacity: 1;
