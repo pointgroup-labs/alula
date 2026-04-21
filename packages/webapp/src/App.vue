@@ -1,4 +1,8 @@
 <script lang="ts" setup>
+import { PasswordProtect, usePasswordProtect } from '~/features/password-protect'
+
+const { isNeedLogin } = usePasswordProtect()
+
 const { start, poolCountdown, obligationCountdown } = useSmartReloader()
 provide('poolCountdown', poolCountdown)
 provide('obligationCountdown', obligationCountdown)
@@ -18,7 +22,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <NuxtLayout>
+  <password-protect v-if="isNeedLogin" />
+  <NuxtLayout v-else>
     <NuxtPage />
   </NuxtLayout>
   <b-toast-orchestrator />

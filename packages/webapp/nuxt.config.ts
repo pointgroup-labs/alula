@@ -206,6 +206,7 @@ export default defineNuxtConfig({
       OG_DESCRIPTION: env.NUXT_PUBLIC_OG_DESCRIPTION,
       TWITTER_TITLE: env.NUXT_PUBLIC_TWITTER_TITLE,
       TWITTER_DESCRIPTION: env.NUXT_PUBLIC_TWITTER_DESCRIPTION,
+      APP_ENV: env.NUXT_PUBLIC_APP_ENV,
     },
   },
   routeRules: {
