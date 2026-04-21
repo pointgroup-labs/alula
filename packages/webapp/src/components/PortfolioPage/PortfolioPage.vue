@@ -1,3 +1,7 @@
+<script lang="ts" setup>
+const { isDev } = useAppEnv()
+</script>
+
 <template>
   <main class="portfolio-page container">
     <div class="portfolio-cards">
@@ -5,7 +9,10 @@
       <portfolio-borrow-table />
     </div>
 
-    <div class="portfolio-multiply__cards card">
+    <div
+      v-if="isDev"
+      class="portfolio-multiply__cards card"
+    >
       <div class="portfolio-card__title">
         My Multiplied Positions
       </div>
