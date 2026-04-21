@@ -7,6 +7,9 @@ export function usePasswordProtect() {
   // @ts-expect-error...
   const passwordEnv = config.public.PASSWORD_PROTECT
 
+  console.log('config:', config.public)
+  console.log('passwordEnv:', passwordEnv)
+
   const pass = ref('')
   const error = ref('')
 
