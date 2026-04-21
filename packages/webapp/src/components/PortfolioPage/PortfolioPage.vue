@@ -1,6 +1,6 @@
 <template>
   <main class="portfolio-page container">
-    <div class="portfolio-cards card">
+    <div class="portfolio-cards">
       <portfolio-supply-table />
       <portfolio-borrow-table />
     </div>
@@ -37,7 +37,7 @@
   }
 
   .portfolio-multiply__cards {
-    width: calc(100% - 48px);
+    width: 100%;
     margin: 0 auto;
     padding: 0;
   }

@@ -289,11 +289,14 @@ section#multiply-apy-history-chart {
   .current-metrics-data {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     margin-left: 20px;
 
     @media (max-width: $breakpoint-xs) {
       margin: 6px auto;
+      justify-content: center;
+      row-gap: 4px;
     }
   }
 
@@ -303,6 +306,12 @@ section#multiply-apy-history-chart {
     @media (max-width: $breakpoint-xs) {
       margin: 0 auto;
     }
+  }
+
+  .stat-card__header {
+    white-space: nowrap;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 }
 </style>
