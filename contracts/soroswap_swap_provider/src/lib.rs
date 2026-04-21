@@ -2,8 +2,8 @@
 #![allow(clippy::too_many_arguments)]
 use proxy_swap_interface::ProxySwap;
 use soroban_sdk::{
-    Address, BytesN, Env, Vec, contract, contracterror, contractimpl, contracttype,
-    panic_with_error, token::TokenClient,
+    Address, Env, Vec, contract, contracterror, contractimpl, contracttype, panic_with_error,
+    token::TokenClient,
 };
 
 mod router {
@@ -44,13 +44,6 @@ impl SoroSwapProviderContract {
     pub fn get_router(e: Env) -> Address {
         extend_instance(&e);
         get_router(&e)
-    }
-
-    pub fn upgrade(e: Env, new_contract_wasm_hash: BytesN<32>) {
-        extend_instance(&e);
-        get_admin(&e).require_auth();
-
-        e.deployer().update_current_contract_wasm(new_contract_wasm_hash);
     }
 }
 
@@ -131,10 +124,6 @@ impl ProxySwap for SoroSwapProviderContract {
 
 fn get_router(e: &Env) -> Address {
     e.storage().instance().get(&DataKey::Router).expect("Router must be set")
-}
-
-fn get_admin(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::Admin).expect("Admin must be set")
 }
 
 fn extend_instance(e: &Env) {

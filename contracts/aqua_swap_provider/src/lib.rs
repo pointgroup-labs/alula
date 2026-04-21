@@ -55,13 +55,6 @@ impl AquaSwapProviderContract {
         get_router(&e)
     }
 
-    pub fn upgrade(e: Env, new_contract_wasm_hash: BytesN<32>) {
-        extend_instance(&e);
-        get_admin(&e).require_auth();
-
-        e.deployer().update_current_contract_wasm(new_contract_wasm_hash);
-    }
-
     pub fn configure_pool_route(
         e: Env,
         token_a: Address,

@@ -896,6 +896,11 @@ fn test_distribute_all_pools_fees() {
     let gold_market_balance_before = gold_token_client.balance(&contract_id);
     let usdc_market_balance_before = usdc_token_client.balance(&contract_id);
 
+    let gold_pool_operation_fees_before =
+        get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
+    let usdc_pool_operation_fees_before =
+        get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+
     contract_client.distribute_all_pools_fees();
 
     let gold_market_balance_after = gold_token_client.balance(&contract_id);
@@ -905,13 +910,13 @@ fn test_distribute_all_pools_fees() {
     assert_eq!(gold_market_balance_after, gold_market_balance_before);
     assert_eq!(usdc_market_balance_after, usdc_market_balance_before);
 
-    let gold_pool_operation_fees =
+    let gold_pool_operation_fees_after =
         get_pool_operation_fees_sum(&contract_client, &gold_pool_address);
-    let usdc_pool_operation_fees =
+    let usdc_pool_operation_fees_after =
         get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
 
-    assert_eq!(gold_pool_operation_fees, 0);
-    assert_eq!(usdc_pool_operation_fees, 0);
+    assert_eq!(gold_pool_operation_fees_before, gold_pool_operation_fees_after);
+    assert_eq!(usdc_pool_operation_fees_before, usdc_pool_operation_fees_after);
 
     assert_eq!(
         contract_client.try_set_operation_fees_beneficiaries(
@@ -1159,9 +1164,9 @@ fn test_distribute_take_rate_fees() {
     let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
     let balance_after = usdc_token_client.balance(&contract_id);
 
+    // No beneficiaries - no fees to distribute
     assert_eq!(balance_before, balance_after);
-    assert_ne!(fees_before, fees_after);
-    assert_eq!(fees_after, 0);
+    assert_eq!(fees_before, fees_after);
 
     assert_eq!(
         contract_client.try_set_take_rate_fees_beneficiaries(
@@ -1175,6 +1180,21 @@ fn test_distribute_take_rate_fees() {
         &usdc_pool_address,
         &smap![&e, (beneficiary_1.clone(), 3_000), (beneficiary_2.clone(), 7_000)],
     );
+
+    // -- Distributie existing fees --
+
+    let fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_before = usdc_token_client.balance(&contract_id);
+
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let balance_after = usdc_token_client.balance(&contract_id);
+
+    // No beneficiaries - no fees to distribute
+    assert!(balance_after < balance_before);
+    assert!(fees_before > fees_after);
+    assert_eq!(fees_after, 0);
 
     // -- Accrue debt on the pool --
 

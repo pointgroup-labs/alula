@@ -1,8 +1,7 @@
 #![cfg(test)]
 
-use market::error::MCError;
-
 use crate::{TestMarketFixture, make_oracle_prices_negative, make_oracle_prices_zero};
+use market::error::MCError;
 
 #[test]
 fn test_get_oracle_price_decimals() {

@@ -320,17 +320,17 @@ impl Obligation {
             // ----
             // implies:
             // ----
-            // amount = (borrow_backing_value_left * 10^decimals) / (asset_price * scalar_bps / BPS_FACTOR)
+            // amount = (borrow_backing_value_left * 10^decimals * BPS_FACTOR) / (asset_price * scalar_bps)
             // ----
 
             let target_value = I256::from_i128(e, borrow_backing_value_left);
             let decimals_multiplier = I256::from_i128(e, 10_i128.pow(pool.token_decimals));
+            let bps_factor = I256::from_i128(e, BPS_FACTOR);
+            let numerator = target_value.mul(&decimals_multiplier).mul(&bps_factor);
 
-            let numerator = target_value.mul(&decimals_multiplier);
-
-            let scaled_price =
-                asset_price.fixed_mul_ceil(scalar_bps, BPS_FACTOR).map_over_or_underflow()?;
-            let denominator = I256::from_i128(e, scaled_price);
+            let asset_price = I256::from_i128(e, asset_price);
+            let scalar_bps = I256::from_i128(e, scalar_bps);
+            let denominator = asset_price.mul(&scalar_bps);
 
             numerator.div(&denominator).to_i128().map_over_or_underflow()?
         };
