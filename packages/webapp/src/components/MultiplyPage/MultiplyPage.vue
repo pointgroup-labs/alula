@@ -10,7 +10,7 @@
           <debt-assets-filter scope="multiply" />
           <clear-filters-btn scope="multiply" />
         </div>
-        <collapse-all-btn />
+        <collapse-all-btn entity="accordion-multiply" />
         <market-search scope="searchMultiply" />
       </div>
 

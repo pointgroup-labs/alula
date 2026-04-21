@@ -1,4 +1,13 @@
-export function useAccordionMarketsHandler(entity: string) {
+export function useAccordionMarketsHandler(entity: string): UseAccordionMarketsHandler {
+  if (!entity || entity === '') {
+    return {
+      opened: ref([]),
+      isOpened: () => false,
+      toggleOpen: () => {},
+      showAll: () => {},
+      collapseAll: () => {},
+    }
+  }
   const opened = useLocalStorage<string[]>(entity, [], { initOnMounted: true })
 
   const marketsStore = useMarketsStore()
@@ -32,4 +41,12 @@ export function useAccordionMarketsHandler(entity: string) {
     showAll,
     collapseAll,
   }
+}
+
+type UseAccordionMarketsHandler = {
+  opened: Ref<string[]>
+  isOpened: (entity: string) => boolean
+  toggleOpen: (entity: string) => void
+  showAll: () => void
+  collapseAll: () => void
 }

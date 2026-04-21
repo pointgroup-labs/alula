@@ -1,9 +1,10 @@
 <script lang="ts" setup>
+const { entity = 'accordion-markets' } = defineProps<{ entity?: string }>()
 const {
   opened,
   collapseAll,
   showAll,
-} = useAccordionMarketsHandler('accordion-markets')
+} = useAccordionMarketsHandler(entity)
 
 const marketsStore = useMarketsStore()
 const loading = computed(() => marketsStore.state.loading)

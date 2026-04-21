@@ -9,6 +9,7 @@ const userStore = useUserStore()
 const multiplyStore = useMultiplyStore()
 
 const {
+  search,
   isLoading,
   filteredVaults,
   selectedVault,
@@ -17,6 +18,11 @@ const {
   onRowClicked,
   isUserHaveMultiply,
 } = useMultiplyTable()
+
+const {
+  opened,
+  isOpened,
+  toggleOpen } = useAccordionMarketsHandler('accordion-multiply')
 
 const vaults = computed(() => multiplyStore.vaults)
 
@@ -27,6 +33,19 @@ const fields = [
   { key: 'netEquity', label: 'Net Equity', align: 'right' },
   { key: 'action', label: '', align: 'right' },
 ]
+
+watch([
+  filteredVaults,
+  search,
+], ([vaults, s]) => {
+  if ((vaults.length > 0 && opened.value.length === 0) || s) {
+    for (const vault of vaults) {
+      if (!isOpened(vault.market)) {
+        toggleOpen(vault.market)
+      }
+    }
+  }
+})
 </script>
 
 <template>
@@ -48,7 +67,8 @@ const fields = [
       <j-accordion
         v-for="(vault) in filteredVaults"
         :key="vault.market"
-        visible
+        :visible="isOpened(vault.market)"
+        @toggle="toggleOpen(vault.market)"
       >
         <template #title>
           {{ capitalize(vault.market) }} Market

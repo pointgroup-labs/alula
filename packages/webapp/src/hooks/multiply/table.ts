@@ -47,21 +47,22 @@ export function useMultiplyTable() {
     const collateral = filtersStore.filters.multiply.collateral
     const debt = filtersStore.filters.multiply.debt
 
-    const selected = new Set<string>()
+    const selectedCollateral = new Set<string>()
+    const selectedDebt = new Set<string>()
 
     for (const key in collateral) {
       if (collateral[key]) {
-        selected.add(key)
+        selectedCollateral.add(key)
       }
     }
 
     for (const key in debt) {
       if (debt[key]) {
-        selected.add(key)
+        selectedDebt.add(key)
       }
     }
 
-    const hasFilter = selected.size > 0
+    const hasFilter = selectedCollateral.size > 0 || selectedDebt.size > 0
 
     const searchValue
       = (typeof search.value === 'string' ? search.value : '').toLowerCase()
@@ -76,7 +77,7 @@ export function useMultiplyTable() {
                 || item.borrowAsset.name.toLowerCase().includes(searchValue)
                 || item.borrowAsset.symbol.toLowerCase().includes(searchValue)
             }
-            return selected.has(item.asset.symbol)
+            return selectedCollateral.has(item.asset.symbol) || selectedDebt.has(item.borrowAsset.symbol)
           })
         : vault.items
       return {
@@ -113,6 +114,7 @@ export function useMultiplyTable() {
     return checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
   }
   return {
+    search,
     isLoading,
     vaultsByMarket,
     filteredVaults,
