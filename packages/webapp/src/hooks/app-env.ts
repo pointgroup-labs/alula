@@ -5,7 +5,7 @@ export function useAppEnv() {
 
   return {
     env,
-    isDev: env === 'dev',
+    isDev: env === 'dev' || process.env.NODE_ENV === 'development',
     isStage: env === 'stage',
     isProd: env === 'prod' || !env,
   }

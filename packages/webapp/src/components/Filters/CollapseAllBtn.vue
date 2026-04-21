@@ -38,5 +38,6 @@ watch(opened, (o) => {
   outline: none !important;
   color: $text-tertiary !important;
   margin-left: auto;
+  cursor: pointer;
 }
 </style>
