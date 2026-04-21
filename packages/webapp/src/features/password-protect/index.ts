@@ -10,15 +10,16 @@ export function usePasswordProtect() {
   const pass = ref('')
   const error = ref('')
 
-  const isLogin = computed(() => !passwordEnv || passwordStorage.value === passwordEnv)
+  const isLogin = computed(() => !passwordEnv || String(passwordStorage.value) === String(passwordEnv))
 
   function login() {
-    if (pass.value !== passwordEnv) {
+    if (String(pass.value).trim() !== String(passwordEnv)) {
       error.value = 'Password incorrect'
       pass.value = ''
       return
     }
-    passwordStorage.value = pass.value
+
+    passwordStorage.value = String(pass.value).trim()
   }
 
   return {

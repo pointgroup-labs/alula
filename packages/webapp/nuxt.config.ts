@@ -7,10 +7,7 @@ import { FileSystemIconLoader } from 'unplugin-icons/loaders'
 import IconsResolver from 'unplugin-icons/resolver'
 import Icons from 'unplugin-icons/vite'
 import ViteComponents from 'unplugin-vue-components/vite'
-import { loadEnv } from 'vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
-
-const env = loadEnv(process.env.NUXT_ENV || 'development', process.cwd(), '')
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -194,19 +191,19 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      APP_URL: env.NUXT_PUBLIC_APP_URL,
-      PASSWORD_PROTECT: env.NUXT_PUBLIC_PASSWORD_PROTECT,
-      COOKIE_DOMAIN: env.NUXT_PUBLIC_COOKIE_DOMAIN ?? 'localhost',
-      NUXT_PUBLIC_RPC: env.NUXT_PUBLIC_RPC,
-      ALULA_CLIENT_NETWORK: env.NUXT_PUBLIC_NETWORK,
-      APP_TITLE: env.NUXT_PUBLIC_APP_TITLE,
-      APP_DESCRIPTION: env.NUXT_PUBLIC_APP_DESCRIPTION,
-      KEYWORDS: env.NUXT_PUBLIC_KEYWORDS,
-      OG_TITLE: env.NUXT_PUBLIC_OG_TITLE,
-      OG_DESCRIPTION: env.NUXT_PUBLIC_OG_DESCRIPTION,
-      TWITTER_TITLE: env.NUXT_PUBLIC_TWITTER_TITLE,
-      TWITTER_DESCRIPTION: env.NUXT_PUBLIC_TWITTER_DESCRIPTION,
-      APP_ENV: env.NUXT_PUBLIC_APP_ENV,
+      APP_URL: process.env.NUXT_PUBLIC_APP_URL,
+      PASSWORD_PROTECT: process.env.NUXT_PUBLIC_PASSWORD_PROTECT,
+      COOKIE_DOMAIN: process.env.NUXT_PUBLIC_COOKIE_DOMAIN ?? 'localhost',
+      NUXT_PUBLIC_RPC: process.env.NUXT_PUBLIC_RPC,
+      ALULA_CLIENT_NETWORK: process.env.NUXT_PUBLIC_NETWORK,
+      APP_TITLE: process.env.NUXT_PUBLIC_APP_TITLE,
+      APP_DESCRIPTION: process.env.NUXT_PUBLIC_APP_DESCRIPTION,
+      KEYWORDS: process.env.NUXT_PUBLIC_KEYWORDS,
+      OG_TITLE: process.env.NUXT_PUBLIC_OG_TITLE,
+      OG_DESCRIPTION: process.env.NUXT_PUBLIC_OG_DESCRIPTION,
+      TWITTER_TITLE: process.env.NUXT_PUBLIC_TWITTER_TITLE,
+      TWITTER_DESCRIPTION: process.env.NUXT_PUBLIC_TWITTER_DESCRIPTION,
+      APP_ENV: process.env.NUXT_PUBLIC_APP_ENV,
     },
   },
   routeRules: {
@@ -252,12 +249,12 @@ export default defineNuxtConfig({
       // ],
     },
     manifest: {
-      name: env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
+      name: process.env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
       short_name:
-        env.NUXT_PUBLIC_APP_SHORT_NAME
-        ?? env.NUXT_PUBLIC_APP_NAME
+        process.env.NUXT_PUBLIC_APP_SHORT_NAME
+        ?? process.env.NUXT_PUBLIC_APP_NAME
         ?? 'Alula',
-      description: env.NUXT_PUBLIC_APP_DESCRIPTION,
+      description: process.env.NUXT_PUBLIC_APP_DESCRIPTION,
       theme_color: '#ffffff',
       display: 'standalone',
       icons: [
@@ -293,13 +290,13 @@ export default defineNuxtConfig({
     // remove prefetch from all nuxt-link
     pageTransition: false,
 
-    baseURL: env.NUXT_PUBLIC_BASE_URL || '/',
+    baseURL: process.env.NUXT_PUBLIC_BASE_URL || '/',
 
     head: {
       htmlAttrs: {
         lang: 'en',
       },
-      title: env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
+      title: process.env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon-light.svg', media: '(prefers-color-scheme: light)' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg', media: '(prefers-color-scheme: dark)' },
@@ -313,15 +310,15 @@ export default defineNuxtConfig({
         // ✅ SEO
         {
           name: 'description',
-          content: env.NUXT_PUBLIC_APP_TITLE ?? 'Alula Protocol | Institution-Ready Credit Layer on Stellar',
+          content: process.env.NUXT_PUBLIC_APP_TITLE ?? 'Alula Protocol | Institution-Ready Credit Layer on Stellar',
         },
         {
           name: 'description',
-          content: env.NUXT_PUBLIC_APP_DESCRIPTION ?? 'Access secure RWA lending pools and high-yield vaults on Stellar. Supply USDC/XLM or borrow against tokenized assets with institution-grade risk controls.',
+          content: process.env.NUXT_PUBLIC_APP_DESCRIPTION ?? 'Access secure RWA lending pools and high-yield vaults on Stellar. Supply USDC/XLM or borrow against tokenized assets with institution-grade risk controls.',
         },
         {
           name: 'keywords',
-          content: env.NUXT_PUBLIC_KEYWORDS ?? 'Alula, DeFi lending, RWA investment, Stellar stablecoins, USDC yield, institutional DeFi, tokenized credit, Soroban, lending, borrowing, rwa lending',
+          content: process.env.NUXT_PUBLIC_KEYWORDS ?? 'Alula, DeFi lending, RWA investment, Stellar stablecoins, USDC yield, institutional DeFi, tokenized credit, Soroban, lending, borrowing, rwa lending',
         },
 
         // ✅ Open Graph
@@ -331,19 +328,19 @@ export default defineNuxtConfig({
         },
         {
           property: 'og:url',
-          content: env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance/',
+          content: process.env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance/',
         },
         {
           property: 'og:title',
-          content: env.NUXT_PUBLIC_OG_TITLE ?? 'Alula Dashboard | Institutional Yield & Credit',
+          content: process.env.NUXT_PUBLIC_OG_TITLE ?? 'Alula Dashboard | Institutional Yield & Credit',
         },
         {
           property: 'og:description',
-          content: env.NUXT_PUBLIC_OG_DESCRIPTION ?? 'Manage your DeFi position with Cross-Pool Evaluation and JIT liquidity. Earn yield on stablecoins or access compliant RWA-backed credit lines.',
+          content: process.env.NUXT_PUBLIC_OG_DESCRIPTION ?? 'Manage your DeFi position with Cross-Pool Evaluation and JIT liquidity. Earn yield on stablecoins or access compliant RWA-backed credit lines.',
         },
         {
           property: 'og:image',
-          content: `${env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance'}/og-image-1200x630.png`,
+          content: `${process.env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance'}/og-image-1200x630.png`,
         },
 
         // ✅ Twitter
@@ -353,15 +350,15 @@ export default defineNuxtConfig({
         },
         {
           name: 'twitter:title',
-          content: env.NUXT_PUBLIC_TWITTER_TITLE ?? 'Alula Protocol Dashboard | Institutional Yield & Credit',
+          content: process.env.NUXT_PUBLIC_TWITTER_TITLE ?? 'Alula Protocol Dashboard | Institutional Yield & Credit',
         },
         {
           name: 'twitter:description',
-          content: env.NUXT_PUBLIC_TWITTER_DESCRIPTION ?? 'Optimized RWA lending on Stellar. Access permissioned pools, fixed-rate credit, and secure yield orchestrators.',
+          content: process.env.NUXT_PUBLIC_TWITTER_DESCRIPTION ?? 'Optimized RWA lending on Stellar. Access permissioned pools, fixed-rate credit, and secure yield orchestrators.',
         },
         {
           name: 'twitter:image',
-          content: `${env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance'}/og-image-1200x630.png`,
+          content: `${process.env.NUXT_PUBLIC_APP_URL ?? 'https://dev.alula.finance'}/og-image-1200x630.png`,
         },
       ],
       script: [
