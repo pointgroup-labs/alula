@@ -61,13 +61,13 @@ export const useMarketFilterStore = defineStore('market-filter', () => {
   const isActiveDebtFilter = (scope: FilterScope) => Object.values(filters.value[scope].debt).some(Boolean)
 
   watch(() => marketsStore.state.markets, (next, prev) => {
-    const prevKeys = Object.keys(prev)
+    const prevKeys = Object.keys(prev ?? {})
     const nextKeys = Object.keys(next)
     if (prevKeys.length === nextKeys.length) {
       return
     }
     allMarkets.value = next
-  })
+  }, { immediate: true })
 
   watch(uniqueAssets, (assets) => {
     for (const asset of assets) {

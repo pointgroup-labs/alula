@@ -211,7 +211,9 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
   background-color: $bg-card;
   border: 1px solid $border-secondary;
   border-radius: 12px;
-  overflow: hidden;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 
   .loading-spinner {
     position: absolute;
@@ -241,13 +243,12 @@ function withdrawDialogHandler(item: SuppliedCardTableItem) {
   }
 
   .no-data {
+    height: 100%;
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 116px;
-    max-height: 200px;
     font-size: 14px;
     font-style: normal;
     font-weight: 400;

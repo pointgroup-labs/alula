@@ -17,8 +17,8 @@
 <style lang="scss">
 .portfolio-page {
   .portfolio-cards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: row;
     gap: 16px;
     background-color: transparent;
     border: none;
@@ -27,6 +27,12 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+
+    .table-wrapper {
+      height: 100%;
+      min-height: 97px;
+      max-height: 500px;
     }
   }
 
