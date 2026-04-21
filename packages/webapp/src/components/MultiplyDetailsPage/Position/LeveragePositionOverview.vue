@@ -15,54 +15,72 @@ const {
       Position Overview
     </div>
 
-    <div class="overview-grid">
-      <div class="overview-metric overview-metric--primary">
-        <div class="overview-metric__title">
-          Exposure ({{ selectedVault?.asset.symbol }})
+    <div class="overview-metrics-list">
+      <div class="overview-metrics-list__row">
+        <div class="asset">
+          <img
+            :src="selectedVault?.asset.icon"
+            alt="asset icon"
+          >
+          <div class="asset-data">
+            <div class="asset-data__title">
+              Collateral
+            </div>
+            <div class="asset-data__value">
+              {{ shortenNumber(position.deposited, 2, maxDecimalsForShortenNumber(position.deposited)) }} {{ selectedVault?.asset.symbol }}
+              <j-pill-label>
+                {{ truncatePercent(position.supplyApy) }}% APY
+              </j-pill-label>
+            </div>
+          </div>
         </div>
-        <div class="overview-metric__value">
-          {{ shortenNumber(position.deposited, 2, maxDecimalsForShortenNumber(position.deposited)) }} {{ selectedVault?.asset.symbol }}
-        </div>
-        <div class="overview-metric__caption">
-          Long {{ selectedVault?.asset.symbol }} exposure at current market price.
-        </div>
-      </div>
-
-      <div class="overview-metric overview-metric--featured">
-        <div class="overview-metric__title">
-          Leverage
-        </div>
-        <div class="overview-metric__value overview-metric__value--accent overview-metric__value--featured">
-          {{ truncatePercent(position.currentMultiplier, 2) }}x
-        </div>
-        <div class="overview-metric__caption">
-          Max vault multiplier: {{ truncatePercent(selectedVault?.maxMultiplier || 0, 2) }}x
-        </div>
-      </div>
-
-      <div class="overview-metric">
-        <div class="overview-metric__title">
-          Position Value
-        </div>
-        <div class="overview-metric__value">
-          {{ formatCompactUSD(position.positionValueUsd, 2, 2) }}
-        </div>
-        <div class="overview-metric__caption">
-          Total market value of your {{ selectedVault?.asset.symbol }} exposure.
+        <div class="value">
+          ${{ formatPrice(position.positionValueUsd, 2, 2) }}
         </div>
       </div>
 
-      <div class="overview-metric">
-        <div class="overview-metric__title">
-          Borrowed
+      <div class="overview-metrics-list__row">
+        <div class="asset">
+          <img
+            :src="selectedVault?.borrowAsset.icon"
+            alt="asset icon"
+          >
+          <div class="asset-data">
+            <div class="asset-data__title">
+              Borrowed
+            </div>
+            <div class="asset-data__value">
+              {{ shortenNumber(position.borrowed, 2, maxDecimalsForShortenNumber(position.borrowed)) }} {{ selectedVault?.borrowAsset.symbol }}
+              <j-pill-label variant="indigo">
+                {{ truncatePercent(position.borrowApy) }}% rate
+              </j-pill-label>
+            </div>
+          </div>
         </div>
-        <div class="overview-metric__value">
-          {{ shortenNumber(position.borrowed, 2, maxDecimalsForShortenNumber(position.borrowed)) }} {{ selectedVault?.borrowAsset.symbol }}
-        </div>
-        <div class="overview-metric__caption">
-          ${{ amountToUsdWithShort(position.borrowed, selectedVault?.borrowPoolPrice || 0, false) }} outstanding debt
+        <div class="value">
+          ${{ formatPrice(position.borrowedUsd, 2, 2) }}
         </div>
       </div>
+
+      <div class="separator" />
+
+      <div class="overview-metrics-list__row">
+        <div class="label">
+          Net Equity
+          <info-tooltip>
+            The net value of your position, calculated as supplied assets minus borrowed value.
+            <br>
+            This represents your real exposure and will fluctuate with asset prices and debt levels.
+          </info-tooltip>
+        </div>
+        <div
+          class="value"
+          style="font-size: 14px;"
+        >
+          ${{ formatPrice(position.netEquityUsd, 2, 2) }}
+        </div>
+      </div>
+
     </div>
 
     <div class="health-highlight">
@@ -93,3 +111,71 @@ const {
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.overview-metrics-list {
+  display: flex;
+  flex-direction: column;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    font-size: 12px;
+  }
+
+  .asset {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    img {
+      width: 30px;
+      height: 30px;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+
+    &-data {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      &__title {
+        color: $text-tertiary;
+        font-size: 12px;
+      }
+
+      &__value {
+        color: #fff;
+        font-size: 13px;
+        line-height: normal;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+    }
+
+    .j-pill-label {
+      font-size: 11px;
+      padding: 2px 6px;
+    }
+  }
+
+  .label {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .value {
+    font-family: $font-JetBrainsMono;
+  }
+
+  .separator {
+    margin: $spacing-lg 0;
+  }
+}
+</style>

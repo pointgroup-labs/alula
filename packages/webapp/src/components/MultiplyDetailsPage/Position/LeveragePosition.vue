@@ -37,20 +37,16 @@ const {
 
           <div class="position-card__title-wrap">
             <h3 class="pool-card-title">
-              My Multiply Position
+              Long {{ selectedVault?.asset.symbol }}
             </h3>
-            <p class="subtitle">
-              {{ selectedVault?.asset.symbol }}/{{ selectedVault?.borrowAsset.symbol }} vault in {{ selectedVault?.market }}
-            </p>
           </div>
         </div>
 
-        <div class="pool-card-pill pool-card-pill--multiply">
-          Multiply
-        </div>
-
-        <div class="pool-card-pill pool-card-pill--position">
-          Long {{ selectedVault?.asset.symbol }}
+        <div
+          v-if="position?.currentMultiplier"
+          class="pool-card-pill pool-card-pill--multiply"
+        >
+          Multiplier: {{ Number.isFinite(position?.currentMultiplier) ? truncatePercent(position?.currentMultiplier || 0, 2) : 0 }}x
         </div>
 
         <div
@@ -77,17 +73,17 @@ const {
         >
           <j-btn
             size="sm"
-            variant="brand-outlined"
+            variant="positive-outlined"
             :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
             :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
             @click="openMultiply"
           >
-            Open Multiply
+            Add Position
           </j-btn>
           <j-btn
             v-if="hasPosition"
             size="sm"
-            variant="brand-secondary-outlined"
+            variant="negative-outlined"
             :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
             :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
             @click="closeMultiply"
@@ -195,8 +191,9 @@ section#my-leverage-position {
       white-space: nowrap;
 
       &--multiply {
-        --color: #8a8df4;
-        --background-color: rgb(138 141 244 / 10%);
+        --color: #1dc978;
+        --background-color: rgba(29, 201, 121, 0.1);
+        border: 1px solid #1dc978;
       }
 
       &--position {
@@ -308,59 +305,6 @@ section#my-leverage-position {
       font-size: 12px;
       font-weight: 700;
       padding-bottom: $spacing-md;
-    }
-  }
-
-  .overview-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-
-    @media (max-width: $breakpoint-xs) {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .overview-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px;
-    border: 1px solid $border-primary;
-    border-radius: $radius-lg;
-    background-color: color-mix(in oklab, $bg-secondary 40%, transparent);
-
-    &--primary {
-      border-color: color-mix(in oklab, $text-brand 28%, $border-primary);
-      background-color: color-mix(in oklab, $text-brand 8%, $bg-secondary);
-    }
-
-    &--featured {
-      border-color: color-mix(in oklab, $text-brand 38%, $border-primary);
-      background-color: color-mix(in oklab, $text-brand 12%, $bg-secondary);
-      box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
-    }
-
-    &__title {
-      color: $text-tertiary;
-      font-size: 12px;
-    }
-
-    &__value {
-      font-family: $font-JetBrainsMono;
-      font-size: 18px;
-      font-weight: 700;
-      color: $text-primary;
-
-      &--accent {
-        color: $text-brand;
-      }
-    }
-
-    &__caption {
-      color: $text-secondary;
-      font-size: 12px;
-      line-height: 1.5;
     }
   }
 

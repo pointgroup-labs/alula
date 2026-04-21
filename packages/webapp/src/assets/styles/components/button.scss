@@ -78,6 +78,16 @@ $btn-variants: (
     focusOutline: 1px solid rgba(29, 201, 120, 0.7),
   ),
 
+  negative-outlined: (
+    bg: rgba(251, 71, 71, 0.05),
+    color: rgb(251, 71, 71),
+    outline: 1px solid rgba(251, 71, 71, 0.3),
+    hoverBg: rgba(251, 71, 71, 0.15),
+    hoverColor: #fb4747,
+    focusBg: rgba(251, 71, 71, 0.15),
+    focusOutline: 1px solid rgba(251, 71, 71, 0.7),
+  ),
+
   ghost: (
     bg: color-mix(in oklab, $secondary 40%, transparent),
     color: #fff,

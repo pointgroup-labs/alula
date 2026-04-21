@@ -13,9 +13,10 @@ const {
       </div>
 
       <div class="metrics-list">
+        <!-- multiplier -->
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
-            Leverage
+            Current multiplier
             <info-tooltip>
               Current position multiple based on total exposure relative to your invested capital.
               <br>
@@ -23,9 +24,38 @@ const {
             </info-tooltip>
           </div>
           <div class="metrics-list__row__value">
-            <strong>{{ truncatePercent(position.currentMultiplier, 2) }}x</strong>
+            <template v-if="Number.isFinite(position.currentMultiplier)">
+              <strong>{{ truncatePercent(position.currentMultiplier, 2) }}x</strong>
+            </template>
+            <strong v-else>{{ '<0' }}</strong>
+            of
+            <strong>
+              {{ selectedVault.maxMultiplier }}x
+            </strong>
           </div>
         </div>
+
+        <!-- Current LTV -->
+        <div class="metrics-list__row">
+          <div class="metrics-list__row__label">
+            Current LTV
+          </div>
+          <div class="metrics-list__row__value">
+            {{ truncatePercent(position.currentLtv, 2) }}%
+          </div>
+        </div>
+
+        <!-- Liquidation LTV -->
+        <div class="metrics-list__row">
+          <div class="metrics-list__row__label">
+            Liquidation LTV
+          </div>
+          <div class="metrics-list__row__value">
+            {{ truncatePercent(position.closeLtv, 2) }}%
+          </div>
+        </div>
+
+        <!-- liquidation price -->
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
             Liquidation Price
@@ -42,6 +72,8 @@ const {
             </small>
           </div>
         </div>
+
+        <!-- liquidation buffer -->
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
             Liquidation Buffer
@@ -66,23 +98,18 @@ const {
       <div class="metrics-list">
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
-            Collateral supply APY
+            Supply APY
           </div>
-          <div
-            class="metrics-list__row__value"
-            :class="position.supplyApy >= 0 ? 'text-positive' : 'text-negative'"
-          >
-            <strong>+{{ truncatePercent(position.supplyApy, 2) }}%</strong>
+          <div class="metrics-list__row__value text-cyan ">
+            <strong>{{ truncatePercent(position.supplyApy, 2) }}%</strong>
           </div>
         </div>
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
-            Borrow cost APY
+            Borrow rate
           </div>
-          <div class="metrics-list__row__value">
-            <span>
+          <div class="metrics-list__row__value text-indigo">
               <strong>{{ truncatePercent(position.borrowApy, 2) }}%</strong>
-            </span>
           </div>
         </div>
         <div class="metrics-list__row">
@@ -90,8 +117,8 @@ const {
             Estimated yearly result
           </div>
           <div class="metrics-list__row__value">
-            ≈ <span :class="position.yearlyResultUsd >= 0 ? 'text-positive' : 'text-negative'">
-              <strong>{{ position.yearlyResultUsd >= 0 ? '+' : '' }}{{ formatCompactUSD(position.yearlyResultUsd || 0, 2, 2) }}</strong>
+            <span :class="position.yearlyResultUsd >= 0 ? 'text-positive' : 'text-negative'">
+              <strong> ≈ {{ position.yearlyResultUsd >= 0 ? '+' : '' }}{{ formatCompactUSD(position.yearlyResultUsd || 0, 2, 2) }}</strong>
             </span>
           </div>
         </div>

@@ -147,7 +147,17 @@ function goToPortfolio() {
 
       <div class="my-positions__metric">
         <span class="my-positions__metric-label">Multiplier</span>
-        <span class="my-positions__metric-value text-positive">{{ truncatePercent(metrics.multiplier, 2) }}%</span>
+        <span
+          class="my-positions__metric-value text-positive"
+          :class="[Number.isFinite(metrics.multiplier) ? 'text-positive' : 'text-negative']"
+        >
+          <template v-if="Number.isFinite(metrics.multiplier)">
+            {{ truncatePercent(metrics.multiplier, 2) }}
+          </template>
+          <template v-else>
+            0x
+          </template>
+        </span>
       </div>
 
       <div class="my-positions__metric">
