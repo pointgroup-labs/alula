@@ -10,7 +10,12 @@ import ViteComponents from 'unplugin-vue-components/vite'
 import { loadEnv } from 'vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
-const env = loadEnv(process.env.NUXT_ENV || 'development', process.cwd(), '')
+const isLocal = process.env.NODE_ENV !== 'production'
+
+const env = isLocal
+  ? loadEnv(process.env.NUXT_ENV || 'development', process.cwd(), '')
+  : process.env
+
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
