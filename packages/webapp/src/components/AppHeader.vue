@@ -5,24 +5,34 @@ import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
 
 const { width } = useWindowSize()
 
+const { isDev } = useAppEnv()
+
 const route = useRoute()
 
-const tabs = [{
-  label: 'Markets',
-  route: '/',
-  icon: marketsTabIcon,
-},
-{
-  label: 'Multiply',
-  route: '/multiply',
-  icon: multiplyTabIcon,
-},
-{
-  label: 'Portfolio',
-  route: '/portfolio',
-  icon: accountTabIcon,
-  shortLabel: 'Portfolio',
-}]
+const tabs = computed(() => {
+  const navTabs = [{
+    label: 'Markets',
+    route: '/',
+    icon: marketsTabIcon,
+  },
+  {
+    label: 'Portfolio',
+    route: '/portfolio',
+    icon: accountTabIcon,
+    shortLabel: 'Portfolio',
+  }]
+
+  if (isDev) {
+    const devTab = {
+      label: 'Multiply',
+      route: '/multiply',
+      icon: multiplyTabIcon,
+    }
+
+    navTabs.splice(1, 0, devTab)
+  }
+  return navTabs
+})
 
 provide('navTabs', tabs)
 
@@ -30,10 +40,10 @@ const activeTab = ref()
 
 watch(() => route.path, (p) => {
   if (p === '/' || p.includes('lend')) {
-    activeTab.value = tabs[0]
+    activeTab.value = tabs.value[0]
     return
   }
-  const tab = tabs.slice(1).find(t => p.includes(t.route))
+  const tab = tabs.value.slice(1).find(t => p.includes(t.route))
   activeTab.value = tab
 }, { immediate: true })
 </script>

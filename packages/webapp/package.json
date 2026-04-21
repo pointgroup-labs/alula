@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "pnpm build:sdk && nuxt dev",
+    "dev": "pnpm build:sdk && cross-env NUXT_ENV=dev nuxt dev",
     "build": "cross-env NUXT_ENV=production nuxt generate",
     "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build && pnpm --dir ../sdk/soroswap_router build && pnpm --dir ../sdk/soroswap_swap_provider build",
     "build:client-sdk": "pnpm -r --filter @alula/client-sdk run build",
