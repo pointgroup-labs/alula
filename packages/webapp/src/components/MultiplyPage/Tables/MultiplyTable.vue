@@ -117,6 +117,8 @@ watch([
                   {{ data.item.asset.symbol }} <span class="text-tertiary">/ {{ data.item.borrowAsset.symbol }}</span>
                 </div>
               </div>
+
+              <i-app-export-icon style="color: #6b7994;" />
             </div>
           </template>
 

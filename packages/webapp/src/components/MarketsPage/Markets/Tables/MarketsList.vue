@@ -95,7 +95,7 @@ watch([
       }
     }
   }
-}, {immediate: true})
+}, { immediate: true })
 </script>
 
 <template>
@@ -175,6 +175,7 @@ watch([
 
               <pool-status :pool="data.item.raw.pool" />
             </div>
+            <i-app-export-icon style="color: #6b7994;" />
           </div>
         </template>
 
