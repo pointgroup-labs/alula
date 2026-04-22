@@ -18,11 +18,13 @@ const loading = computed(() => marketsStore.state.loading)
       <market-search />
     </div>
     <markets-list v-model:is-markets="isMarkets" />
-    <div
-      v-if="!isMarkets && !loading"
-      class="no-markets-found"
-    >
-      No Markets found
-    </div>
+    <client-only>
+      <div
+        v-if="!isMarkets && !loading"
+        class="no-markets-found"
+      >
+        No Markets found
+      </div>
+    </client-only>
   </div>
 </template>
