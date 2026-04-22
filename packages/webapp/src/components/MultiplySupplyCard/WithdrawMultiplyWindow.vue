@@ -14,6 +14,7 @@ const isValidate = ref(true)
 const {
   amount,
   balance,
+  slippage,
   inputLabel,
   marginPrice,
   currentDeposited,
@@ -33,6 +34,8 @@ const {
   isMarginBorrow,
   marginAsset,
   notMarginAsset,
+  swapProviderAddress,
+  isClosePosition,
   withdraw,
 } = useMultiplyWithdraw(toRef(() => opened), toRef(() => vault))
 
@@ -41,63 +44,83 @@ async function withdrawLeverage() {
   await withdraw()
   isValidate.value = true
 }
+
+const slippageInput = computed<string | number>({
+  get: () => slippage.value,
+  set: (value) => {
+    if (value === '' || value === null || value === undefined) {
+      slippage.value = 0
+      return
+    }
+
+    const nextValue = Number(value)
+    slippage.value = Number.isFinite(nextValue) ? nextValue : 0
+  },
+})
 </script>
 
 <template>
   <div class="multiply-withdraw-panel">
-    <input-widget
-      v-model="amount"
-      :balance="balance"
-      class="withdraw-dialog__input"
-      :price="Number(marginPrice || 0)"
-      :symbol="marginAsset?.symbol"
-      :label-left="inputLabel"
-      variant="indigo"
-      :label-right="formatPrice(balance ?? 0, 0, 4)"
-      :rules="[
-        (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
-        (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Repay amount exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
-      ]"
-    >
-      <template #prepend>
-        <j-popover
-          position="bottom"
-          :teleport-to-body="false"
-          close-popup
-          :disabled="isLoading || previewLoading"
-        >
-          <template #target="{ active }">
-            <div
-              class="select-pool-btn"
-            >
-              <img
-                :src="marginAsset?.icon"
-                alt="asset icon"
+    <div>
+      <input-widget
+        v-model="amount"
+        :balance="balance"
+        class="withdraw-dialog__input"
+        :price="Number(marginPrice || 0)"
+        :symbol="marginAsset?.symbol"
+        :label-left="inputLabel"
+        variant="danger"
+        :label-right="formatPrice(balance ?? 0, 0, 4)"
+        :rules="[
+          (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
+          (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Repay amount exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
+        ]"
+      >
+        <template #prepend>
+          <j-popover
+            position="bottom"
+            :teleport-to-body="false"
+            close-popup
+            :disabled="isLoading || previewLoading"
+          >
+            <template #target="{ active }">
+              <div
+                class="select-pool-btn"
               >
-              {{ marginAsset?.symbol }}
-              <i-app-chevron-down
-                class="arrow-icon"
-                :class="{ 'arrow-icon--active': active }"
-              />
-            </div>
-          </template>
+                <img
+                  :src="marginAsset?.icon"
+                  alt="asset icon"
+                >
+                {{ marginAsset?.symbol }}
+                <i-app-chevron-down
+                  class="arrow-icon"
+                  :class="{ 'arrow-icon--active': active }"
+                />
+              </div>
+            </template>
 
-          <div class="select-pool-menu">
-            <div
-              class="select-pool-menu__item"
-              @click="isMarginBorrow = !isMarginBorrow"
-            >
-              <img
-                :src="notMarginAsset?.icon"
-                alt="asset icon"
+            <div class="select-pool-menu">
+              <div
+                class="select-pool-menu__item"
+                @click="isMarginBorrow = !isMarginBorrow"
               >
-              <span>{{ notMarginAsset?.symbol }}</span>
+                <img
+                  :src="notMarginAsset?.icon"
+                  alt="asset icon"
+                >
+                <span>{{ notMarginAsset?.symbol }}</span>
+              </div>
             </div>
-          </div>
-        </j-popover>
+          </j-popover>
 
-      </template>
-    </input-widget>
+        </template>
+      </input-widget>
+
+      <div class="multiply-trade-panel__toolbar">
+        <provider-select v-model="swapProviderAddress" />
+        <slippage-select v-model="slippageInput" />
+      </div>
+    </div>
 
     <warning-block
       v-if="previewError"
@@ -151,17 +174,24 @@ async function withdrawLeverage() {
 
         <div class="separator" />
 
-        <div class="info-summary__item">
-          <div class="info-summary__header">
-            Close details
+        <j-accordion
+          class="info-summary__item accordion-summary"
+          title="Fees"
+        >
+          <template #title>
+            <div
+              class="info-summary__header"
+              style="width: 100%;"
+            >
+              Close details
 
-            <j-loading-spinner
-              v-if="previewLoading"
-              width="14px"
-              style="margin-left: auto;"
-            />
-          </div>
-
+              <j-loading-spinner
+                v-if="previewLoading"
+                width="14px"
+                style="margin-left: auto;"
+              />
+            </div>
+          </template>
           <div class="summary-list">
             <div class="summary-list__item">
               <div class="label">Debt repaid</div>
@@ -202,7 +232,7 @@ async function withdrawLeverage() {
               </div>
             </div>
           </div>
-        </div>
+        </j-accordion>
 
         <div class="separator" />
 
@@ -239,12 +269,18 @@ async function withdrawLeverage() {
       <j-btn
         :loading="isLoading"
         :disabled="previewLoading || !!previewError"
-        variant="brand-secondary-outlined"
+        variant="negative"
         size="md"
         class="market-action-btn"
         @click="withdrawLeverage"
       >
-        <i-metrics-complete class="complete-icon" /> Close Multiply
+        <i-metrics-complete class="complete-icon" />
+        <template v-if="isClosePosition">
+          Close Position
+        </template>
+        <template v-else>
+          Withdraw
+        </template>
       </j-btn>
     </div>
   </div>

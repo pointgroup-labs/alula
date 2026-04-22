@@ -5,6 +5,7 @@ const {
   data,
 } = defineProps<{
   data?: MultiplyVaultItem
+  hasPosition?: boolean
 }>()
 
 const dialog = defineModel<boolean>({ default: false })
@@ -17,8 +18,14 @@ const dialog = defineModel<boolean>({ default: false })
   >
     <template #header>
       <div class="multiply-dialog__title">
-        Open Multiply
+        <template v-if="hasPosition">
+          Add To Position
+        </template>
+        <template v-else>
+          Open Position
+        </template>
       </div>
+
     </template>
 
     <multiply-window

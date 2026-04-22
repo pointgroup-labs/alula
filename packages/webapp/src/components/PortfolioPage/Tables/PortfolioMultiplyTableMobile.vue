@@ -13,21 +13,10 @@ const emits = defineEmits(['dialogHandler'])
 
 const market = useMarketActions()
 
-const userStore = useUserStore()
-
 const labelsByPage = computed(() => ({
   supply: showInAccounts ? 'Borrowed' : 'Supplied',
   liquidity: showInAccounts ? 'Deposited' : 'Liquidity',
 }))
-
-function isUserHaveMultiply(poolAddress: string, market: string) {
-  return checkIsHaveMultiply(
-    userStore.state.multiplyObligations,
-    items as any,
-    poolAddress,
-    market,
-  )
-}
 
 function getLiquidity(data: MultiplyPortfolioTableItem) {
   const amount = data.deposited
@@ -124,22 +113,12 @@ function getSupply(data: MultiplyPortfolioTableItem) {
     <div class="mobile-card-footer">
       <j-btn
         size="sm"
-        variant="brand-outlined"
-        :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
-        @click="emits('dialogHandler', { item, action: 'supply' })"
-      >
-        Multiply
-      </j-btn>
-      <j-btn
-        v-if="isUserHaveMultiply(item.pool_address, String(item.market))"
-        size="sm"
-        variant="brand-secondary-outlined"
+        variant="negative-outlined"
         :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'withdraw' })"
       >
-        Withdraw
+        Close
       </j-btn>
     </div>
   </table-mobile-card>

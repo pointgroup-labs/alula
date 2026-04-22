@@ -18,7 +18,7 @@ export default defineNuxtConfig({
   dir: {
     public: resolve(__dirname, 'public'),
   },
-  ssr: false,
+  ssr: process.env.NODE_ENV !== 'development',
   devServer: {
     port: 3000,
   },
@@ -155,7 +155,7 @@ export default defineNuxtConfig({
   },
 
   experimental: {
-    payloadExtraction: false,
+    // payloadExtraction: false,
     // inlineSSRStyles: false,
   },
 
@@ -298,7 +298,7 @@ export default defineNuxtConfig({
       },
       title: process.env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon-light.svg', media: '(prefers-color-scheme: light)' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon-dark.svg', media: '(prefers-color-scheme: light)' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg', media: '(prefers-color-scheme: dark)' },
         // Preconnect wallet connect
         { rel: 'preconnect', href: 'https://walletconnect.com', crossorigin: '' },
@@ -309,7 +309,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         // ✅ SEO
         {
-          name: 'description',
+          name: 'title',
           content: process.env.NUXT_PUBLIC_APP_TITLE ?? 'Alula Protocol | Institution-Ready Credit Layer on Stellar',
         },
         {

@@ -12,6 +12,12 @@ const {
 
 const marketActions = useMarketActions()
 
+const userStore = useUserStore()
+
+const {
+  publicKey,
+} = useWalletComposable()
+
 const {
   amount,
   balance,
@@ -30,10 +36,11 @@ const {
   marginAsset,
   marginPrice,
   notMarginAsset,
+  swapProviderAddress,
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
 
-const slippageModel = computed<string | number>({
+const slippageInput = computed<string | number>({
   get: () => slippage.value,
   set: (value) => {
     if (value === '' || value === null || value === undefined) {
@@ -69,24 +76,9 @@ const amountRules = computed(() => [
   },
 ])
 
-const slippageRules = [
-  (value: string | number) => {
-    if (value === '' || value === null || value === undefined) {
-      return true
-    }
-
-    const nextValue = Number(value)
-    if (!Number.isFinite(nextValue) || nextValue < 0) {
-      return 'Slippage cannot be negative'
-    }
-
-    if (nextValue > 50) {
-      return 'Slippage must be 50% or less'
-    }
-
-    return true
-  },
-]
+function isUserHaveMultiply(): boolean {
+  return vault && checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
+}
 </script>
 
 <template>
@@ -96,6 +88,11 @@ const slippageRules = [
     :class="{ 'multiply-trade-panel--compact': compact }"
   >
     <div class="input-wrapper multiply-trade-panel__input-wrapper">
+
+      <div class="multiply-trade-panel__input-meta">
+        <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}</span>
+        <span>{{ shortenNumber(Number(maxInputAmount || 0), 2, 2) }} {{ marginAsset?.symbol }}</span>
+      </div>
       <input-widget
         v-model="amount"
         :balance="balance"
@@ -106,6 +103,7 @@ const slippageRules = [
         :label-right="formatPrice(balance ?? 0, 0, 4)"
         class="multiply-trade-panel__amount-input"
         :rules="amountRules"
+        variant="success"
       >
         <template #prepend>
           <j-popover
@@ -146,28 +144,10 @@ const slippageRules = [
 
         </template>
       </input-widget>
-    </div>
 
-    <div class="multiply-trade-panel__toolbar">
-      <div class="multiply-trade-panel__input-meta">
-        <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}: {{ formatPrice(Number(maxInputAmount || 0), 2, 6) }} {{ marginAsset?.symbol }}</span>
-        <span>Pair: {{ vault.asset.symbol }}/{{ vault.borrowAsset.symbol }}</span>
-      </div>
-
-      <div class="multiply-trade-panel__slippage-inline">
-        <span class="multiply-trade-panel__slippage-inline-label">Slippage</span>
-        <j-input
-          v-model="slippageModel"
-          class="multiply-trade-panel__slippage-input"
-          size="md"
-          only-numbers
-          :rules="slippageRules"
-          placeholder="0.5"
-        >
-          <template #append>
-            <span class="multiply-trade-panel__suffix">%</span>
-          </template>
-        </j-input>
+      <div class="multiply-trade-panel__toolbar">
+        <provider-select v-model="swapProviderAddress" />
+        <slippage-select v-model="slippageInput" />
       </div>
     </div>
 
@@ -177,6 +157,13 @@ const slippageRules = [
       :max-multiply="vault.maxMultiplier"
       :net-apy="currentApy"
       :pool="vault.depositPoolData"
+    />
+
+    <warning-block
+      v-if="previewError"
+      class="mt-3"
+      title="Repay Multiply"
+      :text="previewError"
     />
 
     <Transition name="summary-slide">
@@ -216,7 +203,7 @@ const slippageRules = [
               <div class="label">Borrow liquidity</div>
               <div class="value">
                 <div class="text-end">
-                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ vault.borrowAsset.symbol }}
+                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ marginAsset?.symbol }}
                 </div>
               </div>
             </div>
@@ -225,109 +212,114 @@ const slippageRules = [
 
         <div class="separator" />
 
-        <div class="info-summary__item">
-          <div class="info-summary__header">
-            Batch Preview
+        <j-accordion
+          class="info-summary__item accordion-summary"
+          title="Fees"
+        >
+          <template #title>
+            <div
+              class="info-summary__header"
+              style="width: 100%;"
+            >
+              Batch Preview
 
-            <j-loading-spinner
-              v-if="loadingPreview"
-              width="14px"
-              style="margin-left: auto;"
-            />
-          </div>
-
-          <div
-            v-if="previewError"
-            class="summary-list"
-          >
-            <div class="summary-list__item">
-              <div class="label">Quote</div>
-              <div class="value">
-                {{ previewError }}
-              </div>
+              <j-loading-spinner
+                v-if="loadingPreview"
+                width="14px"
+                style="margin-left: auto;"
+              />
             </div>
-          </div>
+          </template>
 
-          <div
-            v-else-if="loadingPreview && !summary"
-            class="summary-list"
-          >
-            <div class="summary-list__item">
-              <div class="label">Quote</div>
-              <div class="value">
-                Updating batch preview...
+          <div class="summary-list">
+            <div class="info-summary__item">
+              <div
+                v-if="loadingPreview && !summary"
+                class="summary-list"
+              >
+                <div class="summary-list__item mb-2">
+                  <div class="label">Quote</div>
+                  <div class="value">
+                    Updating batch preview...
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div
-            v-else-if="summary"
-            class="summary-list"
-          >
-            <div class="summary-list__item">
-              <div class="label">Flash borrow</div>
-              <div class="value">
-                {{ shortenNumber(summary.flashBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.flashBorrowAmount || 0)) }} {{ vault.borrowAsset.symbol }}
+              <div
+                v-else-if="summary"
+                class="summary-list"
+              >
+                <div class="summary-list__item">
+                  <div class="label">Flash borrow</div>
+                  <div class="value">
+                    {{ shortenNumber(summary.flashBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.flashBorrowAmount || 0)) }} {{ marginAsset?.symbol }}
+                  </div>
+                </div>
+
+                <div class="summary-list__item">
+                  <div class="label">Total swap in</div>
+                  <div class="value">
+                    {{ shortenNumber(summary.swapAmountIn || 0, 2, maxDecimalsForShortenNumber(summary.swapAmountIn || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
+                  </div>
+                </div>
+
+                <div class="summary-list__item">
+                  <div class="label">{{ isMarginBorrow ? 'Expected out' : 'Flash repay target' }}</div>
+                  <div class="value">
+                    {{ shortenNumber(summary.expectedAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.expectedAmountOut || 0)) }} {{ vault.asset.symbol }}
+                  </div>
+                </div>
+
+                <div class="summary-list__item">
+                  <div class="label">{{ isMarginBorrow ? 'Min deposit' : 'Swap out target' }}</div>
+                  <div class="value">
+                    {{ shortenNumber(summary.minAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.minAmountOut || 0)) }} {{ vault.asset.symbol }}
+                  </div>
+                </div>
+
+                <div class="summary-list__item">
+                  <div class="label">Total collateral</div>
+                  <div class="value">
+                    {{ shortenNumber(summary.depositAmount || 0, 2, maxDecimalsForShortenNumber(summary.depositAmount || 0)) }} {{ vault.asset.symbol }}
+                  </div>
+                </div>
+
+                <div class="summary-list__item">
+                  <div class="label">Final borrow</div>
+                  <div class="value">
+                    {{ shortenNumber(summary.finalBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.finalBorrowAmount || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
+                  </div>
+                </div>
+
+                <div class="summary-list__item align-items-start mb-2">
+                  <div class="label">Est. collateral value</div>
+                  <div class="value">
+                    <div class="text-end">
+                      ${{ amountToUsdWithShort(summary.depositAmount, vault.price, false) }}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div class="summary-list__item">
-              <div class="label">Total swap in</div>
-              <div class="value">
-                {{ shortenNumber(summary.swapAmountIn || 0, 2, maxDecimalsForShortenNumber(summary.swapAmountIn || 0)) }} {{ vault.borrowAsset.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item">
-              <div class="label">Expected out</div>
-              <div class="value">
-                {{ shortenNumber(summary.expectedAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.expectedAmountOut || 0)) }} {{ vault.asset.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item">
-              <div class="label">Min deposit</div>
-              <div class="value">
-                {{ shortenNumber(summary.minAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.minAmountOut || 0)) }} {{ vault.asset.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item">
-              <div class="label">Total collateral</div>
-              <div class="value">
-                {{ shortenNumber(summary.depositAmount || 0, 2, maxDecimalsForShortenNumber(summary.depositAmount || 0)) }} {{ vault.asset.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item">
-              <div class="label">Final borrow</div>
-              <div class="value">
-                {{ shortenNumber(summary.finalBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.finalBorrowAmount || 0)) }} {{ vault.borrowAsset.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item align-items-start mb-2">
-              <div class="label">Est. collateral value</div>
-              <div class="value">
-                <div class="text-end">
-                  ${{ amountToUsdWithShort(summary.depositAmount, vault.price, false) }}
+              <div
+                v-else
+                class="summary-list"
+              >
+                <div class="summary-list__item mb-2">
+                  <div class="label">Quote</div>
+                  <div class="value">
+                    <template v-if="publicKey">
+                      Enter an amount to build the flash-borrow batch.
+                    </template>
+                    <template v-else>
+                      Connect wallet to build the flash-borrow batch.
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-
-          <div
-            v-else
-            class="summary-list"
-          >
-            <div class="summary-list__item">
-              <div class="label">Quote</div>
-              <div class="value">
-                Enter an amount to build the flash-borrow batch.
-              </div>
-            </div>
-          </div>
-        </div>
+        </j-accordion>
 
         <div class="separator" />
 
@@ -363,7 +355,7 @@ const slippageRules = [
 
     <div class="supply-card__action mt-3">
       <market-dialog-action-btn
-        variant="brand-secondary"
+        variant="positive"
         class="market-action-btn"
         size="md"
         :loading="marketActions.isLoading(vault.pool_address, 'multiplyOpen', vault.market)"
@@ -371,7 +363,13 @@ const slippageRules = [
         :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
         @click-handler="openMultiply"
       >
-        <i-metrics-complete class="complete-icon" /> Open Multiply
+        <i-metrics-complete class="complete-icon" />
+        <template v-if="isUserHaveMultiply()">
+          Add To Position
+        </template>
+        <template v-else>
+          Open Position
+        </template>
       </market-dialog-action-btn>
     </div>
   </div>
@@ -389,7 +387,6 @@ const slippageRules = [
 
   &__input-meta {
     display: flex;
-    flex-direction: column;
     justify-content: space-between;
     gap: 16px;
     color: $text-tertiary;
@@ -403,74 +400,10 @@ const slippageRules = [
 
   &__toolbar {
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
-    gap: 16px;
-
-    @media (max-width: $breakpoint-md) {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 8px;
-    }
-  }
-
-  &__slippage-inline {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    gap: 8px;
-    flex-shrink: 0;
-
-    @media (max-width: $breakpoint-md) {
-      justify-content: space-between;
-    }
-  }
-
-  &__slippage-inline-label {
-    font-size: 12px;
-    font-weight: 700;
-    color: $text-tertiary;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  &__slippage-input {
-    width: 72px;
-
-    &:focus-within {
-      .input-group {
-        border-color: $navi-200;
-      }
-    }
-
-    &:has(.validate-label) {
-      margin-bottom: 18px;
-    }
-
-    .input-group {
-      height: 28px;
-      border-radius: 6px;
-      border-color: $navi-400;
-
-      input {
-        font-size: 12px;
-        margin-bottom: -2px;
-      }
-    }
-
-    .j-input__append {
-      display: flex;
-      align-items: center;
-    }
-
-    .validate-label {
-      position: absolute;
-      right: 0;
-      left: auto;
-      bottom: 0;
-      white-space: nowrap;
-    }
+    justify-content: space-between;
+    gap: 24px;
+    margin: 12px 0 0;
   }
 
   &__suffix {

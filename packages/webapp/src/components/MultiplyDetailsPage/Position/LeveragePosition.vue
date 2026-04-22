@@ -68,6 +68,7 @@ const {
         </div>
 
         <div
+          v-if="hasPosition"
           class="position-actions"
           :style="{ 'margin-left': hasPosition ? 0 : 'auto' }"
         >
@@ -78,17 +79,16 @@ const {
             :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
             @click="openMultiply"
           >
-            Add Position
+            Add
           </j-btn>
           <j-btn
-            v-if="hasPosition"
             size="sm"
             variant="negative-outlined"
             :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
             :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
             @click="closeMultiply"
           >
-            Close Position
+            Close
           </j-btn>
         </div>
 
@@ -118,12 +118,12 @@ const {
             </div>
             <j-btn
               size="sm"
-              variant="brand-outlined"
+              variant="positive-outlined"
               :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
               :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
               @click="openMultiply"
             >
-              Open Multiply
+              Open Position
             </j-btn>
           </div>
         </template>
@@ -134,11 +134,13 @@ const {
       <multiply-dialog
         v-model="dialogLeverage"
         :data="selectedVault"
+        :has-position="hasPosition"
       />
 
       <withdraw-multiply-dialog
         v-model="dialogLeverageWithdraw"
         :data="selectedVault"
+        :has-position="hasPosition"
       />
     </client-only>
   </section>

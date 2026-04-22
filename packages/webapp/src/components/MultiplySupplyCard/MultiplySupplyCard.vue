@@ -8,10 +8,10 @@ const { vault } = defineProps<{
 const userStore = useUserStore()
 
 const tabs = computed(() => {
-  const dynamicTabs = [{ label: 'Open Position', value: 'add-position' }]
+  const dynamicTabs = [{ label: 'Add', value: 'add-position' }]
 
   if (isUserHaveMultiply(vault)) {
-    dynamicTabs.push({ label: 'Close Position', value: 'close-position' })
+    dynamicTabs.push({ label: 'Close', value: 'close-position' })
   }
   return dynamicTabs
 })
@@ -35,7 +35,7 @@ function isUserHaveMultiply(vault?: MultiplyVaultItem) {
     <div class="supply-card__body">
       <div
         v-if="tabs.length > 1"
-        class="supply-card-tabs mb-4"
+        class="supply-card-tabs mb-3"
       >
         <div
           v-for="tab in tabs"
