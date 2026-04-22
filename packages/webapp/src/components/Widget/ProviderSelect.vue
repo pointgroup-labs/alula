@@ -23,6 +23,7 @@ const selectedProvider = ref(providers.value[0])
     <j-select
       v-model="selectedProvider"
       :options="providers"
+      :unselected="false"
     >
       <template #option="{ option }">
         <img

@@ -545,6 +545,7 @@ export function useMarketActions() {
       margin_asset?: 'borrow' | 'deposit'
       repay_amount?: number
       min_receive_amount?: number
+      slippage_percent?: number
       swap_provider: string
       obligation_key: ObligationKey
       path?: string[]
@@ -561,6 +562,7 @@ export function useMarketActions() {
       margin_asset,
       repay_amount,
       min_receive_amount,
+      slippage_percent,
       swap_provider,
       obligation_key,
       path,
@@ -600,6 +602,7 @@ export function useMarketActions() {
         marginAsset: margin_asset,
         repayAmount: repay_amount,
         minReceiveAmount: min_receive_amount,
+        slippagePercent: slippage_percent,
         swapProviderAddress: swap_provider,
         path,
       }, kit.value),

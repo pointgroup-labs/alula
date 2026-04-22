@@ -15,6 +15,7 @@ const isValidate = ref(true)
 const {
   amount,
   balance,
+  slippage,
   inputLabel,
   marginPrice,
   currentDeposited,
@@ -43,19 +44,30 @@ async function withdrawLeverage() {
   isValidate.value = true
 }
 
-const slippageInput = ref(0.5)
+const slippageInput = computed<string | number>({
+  get: () => slippage.value,
+  set: (value) => {
+    if (value === '' || value === null || value === undefined) {
+      slippage.value = 0
+      return
+    }
+
+    const nextValue = Number(value)
+    slippage.value = Number.isFinite(nextValue) ? nextValue : 0
+  },
+})
 </script>
 
 <template>
   <div class="multiply-withdraw-panel">
-         <teleport-content
-        :to="teleportTarget"
-      >
-        <div class="multiply-trade-panel__toolbar">
-          <provider-select />
-          <slippage-select v-model="slippageInput" />
-        </div>
-      </teleport-content>
+    <teleport-content
+      :to="teleportTarget"
+    >
+      <div class="multiply-trade-panel__toolbar">
+        <provider-select />
+        <slippage-select v-model="slippageInput" />
+      </div>
+    </teleport-content>
     <input-widget
       v-model="amount"
       :balance="balance"
