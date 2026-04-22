@@ -141,7 +141,7 @@ const amountRules = computed(() => [
     </div>
 
     <div class="multiply-trade-panel__input-meta">
-      <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}: {{ formatPrice(Number(maxInputAmount || 0), 2, 6) }} {{ marginAsset?.symbol }}</span>
+      <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}: {{ shortenNumber(Number(maxInputAmount || 0), 2, 2) }} {{ marginAsset?.symbol }}</span>
       <span>Pair: {{ vault.asset.symbol }}/{{ vault.borrowAsset.symbol }}</span>
     </div>
 
