@@ -35,6 +35,10 @@ const {
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
 
+const {
+  publicKey,
+} = useWalletComposable()
+
 const slippageInput = computed<string | number>({
   get: () => slippage.value,
   set: (value) => {
@@ -302,7 +306,12 @@ const amountRules = computed(() => [
                 <div class="summary-list__item mb-2">
                   <div class="label">Quote</div>
                   <div class="value">
-                    Enter an amount to build the flash-borrow batch.
+                    <template v-if="publicKey">
+                      Enter an amount to build the flash-borrow batch.
+                    </template>
+                    <template v-else>
+                      Connect wallet to build the flash-borrow batch.
+                    </template>
                   </div>
                 </div>
               </div>
