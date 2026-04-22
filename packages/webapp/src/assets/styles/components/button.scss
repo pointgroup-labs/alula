@@ -70,7 +70,7 @@ $btn-variants: (
 
   positive-outlined: (
     bg: rgba(4, 62, 31, 0.3),
-    color: rgb(29, 201, 120),
+    color: $navi-25,
     outline: 1px solid rgba(29, 201, 120, 0.3),
     hoverBg: rgba(5, 69, 34, 0.5),
     hoverColor: rgb(29, 201, 120),
@@ -79,11 +79,11 @@ $btn-variants: (
   ),
 
   negative-outlined: (
-    bg: rgba(251, 71, 71, 0.05),
-    color: rgb(251, 71, 71),
+    bg: rgba(251, 71, 71, 0.1),
+    color: $navi-25,
     outline: 1px solid rgba(251, 71, 71, 0.3),
     hoverBg: rgba(251, 71, 71, 0.15),
-    hoverColor: #fb4747,
+    hoverColor: rgb(251, 71, 71),
     focusBg: rgba(251, 71, 71, 0.15),
     focusOutline: 1px solid rgba(251, 71, 71, 0.7),
   ),
