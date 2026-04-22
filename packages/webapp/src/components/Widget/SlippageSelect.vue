@@ -51,7 +51,7 @@ const slippageRules = [
     font-weight: 500;
     color: $text-tertiary;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
   }
 
   &-input {
