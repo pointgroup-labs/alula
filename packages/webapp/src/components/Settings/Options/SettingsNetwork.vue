@@ -75,12 +75,14 @@ watch(() => rpcStore.network, (val) => {
   <div
     class="setting-item network"
   >
-    <div class="d-flex justify-content-between align-items-center">
+    <div
+      v-if="!isProd"
+      class="d-flex justify-content-between align-items-center mb-4"
+    >
       <div class="setting-item__title">
         Network RPC
       </div>
       <j-popover
-        v-if="!isProd"
         :teleport-to-body="false"
         position="bottom"
         class-name="select-network"
@@ -271,7 +273,6 @@ watch(() => rpcStore.network, (val) => {
     display: flex;
     flex-direction: column;
     gap: 24px;
-    padding-top: $spacing-3xl;
   }
 
   .network-rpc {
