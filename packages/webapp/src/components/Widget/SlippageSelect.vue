@@ -86,7 +86,7 @@ const slippageRules = [
     .validate-label {
       position: absolute;
       right: 0;
-      //   left: auto;
+      left: auto;
       bottom: 0;
       white-space: nowrap;
     }

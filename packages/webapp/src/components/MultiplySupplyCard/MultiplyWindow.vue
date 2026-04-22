@@ -8,7 +8,6 @@ const {
 } = defineProps<{
   vault?: MultiplyVaultItem
   compact?: boolean
-  teleportTarget?: HTMLElement
 }>()
 
 const marketActions = useMarketActions()
@@ -89,14 +88,11 @@ function isUserHaveMultiply(): boolean {
     :class="{ 'multiply-trade-panel--compact': compact }"
   >
     <div class="input-wrapper multiply-trade-panel__input-wrapper">
-      <teleport-content
-        :to="teleportTarget"
-      >
-        <div class="multiply-trade-panel__toolbar">
-          <provider-select v-model="swapProviderAddress" />
-          <slippage-select v-model="slippageInput" />
-        </div>
-      </teleport-content>
+
+      <div class="multiply-trade-panel__input-meta">
+        <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}</span>
+        <span>{{ shortenNumber(Number(maxInputAmount || 0), 2, 2) }} {{ marginAsset?.symbol }}</span>
+      </div>
       <input-widget
         v-model="amount"
         :balance="balance"
@@ -148,11 +144,11 @@ function isUserHaveMultiply(): boolean {
 
         </template>
       </input-widget>
-    </div>
 
-    <div class="multiply-trade-panel__input-meta">
-      <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}: {{ shortenNumber(Number(maxInputAmount || 0), 2, 2) }} {{ marginAsset?.symbol }}</span>
-      <span>Pair: {{ vault.asset.symbol }}/{{ vault.borrowAsset.symbol }}</span>
+      <div class="multiply-trade-panel__toolbar">
+        <provider-select v-model="swapProviderAddress" />
+        <slippage-select v-model="slippageInput" />
+      </div>
     </div>
 
     <multiply-select
@@ -405,8 +401,9 @@ function isUserHaveMultiply(): boolean {
   &__toolbar {
     display: flex;
     align-items: flex-start;
+    justify-content: space-between;
     gap: 24px;
-    margin-bottom: 16px;
+    margin: 12px 0 0;
   }
 
   &__suffix {

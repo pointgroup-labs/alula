@@ -8,7 +8,6 @@ const {
 } = defineProps<{
   opened?: boolean
   vault?: MultiplyTableItem | MultiplyVaultItem
-  teleportTarget?: HTMLElement
 }>()
 
 const isValidate = ref(true)
@@ -62,67 +61,66 @@ const slippageInput = computed<string | number>({
 
 <template>
   <div class="multiply-withdraw-panel">
-    <teleport-content
-      :to="teleportTarget"
-    >
+    <div>
+      <input-widget
+        v-model="amount"
+        :balance="balance"
+        class="withdraw-dialog__input"
+        :price="Number(marginPrice || 0)"
+        :symbol="marginAsset?.symbol"
+        :label-left="inputLabel"
+        variant="danger"
+        :label-right="formatPrice(balance ?? 0, 0, 4)"
+        :rules="[
+          (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
+          (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Repay amount exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
+        ]"
+      >
+        <template #prepend>
+          <j-popover
+            position="bottom"
+            :teleport-to-body="false"
+            close-popup
+            :disabled="isLoading || previewLoading"
+          >
+            <template #target="{ active }">
+              <div
+                class="select-pool-btn"
+              >
+                <img
+                  :src="marginAsset?.icon"
+                  alt="asset icon"
+                >
+                {{ marginAsset?.symbol }}
+                <i-app-chevron-down
+                  class="arrow-icon"
+                  :class="{ 'arrow-icon--active': active }"
+                />
+              </div>
+            </template>
+
+            <div class="select-pool-menu">
+              <div
+                class="select-pool-menu__item"
+                @click="isMarginBorrow = !isMarginBorrow"
+              >
+                <img
+                  :src="notMarginAsset?.icon"
+                  alt="asset icon"
+                >
+                <span>{{ notMarginAsset?.symbol }}</span>
+              </div>
+            </div>
+          </j-popover>
+
+        </template>
+      </input-widget>
+
       <div class="multiply-trade-panel__toolbar">
         <provider-select v-model="swapProviderAddress" />
         <slippage-select v-model="slippageInput" />
       </div>
-    </teleport-content>
-    <input-widget
-      v-model="amount"
-      :balance="balance"
-      class="withdraw-dialog__input"
-      :price="Number(marginPrice || 0)"
-      :symbol="marginAsset?.symbol"
-      :label-left="inputLabel"
-      variant="danger"
-      :label-right="formatPrice(balance ?? 0, 0, 4)"
-      :rules="[
-        (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
-        (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Repay amount exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
-      ]"
-    >
-      <template #prepend>
-        <j-popover
-          position="bottom"
-          :teleport-to-body="false"
-          close-popup
-          :disabled="isLoading || previewLoading"
-        >
-          <template #target="{ active }">
-            <div
-              class="select-pool-btn"
-            >
-              <img
-                :src="marginAsset?.icon"
-                alt="asset icon"
-              >
-              {{ marginAsset?.symbol }}
-              <i-app-chevron-down
-                class="arrow-icon"
-                :class="{ 'arrow-icon--active': active }"
-              />
-            </div>
-          </template>
-
-          <div class="select-pool-menu">
-            <div
-              class="select-pool-menu__item"
-              @click="isMarginBorrow = !isMarginBorrow"
-            >
-              <img
-                :src="notMarginAsset?.icon"
-                alt="asset icon"
-              >
-              <span>{{ notMarginAsset?.symbol }}</span>
-            </div>
-          </div>
-        </j-popover>
-
-      </template>
-    </input-widget>
+    </div>
 
     <warning-block
       v-if="previewError"

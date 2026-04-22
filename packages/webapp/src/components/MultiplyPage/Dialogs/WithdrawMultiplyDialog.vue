@@ -8,7 +8,6 @@ const {
 }>()
 
 const dialog = defineModel({ default: false })
-const headerOptionsRef = ref()
 </script>
 
 <template>
@@ -18,19 +17,13 @@ const headerOptionsRef = ref()
   >
     <template #header>
       <div class="multiply-dialog__title">
-        <span>Close</span>
+        <span>Close Position</span>
       </div>
-
-      <div
-        id="multiply-header-options"
-        ref="headerOptionsRef"
-      />
     </template>
 
     <withdraw-multiply-window
       :vault="data"
       :opened="dialog"
-      :teleport-target="headerOptionsRef"
     />
   </j-dialog>
 </template>
