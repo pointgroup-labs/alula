@@ -13,6 +13,12 @@ const {
 
 const marketActions = useMarketActions()
 
+const userStore = useUserStore()
+
+const {
+  publicKey,
+} = useWalletComposable()
+
 const {
   amount,
   balance,
@@ -34,10 +40,6 @@ const {
   swapProviderAddress,
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
-
-const {
-  publicKey,
-} = useWalletComposable()
 
 const slippageInput = computed<string | number>({
   get: () => slippage.value,
@@ -74,6 +76,10 @@ const amountRules = computed(() => [
     return true
   },
 ])
+
+function isUserHaveMultiply(): boolean {
+  return vault && checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
+}
 </script>
 
 <template>
@@ -361,7 +367,13 @@ const amountRules = computed(() => [
         :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
         @click-handler="openMultiply"
       >
-        <i-metrics-complete class="complete-icon" /> Open Multiply
+        <i-metrics-complete class="complete-icon" />
+        <template v-if="isUserHaveMultiply()">
+          Add To Position
+        </template>
+        <template v-else>
+          Open Position
+        </template>
       </market-dialog-action-btn>
     </div>
   </div>

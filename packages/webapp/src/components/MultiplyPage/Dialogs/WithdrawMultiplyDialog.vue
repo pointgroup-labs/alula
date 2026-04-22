@@ -18,7 +18,7 @@ const headerOptionsRef = ref()
   >
     <template #header>
       <div class="multiply-dialog__title">
-        <span>Withdraw</span>
+        <span>Close</span>
       </div>
 
       <div

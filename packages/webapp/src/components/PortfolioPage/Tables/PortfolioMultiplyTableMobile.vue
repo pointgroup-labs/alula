@@ -118,7 +118,7 @@ function getSupply(data: MultiplyPortfolioTableItem) {
         :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'withdraw' })"
       >
-        Withdraw
+        Close
       </j-btn>
     </div>
   </table-mobile-card>

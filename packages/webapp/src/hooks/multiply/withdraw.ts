@@ -169,6 +169,8 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     )) || 0
   })
 
+  const isClosePosition = computed(() => amount.value && balance.value ? Number(amount.value) === Number(balance.value) : true)
+
   function toBorrowAmount(value: bigint) {
     return Number(bigintToNumber(value, borrowDecimals.value)) || 0
   }
@@ -631,6 +633,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     marginAsset,
     notMarginAsset,
     swapProviderAddress,
+    isClosePosition,
     withdraw,
   }
 }

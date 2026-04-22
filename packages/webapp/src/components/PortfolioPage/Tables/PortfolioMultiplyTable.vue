@@ -275,7 +275,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
             :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
             @click="multiplyDialogHandler(data.item)"
           >
-            Withdraw
+            Close
           </j-btn>
         </div>
       </template>

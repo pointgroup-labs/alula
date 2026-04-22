@@ -36,6 +36,7 @@ const {
   marginAsset,
   notMarginAsset,
   swapProviderAddress,
+  isClosePosition,
   withdraw,
 } = useMultiplyWithdraw(toRef(() => opened), toRef(() => vault))
 
@@ -275,7 +276,13 @@ const slippageInput = computed<string | number>({
         class="market-action-btn"
         @click="withdrawLeverage"
       >
-        <i-metrics-complete class="complete-icon" /> Close Multiply
+        <i-metrics-complete class="complete-icon" />
+        <template v-if="isClosePosition">
+          Close Position
+        </template>
+        <template v-else>
+          Withdraw
+        </template>
       </j-btn>
     </div>
   </div>
