@@ -189,80 +189,17 @@ onMounted(() => {
 </template>
 
 <style lang="scss">
-.btn-select {
-  display: flex !important;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
+.j-select {
+  .dropdown-menu {
+    .select-item {
+      &:hover {
+        background-color: transparent;
+        color: $text-primary;
+      }
 
-  .btn-content {
-    width: 100%;
-  }
-
-  .select-label {
-    width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: left;
-  }
-
-  .chevron-icon {
-    transform: rotate(180deg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 24px;
-    width: 24px;
-    height: 24px;
-
-    &.open {
-      transform: rotate(0deg);
-    }
-  }
-}
-
-.dropdown-menu-options {
-  background: #fff;
-  position: absolute;
-  z-index: 9999;
-  box-shadow: 0 0 2px 0px #00000054;
-  border-radius: $radius-xs;
-  width: max-content;
-
-  ul {
-    list-style: none;
-    padding: 6px;
-    margin-bottom: 0;
-  }
-
-  .j-input {
-    margin-top: $spacing-xs;
-    padding: 0 $spacing-xs;
-  }
-
-  .active-option {
-    background-color: $navi-50;
-  }
-
-  .dropdown-options-item {
-    outline: none;
-    padding: 6px;
-    cursor: pointer;
-
-    &:hover {
-      background-color: darken($navi-50, 2%);
-    }
-
-    &.no-data {
-      text-align: center;
-      justify-content: center;
-      pointer-events: none;
-    }
-  }
-
-  .j-input {
-    .input-group {
-      border-radius: $spacing-xs;
+      &--active {
+        color: $text-primary;
+      }
     }
   }
 }

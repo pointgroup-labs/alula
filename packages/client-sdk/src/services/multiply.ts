@@ -42,6 +42,7 @@ export interface CloseMultiplyPreviewParams {
   borrowPoolAddress: string
   marginAsset?: MultiplyMarginAsset
   repayAmount?: string | number
+  slippagePercent?: number
   swapProviderAddress: string
   path?: string[]
 }
@@ -63,6 +64,7 @@ export interface MultiplyPreview {
   routerAddress: string
   initialAmount: bigint
   flashBorrowAmount: bigint
+  flashRepaymentAmount: bigint
   swapAmountIn: bigint
   expectedAmountOut: bigint
   minAmountOut: bigint
@@ -161,9 +163,15 @@ export class MultiplyService extends BaseClient {
 
     const swapPath = params.path?.length ? params.path : [borrowPool.pool.token_address, depositPool.pool.token_address]
     const routerAddress = await this.getRouterAddress(params.swapProviderAddress)
+    const borrowFeeBps = Number(borrowPool.pool.config.fee_config.borrow_fee_bps || 0)
     let flashBorrowAmount: bigint
+    let flashRepaymentAmount: bigint
     let swapAmountIn: bigint
     let depositAmount: bigint
+    let expectedAmountOut: bigint
+    let minAmountOut: bigint
+    let finalBorrowAmount: bigint
+    let flashLoanFeeBps: number
 
     if (marginAsset === 'borrow') {
       flashBorrowAmount = this.decimalToBigInt(
@@ -171,49 +179,46 @@ export class MultiplyService extends BaseClient {
         Decimal.ROUND_DOWN,
       )
       swapAmountIn = initialAmount + flashBorrowAmount
-      depositAmount = 0n
+      flashLoanFeeBps = Number(borrowPool.pool.config.fee_config.flash_loan_fee_bps || 0)
+
+      const expectedAmountsOut = await this.getExpectedAmountsOut(routerAddress, swapAmountIn, swapPath)
+      expectedAmountOut = expectedAmountsOut[expectedAmountsOut.length - 1]
+      if (expectedAmountOut == null) {
+        throw new Error('Router did not return an output quote for this multiply swap path')
+      }
+
+      minAmountOut = this.applySlippageDown(expectedAmountOut, slippagePercent)
+      depositAmount = minAmountOut
+      flashRepaymentAmount = this.grossUpAmountByFee(flashBorrowAmount, flashLoanFeeBps)
+      finalBorrowAmount = flashRepaymentAmount
     } else {
-      const targetDepositFromSwap = this.decimalToBigInt(
+      flashBorrowAmount = this.decimalToBigInt(
         new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1)),
         Decimal.ROUND_DOWN,
       )
 
-      if (targetDepositFromSwap <= 0n) {
+      if (flashBorrowAmount <= 0n) {
         throw new Error('Initial amount is too small for the selected multiplier')
       }
 
-      const expectedAmountsIn = await this.getExpectedAmountsIn(routerAddress, targetDepositFromSwap, swapPath)
+      flashLoanFeeBps = Number(depositPool.pool.config.fee_config.flash_loan_fee_bps || 0)
+      flashRepaymentAmount = this.grossUpAmountByFee(flashBorrowAmount, flashLoanFeeBps)
+      expectedAmountOut = flashRepaymentAmount
+      minAmountOut = this.applySlippageUp(
+        this.grossUpAmountByFee(flashRepaymentAmount, borrowFeeBps),
+        slippagePercent,
+      )
+
+      const expectedAmountsIn = await this.getExpectedAmountsIn(routerAddress, minAmountOut, swapPath)
       const quotedBorrowAmount = expectedAmountsIn[0]
       if (quotedBorrowAmount == null || quotedBorrowAmount <= 0n) {
         throw new Error('Router did not return an input quote for this multiply swap path')
       }
 
-      flashBorrowAmount = quotedBorrowAmount
-      swapAmountIn = flashBorrowAmount
-      depositAmount = initialAmount
+      swapAmountIn = quotedBorrowAmount
+      depositAmount = initialAmount + flashBorrowAmount
+      finalBorrowAmount = quotedBorrowAmount
     }
-
-    const expectedAmountsOut = await this.getExpectedAmountsOut(routerAddress, swapAmountIn, swapPath)
-    const expectedAmountOut = expectedAmountsOut[expectedAmountsOut.length - 1]
-    if (expectedAmountOut == null) {
-      throw new Error('Router did not return an output quote for this multiply swap path')
-    }
-
-    const slippageMultiplier = new Decimal(1).minus(new Decimal(slippagePercent).div(100))
-    const minAmountOut = this.decimalToBigInt(
-      new Decimal(expectedAmountOut.toString()).mul(slippageMultiplier),
-      Decimal.ROUND_DOWN,
-    )
-
-    depositAmount = marginAsset === 'borrow' ? minAmountOut : depositAmount + minAmountOut
-
-    const flashLoanFeeBps = Number(borrowPool.pool.config.fee_config.flash_loan_fee_bps || 0)
-    const finalBorrowAmount = this.decimalToBigInt(
-      new Decimal(flashBorrowAmount.toString()).mul(
-        new Decimal(1).plus(new Decimal(flashLoanFeeBps).div(10_000)),
-      ),
-      Decimal.ROUND_UP,
-    )
 
     return {
       depositPool,
@@ -227,6 +232,7 @@ export class MultiplyService extends BaseClient {
       routerAddress,
       initialAmount,
       flashBorrowAmount,
+      flashRepaymentAmount,
       swapAmountIn,
       expectedAmountOut,
       minAmountOut,
@@ -237,50 +243,71 @@ export class MultiplyService extends BaseClient {
 
   async buildOpenPositionTx(params: OpenMultiplyParams) {
     const preview = await this.getOpenPositionPreview(params)
-    const requests: Request[] = []
-
-    if (preview.marginAsset === 'deposit') {
-      requests.push({
-        tag: 'Deposit',
-        values: [{
-          amount: preview.initialAmount,
-          pool_address: params.depositPoolAddress,
-        }],
-      })
-    }
-
-    requests.push(
-      {
-        tag: 'FlashBorrow',
-        values: [{
-          amount: preview.flashBorrowAmount,
-          pool_address: params.borrowPoolAddress,
-        }],
-      },
-      {
-        tag: 'SwapExactTokens',
-        values: [{
-          amount_in: preview.swapAmountIn,
-          min_amount_out: preview.minAmountOut,
-          path: preview.swapPath,
-          swap_provider: params.swapProviderAddress,
-        }],
-      },
-      {
-        tag: 'Deposit',
-        values: [{
-          amount: preview.minAmountOut,
-          pool_address: params.depositPoolAddress,
-        }],
-      },
-      {
-        tag: 'Borrow',
-        values: [{
-          amount: preview.finalBorrowAmount,
-          pool_address: params.borrowPoolAddress,
-        }],
-      },
-    )
+    const requests: Request[] = preview.marginAsset === 'deposit'
+      ? [
+          {
+            tag: 'FlashBorrow',
+            values: [{
+              amount: preview.flashBorrowAmount,
+              pool_address: params.depositPoolAddress,
+            }],
+          },
+          {
+            tag: 'Deposit',
+            values: [{
+              amount: preview.depositAmount,
+              pool_address: params.depositPoolAddress,
+            }],
+          },
+          {
+            tag: 'Borrow',
+            values: [{
+              amount: preview.finalBorrowAmount,
+              pool_address: params.borrowPoolAddress,
+            }],
+          },
+          {
+            tag: 'SwapForExactTokens',
+            values: [{
+              max_amount_in: preview.swapAmountIn,
+              amount_out: preview.minAmountOut,
+              path: preview.swapPath,
+              swap_provider: params.swapProviderAddress,
+            }],
+          },
+        ]
+      : [
+          {
+            tag: 'FlashBorrow',
+            values: [{
+              amount: preview.flashBorrowAmount,
+              pool_address: params.borrowPoolAddress,
+            }],
+          },
+          {
+            tag: 'SwapExactTokens',
+            values: [{
+              amount_in: preview.swapAmountIn,
+              min_amount_out: preview.minAmountOut,
+              path: preview.swapPath,
+              swap_provider: params.swapProviderAddress,
+            }],
+          },
+          {
+            tag: 'Deposit',
+            values: [{
+              amount: preview.minAmountOut,
+              pool_address: params.depositPoolAddress,
+            }],
+          },
+          {
+            tag: 'Borrow',
+            values: [{
+              amount: preview.finalBorrowAmount,
+              pool_address: params.borrowPoolAddress,
+            }],
+          },
+        ]
 
     const tx = await this.marketClient.submit_requests_batch({
       user: params.user,
@@ -313,6 +340,7 @@ export class MultiplyService extends BaseClient {
       throw new Error('No active borrow found for this multiply position')
     }
 
+    const slippagePercent = this.normalizeSlippage(params.slippagePercent)
     const repayFeeBps = Number(borrowPool.pool.config.fee_config.repay_fee_bps || 0)
     const fullCloseRepayAmountWithoutBuffer = currentBorrowAmount + this.calculateFee(currentBorrowAmount, repayFeeBps)
     const repayBufferAmount = this.calculateCloseRepayBuffer(fullCloseRepayAmountWithoutBuffer)
@@ -342,10 +370,12 @@ export class MultiplyService extends BaseClient {
 
     const routerAddress = await this.getRouterAddress(params.swapProviderAddress)
     const expectedAmountsIn = await this.getExpectedAmountsIn(routerAddress, flashRepaymentAmount, swapPath)
-    const requiredAmountIn = expectedAmountsIn[0]
-    if (requiredAmountIn == null) {
+    const quotedRequiredAmountIn = expectedAmountsIn[0]
+    if (quotedRequiredAmountIn == null) {
       throw new Error('Router did not return an input quote for this multiply close path')
     }
+
+    const requiredAmountIn = this.applySlippageUp(quotedRequiredAmountIn, slippagePercent)
 
     if (requiredAmountIn > currentDepositAmount) {
       throw new Error('Not enough collateral to close this multiply position')
@@ -620,6 +650,33 @@ export class MultiplyService extends BaseClient {
       new Decimal(amount).mul(new Decimal(10).pow(decimals)),
       Decimal.ROUND_DOWN,
     )
+  }
+
+  private applySlippageDown(amount: bigint, slippagePercent: number): bigint {
+    return this.decimalToBigInt(
+      new Decimal(amount.toString()).mul(new Decimal(1).minus(new Decimal(slippagePercent).div(100))),
+      Decimal.ROUND_DOWN,
+    )
+  }
+
+  private applySlippageUp(amount: bigint, slippagePercent: number): bigint {
+    return this.decimalToBigInt(
+      new Decimal(amount.toString()).mul(new Decimal(1).plus(new Decimal(slippagePercent).div(100))),
+      Decimal.ROUND_UP,
+    )
+  }
+
+  private grossUpAmountByFee(amount: bigint, feeBps: number): bigint {
+    if (amount <= 0n || feeBps <= 0) {
+      return amount
+    }
+
+    const denominator = new Decimal(1).minus(new Decimal(feeBps).div(10_000))
+    if (denominator.lte(0)) {
+      throw new Error(`Fee bps must be less than 10000, got ${feeBps}`)
+    }
+
+    return this.decimalToBigInt(new Decimal(amount.toString()).div(denominator), Decimal.ROUND_UP)
   }
 
   private decimalToBigInt(value: Decimal, rounding: Decimal.Rounding): bigint {

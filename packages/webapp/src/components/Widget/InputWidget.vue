@@ -33,7 +33,7 @@ const {
   rules?: Array<(val: string | number) => true | string>
   modelValue?: string | number
   error?: string
-  variant?: 'cyan' | 'indigo' | 'success' | 'accent'
+  variant?: 'cyan' | 'indigo' | 'success' | 'accent' | 'danger'
   reset?: boolean
   symbol?: string
 }>()
@@ -232,6 +232,15 @@ watch(() => modelValue, (v) => {
     --active-border-color: #{$green-500};
     --active-background-color: rgba(0, 201, 80, 0.07);
     --color: #{$success};
+  }
+
+  .danger {
+    --background-color: rgba(201, 0, 87, 0.03);
+    --border-color: rgba(201, 0, 40, 0.3);
+    --btn-bg: rgba(201, 0, 10, 0.15);
+    --active-border-color: rgba(251, 71, 71, 0.6);
+    --active-background-color: rgba(201, 0, 87, 0.07);
+    --color: #{$danger};
   }
 
   .accent {

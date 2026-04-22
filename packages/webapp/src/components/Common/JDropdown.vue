@@ -54,7 +54,7 @@ function dropdownHandler(actionType: 'show' | 'hide') {
     padding: 8px 12px;
 
     &.show {
-      border-color: $border !important;
+      border-color: $border-primary !important;
     }
 
     svg {
@@ -70,13 +70,12 @@ function dropdownHandler(actionType: 'show' | 'hide') {
     align-items: center;
     border-radius: $radius-lg;
     border: 1px solid $border-primary;
-    background-color: $card;
+    background: $popover-bg;
+    backdrop-filter: blur(6px);
     backdrop-filter: blur(5px);
-    color: #fff;
+    color: $text-tertiary;
     font-size: 14px;
     font-style: normal;
-    font-weight: 500;
-    line-height: 20px;
 
     li {
       padding: 6px;

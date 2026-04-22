@@ -12,7 +12,7 @@ const {
   pool?: Pool
   isTrust?: boolean
   loading?: boolean
-  variant?: 'brand' | 'brand-secondary'
+  variant?: 'brand' | 'brand-secondary' | 'positive' | 'negative'
   disabled?: boolean
 } & BButtonProps>()
 

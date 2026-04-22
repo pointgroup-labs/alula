@@ -8,12 +8,14 @@ const {
 } = defineProps<{
   opened?: boolean
   vault?: MultiplyTableItem | MultiplyVaultItem
+  teleportTarget?: HTMLElement
 }>()
 
 const isValidate = ref(true)
 const {
   amount,
   balance,
+  slippage,
   inputLabel,
   marginPrice,
   currentDeposited,
@@ -33,6 +35,7 @@ const {
   isMarginBorrow,
   marginAsset,
   notMarginAsset,
+  swapProviderAddress,
   withdraw,
 } = useMultiplyWithdraw(toRef(() => opened), toRef(() => vault))
 
@@ -41,10 +44,31 @@ async function withdrawLeverage() {
   await withdraw()
   isValidate.value = true
 }
+
+const slippageInput = computed<string | number>({
+  get: () => slippage.value,
+  set: (value) => {
+    if (value === '' || value === null || value === undefined) {
+      slippage.value = 0
+      return
+    }
+
+    const nextValue = Number(value)
+    slippage.value = Number.isFinite(nextValue) ? nextValue : 0
+  },
+})
 </script>
 
 <template>
   <div class="multiply-withdraw-panel">
+    <teleport-content
+      :to="teleportTarget"
+    >
+      <div class="multiply-trade-panel__toolbar">
+        <provider-select v-model="swapProviderAddress" />
+        <slippage-select v-model="slippageInput" />
+      </div>
+    </teleport-content>
     <input-widget
       v-model="amount"
       :balance="balance"
@@ -52,7 +76,7 @@ async function withdrawLeverage() {
       :price="Number(marginPrice || 0)"
       :symbol="marginAsset?.symbol"
       :label-left="inputLabel"
-      variant="indigo"
+      variant="danger"
       :label-right="formatPrice(balance ?? 0, 0, 4)"
       :rules="[
         (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
@@ -151,17 +175,24 @@ async function withdrawLeverage() {
 
         <div class="separator" />
 
-        <div class="info-summary__item">
-          <div class="info-summary__header">
-            Close details
+        <j-accordion
+          class="info-summary__item accordion-summary"
+          title="Fees"
+        >
+          <template #title>
+            <div
+              class="info-summary__header"
+              style="width: 100%;"
+            >
+              Close details
 
-            <j-loading-spinner
-              v-if="previewLoading"
-              width="14px"
-              style="margin-left: auto;"
-            />
-          </div>
-
+              <j-loading-spinner
+                v-if="previewLoading"
+                width="14px"
+                style="margin-left: auto;"
+              />
+            </div>
+          </template>
           <div class="summary-list">
             <div class="summary-list__item">
               <div class="label">Debt repaid</div>
@@ -202,7 +233,7 @@ async function withdrawLeverage() {
               </div>
             </div>
           </div>
-        </div>
+        </j-accordion>
 
         <div class="separator" />
 
@@ -239,7 +270,7 @@ async function withdrawLeverage() {
       <j-btn
         :loading="isLoading"
         :disabled="previewLoading || !!previewError"
-        variant="brand-secondary-outlined"
+        variant="negative"
         size="md"
         class="market-action-btn"
         @click="withdrawLeverage"

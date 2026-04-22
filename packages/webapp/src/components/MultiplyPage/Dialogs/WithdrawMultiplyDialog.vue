@@ -8,28 +8,29 @@ const {
 }>()
 
 const dialog = defineModel({ default: false })
+const headerOptionsRef = ref()
 </script>
 
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="pool-dialog dialog-default"
+    class-name="multiply-dialog dialog-default"
   >
     <template #header>
-      <div class="dialog-default__title">
-        <img
-          :src="data?.asset.icon"
-          :alt="`${data?.asset.symbol} icon`"
-        >
-        <span>Withdraw {{ data?.asset.symbol }}</span>
+      <div class="multiply-dialog__title">
+        <span>Withdraw</span>
       </div>
+
+      <div
+        id="multiply-header-options"
+        ref="headerOptionsRef"
+      />
     </template>
 
-    <div class="dialog-default__body">
-      <withdraw-multiply-window
-        :vault="data"
-        :opened="dialog"
-      />
-    </div>
+    <withdraw-multiply-window
+      :vault="data"
+      :opened="dialog"
+      :teleport-target="headerOptionsRef"
+    />
   </j-dialog>
 </template>

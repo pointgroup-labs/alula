@@ -35,7 +35,7 @@ function isUserHaveMultiply(vault?: MultiplyVaultItem) {
     <div class="supply-card__body">
       <div
         v-if="tabs.length > 1"
-        class="supply-card-tabs mb-4"
+        class="supply-card-tabs mb-3"
       >
         <div
           v-for="tab in tabs"

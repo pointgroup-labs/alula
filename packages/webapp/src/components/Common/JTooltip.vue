@@ -168,6 +168,7 @@ $tooltip-border-color: $border-primary;
   font-weight: 400;
   line-height: 16px;
   max-width: 300px;
+  overflow-wrap: anywhere;
   word-break: break-word;
   box-shadow: 0 8px 64px 0 rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(6px);

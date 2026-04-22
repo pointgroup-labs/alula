@@ -21,6 +21,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const amount = ref<number | undefined>()
   const slippage = ref(0.5)
   const percentFromMax = ref(85)
+  const swapProviderAddress = ref(SOROSWAP_PROVIDER_ADDRESS)
   const preview = ref<MultiplyPreview>()
   const loadingPreview = ref(false)
   const previewError = ref<string>()
@@ -66,7 +67,6 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     return (supplyApy * selectedMultiplier.value - borrowApy * Math.max(selectedMultiplier.value - 1, 0)) * 100
   })
 
-  const borrowPool = computed(() => vault.value?.borrowPoolData)
   const marginPool = computed(() => isMarginBorrow.value ? vault.value?.borrowPoolData : vault.value?.depositPoolData)
   const marginPrice = computed(() => isMarginBorrow.value ? vault.value?.borrowPoolPrice : vault.value?.price)
 
@@ -82,14 +82,14 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     return getAssetBalance(String(issuer))
   })
 
-  const flashLoanFeeBps = computed(() => Number(borrowPool.value?.pool.config.fee_config.flash_loan_fee_bps || 0))
+  const flashLoanFeeBps = computed(() => Number(marginPool.value?.pool.config.fee_config.flash_loan_fee_bps || 0))
 
   const availableBorrowLiquidity = computed(() => {
-    if (!borrowPool.value) {
+    if (!marginPool.value) {
       return 0
     }
 
-    const pool = borrowPool.value
+    const pool = marginPool.value
     const decimals = pool.pool.token_decimals
     const totalSupply = Number(bigintToNumber(pool.total_supply, decimals))
     const totalBorrowed = Number(bigintToNumber(pool.pool.total_borrowed, decimals))
@@ -143,10 +143,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     }
 
     const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
+    const marginDecimals = marginPool.value?.pool.token_decimals || borrowDecimals
     const depositDecimals = vault.value.depositPoolData.pool.token_decimals
 
     return {
-      flashBorrowAmount: Number(bigintToNumber(preview.value.flashBorrowAmount, borrowDecimals)),
+      flashBorrowAmount: Number(bigintToNumber(preview.value.flashBorrowAmount, marginDecimals)),
       swapAmountIn: Number(bigintToNumber(preview.value.swapAmountIn, borrowDecimals)),
       expectedAmountOut: Number(bigintToNumber(preview.value.expectedAmountOut, depositDecimals)),
       minAmountOut: Number(bigintToNumber(preview.value.minAmountOut, depositDecimals)),
@@ -161,31 +162,23 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       return 0
     }
 
-    const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
-    const borrowFeeAmount = Number(
+    if (isMarginBorrow.value) {
+      const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
+      return Number(
+        bigintToNumber(
+          preview.value.finalBorrowAmount - preview.value.flashBorrowAmount,
+          borrowDecimals,
+        ),
+      )
+    }
+
+    const depositDecimals = vault.value.depositPoolData.pool.token_decimals
+    return Number(
       bigintToNumber(
-        preview.value.finalBorrowAmount - preview.value.flashBorrowAmount,
-        borrowDecimals,
+        preview.value.flashRepaymentAmount - preview.value.flashBorrowAmount,
+        depositDecimals,
       ),
     )
-
-    if (isMarginBorrow.value) {
-      return borrowFeeAmount
-    }
-
-    if (!marketState.value) {
-      return 0
-    }
-
-    const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
-    const depositPrice = Number(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals))
-    const borrowPrice = Number(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals))
-
-    if (depositPrice <= 0 || borrowPrice <= 0) {
-      return 0
-    }
-
-    return borrowFeeAmount * (borrowPrice / depositPrice)
   })
 
   const unhealthyReason = computed(() => {
@@ -242,7 +235,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
         leverageMultiplier: selectedMultiplier.value,
         marginAsset: marginAssetType.value,
         slippagePercent: slippage.value,
-        swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
+        swapProviderAddress: swapProviderAddress.value,
         path: swapPath.value,
       })
     } catch (error: any) {
@@ -274,7 +267,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       leverage_multiplier: selectedMultiplier.value,
       margin_asset: marginAssetType.value,
       slippage: slippage.value,
-      swap_provider: SOROSWAP_PROVIDER_ADDRESS,
+      swap_provider: swapProviderAddress.value,
       path: swapPath.value,
       action: async () => {
         await Promise.allSettled([
@@ -315,6 +308,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     selectedMultiplier,
     vault,
     activeClient,
+    swapProviderAddress,
   ], refreshPreview, { debounce: 250, maxWait: 1000 })
 
   onScopeDispose(() => {
@@ -344,6 +338,6 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     previewError,
     openMultiply,
     reset,
-    swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
+    swapProviderAddress,
   }
 }
