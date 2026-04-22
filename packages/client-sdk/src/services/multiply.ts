@@ -42,6 +42,7 @@ export interface CloseMultiplyPreviewParams {
   borrowPoolAddress: string
   marginAsset?: MultiplyMarginAsset
   repayAmount?: string | number
+  slippagePercent?: number
   swapProviderAddress: string
   path?: string[]
 }
@@ -339,6 +340,7 @@ export class MultiplyService extends BaseClient {
       throw new Error('No active borrow found for this multiply position')
     }
 
+    const slippagePercent = this.normalizeSlippage(params.slippagePercent)
     const repayFeeBps = Number(borrowPool.pool.config.fee_config.repay_fee_bps || 0)
     const fullCloseRepayAmountWithoutBuffer = currentBorrowAmount + this.calculateFee(currentBorrowAmount, repayFeeBps)
     const repayBufferAmount = this.calculateCloseRepayBuffer(fullCloseRepayAmountWithoutBuffer)
@@ -368,10 +370,12 @@ export class MultiplyService extends BaseClient {
 
     const routerAddress = await this.getRouterAddress(params.swapProviderAddress)
     const expectedAmountsIn = await this.getExpectedAmountsIn(routerAddress, flashRepaymentAmount, swapPath)
-    const requiredAmountIn = expectedAmountsIn[0]
-    if (requiredAmountIn == null) {
+    const quotedRequiredAmountIn = expectedAmountsIn[0]
+    if (quotedRequiredAmountIn == null) {
       throw new Error('Router did not return an input quote for this multiply close path')
     }
+
+    const requiredAmountIn = this.applySlippageUp(quotedRequiredAmountIn, slippagePercent)
 
     if (requiredAmountIn > currentDepositAmount) {
       throw new Error('Not enough collateral to close this multiply position')

@@ -127,7 +127,9 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
       return 0
     }
 
-    return Number(bigintToNumber(preview.value.estimatedReceiveAmount, depositDecimals.value)) || 0
+    return preview.value.marginAsset === 'borrow'
+      ? Number(bigintToNumber(preview.value.estimatedReceiveAmount, borrowDecimals.value)) || 0
+      : Number(bigintToNumber(preview.value.estimatedReceiveAmount, depositDecimals.value)) || 0
   })
 
   const debtRepaidAmount = computed(() => {
@@ -187,7 +189,9 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   }
 
   function getPreviewReceiveAmount(sourcePreview: CloseMultiplyPreview) {
-    return toDepositAmount(sourcePreview.estimatedReceiveAmount)
+    return sourcePreview.marginAsset === 'borrow'
+      ? toBorrowAmount(sourcePreview.estimatedReceiveAmount)
+      : toDepositAmount(sourcePreview.estimatedReceiveAmount)
   }
 
   function getPreviewMinReceiveAmount(sourcePreview: CloseMultiplyPreview) {
@@ -197,7 +201,9 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   }
 
   function getMaxReceivableAmount(sourcePreview: CloseMultiplyPreview) {
-    return toDepositAmount(sourcePreview.maxReceivableAmount)
+    return sourcePreview.marginAsset === 'borrow'
+      ? toBorrowAmount(sourcePreview.maxReceivableAmount)
+      : toDepositAmount(sourcePreview.maxReceivableAmount)
   }
 
   function makeReceiveCacheKey(targetReceiveAmount: number) {
