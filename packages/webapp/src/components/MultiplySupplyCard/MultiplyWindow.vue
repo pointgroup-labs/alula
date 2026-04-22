@@ -216,7 +216,7 @@ const slippageRules = [
               <div class="label">Borrow liquidity</div>
               <div class="value">
                 <div class="text-end">
-                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ vault.borrowAsset.symbol }}
+                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ marginAsset?.symbol }}
                 </div>
               </div>
             </div>
@@ -267,26 +267,26 @@ const slippageRules = [
             <div class="summary-list__item">
               <div class="label">Flash borrow</div>
               <div class="value">
-                {{ shortenNumber(summary.flashBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.flashBorrowAmount || 0)) }} {{ vault.borrowAsset.symbol }}
+                {{ shortenNumber(summary.flashBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.flashBorrowAmount || 0)) }} {{ marginAsset?.symbol }}
               </div>
             </div>
 
             <div class="summary-list__item">
               <div class="label">Total swap in</div>
               <div class="value">
-                {{ shortenNumber(summary.swapAmountIn || 0, 2, maxDecimalsForShortenNumber(summary.swapAmountIn || 0)) }} {{ vault.borrowAsset.symbol }}
+                {{ shortenNumber(summary.swapAmountIn || 0, 2, maxDecimalsForShortenNumber(summary.swapAmountIn || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
               </div>
             </div>
 
             <div class="summary-list__item">
-              <div class="label">Expected out</div>
+              <div class="label">{{ isMarginBorrow ? 'Expected out' : 'Flash repay target' }}</div>
               <div class="value">
                 {{ shortenNumber(summary.expectedAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.expectedAmountOut || 0)) }} {{ vault.asset.symbol }}
               </div>
             </div>
 
             <div class="summary-list__item">
-              <div class="label">Min deposit</div>
+              <div class="label">{{ isMarginBorrow ? 'Min deposit' : 'Swap out target' }}</div>
               <div class="value">
                 {{ shortenNumber(summary.minAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.minAmountOut || 0)) }} {{ vault.asset.symbol }}
               </div>
@@ -302,7 +302,7 @@ const slippageRules = [
             <div class="summary-list__item">
               <div class="label">Final borrow</div>
               <div class="value">
-                {{ shortenNumber(summary.finalBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.finalBorrowAmount || 0)) }} {{ vault.borrowAsset.symbol }}
+                {{ shortenNumber(summary.finalBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.finalBorrowAmount || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
               </div>
             </div>
 
