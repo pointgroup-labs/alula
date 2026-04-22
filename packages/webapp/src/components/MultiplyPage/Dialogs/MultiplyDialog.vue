@@ -8,6 +8,8 @@ const {
 }>()
 
 const dialog = defineModel<boolean>({ default: false })
+
+const headerOptionsRef = ref()
 </script>
 
 <template>
@@ -19,12 +21,18 @@ const dialog = defineModel<boolean>({ default: false })
       <div class="multiply-dialog__title">
         Open Multiply
       </div>
+
+      <div
+        id="multiply-header-options"
+        ref="headerOptionsRef"
+      />
     </template>
 
     <multiply-window
       v-if="data"
       :vault="data"
       compact
+      :teleport-target="headerOptionsRef"
     />
   </j-dialog>
 </template>
@@ -47,6 +55,28 @@ const dialog = defineModel<boolean>({ default: false })
     padding: 24px 24px 16px;
     border-bottom: 1px solid $surface-neutral-08;
     background: transparent;
+
+    .close-icon {
+      margin-left: 0 !important;
+    }
+
+    #multiply-header-options {
+      margin-left: auto;
+      margin-right: 10px;
+    }
+
+    .multiply-trade-panel__toolbar {
+      margin: 0;
+
+      .slippage-select-input {
+        margin-bottom: 0 !important;
+      }
+
+      .validate-label {
+        left: auto;
+        bottom: -18px;
+      }
+    }
   }
 
   .modal-body {

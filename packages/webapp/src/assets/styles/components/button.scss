@@ -122,6 +122,20 @@ $btn-variants: (
     focusBg: lighten($cyan, 10%),
   ),
 
+  positive: (
+    bg: $success,
+    color: $dark,
+    hoverBg: lighten($success, 10%),
+    focusBg: lighten($success, 10%),
+  ),
+
+  negative: (
+    bg: $danger,
+    color: $dark,
+    hoverBg: lighten($danger, 10%),
+    focusBg: lighten($danger, 10%),
+  ),
+
   outline-accent: (
     bg: transparent,
     color: rgba(232, 237, 245, 0.7),
