@@ -218,7 +218,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   })
 
   async function refreshPreview() {
-    if (!vault.value || !activeClient.value || !amount.value || amount.value <= 0 || selectedMultiplier.value <= 1) {
+    if (!vault.value || !activeClient.value || !amount.value || amount.value <= 0 || selectedMultiplier.value <= 1 || !publicKey.value) {
       preview.value = undefined
       previewError.value = undefined
       return
