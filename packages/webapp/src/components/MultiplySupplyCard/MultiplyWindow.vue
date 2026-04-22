@@ -31,6 +31,7 @@ const {
   marginAsset,
   marginPrice,
   notMarginAsset,
+  swapProviderAddress,
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
 
@@ -82,7 +83,7 @@ const amountRules = computed(() => [
         :to="teleportTarget"
       >
         <div class="multiply-trade-panel__toolbar">
-          <provider-select />
+          <provider-select v-model="swapProviderAddress" />
           <slippage-select v-model="slippageInput" />
         </div>
       </teleport-content>
@@ -150,6 +151,13 @@ const amountRules = computed(() => [
       :max-multiply="vault.maxMultiplier"
       :net-apy="currentApy"
       :pool="vault.depositPoolData"
+    />
+
+    <warning-block
+      v-if="previewError"
+      class="mt-3"
+      title="Repay Multiply"
+      :text="previewError"
     />
 
     <Transition name="summary-slide">
@@ -220,19 +228,7 @@ const amountRules = computed(() => [
           <div class="summary-list">
             <div class="info-summary__item">
               <div
-                v-if="previewError"
-                class="summary-list"
-              >
-                <div class="summary-list__item mb-2">
-                  <div class="label">Quote</div>
-                  <div class="value">
-                    {{ previewError }}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                v-else-if="loadingPreview && !summary"
+                v-if="loadingPreview && !summary"
                 class="summary-list"
               >
                 <div class="summary-list__item mb-2">

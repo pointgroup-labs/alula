@@ -8,10 +8,29 @@ const providerIcons = {
   soroswap: soroswapLogo,
 }
 
+const swapProviderAddress = defineModel({ default: '' })
+
 const providers = computed(() => {
-  return Object.entries(SWAP_PROVIDERS).map(([name, provider]) => ({ label: name, value: provider, icon: providerIcons[name as keyof typeof providerIcons] }))
+  return Object.entries(SWAP_PROVIDERS).map(([name, provider]) => {
+    return { label: name, value: provider, icon: providerIcons[name as keyof typeof providerIcons] }
+  })
 })
 const selectedProvider = ref(providers.value[0])
+
+watch(selectedProvider, (provider) => {
+  if (!provider?.value) {
+    return
+  }
+  swapProviderAddress.value = provider.value
+})
+
+const stop = watchDebounced(swapProviderAddress, (address) => {
+  if (!address) {
+    return
+  }
+  selectedProvider.value = providers.value.find(p => p.value === address) ?? providers.value[0]
+  stop()
+}, { immediate: true, debounce: 300 })
 </script>
 
 <template>

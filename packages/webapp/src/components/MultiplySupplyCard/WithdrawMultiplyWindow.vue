@@ -35,6 +35,7 @@ const {
   isMarginBorrow,
   marginAsset,
   notMarginAsset,
+  swapProviderAddress,
   withdraw,
 } = useMultiplyWithdraw(toRef(() => opened), toRef(() => vault))
 
@@ -64,7 +65,7 @@ const slippageInput = computed<string | number>({
       :to="teleportTarget"
     >
       <div class="multiply-trade-panel__toolbar">
-        <provider-select />
+        <provider-select v-model="swapProviderAddress" />
         <slippage-select v-model="slippageInput" />
       </div>
     </teleport-content>

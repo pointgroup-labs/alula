@@ -21,6 +21,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const amount = ref<number | undefined>()
   const slippage = ref(0.5)
   const percentFromMax = ref(85)
+  const swapProviderAddress = ref(SOROSWAP_PROVIDER_ADDRESS)
   const preview = ref<MultiplyPreview>()
   const loadingPreview = ref(false)
   const previewError = ref<string>()
@@ -234,7 +235,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
         leverageMultiplier: selectedMultiplier.value,
         marginAsset: marginAssetType.value,
         slippagePercent: slippage.value,
-        swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
+        swapProviderAddress: swapProviderAddress.value,
         path: swapPath.value,
       })
     } catch (error: any) {
@@ -266,7 +267,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       leverage_multiplier: selectedMultiplier.value,
       margin_asset: marginAssetType.value,
       slippage: slippage.value,
-      swap_provider: SOROSWAP_PROVIDER_ADDRESS,
+      swap_provider: swapProviderAddress.value,
       path: swapPath.value,
       action: async () => {
         await Promise.allSettled([
@@ -307,6 +308,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     selectedMultiplier,
     vault,
     activeClient,
+    swapProviderAddress,
   ], refreshPreview, { debounce: 250, maxWait: 1000 })
 
   onScopeDispose(() => {
@@ -336,6 +338,6 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     previewError,
     openMultiply,
     reset,
-    swapProviderAddress: SOROSWAP_PROVIDER_ADDRESS,
+    swapProviderAddress,
   }
 }

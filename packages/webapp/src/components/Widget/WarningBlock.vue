@@ -41,6 +41,8 @@ const {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 
     // &--warning {
     // }
