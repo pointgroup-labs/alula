@@ -298,7 +298,7 @@ export default defineNuxtConfig({
       },
       title: process.env.NUXT_PUBLIC_APP_TITLE ?? 'Alula',
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon-light.svg', media: '(prefers-color-scheme: light)' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon-dark.svg', media: '(prefers-color-scheme: light)' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg', media: '(prefers-color-scheme: dark)' },
         // Preconnect wallet connect
         { rel: 'preconnect', href: 'https://walletconnect.com', crossorigin: '' },
