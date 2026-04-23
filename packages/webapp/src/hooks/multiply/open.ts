@@ -153,7 +153,6 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       minAmountOut: Number(bigintToNumber(preview.value.minAmountOut, depositDecimals)),
       depositAmount: Number(bigintToNumber(preview.value.depositAmount, depositDecimals)),
       finalBorrowAmount: Number(bigintToNumber(preview.value.finalBorrowAmount, borrowDecimals)),
-      routerAddress: preview.value.routerAddress,
     }
   })
 
@@ -162,21 +161,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       return 0
     }
 
-    if (isMarginBorrow.value) {
-      const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
-      return Number(
-        bigintToNumber(
-          preview.value.finalBorrowAmount - preview.value.flashBorrowAmount,
-          borrowDecimals,
-        ),
-      )
-    }
-
-    const depositDecimals = vault.value.depositPoolData.pool.token_decimals
+    const marginDecimals = marginPool.value?.pool.token_decimals || vault.value.borrowPoolData.pool.token_decimals
     return Number(
       bigintToNumber(
         preview.value.flashRepaymentAmount - preview.value.flashBorrowAmount,
-        depositDecimals,
+        marginDecimals,
       ),
     )
   })

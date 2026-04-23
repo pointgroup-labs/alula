@@ -50,8 +50,8 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   const marginPrice = computed(() => isMarginBorrow.value ? data.value?.borrowPoolPrice : data.value?.price)
   const borrowDecimals = computed(() => data.value?.borrowPoolData.pool.token_decimals || 7)
   const depositDecimals = computed(() => data.value?.depositPoolData.pool.token_decimals || 7)
-  const inputLabel = computed(() => isMarginBorrow.value ? 'Repay amount' : 'Receive amount')
-  const maxAmountLabel = computed(() => isMarginBorrow.value ? 'Max repay' : 'Max receive')
+  const inputLabel = computed(() => isMarginBorrow.value ? 'Flash repay target' : 'Receive amount')
+  const maxAmountLabel = computed(() => isMarginBorrow.value ? 'Max flash repay' : 'Max receive')
   const currentFullClosePreview = computed(() => fullClosePreviews.value[marginAssetType.value])
 
   const swapPath = computed(() => {

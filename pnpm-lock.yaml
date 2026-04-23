@@ -42,6 +42,9 @@ importers:
       '@stellar/stellar-sdk':
         specifier: ^14.1.1
         version: 14.4.3
+      aqua_swap_provider:
+        specifier: link:../sdk/aqua_swap_provider
+        version: link:../sdk/aqua_swap_provider
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0

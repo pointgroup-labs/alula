@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "pnpm build:sdk && nuxt dev",
     "build": "nuxt generate",
-    "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build && pnpm --dir ../sdk/soroswap_router build && pnpm --dir ../sdk/soroswap_swap_provider build",
+    "build:market-sdk": "pnpm --dir ../sdk/market build && pnpm --dir ../sdk/market_manager build && pnpm --dir ../sdk/aqua_swap_provider build && pnpm --dir ../sdk/soroswap_swap_provider build",
     "build:client-sdk": "pnpm -r --filter @alula/client-sdk run build",
     "build:sdk": "pnpm build:market-sdk && pnpm build:client-sdk",
     "build:ssg": "pnpm build:sdk && nuxt generate",

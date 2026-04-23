@@ -2,10 +2,10 @@ import type { BorrowPosition, DepositPosition, Obligation, ObligationKey, PoolDa
 import type { DecimalsConfig } from '../config/decimals'
 import type { RPCcluster } from '../types'
 import { Client as MarketClient } from '@alula/market-sdk'
+import { Client as AquaSwapProviderClient } from 'aqua_swap_provider'
 import Decimal from 'decimal.js'
-import { Client as SoroswapRouterClient } from 'soroswap_router'
 import { Client as SoroswapSwapProviderClient } from 'soroswap_swap_provider'
-import { MAX_I128 } from '../constants'
+import { AQUA_PROVIDER_ADDRESS, MAX_I128 } from '../constants'
 import { BaseClient } from '../core/base-client'
 import { TransactionHelper } from '../core/transaction-builder'
 
@@ -61,7 +61,6 @@ export interface MultiplyPreview {
   flashLoanFeeBps: number
   swapPath: string[]
   swapProviderAddress: string
-  routerAddress: string
   initialAmount: bigint
   flashBorrowAmount: bigint
   flashRepaymentAmount: bigint
@@ -86,7 +85,6 @@ export interface CloseMultiplyPreview {
   flashRepaymentAmount: bigint
   swapPath: string[]
   swapProviderAddress: string
-  routerAddress: string
   withdrawAmount: bigint
   depositReceiveAmount: bigint
   estimatedReceiveAmount: bigint
@@ -119,7 +117,6 @@ export class MultiplyService extends BaseClient {
   private txHelper: TransactionHelper
   private CACHE_TTL = 10000
   private poolCache = new Map<string, { data: PoolData, ts: number }>()
-  private routerCache = new Map<string, string>()
   private obligationCache = new Map<string, { data: Obligation, ts: number }>()
 
   constructor(config: MultiplyServiceConfig) {
@@ -162,7 +159,6 @@ export class MultiplyService extends BaseClient {
     }
 
     const swapPath = params.path?.length ? params.path : [borrowPool.pool.token_address, depositPool.pool.token_address]
-    const routerAddress = await this.getRouterAddress(params.swapProviderAddress)
     const borrowFeeBps = Number(borrowPool.pool.config.fee_config.borrow_fee_bps || 0)
     let flashBorrowAmount: bigint
     let flashRepaymentAmount: bigint
@@ -181,7 +177,7 @@ export class MultiplyService extends BaseClient {
       swapAmountIn = initialAmount + flashBorrowAmount
       flashLoanFeeBps = Number(borrowPool.pool.config.fee_config.flash_loan_fee_bps || 0)
 
-      const expectedAmountsOut = await this.getExpectedAmountsOut(routerAddress, swapAmountIn, swapPath)
+      const expectedAmountsOut = await this.getExpectedAmountsOut(params.swapProviderAddress, swapAmountIn, swapPath)
       expectedAmountOut = expectedAmountsOut[expectedAmountsOut.length - 1]
       if (expectedAmountOut == null) {
         throw new Error('Router did not return an output quote for this multiply swap path')
@@ -189,8 +185,8 @@ export class MultiplyService extends BaseClient {
 
       minAmountOut = this.applySlippageDown(expectedAmountOut, slippagePercent)
       depositAmount = minAmountOut
-      flashRepaymentAmount = this.grossUpAmountByFee(flashBorrowAmount, flashLoanFeeBps)
-      finalBorrowAmount = flashRepaymentAmount
+      flashRepaymentAmount = flashBorrowAmount + this.calculateFee(flashBorrowAmount, flashLoanFeeBps)
+      finalBorrowAmount = this.grossUpAmountByFee(flashRepaymentAmount, borrowFeeBps)
     } else {
       flashBorrowAmount = this.decimalToBigInt(
         new Decimal(initialAmount.toString()).mul(leverageMultiplier.minus(1)),
@@ -202,22 +198,19 @@ export class MultiplyService extends BaseClient {
       }
 
       flashLoanFeeBps = Number(depositPool.pool.config.fee_config.flash_loan_fee_bps || 0)
-      flashRepaymentAmount = this.grossUpAmountByFee(flashBorrowAmount, flashLoanFeeBps)
+      flashRepaymentAmount = flashBorrowAmount + this.calculateFee(flashBorrowAmount, flashLoanFeeBps)
       expectedAmountOut = flashRepaymentAmount
-      minAmountOut = this.applySlippageUp(
-        this.grossUpAmountByFee(flashRepaymentAmount, borrowFeeBps),
-        slippagePercent,
-      )
+      minAmountOut = flashRepaymentAmount
 
-      const expectedAmountsIn = await this.getExpectedAmountsIn(routerAddress, minAmountOut, swapPath)
+      const expectedAmountsIn = await this.getExpectedAmountsIn(params.swapProviderAddress, flashRepaymentAmount, swapPath)
       const quotedBorrowAmount = expectedAmountsIn[0]
       if (quotedBorrowAmount == null || quotedBorrowAmount <= 0n) {
         throw new Error('Router did not return an input quote for this multiply swap path')
       }
 
-      swapAmountIn = quotedBorrowAmount
+      swapAmountIn = this.applySlippageUp(quotedBorrowAmount, slippagePercent)
       depositAmount = initialAmount + flashBorrowAmount
-      finalBorrowAmount = quotedBorrowAmount
+      finalBorrowAmount = this.grossUpAmountByFee(swapAmountIn, borrowFeeBps)
     }
 
     return {
@@ -229,7 +222,6 @@ export class MultiplyService extends BaseClient {
       flashLoanFeeBps,
       swapPath,
       swapProviderAddress: params.swapProviderAddress,
-      routerAddress,
       initialAmount,
       flashBorrowAmount,
       flashRepaymentAmount,
@@ -270,7 +262,7 @@ export class MultiplyService extends BaseClient {
             tag: 'SwapForExactTokens',
             values: [{
               max_amount_in: preview.swapAmountIn,
-              amount_out: preview.minAmountOut,
+              amount_out: preview.flashRepaymentAmount,
               path: preview.swapPath,
               swap_provider: params.swapProviderAddress,
             }],
@@ -342,20 +334,18 @@ export class MultiplyService extends BaseClient {
 
     const slippagePercent = this.normalizeSlippage(params.slippagePercent)
     const repayFeeBps = Number(borrowPool.pool.config.fee_config.repay_fee_bps || 0)
-    const fullCloseRepayAmountWithoutBuffer = currentBorrowAmount + this.calculateFee(currentBorrowAmount, repayFeeBps)
-    const repayBufferAmount = this.calculateCloseRepayBuffer(fullCloseRepayAmountWithoutBuffer)
-    const maxRepayAmount = fullCloseRepayAmountWithoutBuffer + repayBufferAmount
+    const fullCloseRepayAmount = currentBorrowAmount + this.calculateCloseRepayBuffer(currentBorrowAmount)
 
     const requestedRepayAmount = params.repayAmount == null
-      ? maxRepayAmount
+      ? fullCloseRepayAmount
       : this.amountToBigInt(params.repayAmount, borrowPool.pool.token_decimals)
 
     if (requestedRepayAmount <= 0n) {
       throw new Error('Repay amount must be greater than 0')
     }
 
-    const isFullClose = requestedRepayAmount >= maxRepayAmount
-    const repayAmount = isFullClose ? maxRepayAmount : requestedRepayAmount
+    const isFullClose = requestedRepayAmount >= fullCloseRepayAmount
+    const repayAmount = isFullClose ? fullCloseRepayAmount : requestedRepayAmount
     const debtRepaidAmount = isFullClose
       ? currentBorrowAmount
       : this.calculatePartialDebtRepaidAmount(repayAmount, repayFeeBps, currentBorrowAmount)
@@ -368,8 +358,7 @@ export class MultiplyService extends BaseClient {
       ? params.path
       : [depositPool.pool.token_address, borrowPool.pool.token_address]
 
-    const routerAddress = await this.getRouterAddress(params.swapProviderAddress)
-    const expectedAmountsIn = await this.getExpectedAmountsIn(routerAddress, flashRepaymentAmount, swapPath)
+    const expectedAmountsIn = await this.getExpectedAmountsIn(params.swapProviderAddress, flashRepaymentAmount, swapPath)
     const quotedRequiredAmountIn = expectedAmountsIn[0]
     if (quotedRequiredAmountIn == null) {
       throw new Error('Router did not return an input quote for this multiply close path')
@@ -399,8 +388,8 @@ export class MultiplyService extends BaseClient {
     let maxReceivableAmount = maxReceivableDepositAmount
 
     if (marginAsset === 'borrow') {
-      estimatedReceiveAmount = await this.quoteSwapExactOut(routerAddress, depositReceiveAmount, swapPath)
-      maxReceivableAmount = await this.quoteSwapExactOut(routerAddress, maxReceivableDepositAmount, swapPath)
+      estimatedReceiveAmount = await this.quoteSwapExactOut(params.swapProviderAddress, depositReceiveAmount, swapPath)
+      maxReceivableAmount = await this.quoteSwapExactOut(params.swapProviderAddress, maxReceivableDepositAmount, swapPath)
     }
 
     return {
@@ -409,7 +398,7 @@ export class MultiplyService extends BaseClient {
       marginAsset,
       currentDepositAmount,
       currentBorrowAmount,
-      maxRepayAmount,
+      maxRepayAmount: fullCloseRepayAmount,
       repayAmount,
       debtRepaidAmount,
       flashBorrowAmount,
@@ -417,7 +406,6 @@ export class MultiplyService extends BaseClient {
       flashRepaymentAmount,
       swapPath,
       swapProviderAddress: params.swapProviderAddress,
-      routerAddress,
       withdrawAmount,
       depositReceiveAmount,
       estimatedReceiveAmount,
@@ -583,66 +571,50 @@ export class MultiplyService extends BaseClient {
     return data
   }
 
-  private async getRouterAddress(swapProviderAddress: string): Promise<string> {
-    const cached = this.routerCache.get(swapProviderAddress)
-    if (cached) {
-      return cached
-    }
+  private async getExpectedAmountsOut(swapProviderAddress: string, amountIn: bigint, path: string[]): Promise<bigint[]> {
+    const providerClient = this.getSwapProviderClient(swapProviderAddress)
 
-    const providerClient = new SoroswapSwapProviderClient({
-      publicKey: this.publicKey,
-      rpcUrl: this.getSorobanRpcUrl(),
-      contractId: swapProviderAddress,
-      networkPassphrase: this.networkPassphrase,
-    })
-
-    const response = await providerClient.get_router()
-    const router = String(response.result)
-
-    this.routerCache.set(swapProviderAddress, router)
-
-    return router
-  }
-
-  private async getExpectedAmountsOut(routerAddress: string, amountIn: bigint, path: string[]): Promise<bigint[]> {
-    const routerClient = new SoroswapRouterClient({
-      publicKey: this.publicKey,
-      rpcUrl: this.getSorobanRpcUrl(),
-      contractId: routerAddress,
-      networkPassphrase: this.networkPassphrase,
-    })
-
-    const response = await routerClient.router_get_amounts_out({
+    const response = await providerClient.get_amount_out({
       amount_in: amountIn,
       path,
     })
 
-    return this.unwrapOk(response.result)
+    return [amountIn, response.result]
   }
 
-  private async getExpectedAmountsIn(routerAddress: string, amountOut: bigint, path: string[]): Promise<bigint[]> {
-    const routerClient = new SoroswapRouterClient({
-      publicKey: this.publicKey,
-      rpcUrl: this.getSorobanRpcUrl(),
-      contractId: routerAddress,
-      networkPassphrase: this.networkPassphrase,
-    })
+  private async getExpectedAmountsIn(swapProviderAddress: string, amountOut: bigint, path: string[]): Promise<bigint[]> {
+    const providerClient = this.getSwapProviderClient(swapProviderAddress)
 
-    const response = await routerClient.router_get_amounts_in({
+    const response = await providerClient.get_amount_in({
       amount_out: amountOut,
       path,
     })
 
-    return this.unwrapOk(response.result)
+    return [response.result, amountOut]
   }
 
-  private async quoteSwapExactOut(routerAddress: string, amountIn: bigint, path: string[]): Promise<bigint> {
+  private async quoteSwapExactOut(swapProviderAddress: string, amountIn: bigint, path: string[]): Promise<bigint> {
     if (amountIn <= 0n) {
       return 0n
     }
 
-    const expectedAmountsOut = await this.getExpectedAmountsOut(routerAddress, amountIn, path)
+    const expectedAmountsOut = await this.getExpectedAmountsOut(swapProviderAddress, amountIn, path)
     return expectedAmountsOut[expectedAmountsOut.length - 1] ?? 0n
+  }
+
+  private getSwapProviderClient(swapProviderAddress: string) {
+    const options = {
+      publicKey: this.publicKey,
+      rpcUrl: this.getSorobanRpcUrl(),
+      contractId: swapProviderAddress,
+      networkPassphrase: this.networkPassphrase,
+    }
+
+    if (swapProviderAddress === AQUA_PROVIDER_ADDRESS) {
+      return new AquaSwapProviderClient(options)
+    }
+
+    return new SoroswapSwapProviderClient(options)
   }
 
   private amountToBigInt(amount: string | number, decimals: number): bigint {
