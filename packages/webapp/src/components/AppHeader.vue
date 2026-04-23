@@ -2,10 +2,11 @@
 import marketsTabIcon from '~/assets/img/icons/chart-square-icon.svg?raw'
 import multiplyTabIcon from '~/assets/img/icons/percentage-square-icon.svg?raw'
 import accountTabIcon from '~/assets/img/icons/scan-barcode-icon.svg?raw'
+import { useFeatureToggle } from '~/features/features-toggle'
 
 const { width } = useWindowSize()
 
-const { isDev } = useAppEnv()
+const { isEnabled } = useFeatureToggle()
 
 const route = useRoute()
 
@@ -22,7 +23,7 @@ const tabs = computed(() => {
     shortLabel: 'Portfolio',
   }]
 
-  if (isDev) {
+  if (isEnabled('multiply')) {
     const devTab = {
       label: 'Multiply',
       route: '/multiply',

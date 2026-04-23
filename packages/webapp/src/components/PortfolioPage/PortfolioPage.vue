@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-const { isDev } = useAppEnv()
 </script>
 
 <template>
@@ -9,15 +8,16 @@ const { isDev } = useAppEnv()
       <portfolio-borrow-table />
     </div>
 
-    <div
-      v-if="isDev"
-      class="portfolio-multiply__cards card"
-    >
-      <div class="portfolio-card__title">
-        My Multiplied Positions
+    <features-toggle feature="multiply">
+      <div
+        class="portfolio-multiply__cards card"
+      >
+        <div class="portfolio-card__title">
+          My Multiplied Positions
+        </div>
+        <portfolio-multiply-table only-multiplied />
       </div>
-      <portfolio-multiply-table only-multiplied />
-    </div>
+    </features-toggle>
   </main>
 </template>
 

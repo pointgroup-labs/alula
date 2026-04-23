@@ -12,6 +12,10 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+const isDev
+  = process.env.NODE_ENV === 'development'
+    || process.env.NUXT_PUBLIC_APP_ENV === 'dev'
+
 export default defineNuxtConfig({
   // @ts-expect-error...
   srcDir: 'src/',
@@ -30,6 +34,11 @@ export default defineNuxtConfig({
   components: [
     {
       path: '~/components',
+      pathPrefix: false,
+    },
+    {
+      path: '~/features',
+      extensions: ['vue'],
       pathPrefix: false,
     },
   ],
@@ -110,7 +119,6 @@ export default defineNuxtConfig({
           // api: 'modern-compiler',
           // Optimize for production
           // outputStyle: isProd ? 'compressed' : 'expanded',
-          // sourceMap: isDev,
         },
       },
     },
@@ -204,6 +212,10 @@ export default defineNuxtConfig({
       TWITTER_TITLE: process.env.NUXT_PUBLIC_TWITTER_TITLE,
       TWITTER_DESCRIPTION: process.env.NUXT_PUBLIC_TWITTER_DESCRIPTION,
       APP_ENV: process.env.NUXT_PUBLIC_APP_ENV,
+      featureToggle: {
+        multiply: isDev,
+        network: isDev,
+      },
     },
   },
   routeRules: {

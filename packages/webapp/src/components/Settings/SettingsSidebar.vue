@@ -1,9 +1,13 @@
 <script lang="ts" setup>
+import { useFeatureToggle } from '~/features/features-toggle'
+
 const { isSidebar } = defineProps<{
   isSidebar: boolean
 }>()
 
 const emit = defineEmits(['close'])
+
+const { isProd } = useFeatureToggle()
 
 const { width } = useWindowSize()
 
@@ -53,6 +57,16 @@ function close() {
       </div>
       <settings-network />
       <settings-recent-activity />
+    </div>
+
+    <div
+      v-if="!isProd"
+      class="settings-sidebar__options"
+    >
+      <div class="option-title">
+        Features
+      </div>
+      <settings-features />
     </div>
 
     <faucet-menu />
