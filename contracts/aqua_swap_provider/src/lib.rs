@@ -2,13 +2,13 @@
 #![allow(clippy::too_many_arguments)]
 use proxy_swap_interface::ProxySwap;
 use soroban_sdk::{
-    Address, BytesN, Env, Vec, contract, contracterror, contractimpl, contracttype,
-    panic_with_error, token::TokenClient,
+    Address, Env, Vec, contract, contracterror, contractimpl, contracttype, panic_with_error,
+    token::TokenClient,
 };
 
-mod router {
+mod pool {
     use soroban_sdk::contractimport;
-    contractimport!(file = "../../wasms/downloads/aqua-router.wasm");
+    contractimport!(file = "../../wasms/downloads/aqua-pool.wasm");
 }
 
 const SECONDS_PER_DAY: u32 = 24 * 60 * 60;
@@ -24,20 +24,13 @@ pub enum ASPError {
     InvalidPath = 2,
     ZeroSwapResult = 3,
     NegativeAmount = 4,
+    TokenNotFoundInPool = 5,
+    AmountTooLarge = 6,
 }
 
 #[contracttype]
 enum DataKey {
-    Admin,
-    Router,
-    PoolRoute(Address, Address),
-}
-
-#[derive(Clone)]
-#[contracttype]
-struct PoolRoute {
-    pool_tokens: Vec<Address>,
-    pool_index: BytesN<32>,
+    Pool,
 }
 
 #[contract]
@@ -45,36 +38,8 @@ pub struct AquaSwapProviderContract;
 
 #[contractimpl]
 impl AquaSwapProviderContract {
-    pub fn __constructor(e: Env, router: Address, admin: Address) {
-        e.storage().instance().set(&DataKey::Router, &router);
-        e.storage().instance().set(&DataKey::Admin, &admin);
-    }
-
-    pub fn get_router(e: Env) -> Address {
-        extend_instance(&e);
-        get_router(&e)
-    }
-
-    pub fn upgrade(e: Env, new_contract_wasm_hash: BytesN<32>) {
-        extend_instance(&e);
-        get_admin(&e).require_auth();
-
-        e.deployer().update_current_contract_wasm(new_contract_wasm_hash);
-    }
-
-    pub fn configure_pool_route(
-        e: Env,
-        token_a: Address,
-        token_b: Address,
-        pool_tokens: Vec<Address>,
-        pool_index: BytesN<32>,
-    ) {
-        extend_instance(&e);
-        get_admin(&e).require_auth();
-
-        let route = PoolRoute { pool_tokens, pool_index };
-        e.storage().persistent().set(&DataKey::PoolRoute(token_a.clone(), token_b.clone()), &route);
-        e.storage().persistent().set(&DataKey::PoolRoute(token_b, token_a), &route);
+    pub fn __constructor(e: Env, pool: Address) {
+        e.storage().instance().set(&DataKey::Pool, &pool);
     }
 }
 
@@ -90,22 +55,17 @@ impl ProxySwap for AquaSwapProviderContract {
         extend_instance(&e);
         user.require_auth();
         validate_path(&e, &path);
-        validate_positive(&e, amount_in);
-        validate_positive(&e, min_amount_out);
 
-        let router_client = router::Client::new(&e, &get_router(&e));
-        let swaps_chain = build_swaps_chain(&e, &path);
+        let pool_client = pool::Client::new(&e, &get_pool(&e));
+        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
+
+        let in_amount_u128 = convert_to_u128(&e, amount_in);
+        let min_out_u128 = convert_to_u128(&e, min_amount_out);
+
         let token_out = path.last().unwrap();
-
         let balance_before = TokenClient::new(&e, &token_out).balance(&user);
 
-        router_client.swap_chained(
-            &user,
-            &swaps_chain,
-            &path.first().unwrap(),
-            &(amount_in as u128),
-            &(min_amount_out as u128),
-        );
+        pool_client.swap(&user, &in_idx, &out_idx, &in_amount_u128, &min_out_u128);
 
         let balance_after = TokenClient::new(&e, &token_out).balance(&user);
         let received = balance_after.checked_sub(balance_before).unwrap_or_else(|| {
@@ -129,22 +89,17 @@ impl ProxySwap for AquaSwapProviderContract {
         extend_instance(&e);
         user.require_auth();
         validate_path(&e, &path);
-        validate_positive(&e, max_amount_in);
-        validate_positive(&e, amount_out);
 
-        let router_client = router::Client::new(&e, &get_router(&e));
-        let swaps_chain = build_swaps_chain(&e, &path);
+        let pool_client = pool::Client::new(&e, &get_pool(&e));
+
+        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
+        let max_in_u128 = convert_to_u128(&e, max_amount_in);
+        let out_amount_u128 = convert_to_u128(&e, amount_out);
+
         let token_in = path.first().unwrap();
-
         let balance_before = TokenClient::new(&e, &token_in).balance(&user);
 
-        router_client.swap_chained_strict_receive(
-            &user,
-            &swaps_chain,
-            &token_in,
-            &(amount_out as u128),
-            &(max_amount_in as u128),
-        );
+        pool_client.swap_strict_receive(&user, &in_idx, &out_idx, &out_amount_u128, &max_in_u128);
 
         let balance_after = TokenClient::new(&e, &token_in).balance(&user);
         let spent = balance_before.checked_sub(balance_after).unwrap_or_else(|| {
@@ -157,14 +112,39 @@ impl ProxySwap for AquaSwapProviderContract {
 
         spent
     }
+
+    fn get_amount_out(e: Env, path: Vec<Address>, amount_in: i128) -> i128 {
+        extend_instance(&e);
+        validate_path(&e, &path);
+
+        let pool_client = pool::Client::new(&e, &get_pool(&e));
+
+        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
+        let in_amount_u128 = convert_to_u128(&e, amount_in);
+
+        let amount_out_u128 = pool_client.estimate_swap(&in_idx, &out_idx, &in_amount_u128);
+
+        convert_to_i128(&e, amount_out_u128)
+    }
+
+    fn get_amount_in(e: Env, path: Vec<Address>, amount_out: i128) -> i128 {
+        extend_instance(&e);
+        validate_path(&e, &path);
+
+        let pool_client = pool::Client::new(&e, &get_pool(&e));
+
+        let (in_idx, out_idx) = get_token_indices(&e, &pool_client, &path);
+
+        let out_amount_u128 = convert_to_u128(&e, amount_out);
+        let amount_in_u128 =
+            pool_client.estimate_swap_strict_receive(&in_idx, &out_idx, &out_amount_u128);
+
+        convert_to_i128(&e, amount_in_u128)
+    }
 }
 
-fn get_router(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::Router).expect("Router must be set")
-}
-
-fn get_admin(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::Admin).expect("Admin must be set")
+fn get_pool(e: &Env) -> Address {
+    e.storage().instance().get(&DataKey::Pool).expect("Pool must be set")
 }
 
 fn extend_instance(e: &Env) {
@@ -172,34 +152,54 @@ fn extend_instance(e: &Env) {
 }
 
 fn validate_path(e: &Env, path: &Vec<Address>) {
-    if path.len() < 2 {
+    if path.len() != 2 {
         panic_with_error!(e, ASPError::InvalidPath);
     }
 }
 
-fn validate_positive(e: &Env, amount: i128) {
+/// Get the token indices for a pair in the pool
+/// The pool stores tokens in a specific order, we need to find the indices
+fn get_token_indices(e: &Env, pool_client: &pool::Client, path: &Vec<Address>) -> (u32, u32) {
+    let token_in = path.first().unwrap();
+    let token_out = path.last().unwrap();
+
+    let pool_tokens = pool_client.get_tokens();
+
+    let mut in_idx: Option<u32> = None;
+    let mut out_idx: Option<u32> = None;
+
+    for i in 0..pool_tokens.len() {
+        let token = pool_tokens.get(i).unwrap();
+        if token == token_in {
+            in_idx = Some(i);
+        }
+        if token == token_out {
+            out_idx = Some(i);
+        }
+    }
+
+    let in_idx = in_idx.unwrap_or_else(|| {
+        panic_with_error!(e, ASPError::TokenNotFoundInPool);
+    });
+    let out_idx = out_idx.unwrap_or_else(|| {
+        panic_with_error!(e, ASPError::TokenNotFoundInPool);
+    });
+
+    (in_idx, out_idx)
+}
+
+fn convert_to_u128(e: &Env, amount: i128) -> u128 {
     if amount < 0 {
         panic_with_error!(e, ASPError::NegativeAmount);
     }
+
+    amount as u128
 }
 
-/// Converts a simple token path into the Aqua router's `swaps_chain` format
-/// by looking up pre-configured pool routes for each consecutive pair
-fn build_swaps_chain(e: &Env, path: &Vec<Address>) -> Vec<(Vec<Address>, BytesN<32>, Address)> {
-    let len = path.len();
-
-    let mut chain = Vec::new(e);
-    for i in 0..len - 1 {
-        let token_a = path.get(i).unwrap();
-        let token_b = path.get(i + 1).unwrap();
-
-        let route: PoolRoute = e
-            .storage()
-            .persistent()
-            .get(&DataKey::PoolRoute(token_a, token_b.clone()))
-            .expect("Pool route not configured for pair");
-
-        chain.push_back((route.pool_tokens, route.pool_index, token_b));
+fn convert_to_i128(e: &Env, amount: u128) -> i128 {
+    if amount > i128::MAX as u128 {
+        panic_with_error!(e, ASPError::AmountTooLarge);
     }
-    chain
+
+    amount as i128
 }
