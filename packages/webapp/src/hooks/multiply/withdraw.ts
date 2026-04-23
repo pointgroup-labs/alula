@@ -1,7 +1,6 @@
 import type { CloseMultiplyPreview, MultiplyMarginAsset } from '@alula/client-sdk/src/services/multiply'
 import type { ComputedRef, Ref } from 'vue'
 import type { MultiplyTableItem, MultiplyVaultItem } from '~/types/table'
-import { SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
 import { calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { CLEAR_DIALOG_TIMEOUT, RELOAD_FEE_INTERVAL } from '~/config'
 import { buildMultiplyObligationKey } from '~/utils/obligation'
@@ -22,6 +21,8 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   const marketsStore = useMarketsStore()
   const market = useMarketActions()
   const userStore = useUserStore()
+  const multiplyStore = useMultiplyStore()
+
   const { publicKey } = useWalletComposable()
 
   const opened = computed(() => unref(isOpen))
@@ -29,7 +30,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
   const amount = toRef(market, 'withdrawAmount')
   const slippage = ref(0.5)
-  const swapProviderAddress = ref(SOROSWAP_PROVIDER_ADDRESS)
+  const swapProviderAddress = computed(() => multiplyStore.swapProviderAddress)
   const reloadFee = ref(false)
   const preview = ref<CloseMultiplyPreview>()
   const fullClosePreviews = ref<Partial<Record<MultiplyMarginAsset, CloseMultiplyPreview>>>({})
@@ -398,7 +399,10 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     interval = undefined
   }
 
+  let requestId = 0
   async function loadPreview() {
+    const id = ++requestId
+
     if (!opened.value || !data.value || !activeMarket.value?.client || !obligationKey.value) {
       preview.value = undefined
       previewError.value = ''
@@ -411,6 +415,9 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
     try {
       const maxPreview = currentFullClosePreview.value || await loadFullClosePreview()
+      if (id !== requestId) {
+        return
+      }
       if (!maxPreview) {
         preview.value = undefined
         return
@@ -448,12 +455,16 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         resolvedRepayAmount.value = resolvedPreview?.repayAmount
       }
     } catch (error: any) {
-      preview.value = undefined
-      resolvedRepayAmount.value = undefined
-      previewError.value = String(error?.message || error)
-      txFee.value = 0
+      if (id === requestId) {
+        preview.value = undefined
+        resolvedRepayAmount.value = undefined
+        previewError.value = String(error?.message || error)
+        txFee.value = 0
+      }
     } finally {
-      previewLoading.value = false
+      if (id === requestId) {
+        previewLoading.value = false
+      }
     }
   }
 
@@ -632,7 +643,6 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     isMarginBorrow,
     marginAsset,
     notMarginAsset,
-    swapProviderAddress,
     isClosePosition,
     withdraw,
   }

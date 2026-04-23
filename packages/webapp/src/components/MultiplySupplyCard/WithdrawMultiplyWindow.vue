@@ -10,7 +10,12 @@ const {
   vault?: MultiplyTableItem | MultiplyVaultItem
 }>()
 
+const multiplyStore = useMultiplyStore()
+
 const isValidate = ref(true)
+
+const swapProviderAddress = toRef(multiplyStore, 'swapProviderAddress')
+
 const {
   amount,
   balance,
@@ -34,7 +39,6 @@ const {
   isMarginBorrow,
   marginAsset,
   notMarginAsset,
-  swapProviderAddress,
   isClosePosition,
   withdraw,
 } = useMultiplyWithdraw(toRef(() => opened), toRef(() => vault))

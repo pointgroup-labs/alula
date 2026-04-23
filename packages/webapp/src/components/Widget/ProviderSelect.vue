@@ -24,13 +24,17 @@ watch(selectedProvider, (provider) => {
   swapProviderAddress.value = provider.value
 })
 
-const stop = watchDebounced(swapProviderAddress, (address) => {
-  if (!address) {
-    return
-  }
-  selectedProvider.value = providers.value.find(p => p.value === address) ?? providers.value[0]
-  stop()
-}, { immediate: true, debounce: 300 })
+let stop: (() => void) | undefined
+
+// eslint-disable-next-line prefer-const
+stop = watch(swapProviderAddress, (address) => {
+  if (!address) { return }
+
+  selectedProvider.value
+    = providers.value.find(p => p.value === address) ?? providers.value[0]
+
+  stop?.()
+}, { immediate: true })
 </script>
 
 <template>

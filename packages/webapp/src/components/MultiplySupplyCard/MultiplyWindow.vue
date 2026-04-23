@@ -13,6 +13,8 @@ const {
 const marketActions = useMarketActions()
 
 const userStore = useUserStore()
+const multiplyStore = useMultiplyStore()
+const swapProviderAddress = toRef(multiplyStore, 'swapProviderAddress')
 
 const {
   publicKey,
@@ -36,7 +38,6 @@ const {
   marginAsset,
   marginPrice,
   notMarginAsset,
-  swapProviderAddress,
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
 

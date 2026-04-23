@@ -1,6 +1,6 @@
 import type { MultiplyMarginAsset, MultiplyPreview } from '@alula/client-sdk'
 import type { MultiplyVaultItem } from '~/types/table'
-import { bpsToNumber, SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
+import { bpsToNumber } from '@alula/client-sdk'
 import Decimal from 'decimal.js'
 import { destructurePoolAsset } from '~/utils'
 import { buildMultiplyObligationKey } from '~/utils/obligation'
@@ -9,6 +9,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const market = useMarketActions()
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
+  const multiplyStore = useMultiplyStore()
 
   const {
     publicKey,
@@ -21,7 +22,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const amount = ref<number | undefined>()
   const slippage = ref(0.5)
   const percentFromMax = ref(85)
-  const swapProviderAddress = ref(SOROSWAP_PROVIDER_ADDRESS)
+  const swapProviderAddress = computed(() => multiplyStore.swapProviderAddress)
   const preview = ref<MultiplyPreview>()
   const loadingPreview = ref(false)
   const previewError = ref<string>()
@@ -206,7 +207,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     return ''
   })
 
+  let requestId = 0
+
   async function refreshPreview() {
+    const id = ++requestId
+
     if (!vault.value || !activeClient.value || !amount.value || amount.value <= 0 || selectedMultiplier.value <= 1 || !publicKey.value) {
       preview.value = undefined
       previewError.value = undefined
@@ -217,7 +222,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     previewError.value = undefined
 
     try {
-      preview.value = await activeClient.value.multiply.getOpenPositionPreview({
+      const result = await activeClient.value.multiply.getOpenPositionPreview({
         depositPoolAddress: vault.value.depositPoolData.pool.pool_address,
         borrowPoolAddress: vault.value.borrowPoolData.pool.pool_address,
         initialAmount: amount.value,
@@ -227,11 +232,22 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
         swapProviderAddress: swapProviderAddress.value,
         path: swapPath.value,
       })
+
+      if (id !== requestId) {
+        return
+      }
+
+      preview.value = result
     } catch (error: any) {
+      if (id !== requestId) {
+        return
+      }
       preview.value = undefined
       previewError.value = String(error?.message || error)
     } finally {
-      loadingPreview.value = false
+      if (id === requestId) {
+        loadingPreview.value = false
+      }
     }
   }
 
@@ -302,6 +318,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
 
   onScopeDispose(() => {
     clearInterval(interval)
+    requestId++
   })
 
   return {
@@ -327,6 +344,5 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     previewError,
     openMultiply,
     reset,
-    swapProviderAddress,
   }
 }
