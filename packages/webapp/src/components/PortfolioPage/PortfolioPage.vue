@@ -3,6 +3,8 @@
 
 <template>
   <main class="portfolio-page container">
+    <portfolio-info />
+
     <div class="portfolio-cards">
       <portfolio-supply-table />
       <portfolio-borrow-table />

@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-const { width } = useWindowSize()
 const store = useClientStore()
 const { publicKey } = useWalletComposable()
 const isValidAccount = computed(() => store.isValidAccount && !!publicKey)
@@ -11,7 +10,7 @@ const isValidAccount = computed(() => store.isValidAccount && !!publicKey)
       v-if="!isValidAccount && publicKey"
       :text="`The wallet address ${shortenAddress(publicKey)} does not exist on the network. Please fund your account!`"
     />
-    <markets-info v-if="width > 1024" />
+    <markets-info />
     <markets />
   </main>
 </template>

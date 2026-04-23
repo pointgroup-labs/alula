@@ -25,11 +25,11 @@ const marketsInfo = computed(() => {
 </script>
 
 <template>
-  <div class="multiply-info">
-    <div class="multiply-info__content">
+  <div class="markets-info">
+    <div class="markets-info__content">
       <h1>Multiply</h1>
 
-      <div class="multiply-info__content__desc">
+      <div class="markets-info__content__desc">
         Earn more with 'looping' strategies. Open and close multiplied positions with one click.
         <a
           :href="GUIDE_LINK"
@@ -61,37 +61,10 @@ const marketsInfo = computed(() => {
   </div>
 </template>
 
-<style lang="scss">
-.multiply-info {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
-
-  &__content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-
-    @media (max-width: $breakpoint-sm) {
-      display: none;
-    }
-
-    h1 {
-      color: $text-primary;
-      font-size: 32px;
-      margin: 0;
-    }
-
-    &__desc {
-      color: $text-tertiary;
-      font-size: 14px;
-    }
-
-    a {
-      text-decoration: none;
-      color: $text-success;
-    }
+<style lang="scss" scoped>
+.markets-info {
+  a {
+    color: $text-success;
   }
 }
 </style>

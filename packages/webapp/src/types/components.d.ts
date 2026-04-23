@@ -127,6 +127,7 @@ declare module 'vue' {
     PoolSupplyBorrowOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/PoolSupplyBorrowOverview.vue')['default']
     PortfolioBorrowTable: typeof import('./../components/PortfolioPage/Tables/PortfolioBorrowTable.vue')['default']
     PortfolioBorrowTableMobile: typeof import('./../components/PortfolioPage/Tables/PortfolioBorrowTableMobile.vue')['default']
+    PortfolioInfo: typeof import('./../components/PortfolioPage/PortfolioInfo.vue')['default']
     PortfolioMultiplyTable: typeof import('./../components/PortfolioPage/Tables/PortfolioMultiplyTable.vue')['default']
     PortfolioMultiplyTableMobile: typeof import('./../components/PortfolioPage/Tables/PortfolioMultiplyTableMobile.vue')['default']
     PortfolioMultiplyTableSkeleton: typeof import('./../components/Skeleton/PortfolioMultiplyTableSkeleton.vue')['default']
