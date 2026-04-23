@@ -51,7 +51,8 @@ fn test_median_price_with_odd_number_of_reported_prices() {
     let lastprice = contract_client.lastprice(&xlm_asset_stellar).unwrap();
 
     assert_eq!(lastprice.price, 200 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS));
-    assert_eq!(lastprice.timestamp, e.ledger().timestamp());
+    // The timestamp should be the oldest source timestamp, not the current ledger time
+    assert_eq!(lastprice.timestamp, 1_000_000_600);
 }
 
 #[test]
@@ -96,7 +97,10 @@ fn test_median_price_with_even_number_of_reported_prices() {
         lastprice.price,
         150 * i128::pow(10, AGGREGATED_ORACLE_DECIMALS) // (100 + 200) / 2
     );
-    assert_eq!(lastprice.timestamp, e.ledger().timestamp());
+    // The timestamp should be the oldest valid source timestamp
+    // In this test, 2 oracles report at (ledger_time - max_age)
+    let expected_timestamp = e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE;
+    assert_eq!(lastprice.timestamp, expected_timestamp);
 }
 
 #[test]

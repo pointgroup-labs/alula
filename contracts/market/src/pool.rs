@@ -960,7 +960,7 @@ impl Default for PoolHealthConfig {
             close_ltv_bps: DEFAULT_CLOSE_LTV_BPS,
             liability_factor_bps: DEFAULT_LIABILITY_FACTOR_BPS,
             liquidation_close_factor_bps: DEFAULT_CLOSE_FACTOR_BPS,
-            max_liquidation_incentive_bps: DEFAULT_LIQUIDATION_INCENTIVE_BPS,
+            max_liquidation_incentive_bps: DEFAULT_MAX_LIQUIDATION_INCENTIVE_BPS,
             withdraw_scarcity_limit_bps: DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS,
             withdraw_scarcity_cooldown_s: DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS,
         }
@@ -1001,6 +1001,10 @@ impl PoolHealthConfig {
             return Err("Open LTV mustn't be bigger than close LTV");
         }
 
+        if close_ltv_bps != 0 && open_ltv_bps == close_ltv_bps {
+            return Err("Non-zero open LTV must be smaller than close LTV");
+        }
+
         if !(BPS_FACTOR..=(MAX_LIABILITY_FACTOR_BPS)).contains(&liability_factor_bps) {
             return Err("Invalid liability factor");
         }
@@ -1009,7 +1013,9 @@ impl PoolHealthConfig {
             return Err("Liquidation close factor must be between 0% and 100%");
         }
 
-        if !is_valid_bps_percent(max_liquidation_incentive_bps) {
+        if !(MIN_MAX_LIQUIDATION_INCENTIVE_BPS..=MAX_MAX_LIQUIDATION_INCENTIVE_BPS)
+            .contains(&max_liquidation_incentive_bps)
+        {
             return Err("Liquidation incentive must be between 0% and 100%");
         }
 

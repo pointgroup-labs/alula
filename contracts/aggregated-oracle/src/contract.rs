@@ -1,7 +1,7 @@
 use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, BytesN, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
+    Address, Env, Symbol, Vec, contract, contractclient, contractimpl, panic_with_error,
 };
 
 use crate::{
@@ -95,18 +95,6 @@ impl AggregatedOracleContract {
         storage::remove_proposed_admin(&e);
 
         Ok(())
-    }
-
-    // NB: The ability to update the contract must be removed before the mainnet deployment
-    /// Upgrades the aggregated oracle contract
-    ///
-    /// # Arguments
-    /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
-    ///   new version of the contract
-    pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        require_admin(&e);
-
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
     /// Adds an asset to the aggregation list
@@ -215,8 +203,9 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
     }
 
     let current_timestamp = e.ledger().timestamp();
-    let price: i128 = compute_median(e, token_address)?;
-    let res_lastprice = PriceData { price, timestamp: current_timestamp };
+
+    // Compute median price and get the oldest timestamp from source oracles
+    let res_lastprice = compute_median(e, token_address)?;
 
     if let Some(previous_median_lastprice) =
         storage::get_previous_median_lastprice(e, token_address)
@@ -232,7 +221,7 @@ fn process_lastprice(e: &Env, asset: &Asset) -> Option<PriceData> {
 
         if time_diff <= asset_data.max_dev_consecutive_diff_secs {
             // Check price deviation
-            let abs_price_diff = price.checked_sub(cached_price)?.abs();
+            let abs_price_diff = res_lastprice.price.checked_sub(cached_price)?.abs();
 
             let div_bps = abs_price_diff.fixed_div_ceil(cached_price, BPS_FACTOR)?;
             if div_bps > asset_data.max_dev_bps as i128 {

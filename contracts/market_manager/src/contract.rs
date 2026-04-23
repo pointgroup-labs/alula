@@ -71,14 +71,14 @@ pub trait MarketManager {
     ///
     /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network, that will be used as a
-    ///  version of the deployed market contract instances
+    ///   version of the deployed market contract instances
     fn queue_in_market_upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), MMCError>;
 
     /// Queues in manager upgrade
     ///
     /// # Arguments
     /// * `new_wasm_hash` - hash of the WASM binary uploaded to the network, used as a
-    ///  version of the depl contract instances
+    ///   version of the depl contract instances
     fn queue_in_manager_upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), MMCError>;
 
     /// Cancels a market upgrade if such exists in a queue
