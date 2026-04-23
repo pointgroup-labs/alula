@@ -10,7 +10,12 @@ const {
   vault?: MultiplyTableItem | MultiplyVaultItem
 }>()
 
+const multiplyStore = useMultiplyStore()
+
 const isValidate = ref(true)
+
+const swapProviderAddress = toRef(multiplyStore, 'swapProviderAddress')
+
 const {
   amount,
   balance,
@@ -34,7 +39,6 @@ const {
   isMarginBorrow,
   marginAsset,
   notMarginAsset,
-  swapProviderAddress,
   isClosePosition,
   withdraw,
 } = useMultiplyWithdraw(toRef(() => opened), toRef(() => vault))
@@ -73,7 +77,7 @@ const slippageInput = computed<string | number>({
         :label-right="formatPrice(balance ?? 0, 0, 4)"
         :rules="[
           (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
-          (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Repay amount exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
+          (v) => !isValidate || Number(v) <= balance || (isMarginBorrow ? 'Flash repay target exceeds closeable debt' : 'Receive amount exceeds closeable collateral'),
         ]"
       >
         <template #prepend>

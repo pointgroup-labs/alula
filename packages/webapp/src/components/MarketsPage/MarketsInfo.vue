@@ -61,38 +61,3 @@ const marketsInfo = computed(() => {
     </div>
   </div>
 </template>
-
-<style lang="scss">
-.markets-info {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
-
-  &__content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-
-    @media (max-width: $breakpoint-sm) {
-      display: none;
-    }
-
-    h1 {
-      color: $text-primary;
-      font-size: 32px;
-      margin: 0;
-    }
-
-    &__desc {
-      color: $text-tertiary;
-      font-size: 14px;
-    }
-
-    a {
-      text-decoration: none;
-      color: $text-brand;
-    }
-  }
-}
-</style>

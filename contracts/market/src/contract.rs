@@ -10,8 +10,7 @@ use crate::{
     events, farms,
     misc::{
         MarketData, PoolData, require_admin, require_deployer, require_deposits_on_market_allowed,
-        require_insurance_fund, require_market_not_frozen, require_nonnegative, require_owned,
-        require_owned_and_admin,
+        require_insurance_fund, require_nonnegative, require_owned, require_owned_and_admin,
     },
     obligation::{Obligation, ObligationKey, WithdrawResult},
     oracle,
@@ -628,9 +627,11 @@ impl Market for MarketContract {
         require_admin(&e);
 
         // NB: Distribute pool fees for valid fees tracking afterwards
-        process_distribute_pool_fees(&e, pool_address.clone())?;
-
         let mut pool = storage::get_pool(&e, &pool_address).ok_or(MCError::PoolDoesNotExist)?;
+        pool.accrue_interest(&e)?;
+
+        process_distribute_pool_fees(&e, pool_address.clone())?;
+        pool.refresh(&e)?;
 
         let mut new_config = pool.config;
         new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries.clone());
@@ -789,7 +790,6 @@ impl Market for MarketContract {
         amount: i128,
     ) -> Result<(), MCError> {
         caller.require_auth();
-        require_market_not_frozen(&e)?;
         storage::extend_instance(&e);
 
         process_flash_loan(&e, &contract, &pool_address, amount)

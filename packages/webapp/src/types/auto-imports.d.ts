@@ -508,7 +508,6 @@ declare module 'vue' {
     readonly useAccordionMarketsHandler: UnwrapRef<typeof import('../hooks/accortion-handler')['useAccordionMarketsHandler']>
     readonly useActiveElement: UnwrapRef<typeof import('@vueuse/core')['useActiveElement']>
     readonly useAnimate: UnwrapRef<typeof import('@vueuse/core')['useAnimate']>
-    readonly useAppEnv: UnwrapRef<typeof import('../hooks/app-env')['useAppEnv']>
     readonly useArrayDifference: UnwrapRef<typeof import('@vueuse/core')['useArrayDifference']>
     readonly useArrayEvery: UnwrapRef<typeof import('@vueuse/core')['useArrayEvery']>
     readonly useArrayFilter: UnwrapRef<typeof import('@vueuse/core')['useArrayFilter']>

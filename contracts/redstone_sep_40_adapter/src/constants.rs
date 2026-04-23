@@ -1,6 +1,5 @@
 pub const REDSTONE_DECIMALS: u32 = 8;
 pub const RESOLUTION: u32 = 1;
-pub const MILLIS_PER_SECOND: u64 = 1000;
 
 // -- TTL extension --
 pub const SECONDS_PER_LEDGER: u32 = 6;

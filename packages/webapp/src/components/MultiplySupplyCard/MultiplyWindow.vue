@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyVaultItem } from '~/types/table'
-import { amountToUsdWithShort, formatCompactUSD, formatPrice, maxDecimalsForShortenNumber, shortenNumber, truncatePercent } from '~/utils'
+import { amountToUsdWithShort, formatPrice, maxDecimalsForShortenNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   vault,
@@ -13,6 +13,8 @@ const {
 const marketActions = useMarketActions()
 
 const userStore = useUserStore()
+const multiplyStore = useMultiplyStore()
+const swapProviderAddress = toRef(multiplyStore, 'swapProviderAddress')
 
 const {
   publicKey,
@@ -36,7 +38,6 @@ const {
   marginAsset,
   marginPrice,
   notMarginAsset,
-  swapProviderAddress,
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
 
@@ -332,13 +333,6 @@ function isUserHaveMultiply(): boolean {
               <div class="label">Flash loan fee</div>
               <div class="value">
                 {{ shortenNumber(flashLoanFeeAmount || 0, 2, maxDecimalsForShortenNumber(flashLoanFeeAmount || 0)) }} {{ marginAsset?.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item">
-              <div class="label">Collateral price</div>
-              <div class="value">
-                {{ formatCompactUSD(vault.price, 2, 4) }}
               </div>
             </div>
           </div>

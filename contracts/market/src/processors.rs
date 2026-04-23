@@ -427,14 +427,6 @@ pub fn process_repay<'a>(
     let repay_result = obligation.repay(e, &pool, amount, referrer)?;
     pool.repay(e, &repay_result)?;
 
-    if obligation.is_empty() {
-        // NB: Obligation shouldn't be empty at this point due to some amount of collateral or
-        // deposit required to back up the debt
-        events::obligation_is_unexpectedly_empty(e, obligation_key, pool_address);
-
-        return Err(MCError::InternalError);
-    }
-
     obligation.set(e, obligation_key);
     pool.set(e);
 
@@ -1114,12 +1106,13 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<()
                     fund_client.add_reserves(&pool.token_address, &amount);
                 }
             }
+
+            pool.adjust_total_available(
+                e,
+                pool.take_rate_fees_sum.checked_neg().map_over_or_underflow()?,
+            )?;
+            pool.take_rate_fees_sum = 0;
         }
-        pool.adjust_total_available(
-            e,
-            pool.take_rate_fees_sum.checked_neg().map_over_or_underflow()?,
-        )?;
-        pool.take_rate_fees_sum = 0;
     }
 
     // -- Distribute Operation Fees --
@@ -1141,8 +1134,9 @@ pub fn process_distribute_pool_fees(e: &Env, pool_address: Address) -> Result<()
                 fund_client.add_reserves(&pool.token_address, &amount);
             }
         }
+
+        pool.operation_fees_sum = 0;
     }
-    pool.operation_fees_sum = 0;
 
     pool.set(e);
 

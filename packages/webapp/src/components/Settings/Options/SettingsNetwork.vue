@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-const { isProd } = useAppEnv()
-
 const rpcStore = useRpcStore()
 
 const activeNetwork = ref()
@@ -75,45 +73,46 @@ watch(() => rpcStore.network, (val) => {
   <div
     class="setting-item network"
   >
-    <div
-      v-if="!isProd"
-      class="d-flex justify-content-between align-items-center mb-4"
-    >
-      <div class="setting-item__title">
-        Network RPC
-      </div>
-      <j-popover
-        :teleport-to-body="false"
-        position="bottom"
-        class-name="select-network"
-        menu-class="select-network__menu"
-        close-popup
+    <features-toggle feature="network">
+      <div
+        class="d-flex justify-content-between align-items-center mb-4"
       >
-        <div>
-          <div
-            v-for="network in networks"
-            :key="network"
-            class="select-network__item"
-            @click="activeNetwork = network"
-          >
-            {{ network }}
-          </div>
+        <div class="setting-item__title">
+          Network RPC
         </div>
-        <template #target="{ active }">
-          <j-btn
-            size="xs"
-            variant="ghost"
-          >
-            {{ activeNetwork }}
+        <j-popover
+          :teleport-to-body="false"
+          position="bottom"
+          class-name="select-network"
+          menu-class="select-network__menu"
+          close-popup
+        >
+          <div>
+            <div
+              v-for="network in networks"
+              :key="network"
+              class="select-network__item"
+              @click="activeNetwork = network"
+            >
+              {{ network }}
+            </div>
+          </div>
+          <template #target="{ active }">
+            <j-btn
+              size="xs"
+              variant="ghost"
+            >
+              {{ activeNetwork }}
 
-            <i-app-chevron-down
-              class="arrow-icon"
-              :class="{ 'arrow-icon--active': active }"
-            />
-          </j-btn>
-        </template>
-      </j-popover>
-    </div>
+              <i-app-chevron-down
+                class="arrow-icon"
+                :class="{ 'arrow-icon--active': active }"
+              />
+            </j-btn>
+          </template>
+        </j-popover>
+      </div>
+    </features-toggle>
 
     <div class="networks">
       <div class="network-rpc">

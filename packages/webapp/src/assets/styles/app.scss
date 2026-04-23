@@ -269,3 +269,65 @@ body:has(stellar-wallets-modal) {
     z-index: 10 !important;
   }
 }
+
+.stellar-wallets-kit {
+  --swk-foreground-strong: #fff !important;
+  font-family: $font-family-base !important;
+
+  & > div {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(6px) !important;
+  }
+  section {
+    position: relative !important;
+    background-color: rgba(21, 28, 43, 0.7) !important;
+    border: 1px solid $navi-400 !important;
+  }
+  .glass {
+    background-color: rgba(12, 17, 28, 0.9) !important;
+
+    &:has(header) {
+      border-bottom: 1px solid $navi-400 !important;
+    }
+    &:has(footer) {
+      border-top: 1px solid $navi-400 !important;
+    }
+  }
+
+  header {
+    svg {
+      color: #fff !important;
+    }
+  }
+
+  p {
+    color: #fff !important;
+  }
+
+  ul {
+    div {
+      color: #fff !important;
+      font-weight: 500 !important;
+    }
+  }
+
+  li {
+    background: #22d3ee0f !important;
+    border: 1px solid rgba(34, 211, 238, 0.25) !important;
+
+    &:hover {
+      background: #22d3ee1f !important;
+      border-color: #22d3ee73 !important;
+      box-shadow: 0 0 20px #22d3ee1a !important;
+
+      p {
+        color: #22d3ee !important;
+        font-weight: 600 !important;
+      }
+    }
+
+    p {
+      color: #fff !important;
+    }
+  }
+}
