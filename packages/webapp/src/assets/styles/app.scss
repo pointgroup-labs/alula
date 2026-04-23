@@ -279,14 +279,18 @@ body:has(stellar-wallets-modal) {
   }
   section {
     position: relative !important;
-    background-color: #101622 !important;
-    box-shadow:
-      0 12px 40px rgb(0 0 0 / 34%),
-      0 0 0 1px rgb(71 219 239 / 15%),
-      0 0 16px rgb(71 219 239 / 17%) !important;
+    background-color: rgba(21, 28, 43, 0.7) !important;
+    border: 1px solid $navi-400 !important;
   }
   .glass {
-    background-color: color-mix(in srgb, #6b7994 65%, transparent) !important;
+    background-color: rgba(12, 17, 28, 0.9) !important;
+
+    &:has(header) {
+      border-bottom: 1px solid $navi-400 !important;
+    }
+    &:has(footer) {
+      border-top: 1px solid $navi-400 !important;
+    }
   }
 
   header {
