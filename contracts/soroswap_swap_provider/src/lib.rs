@@ -27,7 +27,6 @@ pub enum SSPError {
 
 #[contracttype]
 enum DataKey {
-    Admin,
     Router,
 }
 
@@ -36,14 +35,8 @@ pub struct SoroSwapProviderContract;
 
 #[contractimpl]
 impl SoroSwapProviderContract {
-    pub fn __constructor(e: Env, router: Address, admin: Address) {
+    pub fn __constructor(e: Env, router: Address) {
         e.storage().instance().set(&DataKey::Router, &router);
-        e.storage().instance().set(&DataKey::Admin, &admin);
-    }
-
-    pub fn get_router(e: Env) -> Address {
-        extend_instance(&e);
-        get_router(&e)
     }
 }
 
@@ -119,6 +112,24 @@ impl ProxySwap for SoroSwapProviderContract {
         }
 
         spent
+    }
+
+    fn get_amount_out(e: Env, path: Vec<Address>, amount_in: i128) -> i128 {
+        extend_instance(&e);
+        validate_path(&e, &path);
+
+        let router_client = router::Client::new(&e, &get_router(&e));
+
+        router_client.router_get_amounts_out(&amount_in, &path).last().unwrap()
+    }
+
+    fn get_amount_in(e: Env, path: Vec<Address>, amount_out: i128) -> i128 {
+        extend_instance(&e);
+        validate_path(&e, &path);
+
+        let router_client = router::Client::new(&e, &get_router(&e));
+
+        router_client.router_get_amounts_in(&amount_out, &path).first().unwrap()
     }
 }
 
