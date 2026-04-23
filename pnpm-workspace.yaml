@@ -3,6 +3,9 @@ trustPolicy: no-downgrade
 trustPolicyExclude:
   - chokidar
   - semver
+  - '@noble/hashes@1.7.0'
+  - '@noble/curves@1.8.0'
+  - slow-redact
 
 packages:
   - packages/*

@@ -19,54 +19,62 @@ export const useConnectionStore = defineStore('connection', () => {
   const autoConnecting = ref(false)
 
   const kit = ref()
+  const walletModules = ref<any[]>([])
 
   async function createKit() {
-    const {
-      AlbedoModule,
-      FreighterModule,
-      StellarWalletsKit,
-      WalletNetwork,
-      XBULL_ID,
-      xBullModule,
-      RabetModule,
-      LobstrModule,
-      HanaModule,
-      HotWalletModule,
-    } = await import('@creit.tech/stellar-wallets-kit')
-    const { WalletConnectAllowedMethods, WalletConnectModule } = await import('@creit.tech/stellar-wallets-kit/modules/walletconnect.module')
+    const { Networks, ModuleType, StellarWalletsKit } = await import('@creit.tech/stellar-wallets-kit')
+    const { AlbedoModule } = await import('@creit.tech/stellar-wallets-kit/modules/albedo')
+    const { FreighterModule } = await import('@creit.tech/stellar-wallets-kit/modules/freighter')
+    const { HanaModule } = await import('@creit.tech/stellar-wallets-kit/modules/hana')
+    const { HotWalletModule } = await import('@creit.tech/stellar-wallets-kit/modules/hotwallet')
+    const { LobstrModule } = await import('@creit.tech/stellar-wallets-kit/modules/lobstr')
+    const { RabetModule } = await import('@creit.tech/stellar-wallets-kit/modules/rabet')
+    const { WalletConnectModule, WALLET_CONNECT_ID, WalletConnectTargetChain } = await import('@creit.tech/stellar-wallets-kit/modules/wallet-connect')
+    const { XBULL_ID, xBullModule } = await import('@creit.tech/stellar-wallets-kit/modules/xbull')
 
-    const rpcNetwork = network.value === Network.Testnet ? WalletNetwork.TESTNET : WalletNetwork.PUBLIC
+    const rpcNetwork = network.value === Network.Testnet ? Networks.TESTNET : Networks.PUBLIC
+    const walletConnectChain = network.value === Network.Testnet ? WalletConnectTargetChain.TESTNET : WalletConnectTargetChain.PUBLIC
 
-    kit.value = new StellarWalletsKit({
+    walletModules.value = [
+      new AlbedoModule(),
+      new FreighterModule(),
+      // eslint-disable-next-line new-cap
+      new xBullModule(),
+      new RabetModule(),
+      new LobstrModule(),
+      new HanaModule(),
+      new HotWalletModule(),
+      new WalletConnectModule({
+        projectId: '3c5d0cb78534db1da6c199e29b775365',
+        metadata: {
+          name: 'Alula',
+          description: '',
+          url: import.meta.client ? globalThis.location.origin : 'https://alula.finance',
+          icons: [],
+        },
+        allowedChains: [walletConnectChain],
+      }),
+    ]
+
+    StellarWalletsKit.init({
       network: rpcNetwork,
       selectedWalletId: selectedWalletId.value ?? XBULL_ID,
-      modules: [
-        new AlbedoModule(),
-        new FreighterModule(),
-        // eslint-disable-next-line new-cap
-        new xBullModule(),
-        new RabetModule(),
-        new LobstrModule(),
-        new HanaModule(),
-        new HotWalletModule(),
-        new WalletConnectModule({
-          url: 'JLend',
-          projectId: '3c5d0cb78534db1da6c199e29b775365',
-          method: WalletConnectAllowedMethods.SIGN,
-          description: ``,
-          name: 'Alula',
-          icons: [],
-          network: rpcNetwork,
-        }),
-      ],
+      modules: walletModules.value,
+      authModal: {
+        hideUnsupportedWallets: false,
+      },
     })
+
+    kit.value = StellarWalletsKit
+
+    return { ModuleType, WALLET_CONNECT_ID }
   }
 
   async function initKit() {
-    await createKit()
+    const { ModuleType, WALLET_CONNECT_ID } = await createKit()
 
     if (import.meta.client && selectedWalletId.value) {
-      if (!canAutoConnect(selectedWalletId.value)) {
+      if (!canAutoConnect(selectedWalletId.value, ModuleType, WALLET_CONNECT_ID)) {
         selectedWalletId.value = ''
         return
       }
@@ -74,8 +82,8 @@ export const useConnectionStore = defineStore('connection', () => {
       autoConnecting.value = true
 
       try {
-        await kit.value.setWallet(selectedWalletId.value)
-        const { address } = await kit.value.getAddress()
+        kit.value.setWallet(selectedWalletId.value)
+        const { address } = await kit.value.fetchAddress()
         await validateAccount(address)
         await walletStore.initWallet(address)
       } catch {
@@ -92,47 +100,40 @@ export const useConnectionStore = defineStore('connection', () => {
     }
 
     loading.value = true
-    await kit.value.openModal({
-      onWalletSelected: async (option: any) => {
-        selectedWalletId.value = option.id
+    let selectedId = ''
+    const unsubscribe = kit.value.on('WALLET_SELECTED', (event: any) => {
+      selectedId = event.payload.id ?? ''
+      if (selectedId) {
+        selectedWalletId.value = selectedId
+      }
+    })
 
-        if (option.id === 'wallet_connect') {
-          loading.value = false
-        }
-        try {
-          kit.value.setWallet(option.id)
-          const { address } = await kit.value.getAddress()
-          await validateAccount(address)
-          await walletStore.initWallet(address)
-        } finally {
-          loading.value = false
-        }
-      },
-      onClosed: () => {
-        loading.value = false
-      },
-    })
-    requestAnimationFrame(() => {
-      styleWalletModal()
-    })
+    try {
+      const { address } = await kit.value.authModal()
+      await validateAccount(address)
+      await walletStore.initWallet(address)
+    } finally {
+      unsubscribe?.()
+      loading.value = false
+    }
   }
 
   function getModuleById(walletId: string) {
-    return kit.value?.modules?.find((m: any) => m.productId === walletId)
+    return walletModules.value.find(module => module.productId === walletId)
   }
 
-  function canAutoConnect(walletId: string) {
+  function canAutoConnect(walletId: string, moduleType: any, walletConnectId: string) {
     const module = getModuleById(walletId)
 
     if (!module) {
       return false
     }
 
-    if (module.moduleType !== 'HOT_WALLET') {
+    if (module.moduleType !== moduleType.HOT_WALLET) {
       return false
     }
 
-    if (['albedo', 'lobstr', 'hot-wallet', 'wallet_connect'].includes(module.productId)) {
+    if (['albedo', 'lobstr', 'hot-wallet', walletConnectId].includes(module.productId)) {
       return false
     }
 
@@ -145,8 +146,8 @@ export const useConnectionStore = defineStore('connection', () => {
     clientStore.isValidAccount = !!res.ok
   }
 
-  function disconnect() {
-    kit.value.disconnect()
+  async function disconnect() {
+    await kit.value?.disconnect()
     // alulaClient.value?.reset()
     publicKey.value = undefined
     balances.value = undefined
@@ -159,7 +160,7 @@ export const useConnectionStore = defineStore('connection', () => {
     if (!kit.value) {
       return
     }
-    disconnect()
+    await disconnect()
     await initKit()
   })
 
@@ -201,45 +202,3 @@ export const useConnectionStore = defineStore('connection', () => {
     connectWallet,
   }
 })
-
-function styleWalletModal() {
-  const modal = document.querySelector('stellar-wallets-modal')
-  const root = modal?.shadowRoot
-  if (!root) { return }
-
-  const style = document.createElement('style')
-  style.textContent = `
-    .backdrop {
-      background: rgba(0, 0, 0, 0.1) !important;
-      backdrop-filter: blur(6px) !important;
-    }
-    .dialog-modal  {
-      background: transparent !important;
-    }
-      .dialog-modal-body {
-      background-color: transparent !important;
-      }
-    .dialog-modal-body__help {
-      background-color: #061d29 !important;
-    }
-    .dialog-modal-body__wallets {
-      background-color: #1c2d36 !important;
-    }
-    .wallets-header__button svg {
-      fill: #fff !important;
-      width: 12px;
-      height: 12px
-    }
-    small.not-available {
-      border-radius: 16px !important;
-      border: 1px solid rgba(255, 255, 255, 0.08) !important;
-      background: rgba(255, 255, 255, 1) !important;
-    }
-    .dialog-text,
-    .dialog-text-solid {
-      color: #f5f5f5 !important;
-    }
-  `
-
-  root.append(style)
-}
