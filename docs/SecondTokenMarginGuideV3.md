@@ -16,6 +16,8 @@
 4. **`referrer = None`** — захисна вимога. Технічно, при `borrow_fee_bps == 0` referrer-slice (`obligation.rs:1413, 1425`) сам виходить нульовим, бо це частка від `fee_sum == 0`. Але краще не залежати від цього: явно передавайте `referrer = None`.
 5. **`pool.config.health_config.min_collateral_value_cents`** дотриманий фінальною позицією. Інакше `process_borrow` реверне попри проходження по LTV.
 6. **`usdc_pool.total_available ≥ X`** на момент submit — інакше `process_flash_borrow` (`processors.rs:530`) реверне на `require_total_available`.
+7. **На обовʼязанні немає активних bad-debt cover-реквестів** — `require_no_active_cover_bad_debt_requests_exists` (`processors.rs:332, 380`) реверне `Borrow` і `AddCollateral`, якщо такі є.
+8. **`pool.config.status` має `BORROW_ENABLED | FLASH_LOAN_ENABLED | ADD_COLLATERAL_ENABLED`** на відповідних пулах — feature-flag перевірки в `pool.rs:504-520`.
 
 Якщо хоч одна з умов не виконана — **зупинитись і не сабмітити**.
 
@@ -215,60 +217,44 @@ V1 будував `Borrow.amount` через worst-case `SwapForExactTokens.max_
 
 ## Інваріанти, які варто перевіряти end-to-end тестом
 
-Перш ніж викочувати V3 у прод, додайте до `tests/src/` тест, який покриває обидва сценарії слипеджу. Псевдокод:
+Покрито 23-test integration suite в **`tests/src/multiply_v3.rs`**. Запуск:
 
-```rust
-let margin = 1_000_000_000_i128;
-let Y      = 995_000_000_i128;
-let X      = 220_615_572_i128;
-let flash_fee = 198_555_i128;
-
-// 1. Floor-on-money — точно мінімальний swap output
-fixture.set_amm_rate(USDC -> XLM, exactly_at_floor);
-fixture.submit_requests_batch(user, v3_batch);
-
-let obl = fixture.get_obligation(user);
-assert_eq!(obl.collateral(XLM), margin + Y);            // 1_995_000_000 exact
-assert_eq!(obl.debt(USDC),       X + flash_fee);        // 220_814_127 exact
-assert_eq!(fixture.balance(user, XLM), 0);              // no surplus
-assert_eq!(fixture.balance(user, USDC), 0);             // no surplus
-
-// 2. Favorable — DEX дав на 5% більше
-fixture.set_amm_rate(USDC -> XLM, floor * 1.05);
-fixture.submit_requests_batch(user2, v3_batch);
-
-let obl2 = fixture.get_obligation(user2);
-assert_eq!(obl2.collateral(XLM), margin + Y);           // STILL exact
-assert_eq!(obl2.debt(USDC),       X + flash_fee);       // STILL exact
-assert!(fixture.balance(user2, XLM) > 0);               // bonus in wallet
-assert_eq!(fixture.balance(user2, USDC), 0);
-
-// 3. Adverse — DEX дав менше за floor
-fixture.set_amm_rate(USDC -> XLM, floor * 0.99);
-let result = fixture.try_submit_requests_batch(user3, v3_batch);
-assert!(result.is_err());                               // atomic revert на processors.rs:1036
-assert_eq!(fixture.get_obligation(user3), None);        // no state change
-
-// 4. Wrong order — AddCollateral перед FlashBorrow має ревертити
-let bad_batch = vec![
-    AddCollateral(XLM, margin + Y),
-    FlashBorrow(USDC, X),
-    SwapExactTokens(...),
-    Borrow(USDC, X + flash_fee),
-];
-let result = fixture.try_submit_requests_batch(user4, bad_batch);
-assert!(result.is_err());                               // pre-FlashBorrow flush fails
-                                                         // на нестачі XLM в гаманці
-
-// 5. Precondition violation — borrow_fee_bps != 0 не повинен ствердити V3 інваріант
-fixture.set_pool_borrow_fee(USDC, 5);
-let result = fixture.try_submit_requests_batch(user5, v3_batch);
-// Або реверне на flash repay (бо borrower_to_receive < flash_repay),
-// або проходить, але обовʼязання не задовольняє invariant `debt == X + flash_fee`.
-// SDK мусить НЕ дати дійти до цього кейсу — перевірити fee preconditions.
+```bash
+cargo nextest run multiply_v3 --workspace --lib
 ```
 
-Якщо всі п'ять сценаріїв проходять — схема працює саме так, як описано вище.
+| # | Тест | Що перевіряє |
+| - | ---- | ------------ |
+| 1  | `v3_floor_on_money_produces_exact_position_no_bonus` | DEX повертає рівно `Y`; колат і борг — точні літерали |
+| 2  | `v3_favorable_slippage_yields_xlm_bonus_position_unchanged` | +5% slippage → бонус у гаманці, позиція не змінилась |
+| 3  | `v3_adverse_slippage_reverts_atomically_no_state_change` | −1% adverse → atomic rollback |
+| 4  | `v3_wrong_order_addcollateral_before_flashborrow_reverts` | Порядок реквестів обовʼязковий |
+| 5  | `v3_two_users_get_identical_positions_under_different_slippage` | Детермінованість позицій між юзерами |
+| 6  | `v3_extreme_favorable_slippage_2x_position_still_exact` | +100% slippage — позиція все ще точна |
+| 7  | `v3_just_below_floor_one_unit_short_reverts` | Boundary: 24 µ нижче `Y` → revert |
+| 8  | `v3_large_slippage_with_low_floor_multiply_succeeds` | −50% slippage, але `Y` сконфігуровано низько → succeeds |
+| 9  | `v3_skewed_quote_gold_expensive_position_exact_at_floor` | Котирування `X = 2Y` (gold expensive) |
+| 10 | `v3_skewed_quote_gold_cheap_with_favorable_slippage` | Котирування `Y = 4X` (gold cheap) + favorable |
+| 11 | `v3_silently_milks_user_when_borrow_fee_bps_nonzero` | **Critical**: тихий витік fee при `borrow_fee_bps != 0` |
+| 12 | `v3_breaks_determinism_when_add_collateral_fee_bps_nonzero` | Колатерал недодається при ненульовому fee |
+| 13 | `v3_under_open_ltv_succeeds` | LTV ~60% (під дефолтним open_ltv=70%) |
+| 14 | `v3_over_open_ltv_reverts_with_unhealthy_operation` | LTV >70% → `MCError::UnhealthyOperation` |
+| 15 | `v3_with_unregistered_referrer_still_deterministic` | Referrer ≠ None, але не зареєстрований у пулі → інваріант тримається |
+| 16 | `v3_multi_hop_swap_path_works` | Path `[USDC, BTC, GOLD]` (3-hop) |
+| 17 | `v3_reverts_when_flash_loan_disabled` | Feature-flag enforcement |
+| 18 | `v3_reverts_when_pool_lacks_flash_liquidity` | Pool reserve exhaustion |
+| 19 | `v3_with_custom_flash_loan_fee_bps_works` | `flash_loan_fee_bps = 9` (V1-era налаштування) |
+| 20 | `v3_with_zero_flash_loan_fee_works` | `flash_loan_fee_bps = 0` edge |
+| 21 | `v3_adds_to_preexisting_collateral_position` | V3 поверх існуючого колатеру |
+| 22 | `v3_adds_to_preexisting_borrow_position` | V3 поверх існуючого боргу |
+| 23 | `v3_with_tiny_amounts_handles_rounding_correctly` | margin = X = Y = 1 µ |
+
+Wallet net-deltas, які реально тримаються (важливо: не плутати з зануленням):
+
+- **USDC wallet**: net delta = `0` (Borrow → FlashRepay netting), за умови `borrow_fee_bps == 0`. При ненульовому borrow fee — wallet тихо втрачає `borrow_fee` (тест 11).
+- **XLM wallet floor-on-money**: net delta = `−margin`. Swap mint `Y` XLM повністю compensує AddCollateral pull `(margin + Y)`, лишається `−margin`.
+- **XLM wallet favorable**: net delta = `−margin + (actual_swap_output − Y)`. Бонус = surplus.
+- **XLM wallet adverse**: net delta = `0` (atomic revert).
 
 ---
 
