@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { formatPrice } from '~/utils'
 
-const GUIDE_LINK = 'https://docs.alula.finance/guides/'
+const GUIDE_LINK = 'https://docs.alula.finance/guides/multiply/'
 
 const marketsStore = useMarketsStore()
 
