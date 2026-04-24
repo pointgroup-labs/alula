@@ -48,40 +48,36 @@ watch(() => activeTab.value?.value, (val) => {
 </script>
 
 <template>
-  <main class="multiply-details container">
-    <multiply-details-top />
+  <j-loading-spinner
+    v-if="loading"
+    class="table-loading-spinner"
+  >
+    Loading market data...
+  </j-loading-spinner>
 
-    <j-loading-spinner
-      v-if="loading"
-      class="table-loading-spinner"
-    >
-      Loading market data...
-    </j-loading-spinner>
+  <template v-else-if="selectedVault">
+    <j-line-tab
+      v-model="activeTab"
+      :tabs="tabs"
+      style="margin-bottom: -12px;"
+    />
 
-    <template v-else-if="selectedVault">
-      <j-line-tab
-        v-model="activeTab"
-        :tabs="tabs"
-        style="margin-bottom: -12px;"
-      />
+    <multiply-details-overview
+      v-if="activeTab.value === 'pool'"
+      :selected-vault="selectedVault"
+    />
+    <multiply-info-risks
+      v-if="activeTab.value === 'info'"
+    />
+    <leverage-position v-if="activeTab.value === 'position'" />
+  </template>
 
-      <multiply-details-overview
-        v-if="activeTab.value === 'pool'"
-        :selected-vault="selectedVault"
-      />
-      <multiply-info-risks
-        v-if="activeTab.value === 'info'"
-      />
-      <leverage-position v-if="activeTab.value === 'position'" />
-    </template>
-
-    <div
-      v-else
-      class="multiply-details__empty"
-    >
-      Market or pool not found.
-    </div>
-  </main>
+  <div
+    v-else
+    class="multiply-details__empty"
+  >
+    Market or pool not found.
+  </div>
 </template>
 
 <style lang="scss">
