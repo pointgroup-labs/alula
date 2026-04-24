@@ -83,7 +83,9 @@ pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000;
 // Max portion of a position that can be liquidated in one go
 pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
 // Additional spread taken during liquidation
-pub const DEFAULT_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000;
+pub const MIN_MAX_LIQUIDATION_INCENTIVE_BPS: i128 = 50; // 0.5%
+pub const MAX_MAX_LIQUIDATION_INCENTIVE_BPS: i128 = BPS_FACTOR; // 100%
+pub const DEFAULT_MAX_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000; // 10%
 pub const DEFAULT_OPEN_LTV_BPS: i128 = 7_000;
 pub const DEFAULT_CLOSE_LTV_BPS: i128 = 8_000;
 pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100% (equivalent to a liability factor to make no difference)
@@ -117,7 +119,7 @@ pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 // ---- Oracle ----
 
 // Maximum acceptable oracle price age in seconds
-pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Relies on 'Reflector' resolution being 5 minutes
+pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE;
 
 // ---- MISC ----
 

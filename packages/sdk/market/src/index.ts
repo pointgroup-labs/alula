@@ -698,6 +698,11 @@ export interface Client {
   refresh_obligation_farms: ({user}: {user: string}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
+   * Construct and simulate a upgrade_oracle transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  upgrade_oracle: ({new_oracle}: {new_oracle: string}, options?: MethodOptions) => Promise<AssembledTransaction<null>>
+
+  /**
    * Construct and simulate a update_pool_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   update_pool_status: ({pool_address, new_status_flags}: {pool_address: string, new_status_flags: u32}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
@@ -779,6 +784,7 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAQY2xlYXJfcG9vbF9mYXJtcwAAAAEAAAAAAAAADHBvb2xfYWRkcmVzcwAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
         "AAAAAAAAAAAAAAAYcmVmcmVzaF9vYmxpZ2F0aW9uX2Zhcm1zAAAAAQAAAAAAAAAEdXNlcgAAABMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
         "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAYAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAVhZG1pbgAAAAAAABMAAAAAAAAABm9yYWNsZQAAAAAAEwAAAAAAAAAOaW5zdXJhbmNlX2Z1bmQAAAAAABMAAAAAAAAACGRlcGxveWVyAAAAEwAAAAAAAAAGcGFyYW1zAAAAAAfQAAAAEE1hcmtldEluaXRQYXJhbXMAAAABAAAD6QAAA+0AAAAAAAAH0AAAAAdNQ0Vycm9yAA==",
+        "AAAAAAAAAAAAAAAOdXBncmFkZV9vcmFjbGUAAAAAAAEAAAAAAAAACm5ld19vcmFjbGUAAAAAABMAAAAA",
         "AAAAAAAAAAAAAAASdXBkYXRlX3Bvb2xfc3RhdHVzAAAAAAACAAAAAAAAAAxwb29sX2FkZHJlc3MAAAATAAAAAAAAABBuZXdfc3RhdHVzX2ZsYWdzAAAABAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
         "AAAAAAAAAAAAAAARcHJvcG9zZV9uZXdfYWRtaW4AAAAAAAABAAAAAAAAAAluZXdfYWRtaW4AAAAAAAATAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAHTUNFcnJvcgA=",
         "AAAAAAAAAAAAAAAVYWNjZXB0X3Byb3Bvc2VkX2FkbWluAAAAAAAAAAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAB01DRXJyb3IA",
@@ -927,6 +933,7 @@ export class Client extends ContractClient {
         set_pool_debt_farm: this.txFromJSON<Result<void>>,
         clear_pool_farms: this.txFromJSON<Result<void>>,
         refresh_obligation_farms: this.txFromJSON<Result<void>>,
+        upgrade_oracle: this.txFromJSON<null>,
         update_pool_status: this.txFromJSON<Result<void>>,
         propose_new_admin: this.txFromJSON<Result<void>>,
         accept_proposed_admin: this.txFromJSON<Result<void>>

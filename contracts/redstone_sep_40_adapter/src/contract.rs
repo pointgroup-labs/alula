@@ -81,7 +81,11 @@ impl PriceFeedTrait for RedStoneSep40AdapterContract {
             return None;
         }
 
-        let timestamp = entry.write_timestamp.checked_div(MILLIS_PER_SECOND)?;
+        // Since the heartbeat of a redstone oracle is expected to be 24h,
+        // it's important always to treat its price as the most fresh one
+        // to avoid cases when it's not changed enough for a few minutes, and causing
+        // the aggregated oracle to fail
+        let timestamp = e.ledger().timestamp();
 
         Some(PriceData { price, timestamp })
     }

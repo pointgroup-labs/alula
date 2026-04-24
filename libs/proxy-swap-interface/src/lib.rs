@@ -18,4 +18,8 @@ pub trait ProxySwap {
         max_amount_in: i128,
         amount_out: i128,
     ) -> i128;
+
+    fn get_amount_out(e: Env, path: Vec<Address>, amount_in: i128) -> i128;
+
+    fn get_amount_in(e: Env, path: Vec<Address>, amount_out: i128) -> i128;
 }

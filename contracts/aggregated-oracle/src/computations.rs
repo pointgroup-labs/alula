@@ -1,4 +1,4 @@
-use sep_40_oracle::{Asset, PriceFeedClient};
+use sep_40_oracle::{Asset, PriceData, PriceFeedClient};
 use soroban_sdk::{Address, Env, Map, Vec};
 
 use crate::{
@@ -6,10 +6,16 @@ use crate::{
     storage::{self, OracleConfig},
 };
 
-/// Computes the median of `lastprice().price` received from the oracles.
+/// Computes the median of `lastprice().price` received from the oracles and returns
+/// PriceData with the median price and the oldest timestamp from all source oracles.
+///
 /// In the case of a specific oracle that is not aware of the price, its price doesn't get included in the computation
-pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
-    let prices = get_last_prices(e, token_address);
+///
+/// # Returns
+/// * `Some(PriceData)` - PriceData with the median price and the oldest timestamp from source oracles
+/// * `None` - If no valid prices are available
+pub fn compute_median(e: &Env, token_address: &Address) -> Option<PriceData> {
+    let (prices, oldest_timestamp) = get_last_prices_with_oldest_timestamp(e, token_address);
 
     if prices.is_empty() {
         events::AllOraclesUnawareOfPrice { token_address: token_address.clone() }.publish(e);
@@ -29,7 +35,7 @@ pub fn compute_median(e: &Env, token_address: &Address) -> Option<i128> {
         sorted_prices.get(n / 2).unwrap().0 // safe
     };
 
-    Some(median)
+    Some(PriceData { price: median, timestamp: oldest_timestamp })
 }
 
 /// Sorts prices via the Tree sort algorithm, handling duplicates by using a counter in the key
@@ -50,27 +56,39 @@ fn tree_sort(e: &Env, vec: Vec<i128>) -> Vec<(i128, u32)> {
     vec_map.keys()
 }
 
-/// Gets `lastprice().price` data from the protocol's oracles. If a `lastprice().price` call for a
+/// Gets `lastprice()` prices from the protocol's oracles. If a `lastprice()` call for a
 /// specific oracle doesn't return the price, or the price's timestamp is incorrect/outdated, it
-/// doesn't get included in the resulting list
-pub fn get_last_prices(e: &Env, token_address: &Address) -> Vec<i128> {
+/// doesn't get included in the resulting list.
+///
+/// # Returns
+/// * `(Vec<i128>, u64)` - Vector of valid prices and the oldest timestamp among them
+pub fn get_last_prices_with_oldest_timestamp(e: &Env, token_address: &Address) -> (Vec<i128>, u64) {
     let mut prices = Vec::new(e);
+    let mut oldest_timestamp = u64::MAX;
 
     for oracle_config in storage::get_oracles(e) {
-        if let Some(price) = get_last_price(e, token_address, &oracle_config) {
-            prices.push_back(price);
+        if let Some(price_data) = get_last_price(e, token_address, &oracle_config) {
+            if price_data.timestamp < oldest_timestamp {
+                oldest_timestamp = price_data.timestamp;
+            }
+
+            prices.push_back(price_data.price);
         }
     }
 
-    prices
+    (prices, oldest_timestamp)
 }
 
 /// # Returns
 ///
-/// Oracle's `lastprice.price` from the cache, or,
+/// Oracle's PriceData from the cache, or,
 /// if cache is expired or not present, takes the data from `lastprice()` oracle's endpoint
 /// and updates the cache with it
-fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig) -> Option<i128> {
+fn get_last_price(
+    e: &Env,
+    token_address: &Address,
+    oracle_config: &OracleConfig,
+) -> Option<PriceData> {
     let current_timestamp = e.ledger().timestamp();
     let mut oracle_cache =
         storage::get_oracle_price_data_cache(e, &oracle_config.address).unwrap_or(Map::new(e));
@@ -79,7 +97,7 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         && lastprice.timestamp + (oracle_config.resolution as u64) > current_timestamp
     {
         // No need to fetch the price if it hasn't been updated
-        return Some(lastprice.price);
+        return Some(lastprice);
     }
 
     let asset = if oracle_config.is_stellar_data_based {
@@ -160,13 +178,16 @@ fn get_last_price(e: &Env, token_address: &Address, oracle_config: &OracleConfig
         let protocol_decimals = storage::get_decimals(e);
         let normalized_price =
             normalize_price(price_data.price, oracle_config.decimals, protocol_decimals)?;
+
+        // Update price_data with normalized price for caching
         price_data.price = normalized_price;
 
-        // Update the cache
-        oracle_cache.set(token_address.clone(), price_data);
+        // Update the cache with PriceData
+        oracle_cache.set(token_address.clone(), price_data.clone());
         storage::set_oracle_price_data_cache(e, &oracle_config.address, &oracle_cache);
 
-        Some(normalized_price)
+        // Return PriceData
+        Some(price_data)
     }
 }
 
