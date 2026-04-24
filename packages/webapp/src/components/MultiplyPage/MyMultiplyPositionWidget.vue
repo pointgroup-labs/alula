@@ -170,8 +170,8 @@ function goToPortfolio() {
           }"
         >{{ truncatePercent(metrics.netApy, 2) }}%</span>
       </div>
-    </div>
 
-    <i-app-arrow-right class="arrow-icon" />
+      <i-app-arrow-right class="arrow-icon" />
+    </div>
   </div>
 </template>
