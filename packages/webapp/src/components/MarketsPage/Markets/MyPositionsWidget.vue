@@ -147,8 +147,9 @@ function goToPortfolio() {
           }"
         >{{ truncatePercent(netApy, 2) }}%</span>
       </div>
+
+      <i-app-arrow-right class="arrow-icon" />
     </div>
 
-    <i-app-arrow-right class="arrow-icon" />
   </div>
 </template>

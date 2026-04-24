@@ -667,7 +667,7 @@ section#my-position {
     line-height: 20px;
     gap: 12px;
 
-    @media (max-width: $breakpoint-xs) {
+    @media (max-width: $breakpoint-sm) {
       padding: 32px 0;
     }
   }

@@ -118,12 +118,12 @@ const dialog = defineModel({
 
     @media (max-width: $breakpoint-xs) {
       height: 100%;
-      max-width: 100%;
       width: 100%;
       margin: 0;
       align-items: flex-end;
 
       .modal-content {
+        max-width: 100% !important;
         max-height: 90%;
         border-radius: $radius-4xl $radius-4xl 0 0;
       }
