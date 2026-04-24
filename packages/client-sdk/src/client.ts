@@ -5,6 +5,7 @@ import { LendingService } from './services/lending'
 import { MarketService } from './services/market'
 import { MarketManagerService } from './services/market-manager'
 import { MultiplyService } from './services/multiply'
+import { SwapService } from './services/swap'
 import { WalletService } from './services/wallet'
 
 /**
@@ -57,6 +58,7 @@ export class StellarClient {
   public readonly lending: LendingService
   public readonly borrowing: BorrowingService
   public readonly multiply: MultiplyService
+  public readonly swap: SwapService
   public readonly wallet: WalletService
   public readonly marketManager: MarketManagerService
   public readonly horizonRpcUrl?: string
@@ -84,6 +86,7 @@ export class StellarClient {
     this.lending = new LendingService({ ...context, decimals })
     this.borrowing = new BorrowingService({ ...context, decimals })
     this.multiply = new MultiplyService({ ...context, decimals })
+    this.swap = new SwapService({ ...context, decimals })
     this.wallet = new WalletService(context)
     this.obligation = new ObligationService(context)
     this.marketManager = new MarketManagerService(context)
