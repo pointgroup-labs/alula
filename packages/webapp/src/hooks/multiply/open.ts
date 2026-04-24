@@ -85,6 +85,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
 
   const flashLoanFeeBps = computed(() => Number(marginPool.value?.pool.config.fee_config.flash_loan_fee_bps || 0))
 
+  // Exposed for UI: 'v3' = single-anchor deterministic flow (4 requests with AddCollateral),
+  // 'v2' = legacy fallback used when the deposit/borrow pools charge add_collateral_fee_bps
+  // or borrow_fee_bps. SDK auto-selects based on pool config.
+  const flowVersion = computed(() => preview.value?.flowVersion)
+
   const availableBorrowLiquidity = computed(() => {
     if (!marginPool.value) {
       return 0
@@ -338,6 +343,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     availableBorrowLiquidity,
     flashLoanFeeBps,
     flashLoanFeeAmount,
+    flowVersion,
     preview,
     summary,
     loadingPreview,
