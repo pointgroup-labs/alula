@@ -1,10 +1,36 @@
 <script lang="ts" setup>
-import type { MarketTableItem } from '~/types/table'
 import { bpsToNumber } from '@alula/client-sdk'
+
+const route = useRoute()
 
 const { width } = useWindowSize()
 
-const selectedPool = inject('selectedPool') as Ref<MarketTableItem>
+const marketsStore = useMarketsStore()
+
+const marketAddress = route.params?.market as string
+const poolAddress = route.params?.pool as string
+
+const selectedMarketName = ref()
+const selectedPoolAddress = ref()
+
+const {
+  marketWithTableItems,
+} = useMarketTable()
+
+const selectedMarket = computed(() => marketWithTableItems.value.find(m => m.marketName === selectedMarketName.value))
+const selectedPool = computed(() => selectedMarket.value?.tableItems.find(p => p.pool_address === selectedPoolAddress.value))
+
+watch(() => marketsStore.state.markets, (storeMarkets) => {
+  if (!storeMarkets || Object.keys(storeMarkets).length === 0) {
+    return
+  }
+  const markets = Object.entries(storeMarkets)
+  const market = markets.find(([, data]) => data.address === marketAddress)
+  const pool = market?.[1]?.marketState?.pools_data?.find(p => p.pool.pool_address === poolAddress)
+
+  selectedMarketName.value = market?.[0]
+  selectedPoolAddress.value = pool?.pool.pool_address
+}, { immediate: true })
 
 const pool = computed(() => selectedPool.value?.raw?.pool)
 
@@ -16,7 +42,7 @@ const borrowCapacity = computed(() => {
   if (!pool.value) {
     return 0
   }
-  const utilRatePercent = selectedPool.value?.utilization_rate_percent
+  const utilRatePercent = selectedPool.value?.utilization_rate_percent ?? 0
   const utilLimit = bpsToNumber(Number(selectedPool.value?.raw?.pool?.config.health_config.utilization_ratio_limit_bps) || 0) * 100
   return utilRatePercent / utilLimit * 100
 })
