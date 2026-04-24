@@ -9,6 +9,7 @@ mod interest_rates;
 mod liquidate;
 mod market_manager;
 mod misc;
+mod multiply_v3;
 mod oracle;
 mod repay;
 mod storage_extension;
