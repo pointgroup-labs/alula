@@ -201,7 +201,7 @@ const amountRules = [
         <div class="swap-card__header-titles">
           <h1>Swap</h1>
           <span class="swap-card__subtitle">
-            Trade lending-market assets through the best-priced AMM.
+            Instantly swap supported assets at the best on-chain rate.
           </span>
         </div>
         <slippage-select v-model="slippage" />
