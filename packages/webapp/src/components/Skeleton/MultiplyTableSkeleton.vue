@@ -1,8 +1,12 @@
 <script lang="ts" setup>
 const fields = [
   { key: 'asset', label: 'Pair', align: 'left' },
-  { key: 'maxMultiplier', label: 'Suggested Max', align: 'center' },
-  { key: 'apyAtMaxMultiplier', label: 'Net APY', align: 'center' },
+  { key: 'maxMultiplier', label: 'Max Multiplier', align: 'center' },
+  { key: 'apyAtMaxMultiplier', label: 'Max Net APY', align: 'center' },
+  { key: 'openLtv', label: 'LTV', align: 'center' },
+  { key: 'closeLtv', label: 'Liq. Threshold', align: 'center' },
+  { key: 'supplyApy', label: 'Supply APY', align: 'center' },
+  { key: 'borrowApy', label: 'Borrow APY', align: 'center' },
   { key: 'netEquity', label: 'Net Equity', align: 'right' },
   { key: 'action', label: '', align: 'right' },
 ]
@@ -10,6 +14,10 @@ const items = Array.from({ length: 3 }).map(() => {
   return {
     asset: '',
     maxMultiplier: '',
+    openLtv: '',
+    closeLtv: '',
+    supplyApy: '',
+    borrowApy: '',
     apyAtMaxMultiplier: '',
     netEquity: '',
     action: '',
@@ -76,6 +84,7 @@ watch(show, (v) => {
               width="32"
               height="32"
               variant="rounded"
+              class="xlm-icon"
             />
             <div class="market-table__asset__info">
               <j-skeleton
@@ -87,6 +96,30 @@ watch(show, (v) => {
         </template>
 
         <template #cell(maxMultiplier)>
+          <div class="table-cell justify-content-center">
+            <j-skeleton style="border-radius: 40px;" />
+          </div>
+        </template>
+
+        <template #cell(openLtv)>
+          <div class="table-cell justify-content-center">
+            <j-skeleton style="border-radius: 40px;" />
+          </div>
+        </template>
+
+        <template #cell(closeLtv)>
+          <div class="table-cell justify-content-center">
+            <j-skeleton style="border-radius: 40px;" />
+          </div>
+        </template>
+
+        <template #cell(supplyApy)>
+          <div class="table-cell justify-content-center">
+            <j-skeleton style="border-radius: 40px;" />
+          </div>
+        </template>
+
+        <template #cell(borrowApy)>
           <div class="table-cell justify-content-center">
             <j-skeleton style="border-radius: 40px;" />
           </div>

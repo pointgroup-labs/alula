@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { bpsToNumber } from '@alula/client-sdk'
 import { capitalize } from 'vue'
 import { truncatePercent } from '~/utils'
 
@@ -28,21 +29,31 @@ const vaults = computed(() => multiplyStore.vaults)
 
 const fields = [
   { key: 'asset', label: 'Pair', align: 'left' },
-  {
-    key: 'maxMultiplier',
-    label: 'Suggested Max',
-    align: 'center',
-    tooltip: 'Highest multiplier we suggest at open. Conservative — leaves headroom for swap slippage and fees. The contract\'s hard ceiling (1 / (1 − open LTV)) is higher; live positions can drift between the two.',
-  },
-  {
-    key: 'apyAtMaxMultiplier',
-    label: 'Net APY',
-    align: 'center',
-    tooltip: 'Estimated net APY when opened at the suggested max multiplier (supply APY × multiplier − borrow APY × (multiplier − 1)). Actual realized APY varies with price, rate changes, and your chosen multiplier.',
-  },
+  { key: 'maxMultiplier', label: 'Max Multiplier', align: 'center' },
+  { key: 'apyAtMaxMultiplier', label: 'Max Net APY', align: 'center' },
+  { key: 'openLtv', label: 'LTV', align: 'center' },
+  { key: 'closeLtv', label: 'Liq. Threshold', align: 'center' },
+  { key: 'supplyApy', label: 'Supply APY', align: 'center' },
+  { key: 'borrowApy', label: 'Borrow APY', align: 'center' },
   { key: 'netEquity', label: 'Net Equity', align: 'right' },
   { key: 'action', label: '', align: 'right' },
 ]
+
+// Pure derivers — pulled out of the templates so the cell markup stays declarative and
+// the same formula can be unit-tested in isolation if/when we add coverage. All return
+// values are already in percent units (× 100) so `truncatePercent` can format directly.
+function openLtvPercent(item: any): number {
+  return bpsToNumber(Number(item?.depositPoolData?.pool?.config?.health_config?.open_ltv_bps || 0)) * 100
+}
+function closeLtvPercent(item: any): number {
+  return bpsToNumber(Number(item?.depositPoolData?.pool?.config?.health_config?.close_ltv_bps || 0)) * 100
+}
+function supplyApyPercent(item: any): number {
+  return bpsToNumber(Number(item?.depositPoolData?.apy?.supply_bps || 0)) * 100
+}
+function borrowApyPercent(item: any): number {
+  return bpsToNumber(Number(item?.borrowPoolData?.apy?.borrow_bps || 0)) * 100
+}
 
 watch([
   filteredVaults,
@@ -133,13 +144,37 @@ watch([
                 </div>
               </div>
 
-              <i-app-export-icon style="color: #6b7994;" />
+              <i-app-export-icon style="color: #6b7994; margin-left: 8px; opacity: 0.4;" />
             </div>
           </template>
 
           <template #cell(maxMultiplier)="data">
             <div class="table-cell justify-content-center">
               {{ truncatePercent(data.item.maxMultiplier || 0, 2) }}x
+            </div>
+          </template>
+
+          <template #cell(openLtv)="data">
+            <div class="table-cell justify-content-center">
+              {{ +truncatePercent(openLtvPercent(data.item), 2) }}%
+            </div>
+          </template>
+
+          <template #cell(closeLtv)="data">
+            <div class="table-cell justify-content-center">
+              {{ +truncatePercent(closeLtvPercent(data.item), 2) }}%
+            </div>
+          </template>
+
+          <template #cell(supplyApy)="data">
+            <div class="table-cell justify-content-center text-cyan">
+              {{ truncatePercent(supplyApyPercent(data.item), 2) }}%
+            </div>
+          </template>
+
+          <template #cell(borrowApy)="data">
+            <div class="table-cell justify-content-center text-indigo">
+              {{ truncatePercent(borrowApyPercent(data.item), 2) }}%
             </div>
           </template>
 
@@ -266,6 +301,28 @@ watch([
     line-height: 16px;
     color: $text-secondary;
     text-align: center;
+  }
+
+  // Stack the borrow-asset icon over the deposit-asset icon (secondary on top, slightly
+  // overlapping). Mirrors the pattern used by .position-card__icons (multiply details page)
+  // and the My Multiplies portfolio table so multiply surfaces share one visual language.
+  .market-table__asset {
+    gap: 0;
+
+    .xlm-icon {
+      position: relative;
+      margin-left: -12px;
+      z-index: 1;
+      border: 2px solid $bg-card;
+      background-color: $bg-card;
+      border-radius: 50%;
+      // Compensate for the 2px ring so the visible disc matches the primary's 32×32.
+      box-sizing: content-box;
+    }
+
+    .market-table__asset__info {
+      margin-left: 12px;
+    }
   }
 }
 </style>
