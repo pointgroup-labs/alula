@@ -429,6 +429,7 @@ function isUserHaveMultiply(): boolean {
         size="md"
         :loading="marketActions.isLoading(vault.pool_address, 'multiplyOpen', vault.market)"
         :pool="vault.depositPoolData.pool"
+        :pool-secondary="vault.borrowPoolData.pool"
         :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
         @click-handler="openMultiply"
       >
@@ -520,6 +521,94 @@ function isUserHaveMultiply(): boolean {
   .arrow-icon {
     &--active {
       transform: rotate(180deg);
+    }
+  }
+
+  .summary-list__item {
+    padding-bottom: 4px;
+    .label {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+
+      .step-id {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: $navi-100;
+        background-color: $navi-400;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        font-size: 9px;
+        font-weight: 700;
+      }
+    }
+    .label-with-tip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sub-label {
+      font-size: 11px;
+      color: rgb(79, 96, 128);
+      margin-left: 18px;
+
+      .line-arrow-icon {
+        width: 8px;
+        height: 12px;
+        margin-right: 4px;
+      }
+    }
+
+    &:last-child {
+      .sub-label {
+        margin-left: 24px;
+        svg {
+          display: none;
+        }
+      }
+    }
+  }
+
+  .select-asset-btn {
+    .asset-icons {
+      position: relative;
+      width: 24px;
+      height: 24px;
+
+      img {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+
+        &:nth-child(1) {
+          left: 0;
+          top: 0;
+        }
+        &:nth-child(2) {
+          right: -2px;
+          bottom: -2px;
+        }
+      }
+    }
+
+    .swap-asset-label {
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      svg {
+        width: 12px;
+        height: 12px;
+        color: #fff;
+      }
+
+      span {
+        font-size: 12px;
+        font-weight: 500;
+      }
     }
   }
 }

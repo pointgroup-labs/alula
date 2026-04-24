@@ -436,11 +436,11 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         return
       }
 
-      if (!amount.value) {
-        amount.value = isMarginBorrow.value
-          ? Number(bigintToNumber(maxPreview.maxRepayAmount, borrowDecimals.value)) || 0
-          : Number(bigintToNumber(maxPreview.maxReceivableAmount, depositDecimals.value)) || 0
-      }
+      // if (!amount.value) {
+      //   amount.value = isMarginBorrow.value
+      //     ? Number(bigintToNumber(maxPreview.maxRepayAmount, borrowDecimals.value)) || 0
+      //     : Number(bigintToNumber(maxPreview.maxReceivableAmount, depositDecimals.value)) || 0
+      // }
 
       if (!amount.value || amount.value <= 0) {
         preview.value = maxPreview
@@ -514,6 +514,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
   function reset() {
     marketsStore.dialogLeverageWithdraw = false
+    clearState()
   }
 
   async function withdraw() {
