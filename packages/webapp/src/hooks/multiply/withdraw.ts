@@ -29,7 +29,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   const data = computed(() => unref(dataRef))
 
   const amount = toRef(market, 'withdrawAmount')
-  const slippage = ref(0.5)
+  const slippage = ref(0.05)
   const swapProviderAddress = computed(() => multiplyStore.swapProviderAddress)
   const reloadFee = ref(false)
   const preview = ref<CloseMultiplyPreview>()

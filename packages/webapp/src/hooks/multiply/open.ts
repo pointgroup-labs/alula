@@ -5,6 +5,8 @@ import Decimal from 'decimal.js'
 import { destructurePoolAsset } from '~/utils'
 import { buildMultiplyObligationKey } from '~/utils/obligation'
 
+const DEFAULT_PERCENT_FROM_MAX = 85
+
 export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined>) {
   const market = useMarketActions()
   const marketsStore = useMarketsStore()
@@ -20,16 +22,42 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const vault = computed(() => unref(vaultRef))
 
   const amount = ref<number | undefined>()
-  const slippage = ref(0.5)
-  const percentFromMax = ref(85)
+  const slippage = ref(0.05)
+  const percentFromMax = ref(DEFAULT_PERCENT_FROM_MAX)
   const swapProviderAddress = computed(() => multiplyStore.swapProviderAddress)
   const preview = ref<MultiplyPreview>()
-  const loadingPreview = ref(false)
-  const previewError = ref<string>()
-  let interval: ReturnType<typeof setInterval> | undefined
+
+  const previewRequest = useLatestRequest<MultiplyPreview>()
+  const loadingPreview = previewRequest.loading
+  const previewError = previewRequest.error
 
   const activeClient = computed(() => vault.value ? marketsStore.state.markets[vault.value.market]?.client : undefined)
   const marketState = computed(() => vault.value ? marketsStore.state.markets[vault.value.market]?.marketState : undefined)
+
+  // Single source of truth for token-decimal lookups. All consumers below should reach
+  // for these instead of redoing `vault.value.{deposit,borrow}PoolData.pool.token_decimals`.
+  const vaultDecimals = computed(() => {
+    if (!vault.value) {
+      return undefined
+    }
+    return {
+      borrowDecimals: vault.value.borrowPoolData.pool.token_decimals,
+      depositDecimals: vault.value.depositPoolData.pool.token_decimals,
+    }
+  })
+
+  // Oracle-priced view of the pair. Returns undefined until both vault and marketState load.
+  const oraclePrices = computed(() => {
+    if (!vault.value || !marketState.value) {
+      return undefined
+    }
+    const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
+    return {
+      oracleDecimals,
+      depositPrice: Number(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals)),
+      borrowPrice: Number(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals)),
+    }
+  })
 
   const isMarginBorrow = ref(false)
   const marginAssetType = computed<MultiplyMarginAsset>(() => isMarginBorrow.value ? 'borrow' : 'deposit')
@@ -77,7 +105,12 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     const supplyApy = bpsToNumber(Number(vault.value.depositPoolData.apy.supply_bps || 0))
     const borrowApy = bpsToNumber(Number(vault.value.borrowPoolData.apy.borrow_bps || 0))
 
-    return (supplyApy * selectedMultiplier.value - borrowApy * Math.max(selectedMultiplier.value - 1, 0)) * 100
+    // Use realized leverage from the preview when available so APY reflects what the user
+    // actually opens — at high slippage in deposit-margin mode, realized leverage drops well
+    // below the slider target (see projectedLeverage docstring) and APY drops with it.
+    const leverage = projectedLeverage.value ?? selectedMultiplier.value
+
+    return (supplyApy * leverage - borrowApy * Math.max(leverage - 1, 0)) * 100
   })
 
   const marginPool = computed(() => isMarginBorrow.value ? vault.value?.borrowPoolData : vault.value?.depositPoolData)
@@ -97,18 +130,13 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
 
   const flashLoanFeeBps = computed(() => Number(marginPool.value?.pool.config.fee_config.flash_loan_fee_bps || 0))
 
-  // Exposed for UI: 'v3' = single-anchor deterministic flow (4 requests with AddCollateral),
-  // 'v2' = legacy fallback used when the deposit/borrow pools charge add_collateral_fee_bps
-  // or borrow_fee_bps. SDK auto-selects based on pool config.
-  const flowVersion = computed(() => preview.value?.flowVersion)
-
   const availableBorrowLiquidity = computed(() => {
-    if (!vault.value?.borrowPoolData) {
+    if (!vault.value?.borrowPoolData || !vaultDecimals.value) {
       return 0
     }
 
-    const pool = vault.value?.borrowPoolData
-    const decimals = pool.pool.token_decimals
+    const pool = vault.value.borrowPoolData
+    const decimals = vaultDecimals.value.borrowDecimals
     const totalSupply = Number(bigintToNumber(pool.total_supply, decimals))
     const totalBorrowed = Number(bigintToNumber(pool.pool.total_borrowed, decimals))
     const availableAdjusted = Number(bigintToNumber(pool.total_available_adjusted, decimals))
@@ -129,20 +157,13 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       return maxFlashBorrow / (selectedMultiplier.value - 1)
     }
 
-    if (!vault.value || !marketState.value) {
+    const prices = oraclePrices.value
+    if (!prices || prices.depositPrice <= 0 || prices.borrowPrice <= 0) {
       return 0
     }
 
-    const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
-    const depositPrice = Number(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals))
-    const borrowPrice = Number(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals))
-
-    if (depositPrice <= 0 || borrowPrice <= 0) {
-      return 0
-    }
-
-    return (maxFlashBorrow * borrowPrice)
-      / (depositPrice * Math.max(selectedMultiplier.value - 1, 0))
+    return (maxFlashBorrow * prices.borrowPrice)
+      / (prices.depositPrice * Math.max(selectedMultiplier.value - 1, 0))
   })
 
   const swapPath = computed(() => {
@@ -156,16 +177,15 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   })
 
   const summary = computed(() => {
-    if (!preview.value || !vault.value) {
+    if (!preview.value || !vaultDecimals.value) {
       return
     }
 
-    const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
-    const marginDecimals = marginPool.value?.pool.token_decimals || borrowDecimals
-    const depositDecimals = vault.value.depositPoolData.pool.token_decimals
+    const { borrowDecimals, depositDecimals } = vaultDecimals.value
 
     return {
-      flashBorrowAmount: Number(bigintToNumber(preview.value.flashBorrowAmount, marginDecimals)),
+      // Flash always pulls from the borrow pool in V3, so flashBorrowAmount is in borrow-asset units.
+      flashBorrowAmount: Number(bigintToNumber(preview.value.flashBorrowAmount, borrowDecimals)),
       swapAmountIn: Number(bigintToNumber(preview.value.swapAmountIn, borrowDecimals)),
       expectedAmountOut: Number(bigintToNumber(preview.value.expectedAmountOut, depositDecimals)),
       minAmountOut: Number(bigintToNumber(preview.value.minAmountOut, depositDecimals)),
@@ -175,15 +195,14 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   })
 
   const flashLoanFeeAmount = computed(() => {
-    if (!vault.value || !preview.value) {
+    if (!preview.value || !vaultDecimals.value) {
       return 0
     }
 
-    const marginDecimals = marginPool.value?.pool.token_decimals || vault.value.borrowPoolData.pool.token_decimals
     return Number(
       bigintToNumber(
         preview.value.flashRepaymentAmount - preview.value.flashBorrowAmount,
-        marginDecimals,
+        vaultDecimals.value.borrowDecimals,
       ),
     )
   })
@@ -191,19 +210,16 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   // Health-check inputs derived once and reused by both unhealthyReason and
   // maxTolerableSlippagePercent. Returns undefined when preview/market data isn't ready.
   const healthCheckInputs = computed(() => {
-    if (!vault.value || !preview.value || !marketState.value) {
+    if (!vault.value || !preview.value || !marketState.value || !vaultDecimals.value || !oraclePrices.value) {
       return undefined
     }
 
-    const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
-    const depositDecimals = vault.value.depositPoolData.pool.token_decimals
-    const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
+    const { depositDecimals, borrowDecimals } = vaultDecimals.value
+    const { depositPrice, borrowPrice } = oraclePrices.value
 
     const depositAmount = Number(bigintToNumber(preview.value.depositAmount, depositDecimals)) || 0
     const expectedDepositAmount = Number(bigintToNumber(preview.value.expectedAmountOut, depositDecimals)) || 0
     const borrowAmount = Number(bigintToNumber(preview.value.finalBorrowAmount, borrowDecimals)) || 0
-    const depositPrice = Number(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals)) || 0
-    const borrowPrice = Number(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals)) || 0
 
     const openLtv = bpsToNumber(Number(vault.value.depositPoolData.pool.config.health_config.open_ltv_bps || 0))
     const liabilityFactor = bpsToNumber(Number(vault.value.borrowPoolData.pool.config.health_config.liability_factor_bps || 0))
@@ -222,6 +238,61 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       liabilityFactor,
       minCollateralRequirementUsd,
     }
+  })
+
+  // Realized on-chain leverage projected from the preview, in oracle USD.
+  //   realized = collateralUsd / equityUsd, where equity = collateralUsd − debtUsd.
+  //
+  // Can land above OR below the slider target depending on swap economics:
+  //   * AMM fee + price impact: router quotes (`getAmountIn` / `getAmountOut`) include pool
+  //     fees and depth-sensitive impact, so the swap consumes more borrow per unit collateral
+  //     than the oracle suggests → debtUsd grows → realized > target.
+  //   * Oracle/AMM divergence: when AMM is "expensive" vs oracle, same effect.
+  //   * Deposit-margin slippage floor: under perfectly fair swaps both legs scale with
+  //     `minAmountOut`, so realized ≈ 1 + (L − 1)(1 − slippage) ≤ target. Real opens drift
+  //     above or below depending on which AMM effect dominates.
+  // Returns undefined when preview/market data isn't ready.
+  const projectedLeverage = computed<number | undefined>(() => {
+    const inputs = healthCheckInputs.value
+    if (!inputs) {
+      return undefined
+    }
+
+    const collateralUsd = inputs.depositAmount * inputs.depositPrice
+    const debtUsd = inputs.borrowAmount * inputs.borrowPrice
+    const equityUsd = collateralUsd - debtUsd
+
+    if (!Number.isFinite(collateralUsd) || !Number.isFinite(equityUsd) || equityUsd <= 0) {
+      return undefined
+    }
+
+    return collateralUsd / equityUsd
+  })
+
+  // Combined swap loss in oracle USD: `1 − outUsd / inUsd`, where outUsd is what the router
+  // expects to deliver and inUsd is what we send in. Captures three things in a single number:
+  //   1. AMM fee (e.g. Soroswap 30 bps)
+  //   2. Price impact from pool depth at the trade size
+  //   3. Oracle/AMM divergence (oracle says one price, AMM trades at another)
+  // This is the dominant driver of the gap between selectedMultiplier and projectedLeverage:
+  // realized ≈ target × (1 + swapLoss × (L − 1)) for deposit-margin opens.
+  // Clamped to ≥ 0 — when the AMM is in the user's favor (rare) we just show 0% rather than
+  // surfacing a "negative price impact" that confuses the conventional metric.
+  const swapLossPercent = computed<number | undefined>(() => {
+    if (!preview.value || !vaultDecimals.value || !oraclePrices.value) {
+      return undefined
+    }
+
+    const inUsd = Number(bigintToNumber(preview.value.swapAmountIn, vaultDecimals.value.borrowDecimals))
+      * oraclePrices.value.borrowPrice
+    const outUsd = Number(bigintToNumber(preview.value.expectedAmountOut, vaultDecimals.value.depositDecimals))
+      * oraclePrices.value.depositPrice
+
+    if (!Number.isFinite(inUsd) || !Number.isFinite(outUsd) || inUsd <= 0) {
+      return undefined
+    }
+
+    return Math.max(0, (inUsd - outUsd) / inUsd) * 100
   })
 
   // Slippage cap above which the on-chain open_ltv check would fail. Only meaningful for
@@ -289,48 +360,28 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     return ''
   })
 
-  let requestId = 0
-
   async function refreshPreview() {
-    const id = ++requestId
-
     if (!vault.value || !activeClient.value || !amount.value || amount.value <= 0 || selectedMultiplier.value <= 1 || !publicKey.value) {
+      previewRequest.cancel()
       preview.value = undefined
       previewError.value = undefined
       return
     }
 
-    loadingPreview.value = true
-    previewError.value = undefined
-
-    try {
-      const result = await activeClient.value.multiply.getOpenPositionPreview({
-        depositPoolAddress: vault.value.depositPoolData.pool.pool_address,
-        borrowPoolAddress: vault.value.borrowPoolData.pool.pool_address,
-        initialAmount: amount.value,
+    await previewRequest.run(
+      () => activeClient.value!.multiply.getOpenPositionPreview({
+        depositPoolAddress: vault.value!.depositPoolData.pool.pool_address,
+        borrowPoolAddress: vault.value!.borrowPoolData.pool.pool_address,
+        initialAmount: amount.value!,
         leverageMultiplier: selectedMultiplier.value,
         marginAsset: marginAssetType.value,
         slippagePercent: slippage.value,
         swapProviderAddress: swapProviderAddress.value,
         path: swapPath.value,
-      })
-
-      if (id !== requestId) {
-        return
-      }
-
-      preview.value = result
-    } catch (error: any) {
-      if (id !== requestId) {
-        return
-      }
-      preview.value = undefined
-      previewError.value = String(error?.message || error)
-    } finally {
-      if (id === requestId) {
-        loadingPreview.value = false
-      }
-    }
+      }),
+      (result) => { preview.value = result },
+      () => { preview.value = undefined },
+    )
   }
 
   async function openMultiply() {
@@ -374,7 +425,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     preview.value = undefined
     previewError.value = undefined
     isMarginBorrow.value = false
-    percentFromMax.value = Math.max(minPercent.value || 0, 85)
+    percentFromMax.value = Math.max(minPercent.value || 0, DEFAULT_PERCENT_FROM_MAX)
     marketsStore.dialogLeverage = false
   }
 
@@ -399,8 +450,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   ], refreshPreview, { debounce: 250, maxWait: 1000 })
 
   onScopeDispose(() => {
-    clearInterval(interval)
-    requestId++
+    previewRequest.cancel()
   })
 
   return {
@@ -416,13 +466,14 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     selectedMultiplier,
     hardMaxMultiplier,
     currentApy,
+    projectedLeverage,
+    swapLossPercent,
     unhealthyReason,
     maxTolerableSlippagePercent,
     maxInputAmount,
     availableBorrowLiquidity,
     flashLoanFeeBps,
     flashLoanFeeAmount,
-    flowVersion,
     preview,
     summary,
     loadingPreview,

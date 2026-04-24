@@ -28,6 +28,8 @@ const {
   selectedMultiplier,
   hardMaxMultiplier,
   currentApy,
+  projectedLeverage,
+  swapLossPercent,
   unhealthyReason,
   maxTolerableSlippagePercent,
   maxInputAmount,
@@ -86,34 +88,32 @@ const batchPreviewSteps = computed(() => {
 
   const depositSymbol = vault.asset.symbol
   const borrowSymbol = vault.borrowAsset.symbol
-  const marginSymbol = marginAsset.value?.symbol || borrowSymbol
-  const swapInSymbol = isMarginBorrow.value ? marginSymbol : (notMarginAsset.value?.symbol || borrowSymbol)
+  // Flash borrow is always taken from the borrow pool in V3, regardless of which side the user paid margin on.
+  // The swap is always borrow -> deposit, so swap input is always the borrow asset.
   const slippageLabel = `${truncatePercent(slippage.value || 0, 1)}%`
 
   return [
     {
       id: 1,
       title: 'Flash borrow',
-      tooltip: 'Temporary flash-loan amount used to open the leveraged position in one batch.',
-      subtitle: `borrowed from the ${marginSymbol} pool`,
+      tooltip: 'Temporary flash-loan amount taken from the borrow pool to assemble the leveraged collateral in one batch.',
+      subtitle: `borrowed from the ${borrowSymbol} pool`,
       value: summary.value.flashBorrowAmount,
-      symbol: marginSymbol,
+      symbol: borrowSymbol,
     },
     {
       id: 2,
       title: 'Total to swap',
-      tooltip: 'Amount routed through the swap provider to assemble or repay the leveraged collateral leg.',
+      tooltip: 'Borrow-asset amount routed through the swap provider to mint the leveraged collateral leg.',
       subtitle: `swap at <= ${slippageLabel} slippage`,
       value: summary.value.swapAmountIn,
-      symbol: swapInSymbol,
+      symbol: borrowSymbol,
     },
     {
       id: 3,
-      title: isMarginBorrow.value ? `${depositSymbol} received` : 'Flash repay target',
-      tooltip: isMarginBorrow.value
-        ? 'Estimated deposit asset received after slippage protection and deposited as collateral.'
-        : 'Exact deposit-asset amount the swap must produce to repay the flash loan plus fee.',
-      subtitle: isMarginBorrow.value ? 'deposited as collateral' : 'required to settle the flash loan',
+      title: `${depositSymbol} received`,
+      tooltip: 'Slippage-protected swap output. This exact amount is added as collateral; the flash loan is repaid separately by the final borrow.',
+      subtitle: 'deposited as collateral',
       value: summary.value.minAmountOut,
       symbol: depositSymbol,
     },
@@ -257,7 +257,7 @@ function isUserHaveMultiply(): boolean {
     <warning-block
       v-if="previewError"
       class="mt-3"
-      title="Repay Multiply"
+      title="Multiply preview"
       :text="previewError"
     />
 
@@ -287,17 +287,44 @@ function isUserHaveMultiply(): boolean {
               </div>
             </div>
 
-            <div class="summary-list__item">
+            <div
+              v-if="swapLossPercent != null"
+              class="summary-list__item"
+            >
               <div class="label">
-                Target multiplier
-                <info-tooltip v-if="hardMaxMultiplier !== undefined">
-                  The slider tops out at the suggested max ({{ truncatePercent(vault.maxMultiplier, 2) }}x), which leaves
-                  headroom for swap slippage and fees. The contract's hard ceiling — the highest multiplier
-                  the protocol will allow at open — is {{ truncatePercent(hardMaxMultiplier, 2) }}x.
-                </info-tooltip>
+                <div class="label-with-tip">
+                  Price impact
+                  <info-tooltip>
+                    Combined cost of the swap in oracle USD: AMM fee, depth-driven price impact,
+                    and any divergence between the oracle price and the AMM rate. This is the
+                    main driver of the gap between your slider target and the realized leverage
+                    below.
+                  </info-tooltip>
+                </div>
               </div>
               <div class="value">
-                {{ truncatePercent(selectedMultiplier || 0, 2) }}x
+                <span :class="{ 'text-warning': swapLossPercent > 1 }">
+                  {{ swapLossPercent.toFixed(2) }}%
+                </span>
+              </div>
+            </div>
+
+            <div
+              v-if="projectedLeverage != null"
+              class="summary-list__item"
+            >
+              <div class="label">
+                <div class="label-with-tip">
+                  Realized leverage
+                  <info-tooltip>
+                    Actual on-chain leverage after the swap. Differs from the slider target because
+                    the AMM charges fees and price impact, and oracle prices may not match AMM rates —
+                    so the USD value of collateral added vs. debt taken on is not 1:1 with the slider.
+                  </info-tooltip>
+                </div>
+              </div>
+              <div class="value">
+                {{ truncatePercent(projectedLeverage, 2) }}×
               </div>
             </div>
 
@@ -407,7 +434,7 @@ function isUserHaveMultiply(): boolean {
             <div class="summary-list__item">
               <div class="label">Flash loan fee</div>
               <div class="value">
-                {{ shortenNumber(flashLoanFeeAmount || 0, 2, maxDecimalsForShortenNumber(flashLoanFeeAmount || 0)) }} {{ marginAsset?.symbol }}
+                {{ shortenNumber(flashLoanFeeAmount || 0, 2, maxDecimalsForShortenNumber(flashLoanFeeAmount || 0)) }} {{ vault.borrowAsset?.symbol }}
               </div>
             </div>
           </div>

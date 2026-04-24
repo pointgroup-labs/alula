@@ -1,5 +1,34 @@
 <script lang="ts" setup>
-const slippageModel = defineModel<number | string | undefined>({ default: '0.5' })
+// Mirrors MAX_SLIPPAGE_PERCENT in client-sdk (services/multiply.ts). The SDK throws
+// "Slippage percent must be in [0, MAX_SLIPPAGE_PERCENT]" if a request comes in above this.
+// Clamping here is the single source of truth for every consumer.
+const MAX_SLIPPAGE_PERCENT = 50
+
+const slippageModel = defineModel<number | string | undefined>({ default: '0.05' })
+
+// Local copy backs the input so the user always sees what they typed (including out-of-range
+// values that trip the inline validator). Only the clamped numeric value reaches the parent.
+const inputValue = ref<number | string | undefined>(slippageModel.value)
+
+watch(slippageModel, (next) => {
+  if (next === inputValue.value) {
+    return
+  }
+  inputValue.value = next
+})
+
+watch(inputValue, (next) => {
+  if (next === '' || next === null || next === undefined) {
+    slippageModel.value = 0
+    return
+  }
+  const parsed = Number(next)
+  if (!Number.isFinite(parsed)) {
+    slippageModel.value = 0
+    return
+  }
+  slippageModel.value = Math.max(0, Math.min(MAX_SLIPPAGE_PERCENT, parsed))
+})
 
 const slippageRules = [
   (value: string | number) => {
@@ -12,8 +41,8 @@ const slippageRules = [
       return 'Slippage cannot be negative'
     }
 
-    if (nextValue > 50) {
-      return 'Slippage must be 50% or less'
+    if (nextValue > MAX_SLIPPAGE_PERCENT) {
+      return `Slippage must be ${MAX_SLIPPAGE_PERCENT}% or less`
     }
 
     return true
@@ -25,12 +54,12 @@ const slippageRules = [
   <div class="slippage-select">
     <span class="slippage-select-label">Slippage</span>
     <j-input
-      v-model="slippageModel"
+      v-model="inputValue"
       class="slippage-select-input"
       size="md"
       only-numbers
       :rules="slippageRules"
-      placeholder="0.5"
+      placeholder="0.05"
     >
       <template #append>
         <span class="slippage-select-suffix text-cyan">%</span>
@@ -55,7 +84,7 @@ const slippageRules = [
   }
 
   &-input {
-    width: 72px;
+    width: 76px;
 
     &:focus-within {
       .input-group {
@@ -75,12 +104,17 @@ const slippageRules = [
       input {
         font-size: 12px;
         margin-bottom: -2px;
+        // Trim default right padding so 4-char values like "0.05" aren't pushed under the % suffix.
+        padding-right: 2px;
       }
     }
 
     .j-input__append {
       display: flex;
       align-items: center;
+      // Pull the % closer to the digits; the framework's default left padding was wide enough
+      // to crowd out the last character.
+      padding-left: 2px;
     }
 
     .validate-label {

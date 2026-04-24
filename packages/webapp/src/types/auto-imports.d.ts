@@ -222,6 +222,7 @@ declare global {
   const useIntervalFn: typeof import('@vueuse/core').useIntervalFn
   const useKeyModifier: typeof import('@vueuse/core').useKeyModifier
   const useLastChanged: typeof import('@vueuse/core').useLastChanged
+  const useLatestRequest: typeof import('../hooks/latest-request').useLatestRequest
   const useLeverage: typeof import('../hooks/multiply/leverage').useLeverage
   const useLeverageDialog: typeof import('../hooks/multiply/leverage-dialog').useLeverageDialog
   const useLeveragePosition: typeof import('../hooks/multiply/position').useLeveragePosition
@@ -362,6 +363,9 @@ declare global {
   // @ts-ignore
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
+  // @ts-ignore
+  export type { LatestRequest } from '../hooks/latest-request'
+  import('../hooks/latest-request')
   // @ts-ignore
   export type { MarketWithTableItems } from '../hooks/market/table'
   import('../hooks/market/table')
@@ -589,6 +593,7 @@ declare module 'vue' {
     readonly useIntervalFn: UnwrapRef<typeof import('@vueuse/core')['useIntervalFn']>
     readonly useKeyModifier: UnwrapRef<typeof import('@vueuse/core')['useKeyModifier']>
     readonly useLastChanged: UnwrapRef<typeof import('@vueuse/core')['useLastChanged']>
+    readonly useLatestRequest: UnwrapRef<typeof import('../hooks/latest-request')['useLatestRequest']>
     readonly useLeveragePosition: UnwrapRef<typeof import('../hooks/multiply/position')['useLeveragePosition']>
     readonly useLocalStorage: UnwrapRef<typeof import('@vueuse/core')['useLocalStorage']>
     readonly useMagicKeys: UnwrapRef<typeof import('@vueuse/core')['useMagicKeys']>
