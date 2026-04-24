@@ -224,12 +224,19 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     }
   })
 
-  // Slippage cap above which the on-chain open_ltv check would fail. Computed against the
-  // zero-slippage collateral baseline (router's expected_amount_out for margin=borrow,
-  // initial + leveraged target for margin=deposit) so this number is stable as the user
-  // drags the slippage slider — no recursion with unhealthyReason.
-  // Returns undefined if inputs missing, 0 if even zero slippage wouldn't open the position.
+  // Slippage cap above which the on-chain open_ltv check would fail. Only meaningful for
+  // margin=borrow: in that flow `finalBorrowAmount` is sized from a slippage-independent
+  // `flashBorrowAmount`, while `depositAmount = minAmountOut` shrinks with slippage —
+  // so the two legs decouple and the cap is a real, monotonically-decreasing function
+  // of slippage. In V3 deposit-margin both legs scale with `minAmountOut` together
+  // (debt is grossed up from the same flash size that funded the swap), so high slippage
+  // just opens at a lower effective leverage rather than underwater. The cap doesn't
+  // apply there and is returned as undefined so the UI can hide the hint.
+  // Returns undefined if inputs missing or mode N/A, 0 if even zero slippage wouldn't open.
   const maxTolerableSlippagePercent = computed<number | undefined>(() => {
+    if (!isMarginBorrow.value) {
+      return undefined
+    }
     const inputs = healthCheckInputs.value
     if (!inputs) {
       return undefined
@@ -237,18 +244,9 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
 
     const debtValueUsd = inputs.borrowAmount * inputs.borrowPrice * inputs.liabilityFactor + inputs.minCollateralRequirementUsd
 
-    let collateralAtZeroSlippageUsd: number
-    if (isMarginBorrow.value) {
-      // Borrow-asset margin: ALL collateral is the swap output, so zero-slippage baseline
-      // is the router's expectedAmountOut (already net of swap fees).
-      collateralAtZeroSlippageUsd = inputs.expectedDepositAmount * inputs.depositPrice * inputs.openLtv
-    } else {
-      // Deposit-asset margin: only the leveraged leg (L-1)×margin gets slippaged.
-      // The user's principal counts at full price. Both legs are in deposit-token units.
-      const initialMargin = Number(amount.value || 0)
-      const leveragedLeg = initialMargin * Math.max(selectedMultiplier.value - 1, 0)
-      collateralAtZeroSlippageUsd = (initialMargin + leveragedLeg) * inputs.depositPrice * inputs.openLtv
-    }
+    // Borrow-asset margin: ALL collateral is the swap output, so zero-slippage baseline
+    // is the router's expectedAmountOut (already net of swap fees).
+    const collateralAtZeroSlippageUsd = inputs.expectedDepositAmount * inputs.depositPrice * inputs.openLtv
 
     if (!Number.isFinite(collateralAtZeroSlippageUsd) || collateralAtZeroSlippageUsd <= 0) {
       return undefined
