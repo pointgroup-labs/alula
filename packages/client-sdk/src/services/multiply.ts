@@ -20,8 +20,6 @@ export interface MultiplyServiceConfig {
 
 export type MultiplyMarginAsset = 'borrow' | 'deposit'
 
-export type MultiplyFlowVersion = 'v2' | 'v3'
-
 // V3 single-anchor multiply (per docs/SecondTokenMarginGuideV3.md):
 //   FlashBorrow(debt) → SwapExactTokens(debt→collateral) → AddCollateral(margin+Y) → Borrow(X+flash_fee)
 // Preconditions strictly required for the determinism invariants to hold:
@@ -70,7 +68,6 @@ export interface MultiplyPreview {
   leverageMultiplier: number
   maxLeverageMultiplier: number
   marginAsset: MultiplyMarginAsset
-  flowVersion: MultiplyFlowVersion
   flashLoanFeeBps: number
   swapPath: string[]
   swapProviderAddress: string
@@ -88,7 +85,7 @@ export interface CloseMultiplyPreview {
   depositPool: PoolData
   borrowPool: PoolData
   marginAsset: MultiplyMarginAsset
-  flowVersion: MultiplyFlowVersion
+  hasOnChainCollateral: boolean
   currentDepositAmount: bigint
   currentBorrowAmount: bigint
   maxRepayAmount: bigint
@@ -109,7 +106,7 @@ export interface CloseMultiplyPreview {
   maxReceivableAmount: bigint
 }
 
-const DEFAULT_SLIPPAGE_PERCENT = 0.5
+const DEFAULT_SLIPPAGE_PERCENT = 0.05
 const MAX_SLIPPAGE_PERCENT = 50
 const SAFETY_MULTIPLIER = 0.8
 const CLOSE_REPAY_BUFFER_BPS = 100
@@ -188,7 +185,6 @@ export class MultiplyService extends BaseClient {
     // borrow fee becomes part of legitimate debt, NOT slippage-scaled phantom debt — see
     // tests/src/multiply_v3.rs::v3_silently_milks_user_when_borrow_fee_bps_nonzero for the
     // failure mode this gross-up prevents).
-    const flowVersion: MultiplyFlowVersion = 'v3'
 
     if (marginAsset === 'borrow') {
       // V3 with margin in DEBT asset: user puts X_user USDC, we flash extra USDC,
@@ -252,7 +248,19 @@ export class MultiplyService extends BaseClient {
       // AddCollateral.amount: literal margin + Y. If add_collateral_fee_bps > 0 the obligation
       // collateral lands at (margin + Y) × (1 − fee/10000); UI should warn / size leverage down.
       depositAmount = initialAmount + minAmountOut
-      expectedAmountOut = minAmountOut
+      // Real router-quoted output at swapAmountIn — same semantics as in borrow-margin above.
+      // We need this distinct from `minAmountOut` so that downstream consumers (price impact,
+      // realized leverage, maxTolerableSlippagePercent) reflect AMM economics only, not the
+      // user's slippage tolerance. Costs one extra router RPC per preview in deposit-margin.
+      const expectedAmountsOut = await this.getExpectedAmountsOut(params.swapProviderAddress, swapAmountIn, swapPath)
+      const quotedExpectedOut = expectedAmountsOut[expectedAmountsOut.length - 1]
+      // Defense in depth: router could in theory quote slightly under our minAmountOut for the
+      // exact same swap that getAmountIn(minAmountOut) supposedly priced, due to integer rounding
+      // in pool reserves. Floor at minAmountOut so the metric never goes negative or below the
+      // floor we're contractually requiring.
+      expectedAmountOut = quotedExpectedOut != null && quotedExpectedOut > minAmountOut
+        ? quotedExpectedOut
+        : minAmountOut
     }
 
     if (addCollateralFeeBps > 0) {
@@ -275,7 +283,6 @@ export class MultiplyService extends BaseClient {
       leverageMultiplier: leverageMultiplier.toNumber(),
       maxLeverageMultiplier,
       marginAsset,
-      flowVersion,
       flashLoanFeeBps,
       swapPath,
       swapProviderAddress: params.swapProviderAddress,
@@ -355,8 +362,8 @@ export class MultiplyService extends BaseClient {
     // V3 stores margin+Y in `collateral`; V2 stores it as j_tokens (supply shares).
     // If `collateral > 0` the position was opened V3-style → close via RemoveCollateral.
     const collateralAmount = BigInt(depositPosition.collateral || 0n)
-    const flowVersion: MultiplyFlowVersion = collateralAmount > 0n ? 'v3' : 'v2'
-    const currentDepositAmount = flowVersion === 'v3'
+    const hasOnChainCollateral = collateralAmount > 0n
+    const currentDepositAmount = hasOnChainCollateral
       ? collateralAmount
       : this.calculateCurrentDepositAmount(depositPool, depositPosition.j_tokens)
     const currentBorrowAmount = this.calculateCurrentBorrowAmount(borrowPool, borrowPosition.d_tokens)
@@ -433,7 +440,7 @@ export class MultiplyService extends BaseClient {
       depositPool,
       borrowPool,
       marginAsset,
-      flowVersion,
+      hasOnChainCollateral,
       currentDepositAmount,
       currentBorrowAmount,
       maxRepayAmount: fullCloseRepayAmount,
@@ -480,7 +487,7 @@ export class MultiplyService extends BaseClient {
 
     // V3 positions store collateral in `obligation.collateral`; release with RemoveCollateral.
     // V2 positions store it as j_tokens (supply shares); release with Withdraw.
-    const collateralReleaseTag = preview.flowVersion === 'v3' ? 'RemoveCollateral' : 'Withdraw'
+    const collateralReleaseTag = preview.hasOnChainCollateral ? 'RemoveCollateral' : 'Withdraw'
 
     const requests: Request[] = [
       {
