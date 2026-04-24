@@ -103,11 +103,16 @@ export const useMultiplyStore = defineStore('multiply', () => {
       const [, depositData] = depositObligation
       const [, borrowData] = borrowObligation
 
-      const deposited = +calculateTotalStake(depositData.j_tokens, {
+      const depositDecimals = depositPoolData.pool.token_decimals
+      // V3 positions store the deposit as raw collateral (AddCollateral); V2 stores it as j_tokens (supply shares).
+      // Sum both so legacy V2 obligations and new V3 obligations both display correctly.
+      const jTokenStake = +calculateTotalStake(depositData.j_tokens, {
         total_j_tokens: depositPoolData.pool.total_j_tokens,
         total_borrowed: depositPoolData.pool.total_borrowed,
         total_available: depositPoolData.total_available_adjusted,
-      }) || 0
+      }, depositDecimals) || 0
+      const collateralAmount = Number(bigintToNumber(BigInt(depositData.collateral || 0n), depositDecimals)) || 0
+      const deposited = jTokenStake + collateralAmount
 
       const borrowed = +calculateBorrow(borrowData.d_tokens, {
         total_borrowed: borrowPoolData.pool.total_borrowed,

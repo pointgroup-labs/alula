@@ -26,8 +26,10 @@ const {
   slippage,
   percentFromMax,
   selectedMultiplier,
+  hardMaxMultiplier,
   currentApy,
   unhealthyReason,
+  maxTolerableSlippagePercent,
   maxInputAmount,
   availableBorrowLiquidity,
   flashLoanFeeAmount,
@@ -150,12 +152,29 @@ function isUserHaveMultiply(): boolean {
         <provider-select v-model="swapProviderAddress" />
         <slippage-select v-model="slippageInput" />
       </div>
+
+      <div
+        v-if="maxTolerableSlippagePercent !== undefined && amount && amount > 0"
+        class="multiply-trade-panel__slippage-hint"
+        :class="{ 'multiply-trade-panel__slippage-hint--breach': slippage > maxTolerableSlippagePercent }"
+      >
+        <template v-if="maxTolerableSlippagePercent === 0">
+          Multiplier {{ truncatePercent(selectedMultiplier, 2) }}× is too high for this pair. Lower it to enable any slippage tolerance.
+        </template>
+        <template v-else-if="slippage > maxTolerableSlippagePercent">
+          Slippage {{ slippage }}% is above the maximum safe value of {{ maxTolerableSlippagePercent.toFixed(2) }}% at {{ truncatePercent(selectedMultiplier, 2) }}×. Lower slippage or reduce multiplier.
+        </template>
+        <template v-else>
+          Max safe slippage at {{ truncatePercent(selectedMultiplier, 2) }}×: {{ maxTolerableSlippagePercent.toFixed(2) }}%
+        </template>
+      </div>
     </div>
 
     <multiply-select
       v-model="percentFromMax"
       :multiplier="selectedMultiplier"
       :max-multiply="vault.maxMultiplier"
+      :hard-max-multiply="hardMaxMultiplier"
       :net-apy="currentApy"
       :pool="vault.depositPoolData"
     />
@@ -194,7 +213,14 @@ function isUserHaveMultiply(): boolean {
             </div>
 
             <div class="summary-list__item">
-              <div class="label">Target multiplier</div>
+              <div class="label">
+                Target multiplier
+                <info-tooltip v-if="hardMaxMultiplier !== undefined">
+                  The slider tops out at the suggested max ({{ truncatePercent(vault.maxMultiplier, 2) }}x), which leaves
+                  headroom for swap slippage and fees. The contract's hard ceiling — the highest multiplier
+                  the protocol will allow at open — is {{ truncatePercent(hardMaxMultiplier, 2) }}x.
+                </info-tooltip>
+              </div>
               <div class="value">
                 {{ truncatePercent(selectedMultiplier || 0, 2) }}x
               </div>
@@ -398,6 +424,17 @@ function isUserHaveMultiply(): boolean {
     justify-content: space-between;
     gap: 24px;
     margin: 12px 0 0;
+  }
+
+  &__slippage-hint {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: $text-tertiary;
+
+    &--breach {
+      color: $danger;
+    }
   }
 
   &__suffix {

@@ -44,7 +44,10 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
   const activeMarket = computed(() => marketsStore.state.markets[String(data.value?.market)])
 
-  const isMarginBorrow = ref(true)
+  // Default close margin = deposit asset so the user receives their collateral
+  // (e.g. XLM) back, matching the "close position → get my collateral" mental model.
+  // The dropdown still lets them pick the borrow asset to receive USDC instead.
+  const isMarginBorrow = ref(false)
   const marginAssetType = computed<MultiplyMarginAsset>(() => isMarginBorrow.value ? 'borrow' : 'deposit')
   const marginAsset = computed(() => isMarginBorrow.value ? data.value?.borrowAsset : data.value?.asset)
   const notMarginAsset = computed(() => isMarginBorrow.value ? data.value?.asset : data.value?.borrowAsset)
@@ -106,15 +109,19 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     const deposits: any = userStore.state.multiplyObligations[String(data.value.market)]?.[data.value.pairKey]?.deposits || []
     const depositAsset = deposits.find(([deposit]: any) => deposit === data.value?.depositPoolData.pool.pool_address)
 
-    if (!depositAsset?.[1]?.j_tokens) {
+    if (!depositAsset?.[1]) {
       return 0
     }
 
-    return Number(calculateTotalStake(depositAsset[1].j_tokens, {
+    const decimals = data.value.depositPoolData.pool.token_decimals
+    // V3 stores deposit as raw `collateral`; V2 stores it as `j_tokens` (supply shares). Sum both.
+    const jTokenStake = Number(calculateTotalStake(depositAsset[1].j_tokens || 0n, {
       total_j_tokens: data.value.depositPoolData.pool.total_j_tokens,
       total_borrowed: data.value.depositPoolData.pool.total_borrowed,
       total_available: data.value.depositPoolData.total_available_adjusted,
-    }).toString()) || 0
+    }, decimals).toString()) || 0
+    const collateralAmount = Number(bigintToNumber(BigInt(depositAsset[1].collateral || 0n), decimals)) || 0
+    return jTokenStake + collateralAmount
   })
 
   const swapInputEstimate = computed(() => {

@@ -93,9 +93,12 @@ const maxApyClass = computed(() => {
       <div class="pool-metrics__item">
         <span>Max APY
           <info-tooltip>
-            The highest estimated yield achievable with maximum leverage. Accounts for both collateral
-            rewards and
-            borrowing costs at peak multiplier.
+            Estimated net APY at the suggested max multiplier ({{ truncatePercent(maxMultiplier, 2) }}x):
+            supply APY × multiplier − borrow APY × (multiplier − 1).
+            <br>
+            The "suggested max" leaves headroom for swap slippage and fees;
+            the contract's hard ceiling (1 / (1 − open LTV)) is higher.
+            Realized APY varies with price, rate changes, and your chosen multiplier.
           </info-tooltip>
         </span>
         <span

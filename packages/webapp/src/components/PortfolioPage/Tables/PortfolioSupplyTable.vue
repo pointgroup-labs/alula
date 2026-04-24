@@ -43,13 +43,13 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
 
       const available = Number(bigintToNumber(activePool.total_available_adjusted, assetDecimals))
 
-      const deposited = +calculateTotalStake(dep.j_tokens, {
+      const deposited = +calculateTotalStake(dep.j_tokens || 0n, {
         total_j_tokens: activePool.pool.total_j_tokens,
         total_borrowed: activePool.pool.total_borrowed,
         total_available: activePool.total_available_adjusted,
-      })
-      const collateral = +bigintToNumber(dep.collateral, assetDecimals)
-      const balance = Number(deposited) + Number(collateral)
+      }, assetDecimals) || 0
+      const collateral = Number(bigintToNumber(BigInt(dep.collateral || 0n), assetDecimals)) || 0
+      const balance = deposited + collateral
 
       const depositedPercent = calcStakePercent(deposited, balance)
       const collateralPercent = calcStakePercent(collateral, balance)

@@ -59,7 +59,10 @@ function handleDetails(vault: MultiplyVaultItem) {
       <div class="card-top-info">
         <div class="info-wrapper with-pill align-items-center">
           <div class="info-wrapper__title text-center">
-            Max Multiplier
+            Suggested Max
+            <info-tooltip>
+              Highest multiplier we suggest at open. Conservative — leaves headroom for swap slippage and fees. The contract's hard ceiling (1 / (1 − open LTV)) is higher; live positions can drift between the two.
+            </info-tooltip>
           </div>
           <div class="info-wrapper__value">
 
@@ -81,7 +84,10 @@ function handleDetails(vault: MultiplyVaultItem) {
     <div class="mobile-card-body">
       <div class="info-wrapper">
         <div class="info-wrapper__title text-end">
-          APY at Max
+          APY at Suggested Max
+          <info-tooltip>
+            Estimated net APY when opened at the suggested max multiplier. Actual realized APY varies with price, rate changes, and your chosen multiplier.
+          </info-tooltip>
         </div>
         <div
           class="info-wrapper__value"

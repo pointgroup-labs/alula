@@ -28,8 +28,18 @@ const vaults = computed(() => multiplyStore.vaults)
 
 const fields = [
   { key: 'asset', label: 'Pair', align: 'left' },
-  { key: 'maxMultiplier', label: 'Multiplier', align: 'center' },
-  { key: 'apyAtMaxMultiplier', label: 'Net APY', align: 'center' },
+  {
+    key: 'maxMultiplier',
+    label: 'Suggested Max',
+    align: 'center',
+    tooltip: 'Highest multiplier we suggest at open. Conservative — leaves headroom for swap slippage and fees. The contract\'s hard ceiling (1 / (1 − open LTV)) is higher; live positions can drift between the two.',
+  },
+  {
+    key: 'apyAtMaxMultiplier',
+    label: 'Net APY',
+    align: 'center',
+    tooltip: 'Estimated net APY when opened at the suggested max multiplier (supply APY × multiplier − borrow APY × (multiplier − 1)). Actual realized APY varies with price, rate changes, and your chosen multiplier.',
+  },
   { key: 'netEquity', label: 'Net Equity', align: 'right' },
   { key: 'action', label: '', align: 'right' },
 ]
@@ -98,7 +108,12 @@ watch([
             :key="field.key"
             #[`head(${field.key})`]="data"
           >
-            <span :style="{ '--align': field.align }">{{ data.label }}</span>
+            <span :style="{ '--align': field.align }">
+              {{ data.label }}
+              <info-tooltip v-if="field.tooltip">
+                {{ field.tooltip }}
+              </info-tooltip>
+            </span>
           </template>
 
           <template #cell(asset)="data">

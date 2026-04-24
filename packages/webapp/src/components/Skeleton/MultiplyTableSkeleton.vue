@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 const fields = [
   { key: 'asset', label: 'Pair', align: 'left' },
-  { key: 'maxMultiplier', label: 'Multiplier', align: 'center' },
+  { key: 'maxMultiplier', label: 'Suggested Max', align: 'center' },
   { key: 'apyAtMaxMultiplier', label: 'Net APY', align: 'center' },
   { key: 'netEquity', label: 'Net Equity', align: 'right' },
   { key: 'action', label: '', align: 'right' },

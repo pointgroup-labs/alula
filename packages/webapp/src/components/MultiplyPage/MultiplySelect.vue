@@ -4,11 +4,13 @@ import type { PoolData } from '@alula/market-sdk'
 const {
   multiplier,
   maxMultiply,
+  hardMaxMultiply,
   netApy,
   pool,
 } = defineProps<{
   multiplier: number | string
   maxMultiply: number | string
+  hardMaxMultiply?: number
   netApy: number
   pool?: PoolData
 }>()
@@ -58,8 +60,15 @@ watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
           Target multiplier
           <info-tooltip>
             Adjusts the leverage of your position.
-            <br>
             Increasing the multiplier boosts exposure and potential returns, but also raises borrowing costs and liquidation risk.
+            <br><br>
+            <strong>Slider max:</strong> {{ truncatePercent(Number(maxMultiply) || 0, 2) }}x (suggested)
+            <template v-if="hardMaxMultiply !== undefined">
+              <br>
+              <strong>Protocol max:</strong> {{ truncatePercent(hardMaxMultiply, 2) }}x (hard ceiling)
+              <br><br>
+              The slider stops below the protocol max on purpose — that buffer absorbs swap slippage and fees so opens don't fail at the edge.
+            </template>
           </info-tooltip>
         </div>
       </div>

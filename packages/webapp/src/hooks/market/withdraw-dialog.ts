@@ -44,12 +44,12 @@ export function useWithdrawDialog(isOpen: Ref<boolean>) {
       return { balance: 0, collateral: 0 }
     }
     const [, dep] = deposit
-    const deposited = calculateTotalStake(dep.j_tokens, {
+    const deposited = calculateTotalStake(dep.j_tokens || 0n, {
       total_j_tokens: poolData.value.pool.total_j_tokens,
       total_borrowed: poolData.value.pool.total_borrowed,
       total_available: poolData.value.total_available_adjusted,
-    })
-    const collateral = Number(bigintToNumber(dep.collateral, assetDecimals.value))
+    }, assetDecimals.value)
+    const collateral = Number(bigintToNumber(BigInt(dep.collateral || 0n), assetDecimals.value)) || 0
     const balance = Number(deposited) + collateral
     return { balance, collateral }
   })

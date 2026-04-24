@@ -80,11 +80,16 @@ const tableItems = computed<MultiplyPortfolioTableItem[]>(() => {
       const ltv = Number(depositPoolData?.pool.config.health_config.open_ltv_bps) || 0
       const multiplier = calculateMaxMultiplierFromBps(ltv)
       const maxAPY = (supplyBPS * multiplier - borrowBPS * (multiplier - 1)) * 100
-      const deposited = +calculateTotalStake(depOblData.j_tokens, {
+      const depositDecimals = depositPoolData.pool.token_decimals
+      // V3 stores deposit as raw `collateral` (AddCollateral); V2 stores it as `j_tokens` (supply shares).
+      // Sum both so legacy V2 obligations and new V3 obligations both display correctly.
+      const jTokenStake = +calculateTotalStake(depOblData.j_tokens, {
         total_j_tokens: depositPoolData.pool.total_j_tokens,
         total_borrowed: depositPoolData.pool.total_borrowed,
         total_available: depositPoolData.total_available_adjusted,
-      }) || 0
+      }, depositDecimals) || 0
+      const collateralAmount = Number(bigintToNumber(BigInt(depOblData.collateral || 0n), depositDecimals)) || 0
+      const deposited = jTokenStake + collateralAmount
       const borrowed
         = +calculateBorrow(borrowOblData.d_tokens, {
           total_borrowed: borrowPoolData.pool.total_borrowed,

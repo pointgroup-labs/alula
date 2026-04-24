@@ -44,6 +44,18 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     return Math.min(100, Math.ceil((1.1 / max) * 100))
   })
 
+  // Hard cap enforced on chain by the deposit pool's open_ltv (1 / (1 - open_ltv)).
+  // Different from `vault.maxMultiplier`, which applies a 0.8 SAFETY_MULTIPLIER discount
+  // to leave headroom for slippage/fees at open. Live positions can drift above the
+  // suggested max but below the hard cap due to price movement after open.
+  const hardMaxMultiplier = computed(() => {
+    const openLtvBps = Number(vault.value?.depositPoolData.pool.config.health_config.open_ltv_bps || 0)
+    if (openLtvBps <= 0 || openLtvBps >= 10_000) {
+      return undefined
+    }
+    return 1 / (1 - openLtvBps / 10_000)
+  })
+
   const selectedMultiplier = computed(() => {
     const max = Number(vault.value?.maxMultiplier || 0)
     if (!max) {
@@ -176,19 +188,22 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     )
   })
 
-  const unhealthyReason = computed(() => {
+  // Health-check inputs derived once and reused by both unhealthyReason and
+  // maxTolerableSlippagePercent. Returns undefined when preview/market data isn't ready.
+  const healthCheckInputs = computed(() => {
     if (!vault.value || !preview.value || !marketState.value) {
-      return ''
+      return undefined
     }
 
     const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
     const depositDecimals = vault.value.depositPoolData.pool.token_decimals
     const borrowDecimals = vault.value.borrowPoolData.pool.token_decimals
 
-    const depositAmount = new Decimal(bigintToNumber(preview.value.depositAmount, depositDecimals) || 0)
-    const borrowAmount = new Decimal(bigintToNumber(preview.value.finalBorrowAmount, borrowDecimals) || 0)
-    const depositPrice = new Decimal(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals) || 0)
-    const borrowPrice = new Decimal(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals) || 0)
+    const depositAmount = Number(bigintToNumber(preview.value.depositAmount, depositDecimals)) || 0
+    const expectedDepositAmount = Number(bigintToNumber(preview.value.expectedAmountOut, depositDecimals)) || 0
+    const borrowAmount = Number(bigintToNumber(preview.value.finalBorrowAmount, borrowDecimals)) || 0
+    const depositPrice = Number(bigintToNumber(vault.value.depositPoolData.oracle_asset_price, oracleDecimals)) || 0
+    const borrowPrice = Number(bigintToNumber(vault.value.borrowPoolData.oracle_asset_price, oracleDecimals)) || 0
 
     const openLtv = bpsToNumber(Number(vault.value.depositPoolData.pool.config.health_config.open_ltv_bps || 0))
     const liabilityFactor = bpsToNumber(Number(vault.value.borrowPoolData.pool.config.health_config.liability_factor_bps || 0))
@@ -197,15 +212,79 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       ? Number(marketState.value.global_state.min_collateral_value_cents || 0) / 100
       : 0
 
-    const collateralValueScaled = depositAmount.mul(depositPrice).mul(openLtv)
-    const debtValueScaled = borrowAmount.mul(borrowPrice).mul(liabilityFactor)
-    const healthBufferUsd = collateralValueScaled.minus(debtValueScaled).minus(minCollateralRequirementUsd)
+    return {
+      depositAmount,
+      expectedDepositAmount,
+      borrowAmount,
+      depositPrice,
+      borrowPrice,
+      openLtv,
+      liabilityFactor,
+      minCollateralRequirementUsd,
+    }
+  })
+
+  // Slippage cap above which the on-chain open_ltv check would fail. Computed against the
+  // zero-slippage collateral baseline (router's expected_amount_out for margin=borrow,
+  // initial + leveraged target for margin=deposit) so this number is stable as the user
+  // drags the slippage slider — no recursion with unhealthyReason.
+  // Returns undefined if inputs missing, 0 if even zero slippage wouldn't open the position.
+  const maxTolerableSlippagePercent = computed<number | undefined>(() => {
+    const inputs = healthCheckInputs.value
+    if (!inputs) {
+      return undefined
+    }
+
+    const debtValueUsd = inputs.borrowAmount * inputs.borrowPrice * inputs.liabilityFactor + inputs.minCollateralRequirementUsd
+
+    let collateralAtZeroSlippageUsd: number
+    if (isMarginBorrow.value) {
+      // Borrow-asset margin: ALL collateral is the swap output, so zero-slippage baseline
+      // is the router's expectedAmountOut (already net of swap fees).
+      collateralAtZeroSlippageUsd = inputs.expectedDepositAmount * inputs.depositPrice * inputs.openLtv
+    } else {
+      // Deposit-asset margin: only the leveraged leg (L-1)×margin gets slippaged.
+      // The user's principal counts at full price. Both legs are in deposit-token units.
+      const initialMargin = Number(amount.value || 0)
+      const leveragedLeg = initialMargin * Math.max(selectedMultiplier.value - 1, 0)
+      collateralAtZeroSlippageUsd = (initialMargin + leveragedLeg) * inputs.depositPrice * inputs.openLtv
+    }
+
+    if (!Number.isFinite(collateralAtZeroSlippageUsd) || collateralAtZeroSlippageUsd <= 0) {
+      return undefined
+    }
+
+    const ratio = debtValueUsd / collateralAtZeroSlippageUsd
+    if (ratio >= 1) {
+      // Position is structurally unhealthy at any slippage — leverage is too high for this pair.
+      return 0
+    }
+
+    return Math.max(0, (1 - ratio) * 100)
+  })
+
+  const unhealthyReason = computed(() => {
+    const inputs = healthCheckInputs.value
+    if (!inputs) {
+      return ''
+    }
+
+    const collateralValueScaled = new Decimal(inputs.depositAmount).mul(inputs.depositPrice).mul(inputs.openLtv)
+    const debtValueScaled = new Decimal(inputs.borrowAmount).mul(inputs.borrowPrice).mul(inputs.liabilityFactor)
+    const healthBufferUsd = collateralValueScaled.minus(debtValueScaled).minus(inputs.minCollateralRequirementUsd)
 
     if (!healthBufferUsd.isFinite()) {
       return 'Multiply preview is invalid. Try a smaller amount or lower multiplier.'
     }
 
     if (healthBufferUsd.lte(0)) {
+      const cap = maxTolerableSlippagePercent.value
+      if (cap === 0) {
+        return `Multiplier ${selectedMultiplier.value.toFixed(2)}× is too high for this pair — even zero slippage would open underwater. Lower the multiplier.`
+      }
+      if (cap != null && cap > 0) {
+        return `Slippage ${slippage.value}% is too high at ${selectedMultiplier.value.toFixed(2)}×. Lower slippage to ≤ ${cap.toFixed(2)}% or reduce the multiplier.`
+      }
       return 'This multiply setup would be unhealthy after swap slippage, flash-loan fee, and liability-factor checks. Lower the multiplier or amount.'
     }
 
@@ -337,8 +416,10 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     percentFromMax,
     minPercent,
     selectedMultiplier,
+    hardMaxMultiplier,
     currentApy,
     unhealthyReason,
+    maxTolerableSlippagePercent,
     maxInputAmount,
     availableBorrowLiquidity,
     flashLoanFeeBps,
