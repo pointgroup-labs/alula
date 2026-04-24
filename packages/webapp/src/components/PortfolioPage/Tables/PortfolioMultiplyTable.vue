@@ -380,6 +380,29 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     .hf-percent {
       font-size: 12px;
     }
+
+    // Stack the borrow-asset icon over the deposit-asset icon (secondary on top, slightly
+    // offset down-right) instead of rendering them side-by-side. Mirrors the ring pattern
+    // used by .position-card__icons on the multiply details page so the visual language stays
+    // consistent across multiply surfaces.
+    .market-table__asset {
+      gap: 0;
+
+      .xlm-icon {
+        position: relative;
+        margin-left: -12px;
+        z-index: 1;
+        border: 2px solid $bg-card;
+        background-color: $bg-card;
+        border-radius: 50%;
+        // Compensate for the 2px ring so the visible disc stays at 32×32 like the primary.
+        box-sizing: content-box;
+      }
+
+      .market-table__asset__info {
+        margin-left: 12px;
+      }
+    }
   }
 
   .no-data {

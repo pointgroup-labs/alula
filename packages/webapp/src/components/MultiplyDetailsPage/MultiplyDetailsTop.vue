@@ -57,10 +57,11 @@ const maxApyClass = computed(() => {
       <img
         :src="borrowAsset?.icon"
         alt="asset icon"
+        class="xlm-icon"
       >
       <div class="asset-data__coin">
         <span data="name">{{ depositAsset?.symbol }} / {{ borrowAsset?.symbol }}</span>
-        <span data="symbol">{{ depositAsset?.name }} / {{ borrowAsset?.name }}</span>
+        <span data="symbol">Multiply {{ depositAsset?.symbol }} with {{ borrowAsset?.symbol }}</span>
       </div>
     </div>
 
@@ -129,7 +130,7 @@ const maxApyClass = computed(() => {
   .asset-data {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0;
     font-size: 18px;
     font-weight: 500;
 
@@ -139,10 +140,23 @@ const maxApyClass = computed(() => {
       border-radius: 50%;
     }
 
+    // Stack the borrow icon over the deposit icon (secondary on top, slightly overlapping).
+    // Matches the pattern used by the multiply table, portfolio "My Multiplies" table, and
+    // .position-card__icons so all multiply surfaces share one visual language.
+    .xlm-icon {
+      position: relative;
+      margin-left: -14px;
+      z-index: 1;
+      border: 2px solid $bg-card;
+      background-color: $bg-card;
+      box-sizing: content-box;
+    }
+
     &__coin {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
+      margin-left: 12px;
 
       span[data='symbol'] {
         color: $text-tertiary;

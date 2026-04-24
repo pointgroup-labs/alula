@@ -178,7 +178,7 @@ const option = computed<EChartsOption>(() => {
         },
       },
       {
-        name: 'Suggested Max',
+        name: 'Multiplier',
         type: 'line',
         data: maxApyValues.value,
         smooth: 0.45,
@@ -255,7 +255,7 @@ onMounted(async () => {
 
           <metric-indicator
             :color="MAX_APY_COLOR"
-            label="Suggested Max"
+            label="Multiplier"
             :value="`${formatPrice(currentMaxApy, 1, 2)}%`"
           />
         </div>
