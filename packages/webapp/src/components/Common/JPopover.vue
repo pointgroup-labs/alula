@@ -3,6 +3,7 @@ import type { BButtonProps } from 'bootstrap-vue-next'
 
 const {
   position = 'top',
+  placement,
   closePopup,
   modelValue,
   className,
@@ -13,6 +14,11 @@ const {
   {
     teleportToBody?: boolean
     position?: 'top' | 'bottom'
+    placement?:
+      | 'top' | 'top-start' | 'top-end'
+      | 'bottom' | 'bottom-start' | 'bottom-end'
+      | 'left' | 'left-start' | 'left-end'
+      | 'right' | 'right-start' | 'right-end'
     menuClass?: string
     closePopup?: boolean
     label?: string
@@ -60,6 +66,7 @@ onMounted(() => {
     :delay="{ show: 0, hide: 0 }"
     :boundary-padding="{ [boundary]: navHeight }"
     :class="menuClass"
+    :placement="placement"
     :teleport-to="teleportToBody ? 'body' : undefined"
     lazy
     unmount-lazy
