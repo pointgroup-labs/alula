@@ -82,13 +82,15 @@ const items: ComputedRef<SuppliedCardTableItem[] | []> = computed(() => {
   return res.filter(Boolean) as SuppliedCardTableItem[]
 })
 
-const totalSupplyUsd = computed(() => {
+const totalSupplyUsdRaw = computed(() => {
   let sum = 0
   for (const item of items.value) {
     sum += Number(item.balanceUsd)
   }
-  return formatCompactUSD(sum, 2, 2)
+  return sum
 })
+
+const totalSupplyUsd = computed(() => formatCompactUSD(totalSupplyUsdRaw.value, 2, 2))
 
 function withdrawDialogHandler(item: SuppliedCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
@@ -107,7 +109,7 @@ function calcStakePercent(stake: number, total: number) {
       My Supplies
 
       <metric-indicator
-        v-if="isHasObligations"
+        v-if="totalSupplyUsdRaw > 0"
         label="Total Supplied"
         :value="`${totalSupplyUsd}`"
         color="#17B26A"

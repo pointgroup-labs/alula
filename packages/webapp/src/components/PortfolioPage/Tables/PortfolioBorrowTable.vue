@@ -80,13 +80,15 @@ const items: ComputedRef<BorrowCardTableItem[]> = computed(() => {
   return res?.filter(Boolean) as BorrowCardTableItem[]
 })
 
-const totalDebt = computed(() => {
+const totalDebtRaw = computed(() => {
   let sum = 0
   for (const item of items.value) {
     sum += Number(item.debtUsd)
   }
-  return formatCompactUSD(sum, 2, 2)
+  return sum
 })
+
+const totalDebt = computed(() => formatCompactUSD(totalDebtRaw.value, 2, 2))
 
 function withdrawDialogHandler(item: BorrowCardTableItem) {
   marketsStore.selectedMarketName = String(item.market)
@@ -101,7 +103,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
       My Borrows
 
       <metric-indicator
-        v-if="isHasObligations"
+        v-if="totalDebtRaw > 0"
         label="Total Borrowed"
         :value="`${totalDebt}`"
         color="#f04438"
