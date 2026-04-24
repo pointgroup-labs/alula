@@ -82,7 +82,7 @@ endef
 # ══════════════════════════════════════════════════════════════════════════════
 
 help: ## Show this help
-	@printf "$(C)jlend$(N) v$(VERSION) · $(G)$(NETWORK)$(N)\n\n"
+	@printf "$(C)alula$(N) v$(VERSION) · $(G)$(NETWORK)$(N)\n\n"
 	@awk 'BEGIN {FS=":.*##"} /^[a-zA-Z0-9_\/.%-]+:.*##/ { \
 		gsub(/^[ \t]+|[ \t]+$$/, "", $$1); \
 		gsub(/^[ \t]+|[ \t]+$$/, "", $$2); \

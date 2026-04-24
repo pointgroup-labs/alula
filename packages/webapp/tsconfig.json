@@ -1,0 +1,48 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "useDefineForClassFields": true,
+    "baseUrl": ".",
+    "ignoreDeprecations": "5.0",
+    "module": "esnext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "~/*": [
+        "src/*"
+      ],
+      "#/*": [
+        "types/*"
+      ],
+      "@stellar-client": [
+        "src/client"
+      ]
+    },
+    "resolveJsonModule": true,
+    "types": [
+      "vue",
+      "vite/client",
+      "unplugin-vue-router/client",
+      "@nuxtjs/i18n"
+    ],
+    "allowJs": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "dist",
+    "node_modules",
+    "cypress"
+  ]
+}

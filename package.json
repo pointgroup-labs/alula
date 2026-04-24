@@ -6,7 +6,8 @@
   ],
   "packageManager": "pnpm@10.26.2",
   "scripts": {
-    "sdk": "pnpm -F {./packages/sdk}",
+    "sdk": "pnpm --filter ./packages/sdk",
+    "webapp": "pnpm --filter ./packages/webapp",
     "test": "vitest",
     "lint": "eslint --cache .",
     "lint:fix": "pnpm lint --fix"

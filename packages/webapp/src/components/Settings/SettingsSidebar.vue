@@ -1,0 +1,132 @@
+<script lang="ts" setup>
+import { useFeatureToggle } from '~/features/features-toggle'
+
+const { isSidebar } = defineProps<{
+  isSidebar: boolean
+}>()
+
+const emit = defineEmits(['close'])
+
+const { isProd } = useFeatureToggle()
+
+const { width } = useWindowSize()
+
+const isShowMobileElements = computed(() => width.value < 1024)
+
+function close() {
+  emit('close')
+}
+</script>
+
+<template>
+  <sidebar
+    :is-sidebar="isSidebar"
+    :title="$t('common.settings')"
+    class-name="settings-sidebar"
+    @close="close"
+  >
+    <div class="settings-sidebar__options">
+      <settings-connect />
+    </div>
+
+    <div
+      v-if="isShowMobileElements"
+      class="settings-sidebar__options"
+    >
+      <div class="option-title">
+        Navigations
+      </div>
+      <settings-navigation
+        @close="close"
+      />
+
+      <markets-info />
+    </div>
+
+    <div class="settings-sidebar__options">
+      <div class="option-title">
+        Options
+      </div>
+      <settings-language />
+      <!-- <settings-theme /> -->
+    </div>
+
+    <div class="settings-sidebar__options">
+      <div class="option-title">
+        Network
+      </div>
+      <settings-network />
+      <settings-recent-activity />
+    </div>
+
+    <div
+      v-if="!isProd"
+      class="settings-sidebar__options"
+    >
+      <div class="option-title">
+        Features
+      </div>
+      <settings-features />
+    </div>
+
+    <faucet-menu />
+
+  </sidebar>
+</template>
+
+<style lang="scss">
+.settings-sidebar {
+  .sidebar-panel-view {
+    gap: 24px;
+  }
+
+  .sidebar-body {
+    min-height: calc(100% - 36px);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-top: $spacing-3xl;
+  }
+
+  .setting-item__title {
+    color: $text-primary;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 16px;
+  }
+
+  .logo-with-text {
+    margin: auto 0 0 auto;
+  }
+
+  .markets-info {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-sidebar__options {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+
+    &:not(:last-child) {
+      &::after {
+        content: '';
+        width: calc(100% + 48px);
+        margin-left: -24px;
+        height: 1px;
+        background-color: $surface-neutral-08;
+        display: block;
+      }
+    }
+
+    .option-title {
+      color: rgba(232, 237, 245, 0.8);
+      font-size: 16px;
+      margin-bottom: -10px;
+      font-weight: 700;
+    }
+  }
+}
+</style>

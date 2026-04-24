@@ -43,6 +43,9 @@ export interface MarketInitParams {
   update_in_queue_period: u64;
 }
 
+
+
+
 /**
  * Market Manager Contract Error
  */
