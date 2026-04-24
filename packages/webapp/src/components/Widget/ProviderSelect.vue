@@ -48,6 +48,17 @@ stop = watch(swapProviderAddress, (address) => {
       :options="providers"
       :unselected="false"
     >
+      <template #label>
+        <span class="select-item">
+          <img
+            v-if="selectedProvider?.icon"
+            :src="selectedProvider.icon"
+            alt="provider icon"
+          >
+          {{ selectedProvider?.label }}
+        </span>
+      </template>
+
       <template #option="{ option }">
         <img
           :src="option.icon"
