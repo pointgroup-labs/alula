@@ -272,7 +272,10 @@ const closeDetailsSteps = computed(() => {
               />
             </div>
           </template>
-          <div class="summary-list">
+          <div
+            v-if="amount && amount > 0"
+            class="summary-list"
+          >
             <div
               v-for="step in closeDetailsSteps"
               :key="step.id"
@@ -297,6 +300,17 @@ const closeDetailsSteps = computed(() => {
                 style="opacity: 1;"
               >
                 {{ shortenNumber(step.value || 0, 2, maxDecimalsForShortenNumber(step.value || 0)) }} {{ step.symbol }}
+              </div>
+            </div>
+          </div>
+          <div
+            v-else
+            class="summary-list"
+          >
+            <div class="summary-list__item">
+              <div class="label">Quote</div>
+              <div class="value">
+                Enter the amount to get a summary
               </div>
             </div>
           </div>
