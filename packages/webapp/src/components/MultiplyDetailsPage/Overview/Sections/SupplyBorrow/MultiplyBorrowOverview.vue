@@ -71,7 +71,7 @@ const progress = computed(() => {
   <div class="pool-card stat-card stat-card--small">
     <div class="stat-card__header">
       <h3 class="pool-card-title">
-        Borrow ({{ selectedVault?.borrowAsset.symbol }})
+        Borrow  <span class="text-tertiary">({{ selectedVault?.borrowAsset.symbol }})</span>
       </h3>
 
       <j-pill-label

@@ -30,7 +30,6 @@ const {
   remainingBorrowAmount,
   remainingDepositAmount,
   marketFee,
-  marginAssetType,
   preview,
   previewError,
   previewLoading,
@@ -61,6 +60,62 @@ const slippageInput = computed<string | number>({
     slippage.value = Number.isFinite(nextValue) ? nextValue : 0
   },
 })
+
+const closeDetailsSteps = computed(() => {
+  if (!preview.value || !vault) {
+    return []
+  }
+
+  const depositSymbol = vault.asset.symbol
+  const borrowSymbol = vault.borrowAsset.symbol
+  const receiveSymbol = marginAsset.value?.symbol || (isMarginBorrow.value ? borrowSymbol : depositSymbol)
+  const slippageLabel = `${formatPrice(slippage.value || 0, 0, 1)}%`
+
+  return [
+    {
+      id: 1,
+      title: 'Debt repaid',
+      tooltip: 'Debt removed from the multiply position after repay fees are applied.',
+      subtitle: `repaid in ${borrowSymbol}`,
+      value: debtRepaidAmount.value,
+      symbol: borrowSymbol,
+    },
+    {
+      id: 2,
+      title: 'Estimated receive',
+      tooltip: 'Estimated amount returned to your wallet after the close batch finishes.',
+      subtitle: `received in ${receiveSymbol}`,
+      value: estimatedReceiveAmount.value,
+      symbol: receiveSymbol,
+    },
+    {
+      id: 3,
+      title: 'Debt after repayment',
+      tooltip: 'Borrow balance that remains open after this close operation.',
+      subtitle: `still owed in ${borrowSymbol}`,
+      value: remainingBorrowAmount.value,
+      symbol: borrowSymbol,
+    },
+    {
+      id: 4,
+      title: 'Remaining collateral',
+      tooltip: 'Collateral that remains supplied in the deposit pool after this close batch.',
+      subtitle: `still locked in ${depositSymbol}`,
+      value: remainingDepositAmount.value,
+      symbol: depositSymbol,
+      valueClass: 'text-cyan',
+    },
+    {
+      id: 5,
+      title: isMarginBorrow.value ? 'Collateral sold' : 'Swap estimate',
+      tooltip: 'Deposit-asset amount routed through the swap to settle the flash-loan repayment.',
+      subtitle: `swap at <= ${slippageLabel} slippage`,
+      value: swapInputEstimate.value,
+      symbol: depositSymbol,
+      valueClass: 'text-indigo',
+    },
+  ]
+})
 </script>
 
 <template>
@@ -73,7 +128,7 @@ const slippageInput = computed<string | number>({
         :price="Number(marginPrice || 0)"
         :symbol="marginAsset?.symbol"
         :label-left="inputLabel"
-        variant="danger"
+        variant="accent"
         :label-right="formatPrice(balance ?? 0, 0, 4)"
         :rules="[
           (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
@@ -89,17 +144,38 @@ const slippageInput = computed<string | number>({
           >
             <template #target="{ active }">
               <div
-                class="select-pool-btn"
+                class="select-pool-btn select-asset-btn"
               >
-                <img
-                  :src="marginAsset?.icon"
-                  alt="asset icon"
-                >
-                {{ marginAsset?.symbol }}
-                <i-app-chevron-down
-                  class="arrow-icon"
-                  :class="{ 'arrow-icon--active': active }"
-                />
+                <template v-if="isMarginBorrow">
+                  <div class="asset-icons">
+                    <img
+                      :src="marginAsset?.icon"
+                      alt="asset icon"
+                    >
+                    <img
+                      :src="notMarginAsset?.icon"
+                      alt="asset icon"
+                    >
+                  </div>
+                  <div class="swap-asset-label">
+                    <span class="text-tertiary">{{ marginAsset?.symbol }}</span> <i-app-line-arrow-right /> {{ notMarginAsset?.symbol }}
+                  </div>
+                  <i-app-chevron-down
+                    class="arrow-icon"
+                    :class="{ 'arrow-icon--active': active }"
+                  />
+                </template>
+                <template v-else>
+                  <img
+                    :src="marginAsset?.icon"
+                    alt="asset icon"
+                  >
+                  {{ marginAsset?.symbol }}
+                  <i-app-chevron-down
+                    class="arrow-icon"
+                    :class="{ 'arrow-icon--active': active }"
+                  />
+                </template>
               </div>
             </template>
 
@@ -197,42 +273,30 @@ const slippageInput = computed<string | number>({
             </div>
           </template>
           <div class="summary-list">
-            <div class="summary-list__item">
-              <div class="label">Debt repaid</div>
-              <div class="value">
-                {{ shortenNumber(debtRepaidAmount || 0, 2, maxDecimalsForShortenNumber(debtRepaidAmount)) }} {{ vault?.borrowAsset.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item">
-              <div class="label">Estimated receive</div>
-              <div class="value">
-                {{ shortenNumber(estimatedReceiveAmount || 0, 2, maxDecimalsForShortenNumber(estimatedReceiveAmount)) }} {{ marginAsset?.symbol }}
-              </div>
-            </div>
-
-            <div class="summary-list__item align-items-start">
-              <div class="label">Debt after repayment</div>
-              <div class="value">
-                <div class="text-end">
-                  {{ shortenNumber(remainingBorrowAmount || 0, 2, maxDecimalsForShortenNumber(remainingBorrowAmount)) }} {{ vault?.borrowAsset.symbol }}
+            <div
+              v-for="step in closeDetailsSteps"
+              :key="step.id"
+              class="summary-list__item"
+              :class="{ 'pb-1': step.id === closeDetailsSteps.length }"
+            >
+              <div class="label">
+                <div class="label-with-tip">
+                  <span class="step-id">{{ step.id }}</span> {{ step.title }}
+                  <info-tooltip>
+                    {{ step.tooltip }}
+                  </info-tooltip>
+                </div>
+                <div class="sub-label">
+                  <i-app-line-arrow-down class="line-arrow-icon" />
+                  {{ step.subtitle }}
                 </div>
               </div>
-            </div>
-
-            <div class="summary-list__item align-items-start">
-              <div class="label">Remaining supply</div>
-              <div class="value">
-                <div class="text-end">
-                  {{ shortenNumber(remainingDepositAmount || 0, 2, maxDecimalsForShortenNumber(remainingDepositAmount)) }} {{ vault?.asset.symbol }}
-                </div>
-              </div>
-            </div>
-
-            <div class="summary-list__item">
-              <div class="label">Swap estimate</div>
-              <div class="value">
-                {{ formatPrice(swapInputEstimate, 2, vault?.depositPoolData.pool.token_decimals || 7) }} {{ marginAssetType === 'borrow' ? vault?.asset.symbol : vault?.asset.symbol }}
+              <div
+                class="value"
+                :class="step.valueClass"
+                style="opacity: 1;"
+              >
+                {{ shortenNumber(step.value || 0, 2, maxDecimalsForShortenNumber(step.value || 0)) }} {{ step.symbol }}
               </div>
             </div>
           </div>
@@ -273,7 +337,7 @@ const slippageInput = computed<string | number>({
       <j-btn
         :loading="isLoading"
         :disabled="previewLoading || !!previewError"
-        variant="negative"
+        variant="accent"
         size="md"
         class="market-action-btn"
         @click="withdrawLeverage"

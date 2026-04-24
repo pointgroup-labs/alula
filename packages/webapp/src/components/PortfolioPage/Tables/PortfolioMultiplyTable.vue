@@ -276,7 +276,7 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
             <j-btn
               v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
               size="sm"
-              variant="negative-outlined"
+              variant="accent-outlined"
               :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
               :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
               @click="multiplyDialogHandler(data.item)"

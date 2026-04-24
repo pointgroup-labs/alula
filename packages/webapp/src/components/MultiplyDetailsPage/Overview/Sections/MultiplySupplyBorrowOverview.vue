@@ -28,6 +28,7 @@ section#multiply-detail-overview {
 
     &-title {
       font-size: 14px;
+      margin: 0;
     }
   }
 

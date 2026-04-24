@@ -31,7 +31,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const activeClient = computed(() => vault.value ? marketsStore.state.markets[vault.value.market]?.client : undefined)
   const marketState = computed(() => vault.value ? marketsStore.state.markets[vault.value.market]?.marketState : undefined)
 
-  const isMarginBorrow = ref(true)
+  const isMarginBorrow = ref(false)
   const marginAssetType = computed<MultiplyMarginAsset>(() => isMarginBorrow.value ? 'borrow' : 'deposit')
   const marginAsset = computed(() => isMarginBorrow.value ? vault.value?.borrowAsset : vault.value?.asset)
   const notMarginAsset = computed(() => isMarginBorrow.value ? vault.value?.asset : vault.value?.borrowAsset)
@@ -103,11 +103,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const flowVersion = computed(() => preview.value?.flowVersion)
 
   const availableBorrowLiquidity = computed(() => {
-    if (!marginPool.value) {
+    if (!vault.value?.borrowPoolData) {
       return 0
     }
 
-    const pool = marginPool.value
+    const pool = vault.value?.borrowPoolData
     const decimals = pool.pool.token_decimals
     const totalSupply = Number(bigintToNumber(pool.total_supply, decimals))
     const totalBorrowed = Number(bigintToNumber(pool.pool.total_borrowed, decimals))
@@ -375,7 +375,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     amount.value = undefined
     preview.value = undefined
     previewError.value = undefined
-    isMarginBorrow.value = true
+    isMarginBorrow.value = false
     percentFromMax.value = Math.max(minPercent.value || 0, 85)
     marketsStore.dialogLeverage = false
   }

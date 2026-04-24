@@ -389,7 +389,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     previewError.value = ''
     resolvedRepayAmount.value = undefined
     receivePreviewCache.clear()
-    isMarginBorrow.value = true
+    isMarginBorrow.value = false
     txFee.value = 0
   }
 

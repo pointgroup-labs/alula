@@ -222,6 +222,7 @@
         font-family: $font-JetBrainsMono;
         opacity: 0.8;
         line-height: normal;
+        white-space: nowrap;
 
         &:has(:is(.negative, .positive)) {
           opacity: 1;
