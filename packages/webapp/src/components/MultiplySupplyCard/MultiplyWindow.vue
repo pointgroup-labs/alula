@@ -403,6 +403,7 @@ function isUserHaveMultiply(): boolean {
         size="md"
         :loading="marketActions.isLoading(vault.pool_address, 'multiplyOpen', vault.market)"
         :pool="vault.depositPoolData.pool"
+        :pool-secondary="vault.borrowPoolData.pool"
         :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
         @click-handler="openMultiply"
       >

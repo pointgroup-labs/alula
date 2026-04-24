@@ -7,9 +7,11 @@ const {
   loading = false,
   variant = 'brand',
   pool,
+  poolSecondary,
   ...props
 } = defineProps<{
   pool?: Pool
+  poolSecondary?: Pool
   isTrust?: boolean
   loading?: boolean
   variant?: 'brand' | 'brand-secondary' | 'positive' | 'negative'
@@ -31,18 +33,43 @@ const { publicKey, balances } = useWalletComposable()
 
 const market = useMarketActions()
 
-const assetData = computed(() => destructurePoolAsset(String(pool?.name)) || [])
+const requiredAssets = computed(() => {
+  return [pool, poolSecondary]
+    .filter((item): item is Pool => !!item)
+    .map((item) => {
+      const [asset, issuer] = destructurePoolAsset(String(item.name)) || []
+      return {
+        asset,
+        issuer,
+        isNative: item.token_symbol === 'native',
+      }
+    })
+    .filter(item => item.isNative || (item.asset && item.issuer))
+})
+
+const missingAsset = computed(() => {
+  return requiredAssets.value.find((assetData) => {
+    if (assetData.isNative) {
+      return false
+    }
+
+    return !balances.value?.find((balance: any) => balance.asset_issuer?.toLowerCase() === assetData.issuer?.toLowerCase())
+  })
+})
 
 const isTrust = computed(() => {
-  const asset_issuer = assetData.value?.[1]
-  return pool?.token_symbol === 'native'
-    || !!balances.value?.find((b: any) => b.asset_issuer?.toLowerCase() === asset_issuer?.toLowerCase())
+  return !missingAsset.value
 })
 
 async function addTrust() {
   try {
     txLoading.value = true
-    const [asset, issuer] = assetData.value
+    const assetData = missingAsset.value
+    if (!assetData?.asset || !assetData.issuer) {
+      return
+    }
+
+    const { asset, issuer } = assetData
     const res = await market.addTrustLine(String(asset), String(issuer))
     toast.create({
       title: 'Add Trust Success',
