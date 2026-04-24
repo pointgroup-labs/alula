@@ -86,7 +86,7 @@ const batchPreviewSteps = computed(() => {
   const borrowSymbol = vault.borrowAsset.symbol
   const marginSymbol = marginAsset.value?.symbol || borrowSymbol
   const swapInSymbol = isMarginBorrow.value ? marginSymbol : (notMarginAsset.value?.symbol || borrowSymbol)
-  const slippageLabel = `${truncatePercent(slippage.value || 0, 2)}%`
+  const slippageLabel = `${truncatePercent(slippage.value || 0, 1)}%`
 
   return [
     {
@@ -169,21 +169,42 @@ function isUserHaveMultiply(): boolean {
           >
             <template #target="{ active }">
               <div
-                class="select-pool-btn"
+                class="select-pool-btn select-asset-btn"
               >
-                <img
-                  :src="marginAsset?.icon"
-                  alt="asset icon"
-                >
-                {{ marginAsset?.symbol }}
-                <i-app-chevron-down
-                  class="arrow-icon"
-                  :class="{ 'arrow-icon--active': active }"
-                />
+                <template v-if="isMarginBorrow">
+                  <div class="asset-icons">
+                    <img
+                      :src="marginAsset?.icon"
+                      alt="asset icon"
+                    >
+                    <img
+                      :src="notMarginAsset?.icon"
+                      alt="asset icon"
+                    >
+                  </div>
+                  <div class="swap-asset-label">
+                    <span class="text-tertiary">{{ marginAsset?.symbol }}</span> <i-app-line-arrow-right /> {{ notMarginAsset?.symbol }}
+                  </div>
+                  <i-app-chevron-down
+                    class="arrow-icon"
+                    :class="{ 'arrow-icon--active': active }"
+                  />
+                </template>
+                <template v-else>
+                  <img
+                    :src="marginAsset?.icon"
+                    alt="asset icon"
+                  >
+                  {{ marginAsset?.symbol }}
+                  <i-app-chevron-down
+                    class="arrow-icon"
+                    :class="{ 'arrow-icon--active': active }"
+                  />
+                </template>
               </div>
             </template>
 
-            <div class="select-pool-menu">
+            <div class="select-pool-menu select-asset-menu">
               <div
                 class="select-pool-menu__item"
                 @click="isMarginBorrow = !isMarginBorrow"
@@ -287,65 +308,63 @@ function isUserHaveMultiply(): boolean {
           </template>
 
           <div class="summary-list">
-            <div class="info-summary__item">
-              <div
-                v-if="loadingPreview && !summary"
-                class="summary-list"
-              >
-                <div class="summary-list__item mb-2">
-                  <div class="label">Quote</div>
-                  <div class="value">
-                    Updating batch preview...
-                  </div>
+            <div
+              v-if="loadingPreview && !summary"
+              class="summary-list"
+            >
+              <div class="summary-list__item mb-2">
+                <div class="label">Quote</div>
+                <div class="value">
+                  Updating batch preview...
                 </div>
               </div>
+            </div>
 
+            <div
+              v-else-if="summary"
+              class="summary-list"
+            >
               <div
-                v-else-if="summary"
-                class="summary-list"
+                v-for="step in batchPreviewSteps"
+                :key="step.id"
+                class="summary-list__item"
+                :class="{ 'pb-1': step.id === batchPreviewSteps.length }"
               >
+                <div class="label">
+                  <div class="label-with-tip">
+                    <span class="step-id">{{ step.id }}</span> {{ step.title }}
+                    <info-tooltip>
+                      {{ step.tooltip }}
+                    </info-tooltip>
+                  </div>
+                  <div class="sub-label">
+                    <i-app-line-arrow-down class="line-arrow-icon" />
+                    {{ step.subtitle }}
+                  </div>
+                </div>
                 <div
-                  v-for="step in batchPreviewSteps"
-                  :key="step.id"
-                  class="summary-list__item"
-                  :class="{ 'pb-1': step.id === batchPreviewSteps.length }"
+                  class="value"
+                  :class="step.valueClass"
+                  style="opacity: 1;"
                 >
-                  <div class="label">
-                    <div class="label-with-tip">
-                      <span class="step-id">{{ step.id }}</span> {{ step.title }}
-                      <info-tooltip>
-                        {{ step.tooltip }}
-                      </info-tooltip>
-                    </div>
-                    <div class="sub-label">
-                      <i-app-line-arrow-down class="line-arrow-icon" />
-                      {{ step.subtitle }}
-                    </div>
-                  </div>
-                  <div
-                    class="value"
-                    :class="step.valueClass"
-                    style="opacity: 1;"
-                  >
-                    {{ shortenNumber(step.value || 0, 2, maxDecimalsForShortenNumber(step.value || 0)) }} {{ step.symbol }}
-                  </div>
+                  {{ shortenNumber(step.value || 0, 2, maxDecimalsForShortenNumber(step.value || 0)) }} {{ step.symbol }}
                 </div>
               </div>
+            </div>
 
-              <div
-                v-else
-                class="summary-list"
-              >
-                <div class="summary-list__item mb-2">
-                  <div class="label">Quote</div>
-                  <div class="value">
-                    <template v-if="publicKey">
-                      Enter an amount to build the flash-borrow batch.
-                    </template>
-                    <template v-else>
-                      Connect wallet to build the flash-borrow batch.
-                    </template>
-                  </div>
+            <div
+              v-else
+              class="summary-list"
+            >
+              <div class="summary-list__item mb-2">
+                <div class="label">Quote</div>
+                <div class="value">
+                  <template v-if="publicKey">
+                    Enter an amount to build the flash-borrow batch.
+                  </template>
+                  <template v-else>
+                    Connect wallet to build the flash-borrow batch.
+                  </template>
                 </div>
               </div>
             </div>
@@ -464,45 +483,6 @@ function isUserHaveMultiply(): boolean {
   .arrow-icon {
     &--active {
       transform: rotate(180deg);
-    }
-  }
-
-  .summary-list {
-    &__item {
-      .label {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-
-        .step-id {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: $navi-100;
-          background-color: $navi-400;
-          border-radius: 50%;
-          width: 16px;
-          height: 16px;
-          font-size: 9px;
-          font-weight: 700;
-        }
-      }
-      .label-with-tip {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .sub-label {
-        font-size: 11px;
-        color: rgb(79, 96, 128);
-        margin: 0 0 4px 12px;
-
-        .line-arrow-icon {
-          width: 8px;
-          height: 12px;
-          margin-right: 4px;
-        }
-      }
     }
   }
 }
