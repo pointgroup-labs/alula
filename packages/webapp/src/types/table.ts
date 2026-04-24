@@ -139,5 +139,8 @@ export type SuppliedCardTableItem = {
   price: number
   pool_address: string
   collateral: string | number
+  collateralPercent: string | number
+  deposited: string | number
+  depositedPercent: string | number
   market?: string
 } & TableAsset
