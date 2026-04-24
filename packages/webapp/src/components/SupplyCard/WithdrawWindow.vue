@@ -84,10 +84,12 @@ watch([supplyBalance, isHasCollateral], ([b, c]) => {
   />
 
   <div
-
+    v-if="isHasSupply && isHasCollateral"
     class="info-card mt-3 info-summary info-summary--collateral"
   >
-    <div class="info-summary__item">
+    <div
+      class="info-summary__item"
+    >
       <div class="info-summary__header">
         Balances
         <info-tooltip style="margin: 0 auto 0 6px">
@@ -97,7 +99,6 @@ watch([supplyBalance, isHasCollateral], ([b, c]) => {
 
       <div class="summary-list">
         <div
-          v-if="isHasSupply"
           class="summary-list__item"
         >
           <div
@@ -123,7 +124,6 @@ watch([supplyBalance, isHasCollateral], ([b, c]) => {
         </div>
 
         <div
-          v-if="isHasCollateral"
           class="summary-list__item"
         >
           <div
