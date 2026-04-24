@@ -1959,3 +1959,132 @@ fn v3_with_tiny_amounts_handles_rounding_correctly() {
         }
     }
 }
+
+// -- Test: SDK gross-up path makes V3 safe with borrow_fee_bps > 0 ------------
+
+/// Companion to `v3_silently_milks_user_when_borrow_fee_bps_nonzero` (above).
+///
+/// That test pins the FAILURE mode of the *original* V3 precondition
+/// (`borrow_fee_bps == 0`): if the SDK feeds a non-grossed-up `borrow_amount`
+/// into a pool with non-zero borrow fee, the batch either silently drains the
+/// user's USDC buffer (if they have one) or reverts cleanly (if they don't).
+///
+/// This test pins the SUCCESS mode of the *current* SDK behavior
+/// (`packages/client-sdk/src/services/multiply.ts:214, :251`), which relaxes
+/// that precondition by sizing `borrow_amount` to the grossed-up value
+/// `ceil(flash_repay × 10_000 / (10_000 − borrow_fee_bps))`. With that exact
+/// gross-up, on a pool with `borrow_fee_bps > 0`:
+///
+///   1. Batch succeeds (no shortfall at FlashRepay).
+///   2. User wallet USDC is unchanged (no silent milking from buffer).
+///   3. Obligation collateral is exactly `margin + Y`.
+///   4. Obligation debt is exactly `borrow_amount` (grossed up; the borrow fee
+///      is now legitimate debt, not a phantom buffer drain).
+///
+/// This is the on-chain proof that the V2 doc's TL;DR claim
+/// (`Borrow.amount = grossed-up borrow_amount`) holds for the only failure
+/// mode it was designed to address. The 1 bps fee is the same value the
+/// negative test uses, so the two together pin both sides of the boundary.
+#[test]
+fn v3_grossed_up_borrow_amount_succeeds_with_nonzero_borrow_fee_bps() {
+    let fixture = TestMarketFixture::new();
+    let TestMarketFixture {
+        e,
+        contract_client,
+        users,
+        usdc_pool_address,
+        usdc_token_client,
+        usdc_token_address,
+        gold_pool_address,
+        gold_token_address,
+        ..
+    } = &fixture;
+
+    // Pool change: turn on a 1 bps borrow fee. Same value as the silent-milk
+    // negative test, so any divergence here is purely the gross-up effect.
+    let borrow_fee_bps: i128 = 1;
+    let mut new_fee = fixture.contract_client.get_pool(usdc_pool_address).config.fee_config;
+    new_fee.borrow_fee_bps = borrow_fee_bps as u32;
+    update_pool_fee(&fixture, usdc_pool_address, new_fee);
+
+    let swap = e.register(ConfigurableSwap, ());
+    let swap_client = ConfigurableSwapClient::new(e, &swap);
+    swap_client.init(&10_000_i128);
+
+    let liquidity_provider = &users[1];
+    let p = V3Params::standard();
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        usdc_pool_address,
+        &(100 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+
+    // SDK gross-up: borrow_amount = ceil(flash_repay × 10_000 / (10_000 − fee_bps))
+    // Mirrors `multiply.ts → grossUpAmountByFee()`.
+    let flash_repay = p.flash_x + p.flash_fee;
+    let borrow_amount =
+        (flash_repay * 10_000 + (10_000 - borrow_fee_bps) - 1) / (10_000 - borrow_fee_bps);
+
+    // Sanity: gross-up must produce borrower_to_receive ≥ flash_repay.
+    // borrower_to_receive = borrow_amount − ceil(borrow_amount × fee_bps / 10_000)
+    let on_chain_fee = (borrow_amount * borrow_fee_bps + 10_000 - 1) / 10_000;
+    let borrower_to_receive = borrow_amount - on_chain_fee;
+    assert!(
+        borrower_to_receive >= flash_repay,
+        "gross-up math is wrong: borrower_to_receive ({}) < flash_repay ({})",
+        borrower_to_receive,
+        flash_repay
+    );
+
+    let user = &users[0];
+    let usdc_before = usdc_token_client.balance(user);
+
+    let batch = v3_batch(
+        e,
+        &swap,
+        usdc_pool_address,
+        gold_pool_address,
+        usdc_token_address,
+        gold_token_address,
+        p.flash_x,
+        p.swap_floor_y,
+        p.margin,
+        borrow_amount,
+    );
+
+    // Must succeed cleanly — gross-up covers the borrow fee precisely.
+    contract_client.submit_requests_batch(&ObligationKey::new(user.clone()), &batch, &None);
+
+    let usdc_after = usdc_token_client.balance(user);
+    assert_eq!(
+        usdc_after - usdc_before,
+        borrower_to_receive - flash_repay,
+        "wallet USDC delta must equal grossed-up surplus (≤ 1 unit from ceil rounding); \
+         any larger drain would mean phantom debt re-introduced"
+    );
+
+    let obligation = contract_client.get_user_obligation(&ObligationKey::new(user.clone()));
+    let collateral = obligation
+        .deposits
+        .get(gold_pool_address.clone())
+        .unwrap()
+        .collateral;
+    let debt = obligation
+        .borrows
+        .get(usdc_pool_address.clone())
+        .unwrap()
+        .originally_borrowed;
+
+    assert_eq!(
+        collateral,
+        p.expected_collateral(),
+        "collateral must remain margin + Y regardless of borrow_fee_bps"
+    );
+    assert_eq!(
+        debt, borrow_amount,
+        "debt must equal the grossed-up borrow_amount (legitimate borrow-fee debt, \
+         not slippage-scaled phantom debt)"
+    );
+}
