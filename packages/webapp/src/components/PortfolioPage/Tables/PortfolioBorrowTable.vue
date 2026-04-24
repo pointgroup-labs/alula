@@ -16,7 +16,8 @@ const marketsStore = useMarketsStore()
 
 const market = useMarketActions()
 
-const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
+const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
+const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
 const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
 
@@ -107,7 +108,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
       />
     </div>
 
-    <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
+    <div v-if="markets.length === 0 && isLoading">
       <borrow-table-skeleton />
     </div>
 
@@ -122,7 +123,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           :fields="fields"
           :items="items"
           responsive
-          class="portfolio-table market-table"
+          class="portfolio-table market-table "
           :class="{ 'table-loading': userStore.loading }"
         >
           <template

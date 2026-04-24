@@ -12,7 +12,8 @@ const marketsStore = useMarketsStore()
 
 const market = useMarketActions()
 
-const loadingMarkets = computed(() => marketsStore.state.loadingLeveragePools || marketsStore.state.loading)
+const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
+const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
 const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
 
@@ -113,7 +114,7 @@ function calcStakePercent(stake: number, total: number) {
       />
     </div>
 
-    <div v-if="!isHasObligations && (userStore.loading || loadingMarkets)">
+    <div v-if="markets.length === 0 && isLoading">
       <supply-table-skeleton />
     </div>
 

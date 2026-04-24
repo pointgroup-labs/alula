@@ -157,145 +157,153 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
     v-else
     class="table-wrapper"
   >
-    <BTable
-      v-if="width >= 1024"
-      show-empty
-      borderless
-      :fields="fields"
-      :items="filteredData"
-      responsive
-      class="market-table multiply-table portfolio-table"
-      :class="{ 'table-loading': userStore.loading }"
-    >
-      <template
-        v-for="field in fields"
-        :key="field.key"
-        #[`head(${field.key})`]="data"
+    <template v-if="filteredData.length > 0">
+      <BTable
+        v-if="width >= 1024"
+        show-empty
+        borderless
+        :fields="fields"
+        :items="filteredData"
+        responsive
+        class="market-table multiply-table portfolio-table"
+        :class="{ 'table-loading': userStore.loading }"
       >
-        <span :style="{ '--align': field.align }">{{ data.label }}</span>
-      </template>
+        <template
+          v-for="field in fields"
+          :key="field.key"
+          #[`head(${field.key})`]="data"
+        >
+          <span :style="{ '--align': field.align }">{{ data.label }}</span>
+        </template>
 
-      <template #cell(asset)="data">
-        <div class="market-table__asset">
-          <img
-            :src="data.item.asset.icon"
-            alt="asset icon"
-          >
-          <img
-            :src="data.item.borrowAsset.icon"
-            alt="XLM icon"
-            class="xlm-icon"
-          >
-          <div class="market-table__asset__info">
-            <div class="market-table__asset__info__name">
-              {{ data.item.asset.symbol }}/{{ data.item.borrowAsset.symbol }}
-            </div>
-            <div class="market-table__asset__info__symbol">
-              {{ data.item.asset.name }} / {{ data.item.borrowAsset.symbol }}
+        <template #cell(asset)="data">
+          <div class="market-table__asset">
+            <img
+              :src="data.item.asset.icon"
+              alt="asset icon"
+            >
+            <img
+              :src="data.item.borrowAsset.icon"
+              alt="XLM icon"
+              class="xlm-icon"
+            >
+            <div class="market-table__asset__info">
+              <div class="market-table__asset__info__name">
+                {{ data.item.asset.symbol }}/{{ data.item.borrowAsset.symbol }}
+              </div>
+              <div class="market-table__asset__info__symbol">
+                {{ data.item.asset.name }} / {{ data.item.borrowAsset.symbol }}
+              </div>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
 
-      <template #cell(multiplier)="data">
-        <div class="table-cell justify-content-center">
-          <j-pill-label
-            size="sm"
-            variant="success"
-          >
-            {{ truncatePercent(data.item.multiplier || 0, 2) }}x
-          </j-pill-label>
-        </div>
-      </template>
+        <template #cell(multiplier)="data">
+          <div class="table-cell justify-content-center">
+            <j-pill-label
+              size="sm"
+              variant="success"
+            >
+              {{ truncatePercent(data.item.multiplier || 0, 2) }}x
+            </j-pill-label>
+          </div>
+        </template>
 
-      <template #cell(market)="data">
-        <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
-          <span>{{ data.item.market }}</span>
-          <template #content>
-            {{ data.item.market }}
-          </template>
-        </j-tooltip>
-      </template>
-
-      <template #cell(deposited)="data">
-        <div class="table-cell justify-content-end">
-          <j-tooltip tooltip-class="with-price">
-            <strong>{{ shortenNumber(data.item.deposited.toFixed(2) || 0) }} {{ data.item.asset.symbol }}</strong>
-            <span>${{ amountToUsdWithShort(data.item.deposited, data.item.price) }}</span>
+        <template #cell(market)="data">
+          <j-tooltip tooltip-class="table-cell justify-content-center market-cell">
+            <span>{{ data.item.market }}</span>
             <template #content>
-              {{ formatPrice(data.item.deposited) }} {{ data.item.asset.symbol }}
-              <br>
-              <span>${{ amountToUsdWithShort(data.item.deposited, data.item.price, false) }}</span>
+              {{ data.item.market }}
             </template>
           </j-tooltip>
-        </div>
-      </template>
+        </template>
 
-      <template #cell(borrowed)="data">
-        <div class="table-cell justify-content-end">
-          <j-tooltip tooltip-class="with-price">
-            <strong>{{ shortenNumber(data.item.borrowed || 0) }} {{ data.item.borrowAsset.symbol }}</strong>
-            <span>${{ amountToUsdWithShort(data.item.borrowed, data.item.borrowPoolPrice) }}</span>
-            <template #content>
-              {{ formatPrice(data.item.borrowed) }} {{ data.item.borrowAsset.symbol }}
-              <br>
-              <span>${{ amountToUsdWithShort(data.item.borrowed, data.item.borrowPoolPrice, false) }}</span>
-            </template>
-          </j-tooltip>
-        </div>
-      </template>
+        <template #cell(deposited)="data">
+          <div class="table-cell justify-content-end">
+            <j-tooltip tooltip-class="with-price">
+              <strong>{{ shortenNumber(data.item.deposited.toFixed(2) || 0) }} {{ data.item.asset.symbol }}</strong>
+              <span>${{ amountToUsdWithShort(data.item.deposited, data.item.price) }}</span>
+              <template #content>
+                {{ formatPrice(data.item.deposited) }} {{ data.item.asset.symbol }}
+                <br>
+                <span>${{ amountToUsdWithShort(data.item.deposited, data.item.price, false) }}</span>
+              </template>
+            </j-tooltip>
+          </div>
+        </template>
 
-      <template #cell(hf)="data">
-        <div class="table-cell justify-content-end">
+        <template #cell(borrowed)="data">
+          <div class="table-cell justify-content-end">
+            <j-tooltip tooltip-class="with-price">
+              <strong>{{ shortenNumber(data.item.borrowed || 0) }} {{ data.item.borrowAsset.symbol }}</strong>
+              <span>${{ amountToUsdWithShort(data.item.borrowed, data.item.borrowPoolPrice) }}</span>
+              <template #content>
+                {{ formatPrice(data.item.borrowed) }} {{ data.item.borrowAsset.symbol }}
+                <br>
+                <span>${{ amountToUsdWithShort(data.item.borrowed, data.item.borrowPoolPrice, false) }}</span>
+              </template>
+            </j-tooltip>
+          </div>
+        </template>
+
+        <template #cell(hf)="data">
+          <div class="table-cell justify-content-end">
+            <div
+              class="hf-indicator"
+              :style="{
+                '--indicator-width': `${Math.min(Math.max((data.item.healthFactor - 1) * 100, 0), 100)}%`,
+                '--indicator-color': healthFactorColor(data.item.healthFactor),
+              }"
+            />
+            <span
+              :style="{
+                color: healthFactorColor(data.item.healthFactor),
+              }"
+              class="text-num hf-percent"
+            >
+              {{ truncatePercent(data.item.healthFactor, 2) }}
+            </span>
+          </div>
+        </template>
+
+        <template #cell(action)="data">
+          <div class="table-cell justify-content-end market-table__action">
+            <j-btn
+              v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
+              size="sm"
+              variant="negative-outlined"
+              :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
+              :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
+              @click="multiplyDialogHandler(data.item)"
+            >
+              Close
+            </j-btn>
+          </div>
+        </template>
+
+        <template #empty>
           <div
-            class="hf-indicator"
-            :style="{
-              '--indicator-width': `${Math.min(Math.max((data.item.healthFactor - 1) * 100, 0), 100)}%`,
-              '--indicator-color': healthFactorColor(data.item.healthFactor),
-            }"
-          />
-          <span
-            :style="{
-              color: healthFactorColor(data.item.healthFactor),
-            }"
-            class="text-num hf-percent"
+            v-show="!isLoading"
+            class="no-data"
           >
-            {{ truncatePercent(data.item.healthFactor, 2) }}
-          </span>
-        </div>
-      </template>
+            No Multiply vaults
+          </div>
+        </template>
+      </BTable>
 
-      <template #cell(action)="data">
-        <div class="table-cell justify-content-end market-table__action">
-          <j-btn
-            v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
-            size="sm"
-            variant="negative-outlined"
-            :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
-            :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
-            @click="multiplyDialogHandler(data.item)"
-          >
-            Close
-          </j-btn>
-        </div>
-      </template>
-
-      <template #empty>
-        <div
-          v-show="!isLoading"
-          class="no-data"
-        >
-          No Multiply vaults
-        </div>
-      </template>
-    </BTable>
-
-    <portfolio-multiply-table-mobile
+      <portfolio-multiply-table-mobile
+        v-else
+        :items="filteredData"
+        show-in-accounts
+        @dialog-handler="(e: any) => multiplyDialogHandler(e.item)"
+      />
+    </template>
+    <div
       v-else
-      :items="filteredData"
-      show-in-accounts
-      @dialog-handler="(e: any) => multiplyDialogHandler(e.item)"
-    />
+      class="no-data"
+    >
+      No multiplied assets
+    </div>
   </div>
 
   <withdraw-multiply-dialog
@@ -305,75 +313,83 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
 </template>
 
 <style lang="scss">
-.multiply-table {
-  thead {
-    th:first-child {
-      padding-left: 16px;
-    }
-    th:last-child {
-      padding-right: 20px;
-    }
-  }
-
-  tbody {
-    tr {
-      td:first-child {
+.portfolio-multiply__cards {
+  .multiply-table {
+    thead {
+      th:first-child {
         padding-left: 16px;
       }
-      td:last-child {
+      th:last-child {
         padding-right: 20px;
       }
     }
-  }
 
-  .cell-apy {
-    color: $success;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 700;
-
-    &--negative {
-      color: $danger;
+    tbody {
+      tr {
+        td:first-child {
+          padding-left: 16px;
+        }
+        td:last-child {
+          padding-right: 20px;
+        }
+      }
     }
-  }
 
-  .hf-indicator {
-    position: relative;
-    width: 50px;
-    height: 4px;
-    border-radius: $radius-lg;
-    background-color: color-mix(in oklab, $border-primary 70%, transparent);
-    overflow: hidden;
-    flex-shrink: 0;
-    margin-right: 4px;
-    font-family: $font-JetBrainsMono;
+    .cell-apy {
+      color: $success;
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 700;
 
-    &::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 0;
-      height: 100%;
-      width: var(--indicator-width, 0%);
+      &--negative {
+        color: $danger;
+      }
+    }
+
+    .hf-indicator {
+      position: relative;
+      width: 50px;
+      height: 4px;
       border-radius: $radius-lg;
-      background-color: var(--indicator-color, #{$success});
-      transition:
-        width 0.3s ease,
-        background-color 0.3s ease;
-    }
-  }
+      background-color: color-mix(in oklab, $border-primary 70%, transparent);
+      overflow: hidden;
+      flex-shrink: 0;
+      margin-right: 4px;
+      font-family: $font-JetBrainsMono;
 
-  .hf-percent {
-    font-size: 12px;
+      &::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 0;
+        height: 100%;
+        width: var(--indicator-width, 0%);
+        border-radius: $radius-lg;
+        background-color: var(--indicator-color, #{$success});
+        transition:
+          width 0.3s ease,
+          background-color 0.3s ease;
+      }
+    }
+
+    .hf-percent {
+      font-size: 12px;
+    }
   }
 
   .no-data {
-    color: $text-tertiary;
-    font-size: 12px;
+    height: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
     font-style: normal;
     font-weight: 400;
     line-height: 16px;
-    text-align: center;
+    color: $navi-100;
+    padding: 32px;
   }
 }
 </style>
