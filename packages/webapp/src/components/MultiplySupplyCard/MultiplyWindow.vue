@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { MultiplyVaultItem } from '~/types/table'
-import { amountToUsdWithShort, formatPrice, maxDecimalsForShortenNumber, shortenNumber, truncatePercent } from '~/utils'
+import { formatPrice, maxDecimalsForShortenNumber, shortenNumber, truncatePercent } from '~/utils'
 
 const {
   vault,
@@ -76,6 +76,65 @@ const amountRules = computed(() => [
     return true
   },
 ])
+
+const batchPreviewSteps = computed(() => {
+  if (!summary.value || !vault) {
+    return []
+  }
+
+  const depositSymbol = vault.asset.symbol
+  const borrowSymbol = vault.borrowAsset.symbol
+  const marginSymbol = marginAsset.value?.symbol || borrowSymbol
+  const swapInSymbol = isMarginBorrow.value ? marginSymbol : (notMarginAsset.value?.symbol || borrowSymbol)
+  const slippageLabel = `${truncatePercent(slippage.value || 0, 2)}%`
+
+  return [
+    {
+      id: 1,
+      title: 'Flash borrow',
+      tooltip: 'Temporary flash-loan amount used to open the leveraged position in one batch.',
+      subtitle: `borrowed from the ${marginSymbol} pool`,
+      value: summary.value.flashBorrowAmount,
+      symbol: marginSymbol,
+    },
+    {
+      id: 2,
+      title: 'Total to swap',
+      tooltip: 'Amount routed through the swap provider to assemble or repay the leveraged collateral leg.',
+      subtitle: `swap at <= ${slippageLabel} slippage`,
+      value: summary.value.swapAmountIn,
+      symbol: swapInSymbol,
+    },
+    {
+      id: 3,
+      title: isMarginBorrow.value ? `${depositSymbol} received` : 'Flash repay target',
+      tooltip: isMarginBorrow.value
+        ? 'Estimated deposit asset received after slippage protection and deposited as collateral.'
+        : 'Exact deposit-asset amount the swap must produce to repay the flash loan plus fee.',
+      subtitle: isMarginBorrow.value ? 'deposited as collateral' : 'required to settle the flash loan',
+      value: summary.value.minAmountOut,
+      symbol: depositSymbol,
+    },
+    {
+      id: 4,
+      title: 'Total collateral',
+      tooltip: 'Final collateral that will remain in the multiply position after the batch completes.',
+      subtitle: 'locked in the deposit pool',
+      value: summary.value.depositAmount,
+      symbol: depositSymbol,
+      valueClass: 'text-cyan',
+    },
+    {
+      id: 5,
+      title: 'Final debt',
+      tooltip: 'Borrow opened at the end of the batch to repay the flash loan and leave the position leveraged.',
+      subtitle: `owed in ${borrowSymbol}`,
+      value: summary.value.finalBorrowAmount,
+      symbol: borrowSymbol,
+      valueClass: 'text-indigo',
+    },
+  ]
+})
 
 function isUserHaveMultiply(): boolean {
   return vault && checkIsHaveMultiply(userStore.state.multiplyObligations, [vault] as any, vault.depositPoolData.pool.pool_address, vault.market)
@@ -245,54 +304,30 @@ function isUserHaveMultiply(): boolean {
                 v-else-if="summary"
                 class="summary-list"
               >
-                <div class="summary-list__item">
-                  <div class="label">Flash borrow</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.flashBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.flashBorrowAmount || 0)) }} {{ marginAsset?.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">Total swap in</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.swapAmountIn || 0, 2, maxDecimalsForShortenNumber(summary.swapAmountIn || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">{{ isMarginBorrow ? 'Expected out' : 'Flash repay target' }}</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.expectedAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.expectedAmountOut || 0)) }} {{ vault.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">{{ isMarginBorrow ? 'Min deposit' : 'Swap out target' }}</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.minAmountOut || 0, 2, maxDecimalsForShortenNumber(summary.minAmountOut || 0)) }} {{ vault.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">Total collateral</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.depositAmount || 0, 2, maxDecimalsForShortenNumber(summary.depositAmount || 0)) }} {{ vault.asset.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item">
-                  <div class="label">Final borrow</div>
-                  <div class="value">
-                    {{ shortenNumber(summary.finalBorrowAmount || 0, 2, maxDecimalsForShortenNumber(summary.finalBorrowAmount || 0)) }} {{ isMarginBorrow ? marginAsset?.symbol : notMarginAsset?.symbol }}
-                  </div>
-                </div>
-
-                <div class="summary-list__item align-items-start mb-2">
-                  <div class="label">Est. collateral value</div>
-                  <div class="value">
-                    <div class="text-end">
-                      ${{ amountToUsdWithShort(summary.depositAmount, vault.price, false) }}
+                <div
+                  v-for="step in batchPreviewSteps"
+                  :key="step.id"
+                  class="summary-list__item"
+                  :class="{ 'pb-1': step.id === batchPreviewSteps.length }"
+                >
+                  <div class="label">
+                    <div class="label-with-tip">
+                      <span class="step-id">{{ step.id }}</span> {{ step.title }}
+                      <info-tooltip>
+                        {{ step.tooltip }}
+                      </info-tooltip>
                     </div>
+                    <div class="sub-label">
+                      <i-app-line-arrow-down class="line-arrow-icon" />
+                      {{ step.subtitle }}
+                    </div>
+                  </div>
+                  <div
+                    class="value"
+                    :class="step.valueClass"
+                    style="opacity: 1;"
+                  >
+                    {{ shortenNumber(step.value || 0, 2, maxDecimalsForShortenNumber(step.value || 0)) }} {{ step.symbol }}
                   </div>
                 </div>
               </div>
@@ -429,6 +464,45 @@ function isUserHaveMultiply(): boolean {
   .arrow-icon {
     &--active {
       transform: rotate(180deg);
+    }
+  }
+
+  .summary-list {
+    &__item {
+      .label {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+
+        .step-id {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: $navi-100;
+          background-color: $navi-400;
+          border-radius: 50%;
+          width: 16px;
+          height: 16px;
+          font-size: 9px;
+          font-weight: 700;
+        }
+      }
+      .label-with-tip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sub-label {
+        font-size: 11px;
+        color: rgb(79, 96, 128);
+        margin: 0 0 4px 12px;
+
+        .line-arrow-icon {
+          width: 8px;
+          height: 12px;
+          margin-right: 4px;
+        }
+      }
     }
   }
 }
