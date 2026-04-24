@@ -132,7 +132,6 @@ function isUserHaveMultiply(vault?: MultiplyVaultItem) {
   }
 
   :deep(.select-asset-btn) {
-    display: none;
     .asset-icons {
       position: relative;
       width: 24px;
