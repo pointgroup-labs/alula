@@ -301,6 +301,7 @@ declare global {
   const useStyleTag: typeof import('@vueuse/core').useStyleTag
   const useSupplyDialog: typeof import('../hooks/market/supply-dialog').useSupplyDialog
   const useSupported: typeof import('@vueuse/core').useSupported
+  const useSwap: typeof import('../hooks/swap/use-swap').useSwap
   const useSwipe: typeof import('@vueuse/core').useSwipe
   const useTemplateRef: typeof import('vue').useTemplateRef
   const useTemplateRefsList: typeof import('@vueuse/core').useTemplateRefsList
@@ -369,6 +370,9 @@ declare global {
   // @ts-ignore
   export type { MarketWithTableItems } from '../hooks/market/table'
   import('../hooks/market/table')
+  // @ts-ignore
+  export type { SwapTokenOption } from '../hooks/swap/use-swap'
+  import('../hooks/swap/use-swap')
   // @ts-ignore
   export type { FilterScope } from '../store/filter'
   import('../store/filter')
@@ -664,6 +668,7 @@ declare module 'vue' {
     readonly useStyleTag: UnwrapRef<typeof import('@vueuse/core')['useStyleTag']>
     readonly useSupplyDialog: UnwrapRef<typeof import('../hooks/market/supply-dialog')['useSupplyDialog']>
     readonly useSupported: UnwrapRef<typeof import('@vueuse/core')['useSupported']>
+    readonly useSwap: UnwrapRef<typeof import('../hooks/swap/use-swap')['useSwap']>
     readonly useSwipe: UnwrapRef<typeof import('@vueuse/core')['useSwipe']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
     readonly useTemplateRefsList: UnwrapRef<typeof import('@vueuse/core')['useTemplateRefsList']>

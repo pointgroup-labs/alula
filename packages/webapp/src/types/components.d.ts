@@ -147,6 +147,7 @@ declare module 'vue' {
     ReloadCoundown: typeof import('./../components/Widget/ReloadCoundown.vue')['default']
     RepayDialog: typeof import('./../components/PortfolioPage/Dialogs/RepayDialog.vue')['default']
     RepayWindow: typeof import('./../components/SupplyCard/RepayWindow.vue')['default']
+    RoutePicker: typeof import('./../components/Widget/RoutePicker.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SettingsConnect: typeof import('./../components/Settings/Options/SettingsConnect.vue')['default']

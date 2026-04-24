@@ -31,6 +31,12 @@ const tabs = computed(() => {
     }
 
     navTabs.splice(1, 0, devTab)
+
+    navTabs.splice(2, 0, {
+      label: 'Swap',
+      route: '/swap',
+      icon: multiplyTabIcon,
+    })
   }
   return navTabs
 })
