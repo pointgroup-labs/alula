@@ -49,14 +49,13 @@ stop = watch(swapProviderAddress, (address) => {
       :unselected="false"
     >
       <template #label>
-        <span class="select-item">
-          <img
-            v-if="selectedProvider?.icon"
-            :src="selectedProvider.icon"
-            alt="provider icon"
-          >
-          {{ selectedProvider?.label }}
-        </span>
+        <img
+          v-if="selectedProvider?.icon"
+          :src="selectedProvider.icon"
+          alt="provider icon"
+          class="provider-select__trigger-icon"
+        >
+        {{ selectedProvider?.label }}
       </template>
 
       <template #option="{ option }">
@@ -92,6 +91,9 @@ stop = watch(swapProviderAddress, (address) => {
       border-radius: 6px;
       outline: 1px solid $navi-400;
       text-transform: capitalize;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
 
       &[aria-expanded='true'] {
         outline-color: $navi-200;
@@ -111,6 +113,13 @@ stop = watch(swapProviderAddress, (address) => {
         border-radius: 50%;
       }
     }
+  }
+
+  &__trigger-icon {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    border-radius: 50%;
   }
 }
 </style>
