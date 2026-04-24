@@ -207,6 +207,12 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
   }
 
   function getPreviewMinReceiveAmount(sourcePreview: CloseMultiplyPreview) {
+    // For a full close we let the SDK recompute the receive cap from a fresh preview
+    // (interest accrual between our preview and tx build can shift it). The SDK already
+    // defaults to the fresh maxReceivableAmount in that case.
+    if (sourcePreview.isFullClose) {
+      return undefined
+    }
     return sourcePreview.marginAsset === 'deposit'
       ? toDepositAmount(sourcePreview.estimatedReceiveAmount)
       : undefined
@@ -493,7 +499,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         depositPoolAddress: data.value.depositPoolData.pool.pool_address,
         borrowPoolAddress: data.value.borrowPoolData.pool.pool_address,
         marginAsset: marginAssetType.value,
-        repayAmount: Number(resolvedRepayAmount.value),
+        repayAmount: preview.value.isFullClose ? undefined : Number(resolvedRepayAmount.value),
         minReceiveAmount: getPreviewMinReceiveAmount(preview.value),
         slippagePercent: Number(slippage.value),
         swapProviderAddress: swapProviderAddress.value,
@@ -527,7 +533,10 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         deposit_pool_address: data.value.depositPoolData.pool.pool_address,
         borrow_pool_address: data.value.borrowPoolData.pool.pool_address,
         margin_asset: marginAssetType.value,
-        repay_amount: Number(resolvedRepayAmount.value),
+        // On a full close, defer to the SDK's fresh repay calc — interest accrued between
+        // the original preview and tx build would otherwise make our cached number look
+        // like a partial close and trip the receive-amount sanity check.
+        repay_amount: preview.value.isFullClose ? undefined : Number(resolvedRepayAmount.value),
         min_receive_amount: getPreviewMinReceiveAmount(preview.value),
         slippage_percent: Number(slippage.value),
         swap_provider: swapProviderAddress.value,
