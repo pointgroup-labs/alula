@@ -501,6 +501,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
   function reset() {
     marketsStore.dialogLeverageWithdraw = false
+    clearState()
   }
 
   async function withdraw() {
