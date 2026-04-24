@@ -50,7 +50,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
   <div class="pool-card stat-card stat-card--small">
     <div class="stat-card__header">
       <h3 class="pool-card-title">
-        Collateral
+        Collateral <span class="text-tertiary">({{ selectedVault?.asset.symbol }})</span>
       </h3>
 
       <j-pill-label

@@ -12,7 +12,8 @@ const {
 const selectedVault = computed(() => multiplyStore.selectedVault)
 const depositPoolData = computed<Pool | undefined>(() => selectedVault.value?.depositPoolData.pool)
 
-const asset = computed(() => selectedVault.value?.asset)
+const depositAsset = computed(() => selectedVault.value?.asset)
+const borrowAsset = computed(() => selectedVault.value?.borrowAsset)
 const price = computed(() => selectedVault.value?.price ?? 0)
 
 const maxMultiplier = computed(() => selectedVault.value?.maxMultiplier ?? 0)
@@ -46,22 +47,26 @@ const maxApyClass = computed(() => {
     <back-btn to="/multiply" />
 
     <div
-      v-if="asset"
+      v-if="depositAsset && borrowAsset"
       class="asset-data"
     >
       <img
-        :src="asset?.icon"
+        :src="depositAsset?.icon"
+        alt="asset icon"
+      >
+      <img
+        :src="borrowAsset?.icon"
         alt="asset icon"
       >
       <div class="asset-data__coin">
-        <span data="name">{{ asset?.symbol }}</span>
-        <span data="symbol">{{ asset?.name }}</span>
+        <span data="name">{{ depositAsset?.symbol }} / {{ borrowAsset?.symbol }}</span>
+        <span data="symbol">{{ depositAsset?.name }} / {{ borrowAsset?.name }}</span>
       </div>
     </div>
 
     <template v-if="depositPoolData">
       <div class="market-pill">
-        {{ asset?.symbol ?? '' }} Market
+        {{ selectedVault?.market ?? '' }} Market
       </div>
 
       <div

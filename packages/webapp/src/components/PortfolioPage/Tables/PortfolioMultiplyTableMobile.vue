@@ -113,7 +113,7 @@ function getSupply(data: MultiplyPortfolioTableItem) {
     <div class="mobile-card-footer">
       <j-btn
         size="sm"
-        variant="negative-outlined"
+        variant="accent-outlined"
         :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'withdraw' })"

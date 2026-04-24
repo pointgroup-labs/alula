@@ -74,11 +74,11 @@ function isUserHaveMultiply(vault?: MultiplyVaultItem) {
   }
   &.nav-tab--close-position {
     &:hover {
-      color: $danger;
+      color: $accent;
     }
     &.active {
-      color: $danger;
-      background-color: rgba(251, 71, 71, 0.1);
+      color: $accent;
+      background-color: rgba(245, 159, 11, 0.1);
     }
   }
 }

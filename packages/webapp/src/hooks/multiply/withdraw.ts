@@ -44,7 +44,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
 
   const activeMarket = computed(() => marketsStore.state.markets[String(data.value?.market)])
 
-  const isMarginBorrow = ref(true)
+  const isMarginBorrow = ref(false)
   const marginAssetType = computed<MultiplyMarginAsset>(() => isMarginBorrow.value ? 'borrow' : 'deposit')
   const marginAsset = computed(() => isMarginBorrow.value ? data.value?.borrowAsset : data.value?.asset)
   const notMarginAsset = computed(() => isMarginBorrow.value ? data.value?.asset : data.value?.borrowAsset)
@@ -382,7 +382,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     previewError.value = ''
     resolvedRepayAmount.value = undefined
     receivePreviewCache.clear()
-    isMarginBorrow.value = true
+    isMarginBorrow.value = false
     txFee.value = 0
   }
 

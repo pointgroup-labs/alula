@@ -4,7 +4,7 @@ import aquaLogo from '~/assets/img/providers/aqua-logo.png'
 import soroswapLogo from '~/assets/img/providers/soroswap-logo.jpg'
 
 const providerIcons = {
-  aqua: aquaLogo,
+  aquarius: aquaLogo,
   soroswap: soroswapLogo,
 }
 
@@ -40,7 +40,7 @@ stop = watch(swapProviderAddress, (address) => {
 <template>
   <div class="provider-select">
     <span class="provider-select-label">
-      Provider
+     Swap Provider
     </span>
 
     <j-select

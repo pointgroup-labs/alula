@@ -28,6 +28,6 @@ export const CONTRACT_ID: Record<string, string> = {
 }
 
 export const SWAP_PROVIDERS = {
+  aquarius: AQUA_PROVIDER_ADDRESS,
   soroswap: SOROSWAP_PROVIDER_ADDRESS,
-  aqua: AQUA_PROVIDER_ADDRESS,
 }

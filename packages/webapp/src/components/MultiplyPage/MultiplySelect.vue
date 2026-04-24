@@ -32,10 +32,11 @@ const netApyClass = computed(() => {
 
 const minPercent = computed(() => {
   const max = Number(maxMultiply)
-  if (!max) {
-    return 0
-  }
-  return Math.min(100, Math.ceil((1.1 / max) * 100))
+  if (!max) { return 0 }
+
+  const raw = (1.1 / max) * 100
+
+  return Math.ceil(raw * 10) / 10
 })
 
 watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
@@ -75,7 +76,7 @@ watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
       type="range"
       :min="minPercent"
       :max="100"
-      :step="0.1"
+      :step="0.001"
     >
 
     <div class="multiply-select__limits">

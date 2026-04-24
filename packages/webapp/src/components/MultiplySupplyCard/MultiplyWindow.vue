@@ -89,18 +89,13 @@ function isUserHaveMultiply(): boolean {
     :class="{ 'multiply-trade-panel--compact': compact }"
   >
     <div class="input-wrapper multiply-trade-panel__input-wrapper">
-
-      <div class="multiply-trade-panel__input-meta">
-        <span>{{ isMarginBorrow ? 'Borrow limit' : 'Approx. margin limit' }}</span>
-        <span>{{ shortenNumber(Number(maxInputAmount || 0), 2, 2) }} {{ marginAsset?.symbol }}</span>
-      </div>
       <input-widget
         v-model="amount"
         :balance="balance"
         :limit="Number(maxInputAmount) || 0"
         :price="marginPrice"
         :symbol="marginAsset?.symbol"
-        label-left="Margin amount"
+        label-left="Wallet balance"
         :label-right="formatPrice(balance ?? 0, 0, 4)"
         class="multiply-trade-panel__amount-input"
         :rules="amountRules"
@@ -204,7 +199,7 @@ function isUserHaveMultiply(): boolean {
               <div class="label">Borrow liquidity</div>
               <div class="value">
                 <div class="text-end">
-                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ marginAsset?.symbol }}
+                  {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ vault.borrowAsset?.symbol }}
                 </div>
               </div>
             </div>

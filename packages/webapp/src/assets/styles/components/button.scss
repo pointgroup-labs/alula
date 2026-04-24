@@ -1,10 +1,10 @@
 $btn-variants: (
   primary: (
     bg: #fff,
-    color: #000,
+    color: $dark,
     outline: 1px solid #fff,
     hoverBg: $navi-50,
-    hoverColor: #000,
+    hoverColor: $dark,
     focusOutline: 1px solid $navi-50,
   ),
 
@@ -20,10 +20,10 @@ $btn-variants: (
 
   brand: (
     bg: $brand-50,
-    color: #000,
+    color: $dark,
     outline: 1px solid $brand-50,
     hoverBg: $brand-100,
-    hoverColor: #000,
+    hoverColor: $dark,
     focusBg: $brand-100,
     focusOutline: 1px solid $brand-100,
   ),
@@ -40,10 +40,10 @@ $btn-variants: (
 
   brand-secondary: (
     bg: $indigo-50,
-    color: #000,
+    color: $dark,
     outline: 1px solid $indigo-50,
     hoverBg: $indigo-100,
-    hoverColor: #000,
+    hoverColor: $dark,
     focusBg: $indigo-100,
     focusOutline: 1px solid $indigo-100,
   ),
@@ -103,7 +103,7 @@ $btn-variants: (
 
   accent: (
     bg: $accent,
-    color: #fff,
+    color: $dark,
     hoverBg: lighten($accent, 10%),
     focusBg: lighten($accent, 10%),
   ),

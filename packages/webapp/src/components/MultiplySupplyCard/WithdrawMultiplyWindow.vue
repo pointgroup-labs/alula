@@ -73,7 +73,7 @@ const slippageInput = computed<string | number>({
         :price="Number(marginPrice || 0)"
         :symbol="marginAsset?.symbol"
         :label-left="inputLabel"
-        variant="danger"
+        variant="accent"
         :label-right="formatPrice(balance ?? 0, 0, 4)"
         :rules="[
           (v) => !isValidate || (!!v && Number(v) > 0) || `Enter ${String(inputLabel).toLowerCase()}`,
@@ -273,7 +273,7 @@ const slippageInput = computed<string | number>({
       <j-btn
         :loading="isLoading"
         :disabled="previewLoading || !!previewError"
-        variant="negative"
+        variant="accent"
         size="md"
         class="market-action-btn"
         @click="withdrawLeverage"

@@ -1,5 +1,5 @@
 import type { MultiplyPositionItem, MultiplyVaultItem } from '~/types/table'
-import { bpsToNumber, calculateMultiplyMaxLeverage, SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
+import { AQUA_PROVIDER_ADDRESS, bpsToNumber, calculateMultiplyMaxLeverage } from '@alula/client-sdk'
 import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { calculateCurrentMultiplier } from '~/utils'
 import { buildMultiplyPairKey } from '~/utils/obligation'
@@ -10,7 +10,7 @@ export const useMultiplyStore = defineStore('multiply', () => {
   const marketsStore = useMarketsStore()
   const { getFullTokenData } = useTokensStore()
 
-  const swapProviderAddress = useLocalStorage('swapProviderAddress', SOROSWAP_PROVIDER_ADDRESS, { initOnMounted: true })
+  const swapProviderAddress = useLocalStorage('swapProviderAddress', AQUA_PROVIDER_ADDRESS, { initOnMounted: true })
 
   const vaults = computed<MultiplyVaultItem[]>(() => {
     const items: MultiplyVaultItem[] = []
