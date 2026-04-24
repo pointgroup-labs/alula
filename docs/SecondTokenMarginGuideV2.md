@@ -12,7 +12,7 @@
 
 1. **`xlm_pool.config.fee_config.add_collateral_fee_bps == 0`** — інакше `process_add_collateral` зарахує в обовʼязання `amount − fee_sum`, а не `amount` (див. `obligation.rs:635`, `pool.rs:710`). Інваріант "колатерал = `margin + Y`" перестане діяти; формули потребують переписування.
 2. **Пули не міняли `borrow_fee_bps`/`flash_loan_fee_bps`** між моментом квоти і submit — SDK читає актуальні значення з `pool.config.fee_config`.
-3. **`referrer = None`** для всіх викликів `submit_requests_batch` у V2. Реферальна частка вираховується з `Borrow.amount` як slice того самого `fee_sum` (`obligation.rs:1425`), і якщо її не врахувати — `borrower_to_receive` буде менший за `flash_repay`, FlashRepay реверне.
+3. **`referrer` — будь-яке значення допустиме.** Реферальна частка не зменшує `borrower_to_receive`: це окремий transfer з `fee_sum`, що не зачіпає принципалу, який повертається користувачу (`request.rs:210-217`, `obligation.rs:592-594`, `obligation.rs:1413-1440`). Тому навіть з `referrer = Some(_)` `borrower_to_receive` залишається тим самим, а FlashRepay покривається gross-up формулою нижче. (У попередній редакції була зайва обережність — `referrer = None` не потрібно.)
 4. **`pool.config.health_config.min_collateral_value_cents`** дотриманий фінальною позицією. Інакше `process_borrow` реверне попри проходження по LTV.
 
 Якщо хоч одна з умов не виконана — зупинитись і не сабмітити.
@@ -36,7 +36,7 @@
                    amount_in     = X,
                    min_amount_out = Y)                 // Y = floor user accepts
 4. AddCollateral(XLM, Y)                              // ← KEY: literally Y, same number as min_amount_out
-5. Borrow(USDC, X + flash_fee)                        // exact, just enough to repay flash
+5. Borrow(USDC, borrow_amount)                       // borrow_amount = grossed-up: точно покриває flash_repay
    (FlashRepay auto-fires inside execute_transfers)
 ```
 
@@ -46,6 +46,8 @@
 - `Y = (L − 1) × margin × (1 − slippage_pct)` — найгірший прийнятний обʼєм XLM, який має повернути свап. Це і є слипедж-флур.
 - `X = swap_provider.get_amount_in(amount_out = Y) × (1 + small_safety_bps)` — рівно стільки USDC, скільки потрібно DEXʼу, щоб гарантовано видати ≥ Y XLM навіть під помірно несприятливою ціною. `small_safety_bps` (1–5 bps) тільки страхує від раундингу всередині DEXʼу.
 - `flash_fee = X × pool.fee_config.flash_loan_fee_bps / BPS_FACTOR` (округлення вгору, як у `request.rs:170-172`).
+- `flash_repay = X + flash_fee` — стільки USDC треба повернути в `FlashRepay`.
+- `borrow_amount = ceil(flash_repay × 10_000 / (10_000 − borrow_fee_bps))` — gross-up: коли пул бере borrow fee, контракт переводить у гаманець `Borrow.amount − ceil(Borrow.amount × borrow_fee_bps/10_000)`, тому потрібно зайняти трохи більше, щоб net вистачило на `flash_repay`. При `borrow_fee_bps == 0` спрощується до `borrow_amount = flash_repay = X + flash_fee`.
 
 ---
 
@@ -55,16 +57,17 @@
 
 | Реальний вихід свопу | Гаманець після кроку 3 | Крок 4 забирає | Гаманець після кроку 4 | Кінцевий стан позиції                 |
 | -------------------- | ---------------------- | -------------- | ---------------------- | ------------------------------------- |
-| Рівно `Y`            | `Y` XLM                | `Y` XLM        | 0 XLM                  | `margin + Y` колат, `X + fee` борг    |
-| `Y + Δ` (favorable)  | `Y + Δ` XLM            | `Y` XLM        | `Δ` XLM (бонус)        | `margin + Y` колат, `X + fee` борг — **той самий** |
+| Рівно `Y`            | `Y` XLM                | `Y` XLM        | 0 XLM                  | `margin + Y` колат, `borrow_amount` борг    |
+| `Y + Δ` (favorable)  | `Y + Δ` XLM            | `Y` XLM        | `Δ` XLM (бонус)        | `margin + Y` колат, `borrow_amount` борг — **той самий** |
 | `< Y`                | (свап ревертнув)       | —              | —                      | tx atomically rolled back             |
 
 **Властивості, які звідси випливають:**
 
-1. **Борг точний** — `X + flash_fee` USDC у кожному успішному виконанні. Жодного над-займу, жодних «зайвих» bps на borrow fee.
+1. **Борг точний** — `borrow_amount` USDC у кожному успішному виконанні. При `borrow_fee_bps == 0` це `X + flash_fee`; при `borrow_fee_bps > 0` — gross-up формула вище. Жодного над-займу зверху того, що вимагає сама модель fee пулу.
 2. **Колатерал точний** — `margin + Y` XLM у кожному успішному виконанні. Жодного тихого «підсмоктування» з гаманця.
 3. **Позитивний слипедж = подарунок користувачу** в активі, на який він і так іде в long (XLM). Контракт нічого зайвого не забирає.
-4. **`open_ltv` перевіряється проти точного фінального стану** — `(X + flash_fee)` боргу проти `(margin + Y)` колатеру. Якщо позиція не проходить `open_ltv`, ревертить крок 5 → атомарне відкочування.
+4. **`open_ltv` перевіряється проти точного фінального стану** — `borrow_amount` боргу проти `(margin + Y)` колатеру. Якщо позиція не проходить `open_ltv`, ревертить крок 5 → атомарне відкочування.
+5. **Тимчасові пул-інваріанти.** Між кроками 2 і 5 пул USDC віддає `X` під flash і ще `borrow_amount` під borrow до того, як `FlashRepay` поверне `flash_repay` назад. Усі ці зменшення `total_available` мають влізти в ліквідність пулу і не порушити `utilization_ratio_limit_bps` (`pool.rs:528-536`, `pool.rs:610-636`). Якщо позиція велика відносно пулу — батч ревертне на UR-капі ще до фінального borrow.
 
 ---
 
@@ -229,7 +232,8 @@ fixture.submit_requests_batch(user, v2_batch);
 
 let obl = fixture.get_obligation(user);
 assert_eq!(obl.collateral(XLM), margin + Y);            // exact
-assert_eq!(obl.debt(USDC),       X + flash_fee);        // exact
+assert_eq!(obl.debt(USDC),       borrow_amount);        // exact (= X + flash_fee при borrow_fee_bps=0,
+                                                         //        gross-up інакше)
 assert_eq!(fixture.balance(user, XLM), 0);              // no surplus
 assert_eq!(fixture.balance(user, USDC), 0);             // no surplus
 
@@ -239,7 +243,7 @@ fixture.submit_requests_batch(user2, v2_batch);
 
 let obl2 = fixture.get_obligation(user2);
 assert_eq!(obl2.collateral(XLM), margin + Y);           // STILL exact
-assert_eq!(obl2.debt(USDC),       X + flash_fee);       // STILL exact
+assert_eq!(obl2.debt(USDC),       borrow_amount);       // STILL exact
 assert!(fixture.balance(user2, XLM) > 0);               // bonus in wallet
 assert_eq!(fixture.balance(user2, USDC), 0);
 
@@ -268,6 +272,6 @@ assert_eq!(fixture.get_obligation(user3), None);        // no state change
 
 - **Зміна суто SDK-side**, контракт не чіпаємо.
 - **Інваріант**: `AddCollateral.amount` (другий) ≡ `SwapExactTokens.min_amount_out`. Завжди.
-- **Інваріант**: `Borrow.amount` = `FlashBorrow.amount + flash_fee`. Точно.
+- **Інваріант**: `Borrow.amount` = `borrow_amount` (gross-up за `borrow_fee_bps`); при нульовому fee пулу зводиться до `FlashBorrow.amount + flash_fee`. Точно.
 - **Слипедж матеріалізується як XLM-бонус у гаманці**, а не як надлишковий борг.
-- **Перед мерджем** — прогнати трикейсовий тест із розділу «Інваріанти».
+- **Перед мерджем** — прогнати трикейсовий тест із розділу «Інваріанти» **на пулі з ненульовим `borrow_fee_bps`** (не лише на нульовому), щоб gross-up насправді спрацював.
