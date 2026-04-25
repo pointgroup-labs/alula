@@ -1,10 +1,6 @@
 <script lang="ts" setup>
 import { DOCS_URL } from '~/config'
 
-// Submenu items live next to the trigger so growing the menu (audits page,
-// bug-bounty link, etc.) is a one-line append. `kind` discriminates how each
-// item is rendered: internal routes use `<nuxt-link>` so the SPA router takes
-// over; external links open in a new tab.
 type MoreMenuItem
   = | { kind: 'route', label: string, to: string, description?: string }
     | { kind: 'external', label: string, href: string, description?: string }
@@ -24,10 +20,6 @@ const items: MoreMenuItem[] = [
   },
 ]
 
-// Keep active-state detection inside the menu so the parent (`AppHeader`) does
-// not need to know which routes belong to "More". Anything that matches a
-// `route`-kind item lights the trigger up the same way the regular nav links
-// do via their `--active` modifier.
 const route = useRoute()
 const isActive = computed(() => items.some(
   item => item.kind === 'route' && route.path.startsWith(item.to),
@@ -98,9 +90,6 @@ const isActive = computed(() => items.some(
 
 <style lang="scss">
 .header-more {
-  // The popover wraps its trigger in `.popover-target { width: fit-content }`
-  // (see JPopover.vue), so the trigger pill stays content-sized and the menu
-  // anchors directly under it via the `bottom-start` placement.
   display: inline-flex;
 
   &__trigger {
@@ -134,11 +123,6 @@ const isActive = computed(() => items.some(
     display: flex;
     flex-direction: column;
     gap: 2px;
-    // Belt-and-suspenders: the header itself now sits at z-index 100, but the
-    // popover root (`.popover` from bootstrap-vue-next) is `position: absolute`
-    // inside the trigger's stacking context. A high local z-index ensures the
-    // menu paints over neighboring nav links and any siblings that gain a
-    // local context (e.g. an animated chart further down the row).
     z-index: 1080;
     position: relative;
   }

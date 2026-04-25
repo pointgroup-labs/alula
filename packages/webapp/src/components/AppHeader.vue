@@ -24,14 +24,14 @@ const tabs = computed(() => {
   }]
 
   if (isEnabled('multiply')) {
-    const devTab = {
+    navTabs.splice(1, 0, {
       label: 'Multiply',
       route: '/multiply',
       icon: multiplyTabIcon,
-    }
+    })
+  }
 
-    navTabs.splice(1, 0, devTab)
-
+  if (isEnabled('swap')) {
     navTabs.splice(2, 0, {
       label: 'Swap',
       route: '/swap',

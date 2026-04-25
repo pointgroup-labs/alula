@@ -215,6 +215,7 @@ export default defineNuxtConfig({
       featureToggle: {
         multiply: isDev,
         network: isDev,
+        swap: isDev,
       },
     },
   },

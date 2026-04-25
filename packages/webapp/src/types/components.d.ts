@@ -169,6 +169,7 @@ declare module 'vue' {
     SupplyOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/SupplyBorrow/SupplyOverview.vue')['default']
     SupplyTableSkeleton: typeof import('./../components/Skeleton/SupplyTableSkeleton.vue')['default']
     SupplyWindow: typeof import('./../components/SupplyCard/SupplyWindow.vue')['default']
+    SwapPage: typeof import('./../components/Swap/SwapPage.vue')['default']
     TableMobileCard: typeof import('./../components/Widget/TableMobileCard.vue')['default']
     TableSkeletonMobile: typeof import('./../components/Skeleton/TableSkeletonMobile.vue')['default']
     TeleportContent: typeof import('./../components/Widget/TeleportContent.vue')['default']
