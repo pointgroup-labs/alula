@@ -25,52 +25,76 @@ function close() {
     class-name="settings-sidebar"
     @close="close"
   >
-    <div class="settings-sidebar__options">
-      <settings-connect />
-    </div>
-
-    <div
-      v-if="isShowMobileElements"
-      class="settings-sidebar__options"
+    <!-- Hero: connection state is the primary surface of this drawer; it gets
+         card treatment so it reads as "your account" rather than just another
+         row in the list. -->
+    <section
+      class="settings-sidebar__hero"
+      aria-label="Account"
     >
-      <div class="option-title">
-        Navigations
-      </div>
-      <settings-navigation
-        @close="close"
-      />
+      <settings-connect />
+    </section>
 
+    <section
+      v-if="isShowMobileElements"
+      class="settings-section"
+      aria-labelledby="settings-section-nav"
+    >
+      <h3
+        id="settings-section-nav"
+        class="settings-section__label"
+      >
+        Navigation
+      </h3>
+      <settings-navigation @close="close" />
       <markets-info />
-    </div>
+    </section>
 
-    <div class="settings-sidebar__options">
-      <div class="option-title">
-        Options
-      </div>
+    <section
+      class="settings-section"
+      aria-labelledby="settings-section-prefs"
+    >
+      <h3
+        id="settings-section-prefs"
+        class="settings-section__label"
+      >
+        Preferences
+      </h3>
       <settings-language />
       <!-- <settings-theme /> -->
-    </div>
+    </section>
 
-    <div class="settings-sidebar__options">
-      <div class="option-title">
+    <section
+      class="settings-section"
+      aria-labelledby="settings-section-network"
+    >
+      <h3
+        id="settings-section-network"
+        class="settings-section__label"
+      >
         Network
-      </div>
+      </h3>
       <settings-network />
       <settings-recent-activity />
-    </div>
+    </section>
 
-    <div
+    <!-- Developer section is the right home for both feature flags and the
+         testnet faucet. FaucetMenu self-hides on mainnet; we also gate the
+         whole section behind `!isProd` so the divider doesn't appear empty. -->
+    <section
       v-if="!isProd"
-      class="settings-sidebar__options"
+      class="settings-section settings-section--developer"
+      aria-labelledby="settings-section-dev"
     >
-      <div class="option-title">
-        Features
-      </div>
+      <h3
+        id="settings-section-dev"
+        class="settings-section__label"
+      >
+        Developer
+      </h3>
       <settings-features />
-    </div>
-
-    <faucet-menu />
-
+      <faucet-menu />
+    </section>
   </sidebar>
 </template>
 
@@ -84,7 +108,7 @@ function close() {
     min-height: calc(100% - 36px);
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
     padding-top: $spacing-3xl;
   }
 
@@ -104,28 +128,48 @@ function close() {
     grid-template-columns: 1fr;
   }
 
-  .settings-sidebar__options {
+  // Hero: the wallet card. Uses the existing bg-card surface so it inherits
+  // the app's card language. On connected state `<settings-connect />` renders
+  // address + wallet name; on disconnected state it renders the connect CTA
+  // full-width, so the padding also wraps the CTA without it feeling detached.
+  .settings-sidebar__hero {
+    background-color: $bg-card;
+    border: 1px solid $border-primary;
+    border-radius: $radius-xl;
+    padding: 16px;
+  }
+
+  // Sections share one layout shell. The inter-row gap drops from 30px to 16px
+  // because the section label now does the work of "breathing room" the old
+  // heavy 16px/bold title used to do — tighter rows read as a grouped list
+  // rather than loose independent items.
+  .settings-section {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 16px;
+    padding-top: 20px;
+    border-top: 1px solid $border-primary;
 
-    &:not(:last-child) {
-      &::after {
-        content: '';
-        width: calc(100% + 48px);
-        margin-left: -24px;
-        height: 1px;
-        background-color: $surface-neutral-08;
-        display: block;
-      }
+    // Section labels become quiet organizers: 12px uppercase tracked, tertiary
+    // color. This flips the old hierarchy where the "Options" title (16px 700
+    // near-white) outshouted the actual items (14px 500).
+    &__label {
+      margin: 0;
+      color: $text-tertiary;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 16px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .option-title {
-      color: rgba(232, 237, 245, 0.8);
-      font-size: 16px;
-      margin-bottom: -10px;
-      font-weight: 700;
+    // Developer section is visually de-emphasized so testnet-only tools don't
+    // compete with user-facing preferences for attention.
+    &--developer {
+      .faucet-btn {
+        margin-top: 4px;
+      }
     }
   }
 }
