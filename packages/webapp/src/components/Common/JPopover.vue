@@ -10,7 +10,7 @@ const {
   teleportToBody = true,
   disabled = false,
   hover = false,
-  noFade = false,
+  noFade = true,
   hideDelay = 150,
   ...props
 } = defineProps<
