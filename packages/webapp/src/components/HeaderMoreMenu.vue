@@ -44,10 +44,7 @@ const isActive = computed(() => items.some(
         aria-label="More navigation options"
       >
         More
-        <i-app-chevron-down
-          class="header-more__arrow"
-          :class="{ 'header-more__arrow--active': active }"
-        />
+        <i-app-chevron-down class="header-more__arrow" />
       </button>
     </template>
 
