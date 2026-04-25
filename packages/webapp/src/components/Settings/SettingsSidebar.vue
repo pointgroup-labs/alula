@@ -100,6 +100,16 @@ function close() {
 
 <style lang="scss">
 .settings-sidebar {
+  // Lift above the app header (z:100) and any open dialog (Bootstrap's modal
+  // slot at 1055) so opening Settings always wins over whatever's behind it.
+  // Stays below the popover/tooltip slot (1070/1080) so tooltips rendered
+  // inside the drawer (e.g. Disconnect, Copy) still float above its panel.
+  // Uses `.sidebar.settings-sidebar` to outrank the shell's `.sidebar { z:100 }`
+  // by specificity rather than relying on CSS load order.
+  &.sidebar {
+    z-index: 1060;
+  }
+
   .sidebar-panel-view {
     gap: 24px;
   }
