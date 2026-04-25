@@ -34,6 +34,13 @@ const connectionStore = useConnectionStore()
 
 const isConnected = computed(() => !!publicKey.value)
 
+const isFlip = ref(false)
+
+function flipHandler() {
+  isFlip.value = !isFlip.value
+  flip()
+}
+
 // Hide the From-token from the To-picker (and vice-versa) so the user can't pick
 // the same token on both sides — the SDK would error out anyway with "Pick two
 // different tokens", but it's cheaper to hide the impossible choice up front.
@@ -271,9 +278,11 @@ const amountRules = [
         class="swap-card__flip"
         :disabled="!isReady"
         :aria-label="`Switch ${fromToken?.symbol ?? ''} and ${toToken?.symbol ?? ''}`"
-        @click="flip"
+        :style="{ transform: `rotate(${isFlip ? 180 : 0}deg)` }"
+        @click="flipHandler"
       >
         <i-app-line-arrow-right class="swap-card__flip-icon" />
+        <i-app-line-arrow-right class="swap-card__flip-icon top" />
       </button>
 
       <div class="swap-card__receive">
@@ -404,12 +413,6 @@ const amountRules = [
 
 <style lang="scss">
 .swap-page {
-  // `<main>` is `display: flex; flex-direction: column` globally (app.scss:76)
-  // and the parent `.container` is `display: flex` too — so use `align-items`
-  // to keep the card centered horizontally and `align-self` to stop it from
-  // stretching across the row. We don't vertically center: the card belongs
-  // near the top so the user's eye lands on it immediately, and `<main>`'s
-  // `flex: 1` already pushes the footer to the viewport bottom.
   align-items: center;
   padding: 32px 16px 64px;
 }
@@ -459,18 +462,14 @@ const amountRules = [
     }
   }
 
-  // Token-picker button — mirrors `.select-pool-btn` from MultiplyWindow so the
-  // visual language is identical across multiply / swap surfaces. Renders as a
-  // real `<button>` for keyboard/AT support, so we explicitly null out the
-  // user-agent button defaults (font, appearance) that would otherwise leak in.
   &__token-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
-    background-color: color-mix(in oklab, $navi-700 80%, transparent);
-    border: 1px solid $border-primary;
-    border-radius: $radius-full;
+    // padding: 6px 10px;
+    // background-color: color-mix(in oklab, $navi-700 80%, transparent);
+    // border: 1px solid $border-primary;
+    // border-radius: $radius-full;
     cursor: pointer;
     font: inherit;
     color: inherit;
@@ -509,10 +508,9 @@ const amountRules = [
     min-width: 220px;
     max-height: 320px;
     overflow-y: auto;
-    padding: 4px;
-    background-color: $bg-card;
-    border: 1px solid $border-primary;
-    border-radius: $radius-lg;
+    // padding: 4px;
+    // background-color: $bg-card;
+    // border-radius: $radius-lg;
   }
 
   &__token-menu-item {
@@ -536,6 +534,7 @@ const amountRules = [
 
     &--active {
       background-color: color-mix(in oklab, $brand-700 25%, transparent);
+      border: 1px solid $border-primary;
     }
   }
 
@@ -563,6 +562,7 @@ const amountRules = [
     border-radius: 50%;
     background-color: $navi-600;
     border: 1px solid $border-primary;
+    padding: 0;
     color: $text-secondary;
     display: flex;
     align-items: center;
@@ -579,10 +579,6 @@ const amountRules = [
       color: $text-primary;
     }
 
-    &:active:not(:disabled) {
-      transform: rotate(180deg);
-    }
-
     &:disabled {
       opacity: 0.4;
       cursor: not-allowed;
@@ -590,7 +586,13 @@ const amountRules = [
   }
 
   &__flip-icon {
-    transform: rotate(90deg);
+    transform: rotate(-90deg) translatey(1px);
+    width: 14px;
+    height: 14px;
+
+    &.top {
+      transform: rotate(90deg) translatey(1px);
+    }
   }
 
   &__receive {

@@ -65,6 +65,7 @@
   background-color: color-mix(in oklab, #1a2236 60%, transparent);
   padding: 8px 12px;
   border-radius: $radius-lg;
+  border: none;
   cursor: pointer;
 
   &:hover {
