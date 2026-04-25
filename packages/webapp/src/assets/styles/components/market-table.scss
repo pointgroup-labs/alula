@@ -103,9 +103,17 @@
         background-color: color-mix(in oklab, $cyan 3%, $bg-card);
       }
 
-      &:last-child {
-        border-radius: 0 0 $radius-xl $radius-xl;
-        overflow: hidden;
+      // `<tr>` doesn't establish a clipping context, so giving the row
+      // itself a `border-radius` + `overflow: hidden` doesn't actually
+      // round its `<td>` backgrounds — on hover the corner cells paint
+      // square corners that poke past the table's bottom edge. Apply the
+      // radius to the cells of the last row instead, which *do* clip
+      // their own backgrounds.
+      &:last-child td:first-child {
+        border-bottom-left-radius: $radius-xl;
+      }
+      &:last-child td:last-child {
+        border-bottom-right-radius: $radius-xl;
       }
     }
 
