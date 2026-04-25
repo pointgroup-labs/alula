@@ -91,12 +91,21 @@
     tr {
       height: 54px;
       border-top: 1px solid rgba(30, 41, 59, 0.2);
-      transition: background $transition-base ease;
+      transition:
+        background-color $transition-base ease,
+        box-shadow $transition-base ease;
       cursor: pointer;
 
+      // Previous hover used `$navi-800` which equals `$bg-card`, so the row
+      // background never visibly changed — only a muddy 55%-alpha outline
+      // carried the effect, and that outline clipped against rounded
+      // last-child corners. New hover lifts the row with a subtle cyan tint
+      // (on-brand, readable on dark surfaces) and adds a 2px leading-edge
+      // accent bar via inset shadow so the hovered row reads as "selected"
+      // without fighting the table's border-radius.
       &:hover {
-        background-color: $navi-800;
-        outline: 1px solid #1e293b8c;
+        background-color: color-mix(in oklab, $cyan 6%, $bg-card);
+        box-shadow: inset 2px 0 0 $cyan;
       }
 
       &:last-child {
