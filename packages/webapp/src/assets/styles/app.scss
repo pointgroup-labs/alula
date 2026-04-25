@@ -149,6 +149,17 @@ h2 {
   }
 }
 
+// Vendor override: `<BPopover>` (and friends) wraps content in a Vue
+// `<Transition name="fade">` but sets `enterActiveClass: ""` /
+// `leaveActiveClass: ""`, so the auto-generated `.fade-enter-active`
+// class never lands on the element. The actual driver is bootstrap's
+// static `.popover.fade { transition: opacity 0.15s linear }` rule.
+// We pin it to the project motion token so future bootstrap upgrades
+// can't drift past the budget. (Hover popovers opt out via :no-fade.)
+.popover.fade {
+  transition: opacity $transition-base linear !important;
+}
+
 .dialog-default {
   .modal-dialog {
     min-width: 500px;
