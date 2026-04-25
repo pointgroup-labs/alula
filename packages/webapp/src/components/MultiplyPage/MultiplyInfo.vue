@@ -60,11 +60,3 @@ const marketsInfo = computed(() => {
     </div>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.markets-info {
-  a {
-    color: $text-success;
-  }
-}
-</style>
