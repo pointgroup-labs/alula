@@ -240,8 +240,8 @@ function selectRoute(route: SwapRoute) {
     font-weight: 500;
     cursor: pointer;
     transition:
-      border-color 0.15s ease,
-      background-color 0.15s ease;
+      border-color $transition-base ease,
+      background-color $transition-base ease;
 
     &:hover:not(:disabled) {
       border-color: $navi-300;
@@ -287,7 +287,7 @@ function selectRoute(route: SwapRoute) {
 
   &__arrow {
     color: $text-tertiary;
-    transition: transform 0.2s ease;
+    transition: transform $transition-base ease;
     &--active {
       transform: rotate(180deg);
     }

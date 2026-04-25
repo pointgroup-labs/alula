@@ -282,7 +282,7 @@ watch(() => modelValue, (v) => {
     background-color: var(--background-color);
     border: 1px solid var(--border-color, $border-primary);
     border-radius: $radius-2xl;
-    transition: border-color 0.2s ease;
+    transition: border-color $transition-base ease;
 
     &.active {
       border-color: var(--active-border-color);

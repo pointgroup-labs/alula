@@ -163,8 +163,8 @@ watch(() => forceValidation, (val) => {
 .fade-bottom-enter-active,
 .fade-bottom-leave-active {
   transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
+    opacity $transition-base ease,
+    transform $transition-base ease;
 }
 
 .fade-bottom-enter-from,

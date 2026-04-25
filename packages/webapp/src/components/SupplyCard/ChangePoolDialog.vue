@@ -221,7 +221,7 @@ onUnmounted(() => {
       align-items: center;
       padding: 4px 8px;
       border-radius: $radius-md;
-      transition: all 0.2s ease;
+      transition: all $transition-base ease;
       cursor: pointer;
 
       &:hover {

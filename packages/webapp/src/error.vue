@@ -13,7 +13,7 @@ onMounted(() => {
     nextTick(() => {
       const body = document.querySelector('body') as HTMLElement
       if (body) {
-        body.style.transition = 'opacity 0.3s ease-in-out'
+        body.style.transition = 'opacity 0.15s ease-in-out'
         body.style.opacity = '1'
       }
     })
@@ -214,9 +214,9 @@ onMounted(() => {
     font-size: 14px !important;
     font-weight: 500 !important;
     transition:
-      background 0.2s ease,
-      border-color 0.2s ease,
-      box-shadow 0.2s ease !important;
+      background $transition-base ease,
+      border-color $transition-base ease,
+      box-shadow $transition-base ease !important;
 
     &:hover {
       background: rgba(34, 211, 238, 0.12) !important;

@@ -445,8 +445,8 @@ section#my-leverage-position {
       border-radius: $radius-lg;
       background-color: var(--indicator-color, var(--hf-success));
       transition:
-        width 0.3s ease,
-        background-color 0.3s ease;
+        width $transition-base ease,
+        background-color $transition-base ease;
     }
   }
 

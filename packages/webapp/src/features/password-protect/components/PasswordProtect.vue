@@ -280,9 +280,9 @@ const { pass, error, login } = usePasswordProtect()
       border: 1px solid rgba(255, 255, 255, 0.08);
       background: rgba(255, 255, 255, 0.03);
       transition:
-        border-color 0.2s ease,
-        box-shadow 0.2s ease,
-        background 0.2s ease;
+        border-color $transition-base ease,
+        box-shadow $transition-base ease,
+        background $transition-base ease;
     }
 
     :deep(.input-wrapper) {
@@ -356,8 +356,8 @@ const { pass, error, login } = usePasswordProtect()
 .fade-up-enter-active,
 .fade-up-leave-active {
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+    opacity $transition-base ease,
+    transform $transition-base ease;
 }
 
 .fade-up-enter-from,

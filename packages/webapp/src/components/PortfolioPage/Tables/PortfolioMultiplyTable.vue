@@ -372,8 +372,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
         border-radius: $radius-lg;
         background-color: var(--indicator-color, #{$success});
         transition:
-          width 0.3s ease,
-          background-color 0.3s ease;
+          width $transition-base ease,
+          background-color $transition-base ease;
       }
     }
 

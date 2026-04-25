@@ -24,7 +24,7 @@
     color: $text-tertiary;
     text-align: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all $transition-base ease;
 
     &--supply,
     &--withdraw {
@@ -170,7 +170,7 @@
     background-color: $navi-600;
     border: 1px solid $border-secondary;
     border-radius: 14px;
-    transition: border-color 0.2s ease;
+    transition: border-color $transition-base ease;
   }
 
   &__item {
@@ -300,11 +300,11 @@
 }
 
 .summary-slide-enter-active {
-  animation: summary-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: summary-in $transition-base cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .summary-slide-leave-active {
-  animation: summary-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) reverse;
+  animation: summary-in $transition-base cubic-bezier(0.16, 1, 0.3, 1) reverse;
 }
 
 @keyframes summary-in {

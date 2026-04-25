@@ -476,8 +476,8 @@ const amountRules = [
     color: inherit;
     appearance: none;
     transition:
-      border-color 0.15s ease,
-      background-color 0.15s ease;
+      border-color $transition-base ease,
+      background-color $transition-base ease;
 
     &:hover {
       border-color: $navi-300;
@@ -492,7 +492,7 @@ const amountRules = [
 
     .arrow-icon {
       color: $text-tertiary;
-      transition: transform 0.2s ease;
+      transition: transform $transition-base ease;
       &--active {
         transform: rotate(180deg);
       }
@@ -570,9 +570,9 @@ const amountRules = [
     cursor: pointer;
     margin: -8px 0;
     transition:
-      background-color 0.15s ease,
-      transform 0.2s ease,
-      color 0.15s ease;
+      background-color $transition-base ease,
+      transform $transition-base ease,
+      color $transition-base ease;
 
     &:hover:not(:disabled) {
       background-color: $navi-450;

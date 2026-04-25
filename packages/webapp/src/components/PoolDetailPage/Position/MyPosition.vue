@@ -433,14 +433,14 @@ section#my-position {
         transform: rotate(-90deg);
         opacity: 0.55;
         transition:
-          transform 0.2s ease,
-          opacity 0.2s ease;
+          transform $transition-base ease,
+          opacity $transition-base ease;
       }
 
       &--interactive {
         cursor: pointer;
         border-radius: $radius-md;
-        transition: background-color 0.2s ease;
+        transition: background-color $transition-base ease;
 
         &:hover {
           background-color: color-mix(in oklab, $bg-secondary 55%, transparent);
@@ -618,8 +618,8 @@ section#my-position {
       border-radius: $radius-lg;
       background-color: var(--indicator-color, var(--hf-success));
       transition:
-        width 0.3s ease,
-        background-color 0.3s ease;
+        width $transition-base ease,
+        background-color $transition-base ease;
     }
   }
 

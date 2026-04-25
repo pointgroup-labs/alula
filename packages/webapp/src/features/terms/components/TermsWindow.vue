@@ -171,7 +171,7 @@ function updateAccepted(value: boolean) {
   }
 
   &__checkbox {
-    transition: opacity 0.2s ease;
+    transition: opacity $transition-base ease;
 
     &--locked {
       opacity: 0.55;
@@ -234,8 +234,8 @@ function updateAccepted(value: boolean) {
 
 .terms-hint-enter-active {
   transition:
-    opacity 0.25s ease,
-    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity $transition-base ease,
+    transform $transition-base cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .terms-hint-enter-to {
@@ -251,8 +251,8 @@ function updateAccepted(value: boolean) {
 
 .terms-hint-leave-active {
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+    opacity $transition-base ease,
+    transform $transition-base ease;
 }
 
 .terms-hint-leave-to {

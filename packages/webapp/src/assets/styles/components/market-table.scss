@@ -91,7 +91,7 @@
     tr {
       height: 54px;
       border-top: 1px solid rgba(30, 41, 59, 0.2);
-      transition: background 160ms ease;
+      transition: background $transition-base ease;
       cursor: pointer;
 
       &:hover {
