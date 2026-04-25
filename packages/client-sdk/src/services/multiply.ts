@@ -79,6 +79,21 @@ export interface MultiplyPreview {
   minAmountOut: bigint
   depositAmount: bigint
   finalBorrowAmount: bigint
+  /**
+   * Pure depth-driven price impact of the swap leg, in basis points (10_000 = 100%).
+   * Computed by quoting a small probe trade in the same direction and comparing
+   * `expectedAmountOut / swapAmountIn` against `probeOut / probeIn`. The provider's
+   * fee approximately cancels in the ratio (it's baked into both quotes equally,
+   * with a sub-bp residual from the fee's effect on effective liquidity), so what
+   * remains is the depth-driven slippage of THIS trade size against the current
+   * pool — what "price impact" actually means in AMM terminology, distinct from
+   * the all-in cost vs oracle that lumps fee + impact + oracle/AMM divergence.
+   *
+   * `undefined` when the probe quote couldn't be obtained or produced unusable
+   * output (very small trades, provider error). UI should hide the row in that
+   * case rather than render a misleading "0%".
+   */
+  priceImpactBps?: number
 }
 
 export interface CloseMultiplyPreview {
@@ -104,6 +119,13 @@ export interface CloseMultiplyPreview {
   isFullClose: boolean
   requiredAmountIn: bigint
   maxReceivableAmount: bigint
+  /**
+   * Pure depth-driven price impact of the close swap (collateral → debt to fund
+   * the flash repay), basis points. Same semantics as `MultiplyPreview.priceImpactBps`:
+   * probe vs execution rate ratio, fee approximately cancels. `undefined` when
+   * the probe couldn't be measured.
+   */
+  priceImpactBps?: number
 }
 
 const DEFAULT_SLIPPAGE_PERCENT = 0.05
@@ -294,6 +316,12 @@ export class MultiplyService extends BaseClient {
       minAmountOut,
       depositAmount,
       finalBorrowAmount,
+      priceImpactBps: await this.calculatePriceImpactBps(
+        params.swapProviderAddress,
+        swapAmountIn,
+        expectedAmountOut,
+        swapPath,
+      ),
     }
   }
 
@@ -459,6 +487,17 @@ export class MultiplyService extends BaseClient {
       isFullClose,
       requiredAmountIn,
       maxReceivableAmount,
+      // Close swap: collateral → debt to fund the flash repay. The router was
+      // queried via `getExpectedAmountsIn` (exact-out semantics), but the probe
+      // helper uses `getExpectedAmountsOut` — both are quoting the same pool in
+      // the same direction, so the rate ratio still holds and the helper works
+      // unchanged. Inputs are the spent/received pair from the actual close.
+      priceImpactBps: await this.calculatePriceImpactBps(
+        params.swapProviderAddress,
+        quotedRequiredAmountIn,
+        flashRepaymentAmount,
+        swapPath,
+      ),
     }
   }
 
@@ -640,6 +679,64 @@ export class MultiplyService extends BaseClient {
     })
 
     return [response.result, amountOut]
+  }
+
+  /**
+   * True depth-driven price impact in basis points: `1 − (execRate / probeRate)`,
+   * where `probeRate` is sampled by re-quoting the same path with a small probe
+   * input. Provider-agnostic: relies only on `get_amount_out`, which every swap
+   * provider in the system implements identically. Provider fee bakes into both
+   * quotes equally and cancels in the ratio, so this isolates pure depth impact
+   * from fee and from oracle/AMM divergence.
+   *
+   * Probe size is 1% of `swapAmountIn` (clamped to ≥ 1 stroop). Small enough
+   * that the probe's own depth impact is negligible (under-reports true impact
+   * by ~1% of itself, well within tooltip-precision); large enough to survive
+   * the provider's integer-division rounding in `get_amount_out`.
+   *
+   * Returns `undefined` on any failure path (provider error, degenerate inputs,
+   * non-positive probe output). Callers should treat `undefined` as "couldn't
+   * measure" and hide the metric, not as zero impact.
+   */
+  private async calculatePriceImpactBps(
+    swapProviderAddress: string,
+    swapAmountIn: bigint,
+    expectedAmountOut: bigint,
+    swapPath: string[],
+  ): Promise<number | undefined> {
+    if (swapAmountIn <= 0n || expectedAmountOut <= 0n) {
+      return undefined
+    }
+
+    const probeIn = swapAmountIn / 100n > 0n ? swapAmountIn / 100n : 1n
+    let probeOut: bigint
+    try {
+      const out = await this.getExpectedAmountsOut(swapProviderAddress, probeIn, swapPath)
+      probeOut = out[out.length - 1] ?? 0n
+    } catch {
+      return undefined
+    }
+    if (probeOut <= 0n) {
+      return undefined
+    }
+
+    // execRate  = expectedAmountOut / swapAmountIn   (provider-quoted, fee included)
+    // probeRate = probeOut / probeIn                 (provider-quoted, fee included)
+    // priceImpact = 1 − execRate / probeRate         (fee approximately cancels —
+    //   sub-bp residual from its effect on effective liquidity, not worth correcting)
+    const execRate = new Decimal(expectedAmountOut.toString()).div(new Decimal(swapAmountIn.toString()))
+    const probeRate = new Decimal(probeOut.toString()).div(new Decimal(probeIn.toString()))
+    if (probeRate.lte(0)) {
+      return undefined
+    }
+
+    const impact = new Decimal(1).minus(execRate.div(probeRate))
+    if (!impact.isFinite() || impact.lte(0)) {
+      // AMM in user's favor (rare, e.g. probe rounded against probeIn): floor
+      // at 0 rather than display a confusing negative.
+      return 0
+    }
+    return impact.mul(10_000).toNumber()
   }
 
   private async quoteSwapExactOut(swapProviderAddress: string, amountIn: bigint, path: string[]): Promise<bigint> {

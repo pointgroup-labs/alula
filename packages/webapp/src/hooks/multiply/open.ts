@@ -269,30 +269,18 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     return collateralUsd / equityUsd
   })
 
-  // Combined swap loss in oracle USD: `1 − outUsd / inUsd`, where outUsd is what the router
-  // expects to deliver and inUsd is what we send in. Captures three things in a single number:
-  //   1. AMM fee (e.g. Soroswap 30 bps)
-  //   2. Price impact from pool depth at the trade size
-  //   3. Oracle/AMM divergence (oracle says one price, AMM trades at another)
-  // This is the dominant driver of the gap between selectedMultiplier and projectedLeverage:
-  // realized ≈ target × (1 + swapLoss × (L − 1)) for deposit-margin opens.
-  // Clamped to ≥ 0 — when the AMM is in the user's favor (rare) we just show 0% rather than
-  // surfacing a "negative price impact" that confuses the conventional metric.
-  const swapLossPercent = computed<number | undefined>(() => {
-    if (!preview.value || !vaultDecimals.value || !oraclePrices.value) {
-      return undefined
-    }
-
-    const inUsd = Number(bigintToNumber(preview.value.swapAmountIn, vaultDecimals.value.borrowDecimals))
-      * oraclePrices.value.borrowPrice
-    const outUsd = Number(bigintToNumber(preview.value.expectedAmountOut, vaultDecimals.value.depositDecimals))
-      * oraclePrices.value.depositPrice
-
-    if (!Number.isFinite(inUsd) || !Number.isFinite(outUsd) || inUsd <= 0) {
-      return undefined
-    }
-
-    return Math.max(0, (inUsd - outUsd) / inUsd) * 100
+  // True depth-driven price impact of the swap leg, sourced directly from the
+  // SDK preview's `priceImpactBps`. The SDK computes it provider-agnostically by
+  // probing the same path with a small input and comparing rates — provider fee
+  // cancels in the ratio, so what's left is pure depth impact. See
+  // `MultiplyService.calculatePriceImpactBps` for the math.
+  //
+  // Distinct from "all-in cost vs oracle" (which would also fold in fee and
+  // oracle/AMM divergence). This number answers the question the UI label has
+  // always claimed: "how much is your trade size moving the pool?"
+  const priceImpactPercent = computed<number | undefined>(() => {
+    const bps = preview.value?.priceImpactBps
+    return bps == null ? undefined : bps / 100
   })
 
   // Slippage cap above which the on-chain open_ltv check would fail. Only meaningful for
@@ -467,7 +455,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     hardMaxMultiplier,
     currentApy,
     projectedLeverage,
-    swapLossPercent,
+    priceImpactPercent,
     unhealthyReason,
     maxTolerableSlippagePercent,
     maxInputAmount,
