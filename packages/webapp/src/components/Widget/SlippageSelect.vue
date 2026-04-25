@@ -81,6 +81,10 @@ const slippageRules = [
     color: $text-tertiary;
     text-transform: uppercase;
     letter-spacing: 0.07em;
+    // The column's width is set by the input below; right-align the label so
+    // it sits flush with the input's right edge (and the swap-card header's
+    // right edge by extension).
+    text-align: right;
   }
 
   &-input {
