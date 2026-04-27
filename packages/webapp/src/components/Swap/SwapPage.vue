@@ -54,6 +54,17 @@ const toTokenOptions = computed(() =>
   tokens.value.filter(t => t.tokenAddress !== fromToken.value?.tokenAddress),
 )
 
+const isFromTokenDialogOpen = ref(false)
+const isToTokenDialogOpen = ref(false)
+
+function dialogsHandler(side: 'from' | 'to') {
+  if (side === 'from') {
+    isFromTokenDialogOpen.value = !isFromTokenDialogOpen.value
+  } else {
+    isToTokenDialogOpen.value = !isToTokenDialogOpen.value
+  }
+}
+
 // Human-readable estimated `to` amount and its USD shadow.
 // `bigintToNumber` routes through Decimal.js so we don't lose precision the
 // way `Number(bigint) / 10 ** decimals` does for large values or high-decimal
@@ -225,49 +236,24 @@ const amountRules = [
         class="swap-card__amount-input"
       >
         <template #prepend>
-          <j-popover
-            position="bottom"
-            :teleport-to-body="false"
-            close-popup
+          <button
+            v-if="fromToken"
+            type="button"
+            class="select-pool-btn swap-card__token-btn"
+            :aria-label="`Choose token to swap from (current: ${fromToken?.symbol ?? 'none'})`"
+            @click="dialogsHandler('from')"
           >
-            <template #target="{ active }">
-              <button
-                type="button"
-                class="select-pool-btn swap-card__token-btn"
-                :aria-label="`Choose token to swap from (current: ${fromToken?.symbol ?? 'none'})`"
-              >
-                <img
-                  v-if="fromToken?.icon"
-                  :src="fromToken.icon"
-                  :alt="fromToken.symbol"
-                >
-                <span class="swap-card__token-btn-symbol">{{ fromToken?.symbol }}</span>
-                <i-app-chevron-down
-                  class="arrow-icon"
-                  :class="{ 'arrow-icon--active': active }"
-                />
-              </button>
-            </template>
+            <img
+              v-if="fromToken?.icon"
+              :src="fromToken.icon"
+              :alt="fromToken.symbol"
+            >
+            <span class="swap-card__token-btn-symbol">{{ fromToken?.symbol }}</span>
+            <i-app-chevron-down
+              class="arrow-icon"
+            />
+          </button>
 
-            <div class="select-pool-menu swap-card__token-menu">
-              <div
-                v-for="token in fromTokenOptions"
-                :key="token.tokenAddress"
-                class="select-pool-menu__item swap-card__token-menu-item"
-                :class="{ 'swap-card__token-menu-item--active': token.tokenAddress === fromToken?.tokenAddress }"
-                @click="pick('from', token)"
-              >
-                <img
-                  :src="token.icon"
-                  :alt="token.symbol"
-                >
-                <div class="swap-card__token-menu-text">
-                  <span class="swap-card__token-menu-symbol">{{ token.symbol }}</span>
-                  <span class="swap-card__token-menu-name">{{ token.name }}</span>
-                </div>
-              </div>
-            </div>
-          </j-popover>
         </template>
       </input-widget>
 
@@ -291,48 +277,23 @@ const amountRules = [
           </span>
         </div>
         <div class="swap-card__receive-row">
-          <j-popover
-            position="bottom"
-            :teleport-to-body="false"
-            close-popup
+          <button
+            v-if="toToken"
+            type="button"
+            class="select-pool-btn swap-card__token-btn"
+            :aria-label="`Choose token to swap to (current: ${toToken?.symbol ?? 'none'})`"
+            @click="dialogsHandler('to')"
           >
-            <template #target="{ active }">
-              <button
-                type="button"
-                class="select-pool-btn swap-card__token-btn"
-                :aria-label="`Choose token to swap to (current: ${toToken?.symbol ?? 'none'})`"
-              >
-                <img
-                  v-if="toToken?.icon"
-                  :src="toToken.icon"
-                  :alt="toToken.symbol"
-                >
-                <span class="swap-card__token-btn-symbol">{{ toToken?.symbol }}</span>
-                <i-app-chevron-down
-                  class="arrow-icon"
-                  :class="{ 'arrow-icon--active': active }"
-                />
-              </button>
-            </template>
-            <div class="select-pool-menu swap-card__token-menu">
-              <div
-                v-for="token in toTokenOptions"
-                :key="token.tokenAddress"
-                class="select-pool-menu__item swap-card__token-menu-item"
-                :class="{ 'swap-card__token-menu-item--active': token.tokenAddress === toToken?.tokenAddress }"
-                @click="pick('to', token)"
-              >
-                <img
-                  :src="token.icon"
-                  :alt="token.symbol"
-                >
-                <div class="swap-card__token-menu-text">
-                  <span class="swap-card__token-menu-symbol">{{ token.symbol }}</span>
-                  <span class="swap-card__token-menu-name">{{ token.name }}</span>
-                </div>
-              </div>
-            </div>
-          </j-popover>
+            <img
+              v-if="toToken?.icon"
+              :src="toToken.icon"
+              :alt="toToken.symbol"
+            >
+            <span class="swap-card__token-btn-symbol">{{ toToken?.symbol }}</span>
+            <i-app-chevron-down
+              class="arrow-icon"
+            />
+          </button>
 
           <div class="swap-card__receive-amount">
             <span
@@ -409,6 +370,20 @@ const amountRules = [
       </market-action-btn>
     </div>
   </main>
+
+  <swap-select-asset-dialog
+    v-model="isFromTokenDialogOpen"
+    :tokens="fromTokenOptions"
+    :active-token="fromToken"
+    @pick-token="(token) => pick('from', token)"
+  />
+
+  <swap-select-asset-dialog
+    v-model="isToTokenDialogOpen"
+    :tokens="toTokenOptions"
+    :active-token="toToken"
+    @pick-token="(token) => pick('to', token)"
+  />
 </template>
 
 <style lang="scss">
@@ -502,61 +477,6 @@ const amountRules = [
     font-size: 14px;
     font-weight: 600;
     color: $text-primary;
-  }
-
-  &__token-menu {
-    min-width: 220px;
-    max-height: 320px;
-    overflow-y: auto;
-    // padding: 4px;
-    // background-color: $bg-card;
-    // border-radius: $radius-lg;
-  }
-
-  &__token-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    border-radius: $radius-md;
-    cursor: pointer;
-
-    &:not(:last-child) {
-      margin-bottom: $spacing-xs;
-    }
-
-    img {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    &:hover {
-      background-color: $navi-600;
-    }
-
-    &--active {
-      background-color: color-mix(in oklab, $brand-700 25%, transparent);
-      border: 1px solid $border-primary;
-    }
-  }
-
-  &__token-menu-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.2;
-  }
-
-  &__token-menu-symbol {
-    font-size: 14px;
-    font-weight: 600;
-    color: $text-primary;
-  }
-
-  &__token-menu-name {
-    font-size: 11px;
-    color: $text-tertiary;
   }
 
   &__flip {
