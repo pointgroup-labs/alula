@@ -12,7 +12,7 @@ declare module 'vue' {
     AppFooter: typeof import('./../components/AppFooter.vue')['default']
     AppHeader: typeof import('./../components/AppHeader.vue')['default']
     AppSettings: typeof import('./../components/Settings/AppSettings.vue')['default']
-    AuditsOverviewCard: typeof import('./../components/Common/AuditsOverviewCard.vue')['default']
+    AuditsOverviewCard: typeof import('./../components/Widget/AuditsOverviewCard.vue')['default']
     BackBtn: typeof import('./../components/Widget/BackBtn.vue')['default']
     BorrowDialog: typeof import('./../components/MarketsPage/Markets/Dialogs/BorrowDialog.vue')['default']
     BorrowOverview: typeof import('./../components/PoolDetailPage/Overview/Sections/SupplyBorrow/BorrowOverview.vue')['default']
