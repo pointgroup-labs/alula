@@ -71,11 +71,11 @@ $btn-variants: (
   positive-outlined: (
     bg: rgba(4, 62, 31, 0.3),
     color: $navi-25,
-    outline: 1px solid rgba(29, 201, 120, 0.3),
+    outline: 1px solid rgba(29, 201, 120, 0.15),
     hoverBg: rgba(5, 69, 34, 0.5),
     hoverColor: rgb(29, 201, 120),
     focusBg: rgba(5, 69, 34, 0.5),
-    focusOutline: 1px solid rgba(29, 201, 120, 0.7),
+    focusOutline: 1px solid rgba(29, 201, 120, 0.4),
   ),
 
   negative-outlined: (

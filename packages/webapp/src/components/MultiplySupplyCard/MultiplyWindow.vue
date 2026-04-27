@@ -29,7 +29,7 @@ const {
   hardMaxMultiplier,
   currentApy,
   projectedLeverage,
-  swapLossPercent,
+  priceImpactPercent,
   unhealthyReason,
   maxTolerableSlippagePercent,
   maxInputAmount,
@@ -44,6 +44,26 @@ const {
   notMarginAsset,
   openMultiply,
 } = useMultiplyOpen(toRef(() => vault))
+
+// Color tiers for the price-impact readout. Green is the "deep pool, your
+// trade barely moves it" signal users are scanning for; warning/danger flag
+// trades large enough vs. depth that a smaller size or different pair would
+// open at a meaningfully better rate. Three contiguous bands — every value
+// gets a color, no in-between "default" gap that would leave moderate impact
+// rendering in plain text.
+const priceImpactClass = computed(() => {
+  const v = priceImpactPercent.value
+  if (v == null) {
+    return ''
+  }
+  if (v > 3) {
+    return 'text-danger'
+  }
+  if (v > 1) {
+    return 'text-warning'
+  }
+  return 'text-success'
+})
 
 const slippageInput = computed<string | number>({
   get: () => slippage.value,
@@ -288,23 +308,24 @@ function isUserHaveMultiply(): boolean {
             </div>
 
             <div
-              v-if="swapLossPercent != null"
+              v-if="priceImpactPercent != null"
               class="summary-list__item"
             >
               <div class="label">
                 <div class="label-with-tip">
                   Price impact
                   <info-tooltip>
-                    Combined cost of the swap in oracle USD: AMM fee, depth-driven price impact,
-                    and any divergence between the oracle price and the AMM rate. This is the
-                    main driver of the gap between your slider target and the realized leverage
-                    below.
+                    Pure depth-driven slippage of this swap against the current pool: how
+                    much your trade size moves the rate. Computed by re-quoting the same
+                    path with a small probe input — the provider's fee cancels in the
+                    ratio, so this isolates depth impact from fee and from oracle/AMM
+                    price divergence.
                   </info-tooltip>
                 </div>
               </div>
               <div class="value">
-                <span :class="{ 'text-warning': swapLossPercent > 1 }">
-                  {{ swapLossPercent.toFixed(2) }}%
+                <span :class="priceImpactClass">
+                  {{ priceImpactPercent.toFixed(2) }}%
                 </span>
               </div>
             </div>

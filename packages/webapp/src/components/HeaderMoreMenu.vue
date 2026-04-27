@@ -44,10 +44,7 @@ const isActive = computed(() => items.some(
         aria-label="More navigation options"
       >
         More
-        <i-app-chevron-down
-          class="header-more__arrow"
-          :class="{ 'header-more__arrow--open': active }"
-        />
+        <i-app-chevron-down class="header-more__arrow" />
       </button>
     </template>
 
@@ -90,6 +87,36 @@ const isActive = computed(() => items.some(
 
 <style lang="scss">
 .header-more {
+  // bootstrap-vue-next's `.popover` ships with its own background, border,
+  // and arrow — that's why hovering an item showed *three* stacked colored
+  // surfaces (popover bg, menu bg, item hover). For this menu the popover is
+  // only a positioning shell; the `.header-more__menu` is the only intended
+  // painted surface. Strip all of bootstrap's popover chrome so the menu
+  // looks like one card with one hover highlight.
+  .popover {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    --bs-popover-bg: transparent;
+    --bs-popover-border-color: transparent;
+  }
+
+  .popover-body,
+  .popover-header {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    color: inherit;
+  }
+
+  .popover-arrow {
+    display: none !important;
+  }
+
+  // The popover wraps its trigger in `.popover-target { width: fit-content }`
+  // (see JPopover.vue), so the trigger pill stays content-sized and the menu
+  // anchors directly under it via the `bottom-start` placement.
   display: inline-flex;
 
   &__trigger {
@@ -105,24 +132,24 @@ const isActive = computed(() => items.some(
 
   &__arrow {
     color: $text-tertiary;
-    transition: transform $transition-base ease;
-    width: 12px;
-    height: 12px;
-
-    &--open {
-      transform: rotate(180deg);
-    }
+    width: 10px;
+    height: 10px;
   }
 
   &__menu {
     min-width: 240px;
-    padding: 6px;
+    padding: 0;
     background-color: $bg-card;
     border: 1px solid $border-primary;
     border-radius: $radius-lg;
+    // Items now span edge-to-edge with no inner padding. `overflow: hidden`
+    // lets the menu's rounded corners clip the first/last item's hover
+    // background so the rounded shape stays clean even though items are
+    // square.
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0;
     z-index: 1080;
     position: relative;
   }
@@ -131,8 +158,9 @@ const isActive = computed(() => items.some(
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 8px 10px;
-    border-radius: $radius-md;
+    padding: 10px 12px;
+    // No per-item radius — the menu container clips the corners instead.
+    border-radius: 0;
     color: $text-primary;
     text-decoration: none;
     transition: background-color 0.12s ease;
