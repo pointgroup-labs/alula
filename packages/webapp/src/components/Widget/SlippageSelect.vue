@@ -11,23 +11,32 @@ const slippageModel = defineModel<number | string | undefined>({ default: '0.05'
 const inputValue = ref<number | string | undefined>(slippageModel.value)
 
 watch(slippageModel, (next) => {
-  if (next === inputValue.value) {
-    return
+  if (next !== Number(inputValue.value)) {
+    inputValue.value = next
   }
-  inputValue.value = next
 })
 
-watch(inputValue, (next) => {
-  if (next === '' || next === null || next === undefined) {
-    slippageModel.value = 0
-    return
-  }
+watch(inputValue, async (next) => {
   const parsed = Number(next)
+
   if (!Number.isFinite(parsed)) {
-    slippageModel.value = 0
+    slippageModel.value = '0'
     return
   }
-  slippageModel.value = Math.max(0, Math.min(MAX_SLIPPAGE_PERCENT, parsed))
+
+  if (parsed > MAX_SLIPPAGE_PERCENT) {
+    const clamped = MAX_SLIPPAGE_PERCENT
+
+    slippageModel.value = clamped
+
+    if (parsed !== clamped) {
+      inputValue.value = ''
+      await nextTick()
+      inputValue.value = String(clamped)
+    }
+  } else {
+    slippageModel.value = parsed
+  }
 })
 
 const slippageRules = [
