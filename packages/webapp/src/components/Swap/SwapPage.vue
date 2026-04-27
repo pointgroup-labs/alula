@@ -31,8 +31,11 @@ const {
 } = useSwap()
 
 const connectionStore = useConnectionStore()
+const wallet = useWallet()
 
 const isConnected = computed(() => !!publicKey.value)
+
+const isLoadingBalances = computed(() => !wallet.balances && wallet.isloadingBalances)
 
 const isFlip = ref(false)
 
@@ -136,29 +139,24 @@ const buttonLabel = computed(() => {
 })
 
 const buttonDisabled = computed(() => {
-  if (submitting.value) {
-    return true
-  }
-  if (!isConnected.value) {
-    return false
-  }
-  if (sameToken.value || insufficientBalance.value || amountNumber.value <= 0) {
+  if (sameToken.value || insufficientBalance.value) {
     return true
   }
   // Allow click while loading? No — but allow click when quote errored so the
   // user can retry without re-typing.
-  if (loading.value) {
-    return true
-  }
   if (error.value) {
     return false
   }
-  return !preview.value
+  return false
 })
 
 async function onSubmit() {
   if (!isConnected.value) {
     await connectionStore.connectWallet?.()
+    return
+  }
+  if (amountNumber.value <= 0) {
+    focusInput('.swap-card__amount-input')
     return
   }
   // If quote previously errored or hasn't fired, retry it from the button.
@@ -399,9 +397,9 @@ const amountRules = [
       <market-action-btn
         class="swap-card__submit"
         size="lg"
-        :loading="submitting || loading"
+        :loading="submitting || loading || isLoadingBalances"
         :disabled="buttonDisabled"
-        :pool="{
+        :pool="toToken && {
           name: toToken?.isNative ? 'native' : `${toToken?.symbol}:${toToken?.assetIssuer}`,
         }"
         @click-handler="onSubmit"

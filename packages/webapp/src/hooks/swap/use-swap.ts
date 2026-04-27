@@ -60,6 +60,7 @@ function devWarn(...args: unknown[]): void {
 export function useSwap() {
   const marketsStore = useMarketsStore()
   const multiplyStore = useMultiplyStore()
+  const wallet = useWalletComposable()
   const { getFullTokenData } = useTokensStore()
   const connectionStore = useConnectionStore()
   const { publicKey, nativeBalance, getAssetBalance } = useWalletComposable()
@@ -420,6 +421,7 @@ export function useSwap() {
       // Reset the input so the user doesn't accidentally double-submit.
       amount.value = ''
       routes.value = []
+      await wallet.loadBalances()
       return res
     } catch (error: any) {
       if (!String(error?.message ?? '').includes('rejected')) {

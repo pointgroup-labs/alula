@@ -88,6 +88,7 @@ const queryLine = computed<string | undefined>(() => {
 })
 
 function selectAuto() {
+  // @ts-expect-error...
   emit('pin')
 }
 
@@ -223,6 +224,7 @@ function selectRoute(route: SwapRoute) {
 // the trigger pill. Keeping popover-target at its base `width: fit-content`
 // (set by JPopover) preserves the correct anchor.
 .route-picker {
+  height: 32px;
   display: flex;
   width: 100%;
   justify-content: flex-end;
@@ -271,7 +273,7 @@ function selectRoute(route: SwapRoute) {
   }
 
   &__auto-badge {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     color: $cyan;
     letter-spacing: 0.06em;

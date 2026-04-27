@@ -7,6 +7,8 @@ export const useWallet = defineStore('wallet', () => {
   const publicKey = ref()
   const balances = ref()
 
+  const isloadingBalances = ref(false)
+
   const nativeBalance = computed(() => Number(balances.value?.find((b: any) => b.asset_type === 'native')?.balance) || 0)
 
   async function initWallet(address: string) {
@@ -15,14 +17,19 @@ export const useWallet = defineStore('wallet', () => {
   }
 
   async function loadBalances() {
-    if (!publicKey.value || !alulaClient.value) {
-      return
-    }
+    try {
+      isloadingBalances.value = true
+      if (!publicKey.value || !alulaClient.value) {
+        return
+      }
 
-    // Set publicKey in wallet service before getting balances
-    alulaClient.value.wallet.setPublicKey(publicKey.value)
-    balances.value = await alulaClient.value.wallet.getBalances()
-    console.log('%c[Wallet Balances]', 'color: #5c6cff', balances.value)
+      // Set publicKey in wallet service before getting balances
+      alulaClient.value.wallet.setPublicKey(publicKey.value)
+      balances.value = await alulaClient.value.wallet.getBalances()
+      console.log('%c[Wallet Balances]', 'color: #5c6cff', balances.value)
+    } finally {
+      isloadingBalances.value = false
+    }
   }
 
   function getAssetBalance(asset_issuer?: string) {
@@ -38,6 +45,8 @@ export const useWallet = defineStore('wallet', () => {
     balances,
 
     nativeBalance,
+
+    isloadingBalances,
 
     initWallet,
     loadBalances,
