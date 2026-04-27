@@ -265,7 +265,7 @@ const rewardsEarnings = computedAsync(async () => {
   />
 
   <div class="supply-card__action mt-3">
-    <market-dialog-action-btn
+    <market-action-btn
       variant="brand"
       size="md"
       :loading="isLoading"
@@ -275,6 +275,6 @@ const rewardsEarnings = computedAsync(async () => {
       @click-handler="supply"
     >
       <i-metrics-complete class="complete-icon" /> Supply {{ selectedPool?.asset.symbol }}
-    </market-dialog-action-btn>
+    </market-action-btn>
   </div>
 </template>

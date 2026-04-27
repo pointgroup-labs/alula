@@ -471,7 +471,7 @@ function isUserHaveMultiply(): boolean {
     />
 
     <div class="supply-card__action mt-3">
-      <market-dialog-action-btn
+      <market-action-btn
         variant="positive"
         class="market-action-btn"
         size="md"
@@ -488,7 +488,7 @@ function isUserHaveMultiply(): boolean {
         <template v-else>
           Open Position
         </template>
-      </market-dialog-action-btn>
+      </market-action-btn>
     </div>
   </div>
 </template>

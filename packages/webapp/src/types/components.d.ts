@@ -82,6 +82,7 @@ declare module 'vue' {
     LeveragePositionOverview: typeof import('./../components/MultiplyDetailsPage/Position/LeveragePositionOverview.vue')['default']
     LightingApy: typeof import('./../components/Widget/LightingApy.vue')['default']
     LogoWithText: typeof import('./../components/Widget/LogoWithText.vue')['default']
+    MarketActionBtn: typeof import('./../components/Widget/MarketActionBtn.vue')['default']
     MarketDialogActionBtn: typeof import('./../components/Widget/MarketDialogActionBtn.vue')['default']
     MarketInfoBadge: typeof import('./../components/Widget/MarketInfoBadge.vue')['default']
     MarketInfoDetailCard: typeof import('./../components/Widget/MarketInfoDetailCard.vue')['default']

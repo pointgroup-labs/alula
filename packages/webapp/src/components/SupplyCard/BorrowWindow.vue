@@ -280,7 +280,7 @@ function readMoreHandler(e: Event) {
   </div>
 
   <div class="supply-card__action mt-3">
-    <market-dialog-action-btn
+    <market-action-btn
       variant="brand-secondary"
       class="market-action-btn"
       size="md"
@@ -290,7 +290,7 @@ function readMoreHandler(e: Event) {
       @click-handler="borrow"
     >
       <i-metrics-complete class="complete-icon" /> Borrow {{ selectedPool?.asset.symbol }}
-    </market-dialog-action-btn>
+    </market-action-btn>
   </div>
 </template>
 

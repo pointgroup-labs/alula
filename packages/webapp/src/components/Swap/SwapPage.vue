@@ -396,17 +396,18 @@ const amountRules = [
         </div>
       </div>
 
-      <j-btn
-        size="lg"
-        variant="brand"
-        block
+      <market-action-btn
         class="swap-card__submit"
+        size="lg"
         :loading="submitting || loading"
         :disabled="buttonDisabled"
-        @click="onSubmit"
+        :pool="{
+          name: toToken?.isNative ? 'native' : `${toToken?.symbol}:${toToken?.assetIssuer}`,
+        }"
+        @click-handler="onSubmit"
       >
         {{ buttonLabel }}
-      </j-btn>
+      </market-action-btn>
     </div>
   </main>
 </template>
@@ -607,6 +608,10 @@ const amountRules = [
     border: 1px solid $border-primary;
     border-radius: $radius-2xl;
     padding: 14px 16px;
+
+    .swap-card__receive-row {
+      min-height: 52px;
+    }
   }
 
   &__receive-label {
@@ -618,6 +623,7 @@ const amountRules = [
   }
 
   &__receive-row {
+    min-height: 18px;
     display: flex;
     align-items: center;
     gap: 12px;
