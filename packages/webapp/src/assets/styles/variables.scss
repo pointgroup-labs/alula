@@ -270,4 +270,4 @@ $popover-max-width: fit-content;
 // motion — a single duration token used by every UI transition/animation.
 // 150ms is the project-wide upper bound for "instant" feedback; anything
 // slower starts to feel laggy and competes with the user's intent.
-$transition-base: 0.15s;
+$transition-base: 0.1s;

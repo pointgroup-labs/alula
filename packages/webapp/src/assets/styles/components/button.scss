@@ -180,6 +180,7 @@ $btn-size: (
   height: fit-content;
   font-family: $font-family-base !important;
   border: none !important;
+  transition: $transition-base !important;
 
   &:active {
     border-color: transparent !important;
@@ -270,7 +271,7 @@ $btn-size: (
 
   .btn-icon-left,
   .btn-icon-right {
-    transition: transform 0.1s ease-in-out;
+    transition: transform $transition-base ease;
   }
 
   &:hover {
