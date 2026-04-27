@@ -59,6 +59,7 @@ declare module 'vue' {
     InfoPanel: typeof import('./../components/Widget/InfoPanel.vue')['default']
     InfoTooltip: typeof import('./../components/Widget/InfoTooltip.vue')['default']
     InputWidget: typeof import('./../components/Widget/InputWidget.vue')['default']
+    InvalidAccountWarning: typeof import('./../components/InvalidAccountWarning.vue')['default']
     JAccordion: typeof import('./../components/Common/JAccordion.vue')['default']
     JBtn: typeof import('./../components/Common/JBtn.vue')['default']
     JBtnGroup: typeof import('./../components/Common/JBtnGroup.vue')['default']
