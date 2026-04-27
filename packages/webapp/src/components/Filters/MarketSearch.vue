@@ -51,7 +51,6 @@ onMounted(() => {
       gap: 12px;
       background-color: $bg-card;
       padding: $spacing-sm $spacing-lg;
-      border: 1px solid $border-primary;
     }
 
     .j-input__prepend {

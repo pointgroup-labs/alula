@@ -16,7 +16,7 @@
 
   &:focus-within {
     .input-group {
-      border-color: darken($secondary, 30%);
+      border-color: $navi-200;
     }
   }
 

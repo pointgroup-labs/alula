@@ -130,7 +130,7 @@ export function useSwap() {
     const n = Number(amount.value)
     return Number.isFinite(n) && n > 0 ? n : 0
   })
-  const slippage = useLocalStorage('swapSlippagePercent', DEFAULT_SLIPPAGE_PERCENT)
+  const slippage = ref(DEFAULT_SLIPPAGE_PERCENT)
 
   const swapProviderAddress = computed({
     get: () => multiplyStore.swapProviderAddress,

@@ -26,6 +26,8 @@ const {
 const emit = defineEmits(['update:modelValue'])
 const slots = defineSlots()
 
+const scopeClass = ref()
+
 const inputVal = computed({
   get() {
     return modelValue
@@ -90,10 +92,25 @@ watch(() => forceValidation, (val) => {
     nextTick(() => validate())
   }
 })
+
+function handleClick(e: Event) {
+  if (e.target instanceof HTMLInputElement) {
+    return
+  }
+  focusInput(`.${scopeClass.value}`)
+}
+
+onMounted(() => {
+  scopeClass.value = `j-input-${Math.random().toString(36).slice(2, 11)}`
+})
 </script>
 
 <template>
-  <div class="j-input">
+  <div
+    class="j-input"
+    :class="scopeClass"
+    @click="handleClick"
+  >
     <div
       v-if="slots?.label"
       class="j-input__label"

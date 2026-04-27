@@ -52,7 +52,13 @@ const slippageRules = [
 
 <template>
   <div class="slippage-select">
-    <span class="slippage-select-label">Slippage</span>
+    <div class="slippage-select-label">Slippage
+      <info-tooltip>
+        Slippage is the maximum percentage of the swap price that can be exceeded.
+        <br>
+        Max slippage is {{ MAX_SLIPPAGE_PERCENT }}%.
+      </info-tooltip>
+    </div>
     <j-input
       v-model="inputValue"
       class="slippage-select-input"
@@ -81,20 +87,14 @@ const slippageRules = [
     color: $text-tertiary;
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    // The column's width is set by the input below; right-align the label so
-    // it sits flush with the input's right edge (and the swap-card header's
-    // right edge by extension).
-    text-align: right;
+    line-height: normal;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 
   &-input {
     width: 76px;
-
-    &:focus-within {
-      .input-group {
-        border-color: $navi-200;
-      }
-    }
 
     &:has(.validate-label) {
       margin-bottom: 18px;
@@ -108,7 +108,6 @@ const slippageRules = [
       input {
         font-size: 12px;
         margin-bottom: -2px;
-        // Trim default right padding so 4-char values like "0.05" aren't pushed under the % suffix.
         padding-right: 2px;
       }
     }
@@ -116,8 +115,6 @@ const slippageRules = [
     .j-input__append {
       display: flex;
       align-items: center;
-      // Pull the % closer to the digits; the framework's default left padding was wide enough
-      // to crowd out the last character.
       padding-left: 2px;
     }
 

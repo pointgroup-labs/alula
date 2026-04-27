@@ -30,6 +30,8 @@ const {
   submit,
 } = useSwap()
 
+console.log(slippage.value)
+
 const connectionStore = useConnectionStore()
 
 const isConnected = computed(() => !!publicKey.value)
