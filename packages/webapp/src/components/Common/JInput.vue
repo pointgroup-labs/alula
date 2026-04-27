@@ -36,6 +36,7 @@ const inputVal = computed({
     emit('update:modelValue', val)
   },
 })
+
 const errorMessage = ref<string | null>(null)
 
 const computedClasses = computed(() => {
@@ -67,13 +68,18 @@ function handleBlur() {
   }
 }
 
-// watch(value, () => {
-//   emit('update:modelValue', value.value)
-// }, { flush: 'post' })
+function handlePaste(e: ClipboardEvent) {
+  if (!onlyNumbers) {
+    return
+  }
 
-// watch(() => modelValue, (val) => {
-//   value.value = val
-// })
+  e.preventDefault()
+
+  const pasted = e.clipboardData?.getData('text') ?? ''
+  const cleaned = pasted.replaceAll(/[^0-9.,]/g, '')
+
+  inputVal.value = cleaned
+}
 
 watch(inputVal, () => {
   if (!lazyRules) {
@@ -136,6 +142,7 @@ onMounted(() => {
           autocomplete="off"
           @keypress="onlyNumbers && onlyNumber($event)"
           @blur="handleBlur"
+          @paste="handlePaste"
         />
       </div>
       <template
