@@ -136,6 +136,7 @@ declare global {
   const useAccordionMarketsHandler: typeof import('../hooks/accortion-handler').useAccordionMarketsHandler
   const useAccou: typeof import('../hooks/accortion-handler').useAccou
   const useActiveElement: typeof import('@vueuse/core').useActiveElement
+  const useAddTrustLine: typeof import('../hooks/add-trustline').useAddTrustLine
   const useAdditionalApy: typeof import('../hooks/additional-apy').useAdditionalApy
   const useAnimate: typeof import('@vueuse/core').useAnimate
   const useAppEnv: typeof import('../hooks/app-env').useAppEnv

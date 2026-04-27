@@ -400,7 +400,8 @@ const amountRules = [
         :loading="submitting || loading || isLoadingBalances"
         :disabled="buttonDisabled"
         :pool="toToken && {
-          name: toToken?.isNative ? 'native' : `${toToken?.symbol}:${toToken?.assetIssuer}`,
+          name: `${toToken?.symbol}:${toToken?.assetIssuer}`,
+          token_symbol: toToken?.tokenSymbol,
         }"
         @click-handler="onSubmit"
       >

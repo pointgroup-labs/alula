@@ -17,11 +17,11 @@ function parseAsset(asset_data?: string, asset_code_from_param?: string) {
 
 export function useMarketActions() {
   const userStore = useUserStore()
+  const clientStore = useClientStore()
   const marketsStore = useMarketsStore()
   const connectionStore = useConnectionStore()
   const recentStore = useRecentActivityStore()
   const rpcStore = useRpcStore()
-  const marketclient = computed(() => marketsStore.marketClient)
 
   const { generateExplorerLink } = useExplorerLink()
 
@@ -55,7 +55,7 @@ export function useMarketActions() {
       if (nativeBalance.value <= 0.5) {
         throw new Error('Insufficient balance')
       }
-      const res = await marketclient.value!.wallet.addTrustline(publicKey.value, asset, issuer, connectionStore.kit)
+      const res = await clientStore.alulaClient.wallet.addTrustline(publicKey.value, asset, issuer, connectionStore.kit)
       await loadBalances()
       return res
     } catch (error) {

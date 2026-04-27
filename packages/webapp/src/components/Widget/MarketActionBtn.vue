@@ -10,8 +10,8 @@ const {
   poolSecondary,
   ...props
 } = defineProps<{
-  pool?: Partial<Pool>
-  poolSecondary?: Partial<Pool>
+  pool?: { name: string, token_symbol: string }
+  poolSecondary?: { name: string, token_symbol: string }
   isTrust?: boolean
   loading?: boolean
   variant?: 'brand' | 'brand-secondary' | 'positive' | 'negative'
@@ -31,7 +31,6 @@ const isConnectionLoading = computed(() => connection.loading)
 
 const { publicKey, balances } = useWalletComposable()
 
-const marketsStore = useMarketsStore()
 const market = useMarketActions()
 
 const requiredAssets = computed(() => {
@@ -68,20 +67,6 @@ async function addTrust() {
     const assetData = missingAsset.value
     if (!assetData?.asset || !assetData.issuer) {
       return
-    }
-
-    if (!marketsStore.activeMarket) {
-      const market = Object.values(marketsStore.state.markets).find((market) => {
-        return market.marketState.pools_data.some((p) => {
-          return p.pool.name === pool?.name
-        })
-      })
-
-      if (market?.marketName) {
-        marketsStore.selectedMarketName = market.marketName
-      } else {
-        throw new Error('Market not found')
-      }
     }
 
     const { asset, issuer } = assetData

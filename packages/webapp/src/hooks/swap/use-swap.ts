@@ -12,6 +12,7 @@ export type SwapTokenOption = {
   tokenAddress: string
   tokenDecimals: number
   isNative: boolean
+  tokenSymbol: string
   /** Classic-asset issuer for `getAssetBalance` lookup; undefined for XLM. */
   assetIssuer?: string
   /** Oracle USD price (≥ 0). Zero means unpriced — display gracefully. */
@@ -101,6 +102,7 @@ export function useSwap() {
           icon: meta?.icon || '',
           tokenAddress: address,
           tokenDecimals: pd.pool.token_decimals ?? 7,
+          tokenSymbol: rawSymbol,
           isNative,
           assetIssuer: isNative ? undefined : assetIssuer,
           price,
