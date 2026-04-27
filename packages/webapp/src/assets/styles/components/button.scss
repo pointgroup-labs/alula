@@ -59,13 +59,13 @@ $btn-variants: (
   ),
 
   accent-outlined: (
-    bg: rgba(245, 159, 11, 0.3),
+    bg: rgba(245, 159, 11, 0.15),
     color: $navi-25,
-    outline: 1px solid rgba(245, 159, 11, 0.5),
-    hoverBg: rgba(245, 159, 11, 0.5),
+    outline: 1px solid rgba(245, 159, 11, 0.3),
+    hoverBg: rgba(245, 159, 11, 0.3),
     hoverColor: $orange-50,
-    focusBg: rgba(245, 159, 11, 0.5),
-    focusOutline: 1px solid rgba(245, 159, 11, 0.7),
+    focusBg: rgba(245, 159, 11, 0.3),
+    focusOutline: 1px solid rgba(245, 159, 11, 0.6),
   ),
 
   positive-outlined: (

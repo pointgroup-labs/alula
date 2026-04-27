@@ -521,6 +521,10 @@ const amountRules = [
     border-radius: $radius-md;
     cursor: pointer;
 
+    &:not(:last-child) {
+      margin-bottom: $spacing-xs;
+    }
+
     img {
       width: 24px;
       height: 24px;
