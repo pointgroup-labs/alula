@@ -93,6 +93,11 @@ export function useMultiplyTable() {
             || item.borrowAsset.name.toLowerCase().includes(searchValue)
             || item.borrowAsset.symbol.toLowerCase().includes(searchValue)
         })
+    }).toSorted((a, _b) => {
+      if (a.market === MAIN_MARKET_NAME) {
+        return -1
+      }
+      return 1
     })
   })
 

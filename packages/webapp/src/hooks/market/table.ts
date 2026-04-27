@@ -105,7 +105,7 @@ export function useMarketTable() {
   })
 
   const sortedMarkets = computed(() => marketWithTableItems.value.toSorted((a, _b) => {
-    if (a.marketName === 'main') {
+    if (a.marketName === MAIN_MARKET_NAME) {
       return -1
     }
     return 1

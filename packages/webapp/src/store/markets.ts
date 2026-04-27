@@ -2,6 +2,8 @@ import type { StellarClient } from '@alula/client-sdk'
 import type { MarketData, Pool, PoolData } from '@alula/market-sdk'
 import { defineStore } from 'pinia'
 
+export const MAIN_MARKET_NAME = 'main'
+
 export const useMarketsStore = defineStore('markets', () => {
   const state = reactive<MarketsState>({
     loading: false,

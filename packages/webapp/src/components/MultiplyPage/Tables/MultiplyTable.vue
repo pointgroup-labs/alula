@@ -121,9 +121,6 @@ watch([
           >
             <span :style="{ '--align': field.align }">
               {{ data.label }}
-              <info-tooltip v-if="field.tooltip">
-                {{ field.tooltip }}
-              </info-tooltip>
             </span>
           </template>
 

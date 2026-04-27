@@ -9,6 +9,7 @@ declare global {
   const AlertToast: typeof import('../features/toast/index').AlertToast
   const DefaultToast: typeof import('../features/toast/index').DefaultToast
   const EffectScope: typeof import('vue').EffectScope
+  const MAIN_MARKET_NAME: typeof import('../store/markets').MAIN_MARKET_NAME
   const Network: typeof import('../store/rpc').Network
   const NetworkPassphrase: typeof import('../store/rpc')['NetworkPassphrase']
   const XLM_NATIVE_RESERVE: typeof import('../hooks/swap/use-swap').XLM_NATIVE_RESERVE
@@ -403,6 +404,7 @@ declare module 'vue' {
     readonly AlertToast: UnwrapRef<typeof import('../features/toast/index')['AlertToast']>
     readonly DefaultToast: UnwrapRef<typeof import('../features/toast/index')['DefaultToast']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
+    readonly MAIN_MARKET_NAME: UnwrapRef<typeof import('../store/markets')['MAIN_MARKET_NAME']>
     readonly Network: UnwrapRef<typeof import('../store/rpc')['Network']>
     readonly XLM_NATIVE_RESERVE: UnwrapRef<typeof import('../hooks/swap/use-swap')['XLM_NATIVE_RESERVE']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
