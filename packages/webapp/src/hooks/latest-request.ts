@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 
-export interface LatestRequest<T> {
+export type LatestRequest<T> = {
   loading: Ref<boolean>
   error: Ref<string | undefined>
   // Runs `fn`. If a newer call lands first, the older call's success/error is dropped.
@@ -34,12 +34,12 @@ export function useLatestRequest<T>(): LatestRequest<T> {
         return
       }
       onSuccess(result)
-    } catch (e: any) {
+    } catch (error_: any) {
       if (id !== requestId) {
         return
       }
-      error.value = String(e?.message || e)
-      onError?.(e)
+      error.value = String(error_?.message || error_)
+      onError?.(error_)
     } finally {
       if (id === requestId) {
         loading.value = false

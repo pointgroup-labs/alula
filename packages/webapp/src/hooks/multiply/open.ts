@@ -38,7 +38,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   // for these instead of redoing `vault.value.{deposit,borrow}PoolData.pool.token_decimals`.
   const vaultDecimals = computed(() => {
     if (!vault.value) {
-      return undefined
+      return
     }
     return {
       borrowDecimals: vault.value.borrowPoolData.pool.token_decimals,
@@ -49,7 +49,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   // Oracle-priced view of the pair. Returns undefined until both vault and marketState load.
   const oraclePrices = computed(() => {
     if (!vault.value || !marketState.value) {
-      return undefined
+      return
     }
     const oracleDecimals = Number(marketState.value.oracle_price_decimals || 0)
     return {
@@ -79,7 +79,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const hardMaxMultiplier = computed(() => {
     const openLtvBps = Number(vault.value?.depositPoolData.pool.config.health_config.open_ltv_bps || 0)
     if (openLtvBps <= 0 || openLtvBps >= 10_000) {
-      return undefined
+      return
     }
     return 1 / (1 - openLtvBps / 10_000)
   })
@@ -95,22 +95,6 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
         .mul(new Decimal(percentFromMax.value).div(100))
         .toDecimalPlaces(2, Decimal.ROUND_DOWN),
     )
-  })
-
-  const currentApy = computed(() => {
-    if (!vault.value || selectedMultiplier.value <= 0) {
-      return 0
-    }
-
-    const supplyApy = bpsToNumber(Number(vault.value.depositPoolData.apy.supply_bps || 0))
-    const borrowApy = bpsToNumber(Number(vault.value.borrowPoolData.apy.borrow_bps || 0))
-
-    // Use realized leverage from the preview when available so APY reflects what the user
-    // actually opens — at high slippage in deposit-margin mode, realized leverage drops well
-    // below the slider target (see projectedLeverage docstring) and APY drops with it.
-    const leverage = projectedLeverage.value ?? selectedMultiplier.value
-
-    return (supplyApy * leverage - borrowApy * Math.max(leverage - 1, 0)) * 100
   })
 
   const marginPool = computed(() => isMarginBorrow.value ? vault.value?.borrowPoolData : vault.value?.depositPoolData)
@@ -211,7 +195,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   // maxTolerableSlippagePercent. Returns undefined when preview/market data isn't ready.
   const healthCheckInputs = computed(() => {
     if (!vault.value || !preview.value || !marketState.value || !vaultDecimals.value || !oraclePrices.value) {
-      return undefined
+      return
     }
 
     const { depositDecimals, borrowDecimals } = vaultDecimals.value
@@ -255,7 +239,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   const projectedLeverage = computed<number | undefined>(() => {
     const inputs = healthCheckInputs.value
     if (!inputs) {
-      return undefined
+      return
     }
 
     const collateralUsd = inputs.depositAmount * inputs.depositPrice
@@ -263,10 +247,26 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     const equityUsd = collateralUsd - debtUsd
 
     if (!Number.isFinite(collateralUsd) || !Number.isFinite(equityUsd) || equityUsd <= 0) {
-      return undefined
+      return
     }
 
     return collateralUsd / equityUsd
+  })
+
+  const currentApy = computed(() => {
+    if (!vault.value || selectedMultiplier.value <= 0) {
+      return 0
+    }
+
+    const supplyApy = bpsToNumber(Number(vault.value.depositPoolData.apy.supply_bps || 0))
+    const borrowApy = bpsToNumber(Number(vault.value.borrowPoolData.apy.borrow_bps || 0))
+
+    // Use realized leverage from the preview when available so APY reflects what the user
+    // actually opens — at high slippage in deposit-margin mode, realized leverage drops well
+    // below the slider target (see projectedLeverage docstring) and APY drops with it.
+    const leverage = projectedLeverage.value ?? selectedMultiplier.value
+
+    return (supplyApy * leverage - borrowApy * Math.max(leverage - 1, 0)) * 100
   })
 
   // True depth-driven price impact of the swap leg, sourced directly from the
@@ -294,11 +294,11 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
   // Returns undefined if inputs missing or mode N/A, 0 if even zero slippage wouldn't open.
   const maxTolerableSlippagePercent = computed<number | undefined>(() => {
     if (!isMarginBorrow.value) {
-      return undefined
+      return
     }
     const inputs = healthCheckInputs.value
     if (!inputs) {
-      return undefined
+      return
     }
 
     const debtValueUsd = inputs.borrowAmount * inputs.borrowPrice * inputs.liabilityFactor + inputs.minCollateralRequirementUsd
@@ -308,7 +308,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
     const collateralAtZeroSlippageUsd = inputs.expectedDepositAmount * inputs.depositPrice * inputs.openLtv
 
     if (!Number.isFinite(collateralAtZeroSlippageUsd) || collateralAtZeroSlippageUsd <= 0) {
-      return undefined
+      return
     }
 
     const ratio = debtValueUsd / collateralAtZeroSlippageUsd
@@ -367,7 +367,9 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
         swapProviderAddress: swapProviderAddress.value,
         path: swapPath.value,
       }),
-      (result) => { preview.value = result },
+      (result) => {
+        preview.value = result
+      },
       () => { preview.value = undefined },
     )
   }
