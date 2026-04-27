@@ -157,14 +157,13 @@ onUnmounted(() => {
   .pool-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
     padding: 16px 0;
 
     &__item {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 6px 16px;
+      padding: 10px 16px;
       cursor: pointer;
 
       &:hover {

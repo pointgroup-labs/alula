@@ -11,6 +11,7 @@ declare global {
   const EffectScope: typeof import('vue').EffectScope
   const Network: typeof import('../store/rpc').Network
   const NetworkPassphrase: typeof import('../store/rpc')['NetworkPassphrase']
+  const XLM_NATIVE_RESERVE: typeof import('../hooks/swap/use-swap').XLM_NATIVE_RESERVE
   const asyncComputed: typeof import('@vueuse/core').asyncComputed
   const autoResetRef: typeof import('@vueuse/core').autoResetRef
   const calcUserTotalShares: typeof import('../store/user')['calcUserTotalShares']
@@ -403,6 +404,7 @@ declare module 'vue' {
     readonly DefaultToast: UnwrapRef<typeof import('../features/toast/index')['DefaultToast']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly Network: UnwrapRef<typeof import('../store/rpc')['Network']>
+    readonly XLM_NATIVE_RESERVE: UnwrapRef<typeof import('../hooks/swap/use-swap')['XLM_NATIVE_RESERVE']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
@@ -516,6 +518,7 @@ declare module 'vue' {
     readonly until: UnwrapRef<typeof import('@vueuse/core')['until']>
     readonly useAccordionMarketsHandler: UnwrapRef<typeof import('../hooks/accortion-handler')['useAccordionMarketsHandler']>
     readonly useActiveElement: UnwrapRef<typeof import('@vueuse/core')['useActiveElement']>
+    readonly useAddTrustLine: UnwrapRef<typeof import('../hooks/add-trustline')['useAddTrustLine']>
     readonly useAnimate: UnwrapRef<typeof import('@vueuse/core')['useAnimate']>
     readonly useArrayDifference: UnwrapRef<typeof import('@vueuse/core')['useArrayDifference']>
     readonly useArrayEvery: UnwrapRef<typeof import('@vueuse/core')['useArrayEvery']>

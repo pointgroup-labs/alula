@@ -25,7 +25,7 @@ const DEFAULT_SLIPPAGE_PERCENT = 0.5
 // across the app. A flat 2-XLM cushion is conservative for typical accounts
 // (1 XLM base + headroom for trustlines + tx fees) and avoids a Horizon round
 // trip to compute the precise reserve.
-const XLM_NATIVE_RESERVE = 2
+export const XLM_NATIVE_RESERVE = 2
 // Re-quote cadence while the page is open so prices don't get stale on the
 // user. 15s is a compromise between provider load and freshness; we also pause
 // while the tab is hidden via `useDocumentVisibility`.
@@ -33,6 +33,9 @@ const QUOTE_REFRESH_INTERVAL_MS = 15_000
 // Input-change debounce. Mirrors typical AMM UI snappiness — long enough to
 // coalesce keystrokes, short enough that the quote feels live.
 const QUOTE_DEBOUNCE_MS = 250
+
+const DEFAULT_FROM_TOKEN_SYMBOL = 'XLM'
+const DEFAULT_TO_TOKEN_SYMBOL = 'USDC'
 
 // Dev-only diagnostics. Always-on console output leaks router state into prod
 // users' consoles and is noisy during routine use; gate every log/warn behind
@@ -143,10 +146,10 @@ export function useSwap() {
   // Initialize defaults: first two tokens, distinct.
   watch(tokens, (list) => {
     if (!fromToken.value && list[0]) {
-      fromToken.value = list[0]
+      fromToken.value = list.find(t => t.symbol === DEFAULT_FROM_TOKEN_SYMBOL) ?? list[0]
     }
     if (!toToken.value) {
-      toToken.value = list.find(t => t.tokenAddress !== fromToken.value?.tokenAddress)
+      toToken.value = list.find(t => t.symbol === DEFAULT_TO_TOKEN_SYMBOL) ?? list.find(t => t.tokenAddress !== fromToken.value?.tokenAddress)
     }
   }, { immediate: true })
 
@@ -155,19 +158,17 @@ export function useSwap() {
   // network reserve). For the To-token we want to show the user's actual
   // wallet balance: subtracting the reserve from a token they're about to
   // *receive more of* would understate it.
-  function walletBalance(token: SwapTokenOption | undefined, subtractReserve: boolean): number {
+  function walletBalance(token: SwapTokenOption | undefined): number {
     if (!token) {
       return 0
     }
     if (token.isNative) {
-      return subtractReserve
-        ? Math.max(nativeBalance.value - XLM_NATIVE_RESERVE, 0)
-        : nativeBalance.value
+      return nativeBalance.value
     }
     return getAssetBalance(token.assetIssuer)
   }
-  const fromBalance = computed(() => walletBalance(fromToken.value, true))
-  const toBalance = computed(() => walletBalance(toToken.value, false))
+  const fromBalance = computed(() => walletBalance(fromToken.value))
+  const toBalance = computed(() => walletBalance(toToken.value))
 
   // All quotable routes for the current input, ranked best-first by the SDK.
   const routes = ref<SwapRoute[]>([])

@@ -34,6 +34,11 @@ function tokenPrice(token: SwapTokenOption): string {
   return `$${formatPrice(token.price, 2, token.price < 1 ? 4 : 2)}`
 }
 
+function select(token: SwapTokenOption) {
+  emits('pickToken', token)
+  dialog.value = false
+}
+
 const filteredTokens = computed(() =>
   tokens.filter((t) => {
     const query = search.value.toLowerCase().trim()
@@ -62,7 +67,7 @@ const filteredTokens = computed(() =>
         :key="token.tokenAddress"
         class="swap-token"
         :class="{ 'swap-token--selected': token.tokenAddress === activeToken?.tokenAddress }"
-        @click="emits('pickToken', token)"
+        @click="select(token)"
       >
         <img
           :src="token.icon"
@@ -99,14 +104,13 @@ const filteredTokens = computed(() =>
   .swap-tokens-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
     padding: 16px 0;
   }
   .swap-token {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 6px 16px;
+    padding: 10px 16px;
     cursor: pointer;
 
     &:hover {

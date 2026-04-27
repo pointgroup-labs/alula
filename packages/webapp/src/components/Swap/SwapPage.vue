@@ -225,6 +225,7 @@ const amountRules = [
 
       <input-widget
         v-model="amount"
+        :fee="XLM_NATIVE_RESERVE"
         :balance="fromBalance"
         :limit="fromBalance"
         :price="fromToken?.price ?? 0"
