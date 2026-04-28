@@ -34,7 +34,7 @@ const isActive = computed(() => items.some(
     hover
     no-fade
     close-popup
-    class-name="header-more"
+    class="header-more"
   >
     <template #target="{ active }">
       <button
@@ -87,12 +87,6 @@ const isActive = computed(() => items.some(
 
 <style lang="scss">
 .header-more {
-  // bootstrap-vue-next's `.popover` ships with its own background, border,
-  // and arrow — that's why hovering an item showed *three* stacked colored
-  // surfaces (popover bg, menu bg, item hover). For this menu the popover is
-  // only a positioning shell; the `.header-more__menu` is the only intended
-  // painted surface. Strip all of bootstrap's popover chrome so the menu
-  // looks like one card with one hover highlight.
   .popover {
     background: transparent !important;
     border: none !important;
