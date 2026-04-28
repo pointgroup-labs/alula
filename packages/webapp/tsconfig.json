@@ -8,26 +8,36 @@
       "esnext"
     ],
     "useDefineForClassFields": true,
-    "baseUrl": ".",
     "ignoreDeprecations": "5.0",
     "module": "esnext",
     "moduleResolution": "Bundler",
     "paths": {
+      "@alula/market-sdk": [
+        "../sdk/market/dist/src/index.d.ts"
+      ],
+      "@alula/market-manager-sdk": [
+        "../sdk/market_manager/dist/src/index.d.ts"
+      ],
+      "aqua_swap_provider": [
+        "../sdk/aqua_swap_provider/dist/src/index.d.ts"
+      ],
+      "soroswap_swap_provider": [
+        "../sdk/soroswap_swap_provider/dist/src/index.d.ts"
+      ],
       "~/*": [
-        "src/*"
+        "./src/*"
       ],
       "#/*": [
-        "types/*"
+        "./types/*"
       ],
       "@stellar-client": [
-        "src/client"
+        "./src/client"
       ]
     },
     "resolveJsonModule": true,
     "types": [
       "vue",
       "vite/client",
-      "unplugin-vue-router/client",
       "@nuxtjs/i18n"
     ],
     "allowJs": true,

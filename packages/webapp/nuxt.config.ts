@@ -16,6 +16,11 @@ const isDev
   = process.env.NODE_ENV === 'development'
     || process.env.NUXT_PUBLIC_APP_ENV === 'dev'
 
+const sdkMarketEntry = resolve(__dirname, '../sdk/market/dist/src/index.js')
+const sdkMarketManagerEntry = resolve(__dirname, '../sdk/market_manager/dist/src/index.js')
+const sdkAquaSwapProviderEntry = resolve(__dirname, '../sdk/aqua_swap_provider/dist/src/index.js')
+const sdkSoroswapSwapProviderEntry = resolve(__dirname, '../sdk/soroswap_swap_provider/dist/src/index.js')
+
 export default defineNuxtConfig({
   // @ts-expect-error...
   srcDir: 'src/',
@@ -124,6 +129,10 @@ export default defineNuxtConfig({
     },
     resolve: {
       alias: {
+        '@alula/market-sdk': sdkMarketEntry,
+        '@alula/market-manager-sdk': sdkMarketManagerEntry,
+        'aqua_swap_provider': sdkAquaSwapProviderEntry,
+        'soroswap_swap_provider': sdkSoroswapSwapProviderEntry,
         'buffer': 'buffer',
         'node:buffer': 'buffer',
         '@stellar-client': resolve(__dirname, 'src/client'),
@@ -139,7 +148,7 @@ export default defineNuxtConfig({
     },
     optimizeDeps: {
       include: [
-     'bn.js',
+        'bn.js',
         'buffer',
         'js-cookie',
         'mitt',
