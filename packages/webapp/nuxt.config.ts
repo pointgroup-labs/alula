@@ -139,16 +139,15 @@ export default defineNuxtConfig({
     },
     optimizeDeps: {
       include: [
-        'bn.js',
+     'bn.js',
         'buffer',
         'js-cookie',
         'mitt',
         'axios',
         'chart.js',
-        'chartjs-plugin-annotation',
-        'chartjs-adapter-luxon',
         '@creit.tech/stellar-wallets-kit',
         'fastestsmallesttextencoderdecoder',
+        'bootstrap-vue-next',
       ],
       // exclude: ['bootstrap-vue-next'],
     },
@@ -181,10 +180,10 @@ export default defineNuxtConfig({
   ],
 
   i18n: {
-    strategy: 'no_prefix',
+    restructureDir: false,
     defaultLocale: 'en',
     lazy: true,
-    langDir: '../src/locales',
+    langDir: 'locales',
     locales: [
       { code: 'en', name: 'English', file: 'en.json' },
       { code: 'ua', name: 'Ukraine', file: 'ua.json' },
