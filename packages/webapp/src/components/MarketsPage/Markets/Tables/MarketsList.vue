@@ -107,219 +107,224 @@ watch([
     v-else-if="marketWithTableItems.length > 0"
     class="table-wrapper"
   >
-    <j-accordion
+    <template
       v-for="(market) in filteredMarkets"
       :key="market.marketName"
-      :visible="isOpened(market.marketName)"
-      @toggle="toggleOpen(market.marketName)"
     >
-      <template #title>
-        {{ capitalize(market.marketName) }} Market
-
-        <div class="market-info-wrapper">
-          <market-info-badge>
-            <span data-name="title">Market Size: </span>
-
-            <span>${{ shortenNumber(market.marketSize.supplied) }}</span>
-          </market-info-badge>
-
-          <market-info-badge>
-            <span data-name="title">Borrowed: </span>
-
-            <span>${{ shortenNumber(market.marketSize.borrowed) }}</span>
-          </market-info-badge>
-
-          <market-info-badge v-if="market.assets.length > 0">
-            <span data-name="title">Assets: </span>
-            <span>{{ market.assets.length }}</span>
-          </market-info-badge>
-        </div>
-      </template>
-
-      <BTable
-        v-if="width >= 1024"
-        show-empty
-        borderless
-        :fields="fields"
-        :items="market.tableItems"
-        responsive
-        class="market-table"
-        :tbody-tr-class="rowClass"
-        :class="{ 'table-loading': loading || isObligationsLoading }"
-        @row-clicked="(e) => onRowClicked(market.marketName, e)"
+      <j-accordion
+        v-if="market.tableItems.length > 0"
+        :visible="isOpened(market.marketName)"
+        @toggle="toggleOpen(market.marketName)"
       >
-        <template
-          v-for="field in fields"
-          :key="field.key"
-          #[`head(${field.key})`]="data"
+        <template #title>
+          {{ capitalize(market.marketName) }} Market
+
+          <div class="market-info-wrapper">
+            <market-info-badge>
+              <span data-name="title">Market Size: </span>
+
+              <span>${{ shortenNumber(market.marketSize.supplied) }}</span>
+            </market-info-badge>
+
+            <market-info-badge>
+              <span data-name="title">Borrowed: </span>
+
+              <span>${{ shortenNumber(market.marketSize.borrowed) }}</span>
+            </market-info-badge>
+
+            <market-info-badge v-if="market.assets.length > 0">
+              <span data-name="title">Assets: </span>
+              <span>{{ market.assets.length }}</span>
+            </market-info-badge>
+          </div>
+        </template>
+
+        <BTable
+          v-if="width >= 1024"
+          show-empty
+          borderless
+          :fields="fields"
+          :items="market.tableItems"
+          responsive
+          class="market-table"
+          :tbody-tr-class="rowClass"
+          :class="{ 'table-loading': loading || isObligationsLoading }"
+          @row-clicked="(e) => onRowClicked(market.marketName, e)"
         >
-          <span :style="{ '--align': field.align }">{{ data.label }}</span>
-        </template>
+          <template
+            v-for="field in fields"
+            :key="field.key"
+            #[`head(${field.key})`]="data"
+          >
+            <span :style="{ '--align': field.align }">{{ data.label }}</span>
+          </template>
 
-        <template #cell(asset)="data">
-          <div class="market-table__asset">
-            <img
-              :src="data.item.asset.icon"
-              alt=""
-            >
-            <div
-              class="market-table__asset__info"
-              style="gap: 0;"
-            >
-              <div class="market-table__asset__info__name">
-                {{ data.item.asset.symbol }}
+          <template #cell(asset)="data">
+            <div class="market-table__asset">
+              <img
+                :src="data.item.asset.icon"
+                alt=""
+              >
+              <div
+                class="market-table__asset__info"
+                style="gap: 0;"
+              >
+                <div class="market-table__asset__info__name">
+                  {{ data.item.asset.symbol }}
+                </div>
+                <div class="market-table__asset__info__symbol">
+                  {{ data.item.asset.name }}
+                </div>
+
+                <pool-status :pool="data.item.raw.pool" />
               </div>
-              <div class="market-table__asset__info__symbol">
-                {{ data.item.asset.name }}
+            </div>
+          </template>
+
+          <template #cell(total_supply)="data">
+            <div class="table-cell justify-content-end">
+              <div class="with-price">
+                <strong>{{ shortenNumber(data.item.total_supply) }}</strong>
+                <span>${{ amountToUsdWithShort(data.item.total_supply, data.item.price) }}</span>
               </div>
-
-              <pool-status :pool="data.item.raw.pool" />
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template #cell(total_supply)="data">
-          <div class="table-cell justify-content-end">
-            <div class="with-price">
-              <strong>{{ shortenNumber(data.item.total_supply) }}</strong>
-              <span>${{ amountToUsdWithShort(data.item.total_supply, data.item.price) }}</span>
+          <template #cell(total_borrowed)="data">
+            <div class="table-cell justify-content-end">
+              <div class="with-price">
+                <strong>{{ shortenNumber(data.item.total_borrowed) }}</strong>
+                <span>${{ amountToUsdWithShort(data.item.total_borrowed, data.item.price) }}</span>
+              </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template #cell(total_borrowed)="data">
-          <div class="table-cell justify-content-end">
-            <div class="with-price">
-              <strong>{{ shortenNumber(data.item.total_borrowed) }}</strong>
-              <span>${{ amountToUsdWithShort(data.item.total_borrowed, data.item.price) }}</span>
+          <template #cell(utilization_rate)="data">
+            <div class="table-cell justify-content-end">
+              <j-circular-progress
+                :progress="data.item.utilization_rate_percent ?? 0"
+                :width="18"
+                :stroke-width="30"
+                stroke-bg="#262729"
+                :stroke-color="utilRateColor(data.item.utilization_rate_percent, data.item.utilization_rate_limit * 100)"
+                background="transparent"
+                color="#fff"
+                :with-progress="false"
+              />
+              {{ data.item.utilization_rate }}
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template #cell(utilization_rate)="data">
-          <div class="table-cell justify-content-end">
-            <j-circular-progress
-              :progress="data.item.utilization_rate_percent ?? 0"
-              :width="18"
-              :stroke-width="30"
-              stroke-bg="#262729"
-              :stroke-color="utilRateColor(data.item.utilization_rate_percent, data.item.utilization_rate_limit * 100)"
-              background="transparent"
-              color="#fff"
-              :with-progress="false"
-            />
-            {{ data.item.utilization_rate }}
-          </div>
-        </template>
-
-        <template #cell(deposit_apy)="data">
-          <div
-            class="table-cell justify-content-center flex"
-            style="opacity: .8;"
-          >
-            <j-pill-label
-              variant="cyan"
-              size="sm"
-            >
-              {{ data.item.deposit_apy }}
-            </j-pill-label>
-          </div>
-        </template>
-
-        <template #cell(borrow_apy)="data">
-          <div
-            class="table-cell justify-content-center"
-            style="opacity: .8;"
-          >
-            <j-pill-label
-              variant="indigo"
-              size="sm"
-            >
-              {{ data.item.borrow_apy }}
-            </j-pill-label>
-          </div>
-        </template>
-
-        <template #cell(position)="data">
-          <div class="table-cell justify-content-end with-price">
-            <template v-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
-              <strong :style="{ color: +data.item.position.supplied > 0 ? '#22D3EE' : '#8A8DF4' }">
-                {{ shortenNumber(+data.item.position.supplied || +data.item.position.borrowed) }}</strong>
-              <span>
-                ${{ amountToUsdWithShort(+data.item.position.supplied || +data.item.position.borrowed, data.item.price) }}</span>
-            </template>
+          <template #cell(deposit_apy)="data">
             <div
-              v-else
-              style="opacity: .3;"
+              class="table-cell justify-content-center flex"
+              style="opacity: .8;"
             >
-              -
+              <j-pill-label
+                variant="cyan"
+                size="sm"
+              >
+                {{ data.item.deposit_apy }}
+              </j-pill-label>
             </div>
-          </div>
+          </template>
 
-        </template>
+          <template #cell(borrow_apy)="data">
+            <div
+              class="table-cell justify-content-center"
+              style="opacity: .8;"
+            >
+              <j-pill-label
+                variant="indigo"
+                size="sm"
+              >
+                {{ data.item.borrow_apy }}
+              </j-pill-label>
+            </div>
+          </template>
 
-        <template #cell(action)="data">
-          <div class="table-cell justify-content-end market-table__action">
-            <j-btn
-              v-if="+data.item.position.borrowed === 0"
-              size="sm"
-              variant="outlined-brand"
-              :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
-              :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
-              @click="dialogHandler(market.marketName, data.item, 'supply')"
-            >
-              Supply
-            </j-btn>
-            <j-btn
-              v-else
-              size="sm"
-              variant="outlined-brand-secondary"
-              :disabled="marketActions.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
-              :loading="marketActions.isLoading(data.item.pool_address, 'repay', data.item.market!)"
-              @click="dialogHandler(market.marketName, data.item, 'repay')"
-            >
-              Repay
-            </j-btn>
-            <j-btn
-              v-if="+data.item.position.supplied === 0"
-              size="sm"
-              variant="outlined-brand-secondary"
-              :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
-              :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
-              @click="dialogHandler(market.marketName, data.item, 'borrow')"
-            >
-              Borrow
-            </j-btn>
-            <j-btn
-              v-else
-              size="sm"
-              variant="outlined-brand"
-              :disabled="marketActions.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
-              :loading="marketActions.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
-              @click="dialogHandler(market.marketName, data.item, 'withdraw')"
-            >
-              Withdraw
-            </j-btn>
-          </div>
-        </template>
+          <template #cell(position)="data">
+            <div class="table-cell justify-content-end with-price">
+              <template v-if="+data.item.position.supplied > 0 || +data.item.position.borrowed > 0">
+                <strong :style="{ color: +data.item.position.supplied > 0 ? '#22D3EE' : '#8A8DF4' }">
+                  {{ shortenNumber(+data.item.position.supplied || +data.item.position.borrowed) }}</strong>
+                <span>
+                  ${{ amountToUsdWithShort(+data.item.position.supplied || +data.item.position.borrowed, data.item.price) }}</span>
+              </template>
+              <div
+                v-else
+                style="opacity: .3;"
+              >
+                -
+              </div>
+            </div>
 
-        <template #empty>
-          <div
-            v-show="!loading"
-            class="no-table-data"
-          >
-            No pools
-          </div>
-        </template>
-      </BTable>
+          </template>
 
-      <markets-list-mobile
-        v-else
-        :items="market.tableItems"
-        @dialog-handler="(e: any) => dialogHandler(market.marketName, e.item, e.action)"
-        @on-row-clicked="onRowClicked"
-      />
-    </j-accordion>
+          <template #cell(action)="data">
+            <div class="table-cell justify-content-end market-table__action">
+              <j-btn
+                v-if="+data.item.position.borrowed === 0"
+                size="sm"
+                variant="outlined-brand"
+                :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
+                :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
+                @click="dialogHandler(market.marketName, data.item, 'supply')"
+              >
+                Supply
+              </j-btn>
+              <j-btn
+                v-else
+                size="sm"
+                variant="outlined-brand-secondary"
+                :disabled="marketActions.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
+                :loading="marketActions.isLoading(data.item.pool_address, 'repay', data.item.market!)"
+                @click="dialogHandler(market.marketName, data.item, 'repay')"
+              >
+                Repay
+              </j-btn>
+              <j-btn
+                v-if="+data.item.position.supplied === 0"
+                size="sm"
+                variant="outlined-brand-secondary"
+                :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
+                :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
+                @click="dialogHandler(market.marketName, data.item, 'borrow')"
+              >
+                Borrow
+              </j-btn>
+              <j-btn
+                v-else
+                size="sm"
+                variant="outlined-brand"
+                :disabled="marketActions.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
+                :loading="marketActions.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
+                @click="dialogHandler(market.marketName, data.item, 'withdraw')"
+              >
+                Withdraw
+              </j-btn>
+            </div>
+          </template>
+
+          <template #empty>
+            <div
+              v-show="!loading"
+              class="no-table-data"
+            >
+              No pools
+            </div>
+          </template>
+        </BTable>
+
+        <markets-list-mobile
+          v-else
+          :items="market.tableItems"
+          @dialog-handler="(e: any) => dialogHandler(market.marketName, e.item, e.action)"
+          @on-row-clicked="onRowClicked"
+        />
+      </j-accordion>
+    </template>
+
   </div>
 
   <div
