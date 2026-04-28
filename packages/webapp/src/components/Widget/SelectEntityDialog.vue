@@ -36,10 +36,6 @@ const search = defineModel('search', { default: '' })
 
 <style lang="scss">
 .select-entity-dialog {
-  .modal-content {
-    width: 500px;
-  }
-
   .modal-header {
     padding: 8px 0;
     border-bottom: 1px solid $border-primary;

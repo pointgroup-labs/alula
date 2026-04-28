@@ -45,6 +45,27 @@ const dialog = defineModel({
     height: 6px;
   }
 
+  .modal-dialog {
+    width: 100%;
+    min-width: 500px;
+    max-width: 500px;
+
+    @media (max-width: $breakpoint-xs) {
+      height: 100%;
+      width: 100%;
+      min-width: initial;
+      max-width: initial;
+      margin: 0;
+      align-items: flex-end;
+
+      .modal-content {
+        max-width: 100% !important;
+        max-height: 90%;
+        border-radius: $radius-4xl $radius-4xl 0 0;
+      }
+    }
+  }
+
   .modal-content {
     padding: 0;
     border-radius: $radius-2xl;
@@ -110,24 +131,6 @@ const dialog = defineModel({
   }
   .modal-body {
     padding: 0;
-  }
-  .modal-dialog {
-    width: 100%;
-    max-width: 90vw;
-    width: fit-content;
-
-    @media (max-width: $breakpoint-xs) {
-      height: 100%;
-      width: 100%;
-      margin: 0;
-      align-items: flex-end;
-
-      .modal-content {
-        max-width: 100% !important;
-        max-height: 90%;
-        border-radius: $radius-4xl $radius-4xl 0 0;
-      }
-    }
   }
 
   .modal-slide-up {

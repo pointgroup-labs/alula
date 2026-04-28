@@ -161,15 +161,6 @@ h2 {
 }
 
 .dialog-default {
-  .modal-dialog {
-    min-width: 500px;
-
-    @media (max-width: $breakpoint-xs) {
-      width: 100%;
-      min-width: 100%;
-    }
-  }
-
   &__title {
     display: flex;
     align-items: center;
