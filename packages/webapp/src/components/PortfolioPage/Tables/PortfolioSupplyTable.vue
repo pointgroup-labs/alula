@@ -15,7 +15,7 @@ const market = useMarketActions()
 const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
 const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
 
-const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
+// const isHasObligations = computed(() => Object.keys(userStore.state.obligations).length > 0)
 
 const fields = [
   { key: 'asset', label: 'Asset', align: 'left' },

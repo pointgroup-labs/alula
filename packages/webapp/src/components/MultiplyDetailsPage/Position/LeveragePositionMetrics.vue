@@ -12,11 +12,11 @@ const {
 // "2.66x of 2.28x" when the position is actually still inside the contract limit.
 const hardMaxMultiplier = computed(() => {
   if (!position.value) {
-    return undefined
+    return
   }
   const openLtvRate = position.value.openLtv / 100
   if (!Number.isFinite(openLtvRate) || openLtvRate <= 0 || openLtvRate >= 1) {
-    return undefined
+    return
   }
   return 1 / (1 - openLtvRate)
 })
@@ -131,7 +131,7 @@ const hardMaxMultiplier = computed(() => {
             Borrow rate
           </div>
           <div class="metrics-list__row__value text-indigo">
-              <strong>{{ truncatePercent(position.borrowApy, 2) }}%</strong>
+            <strong>{{ truncatePercent(position.borrowApy, 2) }}%</strong>
           </div>
         </div>
         <div class="metrics-list__row">

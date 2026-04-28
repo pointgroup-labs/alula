@@ -211,7 +211,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
     // (interest accrual between our preview and tx build can shift it). The SDK already
     // defaults to the fresh maxReceivableAmount in that case.
     if (sourcePreview.isFullClose) {
-      return undefined
+      return
     }
     return sourcePreview.marginAsset === 'deposit'
       ? toDepositAmount(sourcePreview.estimatedReceiveAmount)

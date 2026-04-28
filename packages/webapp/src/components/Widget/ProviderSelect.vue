@@ -40,7 +40,7 @@ stop = watch(swapProviderAddress, (address) => {
 <template>
   <div class="provider-select">
     <span class="provider-select-label">
-     Swap Provider
+      Swap Provider
     </span>
 
     <j-select
