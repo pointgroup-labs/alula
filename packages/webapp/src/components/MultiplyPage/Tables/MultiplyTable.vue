@@ -8,6 +8,11 @@ const marketActions = useMarketActions()
 const userStore = useUserStore()
 
 const multiplyStore = useMultiplyStore()
+const multiplyTableStore = useMultiplyTableStore()
+const {
+  openDialog,
+  onRowClicked,
+  isUserHaveMultiply } = multiplyTableStore
 
 const {
   search,
@@ -15,10 +20,7 @@ const {
   filteredVaults,
   selectedVault,
   dialogLeverage,
-  openDialog,
-  onRowClicked,
-  isUserHaveMultiply,
-} = useMultiplyTable()
+} = storeToRefs(multiplyTableStore)
 
 const {
   opened,

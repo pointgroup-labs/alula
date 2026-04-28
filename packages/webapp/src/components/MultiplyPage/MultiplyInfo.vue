@@ -7,10 +7,10 @@ const marketsStore = useMarketsStore()
 
 const loading = computed(() => marketsStore.state.loading)
 
-const multiplyTable = useMultiplyTable()
+const multiplyTable = useMultiplyTableStore()
 
 const marketsInfo = computed(() => {
-  const activeVaults = multiplyTable.filteredVaults.value.flatMap(vault => vault.items)
+  const activeVaults = multiplyTable.filteredVaults.flatMap(vault => vault.items)
   return activeVaults?.reduce((acc, el) => {
     const depositPool = el.depositPoolData
     const assetDecimals = depositPool.pool.token_decimals

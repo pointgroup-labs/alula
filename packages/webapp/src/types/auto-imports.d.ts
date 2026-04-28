@@ -256,6 +256,7 @@ declare global {
   const useMultiplyOpen: typeof import('../hooks/multiply/open').useMultiplyOpen
   const useMultiplyStore: typeof import('../store/multiply').useMultiplyStore
   const useMultiplyTable: typeof import('../hooks/multiply/table').useMultiplyTable
+  const useMultiplyTableStore: typeof import('../store/multiply-table').useMultiplyTableStore
   const useMultiplyWithdraw: typeof import('../hooks/multiply/withdraw').useMultiplyWithdraw
   const useMutationObserver: typeof import('@vueuse/core').useMutationObserver
   const useMyPosition: typeof import('../hooks/my-position').useMyPosition
@@ -629,6 +630,7 @@ declare module 'vue' {
     readonly useMultiplyOpen: UnwrapRef<typeof import('../hooks/multiply/open')['useMultiplyOpen']>
     readonly useMultiplyStore: UnwrapRef<typeof import('../store/multiply')['useMultiplyStore']>
     readonly useMultiplyTable: UnwrapRef<typeof import('../hooks/multiply/table')['useMultiplyTable']>
+    readonly useMultiplyTableStore: UnwrapRef<typeof import('../store/multiply-table')['useMultiplyTableStore']>
     readonly useMultiplyWithdraw: UnwrapRef<typeof import('../hooks/multiply/withdraw')['useMultiplyWithdraw']>
     readonly useMutationObserver: UnwrapRef<typeof import('@vueuse/core')['useMutationObserver']>
     readonly useMyPosition: UnwrapRef<typeof import('../hooks/my-position')['useMyPosition']>
