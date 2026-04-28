@@ -337,7 +337,7 @@ const dashboards: Dashboard[] = [
     <header class="transparency-page__hero">
       <span class="transparency-page__eyebrow">Transparency</span>
       <h1 class="transparency-page__title">
-        Verifiable by design.
+        Verifiable by design
       </h1>
       <p class="transparency-page__lead">
         Every contract, oracle, risk parameter, and audit that governs your
