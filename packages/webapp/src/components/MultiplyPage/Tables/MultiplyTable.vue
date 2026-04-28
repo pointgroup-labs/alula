@@ -207,8 +207,8 @@ watch([
                 v-if="isUserHaveMultiply(data.item)"
                 size="sm"
                 variant="outline-positive"
-                :disabled="marketActions.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market)"
-                :loading="marketActions.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market)"
+                :disabled="marketActions.isDisabled(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
+                :loading="marketActions.isLoading(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market)"
                 @click.stop="onRowClicked(data.item)"
               >
                 Manage
@@ -217,8 +217,8 @@ watch([
                 v-else
                 size="sm"
                 variant="outline-positive"
-                :disabled="marketActions.isDisabled(data.item.pool_address, 'multiplyOpen', data.item.market)"
-                :loading="marketActions.isLoading(data.item.pool_address, 'multiplyOpen', data.item.market)"
+                :disabled="marketActions.isDisabled(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
+                :loading="marketActions.isLoading(data.item.pool_address, `multiplyOpen:${data.item.pairKey}`, data.item.market)"
                 @click.stop="openDialog(data.item)"
               >
                 Multiply

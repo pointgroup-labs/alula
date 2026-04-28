@@ -122,8 +122,8 @@ function handleDetails(vault: MultiplyVaultItem) {
         v-if="isUserHaveMultiply(item)"
         size="sm"
         variant="outline-positive"
-        :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
+        :disabled="market.isDisabled(item.pool_address, `withdrawLeverage:${item.pairKey}`, item.market!)"
+        :loading="market.isLoading(item.pool_address, `withdrawLeverage:${item.pairKey}`, item.market!)"
         @click="emits('dialogHandler', { item, action: 'Manage' })"
       >
         Manage
@@ -132,8 +132,8 @@ function handleDetails(vault: MultiplyVaultItem) {
         v-else
         size="sm"
         variant="outline-positive"
-        :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
-        :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
+        :disabled="market.isDisabled(item.pool_address, `multiplyOpen:${item.pairKey}`, item.market!)"
+        :loading="market.isLoading(item.pool_address, `multiplyOpen:${item.pairKey}`, item.market!)"
         @click="emits('dialogHandler', { item, action: 'supply' })"
       >
         Multiply

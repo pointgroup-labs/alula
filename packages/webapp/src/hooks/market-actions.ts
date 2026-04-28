@@ -474,6 +474,7 @@ export function useMarketActions() {
       margin_asset?: 'borrow' | 'deposit'
       slippage: number
       swap_provider: string
+      actionType: string
       obligation_key?: ObligationKey
       path?: string[]
       action?: () => void | Promise<void>
@@ -517,7 +518,7 @@ export function useMarketActions() {
       client,
       market,
       pool: deposit_pool_address,
-      type: 'multiplyOpen',
+      type: `multiplyOpen:${props.actionType}`,
       title: 'Open Multiply',
       body: `Sending multiply transaction`,
       action: props.action,
@@ -547,6 +548,7 @@ export function useMarketActions() {
       min_receive_amount?: number
       slippage_percent?: number
       swap_provider: string
+      actionType: string
       obligation_key: ObligationKey
       path?: string[]
       action?: () => void | Promise<void>
@@ -590,7 +592,7 @@ export function useMarketActions() {
       client,
       market,
       pool: deposit_pool_address,
-      type: 'withdrawLeverage',
+      type: `withdrawLeverage:${props.actionType}`,
       title: 'Withdraw Multiply',
       body: 'Sending transaction to close multiply position',
       withObligation: true,

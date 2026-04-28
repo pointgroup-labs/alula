@@ -475,10 +475,10 @@ function isUserHaveMultiply(): boolean {
         variant="positive"
         class="market-action-btn"
         size="md"
-        :loading="marketActions.isLoading(vault.pool_address, 'multiplyOpen', vault.market)"
+        :loading="marketActions.isLoading(vault.pool_address, `multiplyOpen:${vault.pairKey}`, vault.market)"
         :pool="vault.depositPoolData.pool"
         :pool-secondary="vault.borrowPoolData.pool"
-        :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, 'multiplyOpen', vault.market) || !amount || amount <= 0 || amount > balance"
+        :disabled="Boolean(unhealthyReason) || marketActions.isDisabled(vault.pool_address, `multiplyOpen:${vault.pairKey}`, vault.market) || !amount || amount <= 0 || amount > balance"
         @click-handler="openMultiply"
       >
         <i-metrics-complete class="complete-icon" />

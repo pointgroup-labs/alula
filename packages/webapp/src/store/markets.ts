@@ -204,7 +204,7 @@ export type PoolWithPrice = {
   market?: string
 } & Pool
 
-export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage' | 'multiplyOpen'
+export type TableActionType = 'deposit' | 'withdraw' | 'borrow' | 'repay' | 'leverage' | 'withdrawLeverage' | 'multiplyOpen' | string
 
 async function loadPoolData(address: string, client: any) {
   try {

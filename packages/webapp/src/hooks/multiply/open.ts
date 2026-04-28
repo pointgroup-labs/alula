@@ -397,6 +397,7 @@ export function useMultiplyOpen(vaultRef: MaybeRef<MultiplyVaultItem | undefined
       slippage: slippage.value,
       swap_provider: swapProviderAddress.value,
       path: swapPath.value,
+      actionType: vault.value.pairKey,
       action: async () => {
         await Promise.allSettled([
           userStore.updateUserMultiplyObligations(vault.value!.market, activeClient.value!, false),

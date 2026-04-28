@@ -228,30 +228,6 @@ h2 {
   }
 }
 
-.pool-dialog {
-  .modal-content {
-    height: fit-content;
-    max-width: 500px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .modal-header {
-    height: 65px;
-  }
-
-  .modal-body {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .dialog-default__body {
-    flex: 1;
-    overflow: auto;
-  }
-}
 
 .table-wrapper {
   height: 100%;

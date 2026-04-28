@@ -13,7 +13,7 @@ provide('selectedPool', poolData)
 <template>
   <j-dialog
     v-model="dialog"
-    class-name="pool-dialog dialog-default"
+    class-name="dialog-default"
   >
     <template #header>
       <div class="dialog-default__title">

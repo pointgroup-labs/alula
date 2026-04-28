@@ -543,6 +543,7 @@ export function useMultiplyWithdraw(isOpen: BooleanRef, dataRef: MultiplyWithdra
         swap_provider: swapProviderAddress.value,
         obligation_key: obligationKey.value,
         path: swapPath.value,
+        actionType: data.value.pairKey,
         action: async () => {
           await Promise.allSettled([
             userStore.updateUserMultiplyObligations(activeMarket.value!.marketState.global_state.name, activeMarket.value!.client!, false),

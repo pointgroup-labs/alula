@@ -12,6 +12,8 @@ const {
 
 const multiplyStore = useMultiplyStore()
 
+const marketActions = useMarketActions()
+
 const isValidate = ref(true)
 
 const swapProviderAddress = toRef(multiplyStore, 'swapProviderAddress')
@@ -350,7 +352,7 @@ const closeDetailsSteps = computed(() => {
     <div class="supply-card__action mt-3">
       <j-btn
         :loading="isLoading"
-        :disabled="previewLoading || !!previewError"
+        :disabled="previewLoading || !!previewError || marketActions.isDisabled(vault?.pool_address ?? '', `withdrawLeverage:${vault?.pairKey}`, vault?.market ?? '')"
         variant="accent"
         size="md"
         class="market-action-btn"

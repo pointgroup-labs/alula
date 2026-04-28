@@ -21,7 +21,7 @@ const vaults = computed(() => multiplyStore.vaults)
 const market = useMarketActions()
 
 const dialogLeverageWithdraw = toRef(marketsStore, 'dialogLeverageWithdraw')
-const selectedVault = ref<MultiplyPortfolioTableItem>()
+const selectedVault = ref()
 
 const markets = computed(() => Object.keys(marketsStore.state.markets) ?? [])
 const isLoading = computed(() => (marketsStore.state.loadingLeveragePools || marketsStore.state.loading) || userStore.loading)
@@ -139,7 +139,7 @@ const filteredData = computed(() => {
 })
 
 async function multiplyDialogHandler(item: MultiplyPortfolioTableItem) {
-  selectedVault.value = item
+  selectedVault.value = item 
   dialogLeverageWithdraw.value = true
 }
 
@@ -277,8 +277,8 @@ function isUserHaveMultiply(poolAddress: string, market: string) {
               v-if="isUserHaveMultiply(data.item.pool_address, String(data.item.market))"
               size="sm"
               variant="outlined-accent"
-              :disabled="market.isDisabled(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
-              :loading="market.isLoading(data.item.pool_address, 'withdrawLeverage', data.item.market!)"
+              :disabled="market.isDisabled(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market!)"
+              :loading="market.isLoading(data.item.pool_address, `withdrawLeverage:${data.item.pairKey}`, data.item.market!)"
               @click="multiplyDialogHandler(data.item)"
             >
               Close
