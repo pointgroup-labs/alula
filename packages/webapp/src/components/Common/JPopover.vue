@@ -85,6 +85,7 @@ onMounted(() => {
     v-model="show"
     :click="!hover"
     :no-fade="noFade"
+    :hover="hover"
     :close-on-hide="true"
     :delay="effectiveDelay"
     :boundary-padding="{ [boundary]: navHeight }"
