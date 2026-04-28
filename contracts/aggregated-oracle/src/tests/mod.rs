@@ -132,6 +132,64 @@ fn test_median_price_with_all_expired_prices() {
 }
 
 #[test]
+fn test_lastprice_timestamp_laundering_can_bypass_strict_downstream_stale_check() {
+    const STRICT_DOWNSTREAM_MAX_AGE_SECS: u64 = 60;
+
+    let TestFixture { e, oracle_clients, contract_client, oracle_config_inputs, .. } =
+        TestFixture::new();
+
+    let xlm_address = Address::generate(&e);
+    let xlm_ticker = Symbol::new(&e, "XLM");
+
+    let xlm_asset_other = Asset::Other(xlm_ticker.clone());
+    let xlm_asset_stellar = Asset::Stellar(xlm_address.clone());
+
+    // Source data remains valid for the aggregated oracle (`max_age`),
+    // but old enough to fail stricter downstream freshness policies.
+    let source_timestamp = e.ledger().timestamp() - AGGREGATED_ORACLE_MAX_AGE;
+
+    for (idx, (oracle_client, oracle_config_input)) in
+        oracle_clients.iter().zip(oracle_config_inputs.iter()).enumerate()
+    {
+        let asset = if oracle_config_input.is_stellar_data_based {
+            xlm_asset_stellar.clone()
+        } else {
+            xlm_asset_other.clone()
+        };
+        let price = 100 * (idx as i128 + 1) * i128::pow(10, ORACLES_DECIMALS);
+
+        oracle_client.set_price(&asset, &price, &source_timestamp);
+    }
+
+    contract_client.add_asset(&xlm_ticker, &xlm_address, &0, &0);
+
+    let lastprice = contract_client.lastprice(&xlm_asset_stellar).unwrap();
+    let now = e.ledger().timestamp();
+
+    // What a downstream consumer sees.
+    let observed_age = now.saturating_sub(lastprice.timestamp);
+    // Real age of the data supplied by underlying source oracles.
+    let source_age = now.saturating_sub(source_timestamp);
+
+    std::println!("--- ORA-01 timestamp laundering demo ---");
+    std::println!("now: {}", now);
+    std::println!("source_timestamp (underlying oracle): {}", source_timestamp);
+    std::println!("reported_timestamp (aggregated lastprice): {}", lastprice.timestamp);
+    std::println!("source_age_secs: {}", source_age);
+    std::println!("observed_age_secs: {}", observed_age);
+    std::println!("strict_downstream_max_age_secs: {}", STRICT_DOWNSTREAM_MAX_AGE_SECS);
+    std::println!(
+        "downstream_accepts={} while_true_source_is_stale={}",
+        observed_age <= STRICT_DOWNSTREAM_MAX_AGE_SECS,
+        source_age > STRICT_DOWNSTREAM_MAX_AGE_SECS
+    );
+
+    // Demonstrates the bypass: downstream check passes while source data is stale for it.
+    assert!(observed_age <= STRICT_DOWNSTREAM_MAX_AGE_SECS);
+    assert!(source_age > STRICT_DOWNSTREAM_MAX_AGE_SECS);
+}
+
+#[test]
 fn test_max_deviation_check() {
     const MAX_DEV_BPS: u32 = 100; // 10%
     const MAX_DEV_CONSECUTIVE_DIFF_SECS: u64 = 10000; // NB: Must exceed the resolution on the oracles to notice the effect

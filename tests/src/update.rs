@@ -997,6 +997,57 @@ fn test_submit_requests_batch_allowed_when_frozen() {
 }
 
 #[test]
+fn test_batch_flash_borrow_bypasses_frozen_market_check() {
+    use market::request::{Request, StandardRequest};
+    use soroban_sdk::{Address, testutils::Address as _, vec as svec};
+
+    let TestMarketFixture { e, contract_client, users, usdc_pool_address, .. } =
+        TestMarketFixture::new();
+    let user = &users[0];
+    let liquidity_provider = &users[2];
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+    contract_client.update_market_status(&(MarketStatus::Frozen as u32));
+    println!(
+        "[F-001] Market set to Frozen. Verifying direct flash_loan path is blocked while batch FlashBorrow path is allowed."
+    );
+
+    let flash_loan_callback = Address::generate(&e);
+    let direct_flash_loan_res = contract_client.try_flash_loan(
+        &flash_loan_callback,
+        user,
+        &usdc_pool_address,
+        &10_000_000,
+    );
+    println!("[F-001] direct try_flash_loan result: {:?}", direct_flash_loan_res);
+    assert_eq!(
+        direct_flash_loan_res,
+        Err(Ok(MCError::MarketIsFrozen))
+    );
+
+    let batch = svec![
+        &e,
+        Request::FlashBorrow(StandardRequest { pool_address: usdc_pool_address.clone(), amount: 1 })
+    ];
+    let batch_flash_borrow_res =
+        contract_client.try_submit_requests_batch(&ObligationKey::new(user.clone()), &batch, &None);
+    println!(
+        "[F-001] batch try_submit_requests_batch(FlashBorrow) result: {:?}",
+        batch_flash_borrow_res
+    );
+    assert!(
+        batch_flash_borrow_res.is_ok(),
+        "Batched FlashBorrow unexpectedly bypasses frozen-market check"
+    );
+
+}
+
+#[test]
 fn test_min_collateral_value_cents_validation_on_market_update() {
     let e = get_default_env();
     let contract_client = setup_market_client(&e, true);

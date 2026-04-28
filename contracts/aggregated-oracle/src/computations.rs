@@ -189,9 +189,16 @@ fn normalize_price(price: i128, oracle_decimals: u32, protocol_decimals: u32) ->
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
+    use std::println;
+
     use soroban_sdk::{Env, Vec, vec as svec};
 
-    use super::tree_sort;
+    use super::{normalize_price, tree_sort};
+
+    fn div_round_up(numerator: i128, denominator: i128) -> i128 {
+        (numerator + denominator - 1) / denominator
+    }
 
     #[test]
     fn test_tree_sort_odd_no_duplicates() {
@@ -257,5 +264,60 @@ mod tests {
         let expected = Vec::new(&e);
 
         assert_eq!(sorted, expected);
+    }
+
+    #[test]
+    fn test_normalize_price_truncates_when_scaling_down() {
+        // 1.000000001 with 9 decimals -> 1.00000000 with 8 decimals (floor by truncation)
+        let raw_price = 1_000_000_001_i128;
+        let normalized = normalize_price(raw_price, 9, 8).unwrap();
+
+        println!(
+            "normalize_price(raw={}, from_decimals=9, to_decimals=8) => {}",
+            raw_price, normalized
+        );
+
+        assert_eq!(normalized, 100_000_000);
+    }
+
+    #[test]
+    fn test_truncated_price_inflates_borrow_headroom() {
+        // This mirrors the market max-borrow shape:
+        // amount = floor((target_value * 10^token_decimals) / effective_price)
+        // A lower (truncated) effective price yields a larger amount.
+        let target_value = 1_000_000_000_i128;
+        let token_decimals_multiplier = 1_i128;
+        let numerator = target_value * token_decimals_multiplier;
+
+        let raw_price = 1_000_000_001_i128; // 1.000000001 @ 9 decimals
+        let price_floor = normalize_price(raw_price, 9, 8).unwrap(); // 100_000_000
+        let price_ceil = div_round_up(raw_price, 10); // 100_000_001
+
+        let borrow_cap_with_truncated_price = numerator / price_floor;
+        let borrow_cap_with_rounded_up_price = numerator / price_ceil;
+
+        println!("raw_price (9dp): {}", raw_price);
+        println!("price_floor (normalized via truncation): {}", price_floor);
+        println!("price_ceil  (reference round-up): {}", price_ceil);
+        println!("target_value numerator: {}", numerator);
+        println!(
+            "borrow_cap(truncated price): {}",
+            borrow_cap_with_truncated_price
+        );
+        println!(
+            "borrow_cap(rounded-up price): {}",
+            borrow_cap_with_rounded_up_price
+        );
+        println!(
+            "extra_headroom_from_truncation: {}",
+            borrow_cap_with_truncated_price - borrow_cap_with_rounded_up_price
+        );
+
+        assert!(
+            borrow_cap_with_truncated_price > borrow_cap_with_rounded_up_price,
+            "downward-rounded oracle price should increase max borrow headroom"
+        );
+        assert_eq!(borrow_cap_with_truncated_price, 10);
+        assert_eq!(borrow_cap_with_rounded_up_price, 9);
     }
 }

@@ -16,7 +16,8 @@ use crate::{
     DEFAULT_COLLATERAL_AMOUNT, DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture, assert_approx_eq_abs,
     get_obligation_collateral, get_obligation_d_tokens_as_tokens,
     get_obligation_j_tokens_as_tokens, get_pool_fee_config, get_pool_operation_fees_sum,
-    get_pool_take_rate_fees_sum, get_pool_total_borrowed, get_pool_utilization_ratio_bps,
+    get_pool_take_rate_fees_sum, get_pool_total_available, get_pool_total_borrowed,
+    get_pool_utilization_ratio_bps,
 };
 
 // -- Default Fees(only for borrow and flash loan(the latter tested in 'flash_loan_taker_mock')) --
@@ -1290,4 +1291,214 @@ fn test_distribute_pool_fees_transfers_tokens_but_keeps_total_available_unchange
 
     // Confirm pool accounting reflects the token outflow
     assert_eq!(total_available_after, total_available_before.checked_sub(fees_before).unwrap());
+}
+
+#[test]
+fn test_distribute_pool_fees_with_no_beneficiaries_wipes_fees_without_payout() {
+    const BORROW_FEE_BPS: u32 = 500; // 5%
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { borrow_fee_bps: BORROW_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+
+    let TestMarketFixture {
+        e,
+        contract_id,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new_with_pool_config(pool_config);
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+
+    // Accrue interest so take-rate fees become non-zero
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 12;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    // Pool starts with default fee beneficiaries == None
+    let fee_config = get_pool_fee_config(&contract_client, &usdc_pool_address);
+    assert_eq!(fee_config.take_rate_beneficiaries, None);
+    assert_eq!(fee_config.operation_fee_beneficiaries, None);
+
+    let take_rate_fees_before = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let operation_fees_before = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    let total_available_before = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let market_balance_before = usdc_token_client.balance(&contract_id);
+
+    println!(
+        "[F-01 repro] BEFORE distribute_pool_fees: take_rate_fees_sum={}, operation_fees_sum={}, total_available={}, market_balance={}",
+        take_rate_fees_before, operation_fees_before, total_available_before, market_balance_before
+    );
+
+    assert!(take_rate_fees_before > 0);
+    assert!(operation_fees_before > 0);
+
+    // Permissionless entrypoint
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let take_rate_fees_after = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    let operation_fees_after = get_pool_operation_fees_sum(&contract_client, &usdc_pool_address);
+    let total_available_after = get_pool_total_available(&contract_client, &usdc_pool_address);
+    let market_balance_after = usdc_token_client.balance(&contract_id);
+
+    println!(
+        "[F-01 repro] AFTER distribute_pool_fees:  take_rate_fees_sum={}, operation_fees_sum={}, total_available={}, market_balance={}",
+        take_rate_fees_after, operation_fees_after, total_available_after, market_balance_after
+    );
+    println!(
+        "[F-01 repro] DELTAS: fees_wiped_take_rate={}, fees_wiped_operation={}, total_available_delta={}, market_balance_delta={}",
+        take_rate_fees_before - take_rate_fees_after,
+        operation_fees_before - operation_fees_after,
+        total_available_before - total_available_after,
+        market_balance_before - market_balance_after
+    );
+
+    // Fee ledgers are wiped
+    assert_eq!(take_rate_fees_after, 0);
+    assert_eq!(operation_fees_after, 0);
+
+    // But no payout happened because beneficiary lists are None
+    assert_eq!(market_balance_after, market_balance_before);
+
+    // Pool liquidity accounting is still reduced by the wiped take-rate fees
+    assert_eq!(
+        total_available_after,
+        total_available_before.checked_sub(take_rate_fees_before).unwrap()
+    );
+}
+
+#[test]
+fn test_set_take_rate_beneficiaries_can_shift_unaccrued_past_fees_to_new_beneficiary() {
+    let TestMarketFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        usdc_token_client,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+    let beneficiary_old = Address::generate(&e);
+    let beneficiary_new = Address::generate(&e);
+
+    contract_client.deposit(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &(2 * DEFAULT_DEPOSIT_AMOUNT),
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+
+    // Phase 0: old beneficiary gets 100%
+    contract_client
+        .set_take_rate_fees_beneficiaries(&usdc_pool_address, &smap![&e, (beneficiary_old.clone(), 10_000)]);
+
+    // Phase 1: accrue and realize some fees under old beneficiary
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 24;
+    });
+    contract_client.refresh_pool(&usdc_pool_address);
+
+    let realized_fees_before_update = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+    assert!(realized_fees_before_update > 0);
+
+    // Phase 2: more time passes, but fees stay latent (not yet accrued into take_rate_fees_sum)
+    e.ledger().with_mut(|li| {
+        li.timestamp += SECONDS_IN_YEAR / 24;
+    });
+    let total_borrowed_before_rotation = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+
+    let old_balance_before_rotation = usdc_token_client.balance(&beneficiary_old);
+    let new_balance_before_rotation = usdc_token_client.balance(&beneficiary_new);
+
+    // This call distributes only already-realized fees (phase 1), then rotates beneficiaries.
+    // It does NOT accrue phase-2 latent fees before distribution.
+    contract_client
+        .set_take_rate_fees_beneficiaries(&usdc_pool_address, &smap![&e, (beneficiary_new.clone(), 10_000)]);
+
+    let old_balance_after_rotation = usdc_token_client.balance(&beneficiary_old);
+    let new_balance_after_rotation = usdc_token_client.balance(&beneficiary_new);
+
+    let old_received_on_rotation =
+        old_balance_after_rotation.checked_sub(old_balance_before_rotation).unwrap();
+    let new_received_on_rotation =
+        new_balance_after_rotation.checked_sub(new_balance_before_rotation).unwrap();
+
+    assert!(old_received_on_rotation > 0);
+    assert_eq!(new_received_on_rotation, 0);
+
+    // Now realize phase-2 latent fees (which were earned before rotation) and distribute them.
+    contract_client.refresh_pool(&usdc_pool_address);
+    let total_borrowed_after_refresh = get_pool_total_borrowed(&contract_client, &usdc_pool_address);
+    let latent_accrued_borrow = total_borrowed_after_refresh
+        .checked_sub(total_borrowed_before_rotation)
+        .unwrap();
+    let take_rate_bps = get_pool_fee_config(&contract_client, &usdc_pool_address).take_rate_bps;
+    let expected_latent_take_rate_fees =
+        latent_accrued_borrow.fixed_mul_ceil(take_rate_bps as i128, BPS_FACTOR).unwrap();
+    let realized_fees_after_refresh = get_pool_take_rate_fees_sum(&contract_client, &usdc_pool_address);
+
+    assert!(expected_latent_take_rate_fees > 0);
+    assert_eq!(realized_fees_after_refresh, expected_latent_take_rate_fees);
+
+    let old_balance_before_final_distribution = usdc_token_client.balance(&beneficiary_old);
+    let new_balance_before_final_distribution = usdc_token_client.balance(&beneficiary_new);
+
+    contract_client.distribute_pool_fees(&usdc_pool_address);
+
+    let old_balance_after_final_distribution = usdc_token_client.balance(&beneficiary_old);
+    let new_balance_after_final_distribution = usdc_token_client.balance(&beneficiary_new);
+
+    let old_received_final =
+        old_balance_after_final_distribution.checked_sub(old_balance_before_final_distribution).unwrap();
+    let new_received_final =
+        new_balance_after_final_distribution.checked_sub(new_balance_before_final_distribution).unwrap();
+
+    println!(
+        "[F-02 repro] realized_before_rotation_paid_to_old={}, latent_fees_earned_pre_rotation_but_paid_to_new={}, old_received_final={}, new_received_final={}",
+        old_received_on_rotation, expected_latent_take_rate_fees, old_received_final, new_received_final
+    );
+
+    // Old beneficiary gets nothing from phase-2 fees.
+    assert_eq!(old_received_final, 0);
+    // New beneficiary receives the phase-2 fees that were earned before beneficiary rotation.
+    assert_approx_eq_abs(new_received_final, expected_latent_take_rate_fees, 1);
 }

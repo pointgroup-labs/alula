@@ -632,3 +632,91 @@ fn test_borrow_w_different_token_decimals() {
     let pool_total_borrowed = get_pool_total_borrowed(&market, &borrowed_pool);
     assert_approx_eq_rel(pool_total_borrowed, expected_max_borrow, 1);
 }
+
+fn run_max_borrow_with_usdc_price(usdc_price: i128) -> i128 {
+    const BTC_PRICE: i128 = 50_00000000000000;
+    const GOLD_PRICE: i128 = 1_00000000000000;
+    const COLLATERAL_TOKENS: i128 = 10_000;
+    const LIQUIDITY_TOKENS: i128 = 5_000_000_000_000;
+
+    let TestMarketFixture {
+        e,
+        contract_client,
+        usdc_pool_address,
+        gold_pool_address,
+        users,
+        oracle_client,
+        ..
+    } = TestMarketFixture::new();
+    let borrower = &users[0];
+    let liquidity_provider = &users[1];
+
+    oracle_client.set_price_stable(&soroban_sdk::vec![&e, BTC_PRICE, GOLD_PRICE, usdc_price]);
+
+    let usdc_pool = contract_client.get_pool(&usdc_pool_address);
+    let gold_pool = contract_client.get_pool(&gold_pool_address);
+
+    let liquidity_amount = LIQUIDITY_TOKENS * 10_i128.pow(usdc_pool.token_decimals);
+    let collateral_amount = COLLATERAL_TOKENS * 10_i128.pow(gold_pool.token_decimals);
+
+    contract_client.deposit(
+        &ObligationKey::new(liquidity_provider.clone()),
+        &usdc_pool_address,
+        &liquidity_amount,
+        &None,
+    );
+    contract_client.add_collateral(
+        &ObligationKey::new(borrower.clone()),
+        &gold_pool_address,
+        &collateral_amount,
+        &None,
+    );
+    contract_client.borrow(
+        &ObligationKey::new(borrower.clone()),
+        &usdc_pool_address,
+        &i128::MAX,
+        &None,
+    );
+
+    get_obligation_d_tokens_as_tokens(&e, &contract_client, borrower, &usdc_pool_address).unwrap()
+}
+
+#[test]
+fn test_truncated_oracle_price_increases_market_max_borrow_capacity() {
+    // Emulates adapter output:
+    // - `PRICE_TRUNCATED`: floor(raw / 10)
+    // - `PRICE_ROUNDED_UP`: ceil(raw / 10)
+    const PRICE_TRUNCATED: i128 = 100_000_000;
+    const PRICE_ROUNDED_UP: i128 = 100_000_001;
+
+    let borrowed_with_truncated_price = run_max_borrow_with_usdc_price(PRICE_TRUNCATED);
+    let borrowed_with_rounded_up_price = run_max_borrow_with_usdc_price(PRICE_ROUNDED_UP);
+
+    let extra_borrow_capacity = borrowed_with_truncated_price - borrowed_with_rounded_up_price;
+    let usdc_decimals = 10_i128.pow(7);
+    let extra_whole_tokens = extra_borrow_capacity / usdc_decimals;
+    let extra_fractional_tokens = extra_borrow_capacity % usdc_decimals;
+    let impact_ppb = extra_borrow_capacity
+        .checked_mul(1_000_000_000)
+        .unwrap()
+        .checked_div(borrowed_with_rounded_up_price)
+        .unwrap();
+
+    println!("borrowed_with_truncated_price: {}", borrowed_with_truncated_price);
+    println!("borrowed_with_rounded_up_price: {}", borrowed_with_rounded_up_price);
+    println!("extra_borrow_capacity: {}", extra_borrow_capacity);
+    println!(
+        "extra_borrow_capacity_tokens: {}.{:07}",
+        extra_whole_tokens, extra_fractional_tokens
+    );
+    println!("relative_impact_ppb: {}", impact_ppb);
+
+    assert!(
+        borrowed_with_truncated_price > borrowed_with_rounded_up_price,
+        "lower oracle price should increase max borrow capacity"
+    );
+    assert!(
+        extra_borrow_capacity >= usdc_decimals,
+        "expected at least 1 full token of extra borrow capacity"
+    );
+}

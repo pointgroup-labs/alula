@@ -5,6 +5,7 @@ use market::{
     error::MCError,
     obligation::ObligationKey,
 };
+use insurance_fund_interface::CoverageStatus;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{map as smap, testutils::Ledger};
 
@@ -528,6 +529,97 @@ fn test_bad_debt_lock_expires_after_deadline() {
             )
             .is_ok()
     );
+}
+
+#[test]
+fn test_withdraw_unblocked_at_deadline_while_request_still_pending() {
+    let (fixture, _borrower, liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let TestMarketFixture {
+        ref e,
+        ref contract_client,
+        ref insurance_fund_client,
+        ref usdc_token_client,
+        ref contract_id,
+        ref usdc_pool_address,
+        ..
+    } = fixture;
+
+    let mut ts_before = 0u64;
+    e.ledger().with_mut(|li| ts_before = li.timestamp);
+    let pool_before = contract_client.get_pool(usdc_pool_address);
+    let status_before = insurance_fund_client.get_status(&0);
+    let status_before_label = match &status_before {
+        Some(CoverageStatus::Pending) => "Pending",
+        Some(CoverageStatus::Ready(_)) => "Ready",
+        None => "None",
+    };
+
+    println!(
+        "[poc-before] ts={} lock_deadline={} request_count={} request_status={}",
+        ts_before,
+        pool_before.bad_debt_lock_d,
+        pool_before.bad_debt_request_count,
+        status_before_label
+    );
+    let user_balance_before = usdc_token_client.balance(&liquidity_provider);
+    let market_balance_before = usdc_token_client.balance(contract_id);
+    println!(
+        "[poc-before-balances] user_usdc={} market_usdc={}",
+        user_balance_before, market_balance_before
+    );
+
+    assert!(pool_before.bad_debt_lock_d > 0);
+    assert_eq!(pool_before.bad_debt_request_count, 1);
+    assert!(matches!(status_before, Some(CoverageStatus::Pending)));
+
+    // Lock expires exactly at deadline even though request is unresolved.
+    e.ledger().with_mut(|li| li.timestamp = pool_before.bad_debt_lock_d);
+    let requested_withdraw = i128::MAX;
+    let withdraw_result = contract_client.try_withdraw(
+        &ObligationKey::new(liquidity_provider.clone()),
+        usdc_pool_address,
+        &requested_withdraw,
+        &None,
+    );
+    println!(
+        "[poc-action] moved_to_deadline_ts={} requested_withdraw={} withdraw_result_is_ok={}",
+        pool_before.bad_debt_lock_d,
+        requested_withdraw,
+        withdraw_result.is_ok()
+    );
+    assert!(withdraw_result.is_ok());
+
+    let mut ts_after = 0u64;
+    e.ledger().with_mut(|li| ts_after = li.timestamp);
+    let pool_after = contract_client.get_pool(usdc_pool_address);
+    let status_after = insurance_fund_client.get_status(&0);
+    let status_after_label = match &status_after {
+        Some(CoverageStatus::Pending) => "Pending",
+        Some(CoverageStatus::Ready(_)) => "Ready",
+        None => "None",
+    };
+
+    println!(
+        "[poc-after] ts={} lock_deadline={} request_count={} request_status={}",
+        ts_after,
+        pool_after.bad_debt_lock_d,
+        pool_after.bad_debt_request_count,
+        status_after_label
+    );
+    let user_balance_after = usdc_token_client.balance(&liquidity_provider);
+    let market_balance_after = usdc_token_client.balance(contract_id);
+    println!(
+        "[poc-after-balances] user_usdc={} market_usdc={} user_delta={} market_delta={}",
+        user_balance_after,
+        market_balance_after,
+        user_balance_after - user_balance_before,
+        market_balance_after - market_balance_before
+    );
+
+    assert_eq!(pool_after.bad_debt_request_count, 1);
+    assert!(matches!(status_after, Some(CoverageStatus::Pending)));
+    assert!(user_balance_after > user_balance_before);
+    assert!(user_balance_after - user_balance_before > 1);
 }
 
 #[test]
