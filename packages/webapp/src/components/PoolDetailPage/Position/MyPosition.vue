@@ -133,7 +133,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
             <j-btn
               v-if="hasSupply"
               size="sm"
-              variant="brand-outlined"
+              variant="outlined-brand"
               :disabled="marketActions.isDisabled(selectedPool.pool_address, 'deposit', selectedPool.market!)"
               :loading="marketActions.isLoading(selectedPool.pool_address, 'deposit', selectedPool.market!)"
               @click="openAction('supply')"
@@ -143,7 +143,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
             <j-btn
               v-else
               size="sm"
-              variant="brand-secondary-outlined"
+              variant="outlined-brand-secondary"
               :disabled="marketActions.isDisabled(selectedPool.pool_address, 'repay', selectedPool.market!)"
               :loading="marketActions.isLoading(selectedPool.pool_address, 'repay', selectedPool.market!)"
               @click="openAction('repay')"
@@ -153,7 +153,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
             <j-btn
               v-if="hasBorrow"
               size="sm"
-              variant="brand-secondary-outlined"
+              variant="outlined-brand-secondary"
               :disabled="marketActions.isDisabled(selectedPool.pool_address, 'borrow', selectedPool.market!)"
               :loading="marketActions.isLoading(selectedPool.pool_address, 'borrow', selectedPool.market!)"
               @click="openAction('borrow')"
@@ -163,7 +163,7 @@ function openAction(action: 'supply' | 'withdraw' | 'borrow' | 'repay') {
             <j-btn
               v-else
               size="sm"
-              variant="brand-outlined"
+              variant="outlined-brand"
               :disabled="marketActions.isDisabled(selectedPool.pool_address, 'withdraw', selectedPool.market!)"
               :loading="marketActions.isLoading(selectedPool.pool_address, 'withdraw', selectedPool.market!)"
               @click="openAction('withdraw')"

@@ -62,7 +62,7 @@ function copy() {
         :loading="loading"
         size="sm"
         class="connect-wallet"
-        variant="brand-outlined"
+        variant="outlined-brand"
       >
         <address-icon :address="publicKey" /> {{ shortenAddress(publicKey) }}
       </j-btn>

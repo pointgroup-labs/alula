@@ -28,7 +28,7 @@ $btn-variants: (
     focusOutline: 1px solid $brand-100,
   ),
 
-  brand-outlined: (
+  outlined-brand: (
     bg: $brand-700,
     color: $navi-25,
     outline: 1px solid $brand-500,
@@ -48,7 +48,7 @@ $btn-variants: (
     focusOutline: 1px solid $indigo-100,
   ),
 
-  brand-secondary-outlined: (
+  outlined-brand-secondary: (
     bg: $indigo-700,
     color: $navi-25,
     outline: 1px solid $indigo-500,
@@ -58,7 +58,7 @@ $btn-variants: (
     focusOutline: 1px solid $indigo-300,
   ),
 
-  accent-outlined: (
+  outlined-accent: (
     bg: rgba(245, 159, 11, 0.15),
     color: $navi-25,
     outline: 1px solid rgba(245, 159, 11, 0.3),
@@ -68,7 +68,7 @@ $btn-variants: (
     focusOutline: 1px solid rgba(245, 159, 11, 0.6),
   ),
 
-  positive-outlined: (
+  outline-positive: (
     bg: rgba(4, 62, 31, 0.3),
     color: $navi-25,
     outline: 1px solid rgba(29, 201, 120, 0.15),
@@ -78,7 +78,7 @@ $btn-variants: (
     focusOutline: 1px solid rgba(29, 201, 120, 0.4),
   ),
 
-  negative-outlined: (
+  outlined-negative: (
     bg: rgba(251, 71, 71, 0.1),
     color: $navi-25,
     outline: 1px solid rgba(251, 71, 71, 0.3),

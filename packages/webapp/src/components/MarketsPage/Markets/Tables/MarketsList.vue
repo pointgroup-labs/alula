@@ -263,7 +263,7 @@ watch([
             <j-btn
               v-if="+data.item.position.borrowed === 0"
               size="sm"
-              variant="brand-outlined"
+              variant="outlined-brand"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'deposit', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'deposit', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'supply')"
@@ -273,7 +273,7 @@ watch([
             <j-btn
               v-else
               size="sm"
-              variant="brand-secondary-outlined"
+              variant="outlined-brand-secondary"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'repay', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'repay')"
@@ -283,7 +283,7 @@ watch([
             <j-btn
               v-if="+data.item.position.supplied === 0"
               size="sm"
-              variant="brand-secondary-outlined"
+              variant="outlined-brand-secondary"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'borrow', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'borrow', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'borrow')"
@@ -293,7 +293,7 @@ watch([
             <j-btn
               v-else
               size="sm"
-              variant="brand-outlined"
+              variant="outlined-brand"
               :disabled="marketActions.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
               :loading="marketActions.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"
               @click="dialogHandler(market.marketName, data.item, 'withdraw')"

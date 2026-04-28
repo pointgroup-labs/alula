@@ -48,7 +48,7 @@ function toggle(symbol: string) {
     <template #target="{ active }">
       <j-btn
         ref="el"
-        :variant="filterStore.isActiveCollateralFilter(scope) ? 'brand-outlined' : 'ghost'"
+        :variant="filterStore.isActiveCollateralFilter(scope) ? 'outlined-brand' : 'ghost'"
         size="md"
         class="market-filter-btn"
       >

@@ -121,7 +121,7 @@ function handleDetails(vault: MultiplyVaultItem) {
       <j-btn
         v-if="isUserHaveMultiply(item)"
         size="sm"
-        variant="positive-outlined"
+        variant="outline-positive"
         :disabled="market.isDisabled(item.pool_address, 'withdrawLeverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'withdrawLeverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'Manage' })"
@@ -131,7 +131,7 @@ function handleDetails(vault: MultiplyVaultItem) {
       <j-btn
         v-else
         size="sm"
-        variant="positive-outlined"
+        variant="outline-positive"
         :disabled="market.isDisabled(item.pool_address, 'leverage', item.market!)"
         :loading="market.isLoading(item.pool_address, 'leverage', item.market!)"
         @click="emits('dialogHandler', { item, action: 'supply' })"

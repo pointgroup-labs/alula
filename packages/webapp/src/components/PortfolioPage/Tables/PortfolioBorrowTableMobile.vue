@@ -66,7 +66,7 @@ const market = useMarketActions()
 
     <div class="mobile-card-footer">
       <j-btn
-        variant="brand-secondary-outlined"
+        variant="outlined-brand-secondary"
         size="sm"
         class="repay-btn"
         :disabled="market.isDisabled(item.pool_address, 'withdraw', item.market!)"

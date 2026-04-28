@@ -74,7 +74,7 @@ const {
         >
           <j-btn
             size="sm"
-            variant="positive-outlined"
+            variant="outline-positive"
             :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
             :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
             @click="openMultiply"
@@ -83,7 +83,7 @@ const {
           </j-btn>
           <j-btn
             size="sm"
-            variant="negative-outlined"
+            variant="outlined-negative"
             :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
             :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'withdrawLeverage', selectedVault.market)"
             @click="closeMultiply"
@@ -118,7 +118,7 @@ const {
             </div>
             <j-btn
               size="sm"
-              variant="positive-outlined"
+              variant="outline-positive"
               :disabled="!selectedVault || marketActions.isDisabled(selectedVault.pool_address, 'leverage', selectedVault.market)"
               :loading="!!selectedVault && marketActions.isLoading(selectedVault.pool_address, 'leverage', selectedVault.market)"
               @click="openMultiply"

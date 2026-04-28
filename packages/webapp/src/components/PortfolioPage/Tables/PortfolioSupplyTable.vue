@@ -220,7 +220,7 @@ function calcStakePercent(stake: number, total: number) {
           <template #cell(action)="data">
             <div class="table-cell justify-content-end">
               <j-btn
-                variant="brand-outlined"
+                variant="outlined-brand"
                 size="sm"
                 :disabled="market.isDisabled(data.item.pool_address, 'withdraw', data.item.market!)"
                 :loading="market.isLoading(data.item.pool_address, 'withdraw', data.item.market!)"

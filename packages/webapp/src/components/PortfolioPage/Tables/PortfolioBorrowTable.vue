@@ -199,7 +199,7 @@ function withdrawDialogHandler(item: BorrowCardTableItem) {
           <template #cell(action)="data">
             <div class="table-cell justify-content-end">
               <j-btn
-                variant="brand-secondary-outlined"
+                variant="outlined-brand-secondary"
                 size="sm"
                 class="repay-btn"
                 :disabled="market.isDisabled(data.item.pool_address, 'repay', data.item.market!)"
