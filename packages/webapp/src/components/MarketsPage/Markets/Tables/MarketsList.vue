@@ -14,6 +14,7 @@ const isMarkets = defineModel('isMarkets', { default: true })
 
 const router = useRouter()
 
+const marketTableStore = useMarketTableStore()
 const {
   loading,
   search,
@@ -26,7 +27,7 @@ const {
   selectedMarketName,
   selectedPool,
   selectedPoolAddress,
-} = useMarketTable()
+} = storeToRefs(marketTableStore)
 
 const {
   opened,

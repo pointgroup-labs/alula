@@ -1,7 +1,7 @@
 import type { MarketTableItem, TableAsset } from '~/types/table'
 import { bpsToNumber, calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 
-export function useMarketTable() {
+export const useMarketTableStore = defineStore('market-table', () => {
   const marketsStore = useMarketsStore()
   const userStore = useUserStore()
   const filterStore = useMarketFilterStore()
@@ -176,7 +176,7 @@ export function useMarketTable() {
     selectedPool,
     selectedPoolAddress,
   }
-}
+})
 
 export type MarketWithTableItems = {
   marketName: string

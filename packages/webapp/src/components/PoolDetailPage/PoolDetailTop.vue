@@ -13,9 +13,9 @@ const poolAddress = route.params?.pool as string
 const selectedMarketName = ref()
 const selectedPoolAddress = ref()
 
-const {
-  marketWithTableItems,
-} = useMarketTable()
+const marketTableStore = useMarketTableStore()
+
+const marketWithTableItems = computed(() => marketTableStore.marketWithTableItems)
 
 const selectedMarket = computed(() => marketWithTableItems.value.find(m => m.marketName === selectedMarketName.value))
 const selectedPool = computed(() => selectedMarket.value?.tableItems.find(p => p.pool_address === selectedPoolAddress.value))

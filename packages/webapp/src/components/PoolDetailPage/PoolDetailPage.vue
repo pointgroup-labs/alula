@@ -9,11 +9,10 @@ const marketsStore = useMarketsStore()
 const loading = computed(() => marketsStore.state.loading)
 const isMarketsLoaded = computed(() => Object.keys(marketsStore.state.markets).length > 0)
 
-const {
-  selectedMarketName,
-  selectedPoolAddress,
-  selectedPool,
-} = useMarketTable()
+const marketTableStore = useMarketTableStore()
+const selectedPool = computed(() => marketTableStore.selectedPool)
+const selectedPoolAddress = toRef(marketTableStore, 'selectedPoolAddress')
+const selectedMarketName = toRef(marketTableStore, 'selectedMarketName')
 
 provide('selectedPool', selectedPool)
 

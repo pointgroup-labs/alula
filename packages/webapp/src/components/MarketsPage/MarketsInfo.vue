@@ -3,13 +3,13 @@ import { formatPrice } from '~/utils'
 
 const GUIDE_LINK = 'https://docs.alula.finance/guides/'
 
-const marketTable = useMarketTable()
+const marketTable = useMarketTableStore()
 const marketsStore = useMarketsStore()
 
 const loading = computed(() => marketsStore.state.loading)
 
 const marketsInfo = computed(() => {
-  const activeMarkets = marketTable.filteredMarkets.value
+  const activeMarkets = marketTable.filteredMarkets
   return Object.values(activeMarkets)?.reduce((acc, el) => {
     for (const data of el.tableItems) {
       acc.total_collateral += data.total_supply * data.price

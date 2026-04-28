@@ -240,6 +240,7 @@ declare global {
   const useMarketFilter: typeof import('../store/filter').useMarketFilter
   const useMarketFilterStore: typeof import('../store/filter').useMarketFilterStore
   const useMarketTable: typeof import('../hooks/market/table').useMarketTable
+  const useMarketTableStore: typeof import('../store/market-table').useMarketTableStore
   const useMarketsStore: typeof import('../store/markets').useMarketsStore
   const useMediaControls: typeof import('@vueuse/core').useMediaControls
   const useMediaQuery: typeof import('@vueuse/core').useMediaQuery
@@ -373,14 +374,14 @@ declare global {
   export type { LatestRequest } from '../hooks/latest-request'
   import('../hooks/latest-request')
   // @ts-ignore
-  export type { MarketWithTableItems } from '../hooks/market/table'
-  import('../hooks/market/table')
-  // @ts-ignore
   export type { SwapTokenOption } from '../hooks/swap/use-swap'
   import('../hooks/swap/use-swap')
   // @ts-ignore
   export type { FilterScope } from '../store/filter'
   import('../store/filter')
+  // @ts-ignore
+  export type { MarketWithTableItems } from '../store/market-table'
+  import('../store/market-table')
   // @ts-ignore
   export type { MarketsState, MarketFullData, PoolWithPrice, TableActionType } from '../store/markets'
   import('../store/markets')
@@ -614,7 +615,7 @@ declare module 'vue' {
     readonly useMarket: UnwrapRef<typeof import('../hooks/market')['useMarket']>
     readonly useMarketActions: UnwrapRef<typeof import('../hooks/market-actions')['useMarketActions']>
     readonly useMarketFilterStore: UnwrapRef<typeof import('../store/filter')['useMarketFilterStore']>
-    readonly useMarketTable: UnwrapRef<typeof import('../hooks/market/table')['useMarketTable']>
+    readonly useMarketTableStore: UnwrapRef<typeof import('../store/market-table')['useMarketTableStore']>
     readonly useMarketsStore: UnwrapRef<typeof import('../store/markets')['useMarketsStore']>
     readonly useMediaControls: UnwrapRef<typeof import('@vueuse/core')['useMediaControls']>
     readonly useMediaQuery: UnwrapRef<typeof import('@vueuse/core')['useMediaQuery']>
