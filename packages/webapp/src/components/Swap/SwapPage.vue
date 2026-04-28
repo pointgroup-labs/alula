@@ -48,10 +48,10 @@ function flipHandler() {
 // the same token on both sides — the SDK would error out anyway with "Pick two
 // different tokens", but it's cheaper to hide the impossible choice up front.
 const fromTokenOptions = computed(() =>
-  tokens.value.filter(t => t.tokenAddress !== toToken.value?.tokenAddress),
+  tokens.value.filter(t => t.tokenAddress !== toToken.value?.tokenAddress && isValidPair(t.symbol, toToken.value?.symbol ?? '')),
 )
 const toTokenOptions = computed(() =>
-  tokens.value.filter(t => t.tokenAddress !== fromToken.value?.tokenAddress),
+  tokens.value.filter(t => t.tokenAddress !== fromToken.value?.tokenAddress && isValidPair(t.symbol, fromToken.value?.symbol ?? '')),
 )
 
 const isFromTokenDialogOpen = ref(false)

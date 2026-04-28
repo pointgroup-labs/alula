@@ -73,7 +73,7 @@ export function useMultiplyTable() {
     return vaultsByMarket.value
       .map((vault) => {
         const items = vault.items
-          .filter(item => isValidItem(item))
+          .filter(item => isValidPairItem(item))
           .filter(item => matchesFilters(item))
           .filter(item => matchesSearch(item, searchValue))
 

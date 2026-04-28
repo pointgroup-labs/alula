@@ -1,7 +1,7 @@
 import type { MarketTableItem, MultiplyVaultItem } from '~/types/table'
 
-export function isValidItem(item: MultiplyVaultItem) {
-  return isValidPair(item.asset.symbol, item.borrowAsset.symbol)
+export function isValidPairItem(item: Partial<MultiplyVaultItem>) {
+  return isValidPair(item.asset?.symbol ?? '', item.borrowAsset?.symbol ?? '')
 }
 
 export function matchesSearch(item: MultiplyVaultItem | MarketTableItem, search: string) {
