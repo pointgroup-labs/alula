@@ -443,6 +443,7 @@ const closeDetailsSteps = computed(() => {
       position: relative;
       width: 24px;
       height: 24px;
+      border-radius: 50%;
 
       img {
         position: absolute;
