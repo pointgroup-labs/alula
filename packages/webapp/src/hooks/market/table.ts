@@ -115,37 +115,34 @@ export function useMarketTable() {
     const collateral = collateralFilter.value
     const debt = debtFilter.value
 
-    const selected = new Set<string>()
+    const selectedCollateral = new Set(
+      Object.keys(collateral).filter(key => collateral[key]),
+    )
 
-    for (const key in collateral) {
-      if (collateral[key]) {
-        selected.add(key)
-      }
+    const selectedDebt = new Set(
+      Object.keys(debt).filter(key => debt[key]),
+    )
+
+    const hasFilter = selectedCollateral.size > 0 || selectedDebt.size > 0
+
+    const searchValue = (typeof search.value === 'string'
+      ? search.value
+      : ''
+    ).toLowerCase()
+
+    const matchesFilters = (item: MarketTableItem) => {
+      if (!hasFilter) { return true }
+      return (
+        selectedCollateral.has(item.asset.symbol)
+        || selectedDebt.has(item.asset.symbol)
+      )
     }
-
-    for (const key in debt) {
-      if (debt[key]) {
-        selected.add(key)
-      }
-    }
-
-    const hasFilter = selected.size > 0
-
-    const searchValue
-      = (typeof search.value === 'string' ? search.value : '').toLowerCase()
 
     return sortedMarkets.value
       .map((market) => {
-        const tableItems = hasFilter || searchValue
-          ? market.tableItems.filter((item) => {
-              if (searchValue) {
-                return item.asset.symbol.toLowerCase().includes(searchValue)
-                  || item.asset.name.toLowerCase().includes(searchValue)
-                  || item.market?.toLowerCase().includes(searchValue)
-              }
-              return selected.has(item.asset.symbol)
-            })
-          : market.tableItems
+        const tableItems = market.tableItems
+          .filter(item => matchesFilters(item))
+          .filter(item => matchesSearch(item, searchValue))
 
         return {
           ...market,

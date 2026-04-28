@@ -31,3 +31,8 @@ export const SWAP_PROVIDERS = {
   aquarius: AQUA_PROVIDER_ADDRESS,
   soroswap: SOROSWAP_PROVIDER_ADDRESS,
 }
+
+export const VALID_PAIRS = new Set([
+  'USDC-XLM',
+  'AQUA-USDC',
+])
