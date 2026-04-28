@@ -6,6 +6,7 @@ declare module 'bootstrap-vue-next' {
   export interface BaseColorVariant {
     'dark': unknown
     'outline-purple': unknown
+
     'gray': unknown
     'accent': unknown
     'ghost': unknown
@@ -16,15 +17,20 @@ declare module 'bootstrap-vue-next' {
     'positive': unknown
     'negative': unknown
     'brand-secondary': unknown
+
     'outlined-brand': unknown
     'outlined-brand-secondary': unknown
     'outlined-accent': unknown
     'outlined-positive': unknown
     'outlined-negative': unknown
-  }
-}
 
-declare module 'bootstrap-vue-next' {
+    'brand-outlined': unknown
+    'brand-secondary-outlined': unknown
+    'accent-outlined': unknown
+    'positive-outlined': unknown
+    'negative-outlined': unknown
+  }
+
   // eslint-disable-next-line ts/consistent-type-definitions
   export interface BaseSize {
     xs: unknown
