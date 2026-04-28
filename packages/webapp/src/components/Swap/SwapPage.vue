@@ -370,6 +370,13 @@ const amountRules = [
         {{ buttonLabel }}
       </market-action-btn>
     </div>
+
+    <div
+      v-if="selectedRoute?.providerName"
+      class="swap-powered"
+    >
+      <span>Swap is powered by</span> {{ selectedRoute?.providerName }}
+    </div>
   </main>
 
   <swap-select-asset-dialog
@@ -391,6 +398,15 @@ const amountRules = [
 .swap-page {
   align-items: center;
   padding: 32px 16px 64px;
+
+  .swap-powered {
+    font-size: 14px;
+    color: $text-secondary;
+
+    span {
+      color: $text-tertiary;
+    }
+  }
 }
 
 .swap-card {
