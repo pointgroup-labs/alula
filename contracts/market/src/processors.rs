@@ -617,6 +617,7 @@ pub fn process_simulate_withdraw(
 
 pub fn process_flash_loan(
     e: &Env,
+    initiator: &Address,
     contract: &Address,
     pool_address: &Address,
     amount: i128,
@@ -627,20 +628,15 @@ pub fn process_flash_loan(
     pool.require_flash_loan_enabled()?;
     pool.require_total_available(amount)?;
 
+    let flash_loan_fee_bps = pool.config.fee_config.flash_loan_fee_bps as i128;
+    let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
+
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), contract, &amount);
 
-    let flash_loan_fee_bps = pool.config.fee_config.flash_loan_fee_bps as i128;
-
     let flash_loan_taker_client = FlashLoanClient::new(e, contract);
-    flash_loan_taker_client.exec_op(
-        &e.current_contract_address(),
-        &pool.token_address,
-        &amount,
-        &flash_loan_fee_bps,
-    );
+    flash_loan_taker_client.exec_op(initiator, &pool.token_address, &amount, &fees);
 
-    let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
     token_client.transfer_from(
@@ -653,7 +649,7 @@ pub fn process_flash_loan(
     pool.adjust_operation_fees_sum(e, fees)?;
     pool.set(e);
 
-    events::flash_loan(e, contract, pool_address, amount, fees);
+    events::flash_loan(e, initiator, contract, pool_address, amount, fees);
 
     Ok(())
 }
