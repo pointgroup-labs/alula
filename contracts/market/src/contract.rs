@@ -266,9 +266,12 @@ pub trait Market {
     // Creates a flash loan
     //
     // # Arguments
-    // * `contract` - contract's address which leverages the flash loaned amount and adheres to
-    //   `erc3156` standard
-    // * `caller` - flash loan caller
+    // * `contract` - receiver contract that implements the `ModErc3156` callback. The
+    //   receiver is responsible for validating `initiator` against its trusted set
+    //   and granting the market a just-in-time `amount + fee` allowance during the
+    //   `exec_op` callback. See `moderc3156` for the receiver pattern.
+    // * `caller` - flash loan initiator. Forwarded to the receiver as `initiator` so
+    //   the receiver can validate against its trusted-initiator set.
     // * `pool_address` - address of a pool from which the flash loan happens
     // * `amount` - amount of lent tokens
     fn flash_loan(
@@ -792,7 +795,7 @@ impl Market for MarketContract {
         caller.require_auth();
         storage::extend_instance(&e);
 
-        process_flash_loan(&e, &contract, &pool_address, amount)
+        process_flash_loan(&e, &caller, &contract, &pool_address, amount)
     }
 
     fn issue_cover_bad_debt(e: Env, user: ObligationKey) -> Result<(), MCError> {
