@@ -555,11 +555,17 @@ impl Market for MarketContract {
         require_admin(&e);
         storage::extend_instance(&e);
 
-        pool_config.validate()?;
-
-        if Pool::exists(&e, &pool_address) {
+        // For existing pools, validate against the current config so the
+        // fee-bump constraints kick in. For new pools, pass `None`
+        let current_pool_config = if Pool::exists(&e, &pool_address) {
             require_owned(&e)?;
-        }
+
+            Some(Pool::try_get(&e, &pool_address)?.config)
+        } else {
+            None
+        };
+        pool_config.validate(current_pool_config)?;
+
         storage::queue_in_pool_set(&e, &pool_address, &pool_config)?;
 
         events::queue_in_pool_set(&e, pool_address, pool_config);
@@ -635,7 +641,7 @@ impl Market for MarketContract {
 
         let mut new_config = pool.config;
         new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries.clone());
-        new_config.validate()?;
+        new_config.validate(None)?;
 
         pool.config = new_config;
         pool.set(&e);
@@ -659,7 +665,7 @@ impl Market for MarketContract {
         let mut new_config = pool.config;
 
         new_config.fee_config.operation_fee_beneficiaries = Some(beneficiaries.clone());
-        new_config.validate()?;
+        new_config.validate(None)?;
 
         pool.config = new_config;
         pool.set(&e);

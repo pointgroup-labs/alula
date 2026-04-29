@@ -760,7 +760,12 @@ impl Default for PoolFeeConfig {
 }
 
 impl PoolFeeConfig {
-    fn validate(&self) -> Result<(), &str> {
+    /// Validates the fee configuration.
+    ///
+    /// When `current_config` is `Some`, also enforces that constrained fees
+    /// (repay, withdraw, remove_collateral) cannot increase by more than
+    /// `MAX_FEE_INCREASE_BUMP_BPS` in a single update
+    fn validate(&self, current_config: Option<PoolFeeConfig>) -> Result<(), &str> {
         let &Self {
             borrow_fee_bps,
             flash_loan_fee_bps,
@@ -776,20 +781,31 @@ impl PoolFeeConfig {
             referrers,
         } = &self;
 
-        let individual_fees = [
-            borrow_fee_bps,
-            flash_loan_fee_bps,
-            deposit_fee_bps,
-            withdraw_fee_bps,
-            add_collateral_fee_bps,
-            remove_collateral_fee_bps,
-            repay_fee_bps,
-        ];
-
-        for &fee in individual_fees {
+        let non_constrained_fees =
+            [borrow_fee_bps, flash_loan_fee_bps, deposit_fee_bps, add_collateral_fee_bps];
+        for &fee in non_constrained_fees {
             if fee as i128 >= BPS_FACTOR {
-                return Err("Individual fees must be less than 100%");
+                return Err("Non constrained fees must be less than 100%");
             }
+        }
+
+        let constrained_fee_checks = [
+            (repay_fee_bps, current_config.as_ref().map(|c| c.repay_fee_bps)),
+            (withdraw_fee_bps, current_config.as_ref().map(|c| c.withdraw_fee_bps)),
+            (
+                remove_collateral_fee_bps,
+                current_config.as_ref().map(|c| c.remove_collateral_fee_bps),
+            ),
+        ];
+        for (&new_fee, current_fee_opt) in constrained_fee_checks {
+            if new_fee > MAX_CONSTRAINED_FEE_BPS {
+                return Err("Constrained fees exceed the maximum allowed amount");
+            }
+
+            if let Some(current_fee) = current_fee_opt
+                && new_fee > current_fee && new_fee - current_fee > MAX_FEE_INCREASE_BUMP_BPS {
+                    return Err("Fee increase cannot exceed the maximum allowed bump");
+                }
         }
 
         if *withdraw_max_scarcity_fee_bps as i128 >= BPS_FACTOR // NB: to prevent overflow
@@ -906,11 +922,15 @@ pub struct PoolConfig {
 }
 
 impl PoolConfig {
-    pub fn validate(&self) -> Result<(), MCError> {
+    /// Validates the pool configuration.
+    ///
+    /// When `current_config` is `Some`, also enforces fee-bump constraints
+    /// against the currently active config (used when updating a pool).
+    pub fn validate(&self, current_config: Option<PoolConfig>) -> Result<(), MCError> {
         let PoolConfig { health_config, fee_config, ir_reactivity_constant, .. } = self;
 
         if health_config.validate().is_err()
-            || fee_config.validate().is_err()
+            || fee_config.validate(current_config.map(|c| c.fee_config)).is_err()
             || !(MIN_REACTIVITY_CONSTANT..=MAX_REACTIVITY_CONSTANT).contains(ir_reactivity_constant)
         {
             return Err(MCError::InvalidLoanPoolConfig);
