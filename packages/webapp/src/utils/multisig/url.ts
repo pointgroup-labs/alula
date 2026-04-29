@@ -15,15 +15,15 @@ const SIG_REGEX = /^alula-sig:v1:([0-9a-f]{64}):(G[A-Z2-7]{55}):([A-Za-z0-9+/]+=
 /** Base64url encode without padding. Browser-safe (no Buffer dependency). */
 function bytesToB64url(bytes: Uint8Array): string {
   let bin = ''
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0)
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  for (const byte of bytes) { bin += String.fromCharCode(byte ?? 0) }
+  return btoa(bin).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
 }
 
 function b64urlToBytes(s: string): Uint8Array {
   const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4))
-  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad)
+  const bin = atob(s.replaceAll('-', '+').replaceAll('_', '/') + pad)
   const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  for (let i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i) }
   return out
 }
 
@@ -34,25 +34,24 @@ export function encodeProposalToFragment(p: ProposalPayload): string {
 }
 
 export function decodeProposalFromFragment(fragment: string): ProposalPayload {
-  if (!fragment) throw new Error('empty fragment')
-  if (!/^[A-Za-z0-9_-]+$/.test(fragment)) throw new Error('fragment is not base64url')
+  if (!fragment) { throw new Error('empty fragment') }
+  if (!/^[\w-]+$/.test(fragment)) { throw new Error('fragment is not base64url') }
   const bytes = b64urlToBytes(fragment)
   const json = new TextDecoder().decode(bytes)
   let parsed: unknown
   try {
     parsed = JSON.parse(json)
-  }
-  catch {
+  } catch {
     throw new Error('fragment is not JSON')
   }
   return validateProposalPayload(parsed)
 }
 
 function validateProposalPayload(x: unknown): ProposalPayload {
-  if (!x || typeof x !== 'object') throw new Error('payload not an object')
+  if (!x || typeof x !== 'object') { throw new Error('payload not an object') }
   const o = x as Record<string, unknown>
-  if (o.v !== 1) throw new Error(`unsupported payload version: ${String(o.v)}`)
-  if (o.kind !== 'proposal') throw new Error(`unsupported payload kind: ${String(o.kind)}`)
+  if (o.v !== 1) { throw new Error(`unsupported payload version: ${String(o.v)}`) }
+  if (o.kind !== 'proposal') { throw new Error(`unsupported payload kind: ${String(o.kind)}`) }
   // Structural sanity; full schema validation is the catalog's job at decode time.
   for (const key of [
     'network_passphrase',
@@ -62,10 +61,10 @@ function validateProposalPayload(x: unknown): ProposalPayload {
     'proposal_hash',
     'created_by',
   ]) {
-    if (typeof o[key] !== 'string') throw new Error(`payload.${key} must be a string`)
+    if (typeof o[key] !== 'string') { throw new TypeError(`payload.${key} must be a string`) }
   }
-  if (typeof o.created_at !== 'number') throw new Error('payload.created_at must be a number')
-  if (!Array.isArray(o.signer_set_snapshot)) throw new Error('payload.signer_set_snapshot must be an array')
+  if (typeof o.created_at !== 'number') { throw new TypeError('payload.created_at must be a number') }
+  if (!Array.isArray(o.signer_set_snapshot)) { throw new TypeError('payload.signer_set_snapshot must be an array') }
   return o as unknown as ProposalPayload
 }
 
@@ -75,7 +74,7 @@ export function isWellFormedSigPayload(s: string): boolean {
 
 export function parseSigPayload(s: string): SigPayload {
   const m = SIG_REGEX.exec(s.trim())
-  if (!m || !m[1] || !m[2] || !m[3]) throw new Error('malformed sig payload')
+  if (!m || !m[1] || !m[2] || !m[3]) { throw new Error('malformed sig payload') }
   return { proposal_hash: m[1], signer_pubkey: m[2], signature_b64: m[3] }
 }
 
@@ -95,7 +94,7 @@ export function extractSigPayloads(blob: string): SigPayload[] {
   const out: SigPayload[] = []
   for (const line of blob.split(/\r?\n/)) {
     const trimmed = line.trim()
-    if (isWellFormedSigPayload(trimmed)) out.push(parseSigPayload(trimmed))
+    if (isWellFormedSigPayload(trimmed)) { out.push(parseSigPayload(trimmed)) }
   }
   return out
 }

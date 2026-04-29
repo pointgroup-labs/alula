@@ -9,20 +9,20 @@ export type MultisigRole = 'upgrade' | 'program' | 'ops'
 
 export type ContractKind = 'market' | 'market_manager' | 'controlled_insurance_fund'
 
-export interface SignerEntry {
+export type SignerEntry = {
   /** Stellar G… public key */
   key: string
   /** Signer weight (1 in the v1 design; carried for forward-compat) */
   weight: number
 }
 
-export interface ThresholdsSnapshot {
+export type ThresholdsSnapshot = {
   low: number
   med: number
   high: number
 }
 
-export interface ProposalPayload {
+export type ProposalPayload = {
   v: 1
   kind: 'proposal'
   network_passphrase: string
@@ -49,7 +49,7 @@ export interface ProposalPayload {
   parent_proposal_hash: string | null
 }
 
-export interface SigPayload {
+export type SigPayload = {
   proposal_hash: string
   signer_pubkey: string
   signature_b64: string
@@ -60,7 +60,7 @@ export interface SigPayload {
  *
  * One file per entry under utils/multisig/catalog/{role}/.
  */
-export interface FunctionDef<Args = Record<string, unknown>, Snapshot = unknown> {
+export type FunctionDef<Args = Record<string, unknown>, Snapshot = unknown> = {
   multisig: MultisigRole
   contract: ContractKind
   function: string
@@ -79,21 +79,21 @@ export interface FunctionDef<Args = Record<string, unknown>, Snapshot = unknown>
  */
 export type ArgSchema = Record<string, ArgFieldSchema>
 
-export type ArgFieldSchema =
-  | { kind: 'address' }
-  | { kind: 'wasm-hash' }
-  | { kind: 'u32' | 'u64' | 'i128' }
-  | { kind: 'bool' }
-  | { kind: 'string', maxLen?: number }
-  | { kind: 'bytes', length?: number }
-  | { kind: 'enum', variants: readonly string[] }
-  | { kind: 'struct', fields: ArgSchema }
-  | { kind: 'vec', element: ArgFieldSchema }
+export type ArgFieldSchema
+  = | { kind: 'address' }
+    | { kind: 'wasm-hash' }
+    | { kind: 'u32' | 'u64' | 'i128' }
+    | { kind: 'bool' }
+    | { kind: 'string', maxLen?: number }
+    | { kind: 'bytes', length?: number }
+    | { kind: 'enum', variants: readonly string[] }
+    | { kind: 'struct', fields: ArgSchema }
+    | { kind: 'vec', element: ArgFieldSchema }
 
 /**
  * Human-readable diff rendered on the sign page.
  */
-export interface HumanDiff {
+export type HumanDiff = {
   title: string
   rows: Array<{
     label: string
@@ -108,7 +108,7 @@ export interface HumanDiff {
  * Chain access surface passed to fetchBeforeSnapshot.
  * Implementations live in utils/multisig/chain.ts.
  */
-export interface ChainEnv {
+export type ChainEnv = {
   rpcUrl: string
   networkPassphrase: string
   /** Resolved contract addresses for the current deployment */

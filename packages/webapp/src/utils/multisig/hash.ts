@@ -15,16 +15,16 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 export function bytesToHex(bytes: Uint8Array): string {
   let s = ''
-  for (let i = 0; i < bytes.length; i++) s += (bytes[i] ?? 0).toString(16).padStart(2, '0')
+  for (const byte of bytes) { s += (byte ?? 0).toString(16).padStart(2, '0') }
   return s
 }
 
 export function hexToBytes(hex: string): Uint8Array {
-  if (hex.length % 2 !== 0) throw new Error('hex must be even-length')
+  if (hex.length % 2 !== 0) { throw new Error('hex must be even-length') }
   const out = new Uint8Array(hex.length / 2)
   for (let i = 0; i < out.length; i++) {
-    const byte = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
-    if (Number.isNaN(byte)) throw new Error('invalid hex digit')
+    const byte = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+    if (Number.isNaN(byte)) { throw new TypeError('invalid hex digit') }
     out[i] = byte
   }
   return out
@@ -58,8 +58,8 @@ export async function computeProposalHash(p: Pick<
  * insertion order.
  */
 function canonicalJsonStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(canonicalJsonStringify).join(',')}]`
+  if (value === null || typeof value !== 'object') { return JSON.stringify(value) }
+  if (Array.isArray(value)) { return `[${value.map(canonicalJsonStringify).join(',')}]` }
   const keys = Object.keys(value as Record<string, unknown>).sort()
   const parts = keys.map(k =>
     `${JSON.stringify(k)}:${canonicalJsonStringify((value as Record<string, unknown>)[k])}`,

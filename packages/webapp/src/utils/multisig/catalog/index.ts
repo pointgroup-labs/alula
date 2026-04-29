@@ -38,5 +38,5 @@ export function listFunctionsByRole(role: MultisigRole): FunctionDef<any, any>[]
 }
 
 export function listAllFunctions(): FunctionDef<any, any>[] {
-  return ENTRIES.slice()
+  return [...ENTRIES]
 }

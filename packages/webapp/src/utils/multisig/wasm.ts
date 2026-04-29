@@ -9,9 +9,9 @@
  * Spec §5.3 invariant 5.
  */
 
-import { bytesToHex, sha256Hex } from './hash'
+import { sha256Hex } from './hash'
 
-export interface WasmHashCheck {
+export type WasmHashCheck = {
   /** SHA-256 of the uploaded bytes, lowercase hex */
   computed_hash: string
   /** Hash claimed by the proposal (typically the queue tx's `new_wasm_hash` arg) */
@@ -39,4 +39,4 @@ export async function verifyWasmFile(file: File, claimedHashHex: string): Promis
   return verifyWasmAgainstClaim(buf, claimedHashHex)
 }
 
-export { bytesToHex }
+export { bytesToHex } from './hash'

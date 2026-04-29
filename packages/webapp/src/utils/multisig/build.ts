@@ -1,15 +1,14 @@
 /**
- * Build, sign, and submit transaction shells.
+ * Build and decode transaction shells.
  *
- * Stub-level: each function is shaped for the real implementation but throws
- * `NotImplemented` until the Stellar SDK integration lands. This file is here
- * so the catalog and pages can import against a stable surface from day one.
- *
- * Concrete behavior is owed to a follow-up commit; see the implementation
- * plan at docs/superpowers/plans/.
+ * `signProposal` and `submitProposal` now have real implementations in
+ * `sign-submit.ts` and are re-exported below for back-compat. `buildProposal`
+ * and `decodeProposal` remain stubs until the catalog-args ↔ XDR encoding
+ * layer lands; see `docs/superpowers/specs/2026-04-29-alula-multisig-design.md`
+ * §6 for the catalog shape these will operate on.
  */
 
-import type { ChainEnv, FunctionDef, ProposalPayload, SigPayload } from './types'
+import type { ChainEnv, FunctionDef, ProposalPayload } from './types'
 
 export class NotImplementedError extends Error {
   constructor(what: string) {
@@ -18,7 +17,7 @@ export class NotImplementedError extends Error {
   }
 }
 
-export interface BuildProposalInput<Args = Record<string, unknown>> {
+export type BuildProposalInput<Args = Record<string, unknown>> = {
   fn: FunctionDef<Args>
   args: Args
   /** G… of the multisig account whose seqnum and source we use */
@@ -38,7 +37,7 @@ export async function buildProposal<Args>(_input: BuildProposalInput<Args>): Pro
   throw new NotImplementedError('buildProposal')
 }
 
-export interface DecodedProposal {
+export type DecodedProposal = {
   payload: ProposalPayload
   /** Resolved catalog entry */
   fn: FunctionDef
@@ -48,30 +47,17 @@ export async function decodeProposal(_payload: ProposalPayload): Promise<Decoded
   throw new NotImplementedError('decodeProposal')
 }
 
-export interface SignProposalInput {
-  payload: ProposalPayload
-  /** Returns the base64 signature for the tx envelope's hash */
-  signEnvelopeXdr: (xdrBase64: string, networkPassphrase: string) => Promise<{
-    signedXdr: string
-    signerPubkey: string
-  }>
-}
+export {
+  NETWORK_PASSPHRASES,
+  signProposal,
+  submitProposal,
+  verifySigPayload,
+} from './sign-submit'
 
-export async function signProposal(_input: SignProposalInput): Promise<SigPayload> {
-  throw new NotImplementedError('signProposal')
-}
-
-export interface SubmitProposalInput {
-  payload: ProposalPayload
-  sigs: SigPayload[]
-  rpcUrl: string
-}
-
-export interface SubmitProposalResult {
-  txHash: string
-  ledger: number
-}
-
-export async function submitProposal(_input: SubmitProposalInput): Promise<SubmitProposalResult> {
-  throw new NotImplementedError('submitProposal')
-}
+export type {
+  SignProposalInput,
+  SubmitProposalInput,
+  SubmitProposalResult,
+  VerifySigPayloadInput,
+  VerifySigPayloadResult,
+} from './sign-submit'

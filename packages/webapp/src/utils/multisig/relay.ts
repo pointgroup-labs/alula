@@ -9,16 +9,16 @@
  */
 
 import type { SigPayload } from './types'
-import { extractSigPayloads, isWellFormedSigPayload, parseSigPayload, serializeSigPayload } from './url'
+import { extractSigPayloads, serializeSigPayload } from './url'
 
-export interface RelayConfig {
+export type RelayConfig = {
   /** Base URL, e.g. "https://app.alula.fi/api/multisig" */
   baseUrl: string
   /** Per-request timeout in ms */
   timeoutMs?: number
 }
 
-export interface RelayResult<T> {
+export type RelayResult<T> = {
   ok: boolean
   data?: T
   error?: string
@@ -32,11 +32,10 @@ export async function postSig(cfg: RelayConfig, sig: SigPayload): Promise<RelayR
       { method: 'POST', body, headers: { 'content-type': 'text/plain' } },
       cfg.timeoutMs ?? 5000,
     )
-    if (!res.ok) return { ok: false, error: `relay returned ${res.status}` }
+    if (!res.ok) { return { ok: false, error: `relay returned ${res.status}` } }
     return { ok: true }
-  }
-  catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'relay unreachable' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'relay unreachable' }
   }
 }
 
@@ -47,13 +46,12 @@ export async function fetchSigs(cfg: RelayConfig, proposalHash: string): Promise
       { method: 'GET' },
       cfg.timeoutMs ?? 5000,
     )
-    if (!res.ok) return { ok: false, error: `relay returned ${res.status}` }
+    if (!res.ok) { return { ok: false, error: `relay returned ${res.status}` } }
     const text = await res.text()
     const sigs = extractSigPayloads(text).filter(s => s.proposal_hash === proposalHash)
     return { ok: true, data: sigs }
-  }
-  catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'relay unreachable' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'relay unreachable' }
   }
 }
 
@@ -62,10 +60,9 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   const t = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
     return await fetch(url, { ...init, signal: ctrl.signal })
-  }
-  finally {
+  } finally {
     clearTimeout(t)
   }
 }
 
-export { isWellFormedSigPayload, parseSigPayload }
+export { isWellFormedSigPayload, parseSigPayload } from './url'
