@@ -10,8 +10,8 @@
  * rather than rendering as `[object Object]`.
  */
 
-import { xdr } from '@stellar/stellar-sdk'
 import type { ArgFieldSchema, ArgSchema } from './types'
+import { xdr } from '@stellar/stellar-sdk'
 import { UnsupportedArgKindError } from './encode'
 
 export function decodeScValsToArgs(schema: ArgSchema, scvals: xdr.ScVal[]): Record<string, unknown> {
@@ -23,8 +23,7 @@ export function decodeScValsToArgs(schema: ArgSchema, scvals: xdr.ScVal[]): Reco
   }
 
   const out: Record<string, unknown> = {}
-  for (let i = 0; i < fields.length; i++) {
-    const entry = fields[i]
+  for (const [i, entry] of fields.entries()) {
     const scval = scvals[i]
     if (!entry || !scval) {
       // Defensive — fields.length and scvals.length matched above so this

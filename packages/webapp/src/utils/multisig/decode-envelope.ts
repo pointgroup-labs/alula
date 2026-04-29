@@ -12,9 +12,9 @@
  *  - contract function name matches `fn.function`
  */
 
-import { Transaction, xdr } from '@stellar/stellar-sdk'
 import type { DecodedProposal } from './build'
 import type { ProposalPayload } from './types'
+import { Transaction, xdr } from '@stellar/stellar-sdk'
 import { getFunctionDef } from './catalog'
 import { encodeArgsToScVals } from './encode'
 
@@ -62,8 +62,7 @@ export function decodeProposalEnvelope(payload: ProposalPayload): DecodedProposa
 
 function scvalArraysEqual(a: ReadonlyArray<xdr.ScVal>, b: ReadonlyArray<xdr.ScVal>): boolean {
   if (a.length !== b.length) { return false }
-  for (let i = 0; i < a.length; i++) {
-    const av = a[i]
+  for (const [i, av] of a.entries()) {
     const bv = b[i]
     if (!av || !bv) { return false }
     // XDR byte-level equality is the canonical comparison for ScVals.

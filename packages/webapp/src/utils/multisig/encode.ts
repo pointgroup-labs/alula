@@ -10,8 +10,8 @@
  * (Program catalog) and Plan 4 (Ops catalog) need them.
  */
 
-import { xdr } from '@stellar/stellar-sdk'
 import type { ArgFieldSchema, ArgSchema } from './types'
+import { xdr } from '@stellar/stellar-sdk'
 
 export class UnsupportedArgKindError extends Error {
   constructor(kind: string) {
@@ -28,7 +28,7 @@ export class UnsupportedArgKindError extends Error {
 export function encodeArgsToScVals(schema: ArgSchema, args: Record<string, unknown>): xdr.ScVal[] {
   const out: xdr.ScVal[] = []
   for (const [name, field] of Object.entries(schema)) {
-    if (!(name in args)) throw new Error(`missing arg: ${name}`)
+    if (!(name in args)) { throw new Error(`missing arg: ${name}`) }
     out.push(encodeField(field, args[name], name))
   }
   return out
@@ -37,11 +37,11 @@ export function encodeArgsToScVals(schema: ArgSchema, args: Record<string, unkno
 function encodeField(schema: ArgFieldSchema, value: unknown, path: string): xdr.ScVal {
   switch (schema.kind) {
     case 'wasm-hash': {
-      if (typeof value !== 'string') throw new TypeError(`${path}: wasm-hash must be a hex string`)
+      if (typeof value !== 'string') { throw new TypeError(`${path}: wasm-hash must be a hex string`) }
       const hex = value.toLowerCase()
-      if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error(`${path}: wasm-hash must be 64 hex chars`)
+      if (!/^[0-9a-f]{64}$/.test(hex)) { throw new Error(`${path}: wasm-hash must be 64 hex chars`) }
       const bytes = Buffer.alloc(32)
-      for (let i = 0; i < 32; i++) bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+      for (let i = 0; i < 32; i++) { bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16) }
       return xdr.ScVal.scvBytes(bytes)
     }
     default:

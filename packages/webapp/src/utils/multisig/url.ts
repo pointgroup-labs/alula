@@ -15,7 +15,7 @@ const SIG_REGEX = /^alula-sig:v1:([0-9a-f]{64}):(G[A-Z2-7]{55}):([A-Za-z0-9+/]+=
 /** Base64url encode without padding. Browser-safe (no Buffer dependency). */
 function bytesToB64url(bytes: Uint8Array): string {
   let bin = ''
-  for (const byte of bytes) { bin += String.fromCharCode(byte ?? 0) }
+  for (const byte of bytes) { bin += String.fromCodePoint(byte ?? 0) }
   return btoa(bin).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
 }
 
@@ -23,7 +23,7 @@ function b64urlToBytes(s: string): Uint8Array {
   const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4))
   const bin = atob(s.replaceAll('-', '+').replaceAll('_', '/') + pad)
   const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i) }
+  for (let i = 0; i < bin.length; i++) { out[i] = bin.codePointAt(i) ?? 0 }
   return out
 }
 

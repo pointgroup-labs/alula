@@ -6,17 +6,17 @@
  * encoding is delegated to encode.ts (which today only knows wasm-hash).
  */
 
-import {
-  Address,
-  Operation,
-  TransactionBuilder,
-} from '@stellar/stellar-sdk'
 import type { BuildProposalInput } from './build'
 import type {
   ChainEnv,
   FunctionDef,
   ProposalPayload,
 } from './types'
+import {
+  Address,
+  Operation,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk'
 import { loadAccount, loadMultisigState } from './chain'
 import { encodeArgsToScVals } from './encode'
 import { computeProposalHash } from './hash'

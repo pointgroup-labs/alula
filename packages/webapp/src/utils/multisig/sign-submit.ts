@@ -201,13 +201,13 @@ function ed25519Verify(signerPubkeyG: string, message: Uint8Array, sig: Uint8Arr
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64)
   const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i) ?? 0 }
+  for (let i = 0; i < bin.length; i++) { out[i] = bin.codePointAt(i) ?? 0 }
   return out
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = ''
-  for (const byte of bytes) { bin += String.fromCharCode(byte ?? 0) }
+  for (const byte of bytes) { bin += String.fromCodePoint(byte ?? 0) }
   return btoa(bin)
 }
 

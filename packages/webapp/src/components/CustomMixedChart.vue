@@ -54,7 +54,7 @@ const hoverX = ref<number | null>(null)
 
 const visibleTicks = ref([])
 
-const options = computed<ChartOptions<'bar'>>(() => {
+const options = computed<ChartOptions<'bar' | 'line'>>(() => {
   const scalesX = {
     ...chartOptions?.scales?.x,
     ticks: {

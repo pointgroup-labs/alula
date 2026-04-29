@@ -139,7 +139,7 @@ const filteredData = computed(() => {
 })
 
 async function multiplyDialogHandler(item: MultiplyPortfolioTableItem) {
-  selectedVault.value = item 
+  selectedVault.value = item
   dialogLeverageWithdraw.value = true
 }
 

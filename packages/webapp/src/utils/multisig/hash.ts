@@ -59,8 +59,8 @@ export async function computeProposalHash(p: Pick<
  */
 function canonicalJsonStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') { return JSON.stringify(value) }
-  if (Array.isArray(value)) { return `[${value.map(canonicalJsonStringify).join(',')}]` }
-  const keys = Object.keys(value as Record<string, unknown>).sort()
+  if (Array.isArray(value)) { return `[${value.map(v => canonicalJsonStringify(v)).join(',')}]` }
+  const keys = Object.keys(value as Record<string, unknown>).toSorted()
   const parts = keys.map(k =>
     `${JSON.stringify(k)}:${canonicalJsonStringify((value as Record<string, unknown>)[k])}`,
   )

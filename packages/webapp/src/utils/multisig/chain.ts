@@ -6,11 +6,12 @@
  * SDK upgrades have one place to touch.
  */
 
-import { Account, StrKey, xdr } from '@stellar/stellar-sdk'
-import { Server as RpcServer } from '@stellar/stellar-sdk/rpc'
+import type { Account } from '@stellar/stellar-sdk'
 import type { SignerEntry, ThresholdsSnapshot } from './types'
+import { StrKey, xdr } from '@stellar/stellar-sdk'
+import { Server as RpcServer } from '@stellar/stellar-sdk/rpc'
 
-export interface ChainAccount {
+export type ChainAccount = {
   /** G… */
   address: string
   /** Current sequence number as a decimal string */
@@ -29,7 +30,7 @@ export async function loadAccount(rpcUrl: string, address: string): Promise<Chai
   }
 }
 
-export interface MultisigAccountState {
+export type MultisigAccountState = {
   signers: SignerEntry[]
   thresholds: ThresholdsSnapshot
 }
