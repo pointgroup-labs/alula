@@ -9,6 +9,7 @@
  */
 
 import type { ChainEnv, FunctionDef, ProposalPayload } from './types'
+import { buildProposalEnvelope } from './build-envelope'
 
 export class NotImplementedError extends Error {
   constructor(what: string) {
@@ -33,8 +34,8 @@ export type BuildProposalInput<Args = Record<string, unknown>> = {
   parentProposalHash?: string | null
 }
 
-export async function buildProposal<Args>(_input: BuildProposalInput<Args>): Promise<ProposalPayload> {
-  throw new NotImplementedError('buildProposal')
+export async function buildProposal<Args>(input: BuildProposalInput<Args>): Promise<ProposalPayload> {
+  return buildProposalEnvelope(input)
 }
 
 export type DecodedProposal = {

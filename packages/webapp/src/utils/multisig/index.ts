@@ -27,6 +27,9 @@ export type {
 
 export { getFunctionDef, listAllFunctions, listFunctionsByRole } from './catalog'
 
+export { loadAccount, loadMultisigState } from './chain'
+export type { ChainAccount, MultisigAccountState } from './chain'
+
 export { bytesToHex, computeProposalHash, hexToBytes, sha256Hex } from './hash'
 export { fetchSigs, postSig } from './relay'
 
