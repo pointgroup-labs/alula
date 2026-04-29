@@ -803,9 +803,11 @@ impl PoolFeeConfig {
             }
 
             if let Some(current_fee) = current_fee_opt
-                && new_fee > current_fee && new_fee - current_fee > MAX_FEE_INCREASE_BUMP_BPS {
-                    return Err("Fee increase cannot exceed the maximum allowed bump");
-                }
+                && new_fee > current_fee
+                && new_fee - current_fee > MAX_FEE_INCREASE_BUMP_BPS
+            {
+                return Err("Fee increase cannot exceed the maximum allowed bump");
+            }
         }
 
         if *withdraw_max_scarcity_fee_bps as i128 >= BPS_FACTOR // NB: to prevent overflow

@@ -147,6 +147,8 @@ struct FlashLoanEvent {
     contract: Address,
     #[topic]
     pool_address: Address,
+    #[topic]
+    initiator: Address,
     amount: i128,
     fees_paid: i128,
 }
@@ -633,6 +635,7 @@ pub fn withdraw(
 
 pub fn flash_loan(
     e: &Env,
+    initiator: &Address,
     contract: &Address,
     pool_address: &Address,
     amount: i128,
@@ -641,6 +644,7 @@ pub fn flash_loan(
     FlashLoanEvent {
         contract: contract.clone(),
         pool_address: pool_address.clone(),
+        initiator: initiator.clone(),
         amount,
         fees_paid,
     }
