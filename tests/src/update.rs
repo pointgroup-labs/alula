@@ -722,7 +722,7 @@ fn test_apply_pool_set_permissionless() {
 // -- Security regression tests --
 
 #[test]
-fn test_apply_pool_set_has_no_auth_check() {
+fn test_apply_pool_set_is_permissionless_after_queue() {
     use market::{
         contract::{MarketClient, MarketContract},
         storage::MarketInitParams,
@@ -785,22 +785,26 @@ fn test_apply_pool_set_has_no_auth_check() {
 
     e.ledger().with_mut(|li| li.timestamp += 100);
 
-    // Attacker (non-admin) tries to apply the pool set — this SHOULD fail
+    // Attacker (non-admin) drives `apply_pool_set` after the timelock has
+    // elapsed. This MUST succeed: the payload was admin-authenticated at
+    // queue time, and `apply_*` is just transport. The attacker can't change
+    // what gets applied.
     let apply_invoke = MockAuthInvoke {
         contract: &market_addr,
         fn_name: "apply_pool_set",
         args: (&token_address,).into_val(&e),
         sub_invokes: &[],
     };
-    let result = market
+    market
         .mock_auths(&[MockAuth { address: &attacker, invoke: &apply_invoke }])
-        .try_apply_pool_set(&token_address);
+        .apply_pool_set(&token_address);
 
-    assert!(result.is_err(), "apply_pool_set should require admin auth but succeeded for attacker");
+    // The queued config is now live — exactly what the admin queued.
+    assert!(market.try_get_pool(&token_address).is_ok());
 }
 
 #[test]
-fn test_apply_market_update_requires_owned_and_admin() {
+fn test_apply_market_update_is_permissionless_when_owned() {
     use market::{
         contract::{MarketClient, MarketContract},
         storage::MarketInitParams,
@@ -858,20 +862,20 @@ fn test_apply_market_update_requires_owned_and_admin() {
 
     e.ledger().with_mut(|li| li.timestamp += 100);
 
+    // After the timelock, anyone — including a non-admin — can drive
+    // `apply_market_update`. The payload was authenticated at queue time, so
+    // the attacker has no leverage over what gets applied; they're merely the
+    // transport. The `require_owned` check still applies (covered by the
+    // companion test below).
     let apply_invoke = MockAuthInvoke {
         contract: &market_addr,
         fn_name: "apply_market_update",
         args: ().into_val(&e),
         sub_invokes: &[],
     };
-    let result = market
+    market
         .mock_auths(&[MockAuth { address: &attacker, invoke: &apply_invoke }])
-        .try_apply_market_update();
-
-    assert!(
-        result.is_err(),
-        "apply_market_update should require admin auth but succeeded for attacker"
-    );
+        .apply_market_update();
 }
 
 #[test]

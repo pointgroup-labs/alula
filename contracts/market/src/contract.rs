@@ -483,7 +483,7 @@ impl Market for MarketContract {
     }
 
     fn apply_market_update(e: Env) -> Result<(), MCError> {
-        require_owned_and_admin(&e)?;
+        require_owned(&e)?;
         storage::extend_instance(&e);
 
         let MarketUpdate {
@@ -592,7 +592,6 @@ impl Market for MarketContract {
     }
 
     fn apply_pool_set(e: Env, pool_address: Address) -> Result<(), MCError> {
-        require_admin(&e);
         storage::extend_instance(&e);
 
         let queued_pool_set = storage::get_queued_pool_set(&e, &pool_address)
