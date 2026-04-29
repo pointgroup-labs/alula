@@ -1,15 +1,19 @@
 /**
  * Build and decode transaction shells.
  *
- * `signProposal` and `submitProposal` now have real implementations in
+ * `signProposal` and `submitProposal` have real implementations in
  * `sign-submit.ts` and are re-exported below for back-compat. `buildProposal`
- * and `decodeProposal` remain stubs until the catalog-args ↔ XDR encoding
- * layer lands; see `docs/superpowers/specs/2026-04-29-alula-multisig-design.md`
- * §6 for the catalog shape these will operate on.
+ * delegates to `build-envelope.ts`; `decodeProposal` delegates to
+ * `decode-envelope.ts`. The catalog-args ↔ XDR layer lives in `encode.ts` /
+ * `decode.ts` and is currently wasm-hash-only (Phase 1, Plan 2 scope).
+ *
+ * See `docs/superpowers/specs/2026-04-29-alula-multisig-design.md` §6 for
+ * the catalog shape these operate on.
  */
 
 import type { ChainEnv, FunctionDef, ProposalPayload } from './types'
 import { buildProposalEnvelope } from './build-envelope'
+import { decodeProposalEnvelope } from './decode-envelope'
 
 export class NotImplementedError extends Error {
   constructor(what: string) {
@@ -44,8 +48,8 @@ export type DecodedProposal = {
   fn: FunctionDef
 }
 
-export async function decodeProposal(_payload: ProposalPayload): Promise<DecodedProposal> {
-  throw new NotImplementedError('decodeProposal')
+export async function decodeProposal(payload: ProposalPayload): Promise<DecodedProposal> {
+  return decodeProposalEnvelope(payload)
 }
 
 export {
