@@ -216,7 +216,6 @@ impl MarketManager for MarketManagerContract {
 
     fn apply_market_upgrade(e: Env) -> Result<(), MMCError> {
         extend_instance(&e);
-        require_admin(&e);
 
         let Some(QueuedInUpgrade { wasm_hash, queued_in_timestamp }) =
             storage::get_queued_in_market_upgrade(&e)
@@ -247,7 +246,6 @@ impl MarketManager for MarketManagerContract {
 
     fn apply_manager_upgrade(e: Env) -> Result<(), MMCError> {
         extend_instance(&e);
-        require_admin(&e);
 
         let Some(QueuedInUpgrade { wasm_hash, queued_in_timestamp }) =
             storage::get_queued_in_manager_upgrade(&e)

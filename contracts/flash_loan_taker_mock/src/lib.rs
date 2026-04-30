@@ -15,32 +15,46 @@ pub struct FlashLoanTakerContract;
 
 #[contractimpl]
 impl FlashLoanTakerContract {
-    pub fn __constructor(e: Env, market: Address) {
+    /// `trusted_initiator` is the only address allowed to trigger flash loans
+    /// against this receiver. EIP-3156-style defense: without an allowlist the
+    /// receiver could be made to pay fees on attacker-initiated loans.
+    pub fn __constructor(e: Env, market: Address, trusted_initiator: Address) {
         e.storage().instance().set(&MARKET_KEY, &market);
+        e.storage().instance().set(&TRUSTED_INIT_KEY, &trusted_initiator);
     }
 
     fn market(e: &Env) -> Address {
         e.storage().instance().get(&MARKET_KEY).expect("not initialized via __constructor")
+    }
+
+    fn trusted_initiator(e: &Env) -> Address {
+        e.storage().instance().get(&TRUSTED_INIT_KEY).expect("not initialized via __constructor")
     }
 }
 
 #[contractimpl]
 impl ModErc3156 for FlashLoanTakerContract {
     fn exec_op(e: Env, initiator: Address, token: Address, amount: i128, fee: i128) {
-        // Real-world receivers MUST gate this against an allowlist of trusted
-        // initiators, e.g. `assert!(initiator == self.trusted_initiator(&e))`.
-        // The mock just authenticates the initiator to demonstrate the pattern.
+        // Allowlist check first — reject untrusted callers before asking anyone
+        // to sign anything. This is the audit-mandated defense.
+        let trusted = Self::trusted_initiator(&e);
+        assert_eq!(initiator, trusted, "untrusted initiator");
+
+        // The trusted initiator still has to consent to this specific call.
         initiator.require_auth();
 
+        let market = Self::market(&e);
         let flash_loan_token_client = TokenClient::new(&e, &token);
         let flash_loan_received = flash_loan_token_client.balance(&e.current_contract_address());
 
         assert_eq!(flash_loan_received, amount, "Flash borrow should've taken place");
 
+        // The trusted initiator can opt into the failure-simulation branch by
+        // choosing the sentinel amount; otherwise we run the happy path.
         if amount == FAILING_CALL_AMOUNT {
             simulate_failed_strategy(&e, &token, amount);
         } else {
-            simulate_successful_strategy(&e, &Self::market(&e), &token, amount, fee);
+            simulate_successful_strategy(&e, &market, &token, amount, fee);
         }
     }
 }
@@ -70,43 +84,13 @@ fn simulate_failed_strategy(e: &Env, token_address: &Address, amount: i128) {
     token_client.burn(&e.current_contract_address(), &(amount / 10));
 }
 
-/// A receiver that enforces an initiator allowlist — the EIP-3156-style defense.
-/// Used to verify the security fix: attacker-initiated flash loans against this
-/// receiver must revert before any fee can be charged.
-#[contract]
-pub struct StrictFlashLoanTakerContract;
-
-#[contractimpl]
-impl StrictFlashLoanTakerContract {
-    pub fn __constructor(e: Env, market: Address, trusted_initiator: Address) {
-        e.storage().instance().set(&MARKET_KEY, &market);
-        e.storage().instance().set(&TRUSTED_INIT_KEY, &trusted_initiator);
-    }
-}
-
-#[contractimpl]
-impl ModErc3156 for StrictFlashLoanTakerContract {
-    fn exec_op(e: Env, initiator: Address, token: Address, amount: i128, fee: i128) {
-        let trusted: Address =
-            e.storage().instance().get(&TRUSTED_INIT_KEY).expect("not initialized");
-
-        // The defense the audit finding requires: reject any initiator that isn't
-        // explicitly trusted. Without this check, a third party could force this
-        // contract to pay flash-loan fees.
-        assert_eq!(initiator, trusted, "untrusted initiator");
-
-        let market: Address = e.storage().instance().get(&MARKET_KEY).expect("not initialized");
-        simulate_successful_strategy(&e, &market, &token, amount, fee);
-    }
-}
-
 #[cfg(test)]
 mod test {
     use market::{error::MCError, obligation::ObligationKey};
     use soroban_sdk::Address;
     use tests::{DEFAULT_DEPOSIT_AMOUNT, TestMarketFixture};
 
-    use super::{FAILING_CALL_AMOUNT, FlashLoanTakerContract, StrictFlashLoanTakerContract};
+    use super::{FAILING_CALL_AMOUNT, FlashLoanTakerContract};
 
     struct FlashLoanTest<'a> {
         test_fixture: TestMarketFixture<'a>,
@@ -117,9 +101,13 @@ mod test {
         fn new() -> Self {
             let test_fixture = TestMarketFixture::new();
             let lender = &test_fixture.users[0];
-            let flash_loan_taker_contract_id = test_fixture
-                .e
-                .register(FlashLoanTakerContract, (test_fixture.contract_id.clone(),));
+            // Tests in this fixture always invoke flash loans as `users[1]`,
+            // so that's the trusted initiator we register the receiver with.
+            let trusted = &test_fixture.users[1];
+            let flash_loan_taker_contract_id = test_fixture.e.register(
+                FlashLoanTakerContract,
+                (test_fixture.contract_id.clone(), trusted.clone()),
+            );
 
             // Deposit usdc as some lender to have a non-empty loan pool
             test_fixture.contract_client.deposit(
@@ -208,10 +196,9 @@ mod test {
         let lender = &test_fixture.users[0];
         let trusted = &test_fixture.users[1];
 
-        let strict_receiver_id = test_fixture.e.register(
-            StrictFlashLoanTakerContract,
-            (test_fixture.contract_id.clone(), trusted.clone()),
-        );
+        let strict_receiver_id = test_fixture
+            .e
+            .register(FlashLoanTakerContract, (test_fixture.contract_id.clone(), trusted.clone()));
 
         test_fixture.contract_client.deposit(
             &ObligationKey::new(lender.clone()),
@@ -241,10 +228,9 @@ mod test {
         let trusted = &test_fixture.users[1];
         let attacker = &test_fixture.users[2];
 
-        let strict_receiver_id = test_fixture.e.register(
-            StrictFlashLoanTakerContract,
-            (test_fixture.contract_id.clone(), trusted.clone()),
-        );
+        let strict_receiver_id = test_fixture
+            .e
+            .register(FlashLoanTakerContract, (test_fixture.contract_id.clone(), trusted.clone()));
 
         test_fixture.contract_client.deposit(
             &ObligationKey::new(lender.clone()),
