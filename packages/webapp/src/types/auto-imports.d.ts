@@ -629,7 +629,6 @@ declare module 'vue' {
     readonly useMousePressed: UnwrapRef<typeof import('@vueuse/core')['useMousePressed']>
     readonly useMultiplyOpen: UnwrapRef<typeof import('../hooks/multiply/open')['useMultiplyOpen']>
     readonly useMultiplyStore: UnwrapRef<typeof import('../store/multiply')['useMultiplyStore']>
-    readonly useMultiplyTable: UnwrapRef<typeof import('../hooks/multiply/table')['useMultiplyTable']>
     readonly useMultiplyTableStore: UnwrapRef<typeof import('../store/multiply-table')['useMultiplyTableStore']>
     readonly useMultiplyWithdraw: UnwrapRef<typeof import('../hooks/multiply/withdraw')['useMultiplyWithdraw']>
     readonly useMutationObserver: UnwrapRef<typeof import('@vueuse/core')['useMutationObserver']>

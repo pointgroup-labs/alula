@@ -350,7 +350,7 @@ function isUserHaveMultiply(): boolean {
             </div>
 
             <div class="summary-list__item align-items-start mb-2">
-              <div class="label">Borrow liquidity</div>
+              <div class="label">Available liquidity</div>
               <div class="value">
                 <div class="text-end">
                   {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ vault.borrowAsset?.symbol }}
