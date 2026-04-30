@@ -3,8 +3,10 @@ import type { FunctionDef } from '../../types'
 export const cancelInManagerUpgrade: FunctionDef<Record<string, never>, { queued_wasm_hash: string | null }> = {
   multisig: 'upgrade',
   contract: 'market_manager',
-  function: 'cancel_in_manager_upgrade',
-  id: 'market_manager.cancel_in_manager_upgrade',
+  function: 'cancel_manager_upgrade',
+  id: 'market_manager.cancel_manager_upgrade',
+  displayName: 'Cancel queued Market Manager WASM upgrade',
+  description: 'Drops the currently-queued Market Manager WASM upgrade before it can be applied.',
   argSchema: {},
   isTimelocked: false,
   renderSummary: (_args, snapshot) => ({

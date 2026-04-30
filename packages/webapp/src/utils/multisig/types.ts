@@ -66,6 +66,18 @@ export type FunctionDef<Args = Record<string, unknown>, Snapshot = unknown> = {
   function: string
   /** Stable identifier used in ProposalPayload.function_id */
   id: string
+  /**
+   * Human-readable name shown in the Compose dropdown and as the title of
+   * proposal cards. Imperative phrasing — "Queue Market WASM upgrade" rather
+   * than the Rust-method name.
+   */
+  displayName: string
+  /**
+   * One-sentence description shown beneath the picker and as the Arguments
+   * section subtitle. Tells the operator what this action will do, in
+   * domain language. Avoid restating the displayName.
+   */
+  description: string
   argSchema: ArgSchema
   isTimelocked: boolean
   pairWith?: { queue: string, apply: string, cancel?: string }

@@ -7,12 +7,15 @@
  *
  * Phase 1 ships the Upgrade catalog only. Program (Plan 3) and Ops (Plan 4)
  * register their entries in the same map.
+ *
+ * Note: `apply_*_upgrade` is intentionally NOT in the catalog. Apply is
+ * permissionless on-chain (the queue entry + timelock are the security
+ * guarantees, see contracts/market_manager/src/contract.rs). Apply lives
+ * in the Pending Governance page and is called with a single wallet.
  */
 
 import type { FunctionDef, MultisigRole } from '../types'
 
-import { applyInManagerUpgrade } from './upgrade/apply-in-manager-upgrade'
-import { applyInMarketUpgrade } from './upgrade/apply-in-market-upgrade'
 import { cancelInManagerUpgrade } from './upgrade/cancel-in-manager-upgrade'
 import { cancelInMarketUpgrade } from './upgrade/cancel-in-market-upgrade'
 import { queueInManagerUpgrade } from './upgrade/queue-in-manager-upgrade'
@@ -20,10 +23,8 @@ import { queueInMarketUpgrade } from './upgrade/queue-in-market-upgrade'
 
 const ENTRIES: FunctionDef<any, any>[] = [
   queueInMarketUpgrade,
-  applyInMarketUpgrade,
   cancelInMarketUpgrade,
   queueInManagerUpgrade,
-  applyInManagerUpgrade,
   cancelInManagerUpgrade,
 ]
 

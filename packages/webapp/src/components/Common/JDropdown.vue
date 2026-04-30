@@ -52,6 +52,7 @@ function dropdownHandler(actionType: 'show' | 'hide') {
     background-color: color-mix(in oklab, $secondary 80%, transparent);
     color: $text-primary;
     padding: 8px 12px;
+    line-height: 1;
 
     &.show {
       border-color: $border-primary !important;
@@ -71,7 +72,6 @@ function dropdownHandler(actionType: 'show' | 'hide') {
     border-radius: $radius-lg;
     border: 1px solid $border-primary;
     background: $popover-bg;
-    backdrop-filter: blur(6px);
     backdrop-filter: blur(5px);
     color: $text-tertiary;
     font-size: 14px;

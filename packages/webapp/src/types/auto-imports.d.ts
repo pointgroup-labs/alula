@@ -258,6 +258,7 @@ declare global {
   const useMultiplyTable: typeof import('../hooks/multiply/table').useMultiplyTable
   const useMultiplyTableStore: typeof import('../store/multiply-table').useMultiplyTableStore
   const useMultiplyWithdraw: typeof import('../hooks/multiply/withdraw').useMultiplyWithdraw
+  const useMultisigStore: typeof import('../store/multisig').useMultisigStore
   const useMutationObserver: typeof import('@vueuse/core').useMutationObserver
   const useMyPosition: typeof import('../hooks/my-position').useMyPosition
   const useNavigatorLanguage: typeof import('@vueuse/core').useNavigatorLanguage
@@ -631,6 +632,7 @@ declare module 'vue' {
     readonly useMultiplyStore: UnwrapRef<typeof import('../store/multiply')['useMultiplyStore']>
     readonly useMultiplyTableStore: UnwrapRef<typeof import('../store/multiply-table')['useMultiplyTableStore']>
     readonly useMultiplyWithdraw: UnwrapRef<typeof import('../hooks/multiply/withdraw')['useMultiplyWithdraw']>
+    readonly useMultisigStore: UnwrapRef<typeof import('../store/multisig')['useMultisigStore']>
     readonly useMutationObserver: UnwrapRef<typeof import('@vueuse/core')['useMutationObserver']>
     readonly useMyPosition: UnwrapRef<typeof import('../hooks/my-position')['useMyPosition']>
     readonly useNavigatorLanguage: UnwrapRef<typeof import('@vueuse/core')['useNavigatorLanguage']>

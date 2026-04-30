@@ -28,7 +28,19 @@ export type BuildProposalInput<Args = Record<string, unknown>> = {
   /** G… of the multisig account whose seqnum and source we use */
   multisigAccountAddress: string
   env: ChainEnv
-  /** Optional minTime override (epoch seconds) — used for apply-stage timelock */
+  /**
+   * Optional Stellar `timebounds.minTime` override (epoch seconds).
+   *
+   * This is a NETWORK-LAYER guard — Stellar core refuses to include the tx
+   * in a ledger before this time. It is distinct from any contract-side
+   * timelock (e.g. `apply_*_upgrade` checks `queued_in_timestamp + delay`
+   * inside the contract itself, regardless of envelope timebounds).
+   *
+   * No current catalog function legitimately needs this set; the Compose
+   * page does not surface it. Kept as defensive infrastructure for future
+   * catalog entries that might want to bind a tx to a specific window
+   * (e.g. coordinated multi-step actions). Defaults to 0 (no lower bound).
+   */
   minTime?: number
   /** Optional maxTime override (epoch seconds) — defaults to minTime + 7d, or now + 30d */
   maxTime?: number
