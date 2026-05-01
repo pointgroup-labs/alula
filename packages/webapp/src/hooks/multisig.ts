@@ -3,7 +3,7 @@
  * `useConnectionStore().kit`) to the `signEnvelopeXdr` shape that
  * `signProposal` from the multisig lib expects.
  *
- * Centralising this means the sign page never reaches into the kit
+ * Centralizing this means the sign page never reaches into the kit
  * directly — it depends only on the multisig public surface.
  */
 

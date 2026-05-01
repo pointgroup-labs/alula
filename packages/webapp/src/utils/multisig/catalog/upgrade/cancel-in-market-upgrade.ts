@@ -9,6 +9,7 @@ export const cancelInMarketUpgrade: FunctionDef<Record<string, never>, { queued_
   description: 'Drops the currently-queued Market WASM upgrade before it can be applied. Use to abort a proposal during the timelock window.',
   argSchema: {},
   isTimelocked: false,
+  affectsAllMarkets: true,
   renderSummary: (_args, snapshot) => ({
     title: 'Cancel queued Market WASM upgrade',
     rows: [

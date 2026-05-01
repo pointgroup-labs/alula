@@ -80,6 +80,14 @@ export type FunctionDef<Args = Record<string, unknown>, Snapshot = unknown> = {
   description: string
   argSchema: ArgSchema
   isTimelocked: boolean
+  /**
+   * True for actions whose on-chain effect is global across every market
+   * spawned by the target market_manager (e.g. `queue_in_market_upgrade`
+   * stages a market WASM that propagates to all markets when applied).
+   * Compose surfaces a blast-radius warning when set; downstream code may
+   * also use it to suppress per-market pickers.
+   */
+  affectsAllMarkets?: boolean
   pairWith?: { queue: string, apply: string, cancel?: string }
   fetchBeforeSnapshot?: (env: ChainEnv, args: Args) => Promise<Snapshot>
   renderSummary: (args: Args, snapshot: Snapshot | null) => HumanDiff

@@ -33,8 +33,7 @@ onMounted(async () => {
     try {
       const decoded = await decodeProposal(multisig.proposal)
       fnEntry.value = decoded.fn
-    }
-    catch (error) {
+    } catch (error) {
       multisig.decodingError = (error as Error).message
     }
   }
@@ -62,8 +61,7 @@ function pasteSigs() {
   let rejected = 0
   for (const s of sigs) {
     const r = multisig.addSigPayload(s)
-    if (r.ok) { added++ }
-    else { rejected++ }
+    if (r.ok) { added++ } else { rejected++ }
   }
   pasteResult.value = `Added ${added}, rejected ${rejected}`
   pasteBlob.value = ''
@@ -73,8 +71,7 @@ async function submit() {
   submitError.value = null
   try {
     await multisig.submitCurrent()
-  }
-  catch (error) {
+  } catch (error) {
     submitError.value = (error as Error).message
   }
 }
@@ -237,7 +234,7 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
         </header>
 
         <ul
-          v-if="sigRows.length"
+          v-if="sigRows.length > 0"
           class="sig-list"
         >
           <li
@@ -417,12 +414,16 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
 
   &--err {
     border-color: color-mix(in oklab, $danger 45%, $border-secondary);
-    .multisig-banner__title { color: $danger; }
+    .multisig-banner__title {
+      color: $danger;
+    }
   }
 
   &--ok {
     border-color: color-mix(in oklab, $success 35%, $border-secondary);
-    .multisig-banner__title { color: $success; }
+    .multisig-banner__title {
+      color: $success;
+    }
   }
 }
 

@@ -25,6 +25,9 @@ export type {
   VerifySigPayloadResult,
 } from './build'
 
+export { simulateProposalEnvelope } from './build-envelope'
+export type { SimulateResult } from './build-envelope'
+
 export { getFunctionDef, listAllFunctions, listFunctionsByRole } from './catalog'
 
 export { loadAccount, loadMultisigState } from './chain'

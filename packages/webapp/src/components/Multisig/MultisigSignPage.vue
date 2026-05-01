@@ -37,8 +37,7 @@ onMounted(async () => {
     try {
       const decoded = await decodeProposal(multisig.proposal)
       fnEntry.value = decoded.fn
-    }
-    catch (error) {
+    } catch (error) {
       multisig.decodingError = (error as Error).message
     }
   }
@@ -63,11 +62,9 @@ async function sign() {
   try {
     const sig = await multisig.signCurrent()
     localSigB64.value = serializeSigPayload(sig)
-  }
-  catch (error) {
+  } catch (error) {
     signError.value = (error as Error).message
-  }
-  finally {
+  } finally {
     signing.value = false
   }
 }
@@ -77,8 +74,7 @@ async function copySig() {
   try {
     await navigator.clipboard.writeText(localSigB64.value)
     toast.create({ title: 'Copied', body: 'Signature copied to clipboard', modelValue: 2000 })
-  }
-  catch (error) {
+  } catch (error) {
     toast.create({
       title: 'Copy failed',
       body: String((error as Error)?.message ?? error),
@@ -360,17 +356,23 @@ const isAllowedSigner = computed(() =>
 
   &--err {
     border-color: color-mix(in oklab, $danger 45%, $border-secondary);
-    .multisig-banner__title { color: $danger; }
+    .multisig-banner__title {
+      color: $danger;
+    }
   }
 
   &--ok {
     border-color: color-mix(in oklab, $success 35%, $border-secondary);
-    .multisig-banner__title { color: $success; }
+    .multisig-banner__title {
+      color: $success;
+    }
   }
 
   &--warn {
     border-color: color-mix(in oklab, $warning 40%, $border-secondary);
-    .multisig-banner__title { color: $warning; }
+    .multisig-banner__title {
+      color: $warning;
+    }
   }
 }
 

@@ -15,6 +15,9 @@ export const queueInMarketUpgrade: FunctionDef<{ new_wasm_hash: string }, { curr
   // setting `timebounds.minTime` on the *queue* tx would only delay when the
   // contract clock starts. Apply is permissionless and lives outside the catalog.
   isTimelocked: false,
+  // Manager queues a single Market WASM hash that propagates to every
+  // market it has spawned when apply runs. There is no per-market target.
+  affectsAllMarkets: true,
   pairWith: {
     queue: 'market_manager.queue_in_market_upgrade',
     apply: 'market_manager.apply_in_market_upgrade',

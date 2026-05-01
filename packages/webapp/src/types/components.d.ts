@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AddressIcon: typeof import('./../components/Widget/AddressIcon.vue')['default']
+    AddressPicker: typeof import('./../components/Multisig/AddressPicker.vue')['default']
     AppFooter: typeof import('./../components/AppFooter.vue')['default']
     AppHeader: typeof import('./../components/AppHeader.vue')['default']
     AppSettings: typeof import('./../components/Settings/AppSettings.vue')['default']
@@ -185,6 +186,7 @@ declare module 'vue' {
     TeleportContent: typeof import('./../components/Widget/TeleportContent.vue')['default']
     TotalCard: typeof import('./../components/Widget/TotalCard.vue')['default']
     WarningBlock: typeof import('./../components/Widget/WarningBlock.vue')['default']
+    WasmHashVerifier: typeof import('./../components/Multisig/WasmHashVerifier.vue')['default']
     WithdrawDialog: typeof import('./../components/PortfolioPage/Dialogs/WithdrawDialog.vue')['default']
     WithdrawMultiplyDialog: typeof import('./../components/MultiplyPage/Dialogs/WithdrawMultiplyDialog.vue')['default']
     WithdrawMultiplyWindow: typeof import('./../components/MultiplySupplyCard/WithdrawMultiplyWindow.vue')['default']

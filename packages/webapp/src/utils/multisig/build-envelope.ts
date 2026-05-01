@@ -4,6 +4,11 @@
  * Implements the assembly half of buildProposal: account fetch, signer-set
  * snapshot, timeBounds, fee policy, payload + hash. The catalog-args→ScVal
  * encoding is delegated to encode.ts (which today only knows wasm-hash).
+ *
+ * `simulateProposalEnvelope` is a separate exported helper rather than an
+ * implicit step inside buildProposal — the compose page wants the envelope
+ * even when simulation fails (so the operator can see the diff and decide),
+ * and signers may want to re-simulate before signing without rebuilding.
  */
 
 import type { BuildProposalInput } from './build'
@@ -15,8 +20,10 @@ import type {
 import {
   Address,
   Operation,
+  Transaction,
   TransactionBuilder,
 } from '@stellar/stellar-sdk'
+import { Api, Server as RpcServer } from '@stellar/stellar-sdk/rpc'
 import { loadAccount, loadMultisigState } from './chain'
 import { encodeArgsToScVals } from './encode'
 import { computeProposalHash } from './hash'
@@ -115,8 +122,45 @@ function resolveContractAddress(env: ChainEnv, fn: FunctionDef<any, any>): strin
   }
 }
 
-// Note: this builds the envelope without simulation. A follow-up commit
-// should add a `simulateTransaction` pass to size the resource fee
-// (DEFAULT_BASE_FEE × DEFAULT_RESOURCE_FEE_BUFFER_MULT) and surface
-// simulation failures at compose time. See spec §10 week 4 polish item.
+export type SimulateResult
+  = | { ok: true, minResourceFee: string | null }
+    | { ok: false, error: string }
+
+/**
+ * Re-hydrates a built proposal envelope and asks Soroban RPC to simulate
+ * it. Catches three classes of issue at compose-time that would otherwise
+ * only surface at submit-time:
+ *
+ *  - Auth failures (e.g. the multisig isn't actually the manager's admin).
+ *  - Contract-side reverts (e.g. queueing while another upgrade is pending).
+ *  - Argument decoding errors on the contract side.
+ *
+ * Returns a string error rather than throwing so the caller can render it
+ * inline next to the proposal preview without try/catch noise.
+ */
+export async function simulateProposalEnvelope(
+  rpcUrl: string,
+  networkPassphrase: string,
+  unsignedXdr: string,
+): Promise<SimulateResult> {
+  try {
+    const tx = new Transaction(unsignedXdr, networkPassphrase)
+    const server = new RpcServer(rpcUrl)
+    const sim = await server.simulateTransaction(tx)
+    if (Api.isSimulationError(sim)) {
+      return { ok: false, error: sim.error || 'simulation failed (no error message)' }
+    }
+    const minResourceFee = 'minResourceFee' in sim ? String(sim.minResourceFee) : null
+    return { ok: true, minResourceFee }
+  } catch (error) {
+    return { ok: false, error: (error as Error).message ?? String(error) }
+  }
+}
+
+// Note: this builds the envelope without simulation. The compose page is
+// expected to call `simulateProposalEnvelope` after build to surface
+// auth/revert errors early; signers may re-simulate before signing.
+// Sizing the resource fee from the simulation result (DEFAULT_BASE_FEE ×
+// DEFAULT_RESOURCE_FEE_BUFFER_MULT, capped at the simulator's
+// minResourceFee) is the next polish step — see spec §10 week 4.
 export const RESERVED_FOR_FUTURE = { DEFAULT_RESOURCE_FEE_BUFFER_MULT }
