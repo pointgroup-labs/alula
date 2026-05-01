@@ -275,7 +275,7 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
           />
           <div class="multisig-actions">
             <j-btn
-              variant="outline-primary"
+              variant="outlined-brand"
               @click="pasteSigs"
             >
               Add pasted sigs

@@ -262,7 +262,7 @@ const isAllowedSigner = computed(() =>
             :value="localSigB64"
           />
           <j-btn
-            variant="outline-primary"
+            variant="outlined-brand"
             @click="copySig"
           >
             Copy signature

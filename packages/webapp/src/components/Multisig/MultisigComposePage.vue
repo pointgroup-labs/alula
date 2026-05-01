@@ -444,6 +444,15 @@ async function copyText(text: string, body: string) {
   }
 }
 
+// Programmatic open instead of `<a href target="_blank">` so the button
+// renders as a real <button> in the actions row — keeps it baseline-aligned
+// with its sibling <button>s under flexbox. `noopener,noreferrer` denies
+// the new tab access to `window.opener`.
+function openInNewTab() {
+  if (!fragmentUrl.value) { return }
+  globalThis.open(fragmentUrl.value, '_blank', 'noopener,noreferrer')
+}
+
 async function build() {
   buildError.value = null
   invalidateBuild()
@@ -554,19 +563,7 @@ function resetNetworkCoupledFields() {
   resetFormState()
 }
 
-function startOver() {
-  // Full reset including the function picker — operators who hit
-  // "Start over" expect a clean slate, not "same action, blank args".
-  // The previous behaviour was a footgun: clearing args while leaving
-  // functionId selected made it look like the form was reset, while a
-  // build still produced the previous action with empty inputs.
-  functionId.value = null
-  resetNetworkCoupledFields()
-}
-
-// Human-readable "Xs ago" for the simulation result. Re-evaluates when
-// `now` ticks (1 Hz) so a 30-second-old green banner doesn't pretend to
-// be fresh. Returns empty string when there's no result to time.
+// Human-readable "Xs ago" for the simulation result.
 const simulatedAgo = computed(() => {
   if (!simulatedAt.value) { return '' }
   const seconds = Math.max(0, Math.floor((now.value - simulatedAt.value) / 1000))
@@ -624,8 +621,9 @@ onUnmounted(() => {
               v-if="role"
               class="multisig-field__role-chip"
               :class="`multisig-field__role-chip--${role}`"
+              :title="`Signers from the ${capitalize(role)} role must approve this proposal`"
             >
-              {{ capitalize(role) }} multisig
+              Role: {{ capitalize(role) }}
             </span>
           </label>
           <j-select
@@ -902,11 +900,11 @@ onUnmounted(() => {
     >
       <header class="multisig-section__header">
         <h2 class="multisig-section__title">
-          Proposal built
+          Share with signers
         </h2>
         <p class="multisig-section__subtitle">
-          Share this URL with co-signers. The proposal payload travels in the URL fragment — the
-          relay never sees it.
+          Send this URL to the <strong>{{ capitalize(role) }}</strong> signers. Each one signs in
+          their own browser; you submit once the threshold is met.
         </p>
       </header>
 
@@ -939,9 +937,9 @@ onUnmounted(() => {
           </span>
           <span class="multisig-banner__body">
             <template v-if="simulateResult.ok">
-              The contract accepted this call from the chosen multisig against the current ledger.
-              Chain state can change between now and submit (other proposals queued, admin rotated,
-              etc.) — re-simulate before you submit if any time has passed.
+              The call would execute against current chain state. That snapshot expires when the
+              next ledger closes, so re-simulate just before submitting in case the chain has moved
+              (another proposal queued, admin rotated, target market closed).
             </template>
             <template v-else>
               {{ simulateResult.error }}
@@ -950,14 +948,15 @@ onUnmounted(() => {
             </template>
           </span>
           <div class="multisig-banner__actions">
-            <button
-              type="button"
-              class="multisig-banner__btn"
+            <j-btn
+              size="sm"
+              variant="ghost"
+              :loading="resimulating"
               :disabled="resimulating"
               @click="resimulate"
             >
               {{ resimulating ? 'Re-simulating…' : 'Re-simulate' }}
-            </button>
+            </j-btn>
           </div>
         </div>
 
@@ -967,10 +966,14 @@ onUnmounted(() => {
           rows="3"
           :value="fragmentUrl"
         />
+        <p class="proposal-share__note">
+          The full proposal travels inside the URL fragment (after the <code>#</code>) — fragments
+          are never sent to the relay or any server. Safe to paste into chat.
+        </p>
 
         <div class="multisig-actions">
           <j-btn
-            :variant="simulateResult && !simulateResult.ok ? 'outline-primary' : 'primary'"
+            :variant="simulateResult && !simulateResult.ok ? 'outlined-brand' : 'primary'"
             :title="simulateResult && !simulateResult.ok
               ? 'Simulation failed — copying anyway. Verify before sharing with signers.'
               : 'Copy the share URL to clipboard'"
@@ -980,20 +983,12 @@ onUnmounted(() => {
           >
             {{ simulateResult && !simulateResult.ok ? 'Copy URL anyway' : 'Copy URL' }}
           </j-btn>
-          <a
-            class="multisig-actions__link"
-            :href="fragmentUrl"
-            target="_blank"
-            rel="noopener"
-            title="Verify the URL decodes correctly before sharing"
-          >
-            Open in new tab ↗
-          </a>
           <j-btn
-            variant="outline-primary"
-            @click="startOver"
+            variant="ghost"
+            title="Verify the URL decodes correctly before sharing"
+            @click="openInNewTab"
           >
-            Start over
+            Open in new tab
           </j-btn>
         </div>
       </div>
@@ -1133,22 +1128,26 @@ onUnmounted(() => {
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    padding: 1px 8px;
+    padding: 2px 8px;
     border: 1px solid $border-secondary;
     border-radius: 999px;
     color: $text-tertiary;
+    background-color: color-mix(in oklab, $navi-700 40%, transparent);
 
     &--ops {
       color: $cyan;
       border-color: color-mix(in oklab, $cyan 35%, $border-secondary);
+      background-color: color-mix(in oklab, $cyan 12%, transparent);
     }
     &--program {
       color: $warning;
       border-color: color-mix(in oklab, $warning 40%, $border-secondary);
+      background-color: color-mix(in oklab, $warning 12%, transparent);
     }
     &--upgrade {
-      color: $danger;
-      border-color: color-mix(in oklab, $danger 45%, $border-secondary);
+      color: $indigo;
+      border-color: color-mix(in oklab, $indigo 45%, $border-secondary);
+      background-color: color-mix(in oklab, $indigo 14%, transparent);
     }
   }
 
@@ -1289,23 +1288,6 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-
-  &__link {
-    font-size: 12px;
-    color: $cyan;
-    text-decoration: none;
-    padding: 4px 10px;
-    border: 1px solid color-mix(in oklab, $cyan 30%, $border-secondary);
-    border-radius: $radius-md;
-    transition:
-      color 0.12s ease,
-      border-color 0.12s ease;
-
-    &:hover {
-      color: $navi-25;
-      border-color: $cyan;
-    }
-  }
 }
 
 .preview-card {
@@ -1463,32 +1445,6 @@ onUnmounted(() => {
     gap: 8px;
     margin-top: 6px;
   }
-
-  &__btn {
-    background: none;
-    border: 1px solid $border-secondary;
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $text-secondary;
-    cursor: pointer;
-    transition:
-      color 0.12s ease,
-      border-color 0.12s ease;
-
-    &:hover:not(:disabled) {
-      color: $cyan;
-      border-color: color-mix(in oklab, $cyan 35%, $border-secondary);
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-  }
 }
 
 .proposal-share__url {
@@ -1503,6 +1459,22 @@ onUnmounted(() => {
   word-break: break-all;
   resize: vertical;
   cursor: default;
+}
+
+.proposal-share__note {
+  margin: 0;
+  font-size: 11px;
+  color: $text-tertiary;
+  line-height: 1.5;
+
+  code {
+    font-family: $font-JetBrainsMono;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: $radius-sm;
+    background-color: color-mix(in oklab, $navi-700 60%, transparent);
+    color: $text-secondary;
+  }
 }
 
 .kv {

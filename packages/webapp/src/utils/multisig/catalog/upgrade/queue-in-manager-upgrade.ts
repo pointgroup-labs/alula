@@ -6,7 +6,7 @@ export const queueInManagerUpgrade: FunctionDef<{ new_wasm_hash: string }, { cur
   function: 'queue_in_manager_upgrade',
   id: 'market_manager.queue_in_manager_upgrade',
   displayName: 'Queue Market Manager WASM upgrade',
-  description: 'Stages a new Market Manager contract WASM hash. After the on-chain timelock elapses, anyone can apply the manager upgrade.',
+  description: 'Queues a new WASM hash for the Market Manager contract. Once the on-chain timelock expires, the upgrade can be applied and will replace the code of the Manager itself.',
   argSchema: {
     new_wasm_hash: { kind: 'wasm-hash' },
   },
