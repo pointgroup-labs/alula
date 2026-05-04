@@ -45,6 +45,15 @@ pub trait InsuranceFund {
     /// # Returns
     /// [`i128`] amount of tokens that are covered and sent to the Market contract(`0` is considered as a valid amount)
     fn claim_coverage(e: Env, request_id: u64) -> i128;
+
+    /// Cancels a still-`Pending` request without paying out. Used by the Market to
+    /// resolve coverage requests whose deadline has elapsed, so the pool can socialize
+    /// the loss and unlock without depending on Insurance Fund admin liveness.
+    ///
+    /// # Panics
+    /// If the Market contract hasn't authorized the call, the request does not exist,
+    /// or the request is already in [`CoverageStatus::Ready`] state.
+    fn cancel(e: Env, request_id: u64);
 }
 
 #[contracttype]

@@ -213,6 +213,16 @@ struct ClaimCoverBadDebtResults {
 }
 
 #[contractevent]
+struct BadDebtRequestCancelled {
+    #[topic]
+    pool_address: Address,
+    request_id: u64,
+    /// `true` if the request was missing from the Insurance Fund (e.g. archived);
+    /// `false` if it was still Pending past the deadline and was actively cancelled.
+    missing: bool,
+}
+
+#[contractevent]
 struct PoolBadDebtLocked {
     #[topic]
     pool_address: Address,
@@ -717,6 +727,10 @@ pub fn issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) {
 
 pub fn claim_cover_bad_debt_results(e: &Env, obligation_key: ObligationKey) {
     ClaimCoverBadDebtResults { obligation_key }.publish(e);
+}
+
+pub fn bad_debt_request_cancelled(e: &Env, pool_address: &Address, request_id: u64, missing: bool) {
+    BadDebtRequestCancelled { pool_address: pool_address.clone(), request_id, missing }.publish(e);
 }
 
 pub fn pool_bad_debt_locked(e: &Env, pool_address: &Address, deadline: u64) {
