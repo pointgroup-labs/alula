@@ -160,7 +160,6 @@ impl InsuranceFund for ControlledInsuranceFundContract {
         let market = storage::get_market(&e);
         market.require_auth();
         storage::extend_instance(&e);
-
         let Some(request) = storage::get_request(&e, request_id) else {
             panic_with_error!(&e, ContractError::RequestDoesNotExist);
         };
@@ -188,6 +187,21 @@ impl InsuranceFund for ControlledInsuranceFundContract {
         storage::remove_request(&e, request_id);
 
         coverage_amount
+    }
+
+    fn cancel(e: Env, request_id: u64) {
+        let market = storage::get_market(&e);
+        market.require_auth();
+        storage::extend_instance(&e);
+
+        let Some(request) = storage::get_request(&e, request_id) else {
+            panic_with_error!(&e, ContractError::RequestDoesNotExist);
+        };
+        if !matches!(request.status, CoverageStatus::Pending) {
+            panic_with_error!(&e, ContractError::RequestIsReady);
+        }
+
+        storage::remove_request(&e, request_id);
     }
 }
 

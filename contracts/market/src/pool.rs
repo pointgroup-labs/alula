@@ -549,11 +549,7 @@ impl Pool {
     }
 
     pub fn require_bad_debt_unlocked(&self, e: &Env) -> Result<(), MCError> {
-        if self.bad_debt_lock_d == 0 {
-            return Ok(());
-        }
-
-        if e.ledger().timestamp() >= self.bad_debt_lock_d {
+        if self.bad_debt_request_count == 0 && e.ledger().timestamp() >= self.bad_debt_lock_d {
             return Ok(());
         }
 
