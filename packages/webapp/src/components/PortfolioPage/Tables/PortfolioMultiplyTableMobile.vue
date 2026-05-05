@@ -15,7 +15,7 @@ const market = useMarketActions()
 
 const labelsByPage = computed(() => ({
   supply: showInAccounts ? 'Borrowed' : 'Supplied',
-  liquidity: showInAccounts ? 'Deposited' : 'Liquidity',
+  liquidity: showInAccounts ? 'Supplied' : 'Liquidity',
 }))
 
 function getLiquidity(data: MultiplyPortfolioTableItem) {

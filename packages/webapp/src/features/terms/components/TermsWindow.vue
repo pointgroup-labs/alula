@@ -109,7 +109,7 @@ function updateAccepted(value: boolean) {
           :disabled="!isScroll"
           @update:model-value="updateAccepted"
         >
-          I have read and agree to the Terms of Service
+          I have read and agree to the Terms of Use
         </j-checkbox>
 
         <j-btn

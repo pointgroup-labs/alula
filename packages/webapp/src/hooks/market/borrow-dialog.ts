@@ -290,7 +290,7 @@ export function useBorrowDialog(data: MaybeRef<MarketTableItem | undefined>, isO
 
   const attentionText = computed(() => {
     if (!isCanBorrow.value) {
-      return 'You need to deposit collateral before you can borrow.'
+      return 'You need to supply collateral before you can borrow.'
     }
     return availableToBorrow.value <= 0 && isCanBorrow.value ? 'You don\'t have enough collateral or available borrow limit.' : null
   })

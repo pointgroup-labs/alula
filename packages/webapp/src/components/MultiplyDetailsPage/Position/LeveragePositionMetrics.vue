@@ -33,7 +33,7 @@ const hardMaxMultiplier = computed(() => {
         <!-- multiplier -->
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
-            Effective leverage
+            Effective Leverage
             <info-tooltip>
               Your live exposure ÷ equity right now — not the multiplier you picked at open.
               It drifts as the price of your collateral moves: collateral falling pushes it up,
@@ -128,7 +128,7 @@ const hardMaxMultiplier = computed(() => {
         </div>
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
-            Borrow rate
+            Borrow APY
           </div>
           <div class="metrics-list__row__value text-indigo">
             <strong>{{ truncatePercent(position.borrowApy, 2) }}%</strong>
@@ -136,7 +136,7 @@ const hardMaxMultiplier = computed(() => {
         </div>
         <div class="metrics-list__row">
           <div class="metrics-list__row__label">
-            Estimated yearly result
+            Estimated Yearly Result
           </div>
           <div class="metrics-list__row__value">
             <span :class="position.yearlyResultUsd >= 0 ? 'text-positive' : 'text-negative'">

@@ -52,7 +52,7 @@ const {
             <div class="asset-data__value">
               {{ shortenNumber(position.borrowed, 2, maxDecimalsForShortenNumber(position.borrowed)) }} {{ selectedVault?.borrowAsset.symbol }}
               <j-pill-label variant="indigo">
-                {{ truncatePercent(position.borrowApy) }}% rate
+                {{ truncatePercent(position.borrowApy) }}% APY
               </j-pill-label>
             </div>
           </div>

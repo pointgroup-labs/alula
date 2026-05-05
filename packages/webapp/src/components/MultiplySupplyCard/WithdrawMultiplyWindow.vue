@@ -229,7 +229,7 @@ const closeDetailsSteps = computed(() => {
 
           <div class="summary-list">
             <div class="summary-list__item">
-              <div class="label">Current deposited</div>
+              <div class="label">Currently Supplied</div>
               <div class="value">
                 <template v-if="previewLoading && !preview">
                   <j-loading-spinner
@@ -265,7 +265,7 @@ const closeDetailsSteps = computed(() => {
               class="info-summary__header"
               style="width: 100%;"
             >
-              Close details
+              Close Details
 
               <j-loading-spinner
                 v-if="previewLoading"
@@ -326,7 +326,7 @@ const closeDetailsSteps = computed(() => {
         >
           <div class="summary-list">
             <div class="summary-list__item">
-              <div class="label">Flash loan fee</div>
+              <div class="label">Flash Loan Fee</div>
               <div class="value">
                 {{ formatPrice(marketFee, 2, vault?.borrowPoolData.pool.token_decimals || 7) }}
                 {{ isMarginBorrow ? vault?.borrowAsset.symbol : vault?.asset.symbol }}

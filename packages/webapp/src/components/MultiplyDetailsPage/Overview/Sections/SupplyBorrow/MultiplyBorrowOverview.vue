@@ -79,7 +79,7 @@ const progress = computed(() => {
         variant="indigo"
         style="margin-left: auto;"
       >
-        Borrow rate {{ detailCardsData.borrowAPY }}
+        Borrow Rate {{ detailCardsData.borrowAPY }}
       </j-pill-label>
     </div>
 

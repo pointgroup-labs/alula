@@ -307,7 +307,7 @@ export function useSupplyDialog(data: MaybeRef<MarketTableItem | undefined>, isO
     }
   }
 
-  const attentionText = 'You cannot deposit funds into a pool where you have an active loan. Please repay your loan before depositing funds.'
+  const attentionText = 'You cannot supply funds into a pool where you have an active loan. Please repay your loan before supplying funds.'
 
   let stopFeeWatcher: WatchStopHandle | undefined
   let stopCollateralToQuery: WatchStopHandle | undefined

@@ -39,12 +39,6 @@ const detailCardsData = computed(() => {
 <template>
   <section id="pool-info-overview">
     <div class="stat-card">
-      <div class="stat-card__header">
-        <h3 class="title">
-          Pool Overview
-        </h3>
-      </div>
-
       <div class="stat-card__body">
         <div class="info-list">
           <div class="info-list__item">

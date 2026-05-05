@@ -58,7 +58,7 @@ watch([() => minPercent.value, () => maxMultiply], ([nextMin, nextMax]) => {
     <div class="multiply-select__header">
       <div>
         <div class="multiply-select__label">
-          Target multiplier
+          Target Multiplier
           <info-tooltip>
             Adjusts the leverage of your position.
             Increasing the multiplier boosts exposure and potential returns, but also raises borrowing costs and liquidation risk.

@@ -53,7 +53,7 @@ const {
           v-if="hasPosition && position"
           class="net-apy"
         >
-          NET APY
+          Net APY
           <info-tooltip>
             Net APY for the active multiply position. It combines deposit yield on the collateral leg and borrow cost on the margin leg at the current multiplier.
             <br>

@@ -42,7 +42,7 @@ const fields = [
   { key: 'total_borrowed', label: 'Borrowed', align: 'right', thClass: 'borrow', tdClass: 'borrow' },
   { key: 'utilization_rate', label: 'Utilization', align: 'right', thClass: 'utilization', tdClass: 'utilization' },
   { key: 'deposit_apy', label: 'Supply APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
-  { key: 'borrow_apy', label: 'Borrow rate', align: 'center', thClass: 'apy', tdClass: 'apy' },
+  { key: 'borrow_apy', label: 'Borrow APY', align: 'center', thClass: 'apy', tdClass: 'apy' },
   { key: 'position', label: 'My Position', align: 'right', thClass: 'position', tdClass: 'position' },
   { key: 'action', label: '', thClass: 'action', tdClass: 'action' },
 ]

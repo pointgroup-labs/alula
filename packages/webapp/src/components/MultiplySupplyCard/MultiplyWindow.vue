@@ -313,7 +313,7 @@ function isUserHaveMultiply(): boolean {
             >
               <div class="label">
                 <div class="label-with-tip">
-                  Price impact
+                  Price Impact
                   <info-tooltip>
                     Pure depth-driven slippage of this swap against the current pool: how
                     much your trade size moves the rate. Computed by re-quoting the same
@@ -336,7 +336,7 @@ function isUserHaveMultiply(): boolean {
             >
               <div class="label">
                 <div class="label-with-tip">
-                  Realized leverage
+                  Realized Leverage
                   <info-tooltip>
                     Actual on-chain leverage after the swap. Differs from the slider target because
                     the AMM charges fees and price impact, and oracle prices may not match AMM rates —
@@ -350,7 +350,7 @@ function isUserHaveMultiply(): boolean {
             </div>
 
             <div class="summary-list__item align-items-start mb-2">
-              <div class="label">Available liquidity</div>
+              <div class="label">Available Liquidity</div>
               <div class="value">
                 <div class="text-end">
                   {{ shortenNumber(availableBorrowLiquidity || 0, 2, maxDecimalsForShortenNumber(availableBorrowLiquidity || 0)) }} {{ vault.borrowAsset?.symbol }}
@@ -453,7 +453,7 @@ function isUserHaveMultiply(): boolean {
         >
           <div class="summary-list">
             <div class="summary-list__item">
-              <div class="label">Flash loan fee</div>
+              <div class="label">Flash Loan Fee</div>
               <div class="value">
                 {{ shortenNumber(flashLoanFeeAmount || 0, 2, maxDecimalsForShortenNumber(flashLoanFeeAmount || 0)) }} {{ vault.borrowAsset?.symbol }}
               </div>

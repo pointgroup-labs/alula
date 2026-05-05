@@ -96,7 +96,7 @@ function dialogHandler(item: MarketTableItem, action: string) {
     <div class="mobile-card-body">
       <div class="info-wrapper">
         <div class="info-wrapper__title">
-          Supply
+          Supplied
         </div>
         <div class="info-wrapper__value text-end">
           {{ shortenNumber(item?.total_supply) }}
@@ -107,7 +107,7 @@ function dialogHandler(item: MarketTableItem, action: string) {
 
       <div class="info-wrapper">
         <div class="info-wrapper__title">
-          Borrow
+          Borrowed
         </div>
         <div class="info-wrapper__value text-end">
           {{ shortenNumber(item?.total_borrowed) }}

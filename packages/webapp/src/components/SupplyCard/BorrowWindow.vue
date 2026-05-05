@@ -187,7 +187,7 @@ function readMoreHandler(e: Event) {
 
       <div class="info-summary__item">
         <div class="info-summary__header">
-          Borrow details
+          Borrow Details
         </div>
 
         <div class="summary-list">
@@ -268,7 +268,7 @@ function readMoreHandler(e: Event) {
       :disabled="!isCanBorrow || availableToBorrow <= 0"
     >
       <div class="extra-info__label">
-        I understand how the borrowing mechanism works and consider  liquidation parameters.
+        I understand how borrowing works and have reviewed the liquidation parameters.
         <a
           :href="DOCS_BORROW_RISKS_LINK"
           target="_blank"

@@ -137,7 +137,7 @@ const option = computed<EChartsOption>(() => {
 
     series: [
       {
-        name: 'Supply APR',
+        name: 'Supply APY',
         type: 'line',
         data: supplyValues.value,
         smooth: 0.45,
@@ -153,7 +153,7 @@ const option = computed<EChartsOption>(() => {
         },
       },
       {
-        name: 'Borrow APR',
+        name: 'Borrow APY',
         type: 'line',
         data: borrowValues.value,
         smooth: 0.45,

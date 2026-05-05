@@ -47,7 +47,7 @@ const marketsInfo = computed(() => {
       </template>
       <template v-else>
         <total-card
-          title="Total TVL"
+          title="TVL"
           :body="`$${formatPrice(marketsInfo.supplied, 0, 0)}`"
           :loading="loading"
         />

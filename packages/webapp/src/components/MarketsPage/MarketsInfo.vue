@@ -48,7 +48,7 @@ const marketsInfo = computed(() => {
           :loading="loading"
         />
         <total-card
-          title="Total Borrow"
+          title="Total Borrowed"
           :body="`$${formatPrice(marketsInfo.total_borrowed, 0, 0)}`"
           :loading="loading"
         />

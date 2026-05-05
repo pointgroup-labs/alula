@@ -130,7 +130,7 @@ async function repay() {
 
       <div class="info-summary__item">
         <div class="info-summary__header">
-          Borrow details
+          Borrow Details
         </div>
 
         <div class="summary-list">

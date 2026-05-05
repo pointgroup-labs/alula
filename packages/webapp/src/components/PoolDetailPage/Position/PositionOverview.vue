@@ -28,7 +28,7 @@ const healthStatusLabel = computed(() => {
   if (healthFactor.value < 1.5) {
     return 'Caution'
   }
-  return 'Health'
+  return 'Healthy'
 })
 
 const healthStatusDetail = computed(() => {
@@ -168,7 +168,7 @@ function handleClick() {
         v-else
         class="no-borrow-card"
       >
-        Start borrowing
+        Start Borrowing
         <j-btn
           variant="outlined-brand-secondary"
           size="sm"

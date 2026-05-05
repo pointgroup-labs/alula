@@ -200,7 +200,7 @@ function calcStakePercent(stake: number, total: number) {
                 </div>
 
                 <template #content>
-                  This shows how much of your deposit is actively earning yield.
+                  This shows how much of your supply is actively earning yield.
                   <br>
                   <br>
                   • {{ formatCompactUSD(Number(data.item.deposited) * Number(data.item.price)) }} in supply is earning interest

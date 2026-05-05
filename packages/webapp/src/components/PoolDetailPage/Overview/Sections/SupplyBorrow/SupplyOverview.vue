@@ -119,7 +119,7 @@ const progress = computed(() => isSupplyLimit.value ? Number(totalSupplied.value
 
         <div class="detail-list__item">
           <div class="detail-list__item__label">
-            Deposit Fee
+            Supply Fee
           </div>
           <div
             class="detail-list__item__value"

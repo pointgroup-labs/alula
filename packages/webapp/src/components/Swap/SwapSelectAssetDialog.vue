@@ -56,7 +56,7 @@ const filteredTokens = computed(() =>
   <select-entity-dialog
     v-model="dialog"
     v-model:search="search"
-    search-placeholder="Search token"
+    search-placeholder="Search tokens"
   >
     <div
       v-if="filteredTokens.length > 0"

@@ -15,12 +15,6 @@ function normalizeDate(date: string): string {
 <template>
   <section id="pool-info-overview">
     <div class="stat-card">
-      <div class="stat-card__header">
-        <h3 class="title">
-          Audits
-        </h3>
-      </div>
-
       <div class="stat-card__body">
         <div class="info-list">
           <div

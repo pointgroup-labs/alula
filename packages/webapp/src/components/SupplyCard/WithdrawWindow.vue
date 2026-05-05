@@ -93,7 +93,7 @@ watch([supplyBalance, isHasCollateral], ([b, c]) => {
       <div class="info-summary__header">
         Balances
         <info-tooltip style="margin: 0 auto 0 6px">
-          Total deposited balances, including funds available for withdrawal (Supply) and funds locked as collateral.
+          Total supplied balances, including funds available for withdrawal (Supply) and funds locked as collateral.
         </info-tooltip>
       </div>
 

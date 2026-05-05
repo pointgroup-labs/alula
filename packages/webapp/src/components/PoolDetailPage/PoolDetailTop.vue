@@ -119,7 +119,7 @@ const detailCardsData = computed(() => {
           <info-tooltip>
             Annual interest rate paid for borrowing assets.
             <br>
-            Rates increase as pool utilization grows
+            Rates increase as pool utilization grows.
           </info-tooltip>
         </span>
         <span class="borrow">{{ detailCardsData.borrowAPY }}</span>

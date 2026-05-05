@@ -90,7 +90,7 @@ const progress = computed(() => {
             </div>
             <div class="market-progress__info__data">
               {{ shortenNumber(totalBorrowed, 1, 1) }}
-              <span> /{{ formatCompactUSD(totalBorrowedUsd, 1, 1) }}</span>
+              <span> / {{ formatCompactUSD(totalBorrowedUsd, 1, 1) }}</span>
             </div>
           </div>
 

@@ -8,7 +8,7 @@ const isValidAccount = computed(() => store.isValidAccount && !!publicKey)
   <div class="container">
     <warning-block
       v-if="!isValidAccount && publicKey"
-      :text="`The wallet address ${shortenAddress(publicKey)} does not exist on the network. Please fund your account!`"
+      :text="`The wallet address ${shortenAddress(publicKey)} is not active on the network. Please fund your account to continue.`"
     />
   </div>
 </template>
