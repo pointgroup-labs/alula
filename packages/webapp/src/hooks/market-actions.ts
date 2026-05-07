@@ -1,4 +1,4 @@
-import type { RPCcluster, StellarClient } from '@alula/client-sdk'
+import type { AlulaClient, RPCcluster } from '@alula/client-sdk'
 import type { ObligationKey } from '@alula/market-sdk'
 import type { TableActionType } from '~/store/markets'
 import { SOROBAN_RPC_URLS } from '@alula/client-sdk'
@@ -97,7 +97,7 @@ export function useMarketActions() {
   }
 
   async function runAction(opts: {
-    client: StellarClient
+    client: AlulaClient
     market: string
     pool: string
     type: TableActionType
@@ -167,7 +167,7 @@ export function useMarketActions() {
   async function deposit(
     props: {
       market: string
-      client: StellarClient
+      client: AlulaClient
       pool_address: string
       amount: number
       asset_data: string
@@ -215,7 +215,7 @@ export function useMarketActions() {
   // Borrow
   async function borrow(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -266,7 +266,7 @@ export function useMarketActions() {
   // Withdraw
   async function withdraw(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -315,7 +315,7 @@ export function useMarketActions() {
   // Repay
   async function repay(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -367,7 +367,7 @@ export function useMarketActions() {
   // Add collateral
   async function addCollateral(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -416,7 +416,7 @@ export function useMarketActions() {
   // Remove collateral
   async function removeCollateral(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       pool_address: string
       amount: number
@@ -465,7 +465,7 @@ export function useMarketActions() {
   // Leverage
   async function openMultiply(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       deposit_pool_address: string
       borrow_pool_address: string
@@ -539,7 +539,7 @@ export function useMarketActions() {
 
   async function withdrawMultiply(
     props: {
-      client: StellarClient
+      client: AlulaClient
       market: string
       deposit_pool_address: string
       borrow_pool_address: string
@@ -620,7 +620,7 @@ export function useMarketActions() {
     action,
   }: { pool_address: string
     market: string
-    client: StellarClient
+    client: AlulaClient
     withObligation?: boolean
     action?: () => void | Promise<void> }) {
     const tasks = [

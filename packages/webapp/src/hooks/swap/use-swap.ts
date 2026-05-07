@@ -1,4 +1,4 @@
-import type { StellarClient, SwapRoute } from '@alula/client-sdk'
+import type { AlulaClient, SwapRoute } from '@alula/client-sdk'
 import { TRANSACTION_TIMEOUT } from '~/config'
 import { destructurePoolAsset } from '~/utils'
 import { buildObligationKey } from '~/utils/obligation'
@@ -121,7 +121,7 @@ export function useSwap() {
   // order across network switches/reloads, which would churn `swapClient`'s
   // identity and re-trigger every downstream effect. Sort by market key so the
   // chosen client is stable across reloads.
-  const swapClient = computed<StellarClient | undefined>(() => {
+  const swapClient = computed<AlulaClient | undefined>(() => {
     const entries = Object.entries(marketsStore.state.markets)
       .toSorted(([a], [b]) => a.localeCompare(b))
     return entries[0]?.[1]?.client

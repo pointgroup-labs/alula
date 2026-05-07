@@ -1,7 +1,7 @@
 // Main client
 export * from './client'
 
-export { StellarClient } from './client'
+export { AlulaClient } from './client'
 
 // Config
 export * from './config'
