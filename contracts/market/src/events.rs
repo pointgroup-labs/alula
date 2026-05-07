@@ -147,6 +147,8 @@ struct FlashLoanEvent {
     contract: Address,
     #[topic]
     pool_address: Address,
+    #[topic]
+    initiator: Address,
     amount: i128,
     fees_paid: i128,
 }
@@ -208,6 +210,16 @@ struct IssueCoverBadDebt {
 struct ClaimCoverBadDebtResults {
     #[topic]
     obligation_key: ObligationKey,
+}
+
+#[contractevent]
+struct BadDebtRequestCancelled {
+    #[topic]
+    pool_address: Address,
+    request_id: u64,
+    /// `true` if the request was missing from the Insurance Fund (e.g. archived);
+    /// `false` if it was still Pending past the deadline and was actively cancelled.
+    missing: bool,
 }
 
 #[contractevent]
@@ -633,6 +645,7 @@ pub fn withdraw(
 
 pub fn flash_loan(
     e: &Env,
+    initiator: &Address,
     contract: &Address,
     pool_address: &Address,
     amount: i128,
@@ -641,6 +654,7 @@ pub fn flash_loan(
     FlashLoanEvent {
         contract: contract.clone(),
         pool_address: pool_address.clone(),
+        initiator: initiator.clone(),
         amount,
         fees_paid,
     }
@@ -713,6 +727,10 @@ pub fn issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) {
 
 pub fn claim_cover_bad_debt_results(e: &Env, obligation_key: ObligationKey) {
     ClaimCoverBadDebtResults { obligation_key }.publish(e);
+}
+
+pub fn bad_debt_request_cancelled(e: &Env, pool_address: &Address, request_id: u64, missing: bool) {
+    BadDebtRequestCancelled { pool_address: pool_address.clone(), request_id, missing }.publish(e);
 }
 
 pub fn pool_bad_debt_locked(e: &Env, pool_address: &Address, deadline: u64) {

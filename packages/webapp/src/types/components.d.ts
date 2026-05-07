@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AddressIcon: typeof import('./../components/Widget/AddressIcon.vue')['default']
+    AddressPicker: typeof import('./../components/Multisig/AddressPicker.vue')['default']
     AppFooter: typeof import('./../components/AppFooter.vue')['default']
     AppHeader: typeof import('./../components/AppHeader.vue')['default']
     AppSettings: typeof import('./../components/Settings/AppSettings.vue')['default']
@@ -121,6 +122,9 @@ declare module 'vue' {
     MultiplyTableSkeleton: typeof import('./../components/Skeleton/MultiplyTableSkeleton.vue')['default']
     MultiplyTableSkeletonMobile: typeof import('./../components/Skeleton/MultiplyTableSkeletonMobile.vue')['default']
     MultiplyWindow: typeof import('./../components/MultiplySupplyCard/MultiplyWindow.vue')['default']
+    MultisigAggregatePage: typeof import('./../components/Multisig/MultisigAggregatePage.vue')['default']
+    MultisigComposePage: typeof import('./../components/Multisig/MultisigComposePage.vue')['default']
+    MultisigSignPage: typeof import('./../components/Multisig/MultisigSignPage.vue')['default']
     MyMultiplyPositionWidget: typeof import('./../components/MultiplyPage/MyMultiplyPositionWidget.vue')['default']
     MyPosition: typeof import('./../components/PoolDetailPage/Position/MyPosition.vue')['default']
     MyPositionsWidget: typeof import('./../components/MarketsPage/Markets/MyPositionsWidget.vue')['default']
@@ -182,6 +186,7 @@ declare module 'vue' {
     TeleportContent: typeof import('./../components/Widget/TeleportContent.vue')['default']
     TotalCard: typeof import('./../components/Widget/TotalCard.vue')['default']
     WarningBlock: typeof import('./../components/Widget/WarningBlock.vue')['default']
+    WasmHashVerifier: typeof import('./../components/Multisig/WasmHashVerifier.vue')['default']
     WithdrawDialog: typeof import('./../components/PortfolioPage/Dialogs/WithdrawDialog.vue')['default']
     WithdrawMultiplyDialog: typeof import('./../components/MultiplyPage/Dialogs/WithdrawMultiplyDialog.vue')['default']
     WithdrawMultiplyWindow: typeof import('./../components/MultiplySupplyCard/WithdrawMultiplyWindow.vue')['default']

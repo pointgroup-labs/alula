@@ -32,6 +32,12 @@
       ],
       "@stellar-client": [
         "./src/client"
+      ],
+      "#imports": [
+        "./.nuxt/imports"
+      ],
+      "#build/*": [
+        "./.nuxt/*"
       ]
     },
     "resolveJsonModule": true,

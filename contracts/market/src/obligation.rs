@@ -51,9 +51,12 @@ pub struct Obligation {
     pub borrows: Map<Address, BorrowPosition>,
     // Count of non-empty positions
     pub positions_count: u32,
-    // Request IDs per pool address that are present only if there are active requests to the Insurance Fund to cover
-    // bad debt on an obligation
-    pub insurance_fund_requests_ids: Map<(Address, u64), ()>,
+    // Active Insurance Fund requests for this obligation. Key: (pool, request_id).
+    // Value: per-request expiry deadline (unix seconds) at which a still-Pending
+    // request becomes permissionlessly cancelable. Stored per-request so that
+    // newly recorded requests cannot push out the cancellation eligibility of
+    // older ones (the pool-level deadline is only used as a withdraw-gate).
+    pub insurance_fund_requests_ids: Map<(Address, u64), u64>,
     // // Market value of obligation's collateral
     // pub collateral_value: i128,
     // // Last update to collateral, liquidity, or their market values
@@ -189,7 +192,9 @@ impl Obligation {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.deposits.is_empty() && self.borrows.is_empty()
+        self.deposits.is_empty()
+            && self.borrows.is_empty()
+            && self.insurance_fund_requests_ids.is_empty()
     }
 
     pub fn borrow_exists(&self) -> bool {

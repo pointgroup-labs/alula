@@ -266,9 +266,12 @@ pub trait Market {
     // Creates a flash loan
     //
     // # Arguments
-    // * `contract` - contract's address which leverages the flash loaned amount and adheres to
-    //   `erc3156` standard
-    // * `caller` - flash loan caller
+    // * `contract` - receiver contract that implements the `ModErc3156` callback. The
+    //   receiver is responsible for validating `initiator` against its trusted set
+    //   and granting the market a just-in-time `amount + fee` allowance during the
+    //   `exec_op` callback. See `moderc3156` for the receiver pattern.
+    // * `caller` - flash loan initiator. Forwarded to the receiver as `initiator` so
+    //   the receiver can validate against its trusted-initiator set.
     // * `pool_address` - address of a pool from which the flash loan happens
     // * `amount` - amount of lent tokens
     fn flash_loan(
@@ -480,7 +483,7 @@ impl Market for MarketContract {
     }
 
     fn apply_market_update(e: Env) -> Result<(), MCError> {
-        require_owned_and_admin(&e)?;
+        require_owned(&e)?;
         storage::extend_instance(&e);
 
         let MarketUpdate {
@@ -555,11 +558,17 @@ impl Market for MarketContract {
         require_admin(&e);
         storage::extend_instance(&e);
 
-        pool_config.validate()?;
-
-        if Pool::exists(&e, &pool_address) {
+        // For existing pools, validate against the current config so the
+        // fee-bump constraints kick in. For new pools, pass `None`
+        let current_pool_config = if Pool::exists(&e, &pool_address) {
             require_owned(&e)?;
-        }
+
+            Some(Pool::try_get(&e, &pool_address)?.config)
+        } else {
+            None
+        };
+        pool_config.validate(current_pool_config)?;
+
         storage::queue_in_pool_set(&e, &pool_address, &pool_config)?;
 
         events::queue_in_pool_set(&e, pool_address, pool_config);
@@ -583,7 +592,6 @@ impl Market for MarketContract {
     }
 
     fn apply_pool_set(e: Env, pool_address: Address) -> Result<(), MCError> {
-        require_admin(&e);
         storage::extend_instance(&e);
 
         let queued_pool_set = storage::get_queued_pool_set(&e, &pool_address)
@@ -635,7 +643,7 @@ impl Market for MarketContract {
 
         let mut new_config = pool.config;
         new_config.fee_config.take_rate_beneficiaries = Some(beneficiaries.clone());
-        new_config.validate()?;
+        new_config.validate(None)?;
 
         pool.config = new_config;
         pool.set(&e);
@@ -659,7 +667,7 @@ impl Market for MarketContract {
         let mut new_config = pool.config;
 
         new_config.fee_config.operation_fee_beneficiaries = Some(beneficiaries.clone());
-        new_config.validate()?;
+        new_config.validate(None)?;
 
         pool.config = new_config;
         pool.set(&e);
@@ -792,7 +800,7 @@ impl Market for MarketContract {
         caller.require_auth();
         storage::extend_instance(&e);
 
-        process_flash_loan(&e, &contract, &pool_address, amount)
+        process_flash_loan(&e, &caller, &contract, &pool_address, amount)
     }
 
     fn issue_cover_bad_debt(e: Env, user: ObligationKey) -> Result<(), MCError> {

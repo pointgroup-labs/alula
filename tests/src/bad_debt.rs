@@ -498,7 +498,7 @@ fn test_bad_debt_lock_does_not_affect_other_pools() {
 
 #[test]
 fn test_bad_debt_lock_expires_after_deadline() {
-    let (fixture, _borrower, liquidity_provider) = setup_bad_debt_with_recorded_coverage();
+    let (fixture, borrower, liquidity_provider) = setup_bad_debt_with_recorded_coverage();
     let TestMarketFixture { ref e, ref contract_client, ref usdc_pool_address, .. } = fixture;
 
     let pool = contract_client.get_pool(usdc_pool_address);
@@ -516,8 +516,26 @@ fn test_bad_debt_lock_expires_after_deadline() {
         Err(Ok(MCError::PoolBadDebtLocked))
     );
 
-    // Exactly at deadline: lock expires
+    // Exactly at deadline: still locked because the pending request hasn't been
+    // resolved yet (count > 0). This closes the audit's "Withdrawal Operations
+    // Possible with Bad Debt" race window.
     e.ledger().with_mut(|li| li.timestamp = deadline);
+    assert_eq!(
+        contract_client.try_withdraw(
+            &ObligationKey::new(liquidity_provider.clone()),
+            usdc_pool_address,
+            &1,
+            &None
+        ),
+        Err(Ok(MCError::PoolBadDebtLocked))
+    );
+
+    // Anyone can now finalize the expired pending request via the existing
+    // permissionless claim entrypoint, which cancels with the Insurance Fund and
+    // socializes the loss as zero recovery.
+    contract_client.claim_cover_bad_debt_results(&ObligationKey::new(borrower.clone()));
+
+    // After finalization the pool is unlocked and withdrawals succeed.
     assert!(
         contract_client
             .try_withdraw(

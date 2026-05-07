@@ -108,6 +108,13 @@ pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
 
 pub const DEFAULT_TAKE_RATE_BPS: u32 = 1_000; // 10%
 
+// ---- Fee Limits and Constraints ----
+
+/// Maximum allowed fee for repay, withdraw, and remove_collateral operations
+pub const MAX_CONSTRAINED_FEE_BPS: u32 = 1_000; // 10%
+/// Maximum allowed fee increase in a single update
+pub const MAX_FEE_INCREASE_BUMP_BPS: u32 = 300; // 3%
+
 // ---- Pool Status ----
 
 pub const POOL_STATUS_DEPOSIT_ENABLED: u32 = 1 << 0;

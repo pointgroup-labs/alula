@@ -335,6 +335,7 @@ pub fn process_borrow<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_borrow_enabled()?;
+    pool.require_bad_debt_unlocked(e)?;
     pool.accrue_interest(e)?;
 
     let borrow_result = obligation.borrow(e, &pool, amount, referrer)?;
@@ -527,6 +528,7 @@ pub fn process_flash_borrow<'a>(
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_flash_loan_enabled()?;
+    pool.require_bad_debt_unlocked(e)?;
     pool.require_total_available(*amount)?;
 
     pool.adjust_total_available(e, amount.checked_neg().map_over_or_underflow()?)?;
@@ -617,6 +619,7 @@ pub fn process_simulate_withdraw(
 
 pub fn process_flash_loan(
     e: &Env,
+    initiator: &Address,
     contract: &Address,
     pool_address: &Address,
     amount: i128,
@@ -625,22 +628,18 @@ pub fn process_flash_loan(
 
     let mut pool = Pool::try_get(e, pool_address)?;
     pool.require_flash_loan_enabled()?;
+    pool.require_bad_debt_unlocked(e)?;
     pool.require_total_available(amount)?;
+
+    let flash_loan_fee_bps = pool.config.fee_config.flash_loan_fee_bps as i128;
+    let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
 
     let token_client = token::Client::new(e, &pool.token_address);
     token_client.transfer(&e.current_contract_address(), contract, &amount);
 
-    let flash_loan_fee_bps = pool.config.fee_config.flash_loan_fee_bps as i128;
-
     let flash_loan_taker_client = FlashLoanClient::new(e, contract);
-    flash_loan_taker_client.exec_op(
-        &e.current_contract_address(),
-        &pool.token_address,
-        &amount,
-        &flash_loan_fee_bps,
-    );
+    flash_loan_taker_client.exec_op(initiator, &pool.token_address, &amount, &fees);
 
-    let fees = amount.fixed_mul_ceil(flash_loan_fee_bps, BPS_FACTOR).map_over_or_underflow()?;
     let amount_to_repay = amount.checked_add(fees).map_over_or_underflow()?;
 
     token_client.transfer_from(
@@ -653,7 +652,7 @@ pub fn process_flash_loan(
     pool.adjust_operation_fees_sum(e, fees)?;
     pool.set(e);
 
-    events::flash_loan(e, contract, pool_address, amount, fees);
+    events::flash_loan(e, initiator, contract, pool_address, amount, fees);
 
     Ok(())
 }
@@ -827,15 +826,21 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
                 }
 
                 let duration = storage::get_bad_debt_lock_d(e);
-                pool.bad_debt_lock_d =
+                let request_deadline =
                     e.ledger().timestamp().checked_add(duration).map_over_or_underflow()?;
+                // Pool deadline is monotonically extended (used as withdraw-gate);
+                // per-request deadline is stored on the obligation entry below so
+                // older requests keep their original cancellation eligibility.
+                pool.bad_debt_lock_d = request_deadline;
                 pool.bad_debt_request_count =
                     pool.bad_debt_request_count.checked_add(1).map_over_or_underflow()?;
                 pool.set(e);
 
                 events::pool_bad_debt_locked(e, &pool_address, pool.bad_debt_lock_d);
 
-                obligation.insurance_fund_requests_ids.set((pool_address, request_id), ());
+                obligation
+                    .insurance_fund_requests_ids
+                    .set((pool_address, request_id), request_deadline);
             }
             IssueRequestResult::Immediate(covered_amount) => {
                 let market_balance_after = token_client.balance(&e.current_contract_address());
@@ -919,6 +924,43 @@ pub fn process_issue_cover_bad_debt(e: &Env, obligation_key: ObligationKey) -> R
     Ok(())
 }
 
+/// Applies the loss-socialization accounting that closes out a single bad-debt request:
+/// credits any recovered tokens, removes the borrower's debt and d-tokens from the pool,
+/// decrements the pending-request count, and clears the lock when no requests remain.
+fn settle_bad_debt_request(
+    e: &Env,
+    obligation: &mut Obligation,
+    pool: &mut Pool,
+    pool_address: &Address,
+    actual_received: i128,
+) -> Result<(), MCError> {
+    let borrow_position =
+        obligation.borrows.get(pool_address.clone()).ok_or(MCError::InternalError)?;
+
+    let total_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
+    let covered_amount = i128::min(total_debt, actual_received);
+
+    pool.adjust_total_available(e, covered_amount)?;
+    pool.adjust_total_borrowed(e, total_debt.checked_neg().map_over_or_underflow()?)?;
+    pool.adjust_total_d_tokens(
+        e,
+        borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
+    )?;
+
+    pool.bad_debt_request_count =
+        pool.bad_debt_request_count.checked_sub(1).map_over_or_underflow()?;
+    if pool.bad_debt_request_count == 0 && pool.bad_debt_lock_d != 0 {
+        pool.bad_debt_lock_d = 0;
+        events::pool_bad_debt_unlocked(e, pool_address);
+    }
+
+    pool.set(e);
+
+    obligation.try_remove_borrow_position(e, pool_address)?;
+
+    Ok(())
+}
+
 pub fn process_claim_cover_bad_debt_results(
     e: &Env,
     obligation_key: ObligationKey,
@@ -931,72 +973,95 @@ pub fn process_claim_cover_bad_debt_results(
 
     let mut completed_requests: Vec<(Address, u64)> = Vec::new(e);
 
-    for ((pool_address, request_id), _) in obligation.insurance_fund_requests_ids.iter() {
+    for ((pool_address, request_id), request_deadline) in
+        obligation.insurance_fund_requests_ids.iter()
+    {
         let mut pool = Pool::try_get(e, &pool_address).map_err(|_| {
             events::pool_is_unexpectedly_missing_in_storage(e, &pool_address);
 
             MCError::InternalError
         })?;
 
-        let request_status = insurance_fund_client.get_status(&request_id).ok_or_else(|| {
-            events::insurance_fund_missing_request(
-                e,
-                obligation_key.clone(),
-                pool_address.clone(),
-                request_id,
-            );
-            MCError::DependencyContractError
-        })?;
+        let request_status = insurance_fund_client.get_status(&request_id);
+        // Per-request deadline (set when the request was recorded). Newer requests
+        // on the same pool no longer push out this value, so older requests retain
+        // their original cancellation eligibility.
+        let timed_out = e.ledger().timestamp() >= request_deadline;
 
-        if let CoverageStatus::Ready(approved_amount) = request_status {
-            let token_client = token::Client::new(e, &pool.token_address);
-            let balance_before = token_client.balance(&e.current_contract_address());
+        match request_status {
+            Some(CoverageStatus::Ready(approved_amount)) => {
+                let token_client = token::Client::new(e, &pool.token_address);
+                let balance_before = token_client.balance(&e.current_contract_address());
 
-            insurance_fund_client.claim_coverage(&request_id);
+                insurance_fund_client.claim_coverage(&request_id);
 
-            let balance_after = token_client.balance(&e.current_contract_address());
-            let actual_received = balance_after - balance_before;
+                let balance_after = token_client.balance(&e.current_contract_address());
+                let actual_received = balance_after - balance_before;
 
-            if actual_received != approved_amount {
-                events::insurance_fund_claim_mismatch(
+                if actual_received != approved_amount {
+                    // Soft-fail: emit event and skip this request so a single
+                    // misbehaving IF claim does not block other requests in the
+                    // same obligation from being settled or cancelled.
+                    events::insurance_fund_claim_mismatch(
+                        e,
+                        obligation_key.clone(),
+                        pool_address.clone(),
+                        request_id,
+                        approved_amount,
+                        actual_received,
+                    );
+                    continue;
+                }
+
+                settle_bad_debt_request(
                     e,
-                    obligation_key,
-                    pool_address,
-                    request_id,
-                    approved_amount,
+                    &mut obligation,
+                    &mut pool,
+                    &pool_address,
                     actual_received,
+                )?;
+                completed_requests.push_back((pool_address, request_id));
+            }
+            Some(CoverageStatus::Pending) if timed_out => {
+                // Deadline elapsed with the request still Pending: cancel and socialize
+                // the loss as zero-recovery so the pool can unlock without depending on
+                // Insurance Fund admin liveness.
+                insurance_fund_client.cancel(&request_id);
+
+                settle_bad_debt_request(e, &mut obligation, &mut pool, &pool_address, 0)?;
+                events::bad_debt_request_cancelled(e, &pool_address, request_id, false);
+                completed_requests.push_back((pool_address, request_id));
+            }
+            Some(CoverageStatus::Pending) => {
+                // Still Pending and deadline not yet reached — leave for a later call.
+            }
+            None if timed_out => {
+                // Request is missing from the Insurance Fund (e.g. its persistent
+                // storage entry was archived after TTL). Without this branch the pool
+                // would stay locked forever because `bad_debt_request_count` could
+                // never be decremented. Treat as zero-recovery local cleanup; do NOT
+                // call `IF.cancel` since the request is already gone.
+                events::insurance_fund_missing_request(
+                    e,
+                    obligation_key.clone(),
+                    pool_address.clone(),
+                    request_id,
                 );
-
-                return Err(MCError::DependencyContractError);
+                settle_bad_debt_request(e, &mut obligation, &mut pool, &pool_address, 0)?;
+                events::bad_debt_request_cancelled(e, &pool_address, request_id, true);
+                completed_requests.push_back((pool_address, request_id));
             }
-
-            let borrow_position =
-                obligation.borrows.get(pool_address.clone()).ok_or(MCError::InternalError)?;
-
-            let total_debt = pool.compute_tokens_from_d_tokens_ceil(e, borrow_position.d_tokens)?;
-            let covered_amount = i128::min(total_debt, actual_received);
-
-            // -- Socialize losses --
-
-            pool.adjust_total_available(e, covered_amount)?;
-            pool.adjust_total_borrowed(e, total_debt.checked_neg().map_over_or_underflow()?)?;
-            pool.adjust_total_d_tokens(
-                e,
-                borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
-            )?;
-
-            pool.bad_debt_request_count =
-                pool.bad_debt_request_count.checked_sub(1).map_over_or_underflow()?;
-            if pool.bad_debt_request_count == 0 && pool.bad_debt_lock_d != 0 {
-                pool.bad_debt_lock_d = 0;
-
-                events::pool_bad_debt_unlocked(e, &pool_address);
+            None => {
+                // Missing before deadline is anomalous — emit event and skip rather
+                // than aborting the whole tx (preserves liveness for siblings).
+                events::insurance_fund_missing_request(
+                    e,
+                    obligation_key.clone(),
+                    pool_address.clone(),
+                    request_id,
+                );
+                continue;
             }
-
-            pool.set(e);
-
-            obligation.try_remove_borrow_position(e, &pool_address)?;
-            completed_requests.push_back((pool_address, request_id));
         }
     }
 

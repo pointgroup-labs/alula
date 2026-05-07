@@ -1311,3 +1311,242 @@ fn test_distribute_pool_fees_transfers_tokens_but_keeps_total_available_unchange
     // Confirm pool accounting reflects the token outflow
     assert_eq!(total_available_after, total_available_before.checked_sub(fees_before).unwrap());
 }
+
+// Tests for fee constraints
+
+#[test]
+fn test_fee_max_constraint_repay() {
+    const HIGH_REPAY_FEE_BPS: u32 = 1_500; // 15% - exceeds 10% limit
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { repay_fee_bps: HIGH_REPAY_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 10% limit
+    assert!(pool_config.validate(None).is_err());
+}
+
+#[test]
+fn test_fee_max_constraint_withdraw() {
+    const HIGH_WITHDRAW_FEE_BPS: u32 = 1_200; // 12% - exceeds 10% limit
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig { withdraw_fee_bps: HIGH_WITHDRAW_FEE_BPS, ..Default::default() },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 10% limit
+    assert!(pool_config.validate(None).is_err());
+}
+
+#[test]
+fn test_fee_max_constraint_remove_collateral() {
+    const HIGH_REMOVE_COLLATERAL_FEE_BPS: u32 = 1_100; // 11% - exceeds 10% limit
+
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            remove_collateral_fee_bps: HIGH_REMOVE_COLLATERAL_FEE_BPS,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 10% limit
+    assert!(pool_config.validate(None).is_err());
+}
+
+#[test]
+fn test_fee_bump_constraint() {
+    // Create initial config with low fees
+    let current_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,            // 1%
+            withdraw_fee_bps: 200,         // 2%
+            remove_collateral_fee_bps: 50, // 0.5%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Try to update with a fee increase that exceeds 3% bump limit
+    let new_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 500,            // 5% - increase of 4% exceeds 3% limit
+            withdraw_fee_bps: 200,         // 2% - no change
+            remove_collateral_fee_bps: 50, // 0.5% - no change
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail validation due to exceeding 3% bump limit
+    assert!(new_config.validate(Some(current_config.clone())).is_err());
+}
+
+#[test]
+fn test_fee_bump_constraint_allowed() {
+    // Create initial config with low fees
+    let current_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,            // 1%
+            withdraw_fee_bps: 200,         // 2%
+            remove_collateral_fee_bps: 50, // 0.5%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Try to update with a fee increase within 3% bump limit
+    let new_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 350,             // 3.5% - increase of 2.5% within 3% limit
+            withdraw_fee_bps: 450,          // 4.5% - increase of 2.5% within 3% limit
+            remove_collateral_fee_bps: 300, // 3% - increase of 2.5% within 3% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should pass validation
+    assert!(new_config.validate(Some(current_config.clone())).is_ok());
+}
+
+#[test]
+fn test_fee_at_max_limit_allowed() {
+    // Test that fees exactly at the 10% limit are allowed
+    let pool_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 1_000,             // 10% - exactly at limit
+            withdraw_fee_bps: 1_000,          // 10% - exactly at limit
+            remove_collateral_fee_bps: 1_000, // 10% - exactly at limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should pass validation
+    assert!(pool_config.validate(None).is_ok());
+}
+
+#[test]
+fn test_fee_decrease_allowed() {
+    // Create initial config with higher fees
+    let current_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 800,             // 8%
+            withdraw_fee_bps: 900,          // 9%
+            remove_collateral_fee_bps: 700, // 7%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // Decrease fees - this should always be allowed regardless of decrease amount
+    let new_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,            // 1% - decrease of 7%
+            withdraw_fee_bps: 200,         // 2% - decrease of 7%
+            remove_collateral_fee_bps: 50, // 0.5% - decrease of 6.5%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should pass validation (decreases are always allowed)
+    assert!(new_config.validate(Some(current_config.clone())).is_ok());
+}
+
+// ---- Fee constraint integration tests (queue/apply pool config flow) ----
+
+#[test]
+fn test_queue_pool_set_with_high_fee_rejected() {
+    let TestMarketFixture { contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+
+    let high_fee_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 1_500, // 15% - exceeds 10% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail due to exceeding fee limits
+    let result = contract_client.try_queue_in_pool_set(&usdc_pool_address, &high_fee_config);
+
+    assert_eq!(result, Err(Ok(MCError::InvalidLoanPoolConfig)));
+}
+
+#[test]
+fn test_queue_pool_update_with_large_fee_bump_rejected() {
+    let TestMarketFixture { e, contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+
+    // First, apply a pool with low fees
+    let initial_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100, // 1%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    contract_client.queue_in_pool_set(&usdc_pool_address, &initial_config);
+
+    // Fast forward time to allow pool config to be applied
+    e.ledger().with_mut(|li| {
+        li.timestamp += 24 * 60 * 60 + 1; // 24 hours + 1 second
+    });
+
+    contract_client.apply_pool_set(&usdc_pool_address);
+
+    // Now try to update with a fee that bumps more than 3%
+    let high_bump_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 500, // 5% - increase of 4% exceeds 3% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should fail due to exceeding fee bump limit
+    let result = contract_client.try_queue_in_pool_set(&usdc_pool_address, &high_bump_config);
+
+    assert_eq!(result, Err(Ok(MCError::InvalidLoanPoolConfig)));
+}
+
+#[test]
+fn test_queue_pool_update_with_allowed_fee_bump_succeeds() {
+    let TestMarketFixture { e, contract_client, usdc_pool_address, .. } = TestMarketFixture::new();
+
+    // First, apply a pool with low fees
+    let initial_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 100,    // 1%
+            withdraw_fee_bps: 200, // 2%
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    contract_client.queue_in_pool_set(&usdc_pool_address, &initial_config);
+
+    // Fast forward time to allow pool config to be applied
+    e.ledger().with_mut(|li| {
+        li.timestamp += 24 * 60 * 60 + 1; // 24 hours + 1 second
+    });
+
+    contract_client.apply_pool_set(&usdc_pool_address);
+
+    // Now try to update with a fee bump within the 3% limit
+    let allowed_bump_config = PoolConfig {
+        fee_config: PoolFeeConfig {
+            repay_fee_bps: 350,    // 3.5% - increase of 2.5% within 3% limit
+            withdraw_fee_bps: 450, // 4.5% - increase of 2.5% within 3% limit
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    // This should succeed
+    contract_client.queue_in_pool_set(&usdc_pool_address, &allowed_bump_config);
+}

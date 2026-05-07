@@ -220,10 +220,11 @@ export class MultiplyService extends BaseClient {
       flashLoanFeeBps = Number(borrowPool.pool.config.fee_config.flash_loan_fee_bps || 0)
 
       const expectedAmountsOut = await this.getExpectedAmountsOut(params.swapProviderAddress, swapAmountIn, swapPath)
-      expectedAmountOut = expectedAmountsOut[expectedAmountsOut.length - 1]
-      if (expectedAmountOut == null) {
+      const lastExpected = expectedAmountsOut[expectedAmountsOut.length - 1]
+      if (lastExpected == null) {
         throw new Error('Router did not return an output quote for this multiply swap path')
       }
+      expectedAmountOut = lastExpected
 
       minAmountOut = this.applySlippageDown(expectedAmountOut, slippagePercent)
       depositAmount = minAmountOut
