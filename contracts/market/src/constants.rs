@@ -1,10 +1,10 @@
 // ---- General ----
 
-/// Number of basis points (bps) in one percent: 1% = 100 bps
-pub const BPS_IN_PERCENT: i128 = 100;
-
 /// Basis points denominator for fractional calculations: 100% = 10,000 bps
 pub const BPS_FACTOR: i128 = 10_000;
+
+/// Denominator for fractional calculations with 9 decimal places
+pub const SCALAR_9: i128 = i128::pow(10, 9);
 
 /// Denominator for fixed-point compounded interest calculations.
 /// Higher precision (10^18) ensures accurate results when raising to integer powers.
@@ -53,7 +53,6 @@ pub const INDIVIDUAL_BUMP: u32 = 180 * LEDGERS_PER_DAY;
 // -- Kinked(with 2 kink points) interest rate model --
 
 pub const DEFAULT_BASE_APR_BPS: i128 = 1; // 0.01%
-pub const DEFAULT_RESERVE_RATIO_BPS: i128 = 1_000;
 pub const DEFAULT_KINK1_UTILIZATION_RATIO_BPS: i128 = 7_000;
 pub const DEFAULT_KINK2_UTILIZATION_RATIO_BPS: i128 = 8_000;
 
@@ -64,7 +63,6 @@ pub const DEFAULT_MAX_APR_BPS: i128 = 40_000;
 // -- Interest Rate reactivity --
 
 pub const DEFAULT_TARGET_UTILIZATION_RATIO_BPS: i128 = 6_500;
-pub const DEFAULT_REACTIVITY_CONSTANT: i128 = BPS_FACTOR; // x1
 pub const MIN_REACTIVITY_CONSTANT: u32 = 0;
 pub const MAX_REACTIVITY_CONSTANT: u32 = 100; // 0.01
 pub const MIN_IR_MODIFIER: i128 = BPS_FACTOR / 10; // x0.1
@@ -85,11 +83,11 @@ pub const DEFAULT_UTILIZATION_RATIO_LIMIT_BPS: i128 = 9000;
 // Max portion of a position that can be liquidated in one go
 pub const DEFAULT_CLOSE_FACTOR_BPS: i128 = 5_000;
 // Additional spread taken during liquidation
-pub const DEFAULT_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000;
+pub const MIN_MAX_LIQUIDATION_INCENTIVE_BPS: i128 = 50; // 0.5%
+pub const MAX_MAX_LIQUIDATION_INCENTIVE_BPS: i128 = BPS_FACTOR; // 100%
+pub const DEFAULT_MAX_LIQUIDATION_INCENTIVE_BPS: i128 = 1_000; // 10%
 pub const DEFAULT_OPEN_LTV_BPS: i128 = 7_000;
 pub const DEFAULT_CLOSE_LTV_BPS: i128 = 8_000;
-// Health factor threshold expressed in bps (100% = 10_000 bps)
-pub const HEALTH_FACTOR_THRESHOLD_BPS: i128 = BPS_FACTOR;
 pub const DEFAULT_LIABILITY_FACTOR_BPS: i128 = BPS_FACTOR; // 100% (equivalent to a liability factor to make no difference)
 pub const MAX_LIABILITY_FACTOR_BPS: i128 = 2 * BPS_FACTOR;
 
@@ -97,51 +95,38 @@ pub const DEFAULT_INSOLVENCY_LTV_BPS: i128 = 9_850;
 pub const MIN_INSOLVENCY_LTV_BPS: i128 = 9_500;
 pub const MAX_INSOLVENCY_LTV_BPS: i128 = BPS_FACTOR; // 100%
 
-// ---- Swap ----
-
-// Default max slippage in bps
-pub const DEFAULT_MAX_SLIPPAGE_BPS: i128 = 1; // 0.01%
-// Default max swap fee in bps
-pub const DEFAULT_MAX_SWAP_FEE_BPS: i128 = 1; // 0.01%
-
-// ---- Deposit with leverage ----
-
-// Scale to represent leverage multipliers (e.g., with current scale 100 = 1.0x, 224 = 2.24x)
-pub const LEVERAGE_SCALE: u32 = 100;
-// Minimum leverage multiplier (scaled by LEVERAGE_SCALE)
-pub const MIN_LEVERAGE_MULTIPLIER: u32 = 101; // x1.01
-
 // ---- Fees ----
 
 pub const DEFAULT_REPAY_FEE_BPS: u32 = 0;
 pub const DEFAULT_BORROW_FEE_BPS: u32 = 0;
 pub const DEFAULT_DEPOSIT_FEE_BPS: u32 = 0;
 pub const DEFAULT_WITHDRAW_FEE_BPS: u32 = 0;
-pub const DEFAULT_WITHDRAW_SCARCITY_FEE_SCALAR_BPS: u32 = 20_000; // 200%
+pub const DEFAULT_MAX_WITHDRAW_SCARCITY_FEE_BPS: u32 = 500; // 5%
 pub const DEFAULT_FLASH_LOAN_FEE_BPS: u32 = 1; // 0.01%
 pub const DEFAULT_ADD_COLLATERAL_FEE_BPS: u32 = 0;
 pub const DEFAULT_REMOVE_COLLATERAL_FEE_BPS: u32 = 0;
 
 pub const DEFAULT_TAKE_RATE_BPS: u32 = 1_000; // 10%
 
+// ---- Fee Limits and Constraints ----
+
+/// Maximum allowed fee for repay, withdraw, and remove_collateral operations
+pub const MAX_CONSTRAINED_FEE_BPS: u32 = 1_000; // 10%
+/// Maximum allowed fee increase in a single update
+pub const MAX_FEE_INCREASE_BUMP_BPS: u32 = 300; // 3%
+
 // ---- Pool Status ----
 
 pub const POOL_STATUS_DEPOSIT_ENABLED: u32 = 1 << 0;
 pub const POOL_STATUS_BORROW_ENABLED: u32 = 1 << 1;
-pub const POOL_STATUS_WITHDRAW_ENABLED: u32 = 1 << 2;
-pub const POOL_STATUS_REPAY_ENABLED: u32 = 1 << 3;
-pub const POOL_STATUS_ADD_COLLATERAL_ENABLED: u32 = 1 << 4;
-pub const POOL_STATUS_REMOVE_COLLATERAL_ENABLED: u32 = 1 << 5;
+pub const POOL_STATUS_ADD_COLLATERAL_ENABLED: u32 = 1 << 2;
+pub const POOL_STATUS_FLASH_LOAN_ENABLED: u32 = 1 << 3;
 pub const POOL_STATUS_ALL_ENABLED: u32 = u32::MAX;
 
 // ---- Oracle ----
 
 // Maximum acceptable oracle price age in seconds
-pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE; // NB: Relies on 'Reflector' resolution being 5 minutes
-
-// ---- Dependency Contract Addresses ----
-
-pub const ROUTER_ADDRESS: &str = "CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD";
+pub const MAX_ORACLE_PRICE_AGE_SECONDS: u64 = 6 * SECONDS_PER_MINUTE;
 
 // ---- MISC ----
 
@@ -149,9 +134,13 @@ pub const DEFAULT_UPDATE_POOL_CONFIG_IN_QUEUE_SECONDS: u64 = 24 * 60 * 60;
 pub const DEFAULT_WITHDRAW_SCARCITY_LIMIT_BPS: i128 = BPS_FACTOR; // 100%
 pub const DEFAULT_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 0;
 pub const MAX_WITHDRAW_SCARCITY_COOLDOWN_SECS: u64 = 24 * 60 * 60;
-pub const DEFAULT_MIN_COLLATERAL_VALUE: i128 = 10i128.pow(5); // 10^5 = 0.01
+pub const DEFAULT_MIN_COLLATERAL_VALUE_CENTS: i128 = 500; // 5$ 
+pub const MIN_COLLATERAL_VALUE_CENTS: i128 = 0; // 0$ 
+pub const MAX_COLLATERAL_VALUE_CENTS: i128 = 10_000; // 100$
 pub const DEFAULT_MAX_POSITIONS: u32 = 20;
 
 pub const MAX_RESERVES: u32 = 25; // Max reserves per a lending market
 
-pub const INITIAL_SHARES_AMOUNT: i128 = 10_i128.pow(5);
+pub const DEFAULT_BAD_DEBT_LOCK_D: u64 = 12 * SECONDS_PER_HOUR; // 12 hours
+pub const MAX_BAD_DEBT_LOCK_D: u64 = 5 * SECONDS_PER_DAY; // 5 days
+pub const MIN_BAD_DEBT_LOCK_D: u64 = 0; // no lock

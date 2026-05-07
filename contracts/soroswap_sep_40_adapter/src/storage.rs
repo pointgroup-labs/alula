@@ -15,13 +15,13 @@ pub fn set_admin(e: &Env, admin: &Address) {
 }
 
 pub fn get_admin(e: &Env) -> Option<Address> {
-    extend_instance_storage(e);
+    extend_instance(e);
     let key = DataKey::Admin;
 
     e.storage().instance().get(&key)
 }
 
 /// Instance storage bumper
-fn extend_instance_storage(e: &Env) {
+fn extend_instance(e: &Env) {
     e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
 }

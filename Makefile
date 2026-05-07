@@ -11,14 +11,17 @@ DEPLOY_OPTIMIZED_DIR  := $(WASM_DIR)/deploy_optimized
 DOWNLOADS_DIR         := $(WASM_DIR)/downloads
 
 # Contracts
-CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund
-DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter controlled_insurance_fund
+CONTRACTS             := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
+DEPLOY_CONTRACTS      := market market_manager aggregated_oracle soroswap_sep_40_adapter redstone_sep_40_adapter soroswap_swap_provider aqua_swap_provider controlled_insurance_fund
 MOCK_CONTRACTS        := soroswap_router_mock flash_loan_taker_mock
 
 # External dependencies
 SOROSWAP_BASE_URL     := https://github.com/soroswap/core/releases/download
 SOROSWAP_ROUTER_URL   := $(SOROSWAP_BASE_URL)/workflow%2FsorobanBuildForStellarExpert__contracts_router_soroswap-router_pkg0.0.1_cli21.0.0/soroswap-router_v0.0.1.wasm
 SOROSWAP_PAIR_URL     := $(SOROSWAP_BASE_URL)/workflow%2FsorobanBuildForStellarExpert__contracts_pair_soroswap-pair_pkg0.0.1_cli21.0.0/soroswap-pair_v0.0.1.wasm
+
+AQUA_BASE_URL         := https://github.com/AquaToken/soroban-amm/releases/download
+AQUA_POOL_URL         := $(AQUA_BASE_URL)/v2.0.2_soroban-liquidity-pool-contract_pkg2.0.1_cli25.1.0/soroban-liquidity-pool-contract_v2.0.1.wasm
 
 # Network
 NETWORK               := testnet
@@ -103,10 +106,14 @@ build/prepare:
 	@mkdir -p $(WASM_DIR) $(MOCKS_DIR) $(DEPLOY_DIR) $(DEPLOY_OPTIMIZED_DIR) $(DOWNLOADS_DIR)
 	$(call download_wasm,$(DOWNLOADS_DIR)/soroswap-router.wasm,$(SOROSWAP_ROUTER_URL))
 	$(call download_wasm,$(DOWNLOADS_DIR)/soroswap-pair.wasm,$(SOROSWAP_PAIR_URL))
+	$(call download_wasm,$(DOWNLOADS_DIR)/aqua-pool.wasm,$(AQUA_POOL_URL))
 
 build: build/prepare ## Build all contracts
 	$(call build_contract,soroswap_router_mock,$(MOCKS_DIR))
 	$(call build_contract,soroswap_sep_40_adapter,$(WASM_DIR))
+	$(call build_contract,redstone_sep_40_adapter,$(WASM_DIR))
+	$(call build_contract,soroswap_swap_provider,$(WASM_DIR))
+	$(call build_contract,aqua_swap_provider,$(WASM_DIR))
 	$(call build_contract,controlled_insurance_fund,$(WASM_DIR))
 	$(call build_contract,aggregated_oracle,$(WASM_DIR))
 	$(call build_contract,market,$(WASM_DIR))
@@ -116,6 +123,9 @@ build: build/prepare ## Build all contracts
 
 build/deploy: build/prepare ## Build for deployment
 	$(call build_contract,soroswap_sep_40_adapter,$(DEPLOY_DIR))
+	$(call build_contract,redstone_sep_40_adapter,$(DEPLOY_DIR))
+	$(call build_contract,soroswap_swap_provider,$(DEPLOY_DIR))
+	$(call build_contract,aqua_swap_provider,$(DEPLOY_DIR))
 	$(call build_contract,controlled_insurance_fund,$(DEPLOY_DIR))
 	$(call build_contract,aggregated_oracle,$(DEPLOY_DIR))
 	$(call build_contract,market,$(DEPLOY_DIR),--features deploy)
@@ -124,6 +134,9 @@ build/deploy: build/prepare ## Build for deployment
 
 build/optimize: build/deploy ## Build + optimize for production
 	$(call optimize_contract,soroswap_sep_40_adapter)
+	$(call optimize_contract,redstone_sep_40_adapter)
+	$(call optimize_contract,soroswap_swap_provider)
+	$(call optimize_contract,aqua_swap_provider)
 	$(call optimize_contract,controlled_insurance_fund)
 	$(call optimize_contract,aggregated_oracle)
 	$(call optimize_contract,market)
@@ -137,7 +150,7 @@ build/optimize: build/deploy ## Build + optimize for production
 # ══════════════════════════════════════════════════════════════════════════════
 
 test: build ## Run tests
-	@cargo nextest run --locked --workspace --lib
+	@cargo nextest run --locked --workspace --lib --no-fail-fast
 
 test/watch: build ## Run tests in watch mode
 	@cargo watch -x 'nextest run --workspace --lib'
@@ -205,6 +218,12 @@ sdk: build/optimize ## Generate TypeScript SDK
 	@stellar contract bindings typescript --overwrite \
 		--wasm "$(DEPLOY_OPTIMIZED_DIR)/market_manager.optimized.wasm" \
 		--output-dir ./packages/sdk/market_manager --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/soroswap_swap_provider.optimized.wasm" \
+		--output-dir ./packages/sdk/soroswap_swap_provider --network "$(NETWORK)"
+	@stellar contract bindings typescript --overwrite \
+		--wasm "$(DEPLOY_OPTIMIZED_DIR)/aqua_swap_provider.optimized.wasm" \
+		--output-dir ./packages/sdk/aqua_swap_provider --network "$(NETWORK)"
 	$(call success,"SDK generated")
 
 # ══════════════════════════════════════════════════════════════════════════════

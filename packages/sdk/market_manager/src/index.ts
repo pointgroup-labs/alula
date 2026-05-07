@@ -1,49 +1,80 @@
-import type {
-  i128,
-  Option,
-  u32,
-  u64,
-} from '@stellar/stellar-sdk/contract'
-import { Buffer } from 'node:buffer'
+import { Buffer } from "buffer";
+import { Address } from "@stellar/stellar-sdk";
 import {
   AssembledTransaction,
   Client as ContractClient,
   ClientOptions as ContractClientOptions,
-  Spec as ContractSpec,
   MethodOptions,
   Result,
-} from '@stellar/stellar-sdk/contract'
+  Spec as ContractSpec,
+} from "@stellar/stellar-sdk/contract";
+import type {
+  u32,
+  i32,
+  u64,
+  i64,
+  u128,
+  i128,
+  u256,
+  i256,
+  Option,
+  Timepoint,
+  Duration,
+} from "@stellar/stellar-sdk/contract";
+export * from "@stellar/stellar-sdk";
+export * as contract from "@stellar/stellar-sdk/contract";
+export * as rpc from "@stellar/stellar-sdk/rpc";
 
-export * from '@stellar/stellar-sdk'
-export * as contract from '@stellar/stellar-sdk/contract'
-export * as rpc from '@stellar/stellar-sdk/rpc'
+if (typeof window !== "undefined") {
+  //@ts-ignore Buffer exists
+  window.Buffer = window.Buffer || Buffer;
+}
 
-if (typeof window !== 'undefined') {
-  // @ts-ignore Buffer exists
-  window.Buffer = window.Buffer || Buffer
+
+
+
+
+export interface MarketInitParams {
+  bad_debt_lock_d: u64;
+  insolvency_ltv_bps: i128;
+  is_owned: boolean;
+  max_positions: u32;
+  min_collateral_value_cents: i128;
+  update_in_queue_period: u64;
 }
 
 /**
  * Market Manager Contract Error
  */
 export const MMCError = {
-  1: { message: 'NegativeInputAmount' },
-  1000: { message: 'MarketAlreadyExists' },
-  1001: { message: 'InvalidMarketState' },
+  1: {message:"InvalidInputAmount"},
+  9: {message:"OverOrUnderflow"},
+  1000: {message:"MarketAlreadyExists"},
+  1001: {message:"InvalidMarketState"},
+  1002: {message:"UpgradeAlreadyExists"},
+  1003: {message:"UpgradeDoesNotExist"},
+  1004: {message:"UpgradeIsNotYetApplicable"}
 }
 
-export type DataKey = { tag: 'Admin', values: void } | { tag: 'MarketContractWasmHash', values: void } | { tag: 'MarketList', values: void }
+export type DataKey = {tag: "Admin", values: void} | {tag: "MarketsList", values: void} | {tag: "MarketWasmHash", values: void} | {tag: "QueuedInMarketUpgrade", values: void} | {tag: "QueuedInManagerUpgrade", values: void};
+
 
 export interface Config {
-  admin: string
-  market_contract_wasm_hash: Buffer
+  admin: string;
+  market_wasm_hash: Buffer;
+}
+
+
+export interface QueuedInUpgrade {
+  queued_in_timestamp: u64;
+  wasm_hash: Buffer;
 }
 
 export interface Client {
   /**
    * Construct and simulate a deploy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  deploy: ({ salt, market_admin, name, oracle, insurance_fund, max_positions, min_collateral, insolvency_ltv_bps, update_in_queue_period}: { salt: Buffer, market_admin: string, name: string, oracle: string, insurance_fund: string, max_positions: u32, min_collateral: i128, insolvency_ltv_bps: i128, update_in_queue_period: Option<u64> }, options?: MethodOptions) => Promise<AssembledTransaction<Result<string>>>
+  deploy: ({salt, market_admin, name, oracle, insurance_fund, params}: {salt: Buffer, market_admin: string, name: string, oracle: string, insurance_fund: string, params: MarketInitParams}, options?: MethodOptions) => Promise<AssembledTransaction<Result<string>>>
 
   /**
    * Construct and simulate a get_markets transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -56,64 +87,103 @@ export interface Client {
   get_config: (options?: MethodOptions) => Promise<AssembledTransaction<Config>>
 
   /**
-   * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Upgrades the market manager contract
-   *
-   * # Arguments
-   * `new_wasm_hash` - hash of the WASM binary uploaded to the network that will be used as a
-   * new version of the contract
+   * Construct and simulate a get_market_wasm_hash transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  upgrade: ({ new_wasm_hash}: { new_wasm_hash: Buffer }, options?: MethodOptions) => Promise<AssembledTransaction<null>>
+  get_market_wasm_hash: (options?: MethodOptions) => Promise<AssembledTransaction<Buffer>>
 
   /**
-   * Construct and simulate a upgrade_deployed_markets transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   * Upgrades all deployed market contracts
-   *
-   * # Arguments
-   * `new_market_contract_wasm_hash` - hash of the WASM binary uploaded to the network that
-   * will be used as a new version of the contract for every deployed market
+   * Construct and simulate a get_queued_in_market_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  upgrade_deployed_markets: ({ new_market_contract_wasm_hash}: { new_market_contract_wasm_hash: Buffer }, options?: MethodOptions) => Promise<AssembledTransaction<null>>
+  get_queued_in_market_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Option<QueuedInUpgrade>>>
+
+  /**
+   * Construct and simulate a get_queued_in_manager_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  get_queued_in_manager_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Option<QueuedInUpgrade>>>
+
+  /**
+   * Construct and simulate a queue_in_market_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  queue_in_market_upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a queue_in_manager_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  queue_in_manager_upgrade: ({new_wasm_hash}: {new_wasm_hash: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a cancel_market_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  cancel_market_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a cancel_manager_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  cancel_manager_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a apply_market_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  apply_market_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a apply_manager_upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  apply_manager_upgrade: (options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
 }
 export class Client extends ContractClient {
   static async deploy<T = Client>(
-    /** Constructor/Initialization Args for the contract's `__constructor` method */
-    { admin, market_contract_wasm_hash}: { admin: string, market_contract_wasm_hash: Buffer },
+        /** Constructor/Initialization Args for the contract's `__constructor` method */
+        {admin, market_contract_wasm_hash}: {admin: string, market_contract_wasm_hash: Buffer},
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
-    options: MethodOptions
-      & Omit<ContractClientOptions, 'contractId'> & {
+    options: MethodOptions &
+      Omit<ContractClientOptions, "contractId"> & {
         /** The hash of the Wasm blob, which must already be installed on-chain. */
-        wasmHash: Buffer | string
+        wasmHash: Buffer | string;
         /** Salt used to generate the contract's ID. Passed through to {@link Operation.createCustomContract}. Default: random. */
-        salt?: Buffer | Uint8Array
+        salt?: Buffer | Uint8Array;
         /** The format used to decode `wasmHash`, if it's provided as a string. */
-        format?: 'hex' | 'base64'
-      },
+        format?: "hex" | "base64";
+      }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy({ admin, market_contract_wasm_hash }, options)
+    return ContractClient.deploy({admin, market_contract_wasm_hash}, options)
   }
-
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec(['AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAJAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADmluc3VyYW5jZV9mdW5kAAAAAAATAAAAAAAAAA1tYXhfcG9zaXRpb25zAAAAAAAABAAAAAAAAAAObWluX2NvbGxhdGVyYWwAAAAAAAsAAAAAAAAAEmluc29sdmVuY3lfbHR2X2JwcwAAAAAACwAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAD6AAAAAYAAAABAAAD6QAAABMAAAfQAAAACE1NQ0Vycm9y',
-        'AAAAAAAAAAAAAAALZ2V0X21hcmtldHMAAAAAAAAAAAEAAAPsAAAAEwAAA+0AAAAA',
-        'AAAAAAAAAAAAAAAKZ2V0X2NvbmZpZwAAAAAAAAAAAAEAAAfQAAAABkNvbmZpZwAA',
-        'AAAAAAAAANVDb25zdHJ1Y3RzIHRoZSBtYW5hZ2VyIGNvbnRyYWN0CgojIEFyZ3VtZW50cwoqIGBhZG1pbmAgLSBtYW5hZ2VyJ3MgYWRtaW4KKiBgbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaGAgLSBoYXNoIG9mIHRoZSBXQVNNIGJpbmFyeSB1cGxvYWRlZCB0byB0aGUgbmV0d29yaywgdXNlZCBhcyBhCnZlcnNpb24gb2YgdGhlIGRlcGxveWVkIG1hcmtldCBjb250cmFjdCBpbnN0YW5jZXMAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAZbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==',
-        'AAAAAAAAAKhVcGdyYWRlcyB0aGUgbWFya2V0IG1hbmFnZXIgY29udHJhY3QKCiMgQXJndW1lbnRzCiogYG5ld193YXNtX2hhc2hgIC0gaGFzaCBvZiB0aGUgV0FTTSBiaW5hcnkgdXBsb2FkZWQgdG8gdGhlIG5ldHdvcmsgdGhhdCB3aWxsIGJlIHVzZWQgYXMgYQpuZXcgdmVyc2lvbiBvZiB0aGUgY29udHJhY3QAAAAHdXBncmFkZQAAAAABAAAAAAAAAA1uZXdfd2FzbV9oYXNoAAAAAAAD7gAAACAAAAAA',
-        'AAAAAAAAANRVcGdyYWRlcyBhbGwgZGVwbG95ZWQgbWFya2V0IGNvbnRyYWN0cwoKIyBBcmd1bWVudHMKKiBgbmV3X21hcmtldF9jb250cmFjdF93YXNtX2hhc2hgIC0gaGFzaCBvZiB0aGUgV0FTTSBiaW5hcnkgdXBsb2FkZWQgdG8gdGhlIG5ldHdvcmsgdGhhdAp3aWxsIGJlIHVzZWQgYXMgYSBuZXcgdmVyc2lvbiBvZiB0aGUgY29udHJhY3QgZm9yIGV2ZXJ5IGRlcGxveWVkIG1hcmtldAAAABh1cGdyYWRlX2RlcGxveWVkX21hcmtldHMAAAABAAAAAAAAAB1uZXdfbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==',
-        'AAAABAAAAB1NYXJrZXQgTWFuYWdlciBDb250cmFjdCBFcnJvcgAAAAAAAAAAAAAITU1DRXJyb3IAAAADAAAAAAAAABNOZWdhdGl2ZUlucHV0QW1vdW50AAAAAAEAAAAAAAAAE01hcmtldEFscmVhZHlFeGlzdHMAAAAD6AAAAAAAAAASSW52YWxpZE1hcmtldFN0YXRlAAAAAAPp',
-        'AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAAAwAAAAAAAAAAAAAABUFkbWluAAAAAAAAAAAAAAAAAAAWTWFya2V0Q29udHJhY3RXYXNtSGFzaAAAAAAAAAAAAAAAAAAKTWFya2V0TGlzdAAA',
-        'AAAAAQAAAAAAAAAAAAAABkNvbmZpZwAAAAAAAgAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAABltYXJrZXRfY29udHJhY3Rfd2FzbV9oYXNoAAAAAAAD7gAAACA=']),
-      options,
+      new ContractSpec([ "AAAAAQAAAAAAAAAAAAAAEE1hcmtldEluaXRQYXJhbXMAAAAGAAAAAAAAAA9iYWRfZGVidF9sb2NrX2QAAAAABgAAAAAAAAASaW5zb2x2ZW5jeV9sdHZfYnBzAAAAAAALAAAAAAAAAAhpc19vd25lZAAAAAEAAAAAAAAADW1heF9wb3NpdGlvbnMAAAAAAAAEAAAAAAAAABptaW5fY29sbGF0ZXJhbF92YWx1ZV9jZW50cwAAAAAACwAAAAAAAAAWdXBkYXRlX2luX3F1ZXVlX3BlcmlvZAAAAAAABg==",
+        "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAAGAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAADG1hcmtldF9hZG1pbgAAABMAAAAAAAAABG5hbWUAAAAQAAAAAAAAAAZvcmFjbGUAAAAAABMAAAAAAAAADmluc3VyYW5jZV9mdW5kAAAAAAATAAAAAAAAAAZwYXJhbXMAAAAAB9AAAAAQTWFya2V0SW5pdFBhcmFtcwAAAAEAAAPpAAAAEwAAB9AAAAAITU1DRXJyb3I=",
+        "AAAAAAAAAAAAAAALZ2V0X21hcmtldHMAAAAAAAAAAAEAAAPsAAAAEwAAA+0AAAAA",
+        "AAAAAAAAAAAAAAAKZ2V0X2NvbmZpZwAAAAAAAAAAAAEAAAfQAAAABkNvbmZpZwAA",
+        "AAAAAAAAAAAAAAAUZ2V0X21hcmtldF93YXNtX2hhc2gAAAAAAAAAAQAAA+4AAAAg",
+        "AAAAAAAAAAAAAAAcZ2V0X3F1ZXVlZF9pbl9tYXJrZXRfdXBncmFkZQAAAAAAAAABAAAD6AAAB9AAAAAPUXVldWVkSW5VcGdyYWRlAA==",
+        "AAAAAAAAAAAAAAAdZ2V0X3F1ZXVlZF9pbl9tYW5hZ2VyX3VwZ3JhZGUAAAAAAAAAAAAAAQAAA+gAAAfQAAAAD1F1ZXVlZEluVXBncmFkZQA=",
+        "AAAAAAAAAAAAAAAXcXVldWVfaW5fbWFya2V0X3VwZ3JhZGUAAAAAAQAAAAAAAAANbmV3X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAITU1DRXJyb3I=",
+        "AAAAAAAAAAAAAAAYcXVldWVfaW5fbWFuYWdlcl91cGdyYWRlAAAAAQAAAAAAAAANbmV3X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAITU1DRXJyb3I=",
+        "AAAAAAAAAAAAAAAVY2FuY2VsX21hcmtldF91cGdyYWRlAAAAAAAAAAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAACE1NQ0Vycm9y",
+        "AAAAAAAAAAAAAAAWY2FuY2VsX21hbmFnZXJfdXBncmFkZQAAAAAAAAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAACE1NQ0Vycm9y",
+        "AAAAAAAAAAAAAAAUYXBwbHlfbWFya2V0X3VwZ3JhZGUAAAAAAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAITU1DRXJyb3I=",
+        "AAAAAAAAAAAAAAAVYXBwbHlfbWFuYWdlcl91cGdyYWRlAAAAAAAAAAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAACE1NQ0Vycm9y",
+        "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAZbWFya2V0X2NvbnRyYWN0X3dhc21faGFzaAAAAAAAA+4AAAAgAAAAAA==",
+        "AAAABAAAAB1NYXJrZXQgTWFuYWdlciBDb250cmFjdCBFcnJvcgAAAAAAAAAAAAAITU1DRXJyb3IAAAAHAAAAAAAAABJJbnZhbGlkSW5wdXRBbW91bnQAAAAAAAEAAAAAAAAAD092ZXJPclVuZGVyZmxvdwAAAAAJAAAAAAAAABNNYXJrZXRBbHJlYWR5RXhpc3RzAAAAA+gAAAAAAAAAEkludmFsaWRNYXJrZXRTdGF0ZQAAAAAD6QAAAAAAAAAUVXBncmFkZUFscmVhZHlFeGlzdHMAAAPqAAAAAAAAABNVcGdyYWRlRG9lc05vdEV4aXN0AAAAA+sAAAAAAAAAGVVwZ3JhZGVJc05vdFlldEFwcGxpY2FibGUAAAAAAAPs",
+        "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAABQAAAAAAAAAAAAAABUFkbWluAAAAAAAAAAAAAAAAAAALTWFya2V0c0xpc3QAAAAAAAAAAAAAAAAOTWFya2V0V2FzbUhhc2gAAAAAAAAAAAAAAAAAFVF1ZXVlZEluTWFya2V0VXBncmFkZQAAAAAAAAAAAAAAAAAAFlF1ZXVlZEluTWFuYWdlclVwZ3JhZGUAAA==",
+        "AAAAAQAAAAAAAAAAAAAABkNvbmZpZwAAAAAAAgAAAAAAAAAFYWRtaW4AAAAAAAATAAAAAAAAABBtYXJrZXRfd2FzbV9oYXNoAAAD7gAAACA=",
+        "AAAAAQAAAAAAAAAAAAAAD1F1ZXVlZEluVXBncmFkZQAAAAACAAAAAAAAABNxdWV1ZWRfaW5fdGltZXN0YW1wAAAAAAYAAAAAAAAACXdhc21faGFzaAAAAAAAA+4AAAAg" ]),
+      options
     )
   }
-
   public readonly fromJSON = {
     deploy: this.txFromJSON<Result<string>>,
-    get_markets: this.txFromJSON<Map<string, void>>,
-    get_config: this.txFromJSON<Config>,
-    upgrade: this.txFromJSON<null>,
-    upgrade_deployed_markets: this.txFromJSON<null>,
+        get_markets: this.txFromJSON<Map<string, void>>,
+        get_config: this.txFromJSON<Config>,
+        get_market_wasm_hash: this.txFromJSON<Buffer>,
+        get_queued_in_market_upgrade: this.txFromJSON<Option<QueuedInUpgrade>>,
+        get_queued_in_manager_upgrade: this.txFromJSON<Option<QueuedInUpgrade>>,
+        queue_in_market_upgrade: this.txFromJSON<Result<void>>,
+        queue_in_manager_upgrade: this.txFromJSON<Result<void>>,
+        cancel_market_upgrade: this.txFromJSON<Result<void>>,
+        cancel_manager_upgrade: this.txFromJSON<Result<void>>,
+        apply_market_upgrade: this.txFromJSON<Result<void>>,
+        apply_manager_upgrade: this.txFromJSON<Result<void>>
   }
 }

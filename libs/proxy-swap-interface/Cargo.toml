@@ -1,0 +1,8 @@
+[package]
+name = "proxy-swap-interface"
+version = "0.1.0"
+
+edition.workspace = true
+
+[dependencies]
+soroban-sdk = { workspace = true }
