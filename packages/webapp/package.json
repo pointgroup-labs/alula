@@ -49,6 +49,7 @@
     "nprogress": "^0.2.0",
     "nuxt": "^4.4.2",
     "pinia": "^3.0.4",
+    "unpdf": "^1.6.2",
     "vue": "^3.5.33",
     "vue-3-slider-component": "^1.0.2",
     "vue-chartjs": "^5.3.3",
