@@ -20,3 +20,7 @@ export const POOL_REMAINING_BALANCE = 0.01
 export const EXPLORER_LINK = 'https://stellar.expert/'
 
 export const DOCS_BORROW_RISKS_LINK = 'https://docs.alula.finance/guides/borrow/borrow-related-risks'
+
+// terms & privacy
+export const TERMS_OF_SERVICE_LINK = `${ALULA_URL}/files/Alula_Finance_Terms_of_Service.pdf`
+export const PRIVACY_POLICY_LINK = `${ALULA_URL}/files/Alula_Finance_Privacy_Policy.pdf`
