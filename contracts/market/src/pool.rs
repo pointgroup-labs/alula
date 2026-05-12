@@ -54,10 +54,8 @@ pub struct Pool {
     pub operation_fees_sum: i128,
     //  Maintained sum of the accumulated per take rate beneficiaries' fees
     pub take_rate_fees_sum: i128,
-    // Target utilization ratio in basis points
-    pub target_utilization_ratio_bps: i128,
     // Interest rate modifier in basis points
-    pub interest_rate_modifier: i128,
+    pub interest_rate_modifier_bps: i128,
     // Farm ID for supply incentives (j-token staking)
     pub farm_supply: Option<BytesN<32>>,
     // Farm ID for debt incentives (d-token staking)
@@ -559,7 +557,7 @@ impl Pool {
     // ---- MISC ----
 
     pub fn get_pool_data(self, e: &Env) -> Result<PoolData, MCError> {
-        let apy = self.get_apy()?;
+        let apy = self.get_apy(e)?;
         let j_token_rate_floor_bps = self.get_j_token_rate_floor()?;
         let d_token_rate_ceil_bps = self.get_d_token_rate_ceil()?;
         let total_supply = self.total_supply()?;
@@ -909,7 +907,7 @@ impl PoolStatus {
 }
 
 #[contracttype]
-#[derive(Default, Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PoolConfig {
     pub status: PoolStatus,
     pub fee_config: PoolFeeConfig,
@@ -917,6 +915,23 @@ pub struct PoolConfig {
     pub accrual_model: AccrualModel,
     pub interest_rate_model: InterestRateModel,
     pub ir_reactivity_constant: u32,
+    // Target utilization ratio in basis points; used by the interest rate controller to adjust
+    // the modifier toward the desired utilization level
+    pub target_utilization_ratio_bps: i128,
+}
+
+impl Default for PoolConfig {
+    fn default() -> Self {
+        Self {
+            ir_reactivity_constant: 0,
+            status: PoolStatus::default(),
+            fee_config: PoolFeeConfig::default(),
+            health_config: PoolHealthConfig::default(),
+            accrual_model: AccrualModel::default(),
+            interest_rate_model: InterestRateModel::default(),
+            target_utilization_ratio_bps: DEFAULT_TARGET_UTILIZATION_RATIO_BPS,
+        }
+    }
 }
 
 impl PoolConfig {
@@ -925,11 +940,18 @@ impl PoolConfig {
     /// When `current_config` is `Some`, also enforces fee-bump constraints
     /// against the currently active config (used when updating a pool).
     pub fn validate(&self, current_config: Option<PoolConfig>) -> Result<(), MCError> {
-        let PoolConfig { health_config, fee_config, ir_reactivity_constant, .. } = self;
+        let PoolConfig {
+            health_config,
+            fee_config,
+            ir_reactivity_constant,
+            target_utilization_ratio_bps,
+            ..
+        } = self;
 
         if health_config.validate().is_err()
             || fee_config.validate(current_config.map(|c| c.fee_config)).is_err()
             || !(MIN_REACTIVITY_CONSTANT..=MAX_REACTIVITY_CONSTANT).contains(ir_reactivity_constant)
+            || !is_valid_bps_percent(*target_utilization_ratio_bps)
         {
             return Err(MCError::InvalidLoanPoolConfig);
         }

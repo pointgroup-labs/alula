@@ -245,8 +245,7 @@ pub fn process_initialize_pool(
         borrow_apr_bps: 0,
         supply_apr_bps: 0,
 
-        target_utilization_ratio_bps: DEFAULT_TARGET_UTILIZATION_RATIO_BPS,
-        interest_rate_modifier: BPS_FACTOR,
+        interest_rate_modifier_bps: BPS_FACTOR,
 
         farm_supply: None,
         farm_debt: None,
@@ -942,10 +941,7 @@ fn settle_bad_debt_request(
 
     pool.adjust_total_available(e, covered_amount)?;
     pool.adjust_total_borrowed(e, total_debt.checked_neg().map_over_or_underflow()?)?;
-    pool.adjust_total_d_tokens(
-        e,
-        borrow_position.d_tokens.checked_neg().map_over_or_underflow()?,
-    )?;
+    pool.adjust_total_d_tokens(e, borrow_position.d_tokens.checked_neg().map_over_or_underflow()?)?;
 
     pool.bad_debt_request_count =
         pool.bad_debt_request_count.checked_sub(1).map_over_or_underflow()?;
