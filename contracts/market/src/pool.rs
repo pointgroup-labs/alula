@@ -559,7 +559,7 @@ impl Pool {
     // ---- MISC ----
 
     pub fn get_pool_data(self, e: &Env) -> Result<PoolData, MCError> {
-        let apy = self.get_apy()?;
+        let apy = self.get_apy(e)?;
         let j_token_rate_floor_bps = self.get_j_token_rate_floor()?;
         let d_token_rate_ceil_bps = self.get_d_token_rate_ceil()?;
         let total_supply = self.total_supply()?;

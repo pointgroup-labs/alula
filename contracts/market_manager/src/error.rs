@@ -14,4 +14,5 @@ pub enum MMCError {
     UpgradeAlreadyExists = 1002,
     UpgradeDoesNotExist = 1003,
     UpgradeIsNotYetApplicable = 1004,
+    NoPendingAdmin = 1005,
 }
