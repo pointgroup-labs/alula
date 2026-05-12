@@ -23,6 +23,7 @@ const marketsStore = useMarketsStore()
 const tokensStore = useTokensStore()
 const toast = useToast()
 const { generateExplorerLink } = useExplorerLink()
+const rpcStore = useRpcStore()
 
 // Token registry is fetched from GitHub once and cached in the store. Kicking
 // off the fetch on mount lets `getTokenIcon(symbol)` resolve real icons
@@ -189,22 +190,22 @@ function formatTimelock(seconds: bigint | number | undefined): string | undefine
   return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`
 }
 
-const swapProviders = [
+const swapProviders = computed(() => [
   {
     name: 'Aquarius',
-    address: AQUA_PROVIDER_ADDRESS,
+    address: AQUA_PROVIDER_ADDRESS[rpcStore.network ?? ''] ?? '',
     logo: aquaLogo,
     url: 'https://aqua.network',
     category: 'AMM Router',
   },
   {
     name: 'Soroswap',
-    address: SOROSWAP_PROVIDER_ADDRESS,
+    address: SOROSWAP_PROVIDER_ADDRESS[rpcStore.network ?? ''] ?? '',
     logo: soroswapLogo,
     url: 'https://soroswap.finance',
     category: 'AMM Router',
   },
-]
+].filter(p => p.address))
 
 // Oracle integrations are displayed statically — the on-chain Aggregated
 // Oracle address is already shown per market under "Oracle", so this section

@@ -757,7 +757,7 @@ export class MultiplyService extends BaseClient {
       networkPassphrase: this.networkPassphrase,
     }
 
-    if (swapProviderAddress === AQUA_PROVIDER_ADDRESS) {
+    if (swapProviderAddress === AQUA_PROVIDER_ADDRESS[this.rpc]) {
       return new AquaSwapProviderClient(options)
     }
 
