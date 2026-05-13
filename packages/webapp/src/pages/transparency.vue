@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import {
   AQUA_PROVIDER_ADDRESS,
+  CONTRACT_ID,
   SOROSWAP_PROVIDER_ADDRESS,
 } from '@alula/client-sdk'
 import aquaLogo from '~/assets/img/providers/aqua-logo.png'
@@ -9,11 +10,13 @@ import reflectorLogo from '~/assets/img/providers/reflector-logo.svg'
 import soroswapLogo from '~/assets/img/providers/soroswap-logo.jpg'
 import { AUDITORS } from '~/config/audits'
 import { ALULA_URL, DOCS_URL, GITHUB_URL } from '~/config/common'
+import { UPGRADE_QUEUE_PERIOD_SECONDS } from '~/config/governance'
 import {
   bigintToNumber,
   formatPrice,
   truncatePercent,
 } from '~/utils'
+import { loadManagerState } from '~/utils/multisig/chain'
 
 definePageMeta({
   layout: 'default',
@@ -188,6 +191,133 @@ function formatTimelock(seconds: bigint | number | undefined): string | undefine
   const days = Math.floor(hours / 24)
   const remHours = hours % 24
   return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`
+}
+
+// Pending contract upgrades.
+//
+// `loadManagerState` reads the market_manager's instance storage and returns
+// any queued manager-self-upgrade and market-wasm upgrade in one round-trip.
+// We poll every 30s — the cadence at which queue/cancel/apply state could
+// realistically change — and keep a 1s `now` ticker for the live countdown
+// text. Splitting the two avoids hammering the RPC at 1Hz while keeping the
+// timer visibly smooth.
+type PendingUpgradeKind = 'manager' | 'market'
+type PendingUpgrade = {
+  kind: PendingUpgradeKind
+  /** Human label for the "what's being upgraded" column. */
+  label: string
+  /** Address of the contract whose code is changing (manager or market WASM). */
+  scope: string
+  /** Hex-encoded BytesN<32> — the new WASM that will be installed. */
+  wasmHash: string
+  queuedAtUnix: number
+  unlocksAtUnix: number
+}
+
+const now = ref(Math.floor(Date.now() / 1000))
+const pendingUpgrades = ref<PendingUpgrade[]>([])
+let tickHandle: ReturnType<typeof setInterval> | null = null
+let pollHandle: ReturnType<typeof setInterval> | null = null
+
+async function refreshPendingUpgrades() {
+  const network = rpcStore.network
+  if (!network) {
+    pendingUpgrades.value = []
+    return
+  }
+  const managerAddress = CONTRACT_ID[network]
+  if (!managerAddress) {
+    pendingUpgrades.value = []
+    return
+  }
+  const rpcUrl = rpcStore.sorobanRPCUrl
+  if (!rpcUrl) {
+    pendingUpgrades.value = []
+    return
+  }
+  try {
+    const state = await loadManagerState(rpcUrl, managerAddress)
+    const next: PendingUpgrade[] = []
+    if (state.queuedManagerUpgrade) {
+      next.push({
+        kind: 'manager',
+        label: 'Market Manager',
+        scope: managerAddress,
+        wasmHash: state.queuedManagerUpgrade.wasmHash,
+        queuedAtUnix: state.queuedManagerUpgrade.queuedAtUnix,
+        unlocksAtUnix: state.queuedManagerUpgrade.queuedAtUnix + UPGRADE_QUEUE_PERIOD_SECONDS,
+      })
+    }
+    if (state.queuedMarketUpgrade) {
+      next.push({
+        kind: 'market',
+        label: 'Market contracts (new deployments)',
+        scope: managerAddress,
+        wasmHash: state.queuedMarketUpgrade.wasmHash,
+        queuedAtUnix: state.queuedMarketUpgrade.queuedAtUnix,
+        unlocksAtUnix: state.queuedMarketUpgrade.queuedAtUnix + UPGRADE_QUEUE_PERIOD_SECONDS,
+      })
+    }
+    pendingUpgrades.value = next
+  } catch {
+    // Swallow — transparency page should never error out a network blip.
+    // Next poll will re-attempt. We deliberately don't clear the existing
+    // list, so a transient RPC failure doesn't make a pending upgrade
+    // appear to vanish.
+  }
+}
+
+onMounted(() => {
+  refreshPendingUpgrades()
+  tickHandle = setInterval(() => {
+    now.value = Math.floor(Date.now() / 1000)
+  }, 1000)
+  pollHandle = setInterval(refreshPendingUpgrades, 30_000)
+})
+
+onBeforeUnmount(() => {
+  if (tickHandle) { clearInterval(tickHandle) }
+  if (pollHandle) { clearInterval(pollHandle) }
+})
+
+// Re-fetch when the user flips networks — otherwise the page would keep
+// showing the previous network's queue until the next 30s tick.
+watch(() => rpcStore.network, () => {
+  refreshPendingUpgrades()
+})
+
+// Compact `Xd Yh Zm Ws` — drops leading zero units so a 90-second countdown
+// reads "1m 30s" rather than "0d 0h 1m 30s". Returns "0s" at exactly zero
+// so the cell never collapses to empty during the flip from queued → unlocked.
+function formatCountdown(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds))
+  const days = Math.floor(s / 86_400)
+  const hours = Math.floor((s % 86_400) / 3600)
+  const minutes = Math.floor((s % 3600) / 60)
+  const seconds = s % 60
+  const parts: string[] = []
+  if (days > 0) { parts.push(`${days}d`) }
+  if (days > 0 || hours > 0) { parts.push(`${hours}h`) }
+  if (days > 0 || hours > 0 || minutes > 0) { parts.push(`${minutes}m`) }
+  parts.push(`${seconds}s`)
+  return parts.join(' ')
+}
+
+// Symmetric "Xh ago" formatter for the queued-at column. Returns at least
+// "just now" so a freshly-queued upgrade doesn't render an empty string.
+function formatAgo(unix: number): string {
+  const delta = now.value - unix
+  if (delta < 60) { return 'just now' }
+  const minutes = Math.floor(delta / 60)
+  if (minutes < 60) { return `${minutes}m ago` }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) { return `${hours}h ago` }
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+function isoOf(unix: number): string {
+  return new Date(unix * 1000).toISOString()
 }
 
 const swapProviders = computed(() => [
@@ -467,6 +597,93 @@ const dashboards: Dashboard[] = [
             Read report
             <i-app-export-icon />
           </a>
+        </article>
+      </div>
+    </section>
+
+    <section
+      v-if="pendingUpgrades.length > 0"
+      id="pending-upgrades"
+      class="transparency-section"
+    >
+      <header class="transparency-section__header">
+        <h2 class="transparency-section__title">
+          Pending upgrades
+        </h2>
+        <p class="transparency-section__subtitle">
+          Queued contract code changes. The timelock gives anyone time to
+          inspect the new WASM hash and react before it can be applied.
+        </p>
+      </header>
+
+      <div class="transparency-section__stack">
+        <article
+          v-for="upgrade in pendingUpgrades"
+          :key="`${upgrade.kind}-${upgrade.wasmHash}-${upgrade.queuedAtUnix}`"
+          class="upgrade-card"
+          :class="{
+            'upgrade-card--queued': now < upgrade.unlocksAtUnix,
+            'upgrade-card--unlocked': now >= upgrade.unlocksAtUnix,
+          }"
+        >
+          <div class="upgrade-card__head">
+            <span class="upgrade-card__scope">{{ upgrade.label }}</span>
+            <span
+              class="upgrade-card__state"
+              :class="now < upgrade.unlocksAtUnix
+                ? 'upgrade-card__state--queued'
+                : 'upgrade-card__state--unlocked'"
+            >
+              <span
+                class="upgrade-card__state-dot"
+                aria-hidden="true"
+              />
+              {{ now < upgrade.unlocksAtUnix ? 'Queued' : 'Unlocked' }}
+            </span>
+          </div>
+
+          <div class="upgrade-card__countdown">
+            <template v-if="now < upgrade.unlocksAtUnix">
+              <span class="upgrade-card__countdown-label">Upgrades in</span>
+              <span class="upgrade-card__countdown-value">
+                {{ formatCountdown(upgrade.unlocksAtUnix - now) }}
+              </span>
+            </template>
+            <template v-else>
+              <span class="upgrade-card__countdown-label">Eligible to apply</span>
+              <span class="upgrade-card__countdown-value">
+                since {{ formatAgo(upgrade.unlocksAtUnix) }}
+              </span>
+            </template>
+          </div>
+
+          <dl class="upgrade-card__fields">
+            <div class="upgrade-card__field">
+              <dt>New WASM hash</dt>
+              <dd>
+                <button
+                  type="button"
+                  class="upgrade-card__copy"
+                  :title="`Click to copy · ${upgrade.wasmHash}`"
+                  @click="copyAddress(upgrade.wasmHash)"
+                >
+                  <code>{{ truncateAddress(upgrade.wasmHash, 10, 10) }}</code>
+                </button>
+              </dd>
+            </div>
+            <div class="upgrade-card__field">
+              <dt>Queued</dt>
+              <dd :title="isoOf(upgrade.queuedAtUnix)">
+                {{ formatAgo(upgrade.queuedAtUnix) }}
+              </dd>
+            </div>
+            <div class="upgrade-card__field">
+              <dt>Unlocks at</dt>
+              <dd :title="isoOf(upgrade.unlocksAtUnix)">
+                {{ isoOf(upgrade.unlocksAtUnix) }}
+              </dd>
+            </div>
+          </dl>
         </article>
       </div>
     </section>
@@ -1819,6 +2036,139 @@ const dashboards: Dashboard[] = [
     width: 14px;
     height: 14px;
     color: $text-tertiary;
+  }
+}
+
+// Pending upgrade card. Two visual states keyed by `--queued` / `--unlocked`:
+//   - Queued: indigo accent, calm informational treatment. The timelock is
+//     ticking, no action is possible yet, so the card should not shout.
+//   - Unlocked: amber accent, raised visual weight. The change is now
+//     applicable at any block, so users who want to react still can but the
+//     window is open. Anything stronger (red) would imply something is wrong;
+//     a timelock elapsing is the expected, designed-for path.
+.upgrade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px solid $border-secondary;
+  background-color: color-mix(in oklab, $navi-700 60%, transparent);
+
+  &--queued {
+    border-color: color-mix(in oklab, #818cf8 40%, $border-secondary);
+  }
+
+  &--unlocked {
+    border-color: color-mix(in oklab, #f59e0b 55%, $border-secondary);
+    background-color: color-mix(in oklab, #f59e0b 6%, $navi-700);
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__scope {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+
+    &--queued {
+      color: #c7d2fe;
+      background-color: color-mix(in oklab, #818cf8 18%, transparent);
+    }
+
+    &--unlocked {
+      color: #fcd34d;
+      background-color: color-mix(in oklab, #f59e0b 22%, transparent);
+    }
+  }
+
+  &__state-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentcolor;
+  }
+
+  &__countdown {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  &__countdown-label {
+    font-size: 12px;
+    color: $text-tertiary;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__countdown-value {
+    font-size: 22px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: $text-primary;
+  }
+
+  &__fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 24px;
+    margin: 0;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    dt {
+      font-size: 11px;
+      color: $text-tertiary;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    dd {
+      margin: 0;
+      font-size: 13px;
+      color: $text-secondary;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__copy {
+    background: none;
+    border: none;
+    padding: 0;
+    color: $text-primary;
+    cursor: pointer;
+
+    code {
+      font-size: 13px;
+    }
+
+    &:hover code {
+      color: $primary;
+    }
   }
 }
 </style>
