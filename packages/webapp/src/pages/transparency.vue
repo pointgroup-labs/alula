@@ -316,8 +316,26 @@ function formatAgo(unix: number): string {
   return `${days}d ago`
 }
 
-function isoOf(unix: number): string {
-  return new Date(unix * 1000).toISOString()
+// Human-friendly absolute timestamp, "14 May 2026, 12:34 UTC". Used for the
+// "Unlocks {date}" line where ISO would be too engineer-y.
+function formatDateTime(unix: number): string {
+  const d = new Date(unix * 1000)
+  const day = d.getUTCDate()
+  const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
+  const year = d.getUTCFullYear()
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  const mm = String(d.getUTCMinutes()).padStart(2, '0')
+  return `${day} ${month} ${year}, ${hh}:${mm} UTC`
+}
+
+// Fraction (0..1) of the timelock window that has elapsed. Used to drive the
+// progress bar fill. Clamped to [0,1] so a freshly-queued upgrade reads as
+// empty and an unlocked one reads as full, regardless of clock drift.
+function timelockProgress(upgrade: PendingUpgrade): number {
+  const total = upgrade.unlocksAtUnix - upgrade.queuedAtUnix
+  if (total <= 0) { return 1 }
+  const elapsed = now.value - upgrade.queuedAtUnix
+  return Math.max(0, Math.min(1, elapsed / total))
 }
 
 const swapProviders = computed(() => [
@@ -626,8 +644,13 @@ const dashboards: Dashboard[] = [
             'upgrade-card--unlocked': now >= upgrade.unlocksAtUnix,
           }"
         >
-          <div class="upgrade-card__head">
-            <span class="upgrade-card__scope">{{ upgrade.label }}</span>
+          <header class="upgrade-card__top">
+            <div class="upgrade-card__top-left">
+              <span class="upgrade-card__kind">{{ upgrade.kind === 'manager' ? 'Manager upgrade' : 'Market WASM upgrade' }}</span>
+              <h3 class="upgrade-card__scope">
+                {{ upgrade.label }}
+              </h3>
+            </div>
             <span
               class="upgrade-card__state"
               :class="now < upgrade.unlocksAtUnix
@@ -638,52 +661,71 @@ const dashboards: Dashboard[] = [
                 class="upgrade-card__state-dot"
                 aria-hidden="true"
               />
-              {{ now < upgrade.unlocksAtUnix ? 'Queued' : 'Unlocked' }}
+              {{ now < upgrade.unlocksAtUnix ? 'In timelock' : 'Ready to apply' }}
             </span>
-          </div>
+          </header>
 
-          <div class="upgrade-card__countdown">
+          <div class="upgrade-card__hero">
             <template v-if="now < upgrade.unlocksAtUnix">
-              <span class="upgrade-card__countdown-label">Upgrades in</span>
-              <span class="upgrade-card__countdown-value">
+              <span class="upgrade-card__hero-value">
                 {{ formatCountdown(upgrade.unlocksAtUnix - now) }}
+              </span>
+              <span class="upgrade-card__hero-caption">
+                until this upgrade becomes applicable
               </span>
             </template>
             <template v-else>
-              <span class="upgrade-card__countdown-label">Eligible to apply</span>
-              <span class="upgrade-card__countdown-value">
-                since {{ formatAgo(upgrade.unlocksAtUnix) }}
+              <span class="upgrade-card__hero-value upgrade-card__hero-value--unlocked">
+                Ready
+              </span>
+              <span class="upgrade-card__hero-caption">
+                eligible since {{ formatAgo(upgrade.unlocksAtUnix) }} — admin can apply at any block
               </span>
             </template>
           </div>
 
-          <dl class="upgrade-card__fields">
-            <div class="upgrade-card__field">
-              <dt>New WASM hash</dt>
-              <dd>
-                <button
-                  type="button"
-                  class="upgrade-card__copy"
-                  :title="`Click to copy · ${upgrade.wasmHash}`"
-                  @click="copyAddress(upgrade.wasmHash)"
-                >
-                  <code>{{ truncateAddress(upgrade.wasmHash, 10, 10) }}</code>
-                </button>
-              </dd>
-            </div>
-            <div class="upgrade-card__field">
-              <dt>Queued</dt>
-              <dd :title="isoOf(upgrade.queuedAtUnix)">
+          <div
+            class="upgrade-card__progress"
+            :aria-valuenow="Math.round(timelockProgress(upgrade) * 100)"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            role="progressbar"
+          >
+            <span
+              class="upgrade-card__progress-fill"
+              :style="{ width: `${Math.min(100, timelockProgress(upgrade) * 100)}%` }"
+            />
+          </div>
+
+          <div class="upgrade-card__meta">
+            <span class="upgrade-card__meta-item">
+              Queued
+              <strong :title="formatDateTime(upgrade.queuedAtUnix)">
                 {{ formatAgo(upgrade.queuedAtUnix) }}
-              </dd>
-            </div>
-            <div class="upgrade-card__field">
-              <dt>Unlocks at</dt>
-              <dd :title="isoOf(upgrade.unlocksAtUnix)">
-                {{ isoOf(upgrade.unlocksAtUnix) }}
-              </dd>
-            </div>
-          </dl>
+              </strong>
+            </span>
+            <span
+              class="upgrade-card__meta-sep"
+              aria-hidden="true"
+            >·</span>
+            <span class="upgrade-card__meta-item">
+              {{ now < upgrade.unlocksAtUnix ? 'Unlocks' : 'Unlocked' }}
+              <strong>{{ formatDateTime(upgrade.unlocksAtUnix) }}</strong>
+            </span>
+          </div>
+
+          <div class="upgrade-card__hash">
+            <span class="upgrade-card__hash-label">New WASM hash</span>
+            <button
+              type="button"
+              class="upgrade-card__hash-value"
+              :title="`Click to copy · ${upgrade.wasmHash}`"
+              @click="copyAddress(upgrade.wasmHash)"
+            >
+              <code>{{ truncateAddress(upgrade.wasmHash, 12, 12) }}</code>
+              <i-app-copy class="upgrade-card__hash-icon" />
+            </button>
+          </div>
         </article>
       </div>
     </section>
@@ -2039,55 +2081,90 @@ const dashboards: Dashboard[] = [
   }
 }
 
-// Pending upgrade card. Two visual states keyed by `--queued` / `--unlocked`:
-//   - Queued: indigo accent, calm informational treatment. The timelock is
-//     ticking, no action is possible yet, so the card should not shout.
-//   - Unlocked: amber accent, raised visual weight. The change is now
-//     applicable at any block, so users who want to react still can but the
-//     window is open. Anything stronger (red) would imply something is wrong;
-//     a timelock elapsing is the expected, designed-for path.
+// Pending upgrade card. Layout hierarchy from top to bottom:
+//   1. Kind label + scope name (what is being upgraded), state pill on the right
+//   2. Hero countdown — the actual answer to "when?". Tabular numerics so the
+//      digits don't wobble as they tick.
+//   3. Slim progress bar showing how much of the timelock has elapsed. The
+//      bar is the at-a-glance signal — text tells you the number, the bar
+//      tells you the *position* within the window.
+//   4. Meta line: queued ago · unlocks-at absolute datetime
+//   5. Hash strip with copy affordance, set apart so it reads as a separate
+//      verifiable artifact rather than just another metadata field.
+//
+// Two states keyed by `--queued` / `--unlocked`:
+//   - Queued: indigo accent. Timelock still ticking — informational, not alarming.
+//   - Unlocked: amber accent + higher contrast. Change is applicable now.
 .upgrade-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 20px;
-  border-radius: 12px;
+  gap: 20px;
+  padding: 24px 26px;
+  border-radius: 16px;
   border: 1px solid $border-secondary;
-  background-color: color-mix(in oklab, $navi-700 60%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, $navi-700 80%, transparent) 0%,
+    color-mix(in oklab, $navi-700 50%, transparent) 100%
+  );
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 
   &--queued {
-    border-color: color-mix(in oklab, #818cf8 40%, $border-secondary);
+    border-color: color-mix(in oklab, #818cf8 35%, $border-secondary);
   }
 
   &--unlocked {
     border-color: color-mix(in oklab, #f59e0b 55%, $border-secondary);
-    background-color: color-mix(in oklab, #f59e0b 6%, $navi-700);
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, #f59e0b 8%, $navi-700) 0%,
+      color-mix(in oklab, #f59e0b 3%, $navi-700) 100%
+    );
   }
 
-  &__head {
+  &__top {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
   }
 
+  &__top-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__kind {
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-tertiary;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
   &__scope {
-    font-size: 15px;
+    margin: 0;
+    font-size: 18px;
     font-weight: 600;
     color: $text-primary;
+    line-height: 1.2;
   }
 
   &__state {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 10px;
+    padding: 5px 11px;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
+    flex-shrink: 0;
 
     &--queued {
       color: #c7d2fe;
@@ -2107,60 +2184,118 @@ const dashboards: Dashboard[] = [
     background-color: currentcolor;
   }
 
-  &__countdown {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  &__countdown-label {
-    font-size: 12px;
-    color: $text-tertiary;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  &__countdown-value {
-    font-size: 22px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: $text-primary;
-  }
-
-  &__fields {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px 24px;
-    margin: 0;
-  }
-
-  &__field {
+  // The hero: a single big tabular-numerics countdown with a one-line
+  // caption underneath. Keeping caption color one notch dimmer than the
+  // value makes the number visually dominant without resorting to size
+  // contrast alone.
+  &__hero {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+    align-items: flex-start;
+  }
 
-    dt {
-      font-size: 11px;
-      color: $text-tertiary;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+  &__hero-value {
+    font-size: 38px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: $text-primary;
+
+    &--unlocked {
+      color: #fcd34d;
     }
+  }
 
-    dd {
-      margin: 0;
-      font-size: 13px;
+  &__hero-caption {
+    font-size: 13px;
+    color: $text-tertiary;
+  }
+
+  // Progress bar — visualizes elapsed timelock as a fraction of the window.
+  // Track is faint so it doesn't compete with the hero number; fill picks
+  // up the accent color (indigo while queued, amber while unlocked, full at 100%).
+  &__progress {
+    position: relative;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background-color: color-mix(in oklab, $navi-700 100%, transparent);
+    overflow: hidden;
+  }
+
+  &__progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background-color: #818cf8;
+    transition: width 0.9s linear;
+  }
+
+  &--unlocked &__progress-fill {
+    background-color: #f59e0b;
+  }
+
+  // Meta line — small caps labels with bold values inline, separator dot
+  // between segments. Wraps on narrow widths so nothing overflows.
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: $text-tertiary;
+  }
+
+  &__meta-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+
+    strong {
       color: $text-secondary;
+      font-weight: 500;
       font-variant-numeric: tabular-nums;
     }
   }
 
-  &__copy {
+  &__meta-sep {
+    color: $text-tertiary;
+    opacity: 0.6;
+  }
+
+  // Hash strip — a self-contained verifiable artifact. Boxed so it reads
+  // as "the thing to verify" rather than another metadata cell.
+  &__hash {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background-color: color-mix(in oklab, $navi-900 50%, transparent);
+    border: 1px solid color-mix(in oklab, $border-secondary 60%, transparent);
+  }
+
+  &__hash-label {
+    font-size: 11px;
+    color: $text-tertiary;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+
+  &__hash-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: none;
     border: none;
     padding: 0;
     color: $text-primary;
     cursor: pointer;
+    font-variant-numeric: tabular-nums;
 
     code {
       font-size: 13px;
@@ -2169,6 +2304,17 @@ const dashboards: Dashboard[] = [
     &:hover code {
       color: $primary;
     }
+
+    &:hover .upgrade-card__hash-icon {
+      color: $primary;
+    }
+  }
+
+  &__hash-icon {
+    width: 13px;
+    height: 13px;
+    color: $text-tertiary;
+    transition: color 0.15s ease;
   }
 }
 </style>
