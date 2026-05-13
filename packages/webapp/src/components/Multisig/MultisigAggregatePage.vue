@@ -84,6 +84,25 @@ async function submit() {
   }
 }
 
+// Classify Soroban RPC's `sendTransaction` status. PENDING/DUPLICATE
+// are the only outcomes that mean "the network has it"; everything
+// else is either retryable (TRY_AGAIN_LATER) or a hard reject (ERROR).
+// Treating the banner uniformly as success hid TRY_AGAIN_LATER from
+// operators, who'd then walk away assuming the tx was in flight.
+type SubmitOutcome = 'success' | 'retry' | 'error'
+const submitOutcome = computed<SubmitOutcome | null>(() => {
+  const s = multisig.lastSubmit?.status
+  if (!s) { return null }
+  if (s === 'PENDING' || s === 'DUPLICATE') { return 'success' }
+  if (s === 'TRY_AGAIN_LATER') { return 'retry' }
+  return 'error'
+})
+
+// Once the network has the tx (PENDING/DUPLICATE), disable Submit so
+// an operator can't fire a duplicate and get a confusing
+// TRY_AGAIN_LATER for the *retry* rather than the original.
+const submitBlocked = computed(() => submitOutcome.value === 'success')
+
 const summary = computed(() => {
   if (!fnEntry.value || !multisig.proposal) { return null }
   return fnEntry.value.renderSummary(multisig.proposal.args, multisig.proposal.snapshot)
@@ -620,7 +639,7 @@ const proposalCreatedAtIso = computed(() => {
             <j-btn
               variant="primary"
               :loading="multisig.submitting"
-              :disabled="!multisig.thresholdMet || multisig.submitting || networkMismatch"
+              :disabled="!multisig.thresholdMet || multisig.submitting || networkMismatch || submitBlocked"
               @click="submit"
             >
               {{ multisig.submitting ? 'Submitting…' : 'Submit to network' }}
@@ -633,11 +652,27 @@ const proposalCreatedAtIso = computed(() => {
             </span>
           </div>
 
+          <!-- Outcome banner colored by what the RPC actually said.
+               PENDING/DUPLICATE → green; the operator should poll
+               getTransaction to confirm landing.
+               TRY_AGAIN_LATER → amber; tx wasn't accepted, retry.
+               Anything else → red; submission failed. -->
           <div
-            v-if="multisig.lastSubmit"
-            class="multisig-banner multisig-banner--ok"
+            v-if="multisig.lastSubmit && submitOutcome"
+            class="multisig-banner"
+            :class="{
+              'multisig-banner--ok': submitOutcome === 'success',
+              'multisig-banner--warn': submitOutcome === 'retry',
+              'multisig-banner--err': submitOutcome === 'error',
+            }"
           >
-            <span class="multisig-banner__title">Submitted</span>
+            <span class="multisig-banner__title">
+              {{ submitOutcome === 'success'
+                ? 'Submitted'
+                : submitOutcome === 'retry'
+                  ? 'Network busy'
+                  : 'Submission rejected' }}
+            </span>
             <span class="multisig-banner__body">
               <button
                 type="button"
@@ -646,6 +681,12 @@ const proposalCreatedAtIso = computed(() => {
                 @click="copyValue(multisig.lastSubmit.txHash, 'Transaction hash')"
               ><code>{{ multisig.lastSubmit.txHash }}</code></button>
               · status <strong>{{ multisig.lastSubmit.status }}</strong>
+              <template v-if="submitOutcome === 'success'">
+                · poll <code>getTransaction</code> to confirm landing
+              </template>
+              <template v-else-if="submitOutcome === 'retry'">
+                · the RPC didn't accept this tx — click Submit again
+              </template>
             </span>
           </div>
         </div>
