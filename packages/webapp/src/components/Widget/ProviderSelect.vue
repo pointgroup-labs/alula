@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { RPCcluster } from '@alula/client-sdk'
 import { SWAP_PROVIDERS } from '@alula/client-sdk'
 import aquaLogo from '~/assets/img/providers/aqua-logo.png'
 import soroswapLogo from '~/assets/img/providers/soroswap-logo.jpg'
@@ -8,32 +9,26 @@ const providerIcons = {
   soroswap: soroswapLogo,
 }
 
+const rpcStore = useRpcStore()
 const swapProviderAddress = defineModel({ default: '' })
 
 const providers = computed(() => {
-  return Object.entries(SWAP_PROVIDERS).map(([name, provider]) => {
-    return { label: name, value: provider, icon: providerIcons[name as keyof typeof providerIcons] }
-  })
+  const network = rpcStore.network as RPCcluster | null
+  if (!network) { return [] }
+  return Object.entries(SWAP_PROVIDERS)
+    .map(([name, addresses]) => ({ label: name, value: addresses[network] ?? '', icon: providerIcons[name as keyof typeof providerIcons] }))
+    .filter(p => p.value)
 })
+
 const selectedProvider = ref(providers.value[0])
 
 watch(selectedProvider, (provider) => {
-  if (!provider?.value) {
-    return
-  }
+  if (!provider?.value) { return }
   swapProviderAddress.value = provider.value
 })
 
-let stop: (() => void) | undefined
-
-// eslint-disable-next-line prefer-const
-stop = watch(swapProviderAddress, (address) => {
-  if (!address) { return }
-
-  selectedProvider.value
-    = providers.value.find(p => p.value === address) ?? providers.value[0]
-
-  stop?.()
+watch([providers, swapProviderAddress], ([newProviders, address]) => {
+  selectedProvider.value = newProviders.find(p => p.value === address) ?? newProviders[0]
 }, { immediate: true })
 </script>
 

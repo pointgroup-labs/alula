@@ -101,12 +101,6 @@ export interface SwapProviderDescriptor {
   address: string
 }
 
-/** Default provider set: queried in parallel by `getSwapRoutes`. */
-export const DEFAULT_SWAP_PROVIDERS: SwapProviderDescriptor[] = [
-  { name: 'Aquarius', address: AQUA_PROVIDER_ADDRESS },
-  { name: 'Soroswap', address: SOROSWAP_PROVIDER_ADDRESS },
-]
-
 const DEFAULT_SLIPPAGE_PERCENT = 0.5
 const MAX_SLIPPAGE_PERCENT = 50
 
@@ -199,7 +193,10 @@ export class SwapService extends BaseClient {
       return []
     }
 
-    const providers = params.providers ?? DEFAULT_SWAP_PROVIDERS
+    const providers = params.providers ?? [
+      { name: 'Aquarius', address: AQUA_PROVIDER_ADDRESS[this.rpc] },
+      { name: 'Soroswap', address: SOROSWAP_PROVIDER_ADDRESS[this.rpc] },
+    ].filter(p => p.address)
     // TODO(multi-hop): when `getExpectedAmountsOut` learns to quote a path of
     // length > 2 (e.g. via per-hop provider calls or a router-side multi-hop
     // RPC), extend `candidatePaths` with `[from, USDC, to]`-style bridges.
@@ -334,7 +331,7 @@ export class SwapService extends BaseClient {
       networkPassphrase: this.networkPassphrase,
     }
 
-    if (swapProviderAddress === AQUA_PROVIDER_ADDRESS) {
+    if (swapProviderAddress === AQUA_PROVIDER_ADDRESS[this.rpc]) {
       return new AquaSwapProviderClient(options)
     }
 

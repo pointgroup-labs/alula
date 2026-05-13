@@ -224,6 +224,7 @@
         opacity: 0.8;
         line-height: normal;
         white-space: nowrap;
+        overflow: hidden;
 
         &:has(:is(.negative, .positive)) {
           opacity: 1;

@@ -1,5 +1,6 @@
+import type { RPCcluster } from '@alula/client-sdk'
 import type { MultiplyPositionItem, MultiplyVaultItem } from '~/types/table'
-import { AQUA_PROVIDER_ADDRESS, bpsToNumber, calculateMultiplyMaxLeverage } from '@alula/client-sdk'
+import { AQUA_PROVIDER_ADDRESS, bpsToNumber, calculateMultiplyMaxLeverage, SOROSWAP_PROVIDER_ADDRESS } from '@alula/client-sdk'
 import { calculateBorrow, calculateTotalStake } from '@alula/client-sdk/src/utils'
 import { calculateCurrentMultiplier } from '~/utils'
 import { buildMultiplyPairKey } from '~/utils/obligation'
@@ -9,8 +10,17 @@ export const useMultiplyStore = defineStore('multiply', () => {
   const router = useRouter()
   const marketsStore = useMarketsStore()
   const { getFullTokenData } = useTokensStore()
+  const rpcStore = useRpcStore()
 
-  const swapProviderAddress = useLocalStorage('swapProviderAddress', AQUA_PROVIDER_ADDRESS, { initOnMounted: true })
+  const swapProviderAddress = useLocalStorage('swapProviderAddress', '', { initOnMounted: true })
+
+  watch(() => rpcStore.network as RPCcluster, (network) => {
+    if (!network) { return }
+    const validAddresses = [AQUA_PROVIDER_ADDRESS[network], SOROSWAP_PROVIDER_ADDRESS[network]].filter(Boolean)
+    if (!validAddresses.includes(swapProviderAddress.value)) {
+      swapProviderAddress.value = AQUA_PROVIDER_ADDRESS[network] || validAddresses[0] || ''
+    }
+  }, { immediate: true })
 
   const vaults = computed<MultiplyVaultItem[]>(() => {
     const items: MultiplyVaultItem[] = []
