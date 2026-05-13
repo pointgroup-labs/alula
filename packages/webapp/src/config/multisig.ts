@@ -16,7 +16,8 @@ export const KNOWN_MULTISIGS: Partial<Record<Network, Partial<Record<MultisigRol
   [Network.Testnet]: {
     // ops: 'G…',
     // program: 'G…',
-    upgrade: 'GDXFGRSLXR3NGO7MKMNYW77NE6NVHLXK2KSTDPZS6ZGUJ3ZXFUXJCVPB',
+    // upgrade: 'GDXFGRSLXR3NGO7MKMNYW77NE6NVHLXK2KSTDPZS6ZGUJ3ZXFUXJCVPB',
+    upgrade: 'GARJ6AK6ZPQS7UOGQ6CLKWDGWJATO5CSDY7KHRDH4A4PCRB4YGHI545I',
   },
   [Network.Public]: {
     // ops: 'G…',

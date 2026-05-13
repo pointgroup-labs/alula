@@ -30,8 +30,8 @@ export type { SimulateResult } from './build-envelope'
 
 export { getFunctionDef, listAllFunctions, listFunctionsByRole } from './catalog'
 
-export { loadAccount, loadMultisigState } from './chain'
-export type { ChainAccount, MultisigAccountState } from './chain'
+export { extractProposalAddresses, loadAccount, loadManagerState, loadMultisigState } from './chain'
+export type { ChainAccount, ManagerState, MultisigAccountState, ProposalAddresses, QueuedUpgrade } from './chain'
 
 export { bytesToHex, computeProposalHash, hexToBytes, sha256Hex } from './hash'
 export { fetchSigs, postSig } from './relay'
@@ -59,6 +59,6 @@ export {
   parseSigPayload,
   serializeSigPayload,
 } from './url'
-export { verifyWasmAgainstClaim, verifyWasmFile } from './wasm'
+export { verifyHashOnChain } from './wasm'
 
-export type { WasmHashCheck } from './wasm'
+export type { OnChainWasmInfo, WasmCustomSection } from './wasm'

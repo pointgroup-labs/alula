@@ -16,8 +16,12 @@
  */
 
 import type { ProposalPayload, SigPayload } from './types'
-import { Keypair, Networks, Transaction, xdr } from '@stellar/stellar-sdk'
-import { Server as RpcServer } from '@stellar/stellar-sdk/rpc'
+import { Keypair, Networks, rpc, Transaction, xdr } from '@stellar/stellar-sdk'
+
+// Use the root namespace's `rpc.Server` so its internal `Transaction` class
+// shares identity with the `Transaction` we import above. See chain.ts for
+// the conditional-exports rationale.
+const RpcServer = rpc.Server
 
 export type SignProposalInput = {
   payload: ProposalPayload

@@ -10,10 +10,17 @@
  */
 
 import type { FunctionDef, SigPayload } from '~/utils/multisig'
-import { decodeProposal, extractSigPayloads } from '~/utils/multisig'
+import { Networks } from '@stellar/stellar-sdk'
+import { decodeProposal, extractProposalAddresses, extractSigPayloads } from '~/utils/multisig'
+import MarketManagerInspector from './MarketManagerInspector.vue'
+import MultisigAccountInspector from './MultisigAccountInspector.vue'
+import WasmHashVerifier from './WasmHashVerifier.vue'
 
 const route = useRoute()
 const multisig = useMultisigStore()
+const wallet = useWallet()
+const rpcStore = useRpcStore()
+const toast = useToast()
 
 const fnEntry = ref<FunctionDef<any, any> | null>(null)
 const pasteBlob = ref('')
@@ -37,8 +44,9 @@ onMounted(async () => {
       multisig.decodingError = (error as Error).message
     }
   }
-  // Poll the relay every 5s. Cheap (KV GET) and the operator usually has
-  // this tab open while signers go through the flow.
+  // Poll the relay every 5s. Cheap (KV GET); silent on failure — the
+  // paste fallback covers the case where the relay is truly down, and
+  // a transient `Failed to fetch` in the UI just spooks operators.
   pollHandle = globalThis.setInterval(() => { multisig.refreshSigs() }, 5000) as unknown as number
 })
 
@@ -81,11 +89,31 @@ const summary = computed(() => {
   return fnEntry.value.renderSummary(multisig.proposal.args, multisig.proposal.snapshot)
 })
 
-const sigRows = computed(() => {
-  return multisig.sigs.map((sig: SigPayload) => {
-    const weight = multisig.proposal?.signer_set_snapshot.find(s => s.key === sig.signer_pubkey)?.weight ?? 0
-    return { signer: sig.signer_pubkey, weight }
+// Cross-reference the snapshot with verified sigs to build the full
+// signer roster. Operators need to see *who hasn't signed* as
+// prominently as who has — otherwise they have to mentally diff the
+// two lists, which is exactly the kind of work that gets glossed
+// over right before submit.
+type RosterRow = {
+  key: string
+  weight: number
+  signed: boolean
+}
+const signerRoster = computed<RosterRow[]>(() => {
+  const snapshot = multisig.proposal?.signer_set_snapshot ?? []
+  const signedSet = new Set(multisig.sigs.map((s: SigPayload) => s.signer_pubkey))
+  const rows: RosterRow[] = snapshot.map(s => ({
+    key: s.key,
+    weight: s.weight,
+    signed: signedSet.has(s.key),
+  }))
+  // Signed first, then heaviest unsigned at the top so the operator
+  // can see at a glance which missing signatures would close the gap.
+  rows.sort((a, b) => {
+    if (a.signed !== b.signed) { return a.signed ? -1 : 1 }
+    return b.weight - a.weight
   })
+  return rows
 })
 
 const progressPct = computed(() => {
@@ -93,10 +121,150 @@ const progressPct = computed(() => {
   return Math.min(100, Math.round((multisig.collectedWeight / multisig.requiredThreshold) * 100))
 })
 
+const remainingWeight = computed(() =>
+  Math.max(0, multisig.requiredThreshold - multisig.collectedWeight),
+)
+
 function truncateAddress(addr: string, head = 6, tail = 6): string {
   if (addr.length <= head + tail + 1) { return addr }
   return `${addr.slice(0, head)}…${addr.slice(-tail)}`
 }
+
+// Long opaque tokens (wasm hashes, strkeys, base64) blow out row width.
+// Render head…tail with the full value in `title=` so hover reveals
+// everything. Same threshold as sign page.
+function isLongOpaque(s: string | null | undefined): boolean {
+  return typeof s === 'string' && s.length > 24
+}
+function shortOpaque(s: string, head = 10, tail = 10): string {
+  if (s.length <= head + tail + 1) { return s }
+  return `${s.slice(0, head)}…${s.slice(-tail)}`
+}
+
+async function copyValue(s: string | null | undefined, label: string) {
+  if (!s) { return }
+  try {
+    await navigator.clipboard.writeText(s)
+    toast.create({ title: 'Copied', body: `${label} copied`, modelValue: 1800 })
+  } catch (error) {
+    toast.create({
+      title: 'Copy failed',
+      body: String((error as Error)?.message ?? error),
+      variant: 'danger',
+      modelValue: 4000,
+    })
+  }
+}
+
+// --- Verification section data --------------------------------------------
+//
+// Mirrors the sign page. Operators submit transactions whose snapshot
+// may be hours old — drift surfaces here, not just on the signer side.
+
+const proposalAddresses = computed(() => {
+  if (!multisig.proposal) { return null }
+  try {
+    return extractProposalAddresses(
+      multisig.proposal.unsigned_xdr,
+      multisig.proposal.network_passphrase,
+    )
+  } catch {
+    return null
+  }
+})
+
+const targetIsMarketManager = computed(() =>
+  fnEntry.value?.contract === 'market_manager'
+  && Boolean(proposalAddresses.value?.targetContract),
+)
+
+const managerFlow = computed<'queue-market' | 'queue-manager' | 'apply-market' | 'apply-manager' | undefined>(() => {
+  switch (multisig.proposal?.function_id) {
+    case 'market_manager.queue_in_market_upgrade': return 'queue-market'
+    case 'market_manager.apply_market_upgrade': return 'apply-market'
+    case 'market_manager.queue_in_manager_upgrade': return 'queue-manager'
+    case 'market_manager.apply_manager_upgrade': return 'apply-manager'
+    default: return undefined
+  }
+})
+
+const proposedWasmHash = computed<string>(() => {
+  const args = multisig.proposal?.args
+  if (!args) { return '' }
+  const named = args.new_wasm_hash
+  if (typeof named === 'string') { return named }
+  const fn = fnEntry.value
+  if (!fn) { return '' }
+  for (const [name, field] of Object.entries(fn.argSchema)) {
+    if ((field as { kind: string }).kind === 'wasm-hash') {
+      const v = args[name]
+      if (typeof v === 'string') { return v }
+    }
+  }
+  return ''
+})
+
+// Same fingerprint table the compose + sign pages use. Duplicated by
+// design — importing across pages would pull each page's deps into
+// the others' bundles.
+const EXPECTED_EXPORTS_BY_FN_ID: Record<string, string[]> = {
+  'market_manager.queue_in_market_upgrade': ['deposit', 'borrow', 'liquidate'],
+  'market_manager.queue_in_manager_upgrade': [
+    'queue_in_market_upgrade',
+    'apply_market_upgrade',
+    'register_market',
+  ],
+}
+function expectedExportsFor(fnId: string | undefined): string[] {
+  if (!fnId) { return [] }
+  return EXPECTED_EXPORTS_BY_FN_ID[fnId] ?? []
+}
+
+const wasmHashArgs = computed<Array<{ name: string, value: string }>>(() => {
+  const fn = fnEntry.value
+  const args = multisig.proposal?.args
+  if (!fn || !args) { return [] }
+  const out: Array<{ name: string, value: string }> = []
+  for (const [name, field] of Object.entries(fn.argSchema)) {
+    if ((field as { kind: string }).kind === 'wasm-hash') {
+      const v = args[name]
+      if (typeof v === 'string') { out.push({ name, value: v }) }
+    }
+  }
+  return out
+})
+
+const proposalNetworkLabel = computed(() => {
+  const p = multisig.proposal?.network_passphrase
+  if (p === Networks.PUBLIC) { return 'Mainnet' }
+  if (p === Networks.TESTNET) { return 'Testnet' }
+  return p ? `Custom (${p})` : 'Unknown'
+})
+const currentNetworkLabel = computed(() =>
+  rpcStore.network === 'public' ? 'Mainnet' : 'Testnet',
+)
+const networkMismatch = computed(() => {
+  const proposalPassphrase = multisig.proposal?.network_passphrase
+  if (!proposalPassphrase) { return false }
+  const currentPassphrase = rpcStore.network === 'public' ? Networks.PUBLIC : Networks.TESTNET
+  return proposalPassphrase !== currentPassphrase
+})
+
+const proposalAgeText = computed(() => {
+  const t = multisig.proposal?.created_at
+  if (!t) { return '' }
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - t))
+  if (seconds < 60) { return `${seconds}s ago` }
+  if (seconds < 3600) { return `${Math.floor(seconds / 60)}m ago` }
+  if (seconds < 86400) { return `${Math.floor(seconds / 3600)}h ago` }
+  return `${Math.floor(seconds / 86400)}d ago`
+})
+const proposalCreatedAtIso = computed(() => {
+  const t = multisig.proposal?.created_at
+  if (!t) { return '' }
+  try { return new Date(t * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' }
+  catch { return String(t) }
+})
 </script>
 
 <template>
@@ -107,8 +275,9 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
         Aggregate &amp; submit
       </h1>
       <p class="multisig-aggregate-page__lead">
-        The relay is polled every five seconds. Each signature is re-validated against the
-        proposal hash and the on-chain signer-set snapshot before it counts toward the threshold.
+        Collect signatures, verify on-chain state hasn't drifted from the proposal's snapshot, and
+        submit when the threshold is met. Every signature is re-validated against the proposal
+        hash and the snapshot signer set before it counts.
       </p>
     </header>
 
@@ -152,20 +321,36 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
           >
             <span class="diff-row__label">{{ row.label }}</span>
             <div class="diff-row__values">
-              <span
-                v-if="row.before"
-                class="diff-row__before"
-              >
-                <code>{{ row.before }}</code>
-              </span>
-              <span
-                v-else
-                class="diff-row__before diff-row__before--empty"
-              >—</span>
-              <span class="diff-row__arrow">→</span>
-              <span class="diff-row__after">
-                <code>{{ row.after }}</code>
-              </span>
+              <template v-if="!row.before">
+                <span class="diff-row__chip diff-row__chip--new">new</span>
+                <button
+                  type="button"
+                  class="diff-row__after diff-row__after--copy"
+                  :title="`Click to copy · ${row.after}`"
+                  @click="copyValue(row.after, row.label)"
+                >
+                  <code>{{ isLongOpaque(row.after) ? shortOpaque(row.after) : row.after }}</code>
+                </button>
+              </template>
+              <template v-else>
+                <button
+                  type="button"
+                  class="diff-row__before diff-row__before--copy"
+                  :title="`Previous value · click to copy · ${row.before}`"
+                  @click="copyValue(row.before, `Previous ${row.label}`)"
+                >
+                  <code>{{ isLongOpaque(row.before) ? shortOpaque(row.before) : row.before }}</code>
+                </button>
+                <span class="diff-row__arrow">→</span>
+                <button
+                  type="button"
+                  class="diff-row__after diff-row__after--copy"
+                  :title="`New value · click to copy · ${row.after}`"
+                  @click="copyValue(row.after, row.label)"
+                >
+                  <code>{{ isLongOpaque(row.after) ? shortOpaque(row.after) : row.after }}</code>
+                </button>
+              </template>
             </div>
           </li>
         </ul>
@@ -174,10 +359,133 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
       <section class="multisig-section">
         <header class="multisig-section__header">
           <h2 class="multisig-section__title">
+            Identity
+          </h2>
+        </header>
+        <div class="multisig-card multisig-card--stack">
+          <div class="kv">
+            <span class="kv__k">Proposal hash</span>
+            <button
+              type="button"
+              class="kv__v kv__v--copy"
+              :title="`Click to copy · ${multisig.proposal.proposal_hash}`"
+              @click="copyValue(multisig.proposal.proposal_hash, 'Proposal hash')"
+            >{{ multisig.proposal.proposal_hash }}</button>
+          </div>
+          <div class="kv">
+            <span class="kv__k">Composer</span>
+            <button
+              type="button"
+              class="kv__v kv__v--copy"
+              :title="`Click to copy · ${multisig.proposal.created_by}`"
+              @click="copyValue(multisig.proposal.created_by, 'Composer address')"
+            >{{ multisig.proposal.created_by }}</button>
+          </div>
+          <div class="kv">
+            <span class="kv__k">Created</span>
+            <span
+              class="kv__v"
+              :title="proposalCreatedAtIso"
+            >{{ proposalAgeText }} <span class="kv__note">({{ proposalCreatedAtIso }})</span></span>
+          </div>
+          <div class="kv">
+            <span class="kv__k">Network</span>
+            <span class="kv__v">{{ proposalNetworkLabel }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="multisig-section">
+        <header class="multisig-section__header">
+          <h2 class="multisig-section__title">
+            Verification
+          </h2>
+          <p class="multisig-section__subtitle">
+            Live on-chain state vs. the proposal's snapshot.
+          </p>
+        </header>
+
+        <div
+          v-if="networkMismatch"
+          class="multisig-banner multisig-banner--err"
+        >
+          <span class="multisig-banner__title">Network mismatch</span>
+          <span class="multisig-banner__body">
+            This proposal was composed for <strong>{{ proposalNetworkLabel }}</strong> but your
+            wallet/RPC is set to <strong>{{ currentNetworkLabel }}</strong>. Switch networks before
+            submitting — the transaction will be rejected as a hash mismatch otherwise.
+          </span>
+        </div>
+
+        <div
+          v-if="proposalAddresses?.multisigAccount"
+          class="verification-block"
+        >
+          <header class="verification-block__header">
+            <h3 class="verification-block__title">
+              Multisig account
+            </h3>
+          </header>
+          <multisig-account-inspector
+            :address="proposalAddresses.multisigAccount"
+            :rpc-url="rpcStore.sorobanRPCUrl ?? undefined"
+            :composer="wallet.publicKey"
+            :network-label="proposalNetworkLabel"
+            :snapshot-signers="multisig.proposal.signer_set_snapshot"
+            :snapshot-thresholds="multisig.proposal.thresholds_snapshot"
+          />
+        </div>
+
+        <div
+          v-if="targetIsMarketManager && proposalAddresses?.targetContract"
+          class="verification-block"
+        >
+          <header class="verification-block__header">
+            <h3 class="verification-block__title">
+              Target contract · Market Manager
+            </h3>
+          </header>
+          <market-manager-inspector
+            :address="proposalAddresses.targetContract"
+            :rpc-url="rpcStore.sorobanRPCUrl ?? undefined"
+            :network-label="proposalNetworkLabel"
+            :expected-admin="proposalAddresses.multisigAccount"
+            :proposed-wasm-hash="proposedWasmHash || null"
+            :flow="managerFlow"
+            :affects-all-markets="fnEntry?.affectsAllMarkets"
+          />
+        </div>
+
+        <div
+          v-for="arg in wasmHashArgs"
+          :key="`wasm-${arg.name}`"
+          class="verification-block"
+        >
+          <header class="verification-block__header">
+            <h3 class="verification-block__title">
+              WASM hash
+              <code
+                v-if="wasmHashArgs.length > 1"
+                class="verification-block__arg"
+              >{{ arg.name }}</code>
+            </h3>
+          </header>
+          <wasm-hash-verifier
+            :claimed-hash="arg.value"
+            :rpc-url="rpcStore.sorobanRPCUrl ?? undefined"
+            :network-label="proposalNetworkLabel"
+            :expected-exports="expectedExportsFor(multisig.proposal.function_id)"
+          />
+        </div>
+      </section>
+
+      <section class="multisig-section">
+        <header class="multisig-section__header">
+          <h2 class="multisig-section__title">
             Threshold
           </h2>
           <p class="multisig-section__subtitle">
-            Collected weight against the multisig medium threshold.
+            Collected signing weight vs. the multisig's medium threshold from the snapshot.
           </p>
         </header>
 
@@ -200,7 +508,7 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
               class="threshold-card__pill"
             >
               <span class="threshold-card__dot" />
-              Awaiting signatures
+              Need {{ remainingWeight }} more weight
             </span>
           </div>
           <div
@@ -214,56 +522,67 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
             />
           </div>
         </div>
-
-        <p
-          v-if="multisig.lastRelayError"
-          class="multisig-actions__err"
-        >
-          Relay error: {{ multisig.lastRelayError.message }}
-        </p>
       </section>
 
       <section class="multisig-section">
         <header class="multisig-section__header">
           <h2 class="multisig-section__title">
-            Signatures
+            Signers
           </h2>
           <p class="multisig-section__subtitle">
-            Each row is a verified signature from a snapshot signer.
+            Every snapshot signer and whether their signature has been collected. Heaviest
+            unsigned keys are listed first so you can see which signatures would close the gap.
           </p>
         </header>
 
         <ul
-          v-if="sigRows.length > 0"
-          class="sig-list"
+          v-if="signerRoster.length > 0"
+          class="roster"
         >
           <li
-            v-for="row in sigRows"
-            :key="row.signer"
-            class="sig-chip"
+            v-for="row in signerRoster"
+            :key="row.key"
+            class="roster__row"
+            :class="row.signed ? 'roster__row--signed' : 'roster__row--waiting'"
           >
-            <span class="sig-chip__addr">
-              <code :title="row.signer">{{ truncateAddress(row.signer) }}</code>
+            <span class="roster__status">
+              <span
+                v-if="row.signed"
+                class="roster__dot roster__dot--ok"
+              />
+              <span
+                v-else
+                class="roster__dot"
+              />
+              {{ row.signed ? 'Signed' : 'Waiting' }}
             </span>
-            <span class="sig-chip__weight">w {{ row.weight }}</span>
+            <button
+              type="button"
+              class="roster__addr"
+              :title="`Click to copy · ${row.key}`"
+              @click="copyValue(row.key, 'Signer address')"
+            >
+              <code>{{ truncateAddress(row.key) }}</code>
+            </button>
+            <span class="roster__weight">w {{ row.weight }}</span>
           </li>
         </ul>
         <div
           v-else
           class="multisig-empty"
         >
-          No verified signatures yet.
+          Snapshot has no signers.
         </div>
       </section>
 
       <section class="multisig-section">
         <header class="multisig-section__header">
           <h2 class="multisig-section__title">
-            Paste signatures (fallback)
+            Paste signatures
           </h2>
           <p class="multisig-section__subtitle">
-            If a signer can't reach the relay, paste their <code>alula-sig:v1:…</code> line(s) here.
-            Each one is independently re-verified before being added.
+            For signers who couldn't reach the relay. Paste their <code>alula-sig:v1:…</code>
+            line(s); each is independently re-verified before being added.
           </p>
         </header>
         <div class="multisig-card multisig-card--stack">
@@ -301,7 +620,7 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
             <j-btn
               variant="primary"
               :loading="multisig.submitting"
-              :disabled="!multisig.thresholdMet || multisig.submitting"
+              :disabled="!multisig.thresholdMet || multisig.submitting || networkMismatch"
               @click="submit"
             >
               {{ multisig.submitting ? 'Submitting…' : 'Submit to network' }}
@@ -320,9 +639,13 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
           >
             <span class="multisig-banner__title">Submitted</span>
             <span class="multisig-banner__body">
-              <code>{{ multisig.lastSubmit.txHash }}</code> · status
-              <strong>{{ multisig.lastSubmit.status }}</strong> · poll
-              <code>getTransaction</code> to confirm.
+              <button
+                type="button"
+                class="kv__v kv__v--copy"
+                :title="`Click to copy · ${multisig.lastSubmit.txHash}`"
+                @click="copyValue(multisig.lastSubmit.txHash, 'Transaction hash')"
+              ><code>{{ multisig.lastSubmit.txHash }}</code></button>
+              · status <strong>{{ multisig.lastSubmit.status }}</strong>
             </span>
           </div>
         </div>
@@ -425,6 +748,13 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
       color: $success;
     }
   }
+
+  &--warn {
+    border-color: color-mix(in oklab, $warning 40%, $border-secondary);
+    .multisig-banner__title {
+      color: $warning;
+    }
+  }
 }
 
 .diff-list {
@@ -475,6 +805,19 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
     &--empty {
       font-family: $font-JetBrainsMono;
     }
+
+    &--copy {
+      background: none;
+      border: none;
+      padding: 0;
+      color: $text-tertiary;
+      cursor: pointer;
+      transition: color 0.12s ease;
+
+      code { color: inherit; }
+
+      &:hover { color: $cyan; }
+    }
   }
 
   &__arrow {
@@ -485,16 +828,48 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
   &__after {
     color: $text-primary;
     font-weight: 600;
+
+    &--copy {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: $text-primary;
+      transition: color 0.12s ease;
+
+      code { color: inherit; }
+
+      &:hover { color: $cyan; }
+    }
   }
 
+  &__chip {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    line-height: 1;
+
+    &--new {
+      color: $text-tertiary;
+      background-color: color-mix(in oklab, $navi-700 70%, transparent);
+      border: 1px solid $border-secondary;
+    }
+  }
+
+  // See sign page for the rationale on indigo vs red here. Short
+  // version: red conflicts with the err banner palette and makes
+  // "look hard at this row" indistinguishable from "broken."
   &--warning {
     border-color: color-mix(in oklab, $warning 40%, $border-secondary);
     background-color: color-mix(in oklab, $warning 6%, $bg-card);
   }
 
   &--critical {
-    border-color: color-mix(in oklab, $danger 45%, $border-secondary);
-    background-color: color-mix(in oklab, $danger 8%, $bg-card);
+    border-color: color-mix(in oklab, $indigo 45%, $border-secondary);
+    background-color: color-mix(in oklab, $indigo 8%, $bg-card);
   }
 }
 
@@ -517,9 +892,7 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
     font-weight: 600;
     color: $text-primary;
 
-    strong {
-      color: $cyan;
-    }
+    strong { color: $cyan; }
   }
 
   &__sep {
@@ -568,34 +941,84 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
     background-color: $cyan;
     transition: width $transition-base ease;
 
-    &--ok {
-      background-color: $success;
-    }
+    &--ok { background-color: $success; }
   }
 }
 
-.sig-list {
+// Roster lists every snapshot signer, not just the ones who have
+// signed. Operators need to see what's *missing* at a glance — the
+// previous chip list buried that under "go cross-reference the
+// snapshot yourself." Sorted signed-first, then heaviest-unsigned
+// next so the top of the waiting block is the most leverage-y.
+.roster {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 6px;
-}
 
-.sig-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px 4px 10px;
-  background-color: $bg-card;
-  border: 1px solid $border-secondary;
-  border-radius: 999px;
-  font-size: 11px;
+  &__row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background-color: $bg-card;
+    border: 1px solid $border-secondary;
+    border-radius: $radius-md;
+    font-size: 12px;
 
-  &__addr code {
-    font-family: $font-JetBrainsMono;
+    &--signed {
+      border-color: color-mix(in oklab, $success 25%, $border-secondary);
+    }
+    &--waiting {
+      // Slightly muted so the eye lands on the signed rows first;
+      // the *count* of waiting rows is what matters, not each one.
+      opacity: 0.92;
+    }
+  }
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $text-tertiary;
+  }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: $text-tertiary;
+    opacity: 0.6;
+
+    &--ok {
+      background-color: $success;
+      opacity: 1;
+    }
+  }
+
+  &__addr {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
     color: $text-primary;
+    transition: color 0.12s ease;
+    min-width: 0;
+
+    code {
+      font-family: $font-JetBrainsMono;
+      color: inherit;
+    }
+
+    &:hover { color: $cyan; }
   }
 
   &__weight {
@@ -689,5 +1112,88 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
   color: $text-primary;
   word-break: break-all;
   resize: vertical;
+}
+
+.kv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+
+  &__k {
+    color: $text-tertiary;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  &__v {
+    color: $text-primary;
+    font-family: $font-JetBrainsMono;
+    word-break: break-all;
+    text-align: right;
+    min-width: 0;
+
+    &--copy {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: $text-primary;
+      transition: color 0.12s ease;
+
+      &:hover { color: $cyan; }
+    }
+  }
+
+  &__note {
+    font-size: 10px;
+    color: $text-tertiary;
+    font-family: $font-JetBrainsMono;
+    margin-left: 4px;
+  }
+}
+
+.verification-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &__header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__arg {
+    font-family: $font-JetBrainsMono;
+    font-size: 11px;
+    font-weight: 500;
+    color: $text-tertiary;
+    padding: 2px 6px;
+    border-radius: $radius-sm;
+    background-color: color-mix(in oklab, $navi-700 70%, transparent);
+    border: 1px solid $border-secondary;
+  }
+
+  &__subtitle {
+    font-size: 11px;
+    color: $text-tertiary;
+    margin: 0;
+    line-height: 1.5;
+    max-width: 620px;
+  }
 }
 </style>

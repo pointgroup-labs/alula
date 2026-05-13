@@ -1,14 +1,8 @@
 /**
  * Build an unsigned proposal envelope for a catalog function call.
  *
- * Implements the assembly half of buildProposal: account fetch, signer-set
- * snapshot, timeBounds, fee policy, payload + hash. The catalog-args→ScVal
- * encoding is delegated to encode.ts (which today only knows wasm-hash).
- *
- * `simulateProposalEnvelope` is a separate exported helper rather than an
- * implicit step inside buildProposal — the compose page wants the envelope
- * even when simulation fails (so the operator can see the diff and decide),
- * and signers may want to re-simulate before signing without rebuilding.
+ * The envelope is `prepareTransaction`-assembled at compose time so Soroban
+ * resource data sits in `Transaction.ext` before signatures are collected.
  */
 
 import type { BuildProposalInput } from './build'
@@ -20,10 +14,19 @@ import type {
 import {
   Address,
   Operation,
+  rpc,
   Transaction,
   TransactionBuilder,
 } from '@stellar/stellar-sdk'
-import { Api, Server as RpcServer } from '@stellar/stellar-sdk/rpc'
+
+// Pull rpc helpers via the SDK root namespace so the `Transaction` class
+// embedded inside `rpc.Server` is identity-equal to the one we import here.
+// `@stellar/stellar-sdk/rpc` is a *separate* module graph in the browser
+// bundle (see package.json `exports`), and using it makes
+// `server.prepareTransaction(tx)` fail an internal `instanceof Transaction`
+// check with "expected a 'Transaction', got: [object Object]".
+const RpcServer = rpc.Server
+const Api = rpc.Api
 import { loadAccount, loadMultisigState } from './chain'
 import { encodeArgsToScVals } from './encode'
 import { computeProposalHash } from './hash'
@@ -77,15 +80,29 @@ export async function buildProposalEnvelope<Args>(input: BuildProposalInput<Args
       : now + DEFAULT_TIMEBOUNDS_VALIDITY_SECONDS
   )
 
-  const builder = new TransactionBuilder(account, {
+  const draftTx = new TransactionBuilder(account, {
     fee: String(DEFAULT_BASE_FEE),
     networkPassphrase: env.networkPassphrase,
     timebounds: { minTime: effectiveMinTime, maxTime: effectiveMaxTime },
   })
     .addOperation(op)
+    .build()
 
-  const tx = builder.build()
-  const unsignedXdr = tx.toEnvelope().toXDR('base64')
+  // Soroban requires SorobanTransactionData in `Transaction.ext`; without it
+  // the network rejects the tx as `txMALFORMED`. Must run before signing —
+  // the tx hash covers `ext`, so post-sign assembly invalidates signatures.
+  const server = new RpcServer(env.rpcUrl)
+  let preparedTx: Transaction
+  try {
+    preparedTx = await server.prepareTransaction(draftTx) as Transaction
+  } catch (error) {
+    throw new Error(
+      `failed to prepare Soroban transaction (simulate + assemble): `
+      + `${(error as Error).message ?? String(error)}`,
+    )
+  }
+
+  const unsignedXdr = preparedTx.toEnvelope().toXDR('base64')
 
   const created_at = now
   const proposal_hash = await computeProposalHash({
@@ -157,10 +174,4 @@ export async function simulateProposalEnvelope(
   }
 }
 
-// Note: this builds the envelope without simulation. The compose page is
-// expected to call `simulateProposalEnvelope` after build to surface
-// auth/revert errors early; signers may re-simulate before signing.
-// Sizing the resource fee from the simulation result (DEFAULT_BASE_FEE ×
-// DEFAULT_RESOURCE_FEE_BUFFER_MULT, capped at the simulator's
-// minResourceFee) is the next polish step — see spec §10 week 4.
 export const RESERVED_FOR_FUTURE = { DEFAULT_RESOURCE_FEE_BUFFER_MULT }

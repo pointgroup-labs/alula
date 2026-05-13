@@ -20,6 +20,8 @@ import {
   simulateProposalEnvelope,
 } from '~/utils/multisig'
 import AddressPicker from './AddressPicker.vue'
+import MarketManagerInspector from './MarketManagerInspector.vue'
+import MultisigAccountInspector from './MultisigAccountInspector.vue'
 import WasmHashVerifier from './WasmHashVerifier.vue'
 
 // Picker fallback strings live inside <AddressPicker>; this file no
@@ -53,6 +55,10 @@ const marketManagerManual = ref<string>('')
 const building = ref(false)
 const buildError = ref<string | null>(null)
 const builtProposal = ref<ProposalPayload | null>(null)
+// Anchor for the share-with-signers card; we scroll into view on success
+// so the operator doesn't miss that the proposal was built (the card sits
+// well below the fold on a typical viewport).
+const shareSectionEl = ref<HTMLElement | null>(null)
 // Result of the post-build simulate pass. `null` until build runs;
 // reset to `null` whenever the form changes so the success card can't
 // claim "passed simulation" against a stale envelope.
@@ -121,6 +127,38 @@ const requiresMarketManager = computed(() => selectedFn.value?.contract === 'mar
 // so the operator can't silently broadcast a market WASM swap.
 const affectsAllMarkets = computed(() => Boolean(selectedFn.value?.affectsAllMarkets))
 
+// Map the selected function id to the manager-inspector "flow" prop. The
+// inspector uses this to decide which queue slot to check (market vs
+// manager) and whether the slot should be empty (queue_*) or contain a
+// matching hash (apply_*). Kept here, not in the inspector, because
+// only this page knows the catalog ids; the inspector stays decoupled.
+const managerFlow = computed<'queue-market' | 'queue-manager' | 'apply-market' | 'apply-manager' | undefined>(() => {
+  switch (selectedFn.value?.id) {
+    case 'market_manager.queue_in_market_upgrade': return 'queue-market'
+    case 'market_manager.apply_market_upgrade': return 'apply-market'
+    case 'market_manager.queue_in_manager_upgrade': return 'queue-manager'
+    case 'market_manager.apply_manager_upgrade': return 'apply-manager'
+    default: return undefined
+  }
+})
+
+// Surface the wasm-hash arg (if any) so the inspector can compare it
+// against the on-chain queued slot and current wasm. Catalog convention
+// is to call the wasm-hash arg `new_wasm_hash`; fall back to any
+// wasm-hash kind if the name ever drifts.
+const proposedManagerWasmHash = computed<string>(() => {
+  const fn = selectedFn.value
+  if (!fn) { return '' }
+  const named = args.value.new_wasm_hash
+  if (named) { return named }
+  for (const [name, field] of Object.entries(fn.argSchema)) {
+    if ((field as { kind: string }).kind === 'wasm-hash') {
+      return args.value[name] ?? ''
+    }
+  }
+  return ''
+})
+
 const networkPassphrase = computed(() =>
   rpcStore.network === 'public' ? Networks.PUBLIC : Networks.TESTNET,
 )
@@ -130,8 +168,8 @@ const networkLabel = computed(() =>
 )
 
 // `CONTRACT_ID` is the SDK-shipped market_manager address per network.
-// Only `testnet` is populated today; `public` returns undefined and the
-// override field is forced open in that case.
+// Both `testnet` and `public` currently point at the same address; if
+// either is missing in a future SDK build, the override field opens.
 const defaultMarketManager = computed(() => CONTRACT_ID[rpcStore.network] ?? '')
 
 const marketManagerAddress = computed(() =>
@@ -152,6 +190,36 @@ function truncateAddress(addr: string, head = 6, tail = 6): string {
 function capitalize(s: string | undefined): string {
   if (!s) { return '' }
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// Fingerprint exports that uniquely identify which contract a wasm
+// hash *should* belong to. Surfaced as green pills in the verifier — if
+// any are missing the operator gets a yellow "wasm may belong to a
+// different contract" warning. Lists are intentionally short: 2–3
+// functions that are highly specific to the contract (i.e. you won't
+// find them in a SAC token, an oracle, or each other). Adding too many
+// here makes the missing-list noisy on legitimate upgrades that
+// renamed a single function.
+const EXPECTED_EXPORTS_BY_FN_ID: Record<string, string[]> = {
+  // Market wasm is what queue_in_market_upgrade swaps in. Pick public
+  // entry points that exist on the market contract and nowhere else.
+  'market_manager.queue_in_market_upgrade': [
+    'deposit',
+    'borrow',
+    'liquidate',
+  ],
+  // Manager wasm — the manager governs its own code via queue_in_manager_upgrade.
+  // These names live only on the market_manager contract.
+  'market_manager.queue_in_manager_upgrade': [
+    'queue_in_market_upgrade',
+    'apply_market_upgrade',
+    'register_market',
+  ],
+}
+
+function expectedExportsFor(fnId: string | undefined, _argName: string): string[] {
+  if (!fnId) { return [] }
+  return EXPECTED_EXPORTS_BY_FN_ID[fnId] ?? []
 }
 
 // Format-validation helpers. Stellar uses Crockford base32 (A-Z2-7) for
@@ -455,36 +523,34 @@ function openInNewTab() {
 
 async function build() {
   buildError.value = null
-  invalidateBuild()
   const fn = selectedFn.value
   const composer = wallet.publicKey
   if (!fn || !composer) { buildError.value = 'Form is incomplete'; return }
 
+  const rpcUrl = rpcStore.sorobanRPCUrl
+  if (!rpcUrl) { buildError.value = `No Soroban RPC configured for ${networkLabel.value}`; return }
+
+  // Canonicalise + mirror back BEFORE invalidating, so the deep watcher's
+  // bump happens first and our token snapshot stays valid through the
+  // whole async build. Previously we did this after `invalidateBuild()`
+  // and the watcher fired again mid-build, silently aborting via the
+  // stale-token guard with no error and no success card.
+  const canonical: Record<string, string> = {}
+  for (const [name, field] of Object.entries(fn.argSchema)) {
+    canonical[name] = canonicalizeArgForBuild(args.value[name] ?? '', (field as { kind: string }).kind)
+  }
+  args.value = canonical
+  await nextTick()
+
   building.value = true
-  // Snapshot the token AFTER `invalidateBuild()` so any subsequent
-  // form-edit watcher will produce a different value and we can detect
-  // that our resolution is stale.
+  // The deep watcher on `args` fired during the assignment above and has
+  // already bumped the token; we snapshot it here, so any *subsequent*
+  // form edit during the awaits will diverge and we'll catch a stale
+  // resolution. No explicit `invalidateBuild()` needed.
   const myToken = buildToken.value
   const isStale = () => buildToken.value !== myToken
+  console.info('[multisig compose] build start', { fn: fn.id, token: myToken })
   try {
-    const rpcUrl = rpcStore.sorobanRPCUrl
-    if (!rpcUrl) { buildError.value = `No Soroban RPC configured for ${networkLabel.value}`; return }
-
-    // Canonicalise args (lowercase hex hashes, trim whitespace) before
-    // hashing so the proposal hash is deterministic regardless of how the
-    // composer formatted their paste. Mirror this back into the form so
-    // the success card shows what was actually committed.
-    // NB: writing back to `args.value` would normally bump the build
-    // token via the deep watcher and abort our own build. Suppress that
-    // by re-snapshotting the token after the mirror-back.
-    const canonical: Record<string, string> = {}
-    for (const [name, field] of Object.entries(fn.argSchema)) {
-      canonical[name] = canonicalizeArgForBuild(args.value[name] ?? '', (field as { kind: string }).kind)
-    }
-    args.value = canonical
-    await nextTick()
-    const tokenAfterMirror = buildToken.value
-
     const payload = await buildProposal({
       fn,
       args: { ...canonical },
@@ -499,21 +565,36 @@ async function build() {
       },
       composerAddress: composer,
     })
-    if (buildToken.value !== tokenAfterMirror) { return }
+    console.info('[multisig compose] build resolved', { stale: isStale(), hash: payload.proposal_hash })
+    if (isStale()) {
+      buildError.value = 'Build aborted — form changed mid-build. Try again without editing while it runs.'
+      return
+    }
     builtProposal.value = payload
 
-    // Simulate the freshly-built envelope. Failures here usually mean
-    // the multisig isn't the manager's admin (auth check), the contract
-    // is in an incompatible state (e.g. another upgrade already queued),
-    // or args decode to something the contract rejects. Surfacing these
-    // at compose time saves a full sign/aggregate round trip.
     const sim = await runSimulate(payload.unsigned_xdr)
-    if (buildToken.value !== tokenAfterMirror) { return }
+    if (isStale()) { return }
     simulateResult.value = sim
     simulatedAt.value = Date.now()
+    toast.create({
+      title: 'Proposal built',
+      body: `Hash ${payload.proposal_hash.slice(0, 10)}… · share URL is ready below.`,
+      modelValue: 4000,
+    })
+    // Reveal the share card without forcing the operator to hunt for it.
+    // Wait one tick so the v-if section is mounted before we measure.
+    await nextTick()
+    shareSectionEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } catch (error) {
     if (isStale()) { return }
-    buildError.value = (error as Error).message
+    // Surface *something* even when the error has no `message` (e.g. plain
+    // string throw, network reject, or a `{ }` thrown by a sloppy callee).
+    const msg = (error as Error)?.message
+      ?? (typeof error === 'string' ? error : null)
+      ?? JSON.stringify(error)
+      ?? 'Unknown build error'
+    buildError.value = msg
+    console.error('[multisig compose] build failed:', error)
   } finally {
     building.value = false
   }
@@ -689,6 +770,12 @@ onUnmounted(() => {
             No known multisig for <strong>{{ capitalize(role) }}</strong> on {{ networkLabel }} —
             paste the account G… above.
           </p>
+          <multisig-account-inspector
+            :address="multisigAccountAddress"
+            :rpc-url="rpcStore.sorobanRPCUrl ?? undefined"
+            :composer="wallet.publicKey"
+            :network-label="networkLabel"
+          />
         </div>
 
         <div
@@ -732,6 +819,15 @@ onUnmounted(() => {
           >
             {{ addressErrors.marketManager }}
           </p>
+          <market-manager-inspector
+            :address="marketManagerAddress"
+            :rpc-url="rpcStore.sorobanRPCUrl ?? undefined"
+            :network-label="networkLabel"
+            :expected-admin="multisigAccountAddress || null"
+            :proposed-wasm-hash="proposedManagerWasmHash || null"
+            :flow="managerFlow"
+            :affects-all-markets="affectsAllMarkets"
+          />
         </div>
 
         <div
@@ -812,6 +908,9 @@ onUnmounted(() => {
           <wasm-hash-verifier
             v-if="field.kind === 'wasm-hash'"
             :claimed-hash="args[name] ?? ''"
+            :rpc-url="rpcStore.sorobanRPCUrl ?? undefined"
+            :network-label="networkLabel"
+            :expected-exports="expectedExportsFor(selectedFn?.id, String(name))"
           />
         </div>
       </div>
@@ -876,12 +975,18 @@ onUnmounted(() => {
           <j-btn
             variant="primary"
             :loading="building"
-            :disabled="!canBuild || building"
+            :disabled="building"
             :title="disabledReason ?? undefined"
             @click="build"
           >
             {{ building ? 'Building…' : 'Build proposal' }}
           </j-btn>
+          <span
+            v-if="disabledReason && !building"
+            class="multisig-actions__hint"
+          >
+            {{ disabledReason }}
+          </span>
         </div>
 
         <div
@@ -896,6 +1001,7 @@ onUnmounted(() => {
 
     <section
       v-if="builtProposal"
+      ref="shareSectionEl"
       class="multisig-section"
     >
       <header class="multisig-section__header">
@@ -1288,6 +1394,12 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+
+  &__hint {
+    font-size: 13px;
+    color: color-mix(in oklab, $navi-100 65%, transparent);
+    font-style: italic;
+  }
 }
 
 .preview-card {
