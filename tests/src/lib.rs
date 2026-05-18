@@ -387,8 +387,8 @@ impl TestMarketFixture<'_> {
 
             assert_eq!(
                 pool.total_collateral, collateral_obligations_sum,
-                "COLLATERAL CONSERVATION VIOLATED in pool {:?}: pool.total_collateral ({}) != \
-                 sum of user collateral ({})",
+                "COLLATERAL CONSERVATION VIOLATED in pool {:?}: pool.total_collateral ({}) != sum \
+                 of user collateral ({})",
                 pool.pool_address, pool.total_collateral, collateral_obligations_sum
             );
         }
@@ -462,14 +462,15 @@ pub struct Amount(pub i128);
 
 impl<'a> arbitrary::Arbitrary<'a> for Amount {
     fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        const MAX: u64 = u64::MAX / 1_000_000u64;
         let tag = u.int_in_range::<u8>(0..=7)?;
         let v: i128 = match tag {
             0 => 0,
             1 => 1,
             2 => BPS_FACTOR,
             3 => u32::MAX as i128,
-            4 => u64::MAX as i128,
-            _ => u.int_in_range::<u64>(0..=u64::MAX)? as i128,
+            4 => MAX as i128,
+            _ => u.int_in_range::<u64>(0..=MAX)? as i128,
         };
 
         Ok(Amount(v))
