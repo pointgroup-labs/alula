@@ -313,32 +313,33 @@ impl TestMarketFixture<'_> {
             assert!(pool.total_available().unwrap() >= 0);
         }
 
-        // -- Contract's token balances shouldn't be smaller than the corresponding `available` + fees values on pools --
+        // -- Contract's token balances shouldn't be smaller than the corresponding `available` + both fee buckets --
 
         let token_balances: Vec<i128> =
             clients.iter().map(|client| client.balance(contract_id)).collect();
 
         for (pool, &token_balance) in pools.iter().zip(token_balances.iter()) {
-            // Calculate the Total Liabilities of the protocol (User Liquidity + Fees Sum)
             let expected_minimum_balance = pool
                 .total_available
                 .checked_add(pool.operation_fees_sum)
+                .and_then(|v| v.checked_add(pool.take_rate_fees_sum))
                 .expect("Overflow in invariant calc");
 
             assert!(
                 token_balance >= expected_minimum_balance,
-                "INSOLVENCY DETECTED in Pool {:?}: Physical Balance ({}) < Net Available + Fees \
-                 ({})",
+                "INSOLVENCY DETECTED in Pool {:?}: Physical Balance ({}) < Net Available + \
+                 Operation Fees + Take-Rate Fees ({})",
                 pool.pool_address,
                 token_balance,
                 expected_minimum_balance
             );
         }
 
-        // -- It must be always possible to borrow what's available on the pool --
+        // -- Per-user token/collateral accounting and borrow-floor checks --
 
         for pool in pools {
             let (mut j_tokens_obligations_sum, mut d_tokens_obligations_sum) = (0_i128, 0_i128);
+            let mut collateral_obligations_sum = 0_i128;
 
             for user in users {
                 if let Ok(Ok(obligation)) =
@@ -348,20 +349,48 @@ impl TestMarketFixture<'_> {
                         obligation.deposits.get(pool.pool_address.clone())
                     {
                         j_tokens_obligations_sum += deposit_position.j_tokens;
+                        collateral_obligations_sum += deposit_position.collateral;
                     }
 
                     if let Some(borrow_position) = obligation.borrows.get(pool.pool_address.clone())
                     {
                         d_tokens_obligations_sum += borrow_position.d_tokens;
+
+                        assert!(
+                            get_obligation_unpaid_interest(
+                                e,
+                                contract_client,
+                                user,
+                                &pool.pool_address
+                            )
+                            .is_ok(),
+                            "BORROW FLOOR VIOLATED for user {:?} in pool {:?}: current debt < \
+                             originally_borrowed",
+                            user,
+                            pool.pool_address
+                        );
                     }
                 }
             }
 
             contract_client.refresh_pool(&pool.pool_address);
-            let pool = contract_client.get_pool(&pool.pool_address);
+            let pool_snapshot_1 = contract_client.get_pool(&pool.pool_address);
+            contract_client.refresh_pool(&pool.pool_address);
+            let pool_snapshot_2 = contract_client.get_pool(&pool.pool_address);
+
+            assert_eq!(pool_snapshot_1, pool_snapshot_2);
+            // Use the post-refresh snapshot for the sum checks below.
+            let pool = pool_snapshot_2;
 
             assert_eq!(pool.total_j_tokens, j_tokens_obligations_sum);
             assert_eq!(pool.total_d_tokens, d_tokens_obligations_sum);
+
+            assert_eq!(
+                pool.total_collateral, collateral_obligations_sum,
+                "COLLATERAL CONSERVATION VIOLATED in pool {:?}: pool.total_collateral ({}) != \
+                 sum of user collateral ({})",
+                pool.pool_address, pool.total_collateral, collateral_obligations_sum
+            );
         }
     }
 }
@@ -372,97 +401,96 @@ pub trait RunCommand {
     fn run(&self, test_fixture: &TestMarketFixture, who: usize);
 }
 
-#[derive(Arbitrary, Debug)]
-pub enum Command {
-    TomRepay(Repay),
-    JerryRepay(Repay),
-    ButchRepay(Repay),
-    NibblesRepay(Repay),
-
-    TomBorrow(Borrow),
-    JerryBorrow(Borrow),
-    ButchBorrow(Borrow),
-    NibblesBorrow(Borrow),
-
-    TomDeposit(Deposit),
-    JerryDeposit(Deposit),
-    ButchDeposit(Deposit),
-    NibblesDeposit(Deposit),
-
-    TomWithdraw(Withdraw),
-    JerryWithdraw(Withdraw),
-    ButchWithdraw(Withdraw),
-    NibblesWithdraw(Withdraw),
-
-    TomLiquidate(Liquidate),
-    JerryLiquidate(Liquidate),
-    ButchLiquidate(Liquidate),
-    NibblesLiquidate(Liquidate),
-
-    TomDepositCollateral(DepositCollateral),
-    JerryDepositCollateral(DepositCollateral),
-    ButchDepositCollateral(DepositCollateral),
-    NibblesDepositCollateral(DepositCollateral),
-
-    TomWithdrawCollateral(WithdrawCollateral),
-    JerryWithdrawCollateral(WithdrawCollateral),
-    ButchWithdrawCollateral(WithdrawCollateral),
-    NibblesWithdrawCollateral(WithdrawCollateral),
-
-    AllPassTime(PassTime),
+/// Which user is performing the operation.
+#[derive(Arbitrary, Debug, Clone, Copy)]
+pub enum Actor {
+    Tom,
+    Jerry,
+    Butch,
+    Nibbles,
 }
 
-impl Command {
-    pub fn run(&self, test_fixture: &TestMarketFixture) {
-        use Command::*;
-
+impl Actor {
+    pub fn index(self) -> usize {
         match self {
-            // Tom
-            TomRepay(command) => command.run(test_fixture, 0),
-            TomBorrow(command) => command.run(test_fixture, 0),
-            TomDeposit(command) => command.run(test_fixture, 0),
-            TomWithdraw(command) => command.run(test_fixture, 0),
-            TomLiquidate(command) => command.run(test_fixture, 0),
-            TomDepositCollateral(command) => command.run(test_fixture, 0),
-            TomWithdrawCollateral(command) => command.run(test_fixture, 0),
-            // Jerry
-            JerryRepay(command) => command.run(test_fixture, 1),
-            JerryBorrow(command) => command.run(test_fixture, 1),
-            JerryDeposit(command) => command.run(test_fixture, 1),
-            JerryWithdraw(command) => command.run(test_fixture, 1),
-            JerryLiquidate(command) => command.run(test_fixture, 1),
-            JerryDepositCollateral(command) => command.run(test_fixture, 1),
-            JerryWithdrawCollateral(command) => command.run(test_fixture, 1),
-            // Butch
-            ButchRepay(command) => command.run(test_fixture, 2),
-            ButchBorrow(command) => command.run(test_fixture, 2),
-            ButchDeposit(command) => command.run(test_fixture, 2),
-            ButchWithdraw(command) => command.run(test_fixture, 2),
-            ButchLiquidate(command) => command.run(test_fixture, 2),
-            ButchDepositCollateral(command) => command.run(test_fixture, 2),
-            ButchWithdrawCollateral(command) => command.run(test_fixture, 2),
-            // Nibbles
-            NibblesRepay(command) => command.run(test_fixture, 3),
-            NibblesBorrow(command) => command.run(test_fixture, 3),
-            NibblesDeposit(command) => command.run(test_fixture, 3),
-            NibblesWithdraw(command) => command.run(test_fixture, 3),
-            NibblesLiquidate(command) => command.run(test_fixture, 3),
-            NibblesDepositCollateral(command) => command.run(test_fixture, 3),
-            NibblesWithdrawCollateral(command) => command.run(test_fixture, 3),
-            // All
-            AllPassTime(command) => command.run(test_fixture, 0),
+            Actor::Tom => 0,
+            Actor::Jerry => 1,
+            Actor::Butch => 2,
+            Actor::Nibbles => 3,
         }
     }
 }
 
+/// The operation to perform (actor-independent).
 #[derive(Arbitrary, Debug)]
-pub struct Amount(
-    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(u32::MAX as i128)))] pub i128,
-);
+pub enum Op {
+    Repay(Repay),
+    Borrow(Borrow),
+    Deposit(Deposit),
+    Withdraw(Withdraw),
+    Liquidate(Liquidate),
+    DepositCollateral(DepositCollateral),
+    WithdrawCollateral(WithdrawCollateral),
+    PassTime(PassTime),
+}
 
+/// A single fuzz command: who does what.
 #[derive(Arbitrary, Debug)]
+pub struct Command {
+    pub actor: Actor,
+    pub op: Op,
+}
+
+impl Command {
+    pub fn run(&self, test_fixture: &TestMarketFixture) {
+        let who = self.actor.index();
+        match &self.op {
+            Op::Repay(cmd) => cmd.run(test_fixture, who),
+            Op::Borrow(cmd) => cmd.run(test_fixture, who),
+            Op::Deposit(cmd) => cmd.run(test_fixture, who),
+            Op::Withdraw(cmd) => cmd.run(test_fixture, who),
+            Op::Liquidate(cmd) => cmd.run(test_fixture, who),
+            Op::DepositCollateral(cmd) => cmd.run(test_fixture, who),
+            Op::WithdrawCollateral(cmd) => cmd.run(test_fixture, who),
+            Op::PassTime(cmd) => cmd.run(test_fixture, who),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Amount(pub i128);
+
+impl<'a> arbitrary::Arbitrary<'a> for Amount {
+    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        let tag = u.int_in_range::<u8>(0..=7)?;
+        let v: i128 = match tag {
+            0 => 0,
+            1 => 1,
+            2 => BPS_FACTOR,
+            3 => u32::MAX as i128,
+            4 => u64::MAX as i128,
+            _ => u.int_in_range::<u64>(0..=u64::MAX)? as i128,
+        };
+
+        Ok(Amount(v))
+    }
+}
+
+/// Variable-length command sequence, capped at 64 entries so interest accrual and liquidation
+/// cascades have enough runway without making individual iterations too expensive.
+#[derive(Debug)]
 pub struct Input {
-    pub commands: [Command; 20],
+    pub commands: Vec<Command>,
+}
+
+impl<'a> arbitrary::Arbitrary<'a> for Input {
+    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        const MAX_COMMANDS: usize = 64;
+        let len = u.int_in_range::<usize>(0..=MAX_COMMANDS)?;
+        let commands =
+            (0..len).map(|_| Command::arbitrary(u)).collect::<arbitrary::Result<Vec<_>>>()?;
+        Ok(Input { commands })
+    }
 }
 
 #[derive(Arbitrary, Debug)]
@@ -517,6 +545,139 @@ pub struct Liquidate {
     pub min_collateral_received_amount: Amount,
 }
 
+// ---- Fuzz error-checking helper ----
+//
+// Each operation has an explicit whitelist of MCError variants that are normal business outcomes
+// (e.g. "can't borrow when under-collateralised").  Any error NOT on the whitelist — including
+// every host-level panic — is treated as a bug and will fail the fuzz target immediately.
+//
+// Maintenance note: if you add a new MCError variant and a fuzz run starts failing on an input
+// that exercises a legitimate new rejection path, add the variant to the relevant whitelist(s)
+// below.  Do NOT add InternalError or OverOrUnderflow to any whitelist.
+
+/// Whitelisted errors for each operation.  Returns `true` when `e` is a known, expected
+/// business-logic rejection for `op` and the fuzz run should continue silently.
+fn is_expected_fuzz_error(op: &'static str, e: &MCError) -> bool {
+    match op {
+        "borrow" => matches!(
+            e,
+            MCError::InvalidInputAmount
+                | MCError::BorrowForbiddenOnMarket
+                | MCError::MarketIsFrozen
+                | MCError::TooManyPositions
+                | MCError::MinCollateralValueIsNotMet
+                | MCError::NonPositiveSharesAmount
+                | MCError::PoolDoesNotExist
+                | MCError::NotEnoughPoolFunds
+                | MCError::OperationForbiddenOnPool
+                | MCError::PoolBadDebtLocked
+                | MCError::ObligationDoesNotExist
+                | MCError::UnhealthyOperation
+                | MCError::PoolUtilizationRatioCapExceeded
+                | MCError::OracleDoesNotKnowAssetPrice
+                | MCError::OracleStalePrice
+                | MCError::NonPositiveOraclePrice
+                | MCError::DepositPositionForAssetExists
+        ),
+        "deposit" => matches!(
+            e,
+            MCError::InvalidInputAmount
+                | MCError::DepositForbiddenOnMarket
+                | MCError::MarketIsFrozen
+                | MCError::TooManyPositions
+                | MCError::NonPositiveSharesAmount
+                | MCError::PoolDoesNotExist
+                | MCError::OperationForbiddenOnPool
+                | MCError::PoolBadDebtLocked
+                | MCError::PoolSupplyLimitExceeded
+                | MCError::OracleDoesNotKnowAssetPrice
+                | MCError::OracleStalePrice
+                | MCError::NonPositiveOraclePrice
+        ),
+        "deposit_collateral" => matches!(
+            e,
+            MCError::InvalidInputAmount
+                | MCError::DepositForbiddenOnMarket
+                | MCError::MarketIsFrozen
+                | MCError::TooManyPositions
+                | MCError::NonPositiveSharesAmount
+                | MCError::PoolDoesNotExist
+                | MCError::OperationForbiddenOnPool
+                | MCError::PoolBadDebtLocked
+                | MCError::AssetCannotBeUsedAsCollateral
+                | MCError::OracleDoesNotKnowAssetPrice
+                | MCError::OracleStalePrice
+                | MCError::NonPositiveOraclePrice
+        ),
+        "withdraw" => matches!(
+            e,
+            MCError::InvalidInputAmount
+                | MCError::MarketIsFrozen
+                | MCError::NonPositiveSharesAmount
+                | MCError::PoolDoesNotExist
+                | MCError::NotEnoughPoolFunds
+                | MCError::OperationForbiddenOnPool
+                | MCError::PoolBadDebtLocked
+                | MCError::ObligationDoesNotExist
+                | MCError::DepositPositionDoesNotExist
+                | MCError::WithdrawScarcityOverLimit
+                | MCError::ScarcityCooldownPeriod
+                | MCError::UnhealthyOperation
+                | MCError::OracleDoesNotKnowAssetPrice
+                | MCError::OracleStalePrice
+                | MCError::NonPositiveOraclePrice
+        ),
+        "withdraw_collateral" => matches!(
+            e,
+            MCError::InvalidInputAmount
+                | MCError::MarketIsFrozen
+                | MCError::NonPositiveSharesAmount
+                | MCError::PoolDoesNotExist
+                | MCError::OperationForbiddenOnPool
+                | MCError::PoolBadDebtLocked
+                | MCError::ObligationDoesNotExist
+                | MCError::DepositPositionDoesNotExist
+                | MCError::UnhealthyOperation
+                | MCError::OracleDoesNotKnowAssetPrice
+                | MCError::OracleStalePrice
+                | MCError::NonPositiveOraclePrice
+        ),
+        "repay" => matches!(
+            e,
+            MCError::InvalidInputAmount
+                | MCError::MarketIsFrozen
+                | MCError::NonPositiveSharesAmount
+                | MCError::PoolDoesNotExist
+                | MCError::OperationForbiddenOnPool
+                | MCError::PoolBadDebtLocked
+                | MCError::ObligationDoesNotExist
+                | MCError::BorrowPositionDoesNotExist
+        ),
+        "liquidate" => matches!(
+            e,
+            MCError::InvalidInputAmount
+                | MCError::MarketIsFrozen
+                | MCError::NonPositiveSharesAmount
+                | MCError::PoolDoesNotExist
+                | MCError::OperationForbiddenOnPool
+                | MCError::PoolBadDebtLocked
+                | MCError::ObligationDoesNotExist
+                | MCError::DepositPositionDoesNotExist
+                | MCError::BorrowPositionDoesNotExist
+                | MCError::InvalidLiquidationInputs
+                | MCError::ObligationIsHealthy
+                | MCError::ObligationContainsOpenCoverBadDebtRequests
+                | MCError::AssetCannotBeUsedAsCollateral
+                | MCError::LiquidationExcessiveDemandedCollateral
+                | MCError::SwapSlippageExceeded
+                | MCError::OracleDoesNotKnowAssetPrice
+                | MCError::OracleStalePrice
+                | MCError::NonPositiveOraclePrice
+        ),
+        _ => false,
+    }
+}
+
 impl RunCommand for PassTime {
     fn run(&self, test_fixture: &TestMarketFixture, _who: usize) {
         test_fixture.pass_time(self.amount);
@@ -533,8 +694,11 @@ impl RunCommand for Borrow {
             &self.amount.0,
             &None,
         );
-        if matches!(res, Err(Ok(MCError::InternalError))) {
-            panic!("Internal Error");
+        match res {
+            Ok(_) => {}
+            Err(Ok(e)) if is_expected_fuzz_error("borrow", &e) => {}
+            Err(Ok(e)) => panic!("unexpected MCError in fuzz op `borrow`: {e:?}"),
+            Err(Err(host_err)) => panic!("host error in fuzz op `borrow`: {host_err:?}"),
         }
     }
 }
@@ -550,8 +714,11 @@ impl RunCommand for Deposit {
             &self.amount.0,
             &None,
         );
-        if matches!(res, Err(Ok(MCError::InternalError))) {
-            panic!("Internal Error");
+        match res {
+            Ok(_) => {}
+            Err(Ok(e)) if is_expected_fuzz_error("deposit", &e) => {}
+            Err(Ok(e)) => panic!("unexpected MCError in fuzz op `deposit`: {e:?}"),
+            Err(Err(host_err)) => panic!("host error in fuzz op `deposit`: {host_err:?}"),
         }
     }
 }
@@ -567,8 +734,13 @@ impl RunCommand for DepositCollateral {
             &self.amount.0,
             &None,
         );
-        if matches!(res, Err(Ok(MCError::InternalError))) {
-            panic!("Internal Error");
+        match res {
+            Ok(_) => {}
+            Err(Ok(e)) if is_expected_fuzz_error("deposit_collateral", &e) => {}
+            Err(Ok(e)) => panic!("unexpected MCError in fuzz op `deposit_collateral`: {e:?}"),
+            Err(Err(host_err)) => {
+                panic!("host error in fuzz op `deposit_collateral`: {host_err:?}")
+            }
         }
     }
 }
@@ -584,8 +756,13 @@ impl RunCommand for WithdrawCollateral {
             &self.amount.0,
             &None,
         );
-        if matches!(res, Err(Ok(MCError::InternalError))) {
-            panic!("Internal Error");
+        match res {
+            Ok(_) => {}
+            Err(Ok(e)) if is_expected_fuzz_error("withdraw_collateral", &e) => {}
+            Err(Ok(e)) => panic!("unexpected MCError in fuzz op `withdraw_collateral`: {e:?}"),
+            Err(Err(host_err)) => {
+                panic!("host error in fuzz op `withdraw_collateral`: {host_err:?}")
+            }
         }
     }
 }
@@ -601,8 +778,11 @@ impl RunCommand for Withdraw {
             &self.amount.0,
             &None,
         );
-        if matches!(res, Err(Ok(MCError::InternalError))) {
-            panic!("Internal Error");
+        match res {
+            Ok(_) => {}
+            Err(Ok(e)) if is_expected_fuzz_error("withdraw", &e) => {}
+            Err(Ok(e)) => panic!("unexpected MCError in fuzz op `withdraw`: {e:?}"),
+            Err(Err(host_err)) => panic!("host error in fuzz op `withdraw`: {host_err:?}"),
         }
     }
 }
@@ -618,8 +798,11 @@ impl RunCommand for Repay {
             &self.amount.0,
             &None,
         );
-        if matches!(res, Err(Ok(MCError::InternalError))) {
-            panic!("Internal Error");
+        match res {
+            Ok(_) => {}
+            Err(Ok(e)) if is_expected_fuzz_error("repay", &e) => {}
+            Err(Ok(e)) => panic!("unexpected MCError in fuzz op `repay`: {e:?}"),
+            Err(Err(host_err)) => panic!("host error in fuzz op `repay`: {host_err:?}"),
         }
     }
 }
@@ -641,8 +824,11 @@ impl RunCommand for Liquidate {
                 &self.repay_amount.0,
                 &self.min_collateral_received_amount.0,
             );
-            if matches!(res, Err(Ok(MCError::InternalError))) {
-                panic!("Internal Error");
+            match res {
+                Ok(_) => {}
+                Err(Ok(e)) if is_expected_fuzz_error("liquidate", &e) => {}
+                Err(Ok(e)) => panic!("unexpected MCError in fuzz op `liquidate`: {e:?}"),
+                Err(Err(host_err)) => panic!("host error in fuzz op `liquidate`: {host_err:?}"),
             }
         }
     }
