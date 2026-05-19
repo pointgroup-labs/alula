@@ -41,12 +41,21 @@ pub fn bin_pow(e: &Env, base: i128, mut exp: u64, denominator: i128) -> Result<i
     let mut base_w = I256::from_i128(e, base);
     let mut result_w = denom.clone();
 
-    while exp != 0 {
-        if exp % 2 == 1 {
+    // NB: exp >= 2 here (exp == 0 and exp == 1 handled above), so the loop
+    // always runs at least once. We shift `exp` before deciding whether to
+    // square `base_w` so that the squaring is skipped on the final iteration
+    // (where its result would be discarded). This avoids wasted I256 work and,
+    // more importantly, prevents a host panic from squaring an extreme base
+    // whose result we wouldn't have used anyway.
+    loop {
+        if exp & 1 == 1 {
             result_w = i256_fixed_mul_floor(e, &result_w, &base_w, &denom);
         }
-        base_w = i256_fixed_mul_floor(e, &base_w, &base_w, &denom);
         exp >>= 1;
+        if exp == 0 {
+            break;
+        }
+        base_w = i256_fixed_mul_floor(e, &base_w, &base_w, &denom);
     }
 
     result_w.to_i128().map_over_or_underflow()
@@ -78,12 +87,17 @@ pub fn bin_pow_ceil(e: &Env, base: i128, mut exp: u64, denominator: i128) -> Res
     let mut base_w = I256::from_i128(e, base);
     let mut result_w = denom.clone();
 
-    while exp != 0 {
-        if exp % 2 == 1 {
+    // See `bin_pow` for the loop-shape rationale: shift first, break before
+    // the trailing squaring would be wasted (and could itself overflow I256).
+    loop {
+        if exp & 1 == 1 {
             result_w = i256_fixed_mul_ceil(e, &result_w, &base_w, &denom);
         }
-        base_w = i256_fixed_mul_ceil(e, &base_w, &base_w, &denom);
         exp >>= 1;
+        if exp == 0 {
+            break;
+        }
+        base_w = i256_fixed_mul_ceil(e, &base_w, &base_w, &denom);
     }
 
     result_w.to_i128().map_over_or_underflow()
@@ -149,8 +163,6 @@ mod tests {
     use soroban_sdk::{Env, testutils::arbitrary::std::println};
 
     use super::*;
-    use crate::error::MCError;
-
     #[test]
     fn test_fixed_mul_ceil_vs_floor() {
         // Test cases where ceiling and flooring should differ

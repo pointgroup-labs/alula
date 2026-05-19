@@ -20,7 +20,12 @@ pub trait Accrual {
     /// * `Ok(i128)` - The growth multiplier as a fixed-point number.
     /// * `Err(MCError)` - If the APR is negative or if there is an overflow/underflow during
     ///   calculations.
-    fn compute_multiplier(&self, e: &Env, apr_bps: i128, seconds_passed: u64) -> Result<i128, MCError>;
+    fn compute_multiplier(
+        &self,
+        e: &Env,
+        apr_bps: i128,
+        seconds_passed: u64,
+    ) -> Result<i128, MCError>;
 }
 
 #[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
@@ -31,7 +36,12 @@ pub enum AccrualModel {
 }
 
 impl Accrual for AccrualModel {
-    fn compute_multiplier(&self, e: &Env, apr_bps: i128, seconds_passed: u64) -> Result<i128, MCError> {
+    fn compute_multiplier(
+        &self,
+        e: &Env,
+        apr_bps: i128,
+        seconds_passed: u64,
+    ) -> Result<i128, MCError> {
         require_nonnegative(apr_bps)?;
 
         match self {
@@ -47,7 +57,12 @@ impl Accrual for AccrualModel {
                     .checked_add(per_second_rate)
                     .map_over_or_underflow()?;
 
-                math_utils::bin_pow(e, growth_factor, seconds_passed, SCALED_FIXED_POINT_DENOMINATOR)
+                math_utils::bin_pow(
+                    e,
+                    growth_factor,
+                    seconds_passed,
+                    SCALED_FIXED_POINT_DENOMINATOR,
+                )
             }
         }
     }
@@ -57,6 +72,7 @@ impl Accrual for AccrualModel {
 mod test {
     #![allow(clippy::inconsistent_digit_grouping)]
     use soroban_fixed_point_math::FixedPoint;
+    use soroban_sdk::Env;
 
     use super::{Accrual, AccrualModel};
     use crate::{constants::*, error::MCError};
@@ -200,8 +216,6 @@ mod test {
         let apr = 15_000; // 150%
         let seconds_passed = 3 * SECONDS_IN_YEAR;
 
-        // With I256 intermediates this no longer overflows.
-        // e^(1.5 * 3) = e^4.5 ≈ 90.017, so the multiplier should be in that range.
         let result = model.compute_multiplier(&e, apr, seconds_passed).unwrap();
         let expected_approx = 90 * SCALED_FIXED_POINT_DENOMINATOR;
         assert!(
