@@ -134,6 +134,71 @@ fn test_manager_cannot_redeploy_market() {
     );
 }
 
+// ---- propose_admin / accept_admin ----
+
+#[test]
+fn test_propose_and_accept_admin() {
+    let ManagerSetup { e, manager_client, .. } = ManagerSetup::new();
+
+    let new_admin = Address::generate(&e);
+
+    manager_client.propose_admin(&new_admin);
+    manager_client.accept_admin();
+
+    assert_eq!(manager_client.get_config().admin, new_admin);
+}
+
+#[test]
+fn test_accept_admin_without_proposal_fails() {
+    let ManagerSetup { manager_client, .. } = ManagerSetup::new();
+
+    let result = manager_client.try_accept_admin();
+
+    assert_eq!(result, Err(Ok(market_manager::error::MMCError::NoPendingAdmin)));
+}
+
+#[test]
+fn test_propose_admin_overwrites_previous_proposal() {
+    let ManagerSetup { e, manager_client, .. } = ManagerSetup::new();
+
+    let first_candidate = Address::generate(&e);
+    let second_candidate = Address::generate(&e);
+
+    manager_client.propose_admin(&first_candidate);
+    manager_client.propose_admin(&second_candidate);
+
+    manager_client.accept_admin();
+
+    assert_eq!(manager_client.get_config().admin, second_candidate);
+}
+
+#[test]
+fn test_pending_admin_cleared_after_accept() {
+    let ManagerSetup { e, manager_client, .. } = ManagerSetup::new();
+
+    let new_admin = Address::generate(&e);
+    manager_client.propose_admin(&new_admin);
+    manager_client.accept_admin();
+
+    let result = manager_client.try_accept_admin();
+    assert_eq!(result, Err(Ok(market_manager::error::MMCError::NoPendingAdmin)));
+}
+
+#[test]
+fn test_propose_admin_requires_admin_auth() {
+    let ManagerSetup { e, manager_client, manager_admin, .. } = ManagerSetup::new();
+
+    let new_admin = Address::generate(&e);
+    manager_client.propose_admin(&new_admin);
+
+    let auths = e.auths();
+    assert!(
+        auths.iter().any(|(addr, _)| addr == &manager_admin),
+        "propose_admin must require the current admin's auth; recorded auths: {:?}",
+        auths
+    );
+}
+
 #[test]
 fn test_manager_invalid_deploy() {
     let ManagerSetup { e, manager_client, .. } = ManagerSetup::new();

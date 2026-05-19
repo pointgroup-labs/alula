@@ -91,17 +91,19 @@ impl KinkedIRConfig {
             max_apr_bps,
         } = self;
 
-        if kink1_ur_bps <= 0 || kink1_ur_bps > kink2_ur_bps || kink2_ur_bps > BPS_FACTOR {
-            return Err("Utilization ratios for kink points must be positive, in non-descending \
-                        order and not exceeding 100%");
+        if kink1_ur_bps <= 0 || kink1_ur_bps >= kink2_ur_bps || kink2_ur_bps >= BPS_FACTOR {
+            return Err("Utilization ratios for kink points must be positive, strictly \
+                        increasing and strictly less than 100%");
         }
 
         if 0 > base_apr_bps
             || base_apr_bps > kink1_apr_bps
             || kink1_apr_bps > kink2_apr_bps
             || kink2_apr_bps > max_apr_bps
+            || max_apr_bps > MAX_APR_BPS
         {
-            return Err("APRs for kink points must be non-negative and in non-descending order");
+            return Err("APRs for kink points must be non-negative, in non-descending order, and \
+                        max_apr_bps must not exceed MAX_APR_BPS");
         }
 
         Ok(())

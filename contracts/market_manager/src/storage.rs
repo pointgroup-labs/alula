@@ -13,6 +13,7 @@ pub enum DataKey {
     MarketWasmHash,
     QueuedInMarketUpgrade,
     QueuedInManagerUpgrade,
+    PendingAdmin,
 }
 
 #[contracttype]
@@ -71,6 +72,18 @@ pub fn set_queued_in_manager_upgrade(e: &Env, upgrade: &QueuedInUpgrade) {
 }
 pub fn remove_queued_in_manager_upgrade(e: &Env) {
     e.storage().instance().remove(&DataKey::QueuedInManagerUpgrade);
+}
+
+// -- PendingAdmin --
+
+pub fn set_pending_admin(e: &Env, pending_admin: &Address) {
+    e.storage().instance().set(&DataKey::PendingAdmin, pending_admin);
+}
+pub fn get_pending_admin(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::PendingAdmin)
+}
+pub fn remove_pending_admin(e: &Env) {
+    e.storage().instance().remove(&DataKey::PendingAdmin);
 }
 
 // -- Config --

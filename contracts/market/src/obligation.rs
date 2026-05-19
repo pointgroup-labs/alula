@@ -1022,12 +1022,15 @@ impl Obligation {
                 // collateral_value_lost < (old_collateral_value / old_debt_value) * debt_value_repaid
                 // ----
                 // must hold for the position to become healthier
-                let unparameterized_ltv_sc9 = obligation_collateral_value
+                //
+                // NB: health_factor_sc9 = collateral/debt (scaled by SCALAR_9), i.e. the
+                // reciprocal of LTV. A value > SCALAR_9 means the position is overcollateralized.
+                let health_factor_sc9 = obligation_collateral_value
                     .fixed_div_floor(obligation_debt_value, SCALAR_9)
                     .map_over_or_underflow()?;
 
                 let max_collateral_received_value = liquidated_value
-                    .fixed_mul_floor(unparameterized_ltv_sc9, SCALAR_9)
+                    .fixed_mul_floor(health_factor_sc9, SCALAR_9)
                     .map_over_or_underflow()?;
 
                 // Take 99.9% to guarantee LTV improvement
