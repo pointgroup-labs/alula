@@ -95,14 +95,14 @@ pub trait MarketManager {
 
     /// Proposes a new admin for the manager contract.
     /// Must be called by the current admin. The proposal is stored until
-    /// the proposed address calls [`accept_admin`].
+    /// the proposed address calls `accept_admin`.
     ///
     /// # Arguments
     /// * `new_admin` - the address being proposed as the new admin
     fn propose_admin(e: Env, new_admin: Address) -> Result<(), MMCError>;
 
     /// Accepts a pending admin proposal.
-    /// Must be called by the address that was previously proposed via [`propose_admin`].
+    /// Must be called by the address that was previously proposed via `propose_admin`.
     /// On success the caller becomes the new admin and the proposal is cleared.
     fn accept_admin(e: Env) -> Result<(), MMCError>;
 }
@@ -292,8 +292,7 @@ impl MarketManager for MarketManagerContract {
     fn accept_admin(e: Env) -> Result<(), MMCError> {
         extend_instance(&e);
 
-        let pending_admin =
-            storage::get_pending_admin(&e).ok_or(MMCError::NoPendingAdmin)?;
+        let pending_admin = storage::get_pending_admin(&e).ok_or(MMCError::NoPendingAdmin)?;
         pending_admin.require_auth();
 
         storage::set_admin(&e, &pending_admin);

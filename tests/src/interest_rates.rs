@@ -160,13 +160,9 @@ fn test_interest_rates_no_take_rate() {
 //
 // `test_apy_gte_apr_zero_reactivity` is the baseline: with ir_reactivity_constant=0 the modifier
 // never moves from BPS_FACTOR, so get_apy() and accrue_interest() use the same underlying APR.
-// The invariant holds trivially here and the test should PASS even before the fix.
+// The invariant holds trivially here.
 //
-// `test_apy_gte_apr_active_reactivity` is the test that exposes the original bug: with a non-zero
-// reactivity constant the modifier drifts above BPS_FACTOR when utilization is below the target,
-// causing accrue_interest() to use a higher effective APR than get_apy() knew about (before fix).
-// The stored borrow_apr_bps then exceeded apy.borrow_bps, breaking the invariant.
-// This test now PASSES after get_apy() was fixed to apply the interest_rate_modifier.
+// `test_apy_gte_apr_active_reactivity` is the test that exposes the same behaviour for non-zero reactivity constant.
 
 #[test]
 fn test_apy_gte_apr_zero_reactivity() {
@@ -183,12 +179,7 @@ fn test_apy_gte_apr_zero_reactivity() {
     };
 
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new_with_pool_config(pool_config);
 
     let debtor = &users[0];
@@ -256,12 +247,7 @@ fn test_apy_gte_apr_active_reactivity() {
     };
 
     let TestMarketFixture {
-        e,
-        contract_client,
-        usdc_pool_address,
-        gold_pool_address,
-        users,
-        ..
+        e, contract_client, usdc_pool_address, gold_pool_address, users, ..
     } = TestMarketFixture::new_with_pool_config(pool_config);
 
     let debtor = &users[0];
@@ -303,9 +289,9 @@ fn test_apy_gte_apr_active_reactivity() {
 
     // Confirm the modifier actually drifted above BPS_FACTOR so the test is meaningful.
     assert!(
-        pool.interest_rate_modifier > BPS_FACTOR,
+        pool.interest_rate_modifier_bps > BPS_FACTOR,
         "modifier ({}) must exceed BPS_FACTOR ({}) for this test to be meaningful",
-        pool.interest_rate_modifier,
+        pool.interest_rate_modifier_bps,
         BPS_FACTOR,
     );
 
@@ -316,14 +302,14 @@ fn test_apy_gte_apr_active_reactivity() {
         "borrow APY ({}) must be >= borrow APR ({}) (modifier={})",
         apy.borrow_bps,
         pool.borrow_apr_bps,
-        pool.interest_rate_modifier,
+        pool.interest_rate_modifier_bps,
     );
     assert!(
         apy.supply_bps >= pool.supply_apr_bps as u32,
         "supply APY ({}) must be >= supply APR ({}) (modifier={})",
         apy.supply_bps,
         pool.supply_apr_bps,
-        pool.interest_rate_modifier,
+        pool.interest_rate_modifier_bps,
     );
 }
 
@@ -373,7 +359,7 @@ fn test_interest_rate_reactivity() {
     );
 
     let initial_modifier = e.as_contract(&contract_id, || {
-        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier
+        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier_bps
     });
 
     assert_eq!(initial_modifier, BPS_FACTOR);
@@ -384,7 +370,7 @@ fn test_interest_rate_reactivity() {
     contract_client.refresh_pool(&usdc_pool_address);
 
     let decreased_modifier = e.as_contract(&contract_id, || {
-        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier
+        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier_bps
     });
 
     assert!(decreased_modifier < initial_modifier);
@@ -402,7 +388,7 @@ fn test_interest_rate_reactivity() {
     contract_client.refresh_pool(&usdc_pool_address);
 
     let increased_modifier = e.as_contract(&contract_id, || {
-        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier
+        Pool::try_get(&e, &usdc_pool_address).unwrap().interest_rate_modifier_bps
     });
 
     assert!(increased_modifier > initial_modifier);

@@ -1,5 +1,5 @@
 use soroban_fixed_point_math::FixedPoint;
-use soroban_sdk::{Env, contracttype};
+use soroban_sdk::{Env, I256, contracttype};
 
 use crate::{
     accrual::Accrual, constants::*, error::MCError, events, interest_rate_model::InterestRate,
@@ -42,15 +42,28 @@ impl Pool {
             .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?
-            .fixed_mul_ceil(self.interest_rate_modifier, BPS_FACTOR)
+            .fixed_mul_ceil(self.interest_rate_modifier_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
         let accrual_multiplier: i128 =
             self.config.accrual_model.compute_multiplier(e, current_borrow_apr, seconds_passed)?;
 
-        let new_total_borrowed = self
-            .total_borrowed
-            .fixed_mul_ceil(accrual_multiplier, SCALED_FIXED_POINT_DENOMINATOR)
-            .map_over_or_underflow()?;
+        let new_total_borrowed = {
+            // Use I256 to avoid overflow when total_borrowed * accrual_multiplier exceeds
+            // i128::MAX before the division by SCALED_FIXED_POINT_DENOMINATOR.
+            let a = I256::from_i128(e, self.total_borrowed);
+            let b = I256::from_i128(e, accrual_multiplier);
+            let denom = I256::from_i128(e, SCALED_FIXED_POINT_DENOMINATOR);
+            let product = a.mul(&b);
+            let remainder = product.rem_euclid(&denom);
+            let zero = I256::from_i32(e, 0);
+            let result_i256 = if remainder == zero {
+                product.div(&denom)
+            } else {
+                product.div(&denom).add(&I256::from_i32(e, 1))
+            };
+
+            result_i256.to_i128().map_over_or_underflow()?
+        };
         let accrued =
             new_total_borrowed.checked_sub(self.total_borrowed).map_over_or_underflow()?;
         let take_rate_accrual_part = accrued
@@ -72,18 +85,18 @@ impl Pool {
 
         self.last_accrual_timestamp = current_timestamp;
 
-        let utilization_diff = utilization_ratio_bps
-            .checked_sub(self.target_utilization_ratio_bps)
+        let utilization_diff_bps = utilization_ratio_bps
+            .checked_sub(self.config.target_utilization_ratio_bps)
             .map_over_or_underflow()?;
         let utilization_error =
-            (seconds_passed as i128).checked_mul(utilization_diff).map_over_or_underflow()?;
-        let new_interest_rate_modifier = if utilization_diff >= 0 {
+            (seconds_passed as i128).checked_mul(utilization_diff_bps).map_over_or_underflow()?;
+        let new_interest_rate_modifier_bps = if utilization_diff_bps >= 0 {
             // Positive diff - modifier decreases
             let rate_diff = utilization_error
-                .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR * 10)
+                .fixed_mul_floor(self.config.ir_reactivity_constant as i128, BPS_FACTOR)
                 .map_over_or_underflow()?;
 
-            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier.saturating_sub(rate_diff))
+            i128::max(MIN_IR_MODIFIER, self.interest_rate_modifier_bps.saturating_sub(rate_diff))
         } else {
             // Negative diff - modifier increases
             let rate_diff = utilization_error
@@ -91,10 +104,10 @@ impl Pool {
                 .map_over_or_underflow()?
                 .checked_neg()
                 .map_over_or_underflow()?;
-            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier.saturating_add(rate_diff))
+            i128::min(MAX_IR_MODIFIER, self.interest_rate_modifier_bps.saturating_add(rate_diff))
         };
 
-        self.interest_rate_modifier = new_interest_rate_modifier;
+        self.interest_rate_modifier_bps = new_interest_rate_modifier_bps;
 
         Ok(())
     }
@@ -108,7 +121,7 @@ impl Pool {
             .config
             .interest_rate_model
             .compute_borrow_apr(utilization_ratio_bps)?
-            .fixed_mul_ceil(self.interest_rate_modifier, BPS_FACTOR)
+            .fixed_mul_ceil(self.interest_rate_modifier_bps, BPS_FACTOR)
             .map_over_or_underflow()?;
         let supply_apr = borrow_apr
             .fixed_mul_floor(utilization_ratio_bps, BPS_FACTOR)
