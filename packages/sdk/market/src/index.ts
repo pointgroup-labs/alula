@@ -145,7 +145,6 @@ export const MCError = {
 
 
 
-
 export interface AnnualPercentageYields {
   borrow_bps: u32;
   supply_bps: u32;
@@ -198,6 +197,7 @@ export interface MarketData {
   oracle_price_decimals: u32;
   pools_data: Array<PoolData>;
 }
+
 
 
 export interface ObligationKey {

@@ -1,0 +1,273 @@
+@use 'sass:map';
+$primary: #e8edf5;
+$secondary: #1a2236;
+$accent: #f59e0b;
+$warning: #f0b100;
+$danger: #fb4747;
+$success: #1dc978;
+$indigo: #8a8df4;
+$cyan: #22d3ee;
+
+// COLORS
+// navi
+$navi-950: #0a0e17;
+$navi-900: #0c111c;
+$navi-800: #101622;
+$navi-700: #121927;
+$navi-600: #151c2b;
+$navi-500: #1a2335;
+$navi-450: #1b273e;
+$navi-400: #29344b;
+$navi-300: #3e4b64;
+$navi-200: #54627d;
+$navi-100: #6b7994;
+$navi-50: #c6ccd9;
+$navi-25: #fff;
+
+// brand
+$brand-950: #03141c;
+$brand-900: #041923;
+$brand-800: #061d29;
+$brand-700: #072230;
+$brand-600: #082737;
+$brand-500: #0a2b3d;
+$brand-400: #0e5069;
+$brand-300: #146786;
+$brand-200: #127691;
+$brand-100: #19a2be;
+$brand-50: $cyan;
+
+// indigo
+$indigo-950: #121324;
+$indigo-900: #16172c;
+$indigo-800: #1a1c3a;
+$indigo-700: #1f2048;
+$indigo-600: #232556;
+$indigo-500: #282a64;
+$indigo-400: #2f3279;
+$indigo-300: #3c419a;
+$indigo-200: #4d50b7;
+$indigo-100: #5e61d4;
+$indigo-50: $indigo;
+
+// red
+$red-975: #271312;
+$red-950: #55160c;
+$red-900: #7a271a;
+$red-800: #912018;
+$red-700: #b42318;
+$red-600: #d92d20;
+$red-500: $danger;
+$red-400: #f97066;
+$red-300: #fda29b;
+$red-200: #fecdca;
+$red-100: #fee4e2;
+$red-50: #fef3f2;
+
+// green
+$green-950: #053321;
+$green-900: #074d31;
+$green-800: #085d3a;
+$green-700: #067647;
+$green-600: #079455;
+$green-500: $success;
+$green-400: #47cd89;
+$green-300: #75e0a7;
+$green-200: #abefc6;
+$green-100: #dcfae6;
+$green-50: #ecfdf3;
+
+// orange
+$orange-950: #4e1d09;
+$orange-900: #7a2e0e;
+$orange-800: #93370d;
+$orange-700: #b54708;
+$orange-600: #dc6803;
+$orange-500: #f79009;
+$orange-400: #fdb022;
+$orange-300: #fec84b;
+$orange-200: #fedf89;
+$orange-100: #fef0c7;
+$orange-50: #fffaeb;
+
+// yellow
+$yellow-950: #542c0d;
+$yellow-900: #713b12;
+$yellow-800: #854a0e;
+$yellow-700: #a15c07;
+$yellow-600: #ca8504;
+$yellow-500: #eaaa08;
+$yellow-400: #fac515;
+$yellow-300: #fde272;
+$yellow-200: #feee95;
+$yellow-100: #fef7c3;
+$yellow-50: #fefbe8;
+
+$white: #fff;
+$dark: #111;
+
+// background
+$bg-primary: $navi-950;
+$bg-secondary: $navi-800;
+$bg-tertiary: $navi-600;
+
+$bg-brand: $brand-800;
+$bg-brand-hover: $brand-600;
+$bg-brand-secondary: $indigo-800;
+$bg-brand-secondary-hover: $indigo-600;
+
+$bg-white: $white;
+
+$bg-error-primary: $red-600;
+$bg-error-secondary: $red-500;
+
+$bg-warning-primary: $orange-600;
+$bg-warning-secondary: $orange-500;
+
+$bg-success-primary: $green-600;
+$bg-success-secondary: $green-500;
+
+$bg-card: $navi-800;
+
+$popover-bg: rgba(10, 14, 23, 0.6);
+
+// border
+$border-primary: $navi-500;
+$border-secondary: $navi-400;
+$border-primary-dark: $navi-700;
+
+// text
+$text-primary: #e8edf5;
+$text-secondary: $navi-50;
+$text-tertiary: $navi-100;
+$text-disabled: $navi-400;
+
+$text-brand: $brand-50;
+$text-brand-secondary: $indigo-50;
+$text-success: $green-500;
+$text-warning: $orange-400;
+$text-danger: $red-500;
+$text-white: $white;
+$text-black: $dark;
+
+$fg-primary: $white;
+$fg-secondary: $navi-300;
+$fg-primary-disabled: $navi-400;
+$fg-primary-hover: $navi-50;
+$fg-brand: $brand-50;
+$fg-brand_hover: $brand-100;
+$fg-brand-secondary: $indigo-50;
+$fg-brand-secondary-hover: $indigo-100;
+$fg-onPrimary: $navi-950;
+$fg-onWhite-ddisabled: $navi-700;
+$fg-white: $white;
+$fg-error-primary: $red-500;
+$fg-error-secondary: $red-400;
+$fg-warning-primary: $orange-500;
+$fg-warning-secondary: $orange-400;
+$fg-success-primary: $green-500;
+$fg-success-secondary: $green-400;
+
+// TEXT
+$font-family-base: 'Inter', sans-serif;
+$font-JetBrainsMono: 'JetBrainsMono', monospace;
+
+$text-sm: 14px;
+$text-xs: 12px;
+
+$surface-neutral-04: rgba(255, 255, 255, 0.04);
+$surface-neutral-08: rgba(255, 255, 255, 0.08);
+$surface-neutral-10: rgba(255, 255, 255, 0.1);
+$surface-neutral-12: rgba(255, 255, 255, 0.12);
+$surface-neutral-20: rgba(255, 255, 255, 0.2);
+$surface-neutral-30: rgba(255, 255, 255, 0.3);
+$surface-neutral-60: rgba(255, 255, 255, 0.6);
+$surface-neutral-80: rgba(255, 255, 255, 0.8);
+
+// spacing
+$spacing-xs: 4px;
+$spacing-sm: 6px;
+$spacing-md: 8px;
+$spacing-lg: 12px;
+$spacing-xl: 16px;
+$spacing-2xl: 20px;
+$spacing-3xl: 24px;
+$spacing-4xl: 32px;
+$spacing-5xl: 40px;
+$spacing-6xl: 48px;
+$spacing-7xl: 64px;
+
+// border radius
+$radius-xxs: 2px;
+$radius-xs: 4px;
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 10px;
+$radius-xl: 12px;
+$radius-2xl: 16px;
+$radius-3xl: 20px;
+$radius-4xl: 24px;
+$radius-full: 100px;
+
+// border radius
+$radius-8: 8px;
+$radius-32: 32px;
+$radius-rounded: 50px;
+
+// breakpoints
+$breakpoint-xl: 1400px;
+$breakpoint-lg: 1200px;
+$breakpoint-md: 1024px;
+$breakpoint-sm: 1023px;
+$breakpoint-xs: 650px;
+
+// tooltip
+$tooltip-padding-y: $spacing-lg;
+$tooltip-padding-x: $spacing-lg;
+$tooltip-border-radius: $spacing-lg;
+$tooltip-bg-color: #fff;
+// $tooltip-border-color: $neutral-100;
+
+// button
+$btn-padding-y-lg: $spacing-lg;
+$btn-padding-x-lg: $spacing-2xl;
+$btn-font-size-lg: 16px;
+$btn-border-radius-lg: $radius-md;
+
+$btn-padding-y-md: $spacing-md;
+$btn-padding-x-md: $spacing-2xl;
+$btn-font-size-md: 14px;
+$btn-border-radius-md: $radius-md;
+
+$btn-padding-y-sm: $spacing-md;
+$btn-padding-x-sm: $spacing-xl;
+$btn-font-size-sm: 14px;
+$btn-border-radius-sm: $radius-md;
+
+// radio
+// $form-check-input-border: 1px solid $neutral-200;
+$form-check-input-focus-box-shadow: none;
+$form-check-input-checked-color: $primary;
+$form-check-input-checked-bg-color: transparent;
+// $form-check-input-checked-border-color: $neutral-200;
+
+// toggle
+$form-switch-checked-color: #fff;
+$form-switch-focus-color: #fff;
+$form-switch-color: #fff;
+
+// progress
+$progress-bg: transparent;
+
+// accordion
+$accordion-button-padding-y: $spacing-4xl;
+$accordion-button-padding-x: 0;
+$accordion-body-padding-x: 0;
+
+//popover
+$popover-max-width: fit-content;
+
+// motion — a single duration token used by every UI transition/animation.
+// 150ms is the project-wide upper bound for "instant" feedback; anything
+// slower starts to feel laggy and competes with the user's intent.
+$transition-base: 0.1s;
